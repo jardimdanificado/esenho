@@ -1,99 +1,160 @@
 #include "../../include/wesenho.h"
 #include "../../include/font5x7.h"
 
-#define PALETTE_WIDTH  140
-#define PALETTE_HEIGHT 150
+#define COLOR_HUD_WIDTH  150
+#define COLOR_HUD_HEIGHT 140
+#define MAX_HISTORY 8
 
 static wframebuffer_t *fb = 0;
 static wmouse_t       *mouse = 0;
 
-static uint32_t pixels[PALETTE_WIDTH * PALETTE_HEIGHT];
-
-static const uint32_t COLORS[12] = {
-    0xFF000000, /* Preto */
-    0xFFFFFFFF, /* Branco */
-    0xFF808080, /* Cinza */
-    0xFF0000FF, /* Vermelho */
-    0xFF0080FF, /* Laranja */
-    0xFF00FFFF, /* Amarelo */
-    0xFF00FF00, /* Verde */
-    0xFFFFFF00, /* Ciano */
-    0xFFFF0000, /* Azul */
-    0xFFFF00FF, /* Magenta */
-    0xFF400080, /* Roxo */
-    0xFF2A52BE  /* Azul Cobalto */
+static uint32_t pixels[COLOR_HUD_WIDTH * COLOR_HUD_HEIGHT];
+static uint32_t current_color = 0xFF000000;
+static uint32_t history[MAX_HISTORY] = {
+    0xFF000000, 0xFFFFFFFF, 0xFFFF0055, 0xFF00FF88,
+    0xFF00CCFF, 0xFFFFCC00, 0xFFAA00FF, 0xFF445566
 };
-
-static uint32_t selected_color = 0xFF000000;
+static int history_count = 8;
 static int prev_left_btn = 0;
 
 static void draw_rect(int x, int y, int w, int h, uint32_t color) {
     for (int j = y; j < y + h; j++) {
-        if (j < 0 || j >= PALETTE_HEIGHT) continue;
+        if (j < 0 || j >= COLOR_HUD_HEIGHT) continue;
         for (int i = x; i < x + w; i++) {
-            if (i < 0 || i >= PALETTE_WIDTH) continue;
-            pixels[j * PALETTE_WIDTH + i] = color;
+            if (i < 0 || i >= COLOR_HUD_WIDTH) continue;
+            pixels[j * COLOR_HUD_WIDTH + i] = color;
         }
     }
 }
 
 static void draw_frame(int x, int y, int w, int h, uint32_t color) {
     for (int i = x; i < x + w; i++) {
-        if (y >= 0 && y < PALETTE_HEIGHT) pixels[y * PALETTE_WIDTH + i] = color;
-        if (y + h - 1 >= 0 && y + h - 1 < PALETTE_HEIGHT) pixels[(y + h - 1) * PALETTE_WIDTH + i] = color;
+        if (y >= 0 && y < COLOR_HUD_HEIGHT) pixels[y * COLOR_HUD_WIDTH + i] = color;
+        if (y + h - 1 >= 0 && y + h - 1 < COLOR_HUD_HEIGHT) pixels[(y + h - 1) * COLOR_HUD_WIDTH + i] = color;
     }
     for (int j = y; j < y + h; j++) {
-        if (x >= 0 && x < PALETTE_WIDTH) pixels[j * PALETTE_WIDTH + x] = color;
-        if (x + w - 1 >= 0 && x + w - 1 < PALETTE_WIDTH) pixels[j * PALETTE_WIDTH + (x + w - 1)] = color;
+        if (x >= 0 && x < COLOR_HUD_WIDTH) pixels[j * COLOR_HUD_WIDTH + x] = color;
+        if (x + w - 1 >= 0 && x + w - 1 < COLOR_HUD_WIDTH) pixels[j * COLOR_HUD_WIDTH + (x + w - 1)] = color;
     }
 }
 
-static void send_msg(uint32_t type, uint32_t param1) {
+static void int_to_str(int val, char *buf) {
+    if (val == 0) { buf[0] = '0'; buf[1] = '\0'; return; }
+    char tmp[16];
+    int idx = 0;
+    while (val > 0) {
+        tmp[idx++] = '0' + (val % 10);
+        val /= 10;
+    }
+    int out = 0;
+    for (int i = idx - 1; i >= 0; i--) buf[out++] = tmp[i];
+    buf[out] = '\0';
+}
+
+static char hex_digit(int v) {
+    return (v < 10) ? ('0' + v) : ('A' + (v - 10));
+}
+
+static void color_to_hex(uint32_t col, char *buf) {
+    uint8_t r = col & 0xFF;
+    uint8_t g = (col >> 8) & 0xFF;
+    uint8_t b = (col >> 16) & 0xFF;
+
+    buf[0] = '#';
+    buf[1] = hex_digit((r >> 4) & 0xF);
+    buf[2] = hex_digit(r & 0xF);
+    buf[3] = hex_digit((g >> 4) & 0xF);
+    buf[4] = hex_digit(g & 0xF);
+    buf[5] = hex_digit((b >> 4) & 0xF);
+    buf[6] = hex_digit(b & 0xF);
+    buf[7] = '\0';
+}
+
+static void add_to_history(uint32_t col) {
+    if (history_count > 0 && history[0] == col) return;
+    for (int i = MAX_HISTORY - 1; i > 0; i--) {
+        history[i] = history[i - 1];
+    }
+    history[0] = col;
+    if (history_count < MAX_HISTORY) history_count++;
+}
+
+static void send_color(uint32_t col) {
+    current_color = col;
+    add_to_history(col);
+
     wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
-    msg->type = type;
-    msg->param1 = param1;
+    msg->type = MSG_SET_COLOR;
+    msg->param1 = col;
     msg->param2 = 0;
     msg->param3 = 0;
     say(ACTOR_CANVAS, sizeof(wesenho_msg_t));
 }
 
-static void render_palette(void) {
-    draw_rect(0, 0, PALETTE_WIDTH, PALETTE_HEIGHT, 0xFF222222);
-    draw_frame(0, 0, PALETTE_WIDTH, PALETTE_HEIGHT, 0xFF444444);
+static void render_color_hud(void) {
+    draw_rect(0, 0, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 0xFF14181C);
+    draw_frame(0, 0, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 0xFF2A3642);
 
     // Title Bar
-    draw_rect(0, 0, PALETTE_WIDTH, 20, 0xFF303030);
-    draw_string(pixels, PALETTE_WIDTH, PALETTE_HEIGHT, 8, 6, "CORES", 0xFFE0E0E0);
+    draw_rect(0, 0, COLOR_HUD_WIDTH, 18, 0xFF1F2933);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 8, 5, "COR ATIVA (HUD)", 0xFF00FFCC);
 
-    // Grid 4x3
-    for (int i = 0; i < 12; i++) {
-        int col = i % 4;
-        int row = i / 4;
-        int bx = 10 + col * 30;
-        int by = 30 + row * 30;
+    // Current Swatch
+    draw_rect(10, 26, 36, 36, current_color);
+    draw_frame(10, 26, 36, 36, 0xFF667788);
 
-        draw_rect(bx, by, 26, 26, COLORS[i]);
-        if (selected_color == COLORS[i]) {
-            draw_frame(bx - 2, by - 2, 30, 30, 0xFF00FFFF);
-            draw_frame(bx - 1, by - 1, 28, 28, 0xFFFFFFFF);
-        } else {
-            draw_frame(bx, by, 26, 26, 0xFF111111);
-        }
+    // Hex String
+    char hex_str[16];
+    color_to_hex(current_color, hex_str);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 28, hex_str, 0xFFFFFFFF);
+
+    // RGB String
+    uint8_t r = current_color & 0xFF;
+    uint8_t g = (current_color >> 8) & 0xFF;
+    uint8_t b = (current_color >> 16) & 0xFF;
+
+    char r_buf[8], g_buf[8], b_buf[8];
+    int_to_str(r, r_buf);
+    int_to_str(g, g_buf);
+    int_to_str(b, b_buf);
+
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 42, "R:", 0xFFFF5555);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 66, 42, r_buf, 0xFFCCCCCC);
+
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 52, "G:", 0xFF55FF55);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 66, 52, g_buf, 0xFFCCCCCC);
+
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 100, 52, "B:", 0xFF5599FF);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 112, 52, b_buf, 0xFFCCCCCC);
+
+    // History Header
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 10, 72, "HISTORICO:", 0xFF8899A6);
+
+    // History Chips Grid (4x2)
+    for (int i = 0; i < MAX_HISTORY; i++) {
+        int gx = 10 + (i % 4) * 32;
+        int gy = 86 + (i / 4) * 22;
+        draw_rect(gx, gy, 28, 18, history[i]);
+        draw_frame(gx, gy, 28, 18, 0xFF354452);
     }
-
-    // Active color preview
-    draw_rect(10, 122, 120, 20, selected_color);
-    draw_frame(10, 122, 120, 20, 0xFF666666);
 }
 
-void on_message(int32_t from_id, int32_t len) {}
+void on_message(int32_t from_id, int32_t len) {
+    if (len < (int32_t)sizeof(wesenho_msg_t)) return;
+    wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
+
+    if (msg->type == MSG_SET_COLOR) {
+        current_color = msg->param1;
+        add_to_history(current_color);
+    }
+}
 
 int32_t update(void) {
     if (!fb) {
         fb = (wframebuffer_t*)ask("std:framebuffer");
         if (fb) {
-            fb->width = PALETTE_WIDTH;
-            fb->height = PALETTE_HEIGHT;
+            fb->width = COLOR_HUD_WIDTH;
+            fb->height = COLOR_HUD_HEIGHT;
             fb->pixels = (uint32_t)(uintptr_t)pixels;
         }
     }
@@ -104,22 +165,20 @@ int32_t update(void) {
         int my = mouse->y;
         int left_down = (mouse->buttons & WMOUSE_BTN_LEFT) != 0;
 
-        if (left_down && !prev_left_btn && mx >= 0 && mx < PALETTE_WIDTH) {
-            if (my >= 30 && my < 30 + 3 * 30) {
-                int row = (my - 30) / 30;
-                int col = (mx - 10) / 30;
-                if (col >= 0 && col < 4 && row >= 0 && row < 3) {
-                    int idx = row * 4 + col;
-                    if (idx < 12) {
-                        selected_color = COLORS[idx];
-                        send_msg(MSG_SET_COLOR, selected_color);
-                    }
+        if (left_down && !prev_left_btn) {
+            // Click history swatch to re-select
+            if (my >= 86 && my < 86 + 44) {
+                int row = (my - 86) / 22;
+                int col = (mx - 10) / 32;
+                int idx = row * 4 + col;
+                if (idx >= 0 && idx < MAX_HISTORY && mx >= 10 && mx < 10 + 4 * 32) {
+                    send_color(history[idx]);
                 }
             }
         }
         prev_left_btn = left_down;
     }
 
-    render_palette();
+    render_color_hud();
     return UPDATE_OK;
 }

@@ -66,10 +66,22 @@ typedef struct {
 #define MSG_LAYER_SELECT     8
 #define MSG_LAYER_TOGGLE_VIS 9
 #define MSG_LAYER_SET_OPACITY 10
+#define MSG_SET_BRUSH_TYPE   11
+#define MSG_SET_BRUSH_PARAMS 12
+#define MSG_DRAW_LINE        20
+#define MSG_DRAW_RECT        21
+#define MSG_DRAW_CIRCLE      22
+#define MSG_DRAW_GRID        23
 
 #define TOOL_BRUSH  0
 #define TOOL_ERASER 1
 #define TOOL_BUCKET 2
+
+#define BRUSH_HARD_ROUND     0
+#define BRUSH_SOFT_AIRBRUSH  1
+#define BRUSH_PIXEL          2
+#define BRUSH_CHISEL         3
+#define BRUSH_SCATTER        4
 
 #define MAX_LAYERS 8
 

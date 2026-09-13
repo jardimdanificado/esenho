@@ -20,13 +20,34 @@ let panStartY = 0;
 const ACTOR_BROKER = 0;
 const ACTOR_CANVAS = 1;
 
+// USB HID Scancode mapping
+const KEY_MAP = {
+  a: 0x04, b: 0x05, c: 0x06, d: 0x07, e: 0x08, f: 0x09, g: 0x0A,
+  h: 0x0B, i: 0x0C, j: 0x0D, k: 0x0E, l: 0x0F, m: 0x10, n: 0x11,
+  o: 0x12, p: 0x13, q: 0x14, r: 0x15, s: 0x16, t: 0x17, u: 0x18,
+  v: 0x19, w: 0x1A, x: 0x1B, y: 0x1C, z: 0x1D,
+  '1': 0x1E, '2': 0x1F, '3': 0x20, '4': 0x21, '5': 0x22,
+  '6': 0x23, '7': 0x24, '8': 0x25, '9': 0x26, '0': 0x27,
+  return: 0x28, enter: 0x28, escape: 0x29, backspace: 0x2A, tab: 0x2B, space: 0x2C,
+  '-': 0x2D, '_': 0x2D, '=': 0x2E, '+': 0x2E,
+  '[': 0x2F, '{': 0x2F, ']': 0x30, '}': 0x30,
+  '\\': 0x31, '|': 0x31, ';': 0x33, ':': 0x33,
+  '\'': 0x34, '"': 0x34, '`': 0x35, '~': 0x35,
+  ',': 0x36, '<': 0x36, '.': 0x37, '>': 0x37,
+  '/': 0x38, '?': 0x38,
+  up: 0x52, down: 0x51, left: 0x50, right: 0x4F,
+  leftShift: 0xE1, rightShift: 0xE5,
+  leftCtrl: 0xE0, rightCtrl: 0xE4,
+  leftAlt: 0xE2, rightAlt: 0xE6
+};
+
 class WasmActor {
-  constructor(id, name, wasmPath, width, height, broker) {
+  constructor(id, name, wasmPath, broker) {
     this.id = id;
     this.name = name;
     this.wasmPath = wasmPath;
-    this.width = width;
-    this.height = height;
+    this.width = 0;
+    this.height = 0;
     this.broker = broker;
 
     this.memory = null;
@@ -35,6 +56,7 @@ class WasmActor {
 
     this.fbPtr = 0;
     this.mousePtr = 0;
+    this.kbPtr = 0;
   }
 
   hostAlloc(size, align = 4) {
@@ -57,13 +79,13 @@ class WasmActor {
 
   handleAsk(namePtr) {
     const name = this.readString(namePtr);
-    const view = new DataView(this.memory.buffer);
 
     if (name === 'std:framebuffer' || name === 'framebuffer') {
       if (!this.fbPtr) {
         this.fbPtr = this.hostAlloc(12);
-        view.setUint32(this.fbPtr + 0, this.width, true);
-        view.setUint32(this.fbPtr + 4, this.height, true);
+        const view = new DataView(this.memory.buffer);
+        view.setUint32(this.fbPtr + 0, 0, true);
+        view.setUint32(this.fbPtr + 4, 0, true);
         view.setUint32(this.fbPtr + 8, 0, true);
       }
       return this.fbPtr;
@@ -76,7 +98,25 @@ class WasmActor {
       return this.mousePtr;
     }
 
+    if (name === 'std:keyboard' || name === 'keyboard') {
+      if (!this.kbPtr) {
+        this.kbPtr = this.hostAlloc(256);
+      }
+      return this.kbPtr;
+    }
+
     return 0;
+  }
+
+  syncDimensions() {
+    if (!this.fbPtr || !this.memory) return;
+    const view = new DataView(this.memory.buffer);
+    const w = view.getUint32(this.fbPtr + 0, true);
+    const h = view.getUint32(this.fbPtr + 4, true);
+    if (w > 0 && h > 0) {
+      this.width = w;
+      this.height = h;
+    }
   }
 
   syncMouse(x, y, buttons, wheel_x, wheel_y) {
@@ -87,6 +127,11 @@ class WasmActor {
     view.setUint32(this.mousePtr + 8, buttons, true);
     view.setInt32(this.mousePtr + 12, wheel_x, true);
     view.setInt32(this.mousePtr + 16, wheel_y, true);
+  }
+
+  syncKeyboard(keys) {
+    if (!this.kbPtr || !this.memory) return;
+    new Uint8Array(this.memory.buffer, this.kbPtr, 256).set(keys);
   }
 
   receiveMessage(fromId, buffer) {
@@ -106,17 +151,41 @@ class WasmActor {
         return 0;
       },
       connect: () => 0,
-      quit: (code) => process.exit(code)
+      quit: (code) => process.exit(code),
+      strlen: (ptr) => {
+        if (!ptr || !this.memory) return 0;
+        const u8 = new Uint8Array(this.memory.buffer, ptr);
+        let len = 0;
+        while (u8[len] !== 0) len++;
+        return len;
+      },
+      memcpy: (dst, src, num) => {
+        if (!this.memory) return dst;
+        new Uint8Array(this.memory.buffer, dst, num).set(new Uint8Array(this.memory.buffer, src, num));
+        return dst;
+      },
+      memset: (dst, val, num) => {
+        if (!this.memory) return dst;
+        new Uint8Array(this.memory.buffer, dst, num).fill(val);
+        return dst;
+      }
     };
 
     const mod = await WebAssembly.instantiate(wasmBytes, { env });
     this.instance = mod.instance;
     this.memory = mod.instance.exports.memory;
+
+    if (this.instance.exports.__heap_base) {
+      this.arenaOffset = (this.instance.exports.__heap_base.value + 65535) & ~65535;
+    } else {
+      this.arenaOffset = 0x2000000;
+    }
   }
 
   update() {
     if (this.instance && this.instance.exports.update) {
       this.instance.exports.update();
+      this.syncDimensions();
     }
   }
 
@@ -124,7 +193,7 @@ class WasmActor {
     if (!this.fbPtr || !this.memory) return null;
     const view = new DataView(this.memory.buffer);
     const pixelsPtr = view.getUint32(this.fbPtr + 8, true);
-    if (!pixelsPtr) return null;
+    if (!pixelsPtr || this.width === 0 || this.height === 0) return null;
     return new Uint8Array(this.memory.buffer, pixelsPtr, this.width * this.height * 4);
   }
 }
@@ -158,13 +227,26 @@ class WesenhoBroker {
   dispatch(fromId, targetId, buffer) {
     if (buffer.length >= 4) {
       const type = new Uint32Array(buffer.buffer, buffer.byteOffset, 1)[0];
-      if (type === 0x100) { // MSG_PUB_TOPIC
+      if (type === 0x100) {
         const topicBytes = buffer.subarray(4, 36);
         let topic = '';
         for (let i = 0; i < 32 && topicBytes[i] !== 0; i++) topic += String.fromCharCode(topicBytes[i]);
         this.publish(fromId, topic, buffer);
         return;
       }
+    }
+
+    if (targetId === ACTOR_CANVAS) {
+      const canvas = this.actors.get(ACTOR_CANVAS);
+      if (canvas) canvas.receiveMessage(fromId, buffer);
+
+      // Forward all state changes to HUD actors so status stays synchronized
+      for (const [id, actor] of this.actors.entries()) {
+        if (id !== fromId && id !== ACTOR_CANVAS) {
+          actor.receiveMessage(fromId, buffer);
+        }
+      }
+      return;
     }
 
     const target = this.actors.get(targetId);
@@ -174,36 +256,37 @@ class WesenhoBroker {
   }
 }
 
-// Dynamic plugin discovery function
 function discoverModules(baseDir) {
   const modules = [];
   let nextId = 10;
 
-  // Default core UI windows
   modules.push(
-    { id: 2, name: 'tools', x: 20, y: 20, w: 140, h: 230, wasmPath: 'roms/tools.wasm' },
-    { id: 3, name: 'palette', x: 20, y: 265, w: 140, h: 150, wasmPath: 'roms/palette.wasm' },
-    { id: 4, name: 'layers', x: windowWidth - 180, y: 20, w: 160, h: 280, wasmPath: 'roms/layers.wasm' }
+    { id: 2, name: 'tools', x: 20, y: 20, wasmPath: 'roms/tools.wasm' },
+    { id: 3, name: 'palette', x: 20, y: 175, wasmPath: 'roms/palette.wasm' },
+    { id: 4, name: 'layers', x: windowWidth - 170, y: 20, wasmPath: 'roms/layers.wasm' }
   );
 
-  // Scan plugins/ directory for user modules (*.json or *.wasm)
   const pluginsDir = path.resolve(baseDir, 'plugins');
   if (fs.existsSync(pluginsDir)) {
     const subdirs = ['uis', 'brushes', 'filters'];
+    let pluginSlot = 0;
     for (const sub of subdirs) {
       const dir = path.join(pluginsDir, sub);
       if (!fs.existsSync(dir)) continue;
-      const files = fs.readdirSync(dir);
+      const files = fs.readdirSync(dir).sort();
       for (const f of files) {
         if (f.endsWith('.wasm')) {
           const modPath = path.relative(baseDir, path.join(dir, f));
+          let posX = 185;
+          let posY = 20;
+          if (f.includes('console')) { posX = 185; posY = 20; }
+          pluginSlot++;
+
           modules.push({
             id: nextId++,
             name: path.basename(f, '.wasm'),
-            x: 200 + (nextId * 20) % 300,
-            y: 100 + (nextId * 20) % 300,
-            w: 160,
-            h: 200,
+            x: posX,
+            y: posY,
             wasmPath: modPath
           });
         }
@@ -221,14 +304,12 @@ async function main() {
     ACTOR_CANVAS,
     'canvas',
     path.resolve(__dirname, '../roms/canvas.wasm'),
-    DOC_WIDTH,
-    DOC_HEIGHT,
     broker
   );
   broker.register(canvasActor);
   await canvasActor.init();
+  canvasActor.update(); // read dimensions from wasm
 
-  // Load core & dynamic user plugins
   const moduleConfigs = discoverModules(path.resolve(__dirname, '..'));
   const uiActors = [];
 
@@ -236,11 +317,12 @@ async function main() {
     const fullPath = path.resolve(__dirname, '..', win.wasmPath);
     if (!fs.existsSync(fullPath)) continue;
 
-    const actor = new WasmActor(win.id, win.name, fullPath, win.w, win.h, broker);
+    const actor = new WasmActor(win.id, win.name, fullPath, broker);
     broker.register(actor);
     await actor.init();
+    actor.update(); // initial frame to set dimensions from Wasm struct
     uiActors.push({ win, actor });
-    console.log(`[Plugin Loaded] ${win.name} (ID: ${win.id}) -> ${win.wasmPath}`);
+    console.log(`[Plugin Loaded] ${win.name} (ID: ${win.id}) -> ${win.wasmPath} (${actor.width}x${actor.height})`);
   }
 
   const window = sdl.video.createWindow({
@@ -252,10 +334,12 @@ async function main() {
 
   let screenBuffer = Buffer.alloc(windowWidth * windowHeight * 4);
   let mouseState = { x: 0, y: 0, buttons: 0, wheel_y: 0 };
+  let isDrawingOnCanvas = false;
   let spaceDown = false;
   let dragWin = null;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
+  const globalKeys = new Uint8Array(256);
 
   window.on('resize', (e) => {
     windowWidth = e.width;
@@ -268,8 +352,8 @@ async function main() {
     mouseState.y = e.y;
 
     if (dragWin) {
-      dragWin.x = Math.max(0, Math.min(windowWidth - dragWin.w, e.x - dragOffsetX));
-      dragWin.y = Math.max(0, Math.min(windowHeight - dragWin.h, e.y - dragOffsetY));
+      dragWin.win.x = Math.max(0, Math.min(windowWidth - dragWin.actor.width, e.x - dragOffsetX));
+      dragWin.win.y = Math.max(0, Math.min(windowHeight - dragWin.actor.height, e.y - dragOffsetY));
     } else if (isPanning) {
       panX += (e.x - panStartX);
       panY += (e.y - panStartY);
@@ -284,10 +368,10 @@ async function main() {
     else if (e.button === 2) mouseState.buttons |= 4;
 
     for (let i = uiActors.length - 1; i >= 0; i--) {
-      const { win } = uiActors[i];
-      if (mouseState.x >= win.x && mouseState.x < win.x + win.w &&
+      const { win, actor } = uiActors[i];
+      if (mouseState.x >= win.x && mouseState.x < win.x + actor.width &&
           mouseState.y >= win.y && mouseState.y < win.y + 18) {
-        dragWin = win;
+        dragWin = { win, actor };
         dragOffsetX = mouseState.x - win.x;
         dragOffsetY = mouseState.y - win.y;
 
@@ -308,8 +392,10 @@ async function main() {
     if (e.button === 1) {
       mouseState.buttons &= ~1;
       dragWin = null;
+      isDrawingOnCanvas = false;
     } else if (e.button === 3) {
       mouseState.buttons &= ~2;
+      isDrawingOnCanvas = false;
     } else if (e.button === 2) {
       mouseState.buttons &= ~4;
       isPanning = false;
@@ -334,6 +420,10 @@ async function main() {
   window.on('keyDown', (e) => {
     if (e.key === 'space' || e.scancode === 44) spaceDown = true;
 
+    const sc = KEY_MAP[e.key] || 0;
+    if (sc) globalKeys[sc] = 1;
+    if (e.shift) { globalKeys[0xE1] = 1; globalKeys[0xE5] = 1; }
+
     if (e.key === '=' || e.key === '+' || e.key === 'kpPlus') {
       const oldZoom = zoom;
       zoom = Math.min(10.0, zoom * 1.2);
@@ -356,40 +446,50 @@ async function main() {
       spaceDown = false;
       isPanning = false;
     }
+    const sc = KEY_MAP[e.key] || 0;
+    if (sc) globalKeys[sc] = 0;
+    if (!e.shift) { globalKeys[0xE1] = 0; globalKeys[0xE5] = 0; }
   });
 
   window.on('close', () => process.exit(0));
 
   console.log('=== Wesenho Studio — Microkernel Pronto ===');
-  console.log('Plugins podem ser colocados em plugins/uis/, plugins/brushes/ ou plugins/filters/.');
 
   const frameLoop = () => {
     let focusedActor = null;
     for (let i = uiActors.length - 1; i >= 0; i--) {
       const { win, actor } = uiActors[i];
-      if (mouseState.x >= win.x && mouseState.x < win.x + win.w &&
-          mouseState.y >= win.y && mouseState.y < win.y + win.h) {
+      if (mouseState.x >= win.x && mouseState.x < win.x + actor.width &&
+          mouseState.y >= win.y && mouseState.y < win.y + actor.height) {
         focusedActor = { win, actor };
         break;
       }
     }
 
     for (const { win, actor } of uiActors) {
-      if (focusedActor && focusedActor.win === win && !dragWin && !isPanning) {
+      if (focusedActor && focusedActor.win === win && !dragWin && !isPanning && !isDrawingOnCanvas) {
         const relX = mouseState.x - win.x;
         const relY = mouseState.y - win.y;
         actor.syncMouse(relX, relY, mouseState.buttons, 0, 0);
       } else {
         actor.syncMouse(-100, -100, 0, 0, 0);
       }
+      actor.syncKeyboard(globalKeys);
       actor.update();
     }
 
-    if (!focusedActor && !dragWin && !isPanning) {
+    // Canvas Mouse Handling with continuous stroke lock
+    const hasDrawBtn = (mouseState.buttons & 1) || (mouseState.buttons & 2);
+    if (!focusedActor && hasDrawBtn && !dragWin && !isPanning) {
+      isDrawingOnCanvas = true;
+    }
+
+    if (isDrawingOnCanvas && hasDrawBtn && !isPanning && !dragWin) {
       const docX = (mouseState.x - panX) / zoom;
       const docY = (mouseState.y - panY) / zoom;
       canvasActor.syncMouse(docX, docY, mouseState.buttons, 0, 0);
     } else {
+      isDrawingOnCanvas = false;
       canvasActor.syncMouse(-100, -100, 0, 0, 0);
     }
 
@@ -432,14 +532,14 @@ async function main() {
       const winPixels = actor.getPixels();
       if (!winPixels) continue;
 
-      for (let y = 0; y < win.h; y++) {
+      for (let y = 0; y < actor.height; y++) {
         const sy = win.y + y;
         if (sy < 0 || sy >= windowHeight) continue;
 
-        const winRowOffset = y * win.w * 4;
+        const winRowOffset = y * actor.width * 4;
         const screenRowOffset = sy * windowWidth * 4;
 
-        for (let x = 0; x < win.w; x++) {
+        for (let x = 0; x < actor.width; x++) {
           const sx = win.x + x;
           if (sx < 0 || sx >= windowWidth) continue;
 

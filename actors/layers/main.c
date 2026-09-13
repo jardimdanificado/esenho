@@ -1,8 +1,8 @@
 #include "../../include/wesenho.h"
 #include "../../include/font5x7.h"
 
-#define LAYERS_WIDTH  160
-#define LAYERS_HEIGHT 280
+#define LAYERS_WIDTH  150
+#define LAYERS_HEIGHT 220
 
 static wframebuffer_t *fb = 0;
 static wmouse_t       *mouse = 0;
@@ -11,18 +11,8 @@ static uint32_t pixels[LAYERS_WIDTH * LAYERS_HEIGHT];
 static int active_layer = 0;
 static int layer_count = 1;
 static uint8_t layer_vis[MAX_LAYERS] = {1, 1, 1, 1, 1, 1, 1, 1};
+static uint8_t layer_op[MAX_LAYERS] = {100, 100, 100, 100, 100, 100, 100, 100};
 static int prev_left_btn = 0;
-
-static const char *layer_names[MAX_LAYERS] = {
-    "Fundo",
-    "Lineart",
-    "Cores",
-    "Sombras",
-    "Luzes",
-    "Detalhes",
-    "Layer 7",
-    "Layer 8"
-};
 
 static void draw_rect(int x, int y, int w, int h, uint32_t color) {
     for (int j = y; j < y + h; j++) {
@@ -45,6 +35,19 @@ static void draw_frame(int x, int y, int w, int h, uint32_t color) {
     }
 }
 
+static void int_to_str(int val, char *buf) {
+    if (val == 0) { buf[0] = '0'; buf[1] = '\0'; return; }
+    char tmp[16];
+    int idx = 0;
+    while (val > 0) {
+        tmp[idx++] = '0' + (val % 10);
+        val /= 10;
+    }
+    int out = 0;
+    for (int i = idx - 1; i >= 0; i--) buf[out++] = tmp[i];
+    buf[out] = '\0';
+}
+
 static void send_msg(uint32_t type, uint32_t param1) {
     wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
     msg->type = type;
@@ -54,38 +57,74 @@ static void send_msg(uint32_t type, uint32_t param1) {
     say(ACTOR_CANVAS, sizeof(wesenho_msg_t));
 }
 
-static void render_layers(void) {
-    draw_rect(0, 0, LAYERS_WIDTH, LAYERS_HEIGHT, 0xFF222222);
-    draw_frame(0, 0, LAYERS_WIDTH, LAYERS_HEIGHT, 0xFF444444);
+static void render_layers_hud(void) {
+    draw_rect(0, 0, LAYERS_WIDTH, LAYERS_HEIGHT, 0xFF14181C);
+    draw_frame(0, 0, LAYERS_WIDTH, LAYERS_HEIGHT, 0xFF2A3642);
 
     // Title Bar
-    draw_rect(0, 0, LAYERS_WIDTH, 20, 0xFF303030);
-    draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 8, 6, "CAMADAS", 0xFFE0E0E0);
-
-    // New Layer Button (+ Nova)
-    draw_rect(8, 26, 144, 24, 0xFF284828);
-    draw_frame(8, 26, 144, 24, 0xFF3D7A3D);
-    draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 42, 34, "+ Nova Camada", 0xFFFFFFFF);
+    draw_rect(0, 0, LAYERS_WIDTH, 18, 0xFF1F2933);
+    draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 8, 5, "CAMADAS (HUD)", 0xFF00FFCC);
 
     // Layer List Stack
     for (int l = 0; l < layer_count && l < MAX_LAYERS; l++) {
-        int ly = 56 + l * 26;
+        int ly = 24 + l * 22;
         int is_act = (l == active_layer);
 
-        // Row background
-        draw_rect(8, ly, 144, 22, is_act ? 0xFF3D4D5D : 0xFF2A2A2A);
-        draw_frame(8, ly, 144, 22, is_act ? 0xFF5D8DB8 : 0xFF3A3A3A);
+        draw_rect(6, ly, LAYERS_WIDTH - 12, 20, is_act ? 0xFF203545 : 0xFF181F26);
+        draw_frame(6, ly, LAYERS_WIDTH - 12, 20, is_act ? 0xFF00FFCC : 0xFF2E3D4D);
 
-        // Visibility Eye Icon
-        uint32_t eye_col = layer_vis[l] ? 0xFF00FF00 : 0xFF555555;
-        draw_rect(14, ly + 6, 10, 10, eye_col);
+        // Eye indicator
+        uint32_t eye_col = layer_vis[l] ? 0xFF00FF88 : 0xFF556677;
+        draw_rect(12, ly + 5, 10, 10, eye_col);
 
-        // Layer Name string
-        draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 32, ly + 7, layer_names[l], is_act ? 0xFFFFFFFF : 0xFFAAAAAA);
+        // Layer Label
+        char lbl[16] = "Layer ";
+        lbl[6] = '0' + l;
+        lbl[7] = '\0';
+        draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 28, ly + 6, lbl, is_act ? 0xFFFFFFFF : 0xFFAABBCC);
+
+        // Opacity %
+        char op_buf[8];
+        int_to_str(layer_op[l], op_buf);
+        draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 95, ly + 6, op_buf, 0xFF00FFFF);
+        draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 120, ly + 6, "%", 0xFF667788);
     }
+
+    // Status Footnote
+    draw_rect(0, LAYERS_HEIGHT - 16, LAYERS_WIDTH, 16, 0xFF0F1317);
+    draw_string(pixels, LAYERS_WIDTH, LAYERS_HEIGHT, 8, LAYERS_HEIGHT - 12, "layer-new | select", 0xFF667788);
 }
 
-void on_message(int32_t from_id, int32_t len) {}
+void on_message(int32_t from_id, int32_t len) {
+    if (len < (int32_t)sizeof(wesenho_msg_t)) return;
+    wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
+
+    switch (msg->type) {
+        case MSG_LAYER_ADD:
+            if (layer_count < MAX_LAYERS) {
+                layer_vis[layer_count] = 1;
+                layer_op[layer_count] = 100;
+                active_layer = layer_count;
+                layer_count++;
+            }
+            break;
+        case MSG_LAYER_SELECT:
+            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
+                active_layer = (int)msg->param1;
+            }
+            break;
+        case MSG_LAYER_TOGGLE_VIS:
+            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
+                layer_vis[(int)msg->param1] = !layer_vis[(int)msg->param1];
+            }
+            break;
+        case MSG_LAYER_SET_OPACITY:
+            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
+                layer_op[(int)msg->param1] = (uint8_t)msg->param2;
+            }
+            break;
+    }
+}
 
 int32_t update(void) {
     if (!fb) {
@@ -104,21 +143,10 @@ int32_t update(void) {
         int left_down = (mouse->buttons & WMOUSE_BTN_LEFT) != 0;
 
         if (left_down && !prev_left_btn && mx >= 0 && mx < LAYERS_WIDTH) {
-            // New Layer Button
-            if (my >= 26 && my <= 50 && mx >= 8 && mx <= 152) {
-                if (layer_count < MAX_LAYERS) {
-                    active_layer = layer_count;
-                    layer_vis[layer_count] = 1;
-                    layer_count++;
-                    send_msg(MSG_LAYER_ADD, 0);
-                }
-            }
-            // Click on Layer row
-            else if (my >= 56 && my < 56 + layer_count * 26) {
-                int l = (my - 56) / 26;
+            if (my >= 24 && my < 24 + layer_count * 22) {
+                int l = (my - 24) / 22;
                 if (l >= 0 && l < layer_count) {
-                    // Click Eye
-                    if (mx >= 8 && mx <= 28) {
+                    if (mx >= 8 && mx <= 24) {
                         layer_vis[l] = !layer_vis[l];
                         send_msg(MSG_LAYER_TOGGLE_VIS, l);
                     } else {
@@ -131,6 +159,6 @@ int32_t update(void) {
         prev_left_btn = left_down;
     }
 
-    render_layers();
+    render_layers_hud();
     return UPDATE_OK;
 }
