@@ -2,7 +2,7 @@ const sdl = require('@kmamal/sdl');
 const fs = require('fs');
 const path = require('path');
 
-let windowWidth = 900;
+let windowWidth = 1000;
 let windowHeight = 900;
 
 // Document Dimensions (Default Vertical Proportions)
@@ -10,38 +10,28 @@ const DOC_WIDTH = 800;
 const DOC_HEIGHT = 1000;
 
 // Viewport / Camera Navigation State
-let zoom = 0.75;
+let zoom = 0.72;
 let panX = (windowWidth - DOC_WIDTH * zoom) / 2;
 let panY = (windowHeight - DOC_HEIGHT * zoom) / 2;
 let isPanning = false;
 let panStartX = 0;
 let panStartY = 0;
 
-const ACTOR_HOST = 0;
+const ACTOR_BROKER = 0;
 const ACTOR_CANVAS = 1;
-const ACTOR_TOOLS = 2;
-const ACTOR_PALETTE = 3;
-const ACTOR_LAYERS = 4;
-
-// Floating Windows State (Separate movable windows inside viewport)
-const floatingWindows = [
-  { id: ACTOR_TOOLS, name: 'tools', x: 20, y: 20, w: 140, h: 230, wasmPath: 'roms/tools.wasm', isDragging: false },
-  { id: ACTOR_PALETTE, name: 'palette', x: 20, y: 270, w: 140, h: 150, wasmPath: 'roms/palette.wasm', isDragging: false },
-  { id: ACTOR_LAYERS, name: 'layers', x: windowWidth - 180, y: 20, w: 160, h: 280, wasmPath: 'roms/layers.wasm', isDragging: false }
-];
 
 class WasmActor {
-  constructor(id, name, wasmPath, width, height, coordinator) {
+  constructor(id, name, wasmPath, width, height, broker) {
     this.id = id;
     this.name = name;
     this.wasmPath = wasmPath;
     this.width = width;
     this.height = height;
-    this.coordinator = coordinator;
+    this.broker = broker;
 
     this.memory = null;
     this.instance = null;
-    this.arenaOffset = 0x800000;
+    this.arenaOffset = 0x800000; // 8MB
 
     this.fbPtr = 0;
     this.mousePtr = 0;
@@ -112,7 +102,7 @@ class WasmActor {
       ask: (namePtr) => this.handleAsk(namePtr),
       say: (targetId, len) => {
         const msgBytes = new Uint8Array(this.memory.buffer, 0, len).slice();
-        this.coordinator.dispatch(this.id, targetId, msgBytes);
+        this.broker.dispatch(this.id, targetId, msgBytes);
         return 0;
       },
       connect: () => 0,
@@ -139,16 +129,44 @@ class WasmActor {
   }
 }
 
-class WesenhoCoordinator {
+class WesenhoBroker {
   constructor() {
     this.actors = new Map();
+    this.topics = new Map();
   }
 
   register(actor) {
     this.actors.set(actor.id, actor);
   }
 
+  subscribe(actorId, topic) {
+    if (!this.topics.has(topic)) this.topics.set(topic, new Set());
+    this.topics.get(topic).add(actorId);
+  }
+
+  publish(fromId, topic, buffer) {
+    const subs = this.topics.get(topic);
+    if (!subs) return;
+    for (const subId of subs) {
+      if (subId !== fromId) {
+        const actor = this.actors.get(subId);
+        if (actor) actor.receiveMessage(fromId, buffer);
+      }
+    }
+  }
+
   dispatch(fromId, targetId, buffer) {
+    if (buffer.length >= 4) {
+      const type = new Uint32Array(buffer.buffer, buffer.byteOffset, 1)[0];
+      if (type === 0x100) { // MSG_PUB_TOPIC
+        const topicBytes = buffer.subarray(4, 36);
+        let topic = '';
+        for (let i = 0; i < 32 && topicBytes[i] !== 0; i++) topic += String.fromCharCode(topicBytes[i]);
+        this.publish(fromId, topic, buffer);
+        return;
+      }
+    }
+
     const target = this.actors.get(targetId);
     if (target) {
       target.receiveMessage(fromId, buffer);
@@ -156,8 +174,48 @@ class WesenhoCoordinator {
   }
 }
 
+// Dynamic plugin discovery function
+function discoverModules(baseDir) {
+  const modules = [];
+  let nextId = 10;
+
+  // Default core UI windows
+  modules.push(
+    { id: 2, name: 'tools', x: 20, y: 20, w: 140, h: 230, wasmPath: 'roms/tools.wasm' },
+    { id: 3, name: 'palette', x: 20, y: 265, w: 140, h: 150, wasmPath: 'roms/palette.wasm' },
+    { id: 4, name: 'layers', x: windowWidth - 180, y: 20, w: 160, h: 280, wasmPath: 'roms/layers.wasm' }
+  );
+
+  // Scan plugins/ directory for user modules (*.json or *.wasm)
+  const pluginsDir = path.resolve(baseDir, 'plugins');
+  if (fs.existsSync(pluginsDir)) {
+    const subdirs = ['uis', 'brushes', 'filters'];
+    for (const sub of subdirs) {
+      const dir = path.join(pluginsDir, sub);
+      if (!fs.existsSync(dir)) continue;
+      const files = fs.readdirSync(dir);
+      for (const f of files) {
+        if (f.endsWith('.wasm')) {
+          const modPath = path.relative(baseDir, path.join(dir, f));
+          modules.push({
+            id: nextId++,
+            name: path.basename(f, '.wasm'),
+            x: 200 + (nextId * 20) % 300,
+            y: 100 + (nextId * 20) % 300,
+            w: 160,
+            h: 200,
+            wasmPath: modPath
+          });
+        }
+      }
+    }
+  }
+
+  return modules;
+}
+
 async function main() {
-  const coordinator = new WesenhoCoordinator();
+  const broker = new WesenhoBroker();
 
   const canvasActor = new WasmActor(
     ACTOR_CANVAS,
@@ -165,28 +223,28 @@ async function main() {
     path.resolve(__dirname, '../roms/canvas.wasm'),
     DOC_WIDTH,
     DOC_HEIGHT,
-    coordinator
+    broker
   );
-  coordinator.register(canvasActor);
+  broker.register(canvasActor);
   await canvasActor.init();
 
+  // Load core & dynamic user plugins
+  const moduleConfigs = discoverModules(path.resolve(__dirname, '..'));
   const uiActors = [];
-  for (const win of floatingWindows) {
-    const actor = new WasmActor(
-      win.id,
-      win.name,
-      path.resolve(__dirname, '..', win.wasmPath),
-      win.w,
-      win.h,
-      coordinator
-    );
-    coordinator.register(actor);
+
+  for (const win of moduleConfigs) {
+    const fullPath = path.resolve(__dirname, '..', win.wasmPath);
+    if (!fs.existsSync(fullPath)) continue;
+
+    const actor = new WasmActor(win.id, win.name, fullPath, win.w, win.h, broker);
+    broker.register(actor);
     await actor.init();
     uiActors.push({ win, actor });
+    console.log(`[Plugin Loaded] ${win.name} (ID: ${win.id}) -> ${win.wasmPath}`);
   }
 
   const window = sdl.video.createWindow({
-    title: 'Wesenho Studio — Janelas Flutuantes, Camadas com Nomes & Pan/Zoom',
+    title: 'Wesenho Studio — Sistema Extensivel por Plugins & Microkernel Piolho',
     width: windowWidth,
     height: windowHeight,
     resizable: true
@@ -225,23 +283,20 @@ async function main() {
     else if (e.button === 3) mouseState.buttons |= 2;
     else if (e.button === 2) mouseState.buttons |= 4;
 
-    // 1. Check titlebar drag on any floating window (z-order top to bottom)
     for (let i = uiActors.length - 1; i >= 0; i--) {
       const { win } = uiActors[i];
       if (mouseState.x >= win.x && mouseState.x < win.x + win.w &&
-          mouseState.y >= win.y && mouseState.y < win.y + 20) {
+          mouseState.y >= win.y && mouseState.y < win.y + 18) {
         dragWin = win;
         dragOffsetX = mouseState.x - win.x;
         dragOffsetY = mouseState.y - win.y;
 
-        // Bring to front
         const item = uiActors.splice(i, 1)[0];
         uiActors.push(item);
         return;
       }
     }
 
-    // 2. Middle mouse button or Space + Left button starts panning
     if (e.button === 2 || (spaceDown && e.button === 1)) {
       isPanning = true;
       panStartX = mouseState.x;
@@ -265,7 +320,6 @@ async function main() {
     }
   });
 
-  // Wheel Zoom
   window.on('mouseWheel', (e) => {
     const oldZoom = zoom;
     const factor = e.dy > 0 ? 1.15 : 0.85;
@@ -280,12 +334,6 @@ async function main() {
   window.on('keyDown', (e) => {
     if (e.key === 'space' || e.scancode === 44) spaceDown = true;
 
-    // Brush Size Shortcuts: [ / ] or - / =
-    if (e.key === '[' || e.key === 'BracketLeft') {
-      coordinator.dispatch(ACTOR_HOST, ACTOR_CANVAS, Buffer.from(new Uint32Array([MSG_SET_BRUSH_SIZE, Math.max(1, 4), 0, 0]).buffer));
-    }
-
-    // Zoom Keys (+ / - / = / 0)
     if (e.key === '=' || e.key === '+' || e.key === 'kpPlus') {
       const oldZoom = zoom;
       zoom = Math.min(10.0, zoom * 1.2);
@@ -297,7 +345,7 @@ async function main() {
       panX = windowWidth / 2 - (windowWidth / 2 - panX) * (zoom / oldZoom);
       panY = windowHeight / 2 - (windowHeight / 2 - panY) * (zoom / oldZoom);
     } else if (e.key === '0' || e.key === 'kp0') {
-      zoom = 0.75;
+      zoom = 0.72;
       panX = (windowWidth - DOC_WIDTH * zoom) / 2;
       panY = (windowHeight - DOC_HEIGHT * zoom) / 2;
     }
@@ -312,13 +360,10 @@ async function main() {
 
   window.on('close', () => process.exit(0));
 
-  console.log('=== Wesenho Studio Pronto ===');
-  console.log('Tamanho do Pincel: Botoes [+] e [-] na janela Ferramentas.');
-  console.log('Zoom: Scroll do Mouse (roda) ou Teclas [+], [-], [0].');
-  console.log('Pan: Espaco + Botao Esquerdo ou Botao do Meio.');
+  console.log('=== Wesenho Studio — Microkernel Pronto ===');
+  console.log('Plugins podem ser colocados em plugins/uis/, plugins/brushes/ ou plugins/filters/.');
 
   const frameLoop = () => {
-    // Check if mouse is over any floating window
     let focusedActor = null;
     for (let i = uiActors.length - 1; i >= 0; i--) {
       const { win, actor } = uiActors[i];
@@ -329,7 +374,6 @@ async function main() {
       }
     }
 
-    // Sync UI Actors Mouse
     for (const { win, actor } of uiActors) {
       if (focusedActor && focusedActor.win === win && !dragWin && !isPanning) {
         const relX = mouseState.x - win.x;
@@ -341,7 +385,6 @@ async function main() {
       actor.update();
     }
 
-    // Sync Canvas Mouse
     if (!focusedActor && !dragWin && !isPanning) {
       const docX = (mouseState.x - panX) / zoom;
       const docY = (mouseState.y - panY) / zoom;
@@ -352,10 +395,8 @@ async function main() {
 
     canvasActor.update();
 
-    // 1. Clear background (Dark Studio Pattern)
     screenBuffer.fill(0x18);
 
-    // 2. Render Scaled & Panned Document Canvas
     const canvasPixels = canvasActor.getPixels();
     if (canvasPixels) {
       const screenStartX = Math.max(0, Math.floor(panX));
@@ -387,7 +428,6 @@ async function main() {
       }
     }
 
-    // 3. Render Floating Windows in order
     for (const { win, actor } of uiActors) {
       const winPixels = actor.getPixels();
       if (!winPixels) continue;

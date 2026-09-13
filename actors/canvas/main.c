@@ -2,28 +2,29 @@
 
 #define CANVAS_WIDTH  800
 #define CANVAS_HEIGHT 1000
+#define DOC_PIXELS    (CANVAS_WIDTH * CANVAS_HEIGHT)
 
 typedef struct {
-    uint32_t pixels[CANVAS_WIDTH * CANVAS_HEIGHT];
+    uint32_t pixels[DOC_PIXELS];
     uint8_t  visible;
-    uint8_t  opacity; // 0..255
+    uint8_t  opacity;
 } layer_t;
 
 static wframebuffer_t *fb = 0;
 static wmouse_t       *mouse = 0;
 
-static uint32_t out_pixels[CANVAS_WIDTH * CANVAS_HEIGHT];
+static uint32_t out_pixels[DOC_PIXELS];
 static layer_t  layers[MAX_LAYERS];
 static int      layer_count = 1;
 static int      active_layer = 0;
 
 static int32_t last_mx = -1;
 static int32_t last_my = -1;
-static uint32_t current_color = 0xFFFFFFFF; /* White */
+static uint32_t current_color = 0xFF000000;
 static int brush_size = 4;
 static int current_tool = TOOL_BRUSH;
 
-/* Fast Alpha blending: blend Src over Dst with alpha */
+/* Fast Alpha blending */
 static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod) {
     uint32_t sa = ((src >> 24) & 0xFF) * alpha_mod / 255;
     if (sa == 0) return dst;
@@ -59,7 +60,7 @@ static void draw_point(int x, int y, uint32_t color, int radius) {
             if (px < 0 || px >= CANVAS_WIDTH) continue;
             if (dx*dx + dy*dy <= radius*radius) {
                 if (current_tool == TOOL_ERASER) {
-                    lay->pixels[py * CANVAS_WIDTH + px] = 0x00000000; // Transparent
+                    lay->pixels[py * CANVAS_WIDTH + px] = 0x00000000;
                 } else {
                     lay->pixels[py * CANVAS_WIDTH + px] = color;
                 }
@@ -90,15 +91,13 @@ static void draw_line(int x0, int y0, int x1, int y1, uint32_t color, int radius
     }
 }
 
-static void clear_layer(int l_idx, uint32_t color) {
-    if (l_idx < 0 || l_idx >= layer_count) return;
-    for (int i = 0; i < CANVAS_WIDTH * CANVAS_HEIGHT; i++) {
-        layers[l_idx].pixels[i] = color;
+static void clear_layer(layer_t *lay, uint32_t color) {
+    for (int i = 0; i < DOC_PIXELS; i++) {
+        lay->pixels[i] = color;
     }
 }
 
-static void composite_layers(void) {
-    /* Base background: dark grey / subtle checkerboard pattern */
+static void composite_canvas(void) {
     for (int y = 0; y < CANVAS_HEIGHT; y++) {
         for (int x = 0; x < CANVAS_WIDTH; x++) {
             int check = ((x / 16) + (y / 16)) & 1;
@@ -107,21 +106,19 @@ static void composite_layers(void) {
         }
     }
 
-    /* Composite each visible layer from bottom (0) to top */
     for (int l = 0; l < layer_count; l++) {
         if (!layers[l].visible) continue;
         uint8_t op = layers[l].opacity;
         if (op == 0) continue;
 
-        for (int i = 0; i < CANVAS_WIDTH * CANVAS_HEIGHT; i++) {
+        for (int i = 0; i < DOC_PIXELS; i++) {
             uint32_t src = layers[l].pixels[i];
-            if ((src & 0xFF000000) == 0) continue; // fully transparent
+            if ((src & 0xFF000000) == 0) continue;
             out_pixels[i] = blend_pixel(out_pixels[i], src, op);
         }
     }
 }
 
-/* Receives Piolho messages */
 void on_message(int32_t from_id, int32_t len) {
     if (len < (int32_t)sizeof(wesenho_msg_t)) return;
     wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
@@ -139,7 +136,7 @@ void on_message(int32_t from_id, int32_t len) {
         case MSG_EFFECT_INVERT:
             if (active_layer >= 0 && active_layer < layer_count) {
                 layer_t *lay = &layers[active_layer];
-                for (int i = 0; i < CANVAS_WIDTH * CANVAS_HEIGHT; i++) {
+                for (int i = 0; i < DOC_PIXELS; i++) {
                     uint32_t p = lay->pixels[i];
                     if ((p & 0xFF000000) == 0) continue;
                     uint8_t r = 255 - (p & 0xFF);
@@ -153,7 +150,7 @@ void on_message(int32_t from_id, int32_t len) {
         case MSG_EFFECT_GRAYSCALE:
             if (active_layer >= 0 && active_layer < layer_count) {
                 layer_t *lay = &layers[active_layer];
-                for (int i = 0; i < CANVAS_WIDTH * CANVAS_HEIGHT; i++) {
+                for (int i = 0; i < DOC_PIXELS; i++) {
                     uint32_t p = lay->pixels[i];
                     if ((p & 0xFF000000) == 0) continue;
                     uint8_t r = p & 0xFF;
@@ -166,13 +163,15 @@ void on_message(int32_t from_id, int32_t len) {
             }
             break;
         case MSG_EFFECT_CLEAR:
-            clear_layer(active_layer, 0x00000000);
+            if (active_layer >= 0 && active_layer < layer_count) {
+                clear_layer(&layers[active_layer], (active_layer == 0) ? 0xFFFFFFFF : 0x00000000);
+            }
             break;
         case MSG_LAYER_ADD:
             if (layer_count < MAX_LAYERS) {
                 layers[layer_count].visible = 1;
                 layers[layer_count].opacity = 255;
-                clear_layer(layer_count, 0x00000000);
+                clear_layer(&layers[layer_count], 0x00000000);
                 active_layer = layer_count;
                 layer_count++;
             }
@@ -187,11 +186,6 @@ void on_message(int32_t from_id, int32_t len) {
                 layers[(int)msg->param1].visible = !layers[(int)msg->param1].visible;
             }
             break;
-        case MSG_LAYER_SET_OPACITY:
-            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
-                layers[(int)msg->param1].opacity = (uint8_t)msg->param2;
-            }
-            break;
     }
 }
 
@@ -203,10 +197,9 @@ int32_t update(void) {
             fb->height = CANVAS_HEIGHT;
             fb->pixels = (uint32_t)(uintptr_t)out_pixels;
         }
-        /* Init layer 0 as white opaque background, or transparent */
         layers[0].visible = 1;
         layers[0].opacity = 255;
-        clear_layer(0, 0xFFFFFFFF); // Layer 0 = solid white background by default
+        clear_layer(&layers[0], 0xFFFFFFFF);
         layer_count = 1;
         active_layer = 0;
     }
@@ -216,10 +209,6 @@ int32_t update(void) {
     if (mouse) {
         int mx = mouse->x;
         int my = mouse->y;
-
-        /* Wheel no canvas ajusta tamanho */
-        if (mouse->wheel_y > 0 && brush_size < 48) brush_size++;
-        if (mouse->wheel_y < 0 && brush_size > 1) brush_size--;
 
         if (mx >= 0 && mx < CANVAS_WIDTH && my >= 0 && my < CANVAS_HEIGHT) {
             int draw_btn = (mouse->buttons & WMOUSE_BTN_LEFT);
@@ -254,6 +243,6 @@ int32_t update(void) {
         }
     }
 
-    composite_layers();
+    composite_canvas();
     return UPDATE_OK;
 }
