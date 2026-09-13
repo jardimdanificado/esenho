@@ -2,26 +2,16 @@ const sdl = require('@kmamal/sdl');
 const fs = require('fs');
 const path = require('path');
 
-// Initial Window Dimensions (Vertical / Flexible aspect ratio default)
-let windowWidth = 800;
+let windowWidth = 900;
 let windowHeight = 900;
 
-// UI Component properties (Movable / Dockable sidebar)
-let uiX = 16;
-let uiY = 16;
-const UI_WIDTH = 160;
-const UI_HEIGHT = 720;
-let isDraggingUI = false;
-let dragOffsetX = 0;
-let dragOffsetY = 0;
-
-// Canvas Document Dimensions (Customizable Document Size)
+// Document Dimensions (Default Vertical Proportions)
 const DOC_WIDTH = 800;
 const DOC_HEIGHT = 1000;
 
 // Viewport / Camera Navigation State
-let zoom = 0.8;
-let panX = (windowWidth - UI_WIDTH - DOC_WIDTH * zoom) / 2 + UI_WIDTH / 2;
+let zoom = 0.75;
+let panX = (windowWidth - DOC_WIDTH * zoom) / 2;
 let panY = (windowHeight - DOC_HEIGHT * zoom) / 2;
 let isPanning = false;
 let panStartX = 0;
@@ -29,7 +19,16 @@ let panStartY = 0;
 
 const ACTOR_HOST = 0;
 const ACTOR_CANVAS = 1;
-const ACTOR_UI = 2;
+const ACTOR_TOOLS = 2;
+const ACTOR_PALETTE = 3;
+const ACTOR_LAYERS = 4;
+
+// Floating Windows State (Separate movable windows inside viewport)
+const floatingWindows = [
+  { id: ACTOR_TOOLS, name: 'tools', x: 20, y: 20, w: 140, h: 230, wasmPath: 'roms/tools.wasm', isDragging: false },
+  { id: ACTOR_PALETTE, name: 'palette', x: 20, y: 270, w: 140, h: 150, wasmPath: 'roms/palette.wasm', isDragging: false },
+  { id: ACTOR_LAYERS, name: 'layers', x: windowWidth - 180, y: 20, w: 160, h: 280, wasmPath: 'roms/layers.wasm', isDragging: false }
+];
 
 class WasmActor {
   constructor(id, name, wasmPath, width, height, coordinator) {
@@ -42,7 +41,7 @@ class WasmActor {
 
     this.memory = null;
     this.instance = null;
-    this.arenaOffset = 0x800000; // 8MB offset for dynamic extensions
+    this.arenaOffset = 0x800000;
 
     this.fbPtr = 0;
     this.mousePtr = 0;
@@ -160,15 +159,6 @@ class WesenhoCoordinator {
 async function main() {
   const coordinator = new WesenhoCoordinator();
 
-  const uiActor = new WasmActor(
-    ACTOR_UI,
-    'ui',
-    path.resolve(__dirname, '../roms/ui.wasm'),
-    UI_WIDTH,
-    UI_HEIGHT,
-    coordinator
-  );
-
   const canvasActor = new WasmActor(
     ACTOR_CANVAS,
     'canvas',
@@ -177,15 +167,26 @@ async function main() {
     DOC_HEIGHT,
     coordinator
   );
-
-  coordinator.register(uiActor);
   coordinator.register(canvasActor);
-
-  await uiActor.init();
   await canvasActor.init();
 
+  const uiActors = [];
+  for (const win of floatingWindows) {
+    const actor = new WasmActor(
+      win.id,
+      win.name,
+      path.resolve(__dirname, '..', win.wasmPath),
+      win.w,
+      win.h,
+      coordinator
+    );
+    coordinator.register(actor);
+    await actor.init();
+    uiActors.push({ win, actor });
+  }
+
   const window = sdl.video.createWindow({
-    title: 'Wesenho — Studio (Movable UI, Multi-Layer & Pan/Zoom Viewport)',
+    title: 'Wesenho Studio — Janelas Flutuantes, Camadas com Nomes & Pan/Zoom',
     width: windowWidth,
     height: windowHeight,
     resizable: true
@@ -194,7 +195,9 @@ async function main() {
   let screenBuffer = Buffer.alloc(windowWidth * windowHeight * 4);
   let mouseState = { x: 0, y: 0, buttons: 0, wheel_y: 0 };
   let spaceDown = false;
-  let ctrlDown = false;
+  let dragWin = null;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
 
   window.on('resize', (e) => {
     windowWidth = e.width;
@@ -206,9 +209,9 @@ async function main() {
     mouseState.x = e.x;
     mouseState.y = e.y;
 
-    if (isDraggingUI) {
-      uiX = Math.max(0, Math.min(windowWidth - UI_WIDTH, e.x - dragOffsetX));
-      uiY = Math.max(0, Math.min(windowHeight - UI_HEIGHT, e.y - dragOffsetY));
+    if (dragWin) {
+      dragWin.x = Math.max(0, Math.min(windowWidth - dragWin.w, e.x - dragOffsetX));
+      dragWin.y = Math.max(0, Math.min(windowHeight - dragWin.h, e.y - dragOffsetY));
     } else if (isPanning) {
       panX += (e.x - panStartX);
       panY += (e.y - panStartY);
@@ -222,17 +225,23 @@ async function main() {
     else if (e.button === 3) mouseState.buttons |= 2;
     else if (e.button === 2) mouseState.buttons |= 4;
 
-    // Check if clicked UI titlebar to drag (first 24px)
-    if (e.button === 1 &&
-        mouseState.x >= uiX && mouseState.x < uiX + UI_WIDTH &&
-        mouseState.y >= uiY && mouseState.y < uiY + 24) {
-      isDraggingUI = true;
-      dragOffsetX = mouseState.x - uiX;
-      dragOffsetY = mouseState.y - uiY;
-      return;
+    // 1. Check titlebar drag on any floating window (z-order top to bottom)
+    for (let i = uiActors.length - 1; i >= 0; i--) {
+      const { win } = uiActors[i];
+      if (mouseState.x >= win.x && mouseState.x < win.x + win.w &&
+          mouseState.y >= win.y && mouseState.y < win.y + 20) {
+        dragWin = win;
+        dragOffsetX = mouseState.x - win.x;
+        dragOffsetY = mouseState.y - win.y;
+
+        // Bring to front
+        const item = uiActors.splice(i, 1)[0];
+        uiActors.push(item);
+        return;
+      }
     }
 
-    // Check if Middle Click or Space + Left Click to start Pan
+    // 2. Middle mouse button or Space + Left button starts panning
     if (e.button === 2 || (spaceDown && e.button === 1)) {
       isPanning = true;
       panStartX = mouseState.x;
@@ -243,7 +252,7 @@ async function main() {
   window.on('mouseButtonUp', (e) => {
     if (e.button === 1) {
       mouseState.buttons &= ~1;
-      isDraggingUI = false;
+      dragWin = null;
     } else if (e.button === 3) {
       mouseState.buttons &= ~2;
     } else if (e.button === 2) {
@@ -256,92 +265,99 @@ async function main() {
     }
   });
 
+  // Wheel Zoom
   window.on('mouseWheel', (e) => {
-    if (ctrlDown) {
-      // Zoom centered on cursor
-      const oldZoom = zoom;
-      const zoomFactor = e.dy > 0 ? 1.15 : 0.85;
-      zoom = Math.max(0.1, Math.min(8.0, zoom * zoomFactor));
+    const oldZoom = zoom;
+    const factor = e.dy > 0 ? 1.15 : 0.85;
+    zoom = Math.max(0.1, Math.min(10.0, zoom * factor));
 
-      const mx = mouseState.x;
-      const my = mouseState.y;
-      panX = mx - (mx - panX) * (zoom / oldZoom);
-      panY = my - (my - panY) * (zoom / oldZoom);
-    } else {
-      mouseState.wheel_y += e.dy;
-    }
+    const mx = mouseState.x;
+    const my = mouseState.y;
+    panX = mx - (mx - panX) * (zoom / oldZoom);
+    panY = my - (my - panY) * (zoom / oldZoom);
   });
 
   window.on('keyDown', (e) => {
-    if (e.key === 'space') spaceDown = true;
-    if (e.key === 'leftCtrl' || e.key === 'rightCtrl') ctrlDown = true;
+    if (e.key === 'space' || e.scancode === 44) spaceDown = true;
 
-    // Reset view shortcut (Ctrl + 0)
-    if (ctrlDown && e.key === '0') {
-      zoom = 0.8;
+    // Brush Size Shortcuts: [ / ] or - / =
+    if (e.key === '[' || e.key === 'BracketLeft') {
+      coordinator.dispatch(ACTOR_HOST, ACTOR_CANVAS, Buffer.from(new Uint32Array([MSG_SET_BRUSH_SIZE, Math.max(1, 4), 0, 0]).buffer));
+    }
+
+    // Zoom Keys (+ / - / = / 0)
+    if (e.key === '=' || e.key === '+' || e.key === 'kpPlus') {
+      const oldZoom = zoom;
+      zoom = Math.min(10.0, zoom * 1.2);
+      panX = windowWidth / 2 - (windowWidth / 2 - panX) * (zoom / oldZoom);
+      panY = windowHeight / 2 - (windowHeight / 2 - panY) * (zoom / oldZoom);
+    } else if (e.key === '-' || e.key === 'kpMinus') {
+      const oldZoom = zoom;
+      zoom = Math.max(0.1, zoom * 0.8);
+      panX = windowWidth / 2 - (windowWidth / 2 - panX) * (zoom / oldZoom);
+      panY = windowHeight / 2 - (windowHeight / 2 - panY) * (zoom / oldZoom);
+    } else if (e.key === '0' || e.key === 'kp0') {
+      zoom = 0.75;
       panX = (windowWidth - DOC_WIDTH * zoom) / 2;
       panY = (windowHeight - DOC_HEIGHT * zoom) / 2;
     }
   });
 
   window.on('keyUp', (e) => {
-    if (e.key === 'space') {
+    if (e.key === 'space' || e.scancode === 44) {
       spaceDown = false;
       isPanning = false;
     }
-    if (e.key === 'leftCtrl' || e.key === 'rightCtrl') ctrlDown = false;
   });
 
   window.on('close', () => process.exit(0));
 
   console.log('=== Wesenho Studio Pronto ===');
-  console.log('UI Flutuante: Arraste a barra superior da sidebar para posicionar livremente.');
-  console.log('Navegacao: Espaco + Arrastar ou Botao do Meio = Pan | Ctrl + Scroll = Zoom');
-  console.log('Atalhos: Ctrl + 0 = Reset Viewport | Tecla + na UI = Nova Layer');
+  console.log('Tamanho do Pincel: Botoes [+] e [-] na janela Ferramentas.');
+  console.log('Zoom: Scroll do Mouse (roda) ou Teclas [+], [-], [0].');
+  console.log('Pan: Espaco + Botao Esquerdo ou Botao do Meio.');
 
   const frameLoop = () => {
-    // Check if mouse is over UI floating panel
-    const isOverUI = (
-      mouseState.x >= uiX && mouseState.x < uiX + UI_WIDTH &&
-      mouseState.y >= uiY && mouseState.y < uiY + UI_HEIGHT
-    );
-
-    // Sync UI Mouse
-    if (isOverUI && !isDraggingUI && !isPanning) {
-      const relUIX = mouseState.x - uiX;
-      const relUIY = mouseState.y - uiY;
-      uiActor.syncMouse(relUIX, relUIY, mouseState.buttons, 0, mouseState.wheel_y);
-    } else {
-      uiActor.syncMouse(-100, -100, 0, 0, 0);
+    // Check if mouse is over any floating window
+    let focusedActor = null;
+    for (let i = uiActors.length - 1; i >= 0; i--) {
+      const { win, actor } = uiActors[i];
+      if (mouseState.x >= win.x && mouseState.x < win.x + win.w &&
+          mouseState.y >= win.y && mouseState.y < win.y + win.h) {
+        focusedActor = { win, actor };
+        break;
+      }
     }
 
-    // Sync Canvas Mouse (Convert Screen Coordinates -> Document Coordinates with Pan & Zoom)
-    if (!isOverUI && !isPanning && !isDraggingUI) {
+    // Sync UI Actors Mouse
+    for (const { win, actor } of uiActors) {
+      if (focusedActor && focusedActor.win === win && !dragWin && !isPanning) {
+        const relX = mouseState.x - win.x;
+        const relY = mouseState.y - win.y;
+        actor.syncMouse(relX, relY, mouseState.buttons, 0, 0);
+      } else {
+        actor.syncMouse(-100, -100, 0, 0, 0);
+      }
+      actor.update();
+    }
+
+    // Sync Canvas Mouse
+    if (!focusedActor && !dragWin && !isPanning) {
       const docX = (mouseState.x - panX) / zoom;
       const docY = (mouseState.y - panY) / zoom;
-      canvasActor.syncMouse(docX, docY, mouseState.buttons, 0, mouseState.wheel_y);
+      canvasActor.syncMouse(docX, docY, mouseState.buttons, 0, 0);
     } else {
       canvasActor.syncMouse(-100, -100, 0, 0, 0);
     }
 
-    mouseState.wheel_y = 0;
-
-    uiActor.update();
     canvasActor.update();
 
-    const uiPixels = uiActor.getPixels();
+    // 1. Clear background (Dark Studio Pattern)
+    screenBuffer.fill(0x18);
+
+    // 2. Render Scaled & Panned Document Canvas
     const canvasPixels = canvasActor.getPixels();
-
-    // 1. Fill background workspace (Dark Studio theme)
-    screenBuffer.fill(0x16); // 0x16161616 dark grey
-
-    // 2. Render Scaled & Panned Document Canvas into screenBuffer
     if (canvasPixels) {
-      const startDocX = Math.max(0, Math.floor(-panX / zoom));
-      const startDocY = Math.max(0, Math.floor(-panY / zoom));
-      const endDocX = Math.min(DOC_WIDTH, Math.ceil((windowWidth - panX) / zoom));
-      const endDocY = Math.min(DOC_HEIGHT, Math.ceil((windowHeight - panY) / zoom));
-
       const screenStartX = Math.max(0, Math.floor(panX));
       const screenStartY = Math.max(0, Math.floor(panY));
       const screenEndX = Math.min(windowWidth, Math.ceil(panX + DOC_WIDTH * zoom));
@@ -369,37 +385,30 @@ async function main() {
           screenBuffer[screenPixelOffset + 3] = 0xFF;
         }
       }
-
-      // Draw Document Border / Shadow
-      if (screenStartX >= 0 && screenStartX < windowWidth) {
-        for (let y = Math.max(0, screenStartY); y < Math.min(windowHeight, screenEndY); y++) {
-          const offset = (y * windowWidth + screenStartX) * 4;
-          screenBuffer[offset] = 0x55;
-          screenBuffer[offset+1] = 0x55;
-          screenBuffer[offset+2] = 0x55;
-        }
-      }
     }
 
-    // 3. Composite Floating UI Panel on top (with shadow border)
-    if (uiPixels) {
-      for (let y = 0; y < UI_HEIGHT; y++) {
-        const sy = uiY + y;
+    // 3. Render Floating Windows in order
+    for (const { win, actor } of uiActors) {
+      const winPixels = actor.getPixels();
+      if (!winPixels) continue;
+
+      for (let y = 0; y < win.h; y++) {
+        const sy = win.y + y;
         if (sy < 0 || sy >= windowHeight) continue;
 
-        const uiRowOffset = y * UI_WIDTH * 4;
+        const winRowOffset = y * win.w * 4;
         const screenRowOffset = sy * windowWidth * 4;
 
-        for (let x = 0; x < UI_WIDTH; x++) {
-          const sx = uiX + x;
+        for (let x = 0; x < win.w; x++) {
+          const sx = win.x + x;
           if (sx < 0 || sx >= windowWidth) continue;
 
-          const uiPixelOffset = uiRowOffset + x * 4;
+          const winPixelOffset = winRowOffset + x * 4;
           const screenPixelOffset = screenRowOffset + sx * 4;
 
-          screenBuffer[screenPixelOffset + 0] = uiPixels[uiPixelOffset + 0];
-          screenBuffer[screenPixelOffset + 1] = uiPixels[uiPixelOffset + 1];
-          screenBuffer[screenPixelOffset + 2] = uiPixels[uiPixelOffset + 2];
+          screenBuffer[screenPixelOffset + 0] = winPixels[winPixelOffset + 0];
+          screenBuffer[screenPixelOffset + 1] = winPixels[winPixelOffset + 1];
+          screenBuffer[screenPixelOffset + 2] = winPixels[winPixelOffset + 2];
           screenBuffer[screenPixelOffset + 3] = 0xFF;
         }
       }

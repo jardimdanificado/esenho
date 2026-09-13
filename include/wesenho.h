@@ -16,9 +16,11 @@ int32_t update(void);
 #define PIOLHO_PAGE_SIZE 65536
 #define piolho_page ((uint8_t*)0)
 
-#define ACTOR_HOST   0
-#define ACTOR_CANVAS 1
-#define ACTOR_UI     2
+#define ACTOR_HOST    0
+#define ACTOR_CANVAS  1
+#define ACTOR_TOOLS   2
+#define ACTOR_PALETTE 3
+#define ACTOR_LAYERS  4
 
 int32_t say(int32_t target_id, int32_t len);
 void on_message(int32_t from_id, int32_t len);
@@ -63,7 +65,6 @@ typedef struct {
 #define MSG_LAYER_SELECT     8
 #define MSG_LAYER_TOGGLE_VIS 9
 #define MSG_LAYER_SET_OPACITY 10
-#define MSG_LAYER_INFO_SYNC  11
 
 #define TOOL_BRUSH  0
 #define TOOL_ERASER 1
@@ -77,13 +78,5 @@ typedef struct {
     uint32_t param2; /* Opacity / Visibility / Active Layer */
     uint32_t param3; /* Extra data */
 } wesenho_msg_t;
-
-/* Layer Metadata */
-typedef struct {
-    uint8_t  active;
-    uint8_t  visible;
-    uint8_t  opacity; // 0..255
-    uint8_t  blend_mode;
-} layer_meta_t;
 
 #endif /* WESENHO_H */
