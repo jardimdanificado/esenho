@@ -18,11 +18,26 @@ int32_t update(void);
 
 /* Base Actor IDs */
 #define ACTOR_BROKER    0
+#define ACTOR_HOST      0
+#define ACTOR_SCREEN    0
 #define ACTOR_CANVAS    1
 #define ACTOR_CONSOLE   10
 
 int32_t say(int32_t target_id, int32_t len);
 void on_message(int32_t from_id, int32_t len);
+
+/* Helper to send text command string to Host Actor */
+static inline void say_cmd(const char *cmd) {
+    if (!cmd) return;
+    int len = 0;
+    while (cmd[len] && len < 4095) {
+        piolho_page[len] = (uint8_t)cmd[len];
+        len++;
+    }
+    piolho_page[len] = '\0';
+    say(ACTOR_HOST, len + 1);
+}
+
 
 /* Wagnostic Standard Extensions */
 typedef struct {

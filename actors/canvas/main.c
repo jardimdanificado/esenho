@@ -504,14 +504,16 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+static int canvas_initialized = 0;
+
 int32_t update(void) {
-    if (!fb) {
+    if (!canvas_initialized) {
+        canvas_initialized = 1;
         fb = (wframebuffer_t*)ask("std:framebuffer");
         create_canvas_doc("canvas_0", DEFAULT_WIDTH, DEFAULT_HEIGHT);
     }
 
     if (active_canvas >= 0 && active_canvas < canvas_count) {
-        composite_canvas(&canvases[active_canvas]);
         sync_fb_to_active_canvas();
     }
     return UPDATE_OK;
