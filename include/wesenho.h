@@ -19,6 +19,7 @@ int32_t update(void);
 /* Base Actor IDs */
 #define ACTOR_BROKER    0
 #define ACTOR_CANVAS    1
+#define ACTOR_CONSOLE   10
 
 int32_t say(int32_t target_id, int32_t len);
 void on_message(int32_t from_id, int32_t len);
@@ -75,18 +76,49 @@ typedef struct {
 #define MSG_DRAW_CIRCLE      22
 #define MSG_DRAW_GRID        23
 #define MSG_APPLY_FILTER     30
+#define MSG_BRUSH_STROKE     40
+#define MSG_BRUSH_SET_PARAM  41
+#define MSG_SET_ACTIVE_BRUSH 42
+#define MSG_TEXTURE_SET_ACTIVE 50
+#define MSG_LAYER_TO_TEXTURE 51
+#define MSG_TEXTURE_LIST     52
+#define MSG_LOAD_IMAGE       60
+#define MSG_SAVE_IMAGE       61
+#define MSG_CONSOLE_LOG      70
+
+#define MSG_CANVAS_NEW       80
+#define MSG_CANVAS_SELECT    81
+#define MSG_CANVAS_RESIZE    82
+#define MSG_CANVAS_DELETE    83
+#define MSG_CANVAS_RENAME    84
+#define MSG_CANVAS_DUPLICATE 85
 
 #define TOOL_BRUSH  0
 #define TOOL_ERASER 1
 #define TOOL_BUCKET 2
 
-#define BRUSH_HARD_ROUND     0
-#define BRUSH_SOFT_AIRBRUSH  1
-#define BRUSH_PIXEL          2
-#define BRUSH_CHISEL         3
-#define BRUSH_SCATTER        4
+#define STROKE_START 0
+#define STROKE_MOVE  1
+#define STROKE_END   2
 
-#define MAX_LAYERS 8
+#define BRUSH_PARAM_SIZE             1
+#define BRUSH_PARAM_OPACITY          2
+#define BRUSH_PARAM_HARDNESS         3
+#define BRUSH_PARAM_FLOW             4
+#define BRUSH_PARAM_SPACING          5
+#define BRUSH_PARAM_ANGLE            6
+#define BRUSH_PARAM_ROUNDNESS        7
+#define BRUSH_PARAM_SCATTER          8
+#define BRUSH_PARAM_TOLERANCE        9
+#define BRUSH_PARAM_DENSITY          10
+#define BRUSH_PARAM_WETNESS          11
+#define BRUSH_PARAM_GRAIN            12
+#define BRUSH_PARAM_TEXTURE_MODE     13  /* 0=off, 1=grain/mask, 2=pattern */
+#define BRUSH_PARAM_TEXTURE_SCALE    14  /* 1..500% (default 100) */
+#define BRUSH_PARAM_TEXTURE_STRENGTH 15  /* 0..100% (default 100) */
+
+#define MAX_LAYERS_LIMIT 256
+#define MAX_CANVASES_LIMIT 64
 
 typedef struct {
     uint32_t type;
@@ -101,6 +133,80 @@ typedef struct {
     int32_t  param1;     /* e.g. radius, delta, factor */
     int32_t  param2;
 } wesenho_filter_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_BRUSH_STROKE */
+    int32_t  x;
+    int32_t  y;
+    int32_t  prev_x;
+    int32_t  prev_y;
+    uint32_t color;       /* ARGB / RGBA uint32 */
+    uint8_t  state;       /* STROKE_START, STROKE_MOVE, STROKE_END */
+    uint8_t  is_eraser;   /* 1 if eraser tool or right button */
+    uint8_t  pressure;    /* 0..255 */
+    uint8_t  reserved;
+} wesenho_stroke_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_BRUSH_SET_PARAM */
+    uint32_t param_id;    /* BRUSH_PARAM_* */
+    int32_t  value;
+    char     param_name[16]; /* Optional text name: "size", "flow", "hardness", etc. */
+} wesenho_brush_param_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_SET_ACTIVE_BRUSH */
+    char     name[20];    /* "round", "airbrush", "pixel", "calligraphy", "fill", "smudge", "scatter", "lasso_fill", "hatch", "charcoal", "blend" */
+} wesenho_active_brush_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_TEXTURE_SET_ACTIVE */
+    char     name[24];    /* "paper", "canvas", "noise", "dots", "grid", "grunge", or custom texture name */
+} wesenho_active_texture_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_LAYER_TO_TEXTURE */
+    int32_t  layer_idx;   /* -1 for active layer */
+    char     name[24];    /* Texture name to register */
+} wesenho_layer_texture_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_SAVE_IMAGE or MSG_LOAD_IMAGE */
+    int32_t  target;      /* 0 = canvas composite, 1 = active layer, 2 = as texture */
+    char     filepath[64];
+    char     name[24];    /* Optional name when target == 2 */
+} wesenho_image_io_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_CANVAS_NEW */
+    uint32_t width;
+    uint32_t height;
+    char     name[24];
+} wesenho_canvas_new_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_CANVAS_SELECT or MSG_CANVAS_DELETE */
+    int32_t  canvas_idx;  /* -1 if by name */
+    char     name[24];
+} wesenho_canvas_select_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_CANVAS_RESIZE */
+    uint32_t width;
+    uint32_t height;
+} wesenho_canvas_resize_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_CANVAS_RENAME */
+    int32_t  canvas_idx;
+    char     name[24];
+} wesenho_canvas_rename_msg_t;
+
+typedef struct {
+    uint32_t type;        /* MSG_CONSOLE_LOG */
+    uint32_t color;       /* 0xFFRRGGBB */
+    char     text[56];
+} wesenho_console_log_msg_t;
 
 typedef struct {
     uint32_t type;       /* MSG_PUB_TOPIC */

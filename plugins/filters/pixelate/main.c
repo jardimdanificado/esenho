@@ -1,7 +1,17 @@
-#include <stdint.h>
+#include "wesenho.h"
 
-void filter(uint32_t *pixels, int32_t width, int32_t height, int32_t p1, int32_t p2) {
-    int size = p1 > 1 ? p1 : 8;
+void on_message(int32_t from_id, int32_t len) {
+    if (len < (int32_t)sizeof(wesenho_filter_msg_t)) return;
+    wesenho_filter_msg_t *msg = (wesenho_filter_msg_t*)piolho_page;
+
+    wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
+    if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
+
+    uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
+    int width = fb->width;
+    int height = fb->height;
+    int size = msg->param1 > 1 ? msg->param1 : 8;
+
     for (int by = 0; by < height; by += size) {
         for (int bx = 0; bx < width; bx += size) {
             uint32_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0;
@@ -29,4 +39,8 @@ void filter(uint32_t *pixels, int32_t width, int32_t height, int32_t p1, int32_t
             }
         }
     }
+}
+
+int32_t update(void) {
+    return UPDATE_OK;
 }

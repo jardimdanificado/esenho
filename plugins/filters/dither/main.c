@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "wesenho.h"
 
 static const uint8_t bayer4[4][4] = {
     {  0,  8,  2, 10 },
@@ -7,7 +7,16 @@ static const uint8_t bayer4[4][4] = {
     { 15,  7, 13,  5 }
 };
 
-void filter(uint32_t *pixels, int32_t width, int32_t height, int32_t p1, int32_t p2) {
+void on_message(int32_t from_id, int32_t len) {
+    if (len < (int32_t)sizeof(wesenho_filter_msg_t)) return;
+
+    wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
+    if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
+
+    uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
+    int width = fb->width;
+    int height = fb->height;
+
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             uint32_t p = pixels[y * width + x];
@@ -23,4 +32,8 @@ void filter(uint32_t *pixels, int32_t width, int32_t height, int32_t p1, int32_t
             pixels[y * width + x] = col;
         }
     }
+}
+
+int32_t update(void) {
+    return UPDATE_OK;
 }

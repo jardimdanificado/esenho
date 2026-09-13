@@ -1,4 +1,4 @@
-#include <stdint.h>
+#include "wesenho.h"
 
 #define MAX_DOC (800 * 1000)
 static uint32_t temp[MAX_DOC];
@@ -15,9 +15,18 @@ static inline uint8_t get_lum(uint32_t p) {
     return (uint8_t)(((p & 0xFF) * 299 + ((p >> 8) & 0xFF) * 587 + ((p >> 16) & 0xFF) * 114) / 1000);
 }
 
-void filter(uint32_t *pixels, int32_t width, int32_t height, int32_t p1, int32_t p2) {
+void on_message(int32_t from_id, int32_t len) {
+    if (len < (int32_t)sizeof(wesenho_filter_msg_t)) return;
+
+    wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
+    if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
+
+    uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
+    int width = fb->width;
+    int height = fb->height;
     int total = width * height;
     if (total > MAX_DOC) total = MAX_DOC;
+
     for (int i = 0; i < total; i++) temp[i] = pixels[i];
 
     for (int y = 1; y < height - 1; y++) {
@@ -43,4 +52,8 @@ void filter(uint32_t *pixels, int32_t width, int32_t height, int32_t p1, int32_t
             }
         }
     }
+}
+
+int32_t update(void) {
+    return UPDATE_OK;
 }

@@ -7,6 +7,8 @@
 #define MAX_LINE_LEN    64
 #define MAX_HISTORY     16
 #define MAX_TOKENS      12
+#define MAX_CONSOLE_LAYERS 256
+#define MAX_CONSOLE_CANVASES 64
 
 static wframebuffer_t *fb = 0;
 static wmouse_t       *mouse = 0;
@@ -28,13 +30,17 @@ static char history[MAX_HISTORY][MAX_LINE_LEN];
 static int history_count = 0;
 static int history_idx = -1;
 
+// Canvas Registry Mirror
+static char     canvas_names[MAX_CONSOLE_CANVASES][24];
+static uint32_t canvas_widths[MAX_CONSOLE_CANVASES];
+static uint32_t canvas_heights[MAX_CONSOLE_CANVASES];
+static int      canvas_count = 1;
+static int      active_canvas = 0;
+
 // Layer Registry Mirror
-static char layer_names[MAX_LAYERS][16] = {
-    "Layer 0", "Layer 1", "Layer 2", "Layer 3",
-    "Layer 4", "Layer 5", "Layer 6", "Layer 7"
-};
-static uint8_t layer_vis[MAX_LAYERS] = {1, 1, 1, 1, 1, 1, 1, 1};
-static uint8_t layer_op[MAX_LAYERS] = {100, 100, 100, 100, 100, 100, 100, 100};
+static char layer_names[MAX_CONSOLE_LAYERS][16];
+static uint8_t layer_vis[MAX_CONSOLE_LAYERS];
+static uint8_t layer_op[MAX_CONSOLE_LAYERS];
 static int layer_count = 1;
 static int active_layer = 0;
 
@@ -183,6 +189,18 @@ static int parse_color_token(const char *tok, uint32_t *out) {
     return 0;
 }
 
+static int find_canvas_idx(const char *tok) {
+    if (!tok || !tok[0]) return -1;
+    int32_t id = -1;
+    if (parse_int(tok, &id)) {
+        if (id >= 0 && id < canvas_count) return id;
+    }
+    for (int i = 0; i < canvas_count; i++) {
+        if (str_cmp(canvas_names[i], tok) == 0) return i;
+    }
+    return -1;
+}
+
 static int find_layer_idx(const char *tok) {
     if (!tok || !tok[0]) return -1;
     int32_t id = -1;
@@ -193,6 +211,47 @@ static int find_layer_idx(const char *tok) {
         if (str_cmp(layer_names[i], tok) == 0) return i;
     }
     return -1;
+}
+
+static void send_canvas_new(const char *name, uint32_t width, uint32_t height) {
+    wesenho_canvas_new_msg_t *nmsg = (wesenho_canvas_new_msg_t*)piolho_page;
+    nmsg->type = MSG_CANVAS_NEW;
+    nmsg->width = width;
+    nmsg->height = height;
+    str_copy(nmsg->name, name, 24);
+    say(ACTOR_CANVAS, sizeof(wesenho_canvas_new_msg_t));
+}
+
+static void send_canvas_select(int idx, const char *name) {
+    wesenho_canvas_select_msg_t *smsg = (wesenho_canvas_select_msg_t*)piolho_page;
+    smsg->type = MSG_CANVAS_SELECT;
+    smsg->canvas_idx = idx;
+    str_copy(smsg->name, name ? name : "", 24);
+    say(ACTOR_CANVAS, sizeof(wesenho_canvas_select_msg_t));
+}
+
+static void send_canvas_resize(uint32_t w, uint32_t h) {
+    wesenho_canvas_resize_msg_t *rmsg = (wesenho_canvas_resize_msg_t*)piolho_page;
+    rmsg->type = MSG_CANVAS_RESIZE;
+    rmsg->width = w;
+    rmsg->height = h;
+    say(ACTOR_CANVAS, sizeof(wesenho_canvas_resize_msg_t));
+}
+
+static void send_canvas_delete(int idx, const char *name) {
+    wesenho_canvas_select_msg_t *dmsg = (wesenho_canvas_select_msg_t*)piolho_page;
+    dmsg->type = MSG_CANVAS_DELETE;
+    dmsg->canvas_idx = idx;
+    str_copy(dmsg->name, name ? name : "", 24);
+    say(ACTOR_CANVAS, sizeof(wesenho_canvas_select_msg_t));
+}
+
+static void send_canvas_rename(int idx, const char *name) {
+    wesenho_canvas_rename_msg_t *rnmsg = (wesenho_canvas_rename_msg_t*)piolho_page;
+    rnmsg->type = MSG_CANVAS_RENAME;
+    rnmsg->canvas_idx = idx;
+    str_copy(rnmsg->name, name, 24);
+    say(ACTOR_CANVAS, sizeof(wesenho_canvas_rename_msg_t));
 }
 
 static void send_layer_rename(int idx, const char *name) {
@@ -211,6 +270,81 @@ static void send_filter(const char *name, int32_t p1, int32_t p2) {
     fmsg->param1 = p1;
     fmsg->param2 = p2;
     say(ACTOR_BROKER, sizeof(wesenho_filter_msg_t));
+}
+
+static void send_set_brush(const char *name) {
+    wesenho_active_brush_msg_t *bmsg = (wesenho_active_brush_msg_t*)piolho_page;
+    bmsg->type = MSG_SET_ACTIVE_BRUSH;
+    str_copy(bmsg->name, name, 20);
+    say(ACTOR_BROKER, sizeof(wesenho_active_brush_msg_t));
+}
+
+static void send_brush_param(uint32_t param_id, int32_t val, const char *name) {
+    wesenho_brush_param_msg_t *pmsg = (wesenho_brush_param_msg_t*)piolho_page;
+    pmsg->type = MSG_BRUSH_SET_PARAM;
+    pmsg->param_id = param_id;
+    pmsg->value = val;
+    str_copy(pmsg->param_name, name ? name : "", 16);
+    say(ACTOR_BROKER, sizeof(wesenho_brush_param_msg_t));
+}
+
+static void send_set_texture(const char *name) {
+    wesenho_active_texture_msg_t *tmsg = (wesenho_active_texture_msg_t*)piolho_page;
+    tmsg->type = MSG_TEXTURE_SET_ACTIVE;
+    str_copy(tmsg->name, name, 24);
+    say(ACTOR_BROKER, sizeof(wesenho_active_texture_msg_t));
+}
+
+static void send_layer_to_texture(int layer_idx, const char *name) {
+    wesenho_layer_texture_msg_t *ltmsg = (wesenho_layer_texture_msg_t*)piolho_page;
+    ltmsg->type = MSG_LAYER_TO_TEXTURE;
+    ltmsg->layer_idx = layer_idx;
+    str_copy(ltmsg->name, name, 24);
+    say(ACTOR_BROKER, sizeof(wesenho_layer_texture_msg_t));
+}
+
+static void send_save_image(int target, const char *path) {
+    wesenho_image_io_msg_t *smsg = (wesenho_image_io_msg_t*)piolho_page;
+    smsg->type = MSG_SAVE_IMAGE;
+    smsg->target = target;
+    str_copy(smsg->filepath, path, 64);
+    smsg->name[0] = '\0';
+    say(ACTOR_BROKER, sizeof(wesenho_image_io_msg_t));
+}
+
+static void send_load_image(int target, const char *path, const char *tex_name) {
+    wesenho_image_io_msg_t *lmsg = (wesenho_image_io_msg_t*)piolho_page;
+    lmsg->type = MSG_LOAD_IMAGE;
+    lmsg->target = target;
+    str_copy(lmsg->filepath, path, 64);
+    str_copy(lmsg->name, tex_name ? tex_name : "", 24);
+    say(ACTOR_BROKER, sizeof(wesenho_image_io_msg_t));
+}
+
+static void list_canvases(void) {
+    log_print("--- CANVASES ---", 0xFF00FFCC);
+    for (int i = 0; i < canvas_count; i++) {
+        char line[MAX_LINE_LEN] = "[";
+        char num[8];
+        int_to_str(i, num);
+        int p = 1;
+        for (int k = 0; num[k]; k++) line[p++] = num[k];
+        line[p++] = ']'; line[p++] = ' ';
+        for (int k = 0; canvas_names[i][k] && p < 20; k++) line[p++] = canvas_names[i][k];
+        while (p < 22) line[p++] = ' ';
+        line[p++] = '(';
+        int_to_str(canvas_widths[i], num);
+        for (int k = 0; num[k]; k++) line[p++] = num[k];
+        line[p++] = 'x';
+        int_to_str(canvas_heights[i], num);
+        for (int k = 0; num[k]; k++) line[p++] = num[k];
+        line[p++] = ')';
+        if (i == active_canvas) {
+            line[p++] = ' '; line[p++] = '<'; line[p++] = '*'; line[p++] = '>';
+        }
+        line[p] = '\0';
+        log_print(line, (i == active_canvas) ? 0xFFFFFFFF : 0xFFAABBCC);
+    }
 }
 
 static void list_layers(void) {
@@ -242,7 +376,7 @@ static void list_layers(void) {
 static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
     if (ntok == 0) return;
 
-    // 1. Math S-expressions: (+ 10 20), (- 50 12), (* 8 4), (/ 100 5)
+    // 1. Math S-expressions
     if (ntok == 3 && (str_cmp(tokens[0], "+") == 0 || str_cmp(tokens[0], "-") == 0 ||
                       str_cmp(tokens[0], "*") == 0 || str_cmp(tokens[0], "/") == 0)) {
         int32_t a = 0, b = 0;
@@ -262,9 +396,146 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 2. new layer ["name"]
+    // 2. new canvas ["name"] [w] [h]
+    if (str_cmp(tokens[0], "new") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvas") == 0) {
+        if (canvas_count < MAX_CONSOLE_CANVASES) {
+            const char *cname = (ntok >= 3) ? tokens[2] : "canvas";
+            int32_t w = 800, h = 1000;
+            if (ntok >= 4) parse_int(tokens[3], &w);
+            if (ntok >= 5) parse_int(tokens[4], &h);
+            if (w < 16) w = 800;
+            if (h < 16) h = 1000;
+
+            int new_idx = canvas_count;
+            str_copy(canvas_names[new_idx], cname, 24);
+            canvas_widths[new_idx] = w;
+            canvas_heights[new_idx] = h;
+            active_canvas = new_idx;
+            canvas_count++;
+
+            send_canvas_new(cname, (uint32_t)w, (uint32_t)h);
+            char out[MAX_LINE_LEN] = "ok: new canvas created ";
+            str_copy(out + str_len(out), cname, 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: max canvases reached (64)", 0xFFFF5555);
+        }
+        return;
+    }
+
+    // 3. set / select canvas <name|id> | set canvas width <x> | set canvas height <y> | set canvas size <w> <h>
+    if (str_cmp(tokens[0], "set") == 0 && ntok >= 3 && str_cmp(tokens[1], "canvas") == 0) {
+        if (str_cmp(tokens[2], "width") == 0 && ntok >= 4) {
+            int32_t w = 800;
+            parse_int(tokens[3], &w);
+            if (w >= 16 && w <= 4096) {
+                canvas_widths[active_canvas] = w;
+                send_canvas_resize((uint32_t)w, canvas_heights[active_canvas]);
+                log_print("ok: canvas width updated", 0xFF00FF88);
+            }
+            return;
+        } else if (str_cmp(tokens[2], "height") == 0 && ntok >= 4) {
+            int32_t h = 1000;
+            parse_int(tokens[3], &h);
+            if (h >= 16 && h <= 4096) {
+                canvas_heights[active_canvas] = h;
+                send_canvas_resize(canvas_widths[active_canvas], (uint32_t)h);
+                log_print("ok: canvas height updated", 0xFF00FF88);
+            }
+            return;
+        } else if (str_cmp(tokens[2], "size") == 0 && ntok >= 5) {
+            int32_t w = 800, h = 1000;
+            parse_int(tokens[3], &w);
+            parse_int(tokens[4], &h);
+            if (w >= 16 && h >= 16) {
+                canvas_widths[active_canvas] = w;
+                canvas_heights[active_canvas] = h;
+                send_canvas_resize((uint32_t)w, (uint32_t)h);
+                log_print("ok: canvas resized", 0xFF00FF88);
+            }
+            return;
+        } else {
+            int idx = find_canvas_idx(tokens[2]);
+            if (idx >= 0) {
+                active_canvas = idx;
+                send_canvas_select(idx, tokens[2]);
+                char out[MAX_LINE_LEN] = "ok: selected canvas ";
+                str_copy(out + str_len(out), canvas_names[idx], 20);
+                log_print(out, 0xFF00FF88);
+            } else {
+                log_print("err: canvas not found", 0xFFFF5555);
+            }
+            return;
+        }
+    }
+
+    // 4. select canvas <name|id> | canvas <name|id>
+    if ((str_cmp(tokens[0], "select") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvas") == 0) ||
+        (str_cmp(tokens[0], "canvas") == 0 && ntok >= 2 && str_cmp(tokens[1], "list") != 0 && str_cmp(tokens[1], "resize") != 0)) {
+        const char *target = (str_cmp(tokens[0], "select") == 0) ? (ntok >= 3 ? tokens[2] : "") : tokens[1];
+        int idx = find_canvas_idx(target);
+        if (idx >= 0) {
+            active_canvas = idx;
+            send_canvas_select(idx, target);
+            char out[MAX_LINE_LEN] = "ok: selected canvas ";
+            str_copy(out + str_len(out), canvas_names[idx], 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: canvas not found", 0xFFFF5555);
+        }
+        return;
+    }
+
+    // 5. delete canvas <name|id>
+    if ((str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) && ntok >= 2 && str_cmp(tokens[1], "canvas") == 0) {
+        const char *target = (ntok >= 3) ? tokens[2] : "";
+        int idx = find_canvas_idx(target);
+        if (idx >= 0) {
+            send_canvas_delete(idx, target);
+            if (canvas_count > 1) {
+                for (int c = idx; c < canvas_count - 1; c++) {
+                    str_copy(canvas_names[c], canvas_names[c + 1], 24);
+                    canvas_widths[c] = canvas_widths[c + 1];
+                    canvas_heights[c] = canvas_heights[c + 1];
+                }
+                canvas_count--;
+                if (active_canvas >= canvas_count) active_canvas = canvas_count - 1;
+            }
+            char out[MAX_LINE_LEN] = "ok: deleted canvas ";
+            str_copy(out + str_len(out), target, 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: canvas not found", 0xFFFF5555);
+        }
+        return;
+    }
+
+    // 6. canvases / canvas list / list canvases
+    if (str_cmp(tokens[0], "canvases") == 0 ||
+        (str_cmp(tokens[0], "canvas") == 0 && ntok == 1) ||
+        (str_cmp(tokens[0], "canvas") == 0 && ntok >= 2 && str_cmp(tokens[1], "list") == 0) ||
+        (str_cmp(tokens[0], "list") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvases") == 0)) {
+        list_canvases();
+        return;
+    }
+
+    // 7. canvas resize <w> <h>
+    if (str_cmp(tokens[0], "canvas") == 0 && ntok >= 4 && str_cmp(tokens[1], "resize") == 0) {
+        int32_t w = 800, h = 1000;
+        parse_int(tokens[2], &w);
+        parse_int(tokens[3], &h);
+        if (w >= 16 && h >= 16) {
+            canvas_widths[active_canvas] = w;
+            canvas_heights[active_canvas] = h;
+            send_canvas_resize((uint32_t)w, (uint32_t)h);
+            log_print("ok: canvas resized", 0xFF00FF88);
+        }
+        return;
+    }
+
+    // 8. new layer ["name"]
     if (str_cmp(tokens[0], "new") == 0 && ntok >= 2 && str_cmp(tokens[1], "layer") == 0) {
-        if (layer_count < MAX_LAYERS) {
+        if (layer_count < MAX_CONSOLE_LAYERS) {
             int new_idx = layer_count;
             layer_vis[new_idx] = 1;
             layer_op[new_idx] = 100;
@@ -274,8 +545,9 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
                 send_layer_rename(new_idx, tokens[2]);
             } else {
                 char def_name[16] = "Layer ";
-                def_name[6] = '0' + new_idx;
-                def_name[7] = '\0';
+                char num[8];
+                int_to_str(new_idx, num);
+                str_copy(def_name + 6, num, 8);
                 str_copy(layer_names[new_idx], def_name, 16);
                 send_msg(MSG_LAYER_ADD, 0, 0, 0);
             }
@@ -285,14 +557,14 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
             if (ntok >= 3) str_copy(out + str_len(out), tokens[2], 20);
             log_print(out, 0xFF00FF88);
         } else {
-            log_print("err: max layers reached (8)", 0xFFFF5555);
+            log_print("err: max layers reached (256)", 0xFFFF5555);
         }
         return;
     }
 
-    // 3. set / select current_layer / layer <target>
+    // 9. set / select current_layer / layer <target>
     if ((str_cmp(tokens[0], "set") == 0 && ntok >= 3 && (str_cmp(tokens[1], "current_layer") == 0 || str_cmp(tokens[1], "layer") == 0)) ||
-        (str_cmp(tokens[0], "select") == 0 && ntok >= 2)) {
+        (str_cmp(tokens[0], "select") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvas") != 0)) {
         const char *target = (str_cmp(tokens[0], "select") == 0) ? (ntok >= 3 && str_cmp(tokens[1], "layer") == 0 ? tokens[2] : tokens[1]) : tokens[2];
         int idx = find_layer_idx(target);
         if (idx >= 0) {
@@ -307,8 +579,19 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 4. rename current_layer "name" | rename layer <target> "name"
+    // 10. rename layer / current_layer / canvas
     if (str_cmp(tokens[0], "rename") == 0 && ntok >= 3) {
+        if (str_cmp(tokens[1], "canvas") == 0) {
+            const char *new_name = (ntok >= 4) ? tokens[3] : tokens[2];
+            int idx = (ntok >= 4) ? find_canvas_idx(tokens[2]) : active_canvas;
+            if (idx >= 0) {
+                str_copy(canvas_names[idx], new_name, 24);
+                send_canvas_rename(idx, new_name);
+                log_print("ok: canvas renamed", 0xFF00FF88);
+            }
+            return;
+        }
+
         int idx = active_layer;
         const char *new_name = tokens[2];
         if (str_cmp(tokens[1], "layer") == 0 && ntok >= 4) {
@@ -326,8 +609,8 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 5. delete layer <target>
-    if (str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) {
+    // 11. delete layer <target>
+    if ((str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) && str_cmp(tokens[1], "canvas") != 0) {
         const char *target = (ntok >= 3 && str_cmp(tokens[1], "layer") == 0) ? tokens[2] : (ntok >= 2 ? tokens[1] : "");
         int idx = find_layer_idx(target);
         if (idx >= 0) {
@@ -350,14 +633,20 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 6. layer / layers / list layers
+    // 12. layer to_texture <name>
+    if (str_cmp(tokens[0], "layer") == 0 && ntok >= 3 && (str_cmp(tokens[1], "to_texture") == 0 || str_cmp(tokens[1], "texture") == 0)) {
+        send_layer_to_texture(active_layer, tokens[2]);
+        return;
+    }
+
+    // 13. layers / list layers
     if (str_cmp(tokens[0], "layer") == 0 || str_cmp(tokens[0], "layers") == 0 ||
         (str_cmp(tokens[0], "list") == 0 && ntok >= 2 && str_cmp(tokens[1], "layers") == 0)) {
         list_layers();
         return;
     }
 
-    // 7. toggle / hide / show layer [target]
+    // 14. toggle / hide / show layer [target]
     if (str_cmp(tokens[0], "toggle") == 0 || str_cmp(tokens[0], "hide") == 0 || str_cmp(tokens[0], "show") == 0) {
         int idx = active_layer;
         if (ntok >= 2) {
@@ -371,7 +660,7 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 8. set opacity <val> [layer]
+    // 15. set opacity <val> [layer]
     if (str_cmp(tokens[0], "set") == 0 && (str_cmp(tokens[1], "opacity") == 0 || (ntok >= 4 && str_cmp(tokens[2], "opacity") == 0))) {
         int32_t op = 100;
         int idx = active_layer;
@@ -387,7 +676,7 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 9. set color <#hex | (rgb r g b) | name>
+    // 16. set color
     if (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "color") == 0 && ntok >= 3) {
         uint32_t col = 0;
         if (str_cmp(tokens[2], "rgb") == 0 && ntok >= 6) {
@@ -406,30 +695,126 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         }
     }
 
-    // 10. set brush size <val> | set size <val>
-    if ((str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "brush") == 0 && ntok >= 4 && str_cmp(tokens[2], "size") == 0) ||
-        (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "size") == 0 && ntok >= 3)) {
+    // 17. Texture commands
+    if (str_cmp(tokens[0], "texture") == 0 || (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "texture") == 0)) {
+        if (ntok == 1 || (ntok == 2 && str_cmp(tokens[1], "list") == 0)) {
+            log_print("--- TEXTURES ---", 0xFF00FFCC);
+            log_print("paper, canvas, noise, dots, grid, grunge", 0xFFAABBCC);
+            log_print("Usage: texture <name> | layer to_texture <name>", 0xFF888888);
+            return;
+        }
+        const char *tname = (str_cmp(tokens[0], "set") == 0) ? tokens[2] : tokens[1];
+        send_set_texture(tname);
+        return;
+    }
+
+    if (str_cmp(tokens[0], "textures") == 0) {
+        log_print("--- TEXTURES ---", 0xFF00FFCC);
+        log_print("paper, canvas, noise, dots, grid, grunge", 0xFFAABBCC);
+        return;
+    }
+
+    // 18. Save / Load Image commands
+    if (str_cmp(tokens[0], "save") == 0 && ntok >= 2) {
+        const char *fpath = (ntok >= 3 && (str_cmp(tokens[1], "image") == 0 || str_cmp(tokens[1], "canvas") == 0)) ? tokens[2] : tokens[1];
+        int target = 0;
+        if (ntok >= 3 && str_cmp(tokens[1], "layer") == 0) {
+            target = 1;
+            fpath = tokens[2];
+        }
+        send_save_image(target, fpath);
+        return;
+    }
+
+    if (str_cmp(tokens[0], "load") == 0 && ntok >= 2) {
+        if (str_cmp(tokens[1], "texture") == 0 && ntok >= 3) {
+            const char *tname = (ntok >= 4) ? tokens[3] : "";
+            send_load_image(2, tokens[2], tname);
+            return;
+        }
+        int target = 0;
+        const char *fpath = tokens[1];
+        if (str_cmp(tokens[1], "image") == 0 && ntok >= 3) {
+            fpath = tokens[2];
+        } else if (str_cmp(tokens[1], "layer") == 0 && ntok >= 3) {
+            target = 1;
+            fpath = tokens[2];
+        }
+        send_load_image(target, fpath, "");
+        return;
+    }
+
+    // 19. brush commands
+    if (str_cmp(tokens[0], "brush") == 0 || (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "brush") == 0)) {
+        if (ntok == 1 || (ntok == 2 && str_cmp(tokens[1], "list") == 0)) {
+            log_print("--- WASM BRUSHES ---", 0xFF00FFCC);
+            log_print("round, airbrush, pixel, calligraphy, fill", 0xFFAABBCC);
+            log_print("lasso_fill, smudge, scatter, hatch, charcoal, blend", 0xFFAABBCC);
+            return;
+        }
+
+        const char *arg1 = (str_cmp(tokens[0], "set") == 0) ? tokens[2] : tokens[1];
+        const char *arg2 = (str_cmp(tokens[0], "set") == 0) ? (ntok >= 4 ? tokens[3] : "") : (ntok >= 3 ? tokens[2] : "");
+
+        int32_t val = 0;
+        if (arg2[0] && (parse_int(arg2, &val) || str_cmp(arg2, "off") == 0 || str_cmp(arg2, "grain") == 0 || str_cmp(arg2, "pattern") == 0)) {
+            uint32_t pid = 0;
+            if (str_cmp(arg1, "size") == 0) pid = BRUSH_PARAM_SIZE;
+            else if (str_cmp(arg1, "opacity") == 0 || str_cmp(arg1, "alpha") == 0) pid = BRUSH_PARAM_OPACITY;
+            else if (str_cmp(arg1, "hardness") == 0) pid = BRUSH_PARAM_HARDNESS;
+            else if (str_cmp(arg1, "flow") == 0) pid = BRUSH_PARAM_FLOW;
+            else if (str_cmp(arg1, "spacing") == 0) pid = BRUSH_PARAM_SPACING;
+            else if (str_cmp(arg1, "angle") == 0 || str_cmp(arg1, "rotation") == 0) pid = BRUSH_PARAM_ANGLE;
+            else if (str_cmp(arg1, "roundness") == 0 || str_cmp(arg1, "aspect") == 0) pid = BRUSH_PARAM_ROUNDNESS;
+            else if (str_cmp(arg1, "scatter") == 0) pid = BRUSH_PARAM_SCATTER;
+            else if (str_cmp(arg1, "tolerance") == 0 || str_cmp(arg1, "tol") == 0) pid = BRUSH_PARAM_TOLERANCE;
+            else if (str_cmp(arg1, "density") == 0 || str_cmp(arg1, "count") == 0) pid = BRUSH_PARAM_DENSITY;
+            else if (str_cmp(arg1, "wetness") == 0 || str_cmp(arg1, "wet") == 0) pid = BRUSH_PARAM_WETNESS;
+            else if (str_cmp(arg1, "grain") == 0) pid = BRUSH_PARAM_GRAIN;
+            else if (str_cmp(arg1, "texture_mode") == 0 || str_cmp(arg1, "tex_mode") == 0) {
+                pid = BRUSH_PARAM_TEXTURE_MODE;
+                if (str_cmp(arg2, "off") == 0) val = 0;
+                else if (str_cmp(arg2, "grain") == 0 || str_cmp(arg2, "mask") == 0) val = 1;
+                else if (str_cmp(arg2, "pattern") == 0) val = 2;
+            }
+            else if (str_cmp(arg1, "texture_scale") == 0 || str_cmp(arg1, "tex_scale") == 0) pid = BRUSH_PARAM_TEXTURE_SCALE;
+            else if (str_cmp(arg1, "texture_strength") == 0 || str_cmp(arg1, "tex_strength") == 0) pid = BRUSH_PARAM_TEXTURE_STRENGTH;
+
+            if (pid > 0) {
+                send_brush_param(pid, val, arg1);
+                char out[MAX_LINE_LEN] = "ok: brush ";
+                str_copy(out + str_len(out), arg1, 16);
+                str_copy(out + str_len(out), " set to ", 10);
+                str_copy(out + str_len(out), arg2, 10);
+                log_print(out, 0xFF00FF88);
+                return;
+            }
+        }
+
+        send_set_brush(arg1);
+        char out[MAX_LINE_LEN] = "ok: active brush set to ";
+        str_copy(out + str_len(out), arg1, 20);
+        log_print(out, 0xFF00FF88);
+        return;
+    }
+
+    if (str_cmp(tokens[0], "brushes") == 0) {
+        log_print("--- WASM BRUSHES ---", 0xFF00FFCC);
+        log_print("round, airbrush, pixel, calligraphy, fill", 0xFFAABBCC);
+        log_print("lasso_fill, smudge, scatter, hatch, charcoal, blend", 0xFFAABBCC);
+        return;
+    }
+
+    // 20. set size
+    if (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "size") == 0 && ntok >= 3) {
         int32_t sz = 4;
-        parse_int(tokens[str_cmp(tokens[1], "size") == 0 ? 2 : 3], &sz);
-        send_msg(MSG_SET_BRUSH_SIZE, (uint32_t)sz, 0, 0);
+        parse_int(tokens[2], &sz);
+        send_brush_param(BRUSH_PARAM_SIZE, sz, "size");
         log_print("ok: brush size set", 0xFF00FF88);
         return;
     }
 
-    // 11. set brush type <round|soft|pixel|chisel|spray>
-    if (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "brush") == 0 && ntok >= 4 && str_cmp(tokens[2], "type") == 0) {
-        int type = 0;
-        if (str_cmp(tokens[3], "round") == 0) type = BRUSH_HARD_ROUND;
-        else if (str_cmp(tokens[3], "soft") == 0 || str_cmp(tokens[3], "air") == 0) type = BRUSH_SOFT_AIRBRUSH;
-        else if (str_cmp(tokens[3], "pixel") == 0) type = BRUSH_PIXEL;
-        else if (str_cmp(tokens[3], "chisel") == 0) type = BRUSH_CHISEL;
-        else if (str_cmp(tokens[3], "spray") == 0) type = BRUSH_SCATTER;
-        send_msg(MSG_SET_BRUSH_TYPE, (uint32_t)type, 0, 0);
-        log_print("ok: brush type set", 0xFF00FF88);
-        return;
-    }
-
-    // 12. set tool <brush|eraser>
+    // 21. set tool
     if ((str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "tool") == 0 && ntok >= 3) ||
         (str_cmp(tokens[0], "tool") == 0 && ntok >= 2)) {
         const char *t = (str_cmp(tokens[0], "tool") == 0) ? tokens[1] : tokens[2];
@@ -439,31 +824,23 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 13. draw circle / rect / line / grid
+    // 22. draw shapes
     if (str_cmp(tokens[0], "draw") == 0 && ntok >= 2) {
         if (str_cmp(tokens[1], "circle") == 0 && ntok >= 5) {
             int32_t cx = 0, cy = 0, r = 10;
-            parse_int(tokens[2], &cx);
-            parse_int(tokens[3], &cy);
-            parse_int(tokens[4], &r);
+            parse_int(tokens[2], &cx); parse_int(tokens[3], &cy); parse_int(tokens[4], &r);
             send_msg(MSG_DRAW_CIRCLE, ((cx & 0xFFFF) << 16) | (cy & 0xFFFF), (uint32_t)r, 0);
             log_print("ok: circle drawn", 0xFF00FF88);
             return;
         } else if (str_cmp(tokens[1], "rect") == 0 && ntok >= 6) {
             int32_t rx = 0, ry = 0, rw = 0, rh = 0;
-            parse_int(tokens[2], &rx);
-            parse_int(tokens[3], &ry);
-            parse_int(tokens[4], &rw);
-            parse_int(tokens[5], &rh);
+            parse_int(tokens[2], &rx); parse_int(tokens[3], &ry); parse_int(tokens[4], &rw); parse_int(tokens[5], &rh);
             send_msg(MSG_DRAW_RECT, ((rx & 0xFFFF) << 16) | (ry & 0xFFFF), ((rw & 0xFFFF) << 16) | (rh & 0xFFFF), 0);
             log_print("ok: rectangle drawn", 0xFF00FF88);
             return;
         } else if (str_cmp(tokens[1], "line") == 0 && ntok >= 6) {
             int32_t x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-            parse_int(tokens[2], &x0);
-            parse_int(tokens[3], &y0);
-            parse_int(tokens[4], &x1);
-            parse_int(tokens[5], &y1);
+            parse_int(tokens[2], &x0); parse_int(tokens[3], &y0); parse_int(tokens[4], &x1); parse_int(tokens[5], &y1);
             send_msg(MSG_DRAW_LINE, ((x0 & 0xFFFF) << 16) | (y0 & 0xFFFF), ((x1 & 0xFFFF) << 16) | (y1 & 0xFFFF), 0);
             log_print("ok: line drawn", 0xFF00FF88);
             return;
@@ -476,21 +853,20 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         }
     }
 
-    // 14. clear layer
+    // 23. clear
     if (str_cmp(tokens[0], "clear") == 0) {
         send_msg(MSG_EFFECT_CLEAR, 0, 0, 0);
         log_print("ok: layer cleared", 0xFF00FF88);
         return;
     }
 
-    // 15. Wasm Filters: filter <name> [p1] [p2] | filters
+    // 24. filters
     if (str_cmp(tokens[0], "filter") == 0 || str_cmp(tokens[0], "effect") == 0) {
         if (ntok == 1 || str_cmp(tokens[1], "list") == 0) {
             log_print("--- WASM FILTERS ---", 0xFF00FFCC);
             log_print("invert, grayscale, blur [r], brightness [d]", 0xFFAABBCC);
             log_print("contrast [f], sepia, noise [amt], pixelate [s]", 0xFFAABBCC);
             log_print("dither, threshold [t], edge", 0xFFAABBCC);
-            log_print("Usage: filter <name> [p1] [p2]", 0xFF888888);
             return;
         }
         int32_t p1 = 0, p2 = 0;
@@ -511,91 +887,35 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // Wasm filter shortcuts
-    if (str_cmp(tokens[0], "invert") == 0) {
-        send_filter("invert", 0, 0);
-        log_print("ok: filter invert applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "grayscale") == 0) {
-        send_filter("grayscale", 0, 0);
-        log_print("ok: filter grayscale applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "blur") == 0) {
-        int32_t r = 3;
-        if (ntok >= 2) parse_int(tokens[1], &r);
-        send_filter("blur", r, 0);
-        log_print("ok: filter blur applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "brightness") == 0) {
-        int32_t d = 30;
-        if (ntok >= 2) parse_int(tokens[1], &d);
-        send_filter("brightness", d, 0);
-        log_print("ok: filter brightness applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "contrast") == 0) {
-        int32_t f = 30;
-        if (ntok >= 2) parse_int(tokens[1], &f);
-        send_filter("contrast", f, 0);
-        log_print("ok: filter contrast applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "sepia") == 0) {
-        send_filter("sepia", 0, 0);
-        log_print("ok: filter sepia applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "noise") == 0) {
-        int32_t amt = 25;
-        if (ntok >= 2) parse_int(tokens[1], &amt);
-        send_filter("noise", amt, 0);
-        log_print("ok: filter noise applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "pixelate") == 0) {
-        int32_t sz = 8;
-        if (ntok >= 2) parse_int(tokens[1], &sz);
-        send_filter("pixelate", sz, 0);
-        log_print("ok: filter pixelate applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "dither") == 0) {
-        send_filter("dither", 0, 0);
-        log_print("ok: filter dither applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "threshold") == 0) {
-        int32_t t = 128;
-        if (ntok >= 2) parse_int(tokens[1], &t);
-        send_filter("threshold", t, 0);
-        log_print("ok: filter threshold applied", 0xFF00FF88);
-        return;
-    }
-    if (str_cmp(tokens[0], "edge") == 0) {
-        send_filter("edge", 0, 0);
-        log_print("ok: filter edge applied", 0xFF00FF88);
-        return;
-    }
+    if (str_cmp(tokens[0], "invert") == 0) { send_filter("invert", 0, 0); log_print("ok: filter invert applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "grayscale") == 0) { send_filter("grayscale", 0, 0); log_print("ok: filter grayscale applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "blur") == 0) { int32_t r = 3; if (ntok >= 2) parse_int(tokens[1], &r); send_filter("blur", r, 0); log_print("ok: filter blur applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "brightness") == 0) { int32_t d = 30; if (ntok >= 2) parse_int(tokens[1], &d); send_filter("brightness", d, 0); log_print("ok: filter brightness applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "contrast") == 0) { int32_t f = 30; if (ntok >= 2) parse_int(tokens[1], &f); send_filter("contrast", f, 0); log_print("ok: filter contrast applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "sepia") == 0) { send_filter("sepia", 0, 0); log_print("ok: filter sepia applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "noise") == 0) { int32_t amt = 25; if (ntok >= 2) parse_int(tokens[1], &amt); send_filter("noise", amt, 0); log_print("ok: filter noise applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "pixelate") == 0) { int32_t sz = 8; if (ntok >= 2) parse_int(tokens[1], &sz); send_filter("pixelate", sz, 0); log_print("ok: filter pixelate applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "dither") == 0) { send_filter("dither", 0, 0); log_print("ok: filter dither applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "threshold") == 0) { int32_t t = 128; if (ntok >= 2) parse_int(tokens[1], &t); send_filter("threshold", t, 0); log_print("ok: filter threshold applied", 0xFF00FF88); return; }
+    if (str_cmp(tokens[0], "edge") == 0) { send_filter("edge", 0, 0); log_print("ok: filter edge applied", 0xFF00FF88); return; }
 
-    // 16. cls / help
+    // 25. cls / help
     if (str_cmp(tokens[0], "cls") == 0 || str_cmp(tokens[0], "clear-log") == 0) {
         log_count = 0;
         return;
     }
     if (str_cmp(tokens[0], "help") == 0) {
-        log_print("WESENHO S-EXPR COMMANDS:", 0xFFFFFF00);
-        log_print("Layers:  new layer \"name\" | rename current_layer \"bg\"", 0xFFAABBCC);
-        log_print("         set current_layer \"lineart\" | delete layer \"draft\"", 0xFFAABBCC);
-        log_print("         layer | toggle layer | set opacity 50", 0xFFAABBCC);
-        log_print("Brush:   set color #ff0080 | set color (rgb 255 0 0)", 0xFFAABBCC);
-        log_print("         set brush size 14 | set brush type soft | tool eraser", 0xFFAABBCC);
-        log_print("Draw:    draw circle 400 500 80 | draw rect 100 100 200 150", 0xFFAABBCC);
-        log_print("         draw line 50 50 700 900 | draw grid 32 | clear", 0xFFAABBCC);
-        log_print("Filters: filter <name> [p1] [p2] | filters (invert, blur, etc)", 0xFFAABBCC);
-        log_print("Math:    (+ 10 20) | (* 6 7) | cls", 0xFFAABBCC);
+        log_print("WESENHO COMMAND REFERENCE:", 0xFFFFFF00);
+        log_print("Canvas:   new canvas \"name\" [w] [h] | set canvas <name|id>", 0xFFAABBCC);
+        log_print("          set canvas width 1200 | set canvas height 900", 0xFFAABBCC);
+        log_print("          delete canvas <name|id> | canvases", 0xFFAABBCC);
+        log_print("Layers:   new layer \"name\" | delete layer <id|name>", 0xFFAABBCC);
+        log_print("          set layer <id|name> | rename layer \"name\"", 0xFFAABBCC);
+        log_print("          layer | toggle layer | set opacity 50", 0xFFAABBCC);
+        log_print("          layer to_texture \"my_tex\"", 0xFFAABBCC);
+        log_print("Textures: texture <name> | textures", 0xFFAABBCC);
+        log_print("Image IO: save <path.png|.bmp|.ppm> | load <path>", 0xFFAABBCC);
+        log_print("Brush:    brush <name> | set brush <param> <val>", 0xFFAABBCC);
         return;
     }
 
@@ -818,17 +1138,27 @@ static void handle_keyboard(void) {
 }
 
 void on_message(int32_t from_id, int32_t len) {
+    if (len < 4) return;
+    uint32_t type = *(uint32_t*)piolho_page;
+
+    if (type == MSG_CONSOLE_LOG && len >= 8) {
+        wesenho_console_log_msg_t *cmsg = (wesenho_console_log_msg_t*)piolho_page;
+        log_print(cmsg->text, cmsg->color ? cmsg->color : 0xFF00FF88);
+        return;
+    }
+
     if (len < (int32_t)sizeof(wesenho_msg_t)) return;
     wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
 
     switch (msg->type) {
         case MSG_LAYER_ADD:
-            if (layer_count < MAX_LAYERS) {
+            if (layer_count < MAX_CONSOLE_LAYERS) {
                 layer_vis[layer_count] = 1;
                 layer_op[layer_count] = 100;
                 char def_name[16] = "Layer ";
-                def_name[6] = '0' + layer_count;
-                def_name[7] = '\0';
+                char num[8];
+                int_to_str(layer_count, num);
+                str_copy(def_name + 6, num, 8);
                 str_copy(layer_names[layer_count], def_name, 16);
                 active_layer = layer_count;
                 layer_count++;
@@ -892,6 +1222,18 @@ int32_t update(void) {
             fb->height = CONSOLE_HEIGHT;
             fb->pixels = (uint32_t)(uintptr_t)pixels;
         }
+        str_copy(canvas_names[0], "canvas_0", 24);
+        canvas_widths[0] = 800;
+        canvas_heights[0] = 1000;
+        canvas_count = 1;
+        active_canvas = 0;
+
+        str_copy(layer_names[0], "Layer 0", 16);
+        layer_vis[0] = 1;
+        layer_op[0] = 100;
+        layer_count = 1;
+        active_layer = 0;
+
         log_print("WESENHO STUDIO REPL v2.0", 0xFF00FFCC);
         log_print("Type 'help' for commands & S-expressions.", 0xFF888888);
     }
