@@ -14,8 +14,11 @@ int32_t update(void);
 
 /* Piolho ABI */
 #define PIOLHO_PAGE_SIZE 65536
-#define HOST_ID 0
 #define piolho_page ((uint8_t*)0)
+
+#define ACTOR_HOST   0
+#define ACTOR_CANVAS 1
+#define ACTOR_UI     2
 
 int32_t say(int32_t target_id, int32_t len);
 void on_message(int32_t from_id, int32_t len);
@@ -49,17 +52,38 @@ typedef struct {
     int32_t  wheel_y;
 } wmouse_t;
 
-/* Wesenho IPC Message Types (between Canvas & Host/Effects) */
-#define MSG_EFFECT_INVERT    1
-#define MSG_EFFECT_GRAYSCALE 2
-#define MSG_EFFECT_CLEAR     3
-#define MSG_EFFECT_APPLIED   10
+/* Wesenho IPC Message Types (UI <-> Canvas <-> Host) */
+#define MSG_SET_COLOR        1
+#define MSG_SET_BRUSH_SIZE   2
+#define MSG_SET_TOOL         3
+#define MSG_EFFECT_INVERT    4
+#define MSG_EFFECT_GRAYSCALE 5
+#define MSG_EFFECT_CLEAR     6
+#define MSG_LAYER_ADD        7
+#define MSG_LAYER_SELECT     8
+#define MSG_LAYER_TOGGLE_VIS 9
+#define MSG_LAYER_SET_OPACITY 10
+#define MSG_LAYER_INFO_SYNC  11
+
+#define TOOL_BRUSH  0
+#define TOOL_ERASER 1
+#define TOOL_BUCKET 2
+
+#define MAX_LAYERS 8
 
 typedef struct {
     uint32_t type;
-    uint32_t width;
-    uint32_t height;
-    uint32_t color; /* 0xAABBGGRR */
+    uint32_t param1; /* Color / Size / Tool / Layer Index */
+    uint32_t param2; /* Opacity / Visibility / Active Layer */
+    uint32_t param3; /* Extra data */
 } wesenho_msg_t;
+
+/* Layer Metadata */
+typedef struct {
+    uint8_t  active;
+    uint8_t  visible;
+    uint8_t  opacity; // 0..255
+    uint8_t  blend_mode;
+} layer_meta_t;
 
 #endif /* WESENHO_H */

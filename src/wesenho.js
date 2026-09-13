@@ -2,33 +2,50 @@ const sdl = require('@kmamal/sdl');
 const fs = require('fs');
 const path = require('path');
 
-// Wagnostic helpers
-const KEY_MAP = {
-  a: 0x04, b: 0x05, c: 0x06, d: 0x07, e: 0x08, f: 0x09, g: 0x0A,
-  h: 0x0B, i: 0x0C, j: 0x0D, k: 0x0E, l: 0x0F, m: 0x10, n: 0x11,
-  o: 0x12, p: 0x13, q: 0x14, r: 0x15, s: 0x16, t: 0x17, u: 0x18,
-  v: 0x19, w: 0x1A, x: 0x1B, y: 0x1C, z: 0x1D,
-  '1': 0x1E, '2': 0x1F, '3': 0x20, '4': 0x21, '5': 0x22,
-  '6': 0x23, '7': 0x24, '8': 0x25, '9': 0x26, '0': 0x27,
-  return: 0x28, escape: 0x29, backspace: 0x2A, tab: 0x2B, space: 0x2C
-};
+// Initial Window Dimensions (Vertical / Flexible aspect ratio default)
+let windowWidth = 800;
+let windowHeight = 900;
 
-class WesenhoApp {
-  constructor(wasmPath, options = {}) {
+// UI Component properties (Movable / Dockable sidebar)
+let uiX = 16;
+let uiY = 16;
+const UI_WIDTH = 160;
+const UI_HEIGHT = 720;
+let isDraggingUI = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+
+// Canvas Document Dimensions (Customizable Document Size)
+const DOC_WIDTH = 800;
+const DOC_HEIGHT = 1000;
+
+// Viewport / Camera Navigation State
+let zoom = 0.8;
+let panX = (windowWidth - UI_WIDTH - DOC_WIDTH * zoom) / 2 + UI_WIDTH / 2;
+let panY = (windowHeight - DOC_HEIGHT * zoom) / 2;
+let isPanning = false;
+let panStartX = 0;
+let panStartY = 0;
+
+const ACTOR_HOST = 0;
+const ACTOR_CANVAS = 1;
+const ACTOR_UI = 2;
+
+class WasmActor {
+  constructor(id, name, wasmPath, width, height, coordinator) {
+    this.id = id;
+    this.name = name;
     this.wasmPath = wasmPath;
-    this.width = options.width || 640;
-    this.height = options.height || 480;
-
-    this.keys = new Uint8Array(256);
-    this.mouse = { x: 0, y: 0, buttons: 0, wheel_x: 0, wheel_y: 0 };
+    this.width = width;
+    this.height = height;
+    this.coordinator = coordinator;
 
     this.memory = null;
     this.instance = null;
-    this.arenaOffset = 0x8000;
+    this.arenaOffset = 0x800000; // 8MB offset for dynamic extensions
 
     this.fbPtr = 0;
     this.mousePtr = 0;
-    this.kbPtr = 0;
   }
 
   hostAlloc(size, align = 4) {
@@ -70,53 +87,35 @@ class WesenhoApp {
       return this.mousePtr;
     }
 
-    if (name === 'std:keyboard' || name === 'keyboard') {
-      if (!this.kbPtr) {
-        this.kbPtr = this.hostAlloc(256);
-      }
-      return this.kbPtr;
-    }
-
     return 0;
   }
 
-  syncInputs() {
-    if (!this.memory) return;
+  syncMouse(x, y, buttons, wheel_x, wheel_y) {
+    if (!this.mousePtr || !this.memory) return;
     const view = new DataView(this.memory.buffer);
-
-    if (this.mousePtr) {
-      view.setInt32(this.mousePtr + 0, this.mouse.x, true);
-      view.setInt32(this.mousePtr + 4, this.mouse.y, true);
-      view.setUint32(this.mousePtr + 8, this.mouse.buttons, true);
-      view.setInt32(this.mousePtr + 12, this.mouse.wheel_x, true);
-      view.setInt32(this.mousePtr + 16, this.mouse.wheel_y, true);
-      this.mouse.wheel_x = 0;
-      this.mouse.wheel_y = 0;
-    }
-
-    if (this.kbPtr) {
-      const u8 = new Uint8Array(this.memory.buffer, this.kbPtr, 256);
-      u8.set(this.keys);
-    }
+    view.setInt32(this.mousePtr + 0, Math.floor(x), true);
+    view.setInt32(this.mousePtr + 4, Math.floor(y), true);
+    view.setUint32(this.mousePtr + 8, buttons, true);
+    view.setInt32(this.mousePtr + 12, wheel_x, true);
+    view.setInt32(this.mousePtr + 16, wheel_y, true);
   }
 
-  sendPiolhoMessage(type, color = 0) {
+  receiveMessage(fromId, buffer) {
     if (!this.instance || !this.instance.exports.on_message) return;
-    const view = new DataView(this.memory.buffer);
-    // Address 0 is piolho_page
-    view.setUint32(0, type, true);
-    view.setUint32(4, this.width, true);
-    view.setUint32(8, this.height, true);
-    view.setUint32(12, color, true);
-
-    this.instance.exports.on_message(0, 16);
+    const dest = new Uint8Array(this.memory.buffer, 0, buffer.length);
+    dest.set(buffer);
+    this.instance.exports.on_message(fromId, buffer.length);
   }
 
   async init() {
     const wasmBytes = fs.readFileSync(this.wasmPath);
     const env = {
       ask: (namePtr) => this.handleAsk(namePtr),
-      say: (target, len) => 0,
+      say: (targetId, len) => {
+        const msgBytes = new Uint8Array(this.memory.buffer, 0, len).slice();
+        this.coordinator.dispatch(this.id, targetId, msgBytes);
+        return 0;
+      },
       connect: () => 0,
       quit: (code) => process.exit(code)
     };
@@ -126,93 +125,291 @@ class WesenhoApp {
     this.memory = mod.instance.exports.memory;
   }
 
-  start() {
-    const window = sdl.video.createWindow({
-      title: 'Wesenho — Ilustração & Pintura (Wagnostic + Piolho + SDL2)',
-      width: this.width,
-      height: this.height,
-      resizable: false
-    });
+  update() {
+    if (this.instance && this.instance.exports.update) {
+      this.instance.exports.update();
+    }
+  }
 
-    // SDL Event handlers
-    window.on('mouseMove', (e) => {
-      this.mouse.x = Math.max(0, Math.min(this.width - 1, e.x));
-      this.mouse.y = Math.max(0, Math.min(this.height - 1, e.y));
-    });
+  getPixels() {
+    if (!this.fbPtr || !this.memory) return null;
+    const view = new DataView(this.memory.buffer);
+    const pixelsPtr = view.getUint32(this.fbPtr + 8, true);
+    if (!pixelsPtr) return null;
+    return new Uint8Array(this.memory.buffer, pixelsPtr, this.width * this.height * 4);
+  }
+}
 
-    window.on('mouseButtonDown', (e) => {
-      if (e.button === 1) this.mouse.buttons |= 1;      // Left
-      else if (e.button === 3) this.mouse.buttons |= 2; // Right
-      else if (e.button === 2) this.mouse.buttons |= 4; // Middle
-    });
+class WesenhoCoordinator {
+  constructor() {
+    this.actors = new Map();
+  }
 
-    window.on('mouseButtonUp', (e) => {
-      if (e.button === 1) this.mouse.buttons &= ~1;
-      else if (e.button === 3) this.mouse.buttons &= ~2;
-      else if (e.button === 2) this.mouse.buttons &= ~4;
-    });
+  register(actor) {
+    this.actors.set(actor.id, actor);
+  }
 
-    window.on('mouseWheel', (e) => {
-      this.mouse.wheel_y += e.dy;
-    });
-
-    window.on('keyDown', (e) => {
-      const code = KEY_MAP[e.key] || 0;
-      if (code) this.keys[code] = 1;
-
-      // Filter hotkeys via Piolho message
-      if (e.key === 'i') {
-        this.sendPiolhoMessage(1); // MSG_EFFECT_INVERT
-      } else if (e.key === 'g') {
-        this.sendPiolhoMessage(2); // MSG_EFFECT_GRAYSCALE
-      }
-    });
-
-    window.on('keyUp', (e) => {
-      const code = KEY_MAP[e.key] || 0;
-      if (code) this.keys[code] = 0;
-    });
-
-    window.on('close', () => {
-      process.exit(0);
-    });
-
-    console.log('--- Wesenho Pronto ---');
-    console.log('Mouse: Botao Esquerdo = Desenhar | Botao Direito = Borracha | Scroll = Tamanho');
-    console.log('Teclado: 1=Vermelho | 2=Verde | 3=Azul | 4=Amarelo | 5=Branco | C=Limpar');
-    console.log('Efeitos (Piolho IPC): I=Inverter Cores | G=Preto e Branco');
-
-    // Main frame loop (60 FPS)
-    const renderLoop = () => {
-      this.syncInputs();
-      if (this.instance.exports.update) {
-        this.instance.exports.update();
-      }
-
-      if (this.fbPtr) {
-        const view = new DataView(this.memory.buffer);
-        const w = view.getUint32(this.fbPtr + 0, true);
-        const h = view.getUint32(this.fbPtr + 4, true);
-        const pixelsPtr = view.getUint32(this.fbPtr + 8, true);
-
-        if (pixelsPtr > 0) {
-          const pixelBytes = new Uint8Array(this.memory.buffer, pixelsPtr, w * h * 4);
-          window.render(w, h, w * 4, 'rgba32', Buffer.from(pixelBytes.buffer, pixelBytes.byteOffset, pixelBytes.byteLength));
-        }
-      }
-
-      setTimeout(renderLoop, 16);
-    };
-
-    renderLoop();
+  dispatch(fromId, targetId, buffer) {
+    const target = this.actors.get(targetId);
+    if (target) {
+      target.receiveMessage(fromId, buffer);
+    }
   }
 }
 
 async function main() {
-  const wasmFile = path.resolve(__dirname, '../roms/canvas.wasm');
-  const app = new WesenhoApp(wasmFile);
-  await app.init();
-  app.start();
+  const coordinator = new WesenhoCoordinator();
+
+  const uiActor = new WasmActor(
+    ACTOR_UI,
+    'ui',
+    path.resolve(__dirname, '../roms/ui.wasm'),
+    UI_WIDTH,
+    UI_HEIGHT,
+    coordinator
+  );
+
+  const canvasActor = new WasmActor(
+    ACTOR_CANVAS,
+    'canvas',
+    path.resolve(__dirname, '../roms/canvas.wasm'),
+    DOC_WIDTH,
+    DOC_HEIGHT,
+    coordinator
+  );
+
+  coordinator.register(uiActor);
+  coordinator.register(canvasActor);
+
+  await uiActor.init();
+  await canvasActor.init();
+
+  const window = sdl.video.createWindow({
+    title: 'Wesenho — Studio (Movable UI, Multi-Layer & Pan/Zoom Viewport)',
+    width: windowWidth,
+    height: windowHeight,
+    resizable: true
+  });
+
+  let screenBuffer = Buffer.alloc(windowWidth * windowHeight * 4);
+  let mouseState = { x: 0, y: 0, buttons: 0, wheel_y: 0 };
+  let spaceDown = false;
+  let ctrlDown = false;
+
+  window.on('resize', (e) => {
+    windowWidth = e.width;
+    windowHeight = e.height;
+    screenBuffer = Buffer.alloc(windowWidth * windowHeight * 4);
+  });
+
+  window.on('mouseMove', (e) => {
+    mouseState.x = e.x;
+    mouseState.y = e.y;
+
+    if (isDraggingUI) {
+      uiX = Math.max(0, Math.min(windowWidth - UI_WIDTH, e.x - dragOffsetX));
+      uiY = Math.max(0, Math.min(windowHeight - UI_HEIGHT, e.y - dragOffsetY));
+    } else if (isPanning) {
+      panX += (e.x - panStartX);
+      panY += (e.y - panStartY);
+      panStartX = e.x;
+      panStartY = e.y;
+    }
+  });
+
+  window.on('mouseButtonDown', (e) => {
+    if (e.button === 1) mouseState.buttons |= 1;
+    else if (e.button === 3) mouseState.buttons |= 2;
+    else if (e.button === 2) mouseState.buttons |= 4;
+
+    // Check if clicked UI titlebar to drag (first 24px)
+    if (e.button === 1 &&
+        mouseState.x >= uiX && mouseState.x < uiX + UI_WIDTH &&
+        mouseState.y >= uiY && mouseState.y < uiY + 24) {
+      isDraggingUI = true;
+      dragOffsetX = mouseState.x - uiX;
+      dragOffsetY = mouseState.y - uiY;
+      return;
+    }
+
+    // Check if Middle Click or Space + Left Click to start Pan
+    if (e.button === 2 || (spaceDown && e.button === 1)) {
+      isPanning = true;
+      panStartX = mouseState.x;
+      panStartY = mouseState.y;
+    }
+  });
+
+  window.on('mouseButtonUp', (e) => {
+    if (e.button === 1) {
+      mouseState.buttons &= ~1;
+      isDraggingUI = false;
+    } else if (e.button === 3) {
+      mouseState.buttons &= ~2;
+    } else if (e.button === 2) {
+      mouseState.buttons &= ~4;
+      isPanning = false;
+    }
+
+    if (isPanning && !spaceDown) {
+      isPanning = false;
+    }
+  });
+
+  window.on('mouseWheel', (e) => {
+    if (ctrlDown) {
+      // Zoom centered on cursor
+      const oldZoom = zoom;
+      const zoomFactor = e.dy > 0 ? 1.15 : 0.85;
+      zoom = Math.max(0.1, Math.min(8.0, zoom * zoomFactor));
+
+      const mx = mouseState.x;
+      const my = mouseState.y;
+      panX = mx - (mx - panX) * (zoom / oldZoom);
+      panY = my - (my - panY) * (zoom / oldZoom);
+    } else {
+      mouseState.wheel_y += e.dy;
+    }
+  });
+
+  window.on('keyDown', (e) => {
+    if (e.key === 'space') spaceDown = true;
+    if (e.key === 'leftCtrl' || e.key === 'rightCtrl') ctrlDown = true;
+
+    // Reset view shortcut (Ctrl + 0)
+    if (ctrlDown && e.key === '0') {
+      zoom = 0.8;
+      panX = (windowWidth - DOC_WIDTH * zoom) / 2;
+      panY = (windowHeight - DOC_HEIGHT * zoom) / 2;
+    }
+  });
+
+  window.on('keyUp', (e) => {
+    if (e.key === 'space') {
+      spaceDown = false;
+      isPanning = false;
+    }
+    if (e.key === 'leftCtrl' || e.key === 'rightCtrl') ctrlDown = false;
+  });
+
+  window.on('close', () => process.exit(0));
+
+  console.log('=== Wesenho Studio Pronto ===');
+  console.log('UI Flutuante: Arraste a barra superior da sidebar para posicionar livremente.');
+  console.log('Navegacao: Espaco + Arrastar ou Botao do Meio = Pan | Ctrl + Scroll = Zoom');
+  console.log('Atalhos: Ctrl + 0 = Reset Viewport | Tecla + na UI = Nova Layer');
+
+  const frameLoop = () => {
+    // Check if mouse is over UI floating panel
+    const isOverUI = (
+      mouseState.x >= uiX && mouseState.x < uiX + UI_WIDTH &&
+      mouseState.y >= uiY && mouseState.y < uiY + UI_HEIGHT
+    );
+
+    // Sync UI Mouse
+    if (isOverUI && !isDraggingUI && !isPanning) {
+      const relUIX = mouseState.x - uiX;
+      const relUIY = mouseState.y - uiY;
+      uiActor.syncMouse(relUIX, relUIY, mouseState.buttons, 0, mouseState.wheel_y);
+    } else {
+      uiActor.syncMouse(-100, -100, 0, 0, 0);
+    }
+
+    // Sync Canvas Mouse (Convert Screen Coordinates -> Document Coordinates with Pan & Zoom)
+    if (!isOverUI && !isPanning && !isDraggingUI) {
+      const docX = (mouseState.x - panX) / zoom;
+      const docY = (mouseState.y - panY) / zoom;
+      canvasActor.syncMouse(docX, docY, mouseState.buttons, 0, mouseState.wheel_y);
+    } else {
+      canvasActor.syncMouse(-100, -100, 0, 0, 0);
+    }
+
+    mouseState.wheel_y = 0;
+
+    uiActor.update();
+    canvasActor.update();
+
+    const uiPixels = uiActor.getPixels();
+    const canvasPixels = canvasActor.getPixels();
+
+    // 1. Fill background workspace (Dark Studio theme)
+    screenBuffer.fill(0x16); // 0x16161616 dark grey
+
+    // 2. Render Scaled & Panned Document Canvas into screenBuffer
+    if (canvasPixels) {
+      const startDocX = Math.max(0, Math.floor(-panX / zoom));
+      const startDocY = Math.max(0, Math.floor(-panY / zoom));
+      const endDocX = Math.min(DOC_WIDTH, Math.ceil((windowWidth - panX) / zoom));
+      const endDocY = Math.min(DOC_HEIGHT, Math.ceil((windowHeight - panY) / zoom));
+
+      const screenStartX = Math.max(0, Math.floor(panX));
+      const screenStartY = Math.max(0, Math.floor(panY));
+      const screenEndX = Math.min(windowWidth, Math.ceil(panX + DOC_WIDTH * zoom));
+      const screenEndY = Math.min(windowHeight, Math.ceil(panY + DOC_HEIGHT * zoom));
+
+      const invZoom = 1 / zoom;
+
+      for (let sy = screenStartY; sy < screenEndY; sy++) {
+        const dy = Math.floor((sy - panY) * invZoom);
+        if (dy < 0 || dy >= DOC_HEIGHT) continue;
+
+        const docRowOffset = dy * DOC_WIDTH * 4;
+        const screenRowOffset = sy * windowWidth * 4;
+
+        for (let sx = screenStartX; sx < screenEndX; sx++) {
+          const dx = Math.floor((sx - panX) * invZoom);
+          if (dx < 0 || dx >= DOC_WIDTH) continue;
+
+          const docPixelOffset = docRowOffset + dx * 4;
+          const screenPixelOffset = screenRowOffset + sx * 4;
+
+          screenBuffer[screenPixelOffset + 0] = canvasPixels[docPixelOffset + 0];
+          screenBuffer[screenPixelOffset + 1] = canvasPixels[docPixelOffset + 1];
+          screenBuffer[screenPixelOffset + 2] = canvasPixels[docPixelOffset + 2];
+          screenBuffer[screenPixelOffset + 3] = 0xFF;
+        }
+      }
+
+      // Draw Document Border / Shadow
+      if (screenStartX >= 0 && screenStartX < windowWidth) {
+        for (let y = Math.max(0, screenStartY); y < Math.min(windowHeight, screenEndY); y++) {
+          const offset = (y * windowWidth + screenStartX) * 4;
+          screenBuffer[offset] = 0x55;
+          screenBuffer[offset+1] = 0x55;
+          screenBuffer[offset+2] = 0x55;
+        }
+      }
+    }
+
+    // 3. Composite Floating UI Panel on top (with shadow border)
+    if (uiPixels) {
+      for (let y = 0; y < UI_HEIGHT; y++) {
+        const sy = uiY + y;
+        if (sy < 0 || sy >= windowHeight) continue;
+
+        const uiRowOffset = y * UI_WIDTH * 4;
+        const screenRowOffset = sy * windowWidth * 4;
+
+        for (let x = 0; x < UI_WIDTH; x++) {
+          const sx = uiX + x;
+          if (sx < 0 || sx >= windowWidth) continue;
+
+          const uiPixelOffset = uiRowOffset + x * 4;
+          const screenPixelOffset = screenRowOffset + sx * 4;
+
+          screenBuffer[screenPixelOffset + 0] = uiPixels[uiPixelOffset + 0];
+          screenBuffer[screenPixelOffset + 1] = uiPixels[uiPixelOffset + 1];
+          screenBuffer[screenPixelOffset + 2] = uiPixels[uiPixelOffset + 2];
+          screenBuffer[screenPixelOffset + 3] = 0xFF;
+        }
+      }
+    }
+
+    window.render(windowWidth, windowHeight, windowWidth * 4, 'rgba32', screenBuffer);
+    setTimeout(frameLoop, 16);
+  };
+
+  frameLoop();
 }
 
 main().catch(console.error);
