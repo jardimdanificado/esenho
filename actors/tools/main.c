@@ -2,7 +2,7 @@
 #include "../../include/font5x7.h"
 
 #define TOOLS_WIDTH  150
-#define TOOLS_HEIGHT 140
+#define TOOLS_HEIGHT 100
 
 static wframebuffer_t *fb = 0;
 
@@ -51,10 +51,10 @@ static void int_to_str(int val, char *buf) {
 
 static const char* get_brush_name(int type) {
     switch (type) {
-        case BRUSH_HARD_ROUND:    return "Redondo";
-        case BRUSH_SOFT_AIRBRUSH: return "Macio (Air)";
+        case BRUSH_HARD_ROUND:    return "Round";
+        case BRUSH_SOFT_AIRBRUSH: return "Soft (Air)";
         case BRUSH_PIXEL:         return "Pixel Art";
-        case BRUSH_CHISEL:        return "Chanfrado";
+        case BRUSH_CHISEL:        return "Chisel";
         case BRUSH_SCATTER:       return "Spray/Noise";
         default:                  return "Custom";
     }
@@ -64,50 +64,46 @@ static void render_tools_hud(void) {
     draw_rect(0, 0, TOOLS_WIDTH, TOOLS_HEIGHT, 0xFF14181C);
     draw_frame(0, 0, TOOLS_WIDTH, TOOLS_HEIGHT, 0xFF2A3642);
 
-    // Title Bar
-    draw_rect(0, 0, TOOLS_WIDTH, 18, 0xFF1F2933);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 8, 5, "FERRAMENTA (HUD)", 0xFF00FFCC);
-
     // Tool Name
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 26, "Modo:", 0xFF8899A6);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 10, "Mode:", 0xFF8899A6);
     if (current_tool == TOOL_ERASER) {
-        draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 26, "BORRACHA", 0xFFFF5555);
+        draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 10, "ERASER", 0xFFFF5555);
     } else {
-        draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 26, "PINCEL", 0xFF00FF88);
+        draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 10, "BRUSH", 0xFF00FF88);
     }
 
     // Brush Type
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 44, "Tipo:", 0xFF8899A6);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 44, get_brush_name(brush_type), 0xFFFFFFFF);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 28, "Type:", 0xFF8899A6);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 28, get_brush_name(brush_type), 0xFFFFFFFF);
 
     // Size
     char buf[16];
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 62, "Tam:", 0xFF8899A6);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 46, "Size:", 0xFF8899A6);
     int_to_str(brush_size, buf);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 62, buf, 0xFF00FFFF);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 70, 62, "px", 0xFF888888);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 46, buf, 0xFF00FFFF);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 70, 46, "px", 0xFF888888);
 
     // Opacity
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 80, "Opac:", 0xFF8899A6);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 64, "Opac:", 0xFF8899A6);
     int_to_str(brush_opacity, buf);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 80, buf, 0xFF00FFFF);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 75, 80, "%", 0xFF888888);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 64, buf, 0xFF00FFFF);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 75, 64, "%", 0xFF888888);
 
     // Hardness
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 98, "Durez:", 0xFF8899A6);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 10, 82, "Hard:", 0xFF8899A6);
     int_to_str(brush_hardness, buf);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 98, buf, 0xFF00FFFF);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 75, 98, "%", 0xFF888888);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 50, 82, buf, 0xFF00FFFF);
+    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 75, 82, "%", 0xFF888888);
 
     // Mini Glyph Stamp Preview
-    draw_rect(102, 58, 38, 50, 0xFF0B0D0F);
-    draw_frame(102, 58, 38, 50, 0xFF354452);
+    draw_rect(102, 38, 38, 50, 0xFF0B0D0F);
+    draw_frame(102, 38, 38, 50, 0xFF354452);
 
     int r = brush_size / 2;
     if (r < 1) r = 1;
     if (r > 14) r = 14;
     int cx = 121;
-    int cy = 83;
+    int cy = 63;
 
     if (brush_type == BRUSH_PIXEL) {
         draw_rect(cx - r, cy - r, r * 2, r * 2, current_color);
@@ -120,10 +116,6 @@ static void render_tools_hud(void) {
             }
         }
     }
-
-    // Status Footnote
-    draw_rect(0, TOOLS_HEIGHT - 16, TOOLS_WIDTH, 16, 0xFF0F1317);
-    draw_string(pixels, TOOLS_WIDTH, TOOLS_HEIGHT, 8, TOOLS_HEIGHT - 12, "Controle via REPL", 0xFF667788);
 }
 
 void on_message(int32_t from_id, int32_t len) {

@@ -209,24 +209,101 @@ static void stamp_brush(int x, int y, uint32_t color, int is_eraser) {
     }
 }
 
-static void draw_stroke(int x0, int y0, int x1, int y1, uint32_t color, int is_eraser) {
-    float dx = (float)(x1 - x0);
-    float dy = (float)(y1 - y0);
+typedef struct {
+    float x;
+    float y;
+} stroke_pt_t;
+
+static stroke_pt_t stroke_pts[3];
+static int         stroke_len = 0;
+
+static void draw_line_segment(float x0, float y0, float x1, float y1, uint32_t color, int is_eraser) {
+    float dx = x1 - x0;
+    float dy = y1 - y0;
     float dist = fast_sqrt(dx * dx + dy * dy);
 
     float step_size = (float)brush_size * ((float)brush_spacing / 100.0f);
-    if (step_size < 1.0f) step_size = 1.0f;
-    if (brush_type == BRUSH_PIXEL) step_size = 1.0f;
+    if (step_size < 0.5f) step_size = 0.5f;
+    if (brush_type == BRUSH_PIXEL) step_size = 0.75f;
 
     int steps = (int)(dist / step_size);
     if (steps < 1) steps = 1;
 
     for (int i = 0; i <= steps; i++) {
         float t = (float)i / (float)steps;
-        int cur_x = (int)((float)x0 + dx * t + 0.5f);
-        int cur_y = (int)((float)y0 + dy * t + 0.5f);
+        int cur_x = (int)(x0 + dx * t + 0.5f);
+        int cur_y = (int)(y0 + dy * t + 0.5f);
         stamp_brush(cur_x, cur_y, color, is_eraser);
     }
+}
+
+static void draw_bezier_segment(stroke_pt_t p0, stroke_pt_t p1, stroke_pt_t p2, uint32_t color, int is_eraser) {
+    // Quadratic Bezier from Midpoint(p0, p1) to Midpoint(p1, p2) with control point p1
+    float m0x = (p0.x + p1.x) * 0.5f;
+    float m0y = (p0.y + p1.y) * 0.5f;
+    float m1x = (p1.x + p2.x) * 0.5f;
+    float m1y = (p1.y + p2.y) * 0.5f;
+
+    float d1 = fast_sqrt((p1.x - m0x) * (p1.x - m0x) + (p1.y - m0y) * (p1.y - m0y));
+    float d2 = fast_sqrt((m1x - p1.x) * (m1x - p1.x) + (m1y - p1.y) * (m1y - p1.y));
+    float total_dist = d1 + d2;
+
+    float step_size = (float)brush_size * ((float)brush_spacing / 100.0f);
+    if (step_size < 0.5f) step_size = 0.5f;
+    if (brush_type == BRUSH_PIXEL) step_size = 0.75f;
+
+    int steps = (int)(total_dist / step_size);
+    if (steps < 1) steps = 1;
+
+    for (int i = 0; i <= steps; i++) {
+        float t = (float)i / (float)steps;
+        float inv = 1.0f - t;
+        float bx = inv * inv * m0x + 2.0f * inv * t * p1.x + t * t * m1x;
+        float by = inv * inv * m0y + 2.0f * inv * t * p1.y + t * t * m1y;
+        stamp_brush((int)(bx + 0.5f), (int)(by + 0.5f), color, is_eraser);
+    }
+}
+
+static void add_stroke_point(int x, int y, uint32_t color, int is_eraser) {
+    if (stroke_len == 0) {
+        stroke_pts[0].x = (float)x;
+        stroke_pts[0].y = (float)y;
+        stroke_pts[1] = stroke_pts[0];
+        stroke_pts[2] = stroke_pts[0];
+        stroke_len = 1;
+        stamp_brush(x, y, color, is_eraser);
+        return;
+    }
+
+    if ((int)stroke_pts[2].x == x && (int)stroke_pts[2].y == y) return;
+
+    if (stroke_len == 1) {
+        stroke_pts[1].x = (float)x;
+        stroke_pts[1].y = (float)y;
+        stroke_pts[2] = stroke_pts[1];
+        stroke_len = 2;
+        float m1x = (stroke_pts[0].x + stroke_pts[1].x) * 0.5f;
+        float m1y = (stroke_pts[0].y + stroke_pts[1].y) * 0.5f;
+        draw_line_segment(stroke_pts[0].x, stroke_pts[0].y, m1x, m1y, color, is_eraser);
+        return;
+    }
+
+    stroke_pts[0] = stroke_pts[1];
+    stroke_pts[1] = stroke_pts[2];
+    stroke_pts[2].x = (float)x;
+    stroke_pts[2].y = (float)y;
+    stroke_len = 3;
+
+    draw_bezier_segment(stroke_pts[0], stroke_pts[1], stroke_pts[2], color, is_eraser);
+}
+
+static void end_stroke(uint32_t color, int is_eraser) {
+    if (stroke_len >= 2) {
+        float m1x = (stroke_pts[1].x + stroke_pts[2].x) * 0.5f;
+        float m1y = (stroke_pts[1].y + stroke_pts[2].y) * 0.5f;
+        draw_line_segment(m1x, m1y, stroke_pts[2].x, stroke_pts[2].y, color, is_eraser);
+    }
+    stroke_len = 0;
 }
 
 static void clear_layer(layer_t *lay) {
@@ -288,35 +365,6 @@ void on_message(int32_t from_id, int32_t len) {
         case MSG_SET_TOOL:
             current_tool = (int)msg->param1;
             break;
-        case MSG_EFFECT_INVERT:
-            if (active_layer >= 0 && active_layer < layer_count) {
-                layer_t *lay = &layers[active_layer];
-                for (int i = 0; i < DOC_PIXELS; i++) {
-                    uint32_t p = lay->pixels[i];
-                    if ((p & 0xFF000000) == 0) continue;
-                    uint8_t r = 255 - (p & 0xFF);
-                    uint8_t g = 255 - ((p >> 8) & 0xFF);
-                    uint8_t b = 255 - ((p >> 16) & 0xFF);
-                    uint8_t a = (p >> 24) & 0xFF;
-                    lay->pixels[i] = (a << 24) | (b << 16) | (g << 8) | r;
-                }
-            }
-            break;
-        case MSG_EFFECT_GRAYSCALE:
-            if (active_layer >= 0 && active_layer < layer_count) {
-                layer_t *lay = &layers[active_layer];
-                for (int i = 0; i < DOC_PIXELS; i++) {
-                    uint32_t p = lay->pixels[i];
-                    if ((p & 0xFF000000) == 0) continue;
-                    uint8_t r = p & 0xFF;
-                    uint8_t g = (p >> 8) & 0xFF;
-                    uint8_t b = (p >> 16) & 0xFF;
-                    uint8_t a = (p >> 24) & 0xFF;
-                    uint8_t gray = (uint8_t)((r * 299 + g * 587 + b * 114) / 1000);
-                    lay->pixels[i] = (a << 24) | (gray << 16) | (gray << 8) | gray;
-                }
-            }
-            break;
         case MSG_EFFECT_CLEAR:
             if (active_layer >= 0 && active_layer < layer_count) {
                 clear_layer(&layers[active_layer]);
@@ -349,12 +397,28 @@ void on_message(int32_t from_id, int32_t len) {
                 layers[(int)msg->param1].opacity = (uint8_t)((op * 255) / 100);
             }
             break;
+        case MSG_LAYER_DELETE: {
+            int del_idx = (int)msg->param1;
+            if (del_idx >= 0 && del_idx < layer_count) {
+                if (layer_count > 1) {
+                    for (int l = del_idx; l < layer_count - 1; l++) {
+                        layers[l] = layers[l + 1];
+                    }
+                    clear_layer(&layers[layer_count - 1]);
+                    layer_count--;
+                    if (active_layer >= layer_count) active_layer = layer_count - 1;
+                } else {
+                    clear_layer(&layers[0]);
+                }
+            }
+            break;
+        }
         case MSG_DRAW_LINE: {
             int x0 = (int16_t)(msg->param1 >> 16);
             int y0 = (int16_t)(msg->param1 & 0xFFFF);
             int x1 = (int16_t)(msg->param2 >> 16);
             int y1 = (int16_t)(msg->param2 & 0xFFFF);
-            draw_stroke(x0, y0, x1, y1, current_color, 0);
+            draw_line_segment((float)x0, (float)y0, (float)x1, (float)y1, current_color, 0);
             break;
         }
         case MSG_DRAW_RECT: {
@@ -436,19 +500,32 @@ int32_t update(void) {
             int is_eraser = (current_tool == TOOL_ERASER || erase_btn);
             uint32_t col = is_eraser ? 0x00000000 : current_color;
 
-            if (last_mx != -1 && last_my != -1) {
-                draw_stroke(last_mx, last_my, mx, my, col, is_eraser);
-            } else {
-                stamp_brush(mx, my, col, is_eraser);
+            if (mx >= 0 && mx < CANVAS_WIDTH && my >= 0 && my < CANVAS_HEIGHT) {
+                add_stroke_point(mx, my, col, is_eraser);
             }
-            last_mx = mx;
-            last_my = my;
         } else {
-            last_mx = -1;
-            last_my = -1;
+            if (stroke_len > 0) {
+                int is_eraser = (current_tool == TOOL_ERASER);
+                uint32_t col = is_eraser ? 0x00000000 : current_color;
+                end_stroke(col, is_eraser);
+            }
         }
     }
 
     composite_canvas();
     return UPDATE_OK;
 }
+
+uint32_t *get_active_layer_pixels(void) {
+    if (active_layer >= 0 && active_layer < layer_count) {
+        return layers[active_layer].pixels;
+    }
+    return 0;
+}
+
+int32_t get_active_layer(void) { return active_layer; }
+int32_t get_layer_count(void) { return layer_count; }
+int32_t get_canvas_width(void) { return CANVAS_WIDTH; }
+int32_t get_canvas_height(void) { return CANVAS_HEIGHT; }
+void force_composite(void) { composite_canvas(); }
+

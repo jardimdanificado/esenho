@@ -198,10 +198,92 @@ class WasmActor {
   }
 }
 
+class FilterManager {
+  constructor(baseDir) {
+    this.baseDir = baseDir;
+    this.filtersDir = path.resolve(baseDir, 'plugins/filters');
+    this.modulesCache = new Map();
+  }
+
+  getAvailableFilters() {
+    if (!fs.existsSync(this.filtersDir)) return [];
+    return fs.readdirSync(this.filtersDir)
+      .filter(f => f.endsWith('.wasm'))
+      .map(f => path.basename(f, '.wasm'));
+  }
+
+  async runFilter(name, canvasActor, param1 = 0, param2 = 0) {
+    const wasmFile = path.join(this.filtersDir, `${name}.wasm`);
+    if (!fs.existsSync(wasmFile)) {
+      console.warn(`[Filter] Filter '${name}' not found at ${wasmFile}`);
+      return false;
+    }
+
+    if (!canvasActor || !canvasActor.instance || !canvasActor.instance.exports.get_active_layer_pixels) {
+      console.warn('[Filter] Canvas exports not available');
+      return false;
+    }
+
+    const pixPtr = canvasActor.instance.exports.get_active_layer_pixels();
+    const w = canvasActor.instance.exports.get_canvas_width();
+    const h = canvasActor.instance.exports.get_canvas_height();
+    if (!pixPtr || w === 0 || h === 0) return false;
+
+    const byteLen = w * h * 4;
+    const canvasPixels = new Uint8Array(canvasActor.memory.buffer, pixPtr, byteLen);
+
+    let wasmModule = this.modulesCache.get(name);
+    if (!wasmModule) {
+      const wasmBytes = fs.readFileSync(wasmFile);
+      wasmModule = await WebAssembly.compile(wasmBytes);
+      this.modulesCache.set(name, wasmModule);
+    }
+
+    const env = {
+      strlen: () => 0,
+      memcpy: (dst, src, n) => dst,
+      memset: (dst, v, n) => dst
+    };
+
+    const instance = await WebAssembly.instantiate(wasmModule, { env });
+    const mem = instance.exports.memory;
+    const filterFn = instance.exports.filter;
+    if (!filterFn || !mem) {
+      console.warn(`[Filter] '${name}' does not export filter() or memory`);
+      return false;
+    }
+
+    let inputPtr = 0;
+    if (instance.exports.__heap_base) {
+      inputPtr = (instance.exports.__heap_base.value + 65535) & ~65535;
+    } else {
+      inputPtr = 0x10000;
+    }
+
+    const requiredBytes = inputPtr + byteLen;
+    const currentBytes = mem.buffer.byteLength;
+    if (requiredBytes > currentBytes) {
+      const pagesNeeded = Math.ceil((requiredBytes - currentBytes) / 65536);
+      mem.grow(pagesNeeded);
+    }
+
+    new Uint8Array(mem.buffer, inputPtr, byteLen).set(canvasPixels);
+    filterFn(inputPtr, w, h, param1, param2);
+    canvasPixels.set(new Uint8Array(mem.buffer, inputPtr, byteLen));
+
+    if (canvasActor.instance.exports.force_composite) {
+      canvasActor.instance.exports.force_composite();
+    }
+    console.log(`[Filter Applied] '${name}' (p1=${param1}, p2=${param2}) on active layer`);
+    return true;
+  }
+}
+
 class WesenhoBroker {
-  constructor() {
+  constructor(baseDir = path.resolve(__dirname, '..')) {
     this.actors = new Map();
     this.topics = new Map();
+    this.filterManager = new FilterManager(baseDir);
   }
 
   register(actor) {
@@ -234,6 +316,24 @@ class WesenhoBroker {
         this.publish(fromId, topic, buffer);
         return;
       }
+
+      if (type === 30 /* MSG_APPLY_FILTER */) {
+        const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        let name = '';
+        for (let i = 0; i < 20; i++) {
+          const c = view.getUint8(4 + i);
+          if (c === 0) break;
+          name += String.fromCharCode(c);
+        }
+        const p1 = view.getInt32(24, true);
+        const p2 = view.getInt32(28, true);
+
+        const canvas = this.actors.get(ACTOR_CANVAS);
+        if (canvas) {
+          this.filterManager.runFilter(name, canvas, p1, p2);
+        }
+        return;
+      }
     }
 
     if (targetId === ACTOR_CANVAS) {
@@ -260,12 +360,6 @@ function discoverModules(baseDir) {
   const modules = [];
   let nextId = 10;
 
-  modules.push(
-    { id: 2, name: 'tools', x: 20, y: 20, wasmPath: 'roms/tools.wasm' },
-    { id: 3, name: 'palette', x: 20, y: 175, wasmPath: 'roms/palette.wasm' },
-    { id: 4, name: 'layers', x: windowWidth - 170, y: 20, wasmPath: 'roms/layers.wasm' }
-  );
-
   const pluginsDir = path.resolve(baseDir, 'plugins');
   if (fs.existsSync(pluginsDir)) {
     const subdirs = ['uis', 'brushes', 'filters'];
@@ -277,9 +371,8 @@ function discoverModules(baseDir) {
       for (const f of files) {
         if (f.endsWith('.wasm')) {
           const modPath = path.relative(baseDir, path.join(dir, f));
-          let posX = 185;
+          let posX = 20;
           let posY = 20;
-          if (f.includes('console')) { posX = 185; posY = 20; }
           pluginSlot++;
 
           modules.push({
@@ -326,7 +419,7 @@ async function main() {
   }
 
   const window = sdl.video.createWindow({
-    title: 'Wesenho Studio — Sistema Extensivel por Plugins & Microkernel Piolho',
+    title: 'wesenho',
     width: windowWidth,
     height: windowHeight,
     resizable: true
@@ -336,6 +429,7 @@ async function main() {
   let mouseState = { x: 0, y: 0, buttons: 0, wheel_y: 0 };
   let isDrawingOnCanvas = false;
   let spaceDown = false;
+  let altDown = false;
   let dragWin = null;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
@@ -359,6 +453,11 @@ async function main() {
       panY += (e.y - panStartY);
       panStartX = e.x;
       panStartY = e.y;
+    } else if (isDrawingOnCanvas && (mouseState.buttons & 3)) {
+      const docX = (mouseState.x - panX) / zoom;
+      const docY = (mouseState.y - panY) / zoom;
+      canvasActor.syncMouse(docX, docY, mouseState.buttons, 0, 0);
+      canvasActor.update();
     }
   });
 
@@ -370,13 +469,17 @@ async function main() {
     for (let i = uiActors.length - 1; i >= 0; i--) {
       const { win, actor } = uiActors[i];
       if (mouseState.x >= win.x && mouseState.x < win.x + actor.width &&
-          mouseState.y >= win.y && mouseState.y < win.y + 18) {
-        dragWin = { win, actor };
-        dragOffsetX = mouseState.x - win.x;
-        dragOffsetY = mouseState.y - win.y;
-
+          mouseState.y >= win.y && mouseState.y < win.y + actor.height) {
+        
         const item = uiActors.splice(i, 1)[0];
         uiActors.push(item);
+
+        const isConsoleDragArea = (win.name === 'console' && mouseState.y < win.y + actor.height - 24);
+        if (altDown || isConsoleDragArea || (mouseState.y < win.y + 12)) {
+          dragWin = { win, actor };
+          dragOffsetX = mouseState.x - win.x;
+          dragOffsetY = mouseState.y - win.y;
+        }
         return;
       }
     }
@@ -385,6 +488,12 @@ async function main() {
       isPanning = true;
       panStartX = mouseState.x;
       panStartY = mouseState.y;
+    } else if ((e.button === 1 || e.button === 3) && !isPanning) {
+      isDrawingOnCanvas = true;
+      const docX = (mouseState.x - panX) / zoom;
+      const docY = (mouseState.y - panY) / zoom;
+      canvasActor.syncMouse(docX, docY, mouseState.buttons, 0, 0);
+      canvasActor.update();
     }
   });
 
@@ -392,13 +501,19 @@ async function main() {
     if (e.button === 1) {
       mouseState.buttons &= ~1;
       dragWin = null;
-      isDrawingOnCanvas = false;
     } else if (e.button === 3) {
       mouseState.buttons &= ~2;
-      isDrawingOnCanvas = false;
     } else if (e.button === 2) {
       mouseState.buttons &= ~4;
       isPanning = false;
+    }
+
+    if ((mouseState.buttons & 3) === 0) {
+      if (isDrawingOnCanvas) {
+        canvasActor.syncMouse(-100, -100, 0, 0, 0);
+        canvasActor.update();
+      }
+      isDrawingOnCanvas = false;
     }
 
     if (isPanning && !spaceDown) {
@@ -419,6 +534,7 @@ async function main() {
 
   window.on('keyDown', (e) => {
     if (e.key === 'space' || e.scancode === 44) spaceDown = true;
+    if (e.key === 'leftAlt' || e.key === 'rightAlt' || e.alt) altDown = true;
 
     const sc = KEY_MAP[e.key] || 0;
     if (sc) globalKeys[sc] = 1;
@@ -446,14 +562,15 @@ async function main() {
       spaceDown = false;
       isPanning = false;
     }
+    if (e.key === 'leftAlt' || e.key === 'rightAlt' || !e.alt) {
+      altDown = false;
+    }
     const sc = KEY_MAP[e.key] || 0;
     if (sc) globalKeys[sc] = 0;
     if (!e.shift) { globalKeys[0xE1] = 0; globalKeys[0xE5] = 0; }
   });
 
   window.on('close', () => process.exit(0));
-
-  console.log('=== Wesenho Studio — Microkernel Pronto ===');
 
   const frameLoop = () => {
     let focusedActor = null;

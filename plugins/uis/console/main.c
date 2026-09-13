@@ -3,10 +3,10 @@
 
 #define CONSOLE_WIDTH   400
 #define CONSOLE_HEIGHT  210
-#define MAX_LOG_LINES   11
-#define MAX_LINE_LEN    60
-#define MAX_STACK       32
-#define MAX_HISTORY     12
+#define MAX_LOG_LINES   12
+#define MAX_LINE_LEN    64
+#define MAX_HISTORY     16
+#define MAX_TOKENS      12
 
 static wframebuffer_t *fb = 0;
 static wmouse_t       *mouse = 0;
@@ -28,18 +28,28 @@ static char history[MAX_HISTORY][MAX_LINE_LEN];
 static int history_count = 0;
 static int history_idx = -1;
 
-// Forth Stack
-static int32_t stack[MAX_STACK];
-static int sp = 0;
+// Layer Registry Mirror
+static char layer_names[MAX_LAYERS][16] = {
+    "Layer 0", "Layer 1", "Layer 2", "Layer 3",
+    "Layer 4", "Layer 5", "Layer 6", "Layer 7"
+};
+static uint8_t layer_vis[MAX_LAYERS] = {1, 1, 1, 1, 1, 1, 1, 1};
+static uint8_t layer_op[MAX_LAYERS] = {100, 100, 100, 100, 100, 100, 100, 100};
+static int layer_count = 1;
+static int active_layer = 0;
 
 static uint8_t prev_keys[256];
+static uint8_t key_hold[256];
 
-static void push(int32_t val) {
-    if (sp < MAX_STACK) stack[sp++] = val;
-}
-
-static int32_t pop(void) {
-    if (sp > 0) return stack[--sp];
+static inline int is_key_triggered(uint8_t sc, int initial_delay, int repeat_rate) {
+    if (!kb) return 0;
+    if (kb->keys[sc]) {
+        key_hold[sc]++;
+        if (key_hold[sc] == 1) return 1;
+        if (key_hold[sc] > initial_delay && ((key_hold[sc] - initial_delay) % repeat_rate == 0)) return 1;
+    } else {
+        key_hold[sc] = 0;
+    }
     return 0;
 }
 
@@ -52,7 +62,9 @@ static int str_len(const char *s) {
 static int str_cmp(const char *a, const char *b) {
     int i = 0;
     while (a[i] && b[i]) {
-        if (a[i] != b[i]) return a[i] - b[i];
+        char ca = (a[i] >= 'A' && a[i] <= 'Z') ? (a[i] + 32) : a[i];
+        char cb = (b[i] >= 'A' && b[i] <= 'Z') ? (b[i] + 32) : b[i];
+        if (ca != cb) return ca - cb;
         i++;
     }
     return (unsigned char)a[i] - (unsigned char)b[i];
@@ -96,23 +108,6 @@ static void int_to_str(int val, char *buf) {
     if (neg) buf[out++] = '-';
     for (int i = idx - 1; i >= 0; i--) buf[out++] = tmp[i];
     buf[out] = '\0';
-}
-
-static void print_stack(void) {
-    char out[MAX_LINE_LEN] = "<";
-    char num[16];
-    int_to_str(sp, num);
-    int p = 1;
-    for (int i = 0; num[i]; i++) out[p++] = num[i];
-    out[p++] = '>';
-    out[p++] = ' ';
-    for (int i = 0; i < sp && p < MAX_LINE_LEN - 12; i++) {
-        int_to_str(stack[i], num);
-        for (int j = 0; num[j]; j++) out[p++] = num[j];
-        out[p++] = ' ';
-    }
-    out[p] = '\0';
-    log_print(out, 0xFF00E0E0);
 }
 
 static void send_msg(uint32_t type, uint32_t p1, uint32_t p2, uint32_t p3) {
@@ -172,207 +167,480 @@ static int parse_hex_color(const char *s, int32_t *out) {
     return 0;
 }
 
-static void execute_word(const char *word) {
-    int32_t num = 0;
+static int parse_color_token(const char *tok, uint32_t *out) {
+    int32_t hex = 0;
+    if (parse_hex_color(tok, &hex)) { *out = (uint32_t)hex; return 1; }
+    if (str_cmp(tok, "black") == 0)   { *out = 0xFF000000; return 1; }
+    if (str_cmp(tok, "white") == 0)   { *out = 0xFFFFFFFF; return 1; }
+    if (str_cmp(tok, "red") == 0)     { *out = 0xFF0000FF; return 1; }
+    if (str_cmp(tok, "green") == 0)   { *out = 0xFF00FF00; return 1; }
+    if (str_cmp(tok, "blue") == 0)    { *out = 0xFFFF0000; return 1; }
+    if (str_cmp(tok, "yellow") == 0)  { *out = 0xFF00FFFF; return 1; }
+    if (str_cmp(tok, "cyan") == 0)    { *out = 0xFFFFFF00; return 1; }
+    if (str_cmp(tok, "magenta") == 0) { *out = 0xFFFF00FF; return 1; }
+    if (str_cmp(tok, "orange") == 0)  { *out = 0xFF0080FF; return 1; }
+    if (str_cmp(tok, "gray") == 0)    { *out = 0xFF808080; return 1; }
+    return 0;
+}
 
-    // Numbers & Hex
-    if (parse_int(word, &num)) { push(num); return; }
-    if (parse_hex_color(word, &num)) { push(num); return; }
-
-    // Color Shortcuts
-    if (str_cmp(word, "black") == 0) { send_msg(MSG_SET_COLOR, 0xFF000000, 0, 0); log_print("cor: preto", 0xFF00FF88); return; }
-    if (str_cmp(word, "white") == 0) { send_msg(MSG_SET_COLOR, 0xFFFFFFFF, 0, 0); log_print("cor: branco", 0xFF00FF88); return; }
-    if (str_cmp(word, "red") == 0)   { send_msg(MSG_SET_COLOR, 0xFF0000FF, 0, 0); log_print("cor: vermelho", 0xFF00FF88); return; }
-    if (str_cmp(word, "green") == 0) { send_msg(MSG_SET_COLOR, 0xFF00FF00, 0, 0); log_print("cor: verde", 0xFF00FF88); return; }
-    if (str_cmp(word, "blue") == 0)  { send_msg(MSG_SET_COLOR, 0xFFFF0000, 0, 0); log_print("cor: azul", 0xFF00FF88); return; }
-    if (str_cmp(word, "yellow") == 0){ send_msg(MSG_SET_COLOR, 0xFF00FFFF, 0, 0); log_print("cor: amarelo", 0xFF00FF88); return; }
-    if (str_cmp(word, "cyan") == 0)  { send_msg(MSG_SET_COLOR, 0xFFFFFF00, 0, 0); log_print("cor: ciano", 0xFF00FF88); return; }
-    if (str_cmp(word, "magenta") == 0){send_msg(MSG_SET_COLOR, 0xFFFF00FF, 0, 0); log_print("cor: magenta", 0xFF00FF88); return; }
-    if (str_cmp(word, "orange") == 0){ send_msg(MSG_SET_COLOR, 0xFF0080FF, 0, 0); log_print("cor: laranja", 0xFF00FF88); return; }
-
-    // Stack Ops
-    if (str_cmp(word, "+") == 0) { int32_t b = pop(), a = pop(); push(a + b); }
-    else if (str_cmp(word, "-") == 0) { int32_t b = pop(), a = pop(); push(a - b); }
-    else if (str_cmp(word, "*") == 0) { int32_t b = pop(), a = pop(); push(a * b); }
-    else if (str_cmp(word, "/") == 0) { int32_t b = pop(), a = pop(); push(b != 0 ? a / b : 0); }
-    else if (str_cmp(word, "dup") == 0) { if (sp > 0) push(stack[sp - 1]); }
-    else if (str_cmp(word, "drop") == 0) { pop(); }
-    else if (str_cmp(word, "swap") == 0) { int32_t b = pop(), a = pop(); push(b); push(a); }
-    else if (str_cmp(word, "rot") == 0) { int32_t c = pop(), b = pop(), a = pop(); push(b); push(c); push(a); }
-    else if (str_cmp(word, ".s") == 0) { print_stack(); }
-    else if (str_cmp(word, "clear-stack") == 0) { sp = 0; log_print("Stack limpo.", 0xFF888888); }
-
-    // Colors
-    else if (str_cmp(word, "rgb") == 0) {
-        int32_t b = pop(), g = pop(), r = pop();
-        uint32_t col = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
-        send_msg(MSG_SET_COLOR, col, 0, 0);
-        log_print("ok: cor definida (RGB)", 0xFF00FF88);
-    } else if (str_cmp(word, "hex") == 0) {
-        int32_t col = pop();
-        send_msg(MSG_SET_COLOR, (uint32_t)col, 0, 0);
-        log_print("ok: cor definida (HEX)", 0xFF00FF88);
+static int find_layer_idx(const char *tok) {
+    if (!tok || !tok[0]) return -1;
+    int32_t id = -1;
+    if (parse_int(tok, &id)) {
+        if (id >= 0 && id < layer_count) return id;
     }
-
-    // Brush & Tools
-    else if (str_cmp(word, "size") == 0 || str_cmp(word, "brush-size") == 0) {
-        int32_t sz = pop();
-        send_msg(MSG_SET_BRUSH_SIZE, (uint32_t)sz, 0, 0);
-        log_print("ok: tamanho pincel alterado", 0xFF00FF88);
-    } else if (str_cmp(word, "brush-type") == 0) {
-        int32_t t = pop();
-        send_msg(MSG_SET_BRUSH_TYPE, (uint32_t)t, 0, 0);
-        log_print("ok: tipo pincel alterado", 0xFF00FF88);
-    } else if (str_cmp(word, "round") == 0 || str_cmp(word, "brush-round") == 0) {
-        send_msg(MSG_SET_BRUSH_TYPE, BRUSH_HARD_ROUND, 0, 0);
-        log_print("ok: pincel redondo", 0xFF00FF88);
-    } else if (str_cmp(word, "soft") == 0 || str_cmp(word, "air") == 0 || str_cmp(word, "brush-soft") == 0) {
-        send_msg(MSG_SET_BRUSH_TYPE, BRUSH_SOFT_AIRBRUSH, 0, 0);
-        log_print("ok: pincel macio/airbrush", 0xFF00FF88);
-    } else if (str_cmp(word, "pixel") == 0 || str_cmp(word, "brush-pixel") == 0) {
-        send_msg(MSG_SET_BRUSH_TYPE, BRUSH_PIXEL, 0, 0);
-        log_print("ok: pincel pixel art", 0xFF00FF88);
-    } else if (str_cmp(word, "chisel") == 0 || str_cmp(word, "brush-chisel") == 0) {
-        send_msg(MSG_SET_BRUSH_TYPE, BRUSH_CHISEL, 0, 0);
-        log_print("ok: pincel chanfrado", 0xFF00FF88);
-    } else if (str_cmp(word, "spray") == 0 || str_cmp(word, "brush-spray") == 0) {
-        send_msg(MSG_SET_BRUSH_TYPE, BRUSH_SCATTER, 0, 0);
-        log_print("ok: pincel spray/noise", 0xFF00FF88);
-    } else if (str_cmp(word, "brush-params") == 0) {
-        int32_t spc = pop(), op = pop(), hd = pop();
-        send_msg(MSG_SET_BRUSH_PARAMS, (uint32_t)hd, (uint32_t)op, (uint32_t)spc);
-        log_print("ok: parametros de pincel", 0xFF00FF88);
-    } else if (str_cmp(word, "brush") == 0 || str_cmp(word, "tool-brush") == 0) {
-        send_msg(MSG_SET_TOOL, TOOL_BRUSH, 0, 0);
-        log_print("ok: modo pincel", 0xFF00FF88);
-    } else if (str_cmp(word, "eraser") == 0 || str_cmp(word, "tool-eraser") == 0) {
-        send_msg(MSG_SET_TOOL, TOOL_ERASER, 0, 0);
-        log_print("ok: modo borracha", 0xFF00FF88);
+    for (int i = 0; i < layer_count; i++) {
+        if (str_cmp(layer_names[i], tok) == 0) return i;
     }
+    return -1;
+}
 
-    // Layers & Effects
-    else if (str_cmp(word, "layer-new") == 0) {
-        send_msg(MSG_LAYER_ADD, 0, 0, 0);
-        log_print("ok: nova camada criada", 0xFF00FF88);
-    } else if (str_cmp(word, "layer-select") == 0 || str_cmp(word, "select") == 0) {
-        int32_t id = pop();
-        send_msg(MSG_LAYER_SELECT, (uint32_t)id, 0, 0);
-        log_print("ok: camada selecionada", 0xFF00FF88);
-    } else if (str_cmp(word, "layer-toggle") == 0 || str_cmp(word, "toggle") == 0) {
-        int32_t id = pop();
-        send_msg(MSG_LAYER_TOGGLE_VIS, (uint32_t)id, 0, 0);
-        log_print("ok: visibilidade alternada", 0xFF00FF88);
-    } else if (str_cmp(word, "layer-opacity") == 0 || str_cmp(word, "opacity") == 0) {
-        int32_t op = pop(), id = pop();
-        send_msg(MSG_LAYER_SET_OPACITY, (uint32_t)id, (uint32_t)op, 0);
-        log_print("ok: opacidade alterada", 0xFF00FF88);
-    } else if (str_cmp(word, "clear") == 0) {
-        send_msg(MSG_EFFECT_CLEAR, 0, 0, 0);
-        log_print("ok: camada limpa", 0xFF00FF88);
-    } else if (str_cmp(word, "invert") == 0) {
-        send_msg(MSG_EFFECT_INVERT, 0, 0, 0);
-        log_print("ok: cores invertidas", 0xFF00FF88);
-    } else if (str_cmp(word, "grayscale") == 0) {
-        send_msg(MSG_EFFECT_GRAYSCALE, 0, 0, 0);
-        log_print("ok: escala de cinza", 0xFF00FF88);
-    }
+static void send_layer_rename(int idx, const char *name) {
+    str_copy(layer_names[idx], name, 16);
+    uint32_t p2 = 0;
+    uint32_t p3 = 0;
+    for (int i = 0; i < 4 && name[i]; i++) p2 |= ((uint8_t)name[i]) << (i * 8);
+    for (int i = 0; i < 4 && name[4 + i]; i++) p3 |= ((uint8_t)name[4 + i]) << (i * 8);
+    send_msg(MSG_LAYER_RENAME, (uint32_t)idx, p2, p3);
+}
 
-    // Generative & Primitive Drawing Words
-    else if (str_cmp(word, "line") == 0) {
-        int32_t y1 = pop(), x1 = pop(), y0 = pop(), x0 = pop();
-        send_msg(MSG_DRAW_LINE, ((x0 & 0xFFFF) << 16) | (y0 & 0xFFFF), ((x1 & 0xFFFF) << 16) | (y1 & 0xFFFF), 0);
-        log_print("ok: linha desenhada", 0xFF00FF88);
-    } else if (str_cmp(word, "rect") == 0) {
-        int32_t h = pop(), w = pop(), y = pop(), x = pop();
-        send_msg(MSG_DRAW_RECT, ((x & 0xFFFF) << 16) | (y & 0xFFFF), ((w & 0xFFFF) << 16) | (h & 0xFFFF), 0);
-        log_print("ok: retangulo desenhado", 0xFF00FF88);
-    } else if (str_cmp(word, "circle") == 0) {
-        int32_t r = pop(), cy = pop(), cx = pop();
-        send_msg(MSG_DRAW_CIRCLE, ((cx & 0xFFFF) << 16) | (cy & 0xFFFF), (uint32_t)r, 0);
-        log_print("ok: circulo desenhado", 0xFF00FF88);
-    } else if (str_cmp(word, "grid") == 0) {
-        int32_t step = pop();
-        send_msg(MSG_DRAW_GRID, (uint32_t)step, 0, 0);
-        log_print("ok: grid gerado", 0xFF00FF88);
-    }
+static void send_filter(const char *name, int32_t p1, int32_t p2) {
+    wesenho_filter_msg_t *fmsg = (wesenho_filter_msg_t*)piolho_page;
+    fmsg->type = MSG_APPLY_FILTER;
+    str_copy(fmsg->name, name, 20);
+    fmsg->param1 = p1;
+    fmsg->param2 = p2;
+    say(ACTOR_BROKER, sizeof(wesenho_filter_msg_t));
+}
 
-    // System
-    else if (str_cmp(word, "cls") == 0) {
-        log_count = 0;
-    } else if (str_cmp(word, "help") == 0) {
-        log_print("WESENHO FORTH / LISP CHEATSHEET:", 0xFFFFFF00);
-        log_print("Cores: 255 0 128 rgb | #ff0080 hex | red | blue | cyan", 0xFFAABBCC);
-        log_print("Pincel: 14 size | round | soft | pixel | chisel | spray", 0xFFAABBCC);
-        log_print("Camadas: layer-new | 1 select | 0 toggle | 50 1 opacity", 0xFFAABBCC);
-        log_print("Generativo: 100 100 200 150 rect | 400 500 80 circle | 32 grid", 0xFFAABBCC);
-        log_print("Lisp: (rgb 255 0 0) | (size 12) | (circle 400 500 50)", 0xFFAABBCC);
-    } else {
-        char err[MAX_LINE_LEN] = "Palavra desconhecida: ";
-        int ep = str_len(err);
-        for (int i = 0; word[i] && ep < MAX_LINE_LEN - 1; i++) err[ep++] = word[i];
-        err[ep] = '\0';
-        log_print(err, 0xFFFF5555);
+static void list_layers(void) {
+    log_print("--- LAYERS ---", 0xFF00FFCC);
+    for (int i = 0; i < layer_count; i++) {
+        char line[MAX_LINE_LEN] = "[";
+        char num[8];
+        int_to_str(i, num);
+        int p = 1;
+        for (int k = 0; num[k]; k++) line[p++] = num[k];
+        line[p++] = ']'; line[p++] = ' ';
+        for (int k = 0; layer_names[i][k] && p < 24; k++) line[p++] = layer_names[i][k];
+        while (p < 25) line[p++] = ' ';
+
+        // Visibility & Opacity
+        line[p++] = layer_vis[i] ? 'V' : '.';
+        line[p++] = ' ';
+        int_to_str(layer_op[i], num);
+        for (int k = 0; num[k]; k++) line[p++] = num[k];
+        line[p++] = '%';
+        if (i == active_layer) {
+            line[p++] = ' '; line[p++] = '<'; line[p++] = '*'; line[p++] = '>';
+        }
+        line[p] = '\0';
+        log_print(line, (i == active_layer) ? 0xFFFFFFFF : 0xFFAABBCC);
     }
 }
 
-static void execute_line(const char *line) {
-    if (str_len(line) == 0) return;
+static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
+    if (ntok == 0) return;
 
-    if (line[0] == '(') {
-        char tokens[8][32];
-        int tok_count = 0;
-        int t_idx = 0;
-        int i = 1;
-        while (line[i] && line[i] != ')') {
-            if (line[i] == ' ' || line[i] == '\t') {
-                if (t_idx > 0) {
-                    tokens[tok_count][t_idx] = '\0';
-                    tok_count++;
-                    t_idx = 0;
-                }
+    // 1. Math S-expressions: (+ 10 20), (- 50 12), (* 8 4), (/ 100 5)
+    if (ntok == 3 && (str_cmp(tokens[0], "+") == 0 || str_cmp(tokens[0], "-") == 0 ||
+                      str_cmp(tokens[0], "*") == 0 || str_cmp(tokens[0], "/") == 0)) {
+        int32_t a = 0, b = 0;
+        parse_int(tokens[1], &a);
+        parse_int(tokens[2], &b);
+        int32_t res = 0;
+        if (tokens[0][0] == '+') res = a + b;
+        else if (tokens[0][0] == '-') res = a - b;
+        else if (tokens[0][0] == '*') res = a * b;
+        else if (tokens[0][0] == '/') res = (b != 0) ? (a / b) : 0;
+        char out[MAX_LINE_LEN] = "=> ";
+        char num[16];
+        int_to_str(res, num);
+        for (int i = 0; num[i]; i++) out[3 + i] = num[i];
+        out[3 + str_len(num)] = '\0';
+        log_print(out, 0xFF00FF88);
+        return;
+    }
+
+    // 2. new layer ["name"]
+    if (str_cmp(tokens[0], "new") == 0 && ntok >= 2 && str_cmp(tokens[1], "layer") == 0) {
+        if (layer_count < MAX_LAYERS) {
+            int new_idx = layer_count;
+            layer_vis[new_idx] = 1;
+            layer_op[new_idx] = 100;
+            if (ntok >= 3) {
+                str_copy(layer_names[new_idx], tokens[2], 16);
+                send_msg(MSG_LAYER_ADD, 0, 0, 0);
+                send_layer_rename(new_idx, tokens[2]);
             } else {
-                if (tok_count < 8 && t_idx < 31) {
-                    tokens[tok_count][t_idx++] = line[i];
-                }
+                char def_name[16] = "Layer ";
+                def_name[6] = '0' + new_idx;
+                def_name[7] = '\0';
+                str_copy(layer_names[new_idx], def_name, 16);
+                send_msg(MSG_LAYER_ADD, 0, 0, 0);
             }
-            i++;
+            active_layer = new_idx;
+            layer_count++;
+            char out[MAX_LINE_LEN] = "ok: new layer created ";
+            if (ntok >= 3) str_copy(out + str_len(out), tokens[2], 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: max layers reached (8)", 0xFFFF5555);
         }
-        if (t_idx > 0 && tok_count < 8) {
-            tokens[tok_count][t_idx] = '\0';
-            tok_count++;
-        }
+        return;
+    }
 
-        if (tok_count > 0) {
-            for (int a = 1; a < tok_count; a++) {
-                int32_t val = 0;
-                if (parse_int(tokens[a], &val) || parse_hex_color(tokens[a], &val)) {
-                    push(val);
+    // 3. set / select current_layer / layer <target>
+    if ((str_cmp(tokens[0], "set") == 0 && ntok >= 3 && (str_cmp(tokens[1], "current_layer") == 0 || str_cmp(tokens[1], "layer") == 0)) ||
+        (str_cmp(tokens[0], "select") == 0 && ntok >= 2)) {
+        const char *target = (str_cmp(tokens[0], "select") == 0) ? (ntok >= 3 && str_cmp(tokens[1], "layer") == 0 ? tokens[2] : tokens[1]) : tokens[2];
+        int idx = find_layer_idx(target);
+        if (idx >= 0) {
+            active_layer = idx;
+            send_msg(MSG_LAYER_SELECT, (uint32_t)idx, 0, 0);
+            char out[MAX_LINE_LEN] = "ok: selected layer ";
+            str_copy(out + str_len(out), layer_names[idx], 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: layer not found", 0xFFFF5555);
+        }
+        return;
+    }
+
+    // 4. rename current_layer "name" | rename layer <target> "name"
+    if (str_cmp(tokens[0], "rename") == 0 && ntok >= 3) {
+        int idx = active_layer;
+        const char *new_name = tokens[2];
+        if (str_cmp(tokens[1], "layer") == 0 && ntok >= 4) {
+            idx = find_layer_idx(tokens[2]);
+            new_name = tokens[3];
+        }
+        if (idx >= 0) {
+            send_layer_rename(idx, new_name);
+            char out[MAX_LINE_LEN] = "ok: renamed layer to ";
+            str_copy(out + str_len(out), new_name, 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: layer not found", 0xFFFF5555);
+        }
+        return;
+    }
+
+    // 5. delete layer <target>
+    if (str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) {
+        const char *target = (ntok >= 3 && str_cmp(tokens[1], "layer") == 0) ? tokens[2] : (ntok >= 2 ? tokens[1] : "");
+        int idx = find_layer_idx(target);
+        if (idx >= 0) {
+            send_msg(MSG_LAYER_DELETE, (uint32_t)idx, 0, 0);
+            if (layer_count > 1) {
+                for (int l = idx; l < layer_count - 1; l++) {
+                    layer_vis[l] = layer_vis[l + 1];
+                    layer_op[l] = layer_op[l + 1];
+                    str_copy(layer_names[l], layer_names[l + 1], 16);
                 }
+                layer_count--;
+                if (active_layer >= layer_count) active_layer = layer_count - 1;
             }
-            execute_word(tokens[0]);
+            char out[MAX_LINE_LEN] = "ok: deleted layer ";
+            str_copy(out + str_len(out), target, 20);
+            log_print(out, 0xFF00FF88);
+        } else {
+            log_print("err: layer not found", 0xFFFF5555);
+        }
+        return;
+    }
+
+    // 6. layer / layers / list layers
+    if (str_cmp(tokens[0], "layer") == 0 || str_cmp(tokens[0], "layers") == 0 ||
+        (str_cmp(tokens[0], "list") == 0 && ntok >= 2 && str_cmp(tokens[1], "layers") == 0)) {
+        list_layers();
+        return;
+    }
+
+    // 7. toggle / hide / show layer [target]
+    if (str_cmp(tokens[0], "toggle") == 0 || str_cmp(tokens[0], "hide") == 0 || str_cmp(tokens[0], "show") == 0) {
+        int idx = active_layer;
+        if (ntok >= 2) {
+            const char *target = (ntok >= 3 && str_cmp(tokens[1], "layer") == 0) ? tokens[2] : tokens[1];
+            int f = find_layer_idx(target);
+            if (f >= 0) idx = f;
+        }
+        send_msg(MSG_LAYER_TOGGLE_VIS, (uint32_t)idx, 0, 0);
+        layer_vis[idx] = !layer_vis[idx];
+        log_print("ok: layer visibility toggled", 0xFF00FF88);
+        return;
+    }
+
+    // 8. set opacity <val> [layer]
+    if (str_cmp(tokens[0], "set") == 0 && (str_cmp(tokens[1], "opacity") == 0 || (ntok >= 4 && str_cmp(tokens[2], "opacity") == 0))) {
+        int32_t op = 100;
+        int idx = active_layer;
+        int val_tok = (str_cmp(tokens[1], "opacity") == 0) ? 2 : 3;
+        if (ntok > val_tok) parse_int(tokens[val_tok], &op);
+        if (ntok > val_tok + 1) {
+            int f = find_layer_idx(tokens[val_tok + 1]);
+            if (f >= 0) idx = f;
+        }
+        send_msg(MSG_LAYER_SET_OPACITY, (uint32_t)idx, (uint32_t)op, 0);
+        layer_op[idx] = (uint8_t)op;
+        log_print("ok: opacity set", 0xFF00FF88);
+        return;
+    }
+
+    // 9. set color <#hex | (rgb r g b) | name>
+    if (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "color") == 0 && ntok >= 3) {
+        uint32_t col = 0;
+        if (str_cmp(tokens[2], "rgb") == 0 && ntok >= 6) {
+            int32_t r = 0, g = 0, b = 0;
+            parse_int(tokens[3], &r);
+            parse_int(tokens[4], &g);
+            parse_int(tokens[5], &b);
+            col = 0xFF000000 | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+            send_msg(MSG_SET_COLOR, col, 0, 0);
+            log_print("ok: color set (RGB)", 0xFF00FF88);
+            return;
+        } else if (parse_color_token(tokens[2], &col)) {
+            send_msg(MSG_SET_COLOR, col, 0, 0);
+            log_print("ok: color set", 0xFF00FF88);
             return;
         }
     }
 
-    char word[32];
-    int w_idx = 0;
+    // 10. set brush size <val> | set size <val>
+    if ((str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "brush") == 0 && ntok >= 4 && str_cmp(tokens[2], "size") == 0) ||
+        (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "size") == 0 && ntok >= 3)) {
+        int32_t sz = 4;
+        parse_int(tokens[str_cmp(tokens[1], "size") == 0 ? 2 : 3], &sz);
+        send_msg(MSG_SET_BRUSH_SIZE, (uint32_t)sz, 0, 0);
+        log_print("ok: brush size set", 0xFF00FF88);
+        return;
+    }
+
+    // 11. set brush type <round|soft|pixel|chisel|spray>
+    if (str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "brush") == 0 && ntok >= 4 && str_cmp(tokens[2], "type") == 0) {
+        int type = 0;
+        if (str_cmp(tokens[3], "round") == 0) type = BRUSH_HARD_ROUND;
+        else if (str_cmp(tokens[3], "soft") == 0 || str_cmp(tokens[3], "air") == 0) type = BRUSH_SOFT_AIRBRUSH;
+        else if (str_cmp(tokens[3], "pixel") == 0) type = BRUSH_PIXEL;
+        else if (str_cmp(tokens[3], "chisel") == 0) type = BRUSH_CHISEL;
+        else if (str_cmp(tokens[3], "spray") == 0) type = BRUSH_SCATTER;
+        send_msg(MSG_SET_BRUSH_TYPE, (uint32_t)type, 0, 0);
+        log_print("ok: brush type set", 0xFF00FF88);
+        return;
+    }
+
+    // 12. set tool <brush|eraser>
+    if ((str_cmp(tokens[0], "set") == 0 && str_cmp(tokens[1], "tool") == 0 && ntok >= 3) ||
+        (str_cmp(tokens[0], "tool") == 0 && ntok >= 2)) {
+        const char *t = (str_cmp(tokens[0], "tool") == 0) ? tokens[1] : tokens[2];
+        int tool = (str_cmp(t, "eraser") == 0) ? TOOL_ERASER : TOOL_BRUSH;
+        send_msg(MSG_SET_TOOL, (uint32_t)tool, 0, 0);
+        log_print(tool == TOOL_ERASER ? "ok: eraser mode" : "ok: brush mode", 0xFF00FF88);
+        return;
+    }
+
+    // 13. draw circle / rect / line / grid
+    if (str_cmp(tokens[0], "draw") == 0 && ntok >= 2) {
+        if (str_cmp(tokens[1], "circle") == 0 && ntok >= 5) {
+            int32_t cx = 0, cy = 0, r = 10;
+            parse_int(tokens[2], &cx);
+            parse_int(tokens[3], &cy);
+            parse_int(tokens[4], &r);
+            send_msg(MSG_DRAW_CIRCLE, ((cx & 0xFFFF) << 16) | (cy & 0xFFFF), (uint32_t)r, 0);
+            log_print("ok: circle drawn", 0xFF00FF88);
+            return;
+        } else if (str_cmp(tokens[1], "rect") == 0 && ntok >= 6) {
+            int32_t rx = 0, ry = 0, rw = 0, rh = 0;
+            parse_int(tokens[2], &rx);
+            parse_int(tokens[3], &ry);
+            parse_int(tokens[4], &rw);
+            parse_int(tokens[5], &rh);
+            send_msg(MSG_DRAW_RECT, ((rx & 0xFFFF) << 16) | (ry & 0xFFFF), ((rw & 0xFFFF) << 16) | (rh & 0xFFFF), 0);
+            log_print("ok: rectangle drawn", 0xFF00FF88);
+            return;
+        } else if (str_cmp(tokens[1], "line") == 0 && ntok >= 6) {
+            int32_t x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+            parse_int(tokens[2], &x0);
+            parse_int(tokens[3], &y0);
+            parse_int(tokens[4], &x1);
+            parse_int(tokens[5], &y1);
+            send_msg(MSG_DRAW_LINE, ((x0 & 0xFFFF) << 16) | (y0 & 0xFFFF), ((x1 & 0xFFFF) << 16) | (y1 & 0xFFFF), 0);
+            log_print("ok: line drawn", 0xFF00FF88);
+            return;
+        } else if (str_cmp(tokens[1], "grid") == 0 && ntok >= 3) {
+            int32_t step = 32;
+            parse_int(tokens[2], &step);
+            send_msg(MSG_DRAW_GRID, (uint32_t)step, 0, 0);
+            log_print("ok: grid drawn", 0xFF00FF88);
+            return;
+        }
+    }
+
+    // 14. clear layer
+    if (str_cmp(tokens[0], "clear") == 0) {
+        send_msg(MSG_EFFECT_CLEAR, 0, 0, 0);
+        log_print("ok: layer cleared", 0xFF00FF88);
+        return;
+    }
+
+    // 15. Wasm Filters: filter <name> [p1] [p2] | filters
+    if (str_cmp(tokens[0], "filter") == 0 || str_cmp(tokens[0], "effect") == 0) {
+        if (ntok == 1 || str_cmp(tokens[1], "list") == 0) {
+            log_print("--- WASM FILTERS ---", 0xFF00FFCC);
+            log_print("invert, grayscale, blur [r], brightness [d]", 0xFFAABBCC);
+            log_print("contrast [f], sepia, noise [amt], pixelate [s]", 0xFFAABBCC);
+            log_print("dither, threshold [t], edge", 0xFFAABBCC);
+            log_print("Usage: filter <name> [p1] [p2]", 0xFF888888);
+            return;
+        }
+        int32_t p1 = 0, p2 = 0;
+        if (ntok >= 3) parse_int(tokens[2], &p1);
+        if (ntok >= 4) parse_int(tokens[3], &p2);
+        send_filter(tokens[1], p1, p2);
+        char out[MAX_LINE_LEN] = "ok: filter applied ";
+        str_copy(out + str_len(out), tokens[1], 20);
+        log_print(out, 0xFF00FF88);
+        return;
+    }
+
+    if (str_cmp(tokens[0], "filters") == 0) {
+        log_print("--- WASM FILTERS ---", 0xFF00FFCC);
+        log_print("invert, grayscale, blur [r], brightness [d]", 0xFFAABBCC);
+        log_print("contrast [f], sepia, noise [amt], pixelate [s]", 0xFFAABBCC);
+        log_print("dither, threshold [t], edge", 0xFFAABBCC);
+        return;
+    }
+
+    // Wasm filter shortcuts
+    if (str_cmp(tokens[0], "invert") == 0) {
+        send_filter("invert", 0, 0);
+        log_print("ok: filter invert applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "grayscale") == 0) {
+        send_filter("grayscale", 0, 0);
+        log_print("ok: filter grayscale applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "blur") == 0) {
+        int32_t r = 3;
+        if (ntok >= 2) parse_int(tokens[1], &r);
+        send_filter("blur", r, 0);
+        log_print("ok: filter blur applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "brightness") == 0) {
+        int32_t d = 30;
+        if (ntok >= 2) parse_int(tokens[1], &d);
+        send_filter("brightness", d, 0);
+        log_print("ok: filter brightness applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "contrast") == 0) {
+        int32_t f = 30;
+        if (ntok >= 2) parse_int(tokens[1], &f);
+        send_filter("contrast", f, 0);
+        log_print("ok: filter contrast applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "sepia") == 0) {
+        send_filter("sepia", 0, 0);
+        log_print("ok: filter sepia applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "noise") == 0) {
+        int32_t amt = 25;
+        if (ntok >= 2) parse_int(tokens[1], &amt);
+        send_filter("noise", amt, 0);
+        log_print("ok: filter noise applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "pixelate") == 0) {
+        int32_t sz = 8;
+        if (ntok >= 2) parse_int(tokens[1], &sz);
+        send_filter("pixelate", sz, 0);
+        log_print("ok: filter pixelate applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "dither") == 0) {
+        send_filter("dither", 0, 0);
+        log_print("ok: filter dither applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "threshold") == 0) {
+        int32_t t = 128;
+        if (ntok >= 2) parse_int(tokens[1], &t);
+        send_filter("threshold", t, 0);
+        log_print("ok: filter threshold applied", 0xFF00FF88);
+        return;
+    }
+    if (str_cmp(tokens[0], "edge") == 0) {
+        send_filter("edge", 0, 0);
+        log_print("ok: filter edge applied", 0xFF00FF88);
+        return;
+    }
+
+    // 16. cls / help
+    if (str_cmp(tokens[0], "cls") == 0 || str_cmp(tokens[0], "clear-log") == 0) {
+        log_count = 0;
+        return;
+    }
+    if (str_cmp(tokens[0], "help") == 0) {
+        log_print("WESENHO S-EXPR COMMANDS:", 0xFFFFFF00);
+        log_print("Layers:  new layer \"name\" | rename current_layer \"bg\"", 0xFFAABBCC);
+        log_print("         set current_layer \"lineart\" | delete layer \"draft\"", 0xFFAABBCC);
+        log_print("         layer | toggle layer | set opacity 50", 0xFFAABBCC);
+        log_print("Brush:   set color #ff0080 | set color (rgb 255 0 0)", 0xFFAABBCC);
+        log_print("         set brush size 14 | set brush type soft | tool eraser", 0xFFAABBCC);
+        log_print("Draw:    draw circle 400 500 80 | draw rect 100 100 200 150", 0xFFAABBCC);
+        log_print("         draw line 50 50 700 900 | draw grid 32 | clear", 0xFFAABBCC);
+        log_print("Filters: filter <name> [p1] [p2] | filters (invert, blur, etc)", 0xFFAABBCC);
+        log_print("Math:    (+ 10 20) | (* 6 7) | cls", 0xFFAABBCC);
+        return;
+    }
+
+    // Fallback unknown
+    char err[MAX_LINE_LEN] = "Unknown command: ";
+    int ep = str_len(err);
+    for (int i = 0; tokens[0][i] && ep < MAX_LINE_LEN - 1; i++) err[ep++] = tokens[0][i];
+    err[ep] = '\0';
+    log_print(err, 0xFFFF5555);
+}
+
+static void parse_and_execute_line(const char *line) {
+    if (!line || !line[0]) return;
+
+    char tokens[MAX_TOKENS][32];
+    int ntok = 0;
+    int t_len = 0;
+    int in_quotes = 0;
     int i = 0;
+
     while (line[i]) {
         char c = line[i];
-        if (c == ' ' || c == '\t' || c == '\n') {
-            if (w_idx > 0) {
-                word[w_idx] = '\0';
-                execute_word(word);
-                w_idx = 0;
+        if (c == '"') {
+            in_quotes = !in_quotes;
+        } else if ((c == ' ' || c == '\t' || c == '(' || c == ')') && !in_quotes) {
+            if (t_len > 0) {
+                tokens[ntok][t_len] = '\0';
+                ntok++;
+                t_len = 0;
+                if (ntok >= MAX_TOKENS) break;
             }
         } else {
-            if (w_idx < 31) word[w_idx++] = c;
+            if (ntok < MAX_TOKENS && t_len < 31) {
+                tokens[ntok][t_len++] = c;
+            }
         }
         i++;
     }
-    if (w_idx > 0) {
-        word[w_idx] = '\0';
-        execute_word(word);
+    if (t_len > 0 && ntok < MAX_TOKENS) {
+        tokens[ntok][t_len] = '\0';
+        ntok++;
+    }
+
+    if (ntok > 0) {
+        execute_sexpr(tokens, ntok);
     }
 }
 
@@ -401,12 +669,8 @@ static void render_console(void) {
     draw_rect(0, 0, CONSOLE_WIDTH, CONSOLE_HEIGHT, 0xFF0E1114);
     draw_frame(0, 0, CONSOLE_WIDTH, CONSOLE_HEIGHT, 0xFF28323C);
 
-    // Title Bar
-    draw_rect(0, 0, CONSOLE_WIDTH, 18, 0xFF1C242C);
-    draw_string(pixels, CONSOLE_WIDTH, CONSOLE_HEIGHT, 8, 5, "WESENHO FORTH / LISP REPL", 0xFF00FFCC);
-
     // Log Lines
-    int start_y = 22;
+    int start_y = 8;
     for (int i = 0; i < log_count; i++) {
         draw_string(pixels, CONSOLE_WIDTH, CONSOLE_HEIGHT, 10, start_y + i * 14, log_lines[i], log_colors[i]);
     }
@@ -432,12 +696,12 @@ static void render_console(void) {
 static void handle_keyboard(void) {
     if (!kb) return;
 
-    // Backspace (0x2A)
-    if (kb->keys[0x2A] && !prev_keys[0x2A]) {
+    // Backspace (0x2A) with Key Repeat
+    if (is_key_triggered(0x2A, 18, 2)) {
         if (input_len > 0) input_buf[--input_len] = '\0';
     }
 
-    // Enter (0x28)
+    // Enter (0x28) - Single Shot
     if (kb->keys[0x28] && !prev_keys[0x28]) {
         if (input_len > 0) {
             char echo[MAX_LINE_LEN] = "> ";
@@ -454,14 +718,14 @@ static void handle_keyboard(void) {
             }
             history_idx = history_count;
 
-            execute_line(input_buf);
+            parse_and_execute_line(input_buf);
             input_len = 0;
             input_buf[0] = '\0';
         }
     }
 
-    // Up Arrow (0x52)
-    if (kb->keys[0x52] && !prev_keys[0x52]) {
+    // Up Arrow (0x52) with Repeat
+    if (is_key_triggered(0x52, 20, 5)) {
         if (history_count > 0 && history_idx > 0) {
             history_idx--;
             str_copy(input_buf, history[history_idx], MAX_LINE_LEN);
@@ -469,8 +733,8 @@ static void handle_keyboard(void) {
         }
     }
 
-    // Down Arrow (0x51)
-    if (kb->keys[0x51] && !prev_keys[0x51]) {
+    // Down Arrow (0x51) with Repeat
+    if (is_key_triggered(0x51, 20, 5)) {
         if (history_idx < history_count - 1) {
             history_idx++;
             str_copy(input_buf, history[history_idx], MAX_LINE_LEN);
@@ -486,7 +750,7 @@ static void handle_keyboard(void) {
 
     // Letters A..Z (0x04 .. 0x1D)
     for (int sc = 0x04; sc <= 0x1D; sc++) {
-        if (kb->keys[sc] && !prev_keys[sc] && input_len < MAX_LINE_LEN - 2) {
+        if (is_key_triggered((uint8_t)sc, 22, 3) && input_len < MAX_LINE_LEN - 2) {
             input_buf[input_len++] = (shift ? 'A' : 'a') + (sc - 0x04);
             input_buf[input_len] = '\0';
         }
@@ -494,7 +758,7 @@ static void handle_keyboard(void) {
 
     // Digits 1..9, 0 (0x1E .. 0x27)
     for (int sc = 0x1E; sc <= 0x27; sc++) {
-        if (kb->keys[sc] && !prev_keys[sc] && input_len < MAX_LINE_LEN - 2) {
+        if (is_key_triggered((uint8_t)sc, 22, 3) && input_len < MAX_LINE_LEN - 2) {
             char d;
             if (shift) {
                 const char syms[] = "!@#$%^&*()";
@@ -509,37 +773,43 @@ static void handle_keyboard(void) {
     }
 
     // Space (0x2C)
-    if (kb->keys[0x2C] && !prev_keys[0x2C] && input_len < MAX_LINE_LEN - 2) {
+    if (is_key_triggered(0x2C, 22, 3) && input_len < MAX_LINE_LEN - 2) {
         input_buf[input_len++] = ' ';
         input_buf[input_len] = '\0';
     }
 
     // Minus / Underscore (0x2D)
-    if (kb->keys[0x2D] && !prev_keys[0x2D] && input_len < MAX_LINE_LEN - 2) {
+    if (is_key_triggered(0x2D, 22, 3) && input_len < MAX_LINE_LEN - 2) {
         input_buf[input_len++] = shift ? '_' : '-';
         input_buf[input_len] = '\0';
     }
 
     // Equal / Plus (0x2E)
-    if (kb->keys[0x2E] && !prev_keys[0x2E] && input_len < MAX_LINE_LEN - 2) {
+    if (is_key_triggered(0x2E, 22, 3) && input_len < MAX_LINE_LEN - 2) {
         input_buf[input_len++] = shift ? '+' : '=';
         input_buf[input_len] = '\0';
     }
 
+    // Quotes (0x34)
+    if (is_key_triggered(0x34, 22, 3) && input_len < MAX_LINE_LEN - 2) {
+        input_buf[input_len++] = '"';
+        input_buf[input_len] = '\0';
+    }
+
     // Semicolon / Colon (0x33)
-    if (kb->keys[0x33] && !prev_keys[0x33] && input_len < MAX_LINE_LEN - 2) {
+    if (is_key_triggered(0x33, 22, 3) && input_len < MAX_LINE_LEN - 2) {
         input_buf[input_len++] = shift ? ':' : ';';
         input_buf[input_len] = '\0';
     }
 
     // Period / Greater (0x37)
-    if (kb->keys[0x37] && !prev_keys[0x37] && input_len < MAX_LINE_LEN - 2) {
+    if (is_key_triggered(0x37, 22, 3) && input_len < MAX_LINE_LEN - 2) {
         input_buf[input_len++] = shift ? '>' : '.';
         input_buf[input_len] = '\0';
     }
 
     // Slash / Question (0x38)
-    if (kb->keys[0x38] && !prev_keys[0x38] && input_len < MAX_LINE_LEN - 2) {
+    if (is_key_triggered(0x38, 22, 3) && input_len < MAX_LINE_LEN - 2) {
         input_buf[input_len++] = shift ? '?' : '/';
         input_buf[input_len] = '\0';
     }
@@ -547,7 +817,72 @@ static void handle_keyboard(void) {
     for (int i = 0; i < 256; i++) prev_keys[i] = kb->keys[i];
 }
 
-void on_message(int32_t from_id, int32_t len) {}
+void on_message(int32_t from_id, int32_t len) {
+    if (len < (int32_t)sizeof(wesenho_msg_t)) return;
+    wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
+
+    switch (msg->type) {
+        case MSG_LAYER_ADD:
+            if (layer_count < MAX_LAYERS) {
+                layer_vis[layer_count] = 1;
+                layer_op[layer_count] = 100;
+                char def_name[16] = "Layer ";
+                def_name[6] = '0' + layer_count;
+                def_name[7] = '\0';
+                str_copy(layer_names[layer_count], def_name, 16);
+                active_layer = layer_count;
+                layer_count++;
+            }
+            break;
+        case MSG_LAYER_SELECT:
+            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
+                active_layer = (int)msg->param1;
+            }
+            break;
+        case MSG_LAYER_TOGGLE_VIS:
+            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
+                layer_vis[(int)msg->param1] = !layer_vis[(int)msg->param1];
+            }
+            break;
+        case MSG_LAYER_SET_OPACITY:
+            if ((int)msg->param1 >= 0 && (int)msg->param1 < layer_count) {
+                layer_op[(int)msg->param1] = (uint8_t)msg->param2;
+            }
+            break;
+        case MSG_LAYER_DELETE: {
+            int del_idx = (int)msg->param1;
+            if (del_idx >= 0 && del_idx < layer_count) {
+                if (layer_count > 1) {
+                    for (int l = del_idx; l < layer_count - 1; l++) {
+                        layer_vis[l] = layer_vis[l + 1];
+                        layer_op[l] = layer_op[l + 1];
+                        str_copy(layer_names[l], layer_names[l + 1], 16);
+                    }
+                    layer_count--;
+                    if (active_layer >= layer_count) active_layer = layer_count - 1;
+                }
+            }
+            break;
+        }
+        case MSG_LAYER_RENAME: {
+            int idx = (int)msg->param1;
+            if (idx >= 0 && idx < layer_count) {
+                char new_name[16];
+                new_name[0] = (char)(msg->param2 & 0xFF);
+                new_name[1] = (char)((msg->param2 >> 8) & 0xFF);
+                new_name[2] = (char)((msg->param2 >> 16) & 0xFF);
+                new_name[3] = (char)((msg->param2 >> 24) & 0xFF);
+                new_name[4] = (char)(msg->param3 & 0xFF);
+                new_name[5] = (char)((msg->param3 >> 8) & 0xFF);
+                new_name[6] = (char)((msg->param3 >> 16) & 0xFF);
+                new_name[7] = (char)((msg->param3 >> 24) & 0xFF);
+                new_name[8] = '\0';
+                str_copy(layer_names[idx], new_name, 16);
+            }
+            break;
+        }
+    }
+}
 
 int32_t update(void) {
     if (!fb) {
@@ -557,8 +892,8 @@ int32_t update(void) {
             fb->height = CONSOLE_HEIGHT;
             fb->pixels = (uint32_t)(uintptr_t)pixels;
         }
-        log_print("WESENHO FORTH / LISP STUDIO v0.2", 0xFF00FFCC);
-        log_print("Digite 'help' para comandos e palavras.", 0xFF888888);
+        log_print("WESENHO STUDIO REPL v2.0", 0xFF00FFCC);
+        log_print("Type 'help' for commands & S-expressions.", 0xFF888888);
     }
     if (!mouse) mouse = (wmouse_t*)ask("std:mouse");
     if (!kb)    kb = (wkeyboard_t*)ask("std:keyboard");

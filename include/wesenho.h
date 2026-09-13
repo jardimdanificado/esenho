@@ -68,10 +68,13 @@ typedef struct {
 #define MSG_LAYER_SET_OPACITY 10
 #define MSG_SET_BRUSH_TYPE   11
 #define MSG_SET_BRUSH_PARAMS 12
+#define MSG_LAYER_DELETE     13
+#define MSG_LAYER_RENAME     14
 #define MSG_DRAW_LINE        20
 #define MSG_DRAW_RECT        21
 #define MSG_DRAW_CIRCLE      22
 #define MSG_DRAW_GRID        23
+#define MSG_APPLY_FILTER     30
 
 #define TOOL_BRUSH  0
 #define TOOL_ERASER 1
@@ -91,6 +94,13 @@ typedef struct {
     uint32_t param2;
     uint32_t param3;
 } wesenho_msg_t;
+
+typedef struct {
+    uint32_t type;       /* MSG_APPLY_FILTER */
+    char     name[20];   /* e.g. "invert", "grayscale", "blur", "sepia", "noise" */
+    int32_t  param1;     /* e.g. radius, delta, factor */
+    int32_t  param2;
+} wesenho_filter_msg_t;
 
 typedef struct {
     uint32_t type;       /* MSG_PUB_TOPIC */

@@ -2,7 +2,7 @@
 #include "../../include/font5x7.h"
 
 #define COLOR_HUD_WIDTH  150
-#define COLOR_HUD_HEIGHT 140
+#define COLOR_HUD_HEIGHT 115
 #define MAX_HISTORY 8
 
 static wframebuffer_t *fb = 0;
@@ -95,18 +95,14 @@ static void render_color_hud(void) {
     draw_rect(0, 0, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 0xFF14181C);
     draw_frame(0, 0, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 0xFF2A3642);
 
-    // Title Bar
-    draw_rect(0, 0, COLOR_HUD_WIDTH, 18, 0xFF1F2933);
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 8, 5, "COR ATIVA (HUD)", 0xFF00FFCC);
-
     // Current Swatch
-    draw_rect(10, 26, 36, 36, current_color);
-    draw_frame(10, 26, 36, 36, 0xFF667788);
+    draw_rect(10, 10, 36, 36, current_color);
+    draw_frame(10, 10, 36, 36, 0xFF667788);
 
     // Hex String
     char hex_str[16];
     color_to_hex(current_color, hex_str);
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 28, hex_str, 0xFFFFFFFF);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 12, hex_str, 0xFFFFFFFF);
 
     // RGB String
     uint8_t r = current_color & 0xFF;
@@ -118,22 +114,22 @@ static void render_color_hud(void) {
     int_to_str(g, g_buf);
     int_to_str(b, b_buf);
 
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 42, "R:", 0xFFFF5555);
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 66, 42, r_buf, 0xFFCCCCCC);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 25, "R:", 0xFFFF5555);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 66, 25, r_buf, 0xFFCCCCCC);
 
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 52, "G:", 0xFF55FF55);
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 66, 52, g_buf, 0xFFCCCCCC);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 54, 36, "G:", 0xFF55FF55);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 66, 36, g_buf, 0xFFCCCCCC);
 
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 100, 52, "B:", 0xFF5599FF);
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 112, 52, b_buf, 0xFFCCCCCC);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 100, 36, "B:", 0xFF5599FF);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 112, 36, b_buf, 0xFFCCCCCC);
 
     // History Header
-    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 10, 72, "HISTORICO:", 0xFF8899A6);
+    draw_string(pixels, COLOR_HUD_WIDTH, COLOR_HUD_HEIGHT, 10, 52, "HISTORY:", 0xFF8899A6);
 
     // History Chips Grid (4x2)
     for (int i = 0; i < MAX_HISTORY; i++) {
         int gx = 10 + (i % 4) * 32;
-        int gy = 86 + (i / 4) * 22;
+        int gy = 64 + (i / 4) * 22;
         draw_rect(gx, gy, 28, 18, history[i]);
         draw_frame(gx, gy, 28, 18, 0xFF354452);
     }
@@ -166,9 +162,8 @@ int32_t update(void) {
         int left_down = (mouse->buttons & WMOUSE_BTN_LEFT) != 0;
 
         if (left_down && !prev_left_btn) {
-            // Click history swatch to re-select
-            if (my >= 86 && my < 86 + 44) {
-                int row = (my - 86) / 22;
+            if (my >= 64 && my < 64 + 44) {
+                int row = (my - 64) / 22;
                 int col = (mx - 10) / 32;
                 int idx = row * 4 + col;
                 if (idx >= 0 && idx < MAX_HISTORY && mx >= 10 && mx < 10 + 4 * 32) {
