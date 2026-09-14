@@ -108,7 +108,10 @@ const PARAM_IDS = {
   texture_layer: 18,
   smooth: 19,
   smoothing: 19,
-  stabilizer: 19
+  stabilizer: 19,
+  midpoint: 20,
+  bezier_midpoint: 20,
+  bezier: 20
 };
 
 /**
@@ -530,7 +533,7 @@ function formatBrushesList(screenActor) {
   let out = `\x1b[1mBrush & Tool:\x1b[0m
   Tools/modes  : brush, eraser, smudge, blend, fill, lasso_fill
   Shapes       : circle [0], square [1], chisel [2], or any layer by id/name
-  Parameters   : size, opacity, hardness/softness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance, smooth/smoothing
+  Parameters   : size, opacity, hardness/softness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance, smooth/smoothing, bezier/midpoint
   Grain tex    : set texture <name|layer_id|none>  — rotated/scaled via texture_rotate, texture_scale
 `;
   return out;
@@ -740,7 +743,8 @@ function handleGet(host, rawCat, rawProp) {
     tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
     texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
     tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
-    smooth: 'smoothing', stabilizer: 'smoothing'
+    smooth: 'smoothing', stabilizer: 'smoothing',
+    bezier: 'midpoint', bezier_midpoint: 'midpoint'
   };
   const resolvedCat = canonGet[cat] || cat;
   if (host.brushParams[resolvedCat] !== undefined) {
@@ -765,7 +769,7 @@ function handleShowStatus(host) {
   Mode:    ${modes[host.brushParams.mode] || 'draw'}
   Shape:   ${shapes[host.brushParams.shape] || 'circle'}
   Texture: "${host.activeTexture}" (mode: ${host.brushParams.texture_mode})
-  Brush:   size=${host.brushParams.size}, opacity=${host.brushParams.opacity}%, hardness=${host.brushParams.hardness}%, flow=${host.brushParams.flow}%, spacing=${host.brushParams.spacing}%, smooth=${host.brushParams.smoothing || 0}%
+  Brush:   size=${host.brushParams.size}, opacity=${host.brushParams.opacity}%, hardness=${host.brushParams.hardness}%, flow=${host.brushParams.flow}%, spacing=${host.brushParams.spacing}%, smooth=${host.brushParams.smoothing || 0}%, midpoint=${host.brushParams.midpoint ?? 50}%
   Angle:   ${host.brushParams.angle}°, roundness=${host.brushParams.roundness}%, grain=${host.brushParams.grain}%, scatter=${host.brushParams.scatter}%
   Color:   0x${host.currentColor.toString(16).padStart(8, '0')}
   Zoom:    ${(host.zoom * 100).toFixed(0)}% | Pan: (${Math.round(host.panX)}, ${Math.round(host.panY)})
@@ -932,6 +936,7 @@ const COMMAND_RULES = [
     set texture_rotate <0..359>  Texture pattern rotation in degrees
     set texture_scale <1..1000>  Texture pattern scale percentage
     set smooth / smoothing <0..100> Stroke stabilizer & smoothing percentage
+    set bezier / midpoint <0..100> Bézier midpoint ratio percentage (default 50)
 
   \x1b[36mInspect & Query (list / get / status):\x1b[0m
     status / info                Show active tool, brush, surface & viewport status
@@ -1191,6 +1196,9 @@ const COMMAND_RULES = [
   { pat: "brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
 
   // Direct Parameter Setters (e.g. set size 20, set hardness 100, set opacity 50, etc.)
+  { pat: "midpoint $val", run: (m, host) => handleDirectParam(host, "midpoint", m.val) },
+  { pat: "bezier $val", run: (m, host) => handleDirectParam(host, "bezier", m.val) },
+  { pat: "bezier_midpoint $val", run: (m, host) => handleDirectParam(host, "bezier_midpoint", m.val) },
   {
     pat: "set $param $val",
     run: (m, host) => handleDirectParam(host, m.param, m.val)
@@ -1466,7 +1474,8 @@ class WesenhoScreenHost {
       texture_scale: 100,
       shape: 0,
       mode: 0,
-      smoothing: 0
+      smoothing: 0,
+      midpoint: 50
     };
 
     // Textures & Actors
@@ -1568,7 +1577,8 @@ class WesenhoScreenHost {
         tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
         texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
         tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
-        smooth: 'smoothing', stabilizer: 'smoothing'
+        smooth: 'smoothing', stabilizer: 'smoothing',
+        bezier: 'midpoint', bezier_midpoint: 'midpoint'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -1733,13 +1743,15 @@ class WesenhoScreenHost {
       const pOld = this.strokeHistory[0] || pPrev;
 
       // Quadratic Bézier curve through midpoints for smooth corner rounding
+      const midpoint = (this.brushParams.midpoint !== undefined) ? this.brushParams.midpoint : 50;
+      const ratio = Math.max(0, Math.min(100, midpoint)) / 100;
       const midPrev = {
-        x: (pPrev.x + pOld.x) / 2,
-        y: (pPrev.y + pOld.y) / 2
+        x: pOld.x + (pPrev.x - pOld.x) * ratio,
+        y: pOld.y + (pPrev.y - pOld.y) * ratio
       };
       const midCurr = {
-        x: (pPrev.x + pCurr.x) / 2,
-        y: (pPrev.y + pCurr.y) / 2
+        x: pPrev.x + (pCurr.x - pPrev.x) * ratio,
+        y: pPrev.y + (pCurr.y - pPrev.y) * ratio
       };
 
       const dist = Math.hypot(pCurr.x - pPrev.x, pCurr.y - pPrev.y);

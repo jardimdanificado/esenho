@@ -371,6 +371,34 @@ async function run() {
     throw new Error(`Expected smoothing 0, got ${host.brushParams.smoothing}`);
   }
 
+  // Test configurable Bézier midpoint
+  if (host.brushParams.midpoint !== 50) {
+    throw new Error(`Expected default midpoint 50, got ${host.brushParams.midpoint}`);
+  }
+  host.executeCommand('set midpoint 30');
+  if (host.brushParams.midpoint !== 30) {
+    throw new Error(`Expected midpoint 30, got ${host.brushParams.midpoint}`);
+  }
+  host.executeCommand('set bezier 70');
+  if (host.brushParams.midpoint !== 70) {
+    throw new Error(`Expected midpoint 70 via 'set bezier', got ${host.brushParams.midpoint}`);
+  }
+  host.executeCommand('bezier_midpoint 25');
+  if (host.brushParams.midpoint !== 25) {
+    throw new Error(`Expected midpoint 25 via 'bezier_midpoint', got ${host.brushParams.midpoint}`);
+  }
+  host.executeCommand('get midpoint');
+  host.executeCommand('get bezier');
+
+  // Test smoothed stroke with custom midpoint
+  host.executeCommand('set smooth 50');
+  host.sendStroke(10, 10, 10, 10, 0, 0, 0xFFFF00FF);
+  host.sendStroke(30, 15, 10, 10, 1, 0, 0xFFFF00FF);
+  host.sendStroke(50, 30, 30, 15, 1, 0, 0xFFFF00FF);
+  host.sendStroke(50, 30, 50, 30, 2, 0, 0xFFFF00FF);
+  host.executeCommand('set smooth 0');
+  host.executeCommand('set midpoint 50');
+
   // Test Papagaio Custom Syntax Rule extension
   WesenhoScreenHost.COMMAND_RULES.unshift({
     pat: "pincel tamanho $s$int cor $c",

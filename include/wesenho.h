@@ -50,7 +50,8 @@ enum {
     W_PARAM_TEX_ANGLE      = 16,
     W_PARAM_TEX_SCALE      = 17,
     W_PARAM_TEX_LAYER      = 18, /* layer index to use as grain texture (-1 = none) */
-    W_PARAM_SMOOTH         = 19  /* stroke smoothing / stabilization percentage (0..100) */
+    W_PARAM_SMOOTH         = 19, /* stroke smoothing / stabilization percentage (0..100) */
+    W_PARAM_MIDPOINT       = 20  /* bezier midpoint interpolation ratio (0..100 %, default 50) */
 };
 
 /* =========================================================================

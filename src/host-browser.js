@@ -79,7 +79,7 @@ async function main() {
   function toggleConsole() {
     const isHidden = panelEl.classList.toggle('hidden');
     if (toggleBtn) {
-      toggleBtn.textContent = isHidden ? 'console [show]' : 'console [hide]';
+      toggleBtn.textContent = isHidden ? '◀ console [show]' : 'console [hide] ▶';
     }
     resize();
     if (!isHidden) inputEl.focus();

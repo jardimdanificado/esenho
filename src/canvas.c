@@ -382,6 +382,7 @@ typedef struct {
     int32_t tex_angle;       // 0..359 deg
     int32_t tex_scale;       // 1..500 %
     int32_t smooth;          // 0..100 % stroke smoothing
+    int32_t midpoint;        // 0..100 % bezier midpoint ratio (default 50)
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -402,7 +403,8 @@ static w_brush_config_t brush_config = {
     .tex_mode = 0,
     .tex_angle = 0,
     .tex_scale = 100,
-    .smooth = 0
+    .smooth = 0,
+    .midpoint = 50
 };
 
 static uint32_t rng_state = 0x87654321;
@@ -878,6 +880,7 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
             }
             break;
         case W_PARAM_SMOOTH:    if (val >= 0 && val <= 100) brush_config.smooth = val; break;
+        case W_PARAM_MIDPOINT:  if (val >= 0 && val <= 100) brush_config.midpoint = val; break;
     }
 }
 
