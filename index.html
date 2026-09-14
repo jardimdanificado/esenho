@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>wesenho</title>
   <style>
     :root {
@@ -304,7 +304,7 @@
       gap: 3px;
       background: #232524;
       border-left: 3px solid transparent;
-      cursor: pointer;
+      cursor: default;
       user-select: none;
       font-size: 11px;
       line-height: 24px;
@@ -446,6 +446,12 @@
       color: #ebdbb2;
       border-color: #504945;
     }
+    .layer-pill.active-layer-pill {
+      background: #fabd2f;
+      color: #1d2021;
+      border-color: #fabd2f;
+      font-weight: bold;
+    }
     .layer-pill.active-shape {
       background: #d65d0e;
       color: #fbf1c7;
@@ -457,6 +463,12 @@
       color: #fbf1c7;
       border-color: #83a598;
       font-weight: bold;
+    }
+    .touch-guard {
+      pointer-events: none !important;
+    }
+    input[type="range"] {
+      touch-action: pan-y;
     }
     .layer-cell-op {
       font-size: 10px;
@@ -662,6 +674,7 @@
         flex-direction: column;
         position: relative;
         height: 100vh;
+        height: 100dvh;
         overflow: hidden;
       }
 
@@ -692,6 +705,7 @@
         touch-action: none;
         user-select: none;
         -webkit-user-select: none;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
 
       #bottom-dock-handle {
@@ -773,6 +787,7 @@
         border: none !important;
         background: #1d2021;
         flex-shrink: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
 
       #ui-panel {
@@ -950,7 +965,7 @@
           <span>Script Editor</span>
           <span style="font-size: 9px; color: #a89984;">1 cmd / line</span>
         </div>
-        <textarea id="ui-script-editor" spellcheck="false" placeholder="# Wesenho script - 1 command per line&#10;set tool brush&#10;set size 25&#10;set color #fabd2f&#10;brush 150 150"></textarea>
+        <textarea id="ui-script-editor" spellcheck="false" placeholder="# Wesenho script - 1 command per line&#10;set mode brush&#10;set size 25&#10;set color #fabd2f&#10;brush 150 150"></textarea>
       </div>
 
       <div class="ui-row-gap" style="margin-top: 4px;">
@@ -1247,15 +1262,15 @@
         <summary>LAYERS (CANVAS &amp; SHAPES)</summary>
         <div class="ui-group-content">
           <div class="layer-toolbar-top">
-            <span>Opacidade:</span>
-            <input type="range" id="ui-active-layer-op" min="0" max="100" value="100" class="layer-op-slider" title="Opacidade da camada ativa">
+            <span>Opacity:</span>
+            <input type="range" id="ui-active-layer-op" min="0" max="100" value="100" class="layer-op-slider" title="Active layer opacity">
             <span id="ui-active-layer-op-val" class="layer-op-val">100%</span>
           </div>
           <div class="ui-row-gap" style="margin-bottom: 4px;">
-            <button id="ui-btn-add-layer" class="ui-mini-btn" style="flex: 1;" title="Add new layer">+ Nova</button>
-            <button id="ui-btn-new-group" class="ui-mini-btn" style="flex: 1;" title="Create new folder/group">+ Pasta</button>
-            <button id="ui-btn-duplicate-layer" class="ui-mini-btn" style="flex: 1;" title="Duplicate active layer">Duplicar</button>
-            <button id="ui-btn-clear-layer" class="ui-mini-btn" style="flex: 1;" title="Clear active layer">Limpar</button>
+            <button id="ui-btn-add-layer" class="ui-mini-btn" style="flex: 1;" title="Add new layer">+ New</button>
+            <button id="ui-btn-new-group" class="ui-mini-btn" style="flex: 1;" title="Create new folder/group">+ Folder</button>
+            <button id="ui-btn-duplicate-layer" class="ui-mini-btn" style="flex: 1;" title="Duplicate active layer">Duplicate</button>
+            <button id="ui-btn-clear-layer" class="ui-mini-btn" style="flex: 1;" title="Clear active layer">Clear</button>
             <button id="ui-btn-import-layer" class="ui-mini-btn" style="flex: 1;" title="Import image as new layer">+ Import</button>
           </div>
           <div id="ui-layers-list"></div>

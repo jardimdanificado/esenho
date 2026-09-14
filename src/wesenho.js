@@ -983,56 +983,78 @@ const COMMAND_RULES = [
     run: () => {
       console.log(`
 \x1b[1mAvailable Commands:\x1b[0m
-  \x1b[36mTool & Brush Setup (Build Your Own Custom Brush):\x1b[0m
-    set tool <brush|eraser|square|circle|chisel|smudge|blend|fill|lasso_fill>
-    set mode <draw|eraser|smudge|blend|fill|lasso_fill>
+  \x1b[36mModes & Brush Setup:\x1b[0m
+    set mode <brush|eraser|smudge|blend|fill|lasso_fill>
     set shape <circle|square|chisel|<texture>|layer_<id>>  Tip shape (samples alpha channel)
     set texture <paper|canvas|noise|dots|grid|grunge|hatch|<name>|layer_<id>|none>
-    set size <val>               Brush tip radius/size (1..500)
+    set size <1..500>            Brush tip diameter (pixels)
     set opacity <0..100>         Brush opacity percentage
     set hardness / softness <val> 0% soft airbrush to 100% hard edge
     set flow <0..100>            Ink flow rate per dab
-    set spacing <1..500>         Dab interpolation spacing
+    set spacing <1..500>         Dab interpolation spacing percentage
     set angle / rotate <0..359>  Tip rotation angle in degrees
     set roundness <1..100>       Tip aspect ratio / roundness
-    set scatter <0..500>         Stochastic position jitter
+    set scatter <0..500>         Perpendicular stochastic scatter
     set grain <0..100>           Stochastic pixel noise / grain
     set smudge <0..100>          Smudge pick-up intensity
     set wetness <0..100>         Color wetness mix ratio
     set tolerance <0..255>       Flood fill color tolerance
+    set smooth / smoothing <0..100> Stroke stabilizer & smoothing percentage
+    set bezier / midpoint <0..100> Bézier midpoint curvature ratio percentage
     set texture_rotate <0..359>  Texture pattern rotation in degrees
     set texture_scale <1..1000>  Texture pattern scale percentage
-    set smooth / smoothing <0..100> Stroke stabilizer & smoothing percentage
-    set bezier / midpoint <0..100> Bézier midpoint ratio percentage (default 50)
+    set texture_contrast <0..200> Texture contrast multiplier
+    set taper_in <0..2000>       Stroke taper-in distance (pixels)
+    set fade <0..2000>           Stroke fade-out distance (pixels)
+    set size_jitter <0..100>     Stochastic size jitter percentage
+    set angle_jitter <0..360>    Stochastic angle jitter (degrees)
+    set opacity_jitter <0..100>  Stochastic opacity jitter percentage
+    set color_jitter <0..100>    Stochastic HSV color jitter percentage
+    set dab_blend <normal|multiply|screen|overlay|dodge|add>
+    set auto_rotate <on|off>     Auto-align tip rotation to stroke direction
+    set velocity <0..100>        Speed dynamics (size modulation by speed)
+    set ui_scale <val|auto>      Scale UI (e.g. 125%, 1.5, auto)
 
-  \x1b[36mInspect & Query (list / get / status):\x1b[0m
+  \x1b[36mInspect & Query:\x1b[0m
     status / info                Show active tool, brush, surface & viewport status
     list [layers|textures|filters|all] List entities
-    get [tool|mode|shape|texture|size|opacity|hardness|flow|spacing|angle|roundness|scatter|grain|color|layer|surface]
+    get [mode|shape|texture|size|opacity|hardness|flow|spacing|angle|color|layer|...]
 
-  \x1b[36mSurface & Layer Commands (Layers are Textures):\x1b[0m
+  \x1b[36mSurface, Layer & Group Commands:\x1b[0m
     resize <w> <h>               Resize canvas dimensions
     new layer / layer add        Add new layer
-    set layer / layer select <id> Select active layer
+    layer select <id>            Select active drawing layer
+    layer move up [id]           Move layer up in stack order
+    layer move down [id]         Move layer down in stack order
+    layer merge down [id]        Merge layer down into layer below
     delete layer [id]            Delete layer
     toggle layer [id]            Toggle layer visibility
     opacity layer <id> <0..100>  Set layer opacity percentage
     clear layer                  Clear active layer
-    layer to texture [name]      Register active layer as named texture
+    group new [name]             Create layer folder/group
+    group add <group> <id>       Add layer to group
+    group remove <id>            Remove layer from group
+    group toggle <group>         Toggle visibility of all layers in group
+    group delete <group>         Delete group folder
+
+  \x1b[36mHistory & Canvas Actions:\x1b[0m
+    undo / redo                  Revert or reapply actions
+    history                      Show undo/redo stack
 
   \x1b[36mFilter Commands:\x1b[0m
     filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
                                  edge, grayscale, invert, noise, pixelate, sepia, threshold)
 
-  \x1b[36mImage I/O & Drawing:\x1b[0m
-    save [canvas|layer] <file>   Export image to disk (PNG, BMP, PPM)
-    load image <file> [name]     Load image file into texture storage
-    draw image / stamp <name> [x] [y] [w] [h] [opacity] Draw texture/image with optional size
-    set color <#hex|r g b|name>  Set active drawing color
+  \x1b[36mDrawing & I/O:\x1b[0m
+    set color <#hex|r g b|name>  Set drawing color
+    brush <x> <y>                Paint a dab at coordinates
+    stroke <x0> <y0> <x1> <y1>   Draw a brush stroke between points
     draw line <x0> <y0> <x1> <y1> [col]
     draw rect <x> <y> <w> <h> [col]
     draw circle <cx> <cy> <r> [col]
-    draw grid <step> [col]
+    draw image / stamp <name> [x] [y] [w] [h] [opacity]
+    save [canvas|layer] <file>   Export image to disk
+    load image <file> [name]     Load image file into texture storage
     exit / quit                  Quit application
 `);
     }
@@ -1439,9 +1461,41 @@ const COMMAND_RULES = [
   { pat: "layertotexture $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer to texture $name").run(m, host) },
   { pat: "layertotexture", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer to texture").run(m, host) },
 
-  // Tools, Modes & Shapes
-  { pat: "set tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
-  { pat: "tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
+  // Drawing Dab & Stroke by coordinates
+  {
+    pat: "brush $x$int $y$int",
+    run: (m, host) => {
+      const x = parseInt(m.x, 10), y = parseInt(m.y, 10);
+      const isEraser = host.currentTool === 1 ? 1 : 0;
+      host.sendStroke(x, y, x, y, 0, isEraser, host.currentColor);
+      host.sendStroke(x, y, x, y, 2, isEraser, host.currentColor);
+      host.sendConsoleLog(`brush dab at ${x},${y}`);
+    }
+  },
+  {
+    pat: "dab $x$int $y$int",
+    run: (m, host) => {
+      const x = parseInt(m.x, 10), y = parseInt(m.y, 10);
+      const isEraser = host.currentTool === 1 ? 1 : 0;
+      host.sendStroke(x, y, x, y, 0, isEraser, host.currentColor);
+      host.sendStroke(x, y, x, y, 2, isEraser, host.currentColor);
+      host.sendConsoleLog(`brush dab at ${x},${y}`);
+    }
+  },
+  {
+    pat: "stroke $x0$int $y0$int $x1$int $y1$int",
+    run: (m, host) => {
+      const x0 = parseInt(m.x0, 10), y0 = parseInt(m.y0, 10);
+      const x1 = parseInt(m.x1, 10), y1 = parseInt(m.y1, 10);
+      const isEraser = host.currentTool === 1 ? 1 : 0;
+      host.sendStroke(x0, y0, x0, y0, 0, isEraser, host.currentColor);
+      host.sendStroke(x1, y1, x0, y0, 1, isEraser, host.currentColor);
+      host.sendStroke(x1, y1, x1, y1, 2, isEraser, host.currentColor);
+      host.sendConsoleLog(`stroke from ${x0},${y0} to ${x1},${y1}`);
+    }
+  },
+
+  // Modes & Shapes
   { pat: "set mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
   { pat: "mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
   {

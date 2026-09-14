@@ -111,7 +111,7 @@ async function run() {
   host.executeCommand('filter grayscale');
 
   // Test Atomic Brush Construction Commands
-  host.executeCommand('set tool brush');
+  host.executeCommand('set mode brush');
   host.executeCommand('set shape square');
   host.executeCommand('set size 10');
   host.executeCommand('set hardness 100');

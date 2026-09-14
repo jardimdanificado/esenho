@@ -134,6 +134,14 @@ async function main() {
     if (btnClose) btnClose.classList.toggle('visible', !!(uiOpen || consoleOpen));
   }
 
+  function armTouchGuard(el) {
+    if (!el) return;
+    el.classList.add('touch-guard');
+    setTimeout(() => {
+      el.classList.remove('touch-guard');
+    }, 250);
+  }
+
   /* ── Toggle UI tools panel ── */
   function toggleUi(forceOpen) {
     const el = document.getElementById('ui-panel');
@@ -150,6 +158,7 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
+      if (isMob) armTouchGuard(el);
       if (isMob && consoleEl) {
         consoleEl.classList.add('hidden');
         const btnC = document.getElementById('toggle-panel');
@@ -187,6 +196,7 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
+      if (isMob) armTouchGuard(el);
       if (isMob && uiEl) {
         uiEl.classList.add('hidden');
         const btnU = document.getElementById('toggle-ui');
@@ -449,6 +459,7 @@ async function main() {
     };
 
     const handleDockStart = (clientY, isDirectHandle) => {
+      if (!isDirectHandle) return false;
       const uiEl = document.getElementById('ui-panel');
       const consoleEl = document.getElementById('panel');
       const uiHidden = !uiEl || uiEl.classList.contains('hidden');
@@ -973,7 +984,7 @@ async function main() {
   document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tool = btn.dataset.tool;
-      runCmd(`set tool ${tool}`);
+      runCmd(`set mode ${tool}`);
     });
   });
 
@@ -981,55 +992,55 @@ async function main() {
   const DEFAULT_SCRIPTS = [
     {
       name: 'preset_pencil',
-      code: `# Preset: Pencil\nset tool brush\nset size 2\nset opacity 100\nset hardness 100\nset flow 100\nbrush smooth 15\nset shape circle\nset texture none`
+      code: `# Preset: Pencil\nset mode brush\nset size 2\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 15\nset shape circle\nset texture none`
     },
     {
       name: 'preset_inker',
-      code: `# Preset: Inker\nset tool brush\nset size 4\nset opacity 100\nset hardness 100\nset flow 100\nbrush smooth 40\nset shape circle\nset texture none`
+      code: `# Preset: Inker\nset mode brush\nset size 4\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 40\nset shape circle\nset texture none`
     },
     {
       name: 'preset_airbrush',
-      code: `# Preset: Airbrush\nset tool brush\nset size 45\nset opacity 40\nset hardness 0\nset flow 30\nbrush smooth 20\nset shape circle\nset texture none`
+      code: `# Preset: Airbrush\nset mode brush\nset size 45\nset opacity 40\nset hardness 0\nset flow 30\nset smooth 20\nset shape circle\nset texture none`
     },
     {
       name: 'preset_hard_round',
-      code: `# Preset: Hard Round\nset tool brush\nset size 16\nset opacity 100\nset hardness 100\nset flow 100\nbrush smooth 0\nset shape circle\nset texture none`
+      code: `# Preset: Hard Round\nset mode brush\nset size 16\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 0\nset shape circle\nset texture none`
     },
     {
       name: 'preset_chisel',
-      code: `# Preset: Chisel\nset tool brush\nset size 28\nset opacity 80\nset hardness 85\nset flow 80\nset shape chisel\nset angle 45\nset roundness 40\nset texture none`
+      code: `# Preset: Chisel\nset mode brush\nset size 28\nset opacity 80\nset hardness 85\nset flow 80\nset shape chisel\nset angle 45\nset roundness 40\nset texture none`
     },
     {
       name: 'preset_charcoal',
-      code: `# Preset: Charcoal\nset tool brush\nset size 24\nset opacity 85\nset hardness 70\nset flow 90\nset grain 45\nset texture paper\nset shape circle`
+      code: `# Preset: Charcoal\nset mode brush\nset size 24\nset opacity 85\nset hardness 70\nset flow 90\nset grain 45\nset texture paper\nset shape circle`
     },
     {
       name: 'preset_smudge',
-      code: `# Preset: Smudge Tool\nset tool smudge\nset size 30\nset opacity 100\nset hardness 40\nset smudge 70`
+      code: `# Preset: Smudge Tool\nset mode smudge\nset size 30\nset opacity 100\nset hardness 40\nset smudge 70`
     },
     {
       name: 'preset_blender',
-      code: `# Preset: Blender Tool\nset tool blend\nset size 35\nset opacity 100\nset hardness 30\nset smudge 50\nset wetness 70`
+      code: `# Preset: Blender Tool\nset mode blend\nset size 35\nset opacity 100\nset hardness 30\nset smudge 50\nset wetness 70`
     },
     {
       name: 'preset_soft_eraser',
-      code: `# Preset: Soft Eraser\nset tool eraser\nset size 30\nset opacity 100\nset hardness 20`
+      code: `# Preset: Soft Eraser\nset mode eraser\nset size 30\nset opacity 100\nset hardness 20`
     },
     {
       name: 'preset_hard_eraser',
-      code: `# Preset: Hard Eraser\nset tool eraser\nset size 16\nset opacity 100\nset hardness 100`
+      code: `# Preset: Hard Eraser\nset mode eraser\nset size 16\nset opacity 100\nset hardness 100`
     },
     {
       name: 'starter_canvas',
-      code: `# Setup starter canvas and brush\nset tool brush\nset size 25\nset color #fabd2f\nset opacity 100\nset hardness 80\nbrush 200 200\nbrush 250 200\nbrush 300 200\nset color #fe8019\nset size 15\nbrush 250 250`
+      code: `# Setup starter canvas and brush\nset mode brush\nset size 25\nset color #fabd2f\nset opacity 100\nset hardness 80\nbrush 200 200\nbrush 250 200\nbrush 300 200\nset color #fe8019\nset size 15\nbrush 250 250`
     },
     {
       name: 'swatches_palette',
-      code: `# Paint color swatches on canvas\nset tool brush\nset size 30\nset hardness 100\nset color #fb4934\nbrush 100 200\nset color #fe8019\nbrush 160 200\nset color #fabd2f\nbrush 220 200\nset color #b8bb26\nbrush 280 200\nset color #83a598\nbrush 340 200\nset color #d3869b\nbrush 400 200`
+      code: `# Paint color swatches on canvas\nset mode brush\nset size 30\nset hardness 100\nset color #fb4934\nbrush 100 200\nset color #fe8019\nbrush 160 200\nset color #fabd2f\nbrush 220 200\nset color #b8bb26\nbrush 280 200\nset color #83a598\nbrush 340 200\nset color #d3869b\nbrush 400 200`
     },
     {
       name: 'layers_demo',
-      code: `# Create and blend layers\nnew layer\nset tool brush\nset size 40\nset color #8ec07c\nbrush 200 150\nbrush 260 150\nnew layer\nset color #fabd2f\nbrush 230 180`
+      code: `# Create and blend layers\nnew layer\nset mode brush\nset size 40\nset color #8ec07c\nbrush 200 150\nbrush 260 150\nnew layer\nset color #fabd2f\nbrush 230 180`
     }
   ];
 
@@ -1119,7 +1130,7 @@ async function main() {
       if (scriptSel) scriptSel.value = '';
       if (scriptNameInp) scriptNameInp.value = 'untitled';
       if (scriptEditor) {
-        scriptEditor.value = `# New script\nset tool brush\nset size 20\nset color #fabd2f\n`;
+        scriptEditor.value = `# New script\nset mode brush\nset size 20\nset color #fabd2f\n`;
         scriptEditor.focus();
       }
     });
@@ -1175,10 +1186,12 @@ async function main() {
     const el = document.getElementById(id);
     const badge = document.getElementById(badgeId);
     if (!el) return;
+    el._currentVal = String(el.value);
     el.addEventListener('input', () => {
       if (badge) badge.textContent = el.value + suffix;
     });
     el.addEventListener('change', () => {
+      el._currentVal = String(el.value);
       runCmd(`${cmdPrefix} ${el.value}`);
     });
   }
@@ -1207,6 +1220,171 @@ async function main() {
   bindSlider('ui-slider-angle-jitter', 'ui-val-angle-jitter', 'set angle_jitter', '°');
   bindSlider('ui-slider-opacity-jitter', 'ui-val-opacity-jitter', 'set opacity_jitter', '%');
   bindSlider('ui-slider-color-jitter', 'ui-val-color-jitter', 'set color_jitter', '%');
+
+  // Mobile slider scroll protection: prevent accidental slider movement when scrolling vertically
+  function initSliderTouchScrollProtection() {
+    let activeSlider = null;
+    let pointerId = null;
+    let startX = 0;
+    let startY = 0;
+    let origVal = null;
+    let state = 'idle'; // 'idle' | 'pending' | 'scrolling' | 'sliding'
+    let hasCaptured = false;
+
+    function calcSliderValue(slider, clientX) {
+      const rect = slider.getBoundingClientRect();
+      if (!rect.width) return origVal;
+      const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const min = parseFloat(slider.min) || 0;
+      const max = parseFloat(slider.max) !== undefined && !isNaN(parseFloat(slider.max)) ? parseFloat(slider.max) : 100;
+      const step = parseFloat(slider.step) || 1;
+      let val = min + ratio * (max - min);
+      val = Math.round((val - min) / step) * step + min;
+      if (val < min) val = min;
+      if (val > max) val = max;
+      if (step < 1) {
+        const decimals = (String(step).split('.')[1] || '').length;
+        val = parseFloat(val.toFixed(decimals));
+      }
+      return val;
+    }
+
+    // 1. Intercept pointerdown in CAPTURE phase before browser default action jumps the thumb
+    document.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse') return;
+      const slider = e.target.closest('input[type="range"]');
+      if (!slider) return;
+
+      activeSlider = slider;
+      pointerId = e.pointerId;
+      startX = e.clientX;
+      startY = e.clientY;
+      origVal = slider._currentVal !== undefined ? slider._currentVal : String(slider.value);
+      state = 'pending';
+      hasCaptured = false;
+    }, true);
+
+    // 2. Intercept native 'input' events in CAPTURE phase
+    document.addEventListener('input', (e) => {
+      if (!activeSlider || e.target !== activeSlider) return;
+      if (state === 'pending' || state === 'scrolling') {
+        if (origVal !== null) {
+          activeSlider.value = origVal;
+        }
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        return false;
+      }
+    }, true);
+
+    // 3. Track movement on pointermove
+    document.addEventListener('pointermove', (e) => {
+      if (!activeSlider || e.pointerId !== pointerId) return;
+
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (state === 'pending') {
+        if (absDy > 5 && absDy >= absDx) {
+          state = 'scrolling';
+          if (origVal !== null) activeSlider.value = origVal;
+        } else if (absDx > 7 && absDx > absDy) {
+          state = 'sliding';
+          if (!hasCaptured) {
+            try {
+              activeSlider.setPointerCapture(pointerId);
+              hasCaptured = true;
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (state === 'scrolling') {
+        if (origVal !== null && activeSlider.value !== origVal) {
+          activeSlider.value = origVal;
+        }
+      } else if (state === 'sliding') {
+        const newVal = calcSliderValue(activeSlider, e.clientX);
+        if (activeSlider.value !== String(newVal)) {
+          activeSlider.value = newVal;
+          activeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      }
+    }, { passive: true });
+
+    // 4. Intercept 'change' event in CAPTURE phase
+    document.addEventListener('change', (e) => {
+      if (!activeSlider || e.target !== activeSlider) return;
+      if (state === 'scrolling') {
+        if (origVal !== null) activeSlider.value = origVal;
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        return false;
+      }
+    }, true);
+
+    // 5. Handle release on pointerup
+    const handlePointerEnd = (e) => {
+      if (!activeSlider || (pointerId !== null && e.pointerId !== pointerId)) return;
+
+      const slider = activeSlider;
+      const curState = state;
+      const savedOrigVal = origVal;
+      const finalX = e.clientX;
+      const finalY = e.clientY;
+
+      if (hasCaptured) {
+        try {
+          slider.releasePointerCapture(pointerId);
+        } catch (_) {}
+      }
+
+      if (curState === 'scrolling') {
+        if (savedOrigVal !== null) {
+          slider.value = savedOrigVal;
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+      } else if (curState === 'sliding') {
+        slider._currentVal = String(slider.value);
+        let changeFired = false;
+        const onNativeChange = () => { changeFired = true; };
+        slider.addEventListener('change', onNativeChange, { once: true });
+        setTimeout(() => {
+          slider.removeEventListener('change', onNativeChange);
+          if (!changeFired) {
+            slider.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        }, 10);
+      } else if (curState === 'pending') {
+        const absDx = Math.abs(finalX - startX);
+        const absDy = Math.abs(finalY - startY);
+        if (absDx < 6 && absDy < 6) {
+          const tapVal = calcSliderValue(slider, finalX);
+          slider.value = tapVal;
+          slider._currentVal = String(tapVal);
+          slider.dispatchEvent(new Event('input', { bubbles: true }));
+          slider.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          if (savedOrigVal !== null) {
+            slider.value = savedOrigVal;
+            slider.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        }
+      }
+
+      activeSlider = null;
+      pointerId = null;
+      origVal = null;
+      state = 'idle';
+      hasCaptured = false;
+    };
+
+    document.addEventListener('pointerup', handlePointerEnd, true);
+    document.addEventListener('pointercancel', handlePointerEnd, true);
+  }
+  initSliderTouchScrollProtection();
 
   const dabBlendSel = document.getElementById('ui-select-dab-blend');
   if (dabBlendSel) {
@@ -1240,6 +1418,7 @@ async function main() {
   const activeLayerOp = document.getElementById('ui-active-layer-op');
   const activeLayerOpVal = document.getElementById('ui-active-layer-op-val');
   if (activeLayerOp) {
+    activeLayerOp._currentVal = String(activeLayerOp.value);
     activeLayerOp.addEventListener('input', () => {
       if (activeLayerOpVal) activeLayerOpVal.textContent = activeLayerOp.value + '%';
       const curActive = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_active_layer)
@@ -1248,6 +1427,7 @@ async function main() {
       if (opCell) opCell.textContent = activeLayerOp.value + '%';
     });
     activeLayerOp.addEventListener('change', () => {
+      activeLayerOp._currentVal = String(activeLayerOp.value);
       const curActive = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_active_layer)
         ? host.canvasActor.exports.get_active_layer() : 0;
       runCmd(`opacity layer ${curActive} ${activeLayerOp.value}`);
@@ -1310,19 +1490,22 @@ async function main() {
     const rgb = hexToRgb(hex);
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-    if (slR && document.activeElement !== slR) { slR.value = rgb.r; document.getElementById('ui-val-rgb-r').textContent = rgb.r; }
-    if (slG && document.activeElement !== slG) { slG.value = rgb.g; document.getElementById('ui-val-rgb-g').textContent = rgb.g; }
-    if (slB && document.activeElement !== slB) { slB.value = rgb.b; document.getElementById('ui-val-rgb-b').textContent = rgb.b; }
+    if (slR && document.activeElement !== slR) { slR.value = rgb.r; slR._currentVal = String(rgb.r); document.getElementById('ui-val-rgb-r').textContent = rgb.r; }
+    if (slG && document.activeElement !== slG) { slG.value = rgb.g; slG._currentVal = String(rgb.g); document.getElementById('ui-val-rgb-g').textContent = rgb.g; }
+    if (slB && document.activeElement !== slB) { slB.value = rgb.b; slB._currentVal = String(rgb.b); document.getElementById('ui-val-rgb-b').textContent = rgb.b; }
 
-    if (slH && document.activeElement !== slH) { slH.value = hsl.h; document.getElementById('ui-val-hsl-h').textContent = hsl.h + '°'; }
-    if (slS && document.activeElement !== slS) { slS.value = hsl.s; document.getElementById('ui-val-hsl-s').textContent = hsl.s + '%'; }
-    if (slL && document.activeElement !== slL) { slL.value = hsl.l; document.getElementById('ui-val-hsl-l').textContent = hsl.l + '%'; }
+    if (slH && document.activeElement !== slH) { slH.value = hsl.h; slH._currentVal = String(hsl.h); document.getElementById('ui-val-hsl-h').textContent = hsl.h + '°'; }
+    if (slS && document.activeElement !== slS) { slS.value = hsl.s; slS._currentVal = String(hsl.s); document.getElementById('ui-val-hsl-s').textContent = hsl.s + '%'; }
+    if (slL && document.activeElement !== slL) { slL.value = hsl.l; slL._currentVal = String(hsl.l); document.getElementById('ui-val-hsl-l').textContent = hsl.l + '%'; }
   }
 
   function onRgbSliderChange() {
     const r = parseInt(slR.value, 10);
     const g = parseInt(slG.value, 10);
     const b = parseInt(slB.value, 10);
+    slR._currentVal = String(r);
+    slG._currentVal = String(g);
+    slB._currentVal = String(b);
     document.getElementById('ui-val-rgb-r').textContent = r;
     document.getElementById('ui-val-rgb-g').textContent = g;
     document.getElementById('ui-val-rgb-b').textContent = b;
@@ -1335,6 +1518,9 @@ async function main() {
     const h = parseInt(slH.value, 10);
     const s = parseInt(slS.value, 10);
     const l = parseInt(slL.value, 10);
+    slH._currentVal = String(h);
+    slS._currentVal = String(s);
+    slL._currentVal = String(l);
     document.getElementById('ui-val-hsl-h').textContent = h + '°';
     document.getElementById('ui-val-hsl-s').textContent = s + '%';
     document.getElementById('ui-val-hsl-l').textContent = l + '%';
@@ -1769,6 +1955,7 @@ async function main() {
         const v = document.getElementById(valId);
         if (el && document.activeElement !== el && val !== undefined) {
           el.value = val;
+          el._currentVal = String(val);
           if (v) v.textContent = val + suf;
         }
       };
@@ -2007,12 +2194,7 @@ async function main() {
 
         const row = document.createElement('div');
         row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
-        row.title = `[${i}] ${name} (${w}×${h}) - click to draw on this layer`;
-
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('button')) return;
-          runCmd(`layer select ${i}`);
-        });
+        row.title = `[${i}] ${name} (${w}×${h})`;
 
         // Col 1: Visibility eye
         const visCell = document.createElement('div');
@@ -2042,6 +2224,17 @@ async function main() {
         // Col 3: Toggles
         const togglesCell = document.createElement('div');
         togglesCell.className = 'layer-cell-toggles';
+
+        const activeBtn = document.createElement('button');
+        activeBtn.type = 'button';
+        activeBtn.className = 'layer-pill' + (isDraw ? ' active-layer-pill' : '');
+        activeBtn.textContent = 'Active';
+        activeBtn.title = 'Set as active drawing layer';
+        activeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer select ${i}`);
+        });
+        togglesCell.appendChild(activeBtn);
 
         const shapeBtn = document.createElement('button');
         shapeBtn.type = 'button';
@@ -2112,7 +2305,9 @@ async function main() {
         if (pos <= 0) mergeBtn.disabled = true;
         mergeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          runCmd(`layer merge down ${i}`);
+          if (confirm(`Merge layer #${i} down into layer below? This action cannot be undone.`)) {
+            runCmd(`layer merge down ${i}`);
+          }
         });
         actCell.appendChild(mergeBtn);
 
