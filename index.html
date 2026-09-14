@@ -317,7 +317,8 @@
       padding: 5px 9px;
       font: inherit;
       font-size: 11px;
-      cursor: pointer;
+      cursor: col-resize;
+      touch-action: none;
       user-select: none;
       white-space: nowrap;
       box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
@@ -388,7 +389,8 @@
       padding: 5px 9px;
       font: inherit;
       font-size: 11px;
-      cursor: pointer;
+      cursor: col-resize;
+      touch-action: none;
       user-select: none;
       white-space: nowrap;
       box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.4);
@@ -410,49 +412,160 @@
       border-right: none;
     }
 
-    /* ── Narrow screens ── */
-    @media (max-aspect-ratio: 3/4) {
-      #layout { flex-direction: column; }
-      #ui-panel {
+    /* ── Mobile Unified Bottom Dock & Drawer Tabs ── */
+    #bottom-dock {
+      display: none;
+    }
+
+    /* ── Narrow screens / Mobile ── */
+    @media (max-width: 768px), (max-aspect-ratio: 3/4) {
+      #layout {
+        flex-direction: column;
+        position: relative;
+        height: 100vh;
+        overflow: hidden;
+      }
+
+      #cvswrap {
+        order: 1;
+        flex: 1;
         width: 100%;
-        height: auto;
-        max-height: 32vh;
-        border-right: none;
-        border-bottom: 1px solid #3c3836;
+        min-height: 0;
+        position: relative;
+        overflow: hidden;
       }
-      #ui-panel.hidden {
+
+      /* Hide floating desktop side tabs on mobile */
+      #toggle-ui, #toggle-panel {
+        display: none !important;
+      }
+
+      /* Unified Bottom Dock */
+      #bottom-dock {
+        display: flex;
+        flex-direction: column;
+        order: 2;
+        width: 100%;
+        background: #1d2021;
+        border-top: 1px solid #3c3836;
+        z-index: 25;
+        flex-shrink: 0;
+      }
+
+      #bottom-dock-handle {
+        width: 100%;
+        height: 12px;
+        cursor: row-resize;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+      }
+
+      #bottom-dock-handle::after {
+        content: '';
+        width: 38px;
+        height: 4px;
+        background: #504945;
+        border-radius: 2px;
+      }
+
+      #bottom-dock-tabs {
+        display: flex;
+        align-items: stretch;
+        height: 36px;
+        padding: 0 6px 6px 6px;
+        gap: 6px;
+      }
+
+      .dock-tab-btn {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        font: inherit;
+        font-size: 11px;
+        font-weight: bold;
+        background: #282828;
+        color: #a89984;
+        border: 1px solid #3c3836;
+        border-radius: 4px;
+        cursor: pointer;
+        user-select: none;
+        touch-action: manipulation;
+        transition: background 0.15s, color 0.15s, border-color 0.15s;
+      }
+
+      .dock-tab-btn:hover {
+        background: #32302f;
+        color: #ebdbb2;
+      }
+
+      .dock-tab-btn.active {
+        background: #3c3836;
+        color: #fabd2f;
+        border-color: #fabd2f;
+      }
+
+      .dock-close-btn {
+        flex: 0 0 36px;
+        color: #928374;
+        display: none;
+        font-size: 13px;
+      }
+
+      .dock-close-btn.visible {
+        display: flex;
+      }
+
+      /* Both panels come from below and occupy order: 3 */
+      #ui-panel, #panel {
+        order: 3;
         width: 100% !important;
+        border: none !important;
+        background: #1d2021;
+        flex-shrink: 0;
+      }
+
+      #ui-panel {
+        height: var(--mobile-drawer-height, 42vh);
+        max-height: 75vh;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid #3c3836 !important;
+      }
+
+      #panel {
+        height: var(--mobile-drawer-height, 42vh);
+        max-height: 75vh;
+        min-height: 120px;
+        display: flex;
+        flex-direction: column;
+        border-top: 1px solid #3c3836 !important;
+      }
+
+      #ui-panel.hidden, #panel.hidden {
         height: 0 !important;
-        border-bottom: none !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        display: none !important;
+        border: none !important;
       }
-      #toggle-ui {
-        top: auto;
-        bottom: 1px;
-        right: 14px;
-        transform: translateY(100%);
-        border: 1px solid #504945;
-        border-top: 1px solid #282828;
-        border-right: 1px solid #504945;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+
+      #ui-scroll {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 10px 24px;
       }
-      #ui-panel.hidden #toggle-ui { bottom: 0; border-top: none; }
-      #panel  { width: 100%; height: 35vh; border-left: none; border-top: 1px solid #3c3836; }
-      #panel.hidden {
-        width: 100% !important;
-        height: 0 !important;
-        border-top: none !important;
+
+      #wterm {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
-      #toggle-panel {
-        top: 1px;
-        left: auto;
-        right: 14px;
-        transform: translateY(-100%);
-        border: 1px solid #504945;
-        border-bottom: 1px solid #282828;
-        border-right: 1px solid #504945;
-        box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.4);
-      }
-      #panel.hidden #toggle-panel { top: 0; border-bottom: none; }
     }
   </style>
 </head>
@@ -571,6 +684,10 @@
             <div class="ui-label-row"><span>Texture Rotate</span><span id="ui-val-tex-rotate" class="ui-val">0°</span></div>
             <input type="range" id="ui-slider-tex-rotate" min="0" max="359" value="0">
           </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Grain Contrast</span><span id="ui-val-tex-contrast" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-tex-contrast" min="0" max="200" value="100">
+          </div>
         </div>
       </details>
 
@@ -641,10 +758,51 @@
             </div>
           </div>
           <div id="ui-layers-list"></div>
+          <!-- Layer Resizer -->
+          <div class="ui-control" style="margin-top: 6px; border-top: 1px solid #3c3836; padding-top: 6px;">
+            <div class="ui-label-row">
+              <span>Resize Active Layer:</span>
+              <span id="ui-val-layer-size" class="ui-val">640 x 480</span>
+            </div>
+            <div class="ui-row-gap" style="margin-top: 4px;">
+              <input type="number" id="ui-layer-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" placeholder="W" title="Layer Width (px)">
+              <span style="color: #a89984;">×</span>
+              <input type="number" id="ui-layer-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" placeholder="H" title="Layer Height (px)">
+              <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
+                <input type="checkbox" id="ui-layer-resample" checked> Scale
+              </label>
+              <button id="ui-btn-resize-layer" class="ui-mini-btn" style="flex: 1;">Resize</button>
+            </div>
+          </div>
         </div>
       </details>
 
-      <!-- 6. Filters & Actions -->
+      <!-- 6. Canvas & Resolution -->
+      <details class="ui-group">
+        <summary>CANVAS RESOLUTION</summary>
+        <div class="ui-group-content">
+          <div class="ui-label-row">
+            <span>Dimensions:</span>
+            <span id="ui-val-canvas-size" class="ui-val">640 x 480</span>
+          </div>
+          <div class="ui-row-gap" style="margin-top: 4px;">
+            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 65px;" title="Width (px)">
+            <span style="color: #a89984;">×</span>
+            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 65px;" title="Height (px)">
+            <button id="ui-btn-resize-canvas" class="ui-btn" style="flex: 1;">Resize</button>
+          </div>
+          <div class="ui-grid-3" style="margin-top: 6px;">
+            <button class="ui-mini-btn btn-res-preset" data-w="640" data-h="480">640×480</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="800" data-h="600">800×600</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="1280" data-h="720">720p</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="1920" data-h="1080">1080p</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="1080" data-h="1080">1:1 Square</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="2048" data-h="2048">2K High</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- 7. Filters & Actions -->
       <details class="ui-group">
         <summary>FILTERS &amp; EXPORT</summary>
         <div class="ui-group-content">
@@ -682,6 +840,23 @@
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
   </div>
+
+  <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
+  <div id="bottom-dock">
+    <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
+    <div id="bottom-dock-tabs">
+      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">
+        <span>🛠 Tools</span>
+      </button>
+      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">
+        <span>💻 Console</span>
+      </button>
+      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">
+        ✕
+      </button>
+    </div>
+  </div>
+
   <div id="panel">
     <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25B6;</button>
     <div id="wterm"></div>

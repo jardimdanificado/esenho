@@ -11,8 +11,6 @@
 #define DEFAULT_WIDTH  800
 #define DEFAULT_HEIGHT 1000
 
-#define MAX_LAYERS 256
-
 /** Unified Layer / Surface / Texture Buffer */
 typedef struct {
     uint32_t *pixels;
@@ -27,7 +25,8 @@ typedef struct {
 
 static uint32_t doc_width = DEFAULT_WIDTH;
 static uint32_t doc_height = DEFAULT_HEIGHT;
-static layer_t  layers[MAX_LAYERS] = {0};
+static layer_t  *layers = 0;
+static int      layer_capacity = 0;
 static int      layer_count = 0;
 static int      active_layer = 3;
 static uint32_t *out_pixels = 0; /**< Flattened composite buffer */
@@ -60,9 +59,33 @@ static void *canvas_alloc(uint32_t size) {
  * Layer Allocation & Builtin Shapes
  * ========================================================================= */
 
+static void ensure_layer_capacity(int min_cap) {
+    if (layer_capacity >= min_cap) return;
+    int new_cap = layer_capacity ? layer_capacity * 2 : 64;
+    while (new_cap < min_cap) new_cap *= 2;
+    layer_t *new_layers = (layer_t*)canvas_alloc(new_cap * sizeof(layer_t));
+    for (int i = 0; i < layer_capacity; i++) {
+        new_layers[i] = layers[i];
+    }
+    for (int i = layer_capacity; i < new_cap; i++) {
+        new_layers[i].pixels = 0;
+        new_layers[i].width = 0;
+        new_layers[i].height = 0;
+        new_layers[i].x = 0;
+        new_layers[i].y = 0;
+        new_layers[i].visible = 0;
+        new_layers[i].opacity = 255;
+        new_layers[i].in_use = 0;
+    }
+    layers = new_layers;
+    layer_capacity = new_cap;
+}
+
 static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
     if (w <= 0 || h <= 0) return -1;
-    for (int i = 0; i < MAX_LAYERS; i++) {
+    ensure_layer_capacity(layer_count + 1);
+
+    for (int i = 0; i < layer_capacity; i++) {
         if (!layers[i].in_use) {
             layers[i].in_use = 1;
             layers[i].width = w;
@@ -77,7 +100,19 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
             return i;
         }
     }
-    return -1;
+    int idx = layer_capacity;
+    ensure_layer_capacity(idx + 1);
+    layers[idx].in_use = 1;
+    layers[idx].width = w;
+    layers[idx].height = h;
+    layers[idx].x = 0;
+    layers[idx].y = 0;
+    layers[idx].visible = visible;
+    layers[idx].opacity = 255;
+    layers[idx].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
+    for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[idx].pixels[p] = 0x00000000;
+    layer_count = idx + 1;
+    return idx;
 }
 
 static void init_builtin_shapes(void) {
@@ -204,7 +239,7 @@ void force_composite(void) {
 }
 
 static void resize_surface(uint32_t new_w, uint32_t new_h) {
-    if (new_w < 16 || new_h < 16 || new_w > 4096 || new_h > 4096) return;
+    if (new_w < 1 || new_h < 1) return;
     if (new_w == doc_width && new_h == doc_height) return;
 
     uint32_t old_w = doc_width;
@@ -383,6 +418,7 @@ typedef struct {
     int32_t tex_scale;       // 1..500 %
     int32_t smooth;          // 0..100 % stroke smoothing
     int32_t midpoint;        // 0..100 % bezier midpoint ratio (default 50)
+    int32_t tex_contrast;    // 0..200 % grain texture contrast (default 100)
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -404,7 +440,8 @@ static w_brush_config_t brush_config = {
     .tex_angle = 0,
     .tex_scale = 100,
     .smooth = 0,
-    .midpoint = 50
+    .midpoint = 50,
+    .tex_contrast = 100
 };
 
 static uint32_t rng_state = 0x87654321;
@@ -581,7 +618,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             }
 
             if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
-                a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, a);
+                a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
             }
             if (a == 0) continue;
 
@@ -616,6 +653,7 @@ static int surface_initialized = 0;
 static void init_surface_if_needed(void) {
     if (!surface_initialized) {
         surface_initialized = 1;
+        ensure_layer_capacity(64);
         init_builtin_shapes();
         out_pixels = (uint32_t*)canvas_alloc(doc_width * doc_height * sizeof(uint32_t));
 
@@ -636,7 +674,7 @@ static void init_surface_if_needed(void) {
 }
 
 W_EXPORT void w_init(uint32_t width, uint32_t height) {
-    if (width < 16 || height < 16 || width > 4096 || height > 4096) return;
+    if (width < 1 || height < 1) return;
     if (!surface_initialized) {
         doc_width = width;
         doc_height = height;
@@ -703,11 +741,13 @@ W_EXPORT uint8_t w_layer_get_opacity(int32_t layer_idx) {
 
 W_EXPORT void w_layer_set_pixels(int32_t layer_idx, uint32_t *pixels, int32_t width, int32_t height) {
     init_surface_if_needed();
-    if (layer_idx >= 0 && layer_idx < MAX_LAYERS) {
+    if (layer_idx >= 0) {
+        ensure_layer_capacity(layer_idx + 1);
         layers[layer_idx].in_use = 1;
         layers[layer_idx].pixels = pixels;
         layers[layer_idx].width = width;
         layers[layer_idx].height = height;
+        if (layer_idx >= layer_count) layer_count = layer_idx + 1;
     }
 }
 
@@ -753,6 +793,91 @@ W_EXPORT void w_layer_clear(int32_t idx) {
         clear_layer_pixels(layers[target].pixels, layers[target].width * layers[target].height);
         force_composite();
     }
+}
+
+W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample) {
+    init_surface_if_needed();
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx < 0 || idx >= layer_count || !layers[idx].in_use) return -1;
+    if (new_w <= 0 || new_h <= 0) return -1;
+
+    int old_w = layers[idx].width;
+    int old_h = layers[idx].height;
+    if (new_w == old_w && new_h == old_h) return 0;
+
+    uint32_t *old_pix = layers[idx].pixels;
+    uint32_t *new_pix = (uint32_t*)canvas_alloc(new_w * new_h * sizeof(uint32_t));
+    if (!new_pix) return -1;
+
+    if (resample && old_pix && old_w > 0 && old_h > 0) {
+        for (int y = 0; y < new_h; y++) {
+            float src_y = ((float)y + 0.5f) * (float)old_h / (float)new_h - 0.5f;
+            int y0 = (int)src_y;
+            if (y0 < 0) y0 = 0;
+            int y1 = y0 + 1;
+            if (y1 >= old_h) y1 = old_h - 1;
+            float fy = src_y - (float)y0;
+            if (fy < 0.0f) fy = 0.0f;
+            if (fy > 1.0f) fy = 1.0f;
+
+            for (int x = 0; x < new_w; x++) {
+                float src_x = ((float)x + 0.5f) * (float)old_w / (float)new_w - 0.5f;
+                int x0 = (int)src_x;
+                if (x0 < 0) x0 = 0;
+                int x1 = x0 + 1;
+                if (x1 >= old_w) x1 = old_w - 1;
+                float fx = src_x - (float)x0;
+                if (fx < 0.0f) fx = 0.0f;
+                if (fx > 1.0f) fx = 1.0f;
+
+                uint32_t c00 = old_pix[y0 * old_w + x0];
+                uint32_t c10 = old_pix[y0 * old_w + x1];
+                uint32_t c01 = old_pix[y1 * old_w + x0];
+                uint32_t c11 = old_pix[y1 * old_w + x1];
+
+                float w00 = (1.0f - fx) * (1.0f - fy);
+                float w10 = fx * (1.0f - fy);
+                float w01 = (1.0f - fx) * fy;
+                float w11 = fx * fy;
+
+                int r = (int)((c00 & 0xFF) * w00 + (c10 & 0xFF) * w10 + (c01 & 0xFF) * w01 + (c11 & 0xFF) * w11);
+                int g = (int)(((c00 >> 8) & 0xFF) * w00 + (((c10 >> 8) & 0xFF) * w10) + (((c01 >> 8) & 0xFF) * w01) + (((c11 >> 8) & 0xFF) * w11));
+                int b = (int)(((c00 >> 16) & 0xFF) * w00 + (((c10 >> 16) & 0xFF) * w10) + (((c01 >> 16) & 0xFF) * w01) + (((c11 >> 16) & 0xFF) * w11));
+                int a = (int)(((c00 >> 24) & 0xFF) * w00 + (((c10 >> 24) & 0xFF) * w10) + (((c01 >> 24) & 0xFF) * w01) + (((c11 >> 24) & 0xFF) * w11));
+
+                if (r < 0) r = 0; if (r > 255) r = 255;
+                if (g < 0) g = 0; if (g > 255) g = 255;
+                if (b < 0) b = 0; if (b > 255) b = 255;
+                if (a < 0) a = 0; if (a > 255) a = 255;
+
+                new_pix[y * new_w + x] = (uint32_t)((a << 24) | (b << 16) | (g << 8) | r);
+            }
+        }
+    } else {
+        for (int i = 0; i < new_w * new_h; i++) new_pix[i] = 0;
+        if (old_pix) {
+            int copy_w = old_w < new_w ? old_w : new_w;
+            int copy_h = old_h < new_h ? old_h : new_h;
+            for (int y = 0; y < copy_h; y++) {
+                for (int x = 0; x < copy_w; x++) {
+                    new_pix[y * new_w + x] = old_pix[y * old_w + x];
+                }
+            }
+        }
+    }
+
+    layers[idx].pixels = new_pix;
+    layers[idx].width = new_w;
+    layers[idx].height = new_h;
+
+    if (g_texture.pixels == old_pix) {
+        g_texture.pixels = new_pix;
+        g_texture.width = new_w;
+        g_texture.height = new_h;
+    }
+
+    force_composite();
+    return 0;
 }
 
 // Backward-compatible Texture Aliases
@@ -879,8 +1004,9 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
                 brush_config.tex_mode = 1; /* enable custom-texture path */
             }
             break;
-        case W_PARAM_SMOOTH:    if (val >= 0 && val <= 100) brush_config.smooth = val; break;
-        case W_PARAM_MIDPOINT:  if (val >= 0 && val <= 100) brush_config.midpoint = val; break;
+        case W_PARAM_SMOOTH:       if (val >= 0 && val <= 100) brush_config.smooth = val; break;
+        case W_PARAM_MIDPOINT:     if (val >= 0 && val <= 100) brush_config.midpoint = val; break;
+        case W_PARAM_TEX_CONTRAST: if (val >= 0 && val <= 200) brush_config.tex_contrast = val; break;
     }
 }
 

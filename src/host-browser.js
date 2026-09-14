@@ -78,49 +78,297 @@ async function main() {
   resize();
   window.addEventListener('resize', resize);
 
-  /* ── Toggle UI tools panel ── */
-  function toggleUi() {
-    const el = document.getElementById('ui-panel');
-    if (!el) return;
-    const isHidden = el.classList.toggle('hidden');
-    const btn = document.getElementById('toggle-ui');
-    if (btn) {
-      btn.textContent = isHidden ? 'tools [show] ▶' : '◀ tools [hide]';
-    }
-    resize();
+  const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
+
+  function updateDockTabs() {
+    const uiEl = document.getElementById('ui-panel');
+    const consoleEl = document.getElementById('panel');
+    const tabTools = document.getElementById('tab-dock-tools');
+    const tabConsole = document.getElementById('tab-dock-console');
+    const btnClose = document.getElementById('tab-dock-close');
+
+    const uiOpen = uiEl && !uiEl.classList.contains('hidden');
+    const consoleOpen = consoleEl && !consoleEl.classList.contains('hidden');
+
+    if (tabTools) tabTools.classList.toggle('active', !!uiOpen);
+    if (tabConsole) tabConsole.classList.toggle('active', !!consoleOpen);
+    if (btnClose) btnClose.classList.toggle('visible', !!(uiOpen || consoleOpen));
   }
 
-  const toggleUiBtnEl = document.getElementById('toggle-ui');
-  if (toggleUiBtnEl) {
-    toggleUiBtnEl.addEventListener('mousedown', e => e.stopPropagation());
-    toggleUiBtnEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-    toggleUiBtnEl.addEventListener('click', e => {
-      e.stopPropagation();
-      toggleUi();
-    });
+  /* ── Toggle UI tools panel ── */
+  function toggleUi(forceOpen) {
+    const el = document.getElementById('ui-panel');
+    const consoleEl = document.getElementById('panel');
+    if (!el) return;
+
+    const isMob = isMobile();
+    let willOpen;
+    if (typeof forceOpen === 'boolean') {
+      willOpen = forceOpen;
+    } else {
+      willOpen = el.classList.contains('hidden');
+    }
+
+    if (willOpen) {
+      el.classList.remove('hidden');
+      if (isMob && consoleEl) {
+        consoleEl.classList.add('hidden');
+        const btnC = document.getElementById('toggle-panel');
+        if (btnC) btnC.textContent = '◀ console [show]';
+      }
+    } else {
+      el.classList.add('hidden');
+    }
+
+    const btn = document.getElementById('toggle-ui');
+    if (btn) {
+      btn.textContent = willOpen ? '◀ tools [hide]' : 'tools [show] ▶';
+    }
+    updateDockTabs();
+    resize();
   }
 
   /* ── Toggle console panel ── */
-  function toggleConsole() {
+  function toggleConsole(forceOpen) {
     const el = document.getElementById('panel');
+    const uiEl = document.getElementById('ui-panel');
     if (!el) return;
-    const isHidden = el.classList.toggle('hidden');
+
+    const isMob = isMobile();
+    let willOpen;
+    if (typeof forceOpen === 'boolean') {
+      willOpen = forceOpen;
+    } else {
+      willOpen = el.classList.contains('hidden');
+    }
+
+    if (willOpen) {
+      el.classList.remove('hidden');
+      if (isMob && uiEl) {
+        uiEl.classList.add('hidden');
+        const btnU = document.getElementById('toggle-ui');
+        if (btnU) btnU.textContent = 'tools [show] ▶';
+      }
+    } else {
+      el.classList.add('hidden');
+    }
+
     const btn = document.getElementById('toggle-panel');
     if (btn) {
-      btn.textContent = isHidden ? '◀ console [show]' : 'console [hide] ▶';
+      btn.textContent = willOpen ? 'console [hide] ▶' : '◀ console [show]';
     }
+    updateDockTabs();
     resize();
-    if (!isHidden && inputEl) inputEl.focus();
+    if (willOpen && inputEl) inputEl.focus();
   }
 
-  const togglePanelBtnEl = document.getElementById('toggle-panel');
-  if (togglePanelBtnEl) {
-    togglePanelBtnEl.addEventListener('mousedown', e => e.stopPropagation());
-    togglePanelBtnEl.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-    togglePanelBtnEl.addEventListener('click', e => {
+  /* ── Draggable Orelha Resizing & Toggle ── */
+  function setupDraggableTab(panelId, btnId, side, storageKey) {
+    const panel = document.getElementById(panelId);
+    const btn = document.getElementById(btnId);
+    if (!panel || !btn) return;
+
+    // Restore saved width if available
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (parsed > 100 && parsed < window.innerWidth * 0.85) {
+        panel.style.width = `${parsed}px`;
+      }
+    }
+
+    let isDragging = false;
+    let hasMoved = false;
+    let startX = 0;
+    let startY = 0;
+    let startDim = 0;
+
+    btn.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
       e.stopPropagation();
-      toggleConsole();
+      isDragging = true;
+      hasMoved = false;
+      startX = e.clientX;
+      startY = e.clientY;
+
+      const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
+      startDim = isVertical ? panel.offsetHeight : panel.offsetWidth;
+
+      try {
+        btn.setPointerCapture(e.pointerId);
+      } catch (_) {}
+
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = isVertical ? 'row-resize' : 'col-resize';
     });
+
+    btn.addEventListener('pointermove', e => {
+      if (!isDragging) return;
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+
+      if (!hasMoved && Math.hypot(dx, dy) > 3) {
+        hasMoved = true;
+        if (panel.classList.contains('hidden')) {
+          panel.classList.remove('hidden');
+          if (panelId === 'ui-panel') {
+            btn.textContent = '◀ tools [hide]';
+          } else {
+            btn.textContent = 'console [hide] ▶';
+          }
+        }
+      }
+
+      if (!hasMoved) return;
+
+      const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
+      if (isVertical) {
+        let newH = (side === 'left') ? (startDim + dy) : (startDim - dy);
+        newH = Math.max(70, Math.min(window.innerHeight * 0.7, newH));
+        panel.style.height = `${newH}px`;
+        panel.style.maxHeight = `${newH}px`;
+      } else {
+        let newW = (side === 'left') ? (startDim + dx) : (startDim - dx);
+        newW = Math.max(160, Math.min(window.innerWidth * 0.8, newW));
+        panel.style.width = `${newW}px`;
+      }
+      resize();
+    });
+
+    const finishDrag = (e) => {
+      if (!isDragging) return;
+      isDragging = false;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      try {
+        btn.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+
+      if (hasMoved) {
+        const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
+        const finalDim = isVertical ? panel.offsetHeight : panel.offsetWidth;
+        localStorage.setItem(storageKey, finalDim);
+      } else {
+        if (panelId === 'ui-panel') {
+          toggleUi();
+        } else {
+          toggleConsole();
+        }
+      }
+      hasMoved = false;
+    };
+
+    btn.addEventListener('pointerup', finishDrag);
+    btn.addEventListener('pointercancel', finishDrag);
+  }
+
+  setupDraggableTab('ui-panel', 'toggle-ui', 'left', 'wesenho_ui_width');
+  setupDraggableTab('panel', 'toggle-panel', 'right', 'wesenho_console_width');
+
+  /* ── Mobile Unified Bottom Dock Listeners ── */
+  const savedMobileH = localStorage.getItem('wesenho_mobile_drawer_height');
+  if (savedMobileH) {
+    const pH = parseInt(savedMobileH, 10);
+    if (pH >= 120 && pH <= window.innerHeight * 0.8) {
+      document.documentElement.style.setProperty('--mobile-drawer-height', `${pH}px`);
+    }
+  }
+
+  const tabDockTools = document.getElementById('tab-dock-tools');
+  const tabDockConsole = document.getElementById('tab-dock-console');
+  const tabDockClose = document.getElementById('tab-dock-close');
+  const dockHandle = document.getElementById('bottom-dock-handle');
+
+  if (tabDockTools) {
+    tabDockTools.addEventListener('click', () => {
+      const el = document.getElementById('ui-panel');
+      const isOpen = el && !el.classList.contains('hidden');
+      toggleUi(!isOpen);
+    });
+  }
+
+  if (tabDockConsole) {
+    tabDockConsole.addEventListener('click', () => {
+      const el = document.getElementById('panel');
+      const isOpen = el && !el.classList.contains('hidden');
+      toggleConsole(!isOpen);
+    });
+  }
+
+  if (tabDockClose) {
+    tabDockClose.addEventListener('click', () => {
+      toggleUi(false);
+      toggleConsole(false);
+    });
+  }
+
+  if (dockHandle) {
+    let isDraggingDock = false;
+    let startY = 0;
+    let startH = 0;
+    let targetPanel = null;
+
+    dockHandle.addEventListener('pointerdown', e => {
+      if (!isMobile()) return;
+      const uiEl = document.getElementById('ui-panel');
+      const consoleEl = document.getElementById('panel');
+      if (uiEl && !uiEl.classList.contains('hidden')) {
+        targetPanel = uiEl;
+      } else if (consoleEl && !consoleEl.classList.contains('hidden')) {
+        targetPanel = consoleEl;
+      } else {
+        toggleUi(true);
+        targetPanel = uiEl;
+      }
+      if (!targetPanel) return;
+
+      isDraggingDock = true;
+      startY = e.clientY;
+      startH = targetPanel.offsetHeight || 280;
+      try { dockHandle.setPointerCapture(e.pointerId); } catch (_) {}
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+    });
+
+    dockHandle.addEventListener('pointermove', e => {
+      if (!isDraggingDock || !targetPanel) return;
+      const dy = e.clientY - startY;
+      let newH = startH - dy;
+      newH = Math.max(90, Math.min(window.innerHeight * 0.75, newH));
+      document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
+      targetPanel.style.height = `${newH}px`;
+      resize();
+    });
+
+    const finishDockDrag = (e) => {
+      if (!isDraggingDock) return;
+      isDraggingDock = false;
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      try { dockHandle.releasePointerCapture(e.pointerId); } catch (_) {}
+      if (targetPanel) {
+        if (targetPanel.offsetHeight < 100) {
+          toggleUi(false);
+          toggleConsole(false);
+        } else {
+          localStorage.setItem('wesenho_mobile_drawer_height', targetPanel.offsetHeight);
+        }
+      }
+      targetPanel = null;
+    };
+
+    dockHandle.addEventListener('pointerup', finishDockDrag);
+    dockHandle.addEventListener('pointercancel', finishDockDrag);
+  }
+
+  // On mobile initial setup: ensure only one panel is open and dock tabs match
+  if (isMobile()) {
+    const uiEl = document.getElementById('ui-panel');
+    const consoleEl = document.getElementById('panel');
+    if (uiEl && consoleEl && !uiEl.classList.contains('hidden') && !consoleEl.classList.contains('hidden')) {
+      consoleEl.classList.add('hidden');
+    }
+    updateDockTabs();
   }
 
   window.addEventListener('keydown', e => {
@@ -135,6 +383,8 @@ async function main() {
 
   /* ── Render loop ── */
   let imgData = null;
+  let lassoPoints = [];
+
   function frame() {
     if (host.canvasActor.exports.w_render) host.canvasActor.exports.w_render();
     const cw = host.canvasActor.exports.get_canvas_width();
@@ -159,6 +409,35 @@ async function main() {
       ctx.rotate(host.canvasRotation);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(tmp, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+
+      /* Live Lasso Polygon Preview Overlay */
+      if (lassoPoints.length > 1) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+
+        ctx.beginPath();
+        ctx.moveTo(lassoPoints[0].x * host.zoom, lassoPoints[0].y * host.zoom);
+        for (let i = 1; i < lassoPoints.length; i++) {
+          ctx.lineTo(lassoPoints[i].x * host.zoom, lassoPoints[i].y * host.zoom);
+        }
+        ctx.closePath();
+
+        // 25% tint of current drawing color
+        const c = host.currentColor !== undefined ? host.currentColor : 0xFFEBDBB2;
+        const r = c & 0xFF, g = (c >> 8) & 0xFF, b = (c >> 16) & 0xFF;
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.28)`;
+        ctx.fill();
+
+        // Animated marching ants outline
+        ctx.strokeStyle = '#fabd2f';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.lineDashOffset = (Date.now() / 40) % 10;
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
       ctx.restore();
     }
     requestAnimationFrame(frame);
@@ -203,6 +482,9 @@ async function main() {
       host.isDrawingOnCanvas = true;
       host.strokePrevX = x; host.strokePrevY = y;
       host.strokeIsEraser = e.button === 2 ? 1 : (host.currentTool === 1 ? 1 : 0);
+      if (host.brushParams && host.brushParams.mode === 4) {
+        lassoPoints = [{ x, y }];
+      }
       host.sendStroke(x, y, x, y, 0, host.strokeIsEraser, host.currentColor);
     }
     e.preventDefault();
@@ -215,6 +497,9 @@ async function main() {
       host.panX += sx - host.panStartX; host.panY += sy - host.panStartY;
       host.panStartX = sx; host.panStartY = sy;
     } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3)) {
+      if (host.brushParams && host.brushParams.mode === 4) {
+        lassoPoints.push({ x, y });
+      }
       host.sendStroke(x, y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, host.currentColor);
       host.strokePrevX = x; host.strokePrevY = y;
     }
@@ -230,6 +515,7 @@ async function main() {
                         host.strokePrevX, host.strokePrevY,
                         2, host.strokeIsEraser, host.currentColor);
         host.isDrawingOnCanvas = false;
+        lassoPoints = [];
       }
     }
   });
@@ -272,6 +558,9 @@ async function main() {
       touch.drawing = true;
       host.strokePrevX = x; host.strokePrevY = y;
       host.strokeIsEraser = host.currentTool === 1 ? 1 : 0;
+      if (host.brushParams && host.brushParams.mode === 4) {
+        lassoPoints = [{ x, y }];
+      }
       host.sendStroke(x, y, x, y, 0, host.strokeIsEraser, host.currentColor);
     } else if (touch.drawing) {
       /* second finger landed mid-stroke — end stroke, switch to gesture */
@@ -279,6 +568,7 @@ async function main() {
                       host.strokePrevX, host.strokePrevY,
                       2, host.strokeIsEraser, host.currentColor);
       touch.drawing = false;
+      lassoPoints = [];
     }
     touch.prevTouches = e.touches;
   }, { passive: false });
@@ -287,6 +577,9 @@ async function main() {
     e.preventDefault();
     if (e.touches.length === 1 && touch.drawing) {
       const { x, y } = touchDocPos(e.touches[0]);
+      if (host.brushParams && host.brushParams.mode === 4) {
+        lassoPoints.push({ x, y });
+      }
       host.sendStroke(x, y, host.strokePrevX, host.strokePrevY,
                       1, host.strokeIsEraser, host.currentColor);
       host.strokePrevX = x; host.strokePrevY = y;
@@ -330,6 +623,7 @@ async function main() {
                       host.strokePrevX, host.strokePrevY,
                       2, host.strokeIsEraser, host.currentColor);
       touch.drawing = false;
+      lassoPoints = [];
     }
     touch.prevTouches = e.touches;
   }, { passive: false });
@@ -585,6 +879,7 @@ async function main() {
   bindSlider('ui-slider-tolerance', 'ui-val-tolerance', 'set tolerance');
   bindSlider('ui-slider-tex-scale', 'ui-val-tex-scale', 'set texture_scale', '%');
   bindSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', 'set texture_rotate', '°');
+  bindSlider('ui-slider-tex-contrast', 'ui-val-tex-contrast', 'set texture_contrast', '%');
 
   // Tip Shape & Texture selectors
   const shapeSel = document.getElementById('ui-select-shape');
@@ -841,6 +1136,48 @@ async function main() {
     });
   }
 
+  // Canvas Resize Controls
+  const btnResizeCanvas = document.getElementById('ui-btn-resize-canvas');
+  const inputCanvasW = document.getElementById('ui-canvas-w');
+  const inputCanvasH = document.getElementById('ui-canvas-h');
+  if (btnResizeCanvas && inputCanvasW && inputCanvasH) {
+    btnResizeCanvas.addEventListener('click', () => {
+      const w = parseInt(inputCanvasW.value, 10);
+      const h = parseInt(inputCanvasH.value, 10);
+      if (w > 0 && h > 0) {
+        runCmd(`resize ${w} ${h}`);
+      }
+    });
+  }
+
+  document.querySelectorAll('.btn-res-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const w = btn.dataset.w;
+      const h = btn.dataset.h;
+      if (w && h) {
+        if (inputCanvasW) inputCanvasW.value = w;
+        if (inputCanvasH) inputCanvasH.value = h;
+        runCmd(`resize ${w} ${h}`);
+      }
+    });
+  });
+
+  // Layer Resize Controls
+  const btnResizeLayer = document.getElementById('ui-btn-resize-layer');
+  const inputLayerW = document.getElementById('ui-layer-w');
+  const inputLayerH = document.getElementById('ui-layer-h');
+  const chkLayerResample = document.getElementById('ui-layer-resample');
+  if (btnResizeLayer && inputLayerW && inputLayerH) {
+    btnResizeLayer.addEventListener('click', () => {
+      const w = parseInt(inputLayerW.value, 10);
+      const h = parseInt(inputLayerH.value, 10);
+      const mode = (chkLayerResample && !chkLayerResample.checked) ? 'crop' : 'scale';
+      if (w > 0 && h > 0) {
+        runCmd(`layer resize ${w} ${h} ${mode}`);
+      }
+    });
+  }
+
   // Image Import via File Picker
   const fileInput = document.getElementById('ui-file-input');
   const importBtn = document.getElementById('ui-btn-import');
@@ -949,6 +1286,7 @@ async function main() {
       setSlider('ui-slider-tolerance', 'ui-val-tolerance', bp.tolerance);
       setSlider('ui-slider-tex-scale', 'ui-val-tex-scale', bp.texture_scale || 100, '%');
       setSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', bp.texture_rotate || 0, '°');
+      setSlider('ui-slider-tex-contrast', 'ui-val-tex-contrast', bp.texture_contrast !== undefined ? bp.texture_contrast : 100, '%');
     }
 
     // C. Color
@@ -961,7 +1299,23 @@ async function main() {
       updateColorControlsFromHex(hex);
     }
 
-    // D. Layers, Shapes & Textures Sync (All Layers are Entities)
+    // D. Canvas Size
+    const curW = host.canvasActor.exports.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
+    const curH = host.canvasActor.exports.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 0;
+    const badgeCanvasSize = document.getElementById('ui-val-canvas-size');
+    if (badgeCanvasSize && curW && curH) {
+      badgeCanvasSize.textContent = `${curW} x ${curH}`;
+    }
+    const inpW = document.getElementById('ui-canvas-w');
+    const inpH = document.getElementById('ui-canvas-h');
+    if (inpW && document.activeElement !== inpW && curW) {
+      inpW.value = curW;
+    }
+    if (inpH && document.activeElement !== inpH && curH) {
+      inpH.value = curH;
+    }
+
+    // E. Layers, Shapes & Textures Sync (All Layers are Entities)
     const count = host.canvasActor.exports.get_layer_count ? host.canvasActor.exports.get_layer_count() : 0;
     const activeDraw = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
     const shapeId = host.brushParams ? host.brushParams.shape : 0;
@@ -1111,6 +1465,19 @@ async function main() {
         });
         actions.appendChild(texBtn);
 
+        const resizeBtn = document.createElement('button');
+        resizeBtn.className = 'ui-mini-btn';
+        resizeBtn.textContent = '📐';
+        resizeBtn.title = `Resize layer [${i}] (${w}x${h})`;
+        resizeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer select ${i}`);
+          if (inputLayerW) inputLayerW.value = w;
+          if (inputLayerH) inputLayerH.value = h;
+          if (inputLayerW) inputLayerW.focus();
+        });
+        actions.appendChild(resizeBtn);
+
         const visBtn = document.createElement('button');
         visBtn.className = 'ui-mini-btn';
         visBtn.textContent = vis ? '👁' : '🚫';
@@ -1168,6 +1535,23 @@ async function main() {
         layersList.appendChild(card);
       }
     }
+
+    // Sync Layer Resizer UI for Active Layer
+    const actLayer = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+    const actW = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(actLayer) : 0;
+    const actH = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(actLayer) : 0;
+    const badgeLayerSize = document.getElementById('ui-val-layer-size');
+    if (badgeLayerSize && actW && actH) {
+      badgeLayerSize.textContent = `[${actLayer}] ${actW} x ${actH}`;
+    }
+    if (inputLayerW && document.activeElement !== inputLayerW && actW) {
+      inputLayerW.value = actW;
+    }
+    if (inputLayerH && document.activeElement !== inputLayerH && actH) {
+      inputLayerH.value = actH;
+    }
+
+    updateDockTabs();
   }
 
   // Initial population
@@ -1363,13 +1747,27 @@ function ensureUiPanel() {
     #toggle-ui:hover { background: #3c3836; color: #fabd2f; border-color: #7c6f64; }
     #ui-panel.hidden { width: 0 !important; border-right: none !important; }
     #ui-panel.hidden > *:not(#toggle-ui) { display: none !important; }
-    #ui-panel.hidden #toggle-ui { right: 0; border-left: none; }
-    @media (max-aspect-ratio: 3/4) {
-      #layout { flex-direction: column; }
-      #ui-panel { width: 100%; height: auto; max-height: 32vh; border-right: none; border-bottom: 1px solid #3c3836; }
-      #ui-panel.hidden { width: 100% !important; height: 0 !important; border-bottom: none !important; }
-      #toggle-ui { top: auto; bottom: 1px; right: 14px; transform: translateY(100%); border: 1px solid #504945; border-top: 1px solid #282828; border-right: 1px solid #504945; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4); }
-      #ui-panel.hidden #toggle-ui { bottom: 0; border-top: none; }
+    /* ── Mobile Unified Bottom Dock & Drawer Tabs ── */
+    #bottom-dock { display: none; }
+    @media (max-width: 768px), (max-aspect-ratio: 3/4) {
+      #layout { flex-direction: column; position: relative; height: 100vh; overflow: hidden; }
+      #cvswrap { order: 1; flex: 1; width: 100%; min-height: 0; position: relative; overflow: hidden; }
+      #toggle-ui, #toggle-panel { display: none !important; }
+      #bottom-dock { display: flex; flex-direction: column; order: 2; width: 100%; background: #1d2021; border-top: 1px solid #3c3836; z-index: 25; flex-shrink: 0; }
+      #bottom-dock-handle { width: 100%; height: 12px; cursor: row-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
+      #bottom-dock-handle::after { content: ''; width: 38px; height: 4px; background: #504945; border-radius: 2px; }
+      #bottom-dock-tabs { display: flex; align-items: stretch; height: 36px; padding: 0 6px 6px 6px; gap: 6px; }
+      .dock-tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 11px; font-weight: bold; background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 4px; cursor: pointer; user-select: none; touch-action: manipulation; }
+      .dock-tab-btn:hover { background: #32302f; color: #ebdbb2; }
+      .dock-tab-btn.active { background: #3c3836; color: #fabd2f; border-color: #fabd2f; }
+      .dock-close-btn { flex: 0 0 36px; color: #928374; display: none; font-size: 13px; }
+      .dock-close-btn.visible { display: flex; }
+      #ui-panel, #panel { order: 3; width: 100% !important; border: none !important; background: #1d2021; flex-shrink: 0; }
+      #ui-panel { height: var(--mobile-drawer-height, 42vh); max-height: 75vh; min-height: 120px; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
+      #panel { height: var(--mobile-drawer-height, 42vh); max-height: 75vh; min-height: 120px; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
+      #ui-panel.hidden, #panel.hidden { height: 0 !important; min-height: 0 !important; max-height: 0 !important; display: none !important; border: none !important; }
+      #ui-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px 24px; }
+      #wterm { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     }
     `;
     document.head.appendChild(style);
@@ -1481,6 +1879,10 @@ function ensureUiPanel() {
             <div class="ui-label-row"><span>Texture Rotate</span><span id="ui-val-tex-rotate" class="ui-val">0°</span></div>
             <input type="range" id="ui-slider-tex-rotate" min="0" max="359" value="0">
           </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Grain Contrast</span><span id="ui-val-tex-contrast" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-tex-contrast" min="0" max="200" value="100">
+          </div>
         </div>
       </details>
       <details class="ui-group" open>
@@ -1543,6 +1945,45 @@ function ensureUiPanel() {
             </div>
           </div>
           <div id="ui-layers-list"></div>
+          <!-- Layer Resizer -->
+          <div class="ui-control" style="margin-top: 6px; border-top: 1px solid #3c3836; padding-top: 6px;">
+            <div class="ui-label-row">
+              <span>Resize Active Layer:</span>
+              <span id="ui-val-layer-size" class="ui-val">640 x 480</span>
+            </div>
+            <div class="ui-row-gap" style="margin-top: 4px;">
+              <input type="number" id="ui-layer-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" placeholder="W" title="Layer Width (px)">
+              <span style="color: #a89984;">×</span>
+              <input type="number" id="ui-layer-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" placeholder="H" title="Layer Height (px)">
+              <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
+                <input type="checkbox" id="ui-layer-resample" checked> Scale
+              </label>
+              <button id="ui-btn-resize-layer" class="ui-mini-btn" style="flex: 1;">Resize</button>
+            </div>
+          </div>
+        </div>
+      </details>
+      <details class="ui-group">
+        <summary>CANVAS RESOLUTION</summary>
+        <div class="ui-group-content">
+          <div class="ui-label-row">
+            <span>Dimensions:</span>
+            <span id="ui-val-canvas-size" class="ui-val">640 x 480</span>
+          </div>
+          <div class="ui-row-gap" style="margin-top: 4px;">
+            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 65px;" title="Width (px)">
+            <span style="color: #a89984;">×</span>
+            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 65px;" title="Height (px)">
+            <button id="ui-btn-resize-canvas" class="ui-btn" style="flex: 1;">Resize</button>
+          </div>
+          <div class="ui-grid-3" style="margin-top: 6px;">
+            <button class="ui-mini-btn btn-res-preset" data-w="640" data-h="480">640×480</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="800" data-h="600">800×600</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="1280" data-h="720">720p</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="1920" data-h="1080">1080p</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="1080" data-h="1080">1:1 Square</button>
+            <button class="ui-mini-btn btn-res-preset" data-w="2048" data-h="2048">2K High</button>
+          </div>
         </div>
       </details>
       <details class="ui-group">
@@ -1579,6 +2020,9 @@ function ensureUiPanel() {
 
   const layout = document.getElementById('layout') || document.body;
   layout.insertBefore(panel, layout.firstChild);
+  if (typeof setupDraggableTab === 'function') {
+    setupDraggableTab('ui-panel', 'toggle-ui', 'left', 'wesenho_ui_width');
+  }
 }
 
 main().catch(e => { console.error(e); log(`BOOT ERROR: ${e.message}`, 'err'); });

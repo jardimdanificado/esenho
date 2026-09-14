@@ -51,7 +51,8 @@ enum {
     W_PARAM_TEX_SCALE      = 17,
     W_PARAM_TEX_LAYER      = 18, /* layer index to use as grain texture (-1 = none) */
     W_PARAM_SMOOTH         = 19, /* stroke smoothing / stabilization percentage (0..100) */
-    W_PARAM_MIDPOINT       = 20  /* bezier midpoint interpolation ratio (0..100 %, default 50) */
+    W_PARAM_MIDPOINT       = 20, /* bezier midpoint interpolation ratio (0..100 %, default 50) */
+    W_PARAM_TEX_CONTRAST   = 21  /* grain texture contrast (0..200 %, default 100) */
 };
 
 /* =========================================================================
@@ -86,6 +87,8 @@ W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
     g_texture.width = width;
     g_texture.height = height;
 }
+
+W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample);
 
 /* =========================================================================
  * Fast Math Helpers
@@ -174,7 +177,7 @@ static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, 
 }
 
 /** Texture masking: samples uploaded texture buffer or procedural grain/patterns with angle & scale */
-static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, int tex_scale, uint32_t base_a) {
+static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, int tex_scale, int tex_contrast, uint32_t base_a) {
     if (base_a == 0) return 0;
     if (tex_scale <= 0) tex_scale = 100;
 
@@ -199,8 +202,13 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         uint32_t p = g_texture.pixels[gy * g_texture.width + gx];
         uint32_t lum = ((p & 0xFF) * 299 + ((p >> 8) & 0xFF) * 587 + ((p >> 16) & 0xFF) * 114) / 1000;
         uint32_t ta = (p >> 24) & 0xFF;
-        uint32_t factor = (lum * ta) / 255;
-        return (base_a * factor) / 255;
+        int factor = (lum * ta) / 255;
+        if (tex_contrast != 100 && tex_contrast >= 0) {
+            factor = 128 + ((factor - 128) * tex_contrast) / 100;
+            if (factor < 0) factor = 0;
+            if (factor > 255) factor = 255;
+        }
+        return (base_a * (uint32_t)factor) / 255;
     }
     if (mode <= 0) return base_a;
     uint32_t mod_a = base_a;
@@ -229,6 +237,13 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
     } else if (mode == 7) { /* Hatch */
         int pat = ((tx + ty) % 6 == 0 || (tx + ty) % 6 == 1) ? 255 : 0;
         mod_a = (base_a * pat) / 255;
+    }
+    if (tex_contrast != 100 && tex_contrast >= 0 && base_a > 0) {
+        int factor = (mod_a * 255) / base_a;
+        factor = 128 + ((factor - 128) * tex_contrast) / 100;
+        if (factor < 0) factor = 0;
+        if (factor > 255) factor = 255;
+        mod_a = (base_a * (uint32_t)factor) / 255;
     }
     return mod_a;
 }

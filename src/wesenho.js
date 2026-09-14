@@ -104,6 +104,8 @@ const PARAM_IDS = {
   texture_rot: 16,
   tex_scale: 17,
   texture_scale: 17,
+  grain_scale: 17,
+  grain_size: 17,
   tex_layer: 18,
   texture_layer: 18,
   smooth: 19,
@@ -111,7 +113,10 @@ const PARAM_IDS = {
   stabilizer: 19,
   midpoint: 20,
   bezier_midpoint: 20,
-  bezier: 20
+  bezier: 20,
+  texture_contrast: 21,
+  tex_contrast: 21,
+  grain_contrast: 21
 };
 
 /**
@@ -743,8 +748,10 @@ function handleGet(host, rawCat, rawProp) {
     tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
     texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
     tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
+    grain_scale: 'texture_scale', grain_size: 'texture_scale',
     smooth: 'smoothing', stabilizer: 'smoothing',
-    bezier: 'midpoint', bezier_midpoint: 'midpoint'
+    bezier: 'midpoint', bezier_midpoint: 'midpoint',
+    tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast'
   };
   const resolvedCat = canonGet[cat] || cat;
   if (host.brushParams[resolvedCat] !== undefined) {
@@ -779,12 +786,40 @@ function handleShowStatus(host) {
 function handleResize(host, w, h) {
   w = parseInt(w, 10);
   h = parseInt(h, 10);
-  if (w >= 16 && h >= 16 && w <= 4096 && h <= 4096) {
+  if (w >= 1 && h >= 1) {
     host.canvasActor.exports.w_resize(w, h);
     host.sendConsoleLog(`surface resized to ${w}x${h}`);
   } else {
-    host.sendConsoleLog('err: invalid dimensions (min 16x16, max 4096x4096)', 0xFFFF5555);
+    host.sendConsoleLog('err: invalid dimensions (must be >= 1x1)', 0xFFFF5555);
   }
+}
+
+function handleLayerResize(host, id, w, h, resample = 1) {
+  w = parseInt(w, 10);
+  h = parseInt(h, 10);
+  id = parseInt(id, 10);
+  if (isNaN(w) || isNaN(h) || w < 1 || h < 1) {
+    host.sendConsoleLog('err: layer dimensions must be >= 1x1', 0xFFFF5555);
+    return;
+  }
+  if (!host.canvasActor || !host.canvasActor.exports || !host.canvasActor.exports.w_layer_resize) {
+    host.sendConsoleLog('err: w_layer_resize export not available', 0xFFFF5555);
+    return;
+  }
+  const ret = host.canvasActor.exports.w_layer_resize(id, w, h, resample ? 1 : 0);
+  if (ret < 0) {
+    host.sendConsoleLog(`err: cannot resize layer [${id}]`, 0xFFFF5555);
+    return;
+  }
+  if (host.textures) {
+    for (const [k, v] of host.textures.entries()) {
+      if (v.wasmId === id) {
+        v.width = w;
+        v.height = h;
+      }
+    }
+  }
+  host.sendConsoleLog(`layer [${id}] resized to ${w}x${h} (${resample ? 'resampled' : 'cropped'})`);
 }
 
 function handleSetTool(host, rawTool) {
@@ -1113,6 +1148,62 @@ const COMMAND_RULES = [
       host.canvasActor.exports.w_layer_opacity(id, op255);
       host.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
     }
+  },
+
+  // Layer Resize Commands
+  {
+    pat: "layer resize $id$int $w$int $h$int $mode",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const w = parseInt(m.w, 10);
+      const h = parseInt(m.h, 10);
+      const resample = (m.mode && m.mode.toLowerCase().includes('crop')) ? 0 : 1;
+      handleLayerResize(host, id, w, h, resample);
+    }
+  },
+  {
+    pat: "layer resize $id$int $w$int $h$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const w = parseInt(m.w, 10);
+      const h = parseInt(m.h, 10);
+      handleLayerResize(host, id, w, h, 1);
+    }
+  },
+  {
+    pat: "layer resize $w$int $h$int $mode",
+    run: (m, host) => {
+      const id = host.canvasActor.exports.get_active_layer();
+      const w = parseInt(m.w, 10);
+      const h = parseInt(m.h, 10);
+      const resample = (m.mode && m.mode.toLowerCase().includes('crop')) ? 0 : 1;
+      handleLayerResize(host, id, w, h, resample);
+    }
+  },
+  {
+    pat: "layer resize $w$int $h$int",
+    run: (m, host) => {
+      const id = host.canvasActor.exports.get_active_layer();
+      const w = parseInt(m.w, 10);
+      const h = parseInt(m.h, 10);
+      handleLayerResize(host, id, w, h, 1);
+    }
+  },
+  {
+    pat: "resize layer $id$int $w$int $h$int $mode",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer resize $id$int $w$int $h$int $mode").run(m, host)
+  },
+  {
+    pat: "resize layer $id$int $w$int $h$int",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer resize $id$int $w$int $h$int").run(m, host)
+  },
+  {
+    pat: "resize layer $w$int $h$int $mode",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer resize $w$int $h$int $mode").run(m, host)
+  },
+  {
+    pat: "resize layer $w$int $h$int",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer resize $w$int $h$int").run(m, host)
   },
 
   {
@@ -1479,7 +1570,8 @@ class WesenhoScreenHost {
       shape: 0,
       mode: 0,
       smoothing: 0,
-      midpoint: 50
+      midpoint: 50,
+      texture_contrast: 100
     };
 
     // Textures & Actors
@@ -1581,8 +1673,10 @@ class WesenhoScreenHost {
         tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
         texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
         tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
+        grain_scale: 'texture_scale', grain_size: 'texture_scale',
         smooth: 'smoothing', stabilizer: 'smoothing',
-        bezier: 'midpoint', bezier_midpoint: 'midpoint'
+        bezier: 'midpoint', bezier_midpoint: 'midpoint',
+        tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;

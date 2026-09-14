@@ -407,6 +407,23 @@ async function run() {
   host.executeCommand('set smooth 0');
   host.executeCommand('set midpoint 50');
 
+  // Test Texture Contrast parameter
+  if (host.brushParams.texture_contrast !== 100) {
+    throw new Error(`Expected default texture_contrast 100, got ${host.brushParams.texture_contrast}`);
+  }
+  host.executeCommand('set texture_contrast 150');
+  if (host.brushParams.texture_contrast !== 150) {
+    throw new Error(`Expected texture_contrast 150, got ${host.brushParams.texture_contrast}`);
+  }
+  host.executeCommand('set tex_contrast 80');
+  if (host.brushParams.texture_contrast !== 80) {
+    throw new Error(`Expected texture_contrast 80, got ${host.brushParams.texture_contrast}`);
+  }
+  host.executeCommand('set grain_contrast 120');
+  if (host.brushParams.texture_contrast !== 120) {
+    throw new Error(`Expected texture_contrast 120, got ${host.brushParams.texture_contrast}`);
+  }
+
   // Test Papagaio Custom Syntax Rule extension
   WesenhoScreenHost.COMMAND_RULES.unshift({
     pat: "pincel tamanho $s$int cor $c",
@@ -452,6 +469,21 @@ async function run() {
   host.executeCommand('textures');
   host.executeCommand('brushes');
   host.executeCommand('filters');
+
+  // Test Layer Resize
+  host.executeCommand('new layer');
+  const newLyrId = canvas.exports.get_active_layer();
+  const origW = canvas.exports.w_layer_get_width(newLyrId);
+  const origH = canvas.exports.w_layer_get_height(newLyrId);
+  if (origW !== 640 || origH !== 480) {
+    throw new Error(`Expected new layer 640x480, got ${origW}x${origH}`);
+  }
+  host.executeCommand(`layer resize ${newLyrId} 320 240`);
+  const rW = canvas.exports.w_layer_get_width(newLyrId);
+  const rH = canvas.exports.w_layer_get_height(newLyrId);
+  if (rW !== 320 || rH !== 240) {
+    throw new Error(`Expected layer resize to 320x240, got ${rW}x${rH}`);
+  }
 
   console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, and Filters verified 100%!');
 }
