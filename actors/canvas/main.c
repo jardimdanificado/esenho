@@ -260,6 +260,8 @@ typedef struct {
     int32_t grain;           // 0..100 %
     int32_t tolerance;       // 0..255 (for fill)
     int32_t tex_mode;        // 0=off, 1=paper, 2=canvas, 3=noise, 4=dots, 5=grid, 6=grunge, 7=hatch
+    int32_t tex_angle;       // 0..359 deg
+    int32_t tex_scale;       // 1..500 %
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -277,7 +279,9 @@ static w_brush_config_t brush_config = {
     .wetness = 50,
     .grain = 0,
     .tolerance = 32,
-    .tex_mode = 0
+    .tex_mode = 0,
+    .tex_angle = 0,
+    .tex_scale = 100
 };
 
 static uint32_t rng_state = 0x87654321;
@@ -388,7 +392,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     int min_y = cy - bound_r < 0 ? 0 : cy - bound_r;
     int max_y = cy + bound_r >= h ? h - 1 : cy + bound_r;
 
-    uint32_t base_a = (((color >> 24) & 0xFF) * brush_config.opacity * brush_config.flow) / 10000;
+    // Flow determines alpha deposited per dab (1..255)
+    uint32_t dab_flow_a = (255 * brush_config.flow) / 100;
+    if (dab_flow_a < 1 && brush_config.flow > 0) dab_flow_a = 1;
+
+    // Opacity determines maximum stroke alpha cap (1..255)
+    uint32_t max_stroke_a = (255 * brush_config.opacity) / 100;
+    if (max_stroke_a < 1 && brush_config.opacity > 0) max_stroke_a = 1;
 
     int patch_idx = 0;
 
@@ -420,8 +430,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 }
             } else if (brush_config.shape == W_SHAPE_CHISEL) {
                 int abs_u = u < 0 ? -u : u;
-                int abs_v = v_scaled < 0 ? -v_scaled : v_scaled;
-                if (abs_u <= r && abs_v <= r) {
+                int abs_v = v < 0 ? -v : v;
+                int thickness = (r * roundness) / 100;
+                if (roundness == 100) {
+                    thickness = (r * 25) / 100;
+                }
+                if (thickness < 1) thickness = 1;
+                if (abs_u <= r && abs_v <= thickness) {
                     inside = 1;
                     dist = abs_u;
                 }
@@ -434,19 +449,26 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
             }
 
-            // Hardness falloff
-            uint32_t a = base_a;
+            // Hardness / Softness falloff
+            uint32_t a = dab_flow_a;
             if (brush_config.hardness < 100 && r > 0) {
-                if (dist > inner_r && r > inner_r) {
-                    a = a * (r - dist) / (r - inner_r);
-                } else if (brush_config.hardness == 0) {
-                    int num = (r - dist) * 255 / r;
-                    a = (a * num * num) / (255 * 255);
+                if (brush_config.hardness == 0) {
+                    int num = (r - dist);
+                    if (num < 0) num = 0;
+                    a = (dab_flow_a * num * num) / (r * r);
+                } else if (dist > inner_r) {
+                    int num = (r - dist);
+                    int den = (r - inner_r);
+                    if (den > 0 && num > 0) {
+                        a = (dab_flow_a * num) / den;
+                    } else {
+                        a = 0;
+                    }
                 }
             }
 
             if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
-                a = w_sample_texture(brush_config.tex_mode, x, y, a);
+                a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, a);
             }
             if (a == 0) continue;
 
@@ -463,10 +485,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     pix[idx] = mix_color(src, dst_p, brush_config.smudge_strength);
                 }
             } else if (brush_config.type == W_MODE_BLEND) {
-                if ((dst_p >> 24) == 0) pix[idx] = color;
+                if ((dst_p >> 24) == 0) pix[idx] = (max_stroke_a << 24) | (color & 0x00FFFFFF);
                 else pix[idx] = mix_color(color, dst_p, 100 - brush_config.wetness);
             } else {
-                pix[idx] = w_blend_fast(color, dst_p, a);
+                pix[idx] = w_blend_fast(color, dst_p, a, max_stroke_a);
             }
         }
     }
@@ -611,6 +633,8 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_TEX_MODE:  brush_config.tex_mode = val; break;
         case W_PARAM_SHAPE:     brush_config.shape = val; break;
         case W_PARAM_MODE:      brush_config.type = val; break;
+        case W_PARAM_TEX_ANGLE: brush_config.tex_angle = val % 360; if (brush_config.tex_angle < 0) brush_config.tex_angle += 360; break;
+        case W_PARAM_TEX_SCALE: if (val > 0) brush_config.tex_scale = val; break;
     }
 }
 

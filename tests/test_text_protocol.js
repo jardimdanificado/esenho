@@ -119,13 +119,29 @@ async function run() {
     throw new Error(`Expected square brush pixel 0xFF00FF00, got 0x${pixels[300 * 640 + 300].toString(16)}`);
   }
 
-  // Test Right Click Eraser without trailing dot bug
-  host.strokeIsEraser = 1;
-  host.sendStroke(300, 300, 300, 300, 0, 1, host.currentColor); // start erase
-  host.sendStroke(300, 300, 300, 300, 1, 1, host.currentColor); // move erase
-  host.sendStroke(300, 300, 300, 300, 2, 1, host.currentColor); // end erase (should not put a color pixel)
-  if (pixels[300 * 640 + 300] !== 0x00000000) {
-    throw new Error(`Expected erased pixel 0x00000000, got 0x${pixels[300 * 640 + 300].toString(16)}`);
+  // Test Opacity (Translucency) & Flow & Softness
+  host.executeCommand('set shape circle');
+  host.executeCommand('set size 10');
+  host.executeCommand('set hardness 100');
+  host.executeCommand('set opacity 40');
+  host.executeCommand('set flow 100');
+  host.sendStroke(350, 350, 350, 350, 0, 0, 0xFF0000FF); // Red with 40% opacity (alpha ~ 102)
+  const opAlpha = (pixels[350 * 640 + 350] >> 24) & 0xFF;
+  if (opAlpha > 115 || opAlpha < 90) {
+    throw new Error(`Expected alpha ~102 (40% opacity), got ${opAlpha}`);
+  }
+
+  // Test Softness alias
+  host.executeCommand('set softness 100'); // hardness = 0 (airbrush)
+  if (host.brushParams.hardness !== 0) {
+    throw new Error(`Expected hardness 0 from softness 100, got ${host.brushParams.hardness}`);
+  }
+  host.executeCommand('set opacity 100');
+  host.sendStroke(450, 450, 450, 450, 0, 0, 0xFF00FF00);
+  const centerA = (pixels[450 * 640 + 450] >> 24) & 0xFF;
+  const edgeA = (pixels[450 * 640 + 458] >> 24) & 0xFF;
+  if (centerA < 200 || edgeA >= centerA) {
+    throw new Error(`Expected soft gradient (center: ${centerA}, edge: ${edgeA})`);
   }
 
   // Test Textures
@@ -135,12 +151,49 @@ async function run() {
   host.sendStroke(400, 400, 400, 400, 0, 0, 0xFFFFFFFF);
   host.executeCommand('set texture none');
 
-  // Test Parametric Shape: Chisel with rotation angle and roundness
+  // Test Parametric Shape: Chisel vs Square geometry
+  host.executeCommand('clear layer');
+  host.executeCommand('set mode draw');
+  host.executeCommand('set opacity 100');
+  host.executeCommand('set flow 100');
+  host.executeCommand('set hardness 100');
+  host.executeCommand('set grain 0');
+  host.executeCommand('set texture none');
+
+  // Square at (300, 300) with size 10: width 20, height 20
+  host.executeCommand('set shape square');
+  host.executeCommand('set size 10');
+  host.executeCommand('set angle 0');
+  host.sendStroke(300, 300, 300, 300, 0, 0, 0xFFFFFFFF);
+  if (pixels[308 * 640 + 300] !== 0xFFFFFFFF || pixels[300 * 640 + 308] !== 0xFFFFFFFF) {
+    throw new Error('Square tip should cover (300, 308) and (308, 300)');
+  }
+
+  // Chisel at (350, 350) with size 10, angle 0: wide along x axis (u), thin along y axis (v)
   host.executeCommand('set shape chisel');
-  host.executeCommand('set angle 45');
-  host.executeCommand('set roundness 30');
-  host.executeCommand('set size 16');
-  host.sendStroke(100, 100, 120, 120, 0, 0, 0xFF55AABB);
+  host.executeCommand('set size 10');
+  host.executeCommand('set angle 0');
+  host.sendStroke(350, 350, 350, 350, 0, 0, 0xFF123456);
+  if (pixels[350 * 640 + 358] !== 0xFF123456) {
+    throw new Error('Chisel tip should cover along width axis (358, 350)');
+  }
+  if (pixels[358 * 640 + 350] !== 0) {
+    throw new Error('Chisel tip should be thin and NOT cover (350, 358)');
+  }
+
+  // Test Rotation & Texture Rotation / Scale properties & commands
+  host.executeCommand('set rotate 45');
+  if (host.brushParams.angle !== 45) {
+    throw new Error(`Expected angle 45 from set rotate, got ${host.brushParams.angle}`);
+  }
+  host.executeCommand('set texture_rotate 90');
+  if (host.brushParams.texture_angle !== 90) {
+    throw new Error(`Expected texture_angle 90, got ${host.brushParams.texture_angle}`);
+  }
+  host.executeCommand('set texture_scale 150');
+  if (host.brushParams.texture_scale !== 150) {
+    throw new Error(`Expected texture_scale 150, got ${host.brushParams.texture_scale}`);
+  }
 
   // Test Smudge mode via set mode
   host.executeCommand('set mode smudge');

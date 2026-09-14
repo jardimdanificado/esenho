@@ -20,24 +20,51 @@ const { saveImage, loadImage } = require('./image_io');
  */
 const PARAM_IDS = {
   size: 1,
+  radius: 1,
+  rad: 1,
   opacity: 2,
+  op: 2,
+  alpha: 2,
   hardness: 3,
+  hard: 3,
+  softness: 3,
+  soft: 3,
   flow: 4,
   spacing: 5,
+  step: 5,
   angle: 6,
+  rot: 6,
+  rotation: 6,
+  rotate: 6,
+  shape_angle: 6,
+  shape_rotate: 6,
   roundness: 7,
+  aspect: 7,
   scatter: 8,
+  jitter: 8,
   tolerance: 9,
   tol: 9,
   smudge: 10,
   smudge_strength: 10,
   wetness: 11,
+  wet: 11,
   grain: 12,
+  noise: 12,
   texture_mode: 13,
   tex_mode: 13,
   shape: 14,
   mode: 15,
-  type: 15
+  type: 15,
+  tex_angle: 16,
+  tex_rotate: 16,
+  tex_rot: 16,
+  texture_angle: 16,
+  texture_rotate: 16,
+  texture_rot: 16,
+  tex_scale: 17,
+  texture_scale: 17,
+  tex_size: 17,
+  texture_size: 17
 };
 
 /**
@@ -424,6 +451,8 @@ class WesenhoScreenHost {
       wetness: 50,
       grain: 0,
       texture_mode: 0,
+      texture_angle: 0,
+      texture_scale: 100,
       shape: 0,
       mode: 0
     };
@@ -446,17 +475,18 @@ class WesenhoScreenHost {
    * Sets a brush parameter and forwards it directly to canvas.wasm.
    */
   setBrushParam(paramName, val) {
-    const pId = PARAM_IDS[paramName];
+    const key = paramName.toLowerCase();
+    const pId = PARAM_IDS[key];
     if (pId === undefined) return;
     let numericVal = val;
     if (typeof val === 'string') {
       const lower = val.toLowerCase();
-      if (paramName === 'shape') {
+      if (key === 'shape') {
         if (lower === 'circle' || lower === 'round') numericVal = 0;
         else if (lower === 'square') numericVal = 1;
         else if (lower === 'chisel' || lower === 'flat') numericVal = 2;
         else numericVal = parseInt(val, 10) || 0;
-      } else if (paramName === 'mode' || paramName === 'type') {
+      } else if (key === 'mode' || key === 'type') {
         if (lower === 'draw' || lower === 'brush') numericVal = 0;
         else if (lower === 'smudge') numericVal = 1;
         else if (lower === 'blend') numericVal = 2;
@@ -467,7 +497,27 @@ class WesenhoScreenHost {
         numericVal = parseFloat(val);
       }
     }
-    this.brushParams[paramName] = numericVal;
+
+    if (key === 'softness' || key === 'soft') {
+      numericVal = 100 - numericVal;
+      if (numericVal < 0) numericVal = 0;
+      if (numericVal > 100) numericVal = 100;
+      this.brushParams.hardness = numericVal;
+    } else {
+      const canonMap = {
+        radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+        step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+        shape_angle: 'angle', shape_rotate: 'angle', aspect: 'roundness',
+        jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+        smudge_strength: 'smudge', tex_mode: 'texture_mode', type: 'mode',
+        tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
+        texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
+        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale'
+      };
+      const canonKey = canonMap[key] || key;
+      this.brushParams[canonKey] = numericVal;
+    }
+
     if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
       this.canvasActor.exports.w_brush_set_param(pId, Math.floor(numericVal));
     }
@@ -967,8 +1017,19 @@ class WesenhoScreenHost {
         return;
       }
 
-      if (this.brushParams[cat] !== undefined) {
-        console.log(this.brushParams[cat]);
+      const canonGet = {
+        radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+        step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+        shape_angle: 'angle', shape_rotate: 'angle', aspect: 'roundness',
+        jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+        smudge_strength: 'smudge', tex_mode: 'texture_mode', type: 'mode',
+        tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
+        texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
+        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale'
+      };
+      const resolvedCat = canonGet[cat] || cat;
+      if (this.brushParams[resolvedCat] !== undefined) {
+        console.log(this.brushParams[resolvedCat]);
         return;
       }
 

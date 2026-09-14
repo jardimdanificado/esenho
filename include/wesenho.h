@@ -46,7 +46,9 @@ enum {
     W_PARAM_GRAIN          = 12,
     W_PARAM_TEX_MODE       = 13,
     W_PARAM_SHAPE          = 14,
-    W_PARAM_MODE           = 15
+    W_PARAM_MODE           = 15,
+    W_PARAM_TEX_ANGLE      = 16,
+    W_PARAM_TEX_SCALE      = 17
 };
 
 /* =========================================================================
@@ -140,28 +142,58 @@ static inline void w_sincos_deg(int deg, int *out_sin, int *out_cos) {
     }
 }
 
-/** Standard Porter-Duff Source-Over alpha blending */
-static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha) {
+/** Standard Porter-Duff Source-Over alpha blending into layer with stroke max_alpha cap */
+static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, uint32_t max_alpha) {
     if (alpha == 0) return dst;
-    if (alpha >= 255) return src;
-    uint32_t inv_a = 255 - alpha;
-    uint32_t sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF, sa = (src >> 24) & 0xFF;
-    uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF, da = (dst >> 24) & 0xFF;
-    uint32_t r = (sr * alpha + dr * inv_a) / 255;
-    uint32_t g = (sg * alpha + dg * inv_a) / 255;
-    uint32_t b = (sb * alpha + db * inv_a) / 255;
-    uint32_t a = sa + (da * inv_a) / 255;
-    if (a > 255) a = 255;
-    return (a << 24) | (b << 16) | (g << 8) | r;
+    uint32_t sa = (src >> 24) & 0xFF;
+    uint32_t eff_sa = (sa * alpha) / 255;
+    if (eff_sa == 0) return dst;
+
+    uint32_t da = (dst >> 24) & 0xFF;
+    uint32_t inv_sa = 255 - eff_sa;
+
+    uint32_t out_a = eff_sa + (da * inv_sa) / 255;
+    if (max_alpha > 0 && out_a > max_alpha && da < max_alpha) {
+        out_a = max_alpha;
+    } else if (max_alpha > 0 && out_a > max_alpha && da >= max_alpha) {
+        out_a = da;
+    }
+    if (out_a > 255) out_a = 255;
+
+    uint32_t sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF;
+    uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
+
+    uint32_t out_r = (sr * eff_sa + dr * inv_sa) / 255;
+    uint32_t out_g = (sg * eff_sa + dg * inv_sa) / 255;
+    uint32_t out_b = (sb * eff_sa + db * inv_sa) / 255;
+
+    return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
 }
 
-/** Texture masking: samples uploaded texture buffer or procedural grain/patterns */
-static inline uint32_t w_sample_texture(int mode, int x, int y, uint32_t base_a) {
+/** Texture masking: samples uploaded texture buffer or procedural grain/patterns with angle & scale */
+static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, int tex_scale, uint32_t base_a) {
     if (base_a == 0) return 0;
+    if (tex_scale <= 0) tex_scale = 100;
+
+    int tx = x;
+    int ty = y;
+
+    if (tex_angle != 0) {
+        int sin_t = 0, cos_t = 1024;
+        w_sincos_deg(tex_angle, &sin_t, &cos_t);
+        tx = (x * cos_t + y * sin_t) / 1024;
+        ty = (-x * sin_t + y * cos_t) / 1024;
+    }
+
+    if (tex_scale != 100) {
+        tx = (tx * 100) / tex_scale;
+        ty = (ty * 100) / tex_scale;
+    }
+
     if (g_texture.pixels && g_texture.width > 0 && g_texture.height > 0) {
-        int tx = (x % g_texture.width + g_texture.width) % g_texture.width;
-        int ty = (y % g_texture.height + g_texture.height) % g_texture.height;
-        uint32_t p = g_texture.pixels[ty * g_texture.width + tx];
+        int gx = (tx % g_texture.width + g_texture.width) % g_texture.width;
+        int gy = (ty % g_texture.height + g_texture.height) % g_texture.height;
+        uint32_t p = g_texture.pixels[gy * g_texture.width + gx];
         uint32_t lum = ((p & 0xFF) * 299 + ((p >> 8) & 0xFF) * 587 + ((p >> 16) & 0xFF) * 114) / 1000;
         uint32_t ta = (p >> 24) & 0xFF;
         uint32_t factor = (lum * ta) / 255;
@@ -170,29 +202,29 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, uint32_t base_a)
     if (mode <= 0) return base_a;
     uint32_t mod_a = base_a;
     if (mode == 1) { /* Paper grain */
-        uint32_t n = ((x * 1234567 + y * 7654321) ^ (x * y * 13)) & 0xFF;
-        int fiber = ((x * 3 + y * 5) % 17 < 3) ? 50 : 255;
+        uint32_t n = ((tx * 1234567 + ty * 7654321) ^ (tx * ty * 13)) & 0xFF;
+        int fiber = ((tx * 3 + ty * 5) % 17 < 3) ? 50 : 255;
         mod_a = (base_a * n * fiber) / (255 * 255);
     } else if (mode == 2) { /* Canvas weave */
-        int pat = ((x % 6 < 3) ^ (y % 6 < 3)) ? 255 : 40;
+        int pat = ((tx % 6 < 3) ^ (ty % 6 < 3)) ? 255 : 40;
         mod_a = (base_a * pat) / 255;
     } else if (mode == 3) { /* Noise */
-        uint32_t n = ((x * 374761393 + y * 668265263) ^ 0x5bf03635) & 0xFF;
+        uint32_t n = ((tx * 374761393 + ty * 668265263) ^ 0x5bf03635) & 0xFF;
         mod_a = (base_a * n) / 255;
     } else if (mode == 4) { /* Halftone dots */
-        int dx = (x % 8) - 4, dy = (y % 8) - 4;
+        int dx = (tx % 8) - 4, dy = (ty % 8) - 4;
         int d2 = dx * dx + dy * dy;
         int pat = (d2 <= 5) ? 255 : 20;
         mod_a = (base_a * pat) / 255;
     } else if (mode == 5) { /* Grid */
-        int pat = (x % 8 == 0 || y % 8 == 0) ? 255 : 30;
+        int pat = (tx % 8 == 0 || ty % 8 == 0) ? 255 : 30;
         mod_a = (base_a * pat) / 255;
     } else if (mode == 6) { /* Grunge */
-        uint32_t n = ((x / 4 * 101 + y / 4 * 203) ^ (x * 17 + y * 31)) & 0xFF;
+        uint32_t n = ((tx / 4 * 101 + ty / 4 * 203) ^ (tx * 17 + ty * 31)) & 0xFF;
         int pat = n > 120 ? 255 : (n * 255 / 120);
         mod_a = (base_a * pat) / 255;
     } else if (mode == 7) { /* Hatch */
-        int pat = ((x + y) % 6 == 0 || (x + y) % 6 == 1) ? 255 : 0;
+        int pat = ((tx + ty) % 6 == 0 || (tx + ty) % 6 == 1) ? 255 : 0;
         mod_a = (base_a * pat) / 255;
     }
     return mod_a;
