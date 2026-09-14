@@ -1,132 +1,64 @@
 /**
  * =========================================================================
  * Pixel Brush Plugin (plugins/brushes/pixel/main.c)
- * Hard pixel-art pencil with integer Bresenham line rasterization and no antialiasing.
+ * Hard pixel-art pencil with integer Bresenham line rasterization.
  * =========================================================================
  */
 
 #include "wesenho.h"
 
-// --- Pixel Brush Parameters ---
-static int size = 1; // Square pixel block dimension (1 = single pixel)
+static int size = 1;
+static int tex_mode = 0;
 
-// --- Texture Modulation Parameters ---
-static int tex_mode = 0;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
-static int tex_scale = 100;    // Texture UV scale percentage
-static int tex_strength = 100; // Texture modulation strength (0..100%)
+static inline void put_pixel_block(wframebuffer_t *fb, int cx, int cy, uint32_t col, int is_eraser, const wstroke_t *s) {
+    uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
+    int w = fb->width;
+    int h = fb->height;
+    int half = size / 2;
 
-/**
- * Samples texture color from host shared buffer with UV scaling and wrapping.
- */
-static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
-    if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
-    int tw = tex_fb->width;
-    int th = tex_fb->height;
-    int scale = tex_scale > 0 ? tex_scale : 100;
-    int sx = (x * 100) / scale;
-    int sy = (y * 100) / scale;
-    int tx = sx % tw; if (tx < 0) tx += tw;
-    int ty = sy % th; if (ty < 0) ty += th;
-    uint32_t *tp = (uint32_t*)(uintptr_t)tex_fb->pixels;
-    return tp[ty * tw + tx];
-}
-
-/**
- * Returns pixel color with optional texture grain/pattern modulation.
- */
-static inline uint32_t get_pixel_color(wframebuffer_t *tex_fb, int px, int py, uint32_t color) {
-    if (!tex_fb || tex_fb->width == 0 || tex_mode == 0 || tex_strength == 0) return color;
-    uint32_t t_col = sample_texture(tex_fb, px, py);
-    uint32_t tr = t_col & 0xFF, tg = (t_col >> 8) & 0xFF, tb = (t_col >> 16) & 0xFF;
-    if (tex_mode == 1) {
-        // Mode 1: Grain Mask - modulates alpha using texture luminance
-        uint32_t lum = (tr * 77 + tg * 150 + tb * 29) >> 8;
-        uint32_t a = (color >> 24) & 0xFF;
-        uint32_t mod_a = (a * (lum * tex_strength + 255 * (100 - tex_strength))) / 25500;
-        return (mod_a << 24) | (color & 0x00FFFFFF);
-    } else {
-        // Mode 2: RGB Pattern - multiplies color components with texture RGB
-        uint32_t cr = color & 0xFF, cg = (color >> 8) & 0xFF, cb = (color >> 16) & 0xFF;
-        return (color & 0xFF000000) | (((cb * tb) / 255) << 16) | (((cg * tg) / 255) << 8) | ((cr * tr) / 255);
-    }
-}
-
-/**
- * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
- * Uses classic integer Bresenham algorithm to connect stroke endpoints pixel-perfectly without gaps.
- */
-void on_message(int32_t from_id, int32_t len) {
-    if (len <= 0) return;
-    char buf[256];
-    int clen = (len < 255) ? len : 255;
-    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
-    buf[clen] = '\0';
-
-    char *tokens[10];
-    int ntok = c_tokenize(buf, tokens, 10);
-    if (ntok == 0) return;
-
-    if (c_strcasecmp(tokens[0], "set") == 0 && ntok >= 3) {
-        const char *param = tokens[1];
-        int val = c_atoi(tokens[2]);
-        if (c_strcasecmp(param, "size") == 0) { size = val < 1 ? 1 : val; }
-        else if (c_strcasecmp(param, "tex_mode") == 0 || c_strcasecmp(param, "texture_mode") == 0) { tex_mode = val; }
-        else if (c_strcasecmp(param, "tex_scale") == 0 || c_strcasecmp(param, "texture_scale") == 0) { tex_scale = val < 1 ? 1 : val; }
-        else if (c_strcasecmp(param, "tex_strength") == 0 || c_strcasecmp(param, "texture_strength") == 0) { tex_strength = val < 0 ? 0 : (val > 100 ? 100 : val); }
-        return;
-    }
-
-    if (c_strcasecmp(tokens[0], "stroke") == 0 && ntok >= 8) {
-        int state = c_atoi(tokens[1]);
-        int x = c_atoi(tokens[2]);
-        int y = c_atoi(tokens[3]);
-        int prev_x = c_atoi(tokens[4]);
-        int prev_y = c_atoi(tokens[5]);
-        uint32_t color = c_parse_u32(tokens[6]);
-        int is_eraser = c_atoi(tokens[7]);
-
-        wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
-        if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
-        wframebuffer_t *tex_fb = (wframebuffer_t*)ask("brush:texture");
-
-        uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
-        int width = fb->width;
-        int height = fb->height;
-
-        int x0 = (state == 0) ? x : prev_x;
-        int y0 = (state == 0) ? y : prev_y;
-        int x1 = x;
-        int y1 = y;
-
-        // Setup integer Bresenham line stepping
-        int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
-        int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
-        int sx = (x0 < x1) ? 1 : -1;
-        int sy = (y0 < y1) ? 1 : -1;
-        int err = dx - dy;
-
-        int half = size / 2;
-
-        while (1) {
-            // Write square block of size * size around current raster position
-            for (int sy_off = 0; sy_off < size; sy_off++) {
-                int py = y0 + sy_off - half;
-                if (py < 0 || py >= height) continue;
-                for (int sx_off = 0; sx_off < size; sx_off++) {
-                    int px = x0 + sx_off - half;
-                    if (px < 0 || px >= width) continue;
-                    pixels[py * width + px] = is_eraser ? 0x00000000 : get_pixel_color(tex_fb, px, py, color);
-                }
+    for (int dy = 0; dy < size; dy++) {
+        int py = cy + dy - half;
+        if (py < 0 || py >= h) continue;
+        for (int dx = 0; dx < size; dx++) {
+            int px = cx + dx - half;
+            if (px < 0 || px >= w) continue;
+            if (is_eraser) {
+                pixels[py * w + px] = 0x00000000;
+            } else {
+                uint32_t a = w_sample_texture(s->texture_mode ? s->texture_mode : tex_mode, px, py, (col >> 24) & 0xFF);
+                pixels[py * w + px] = w_blend_fast(col, pixels[py * w + px], a);
             }
-
-            if (x0 == x1 && y0 == y1) break;
-            int e2 = 2 * err;
-            if (e2 > -dy) { err -= dy; x0 += sx; }
-            if (e2 < dx)  { err += dx; y0 += sy; }
         }
     }
 }
 
-/** Piolho frame update hook */
+/**
+ * on_message - Handles brush parameter updates and pixel-art Bresenham drawing.
+ */
+void on_message(int32_t from_id, int32_t len) {
+    int dummy = 0;
+    if (w_handle_brush_set(len, &size, &dummy, &dummy, &dummy, &dummy, &tex_mode)) return;
+    wframebuffer_t *fb = w_get_layer();
+    if (!fb) return;
+
+    wstroke_t s;
+    if (!w_parse_stroke(len, &s, size)) return;
+
+    int x0 = s.x0, y0 = s.y0, x1 = s.x1, y1 = s.y1;
+    int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
+    int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
+    int sx = (x0 < x1) ? 1 : -1;
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    while (1) {
+        put_pixel_block(fb, x0, y0, s.color, s.eraser, &s);
+        if (x0 == x1 && y0 == y1) break;
+        int e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x0 += sx; }
+        if (e2 < dx)  { err += dx; y0 += sy; }
+    }
+}
+
 int32_t update(void) { return UPDATE_OK; }
 

@@ -7,47 +7,10 @@
 
 #include "wesenho.h"
 
-// --- Blend Brush Parameters ---
-static int size = 16;       // Stamp radius in pixels
-static int wetness = 60;    // Canvas paint pick-up ratio (0 = pure color, 100 = full smear)
+static int size = 16;
+static int wetness = 60;
+static int tex_mode = 0;
 
-// --- Texture Modulation Parameters ---
-static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
-static int tex_scale = 100;    // Texture UV scale percentage
-static int tex_strength = 100; // Texture modulation strength (0..100%)
-
-/**
- * Fast square root approximation for continuous stroke interpolation.
- */
-static inline float fast_sqrt(float val) {
-    if (val <= 0.0f) return 0.0f;
-    float x = val;
-    for (int i = 0; i < 6; i++) x = 0.5f * (x + val / x);
-    return x;
-}
-
-/**
- * Samples texture color from host shared buffer with wrapping and scaling.
- */
-static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
-    if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
-    int tw = tex_fb->width;
-    int th = tex_fb->height;
-    int scale = tex_scale > 0 ? tex_scale : 100;
-    int sx = (x * 100) / scale;
-    int sy = (y * 100) / scale;
-    int tx = sx % tw; if (tx < 0) tx += tw;
-    int ty = sy % th; if (ty < 0) ty += th;
-    uint32_t *tp = (uint32_t*)(uintptr_t)tex_fb->pixels;
-    return tp[ty * tw + tx];
-}
-
-/**
- * Linear color interpolation between brush color c1 and underlying canvas pixel c2.
- * @param c1    Brush color (0xAABBGGRR)
- * @param c2    Existing canvas layer pixel
- * @param rate  Blend weight of brush color (0..100)
- */
 static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
     uint32_t r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
     uint32_t r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
@@ -60,114 +23,28 @@ static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
 }
 
 /**
- * Renders a wet blend dab: reads underlying layer color and blends it with brush color
- * proportionally to wetness parameter.
+ * Pixel shader callback for wet blending with canvas background.
  */
-static void stamp_blend(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint32_t brush_color, int is_eraser) {
-    uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
-    int width = fb->width;
-    int height = fb->height;
-
-    int r = size;
-    int r2 = r * r;
-
-    for (int dy = -r; dy <= r; dy++) {
-        int py = y + dy;
-        if (py < 0 || py >= height) continue;
-        for (int dx = -r; dx <= r; dx++) {
-            int px = x + dx;
-            if (px < 0 || px >= width) continue;
-
-            if (dx * dx + dy * dy <= r2) {
-                if (is_eraser) {
-                    pixels[py * width + px] = 0x00000000;
-                } else {
-                    uint32_t col = brush_color;
-                    int cur_wet = wetness;
-
-                    // Texture grain modifies local wetness level
-                    if (tex_fb && tex_fb->width > 0 && tex_mode > 0 && tex_strength > 0) {
-                        uint32_t t_col = sample_texture(tex_fb, px, py);
-                        uint32_t tr = t_col & 0xFF, tg = (t_col >> 8) & 0xFF, tb = (t_col >> 16) & 0xFF;
-                        if (tex_mode == 1) {
-                            uint32_t lum = (tr * 77 + tg * 150 + tb * 29) >> 8;
-                            cur_wet = (cur_wet * (lum * tex_strength + 255 * (100 - tex_strength))) / 25500;
-                        } else if (tex_mode == 2) {
-                            uint32_t cr = col & 0xFF, cg = (col >> 8) & 0xFF, cb = (col >> 16) & 0xFF;
-                            col = (col & 0xFF000000) | (((cb * tb) / 255) << 16) | (((cg * tg) / 255) << 8) | ((cr * tr) / 255);
-                        }
-                    }
-
-                    uint32_t existing = pixels[py * width + px];
-                    if ((existing >> 24) == 0) {
-                        // Empty background: place brush color directly
-                        pixels[py * width + px] = col;
-                    } else {
-                        // Existing paint: wet blend new color with existing canvas pixel
-                        pixels[py * width + px] = mix_color(col, existing, 100 - cur_wet);
-                    }
-                }
-            }
-        }
-    }
+static inline uint32_t blend_pixel(int px, int py, int dx, int dy, int dist_sq, int r, uint32_t dst_p, const wstroke_t *s, void *ctx) {
+    if (s->eraser) return 0x00000000;
+    uint32_t col = s->color;
+    if ((dst_p >> 24) == 0) return col;
+    return mix_color(col, dst_p, 100 - wetness);
 }
 
 /**
- * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ * on_message - Handles brush parameter updates and blend stroke rendering.
  */
 void on_message(int32_t from_id, int32_t len) {
-    if (len <= 0) return;
-    char buf[256];
-    int clen = (len < 255) ? len : 255;
-    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
-    buf[clen] = '\0';
+    int dummy = 0;
+    if (w_handle_brush_set(len, &size, &dummy, &dummy, &dummy, &dummy, &tex_mode)) return;
+    wframebuffer_t *fb = w_get_layer();
+    if (!fb) return;
 
-    char *tokens[10];
-    int ntok = c_tokenize(buf, tokens, 10);
-    if (ntok == 0) return;
-
-    if (c_strcasecmp(tokens[0], "set") == 0 && ntok >= 3) {
-        const char *param = tokens[1];
-        int val = c_atoi(tokens[2]);
-        if (c_strcasecmp(param, "size") == 0) { size = val < 1 ? 1 : val; }
-        else if (c_strcasecmp(param, "wetness") == 0 || c_strcasecmp(param, "wet") == 0) { wetness = val; }
-        else if (c_strcasecmp(param, "tex_mode") == 0 || c_strcasecmp(param, "texture_mode") == 0) { tex_mode = val; }
-        else if (c_strcasecmp(param, "tex_scale") == 0 || c_strcasecmp(param, "texture_scale") == 0) { tex_scale = val < 1 ? 1 : val; }
-        else if (c_strcasecmp(param, "tex_strength") == 0 || c_strcasecmp(param, "texture_strength") == 0) { tex_strength = val < 0 ? 0 : (val > 100 ? 100 : val); }
-        return;
-    }
-
-    if (c_strcasecmp(tokens[0], "stroke") == 0 && ntok >= 8) {
-        int state = c_atoi(tokens[1]);
-        int x = c_atoi(tokens[2]);
-        int y = c_atoi(tokens[3]);
-        int prev_x = c_atoi(tokens[4]);
-        int prev_y = c_atoi(tokens[5]);
-        uint32_t color = c_parse_u32(tokens[6]);
-        int is_eraser = c_atoi(tokens[7]);
-
-        wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
-        if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
-        wframebuffer_t *tex_fb = (wframebuffer_t*)ask("brush:texture");
-
-        if (state == 0) {
-            stamp_blend(fb, tex_fb, x, y, color, is_eraser);
-        } else {
-            float dx = (float)(x - prev_x);
-            float dy = (float)(y - prev_y);
-            float dist = fast_sqrt(dx * dx + dy * dy);
-            int steps = (int)(dist / 2.0f);
-            if (steps < 1) steps = 1;
-            for (int i = 0; i <= steps; i++) {
-                float t = (float)i / (float)steps;
-                int cx = (int)((float)prev_x + dx * t + 0.5f);
-                int cy = (int)((float)prev_y + dy * t + 0.5f);
-                stamp_blend(fb, tex_fb, cx, cy, color, is_eraser);
-            }
-        }
-    }
+    wstroke_t s;
+    if (!w_parse_stroke(len, &s, size)) return;
+    w_stroke_interpolate(fb, &s, 0.2f, blend_pixel, (void*)0);
 }
 
-/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
 
