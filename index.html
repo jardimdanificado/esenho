@@ -15,13 +15,13 @@
     #cvswrap { flex: 1; position: relative; overflow: hidden; background: #1d2021; min-width: 0; min-height: 0; }
     #wcanvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
 
-    /* ── UI Panel (Left) - Gruvbox Dark ── */
+    /* ── UI Panel (Right) - Gruvbox Dark ── */
     #ui-panel {
       position: relative;
       width: 290px;
       display: flex;
       flex-direction: column;
-      border-right: 1px solid #3c3836;
+      border-left: 1px solid #3c3836;
       background: #1d2021;
       flex-shrink: 0;
       z-index: 15;
@@ -441,13 +441,13 @@
     #toggle-ui {
       position: absolute;
       top: 14px;
-      right: 1px;
-      transform: translateX(100%);
+      left: 1px;
+      transform: translateX(-100%);
       z-index: 20;
       background: #282828;
       color: #ebdbb2;
       border: 1px solid #504945;
-      border-left: 1px solid #282828;
+      border-right: 1px solid #282828;
       border-radius: 0;
       padding: 5px 9px;
       font: inherit;
@@ -456,7 +456,7 @@
       touch-action: none;
       user-select: none;
       white-space: nowrap;
-      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
+      box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.4);
     }
     #toggle-ui:hover {
       background: #3c3836;
@@ -465,14 +465,14 @@
     }
     #ui-panel.hidden {
       width: 0 !important;
-      border-right: none !important;
+      border-left: none !important;
     }
     #ui-panel.hidden > *:not(#toggle-ui) {
       display: none !important;
     }
     #ui-panel.hidden #toggle-ui {
-      right: 0;
-      border-left: none;
+      left: 0;
+      border-right: none;
     }
 
     /* ── Panel (REPL + status) - Gruvbox Dark ── */
@@ -481,7 +481,7 @@
       width: 320px;
       display: flex;
       flex-direction: column;
-      border-left: 1px solid #3c3836;
+      border-right: 1px solid #3c3836;
       background: #1d2021;
       flex-shrink: 0;
       z-index: 15;
@@ -502,24 +502,24 @@
     #inputrow span { color: #fabd2f; font-weight: bold; flex-shrink: 0; }
     #wcmd {
       flex: 1; background: transparent; border: none; outline: none;
-      color: #fbf1c7; font: inherit; caret-color: #fe8019;
+      color: #ebdbb2; font: inherit; caret-color: #fabd2f;
     }
     #wstatus {
-      padding: 5px 10px; font-size: 11px; color: #a89984;
-      border-top: 1px solid #3c3836; background: #1d2021;
+      padding: 4px 10px; font-size: 11px; background: #1d2021;
+      border-top: 1px solid #3c3836; color: #a89984;
     }
 
     /* Console "Orelha" */
     #toggle-panel {
       position: absolute;
       top: 14px;
-      left: 1px;
-      transform: translateX(-100%);
+      right: 1px;
+      transform: translateX(100%);
       z-index: 20;
       background: #282828;
       color: #ebdbb2;
       border: 1px solid #504945;
-      border-right: 1px solid #282828;
+      border-left: 1px solid #282828;
       border-radius: 0;
       padding: 5px 9px;
       font: inherit;
@@ -528,7 +528,7 @@
       touch-action: none;
       user-select: none;
       white-space: nowrap;
-      box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.4);
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
     }
     #toggle-panel:hover {
       background: #3c3836;
@@ -537,14 +537,14 @@
     }
     #panel.hidden {
       width: 0 !important;
-      border-left: none !important;
+      border-right: none !important;
     }
     #panel.hidden > *:not(#toggle-panel) {
       display: none !important;
     }
     #panel.hidden #toggle-panel {
-      left: 0;
-      border-right: none;
+      right: 0;
+      border-left: none;
     }
 
     /* ── Mobile Unified Bottom Dock & Drawer Tabs ── */
@@ -800,9 +800,78 @@
 </head>
 <body>
 <div id="layout">
-  <!-- ── Full UI Panel (Left) ── -->
+  <div id="panel" class="hidden">
+    <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25C0;</button>
+    <div id="panel-tabs">
+      <button type="button" id="tab-sub-console" class="panel-header-tab active">Console</button>
+      <button type="button" id="tab-sub-scripts" class="panel-header-tab">Scripts</button>
+    </div>
+    <div id="console-view">
+      <div id="wterm"></div>
+      <div id="inputrow">
+        <span>wesenho&gt;</span>
+        <input id="wcmd" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+               placeholder="type a command…" autofocus>
+      </div>
+      <div id="wstatus">loading…</div>
+    </div>
+
+    <!-- Scripts Tab Panel -->
+    <div id="ui-scripts" style="display: none;">
+      <div class="ui-control">
+        <div class="ui-label-row"><span>Saved Scripts</span></div>
+        <div class="ui-row-gap">
+          <select id="ui-script-select" class="ui-select" style="flex:1;"></select>
+          <button id="ui-btn-new-script" class="ui-mini-btn" title="New blank script">+ New</button>
+          <button id="ui-btn-save-script" class="ui-mini-btn" title="Save script to local storage">Save</button>
+          <button id="ui-btn-del-script" class="ui-mini-btn" title="Delete current script">Del</button>
+        </div>
+      </div>
+
+      <div class="ui-control">
+        <div class="ui-label-row"><span>Script Name</span></div>
+        <input type="text" id="ui-script-name" class="ui-input-text" value="my_script" placeholder="script_name" spellcheck="false">
+      </div>
+
+      <div class="ui-control" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="ui-label-row">
+          <span>Script Editor</span>
+          <span style="font-size: 9px; color: #a89984;">1 cmd / line</span>
+        </div>
+        <textarea id="ui-script-editor" spellcheck="false" placeholder="# Wesenho script - 1 command per line&#10;set tool brush&#10;set size 25&#10;set color #fabd2f&#10;brush 150 150"></textarea>
+      </div>
+
+      <div class="ui-row-gap" style="margin-top: 4px;">
+        <button id="ui-btn-run-script" class="ui-btn" style="flex: 1; font-weight: bold;">Run Script</button>
+        <button id="ui-btn-clear-script-editor" class="ui-mini-btn">Clear</button>
+      </div>
+
+      <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
+        <span style="font-size: 10px; color: #a89984; line-height: 1.4;">
+          Each line runs as a REPL command. Lines starting with <code>#</code> or <code>//</code> are comments.
+        </span>
+      </div>
+    </div>
+  </div>
+  <!-- ── Canvas area ── -->
+  <div id="cvswrap">
+    <canvas id="wcanvas"></canvas>
+  </div>
+
+  <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
+  <div id="bottom-dock">
+    <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
+    <div id="bottom-dock-tabs">
+      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
+      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
+      <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
+      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">X</button>
+    </div>
+  </div>
+
+  <!-- ── Full UI Panel (Right) ── -->
   <div id="ui-panel">
-    <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25C0; tools [hide]</button>
+    <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25B6; tools [hide]</button>
     <div id="ui-scroll">
 
       <!-- 1. Tools -->
@@ -1067,75 +1136,6 @@
     </div>
   </div>
 
-  <!-- ── Canvas area ── -->
-  <div id="cvswrap">
-    <canvas id="wcanvas"></canvas>
-  </div>
-
-  <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
-  <div id="bottom-dock">
-    <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
-    <div id="bottom-dock-tabs">
-      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
-      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
-      <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
-      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">X</button>
-    </div>
-  </div>
-
-  <div id="panel" class="hidden">
-    <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25B6;</button>
-    <div id="panel-tabs">
-      <button type="button" id="tab-sub-console" class="panel-header-tab active">Console</button>
-      <button type="button" id="tab-sub-scripts" class="panel-header-tab">Scripts</button>
-    </div>
-    <div id="console-view">
-      <div id="wterm"></div>
-      <div id="inputrow">
-        <span>wesenho&gt;</span>
-        <input id="wcmd" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-               placeholder="type a command…" autofocus>
-      </div>
-      <div id="wstatus">loading…</div>
-    </div>
-
-    <!-- Scripts Tab Panel -->
-    <div id="ui-scripts" style="display: none;">
-      <div class="ui-control">
-        <div class="ui-label-row"><span>Saved Scripts</span></div>
-        <div class="ui-row-gap">
-          <select id="ui-script-select" class="ui-select" style="flex:1;"></select>
-          <button id="ui-btn-new-script" class="ui-mini-btn" title="New blank script">+ New</button>
-          <button id="ui-btn-save-script" class="ui-mini-btn" title="Save script to local storage">Save</button>
-          <button id="ui-btn-del-script" class="ui-mini-btn" title="Delete current script">Del</button>
-        </div>
-      </div>
-
-      <div class="ui-control">
-        <div class="ui-label-row"><span>Script Name</span></div>
-        <input type="text" id="ui-script-name" class="ui-input-text" value="my_script" placeholder="script_name" spellcheck="false">
-      </div>
-
-      <div class="ui-control" style="flex: 1; display: flex; flex-direction: column;">
-        <div class="ui-label-row">
-          <span>Script Editor</span>
-          <span style="font-size: 9px; color: #a89984;">1 cmd / line</span>
-        </div>
-        <textarea id="ui-script-editor" spellcheck="false" placeholder="# Wesenho script - 1 command per line&#10;set tool brush&#10;set size 25&#10;set color #fabd2f&#10;brush 150 150"></textarea>
-      </div>
-
-      <div class="ui-row-gap" style="margin-top: 4px;">
-        <button id="ui-btn-run-script" class="ui-btn" style="flex: 1; font-weight: bold;">Run Script</button>
-        <button id="ui-btn-clear-script-editor" class="ui-mini-btn">Clear</button>
-      </div>
-
-      <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
-        <span style="font-size: 10px; color: #a89984; line-height: 1.4;">
-          Each line runs as a REPL command. Lines starting with <code>#</code> or <code>//</code> are comments.
-        </span>
-      </div>
-    </div>
-  </div>
 </div>
 <script type="module">
   import { papagaio } from "./src/papagaio/index.js";

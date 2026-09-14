@@ -153,7 +153,7 @@ async function main() {
       if (isMob && consoleEl) {
         consoleEl.classList.add('hidden');
         const btnC = document.getElementById('toggle-panel');
-        if (btnC) btnC.textContent = '◀ console [show]';
+        if (btnC) btnC.textContent = 'console [show] ▶';
       }
     } else {
       el.classList.add('hidden');
@@ -161,7 +161,7 @@ async function main() {
 
     const btn = document.getElementById('toggle-ui');
     if (btn) {
-      btn.textContent = willOpen ? '◀ tools [hide]' : 'tools [show] ▶';
+      btn.textContent = willOpen ? '▶ tools [hide]' : '◀ tools [show]';
     }
     updateDockTabs();
     resize();
@@ -190,7 +190,7 @@ async function main() {
       if (isMob && uiEl) {
         uiEl.classList.add('hidden');
         const btnU = document.getElementById('toggle-ui');
-        if (btnU) btnU.textContent = 'tools [show] ▶';
+        if (btnU) btnU.textContent = '◀ tools [show]';
       }
     } else {
       el.classList.add('hidden');
@@ -198,7 +198,7 @@ async function main() {
 
     const btn = document.getElementById('toggle-panel');
     if (btn) {
-      btn.textContent = willOpen ? 'console [hide] ▶' : '◀ console [show]';
+      btn.textContent = willOpen ? 'console [hide] ◀' : 'console [show] ▶';
     }
     updateDockTabs();
     resize();
@@ -255,9 +255,9 @@ async function main() {
         if (panel.classList.contains('hidden')) {
           panel.classList.remove('hidden');
           if (panelId === 'ui-panel') {
-            btn.textContent = '◀ tools [hide]';
+            btn.textContent = '▶ tools [hide]';
           } else {
-            btn.textContent = 'console [hide] ▶';
+            btn.textContent = 'console [hide] ◀';
           }
         }
       }
@@ -305,8 +305,8 @@ async function main() {
     btn.addEventListener('pointercancel', finishDrag);
   }
 
-  setupDraggableTab('ui-panel', 'toggle-ui', 'left', 'wesenho_ui_width');
-  setupDraggableTab('panel', 'toggle-panel', 'right', 'wesenho_console_width');
+  setupDraggableTab('panel', 'toggle-panel', 'left', 'wesenho_console_width');
+  setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'wesenho_ui_width');
 
   /* ── Mobile Unified Bottom Dock Listeners ── */
   const savedMobileH = localStorage.getItem('wesenho_mobile_drawer_height');
@@ -1635,7 +1635,7 @@ async function main() {
 
         const row = document.createElement('div');
         row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '');
-        row.title = `[${i}] ${name} (${w}×${h}) - clique para desenhar nesta camada`;
+        row.title = `[${i}] ${name} (${w}×${h}) - click to draw on this layer`;
 
         // Row click selects layer
         row.addEventListener('click', (e) => {
@@ -1650,7 +1650,7 @@ async function main() {
         visBtn.type = 'button';
         visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
         visBtn.textContent = vis ? '👁' : '—';
-        visBtn.title = vis ? 'Ocultar camada' : 'Exibir camada';
+        visBtn.title = vis ? 'Hide layer' : 'Show layer';
         visBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`toggle layer ${i}`);
@@ -1668,15 +1668,15 @@ async function main() {
         `;
         row.appendChild(infoCell);
 
-        // Col 3: Toggles (Ponta, Grão)
+        // Col 3: Toggles (Shape, Grain)
         const togglesCell = document.createElement('div');
         togglesCell.className = 'layer-cell-toggles';
 
         const shapeBtn = document.createElement('button');
         shapeBtn.type = 'button';
         shapeBtn.className = 'layer-pill' + (isShape ? ' active-shape' : '');
-        shapeBtn.textContent = 'Ponta';
-        shapeBtn.title = 'Usar como ponta de pincel (Shape)';
+        shapeBtn.textContent = 'Tip';
+        shapeBtn.title = 'Use as brush tip (Shape)';
         shapeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`set shape ${name}`);
@@ -1686,8 +1686,8 @@ async function main() {
         const texBtn = document.createElement('button');
         texBtn.type = 'button';
         texBtn.className = 'layer-pill' + (isTex ? ' active-tex' : '');
-        texBtn.textContent = 'Grão';
-        texBtn.title = 'Usar como textura de grão';
+        texBtn.textContent = 'Grain';
+        texBtn.title = 'Use as grain texture';
         texBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`set texture ${name}`);
@@ -1710,10 +1710,10 @@ async function main() {
           delBtn.type = 'button';
           delBtn.className = 'layer-btn-del';
           delBtn.textContent = '✕';
-          delBtn.title = `Excluir camada [${i}] ${name}`;
+          delBtn.title = `Delete layer [${i}] ${name}`;
           delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (confirm(`Excluir camada [${i}] ${name}?`)) {
+            if (confirm(`Delete layer [${i}] ${name}?`)) {
               runCmd(`delete layer ${i}`);
             }
           });
@@ -2198,9 +2198,9 @@ function ensureUiPanel() {
   `;
 
   const layout = document.getElementById('layout') || document.body;
-  layout.insertBefore(panel, layout.firstChild);
+  layout.appendChild(panel);
   if (typeof setupDraggableTab === 'function') {
-    setupDraggableTab('ui-panel', 'toggle-ui', 'left', 'wesenho_ui_width');
+    setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'wesenho_ui_width');
   }
 }
 
