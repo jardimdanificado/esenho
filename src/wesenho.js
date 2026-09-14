@@ -1255,6 +1255,10 @@ const COMMAND_RULES = [
       else host.sendConsoleLog(`err: failed saving image: ${res.error}`, 0xFFFF5555);
     }
   },
+  { pat: "export $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save $file").run(m, host) },
+  { pat: "export canvas $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save canvas $file").run(m, host) },
+  { pat: "export layer $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save layer $file").run(m, host) },
+  { pat: "export", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save $file").run({ file: "drawing.png" }, host) },
   {
     pat: "load image $file $name",
     run: (m, host) => {
@@ -1938,17 +1942,14 @@ class WesenhoScreenHost {
         const idata = octx.createImageData(w, h);
         idata.data.set(rawBytes);
         octx.putImageData(idata, 0, 0);
-        off.toBlob(blob => {
-          if (!blob) return;
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filePath.endsWith('.png') ? filePath : `${filePath}.png`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }, 'image/png');
+        const dlName = filePath.endsWith('.png') ? filePath : `${filePath}.png`;
+        const dataUrl = off.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = dataUrl;
+        a.download = dlName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         return { ok: true, path: filePath, format: 'png', size: byteLen };
       } catch (e) {
         return { ok: false, error: e.message };

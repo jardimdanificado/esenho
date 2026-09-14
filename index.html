@@ -635,6 +635,7 @@
           <div class="ui-row-between">
             <span style="font-size:10px; color:#a89984;">Manage &amp; Assign:</span>
             <div class="ui-row-gap">
+              <button id="ui-btn-import-layer" class="ui-mini-btn" title="Import image as new layer">+ Import</button>
               <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New Layer</button>
               <button id="ui-btn-clear-layer" class="ui-mini-btn" title="Clear active layer">Clear</button>
             </div>
@@ -666,9 +667,11 @@
               <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
             </div>
           </div>
-          <div style="margin-top: 4px;">
-            <button id="ui-btn-export" class="ui-btn" style="width:100%;" title="Export composite drawing as PNG">Export PNG</button>
+          <div class="ui-grid-2" style="margin-top: 4px;">
+            <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
+            <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
           </div>
+          <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
         </div>
       </details>
 

@@ -269,6 +269,14 @@ async function run() {
     throw new Error('Expected stamp command to draw image at (80,80)');
   }
 
+  // Test export command alias
+  const tmpExportPath = '/tmp/test_export_drawing.png';
+  host.executeCommand(`export ${tmpExportPath}`);
+  if (!fs.existsSync(tmpExportPath)) {
+    throw new Error('export command should save file to disk');
+  }
+  fs.unlinkSync(tmpExportPath);
+
   // Test Custom Texture as Brush Shape (Alpha Mask Sampling)
   const customMaskBuf = Buffer.alloc(16 * 16 * 4);
   for (let y = 0; y < 16; y++) {

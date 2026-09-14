@@ -837,7 +837,74 @@ async function main() {
   const exportBtn = document.getElementById('ui-btn-export');
   if (exportBtn) {
     exportBtn.addEventListener('click', () => {
-      runCmd('export drawing.png');
+      runCmd('save canvas drawing.png');
+    });
+  }
+
+  // Image Import via File Picker
+  const fileInput = document.getElementById('ui-file-input');
+  const importBtn = document.getElementById('ui-btn-import');
+  const importLayerBtn = document.getElementById('ui-btn-import-layer');
+  if (importBtn && fileInput) {
+    importBtn.addEventListener('click', () => fileInput.click());
+  }
+  if (importLayerBtn && fileInput) {
+    importLayerBtn.addEventListener('click', () => fileInput.click());
+  }
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const off = document.createElement('canvas');
+            off.width = img.width;
+            off.height = img.height;
+            const ctx = off.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imgData = ctx.getImageData(0, 0, img.width, img.height);
+
+            const wasmId = host.canvasActor.exports.w_layer_create(img.width, img.height);
+            if (wasmId < 0) {
+              log('err: cannot add layer for image (max layers reached)');
+              return;
+            }
+
+            const ptr = host.canvasActor.exports.w_layer_get_pixels(wasmId);
+            if (ptr) {
+              new Uint8Array(host.canvasActor.memory.buffer, ptr, img.width * img.height * 4).set(imgData.data);
+            }
+
+            if (typeof host.canvasActor.exports.w_layer_add_texture === 'function') {
+              host.canvasActor.exports.w_layer_add_texture(wasmId);
+            }
+
+            const cleanName = file.name.replace(/\.[^/.]+$/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+            const texName = cleanName || `image_${wasmId}`;
+            if (host.textures) {
+              host.textures.set(texName, {
+                width: img.width,
+                height: img.height,
+                data: imgData.data,
+                wasmId
+              });
+            }
+
+            host.canvasActor.exports.force_composite();
+            syncUiFromHost();
+            log(`Imported image '${file.name}' as layer [${wasmId}] (${img.width}x${img.height}) ✓`);
+          } catch (err) {
+            log(`err: failed importing image: ${err.message}`);
+          } finally {
+            fileInput.value = '';
+          }
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
     });
   }
 
@@ -894,77 +961,62 @@ async function main() {
       updateColorControlsFromHex(hex);
     }
 
-    // D. Layers, Shapes & Textures Sync
+    // D. Layers, Shapes & Textures Sync (All Layers are Entities)
     const count = host.canvasActor.exports.get_layer_count ? host.canvasActor.exports.get_layer_count() : 0;
     const activeDraw = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
     const shapeId = host.brushParams ? host.brushParams.shape : 0;
     const activeTex = host.activeTexture || 'none';
 
-    // Populate Dynamic Shape Dropdown
+    // Populate Unified Shape Dropdown (All Layers)
     if (shapeSel) {
-      const curShapeVal = shapeSel.value;
       shapeSel.innerHTML = '';
-      const grpBuiltin = document.createElement('optgroup');
-      grpBuiltin.label = 'Built-in Shapes';
-      ['circle', 'square', 'chisel'].forEach((s, idx) => {
-        const opt = document.createElement('option');
-        opt.value = s;
-        opt.textContent = `${s} [${idx}]`;
-        grpBuiltin.appendChild(opt);
-      });
-      shapeSel.appendChild(grpBuiltin);
-
-      if (count > 0) {
-        const grpLayers = document.createElement('optgroup');
-        grpLayers.label = 'Layers as Tip Shapes';
-        for (let i = 0; i < count; i++) {
-          let name = `layer_${i}`;
-          if (host.textures) {
-            for (const [k, v] of host.textures.entries()) {
-              if (v.wasmId === i) { name = k; break; }
-            }
+      for (let i = 0; i < count; i++) {
+        let name = `layer_${i}`;
+        if (host.textures) {
+          for (const [k, v] of host.textures.entries()) {
+            if (v.wasmId === i) { name = k; break; }
           }
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = `[${i}] ${name}`;
-          grpLayers.appendChild(opt);
         }
-        shapeSel.appendChild(grpLayers);
+        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
+        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
+        const dimStr = (w && h) ? ` (${w}x${h})` : '';
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = `[${i}] ${name}${dimStr}`;
+        shapeSel.appendChild(opt);
       }
       const builtins = ['circle', 'square', 'chisel'];
-      const activeShapeName = builtins[shapeId] || `layer_${shapeId}`;
+      let activeShapeName = builtins[shapeId] || `layer_${shapeId}`;
+      if (host.textures) {
+        for (const [k, v] of host.textures.entries()) {
+          if (v.wasmId === shapeId) { activeShapeName = k; break; }
+        }
+      }
       shapeSel.value = activeShapeName;
     }
 
-    // Populate Dynamic Texture Dropdown
+    // Populate Unified Texture Dropdown (All Layers + None)
     if (texSel) {
       texSel.innerHTML = '';
-      const grpBuiltin = document.createElement('optgroup');
-      grpBuiltin.label = 'Built-in Textures';
-      ['none', 'paper', 'canvas', 'noise', 'dots', 'grid', 'grunge', 'hatch'].forEach(t => {
-        const opt = document.createElement('option');
-        opt.value = t;
-        opt.textContent = t;
-        grpBuiltin.appendChild(opt);
-      });
-      texSel.appendChild(grpBuiltin);
+      const optNone = document.createElement('option');
+      optNone.value = 'none';
+      optNone.textContent = 'None (no texture)';
+      texSel.appendChild(optNone);
 
-      if (count > 0) {
-        const grpLayers = document.createElement('optgroup');
-        grpLayers.label = 'Layers as Textures';
-        for (let i = 0; i < count; i++) {
-          let name = `layer_${i}`;
-          if (host.textures) {
-            for (const [k, v] of host.textures.entries()) {
-              if (v.wasmId === i) { name = k; break; }
-            }
+      for (let i = 0; i < count; i++) {
+        let name = `layer_${i}`;
+        if (host.textures) {
+          for (const [k, v] of host.textures.entries()) {
+            if (v.wasmId === i) { name = k; break; }
           }
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = `[${i}] ${name}`;
-          grpLayers.appendChild(opt);
         }
-        texSel.appendChild(grpLayers);
+        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
+        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
+        const dimStr = (w && h) ? ` (${w}x${h})` : '';
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = `[${i}] ${name}${dimStr}`;
+        texSel.appendChild(opt);
       }
       texSel.value = activeTex;
     }
@@ -1485,6 +1537,7 @@ function ensureUiPanel() {
           <div class="ui-row-between">
             <span style="font-size:10px; color:#a89984;">Manage &amp; Assign:</span>
             <div class="ui-row-gap">
+              <button id="ui-btn-import-layer" class="ui-mini-btn" title="Import image as new layer">+ Import</button>
               <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New Layer</button>
               <button id="ui-btn-clear-layer" class="ui-mini-btn" title="Clear active layer">Clear</button>
             </div>
@@ -1514,9 +1567,11 @@ function ensureUiPanel() {
               <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
             </div>
           </div>
-          <div style="margin-top: 4px;">
-            <button id="ui-btn-export" class="ui-btn" style="width:100%;" title="Export composite drawing as PNG">Export PNG</button>
+          <div class="ui-grid-2" style="margin-top: 4px;">
+            <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
+            <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
           </div>
+          <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
         </div>
       </details>
     </div>
