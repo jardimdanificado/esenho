@@ -1110,6 +1110,31 @@ const COMMAND_RULES = [
   { pat: "layer delete", run: (m, host) => COMMAND_RULES.find(r => r.pat === "delete layer").run(m, host) },
 
   {
+    pat: "duplicate layer $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const newId = host.canvasActor.exports.w_layer_duplicate ? host.canvasActor.exports.w_layer_duplicate(id) : -1;
+      if (newId >= 0) host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
+      else host.sendConsoleLog(`err: failed to duplicate layer [${id}]`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "duplicate layer",
+    run: (m, host) => {
+      const id = host.canvasActor.exports.get_active_layer();
+      const newId = host.canvasActor.exports.w_layer_duplicate ? host.canvasActor.exports.w_layer_duplicate(id) : -1;
+      if (newId >= 0) host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
+      else host.sendConsoleLog(`err: failed to duplicate layer [${id}]`, 0xFFFF5555);
+    }
+  },
+  { pat: "layer duplicate $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "duplicate layer $id$int").run(m, host) },
+  { pat: "layer duplicate", run: (m, host) => COMMAND_RULES.find(r => r.pat === "duplicate layer").run(m, host) },
+  { pat: "layer dup $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "duplicate layer $id$int").run(m, host) },
+  { pat: "layer dup", run: (m, host) => COMMAND_RULES.find(r => r.pat === "duplicate layer").run(m, host) },
+  { pat: "dup layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "duplicate layer $id$int").run(m, host) },
+  { pat: "dup layer", run: (m, host) => COMMAND_RULES.find(r => r.pat === "duplicate layer").run(m, host) },
+
+  {
     pat: "toggle layer $id$int",
     run: (m, host) => {
       const id = parseInt(m.id, 10);
@@ -1313,6 +1338,87 @@ const COMMAND_RULES = [
       host.sendConsoleLog(`pixel grid ${host.showPixelGrid ? 'enabled' : 'disabled'}`);
     }
   },
+
+  // View Navigation
+  {
+    pat: "zoom fit",
+    run: (m, host) => {
+      const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 640;
+      const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 480;
+      const ww = host.windowWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
+      const wh = host.windowHeight || (typeof window !== 'undefined' ? window.innerHeight : 600);
+      const padding = 40;
+      const scale = Math.min(Math.max(10, ww - padding) / cw, Math.max(10, wh - padding) / ch, 10);
+      host.zoom = Math.max(0.05, Math.min(20, scale));
+      host.panX = (ww - cw * host.zoom) / 2;
+      host.panY = (wh - ch * host.zoom) / 2;
+      host.sendConsoleLog(`zoom fit: ${(host.zoom * 100).toFixed(0)}%`);
+    }
+  },
+  { pat: "fit", run: (m, host) => COMMAND_RULES.find(r => r.pat === "zoom fit").run(m, host) },
+  {
+    pat: "zoom reset",
+    run: (m, host) => {
+      host.zoom = 1.0;
+      const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 640;
+      const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 480;
+      const ww = host.windowWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
+      const wh = host.windowHeight || (typeof window !== 'undefined' ? window.innerHeight : 600);
+      host.panX = (ww - cw) / 2;
+      host.panY = (wh - ch) / 2;
+      host.sendConsoleLog('zoom reset to 100%');
+    }
+  },
+  { pat: "zoom 100", run: (m, host) => COMMAND_RULES.find(r => r.pat === "zoom reset").run(m, host) },
+  { pat: "zoom 100%", run: (m, host) => COMMAND_RULES.find(r => r.pat === "zoom reset").run(m, host) },
+  { pat: "zoom 1", run: (m, host) => COMMAND_RULES.find(r => r.pat === "zoom reset").run(m, host) },
+  {
+    pat: "zoom in",
+    run: (m, host) => {
+      host.zoom = Math.min(20, host.zoom * 1.25);
+      host.sendConsoleLog(`zoom: ${(host.zoom * 100).toFixed(0)}%`);
+    }
+  },
+  {
+    pat: "zoom out",
+    run: (m, host) => {
+      host.zoom = Math.max(0.05, host.zoom * 0.8);
+      host.sendConsoleLog(`zoom: ${(host.zoom * 100).toFixed(0)}%`);
+    }
+  },
+  {
+    pat: "zoom $val$int",
+    run: (m, host) => {
+      const v = parseInt(m.val, 10);
+      if (v > 0) {
+        host.zoom = Math.max(0.05, Math.min(20, v / 100));
+        host.sendConsoleLog(`zoom: ${(host.zoom * 100).toFixed(0)}%`);
+      }
+    }
+  },
+  {
+    pat: "pan reset",
+    run: (m, host) => {
+      const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 640;
+      const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 480;
+      const ww = host.windowWidth || (typeof window !== 'undefined' ? window.innerWidth : 800);
+      const wh = host.windowHeight || (typeof window !== 'undefined' ? window.innerHeight : 600);
+      host.panX = (ww - cw * host.zoom) / 2;
+      host.panY = (wh - ch * host.zoom) / 2;
+      host.sendConsoleLog('pan reset to center');
+    }
+  },
+  { pat: "pan center", run: (m, host) => COMMAND_RULES.find(r => r.pat === "pan reset").run(m, host) },
+  {
+    pat: "rotate reset",
+    run: (m, host) => {
+      host.canvasRotation = 0;
+      host.sendConsoleLog('canvas rotation reset to 0°');
+    }
+  },
+  { pat: "rot reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rotate reset").run(m, host) },
+  { pat: "rot 0", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rotate reset").run(m, host) },
+  { pat: "rotate 0", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rotate reset").run(m, host) },
   {
     pat: "set $param $val",
     run: (m, host) => handleDirectParam(host, m.param, m.val)

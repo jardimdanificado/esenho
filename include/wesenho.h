@@ -89,6 +89,7 @@ W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
 }
 
 W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample);
+W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx);
 
 /* =========================================================================
  * Fast Math Helpers

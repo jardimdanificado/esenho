@@ -30,8 +30,11 @@ static int      layer_capacity = 0;
 static int      layer_count = 0;
 static int      active_layer = 3;
 static uint32_t *out_pixels = 0; /**< Flattened composite buffer */
+static uint32_t out_pixels_cap = 0;
 
 void force_composite(void);
+int32_t get_width(void);
+int32_t get_height(void);
 
 /* =========================================================================
  * Memory Management
@@ -192,9 +195,24 @@ static void clear_layer_pixels(uint32_t *pix, uint32_t num_pixels) {
 }
 
 static void composite_surface(void) {
-    if (!out_pixels) return;
     uint32_t w = doc_width;
     uint32_t h = doc_height;
+
+    if (active_layer >= 0 && active_layer < layer_count && layers[active_layer].in_use) {
+        if (layers[active_layer].width > 0 && layers[active_layer].height > 0) {
+            w = (uint32_t)layers[active_layer].width;
+            h = (uint32_t)layers[active_layer].height;
+            doc_width = w;
+            doc_height = h;
+        }
+    }
+
+    if (w < 1 || h < 1) return;
+
+    if (!out_pixels || (w * h) > out_pixels_cap) {
+        out_pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
+        out_pixels_cap = w * h;
+    }
 
     // Checkerboard background
     for (uint32_t y = 0; y < h; y++) {
@@ -761,7 +779,9 @@ W_EXPORT int32_t w_layer_create(int32_t width, int32_t height) {
 
 W_EXPORT int32_t w_layer_add(void) {
     init_surface_if_needed();
-    int idx = layer_alloc_slot(doc_width, doc_height, 1);
+    int w = get_width();
+    int h = get_height();
+    int idx = layer_alloc_slot(w, h, 1);
     if (idx >= 0) {
         active_layer = idx;
         force_composite();
@@ -771,7 +791,10 @@ W_EXPORT int32_t w_layer_add(void) {
 
 W_EXPORT void w_layer_select(int32_t idx) {
     init_surface_if_needed();
-    if (idx >= 0 && idx < layer_count && layers[idx].in_use) active_layer = idx;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
+        active_layer = idx;
+        force_composite();
+    }
 }
 
 W_EXPORT uint32_t *w_layer_get_pixels(int32_t layer_idx) {
@@ -943,6 +966,30 @@ W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h,
 
     force_composite();
     return 0;
+}
+
+W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx) {
+    init_surface_if_needed();
+    int src_idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (src_idx < 0 || src_idx >= layer_count || !layers[src_idx].in_use) return -1;
+
+    int w = layers[src_idx].width;
+    int h = layers[src_idx].height;
+    int new_idx = layer_alloc_slot(w, h, layers[src_idx].visible);
+    if (new_idx < 0) return -1;
+
+    layers[new_idx].opacity = layers[src_idx].opacity;
+    layers[new_idx].x = layers[src_idx].x;
+    layers[new_idx].y = layers[src_idx].y;
+
+    if (layers[src_idx].pixels && layers[new_idx].pixels) {
+        for (int i = 0; i < w * h; i++) {
+            layers[new_idx].pixels[i] = layers[src_idx].pixels[i];
+        }
+    }
+    active_layer = new_idx;
+    force_composite();
+    return new_idx;
 }
 
 // Backward-compatible Texture Aliases
@@ -1208,10 +1255,22 @@ uint32_t *get_layer_pixels(int32_t idx) {
 uint32_t *get_composite_pixels(void) { return out_pixels; }
 int32_t get_active_layer(void) { return active_layer; }
 int32_t get_layer_count(void) { return layer_count; }
-int32_t get_width(void) { return doc_width; }
-int32_t get_height(void) { return doc_height; }
-int32_t get_canvas_width(void) { return doc_width; }
-int32_t get_canvas_height(void) { return doc_height; }
+int32_t get_width(void) {
+    if (active_layer >= 0 && active_layer < layer_count && layers[active_layer].in_use) {
+        return layers[active_layer].width;
+    }
+    return doc_width;
+}
+
+int32_t get_height(void) {
+    if (active_layer >= 0 && active_layer < layer_count && layers[active_layer].in_use) {
+        return layers[active_layer].height;
+    }
+    return doc_height;
+}
+
+int32_t get_canvas_width(void) { return get_width(); }
+int32_t get_canvas_height(void) { return get_height(); }
 int32_t get_canvas_count(void) { return 1; }
 int32_t get_active_canvas(void) { return 0; }
 const char *get_canvas_name(int32_t idx) { return "main"; }

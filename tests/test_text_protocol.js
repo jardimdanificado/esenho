@@ -485,6 +485,35 @@ async function run() {
     throw new Error(`Expected layer resize to 320x240, got ${rW}x${rH}`);
   }
 
+  // Test Active Layer Driving Canvas Dimensions
+  if (canvas.exports.get_canvas_width() !== 320 || canvas.exports.get_canvas_height() !== 240) {
+    throw new Error(`Expected canvas dimensions to match active layer (320x240), got ${canvas.exports.get_canvas_width()}x${canvas.exports.get_canvas_height()}`);
+  }
+
+  // Test Layer Duplicate
+  host.executeCommand('duplicate layer');
+  const dupLyrId = canvas.exports.get_active_layer();
+  if (dupLyrId === newLyrId) {
+    throw new Error(`Expected duplicated layer to have new index, got ${dupLyrId}`);
+  }
+  if (canvas.exports.w_layer_get_width(dupLyrId) !== 320 || canvas.exports.w_layer_get_height(dupLyrId) !== 240) {
+    throw new Error(`Expected duplicated layer to be 320x240, got ${canvas.exports.w_layer_get_width(dupLyrId)}x${canvas.exports.w_layer_get_height(dupLyrId)}`);
+  }
+
+  // Test View Navigation Commands
+  host.executeCommand('zoom in');
+  host.executeCommand('zoom out');
+  host.executeCommand('zoom fit');
+  host.executeCommand('zoom reset');
+  if (Math.abs(host.zoom - 1.0) > 0.001) {
+    throw new Error(`Expected zoom reset to 1.0, got ${host.zoom}`);
+  }
+  host.executeCommand('pan reset');
+  host.executeCommand('rotate reset');
+  if (host.canvasRotation !== 0) {
+    throw new Error(`Expected canvas rotation 0, got ${host.canvasRotation}`);
+  }
+
   console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, and Filters verified 100%!');
 }
 

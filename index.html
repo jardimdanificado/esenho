@@ -243,30 +243,29 @@
     #ui-layers-list {
       display: flex;
       flex-direction: column;
-      gap: 5px;
-      max-height: 240px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
+      gap: 6px;
+      margin-top: 4px;
     }
     .ui-layer-card {
       background: #282828;
       border: 1px solid #3c3836;
-      padding: 5px 6px;
+      border-radius: 4px;
+      padding: 6px 8px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 5px;
       font-size: 11px;
     }
     .ui-layer-card.active-draw {
-      border-color: #b8bb26;
-      background: #2d302a;
+      border-color: #fabd2f;
+      background: #242624;
+      box-shadow: 0 0 0 1px rgba(250, 189, 47, 0.25);
     }
     .layer-card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 4px;
+      gap: 6px;
     }
     .layer-card-title {
       font-weight: bold;
@@ -276,8 +275,14 @@
       white-space: nowrap;
       cursor: pointer;
       flex: 1;
+      padding: 2px 0;
     }
     .ui-layer-card.active-draw .layer-card-title { color: #fabd2f; }
+    .layer-header-badges {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
     .badge-tag {
       font-size: 9px;
       padding: 1px 4px;
@@ -289,10 +294,22 @@
     .badge-shape { background: #fe8019; color: #1d2021; }
     .badge-tex   { background: #83a598; color: #1d2021; }
 
-    .layer-actions-row {
+    .layer-header-actions {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 4px;
+    }
+    .layer-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .layer-actions-grid .ui-mini-btn {
+      padding: 4px 2px;
+      font-size: 10px;
+      text-align: center;
+      border-radius: 3px;
+      touch-action: manipulation;
     }
     .layer-opacity-row {
       display: flex;
@@ -300,6 +317,9 @@
       gap: 6px;
       font-size: 10px;
       color: #a89984;
+    }
+    .layer-opacity-row input[type="range"] {
+      flex: 1;
     }
 
     /* UI "Orelha" (tab / pull-tab on panel edge) */
@@ -685,6 +705,26 @@
         </div>
       </details>
 
+      <!-- 2. View & Navigation -->
+      <details class="ui-group" open>
+        <summary>VIEW &amp; CANVAS</summary>
+        <div class="ui-group-content">
+          <div class="ui-grid-3">
+            <button id="ui-btn-zoom-in" class="ui-btn" title="Zoom In (+)">Zoom +</button>
+            <button id="ui-btn-zoom-out" class="ui-btn" title="Zoom Out (-)">Zoom -</button>
+            <button id="ui-btn-zoom-fit" class="ui-btn" title="Fit to Viewport">Fit</button>
+            <button id="ui-btn-zoom-100" class="ui-btn" title="100% (1:1)">100%</button>
+            <button id="ui-btn-reset-pan" class="ui-btn" title="Center Canvas">Center</button>
+            <button id="ui-btn-reset-rot" class="ui-btn" title="Reset Rotation to 0°">0° Rot</button>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
+            </label>
+          </div>
+        </div>
+      </details>
+
       <!-- 2. Brush Parameters -->
       <details class="ui-group" open>
         <summary>BRUSH PARAMETERS</summary>
@@ -836,45 +876,33 @@
         <summary>LAYERS (CANVAS &amp; SHAPES)</summary>
         <div class="ui-group-content">
           <div class="ui-row-between">
-            <span style="font-size:10px; color:#a89984;">Manage &amp; Assign:</span>
+            <span style="font-size:10px; color:#a89984;">Manage:</span>
             <div class="ui-row-gap">
               <button id="ui-btn-import-layer" class="ui-mini-btn" title="Import image as new layer">+ Import</button>
-              <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New Layer</button>
+              <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New</button>
+              <button id="ui-btn-duplicate-layer" class="ui-mini-btn" title="Duplicate active layer">Dup</button>
               <button id="ui-btn-clear-layer" class="ui-mini-btn" title="Clear active layer">Clear</button>
             </div>
           </div>
           <div id="ui-layers-list"></div>
-          <!-- Layer Resizer -->
-          <div class="ui-control" style="margin-top: 6px; border-top: 1px solid #3c3836; padding-top: 6px;">
-            <div class="ui-label-row">
-              <span>Resize Active Layer:</span>
-              <span id="ui-val-layer-size" class="ui-val">640 x 480</span>
-            </div>
-            <div class="ui-row-gap" style="margin-top: 4px;">
-              <input type="number" id="ui-layer-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" placeholder="W" title="Layer Width (px)">
-              <span style="color: #a89984;">×</span>
-              <input type="number" id="ui-layer-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" placeholder="H" title="Layer Height (px)">
-              <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
-                <input type="checkbox" id="ui-layer-resample" checked> Scale
-              </label>
-              <button id="ui-btn-resize-layer" class="ui-mini-btn" style="flex: 1;">Resize</button>
-            </div>
-          </div>
         </div>
       </details>
 
-      <!-- 6. Canvas & Resolution -->
+      <!-- 6. Canvas & Layer Resolution -->
       <details class="ui-group">
-        <summary>CANVAS RESOLUTION</summary>
+        <summary>ACTIVE LAYER / CANVAS SIZE</summary>
         <div class="ui-group-content">
           <div class="ui-label-row">
-            <span>Dimensions:</span>
+            <span>Active Layer &amp; Canvas:</span>
             <span id="ui-val-canvas-size" class="ui-val">640 x 480</span>
           </div>
           <div class="ui-row-gap" style="margin-top: 4px;">
-            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 65px;" title="Width (px)">
+            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" title="Width (px)">
             <span style="color: #a89984;">×</span>
-            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 65px;" title="Height (px)">
+            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" title="Height (px)">
+            <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
+              <input type="checkbox" id="ui-layer-resample" checked> Scale
+            </label>
             <button id="ui-btn-resize-canvas" class="ui-btn" style="flex: 1;">Resize</button>
           </div>
           <div class="ui-grid-3" style="margin-top: 6px;">
@@ -884,11 +912,6 @@
             <button class="ui-mini-btn btn-res-preset" data-w="1920" data-h="1080">1080p</button>
             <button class="ui-mini-btn btn-res-preset" data-w="1080" data-h="1080">1:1 Square</button>
             <button class="ui-mini-btn btn-res-preset" data-w="2048" data-h="2048">2K High</button>
-          </div>
-          <div class="ui-control" style="margin-top: 6px;">
-            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="ui-chk-pixel-grid"> Pixel Grid (when zoomed)
-            </label>
           </div>
         </div>
       </details>

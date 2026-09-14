@@ -632,8 +632,36 @@ async function main() {
   /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate ── */
   const touch = {
     prevTouches: null,   /* TouchList snapshot from last event */
-    drawing: false
+    drawing: false,
+    pending: null,       /* Pending touch: { sx, sy, x, y } */
+    timer: null
   };
+
+  function commitPendingTouch() {
+    if (touch.pending && !touch.drawing) {
+      const p = touch.pending;
+      touch.drawing = true;
+      host.strokePrevX = p.x; host.strokePrevY = p.y;
+      host.strokeIsEraser = host.currentTool === 1 ? 1 : 0;
+      if (host.brushParams && host.brushParams.mode === 4) {
+        lassoPoints = [{ x: p.x, y: p.y }];
+      }
+      host.sendStroke(p.x, p.y, p.x, p.y, 0, host.strokeIsEraser, host.currentColor);
+      touch.pending = null;
+    }
+    if (touch.timer) {
+      clearTimeout(touch.timer);
+      touch.timer = null;
+    }
+  }
+
+  function clearPendingTouch() {
+    if (touch.timer) {
+      clearTimeout(touch.timer);
+      touch.timer = null;
+    }
+    touch.pending = null;
+  }
 
   function touchDocPos(t) {
     const r = canvasEl.getBoundingClientRect();
@@ -652,38 +680,56 @@ async function main() {
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
     if (e.touches.length === 1) {
-      const { x, y } = touchDocPos(e.touches[0]);
-      touch.drawing = true;
-      host.strokePrevX = x; host.strokePrevY = y;
-      host.strokeIsEraser = host.currentTool === 1 ? 1 : 0;
-      if (host.brushParams && host.brushParams.mode === 4) {
-        lassoPoints = [{ x, y }];
+      const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      touch.pending = { sx, sy, x, y };
+      if (touch.timer) clearTimeout(touch.timer);
+      touch.timer = setTimeout(() => {
+        commitPendingTouch();
+      }, 45);
+    } else {
+      /* 2+ fingers landed: cancel pending dab and end any drawing stroke */
+      clearPendingTouch();
+      if (touch.drawing) {
+        host.sendStroke(host.strokePrevX, host.strokePrevY,
+                        host.strokePrevX, host.strokePrevY,
+                        2, host.strokeIsEraser, host.currentColor);
+        touch.drawing = false;
+        lassoPoints = [];
       }
-      host.sendStroke(x, y, x, y, 0, host.strokeIsEraser, host.currentColor);
-    } else if (touch.drawing) {
-      /* second finger landed mid-stroke — end stroke, switch to gesture */
-      host.sendStroke(host.strokePrevX, host.strokePrevY,
-                      host.strokePrevX, host.strokePrevY,
-                      2, host.strokeIsEraser, host.currentColor);
-      touch.drawing = false;
-      lassoPoints = [];
     }
     touch.prevTouches = e.touches;
   }, { passive: false });
 
   canvasEl.addEventListener('touchmove', e => {
     e.preventDefault();
-    if (e.touches.length === 1 && touch.drawing) {
-      const { x, y } = touchDocPos(e.touches[0]);
-      if (host.brushParams && host.brushParams.mode === 4) {
-        lassoPoints.push({ x, y });
+    if (e.touches.length === 1) {
+      const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      if (touch.pending) {
+        const dist = Math.hypot(sx - touch.pending.sx, sy - touch.pending.sy);
+        if (dist > 3) {
+          commitPendingTouch();
+        }
       }
-      host.sendStroke(x, y, host.strokePrevX, host.strokePrevY,
-                      1, host.strokeIsEraser, host.currentColor);
-      host.strokePrevX = x; host.strokePrevY = y;
-      updateStatus(host, x, y);
+      if (touch.drawing) {
+        if (host.brushParams && host.brushParams.mode === 4) {
+          lassoPoints.push({ x, y });
+        }
+        host.sendStroke(x, y, host.strokePrevX, host.strokePrevY,
+                        1, host.strokeIsEraser, host.currentColor);
+        host.strokePrevX = x; host.strokePrevY = y;
+        updateStatus(host, x, y);
+      }
 
     } else if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length === 2) {
+      clearPendingTouch();
+      if (touch.drawing) {
+        host.sendStroke(host.strokePrevX, host.strokePrevY,
+                        host.strokePrevX, host.strokePrevY,
+                        2, host.strokeIsEraser, host.currentColor);
+        touch.drawing = false;
+        lassoPoints = [];
+      }
+
       const [a, b] = [e.touches[0], e.touches[1]];
       const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
 
@@ -716,15 +762,36 @@ async function main() {
 
   canvasEl.addEventListener('touchend', e => {
     e.preventDefault();
-    if (e.touches.length === 0 && touch.drawing) {
+    if (touch.pending) {
+      /* Single-tap tap dab */
+      commitPendingTouch();
+      host.sendStroke(host.strokePrevX, host.strokePrevY,
+                      host.strokePrevX, host.strokePrevY,
+                      2, host.strokeIsEraser, host.currentColor);
+      touch.drawing = false;
+      lassoPoints = [];
+    } else if (e.touches.length === 0 && touch.drawing) {
       host.sendStroke(host.strokePrevX, host.strokePrevY,
                       host.strokePrevX, host.strokePrevY,
                       2, host.strokeIsEraser, host.currentColor);
       touch.drawing = false;
       lassoPoints = [];
     }
+    clearPendingTouch();
     touch.prevTouches = e.touches;
   }, { passive: false });
+
+  canvasEl.addEventListener('touchcancel', () => {
+    clearPendingTouch();
+    if (touch.drawing) {
+      host.sendStroke(host.strokePrevX, host.strokePrevY,
+                      host.strokePrevX, host.strokePrevY,
+                      2, host.strokeIsEraser, host.currentColor);
+      touch.drawing = false;
+      lassoPoints = [];
+    }
+    touch.prevTouches = null;
+  });
 
   /* ── REPL ── */
   const history = [], hl = { i: -1 };
@@ -1242,10 +1309,28 @@ async function main() {
   if (addLayerBtn) {
     addLayerBtn.addEventListener('click', () => runCmd('new layer'));
   }
+  const dupLayerBtn = document.getElementById('ui-btn-duplicate-layer');
+  if (dupLayerBtn) {
+    dupLayerBtn.addEventListener('click', () => runCmd('duplicate layer'));
+  }
   const clearLayerBtn = document.getElementById('ui-btn-clear-layer');
   if (clearLayerBtn) {
     clearLayerBtn.addEventListener('click', () => runCmd('clear layer'));
   }
+
+  // View Navigation Controls
+  const btnZoomIn = document.getElementById('ui-btn-zoom-in');
+  if (btnZoomIn) btnZoomIn.addEventListener('click', () => runCmd('zoom in'));
+  const btnZoomOut = document.getElementById('ui-btn-zoom-out');
+  if (btnZoomOut) btnZoomOut.addEventListener('click', () => runCmd('zoom out'));
+  const btnZoomFit = document.getElementById('ui-btn-zoom-fit');
+  if (btnZoomFit) btnZoomFit.addEventListener('click', () => runCmd('zoom fit'));
+  const btnZoom100 = document.getElementById('ui-btn-zoom-100');
+  if (btnZoom100) btnZoom100.addEventListener('click', () => runCmd('zoom reset'));
+  const btnResetPan = document.getElementById('ui-btn-reset-pan');
+  if (btnResetPan) btnResetPan.addEventListener('click', () => runCmd('pan reset'));
+  const btnResetRot = document.getElementById('ui-btn-reset-rot');
+  if (btnResetRot) btnResetRot.addEventListener('click', () => runCmd('rotate reset'));
 
   // 5. Filters & Export
   const applyFilterBtn = document.getElementById('ui-btn-apply-filter');
@@ -1263,16 +1348,18 @@ async function main() {
     });
   }
 
-  // Canvas Resize Controls
+  // Active Layer & Canvas Resize Controls
   const btnResizeCanvas = document.getElementById('ui-btn-resize-canvas');
   const inputCanvasW = document.getElementById('ui-canvas-w');
   const inputCanvasH = document.getElementById('ui-canvas-h');
+  const chkLayerResample = document.getElementById('ui-layer-resample');
   if (btnResizeCanvas && inputCanvasW && inputCanvasH) {
     btnResizeCanvas.addEventListener('click', () => {
       const w = parseInt(inputCanvasW.value, 10);
       const h = parseInt(inputCanvasH.value, 10);
+      const mode = (chkLayerResample && !chkLayerResample.checked) ? 'crop' : 'scale';
       if (w > 0 && h > 0) {
-        runCmd(`resize ${w} ${h}`);
+        runCmd(`layer resize ${w} ${h} ${mode}`);
       }
     });
   }
@@ -1284,7 +1371,8 @@ async function main() {
       if (w && h) {
         if (inputCanvasW) inputCanvasW.value = w;
         if (inputCanvasH) inputCanvasH.value = h;
-        runCmd(`resize ${w} ${h}`);
+        const mode = (chkLayerResample && !chkLayerResample.checked) ? 'crop' : 'scale';
+        runCmd(`layer resize ${w} ${h} ${mode}`);
       }
     });
   });
@@ -1296,22 +1384,6 @@ async function main() {
     chkPixelGrid.addEventListener('change', () => {
       host.showPixelGrid = chkPixelGrid.checked;
       localStorage.setItem('wesenho_pixel_grid', host.showPixelGrid ? '1' : '0');
-    });
-  }
-
-  // Layer Resize Controls
-  const btnResizeLayer = document.getElementById('ui-btn-resize-layer');
-  const inputLayerW = document.getElementById('ui-layer-w');
-  const inputLayerH = document.getElementById('ui-layer-h');
-  const chkLayerResample = document.getElementById('ui-layer-resample');
-  if (btnResizeLayer && inputLayerW && inputLayerH) {
-    btnResizeLayer.addEventListener('click', () => {
-      const w = parseInt(inputLayerW.value, 10);
-      const h = parseInt(inputLayerH.value, 10);
-      const mode = (chkLayerResample && !chkLayerResample.checked) ? 'crop' : 'scale';
-      if (w > 0 && h > 0) {
-        runCmd(`layer resize ${w} ${h} ${mode}`);
-      }
     });
   }
 
@@ -1436,12 +1508,13 @@ async function main() {
       updateColorControlsFromHex(hex);
     }
 
-    // D. Canvas Size
+    // D. Canvas Size (Active Layer)
     const curW = host.canvasActor.exports.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
     const curH = host.canvasActor.exports.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 0;
+    const activeDraw = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
     const badgeCanvasSize = document.getElementById('ui-val-canvas-size');
     if (badgeCanvasSize && curW && curH) {
-      badgeCanvasSize.textContent = `${curW} x ${curH}`;
+      badgeCanvasSize.textContent = `[${activeDraw}] ${curW} x ${curH}`;
     }
     const inpW = document.getElementById('ui-canvas-w');
     const inpH = document.getElementById('ui-canvas-h');
@@ -1454,7 +1527,6 @@ async function main() {
 
     // E. Layers, Shapes & Textures Sync (All Layers are Entities)
     const count = host.canvasActor.exports.get_layer_count ? host.canvasActor.exports.get_layer_count() : 0;
-    const activeDraw = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
     const shapeId = host.brushParams ? host.brushParams.shape : 0;
     const activeTex = host.activeTexture || 'none';
 
@@ -1537,7 +1609,7 @@ async function main() {
         const card = document.createElement('div');
         card.className = 'ui-layer-card' + (isDraw ? ' active-draw' : '');
 
-        // Header: title + badges
+        // Header: title + badges + quick actions (vis, del)
         const header = document.createElement('div');
         header.className = 'layer-card-header';
 
@@ -1548,29 +1620,73 @@ async function main() {
         title.addEventListener('click', () => runCmd(`layer select ${i}`));
         header.appendChild(title);
 
+        const badgesDiv = document.createElement('div');
+        badgesDiv.className = 'layer-header-badges';
         if (isDraw) {
           const b = document.createElement('span');
           b.className = 'badge-tag badge-draw';
           b.textContent = 'DRAW';
-          header.appendChild(b);
+          badgesDiv.appendChild(b);
         }
         if (isShape) {
           const b = document.createElement('span');
           b.className = 'badge-tag badge-shape';
           b.textContent = 'SHAPE';
-          header.appendChild(b);
+          badgesDiv.appendChild(b);
         }
         if (isTex) {
           const b = document.createElement('span');
           b.className = 'badge-tag badge-tex';
           b.textContent = 'TEX';
-          header.appendChild(b);
+          badgesDiv.appendChild(b);
         }
+        header.appendChild(badgesDiv);
+
+        const headerActions = document.createElement('div');
+        headerActions.className = 'layer-header-actions';
+
+        const visBtn = document.createElement('button');
+        visBtn.className = 'ui-mini-btn';
+        visBtn.textContent = vis ? 'vis' : 'hid';
+        visBtn.title = vis ? 'Hide layer' : 'Show layer';
+        visBtn.style.minWidth = '28px';
+        visBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`toggle layer ${i}`);
+        });
+        headerActions.appendChild(visBtn);
+
+        const dupBtn = document.createElement('button');
+        dupBtn.className = 'ui-mini-btn';
+        dupBtn.textContent = 'dup';
+        dupBtn.title = `Duplicate layer [${i}]`;
+        dupBtn.style.minWidth = '28px';
+        dupBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`duplicate layer ${i}`);
+        });
+        headerActions.appendChild(dupBtn);
+
+        if (count > 1) {
+          const delBtn = document.createElement('button');
+          delBtn.className = 'ui-mini-btn';
+          delBtn.textContent = 'del';
+          delBtn.title = 'Delete layer';
+          delBtn.style.minWidth = '26px';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete layer [${i}] ${name}?`)) {
+              runCmd(`delete layer ${i}`);
+            }
+          });
+          headerActions.appendChild(delBtn);
+        }
+        header.appendChild(headerActions);
         card.appendChild(header);
 
-        // Actions Row
+        // Actions Grid: Draw, Shape, Grain, Resize
         const actions = document.createElement('div');
-        actions.className = 'layer-actions-row';
+        actions.className = 'layer-actions-grid';
 
         const drawBtn = document.createElement('button');
         drawBtn.className = 'ui-mini-btn' + (isDraw ? ' active' : '');
@@ -1604,40 +1720,16 @@ async function main() {
 
         const resizeBtn = document.createElement('button');
         resizeBtn.className = 'ui-mini-btn';
-        resizeBtn.textContent = 'size';
-        resizeBtn.title = `Resize layer [${i}] (${w}x${h})`;
+        resizeBtn.textContent = 'Resize';
+        resizeBtn.title = `Select and configure resize for layer [${i}] (${w}x${h})`;
         resizeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`layer select ${i}`);
-          if (inputLayerW) inputLayerW.value = w;
-          if (inputLayerH) inputLayerH.value = h;
-          if (inputLayerW) inputLayerW.focus();
+          if (inputCanvasW) inputCanvasW.value = w;
+          if (inputCanvasH) inputCanvasH.value = h;
+          if (inputCanvasW) inputCanvasW.focus();
         });
         actions.appendChild(resizeBtn);
-
-        const visBtn = document.createElement('button');
-        visBtn.className = 'ui-mini-btn';
-        visBtn.textContent = vis ? 'vis' : 'hid';
-        visBtn.title = vis ? 'Hide layer' : 'Show layer';
-        visBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`toggle layer ${i}`);
-        });
-        actions.appendChild(visBtn);
-
-        if (count > 1) {
-          const delBtn = document.createElement('button');
-          delBtn.className = 'ui-mini-btn';
-          delBtn.textContent = 'del';
-          delBtn.title = 'Delete layer';
-          delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm(`Delete layer [${i}] ${name}?`)) {
-              runCmd(`delete layer ${i}`);
-            }
-          });
-          actions.appendChild(delBtn);
-        }
 
         card.appendChild(actions);
 
@@ -1673,20 +1765,6 @@ async function main() {
       }
     }
 
-    // Sync Layer Resizer UI for Active Layer
-    const actLayer = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
-    const actW = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(actLayer) : 0;
-    const actH = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(actLayer) : 0;
-    const badgeLayerSize = document.getElementById('ui-val-layer-size');
-    if (badgeLayerSize && actW && actH) {
-      badgeLayerSize.textContent = `[${actLayer}] ${actW} x ${actH}`;
-    }
-    if (inputLayerW && document.activeElement !== inputLayerW && actW) {
-      inputLayerW.value = actW;
-    }
-    if (inputLayerH && document.activeElement !== inputLayerH && actH) {
-      inputLayerH.value = actH;
-    }
     if (chkPixelGrid) {
       chkPixelGrid.checked = !!host.showPixelGrid;
     }
@@ -2075,43 +2153,31 @@ function ensureUiPanel() {
         <summary>LAYERS (CANVAS &amp; SHAPES)</summary>
         <div class="ui-group-content">
           <div class="ui-row-between">
-            <span style="font-size:10px; color:#a89984;">Manage &amp; Assign:</span>
+            <span style="font-size:10px; color:#a89984;">Manage:</span>
             <div class="ui-row-gap">
               <button id="ui-btn-import-layer" class="ui-mini-btn" title="Import image as new layer">+ Import</button>
-              <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New Layer</button>
+              <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New</button>
+              <button id="ui-btn-duplicate-layer" class="ui-mini-btn" title="Duplicate active layer">Dup</button>
               <button id="ui-btn-clear-layer" class="ui-mini-btn" title="Clear active layer">Clear</button>
             </div>
           </div>
           <div id="ui-layers-list"></div>
-          <!-- Layer Resizer -->
-          <div class="ui-control" style="margin-top: 6px; border-top: 1px solid #3c3836; padding-top: 6px;">
-            <div class="ui-label-row">
-              <span>Resize Active Layer:</span>
-              <span id="ui-val-layer-size" class="ui-val">640 x 480</span>
-            </div>
-            <div class="ui-row-gap" style="margin-top: 4px;">
-              <input type="number" id="ui-layer-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" placeholder="W" title="Layer Width (px)">
-              <span style="color: #a89984;">×</span>
-              <input type="number" id="ui-layer-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" placeholder="H" title="Layer Height (px)">
-              <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
-                <input type="checkbox" id="ui-layer-resample" checked> Scale
-              </label>
-              <button id="ui-btn-resize-layer" class="ui-mini-btn" style="flex: 1;">Resize</button>
-            </div>
-          </div>
         </div>
       </details>
       <details class="ui-group">
-        <summary>CANVAS RESOLUTION</summary>
+        <summary>ACTIVE LAYER / CANVAS SIZE</summary>
         <div class="ui-group-content">
           <div class="ui-label-row">
-            <span>Dimensions:</span>
+            <span>Active Layer &amp; Canvas:</span>
             <span id="ui-val-canvas-size" class="ui-val">640 x 480</span>
           </div>
           <div class="ui-row-gap" style="margin-top: 4px;">
-            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 65px;" title="Width (px)">
+            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" title="Width (px)">
             <span style="color: #a89984;">×</span>
-            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 65px;" title="Height (px)">
+            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" title="Height (px)">
+            <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
+              <input type="checkbox" id="ui-layer-resample" checked> Scale
+            </label>
             <button id="ui-btn-resize-canvas" class="ui-btn" style="flex: 1;">Resize</button>
           </div>
           <div class="ui-grid-3" style="margin-top: 6px;">
