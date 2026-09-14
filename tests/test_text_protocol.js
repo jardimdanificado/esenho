@@ -220,12 +220,138 @@ async function run() {
     throw new Error(`Expected lasso fill color 0xFF336699, got 0x${pixels[220 * 640 + 220].toString(16)}`);
   }
 
+  // Test Image Loading as Texture & Draw Image / Stamp with optional size
+  const { saveImage } = require('../src/image_io');
+  const tmpImgPath = '/tmp/test_stamp_img.png';
+  const imgBuf = Buffer.alloc(8 * 8 * 4);
+  for (let i = 0; i < 64; i++) {
+    imgBuf[i * 4 + 0] = 0xAA; // R
+    imgBuf[i * 4 + 1] = 0xBB; // G
+    imgBuf[i * 4 + 2] = 0xCC; // B
+    imgBuf[i * 4 + 3] = 0xFF; // A
+  }
+  saveImage(tmpImgPath, 8, 8, imgBuf);
+
+  // Clear layer
+  host.executeCommand('clear layer');
+  if (pixels[10 * 640 + 20] !== 0) {
+    throw new Error('Layer should be cleared');
+  }
+
+  // Loading image MUST store as texture, NOT write directly onto layer
+  host.executeCommand(`load image ${tmpImgPath} test_stamp`);
+  if (!host.textures.has('test_stamp')) {
+    throw new Error('Image should be stored in textures collection');
+  }
+  if (pixels[10 * 640 + 20] !== 0 || pixels[0] !== 0) {
+    throw new Error('Loading image must NOT draw directly onto layer');
+  }
+
+  // Draw image at (10, 20) with default natural size (8x8)
+  host.executeCommand('draw image test_stamp 10 20');
+  const stampPix = pixels[20 * 640 + 10];
+  if ((stampPix & 0x00FFFFFF) !== 0x00CCBBAA) {
+    throw new Error(`Expected drawn image pixel 0xFFCCBBAA at (10,20), got 0x${stampPix.toString(16)}`);
+  }
+
+  // Draw image with custom scaled size (width 16, height 16) at (40, 50)
+  host.drawImage('test_stamp', 40, 50, 16, 16);
+  if ((pixels[50 * 640 + 40] & 0x00FFFFFF) !== 0x00CCBBAA || (pixels[65 * 640 + 55] & 0x00FFFFFF) !== 0x00CCBBAA) {
+    throw new Error('Expected scaled 16x16 image stamped from (40,50) to (55,65)');
+  }
+
+  // Test stamp alias command
+  host.executeCommand('stamp test_stamp 80 80 24 24');
+  if ((pixels[80 * 640 + 80] & 0x00FFFFFF) !== 0x00CCBBAA) {
+    throw new Error('Expected stamp command to draw image at (80,80)');
+  }
+
+  // Test Custom Texture as Brush Shape (Alpha Mask Sampling)
+  const customMaskBuf = Buffer.alloc(16 * 16 * 4);
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const idx = (y * 16 + x) * 4;
+      // Cross pattern with opaque alpha
+      const isCross = (x === 7 || x === 8 || y === 7 || y === 8);
+      customMaskBuf[idx + 0] = 0xFF;
+      customMaskBuf[idx + 1] = 0xFF;
+      customMaskBuf[idx + 2] = 0xFF;
+      customMaskBuf[idx + 3] = isCross ? 0xFF : 0x00;
+    }
+  }
+  host.textures.set('cross_shape', { width: 16, height: 16, data: customMaskBuf });
+  host.executeCommand('clear layer');
+  host.executeCommand('set mode draw');
+  host.executeCommand('set shape cross_shape');
+  host.executeCommand('set size 16');
+  host.executeCommand('set angle 0');
+  host.executeCommand('set hardness 100');
+  host.executeCommand('set opacity 100');
+  host.executeCommand('set flow 100');
+  host.sendStroke(200, 200, 200, 200, 0, 0, 0xFFFF0000); // Blue dab
+  pixPtr = canvas.exports.get_active_layer_pixels();
+  pixels = new Uint32Array(canvas.memory.buffer, pixPtr, 640 * 480);
+
+  // Check center (200, 200) is colored
+  if (pixels[200 * 640 + 200] !== 0xFFFF0000) {
+    throw new Error(`Expected cross shape center at (200,200) to be 0xFFFF0000, got 0x${pixels[200 * 640 + 200].toString(16)}`);
+  }
+  // Check corner (212, 212) has alpha 0 when unrotated (+ pattern)
+  if (pixels[212 * 640 + 212] !== 0) {
+    throw new Error(`Expected cross shape corner at (212,212) to be empty 0, got 0x${pixels[212 * 640 + 212].toString(16)}`);
+  }
+  // Check horizontal arm at (212, 200) is colored
+  if (pixels[200 * 640 + 212] !== 0xFFFF0000) {
+    throw new Error(`Expected cross shape arm at (212,200) to be 0xFFFF0000, got 0x${pixels[200 * 640 + 212].toString(16)}`);
+  }
+
+  // Test rotating the cross texture mask by 45 degrees (+ turns into X)
+  host.executeCommand('clear layer');
+  host.executeCommand('set angle 45');
+  host.sendStroke(200, 200, 200, 200, 0, 0, 0xFFFF0000);
+  pixPtr = canvas.exports.get_active_layer_pixels();
+  pixels = new Uint32Array(canvas.memory.buffer, pixPtr, 640 * 480);
+  if (pixels[210 * 640 + 210] !== 0xFFFF0000) {
+    throw new Error(`Expected rotated cross (X shape) to hit diagonal (210,210), got 0x${pixels[210 * 640 + 210].toString(16)}`);
+  }
+
+  // Test Layer as Brush Shape (Zero-copy unified layer/texture primitive)
+  host.executeCommand('layer add'); // Layer 2 added
+  const l2Idx = canvas.exports.get_active_layer();
+  host.executeCommand('clear layer');
+  // Draw a solid box in center of layer 2 (640x480 -> center at 320, 240)
+  canvas.exports.w_draw_rect(300, 220, 40, 40, 0xFFFFFFFF);
+  
+  // Switch back to layer 0 and use layer 2 as brush shape
+  host.executeCommand('layer select 0');
+  host.executeCommand('clear layer');
+  host.executeCommand(`set shape layer_${l2Idx}`);
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF00FF00); // Green dab using layer 2's alpha mask
+  pixPtr = canvas.exports.get_layer_pixels(0);
+  pixels = new Uint32Array(canvas.memory.buffer, pixPtr, 640 * 480);
+  if ((pixels[100 * 640 + 100] & 0xFF000000) === 0) {
+    throw new Error('Expected layer 0 to receive stroke sampled from layer 2 texture alpha mask');
+  }
+
+  // Test Built-in Shapes presence in textures map & list textures command
+  if (!host.textures.has('circle') || !host.textures.has('square') || !host.textures.has('chisel')) {
+    throw new Error('circle, square, chisel must be present in textures map');
+  }
+  if (host.textures.get('circle').wasmId !== 0 || host.textures.get('square').wasmId !== 1 || host.textures.get('chisel').wasmId !== 2) {
+    throw new Error('circle, square, chisel must have wasmIds 0, 1, 2');
+  }
+
+  // Execute list textures
+  host.executeCommand('list textures');
+  host.executeCommand('get shape');
+  host.executeCommand('get texture');
+
   // Test All Filters without crashing
   for (const f of filters) {
     host.executeCommand(`filter ${f}`);
   }
 
-  console.log('ALL TESTS PASSED: Canvas API, Custom Parametric Brush Construction, Host REPL, and Modular Filters verified 100%!');
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, and Filters verified 100%!');
 }
 
 run().catch(err => {

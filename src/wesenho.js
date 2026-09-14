@@ -151,7 +151,53 @@ const DOC_HEIGHT = 1000;
 function createProceduralTextures() {
   const map = new Map();
 
-  // 1. Paper (256x256)
+  // Builtin Shapes (64x64 Alpha Masks)
+  // 1. Circle
+  {
+    const w = 64, h = 64;
+    const buf = Buffer.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = y - 32;
+      for (let x = 0; x < w; x++) {
+        const dx = x - 32;
+        const inside = (dx * dx + dy * dy <= 31 * 31);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF;
+        buf[idx + 1] = 0xFF;
+        buf[idx + 2] = 0xFF;
+        buf[idx + 3] = inside ? 0xFF : 0x00;
+      }
+    }
+    map.set('circle', { width: w, height: h, data: buf, wasmId: 0, category: 'shape' });
+  }
+
+  // 2. Square
+  {
+    const w = 64, h = 64;
+    const buf = Buffer.alloc(w * h * 4);
+    buf.fill(0xFF);
+    map.set('square', { width: w, height: h, data: buf, wasmId: 1, category: 'shape' });
+  }
+
+  // 3. Chisel
+  {
+    const w = 64, h = 64;
+    const buf = Buffer.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const inside = (y >= 24 && y < 40);
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF;
+        buf[idx + 1] = 0xFF;
+        buf[idx + 2] = 0xFF;
+        buf[idx + 3] = inside ? 0xFF : 0x00;
+      }
+    }
+    map.set('chisel', { width: w, height: h, data: buf, wasmId: 2, category: 'shape' });
+  }
+
+  // Procedural Textures
+  // 4. Paper (256x256)
   {
     const w = 256, h = 256;
     const buf = Buffer.alloc(w * h * 4);
@@ -168,10 +214,10 @@ function createProceduralTextures() {
         buf[idx + 3] = 0xFF;
       }
     }
-    map.set('paper', { width: w, height: h, data: buf });
+    map.set('paper', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 2. Canvas (128x128)
+  // 5. Canvas (128x128)
   {
     const w = 128, h = 128;
     const buf = Buffer.alloc(w * h * 4);
@@ -187,10 +233,10 @@ function createProceduralTextures() {
         buf[idx + 3] = 0xFF;
       }
     }
-    map.set('canvas', { width: w, height: h, data: buf });
+    map.set('canvas', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 3. Noise (256x256)
+  // 6. Noise (256x256)
   {
     const w = 256, h = 256;
     const buf = Buffer.alloc(w * h * 4);
@@ -201,10 +247,10 @@ function createProceduralTextures() {
       buf[i * 4 + 2] = v;
       buf[i * 4 + 3] = 0xFF;
     }
-    map.set('noise', { width: w, height: h, data: buf });
+    map.set('noise', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 4. Dots (32x32)
+  // 7. Dots (32x32)
   {
     const w = 32, h = 32;
     const buf = Buffer.alloc(w * h * 4);
@@ -221,10 +267,10 @@ function createProceduralTextures() {
         buf[idx + 3] = 0xFF;
       }
     }
-    map.set('dots', { width: w, height: h, data: buf });
+    map.set('dots', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 5. Grid (32x32)
+  // 8. Grid (32x32)
   {
     const w = 32, h = 32;
     const buf = Buffer.alloc(w * h * 4);
@@ -239,10 +285,10 @@ function createProceduralTextures() {
         buf[idx + 3] = 0xFF;
       }
     }
-    map.set('grid', { width: w, height: h, data: buf });
+    map.set('grid', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 6. Grunge (256x256)
+  // 9. Grunge (256x256)
   {
     const w = 256, h = 256;
     const buf = Buffer.alloc(w * h * 4);
@@ -258,7 +304,25 @@ function createProceduralTextures() {
         buf[idx + 3] = 0xFF;
       }
     }
-    map.set('grunge', { width: w, height: h, data: buf });
+    map.set('grunge', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 10. Hatch (32x32)
+  {
+    const w = 32, h = 32;
+    const buf = Buffer.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const isLine = ((x + y) % 8 === 0 || (x + y) % 8 === 1);
+        const v = isLine ? 240 : 40;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v;
+        buf[idx + 1] = v;
+        buf[idx + 2] = v;
+        buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('hatch', { width: w, height: h, data: buf, category: 'texture' });
   }
 
   return map;
@@ -368,9 +432,10 @@ function formatLayersList(canvasActor) {
   for (let i = 0; i < count; i++) {
     const vis = canvasActor.exports.get_layer_visible ? canvasActor.exports.get_layer_visible(i) : 1;
     const op = canvasActor.exports.get_layer_opacity ? canvasActor.exports.get_layer_opacity(i) : 255;
+    const tid = canvasActor.exports.w_layer_get_texture ? canvasActor.exports.w_layer_get_texture(i) : i;
     const opPct = Math.round((op / 255) * 100);
     const marker = (i === active) ? '\x1b[32m* [ACTIVE]\x1b[0m' : ' ';
-    out += `  ${marker} [${i}] ${vis ? 'visible' : 'HIDDEN'} - opacity: ${opPct}%\n`;
+    out += `  ${marker} [${i}] (texture_id: ${tid}) ${vis ? 'visible' : 'HIDDEN'} - opacity: ${opPct}%\n`;
   }
   return out;
 }
@@ -379,19 +444,53 @@ function formatLayersList(canvasActor) {
 function formatBrushesList(screenActor) {
   let out = `\x1b[1mBrush & Tool Construction:\x1b[0m
   Tools / Modes : brush (draw), eraser, smudge, blend, fill, lasso_fill
-  Shapes        : circle, square, chisel
-  Parameters    : size, opacity, hardness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance
-  Textures      : paper, canvas, noise, dots, grid, grunge, hatch, none
+  Shapes        : circle, square, chisel, <texture_name>, layer_<id> (samples alpha channel)
+  Parameters    : size, opacity, hardness/softness, flow, spacing, angle/rotate, roundness, scatter, grain, smudge, wetness, tolerance
+  Texture Props : texture (<name>|layer_<id>|none), texture_rotate, texture_scale
+  Builtin Tex   : paper, canvas, noise, dots, grid, grunge, hatch
 `;
   return out;
 }
 
 /** Formats available texture list for CLI output */
 function formatTexturesList(screenActor) {
-  let out = `\x1b[1mTextures (${screenActor.textures.size}):\x1b[0m\n`;
-  for (const [name, tex] of screenActor.textures.entries()) {
-    const marker = (name === screenActor.activeTexture) ? '\x1b[32m* [ACTIVE]\x1b[0m' : ' ';
-    out += `  ${marker} "${name}" (${tex.width}x${tex.height})\n`;
+  const textures = new Map(screenActor.textures);
+
+  // Dynamically discover layer textures
+  if (screenActor.canvasActor && typeof screenActor.canvasActor.exports.get_layer_count === 'function') {
+    const lCount = screenActor.canvasActor.exports.get_layer_count();
+    const cw = screenActor.canvasActor.exports.get_width ? screenActor.canvasActor.exports.get_width() : screenActor.canvasActor.exports.get_canvas_width();
+    const ch = screenActor.canvasActor.exports.get_height ? screenActor.canvasActor.exports.get_height() : screenActor.canvasActor.exports.get_canvas_height();
+    for (let i = 0; i < lCount; i++) {
+      const tid = screenActor.canvasActor.exports.w_layer_get_texture ? screenActor.canvasActor.exports.w_layer_get_texture(i) : i;
+      const key = `layer_${i}`;
+      if (!textures.has(key)) {
+        textures.set(key, { width: cw, height: ch, wasmId: tid, category: 'layer' });
+      }
+    }
+  }
+
+  let out = `\x1b[1mTextures & Shapes (${textures.size}):\x1b[0m\n`;
+  for (const [name, tex] of textures.entries()) {
+    const isTexActive = (name === screenActor.activeTexture);
+    const shapeId = screenActor.brushParams ? screenActor.brushParams.shape : 0;
+    const isShapeActive = (tex.wasmId !== undefined && tex.wasmId === shapeId) ||
+      (name === 'circle' && shapeId === 0) ||
+      (name === 'square' && shapeId === 1) ||
+      (name === 'chisel' && shapeId === 2);
+
+    let marker = ' ';
+    if (isTexActive && isShapeActive) {
+      marker = '\x1b[32m* [ACTIVE TEX & SHAPE]\x1b[0m';
+    } else if (isTexActive) {
+      marker = '\x1b[32m* [ACTIVE TEX]\x1b[0m';
+    } else if (isShapeActive) {
+      marker = '\x1b[36m* [ACTIVE SHAPE]\x1b[0m';
+    }
+
+    const cat = tex.category ? ` [${tex.category}]` : '';
+    const idStr = (tex.wasmId !== undefined && tex.wasmId >= 0) ? ` (id: ${tex.wasmId})` : '';
+    out += `  ${marker} "${name}"${cat} (${tex.width}x${tex.height})${idStr}\n`;
   }
   return out;
 }
@@ -472,6 +571,50 @@ class WesenhoScreenHost {
   }
 
   /**
+  /**
+   * Resolves a texture name, shape name, or layer identifier to a WASM texture ID.
+   * Uploads or links pixel data to WASM texture slot if not already done.
+   * @param {string|number} name - Texture name, shape name, layer id/name, or numeric ID
+   * @returns {number} WASM texture ID (0..MAX_TEXTURES-1)
+   */
+  getTextureId(name) {
+    if (typeof name === 'number') return name;
+    if (!name) return 0;
+    const lower = String(name).toLowerCase();
+    if (lower === 'circle' || lower === 'round') return 0;
+    if (lower === 'square') return 1;
+    if (lower === 'chisel' || lower === 'flat') return 2;
+
+    const layerMatch = lower.match(/^layer_?(\d+)$/);
+    if (layerMatch && this.canvasActor && typeof this.canvasActor.exports.w_layer_get_texture === 'function') {
+      const lIdx = parseInt(layerMatch[1], 10);
+      const tid = this.canvasActor.exports.w_layer_get_texture(lIdx);
+      if (tid >= 0) return tid;
+    }
+
+    if (this.textures && this.textures.has(lower)) {
+      const tex = this.textures.get(lower);
+      if (tex.wasmId !== undefined && tex.wasmId >= 0) {
+        return tex.wasmId;
+      }
+      if (this.canvasActor && typeof this.canvasActor.exports.w_texture_create === 'function') {
+        const id = this.canvasActor.exports.w_texture_create(tex.width, tex.height);
+        if (id >= 0) {
+          tex.wasmId = id;
+          const ptr = this.canvasActor.exports.w_texture_get_pixels(id);
+          if (ptr && tex.data) {
+            new Uint8Array(this.canvasActor.memory.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
+          }
+          return id;
+        }
+      }
+    }
+
+    const parsed = parseInt(name, 10);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  /**
    * Sets a brush parameter and forwards it directly to canvas.wasm.
    */
   setBrushParam(paramName, val) {
@@ -485,7 +628,7 @@ class WesenhoScreenHost {
         if (lower === 'circle' || lower === 'round') numericVal = 0;
         else if (lower === 'square') numericVal = 1;
         else if (lower === 'chisel' || lower === 'flat') numericVal = 2;
-        else numericVal = parseInt(val, 10) || 0;
+        else numericVal = this.getTextureId(lower);
       } else if (key === 'mode' || key === 'type') {
         if (lower === 'draw' || lower === 'brush') numericVal = 0;
         else if (lower === 'smudge') numericVal = 1;
@@ -535,21 +678,19 @@ class WesenhoScreenHost {
       }
       return true;
     }
-    const tex = this.textures.get(name.toLowerCase());
-    if (!tex) return false;
-    this.activeTexture = name.toLowerCase();
+    const lower = name.toLowerCase();
+    const texId = this.getTextureId(lower);
+    this.activeTexture = lower;
     const texModes = { paper: 1, canvas: 2, noise: 3, dots: 4, grid: 5, grunge: 6, hatch: 7 };
     this.setBrushParam('texture_mode', texModes[this.activeTexture] || 1);
 
-    if (this.canvasActor && typeof this.canvasActor.exports.w_set_texture === 'function') {
-      const texByteLen = tex.width * tex.height * 4;
-      if (!this.canvasTexPtr || this.canvasTexByteLen < texByteLen) {
-        this.canvasTexPtr = 33554432; // 32MB offset in linear memory
-        this.canvasTexByteLen = texByteLen;
+    if (this.canvasActor && typeof this.canvasActor.exports.w_texture_get_pixels === 'function') {
+      const ptr = this.canvasActor.exports.w_texture_get_pixels(texId);
+      const w = this.canvasActor.exports.w_texture_get_width(texId);
+      const h = this.canvasActor.exports.w_texture_get_height(texId);
+      if (ptr && w > 0 && h > 0 && typeof this.canvasActor.exports.w_set_texture === 'function') {
+        this.canvasActor.exports.w_set_texture(ptr, w, h);
       }
-      this.ensureMemory(this.canvasActor, this.canvasTexPtr + texByteLen);
-      new Uint8Array(this.canvasActor.memory.buffer, this.canvasTexPtr, texByteLen).set(tex.data);
-      this.canvasActor.exports.w_set_texture(this.canvasTexPtr, tex.width, tex.height);
     }
     return true;
   }
@@ -696,13 +837,18 @@ class WesenhoScreenHost {
     const pixPtr = this.canvasActor.exports.get_layer_pixels(targetIdx);
     if (!pixPtr || w === 0 || h === 0) return false;
 
+    let tid = -1;
+    if (this.canvasActor.exports.w_layer_get_texture) {
+      tid = this.canvasActor.exports.w_layer_get_texture(targetIdx);
+    }
+
     const byteLen = w * h * 4;
     const rawBytes = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen);
     const texBuf = Buffer.alloc(byteLen);
     texBuf.set(rawBytes);
 
-    this.textures.set(name, { width: w, height: h, data: texBuf });
-    this.activeTexture = name;
+    this.textures.set(name.toLowerCase(), { width: w, height: h, data: texBuf, wasmId: tid });
+    this.activeTexture = name.toLowerCase();
     return true;
   }
 
@@ -735,57 +881,117 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Imports an image file into the active layer, a new layer, or as a brush texture.
-   * @param {string} filePath - Path to image file
-   * @param {number} target - 0 = active layer, 1 = new layer, 2 = texture
-   * @param {string} [name] - Texture name if target === 2
-   * @returns {{ok: boolean, msg?: string, error?: string}}
+   * Loads an image file into texture storage.
+   * All loaded images are stored as reusable textures instead of dumping directly onto layers.
+   * @param {string} filePath - Path to image file (PNG, BMP, PPM)
+   * @param {string} [name] - Optional custom texture name
+   * @returns {{ok: boolean, name?: string, width?: number, height?: number, msg?: string, error?: string}}
    */
-  loadImageFromFile(filePath, target, name) {
+  loadImageFromFile(filePath, name) {
     try {
       const img = loadImage(filePath);
-      if (target === 2) {
-        const texName = name || path.basename(filePath, path.extname(filePath));
-        this.textures.set(texName, { width: img.width, height: img.height, data: img.data });
-        this.activeTexture = texName;
-        return { ok: true, msg: `texture '${texName}' loaded (${img.width}x${img.height})` };
+      const texName = (name || path.basename(filePath, path.extname(filePath))).toLowerCase();
+      let wasmId = -1;
+      if (this.canvasActor && typeof this.canvasActor.exports.w_texture_create === 'function') {
+        wasmId = this.canvasActor.exports.w_texture_create(img.width, img.height);
+        if (wasmId >= 0) {
+          const ptr = this.canvasActor.exports.w_texture_get_pixels(wasmId);
+          if (ptr) {
+            new Uint8Array(this.canvasActor.memory.buffer, ptr, img.width * img.height * 4).set(img.data);
+          }
+        }
       }
-
-      if (!this.canvasActor || !this.canvasActor.instance) return { ok: false, error: 'Canvas not found' };
-
-      if (target === 1) {
-        this.canvasActor.exports.w_layer_add();
-      }
-
-      const cw = this.canvasActor.exports.get_canvas_width();
-      const ch = this.canvasActor.exports.get_canvas_height();
-      const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
-      if (!pixPtr) return { ok: false, error: 'No active layer' };
-
-      const canvasBytes = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, cw * ch * 4);
-      canvasBytes.fill(0);
-
-      const copyW = Math.min(cw, img.width);
-      const copyH = Math.min(ch, img.height);
-      const offsetX = Math.max(0, Math.floor((cw - copyW) / 2));
-      const offsetY = Math.max(0, Math.floor((ch - copyH) / 2));
-
-      for (let y = 0; y < copyH; y++) {
-        const srcRow = y * img.width * 4;
-        const dstRow = (offsetY + y) * cw * 4 + offsetX * 4;
-        canvasBytes.set(img.data.subarray(srcRow, srcRow + copyW * 4), dstRow);
-      }
-
-      if (this.canvasActor.exports.w_force_composite) {
-        this.canvasActor.exports.w_force_composite();
-      } else if (this.canvasActor.exports.force_composite) {
-        this.canvasActor.exports.force_composite();
-      }
-
-      return { ok: true, msg: `image '${filePath}' loaded (${img.width}x${img.height})` };
+      this.textures.set(texName, { width: img.width, height: img.height, data: img.data, wasmId });
+      this.activeTexture = texName;
+      return {
+        ok: true,
+        name: texName,
+        wasmId,
+        width: img.width,
+        height: img.height,
+        msg: `image '${filePath}' stored as texture '${texName}' (${img.width}x${img.height})`
+      };
     } catch (e) {
       return { ok: false, error: e.message };
     }
+  }
+
+  /**
+   * Draws/stamps a texture or image file onto the active canvas layer with optional size and coordinates.
+   * If width or height are omitted, natural dimensions of texture are preserved.
+   * @param {string} nameOrPath - Texture name or image file path
+   * @param {number} [x=0] - Destination X coordinate (default 0)
+   * @param {number} [y=0] - Destination Y coordinate (default 0)
+   * @param {number} [width] - Destination width (optional, default texture width)
+   * @param {number} [height] - Destination height (optional, default texture height or aspect-preserving)
+   * @param {number} [opacity=100] - Blending opacity 0..100%
+   * @returns {{ok: boolean, msg?: string, error?: string}}
+   */
+  drawImage(nameOrPath, x = 0, y = 0, width, height, opacity = 100) {
+    if (!this.canvasActor || !this.canvasActor.instance) {
+      return { ok: false, error: 'Canvas not initialized' };
+    }
+
+    let lower = (typeof nameOrPath === 'string') ? nameOrPath.toLowerCase() : String(nameOrPath);
+    let tex = this.textures.get(lower);
+    if (!tex) {
+      if (fs.existsSync(nameOrPath)) {
+        const loadRes = this.loadImageFromFile(nameOrPath);
+        if (!loadRes.ok) return loadRes;
+        lower = loadRes.name.toLowerCase();
+        tex = this.textures.get(lower);
+      } else {
+        const layerMatch = lower.match(/^layer_?(\d+)$/);
+        if (!layerMatch) {
+          return { ok: false, error: `Texture or image '${nameOrPath}' not found` };
+        }
+      }
+    }
+
+    const texId = this.getTextureId(lower);
+    let srcW = 0, srcH = 0;
+    if (this.canvasActor.exports.w_texture_get_width) {
+      srcW = this.canvasActor.exports.w_texture_get_width(texId);
+      srcH = this.canvasActor.exports.w_texture_get_height(texId);
+    }
+    if (srcW <= 0 || srcH <= 0) {
+      if (tex && tex.width > 0 && tex.height > 0) {
+        srcW = tex.width;
+        srcH = tex.height;
+      } else {
+        return { ok: false, error: `Invalid texture data for '${nameOrPath}'` };
+      }
+    }
+
+    const dstX = (x !== undefined && x !== null && !isNaN(Number(x))) ? parseInt(x, 10) : 0;
+    const dstY = (y !== undefined && y !== null && !isNaN(Number(y))) ? parseInt(y, 10) : 0;
+
+    let dstW = srcW;
+    let dstH = srcH;
+
+    if (width !== undefined && width !== null && !isNaN(Number(width)) && Number(width) > 0) {
+      dstW = parseInt(width, 10);
+      if (height !== undefined && height !== null && !isNaN(Number(height)) && Number(height) > 0) {
+        dstH = parseInt(height, 10);
+      } else {
+        dstH = Math.max(1, Math.round(dstW * (srcH / srcW)));
+      }
+    } else if (height !== undefined && height !== null && !isNaN(Number(height)) && Number(height) > 0) {
+      dstH = parseInt(height, 10);
+      dstW = Math.max(1, Math.round(dstH * (srcW / srcH)));
+    }
+
+    const op = (opacity !== undefined && opacity !== null && !isNaN(Number(opacity)))
+      ? Math.min(100, Math.max(0, parseInt(opacity, 10)))
+      : 100;
+
+    if (typeof this.canvasActor.exports.w_draw_texture_id === 'function') {
+      this.canvasActor.exports.w_draw_texture_id(texId, dstX, dstY, dstW, dstH, op);
+    } else if (typeof this.canvasActor.exports.w_draw_texture === 'function') {
+      this.canvasActor.exports.w_draw_texture(dstX, dstY, dstW, dstH, op);
+    }
+
+    return { ok: true, msg: `drew image '${nameOrPath}' at (${dstX},${dstY}) size ${dstW}x${dstH}` };
   }
 
   /**
@@ -829,44 +1035,47 @@ class WesenhoScreenHost {
   \x1b[36mTool & Brush Setup (Build Your Own Custom Brush):\x1b[0m
     set tool <brush|eraser|square|circle|chisel|smudge|blend|fill|lasso_fill>
     set mode <draw|eraser|smudge|blend|fill|lasso_fill>
-    set shape <circle|square|chisel>
-    set texture <paper|canvas|noise|dots|grid|grunge|hatch|none>
+    set shape <circle|square|chisel|<texture>|layer_<id>>  Tip shape (samples alpha channel)
+    set texture <paper|canvas|noise|dots|grid|grunge|hatch|<name>|layer_<id>|none>
     set size <val>               Brush tip radius/size (1..500)
     set opacity <0..100>         Brush opacity percentage
-    set hardness <0..100>        0% soft airbrush to 100% hard edge
+    set hardness / softness <val> 0% soft airbrush to 100% hard edge
     set flow <0..100>            Ink flow rate per dab
     set spacing <1..500>         Dab interpolation spacing
-    set angle <0..359>           Tip rotation angle in degrees
+    set angle / rotate <0..359>  Tip rotation angle in degrees
     set roundness <1..100>       Tip aspect ratio / roundness
     set scatter <0..500>         Stochastic position jitter
     set grain <0..100>           Stochastic pixel noise / grain
     set smudge <0..100>          Smudge pick-up intensity
     set wetness <0..100>         Color wetness mix ratio
     set tolerance <0..255>       Flood fill color tolerance
+    set texture_rotate <0..359>  Texture pattern rotation in degrees
+    set texture_scale <1..1000>  Texture pattern scale percentage
 
   \x1b[36mInspect & Query (list / get / status):\x1b[0m
     status / info                Show active tool, brush, surface & viewport status
     list [layers|textures|filters|all] List entities
     get [tool|mode|shape|texture|size|opacity|hardness|flow|spacing|angle|roundness|scatter|grain|color|layer|surface]
 
-  \x1b[36mSurface & Layer Commands:\x1b[0m
+  \x1b[36mSurface & Layer Commands (Layers are Textures):\x1b[0m
     resize <w> <h>               Resize canvas dimensions
-    new layer [name]             Add new layer
-    set layer <id>               Select active layer
+    new layer / layer add        Add new layer
+    set layer / layer select <id> Select active layer
     delete layer [id]            Delete layer
     toggle layer [id]            Toggle layer visibility
-    opacity layer <id> <0..100>  Set layer opacity
+    opacity layer <id> <0..100>  Set layer opacity percentage
     clear layer                  Clear active layer
-    layer to texture [name]      Convert active layer to reusable texture
+    layer to texture [name]      Register active layer as named texture
 
   \x1b[36mFilter Commands:\x1b[0m
     filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
                                  edge, grayscale, invert, noise, pixelate, sepia, threshold)
 
   \x1b[36mImage I/O & Drawing:\x1b[0m
-    save [layer] <filename>      Export image (PNG, BMP, PPM)
-    load image <filename> [layer|texture [name]] Load image file
-    set color <#hex|r g b|name>  Set drawing color
+    save [canvas|layer] <file>   Export image to disk (PNG, BMP, PPM)
+    load image <file> [name]     Load image file into texture storage
+    draw image / stamp <name> [x] [y] [w] [h] [opacity] Draw texture/image with optional size
+    set color <#hex|r g b|name>  Set active drawing color
     draw line <x0> <y0> <x1> <y1> [col]
     draw rect <x> <y> <w> <h> [col]
     draw circle <cx> <cy> <r> [col]
@@ -961,7 +1170,29 @@ class WesenhoScreenHost {
 
       if (cat === 'shape') {
         const shapes = ['circle', 'square', 'chisel'];
-        console.log(shapes[this.brushParams.shape] || 'circle');
+        const sId = this.brushParams.shape;
+        if (shapes[sId]) {
+          console.log(shapes[sId]);
+        } else {
+          let foundName = null;
+          for (const [k, v] of this.textures.entries()) {
+            if (v.wasmId === sId) {
+              foundName = k;
+              break;
+            }
+          }
+          if (!foundName && this.canvasActor && typeof this.canvasActor.exports.get_layer_count === 'function') {
+            const count = this.canvasActor.exports.get_layer_count();
+            for (let i = 0; i < count; i++) {
+              const tid = this.canvasActor.exports.w_layer_get_texture ? this.canvasActor.exports.w_layer_get_texture(i) : i;
+              if (tid === sId) {
+                foundName = `layer_${i}`;
+                break;
+              }
+            }
+          }
+          console.log(foundName || `texture_${sId}`);
+        }
         return;
       }
 
@@ -971,7 +1202,9 @@ class WesenhoScreenHost {
         } else if (this.brushParams[prop] !== undefined) {
           console.log(this.brushParams[prop]);
         } else {
-          console.log(`brush: shape=${['circle', 'square', 'chisel'][this.brushParams.shape]}, mode=${['draw', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode]}, size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%`);
+          const shapes = ['circle', 'square', 'chisel'];
+          const sName = shapes[this.brushParams.shape] || `texture_${this.brushParams.shape}`;
+          console.log(`brush: shape=${sName}, mode=${['draw', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode]}, size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%`);
         }
         return;
       }
@@ -1275,18 +1508,6 @@ class WesenhoScreenHost {
       return;
     }
 
-    if ((cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'to' && tokens[2] && tokens[2].toLowerCase() === 'texture') ||
-        cmd === 'layer-to-texture' || cmd === 'layertotexture') {
-      const tname = (cmd === 'layer' ? tokens[3] : tokens[1]) || `layer_${Date.now() % 1000}`;
-      const ok = this.convertLayerToTexture(-1, tname);
-      if (ok) {
-        this.sendConsoleLog(`layer converted to texture '${tname}'`);
-      } else {
-        this.sendConsoleLog(`err: failed converting layer to texture`, 0xFFFF5555);
-      }
-      return;
-    }
-
     // 10. FILTER COMMANDS
     if (cmd === 'filter' && tokens[1]) {
       const fname = tokens[1].toLowerCase();
@@ -1323,21 +1544,12 @@ class WesenhoScreenHost {
       return;
     }
 
-    if (cmd === 'load' && tokens[1] && tokens[1].toLowerCase() === 'image' && tokens[2]) {
-      const filePath = tokens[2];
-      let target = 0;
-      let texName = '';
+    if ((cmd === 'load' && tokens[1] && tokens[1].toLowerCase() === 'image' && tokens[2]) ||
+        (cmd === 'load' && tokens[1] && tokens[1].toLowerCase() !== 'image')) {
+      const filePath = (tokens[1].toLowerCase() === 'image') ? tokens[2] : tokens[1];
+      const texName = (tokens[1].toLowerCase() === 'image') ? tokens[3] : tokens[2];
 
-      if (tokens[3]) {
-        const opt = tokens[3].toLowerCase();
-        if (opt === 'layer' || opt === 'newlayer') target = 1;
-        else if (opt === 'texture') {
-          target = 2;
-          texName = tokens[4] || '';
-        }
-      }
-
-      const res = this.loadImageFromFile(filePath, target, texName);
+      const res = this.loadImageFromFile(filePath, texName);
       if (res.ok) {
         this.sendConsoleLog(res.msg);
       } else {
@@ -1367,9 +1579,39 @@ class WesenhoScreenHost {
       return;
     }
 
-    // 13. PRIMITIVE DRAW COMMANDS
+    // 13. IMAGE STAMP / DRAW COMMANDS
+    if ((cmd === 'stamp' || cmd === 'image' || cmd === 'draw-image' || cmd === 'drawimage') && tokens[1]) {
+      const texName = tokens[1];
+      const x = tokens[2] !== undefined ? tokens[2] : 0;
+      const y = tokens[3] !== undefined ? tokens[3] : 0;
+      const w = tokens[4] !== undefined ? tokens[4] : undefined;
+      const h = tokens[5] !== undefined ? tokens[5] : undefined;
+      const res = this.drawImage(texName, x, y, w, h);
+      if (res.ok) {
+        this.sendConsoleLog(res.msg);
+      } else {
+        this.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+      }
+      return;
+    }
+
+    // 14. PRIMITIVE DRAW COMMANDS
     if (cmd === 'draw' && tokens[1]) {
       const shape = tokens[1].toLowerCase();
+      if ((shape === 'image' || shape === 'img' || shape === 'texture' || shape === 'tex') && tokens[2]) {
+        const texName = tokens[2];
+        const x = tokens[3] !== undefined ? tokens[3] : 0;
+        const y = tokens[4] !== undefined ? tokens[4] : 0;
+        const w = tokens[5] !== undefined ? tokens[5] : undefined;
+        const h = tokens[6] !== undefined ? tokens[6] : undefined;
+        const res = this.drawImage(texName, x, y, w, h);
+        if (res.ok) {
+          this.sendConsoleLog(res.msg);
+        } else {
+          this.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+        }
+        return;
+      }
       if (shape === 'line' && tokens.length >= 6) {
         const x0 = parseInt(tokens[2], 10);
         const y0 = parseInt(tokens[3], 10);
