@@ -15,9 +15,6 @@ static int flow = 100;
 static int spacing = 15;
 static int tex_mode = 0;
 
-/**
- * Pixel shader callback for round brush circular dab.
- */
 static inline uint32_t round_pixel(int px, int py, int dx, int dy, int dist_sq, int r, uint32_t dst_p, const wstroke_t *s, void *ctx) {
     uint32_t brush_a = ((s->color >> 24) & 0xFF) * opacity * flow / 10000;
     int dist = w_isqrt(dist_sq);
@@ -35,18 +32,30 @@ static inline uint32_t round_pixel(int px, int py, int dx, int dy, int dist_sq, 
     return w_blend_fast(s->color, dst_p, brush_a);
 }
 
-/**
- * on_message - Handles brush parameter updates and stroke rendering.
- */
-void on_message(int32_t from_id, int32_t len) {
-    if (w_handle_brush_set(len, &size, &opacity, &hardness, &flow, &spacing, &tex_mode)) return;
+W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
+    switch (param_id) {
+        case W_PARAM_SIZE:     if (val > 0) size = val; break;
+        case W_PARAM_OPACITY:  if (val >= 0 && val <= 100) opacity = val; break;
+        case W_PARAM_HARDNESS: if (val >= 0 && val <= 100) hardness = val; break;
+        case W_PARAM_FLOW:     if (val >= 0 && val <= 100) flow = val; break;
+        case W_PARAM_SPACING:  if (val > 0) spacing = val; break;
+        case W_PARAM_TEX_MODE: tex_mode = val; break;
+    }
+}
+
+W_EXPORT void w_brush_stroke(int32_t state, int32_t x, int32_t y, int32_t prev_x, int32_t prev_y, uint32_t color, int32_t eraser) {
     wframebuffer_t *fb = w_get_layer();
     if (!fb) return;
 
     wstroke_t s;
-    if (!w_parse_stroke(len, &s, size)) return;
+    s.x0 = (state == 0) ? x : prev_x;
+    s.y0 = (state == 0) ? y : prev_y;
+    s.x1 = x;
+    s.y1 = y;
+    s.radius = size;
+    s.color = color;
+    s.texture_mode = tex_mode;
+    s.eraser = eraser;
+
     w_stroke_interpolate(fb, &s, (float)spacing / 100.0f, round_pixel, (void*)0);
 }
-
-int32_t update(void) { return UPDATE_OK; }
-

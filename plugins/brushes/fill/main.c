@@ -20,9 +20,6 @@ static int tex_strength = 100; // Texture modulation strength (0..100%)
 static int32_t qx[MAX_QUEUE];
 static int32_t qy[MAX_QUEUE];
 
-/**
- * Checks whether color c1 matches target color c2 within per-channel Manhattan tolerance.
- */
 static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     if (c1 == c2) return 1;
     int r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
@@ -34,9 +31,6 @@ static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     return (dr <= tol && dg <= tol && db <= tol && da <= tol);
 }
 
-/**
- * Samples texture color from host shared buffer with UV scaling and wrapping.
- */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -50,32 +44,23 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
-/**
- * Calculates final fill pixel value at (px, py), applying active texture grain or pattern.
- */
 static inline uint32_t get_fill_pixel(wframebuffer_t *tex_fb, int px, int py, uint32_t base_color) {
     if (!tex_fb || tex_fb->width == 0 || tex_mode == 0 || tex_strength == 0) return base_color;
     uint32_t t_col = sample_texture(tex_fb, px, py);
     uint32_t tr = t_col & 0xFF, tg = (t_col >> 8) & 0xFF, tb = (t_col >> 16) & 0xFF;
 
     if (tex_mode == 1) {
-        // Mode 1: Grain Mask - modulates fill alpha with texture luminance
         uint32_t lum = (tr * 77 + tg * 150 + tb * 29) >> 8;
         uint32_t a = (base_color >> 24) & 0xFF;
         uint32_t mod_a = (a * (lum * tex_strength + 255 * (100 - tex_strength))) / 25500;
         return (mod_a << 24) | (base_color & 0x00FFFFFF);
     } else {
-        // Mode 2: RGB Pattern - multiplies fill color with texture RGB
         uint32_t cr = base_color & 0xFF, cg = (base_color >> 8) & 0xFF, cb = (base_color >> 16) & 0xFF;
         uint32_t ca = base_color & 0xFF000000;
         return ca | (((cb * tb) / 255) << 16) | (((cg * tg) / 255) << 8) | ((cr * tr) / 255);
     }
 }
 
-/**
- * Executes iterative BFS flood fill starting at (start_x, start_y).
- * Replaces connected contiguous region matching target color with fill color.
- */
 static void flood_fill(wframebuffer_t *fb, wframebuffer_t *tex_fb, int start_x, int start_y, uint32_t fill_color, int is_eraser) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -91,10 +76,8 @@ static void flood_fill(wframebuffer_t *fb, wframebuffer_t *tex_fb, int start_x, 
     qy[q_tail] = start_y;
     q_tail++;
 
-    // Mark starting pixel
     pixels[start_y * width + start_x] = is_eraser ? 0x00000000 : get_fill_pixel(tex_fb, start_x, start_y, fill_color);
 
-    // BFS 4-way expansion loop
     while (q_head < q_tail && q_tail < MAX_QUEUE - 4) {
         int x = qx[q_head];
         int y = qy[q_head];
@@ -122,47 +105,20 @@ static void flood_fill(wframebuffer_t *fb, wframebuffer_t *tex_fb, int start_x, 
     }
 }
 
-/**
- * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
- */
-void on_message(int32_t from_id, int32_t len) {
-    if (len <= 0) return;
-    char buf[256];
-    int clen = (len < 255) ? len : 255;
-    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
-    buf[clen] = '\0';
-
-    char *tokens[10];
-    int ntok = c_tokenize(buf, tokens, 10);
-    if (ntok == 0) return;
-
-    if (c_strcasecmp(tokens[0], "set") == 0 && ntok >= 3) {
-        const char *param = tokens[1];
-        int val = c_atoi(tokens[2]);
-        if (c_strcasecmp(param, "tolerance") == 0 || c_strcasecmp(param, "tol") == 0) { tolerance = val; }
-        else if (c_strcasecmp(param, "tex_mode") == 0 || c_strcasecmp(param, "texture_mode") == 0) { tex_mode = val; }
-        else if (c_strcasecmp(param, "tex_scale") == 0 || c_strcasecmp(param, "texture_scale") == 0) { tex_scale = val < 1 ? 1 : val; }
-        else if (c_strcasecmp(param, "tex_strength") == 0 || c_strcasecmp(param, "texture_strength") == 0) { tex_strength = val < 0 ? 0 : (val > 100 ? 100 : val); }
-        return;
-    }
-
-    if (c_strcasecmp(tokens[0], "stroke") == 0 && ntok >= 8) {
-        int state = c_atoi(tokens[1]);
-        int x = c_atoi(tokens[2]);
-        int y = c_atoi(tokens[3]);
-        uint32_t color = c_parse_u32(tokens[6]);
-        int is_eraser = c_atoi(tokens[7]);
-
-        if (state == 0) {
-            // STROKE_START: trigger flood fill at clicked position
-            wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
-            if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
-            wframebuffer_t *tex_fb = (wframebuffer_t*)ask("brush:texture");
-            flood_fill(fb, tex_fb, x, y, color, is_eraser);
-        }
+W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
+    switch (param_id) {
+        case W_PARAM_TOLERANCE:    tolerance = (val < 0) ? 0 : (val > 255 ? 255 : val); break;
+        case W_PARAM_TEX_MODE:     tex_mode = val; break;
+        case W_PARAM_TEX_SCALE:    tex_scale = val < 1 ? 1 : val; break;
+        case W_PARAM_TEX_STRENGTH: tex_strength = val < 0 ? 0 : (val > 100 ? 100 : val); break;
     }
 }
 
-/** Piolho frame update hook */
-int32_t update(void) { return UPDATE_OK; }
-
+W_EXPORT void w_brush_stroke(int32_t state, int32_t x, int32_t y, int32_t prev_x, int32_t prev_y, uint32_t color, int32_t eraser) {
+    if (state == 0) { // STROKE_START
+        wframebuffer_t *fb = w_get_layer();
+        if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
+        wframebuffer_t *tex_fb = w_get_texture();
+        flood_fill(fb, tex_fb, x, y, color, eraser);
+    }
+}

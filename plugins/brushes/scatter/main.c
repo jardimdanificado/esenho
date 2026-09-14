@@ -43,19 +43,17 @@ static void spray(wframebuffer_t *fb, int x, int y, uint32_t color, int is_erase
     }
 }
 
-/**
- * on_message - Handles brush parameter updates and particle spray rendering.
- */
-void on_message(int32_t from_id, int32_t len) {
-    int dummy = 0;
-    if (w_handle_brush_set(len, &size, &opacity, &dummy, &dummy, &dummy, &tex_mode)) return;
-    wframebuffer_t *fb = w_get_layer();
-    if (!fb) return;
-
-    wstroke_t s;
-    if (!w_parse_stroke(len, &s, size)) return;
-    spray(fb, s.x1, s.y1, s.color, s.eraser, s.texture_mode ? s.texture_mode : tex_mode);
+W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
+    switch (param_id) {
+        case W_PARAM_SIZE:     if (val > 0) size = val; break;
+        case W_PARAM_DENSITY:  if (val > 0) density = val; break;
+        case W_PARAM_OPACITY:  if (val >= 0 && val <= 100) opacity = val; break;
+        case W_PARAM_TEX_MODE: tex_mode = val; break;
+    }
 }
 
-int32_t update(void) { return UPDATE_OK; }
-
+W_EXPORT void w_brush_stroke(int32_t state, int32_t x, int32_t y, int32_t prev_x, int32_t prev_y, uint32_t color, int32_t eraser) {
+    wframebuffer_t *fb = w_get_layer();
+    if (!fb) return;
+    spray(fb, x, y, color, eraser, tex_mode);
+}

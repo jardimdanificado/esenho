@@ -1,216 +1,32 @@
 #ifndef WESENHO_H
 #define WESENHO_H
 
+/**
+ * =========================================================================
+ * Wesenho Native WebAssembly Core Header (include/wesenho.h)
+ * =========================================================================
+ * 
+ * Native freestanding ABI and helper library for Wesenho Canvas and Plugins.
+ * Eliminates external runtime dependencies, providing zero-overhead text
+ * command execution, layer framebuffer binding, and high-level brush SDK.
+ * =========================================================================
+ */
+
 #include <stdint.h>
 #include <stddef.h>
 
-/* =========================================================================
- * Wagnostic / Piolho Actor ABI
- * Core lifecycle and communication interface for WebAssembly actors.
- * ========================================================================= */
-
-/** Update return codes for actor frame ticks */
-#define UPDATE_OK      0
-#define UPDATE_EXIT    1
-#define UPDATE_ERROR  -1
-
-/** Host extension querying hook (imports memory/state from host) */
-void *ask(const char *name);
-
-/** Called every frame/tick by the host runtime */
-int32_t update(void);
-
-/* Piolho Shared Page Buffer (Page 0 at address 0x0000) */
-#define PIOLHO_PAGE_SIZE 65536
-#define piolho_page ((uint8_t*)0)
-
-/* Well-Known Actor IDs */
-#define ACTOR_BROKER    0
-#define ACTOR_HOST      0
-#define ACTOR_SCREEN    0
-#define ACTOR_CANVAS    1
-#define ACTOR_CONSOLE   10
-
-/** Sends `len` bytes from `piolho_page` to `target_id` */
-int32_t say(int32_t target_id, int32_t len);
-
-/** Message handler callback invoked when an actor receives a message */
-void on_message(int32_t from_id, int32_t len);
+#define W_EXPORT __attribute__((visibility("default")))
 
 /* =========================================================================
- * Text Protocol Message Dispatch Helpers
- * Everything is sent as null-terminated UTF-8 text command strings.
+ * Wesenho Standard Types & Structures
  * ========================================================================= */
 
-/**
- * Sends a null-terminated command string to the Host Actor (ID 0).
- * Copies `cmd` into `piolho_page` and invokes `say(ACTOR_HOST, len + 1)`.
- */
-static inline void say_cmd(const char *cmd) {
-    if (!cmd) return;
-    int len = 0;
-    while (cmd[len] && len < 4095) {
-        piolho_page[len] = (uint8_t)cmd[len];
-        len++;
-    }
-    piolho_page[len] = '\0';
-    say(ACTOR_HOST, len + 1);
-}
-
-/**
- * Sends a null-terminated text command string to a specific Actor ID.
- * Copies `cmd` into `piolho_page` and invokes `say(target_id, len + 1)`.
- */
-static inline void say_text(int32_t target_id, const char *cmd) {
-    if (!cmd) return;
-    int len = 0;
-    while (cmd[len] && len < 4095) {
-        piolho_page[len] = (uint8_t)cmd[len];
-        len++;
-    }
-    piolho_page[len] = '\0';
-    say(target_id, len + 1);
-}
-
-/* =========================================================================
- * Wagnostic Standard Extensions (Host Provided Structs)
- * ========================================================================= */
-
-/** Framebuffer descriptor returned by ask("std:framebuffer") or ask("canvas:layer") */
+/** Framebuffer descriptor containing dimensions and linear pixel buffer pointer */
 typedef struct {
     uint32_t width;
     uint32_t height;
-    uint32_t pixels; /**< Guest memory pointer to uint32_t RGBA32 pixel buffer */
+    uint32_t pixels; /**< Pointer to uint32_t RGBA32 pixel buffer in linear memory */
 } wframebuffer_t;
-
-/** Clock/timing structure */
-typedef struct {
-    uint64_t ticks;
-    uint64_t frequency;
-    float    delta;
-} wclock_t;
-
-/** Keyboard input state */
-typedef struct {
-    uint8_t keys[256];
-} wkeyboard_t;
-
-/* Mouse button bitmasks */
-#define WMOUSE_BTN_LEFT   (1 << 0)
-#define WMOUSE_BTN_RIGHT  (1 << 1)
-#define WMOUSE_BTN_MIDDLE (1 << 2)
-
-/** Mouse input state */
-typedef struct {
-    int32_t  x;
-    int32_t  y;
-    uint32_t buttons;
-    int32_t  wheel_x;
-    int32_t  wheel_y;
-} wmouse_t;
-
-/* Tool Identifiers */
-#define TOOL_BRUSH  0
-#define TOOL_ERASER 1
-#define TOOL_BUCKET 2
-
-/* Maximum layers supported per document */
-#define MAX_LAYERS_LIMIT 256
-
-/* =========================================================================
- * Standalone Text Parsing Helpers (Libc-Free)
- * Used across WASM actors and plugins for parsing text commands.
- * ========================================================================= */
-
-/**
- * Case-insensitive ASCII string comparison.
- * Returns 0 if equal, negative if s1 < s2, positive if s1 > s2.
- */
-static inline int c_strcasecmp(const char *s1, const char *s2) {
-    if (!s1 || !s2) return -1;
-    while (*s1 && *s2) {
-        char c1 = (*s1 >= 'A' && *s1 <= 'Z') ? (*s1 + 32) : *s1;
-        char c2 = (*s2 >= 'A' && *s2 <= 'Z') ? (*s2 + 32) : *s2;
-        if (c1 != c2) return (int)((unsigned char)c1 - (unsigned char)c2);
-        s1++;
-        s2++;
-    }
-    return (int)((unsigned char)*s1 - (unsigned char)*s2);
-}
-
-/**
- * Parses signed 32-bit integer from string. Supports negative numbers.
- */
-static inline int c_atoi(const char *s) {
-    if (!s) return 0;
-    int sign = 1;
-    while (*s == ' ' || *s == '\t') s++;
-    if (*s == '-') { sign = -1; s++; }
-    else if (*s == '+') s++;
-    int val = 0;
-    while (*s >= '0' && *s <= '9') {
-        val = val * 10 + (*s - '0');
-        s++;
-    }
-    return val * sign;
-}
-
-/**
- * Parses unsigned 32-bit integer (supports decimal or hex formatted as 0x...).
- */
-static inline uint32_t c_parse_u32(const char *s) {
-    if (!s) return 0;
-    while (*s == ' ' || *s == '\t') s++;
-    if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
-        s += 2;
-        uint32_t val = 0;
-        while (*s) {
-            char c = *s;
-            if (c >= '0' && c <= '9') val = (val << 4) | (c - '0');
-            else if (c >= 'a' && c <= 'f') val = (val << 4) | (10 + c - 'a');
-            else if (c >= 'A' && c <= 'F') val = (val << 4) | (10 + c - 'A');
-            else break;
-            s++;
-        }
-        return val;
-    }
-    uint32_t val = 0;
-    while (*s >= '0' && *s <= '9') {
-        val = val * 10 + (*s - '0');
-        s++;
-    }
-    return val;
-}
-
-/**
- * In-place command tokenizer. Modifies `line` by inserting null terminators
- * and populates `tokens` array with pointer to each token. Supports "quoted strings".
- * Returns total number of extracted tokens.
- */
-static inline int c_tokenize(char *line, char *tokens[], int max_tokens) {
-    int count = 0;
-    char *p = line;
-    while (*p && count < max_tokens) {
-        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
-        if (!*p) break;
-        if (*p == '"') {
-            p++;
-            tokens[count++] = p;
-            while (*p && *p != '"') p++;
-            if (*p) *p++ = '\0';
-        } else {
-            tokens[count++] = p;
-            while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n') p++;
-            if (*p) *p++ = '\0';
-        }
-    }
-    return count;
-}
-
-/* =========================================================================
- * High-Level Brush SDK & Stroke Helpers
- * Provides unified parsing, interpolation, clipping, and dab callbacks.
- * ========================================================================= */
 
 /** Standard stroke parameters received by brush plugins */
 typedef struct {
@@ -224,96 +40,67 @@ typedef struct {
     int32_t  eraser;
 } wstroke_t;
 
-/**
- * Handles "set <param> <value>" configuration commands for brush plugins.
- * Returns 1 if handled, 0 otherwise.
- */
-static inline int w_handle_brush_set(int len, int *size, int *opacity, int *hardness, int *flow, int *spacing, int *tex_mode) {
-    if (len <= 0) return 0;
-    char buf[128];
-    int clen = (len < 127) ? len : 127;
-    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
-    buf[clen] = '\0';
+/* =========================================================================
+ * Native Wesenho Target State & Framebuffers
+ * ========================================================================= */
 
-    char *tokens[6];
-    int ntok = c_tokenize(buf, tokens, 6);
-    if (ntok >= 3 && c_strcasecmp(tokens[0], "set") == 0) {
-        const char *param = tokens[1];
-        int val = c_atoi(tokens[2]);
-        if (size && c_strcasecmp(param, "size") == 0) { *size = val < 1 ? 1 : val; return 1; }
-        if (opacity && c_strcasecmp(param, "opacity") == 0) { *opacity = val < 0 ? 0 : (val > 100 ? 100 : val); return 1; }
-        if (hardness && c_strcasecmp(param, "hardness") == 0) { *hardness = val; return 1; }
-        if (flow && c_strcasecmp(param, "flow") == 0) { *flow = val; return 1; }
-        if (spacing && c_strcasecmp(param, "spacing") == 0) { *spacing = val < 1 ? 1 : val; return 1; }
-        if (tex_mode && (c_strcasecmp(param, "tex_mode") == 0 || c_strcasecmp(param, "texture_mode") == 0)) { *tex_mode = val; return 1; }
-    }
-    return 0;
+/** Active target layer framebuffer pointer set by host for brushes/filters */
+static wframebuffer_t w_target_layer = {0, 0, 0};
+
+/** Exported hook for host to set the target framebuffer directly */
+W_EXPORT void w_set_layer(uint32_t pixels_ptr, uint32_t width, uint32_t height) {
+    w_target_layer.pixels = pixels_ptr;
+    w_target_layer.width = width;
+    w_target_layer.height = height;
 }
 
-/**
- * Parses stroke parameters from `piolho_page`.
- * Supports both:
- * 1. Host format: "stroke <state> <x> <y> <prev_x> <prev_y> <color> <is_eraser>"
- * 2. Positional format: "<x0> <y0> <x1> <y1> [radius] [color] [texture_mode] [eraser]"
- */
-static inline int w_parse_stroke(int len, wstroke_t *out, int default_size) {
-    if (len <= 0 || !out) return 0;
-    char buf[128];
-    int clen = (len < 127) ? len : 127;
-    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
-    buf[clen] = '\0';
-
-    char *argv[10];
-    int argc = c_tokenize(buf, argv, 10);
-    if (argc < 1) return 0;
-
-    if (c_strcasecmp(argv[0], "stroke") == 0 && argc >= 8) {
-        int state = c_atoi(argv[1]);
-        int x = c_atoi(argv[2]);
-        int y = c_atoi(argv[3]);
-        int px = c_atoi(argv[4]);
-        int py = c_atoi(argv[5]);
-        out->color = c_parse_u32(argv[6]);
-        out->eraser = c_atoi(argv[7]);
-        out->radius = default_size > 0 ? default_size : 5;
-        out->texture_mode = 0;
-        if (state == 0) {
-            out->x0 = x; out->y0 = y;
-            out->x1 = x; out->y1 = y;
-        } else {
-            out->x0 = px; out->y0 = py;
-            out->x1 = x;  out->y1 = y;
-        }
-        return 1;
-    }
-
-    if (c_strcasecmp(argv[0], "set") == 0) return 0;
-
-    if (argc >= 4) {
-        out->x0 = c_atoi(argv[0]);
-        out->y0 = c_atoi(argv[1]);
-        out->x1 = c_atoi(argv[2]);
-        out->y1 = c_atoi(argv[3]);
-        out->radius = (argc > 4) ? c_atoi(argv[4]) : default_size;
-        if (out->radius < 1) out->radius = 1;
-        out->color = (argc > 5) ? c_parse_u32(argv[5]) : 0xFF000000;
-        out->texture_mode = (argc > 6) ? c_atoi(argv[6]) : 0;
-        out->eraser = (argc > 7) ? c_atoi(argv[7]) : 0;
-        return 1;
-    }
-
-    return 0;
-}
-
-/**
- * Retrieves active layer framebuffer from canvas actor.
- * Returns NULL if invalid or not ready.
- */
+/** Internal accessor for current target layer */
 static inline wframebuffer_t* w_get_layer(void) {
-    wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
-    if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return (wframebuffer_t*)0;
-    return fb;
+    if (!w_target_layer.pixels || w_target_layer.width == 0 || w_target_layer.height == 0) {
+        return (wframebuffer_t*)0;
+    }
+    return &w_target_layer;
 }
+
+/** Active target texture framebuffer pointer set by host */
+static wframebuffer_t w_target_texture = {0, 0, 0};
+
+/** Exported hook for host to set the target texture framebuffer */
+W_EXPORT void w_set_texture(uint32_t pixels_ptr, uint32_t width, uint32_t height) {
+    w_target_texture.pixels = pixels_ptr;
+    w_target_texture.width = width;
+    w_target_texture.height = height;
+}
+
+/** Internal accessor for current target texture */
+static inline wframebuffer_t* w_get_texture(void) {
+    if (!w_target_texture.pixels || w_target_texture.width == 0 || w_target_texture.height == 0) {
+        return (wframebuffer_t*)0;
+    }
+    return &w_target_texture;
+}
+
+/* =========================================================================
+ * Standard Parameter IDs for Brush Configuration
+ * ========================================================================= */
+
+enum {
+    W_PARAM_SIZE           = 1,
+    W_PARAM_OPACITY        = 2,
+    W_PARAM_HARDNESS       = 3,
+    W_PARAM_FLOW           = 4,
+    W_PARAM_SPACING        = 5,
+    W_PARAM_ANGLE          = 6,
+    W_PARAM_ROUNDNESS      = 7,
+    W_PARAM_SCATTER        = 8,
+    W_PARAM_TOLERANCE      = 9,
+    W_PARAM_DENSITY        = 10,
+    W_PARAM_WETNESS        = 11,
+    W_PARAM_GRAIN          = 12,
+    W_PARAM_TEX_MODE       = 13,
+    W_PARAM_TEX_SCALE      = 14,
+    W_PARAM_TEX_STRENGTH   = 15
+};
 
 /**
  * Fast integer square root.
@@ -438,3 +225,4 @@ static inline void w_stroke_interpolate(wframebuffer_t *fb, const wstroke_t *str
 }
 
 #endif /* WESENHO_H */
+

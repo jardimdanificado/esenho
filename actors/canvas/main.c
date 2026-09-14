@@ -16,8 +16,6 @@ typedef struct {
     uint8_t  opacity;  /**< Layer opacity from 0 (transparent) to 255 (opaque) */
 } layer_t;
 
-/* Surface State */
-static wframebuffer_t *fb = 0;
 static uint32_t       doc_width = DEFAULT_WIDTH;
 static uint32_t       doc_height = DEFAULT_HEIGHT;
 static layer_t        *layers = 0;
@@ -142,18 +140,10 @@ static void composite_surface(void) {
     }
 }
 
-static void sync_fb(void) {
-    if (!fb) return;
-    fb->width = doc_width;
-    fb->height = doc_height;
-    fb->pixels = (uint32_t)(uintptr_t)out_pixels;
-}
-
 static int surface_dirty = 1;
 
 void force_composite(void) {
     composite_surface();
-    sync_fb();
     surface_dirty = 0;
 }
 
@@ -194,7 +184,6 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
     doc_width = new_w;
     doc_height = new_h;
     composite_surface();
-    sync_fb();
 }
 
 /* =========================================================================
@@ -276,254 +265,142 @@ static void draw_grid(int step, uint32_t color) {
 }
 
 /* =========================================================================
- * Color Parsers
- * ========================================================================= */
-
-static uint32_t c_parse_hex(const char *s) {
-    uint32_t val = 0;
-    while (*s) {
-        char c = *s++;
-        if (c >= '0' && c <= '9') val = (val << 4) | (c - '0');
-        else if (c >= 'a' && c <= 'f') val = (val << 4) | (c - 'a' + 10);
-        else if (c >= 'A' && c <= 'F') val = (val << 4) | (c - 'A' + 10);
-        else break;
-    }
-    return val;
-}
-
-/** Parses color string into 32-bit RGBA integer (#RRGGBB, 0x..., or name) */
-static uint32_t c_parse_color(const char *s) {
-    if (!s) return 0xFF000000;
-    if (*s == '#') {
-        s++;
-        int len = 0;
-        while (s[len]) len++;
-        uint32_t h = c_parse_hex(s);
-        if (len == 6) {
-            return 0xFF000000 | h;
-        } else if (len == 8) {
-            return h;
-        }
-    } else if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
-        return c_parse_hex(s + 2);
-    }
-    if (c_strcasecmp(s, "black") == 0) return 0xFF000000;
-    if (c_strcasecmp(s, "white") == 0) return 0xFFFFFFFF;
-    if (c_strcasecmp(s, "red") == 0) return 0xFFFF0000;
-    if (c_strcasecmp(s, "green") == 0) return 0xFF00FF00;
-    if (c_strcasecmp(s, "blue") == 0) return 0xFF0000FF;
-    if (c_strcasecmp(s, "yellow") == 0) return 0xFFFFFF00;
-    if (c_strcasecmp(s, "cyan") == 0) return 0xFF00FFFF;
-    if (c_strcasecmp(s, "magenta") == 0) return 0xFFFF00FF;
-    return (uint32_t)c_atoi(s);
-}
-
-/* =========================================================================
- * Text Command Dispatcher
- * Parses string commands received from console actor, UI plugins, or host.
- * ========================================================================= */
-static void handle_text_command(char *str) {
-    char *argv[16];
-    int argc = c_tokenize(str, argv, 16);
-    if (argc == 0) return;
-
-    const char *c0 = argv[0];
-
-    // 1. Resize surface
-    if (c_strcasecmp(c0, "resize") == 0 && argc >= 3) {
-        int w = c_atoi(argv[1]);
-        int h = c_atoi(argv[2]);
-        if (w >= 16 && h >= 16) resize_surface(w, h);
-        return;
-    }
-    if (c_strcasecmp(c0, "set") == 0 && argc >= 4 && (c_strcasecmp(argv[1], "size") == 0 || c_strcasecmp(argv[1], "resolution") == 0)) {
-        int w = c_atoi(argv[2]);
-        int h = c_atoi(argv[3]);
-        if (w >= 16 && h >= 16) resize_surface(w, h);
-        return;
-    }
-    if (c_strcasecmp(c0, "set") == 0 && argc >= 3) {
-        if (c_strcasecmp(argv[1], "width") == 0) {
-            int w = c_atoi(argv[2]);
-            if (w >= 16) resize_surface(w, doc_height);
-            return;
-        } else if (c_strcasecmp(argv[1], "height") == 0) {
-            int h = c_atoi(argv[2]);
-            if (h >= 16) resize_surface(doc_width, h);
-            return;
-        }
-    }
-    // Backward compat: "canvas resize <w> <h>" or "set canvas size <w> <h>"
-    if (c_strcasecmp(c0, "canvas") == 0 && argc >= 4 && c_strcasecmp(argv[1], "resize") == 0) {
-        int w = c_atoi(argv[2]);
-        int h = c_atoi(argv[3]);
-        if (w >= 16 && h >= 16) resize_surface(w, h);
-        return;
-    }
-    if (c_strcasecmp(c0, "set") == 0 && argc >= 5 && c_strcasecmp(argv[1], "canvas") == 0 && c_strcasecmp(argv[2], "size") == 0) {
-        int w = c_atoi(argv[3]);
-        int h = c_atoi(argv[4]);
-        if (w >= 16 && h >= 16) resize_surface(w, h);
-        return;
-    }
-
-    // 2. Layer commands
-    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 2 && (c_strcasecmp(argv[1], "add") == 0 || c_strcasecmp(argv[1], "new") == 0)) ||
-        (c_strcasecmp(c0, "new") == 0 && argc >= 2 && c_strcasecmp(argv[1], "layer") == 0)) {
-        add_new_layer_internal();
-        force_composite();
-        return;
-    }
-
-    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 3 && (c_strcasecmp(argv[1], "select") == 0 || c_strcasecmp(argv[1], "set") == 0)) ||
-        (c_strcasecmp(c0, "set") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
-        int lidx = c_atoi(argv[2]);
-        if (lidx >= 0 && lidx < layer_count) active_layer = lidx;
-        return;
-    }
-
-    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 3 && c_strcasecmp(argv[1], "toggle") == 0) ||
-        (c_strcasecmp(c0, "toggle") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
-        int lidx = c_atoi(argv[2]);
-        if (lidx >= 0 && lidx < layer_count) layers[lidx].visible = !layers[lidx].visible;
-        force_composite();
-        return;
-    }
-
-    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 4 && c_strcasecmp(argv[1], "opacity") == 0) ||
-        (c_strcasecmp(c0, "opacity") == 0 && argc >= 4 && c_strcasecmp(argv[1], "layer") == 0)) {
-        int lidx = c_atoi(argv[2]);
-        int op = c_atoi(argv[3]);
-        if (op < 0) op = 0; if (op > 100) op = 100;
-        if (lidx >= 0 && lidx < layer_count) layers[lidx].opacity = (uint8_t)((op * 255) / 100);
-        force_composite();
-        return;
-    }
-
-    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 3 && c_strcasecmp(argv[1], "delete") == 0) ||
-        (c_strcasecmp(c0, "delete") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
-        int del_idx = c_atoi(argv[2]);
-        if (del_idx >= 0 && del_idx < layer_count) {
-            if (layer_count > 1) {
-                uint32_t *recycled = layers[del_idx].pixels;
-                for (int l = del_idx; l < layer_count - 1; l++) layers[l] = layers[l + 1];
-                layers[layer_count - 1].pixels = recycled;
-                clear_layer(&layers[layer_count - 1], doc_width * doc_height);
-                layer_count--;
-                if (active_layer >= layer_count) active_layer = layer_count - 1;
-            } else {
-                clear_layer(&layers[0], doc_width * doc_height);
-            }
-        }
-        force_composite();
-        return;
-    }
-
-    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 2 && c_strcasecmp(argv[1], "clear") == 0) ||
-        (c_strcasecmp(c0, "clear") == 0)) {
-        if (active_layer >= 0 && active_layer < layer_count) {
-            clear_layer(&layers[active_layer], doc_width * doc_height);
-        }
-        force_composite();
-        return;
-    }
-
-    // 3. Drawing commands
-    if (c_strcasecmp(c0, "draw") == 0 && argc >= 6 && c_strcasecmp(argv[1], "line") == 0) {
-        int x0 = c_atoi(argv[2]), y0 = c_atoi(argv[3]);
-        int x1 = c_atoi(argv[4]), y1 = c_atoi(argv[5]);
-        uint32_t col = (argc >= 7) ? c_parse_color(argv[6]) : current_color;
-        draw_line(x0, y0, x1, y1, col);
-        force_composite();
-        return;
-    }
-
-    if (c_strcasecmp(c0, "draw") == 0 && argc >= 6 && c_strcasecmp(argv[1], "rect") == 0) {
-        int rx = c_atoi(argv[2]), ry = c_atoi(argv[3]);
-        int rw = c_atoi(argv[4]), rh = c_atoi(argv[5]);
-        uint32_t col = (argc >= 7) ? c_parse_color(argv[6]) : current_color;
-        draw_rect(rx, ry, rw, rh, col);
-        force_composite();
-        return;
-    }
-
-    if (c_strcasecmp(c0, "draw") == 0 && argc >= 5 && c_strcasecmp(argv[1], "circle") == 0) {
-        int cx = c_atoi(argv[2]), cy = c_atoi(argv[3]), cr = c_atoi(argv[4]);
-        uint32_t col = (argc >= 6) ? c_parse_color(argv[5]) : current_color;
-        draw_circle(cx, cy, cr, col);
-        force_composite();
-        return;
-    }
-
-    if (c_strcasecmp(c0, "draw") == 0 && argc >= 3 && c_strcasecmp(argv[1], "grid") == 0) {
-        int step = c_atoi(argv[2]);
-        uint32_t col = (argc >= 4) ? c_parse_color(argv[3]) : current_color;
-        draw_grid(step, col);
-        force_composite();
-        return;
-    }
-
-    // 4. Color setting
-    if ((c_strcasecmp(c0, "color") == 0 && argc >= 3 && c_strcasecmp(argv[1], "set") == 0) ||
-        (c_strcasecmp(c0, "set") == 0 && argc >= 3 && c_strcasecmp(argv[1], "color") == 0)) {
-        current_color = c_parse_color(argv[2]);
-        return;
-    }
-    if (c_strcasecmp(c0, "color") == 0 && argc == 2) {
-        current_color = c_parse_color(argv[1]);
-        return;
-    }
-
-    // 5. Composite
-    if (c_strcasecmp(c0, "composite") == 0 || c_strcasecmp(c0, "refresh") == 0) {
-        force_composite();
-        return;
-    }
-}
-
-/* =========================================================================
- * Actor Message Entrypoint
- * ========================================================================= */
-
-/**
- * Invoked by the Piolho host when a message arrives in piolho_page.
- * Reads the text command, executes it, and forces a recomposite.
- */
-void on_message(int32_t from_id, int32_t len) {
-    if (len <= 0) return;
-    char cmd_buf[512];
-    int clen = (len < 511) ? len : 511;
-    for (int i = 0; i < clen; i++) cmd_buf[i] = (char)piolho_page[i];
-    cmd_buf[clen] = '\0';
-    handle_text_command(cmd_buf);
-    force_composite();
-}
-
-/* =========================================================================
- * Actor Lifecycle / Update Loop
+ * Native Wesenho Canvas API Exports
  * ========================================================================= */
 
 static int surface_initialized = 0;
 
-/**
- * Called on each frame tick by the host.
- * Initializes default surface if not ready, and recomposites if dirty.
- */
-int32_t update(void) {
+static void init_surface_if_needed(void) {
     if (!surface_initialized) {
         surface_initialized = 1;
-        fb = (wframebuffer_t*)ask("std:framebuffer");
         out_pixels = (uint32_t*)canvas_alloc(doc_width * doc_height * sizeof(uint32_t));
         add_new_layer_internal();
         force_composite();
     }
+}
 
+/** Initializes surface with given dimensions */
+W_EXPORT void w_init(uint32_t width, uint32_t height) {
+    if (width < 16 || height < 16 || width > 4096 || height > 4096) return;
+    if (!surface_initialized) {
+        doc_width = width;
+        doc_height = height;
+        init_surface_if_needed();
+    } else {
+        resize_surface(width, height);
+    }
+}
+
+/** Resizes surface dimensions */
+W_EXPORT void w_resize(uint32_t width, uint32_t height) {
+    init_surface_if_needed();
+    resize_surface(width, height);
+}
+
+/** Adds a new transparent layer and selects it */
+W_EXPORT int32_t w_layer_add(void) {
+    init_surface_if_needed();
+    int idx = add_new_layer_internal();
+    force_composite();
+    return idx;
+}
+
+/** Selects active layer */
+W_EXPORT void w_layer_select(int32_t idx) {
+    init_surface_if_needed();
+    if (idx >= 0 && idx < layer_count) {
+        active_layer = idx;
+    }
+}
+
+/** Deletes layer idx */
+W_EXPORT void w_layer_delete(int32_t idx) {
+    init_surface_if_needed();
+    if (idx >= 0 && idx < layer_count) {
+        if (layer_count > 1) {
+            uint32_t *recycled = layers[idx].pixels;
+            for (int l = idx; l < layer_count - 1; l++) layers[l] = layers[l + 1];
+            layers[layer_count - 1].pixels = recycled;
+            clear_layer(&layers[layer_count - 1], doc_width * doc_height);
+            layer_count--;
+            if (active_layer >= layer_count) active_layer = layer_count - 1;
+        } else {
+            clear_layer(&layers[0], doc_width * doc_height);
+        }
+        force_composite();
+    }
+}
+
+/** Toggles layer visibility */
+W_EXPORT void w_layer_toggle(int32_t idx) {
+    init_surface_if_needed();
+    if (idx >= 0 && idx < layer_count) {
+        layers[idx].visible = !layers[idx].visible;
+        force_composite();
+    }
+}
+
+/** Sets layer opacity (0..255) */
+W_EXPORT void w_layer_opacity(int32_t idx, uint32_t opacity) {
+    init_surface_if_needed();
+    if (idx >= 0 && idx < layer_count) {
+        if (opacity > 255) opacity = 255;
+        layers[idx].opacity = (uint8_t)opacity;
+        force_composite();
+    }
+}
+
+/** Clears layer pixels */
+W_EXPORT void w_layer_clear(int32_t idx) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count) {
+        clear_layer(&layers[target], doc_width * doc_height);
+        force_composite();
+    }
+}
+
+/** Draws line primitive on active layer */
+W_EXPORT void w_draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
+    init_surface_if_needed();
+    draw_line(x0, y0, x1, y1, color);
+    force_composite();
+}
+
+/** Draws rectangle primitive on active layer */
+W_EXPORT void w_draw_rect(int x, int y, int w, int h, uint32_t color) {
+    init_surface_if_needed();
+    draw_rect(x, y, w, h, color);
+    force_composite();
+}
+
+/** Draws circle primitive on active layer */
+W_EXPORT void w_draw_circle(int cx, int cy, int r, uint32_t color) {
+    init_surface_if_needed();
+    draw_circle(cx, cy, r, color);
+    force_composite();
+}
+
+/** Draws grid pattern on active layer */
+W_EXPORT void w_draw_grid(int step, uint32_t color) {
+    init_surface_if_needed();
+    draw_grid(step, color);
+    force_composite();
+}
+
+/** Forces recomposition of surface layers */
+W_EXPORT void w_force_composite(void) {
+    init_surface_if_needed();
+    force_composite();
+}
+
+/** Renders / composites surface and returns pointer to composite buffer */
+W_EXPORT uint32_t* w_render(void) {
+    init_surface_if_needed();
     if (surface_dirty) {
         force_composite();
-    } else {
-        sync_fb();
     }
-    return UPDATE_OK;
+    return out_pixels;
 }
 
 /* =========================================================================

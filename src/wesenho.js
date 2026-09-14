@@ -1,12 +1,11 @@
 /**
  * =========================================================================
- * Wesenho - Extensible Painting & Drawing Platform (Piolho Runtime)
+ * Wesenho - Extensible Painting & Drawing Platform (Native WebAssembly)
  * Architecture:
- * - Host Actor (ID 0 / UnsafePiolho): Screen viewport, SDL window, REPL, plugin coordination.
- * - Surface Actor (ID 1 / roms/canvas.wasm): Multi-layer composition, surface resizing, drawing.
- * - Brush Plugins (plugins/brushes/*.wasm): Round, Airbrush, Pixel, Calligraphy, Smudge, etc.
- * - Filter Plugins (plugins/filters/*.wasm): Invert, Blur, Noise, Dither, Grayscale, etc.
- * - Text Protocol: All communication is passed as UTF-8 string commands over Piolho page.
+ * - Host / Screen: Viewport, SDL window, REPL, plugin coordination, command parsing.
+ * - Canvas Module (roms/canvas.wasm): Native multi-layer composition, resizing, drawing primitives.
+ * - Brush Plugins (plugins/brushes/*.wasm): Pure C math & pixel dab shaders.
+ * - Filter Plugins (plugins/filters/*.wasm): Pure C image processing kernels.
  * =========================================================================
  */
 
@@ -14,12 +13,84 @@ const sdl = require('@kmamal/sdl');
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { Piolho, UnsafePiolho, ExtensionRegistry } = require('piolho');
 const { saveImage, loadImage } = require('./image_io');
 
-const ACTOR_HOST    = 0;
-const ACTOR_SCREEN  = 0;
-const ACTOR_CANVAS  = 1;
+/**
+ * Standard Parameter IDs matching include/wesenho.h enum
+ */
+const PARAM_IDS = {
+  size: 1,
+  opacity: 2,
+  hardness: 3,
+  flow: 4,
+  spacing: 5,
+  angle: 6,
+  roundness: 7,
+  scatter: 8,
+  tolerance: 9,
+  tol: 9,
+  density: 10,
+  wetness: 11,
+  grain: 12,
+  texture_mode: 13,
+  tex_mode: 13,
+  texture_scale: 14,
+  tex_scale: 14,
+  texture_strength: 15,
+  tex_strength: 15
+};
+
+/**
+ * Native Wesenho WebAssembly Module Wrapper.
+ * Freestanding, libc-free WASM runner with direct ABI function exports.
+ */
+class WesenhoModule {
+  constructor(wasmPath, options = {}) {
+    this.wasmPath = wasmPath;
+    this.name = options.name || path.basename(wasmPath, '.wasm');
+    const wasmBytes = fs.readFileSync(wasmPath);
+    this.wasmModule = new WebAssembly.Module(wasmBytes);
+    this.instance = new WebAssembly.Instance(this.wasmModule, {
+      env: {}
+    });
+    this.exports = this.instance.exports;
+    this.memory = this.exports.memory;
+    this.layerPtr = 0;
+    this.layerByteLen = 0;
+    this.texPtr = 0;
+    this.texByteLen = 0;
+  }
+
+  setLayer(pixelsPtr, width, height) {
+    if (typeof this.exports.w_set_layer === 'function') {
+      this.exports.w_set_layer(pixelsPtr, width, height);
+    }
+  }
+
+  setTexture(pixelsPtr, width, height) {
+    if (typeof this.exports.w_set_texture === 'function') {
+      this.exports.w_set_texture(pixelsPtr, width, height);
+    }
+  }
+
+  setParam(paramId, val) {
+    if (typeof this.exports.w_brush_set_param === 'function') {
+      this.exports.w_brush_set_param(paramId, val);
+    }
+  }
+
+  stroke(state, x, y, prevX, prevY, color, eraser) {
+    if (typeof this.exports.w_brush_stroke === 'function') {
+      this.exports.w_brush_stroke(state, x, y, prevX, prevY, color >>> 0, eraser ? 1 : 0);
+    }
+  }
+
+  applyFilter(p1 = 0, p2 = 0) {
+    if (typeof this.exports.w_filter_apply === 'function') {
+      this.exports.w_filter_apply(p1, p2);
+    }
+  }
+}
 
 // Document Dimensions (Default Vertical Proportions)
 const DOC_WIDTH  = 800;
@@ -239,30 +310,16 @@ function parseColorString(str) {
   return null;
 }
 
-/**
- * Reads a null-terminated UTF-8 C string from WebAssembly Linear Memory buffer.
- * @param {WebAssembly.Memory} memory - WASM instance memory
- * @param {number} ptr - Pointer offset in memory
- * @returns {string} Decoded UTF-8 string
- */
-function readCString(memory, ptr) {
-  if (!ptr || !memory) return '';
-  const bytes = new Uint8Array(memory.buffer, ptr);
-  let len = 0;
-  while (len < 1024 && (ptr + len) < memory.buffer.byteLength && bytes[len] !== 0) len++;
-  return new TextDecoder().decode(bytes.subarray(0, len));
-}
-
 /** Formats layer list for CLI output */
 function formatLayersList(canvasActor) {
-  const count = canvasActor.instance.exports.get_layer_count();
-  const active = canvasActor.instance.exports.get_active_layer();
-  const w = canvasActor.instance.exports.get_width ? canvasActor.instance.exports.get_width() : canvasActor.instance.exports.get_canvas_width();
-  const h = canvasActor.instance.exports.get_height ? canvasActor.instance.exports.get_height() : canvasActor.instance.exports.get_canvas_height();
+  const count = canvasActor.exports.get_layer_count();
+  const active = canvasActor.exports.get_active_layer();
+  const w = canvasActor.exports.get_width ? canvasActor.exports.get_width() : canvasActor.exports.get_canvas_width();
+  const h = canvasActor.exports.get_height ? canvasActor.exports.get_height() : canvasActor.exports.get_canvas_height();
   let out = `\x1b[1mSurface (${w}x${h}) - Layers (${count}):\x1b[0m\n`;
   for (let i = 0; i < count; i++) {
-    const vis = canvasActor.instance.exports.get_layer_visible ? canvasActor.instance.exports.get_layer_visible(i) : 1;
-    const op = canvasActor.instance.exports.get_layer_opacity ? canvasActor.instance.exports.get_layer_opacity(i) : 255;
+    const vis = canvasActor.exports.get_layer_visible ? canvasActor.exports.get_layer_visible(i) : 1;
+    const op = canvasActor.exports.get_layer_opacity ? canvasActor.exports.get_layer_opacity(i) : 255;
     const opPct = Math.round((op / 255) * 100);
     const marker = (i === active) ? '\x1b[32m* [ACTIVE]\x1b[0m' : ' ';
     out += `  ${marker} [${i}] ${vis ? 'visible' : 'HIDDEN'} - opacity: ${opPct}%\n`;
@@ -355,33 +412,154 @@ class WesenhoScreenHost {
     this.activeTexture = 'paper';
 
     this.canvasActor = null;
-    this.plugins = new Map(); // name -> { type, actor }
+    this.plugins = new Map(); // name -> { type, module }
 
     this.window = null;
     this.screenBuffer = Buffer.alloc(this.windowWidth * this.windowHeight * 4);
     this.rl = null;
-
-    // Native Piolho Screen Host Actor
-    this.actor = new UnsafePiolho('screen', {
-      id: ACTOR_SCREEN,
-      immediateMessage: true,
-      actor: {
-        onMessage: (from, data) => this.handleMessage(from, data)
-      }
-    });
   }
 
   /**
-   * Dispatches a null-terminated UTF-8 text command string to the Canvas Actor (Actor ID 1),
-   * followed by an immediate layer re-composition.
-   * @param {string} cmdStr - Command text (e.g. "resize 800 600", "layer add")
+   * Syncs a parameter change across all loaded brush plugins directly via ABI.
    */
-  sendCanvasCmd(cmdStr) {
-    if (!this.canvasActor) return;
-    this.canvasActor.say(Buffer.from(cmdStr + '\0', 'utf8'), ACTOR_SCREEN);
-    if (this.canvasActor.instance && this.canvasActor.instance.exports.force_composite) {
-      this.canvasActor.instance.exports.force_composite();
+  setBrushParam(paramName, val) {
+    const pId = PARAM_IDS[paramName];
+    if (pId === undefined) return;
+    this.brushParams[paramName] = val;
+    for (const entry of this.plugins.values()) {
+      if (entry.type === 'brush') {
+        const mod = entry.module || entry.actor;
+        if (mod && typeof mod.exports.w_brush_set_param === 'function') {
+          mod.exports.w_brush_set_param(pId, Math.floor(val));
+        }
+      }
     }
+  }
+
+  /**
+   * Syncs all brush parameters to a specific brush plugin.
+   */
+  syncBrushParams(plugin) {
+    if (!plugin || typeof plugin.exports.w_brush_set_param !== 'function') return;
+    for (const [key, val] of Object.entries(this.brushParams)) {
+      const pId = PARAM_IDS[key];
+      if (pId !== undefined) {
+        plugin.exports.w_brush_set_param(pId, Math.floor(val));
+      }
+    }
+  }
+
+  /**
+   * Helper to ensure WASM linear memory has enough pages allocated.
+   */
+  ensureMemory(plugin, requiredBytes) {
+    if (!plugin || !plugin.memory) return;
+    if (plugin.memory.buffer.byteLength < requiredBytes) {
+      const neededPages = Math.ceil((requiredBytes - plugin.memory.buffer.byteLength) / 65536);
+      plugin.memory.grow(neededPages);
+    }
+  }
+
+  /**
+   * Dispatches a stroke directly to the active brush plugin.
+   */
+  sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
+    const brushEntry = this.plugins.get(this.activeBrush);
+    if (!brushEntry || !this.canvasActor) return;
+    const plugin = brushEntry.module || brushEntry.actor;
+    if (!plugin || typeof plugin.exports.w_brush_stroke !== 'function') return;
+
+    const cw = this.canvasActor.exports.get_canvas_width();
+    const ch = this.canvasActor.exports.get_canvas_height();
+    const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
+    if (!pixPtr || cw === 0 || ch === 0) return;
+
+    const byteLen = cw * ch * 4;
+    if (!plugin.layerPtr || plugin.layerByteLen < byteLen) {
+      plugin.layerPtr = 1048576; // 1MB linear memory offset
+      plugin.layerByteLen = byteLen;
+    }
+
+    this.ensureMemory(plugin, plugin.layerPtr + byteLen);
+
+    // Copy canvas layer into plugin memory
+    new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen)
+      .set(new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen));
+
+    plugin.setLayer(plugin.layerPtr, cw, ch);
+
+    const tex = this.getActiveTexture();
+    if (tex && tex.width && tex.height && tex.data) {
+      const texByteLen = tex.width * tex.height * 4;
+      if (!plugin.texPtr || plugin.texByteLen < texByteLen) {
+        plugin.texPtr = plugin.layerPtr + Math.max(byteLen, 4096 * 4096 * 4);
+        plugin.texByteLen = texByteLen;
+      }
+      this.ensureMemory(plugin, plugin.texPtr + texByteLen);
+      new Uint8Array(plugin.memory.buffer, plugin.texPtr, texByteLen).set(tex.data);
+      plugin.setTexture(plugin.texPtr, tex.width, tex.height);
+    }
+
+    const col = (color !== undefined) ? color : this.currentColor;
+    plugin.exports.w_brush_stroke(
+      state,
+      Math.floor(x),
+      Math.floor(y),
+      Math.floor(prev_x),
+      Math.floor(prev_y),
+      col >>> 0,
+      is_eraser ? 1 : 0
+    );
+
+    // Copy modified pixels back to canvas
+    new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen)
+      .set(new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen));
+
+    if (this.canvasActor.exports.w_force_composite) {
+      this.canvasActor.exports.w_force_composite();
+    } else if (this.canvasActor.exports.force_composite) {
+      this.canvasActor.exports.force_composite();
+    }
+  }
+
+  /**
+   * Applies a filter plugin directly to the canvas active layer.
+   */
+  applyFilter(fname, p1 = 0, p2 = 0) {
+    const filterEntry = this.plugins.get(fname);
+    if (!filterEntry || !this.canvasActor) return false;
+    const plugin = filterEntry.module || filterEntry.actor;
+    if (!plugin || typeof plugin.exports.w_filter_apply !== 'function') return false;
+
+    const cw = this.canvasActor.exports.get_canvas_width();
+    const ch = this.canvasActor.exports.get_canvas_height();
+    const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
+    if (!pixPtr || cw === 0 || ch === 0) return false;
+
+    const byteLen = cw * ch * 4;
+    if (!plugin.layerPtr || plugin.layerByteLen < byteLen) {
+      plugin.layerPtr = 1048576; // 1MB
+      plugin.layerByteLen = byteLen;
+    }
+
+    this.ensureMemory(plugin, plugin.layerPtr + byteLen);
+
+    new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen)
+      .set(new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen));
+
+    plugin.setLayer(plugin.layerPtr, cw, ch);
+
+    plugin.exports.w_filter_apply(p1, p2);
+
+    new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen)
+      .set(new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen));
+
+    if (this.canvasActor.exports.w_force_composite) {
+      this.canvasActor.exports.w_force_composite();
+    } else if (this.canvasActor.exports.force_composite) {
+      this.canvasActor.exports.force_composite();
+    }
+    return true;
   }
 
   /**
@@ -417,10 +595,10 @@ class WesenhoScreenHost {
    */
   convertLayerToTexture(layerIdx, name) {
     if (!this.canvasActor || !this.canvasActor.instance) return false;
-    const w = this.canvasActor.instance.exports.get_canvas_width();
-    const h = this.canvasActor.instance.exports.get_canvas_height();
-    const targetIdx = (layerIdx >= 0) ? layerIdx : this.canvasActor.instance.exports.get_active_layer();
-    const pixPtr = this.canvasActor.instance.exports.get_layer_pixels(targetIdx);
+    const w = this.canvasActor.exports.get_canvas_width();
+    const h = this.canvasActor.exports.get_canvas_height();
+    const targetIdx = (layerIdx >= 0) ? layerIdx : this.canvasActor.exports.get_active_layer();
+    const pixPtr = this.canvasActor.exports.get_layer_pixels(targetIdx);
     if (!pixPtr || w === 0 || h === 0) return false;
 
     const byteLen = w * h * 4;
@@ -441,11 +619,11 @@ class WesenhoScreenHost {
    */
   saveCanvasOrLayer(filePath, target) {
     if (!this.canvasActor || !this.canvasActor.instance) return { ok: false, error: 'Canvas not found' };
-    const w = this.canvasActor.instance.exports.get_canvas_width();
-    const h = this.canvasActor.instance.exports.get_canvas_height();
+    const w = this.canvasActor.exports.get_canvas_width();
+    const h = this.canvasActor.exports.get_canvas_height();
     const pixPtr = (target === 1)
-      ? this.canvasActor.instance.exports.get_active_layer_pixels()
-      : this.canvasActor.instance.exports.get_composite_pixels();
+      ? this.canvasActor.exports.get_active_layer_pixels()
+      : this.canvasActor.exports.get_composite_pixels();
 
     if (!pixPtr || w === 0 || h === 0) return { ok: false, error: 'Empty canvas' };
 
@@ -480,14 +658,13 @@ class WesenhoScreenHost {
 
       if (!this.canvasActor || !this.canvasActor.instance) return { ok: false, error: 'Canvas not found' };
 
-      const cw = this.canvasActor.instance.exports.get_canvas_width();
-      const ch = this.canvasActor.instance.exports.get_canvas_height();
-
       if (target === 1) {
-        this.sendCanvasCmd('layer add');
+        this.canvasActor.exports.w_layer_add();
       }
 
-      const pixPtr = this.canvasActor.instance.exports.get_active_layer_pixels();
+      const cw = this.canvasActor.exports.get_canvas_width();
+      const ch = this.canvasActor.exports.get_canvas_height();
+      const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
       if (!pixPtr) return { ok: false, error: 'No active layer' };
 
       const canvasBytes = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, cw * ch * 4);
@@ -504,8 +681,10 @@ class WesenhoScreenHost {
         canvasBytes.set(img.data.subarray(srcRow, srcRow + copyW * 4), dstRow);
       }
 
-      if (this.canvasActor.instance.exports.force_composite) {
-        this.canvasActor.instance.exports.force_composite();
+      if (this.canvasActor.exports.w_force_composite) {
+        this.canvasActor.exports.w_force_composite();
+      } else if (this.canvasActor.exports.force_composite) {
+        this.canvasActor.exports.force_composite();
       }
 
       return { ok: true, msg: `image '${filePath}' loaded (${img.width}x${img.height})` };
@@ -515,43 +694,8 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Dispatches a stroke text command to the currently active brush plugin actor.
-   * Format: `stroke <state> <x> <y> <prev_x> <prev_y> <color> <is_eraser>`
-   */
-  sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
-    const brushEntry = this.plugins.get(this.activeBrush);
-    if (!brushEntry || !brushEntry.actor) return;
-
-    const col = (color !== undefined) ? color : this.currentColor;
-    const str = `stroke ${state} ${Math.floor(x)} ${Math.floor(y)} ${Math.floor(prev_x)} ${Math.floor(prev_y)} ${col} ${is_eraser ? 1 : 0}\0`;
-    const strokeBuf = Buffer.from(str, 'utf8');
-
-    brushEntry.actor.say(strokeBuf, ACTOR_CANVAS);
-  }
-
-  /**
-   * Inbound message handler for the Screen Host Piolho actor.
-   * Decodes incoming UTF-8 string messages and executes command.
-   */
-  handleMessage(from, data) {
-    if (!data) return;
-    const buffer = Buffer.isBuffer(data) ? data : (data instanceof Uint8Array ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : Buffer.from(String(data)));
-
-    let str = '';
-    for (let i = 0; i < buffer.length; i++) {
-      if (buffer[i] === 0) break;
-      str += String.fromCharCode(buffer[i]);
-    }
-    str = str.trim();
-    if (str.length > 0) {
-      this.executeCommand(str, from);
-    }
-  }
-
-  /**
-   * Main text command interpreter for interactive terminal REPL and actor messages.
-   * Handles entity queries, layer manipulation, brush configuration, filters,
-   * image file I/O, drawing primitives, and math evaluation.
+   * Main text command interpreter for interactive terminal REPL and script invocation.
+   * Parses text input into direct WASM function calls on canvas, brushes, and filters.
    * @param {string} raw - Command line string
    * @param {string|number} [from='repl'] - Sender identifier
    */
@@ -630,10 +774,10 @@ class WesenhoScreenHost {
   \x1b[36mTools & Colors:\x1b[0m
     set color <#hex|r g b|name>          Set drawing color (e.g. #ff0000, red, 255 0 0)
     set tool <brush|eraser>              Set active tool
-    draw line <x0> <y0> <x1> <y1>        Draw line primitive
-    draw rect <x> <y> <w> <h>            Draw rectangle primitive
-    draw circle <x> <y> <r>              Draw circle primitive
-    draw grid <step>                     Draw grid pattern
+    draw line <x0> <y0> <x1> <y1> [col]  Draw line primitive
+    draw rect <x> <y> <w> <h> [col]      Draw rectangle primitive
+    draw circle <x> <y> <r> [col]        Draw circle primitive
+    draw grid <step> [col]               Draw grid pattern
 
   \x1b[36mSystem Commands:\x1b[0m
     status / info                        Show active status overview
@@ -672,15 +816,10 @@ class WesenhoScreenHost {
       const cat = (tokens[1] || '').toLowerCase();
       const prop = (tokens[2] || '').toLowerCase();
 
-      const activeC = this.canvasActor.instance.exports.get_active_canvas();
-      const cCount = this.canvasActor.instance.exports.get_canvas_count();
-      const cw = this.canvasActor.instance.exports.get_canvas_width();
-      const ch = this.canvasActor.instance.exports.get_canvas_height();
-      const cNamePtr = this.canvasActor.instance.exports.get_canvas_name ? this.canvasActor.instance.exports.get_canvas_name(activeC) : 0;
-      const cName = readCString(this.canvasActor.memory, cNamePtr) || `canvas_${activeC}`;
-
-      const activeL = this.canvasActor.instance.exports.get_active_layer();
-      const lCount = this.canvasActor.instance.exports.get_layer_count();
+      const cw = this.canvasActor.exports.get_canvas_width();
+      const ch = this.canvasActor.exports.get_canvas_height();
+      const activeL = this.canvasActor.exports.get_active_layer();
+      const lCount = this.canvasActor.exports.get_layer_count();
 
       if (cat === 'surface' || cat === 'size' || cat === 'canvas' || cat === 'resolution') {
         if (prop === 'width' || prop === 'w' || cat === 'width') {
@@ -697,8 +836,8 @@ class WesenhoScreenHost {
 
       if (cat === 'layer' || cat === 'layers') {
         const targetId = !isNaN(parseInt(tokens[3] || tokens[2], 10)) ? parseInt(tokens[3] || tokens[2], 10) : activeL;
-        const vis = this.canvasActor.instance.exports.get_layer_visible ? this.canvasActor.instance.exports.get_layer_visible(targetId) : 1;
-        const op = this.canvasActor.instance.exports.get_layer_opacity ? this.canvasActor.instance.exports.get_layer_opacity(targetId) : 255;
+        const vis = this.canvasActor.exports.get_layer_visible ? this.canvasActor.exports.get_layer_visible(targetId) : 1;
+        const op = this.canvasActor.exports.get_layer_opacity ? this.canvasActor.exports.get_layer_opacity(targetId) : 255;
         const opPct = Math.round((op / 255) * 100);
 
         if (prop === 'id' || prop === 'idx' || prop === 'active') {
@@ -780,10 +919,10 @@ class WesenhoScreenHost {
 
     // 4. STATUS / INFO
     if (cmd === 'status' || cmd === 'info') {
-      const activeL = this.canvasActor.instance.exports.get_active_layer();
-      const lCount = this.canvasActor.instance.exports.get_layer_count();
-      const cw = this.canvasActor.instance.exports.get_width ? this.canvasActor.instance.exports.get_width() : this.canvasActor.instance.exports.get_canvas_width();
-      const ch = this.canvasActor.instance.exports.get_height ? this.canvasActor.instance.exports.get_height() : this.canvasActor.instance.exports.get_canvas_height();
+      const activeL = this.canvasActor.exports.get_active_layer();
+      const lCount = this.canvasActor.exports.get_layer_count();
+      const cw = this.canvasActor.exports.get_width ? this.canvasActor.exports.get_width() : this.canvasActor.exports.get_canvas_width();
+      const ch = this.canvasActor.exports.get_height ? this.canvasActor.exports.get_height() : this.canvasActor.exports.get_canvas_height();
 
       console.log(`\x1b[1mStatus:\x1b[0m
   Surface: ${cw}x${ch}
@@ -808,7 +947,7 @@ class WesenhoScreenHost {
       const w = parseInt(cmd === 'resize' ? tokens[1] : (tokens[1].toLowerCase() === 'canvas' ? tokens[3] : tokens[2]), 10);
       const h = parseInt(cmd === 'resize' ? tokens[2] : (tokens[1].toLowerCase() === 'canvas' ? tokens[4] : tokens[3]), 10);
       if (w >= 16 && h >= 16 && w <= 4096 && h <= 4096) {
-        this.sendCanvasCmd(`resize ${w} ${h}`);
+        this.canvasActor.exports.w_resize(w, h);
         this.sendConsoleLog(`surface resized to ${w}x${h}`);
       } else {
         this.sendConsoleLog('err: invalid dimensions (min 16x16, max 4096x4096)', 0xFFFF5555);
@@ -820,17 +959,17 @@ class WesenhoScreenHost {
       const sub = tokens[1].toLowerCase();
       if ((sub === 'width' || sub === 'w') && tokens[2]) {
         const w = parseInt(tokens[2], 10);
-        const h = this.canvasActor.instance.exports.get_height ? this.canvasActor.instance.exports.get_height() : this.canvasActor.instance.exports.get_canvas_height();
+        const h = this.canvasActor.exports.get_height ? this.canvasActor.exports.get_height() : this.canvasActor.exports.get_canvas_height();
         if (w >= 16 && w <= 4096) {
-          this.sendCanvasCmd(`resize ${w} ${h}`);
+          this.canvasActor.exports.w_resize(w, h);
           this.sendConsoleLog(`width updated to ${w}`);
         }
         return;
       } else if ((sub === 'height' || sub === 'h') && tokens[2]) {
-        const w = this.canvasActor.instance.exports.get_width ? this.canvasActor.instance.exports.get_width() : this.canvasActor.instance.exports.get_canvas_width();
+        const w = this.canvasActor.exports.get_width ? this.canvasActor.exports.get_width() : this.canvasActor.exports.get_canvas_width();
         const h = parseInt(tokens[2], 10);
         if (h >= 16 && h <= 4096) {
-          this.sendCanvasCmd(`resize ${w} ${h}`);
+          this.canvasActor.exports.w_resize(w, h);
           this.sendConsoleLog(`height updated to ${h}`);
         }
         return;
@@ -838,47 +977,51 @@ class WesenhoScreenHost {
     }
 
     // 7. LAYER COMMANDS
-    if (cmd === 'new' && tokens[1] && tokens[1].toLowerCase() === 'layer') {
-      this.sendCanvasCmd('layer add');
-      this.sendConsoleLog('new layer added');
+    if ((cmd === 'new' && tokens[1] && tokens[1].toLowerCase() === 'layer') || (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'add')) {
+      const idx = this.canvasActor.exports.w_layer_add();
+      this.sendConsoleLog(`new layer [${idx}] added`);
       return;
     }
 
     if (((cmd === 'select' || cmd === 'set') && tokens[1] && tokens[1].toLowerCase() === 'layer' && tokens[2]) ||
-        (cmd === 'layer' && tokens[1] && !isNaN(parseInt(tokens[1], 10)))) {
-      const id = parseInt(cmd === 'layer' ? tokens[1] : tokens[2], 10);
-      this.sendCanvasCmd(`layer select ${id}`);
+        (cmd === 'layer' && (tokens[1] && (tokens[1].toLowerCase() === 'select' || !isNaN(parseInt(tokens[1], 10)))))) {
+      const id = parseInt((cmd === 'layer' && tokens[1].toLowerCase() === 'select') ? tokens[2] : (cmd === 'layer' ? tokens[1] : tokens[2]), 10);
+      this.canvasActor.exports.w_layer_select(id);
       this.sendConsoleLog(`selected layer [${id}]`);
       return;
     }
 
-    if ((cmd === 'delete' || cmd === 'remove') && tokens[1] && tokens[1].toLowerCase() === 'layer') {
-      const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.instance.exports.get_active_layer();
-      this.sendCanvasCmd(`layer delete ${id}`);
+    if (((cmd === 'delete' || cmd === 'remove') && tokens[1] && tokens[1].toLowerCase() === 'layer') ||
+        (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'delete')) {
+      const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.exports.get_active_layer();
+      this.canvasActor.exports.w_layer_delete(id);
       this.sendConsoleLog(`deleted layer [${id}]`);
       return;
     }
 
-    if ((cmd === 'toggle' || cmd === 'hide' || cmd === 'show') && tokens[1] && tokens[1].toLowerCase() === 'layer') {
-      const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.instance.exports.get_active_layer();
-      this.sendCanvasCmd(`layer toggle ${id}`);
+    if (((cmd === 'toggle' || cmd === 'hide' || cmd === 'show') && tokens[1] && tokens[1].toLowerCase() === 'layer') ||
+        (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'toggle')) {
+      const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.exports.get_active_layer();
+      this.canvasActor.exports.w_layer_toggle(id);
       this.sendConsoleLog(`toggled layer [${id}] visibility`);
       return;
     }
 
     if ((cmd === 'opacity' && tokens[1] && tokens[1].toLowerCase() === 'layer') ||
+        (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'opacity') ||
         (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'layer' && tokens[2] && tokens[2].toLowerCase() === 'opacity')) {
-      const id = (cmd === 'opacity') ? parseInt(tokens[2], 10) : this.canvasActor.instance.exports.get_active_layer();
-      const val = parseInt((cmd === 'opacity') ? tokens[3] : tokens[3], 10);
+      const id = (cmd === 'opacity' || (cmd === 'layer' && tokens[1] === 'opacity')) ? parseInt(tokens[2], 10) : this.canvasActor.exports.get_active_layer();
+      const val = parseInt((cmd === 'opacity' || (cmd === 'layer' && tokens[1] === 'opacity')) ? tokens[3] : tokens[3], 10);
       if (!isNaN(val)) {
-        this.sendCanvasCmd(`layer opacity ${id} ${val}`);
+        const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
+        this.canvasActor.exports.w_layer_opacity(id, op255);
         this.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
       }
       return;
     }
 
-    if (cmd === 'clear' || (cmd === 'clear' && tokens[1] && tokens[1].toLowerCase() === 'layer')) {
-      this.sendCanvasCmd('layer clear');
+    if (cmd === 'clear' || (cmd === 'clear' && tokens[1] && tokens[1].toLowerCase() === 'layer') || (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'clear')) {
+      this.canvasActor.exports.w_layer_clear(-1);
       this.sendConsoleLog('active layer cleared');
       return;
     }
@@ -888,21 +1031,9 @@ class WesenhoScreenHost {
       const sub = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
       const val = (cmd === 'set' ? tokens[3] : tokens[2]);
 
-      const paramMap = {
-        size: 1, opacity: 2, hardness: 3, flow: 4, spacing: 5,
-        angle: 6, roundness: 7, scatter: 8, tolerance: 9, density: 10,
-        wetness: 11, grain: 12, texture_mode: 13, texture_scale: 14, texture_strength: 15
-      };
-
-      if (paramMap[sub] !== undefined && val !== undefined) {
+      if (PARAM_IDS[sub] !== undefined && val !== undefined) {
         const paramVal = parseFloat(val);
-        this.brushParams[sub] = paramVal;
-        const str = `set ${sub} ${paramVal}\0`;
-        const buf = Buffer.from(str, 'utf8');
-
-        for (const entry of this.plugins.values()) {
-          if (entry.type === 'brush') entry.actor.say(buf, ACTOR_SCREEN);
-        }
+        this.setBrushParam(sub, paramVal);
         this.sendConsoleLog(`brush ${sub} set to ${val}`);
         return;
       } else {
@@ -946,11 +1077,8 @@ class WesenhoScreenHost {
       const p1 = parseInt(tokens[2], 10) || 0;
       const p2 = parseInt(tokens[3], 10) || 0;
 
-      const filterEntry = this.plugins.get(fname);
-      if (filterEntry && filterEntry.actor) {
-        const str = `filter ${fname} ${p1} ${p2}\0`;
-        const buf = Buffer.from(str, 'utf8');
-        filterEntry.actor.say(buf, ACTOR_SCREEN);
+      const ok = this.applyFilter(fname, p1, p2);
+      if (ok) {
         this.sendConsoleLog(`filter '${fname}' applied`);
       } else {
         this.sendConsoleLog(`err: filter '${fname}' not found`, 0xFFFF5555);
@@ -1008,7 +1136,6 @@ class WesenhoScreenHost {
       const parsed = parseColorString(colStr);
       if (parsed !== null) {
         this.currentColor = parsed;
-        this.sendCanvasCmd(`color set 0x${parsed.toString(16)}`);
         this.sendConsoleLog(`color set to 0x${parsed.toString(16).padStart(8, '0')}`);
       } else {
         this.sendConsoleLog(`err: unknown color '${colStr}'`, 0xFFFF5555);
@@ -1020,7 +1147,6 @@ class WesenhoScreenHost {
         (cmd === 'tool' && tokens[1])) {
       const t = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
       this.currentTool = (t === 'eraser' || t === 'erase') ? 1 : 0;
-      this.sendCanvasCmd(`tool set ${this.currentTool === 1 ? 'eraser' : 'brush'}`);
       this.sendConsoleLog(`tool set to ${this.currentTool === 1 ? 'eraser' : 'brush'}`);
       return;
     }
@@ -1033,7 +1159,8 @@ class WesenhoScreenHost {
         const y0 = parseInt(tokens[3], 10);
         const x1 = parseInt(tokens[4], 10);
         const y1 = parseInt(tokens[5], 10);
-        this.sendCanvasCmd(`draw line ${x0} ${y0} ${x1} ${y1}`);
+        const col = tokens[6] ? parseColorString(tokens[6]) : this.currentColor;
+        this.canvasActor.exports.w_draw_line(x0, y0, x1, y1, col !== null ? col : this.currentColor);
         this.sendConsoleLog(`drew line from (${x0},${y0}) to (${x1},${y1})`);
         return;
       }
@@ -1042,7 +1169,8 @@ class WesenhoScreenHost {
         const y = parseInt(tokens[3], 10);
         const w = parseInt(tokens[4], 10);
         const h = parseInt(tokens[5], 10);
-        this.sendCanvasCmd(`draw rect ${x} ${y} ${w} ${h}`);
+        const col = tokens[6] ? parseColorString(tokens[6]) : this.currentColor;
+        this.canvasActor.exports.w_draw_rect(x, y, w, h, col !== null ? col : this.currentColor);
         this.sendConsoleLog(`drew rect at (${x},${y}) size ${w}x${h}`);
         return;
       }
@@ -1050,13 +1178,15 @@ class WesenhoScreenHost {
         const cx = parseInt(tokens[2], 10);
         const cy = parseInt(tokens[3], 10);
         const r = parseInt(tokens[4], 10);
-        this.sendCanvasCmd(`draw circle ${cx} ${cy} ${r}`);
+        const col = tokens[5] ? parseColorString(tokens[5]) : this.currentColor;
+        this.canvasActor.exports.w_draw_circle(cx, cy, r, col !== null ? col : this.currentColor);
         this.sendConsoleLog(`drew circle at (${cx},${cy}) radius ${r}`);
         return;
       }
       if (shape === 'grid' && tokens.length >= 3) {
         const step = parseInt(tokens[2], 10);
-        this.sendCanvasCmd(`draw grid ${step}`);
+        const col = tokens[3] ? parseColorString(tokens[3]) : this.currentColor;
+        this.canvasActor.exports.w_draw_grid(step, col !== null ? col : this.currentColor);
         this.sendConsoleLog(`drew grid with step ${step}`);
         return;
       }
@@ -1177,7 +1307,7 @@ class WesenhoScreenHost {
       prompt: '\x1b[36mwesenho>\x1b[0m '
     });
 
-    console.log('\x1b[1;32m=== Wesenho Interactive Console Ready (Piolho Runtime) ===\x1b[0m');
+    console.log('\x1b[1;32m=== Wesenho Interactive Console Ready (Native WebAssembly) ===\x1b[0m');
     console.log('Type \x1b[33mhelp\x1b[0m for command list. Mouse: Left=Draw, Right=Erase, Middle=Pan, Wheel=Zoom\n');
     this.rl.prompt();
 
@@ -1189,20 +1319,22 @@ class WesenhoScreenHost {
 
   /**
    * Main render pass:
-   * 1. Calls update() on Canvas Actor to composite visible layers.
+   * 1. Renders composite surface pixels via w_render().
    * 2. Clears the host window framebuffer with dark background (0x18).
    * 3. Projects composite surface pixels to screen using current pan offset and zoom scale.
    * 4. Renders output buffer to SDL window.
    */
   renderFrame() {
     if (!this.canvasActor || !this.canvasActor.instance) return;
-    this.canvasActor.instance.exports.update();
+    if (this.canvasActor.exports && this.canvasActor.exports.w_render) {
+      this.canvasActor.exports.w_render();
+    }
 
     this.screenBuffer.fill(0x18);
 
-    const cw = this.canvasActor.instance.exports.get_canvas_width();
-    const ch = this.canvasActor.instance.exports.get_canvas_height();
-    const pixPtr = this.canvasActor.instance.exports.get_composite_pixels();
+    const cw = this.canvasActor.exports.get_canvas_width();
+    const ch = this.canvasActor.exports.get_canvas_height();
+    const pixPtr = this.canvasActor.exports.get_composite_pixels();
 
     if (pixPtr && cw > 0 && ch > 0) {
       const canvasPixels = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, cw * ch * 4);
@@ -1277,111 +1409,17 @@ function discoverModules(baseDir) {
 
 /**
  * Application Entry Point:
- * Initializes Piolho extension registry, loads ROMs and plugins,
- * wires inter-actor messaging, and starts the render loop.
+ * Loads Canvas ROM and plugins via WesenhoModule and starts the render loop.
  */
 async function main() {
   const host = new WesenhoScreenHost();
-  const registry = new ExtensionRegistry();
 
-  // Piolho Extension: std:framebuffer
-  registry.register({
-    name: ['std:framebuffer', 'framebuffer'],
-    onRequest(worker, wasmHost, name) {
-      let state = wasmHost.extState.get('std:framebuffer');
-      if (!state) {
-        const fbPtr = worker.alloc(12, 4);
-        state = { fbPtr };
-        wasmHost.extState.set('std:framebuffer', state);
-      }
-      return state.fbPtr;
-    }
-  });
-
-  // Piolho Extension: canvas:layer (shares active canvas layer buffer with guest actors)
-  registry.register({
-    name: ['canvas:layer', 'canvas:active_layer', 'std:canvas'],
-    onRequest(worker, wasmHost, name) {
-      if (!host.canvasActor || !host.canvasActor.instance) return 0;
-      const cw = host.canvasActor.instance.exports.get_canvas_width();
-      const ch = host.canvasActor.instance.exports.get_canvas_height();
-      const pixPtr = host.canvasActor.instance.exports.get_active_layer_pixels();
-      if (!pixPtr || cw === 0 || ch === 0) return 0;
-
-      const byteLen = cw * ch * 4;
-      let state = wasmHost.extState.get('canvas:layer');
-      if (!state || state.byteLen < byteLen) {
-        const fbPtr = worker.alloc(12, 4);
-        const pixCopyPtr = worker.alloc(byteLen, 4);
-        state = { fbPtr, pixCopyPtr, byteLen, cw, ch };
-        wasmHost.extState.set('canvas:layer', state);
-      }
-
-      const view = new DataView(worker.memory.buffer);
-      view.setUint32(state.fbPtr + 0, cw, true);
-      view.setUint32(state.fbPtr + 4, ch, true);
-      view.setUint32(state.fbPtr + 8, state.pixCopyPtr, true);
-
-      new Uint8Array(worker.memory.buffer, state.pixCopyPtr, byteLen)
-        .set(new Uint8Array(host.canvasActor.memory.buffer, pixPtr, byteLen));
-
-      state.dirty = true;
-      return state.fbPtr;
-    },
-    onAfterUpdate(worker, wasmHost) {
-      const state = wasmHost.extState.get('canvas:layer');
-      if (state && state.dirty && host.canvasActor && host.canvasActor.instance) {
-        const pixPtr = host.canvasActor.instance.exports.get_active_layer_pixels();
-        if (pixPtr) {
-          new Uint8Array(host.canvasActor.memory.buffer, pixPtr, state.byteLen)
-            .set(new Uint8Array(worker.memory.buffer, state.pixCopyPtr, state.byteLen));
-          if (host.canvasActor.instance.exports.force_composite) {
-            host.canvasActor.instance.exports.force_composite();
-          }
-        }
-        state.dirty = false;
-      }
-    }
-  });
-
-  // Piolho Extension: brush:texture (shares procedural/loaded texture with brush actors)
-  registry.register({
-    name: ['brush:texture', 'std:texture', 'texture'],
-    onRequest(worker, wasmHost, name) {
-      const tex = host.getActiveTexture();
-      if (!tex || !tex.width || !tex.height || !tex.data) return 0;
-
-      const byteLen = tex.width * tex.height * 4;
-      let state = wasmHost.extState.get('brush:texture');
-      if (!state || state.byteLen < byteLen) {
-        const fbPtr = worker.alloc(12, 4);
-        const pixPtr = worker.alloc(byteLen, 4);
-        state = { fbPtr, pixPtr, byteLen };
-        wasmHost.extState.set('brush:texture', state);
-      }
-
-      const view = new DataView(worker.memory.buffer);
-      view.setUint32(state.fbPtr + 0, tex.width, true);
-      view.setUint32(state.fbPtr + 4, tex.height, true);
-      view.setUint32(state.fbPtr + 8, state.pixPtr, true);
-
-      new Uint8Array(worker.memory.buffer, state.pixPtr, byteLen).set(tex.data);
-      return state.fbPtr;
-    }
-  });
-
-  // Canvas WASM Actor (Piolho Host)
-  host.canvasActor = new Piolho(path.resolve(__dirname, '../roms/canvas.wasm'), {
-    id: ACTOR_CANVAS,
-    name: 'canvas',
-    threaded: false,
-    extensions: registry
-  });
-  await host.canvasActor.init();
-  host.canvasActor.instance.exports.update();
-
-  // Connect Screen Actor <-> Canvas Actor
-  host.actor.connect(host.canvasActor);
+  // Canvas WASM Module
+  const canvasWasmPath = path.resolve(__dirname, '../roms/canvas.wasm');
+  host.canvasActor = new WesenhoModule(canvasWasmPath, { name: 'canvas' });
+  if (host.canvasActor.exports.w_init) {
+    host.canvasActor.exports.w_init(DOC_WIDTH, DOC_HEIGHT);
+  }
 
   // Discover & Load WASM Plugins (Brushes & Filters)
   const moduleConfigs = discoverModules(path.resolve(__dirname, '..'));
@@ -1389,47 +1427,12 @@ async function main() {
     const fullPath = path.resolve(__dirname, '..', mod.wasmPath);
     if (!fs.existsSync(fullPath)) continue;
 
-    const pluginActor = new Piolho(fullPath, {
-      id: mod.id,
-      name: mod.name,
-      threaded: false,
-      extensions: registry
-    });
-    await pluginActor.init();
-
-    // Hook say(ACTOR_HOST, ...) from plugin to screen actor
-    pluginActor.on('say', (payload, reply, target, fromName) => {
-      host.actor.say(payload, fromName);
-    });
-
-    // When filter/brush modifies layer during on_message, sync layer back to canvas
-    const origSay = pluginActor.say.bind(pluginActor);
-    pluginActor.say = (data, from) => {
-      const res = origSay(data, from);
-      const state = pluginActor.extState.get('canvas:layer');
-      if (state && state.dirty && host.canvasActor && host.canvasActor.instance) {
-        const pixPtr = host.canvasActor.instance.exports.get_active_layer_pixels();
-        if (pixPtr) {
-          new Uint8Array(host.canvasActor.memory.buffer, pixPtr, state.byteLen)
-            .set(new Uint8Array(pluginActor.memory.buffer, state.pixCopyPtr, state.byteLen));
-          if (host.canvasActor.instance.exports.force_composite) {
-            host.canvasActor.instance.exports.force_composite();
-          }
-        }
-        state.dirty = false;
-      }
-      return res;
-    };
-
-    host.plugins.set(mod.name, { type: mod.type, actor: pluginActor });
-    host.actor.connect(pluginActor);
-    host.canvasActor.connect(pluginActor);
+    const pluginModule = new WesenhoModule(fullPath, { name: mod.name });
+    if (mod.type === 'brush') {
+      host.syncBrushParams(pluginModule);
+    }
+    host.plugins.set(mod.name, { type: mod.type, module: pluginModule, actor: pluginModule });
   }
-
-  // Hook say from canvas actor to screen actor
-  host.canvasActor.on('say', (payload, reply, target, fromName) => {
-    host.actor.say(payload, fromName);
-  });
 
   // Initialize SDL window & REPL
   host.initWindow();
@@ -1444,5 +1447,15 @@ async function main() {
   frameLoop();
 }
 
-main().catch(console.error);
+if (require.main === module) {
+  main().catch(console.error);
+}
 
+module.exports = {
+  WesenhoModule,
+  WesenhoScreenHost,
+  PARAM_IDS,
+  evaluateMath,
+  parseColorString,
+  createProceduralTextures
+};
