@@ -1075,6 +1075,24 @@ async function main() {
   bindSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', 'set texture_rotate', '°');
   bindSlider('ui-slider-tex-contrast', 'ui-val-tex-contrast', 'set texture_contrast', '%');
 
+  // Active Layer Opacity slider (Photoshop style)
+  const activeLayerOp = document.getElementById('ui-active-layer-op');
+  const activeLayerOpVal = document.getElementById('ui-active-layer-op-val');
+  if (activeLayerOp) {
+    activeLayerOp.addEventListener('input', () => {
+      if (activeLayerOpVal) activeLayerOpVal.textContent = activeLayerOp.value + '%';
+      const curActive = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_active_layer)
+        ? host.canvasActor.exports.get_active_layer() : 0;
+      const opCell = document.getElementById(`layer-op-text-${curActive}`);
+      if (opCell) opCell.textContent = activeLayerOp.value + '%';
+    });
+    activeLayerOp.addEventListener('change', () => {
+      const curActive = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_active_layer)
+        ? host.canvasActor.exports.get_active_layer() : 0;
+      runCmd(`opacity layer ${curActive} ${activeLayerOp.value}`);
+    });
+  }
+
   // Tip Shape & Texture selectors
   const shapeSel = document.getElementById('ui-select-shape');
   if (shapeSel) {
@@ -1584,7 +1602,16 @@ async function main() {
       texSel.value = activeTex;
     }
 
-    // Render Layers List Cards
+    // Sync active layer opacity slider (Photoshop style)
+    const curActiveOp = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_opacity)
+      ? host.canvasActor.exports.get_layer_opacity(activeDraw) : 255;
+    const curActivePct = Math.round((curActiveOp / 255) * 100);
+    if (activeLayerOp && document.activeElement !== activeLayerOp) {
+      activeLayerOp.value = curActivePct;
+      if (activeLayerOpVal) activeLayerOpVal.textContent = curActivePct + '%';
+    }
+
+    // Render Layers List (Photoshop-like single-row grid)
     const layersList = document.getElementById('ui-layers-list');
     if (layersList) {
       layersList.innerHTML = '';
@@ -1606,162 +1633,95 @@ async function main() {
         const isShape = (i === shapeId);
         const isTex = (name === activeTex);
 
-        const card = document.createElement('div');
-        card.className = 'ui-layer-card' + (isDraw ? ' active-draw' : '');
+        const row = document.createElement('div');
+        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '');
+        row.title = `[${i}] ${name} (${w}×${h}) - clique para desenhar nesta camada`;
 
-        // Header: title + badges + quick actions (vis, del)
-        const header = document.createElement('div');
-        header.className = 'layer-card-header';
+        // Row click selects layer
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('button')) return;
+          runCmd(`layer select ${i}`);
+        });
 
-        const title = document.createElement('span');
-        title.className = 'layer-card-title';
-        title.textContent = `[${i}] ${name} (${w}x${h})`;
-        title.title = `Click to select drawing layer [${i}]`;
-        title.addEventListener('click', () => runCmd(`layer select ${i}`));
-        header.appendChild(title);
-
-        const badgesDiv = document.createElement('div');
-        badgesDiv.className = 'layer-header-badges';
-        if (isDraw) {
-          const b = document.createElement('span');
-          b.className = 'badge-tag badge-draw';
-          b.textContent = 'DRAW';
-          badgesDiv.appendChild(b);
-        }
-        if (isShape) {
-          const b = document.createElement('span');
-          b.className = 'badge-tag badge-shape';
-          b.textContent = 'SHAPE';
-          badgesDiv.appendChild(b);
-        }
-        if (isTex) {
-          const b = document.createElement('span');
-          b.className = 'badge-tag badge-tex';
-          b.textContent = 'TEX';
-          badgesDiv.appendChild(b);
-        }
-        header.appendChild(badgesDiv);
-
-        const headerActions = document.createElement('div');
-        headerActions.className = 'layer-header-actions';
-
+        // Col 1: Visibility eye button
+        const visCell = document.createElement('div');
+        visCell.className = 'layer-cell-vis';
         const visBtn = document.createElement('button');
-        visBtn.className = 'ui-mini-btn';
-        visBtn.textContent = vis ? 'vis' : 'hid';
-        visBtn.title = vis ? 'Hide layer' : 'Show layer';
-        visBtn.style.minWidth = '28px';
+        visBtn.type = 'button';
+        visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
+        visBtn.textContent = vis ? '👁' : '—';
+        visBtn.title = vis ? 'Ocultar camada' : 'Exibir camada';
         visBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`toggle layer ${i}`);
         });
-        headerActions.appendChild(visBtn);
+        visCell.appendChild(visBtn);
+        row.appendChild(visCell);
 
-        const dupBtn = document.createElement('button');
-        dupBtn.className = 'ui-mini-btn';
-        dupBtn.textContent = 'dup';
-        dupBtn.title = `Duplicate layer [${i}]`;
-        dupBtn.style.minWidth = '28px';
-        dupBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`duplicate layer ${i}`);
-        });
-        headerActions.appendChild(dupBtn);
+        // Col 2: Info (idx, name, dims)
+        const infoCell = document.createElement('div');
+        infoCell.className = 'layer-cell-info';
+        infoCell.innerHTML = `
+          <span class="layer-idx">#${i}</span>
+          <span class="layer-name-text" title="${name}">${name}</span>
+          <span class="layer-dims-text">${w}×${h}</span>
+        `;
+        row.appendChild(infoCell);
 
-        if (count > 1) {
-          const delBtn = document.createElement('button');
-          delBtn.className = 'ui-mini-btn';
-          delBtn.textContent = 'del';
-          delBtn.title = 'Delete layer';
-          delBtn.style.minWidth = '26px';
-          delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm(`Delete layer [${i}] ${name}?`)) {
-              runCmd(`delete layer ${i}`);
-            }
-          });
-          headerActions.appendChild(delBtn);
-        }
-        header.appendChild(headerActions);
-        card.appendChild(header);
-
-        // Actions Grid: Draw, Shape, Grain, Resize
-        const actions = document.createElement('div');
-        actions.className = 'layer-actions-grid';
-
-        const drawBtn = document.createElement('button');
-        drawBtn.className = 'ui-mini-btn' + (isDraw ? ' active' : '');
-        drawBtn.textContent = 'Draw';
-        drawBtn.title = 'Set as active drawing layer';
-        drawBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer select ${i}`);
-        });
-        actions.appendChild(drawBtn);
+        // Col 3: Toggles (Ponta, Grão)
+        const togglesCell = document.createElement('div');
+        togglesCell.className = 'layer-cell-toggles';
 
         const shapeBtn = document.createElement('button');
-        shapeBtn.className = 'ui-mini-btn' + (isShape ? ' active' : '');
-        shapeBtn.textContent = 'Shape';
-        shapeBtn.title = 'Use this layer as brush tip shape';
+        shapeBtn.type = 'button';
+        shapeBtn.className = 'layer-pill' + (isShape ? ' active-shape' : '');
+        shapeBtn.textContent = 'Ponta';
+        shapeBtn.title = 'Usar como ponta de pincel (Shape)';
         shapeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`set shape ${name}`);
         });
-        actions.appendChild(shapeBtn);
+        togglesCell.appendChild(shapeBtn);
 
         const texBtn = document.createElement('button');
-        texBtn.className = 'ui-mini-btn' + (isTex ? ' active' : '');
-        texBtn.textContent = 'Grain';
-        texBtn.title = 'Use this layer as grain texture';
+        texBtn.type = 'button';
+        texBtn.className = 'layer-pill' + (isTex ? ' active-tex' : '');
+        texBtn.textContent = 'Grão';
+        texBtn.title = 'Usar como textura de grão';
         texBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`set texture ${name}`);
         });
-        actions.appendChild(texBtn);
+        togglesCell.appendChild(texBtn);
+        row.appendChild(togglesCell);
 
-        const resizeBtn = document.createElement('button');
-        resizeBtn.className = 'ui-mini-btn';
-        resizeBtn.textContent = 'Resize';
-        resizeBtn.title = `Select and configure resize for layer [${i}] (${w}x${h})`;
-        resizeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer select ${i}`);
-          if (inputCanvasW) inputCanvasW.value = w;
-          if (inputCanvasH) inputCanvasH.value = h;
-          if (inputCanvasW) inputCanvasW.focus();
-        });
-        actions.appendChild(resizeBtn);
+        // Col 4: Opacity text
+        const opCell = document.createElement('div');
+        opCell.className = 'layer-cell-op';
+        opCell.id = `layer-op-text-${i}`;
+        opCell.textContent = `${opPct}%`;
+        row.appendChild(opCell);
 
-        card.appendChild(actions);
+        // Col 5: Delete button (when count > 1)
+        const delCell = document.createElement('div');
+        delCell.className = 'layer-cell-del';
+        if (count > 1) {
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'layer-btn-del';
+          delBtn.textContent = '✕';
+          delBtn.title = `Excluir camada [${i}] ${name}`;
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Excluir camada [${i}] ${name}?`)) {
+              runCmd(`delete layer ${i}`);
+            }
+          });
+          delCell.appendChild(delBtn);
+        }
+        row.appendChild(delCell);
 
-        // Opacity Row
-        const opRow = document.createElement('div');
-        opRow.className = 'layer-opacity-row';
-        opRow.innerHTML = `<span>Op:</span>`;
-
-        const opInput = document.createElement('input');
-        opInput.type = 'range';
-        opInput.min = '0';
-        opInput.max = '100';
-        opInput.value = opPct;
-        opInput.title = `Opacity ${opPct}%`;
-
-        const opVal = document.createElement('span');
-        opVal.className = 'ui-val';
-        opVal.textContent = `${opPct}%`;
-
-        opInput.addEventListener('input', () => { opVal.textContent = `${opInput.value}%`; });
-        opInput.addEventListener('change', (e) => {
-          e.stopPropagation();
-          runCmd(`opacity layer ${i} ${e.target.value}`);
-        });
-        opInput.addEventListener('mousedown', e => e.stopPropagation());
-        opInput.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-
-        opRow.appendChild(opInput);
-        opRow.appendChild(opVal);
-        card.appendChild(opRow);
-
-        layersList.appendChild(card);
+        layersList.appendChild(row);
       }
     }
 
@@ -1955,18 +1915,33 @@ function ensureUiPanel() {
     .swatch-item:hover { border-color: #fbf1c7; transform: scale(1.05); z-index: 2; }
     .swatch-del { display: none; position: absolute; top: -3px; right: -3px; background: #fb4934; color: #fff; font-size: 8px; width: 12px; height: 12px; line-height: 11px; text-align: center; border-radius: 50%; cursor: pointer; }
     .swatch-item:hover .swatch-del { display: block; }
-    #ui-layers-list { display: flex; flex-direction: column; gap: 5px; max-height: 240px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #504945 #1d2021; }
-    .ui-layer-card { background: #282828; border: 1px solid #3c3836; padding: 5px 6px; display: flex; flex-direction: column; gap: 4px; font-size: 11px; }
-    .ui-layer-card.active-draw { border-color: #b8bb26; background: #2d302a; }
-    .layer-card-header { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
-    .layer-card-title { font-weight: bold; color: #ebdbb2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; flex: 1; }
-    .ui-layer-card.active-draw .layer-card-title { color: #fabd2f; }
-    .badge-tag { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-weight: bold; text-transform: uppercase; }
+    #ui-layers-list { display: flex; flex-direction: column; gap: 3px; max-height: 290px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #504945 #1d2021; padding-right: 2px; }
+    .ui-layer-card { background: #242625; border: 1px solid #3c3836; border-left: 3px solid transparent; border-radius: 3px; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; cursor: pointer; user-select: none; }
+    .ui-layer-card:hover { background: #282a28; border-color: #504945; }
+    .ui-layer-card.active-draw { background: #2a2d28; border-color: #665c54; border-left-color: #b8bb26; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
+    .layer-row-top { display: flex; align-items: center; gap: 5px; min-height: 22px; }
+    .layer-btn-vis { background: transparent; border: 1px solid #3c3836; border-radius: 3px; color: #ebdbb2; width: 22px; height: 20px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0; }
+    .layer-btn-vis:hover { background: #3c3836; color: #fabd2f; border-color: #504945; }
+    .layer-btn-vis.hidden { opacity: 0.35; color: #928374; }
+    .layer-title-wrap { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; }
+    .layer-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; font-size: 11px; color: #ebdbb2; }
+    .ui-layer-card.active-draw .layer-title-text { color: #fabd2f; }
+    .layer-dims { font-size: 9px; color: #928374; flex-shrink: 0; }
+    .badge-tag { font-size: 8px; padding: 1px 3px; border-radius: 2px; font-weight: bold; text-transform: uppercase; flex-shrink: 0; }
     .badge-draw  { background: #b8bb26; color: #1d2021; }
     .badge-shape { background: #fe8019; color: #1d2021; }
     .badge-tex   { background: #83a598; color: #1d2021; }
-    .layer-actions-row { display: flex; align-items: center; gap: 3px; }
-    .layer-opacity-row { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #a89984; }
+    .layer-btn-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+    .layer-btn-action { background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 2px; font: inherit; font-size: 9px; padding: 2px 5px; height: 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .layer-btn-action:hover { color: #ebdbb2; background: #3c3836; border-color: #504945; }
+    .layer-btn-action.active-shape { background: #af3a03; color: #fbf1c7; border-color: #fe8019; font-weight: bold; }
+    .layer-btn-action.active-tex { background: #076678; color: #fbf1c7; border-color: #83a598; font-weight: bold; }
+    .layer-btn-icon { background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 2px; font: inherit; font-size: 10px; width: 20px; height: 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+    .layer-btn-icon:hover { color: #ebdbb2; background: #3c3836; border-color: #665c54; }
+    .layer-btn-icon.layer-btn-del:hover { color: #fb4934; border-color: #cc241d; background: #321c1c; }
+    .layer-row-bottom { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #928374; padding: 0 1px; }
+    .layer-op-slider { flex: 1; height: 4px; accent-color: #fe8019; cursor: pointer; }
+    .layer-op-val { width: 32px; text-align: right; font-size: 9px; color: #fabd2f; font-weight: bold; flex-shrink: 0; }
     #toggle-ui { position: absolute; top: 14px; right: 1px; transform: translateX(100%); z-index: 20; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-left: 1px solid #282828; border-radius: 0; padding: 5px 9px; font: inherit; font-size: 11px; cursor: pointer; user-select: none; white-space: nowrap; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); }
     #toggle-ui:hover { background: #3c3836; color: #fabd2f; border-color: #7c6f64; }
     #ui-panel.hidden { width: 0 !important; border-right: none !important; }
