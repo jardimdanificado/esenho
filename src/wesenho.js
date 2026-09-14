@@ -42,6 +42,20 @@ const Buf = IS_BROWSER
   ? { alloc: (n) => new Uint8Array(n), from: (a, o, l) => new Uint8Array(a, o, l) }
   : Buffer;
 
+/* ── Papagaio Parser Loader ── */
+let papagaio = null;
+function getPapagaio() {
+  if (papagaio) return papagaio;
+  if (!IS_BROWSER) {
+    try {
+      papagaio = require('./papagaio/index.js').papagaio;
+    } catch (_) {}
+  } else if (typeof globalThis !== 'undefined' && globalThis.papagaio) {
+    papagaio = globalThis.papagaio;
+  }
+  return papagaio;
+}
+
 /**
  * Standard Parameter IDs matching include/wesenho.h enum
  */
@@ -413,7 +427,7 @@ function evaluateMath(expr) {
       case 'max': return Math.max(...args);
       case 'sqrt': return Math.sqrt(args[0]);
       case 'abs': return Math.abs(args[0]);
-      default: return NaN;
+      default: break;
     }
   }
 
@@ -537,6 +551,857 @@ function formatFiltersList(screenActor) {
   }
   return out;
 }
+
+/**
+ * Command helper functions for Papagaio command rules
+ */
+function handleList(host, target) {
+  const t = (target || 'all').toLowerCase();
+  if (t === 'layer' || t === 'layers') {
+    process.stdout.write(formatLayersList(host.canvasActor));
+  } else if (t === 'brush' || t === 'brushes' || t === 'tools') {
+    process.stdout.write(formatBrushesList(host));
+  } else if (t === 'texture' || t === 'textures') {
+    process.stdout.write(formatTexturesList(host));
+  } else if (t === 'filter' || t === 'filters') {
+    process.stdout.write(formatFiltersList(host));
+  } else if (t === 'all' || t === '') {
+    process.stdout.write('\x1b[1;34m=== Wesenho Entities ===\x1b[0m\n\n');
+    process.stdout.write(formatLayersList(host.canvasActor) + '\n');
+    process.stdout.write(formatBrushesList(host) + '\n');
+    process.stdout.write(formatTexturesList(host) + '\n');
+    process.stdout.write(formatFiltersList(host));
+  } else {
+    console.log(`\x1b[31merr: unknown list category '${target}'. Options: layers, brushes, textures, filters, all\x1b[0m`);
+  }
+}
+
+function handleGet(host, rawCat, rawProp) {
+  const cat = (rawCat || '').toLowerCase();
+  const prop = (rawProp || '').toLowerCase();
+
+  const cw = host.canvasActor.exports.get_canvas_width();
+  const ch = host.canvasActor.exports.get_canvas_height();
+  const activeL = host.canvasActor.exports.get_active_layer();
+  const lCount = host.canvasActor.exports.get_layer_count();
+
+  if (cat === 'surface' || cat === 'size' || cat === 'canvas' || cat === 'resolution') {
+    if (prop === 'width' || prop === 'w' || cat === 'width') {
+      console.log(cw);
+    } else if (prop === 'height' || prop === 'h' || cat === 'height') {
+      console.log(ch);
+    } else if (prop === 'size' || prop === 'dim' || prop === 'dimensions' || cat === 'size' || cat === 'resolution') {
+      console.log(`${cw}x${ch}`);
+    } else {
+      console.log(`surface ${cw}x${ch} (layers: ${lCount})`);
+    }
+    return;
+  }
+
+  if (cat === 'layer' || cat === 'layers') {
+    const targetId = !isNaN(parseInt(rawProp, 10)) ? parseInt(rawProp, 10) : activeL;
+    const vis = host.canvasActor.exports.get_layer_visible ? host.canvasActor.exports.get_layer_visible(targetId) : 1;
+    const op = host.canvasActor.exports.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(targetId) : 255;
+    const opPct = Math.round((op / 255) * 100);
+
+    if (prop === 'id' || prop === 'idx' || prop === 'active') {
+      console.log(activeL);
+    } else if (prop === 'count' || prop === 'total') {
+      console.log(lCount);
+    } else if (prop === 'opacity' || prop === 'op') {
+      console.log(`${opPct}%`);
+    } else if (prop === 'visible' || prop === 'visibility' || prop === 'vis') {
+      console.log(vis ? 'visible' : 'hidden');
+    } else {
+      console.log(`layer [${targetId}] ${vis ? 'visible' : 'hidden'} opacity: ${opPct}% (active: ${activeL}, total: ${lCount})`);
+    }
+    return;
+  }
+
+  if (cat === 'tool') {
+    if (host.currentTool === 1) {
+      console.log('eraser');
+    } else {
+      const modes = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill'];
+      console.log(modes[host.brushParams.mode] || 'brush');
+    }
+    return;
+  }
+
+  if (cat === 'mode') {
+    const modes = ['draw', 'smudge', 'blend', 'fill', 'lasso_fill'];
+    console.log(modes[host.brushParams.mode] || 'draw');
+    return;
+  }
+
+  if (cat === 'shape') {
+    const shapes = ['circle', 'square', 'chisel'];
+    const sId = host.brushParams.shape;
+    if (shapes[sId]) {
+      console.log(shapes[sId]);
+    } else {
+      let foundName = null;
+      for (const [k, v] of host.textures.entries()) {
+        if (v.wasmId === sId) {
+          foundName = k;
+          break;
+        }
+      }
+      if (!foundName && host.canvasActor && typeof host.canvasActor.exports.get_layer_count === 'function') {
+        const count = host.canvasActor.exports.get_layer_count();
+        for (let i = 0; i < count; i++) {
+          const tid = host.canvasActor.exports.w_layer_get_texture ? host.canvasActor.exports.w_layer_get_texture(i) : i;
+          if (tid === sId) {
+            foundName = `layer_${i}`;
+            break;
+          }
+        }
+      }
+      console.log(foundName || `texture_${sId}`);
+    }
+    return;
+  }
+
+  if (cat === 'brush') {
+    if (prop === 'params' || prop === 'all' || prop === '') {
+      console.log(JSON.stringify(host.brushParams, null, 2));
+    } else if (host.brushParams[prop] !== undefined) {
+      console.log(host.brushParams[prop]);
+    } else {
+      const shapes = ['circle', 'square', 'chisel'];
+      const sName = shapes[host.brushParams.shape] || `texture_${host.brushParams.shape}`;
+      console.log(`brush: shape=${sName}, mode=${['draw', 'smudge', 'blend', 'fill', 'lasso_fill'][host.brushParams.mode]}, size=${host.brushParams.size}, opacity=${host.brushParams.opacity}%, hardness=${host.brushParams.hardness}%`);
+    }
+    return;
+  }
+
+  if (cat === 'texture' || cat === 'tex') {
+    const tex = host.getActiveTexture();
+    if (prop === 'name' || prop === '') {
+      console.log(host.activeTexture);
+    } else if (prop === 'size' || prop === 'dim' || prop === 'dimensions') {
+      console.log(tex ? `${tex.width}x${tex.height}` : 'none');
+    } else if (prop === 'count' || prop === 'total') {
+      console.log(host.textures.size);
+    } else {
+      console.log(`texture: "${host.activeTexture}" (${tex ? `${tex.width}x${tex.height}` : 'none'}, total: ${host.textures.size})`);
+    }
+    return;
+  }
+
+  if (cat === 'color') {
+    const c = host.currentColor;
+    const r = c & 0xFF;
+    const g = (c >> 8) & 0xFF;
+    const b = (c >> 16) & 0xFF;
+    const a = (c >> 24) & 0xFF;
+    const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    if (prop === 'rgb') {
+      console.log(`${r} ${g} ${b}`);
+    } else if (prop === 'hex') {
+      console.log(hex);
+    } else {
+      console.log(`color: ${hex} (rgba: ${r}, ${g}, ${b}, ${a})`);
+    }
+    return;
+  }
+
+  if (cat === 'zoom') {
+    console.log(`${(host.zoom * 100).toFixed(0)}%`);
+    return;
+  }
+
+  if (cat === 'pan') {
+    console.log(`(${Math.round(host.panX)}, ${Math.round(host.panY)})`);
+    return;
+  }
+
+  const canonGet = {
+    radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
+    step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
+    shape_angle: 'angle', shape_rotate: 'angle', aspect: 'roundness',
+    jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
+    smudge_strength: 'smudge', tex_mode: 'texture_mode', type: 'mode',
+    tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
+    texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
+    tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
+    smooth: 'smoothing', stabilizer: 'smoothing'
+  };
+  const resolvedCat = canonGet[cat] || cat;
+  if (host.brushParams[resolvedCat] !== undefined) {
+    console.log(host.brushParams[resolvedCat]);
+    return;
+  }
+
+  console.log(`err: unknown get property '${rawCat}'`);
+}
+
+function handleShowStatus(host) {
+  const activeL = host.canvasActor.exports.get_active_layer();
+  const lCount = host.canvasActor.exports.get_layer_count();
+  const cw = host.canvasActor.exports.get_width ? host.canvasActor.exports.get_width() : host.canvasActor.exports.get_canvas_width();
+  const ch = host.canvasActor.exports.get_height ? host.canvasActor.exports.get_height() : host.canvasActor.exports.get_canvas_height();
+  const shapes = ['circle', 'square', 'chisel'];
+  const modes = ['draw', 'smudge', 'blend', 'fill', 'lasso_fill'];
+
+  console.log(`\x1b[1mStatus:\x1b[0m
+  Surface: ${cw}x${ch} | Layer: [${activeL}] of ${lCount}
+  Tool:    ${host.currentTool === 1 ? 'eraser' : (modes[host.brushParams.mode] || 'brush')}
+  Mode:    ${modes[host.brushParams.mode] || 'draw'}
+  Shape:   ${shapes[host.brushParams.shape] || 'circle'}
+  Texture: "${host.activeTexture}" (mode: ${host.brushParams.texture_mode})
+  Brush:   size=${host.brushParams.size}, opacity=${host.brushParams.opacity}%, hardness=${host.brushParams.hardness}%, flow=${host.brushParams.flow}%, spacing=${host.brushParams.spacing}%, smooth=${host.brushParams.smoothing || 0}%
+  Angle:   ${host.brushParams.angle}°, roundness=${host.brushParams.roundness}%, grain=${host.brushParams.grain}%, scatter=${host.brushParams.scatter}%
+  Color:   0x${host.currentColor.toString(16).padStart(8, '0')}
+  Zoom:    ${(host.zoom * 100).toFixed(0)}% | Pan: (${Math.round(host.panX)}, ${Math.round(host.panY)})
+`);
+}
+
+function handleResize(host, w, h) {
+  w = parseInt(w, 10);
+  h = parseInt(h, 10);
+  if (w >= 16 && h >= 16 && w <= 4096 && h <= 4096) {
+    host.canvasActor.exports.w_resize(w, h);
+    host.sendConsoleLog(`surface resized to ${w}x${h}`);
+  } else {
+    host.sendConsoleLog('err: invalid dimensions (min 16x16, max 4096x4096)', 0xFFFF5555);
+  }
+}
+
+function handleSetTool(host, rawTool) {
+  const t = rawTool.toLowerCase();
+  if (t === 'eraser' || t === 'erase') {
+    host.currentTool = 1;
+    host.sendConsoleLog('tool set to eraser');
+  } else if (t === 'brush' || t === 'draw') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 0);
+    host.sendConsoleLog('tool set to brush (draw)');
+  } else if (t === 'square' || t === 'circle' || t === 'round' || t === 'chisel' || t === 'flat') {
+    host.setBrushParam('shape', t);
+    host.sendConsoleLog(`brush shape set to ${t}`);
+  } else if (t === 'smudge') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 1);
+    host.sendConsoleLog('tool set to smudge');
+  } else if (t === 'blend') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 2);
+    host.sendConsoleLog('tool set to blend');
+  } else if (t === 'fill' || t === 'flood_fill') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 3);
+    host.sendConsoleLog('tool set to flood fill');
+  } else if (t === 'lasso_fill' || t === 'lasso') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 4);
+    host.sendConsoleLog('tool set to lasso fill');
+  } else {
+    host.sendConsoleLog(`err: unknown tool '${rawTool}'`, 0xFFFF5555);
+  }
+}
+
+function handleSetMode(host, rawMode) {
+  const m = rawMode.toLowerCase();
+  if (m === 'eraser' || m === 'erase') {
+    host.currentTool = 1;
+    host.sendConsoleLog('mode set to eraser');
+  } else if (m === 'draw' || m === 'brush') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 0);
+    host.sendConsoleLog('mode set to draw');
+  } else if (m === 'smudge') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 1);
+    host.sendConsoleLog('mode set to smudge');
+  } else if (m === 'blend') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 2);
+    host.sendConsoleLog('mode set to blend');
+  } else if (m === 'fill' || m === 'flood_fill') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 3);
+    host.sendConsoleLog('mode set to fill');
+  } else if (m === 'lasso_fill' || m === 'lasso') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 4);
+    host.sendConsoleLog('mode set to lasso fill');
+  } else {
+    host.sendConsoleLog(`err: unknown mode '${rawMode}'`, 0xFFFF5555);
+  }
+}
+
+function handleBrushParamOrPreset(host, sub, val) {
+  const s = sub.toLowerCase();
+  if (PARAM_IDS[s] !== undefined && val !== undefined) {
+    host.setBrushParam(s, val);
+    host.sendConsoleLog(`brush ${s} set to ${val}`);
+  } else if (BRUSH_PRESETS[s]) {
+    host.selectBrushPreset(s);
+    host.sendConsoleLog(`brush preset '${s}' applied`);
+  } else {
+    host.sendConsoleLog(`err: unknown brush parameter '${sub}'`, 0xFFFF5555);
+  }
+}
+
+function handleDirectParam(host, rawParam, val) {
+  const p = rawParam.toLowerCase();
+  if (PARAM_IDS[p] !== undefined && val !== undefined) {
+    host.setBrushParam(p, val);
+    host.sendConsoleLog(`brush ${p} set to ${val}`);
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Extensible command pattern table powered 100% by Papagaio.
+ * Add custom syntax patterns here or push to WesenhoScreenHost.COMMAND_RULES!
+ */
+const COMMAND_RULES = [
+  // Math expressions in parens or eval
+  {
+    pat: "$expr$block{(}{)}",
+    run: (m, host, raw) => {
+      const val = evaluateMath(raw);
+      if (!isNaN(val)) {
+        console.log(`\x1b[35m=> ${val}\x1b[0m`);
+        return true;
+      }
+      return false;
+    }
+  },
+  {
+    pat: "eval $expr",
+    run: (m) => {
+      const val = evaluateMath(m.expr);
+      if (!isNaN(val)) {
+        console.log(`\x1b[35m=> ${val}\x1b[0m`);
+      } else {
+        console.log('\x1b[31merr: invalid expression\x1b[0m');
+      }
+    }
+  },
+
+  // Log message
+  {
+    pat: "log $msg",
+    run: (m, host) => {
+      host.sendConsoleLog(m.msg);
+    }
+  },
+
+  // Help
+  {
+    pat: "help",
+    run: () => {
+      console.log(`
+\x1b[1mAvailable Commands:\x1b[0m
+  \x1b[36mTool & Brush Setup (Build Your Own Custom Brush):\x1b[0m
+    set tool <brush|eraser|square|circle|chisel|smudge|blend|fill|lasso_fill>
+    set mode <draw|eraser|smudge|blend|fill|lasso_fill>
+    set shape <circle|square|chisel|<texture>|layer_<id>>  Tip shape (samples alpha channel)
+    set texture <paper|canvas|noise|dots|grid|grunge|hatch|<name>|layer_<id>|none>
+    set size <val>               Brush tip radius/size (1..500)
+    set opacity <0..100>         Brush opacity percentage
+    set hardness / softness <val> 0% soft airbrush to 100% hard edge
+    set flow <0..100>            Ink flow rate per dab
+    set spacing <1..500>         Dab interpolation spacing
+    set angle / rotate <0..359>  Tip rotation angle in degrees
+    set roundness <1..100>       Tip aspect ratio / roundness
+    set scatter <0..500>         Stochastic position jitter
+    set grain <0..100>           Stochastic pixel noise / grain
+    set smudge <0..100>          Smudge pick-up intensity
+    set wetness <0..100>         Color wetness mix ratio
+    set tolerance <0..255>       Flood fill color tolerance
+    set texture_rotate <0..359>  Texture pattern rotation in degrees
+    set texture_scale <1..1000>  Texture pattern scale percentage
+    set smooth / smoothing <0..100> Stroke stabilizer & smoothing percentage
+
+  \x1b[36mInspect & Query (list / get / status):\x1b[0m
+    status / info                Show active tool, brush, surface & viewport status
+    list [layers|textures|filters|all] List entities
+    get [tool|mode|shape|texture|size|opacity|hardness|flow|spacing|angle|roundness|scatter|grain|color|layer|surface]
+
+  \x1b[36mSurface & Layer Commands (Layers are Textures):\x1b[0m
+    resize <w> <h>               Resize canvas dimensions
+    new layer / layer add        Add new layer
+    set layer / layer select <id> Select active layer
+    delete layer [id]            Delete layer
+    toggle layer [id]            Toggle layer visibility
+    opacity layer <id> <0..100>  Set layer opacity percentage
+    clear layer                  Clear active layer
+    layer to texture [name]      Register active layer as named texture
+
+  \x1b[36mFilter Commands:\x1b[0m
+    filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
+                                 edge, grayscale, invert, noise, pixelate, sepia, threshold)
+
+  \x1b[36mImage I/O & Drawing:\x1b[0m
+    save [canvas|layer] <file>   Export image to disk (PNG, BMP, PPM)
+    load image <file> [name]     Load image file into texture storage
+    draw image / stamp <name> [x] [y] [w] [h] [opacity] Draw texture/image with optional size
+    set color <#hex|r g b|name>  Set active drawing color
+    draw line <x0> <y0> <x1> <y1> [col]
+    draw rect <x> <y> <w> <h> [col]
+    draw circle <cx> <cy> <r> [col]
+    draw grid <step> [col]
+    exit / quit                  Quit application
+`);
+    }
+  },
+
+  // Exit / Quit
+  { pat: "exit", run: () => { console.log('Goodbye.'); process.exit(0); } },
+  { pat: "quit", run: () => { console.log('Goodbye.'); process.exit(0); } },
+
+  // Status & Info
+  { pat: "status", run: (m, host) => handleShowStatus(host) },
+  { pat: "info", run: (m, host) => handleShowStatus(host) },
+
+  // List entities
+  { pat: "list $target", run: (m, host) => handleList(host, m.target) },
+  { pat: "list", run: (m, host) => handleList(host, 'all') },
+  { pat: "layers", run: (m, host) => process.stdout.write(formatLayersList(host.canvasActor)) },
+  { pat: "brushes", run: (m, host) => process.stdout.write(formatBrushesList(host)) },
+  { pat: "textures", run: (m, host) => process.stdout.write(formatTexturesList(host)) },
+  { pat: "filters", run: (m, host) => process.stdout.write(formatFiltersList(host)) },
+
+  // Get queries
+  { pat: "get $cat $prop", run: (m, host) => handleGet(host, m.cat, m.prop) },
+  { pat: "get $cat", run: (m, host) => handleGet(host, m.cat, '') },
+
+  // Resize & Surface Dimensions
+  { pat: "resize $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
+  { pat: "set resolution $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
+  { pat: "set canvas size $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
+  { pat: "set size $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
+  {
+    pat: "set width $w$int",
+    run: (m, host) => {
+      const h = host.canvasActor.exports.get_height ? host.canvasActor.exports.get_height() : host.canvasActor.exports.get_canvas_height();
+      handleResize(host, m.w, h);
+    }
+  },
+  {
+    pat: "set w $w$int",
+    run: (m, host) => {
+      const h = host.canvasActor.exports.get_height ? host.canvasActor.exports.get_height() : host.canvasActor.exports.get_canvas_height();
+      handleResize(host, m.w, h);
+    }
+  },
+  {
+    pat: "set height $h$int",
+    run: (m, host) => {
+      const w = host.canvasActor.exports.get_width ? host.canvasActor.exports.get_width() : host.canvasActor.exports.get_canvas_width();
+      handleResize(host, w, m.h);
+    }
+  },
+  {
+    pat: "set h $h$int",
+    run: (m, host) => {
+      const w = host.canvasActor.exports.get_width ? host.canvasActor.exports.get_width() : host.canvasActor.exports.get_canvas_width();
+      handleResize(host, w, m.h);
+    }
+  },
+
+  // Layer Commands
+  {
+    pat: "new layer",
+    run: (m, host) => {
+      const idx = host.canvasActor.exports.w_layer_add();
+      host.sendConsoleLog(`new layer [${idx}] added`);
+    }
+  },
+  { pat: "layer add", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new layer").run(m, host) },
+  { pat: "layer new", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new layer").run(m, host) },
+
+  {
+    pat: "layer select $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      host.canvasActor.exports.w_layer_select(id);
+      host.sendConsoleLog(`selected layer [${id}]`);
+    }
+  },
+  { pat: "select layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer select $id$int").run(m, host) },
+  { pat: "set layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer select $id$int").run(m, host) },
+  { pat: "layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer select $id$int").run(m, host) },
+
+  {
+    pat: "delete layer $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      host.canvasActor.exports.w_layer_delete(id);
+      host.sendConsoleLog(`deleted layer [${id}]`);
+    }
+  },
+  {
+    pat: "delete layer",
+    run: (m, host) => {
+      const id = host.canvasActor.exports.get_active_layer();
+      host.canvasActor.exports.w_layer_delete(id);
+      host.sendConsoleLog(`deleted layer [${id}]`);
+    }
+  },
+  { pat: "remove layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "delete layer $id$int").run(m, host) },
+  { pat: "remove layer", run: (m, host) => COMMAND_RULES.find(r => r.pat === "delete layer").run(m, host) },
+  { pat: "layer delete $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "delete layer $id$int").run(m, host) },
+  { pat: "layer delete", run: (m, host) => COMMAND_RULES.find(r => r.pat === "delete layer").run(m, host) },
+
+  {
+    pat: "toggle layer $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      host.canvasActor.exports.w_layer_toggle(id);
+      host.sendConsoleLog(`toggled layer [${id}] visibility`);
+    }
+  },
+  {
+    pat: "toggle layer",
+    run: (m, host) => {
+      const id = host.canvasActor.exports.get_active_layer();
+      host.canvasActor.exports.w_layer_toggle(id);
+      host.sendConsoleLog(`toggled layer [${id}] visibility`);
+    }
+  },
+  { pat: "hide layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle layer $id$int").run(m, host) },
+  { pat: "hide layer", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle layer").run(m, host) },
+  { pat: "show layer $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle layer $id$int").run(m, host) },
+  { pat: "show layer", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle layer").run(m, host) },
+  { pat: "layer toggle $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle layer $id$int").run(m, host) },
+  { pat: "layer toggle", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle layer").run(m, host) },
+
+  {
+    pat: "opacity layer $id$int $val$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const val = parseInt(m.val, 10);
+      const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
+      host.canvasActor.exports.w_layer_opacity(id, op255);
+      host.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
+    }
+  },
+  { pat: "layer opacity $id$int $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "opacity layer $id$int $val$int").run(m, host) },
+  { pat: "set layer $id$int opacity $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "opacity layer $id$int $val$int").run(m, host) },
+  {
+    pat: "set layer opacity $val$int",
+    run: (m, host) => {
+      const id = host.canvasActor.exports.get_active_layer();
+      const val = parseInt(m.val, 10);
+      const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
+      host.canvasActor.exports.w_layer_opacity(id, op255);
+      host.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
+    }
+  },
+
+  {
+    pat: "clear layer $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      host.canvasActor.exports.w_layer_clear(id);
+      host.sendConsoleLog(`layer [${id}] cleared`);
+    }
+  },
+  {
+    pat: "clear layer",
+    run: (m, host) => {
+      host.canvasActor.exports.w_layer_clear(-1);
+      host.sendConsoleLog('active layer cleared');
+    }
+  },
+  { pat: "clear active layer", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear layer").run(m, host) },
+  { pat: "layer clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear layer").run(m, host) },
+  { pat: "clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear layer").run(m, host) },
+
+  // Layer to Texture
+  {
+    pat: "layer to texture $name",
+    run: (m, host) => {
+      const tname = m.name || `layer_${Date.now() % 1000}`;
+      const ok = host.convertLayerToTexture(-1, tname);
+      if (ok) host.sendConsoleLog(`layer converted to texture '${tname}'`);
+      else host.sendConsoleLog('err: failed converting layer to texture', 0xFFFF5555);
+    }
+  },
+  {
+    pat: "layer to texture",
+    run: (m, host) => {
+      const tname = `layer_${Date.now() % 1000}`;
+      const ok = host.convertLayerToTexture(-1, tname);
+      if (ok) host.sendConsoleLog(`layer converted to texture '${tname}'`);
+      else host.sendConsoleLog('err: failed converting layer to texture', 0xFFFF5555);
+    }
+  },
+  { pat: "layer-to-texture $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer to texture $name").run(m, host) },
+  { pat: "layer-to-texture", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer to texture").run(m, host) },
+  { pat: "layertotexture $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer to texture $name").run(m, host) },
+  { pat: "layertotexture", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer to texture").run(m, host) },
+
+  // Tools, Modes & Shapes
+  { pat: "set tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
+  { pat: "tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
+  { pat: "set mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
+  { pat: "mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
+  {
+    pat: "set shape $shape",
+    run: (m, host) => {
+      host.setBrushParam('shape', m.shape);
+      host.sendConsoleLog(`brush shape set to ${m.shape}`);
+    }
+  },
+  { pat: "shape $shape", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set shape $shape").run(m, host) },
+
+  // Textures
+  {
+    pat: "set texture $tex",
+    run: (m, host) => {
+      const tname = m.tex.toLowerCase();
+      const ok = host.setTexture(tname);
+      if (ok) {
+        host.sendConsoleLog(`texture set to '${tname}'`);
+      } else {
+        host.sendConsoleLog(`err: texture '${tname}' not found. Options: paper, canvas, noise, dots, grid, grunge, hatch, none`, 0xFFFF5555);
+      }
+    }
+  },
+  { pat: "set tex $tex", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set texture $tex").run(m, host) },
+  { pat: "texture $tex", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set texture $tex").run(m, host) },
+  { pat: "tex $tex", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set texture $tex").run(m, host) },
+
+  // Brush Presets and Parameters
+  { pat: "set brush $sub $val", run: (m, host) => handleBrushParamOrPreset(host, m.sub, m.val) },
+  { pat: "brush $sub $val", run: (m, host) => handleBrushParamOrPreset(host, m.sub, m.val) },
+  { pat: "set brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
+  { pat: "brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
+
+  // Direct Parameter Setters (e.g. set size 20, set hardness 100, set opacity 50, etc.)
+  {
+    pat: "set $param $val",
+    run: (m, host) => handleDirectParam(host, m.param, m.val)
+  },
+
+  // Filters
+  {
+    pat: "filter $name $p1$int $p2$int",
+    run: (m, host) => {
+      const ok = host.applyFilter(m.name.toLowerCase(), parseInt(m.p1, 10), parseInt(m.p2, 10));
+      if (ok) host.sendConsoleLog(`filter '${m.name}' applied`);
+      else host.sendConsoleLog(`err: filter '${m.name}' not found`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "filter $name $p1$int",
+    run: (m, host) => {
+      const ok = host.applyFilter(m.name.toLowerCase(), parseInt(m.p1, 10), 0);
+      if (ok) host.sendConsoleLog(`filter '${m.name}' applied`);
+      else host.sendConsoleLog(`err: filter '${m.name}' not found`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "filter $name",
+    run: (m, host) => {
+      const ok = host.applyFilter(m.name.toLowerCase(), 0, 0);
+      if (ok) host.sendConsoleLog(`filter '${m.name}' applied`);
+      else host.sendConsoleLog(`err: filter '${m.name}' not found`, 0xFFFF5555);
+    }
+  },
+
+  // Image I/O
+  {
+    pat: "save canvas $file",
+    run: (m, host) => {
+      const res = host.saveCanvasOrLayer(m.file, 0);
+      if (res.ok) host.sendConsoleLog(`image saved to '${res.path}'`);
+      else host.sendConsoleLog(`err: failed saving image: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "save layer $file",
+    run: (m, host) => {
+      const res = host.saveCanvasOrLayer(m.file, 1);
+      if (res.ok) host.sendConsoleLog(`image saved to '${res.path}'`);
+      else host.sendConsoleLog(`err: failed saving image: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "save $file",
+    run: (m, host) => {
+      const res = host.saveCanvasOrLayer(m.file, 0);
+      if (res.ok) host.sendConsoleLog(`image saved to '${res.path}'`);
+      else host.sendConsoleLog(`err: failed saving image: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "load image $file $name",
+    run: (m, host) => {
+      const res = host.loadImageFromFile(m.file, m.name);
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "load image $file",
+    run: (m, host) => {
+      const res = host.loadImageFromFile(m.file);
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "load $file $name",
+    run: (m, host) => {
+      const res = host.loadImageFromFile(m.file, m.name);
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "load $file",
+    run: (m, host) => {
+      const res = host.loadImageFromFile(m.file);
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+
+  // Color
+  {
+    pat: "set color $r$int $g$int $b$int",
+    run: (m, host) => {
+      const r = Math.min(255, Math.max(0, parseInt(m.r, 10)));
+      const g = Math.min(255, Math.max(0, parseInt(m.g, 10)));
+      const b = Math.min(255, Math.max(0, parseInt(m.b, 10)));
+      host.currentColor = (0xFF << 24) | (b << 16) | (g << 8) | r;
+      host.sendConsoleLog(`color set to 0x${host.currentColor.toString(16).padStart(8, '0')}`);
+    }
+  },
+  {
+    pat: "color $r$int $g$int $b$int",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "set color $r$int $g$int $b$int").run(m, host)
+  },
+  {
+    pat: "set color $col",
+    run: (m, host) => {
+      const parsed = parseColorString(m.col, host.currentColor);
+      if (parsed !== null) {
+        host.currentColor = parsed;
+        host.sendConsoleLog(`color set to 0x${host.currentColor.toString(16).padStart(8, '0')}`);
+      } else {
+        host.sendConsoleLog(`err: unknown color '${m.col}'`, 0xFFFF5555);
+      }
+    }
+  },
+  {
+    pat: "color $col",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "set color $col").run(m, host)
+  },
+
+  // Draw Image / Stamp
+  {
+    pat: "draw image $name $x$int $y$int $w$int $h$int $op$int",
+    run: (m, host) => {
+      const res = host.drawImage(m.name, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), parseInt(m.op, 10));
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "draw image $name $x$int $y$int $w$int $h$int",
+    run: (m, host) => {
+      const res = host.drawImage(m.name, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10));
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "draw image $name $x$int $y$int",
+    run: (m, host) => {
+      const res = host.drawImage(m.name, parseInt(m.x, 10), parseInt(m.y, 10));
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "draw image $name",
+    run: (m, host) => {
+      const res = host.drawImage(m.name, 0, 0);
+      if (res.ok) host.sendConsoleLog(res.msg);
+      else host.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
+    }
+  },
+
+  // Stamp aliases
+  { pat: "stamp $name $x$int $y$int $w$int $h$int $op$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name $x$int $y$int $w$int $h$int $op$int").run(m, host) },
+  { pat: "stamp $name $x$int $y$int $w$int $h$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name $x$int $y$int $w$int $h$int").run(m, host) },
+  { pat: "stamp $name $x$int $y$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name $x$int $y$int").run(m, host) },
+  { pat: "stamp $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name").run(m, host) },
+  { pat: "image $name $x$int $y$int $w$int $h$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name $x$int $y$int $w$int $h$int").run(m, host) },
+  { pat: "image $name $x$int $y$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name $x$int $y$int").run(m, host) },
+  { pat: "image $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "draw image $name").run(m, host) },
+
+  // Primitive Draw Commands
+  {
+    pat: "draw line $x0$int $y0$int $x1$int $y1$int $col",
+    run: (m, host) => {
+      const col = parseColorString(m.col, host.currentColor);
+      host.canvasActor.exports.w_draw_line(parseInt(m.x0, 10), parseInt(m.y0, 10), parseInt(m.x1, 10), parseInt(m.y1, 10), col);
+      host.sendConsoleLog(`drew line from (${m.x0},${m.y0}) to (${m.x1},${m.y1})`);
+    }
+  },
+  {
+    pat: "draw line $x0$int $y0$int $x1$int $y1$int",
+    run: (m, host) => {
+      host.canvasActor.exports.w_draw_line(parseInt(m.x0, 10), parseInt(m.y0, 10), parseInt(m.x1, 10), parseInt(m.y1, 10), host.currentColor);
+      host.sendConsoleLog(`drew line from (${m.x0},${m.y0}) to (${m.x1},${m.y1})`);
+    }
+  },
+  {
+    pat: "draw rect $x$int $y$int $w$int $h$int $col",
+    run: (m, host) => {
+      const col = parseColorString(m.col, host.currentColor);
+      host.canvasActor.exports.w_draw_rect(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), col);
+      host.sendConsoleLog(`drew rect at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "draw rect $x$int $y$int $w$int $h$int",
+    run: (m, host) => {
+      host.canvasActor.exports.w_draw_rect(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), host.currentColor);
+      host.sendConsoleLog(`drew rect at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "draw circle $cx$int $cy$int $r$int $col",
+    run: (m, host) => {
+      const col = parseColorString(m.col, host.currentColor);
+      host.canvasActor.exports.w_draw_circle(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.r, 10), col);
+      host.sendConsoleLog(`drew circle at (${m.cx},${m.cy}) radius ${m.r}`);
+    }
+  },
+  {
+    pat: "draw circle $cx$int $cy$int $r$int",
+    run: (m, host) => {
+      host.canvasActor.exports.w_draw_circle(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.r, 10), host.currentColor);
+      host.sendConsoleLog(`drew circle at (${m.cx},${m.cy}) radius ${m.r}`);
+    }
+  },
+  {
+    pat: "draw grid $step$int $col",
+    run: (m, host) => {
+      const col = parseColorString(m.col, 0x44FFFFFF);
+      host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), col);
+      host.sendConsoleLog(`drew grid step ${m.step}`);
+    }
+  },
+  {
+    pat: "draw grid $step$int",
+    run: (m, host) => {
+      host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), 0x44FFFFFF);
+      host.sendConsoleLog(`drew grid step ${m.step}`);
+    }
+  }
+];
 
 /**
  * WesenhoScreenHost - Main Application State & Screen Host Actor.
@@ -1189,7 +2054,7 @@ class WesenhoScreenHost {
 
   /**
    * Main text command interpreter for interactive terminal REPL and script invocation.
-   * Parses text input into direct WASM function calls on canvas, brushes, and filters.
+   * Powered 100% by Papagaio pattern matching engine.
    * @param {string} raw - Command line string
    * @param {string|number} [from='repl'] - Sender identifier
    */
@@ -1197,667 +2062,21 @@ class WesenhoScreenHost {
     raw = raw.trim();
     if (!raw) return;
 
-    if (raw.startsWith('(') || (/^[\d+\-*/]/.test(raw) && (raw.includes('+') || raw.includes('*') || raw.includes('/')))) {
-      const val = evaluateMath(raw);
-      if (!isNaN(val)) {
-        console.log(`\x1b[35m=> ${val}\x1b[0m`);
-        return;
-      }
-    }
-
-    const tokens = [];
-    const re = /[^\s"']+|"([^"]*)"|'([^']*)'/g;
-    let match;
-    while ((match = re.exec(raw)) !== null) {
-      tokens.push(match[1] || match[2] || match[0]);
-    }
-
-    if (tokens.length === 0) return;
-    const cmd = tokens[0].toLowerCase();
-
-    if (cmd === 'log') {
-      const msg = raw.slice(3).trim();
-      this.sendConsoleLog(msg);
+    const p = getPapagaio();
+    if (!p || typeof p.match !== 'function') {
+      this.sendConsoleLog("err: papagaio parser unavailable", 0xFFFF5555);
       return;
     }
 
-    // 1. HELP
-    if (cmd === 'help') {
-      console.log(`
-\x1b[1mAvailable Commands:\x1b[0m
-  \x1b[36mTool & Brush Setup (Build Your Own Custom Brush):\x1b[0m
-    set tool <brush|eraser|square|circle|chisel|smudge|blend|fill|lasso_fill>
-    set mode <draw|eraser|smudge|blend|fill|lasso_fill>
-    set shape <circle|square|chisel|<texture>|layer_<id>>  Tip shape (samples alpha channel)
-    set texture <paper|canvas|noise|dots|grid|grunge|hatch|<name>|layer_<id>|none>
-    set size <val>               Brush tip radius/size (1..500)
-    set opacity <0..100>         Brush opacity percentage
-    set hardness / softness <val> 0% soft airbrush to 100% hard edge
-    set flow <0..100>            Ink flow rate per dab
-    set spacing <1..500>         Dab interpolation spacing
-    set angle / rotate <0..359>  Tip rotation angle in degrees
-    set roundness <1..100>       Tip aspect ratio / roundness
-    set scatter <0..500>         Stochastic position jitter
-    set grain <0..100>           Stochastic pixel noise / grain
-    set smudge <0..100>          Smudge pick-up intensity
-    set wetness <0..100>         Color wetness mix ratio
-    set tolerance <0..255>       Flood fill color tolerance
-    set texture_rotate <0..359>  Texture pattern rotation in degrees
-    set texture_scale <1..1000>  Texture pattern scale percentage
-    set smooth / smoothing <0..100> Stroke stabilizer & smoothing percentage
-
-  \x1b[36mInspect & Query (list / get / status):\x1b[0m
-    status / info                Show active tool, brush, surface & viewport status
-    list [layers|textures|filters|all] List entities
-    get [tool|mode|shape|texture|size|opacity|hardness|flow|spacing|angle|roundness|scatter|grain|color|layer|surface]
-
-  \x1b[36mSurface & Layer Commands (Layers are Textures):\x1b[0m
-    resize <w> <h>               Resize canvas dimensions
-    new layer / layer add        Add new layer
-    set layer / layer select <id> Select active layer
-    delete layer [id]            Delete layer
-    toggle layer [id]            Toggle layer visibility
-    opacity layer <id> <0..100>  Set layer opacity percentage
-    clear layer                  Clear active layer
-    layer to texture [name]      Register active layer as named texture
-
-  \x1b[36mFilter Commands:\x1b[0m
-    filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
-                                 edge, grayscale, invert, noise, pixelate, sepia, threshold)
-
-  \x1b[36mImage I/O & Drawing:\x1b[0m
-    save [canvas|layer] <file>   Export image to disk (PNG, BMP, PPM)
-    load image <file> [name]     Load image file into texture storage
-    draw image / stamp <name> [x] [y] [w] [h] [opacity] Draw texture/image with optional size
-    set color <#hex|r g b|name>  Set active drawing color
-    draw line <x0> <y0> <x1> <y1> [col]
-    draw rect <x> <y> <w> <h> [col]
-    draw circle <cx> <cy> <r> [col]
-    draw grid <step> [col]
-    exit / quit                  Quit application
-`);
-      return;
-    }
-
-    // 2. UNIFIED LIST COMMANDS
-    if (cmd === 'list' || cmd === 'layers' || cmd === 'brushes' || cmd === 'textures' || cmd === 'filters') {
-      const target = (cmd === 'list') ? (tokens[1] ? tokens[1].toLowerCase() : 'all') : cmd;
-
-      if (target === 'layer' || target === 'layers') {
-        process.stdout.write(formatLayersList(this.canvasActor));
-      } else if (target === 'brush' || target === 'brushes' || target === 'tools') {
-        process.stdout.write(formatBrushesList(this));
-      } else if (target === 'texture' || target === 'textures') {
-        process.stdout.write(formatTexturesList(this));
-      } else if (target === 'filter' || target === 'filters') {
-        process.stdout.write(formatFiltersList(this));
-      } else if (target === 'all' || target === '') {
-        process.stdout.write('\x1b[1;34m=== Wesenho Entities ===\x1b[0m\n\n');
-        process.stdout.write(formatLayersList(this.canvasActor) + '\n');
-        process.stdout.write(formatBrushesList(this) + '\n');
-        process.stdout.write(formatTexturesList(this) + '\n');
-        process.stdout.write(formatFiltersList(this));
-      } else {
-        console.log(`\x1b[31merr: unknown list category '${tokens[1]}'. Options: layers, brushes, textures, filters, all\x1b[0m`);
-      }
-      return;
-    }
-
-    // 3. GET COMMANDS
-    if (cmd === 'get') {
-      const cat = (tokens[1] || '').toLowerCase();
-      const prop = (tokens[2] || '').toLowerCase();
-
-      const cw = this.canvasActor.exports.get_canvas_width();
-      const ch = this.canvasActor.exports.get_canvas_height();
-      const activeL = this.canvasActor.exports.get_active_layer();
-      const lCount = this.canvasActor.exports.get_layer_count();
-
-      if (cat === 'surface' || cat === 'size' || cat === 'canvas' || cat === 'resolution') {
-        if (prop === 'width' || prop === 'w' || cat === 'width') {
-          console.log(cw);
-        } else if (prop === 'height' || prop === 'h' || cat === 'height') {
-          console.log(ch);
-        } else if (prop === 'size' || prop === 'dim' || prop === 'dimensions' || cat === 'size' || cat === 'resolution') {
-          console.log(`${cw}x${ch}`);
-        } else {
-          console.log(`surface ${cw}x${ch} (layers: ${lCount})`);
-        }
-        return;
-      }
-
-      if (cat === 'layer' || cat === 'layers') {
-        const targetId = !isNaN(parseInt(tokens[3] || tokens[2], 10)) ? parseInt(tokens[3] || tokens[2], 10) : activeL;
-        const vis = this.canvasActor.exports.get_layer_visible ? this.canvasActor.exports.get_layer_visible(targetId) : 1;
-        const op = this.canvasActor.exports.get_layer_opacity ? this.canvasActor.exports.get_layer_opacity(targetId) : 255;
-        const opPct = Math.round((op / 255) * 100);
-
-        if (prop === 'id' || prop === 'idx' || prop === 'active') {
-          console.log(activeL);
-        } else if (prop === 'count' || prop === 'total') {
-          console.log(lCount);
-        } else if (prop === 'opacity' || prop === 'op') {
-          console.log(`${opPct}%`);
-        } else if (prop === 'visible' || prop === 'visibility' || prop === 'vis') {
-          console.log(vis ? 'visible' : 'hidden');
-        } else {
-          console.log(`layer [${targetId}] ${vis ? 'visible' : 'hidden'} opacity: ${opPct}% (active: ${activeL}, total: ${lCount})`);
-        }
-        return;
-      }
-
-      if (cat === 'tool') {
-        if (this.currentTool === 1) {
-          console.log('eraser');
-        } else {
-          const modes = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill'];
-          console.log(modes[this.brushParams.mode] || 'brush');
-        }
-        return;
-      }
-
-      if (cat === 'mode') {
-        const modes = ['draw', 'smudge', 'blend', 'fill', 'lasso_fill'];
-        console.log(modes[this.brushParams.mode] || 'draw');
-        return;
-      }
-
-      if (cat === 'shape') {
-        const shapes = ['circle', 'square', 'chisel'];
-        const sId = this.brushParams.shape;
-        if (shapes[sId]) {
-          console.log(shapes[sId]);
-        } else {
-          let foundName = null;
-          for (const [k, v] of this.textures.entries()) {
-            if (v.wasmId === sId) {
-              foundName = k;
-              break;
-            }
-          }
-          if (!foundName && this.canvasActor && typeof this.canvasActor.exports.get_layer_count === 'function') {
-            const count = this.canvasActor.exports.get_layer_count();
-            for (let i = 0; i < count; i++) {
-              const tid = this.canvasActor.exports.w_layer_get_texture ? this.canvasActor.exports.w_layer_get_texture(i) : i;
-              if (tid === sId) {
-                foundName = `layer_${i}`;
-                break;
-              }
-            }
-          }
-          console.log(foundName || `texture_${sId}`);
-        }
-        return;
-      }
-
-      if (cat === 'brush') {
-        if (prop === 'params' || prop === 'all' || prop === '') {
-          console.log(JSON.stringify(this.brushParams, null, 2));
-        } else if (this.brushParams[prop] !== undefined) {
-          console.log(this.brushParams[prop]);
-        } else {
-          const shapes = ['circle', 'square', 'chisel'];
-          const sName = shapes[this.brushParams.shape] || `texture_${this.brushParams.shape}`;
-          console.log(`brush: shape=${sName}, mode=${['draw', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode]}, size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%`);
-        }
-        return;
-      }
-
-      if (cat === 'texture' || cat === 'tex') {
-        const tex = this.getActiveTexture();
-        if (prop === 'name' || prop === '') {
-          console.log(this.activeTexture);
-        } else if (prop === 'size' || prop === 'dim' || prop === 'dimensions') {
-          console.log(tex ? `${tex.width}x${tex.height}` : 'none');
-        } else if (prop === 'count' || prop === 'total') {
-          console.log(this.textures.size);
-        } else {
-          console.log(`texture: "${this.activeTexture}" (${tex ? `${tex.width}x${tex.height}` : 'none'}, total: ${this.textures.size})`);
-        }
-        return;
-      }
-
-      if (cat === 'color') {
-        const c = this.currentColor;
-        const r = c & 0xFF;
-        const g = (c >> 8) & 0xFF;
-        const b = (c >> 16) & 0xFF;
-        const a = (c >> 24) & 0xFF;
-        const hex = `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
-        if (prop === 'rgb') {
-          console.log(`${r} ${g} ${b}`);
-        } else if (prop === 'hex') {
-          console.log(hex);
-        } else {
-          console.log(`color: ${hex} (rgba: ${r}, ${g}, ${b}, ${a})`);
-        }
-        return;
-      }
-
-      if (cat === 'zoom') {
-        console.log(`${(this.zoom * 100).toFixed(0)}%`);
-        return;
-      }
-
-      if (cat === 'pan') {
-        console.log(`(${Math.round(this.panX)}, ${Math.round(this.panY)})`);
-        return;
-      }
-
-      const canonGet = {
-        radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
-        step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
-        shape_angle: 'angle', shape_rotate: 'angle', aspect: 'roundness',
-        jitter: 'scatter', noise: 'grain', wet: 'wetness', tol: 'tolerance',
-        smudge_strength: 'smudge', tex_mode: 'texture_mode', type: 'mode',
-        tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
-        texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
-        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
-        smooth: 'smoothing', stabilizer: 'smoothing'
-      };
-      const resolvedCat = canonGet[cat] || cat;
-      if (this.brushParams[resolvedCat] !== undefined) {
-        console.log(this.brushParams[resolvedCat]);
-        return;
-      }
-
-      console.log(`err: unknown get property '${tokens[1]}'`);
-      return;
-    }
-
-    // 4. STATUS / INFO
-    if (cmd === 'status' || cmd === 'info') {
-      const activeL = this.canvasActor.exports.get_active_layer();
-      const lCount = this.canvasActor.exports.get_layer_count();
-      const cw = this.canvasActor.exports.get_width ? this.canvasActor.exports.get_width() : this.canvasActor.exports.get_canvas_width();
-      const ch = this.canvasActor.exports.get_height ? this.canvasActor.exports.get_height() : this.canvasActor.exports.get_canvas_height();
-      const shapes = ['circle', 'square', 'chisel'];
-      const modes = ['draw', 'smudge', 'blend', 'fill', 'lasso_fill'];
-
-      console.log(`\x1b[1mStatus:\x1b[0m
-  Surface: ${cw}x${ch} | Layer: [${activeL}] of ${lCount}
-  Tool:    ${this.currentTool === 1 ? 'eraser' : (modes[this.brushParams.mode] || 'brush')}
-  Mode:    ${modes[this.brushParams.mode] || 'draw'}
-  Shape:   ${shapes[this.brushParams.shape] || 'circle'}
-  Texture: "${this.activeTexture}" (mode: ${this.brushParams.texture_mode})
-  Brush:   size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%, flow=${this.brushParams.flow}%, spacing=${this.brushParams.spacing}%, smooth=${this.brushParams.smoothing || 0}%
-  Angle:   ${this.brushParams.angle}°, roundness=${this.brushParams.roundness}%, grain=${this.brushParams.grain}%, scatter=${this.brushParams.scatter}%
-  Color:   0x${this.currentColor.toString(16).padStart(8, '0')}
-  Zoom:    ${(this.zoom * 100).toFixed(0)}% | Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})
-`);
-      return;
-    }
-
-    // 5. EXIT / QUIT
-    if (cmd === 'exit' || cmd === 'quit') {
-      console.log('Goodbye.');
-      process.exit(0);
-    }
-
-    // 6. RESIZE / SURFACE COMMANDS
-    if (cmd === 'resize' || (cmd === 'set' && tokens[1] && ((tokens[1].toLowerCase() === 'resolution' && tokens[2] && tokens[3]) || (tokens[1].toLowerCase() === 'size' && tokens[2] && tokens[3]) || (tokens[1].toLowerCase() === 'canvas' && tokens[2] && tokens[2].toLowerCase() === 'size' && tokens[3] && tokens[4])))) {
-      const w = parseInt(cmd === 'resize' ? tokens[1] : (tokens[1].toLowerCase() === 'canvas' ? tokens[3] : tokens[2]), 10);
-      const h = parseInt(cmd === 'resize' ? tokens[2] : (tokens[1].toLowerCase() === 'canvas' ? tokens[4] : tokens[3]), 10);
-      if (w >= 16 && h >= 16 && w <= 4096 && h <= 4096) {
-        this.canvasActor.exports.w_resize(w, h);
-        this.sendConsoleLog(`surface resized to ${w}x${h}`);
-      } else {
-        this.sendConsoleLog('err: invalid dimensions (min 16x16, max 4096x4096)', 0xFFFF5555);
-      }
-      return;
-    }
-
-    if (cmd === 'set' && tokens[1]) {
-      const sub = tokens[1].toLowerCase();
-      if ((sub === 'width' || sub === 'w') && tokens[2]) {
-        const w = parseInt(tokens[2], 10);
-        const h = this.canvasActor.exports.get_height ? this.canvasActor.exports.get_height() : this.canvasActor.exports.get_canvas_height();
-        if (w >= 16 && w <= 4096) {
-          this.canvasActor.exports.w_resize(w, h);
-          this.sendConsoleLog(`width updated to ${w}`);
-        }
-        return;
-      } else if ((sub === 'height' || sub === 'h') && tokens[2]) {
-        const w = this.canvasActor.exports.get_width ? this.canvasActor.exports.get_width() : this.canvasActor.exports.get_canvas_width();
-        const h = parseInt(tokens[2], 10);
-        if (h >= 16 && h <= 4096) {
-          this.canvasActor.exports.w_resize(w, h);
-          this.sendConsoleLog(`height updated to ${h}`);
-        }
-        return;
+    for (const rule of COMMAND_RULES) {
+      const m = p.match(rule.pat, raw, { exact: true, caseInsensitive: true });
+      if (m) {
+        const res = rule.run(m, this, raw);
+        if (res !== false) return res;
       }
     }
 
-    // 7. LAYER COMMANDS
-    if ((cmd === 'new' && tokens[1] && tokens[1].toLowerCase() === 'layer') || (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'add')) {
-      const idx = this.canvasActor.exports.w_layer_add();
-      this.sendConsoleLog(`new layer [${idx}] added`);
-      return;
-    }
-
-    if (((cmd === 'select' || cmd === 'set') && tokens[1] && tokens[1].toLowerCase() === 'layer' && tokens[2]) ||
-        (cmd === 'layer' && (tokens[1] && (tokens[1].toLowerCase() === 'select' || !isNaN(parseInt(tokens[1], 10)))))) {
-      const id = parseInt((cmd === 'layer' && tokens[1].toLowerCase() === 'select') ? tokens[2] : (cmd === 'layer' ? tokens[1] : tokens[2]), 10);
-      this.canvasActor.exports.w_layer_select(id);
-      this.sendConsoleLog(`selected layer [${id}]`);
-      return;
-    }
-
-    if (((cmd === 'delete' || cmd === 'remove') && tokens[1] && tokens[1].toLowerCase() === 'layer') ||
-        (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'delete')) {
-      const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.exports.get_active_layer();
-      this.canvasActor.exports.w_layer_delete(id);
-      this.sendConsoleLog(`deleted layer [${id}]`);
-      return;
-    }
-
-    if (((cmd === 'toggle' || cmd === 'hide' || cmd === 'show') && tokens[1] && tokens[1].toLowerCase() === 'layer') ||
-        (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'toggle')) {
-      const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.exports.get_active_layer();
-      this.canvasActor.exports.w_layer_toggle(id);
-      this.sendConsoleLog(`toggled layer [${id}] visibility`);
-      return;
-    }
-
-    if ((cmd === 'opacity' && tokens[1] && tokens[1].toLowerCase() === 'layer') ||
-        (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'opacity') ||
-        (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'layer' && tokens[2] && tokens[2].toLowerCase() === 'opacity')) {
-      const id = (cmd === 'opacity' || (cmd === 'layer' && tokens[1] === 'opacity')) ? parseInt(tokens[2], 10) : this.canvasActor.exports.get_active_layer();
-      const val = parseInt((cmd === 'opacity' || (cmd === 'layer' && tokens[1] === 'opacity')) ? tokens[3] : tokens[3], 10);
-      if (!isNaN(val)) {
-        const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
-        this.canvasActor.exports.w_layer_opacity(id, op255);
-        this.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
-      }
-      return;
-    }
-
-    if (cmd === 'clear' || (cmd === 'clear' && tokens[1] && tokens[1].toLowerCase() === 'layer') || (cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'clear')) {
-      this.canvasActor.exports.w_layer_clear(-1);
-      this.sendConsoleLog('active layer cleared');
-      return;
-    }
-
-    // 8. TOOL & MODE COMMANDS
-    if ((cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'tool' && tokens[2]) ||
-        (cmd === 'tool' && tokens[1])) {
-      const t = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
-      if (t === 'eraser' || t === 'erase') {
-        this.currentTool = 1;
-        this.sendConsoleLog('tool set to eraser');
-      } else if (t === 'brush' || t === 'draw') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 0);
-        this.sendConsoleLog('tool set to brush (draw)');
-      } else if (t === 'square' || t === 'circle' || t === 'round' || t === 'chisel' || t === 'flat') {
-        this.setBrushParam('shape', t);
-        this.sendConsoleLog(`brush shape set to ${t}`);
-      } else if (t === 'smudge') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 1);
-        this.sendConsoleLog('tool set to smudge');
-      } else if (t === 'blend') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 2);
-        this.sendConsoleLog('tool set to blend');
-      } else if (t === 'fill' || t === 'flood_fill') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 3);
-        this.sendConsoleLog('tool set to flood fill');
-      } else if (t === 'lasso_fill' || t === 'lasso') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 4);
-        this.sendConsoleLog('tool set to lasso fill');
-      } else {
-        this.sendConsoleLog(`err: unknown tool '${tokens[2]}'`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    if (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'mode' && tokens[2]) {
-      const m = tokens[2].toLowerCase();
-      if (m === 'eraser' || m === 'erase') {
-        this.currentTool = 1;
-        this.sendConsoleLog('mode set to eraser');
-      } else if (m === 'draw' || m === 'brush') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 0);
-        this.sendConsoleLog('mode set to draw');
-      } else if (m === 'smudge') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 1);
-        this.sendConsoleLog('mode set to smudge');
-      } else if (m === 'blend') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 2);
-        this.sendConsoleLog('mode set to blend');
-      } else if (m === 'fill' || m === 'flood_fill') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 3);
-        this.sendConsoleLog('mode set to fill');
-      } else if (m === 'lasso_fill' || m === 'lasso') {
-        this.currentTool = 0;
-        this.setBrushParam('mode', 4);
-        this.sendConsoleLog('mode set to lasso fill');
-      } else {
-        this.sendConsoleLog(`err: unknown mode '${tokens[2]}'`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    if (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'shape' && tokens[2]) {
-      this.setBrushParam('shape', tokens[2]);
-      this.sendConsoleLog(`brush shape set to ${tokens[2]}`);
-      return;
-    }
-
-    // 9. TEXTURE COMMANDS
-    if ((cmd === 'set' && tokens[1] && (tokens[1].toLowerCase() === 'texture' || tokens[1].toLowerCase() === 'tex') && tokens[2]) ||
-        ((cmd === 'texture' || cmd === 'tex') && tokens[1])) {
-      const tname = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
-      const ok = this.setTexture(tname);
-      if (ok) {
-        this.sendConsoleLog(`texture set to '${tname}'`);
-      } else {
-        this.sendConsoleLog(`err: texture '${tname}' not found. Options: paper, canvas, noise, dots, grid, grunge, hatch, none`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    if ((cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'to' && tokens[2] && tokens[2].toLowerCase() === 'texture') ||
-        cmd === 'layer-to-texture' || cmd === 'layertotexture') {
-      const tname = (cmd === 'layer' ? tokens[3] : tokens[1]) || `layer_${Date.now() % 1000}`;
-      const ok = this.convertLayerToTexture(-1, tname);
-      if (ok) {
-        this.sendConsoleLog(`layer converted to texture '${tname}'`);
-      } else {
-        this.sendConsoleLog(`err: failed converting layer to texture`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    // 10. BRUSH / PARAMETER COMMANDS
-    if ((cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'brush') || (cmd === 'brush' && tokens[1])) {
-      const sub = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
-      const val = (cmd === 'set' ? tokens[3] : tokens[2]);
-
-      if (PARAM_IDS[sub] !== undefined && val !== undefined) {
-        this.setBrushParam(sub, val);
-        this.sendConsoleLog(`brush ${sub} set to ${val}`);
-        return;
-      } else if (BRUSH_PRESETS[sub]) {
-        this.selectBrushPreset(sub);
-        this.sendConsoleLog(`brush preset '${sub}' applied`);
-        return;
-      } else {
-        this.sendConsoleLog(`err: unknown brush parameter '${sub}'`, 0xFFFF5555);
-        return;
-      }
-    }
-
-    // Direct parameter setters: set size 20, set hardness 50, set angle 45, set roundness 30, set grain 20, set scatter 15, etc.
-    if (cmd === 'set' && tokens[1] && PARAM_IDS[tokens[1].toLowerCase()] !== undefined && tokens[2] !== undefined) {
-      const sub = tokens[1].toLowerCase();
-      this.setBrushParam(sub, tokens[2]);
-      this.sendConsoleLog(`brush ${sub} set to ${tokens[2]}`);
-      return;
-    }
-
-    // 10. FILTER COMMANDS
-    if (cmd === 'filter' && tokens[1]) {
-      const fname = tokens[1].toLowerCase();
-      const p1 = parseInt(tokens[2], 10) || 0;
-      const p2 = parseInt(tokens[3], 10) || 0;
-
-      const ok = this.applyFilter(fname, p1, p2);
-      if (ok) {
-        this.sendConsoleLog(`filter '${fname}' applied`);
-      } else {
-        this.sendConsoleLog(`err: filter '${fname}' not found`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    // 11. IMAGE I/O COMMANDS
-    if (cmd === 'save' && tokens[1]) {
-      let target = 0;
-      let filePath = tokens[1];
-      if (tokens[1].toLowerCase() === 'canvas' && tokens[2]) {
-        target = 0;
-        filePath = tokens[2];
-      } else if (tokens[1].toLowerCase() === 'layer' && tokens[2]) {
-        target = 1;
-        filePath = tokens[2];
-      }
-
-      const res = this.saveCanvasOrLayer(filePath, target);
-      if (res.ok) {
-        this.sendConsoleLog(`image saved to '${res.path}'`);
-      } else {
-        this.sendConsoleLog(`err: failed saving image: ${res.error}`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    if ((cmd === 'load' && tokens[1] && tokens[1].toLowerCase() === 'image' && tokens[2]) ||
-        (cmd === 'load' && tokens[1] && tokens[1].toLowerCase() !== 'image')) {
-      const filePath = (tokens[1].toLowerCase() === 'image') ? tokens[2] : tokens[1];
-      const texName = (tokens[1].toLowerCase() === 'image') ? tokens[3] : tokens[2];
-
-      const res = this.loadImageFromFile(filePath, texName);
-      if (res.ok) {
-        this.sendConsoleLog(res.msg);
-      } else {
-        this.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    // 12. COLOR & TOOL COMMANDS
-    if (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'color' && tokens[2]) {
-      const colStr = tokens.slice(2).join(' ');
-      const parsed = parseColorString(colStr);
-      if (parsed !== null) {
-        this.currentColor = parsed;
-        this.sendConsoleLog(`color set to 0x${parsed.toString(16).padStart(8, '0')}`);
-      } else {
-        this.sendConsoleLog(`err: unknown color '${colStr}'`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    if ((cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'tool' && tokens[2]) ||
-        (cmd === 'tool' && tokens[1])) {
-      const t = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
-      this.currentTool = (t === 'eraser' || t === 'erase') ? 1 : 0;
-      this.sendConsoleLog(`tool set to ${this.currentTool === 1 ? 'eraser' : 'brush'}`);
-      return;
-    }
-
-    // 13. IMAGE STAMP / DRAW COMMANDS
-    if ((cmd === 'stamp' || cmd === 'image' || cmd === 'draw-image' || cmd === 'drawimage') && tokens[1]) {
-      const texName = tokens[1];
-      const x = tokens[2] !== undefined ? tokens[2] : 0;
-      const y = tokens[3] !== undefined ? tokens[3] : 0;
-      const w = tokens[4] !== undefined ? tokens[4] : undefined;
-      const h = tokens[5] !== undefined ? tokens[5] : undefined;
-      const res = this.drawImage(texName, x, y, w, h);
-      if (res.ok) {
-        this.sendConsoleLog(res.msg);
-      } else {
-        this.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
-      }
-      return;
-    }
-
-    // 14. PRIMITIVE DRAW COMMANDS
-    if (cmd === 'draw' && tokens[1]) {
-      const shape = tokens[1].toLowerCase();
-      if ((shape === 'image' || shape === 'img' || shape === 'texture' || shape === 'tex') && tokens[2]) {
-        const texName = tokens[2];
-        const x = tokens[3] !== undefined ? tokens[3] : 0;
-        const y = tokens[4] !== undefined ? tokens[4] : 0;
-        const w = tokens[5] !== undefined ? tokens[5] : undefined;
-        const h = tokens[6] !== undefined ? tokens[6] : undefined;
-        const res = this.drawImage(texName, x, y, w, h);
-        if (res.ok) {
-          this.sendConsoleLog(res.msg);
-        } else {
-          this.sendConsoleLog(`err: ${res.error}`, 0xFFFF5555);
-        }
-        return;
-      }
-      if (shape === 'line' && tokens.length >= 6) {
-        const x0 = parseInt(tokens[2], 10);
-        const y0 = parseInt(tokens[3], 10);
-        const x1 = parseInt(tokens[4], 10);
-        const y1 = parseInt(tokens[5], 10);
-        const col = tokens[6] ? parseColorString(tokens[6]) : this.currentColor;
-        this.canvasActor.exports.w_draw_line(x0, y0, x1, y1, col !== null ? col : this.currentColor);
-        this.sendConsoleLog(`drew line from (${x0},${y0}) to (${x1},${y1})`);
-        return;
-      }
-      if (shape === 'rect' && tokens.length >= 6) {
-        const x = parseInt(tokens[2], 10);
-        const y = parseInt(tokens[3], 10);
-        const w = parseInt(tokens[4], 10);
-        const h = parseInt(tokens[5], 10);
-        const col = tokens[6] ? parseColorString(tokens[6]) : this.currentColor;
-        this.canvasActor.exports.w_draw_rect(x, y, w, h, col !== null ? col : this.currentColor);
-        this.sendConsoleLog(`drew rect at (${x},${y}) size ${w}x${h}`);
-        return;
-      }
-      if (shape === 'circle' && tokens.length >= 5) {
-        const cx = parseInt(tokens[2], 10);
-        const cy = parseInt(tokens[3], 10);
-        const r = parseInt(tokens[4], 10);
-        const col = tokens[5] ? parseColorString(tokens[5]) : this.currentColor;
-        this.canvasActor.exports.w_draw_circle(cx, cy, r, col !== null ? col : this.currentColor);
-        this.sendConsoleLog(`drew circle at (${cx},${cy}) radius ${r}`);
-        return;
-      }
-      if (shape === 'grid' && tokens.length >= 3) {
-        const step = parseInt(tokens[2], 10);
-        const col = tokens[3] ? parseColorString(tokens[3]) : this.currentColor;
-        this.canvasActor.exports.w_draw_grid(step, col !== null ? col : this.currentColor);
-        this.sendConsoleLog(`drew grid with step ${step}`);
-        return;
-      }
-    }
-
-    // 14. EVAL COMMAND
-    if (cmd === 'eval') {
-      const expr = tokens.slice(1).join(' ');
-      const val = evaluateMath(expr);
-      if (!isNaN(val)) {
-        console.log(`\x1b[35m=> ${val}\x1b[0m`);
-      } else {
-        console.log('\x1b[31merr: invalid expression\x1b[0m');
-      }
-      return;
-    }
-
-    console.log(`\x1b[31merr: unknown command '${raw}'. Type 'help' for commands.\x1b[0m`);
+    this.sendConsoleLog(`err: unknown command '${raw}'. Type 'help' for commands.`, 0xFFFF5555);
   }
 
   /**
@@ -2034,23 +2253,16 @@ function discoverModules(baseDir) {
 
   const pluginsDir = path.resolve(baseDir, 'plugins');
   if (fs.existsSync(pluginsDir)) {
-    const subdirs = [
-      { dir: 'filters', type: 'filter' }
-    ];
-    for (const { dir: sub, type } of subdirs) {
-      const dir = path.join(pluginsDir, sub);
-      if (!fs.existsSync(dir)) continue;
-      const files = fs.readdirSync(dir).sort();
-      for (const f of files) {
-        if (f.endsWith('.wasm')) {
-          const modPath = path.relative(baseDir, path.join(dir, f));
-          modules.push({
-            id: nextId++,
-            name: path.basename(f, '.wasm'),
-            type,
-            wasmPath: modPath
-          });
-        }
+    const files = fs.readdirSync(pluginsDir).sort();
+    for (const f of files) {
+      if (f.endsWith('.wasm')) {
+        const modPath = path.relative(baseDir, path.join(pluginsDir, f));
+        modules.push({
+          id: nextId++,
+          name: path.basename(f, '.wasm'),
+          type: 'filter',
+          wasmPath: modPath
+        });
       }
     }
   }
@@ -2100,10 +2312,14 @@ if (!IS_BROWSER && typeof require !== 'undefined' && require.main === module) {
   main().catch(console.error);
 }
 
+WesenhoScreenHost.COMMAND_RULES = COMMAND_RULES;
+
 const _exports = {
   WesenhoModule,
   WesenhoScreenHost,
   PARAM_IDS,
+  COMMAND_RULES,
+  getPapagaio,
   evaluateMath,
   parseColorString,
   createProceduralTextures

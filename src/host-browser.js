@@ -25,6 +25,13 @@ async function main() {
   /* canvasRotation: radians, stored on host */
   host.canvasRotation = 0;
 
+  if (!globalThis.papagaio) {
+    try {
+      const mod = await import('./papagaio/index.js');
+      globalThis.papagaio = mod.papagaio;
+    } catch (_) {}
+  }
+
   host.sendConsoleLog = (text, color = 0xFF00FF88) =>
     log(text, color === 0xFFFF5555 ? 'err' : 'ok');
 
@@ -35,7 +42,7 @@ async function main() {
 
   for (const name of FILTER_NAMES) {
     try {
-      const mod = await WesenhoModule.fromURL(`plugins/filters/${name}.wasm`, { name });
+      const mod = await WesenhoModule.fromURL(`plugins/${name}.wasm`, { name });
       host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
     } catch (e) { log(`warn: filter ${name} — ${e.message}`, 'err'); }
   }

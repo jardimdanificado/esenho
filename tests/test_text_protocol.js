@@ -73,7 +73,7 @@ async function run() {
   // Load filter plugins
   const filters = ['blur', 'brightness', 'contrast', 'dither', 'edge', 'grayscale', 'invert', 'noise', 'pixelate', 'sepia', 'threshold'];
   for (const f of filters) {
-    const wasmPath = path.resolve(__dirname, `../plugins/filters/${f}.wasm`);
+    const wasmPath = path.resolve(__dirname, `../plugins/${f}.wasm`);
     const mod = new WesenhoModule(wasmPath, { name: f });
     host.plugins.set(f, { type: 'filter', module: mod, actor: mod });
   }
@@ -371,10 +371,39 @@ async function run() {
     throw new Error(`Expected smoothing 0, got ${host.brushParams.smoothing}`);
   }
 
+  // Test Papagaio Custom Syntax Rule extension
+  WesenhoScreenHost.COMMAND_RULES.unshift({
+    pat: "pincel tamanho $s$int cor $c",
+    run: (m, h) => {
+      h.setBrushParam('size', parseInt(m.s, 10));
+      h.currentColor = parseColorString(m.c, h.currentColor);
+      h.sendConsoleLog(`pincel ajustado: tamanho ${m.s}, cor ${m.c}`);
+    }
+  });
+  host.executeCommand('pincel tamanho 33 cor #112233');
+  if (host.brushParams.size !== 33) {
+    throw new Error(`Expected brush size 33 from custom papagaio rule, got ${host.brushParams.size}`);
+  }
+
   // Test All Filters without crashing
   for (const f of filters) {
     host.executeCommand(`filter ${f}`);
   }
+
+  // Test 100% Papagaio unknown command handling
+  let lastLog = '';
+  const origSendLog = host.sendConsoleLog.bind(host);
+  host.sendConsoleLog = (msg, col) => {
+    lastLog = msg;
+    origSendLog(msg, col);
+  };
+  host.executeCommand('comando_inexistente_xyz');
+  if (!lastLog.includes("err: unknown command 'comando_inexistente_xyz'")) {
+    throw new Error(`Expected unknown command error, got: ${lastLog}`);
+  }
+
+  // Test Math eval via pure Papagaio
+  host.executeCommand('(10 + 20)');
 
   console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, and Filters verified 100%!');
 }
