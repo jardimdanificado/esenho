@@ -561,11 +561,98 @@
         padding: 8px 10px 24px;
       }
 
+      #ui-scripts {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 8px 10px 24px;
+      }
+
+      #ui-panel-tabs {
+        display: none !important;
+      }
+
       #wterm {
         flex: 1;
         overflow-y: auto;
         -webkit-overflow-scrolling: touch;
       }
+    }
+
+    /* Panel Header Tabs (Tools / Scripts) */
+    #ui-panel-tabs {
+      display: flex;
+      border-bottom: 1px solid #3c3836;
+      background: #1d2021;
+      flex-shrink: 0;
+    }
+    .panel-header-tab {
+      flex: 1;
+      padding: 6px 8px;
+      font: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      background: #282828;
+      color: #a89984;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.1s, color 0.1s;
+    }
+    .panel-header-tab:hover {
+      color: #ebdbb2;
+      background: #32302f;
+    }
+    .panel-header-tab.active {
+      color: #fabd2f;
+      background: #232524;
+      border-bottom-color: #fabd2f;
+    }
+
+    /* Scripts Tab Panel */
+    #ui-scripts {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px 20px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: #504945 #1d2021;
+    }
+    #ui-script-editor {
+      width: 100%;
+      height: 220px;
+      min-height: 140px;
+      background: #181a1b;
+      border: 1px solid #3c3836;
+      color: #ebdbb2;
+      font-family: monospace;
+      font-size: 11px;
+      line-height: 1.4;
+      padding: 6px;
+      outline: none;
+      resize: vertical;
+      box-sizing: border-box;
+      tab-size: 2;
+    }
+    #ui-script-editor:focus {
+      border-color: #fabd2f;
+    }
+    .ui-input-text {
+      background: #282828;
+      border: 1px solid #3c3836;
+      color: #ebdbb2;
+      font: inherit;
+      font-size: 11px;
+      padding: 4px 6px;
+      outline: none;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .ui-input-text:focus {
+      border-color: #fabd2f;
     }
   </style>
 </head>
@@ -574,6 +661,10 @@
   <!-- ── Full UI Panel (Left) ── -->
   <div id="ui-panel">
     <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25C0; tools [hide]</button>
+    <div id="ui-panel-tabs">
+      <button type="button" id="tab-sub-tools" class="panel-header-tab active">Tools</button>
+      <button type="button" id="tab-sub-scripts" class="panel-header-tab">Scripts</button>
+    </div>
     <div id="ui-scroll">
 
       <!-- 1. Presets & Tools -->
@@ -739,7 +830,7 @@
           </div>
 
           <div class="ui-control" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Swatches (click to pick, hover ✕ to delete)</span></div>
+            <div class="ui-label-row"><span>Swatches (click to pick, hover [x] to delete)</span></div>
             <div id="ui-swatches-grid" class="ui-swatches-grid"></div>
           </div>
         </div>
@@ -834,6 +925,43 @@
       </details>
 
     </div>
+
+    <!-- Scripts Tab Panel -->
+    <div id="ui-scripts" style="display: none;">
+      <div class="ui-control">
+        <div class="ui-label-row"><span>Saved Scripts</span></div>
+        <div class="ui-row-gap">
+          <select id="ui-script-select" class="ui-select" style="flex:1;"></select>
+          <button id="ui-btn-new-script" class="ui-mini-btn" title="New blank script">+ New</button>
+          <button id="ui-btn-save-script" class="ui-mini-btn" title="Save script to local storage">Save</button>
+          <button id="ui-btn-del-script" class="ui-mini-btn" title="Delete current script">Del</button>
+        </div>
+      </div>
+
+      <div class="ui-control">
+        <div class="ui-label-row"><span>Script Name</span></div>
+        <input type="text" id="ui-script-name" class="ui-input-text" value="my_script" placeholder="script_name" spellcheck="false">
+      </div>
+
+      <div class="ui-control" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="ui-label-row">
+          <span>Script Editor</span>
+          <span style="font-size: 9px; color: #a89984;">1 cmd / line</span>
+        </div>
+        <textarea id="ui-script-editor" spellcheck="false" placeholder="# Wesenho script - 1 command per line&#10;set tool brush&#10;set size 25&#10;set color #fabd2f&#10;brush 150 150"></textarea>
+      </div>
+
+      <div class="ui-row-gap" style="margin-top: 4px;">
+        <button id="ui-btn-run-script" class="ui-btn" style="flex: 1; font-weight: bold;">Run Script</button>
+        <button id="ui-btn-clear-script-editor" class="ui-mini-btn">Clear</button>
+      </div>
+
+      <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
+        <span style="font-size: 10px; color: #a89984; line-height: 1.4;">
+          Each line runs as a REPL command. Lines starting with <code>#</code> or <code>//</code> are comments.
+        </span>
+      </div>
+    </div>
   </div>
 
   <!-- ── Canvas area ── -->
@@ -845,19 +973,14 @@
   <div id="bottom-dock">
     <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
     <div id="bottom-dock-tabs">
-      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">
-        <span>🛠 Tools</span>
-      </button>
-      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">
-        <span>💻 Console</span>
-      </button>
-      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">
-        ✕
-      </button>
+      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
+      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
+      <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
+      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">X</button>
     </div>
   </div>
 
-  <div id="panel">
+  <div id="panel" class="hidden">
     <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25B6;</button>
     <div id="wterm"></div>
     <div id="inputrow">

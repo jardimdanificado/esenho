@@ -41,7 +41,7 @@ async function main() {
   host.canvasActor = await WesenhoModule.fromURL('roms/canvas.wasm', { name: 'canvas' });
   host.canvasActor.exports.w_init(800, 1000);
   host.syncBrushParams(host.canvasActor);
-  log('canvas.wasm ready ✓');
+  log('canvas.wasm ready [ok]');
 
   for (const name of FILTER_NAMES) {
     try {
@@ -49,57 +49,99 @@ async function main() {
       host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
     } catch (e) { log(`warn: filter ${name} — ${e.message}`, 'err'); }
   }
-  log(`${host.plugins.size} filters loaded ✓`);
+  log(`${host.plugins.size} filters loaded [ok]`);
 
   /* ── Ensure UI Panel exists in DOM ── */
   ensureUiPanel();
 
   /* ── Canvas sizing + pan management ── */
+  /* ── Canvas sizing + pan management ── */
   let initializedPan = false;
   function resize() {
+    const parent = canvasEl.parentElement;
+    if (!parent) return;
+    const parentW = parent.clientWidth;
+    const parentH = parent.clientHeight;
+    if (parentW <= 0 || parentH <= 0) return;
+
     const prevW = canvasEl.width;
     const prevH = canvasEl.height;
-    canvasEl.width  = canvasEl.parentElement.clientWidth;
-    canvasEl.height = canvasEl.parentElement.clientHeight;
-    host.windowWidth  = canvasEl.width;
-    host.windowHeight = canvasEl.height;
-    const cw = host.canvasActor.exports.get_canvas_width();
-    const ch = host.canvasActor.exports.get_canvas_height();
 
-    if (!initializedPan) {
+    if (canvasEl.width !== parentW || canvasEl.height !== parentH) {
+      canvasEl.width  = parentW;
+      canvasEl.height = parentH;
+      host.windowWidth  = parentW;
+      host.windowHeight = parentH;
+    }
+
+    const cw = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
+    const ch = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 0;
+
+    if (!initializedPan && cw > 0 && ch > 0) {
       host.panX = (canvasEl.width  - cw * host.zoom) / 2;
       host.panY = (canvasEl.height - ch * host.zoom) / 2;
       initializedPan = true;
-    } else {
+    } else if (prevW > 0 && prevH > 0 && (canvasEl.width !== prevW || canvasEl.height !== prevH)) {
       host.panX += (canvasEl.width - prevW) / 2;
       host.panY += (canvasEl.height - prevH) / 2;
     }
   }
   resize();
   window.addEventListener('resize', resize);
+  if (typeof ResizeObserver !== 'undefined' && canvasEl.parentElement) {
+    new ResizeObserver(() => resize()).observe(canvasEl.parentElement);
+  }
 
   const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
+
+  let activeUiSubTab = 'tools'; // 'tools' or 'scripts'
+  function switchUiSubTab(tab) {
+    activeUiSubTab = tab;
+    const tabTools = document.getElementById('tab-sub-tools');
+    const tabScripts = document.getElementById('tab-sub-scripts');
+    const uiScroll = document.getElementById('ui-scroll');
+    const uiScripts = document.getElementById('ui-scripts');
+
+    if (tab === 'scripts') {
+      if (tabTools) tabTools.classList.remove('active');
+      if (tabScripts) tabScripts.classList.add('active');
+      if (uiScroll) uiScroll.style.display = 'none';
+      if (uiScripts) uiScripts.style.display = 'flex';
+    } else {
+      if (tabTools) tabTools.classList.add('active');
+      if (tabScripts) tabScripts.classList.remove('active');
+      if (uiScroll) uiScroll.style.display = 'flex';
+      if (uiScripts) uiScripts.style.display = 'none';
+    }
+    updateDockTabs();
+  }
 
   function updateDockTabs() {
     const uiEl = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
     const tabTools = document.getElementById('tab-dock-tools');
     const tabConsole = document.getElementById('tab-dock-console');
+    const tabScripts = document.getElementById('tab-dock-scripts');
     const btnClose = document.getElementById('tab-dock-close');
 
     const uiOpen = uiEl && !uiEl.classList.contains('hidden');
     const consoleOpen = consoleEl && !consoleEl.classList.contains('hidden');
 
-    if (tabTools) tabTools.classList.toggle('active', !!uiOpen);
+    if (tabTools) tabTools.classList.toggle('active', uiOpen && activeUiSubTab === 'tools');
+    if (tabScripts) tabScripts.classList.toggle('active', uiOpen && activeUiSubTab === 'scripts');
     if (tabConsole) tabConsole.classList.toggle('active', !!consoleOpen);
     if (btnClose) btnClose.classList.toggle('visible', !!(uiOpen || consoleOpen));
   }
 
-  /* ── Toggle UI tools panel ── */
-  function toggleUi(forceOpen) {
+  /* ── Toggle UI tools/scripts panel ── */
+  function toggleUi(forceOpen, targetSubTab) {
     const el = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
     if (!el) return;
+
+    if (targetSubTab) {
+      switchUiSubTab(targetSubTab);
+    }
 
     const isMob = isMobile();
     let willOpen;
@@ -276,14 +318,40 @@ async function main() {
 
   const tabDockTools = document.getElementById('tab-dock-tools');
   const tabDockConsole = document.getElementById('tab-dock-console');
+  const tabDockScripts = document.getElementById('tab-dock-scripts');
   const tabDockClose = document.getElementById('tab-dock-close');
   const dockHandle = document.getElementById('bottom-dock-handle');
+
+  const tabSubTools = document.getElementById('tab-sub-tools');
+  const tabSubScripts = document.getElementById('tab-sub-scripts');
+  if (tabSubTools) {
+    tabSubTools.addEventListener('click', () => switchUiSubTab('tools'));
+  }
+  if (tabSubScripts) {
+    tabSubScripts.addEventListener('click', () => switchUiSubTab('scripts'));
+  }
 
   if (tabDockTools) {
     tabDockTools.addEventListener('click', () => {
       const el = document.getElementById('ui-panel');
-      const isOpen = el && !el.classList.contains('hidden');
-      toggleUi(!isOpen);
+      const isOpen = el && !el.classList.contains('hidden') && activeUiSubTab === 'tools';
+      if (isOpen) {
+        toggleUi(false);
+      } else {
+        toggleUi(true, 'tools');
+      }
+    });
+  }
+
+  if (tabDockScripts) {
+    tabDockScripts.addEventListener('click', () => {
+      const el = document.getElementById('ui-panel');
+      const isOpen = el && !el.classList.contains('hidden') && activeUiSubTab === 'scripts';
+      if (isOpen) {
+        toggleUi(false);
+      } else {
+        toggleUi(true, 'scripts');
+      }
     });
   }
 
@@ -361,14 +429,14 @@ async function main() {
     dockHandle.addEventListener('pointercancel', finishDockDrag);
   }
 
-  // On mobile initial setup: ensure only one panel is open and dock tabs match
+  // On mobile initial setup: start with full-screen canvas (drawers closed)
   if (isMobile()) {
     const uiEl = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
-    if (uiEl && consoleEl && !uiEl.classList.contains('hidden') && !consoleEl.classList.contains('hidden')) {
-      consoleEl.classList.add('hidden');
-    }
+    if (uiEl) uiEl.classList.add('hidden');
+    if (consoleEl) consoleEl.classList.add('hidden');
     updateDockTabs();
+    resize();
   }
 
   window.addEventListener('keydown', e => {
@@ -386,6 +454,13 @@ async function main() {
   let lassoPoints = [];
 
   function frame() {
+    if (canvasEl.parentElement) {
+      const pw = canvasEl.parentElement.clientWidth;
+      const ph = canvasEl.parentElement.clientHeight;
+      if (pw > 0 && ph > 0 && (canvasEl.width !== pw || canvasEl.height !== ph)) {
+        resize();
+      }
+    }
     if (host.canvasActor.exports.w_render) host.canvasActor.exports.w_render();
     const cw = host.canvasActor.exports.get_canvas_width();
     const ch = host.canvasActor.exports.get_canvas_height();
@@ -820,7 +895,7 @@ async function main() {
       saveCustomPreset(p);
       populatePresetsDropdown();
       if (presetSel) presetSel.value = 'custom:' + trimName;
-      log(`Preset '${trimName}' saved ✓`);
+      log(`Preset '${trimName}' saved [ok]`);
     });
   }
 
@@ -837,7 +912,7 @@ async function main() {
         deleteCustomPreset(name);
         populatePresetsDropdown();
         if (presetSel) presetSel.value = '';
-        log(`Preset '${name}' deleted ✓`);
+        log(`Preset '${name}' deleted [ok]`);
       }
     });
   }
@@ -849,6 +924,159 @@ async function main() {
       runCmd(`set tool ${tool}`);
     });
   });
+
+  /* ── User Scripts Manager & Runner (Pure REPL Commands) ── */
+  const DEFAULT_SCRIPTS = [
+    {
+      name: 'starter_canvas',
+      code: `# Setup starter canvas and brush\nset tool brush\nset size 25\nset color #fabd2f\nset opacity 100\nset hardness 80\nbrush 200 200\nbrush 250 200\nbrush 300 200\nset color #fe8019\nset size 15\nbrush 250 250`
+    },
+    {
+      name: 'swatches_palette',
+      code: `# Paint color swatches on canvas\nset tool brush\nset size 30\nset hardness 100\nset color #fb4934\nbrush 100 200\nset color #fe8019\nbrush 160 200\nset color #fabd2f\nbrush 220 200\nset color #b8bb26\nbrush 280 200\nset color #83a598\nbrush 340 200\nset color #d3869b\nbrush 400 200`
+    },
+    {
+      name: 'layers_demo',
+      code: `# Create and blend layers\nnew layer\nset tool brush\nset size 40\nset color #8ec07c\nbrush 200 150\nbrush 260 150\nnew layer\nset color #fabd2f\nbrush 230 180`
+    }
+  ];
+
+  function getSavedScripts() {
+    try {
+      const stored = localStorage.getItem('wesenho_user_scripts');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const hasOldJsDefaults = parsed.some(s => s.name === 'spiral_pattern.js' || (s.code && s.code.includes('runCmd(')));
+          if (!hasOldJsDefaults) return parsed;
+        }
+      }
+    } catch (_) {}
+    return DEFAULT_SCRIPTS.slice();
+  }
+
+  function saveScriptsList(list) {
+    localStorage.setItem('wesenho_user_scripts', JSON.stringify(list));
+  }
+
+  function populateScriptSelect() {
+    const sel = document.getElementById('ui-script-select');
+    if (!sel) return;
+    const curVal = sel.value;
+    sel.innerHTML = '<option value="">-- Choose Script --</option>';
+    const list = getSavedScripts();
+    list.forEach((s, idx) => {
+      const opt = document.createElement('option');
+      opt.value = String(idx);
+      opt.textContent = s.name || `script_${idx + 1}`;
+      sel.appendChild(opt);
+    });
+    if (curVal !== '' && parseInt(curVal, 10) < list.length) sel.value = curVal;
+  }
+
+  function runScriptCode(code) {
+    code = code.trim();
+    if (!code) return;
+    log('--- Running script ---', 'cmd');
+    const lines = code.split('\n');
+    let ran = 0;
+    let errors = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line || line.startsWith('#') || line.startsWith('//') || line.startsWith(';')) continue;
+      try {
+        runCmd(line);
+        ran++;
+      } catch (err) {
+        errors++;
+        log(`line ${i + 1} err: ${err.message || err}`, 'err');
+      }
+    }
+    if (errors === 0) {
+      log(`Script finished: ${ran} commands run [ok]`, 'ok');
+    } else {
+      log(`Script finished with ${errors} errors (${ran} executed)`, 'err');
+    }
+    syncUiFromHost();
+  }
+
+  const scriptSel = document.getElementById('ui-script-select');
+  const scriptNameInp = document.getElementById('ui-script-name');
+  const scriptEditor = document.getElementById('ui-script-editor');
+  const btnRunScript = document.getElementById('ui-btn-run-script');
+  const btnSaveScript = document.getElementById('ui-btn-save-script');
+  const btnNewScript = document.getElementById('ui-btn-new-script');
+  const btnDelScript = document.getElementById('ui-btn-del-script');
+  const btnClearScript = document.getElementById('ui-btn-clear-script-editor');
+
+  if (scriptSel) {
+    scriptSel.addEventListener('change', () => {
+      const idx = parseInt(scriptSel.value, 10);
+      if (isNaN(idx)) return;
+      const list = getSavedScripts();
+      const s = list[idx];
+      if (s) {
+        if (scriptNameInp) scriptNameInp.value = s.name || '';
+        if (scriptEditor) scriptEditor.value = s.code || '';
+      }
+    });
+  }
+
+  if (btnNewScript) {
+    btnNewScript.addEventListener('click', () => {
+      if (scriptSel) scriptSel.value = '';
+      if (scriptNameInp) scriptNameInp.value = 'untitled';
+      if (scriptEditor) {
+        scriptEditor.value = `# New script\nset tool brush\nset size 20\nset color #fabd2f\n`;
+        scriptEditor.focus();
+      }
+    });
+  }
+
+  if (btnSaveScript) {
+    btnSaveScript.addEventListener('click', () => {
+      const name = (scriptNameInp ? scriptNameInp.value.trim() : '') || 'script';
+      const code = scriptEditor ? scriptEditor.value : '';
+      const list = getSavedScripts();
+      const existingIdx = list.findIndex(s => s.name === name);
+      if (existingIdx >= 0) {
+        list[existingIdx].code = code;
+      } else {
+        list.push({ name, code });
+      }
+      saveScriptsList(list);
+      populateScriptSelect();
+      log(`Script '${name}' saved [ok]`, 'ok');
+    });
+  }
+
+  if (btnDelScript) {
+    btnDelScript.addEventListener('click', () => {
+      const name = scriptNameInp ? scriptNameInp.value.trim() : '';
+      if (!name) return;
+      if (confirm(`Delete script '${name}'?`)) {
+        let list = getSavedScripts().filter(s => s.name !== name);
+        if (list.length === 0) list = DEFAULT_SCRIPTS.slice();
+        saveScriptsList(list);
+        populateScriptSelect();
+        if (scriptNameInp) scriptNameInp.value = '';
+        if (scriptEditor) scriptEditor.value = '';
+        log(`Script '${name}' deleted [ok]`, 'ok');
+      }
+    });
+  }
+
+  if (btnRunScript) {
+    btnRunScript.addEventListener('click', () => {
+      if (scriptEditor) runScriptCode(scriptEditor.value);
+    });
+  }
+
+  if (btnClearScript) {
+    btnClearScript.addEventListener('click', () => {
+      if (scriptEditor) scriptEditor.value = '';
+    });
+  }
 
   // 2. Wire All Sliders
   function bindSlider(id, badgeId, cmdPrefix, suffix = '') {
@@ -1075,7 +1303,7 @@ async function main() {
       const el = document.createElement('div');
       el.className = 'swatch-item';
       el.style.background = col;
-      el.title = `${col} (right-click or click ✕ to delete)`;
+      el.title = `${col} (right-click or click [x] to delete)`;
       el.addEventListener('click', () => {
         updateColorControlsFromHex(col);
         runCmd(`set color ${col}`);
@@ -1087,7 +1315,7 @@ async function main() {
 
       const del = document.createElement('span');
       del.className = 'swatch-del';
-      del.textContent = '✕';
+      del.textContent = 'x';
       del.title = 'Delete swatch';
       del.addEventListener('click', e => {
         e.stopPropagation();
@@ -1105,7 +1333,7 @@ async function main() {
       const hex = colorHex ? colorHex.value.trim() : '';
       if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
         addCustomSwatch(hex);
-        log(`Swatch ${hex} added ✓`);
+        log(`Swatch ${hex} added [ok]`);
       }
     });
   }
@@ -1232,7 +1460,7 @@ async function main() {
 
             host.canvasActor.exports.force_composite();
             syncUiFromHost();
-            log(`Imported image '${file.name}' as layer [${wasmId}] (${img.width}x${img.height}) ✓`);
+            log(`Imported image '${file.name}' as layer [${wasmId}] (${img.width}x${img.height}) [ok]`);
           } catch (err) {
             log(`err: failed importing image: ${err.message}`);
           } finally {
@@ -1467,7 +1695,7 @@ async function main() {
 
         const resizeBtn = document.createElement('button');
         resizeBtn.className = 'ui-mini-btn';
-        resizeBtn.textContent = '📐';
+        resizeBtn.textContent = 'size';
         resizeBtn.title = `Resize layer [${i}] (${w}x${h})`;
         resizeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1480,7 +1708,7 @@ async function main() {
 
         const visBtn = document.createElement('button');
         visBtn.className = 'ui-mini-btn';
-        visBtn.textContent = vis ? '👁' : '🚫';
+        visBtn.textContent = vis ? 'vis' : 'hid';
         visBtn.title = vis ? 'Hide layer' : 'Show layer';
         visBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -1491,7 +1719,7 @@ async function main() {
         if (count > 1) {
           const delBtn = document.createElement('button');
           delBtn.className = 'ui-mini-btn';
-          delBtn.textContent = '✕';
+          delBtn.textContent = 'del';
           delBtn.title = 'Delete layer';
           delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1556,6 +1784,13 @@ async function main() {
 
   // Initial population
   populatePresetsDropdown();
+  populateScriptSelect();
+  const initialScripts = getSavedScripts();
+  if (initialScripts.length > 0 && scriptEditor && !scriptEditor.value) {
+    if (scriptNameInp) scriptNameInp.value = initialScripts[0].name;
+    scriptEditor.value = initialScripts[0].code;
+    if (scriptSel) scriptSel.value = '0';
+  }
   renderSwatches();
   syncUiFromHost();
   log('Ready — left=draw  right=erase  mid/2-finger=pan  scroll/pinch=zoom  2-finger-twist=rotate');
@@ -1928,7 +2163,7 @@ function ensureUiPanel() {
             </div>
           </div>
           <div class="ui-control" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Swatches (click to pick, hover ✕ to delete)</span></div>
+            <div class="ui-label-row"><span>Swatches (click to pick, hover [x] to delete)</span></div>
             <div id="ui-swatches-grid" class="ui-swatches-grid"></div>
           </div>
         </div>
