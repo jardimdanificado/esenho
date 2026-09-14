@@ -99,7 +99,7 @@ async function main() {
     const ch = host.canvasActor.exports.get_canvas_height();
     const ptr = host.canvasActor.exports.get_composite_pixels();
 
-    ctx.fillStyle = '#181818';
+    ctx.fillStyle = '#1d2021';
     ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
 
     if (ptr && cw > 0 && ch > 0) {

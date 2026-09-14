@@ -1036,6 +1036,33 @@ class WesenhoScreenHost {
 
     const byteLen = w * h * 4;
     const rawBytes = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen);
+
+    if (IS_BROWSER) {
+      try {
+        const off = document.createElement('canvas');
+        off.width = w;
+        off.height = h;
+        const octx = off.getContext('2d');
+        const idata = octx.createImageData(w, h);
+        idata.data.set(rawBytes);
+        octx.putImageData(idata, 0, 0);
+        off.toBlob(blob => {
+          if (!blob) return;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filePath.endsWith('.png') ? filePath : `${filePath}.png`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+        return { ok: true, path: filePath, format: 'png', size: byteLen };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    }
+
     const buf = Buf.from(rawBytes);
 
     try {
