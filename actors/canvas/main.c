@@ -127,9 +127,12 @@ static void sync_fb(void) {
     fb->pixels = (uint32_t)(uintptr_t)out_pixels;
 }
 
+static int surface_dirty = 1;
+
 void force_composite(void) {
     composite_surface();
     sync_fb();
+    surface_dirty = 0;
 }
 
 static void resize_surface(uint32_t new_w, uint32_t new_h) {
@@ -242,33 +245,7 @@ static int c_isspace(char c) {
     return c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
-static int c_tolower(char c) {
-    return (c >= 'A' && c <= 'Z') ? (c + 32) : c;
-}
 
-static int c_strcasecmp(const char *a, const char *b) {
-    while (*a && *b) {
-        int diff = c_tolower(*a) - c_tolower(*b);
-        if (diff != 0) return diff;
-        a++;
-        b++;
-    }
-    return c_tolower(*a) - c_tolower(*b);
-}
-
-static int c_atoi(const char *s) {
-    if (!s) return 0;
-    while (c_isspace(*s)) s++;
-    int sign = 1;
-    if (*s == '-') { sign = -1; s++; }
-    else if (*s == '+') { s++; }
-    int res = 0;
-    while (*s >= '0' && *s <= '9') {
-        res = res * 10 + (*s - '0');
-        s++;
-    }
-    return res * sign;
-}
 
 static uint32_t c_parse_hex(const char *s) {
     uint32_t val = 0;
@@ -308,25 +285,6 @@ static uint32_t c_parse_color(const char *s) {
     return (uint32_t)c_atoi(s);
 }
 
-static int c_tokenize(char *str, char *argv[], int max_args) {
-    int argc = 0;
-    char *p = str;
-    while (*p && argc < max_args) {
-        while (*p && c_isspace(*p)) p++;
-        if (!*p) break;
-        if (*p == '"' || *p == '\'') {
-            char quote = *p++;
-            argv[argc++] = p;
-            while (*p && *p != quote) p++;
-            if (*p) { *p = '\0'; p++; }
-        } else {
-            argv[argc++] = p;
-            while (*p && !c_isspace(*p)) p++;
-            if (*p) { *p = '\0'; p++; }
-        }
-    }
-    return argc;
-}
 
 static void handle_text_command(char *str) {
     char *argv[16];
@@ -377,6 +335,7 @@ static void handle_text_command(char *str) {
     if ((c_strcasecmp(c0, "layer") == 0 && argc >= 2 && (c_strcasecmp(argv[1], "add") == 0 || c_strcasecmp(argv[1], "new") == 0)) ||
         (c_strcasecmp(c0, "new") == 0 && argc >= 2 && c_strcasecmp(argv[1], "layer") == 0)) {
         add_new_layer_internal();
+        force_composite();
         return;
     }
 
@@ -391,6 +350,7 @@ static void handle_text_command(char *str) {
         (c_strcasecmp(c0, "toggle") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
         int lidx = c_atoi(argv[2]);
         if (lidx >= 0 && lidx < layer_count) layers[lidx].visible = !layers[lidx].visible;
+        force_composite();
         return;
     }
 
@@ -400,6 +360,7 @@ static void handle_text_command(char *str) {
         int op = c_atoi(argv[3]);
         if (op < 0) op = 0; if (op > 100) op = 100;
         if (lidx >= 0 && lidx < layer_count) layers[lidx].opacity = (uint8_t)((op * 255) / 100);
+        force_composite();
         return;
     }
 
@@ -418,14 +379,16 @@ static void handle_text_command(char *str) {
                 clear_layer(&layers[0], doc_width * doc_height);
             }
         }
+        force_composite();
         return;
     }
 
     if ((c_strcasecmp(c0, "layer") == 0 && argc >= 2 && c_strcasecmp(argv[1], "clear") == 0) ||
-        (c_strcasecmp(c0, "clear") == 0 && argc >= 2 && c_strcasecmp(argv[1], "layer") == 0)) {
+        (c_strcasecmp(c0, "clear") == 0)) {
         if (active_layer >= 0 && active_layer < layer_count) {
             clear_layer(&layers[active_layer], doc_width * doc_height);
         }
+        force_composite();
         return;
     }
 
@@ -435,6 +398,7 @@ static void handle_text_command(char *str) {
         int x1 = c_atoi(argv[4]), y1 = c_atoi(argv[5]);
         uint32_t col = (argc >= 7) ? c_parse_color(argv[6]) : current_color;
         draw_line(x0, y0, x1, y1, col);
+        force_composite();
         return;
     }
 
@@ -443,6 +407,7 @@ static void handle_text_command(char *str) {
         int rw = c_atoi(argv[4]), rh = c_atoi(argv[5]);
         uint32_t col = (argc >= 7) ? c_parse_color(argv[6]) : current_color;
         draw_rect(rx, ry, rw, rh, col);
+        force_composite();
         return;
     }
 
@@ -450,6 +415,7 @@ static void handle_text_command(char *str) {
         int cx = c_atoi(argv[2]), cy = c_atoi(argv[3]), cr = c_atoi(argv[4]);
         uint32_t col = (argc >= 6) ? c_parse_color(argv[5]) : current_color;
         draw_circle(cx, cy, cr, col);
+        force_composite();
         return;
     }
 
@@ -457,6 +423,7 @@ static void handle_text_command(char *str) {
         int step = c_atoi(argv[2]);
         uint32_t col = (argc >= 4) ? c_parse_color(argv[3]) : current_color;
         draw_grid(step, col);
+        force_composite();
         return;
     }
 
@@ -480,119 +447,12 @@ static void handle_text_command(char *str) {
 
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
-
-    // Check if message is a text command
-    int is_text = 1;
-    for (int i = 0; i < len && i < 16; i++) {
-        uint8_t b = piolho_page[i];
-        if (b == 0) break;
-        if (b < 32 && b != '\n' && b != '\r' && b != '\t') {
-            is_text = 0;
-            break;
-        }
-    }
-
-    if (is_text) {
-        char cmd_buf[512];
-        int clen = (len < 511) ? len : 511;
-        for (int i = 0; i < clen; i++) cmd_buf[i] = (char)piolho_page[i];
-        cmd_buf[clen] = '\0';
-        handle_text_command(cmd_buf);
-        return;
-    }
-
-    if (len < 4) return;
-    uint32_t type = *(uint32_t*)piolho_page;
-
-    switch (type) {
-        case MSG_CANVAS_RESIZE: {
-            if (len >= 12) {
-                wesenho_canvas_resize_msg_t *rmsg = (wesenho_canvas_resize_msg_t*)piolho_page;
-                resize_surface(rmsg->width, rmsg->height);
-            }
-            break;
-        }
-        case MSG_SET_COLOR:
-            current_color = *(uint32_t*)(piolho_page + 4);
-            break;
-        case MSG_EFFECT_CLEAR:
-            if (active_layer >= 0 && active_layer < layer_count) {
-                clear_layer(&layers[active_layer], doc_width * doc_height);
-            }
-            break;
-        case MSG_LAYER_ADD:
-            add_new_layer_internal();
-            break;
-        case MSG_LAYER_SELECT: {
-            int lay_idx = *(int32_t*)(piolho_page + 4);
-            if (lay_idx >= 0 && lay_idx < layer_count) {
-                active_layer = lay_idx;
-            }
-            break;
-        }
-        case MSG_LAYER_TOGGLE_VIS: {
-            int lay_idx = *(int32_t*)(piolho_page + 4);
-            if (lay_idx >= 0 && lay_idx < layer_count) {
-                layers[lay_idx].visible = !layers[lay_idx].visible;
-            }
-            break;
-        }
-        case MSG_LAYER_SET_OPACITY: {
-            int lay_idx = *(int32_t*)(piolho_page + 4);
-            int op = *(int32_t*)(piolho_page + 8);
-            if (lay_idx >= 0 && lay_idx < layer_count) {
-                if (op < 0) op = 0; if (op > 100) op = 100;
-                layers[lay_idx].opacity = (uint8_t)((op * 255) / 100);
-            }
-            break;
-        }
-        case MSG_LAYER_DELETE: {
-            int del_idx = *(int32_t*)(piolho_page + 4);
-            if (del_idx >= 0 && del_idx < layer_count) {
-                if (layer_count > 1) {
-                    uint32_t *recycled = layers[del_idx].pixels;
-                    for (int l = del_idx; l < layer_count - 1; l++) {
-                        layers[l] = layers[l + 1];
-                    }
-                    layers[layer_count - 1].pixels = recycled;
-                    clear_layer(&layers[layer_count - 1], doc_width * doc_height);
-                    layer_count--;
-                    if (active_layer >= layer_count) active_layer = layer_count - 1;
-                } else {
-                    clear_layer(&layers[0], doc_width * doc_height);
-                }
-            }
-            break;
-        }
-        case MSG_DRAW_LINE: {
-            int x0 = (int16_t)(*(uint32_t*)(piolho_page + 4) >> 16);
-            int y0 = (int16_t)(*(uint32_t*)(piolho_page + 4) & 0xFFFF);
-            int x1 = (int16_t)(*(uint32_t*)(piolho_page + 8) >> 16);
-            int y1 = (int16_t)(*(uint32_t*)(piolho_page + 8) & 0xFFFF);
-            draw_line(x0, y0, x1, y1, current_color);
-            break;
-        }
-        case MSG_DRAW_RECT: {
-            int rx = (int16_t)(*(uint32_t*)(piolho_page + 4) >> 16);
-            int ry = (int16_t)(*(uint32_t*)(piolho_page + 4) & 0xFFFF);
-            int rw = (int16_t)(*(uint32_t*)(piolho_page + 8) >> 16);
-            int rh = (int16_t)(*(uint32_t*)(piolho_page + 8) & 0xFFFF);
-            draw_rect(rx, ry, rw, rh, current_color);
-            break;
-        }
-        case MSG_DRAW_CIRCLE: {
-            int cx = (int16_t)(*(uint32_t*)(piolho_page + 4) >> 16);
-            int cy = (int16_t)(*(uint32_t*)(piolho_page + 4) & 0xFFFF);
-            int cr = (int)(*(uint32_t*)(piolho_page + 8));
-            draw_circle(cx, cy, cr, current_color);
-            break;
-        }
-        case MSG_DRAW_GRID: {
-            int step = (int)(*(uint32_t*)(piolho_page + 4));
-            draw_grid(step, current_color);
-            break;
-        }
-    }
+    char cmd_buf[512];
+    int clen = (len < 511) ? len : 511;
+    for (int i = 0; i < clen; i++) cmd_buf[i] = (char)piolho_page[i];
+    cmd_buf[clen] = '\0';
+    handle_text_command(cmd_buf);
+    force_composite();
 }
 
 static int surface_initialized = 0;
@@ -603,11 +463,14 @@ int32_t update(void) {
         fb = (wframebuffer_t*)ask("std:framebuffer");
         out_pixels = (uint32_t*)canvas_alloc(doc_width * doc_height * sizeof(uint32_t));
         add_new_layer_internal();
-        composite_surface();
-        sync_fb();
+        force_composite();
     }
 
-    sync_fb();
+    if (surface_dirty) {
+        force_composite();
+    } else {
+        sync_fb();
+    }
     return UPDATE_OK;
 }
 

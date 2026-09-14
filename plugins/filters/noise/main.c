@@ -15,14 +15,25 @@ static inline uint32_t next_rnd(void) {
 }
 
 void on_message(int32_t from_id, int32_t len) {
-    if (len < (int32_t)sizeof(wesenho_filter_msg_t)) return;
-    wesenho_filter_msg_t *msg = (wesenho_filter_msg_t*)piolho_page;
+    if (len <= 0) return;
 
     wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
     if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
 
+    char buf[128];
+    int clen = (len < 127) ? len : 127;
+    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
+    buf[clen] = '\0';
+
+    char *argv[8];
+    int argc = c_tokenize(buf, argv, 8);
+    int amount = 25;
+    for (int i = 0; i < argc; i++) {
+        int v = c_atoi(argv[i]);
+        if (v > 0) amount = v;
+    }
+
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
-    int amount = msg->param1 > 0 ? msg->param1 : 25;
     int total = fb->width * fb->height;
 
     for (int i = 0; i < total; i++) {

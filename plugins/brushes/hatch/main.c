@@ -71,40 +71,53 @@ static void stamp_hatch(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y
 }
 
 void on_message(int32_t from_id, int32_t len) {
-    if (len < 4) return;
-    uint32_t type = *(uint32_t*)piolho_page;
+    if (len <= 0) return;
+    char buf[256];
+    int clen = (len < 255) ? len : 255;
+    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
+    buf[clen] = '\0';
 
-    if (type == MSG_BRUSH_SET_PARAM && len >= sizeof(wesenho_brush_param_msg_t)) {
-        wesenho_brush_param_msg_t *pmsg = (wesenho_brush_param_msg_t*)piolho_page;
-        switch (pmsg->param_id) {
-            case BRUSH_PARAM_SIZE:             size = pmsg->value; break;
-            case BRUSH_PARAM_SPACING:          spacing = pmsg->value; if (spacing < 1) spacing = 1; break;
-            case BRUSH_PARAM_TEXTURE_MODE:     tex_mode = pmsg->value; break;
-            case BRUSH_PARAM_TEXTURE_SCALE:    tex_scale = pmsg->value; if (tex_scale < 1) tex_scale = 1; break;
-            case BRUSH_PARAM_TEXTURE_STRENGTH: tex_strength = pmsg->value; if (tex_strength < 0) tex_strength = 0; if (tex_strength > 100) tex_strength = 100; break;
-        }
+    char *tokens[10];
+    int ntok = c_tokenize(buf, tokens, 10);
+    if (ntok == 0) return;
+
+    if (c_strcasecmp(tokens[0], "set") == 0 && ntok >= 3) {
+        const char *param = tokens[1];
+        int val = c_atoi(tokens[2]);
+        if (c_strcasecmp(param, "size") == 0) { size = val < 1 ? 1 : val; }
+        else if (c_strcasecmp(param, "spacing") == 0) { spacing = val < 1 ? 1 : val; }
+        else if (c_strcasecmp(param, "tex_mode") == 0 || c_strcasecmp(param, "texture_mode") == 0) { tex_mode = val; }
+        else if (c_strcasecmp(param, "tex_scale") == 0 || c_strcasecmp(param, "texture_scale") == 0) { tex_scale = val < 1 ? 1 : val; }
+        else if (c_strcasecmp(param, "tex_strength") == 0 || c_strcasecmp(param, "texture_strength") == 0) { tex_strength = val < 0 ? 0 : (val > 100 ? 100 : val); }
         return;
     }
 
-    if (type == MSG_BRUSH_STROKE && len >= sizeof(wesenho_stroke_msg_t)) {
-        wesenho_stroke_msg_t *smsg = (wesenho_stroke_msg_t*)piolho_page;
+    if (c_strcasecmp(tokens[0], "stroke") == 0 && ntok >= 8) {
+        int state = c_atoi(tokens[1]);
+        int x = c_atoi(tokens[2]);
+        int y = c_atoi(tokens[3]);
+        int prev_x = c_atoi(tokens[4]);
+        int prev_y = c_atoi(tokens[5]);
+        uint32_t color = c_parse_u32(tokens[6]);
+        int is_eraser = c_atoi(tokens[7]);
+
         wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
         if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
         wframebuffer_t *tex_fb = (wframebuffer_t*)ask("brush:texture");
 
-        if (smsg->state == STROKE_START) {
-            stamp_hatch(fb, tex_fb, smsg->x, smsg->y, smsg->color, smsg->is_eraser);
+        if (state == 0) {
+            stamp_hatch(fb, tex_fb, x, y, color, is_eraser);
         } else {
-            float dx = (float)(smsg->x - smsg->prev_x);
-            float dy = (float)(smsg->y - smsg->prev_y);
+            float dx = (float)(x - prev_x);
+            float dy = (float)(y - prev_y);
             float dist = fast_sqrt(dx * dx + dy * dy);
             int steps = (int)(dist / 3.0f);
             if (steps < 1) steps = 1;
             for (int i = 0; i <= steps; i++) {
                 float t = (float)i / (float)steps;
-                int cx = (int)((float)smsg->prev_x + dx * t + 0.5f);
-                int cy = (int)((float)smsg->prev_y + dy * t + 0.5f);
-                stamp_hatch(fb, tex_fb, cx, cy, smsg->color, smsg->is_eraser);
+                int cx = (int)((float)prev_x + dx * t + 0.5f);
+                int cy = (int)((float)prev_y + dy * t + 0.5f);
+                stamp_hatch(fb, tex_fb, cx, cy, color, is_eraser);
             }
         }
     }

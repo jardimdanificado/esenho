@@ -16,7 +16,7 @@ static inline uint8_t get_lum(uint32_t p) {
 }
 
 void on_message(int32_t from_id, int32_t len) {
-    if (len < (int32_t)sizeof(wesenho_filter_msg_t)) return;
+    if (len <= 0) return;
 
     wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
     if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;

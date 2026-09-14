@@ -34,22 +34,35 @@ static inline uint32_t get_pixel_color(wframebuffer_t *tex_fb, int px, int py, u
 }
 
 void on_message(int32_t from_id, int32_t len) {
-    if (len < 4) return;
-    uint32_t type = *(uint32_t*)piolho_page;
+    if (len <= 0) return;
+    char buf[256];
+    int clen = (len < 255) ? len : 255;
+    for (int i = 0; i < clen; i++) buf[i] = (char)piolho_page[i];
+    buf[clen] = '\0';
 
-    if (type == MSG_BRUSH_SET_PARAM && len >= sizeof(wesenho_brush_param_msg_t)) {
-        wesenho_brush_param_msg_t *pmsg = (wesenho_brush_param_msg_t*)piolho_page;
-        switch (pmsg->param_id) {
-            case BRUSH_PARAM_SIZE:             size = pmsg->value; if (size < 1) size = 1; break;
-            case BRUSH_PARAM_TEXTURE_MODE:     tex_mode = pmsg->value; break;
-            case BRUSH_PARAM_TEXTURE_SCALE:    tex_scale = pmsg->value; if (tex_scale < 1) tex_scale = 1; break;
-            case BRUSH_PARAM_TEXTURE_STRENGTH: tex_strength = pmsg->value; if (tex_strength < 0) tex_strength = 0; if (tex_strength > 100) tex_strength = 100; break;
-        }
+    char *tokens[10];
+    int ntok = c_tokenize(buf, tokens, 10);
+    if (ntok == 0) return;
+
+    if (c_strcasecmp(tokens[0], "set") == 0 && ntok >= 3) {
+        const char *param = tokens[1];
+        int val = c_atoi(tokens[2]);
+        if (c_strcasecmp(param, "size") == 0) { size = val < 1 ? 1 : val; }
+        else if (c_strcasecmp(param, "tex_mode") == 0 || c_strcasecmp(param, "texture_mode") == 0) { tex_mode = val; }
+        else if (c_strcasecmp(param, "tex_scale") == 0 || c_strcasecmp(param, "texture_scale") == 0) { tex_scale = val < 1 ? 1 : val; }
+        else if (c_strcasecmp(param, "tex_strength") == 0 || c_strcasecmp(param, "texture_strength") == 0) { tex_strength = val < 0 ? 0 : (val > 100 ? 100 : val); }
         return;
     }
 
-    if (type == MSG_BRUSH_STROKE && len >= sizeof(wesenho_stroke_msg_t)) {
-        wesenho_stroke_msg_t *smsg = (wesenho_stroke_msg_t*)piolho_page;
+    if (c_strcasecmp(tokens[0], "stroke") == 0 && ntok >= 8) {
+        int state = c_atoi(tokens[1]);
+        int x = c_atoi(tokens[2]);
+        int y = c_atoi(tokens[3]);
+        int prev_x = c_atoi(tokens[4]);
+        int prev_y = c_atoi(tokens[5]);
+        uint32_t color = c_parse_u32(tokens[6]);
+        int is_eraser = c_atoi(tokens[7]);
+
         wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
         if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
         wframebuffer_t *tex_fb = (wframebuffer_t*)ask("brush:texture");
@@ -58,10 +71,10 @@ void on_message(int32_t from_id, int32_t len) {
         int width = fb->width;
         int height = fb->height;
 
-        int x0 = (smsg->state == STROKE_START) ? smsg->x : smsg->prev_x;
-        int y0 = (smsg->state == STROKE_START) ? smsg->y : smsg->prev_y;
-        int x1 = smsg->x;
-        int y1 = smsg->y;
+        int x0 = (state == 0) ? x : prev_x;
+        int y0 = (state == 0) ? y : prev_y;
+        int x1 = x;
+        int y1 = y;
 
         int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
         int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
@@ -78,7 +91,7 @@ void on_message(int32_t from_id, int32_t len) {
                 for (int sx_off = 0; sx_off < size; sx_off++) {
                     int px = x0 + sx_off - half;
                     if (px < 0 || px >= width) continue;
-                    pixels[py * width + px] = smsg->is_eraser ? 0x00000000 : get_pixel_color(tex_fb, px, py, smsg->color);
+                    pixels[py * width + px] = is_eraser ? 0x00000000 : get_pixel_color(tex_fb, px, py, color);
                 }
             }
 

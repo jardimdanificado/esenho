@@ -13,35 +13,6 @@ const ACTOR_CANVAS  = 1;
 const DOC_WIDTH  = 800;
 const DOC_HEIGHT = 1000;
 
-// Binary Message IDs
-const MSG_SET_COLOR          = 1;
-const MSG_SET_TOOL           = 3;
-const MSG_LAYER_ADD          = 7;
-const MSG_LAYER_SELECT       = 8;
-const MSG_LAYER_TOGGLE_VIS   = 9;
-const MSG_LAYER_SET_OPACITY  = 10;
-const MSG_LAYER_DELETE       = 11;
-const MSG_DRAW_LINE          = 13;
-const MSG_DRAW_RECT          = 14;
-const MSG_DRAW_CIRCLE        = 15;
-const MSG_DRAW_GRID          = 16;
-const MSG_EFFECT_CLEAR       = 20;
-const MSG_APPLY_FILTER       = 30;
-const MSG_BRUSH_STROKE       = 40;
-const MSG_BRUSH_SET_PARAM    = 41;
-const MSG_SET_ACTIVE_BRUSH   = 42;
-const MSG_TEXTURE_SET_ACTIVE = 50;
-const MSG_LAYER_TO_TEXTURE   = 51;
-const MSG_LOAD_IMAGE         = 60;
-const MSG_SAVE_IMAGE         = 61;
-const MSG_CONSOLE_LOG        = 70;
-const MSG_CANVAS_NEW         = 80;
-const MSG_CANVAS_SELECT      = 81;
-const MSG_CANVAS_RESIZE      = 82;
-const MSG_CANVAS_DELETE      = 83;
-const MSG_CANVAS_RENAME      = 84;
-const MSG_CANVAS_DUPLICATE   = 85;
-
 function createProceduralTextures() {
   const map = new Map();
 
@@ -357,6 +328,9 @@ class WesenhoScreenHost {
   sendCanvasCmd(cmdStr) {
     if (!this.canvasActor) return;
     this.canvasActor.say(Buffer.from(cmdStr + '\0', 'utf8'), ACTOR_SCREEN);
+    if (this.canvasActor.instance && this.canvasActor.instance.exports.force_composite) {
+      this.canvasActor.instance.exports.force_composite();
+    }
   }
 
   getActiveTexture() {
@@ -465,17 +439,9 @@ class WesenhoScreenHost {
     const brushEntry = this.plugins.get(this.activeBrush);
     if (!brushEntry || !brushEntry.actor) return;
 
-    const strokeBuf = Buffer.alloc(28);
-    strokeBuf.writeUInt32LE(MSG_BRUSH_STROKE, 0);
-    strokeBuf.writeInt32LE(Math.floor(x), 4);
-    strokeBuf.writeInt32LE(Math.floor(y), 8);
-    strokeBuf.writeInt32LE(Math.floor(prev_x), 12);
-    strokeBuf.writeInt32LE(Math.floor(prev_y), 16);
-    strokeBuf.writeUInt32LE((color !== undefined) ? color : this.currentColor, 20);
-    strokeBuf[24] = state;
-    strokeBuf[25] = is_eraser ? 1 : 0;
-    strokeBuf[26] = 255;
-    strokeBuf[27] = 0;
+    const col = (color !== undefined) ? color : this.currentColor;
+    const str = `stroke ${state} ${Math.floor(x)} ${Math.floor(y)} ${Math.floor(prev_x)} ${Math.floor(prev_y)} ${col} ${is_eraser ? 1 : 0}\0`;
+    const strokeBuf = Buffer.from(str, 'utf8');
 
     brushEntry.actor.say(strokeBuf, ACTOR_CANVAS);
   }
@@ -484,40 +450,14 @@ class WesenhoScreenHost {
     if (!data) return;
     const buffer = Buffer.isBuffer(data) ? data : (data instanceof Uint8Array ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : Buffer.from(String(data)));
 
-    // Check if text string
-    let isText = true;
+    let str = '';
     for (let i = 0; i < buffer.length; i++) {
-      const b = buffer[i];
-      if (b === 0 && i === buffer.length - 1) break;
-      if (b < 32 && b !== 10 && b !== 13 && b !== 9 && b !== 0) {
-        isText = false;
-        break;
-      }
+      if (buffer[i] === 0) break;
+      str += String.fromCharCode(buffer[i]);
     }
-
-    if (isText) {
-      let str = '';
-      for (let i = 0; i < buffer.length; i++) {
-        if (buffer[i] === 0) break;
-        str += String.fromCharCode(buffer[i]);
-      }
-      str = str.trim();
-      if (str.length > 0) {
-        this.executeCommand(str, from);
-      }
-      return;
-    }
-
-    // Binary message fallback
-    if (buffer.length >= 4) {
-      const view = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-      const type = view.getUint32(0, true);
-
-      if (type === MSG_CONSOLE_LOG) {
-        let text = '';
-        for (let i = 8; i < buffer.length && buffer[i] !== 0; i++) text += String.fromCharCode(buffer[i]);
-        this.sendConsoleLog(text);
-      }
+    str = str.trim();
+    if (str.length > 0) {
+      this.executeCommand(str, from);
     }
   }
 
@@ -542,6 +482,12 @@ class WesenhoScreenHost {
 
     if (tokens.length === 0) return;
     const cmd = tokens[0].toLowerCase();
+
+    if (cmd === 'log') {
+      const msg = raw.slice(3).trim();
+      this.sendConsoleLog(msg);
+      return;
+    }
 
     // 1. HELP
     if (cmd === 'help') {
@@ -855,13 +801,10 @@ class WesenhoScreenHost {
       };
 
       if (paramMap[sub] !== undefined && val !== undefined) {
-        const paramId = paramMap[sub];
         const paramVal = parseFloat(val);
         this.brushParams[sub] = paramVal;
-        const buf = Buffer.alloc(16);
-        buf.writeUInt32LE(MSG_BRUSH_SET_PARAM, 0);
-        buf.writeUInt32LE(paramId, 4);
-        buf.writeFloatLE(paramVal, 8);
+        const str = `set ${sub} ${paramVal}\0`;
+        const buf = Buffer.from(str, 'utf8');
 
         for (const entry of this.plugins.values()) {
           if (entry.type === 'brush') entry.actor.say(buf, ACTOR_SCREEN);
@@ -911,11 +854,8 @@ class WesenhoScreenHost {
 
       const filterEntry = this.plugins.get(fname);
       if (filterEntry && filterEntry.actor) {
-        const buf = Buffer.alloc(32);
-        buf.writeUInt32LE(MSG_APPLY_FILTER, 0);
-        buf.write(fname.slice(0, 19), 4, 'utf8');
-        buf.writeInt32LE(p1, 24);
-        buf.writeInt32LE(p2, 28);
+        const str = `filter ${fname} ${p1} ${p2}\0`;
+        const buf = Buffer.from(str, 'utf8');
         filterEntry.actor.say(buf, ACTOR_SCREEN);
         this.sendConsoleLog(`filter '${fname}' applied`);
       } else {

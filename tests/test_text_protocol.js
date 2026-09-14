@@ -75,7 +75,88 @@ async function run() {
   console.log('Pixel (1,0) after "layer clear": 0x' + pixels0[1].toString(16));
   if (pixels0[1] !== 0) throw new Error(`Expected 0 after clear, got 0x${pixels0[1].toString(16)}`);
 
-  console.log('ALL CANVAS TEXT COMMAND TESTS PASSED!');
+  // Check composite output immediately reflects the clear without any manual click
+  const compPtr = canvasActor.instance.exports.get_composite_pixels();
+  const compPixels = new Uint32Array(canvasActor.memory.buffer, compPtr, 300 * 200);
+  console.log('Composite pixel (1,0) after clear: 0x' + compPixels[1].toString(16));
+  if (compPixels[1] === 0xFF00FF00) throw new Error('Composite pixel still green! Clear did not auto-composite');
+
+  // Piolho Extension: canvas:layer for plugins
+  registry.register({
+    name: ['canvas:layer', 'canvas:active_layer', 'std:canvas'],
+    onRequest(worker, wasmHost, name) {
+      const cw = canvasActor.instance.exports.get_canvas_width();
+      const ch = canvasActor.instance.exports.get_canvas_height();
+      const pixPtr = canvasActor.instance.exports.get_active_layer_pixels();
+      if (!pixPtr) return 0;
+
+      const byteLen = cw * ch * 4;
+      let state = wasmHost.extState.get('canvas:layer');
+      if (!state || state.byteLen < byteLen) {
+        const fbPtr = worker.alloc(12, 4);
+        const pixCopyPtr = worker.alloc(byteLen, 4);
+        state = { fbPtr, pixCopyPtr, byteLen };
+        wasmHost.extState.set('canvas:layer', state);
+      }
+
+      const view = new DataView(worker.memory.buffer);
+      view.setUint32(state.fbPtr + 0, cw, true);
+      view.setUint32(state.fbPtr + 4, ch, true);
+      view.setUint32(state.fbPtr + 8, state.pixCopyPtr, true);
+
+      new Uint8Array(worker.memory.buffer, state.pixCopyPtr, byteLen)
+        .set(new Uint8Array(canvasActor.memory.buffer, pixPtr, byteLen));
+
+      state.dirty = true;
+      return state.fbPtr;
+    }
+  });
+
+  function syncLayerBack(actor) {
+    const state = actor.extState.get('canvas:layer');
+    if (state && state.dirty) {
+      const pixPtr = canvasActor.instance.exports.get_active_layer_pixels();
+      new Uint8Array(canvasActor.memory.buffer, pixPtr, state.byteLen)
+        .set(new Uint8Array(actor.memory.buffer, state.pixCopyPtr, state.byteLen));
+      state.dirty = false;
+    }
+  }
+
+  // Test 9: Round brush plugin with text protocol
+  const roundBrush = new Piolho(path.resolve(__dirname, '../plugins/brushes/round.wasm'), {
+    id: 11,
+    name: 'round',
+    threaded: false,
+    extensions: registry
+  });
+  await roundBrush.init();
+
+  roundBrush.say(Buffer.from('set size 10\0', 'utf8'), 0);
+  roundBrush.say(Buffer.from('set opacity 100\0', 'utf8'), 0);
+  roundBrush.say(Buffer.from('stroke 0 20 20 20 20 0xFFFF00FF 0\0', 'utf8'), 1);
+  syncLayerBack(roundBrush);
+
+  const pixPtrRound = canvasActor.instance.exports.get_active_layer_pixels();
+  const pixelsRound = new Uint32Array(canvasActor.memory.buffer, pixPtrRound, 300 * 200);
+  console.log('Pixel (20,20) after round brush stroke:', '0x' + pixelsRound[20 * 300 + 20].toString(16));
+  if (pixelsRound[20 * 300 + 20] !== 0xFFFF00FF) throw new Error(`Expected 0xFFFF00FF, got 0x${pixelsRound[20 * 300 + 20].toString(16)}`);
+
+  // Test 10: Invert filter plugin with text protocol
+  const invertFilter = new Piolho(path.resolve(__dirname, '../plugins/filters/invert.wasm'), {
+    id: 12,
+    name: 'invert',
+    threaded: false,
+    extensions: registry
+  });
+  await invertFilter.init();
+
+  invertFilter.say(Buffer.from('filter invert 0 0\0', 'utf8'), 0);
+  syncLayerBack(invertFilter);
+
+  console.log('Pixel (20,20) after invert filter:', '0x' + pixelsRound[20 * 300 + 20].toString(16));
+  if ((pixelsRound[20 * 300 + 20] & 0x00FFFFFF) !== 0x0000FF00) throw new Error(`Expected RGB inverted 0x0000FF00, got 0x${(pixelsRound[20 * 300 + 20] & 0x00FFFFFF).toString(16)}`);
+
+  console.log('ALL CANVAS, BRUSH & FILTER TEXT COMMAND TESTS PASSED!');
 }
 
 run().catch(err => {
