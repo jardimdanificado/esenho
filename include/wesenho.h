@@ -48,7 +48,8 @@ enum {
     W_PARAM_SHAPE          = 14,
     W_PARAM_MODE           = 15,
     W_PARAM_TEX_ANGLE      = 16,
-    W_PARAM_TEX_SCALE      = 17
+    W_PARAM_TEX_SCALE      = 17,
+    W_PARAM_TEX_LAYER      = 18  /* layer index to use as grain texture (-1 = none) */
 };
 
 /* =========================================================================

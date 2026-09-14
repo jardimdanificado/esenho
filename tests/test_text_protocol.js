@@ -10,14 +10,17 @@ async function run() {
   if (canvas.exports.get_canvas_width() !== 800 || canvas.exports.get_canvas_height() !== 1000) {
     throw new Error('Canvas init dimensions mismatch');
   }
-  if (canvas.exports.get_layer_count() !== 1) {
-    throw new Error('Expected 1 layer initially');
+  if (canvas.exports.get_layer_count() !== 4) {
+    throw new Error(`Expected 4 layers initially (3 builtin shapes + 1 canvas), got ${canvas.exports.get_layer_count()}`);
+  }
+  if (canvas.exports.get_active_layer() !== 3) {
+    throw new Error(`Expected active layer 3, got ${canvas.exports.get_active_layer()}`);
   }
 
   // 1. Layer add
   const l1 = canvas.exports.w_layer_add();
-  if (l1 !== 1 || canvas.exports.get_layer_count() !== 2) {
-    throw new Error(`Expected layer 1 added, got ${l1} (total: ${canvas.exports.get_layer_count()})`);
+  if (l1 !== 4 || canvas.exports.get_layer_count() !== 5) {
+    throw new Error(`Expected layer 4 added, got ${l1} (total: ${canvas.exports.get_layer_count()})`);
   }
 
   // 2. Resize
@@ -35,8 +38,8 @@ async function run() {
   }
 
   // 4. Layer opacity
-  canvas.exports.w_layer_opacity(1, 128);
-  const op = canvas.exports.get_layer_opacity(1);
+  canvas.exports.w_layer_opacity(l1, 128);
+  const op = canvas.exports.get_layer_opacity(l1);
   if (op !== 128) {
     throw new Error(`Expected opacity 128, got ${op}`);
   }
@@ -322,15 +325,15 @@ async function run() {
   // Draw a solid box in center of layer 2 (640x480 -> center at 320, 240)
   canvas.exports.w_draw_rect(300, 220, 40, 40, 0xFFFFFFFF);
   
-  // Switch back to layer 0 and use layer 2 as brush shape
-  host.executeCommand('layer select 0');
+  // Switch back to canvas layer 3 and use newly added layer as brush shape
+  host.executeCommand('layer select 3');
   host.executeCommand('clear layer');
   host.executeCommand(`set shape layer_${l2Idx}`);
-  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF00FF00); // Green dab using layer 2's alpha mask
-  pixPtr = canvas.exports.get_layer_pixels(0);
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF00FF00); // Green dab using layer's alpha mask
+  pixPtr = canvas.exports.get_layer_pixels(3);
   pixels = new Uint32Array(canvas.memory.buffer, pixPtr, 640 * 480);
   if ((pixels[100 * 640 + 100] & 0xFF000000) === 0) {
-    throw new Error('Expected layer 0 to receive stroke sampled from layer 2 texture alpha mask');
+    throw new Error('Expected layer 3 to receive stroke sampled from layer texture alpha mask');
   }
 
   // Test Built-in Shapes presence in textures map & list textures command

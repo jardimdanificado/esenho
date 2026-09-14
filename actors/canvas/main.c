@@ -1,42 +1,35 @@
 #include "wesenho.h"
 
 /* =========================================================================
- * Surface & Texture Actor (Canvas / Drawing Engine)
- * Unified architecture: Everything is a Texture Buffer (w_tex_entry_t).
- * Layers are an ordered composition stack referencing textures.
- * Brush tip shapes are also textures sampled by their alpha channel.
+ * Surface & Layer Actor (Canvas / Drawing Engine)
+ * Unified Architecture: All textures, shapes, images and canvas layers are Layers (layer_t).
+ * Brush tip shapes sample the layer's alpha channel ((sp >> 24) & 0xFF).
+ * Brush grain textures sample the layer's pattern.
+ * Visible layers composite to out_pixels in layer index order.
  * ========================================================================= */
 
 #define DEFAULT_WIDTH  800
 #define DEFAULT_HEIGHT 1000
 
-#define MAX_TEXTURES 256
-#define MAX_LAYERS   64
+#define MAX_LAYERS 256
 
-/** Unified Texture / Surface buffer */
+/** Unified Layer / Surface / Texture Buffer */
 typedef struct {
     uint32_t *pixels;
     int32_t  width;
     int32_t  height;
-    int32_t  in_use;
-} w_tex_entry_t;
-
-static w_tex_entry_t g_textures[MAX_TEXTURES] = {0};
-
-/** Representation of an entry in the layer composition stack */
-typedef struct {
-    int32_t texture_id;  /**< Texture slot in g_textures */
-    uint8_t visible;     /**< 1 = visible in composite, 0 = offscreen/hidden */
-    uint8_t opacity;     /**< Layer opacity from 0 to 255 */
-    int32_t x;           /**< Layer offset X */
-    int32_t y;           /**< Layer offset Y */
+    int32_t  x;
+    int32_t  y;
+    uint8_t  visible;    /**< 1 = active in composite, 0 = offscreen (shapes, textures) */
+    uint8_t  opacity;    /**< 0..255 */
+    uint8_t  in_use;     /**< 1 = allocated */
 } layer_t;
 
 static uint32_t doc_width = DEFAULT_WIDTH;
 static uint32_t doc_height = DEFAULT_HEIGHT;
 static layer_t  layers[MAX_LAYERS] = {0};
 static int      layer_count = 0;
-static int      active_layer = 0;
+static int      active_layer = 3;
 static uint32_t *out_pixels = 0; /**< Flattened composite buffer */
 
 void force_composite(void);
@@ -64,18 +57,23 @@ static void *canvas_alloc(uint32_t size) {
 }
 
 /* =========================================================================
- * Texture Allocation & Management
+ * Layer Allocation & Builtin Shapes
  * ========================================================================= */
 
-static int texture_alloc_slot(int32_t w, int32_t h) {
+static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
     if (w <= 0 || h <= 0) return -1;
-    for (int i = 0; i < MAX_TEXTURES; i++) {
-        if (!g_textures[i].in_use) {
-            g_textures[i].in_use = 1;
-            g_textures[i].width = w;
-            g_textures[i].height = h;
-            g_textures[i].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
-            for (uint32_t p = 0; p < (uint32_t)(w * h); p++) g_textures[i].pixels[p] = 0x00000000;
+    for (int i = 0; i < MAX_LAYERS; i++) {
+        if (!layers[i].in_use) {
+            layers[i].in_use = 1;
+            layers[i].width = w;
+            layers[i].height = h;
+            layers[i].x = 0;
+            layers[i].y = 0;
+            layers[i].visible = visible;
+            layers[i].opacity = 255;
+            layers[i].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
+            for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[i].pixels[p] = 0x00000000;
+            if (i >= layer_count) layer_count = i + 1;
             return i;
         }
     }
@@ -83,34 +81,43 @@ static int texture_alloc_slot(int32_t w, int32_t h) {
 }
 
 static void init_builtin_shapes(void) {
-    // Slot 0: shape_circle (64x64 circle mask)
-    g_textures[0].in_use = 1;
-    g_textures[0].width = 64;
-    g_textures[0].height = 64;
-    g_textures[0].pixels = (uint32_t*)canvas_alloc(64 * 64 * sizeof(uint32_t));
+    // Slot 0: Circle Shape (64x64)
+    layers[0].in_use = 1;
+    layers[0].width = 64;
+    layers[0].height = 64;
+    layers[0].visible = 0;
+    layers[0].opacity = 255;
+    layers[0].x = 0; layers[0].y = 0;
+    layers[0].pixels = (uint32_t*)canvas_alloc(64 * 64 * sizeof(uint32_t));
     for (int y = 0; y < 64; y++) {
         int dy = y - 32;
         for (int x = 0; x < 64; x++) {
             int dx = x - 32;
-            g_textures[0].pixels[y * 64 + x] = (dx * dx + dy * dy <= 31 * 31) ? 0xFFFFFFFF : 0x00000000;
+            layers[0].pixels[y * 64 + x] = (dx * dx + dy * dy <= 31 * 31) ? 0xFFFFFFFF : 0x00000000;
         }
     }
 
-    // Slot 1: shape_square (64x64 square mask)
-    g_textures[1].in_use = 1;
-    g_textures[1].width = 64;
-    g_textures[1].height = 64;
-    g_textures[1].pixels = (uint32_t*)canvas_alloc(64 * 64 * sizeof(uint32_t));
-    for (int i = 0; i < 64 * 64; i++) g_textures[1].pixels[i] = 0xFFFFFFFF;
+    // Slot 1: Square Shape (64x64)
+    layers[1].in_use = 1;
+    layers[1].width = 64;
+    layers[1].height = 64;
+    layers[1].visible = 0;
+    layers[1].opacity = 255;
+    layers[1].x = 0; layers[1].y = 0;
+    layers[1].pixels = (uint32_t*)canvas_alloc(64 * 64 * sizeof(uint32_t));
+    for (int i = 0; i < 64 * 64; i++) layers[1].pixels[i] = 0xFFFFFFFF;
 
-    // Slot 2: shape_chisel (64x64 horizontal ribbon blade mask)
-    g_textures[2].in_use = 1;
-    g_textures[2].width = 64;
-    g_textures[2].height = 64;
-    g_textures[2].pixels = (uint32_t*)canvas_alloc(64 * 64 * sizeof(uint32_t));
+    // Slot 2: Chisel Shape (64x64 horizontal ribbon blade mask)
+    layers[2].in_use = 1;
+    layers[2].width = 64;
+    layers[2].height = 64;
+    layers[2].visible = 0;
+    layers[2].opacity = 255;
+    layers[2].x = 0; layers[2].y = 0;
+    layers[2].pixels = (uint32_t*)canvas_alloc(64 * 64 * sizeof(uint32_t));
     for (int y = 0; y < 64; y++) {
         for (int x = 0; x < 64; x++) {
-            g_textures[2].pixels[y * 64 + x] = (y >= 24 && y < 40) ? 0xFFFFFFFF : 0x00000000;
+            layers[2].pixels[y * 64 + x] = (y >= 24 && y < 40) ? 0xFFFFFFFF : 0x00000000;
         }
     }
 }
@@ -142,7 +149,7 @@ static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
 }
 
-static void clear_texture_pixels(uint32_t *pix, uint32_t num_pixels) {
+static void clear_layer_pixels(uint32_t *pix, uint32_t num_pixels) {
     if (!pix) return;
     for (uint32_t i = 0; i < num_pixels; i++) {
         pix[i] = 0x00000000;
@@ -163,17 +170,14 @@ static void composite_surface(void) {
     }
 
     for (int l = 0; l < layer_count; l++) {
-        if (!layers[l].visible) continue;
+        if (!layers[l].in_use || !layers[l].visible) continue;
         uint8_t op = layers[l].opacity;
         if (op == 0) continue;
-
-        int tid = layers[l].texture_id;
-        if (tid < 0 || tid >= MAX_TEXTURES || !g_textures[tid].in_use) continue;
-        uint32_t *src_pix = g_textures[tid].pixels;
+        uint32_t *src_pix = layers[l].pixels;
         if (!src_pix) continue;
 
-        int tw = g_textures[tid].width;
-        int th = g_textures[tid].height;
+        int tw = layers[l].width;
+        int th = layers[l].height;
         int lx = layers[l].x;
         int ly = layers[l].y;
 
@@ -213,24 +217,25 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
     uint32_t copy_h = old_h < new_h ? old_h : new_h;
 
     for (int l = 0; l < layer_count; l++) {
-        int tid = layers[l].texture_id;
-        if (tid < 0 || tid >= MAX_TEXTURES || !g_textures[tid].in_use) continue;
-        uint32_t *old_buf = g_textures[tid].pixels;
-        uint32_t *new_buf = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
+        if (!layers[l].in_use) continue;
+        if (layers[l].width == (int32_t)old_w && layers[l].height == (int32_t)old_h) {
+            uint32_t *old_buf = layers[l].pixels;
+            uint32_t *new_buf = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
 
-        for (uint32_t i = 0; i < new_pixels; i++) new_buf[i] = 0x00000000;
+            for (uint32_t i = 0; i < new_pixels; i++) new_buf[i] = 0x00000000;
 
-        if (old_buf) {
-            for (uint32_t y = 0; y < copy_h; y++) {
-                for (uint32_t x = 0; x < copy_w; x++) {
-                    new_buf[y * new_w + x] = old_buf[y * old_w + x];
+            if (old_buf) {
+                for (uint32_t y = 0; y < copy_h; y++) {
+                    for (uint32_t x = 0; x < copy_w; x++) {
+                        new_buf[y * new_w + x] = old_buf[y * old_w + x];
+                    }
                 }
             }
-        }
 
-        g_textures[tid].pixels = new_buf;
-        g_textures[tid].width = new_w;
-        g_textures[tid].height = new_h;
+            layers[l].pixels = new_buf;
+            layers[l].width = new_w;
+            layers[l].height = new_h;
+        }
     }
 
     doc_width = new_w;
@@ -243,13 +248,10 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
  * ========================================================================= */
 
 static inline uint32_t *get_current_draw_target(int *out_w, int *out_h) {
-    if (active_layer >= 0 && active_layer < layer_count) {
-        int tid = layers[active_layer].texture_id;
-        if (tid >= 0 && tid < MAX_TEXTURES && g_textures[tid].in_use) {
-            if (out_w) *out_w = g_textures[tid].width;
-            if (out_h) *out_h = g_textures[tid].height;
-            return g_textures[tid].pixels;
-        }
+    if (active_layer >= 0 && active_layer < layer_count && layers[active_layer].in_use) {
+        if (out_w) *out_w = layers[active_layer].width;
+        if (out_h) *out_h = layers[active_layer].height;
+        return layers[active_layer].pixels;
     }
     return 0;
 }
@@ -515,10 +517,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     if (max_stroke_a < 1 && brush_config.opacity > 0) max_stroke_a = 1;
 
     int shape_id = brush_config.shape;
-    if (shape_id < 0 || shape_id >= MAX_TEXTURES || !g_textures[shape_id].in_use) {
+    if (shape_id < 0 || shape_id >= layer_count || !layers[shape_id].in_use) {
         shape_id = 0;
     }
-    w_tex_entry_t *stex = &g_textures[shape_id];
+    layer_t *stex = &layers[shape_id];
 
     int patch_idx = 0;
 
@@ -536,7 +538,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             int abs_v = v_scaled < 0 ? -v_scaled : v_scaled;
             if (abs_u > r || abs_v > r) continue;
 
-            // Sample shape texture alpha
+            // Sample shape layer alpha
             uint32_t shape_a = 0;
             if (stex->pixels && stex->width > 0 && stex->height > 0) {
                 int sx = ((u + r) * (stex->width - 1)) / (2 * r);
@@ -612,14 +614,19 @@ static void init_surface_if_needed(void) {
         surface_initialized = 1;
         init_builtin_shapes();
         out_pixels = (uint32_t*)canvas_alloc(doc_width * doc_height * sizeof(uint32_t));
-        int l0_tex = texture_alloc_slot(doc_width, doc_height);
-        layers[0].texture_id = l0_tex;
-        layers[0].visible = 1;
-        layers[0].opacity = 255;
-        layers[0].x = 0;
-        layers[0].y = 0;
-        layer_count = 1;
-        active_layer = 0;
+
+        // Slot 3: Initial Canvas Document Layer
+        layers[3].in_use = 1;
+        layers[3].width = doc_width;
+        layers[3].height = doc_height;
+        layers[3].visible = 1;
+        layers[3].opacity = 255;
+        layers[3].x = 0; layers[3].y = 0;
+        layers[3].pixels = (uint32_t*)canvas_alloc(doc_width * doc_height * sizeof(uint32_t));
+        for (uint32_t i = 0; i < doc_width * doc_height; i++) layers[3].pixels[i] = 0x00000000;
+
+        layer_count = 4;
+        active_layer = 3;
         force_composite();
     }
 }
@@ -640,82 +647,78 @@ W_EXPORT void w_resize(uint32_t width, uint32_t height) {
     resize_surface(width, height);
 }
 
-W_EXPORT int32_t w_texture_create(int32_t width, int32_t height) {
+W_EXPORT int32_t w_layer_create(int32_t width, int32_t height) {
     init_surface_if_needed();
-    return texture_alloc_slot(width, height);
-}
-
-W_EXPORT void w_texture_set_pixels(int32_t tex_id, uint32_t *pixels, int32_t width, int32_t height) {
-    init_surface_if_needed();
-    if (tex_id >= 0 && tex_id < MAX_TEXTURES) {
-        g_textures[tex_id].in_use = 1;
-        g_textures[tex_id].pixels = pixels;
-        g_textures[tex_id].width = width;
-        g_textures[tex_id].height = height;
-    }
-}
-
-W_EXPORT uint32_t *w_texture_get_pixels(int32_t tex_id) {
-    if (tex_id >= 0 && tex_id < MAX_TEXTURES && g_textures[tex_id].in_use) {
-        return g_textures[tex_id].pixels;
-    }
-    return 0;
-}
-
-W_EXPORT int32_t w_texture_get_width(int32_t tex_id) {
-    if (tex_id >= 0 && tex_id < MAX_TEXTURES && g_textures[tex_id].in_use) return g_textures[tex_id].width;
-    return 0;
-}
-
-W_EXPORT int32_t w_texture_get_height(int32_t tex_id) {
-    if (tex_id >= 0 && tex_id < MAX_TEXTURES && g_textures[tex_id].in_use) return g_textures[tex_id].height;
-    return 0;
-}
-
-W_EXPORT int32_t w_layer_add_texture(int32_t tex_id) {
-    init_surface_if_needed();
-    if (tex_id < 0 || tex_id >= MAX_TEXTURES || !g_textures[tex_id].in_use) return -1;
-    if (layer_count >= MAX_LAYERS) return -1;
-    int idx = layer_count++;
-    layers[idx].texture_id = tex_id;
-    layers[idx].visible = 1;
-    layers[idx].opacity = 255;
-    layers[idx].x = 0;
-    layers[idx].y = 0;
-    active_layer = idx;
-    force_composite();
-    return idx;
-}
-
-W_EXPORT int32_t w_layer_get_texture(int32_t layer_idx) {
-    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
-    if (idx >= 0 && idx < layer_count) return layers[idx].texture_id;
-    return -1;
+    return layer_alloc_slot(width, height, 0);
 }
 
 W_EXPORT int32_t w_layer_add(void) {
     init_surface_if_needed();
-    int tex_id = texture_alloc_slot(doc_width, doc_height);
-    if (tex_id < 0) return -1;
-    return w_layer_add_texture(tex_id);
+    int idx = layer_alloc_slot(doc_width, doc_height, 1);
+    if (idx >= 0) {
+        active_layer = idx;
+        force_composite();
+    }
+    return idx;
 }
 
 W_EXPORT void w_layer_select(int32_t idx) {
     init_surface_if_needed();
-    if (idx >= 0 && idx < layer_count) active_layer = idx;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) active_layer = idx;
+}
+
+W_EXPORT uint32_t *w_layer_get_pixels(int32_t layer_idx) {
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) return layers[idx].pixels;
+    return 0;
+}
+
+W_EXPORT int32_t w_layer_get_width(int32_t layer_idx) {
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) return layers[idx].width;
+    return 0;
+}
+
+W_EXPORT int32_t w_layer_get_height(int32_t layer_idx) {
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) return layers[idx].height;
+    return 0;
+}
+
+W_EXPORT uint8_t w_layer_get_visible(int32_t layer_idx) {
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) return layers[idx].visible;
+    return 0;
+}
+
+W_EXPORT uint8_t w_layer_get_opacity(int32_t layer_idx) {
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) return layers[idx].opacity;
+    return 0;
+}
+
+W_EXPORT void w_layer_set_pixels(int32_t layer_idx, uint32_t *pixels, int32_t width, int32_t height) {
+    init_surface_if_needed();
+    if (layer_idx >= 0 && layer_idx < MAX_LAYERS) {
+        layers[layer_idx].in_use = 1;
+        layers[layer_idx].pixels = pixels;
+        layers[layer_idx].width = width;
+        layers[layer_idx].height = height;
+    }
 }
 
 W_EXPORT void w_layer_delete(int32_t idx) {
     init_surface_if_needed();
-    if (idx >= 0 && idx < layer_count) {
-        if (layer_count > 1) {
-            for (int l = idx; l < layer_count - 1; l++) layers[l] = layers[l + 1];
-            layer_count--;
-            if (active_layer >= layer_count) active_layer = layer_count - 1;
-        } else {
-            int tid = layers[0].texture_id;
-            if (tid >= 0 && tid < MAX_TEXTURES && g_textures[tid].in_use) {
-                clear_texture_pixels(g_textures[tid].pixels, g_textures[tid].width * g_textures[tid].height);
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
+        clear_layer_pixels(layers[idx].pixels, layers[idx].width * layers[idx].height);
+        layers[idx].in_use = 0;
+        layers[idx].visible = 0;
+        if (active_layer == idx) {
+            for (int l = layer_count - 1; l >= 0; l--) {
+                if (layers[l].in_use && layers[l].visible) {
+                    active_layer = l;
+                    break;
+                }
             }
         }
         force_composite();
@@ -724,7 +727,7 @@ W_EXPORT void w_layer_delete(int32_t idx) {
 
 W_EXPORT void w_layer_toggle(int32_t idx) {
     init_surface_if_needed();
-    if (idx >= 0 && idx < layer_count) {
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
         layers[idx].visible = !layers[idx].visible;
         force_composite();
     }
@@ -732,7 +735,7 @@ W_EXPORT void w_layer_toggle(int32_t idx) {
 
 W_EXPORT void w_layer_opacity(int32_t idx, uint32_t opacity) {
     init_surface_if_needed();
-    if (idx >= 0 && idx < layer_count) {
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
         if (opacity > 255) opacity = 255;
         layers[idx].opacity = (uint8_t)opacity;
         force_composite();
@@ -742,13 +745,39 @@ W_EXPORT void w_layer_opacity(int32_t idx, uint32_t opacity) {
 W_EXPORT void w_layer_clear(int32_t idx) {
     init_surface_if_needed();
     int target = (idx >= 0) ? idx : active_layer;
-    if (target >= 0 && target < layer_count) {
-        int tid = layers[target].texture_id;
-        if (tid >= 0 && tid < MAX_TEXTURES && g_textures[tid].in_use) {
-            clear_texture_pixels(g_textures[tid].pixels, g_textures[tid].width * g_textures[tid].height);
-            force_composite();
-        }
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        clear_layer_pixels(layers[target].pixels, layers[target].width * layers[target].height);
+        force_composite();
     }
+}
+
+// Backward-compatible Texture Aliases
+W_EXPORT int32_t w_texture_create(int32_t width, int32_t height) {
+    return w_layer_create(width, height);
+}
+W_EXPORT void w_texture_set_pixels(int32_t tex_id, uint32_t *pixels, int32_t width, int32_t height) {
+    w_layer_set_pixels(tex_id, pixels, width, height);
+}
+W_EXPORT uint32_t *w_texture_get_pixels(int32_t tex_id) {
+    return w_layer_get_pixels(tex_id);
+}
+W_EXPORT int32_t w_texture_get_width(int32_t tex_id) {
+    return w_layer_get_width(tex_id);
+}
+W_EXPORT int32_t w_texture_get_height(int32_t tex_id) {
+    return w_layer_get_height(tex_id);
+}
+W_EXPORT int32_t w_layer_add_texture(int32_t tex_id) {
+    if (tex_id >= 0 && tex_id < layer_count && layers[tex_id].in_use) {
+        layers[tex_id].visible = 1;
+        active_layer = tex_id;
+        force_composite();
+        return tex_id;
+    }
+    return -1;
+}
+W_EXPORT int32_t w_layer_get_texture(int32_t layer_idx) {
+    return (layer_idx >= 0) ? layer_idx : active_layer;
 }
 
 W_EXPORT void w_draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
@@ -775,6 +804,14 @@ W_EXPORT void w_draw_grid(int step, uint32_t color) {
     force_composite();
 }
 
+W_EXPORT void w_draw_layer(int32_t src_layer_id, int dst_x, int dst_y, int dst_w, int dst_h, uint32_t opacity) {
+    init_surface_if_needed();
+    if (src_layer_id >= 0 && src_layer_id < layer_count && layers[src_layer_id].in_use) {
+        draw_image_scaled(layers[src_layer_id].pixels, layers[src_layer_id].width, layers[src_layer_id].height, dst_x, dst_y, dst_w, dst_h, opacity <= 0 ? 100 : opacity);
+        force_composite();
+    }
+}
+
 W_EXPORT void w_draw_texture(int dst_x, int dst_y, int dst_w, int dst_h, uint32_t opacity) {
     init_surface_if_needed();
     if (g_texture.pixels && g_texture.width > 0 && g_texture.height > 0) {
@@ -784,11 +821,7 @@ W_EXPORT void w_draw_texture(int dst_x, int dst_y, int dst_w, int dst_h, uint32_
 }
 
 W_EXPORT void w_draw_texture_id(int32_t src_tex_id, int dst_x, int dst_y, int dst_w, int dst_h, uint32_t opacity) {
-    init_surface_if_needed();
-    if (src_tex_id >= 0 && src_tex_id < MAX_TEXTURES && g_textures[src_tex_id].in_use) {
-        draw_image_scaled(g_textures[src_tex_id].pixels, g_textures[src_tex_id].width, g_textures[src_tex_id].height, dst_x, dst_y, dst_w, dst_h, opacity <= 0 ? 100 : opacity);
-        force_composite();
-    }
+    w_draw_layer(src_tex_id, dst_x, dst_y, dst_w, dst_h, opacity);
 }
 
 W_EXPORT void w_draw_image(uint32_t *src_pixels, int src_w, int src_h, int dst_x, int dst_y, int dst_w, int dst_h, uint32_t opacity) {
@@ -828,6 +861,20 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_MODE:      brush_config.type = val; break;
         case W_PARAM_TEX_ANGLE: brush_config.tex_angle = val % 360; if (brush_config.tex_angle < 0) brush_config.tex_angle += 360; break;
         case W_PARAM_TEX_SCALE: if (val > 0) brush_config.tex_scale = val; break;
+        case W_PARAM_TEX_LAYER:
+            /* Point g_texture at layers[val].pixels so w_sample_texture picks it up */
+            if (val < 0 || val >= layer_count || !layers[val].in_use) {
+                g_texture.pixels = 0;
+                g_texture.width  = 0;
+                g_texture.height = 0;
+                brush_config.tex_mode = 0;
+            } else {
+                g_texture.pixels = layers[val].pixels;
+                g_texture.width  = layers[val].width;
+                g_texture.height = layers[val].height;
+                brush_config.tex_mode = 1; /* enable custom-texture path */
+            }
+            break;
     }
 }
 
@@ -955,11 +1002,8 @@ uint32_t *get_active_layer_pixels(void) {
 }
 
 uint32_t *get_layer_pixels(int32_t idx) {
-    if (idx >= 0 && idx < layer_count) {
-        int tid = layers[idx].texture_id;
-        if (tid >= 0 && tid < MAX_TEXTURES && g_textures[tid].in_use) {
-            return g_textures[tid].pixels;
-        }
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
+        return layers[idx].pixels;
     }
     return 0;
 }

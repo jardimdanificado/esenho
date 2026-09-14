@@ -64,7 +64,9 @@ const PARAM_IDS = {
   tex_scale: 17,
   texture_scale: 17,
   tex_size: 17,
-  texture_size: 17
+  texture_size: 17,
+  tex_layer: 18,
+  texture_layer: 18
 };
 
 /**
@@ -422,77 +424,64 @@ function parseColorString(str) {
   return null;
 }
 
-/** Formats layer list for CLI output */
-function formatLayersList(canvasActor) {
+/** Formats the flat layer list for CLI output. All layers are layers — no categories. */
+function formatLayersList(screenActor) {
+  const canvasActor = screenActor.canvasActor || screenActor;
+  if (!canvasActor || !canvasActor.exports || typeof canvasActor.exports.get_layer_count !== 'function') {
+    return 'Canvas not initialized\n';
+  }
   const count = canvasActor.exports.get_layer_count();
   const active = canvasActor.exports.get_active_layer();
-  const w = canvasActor.exports.get_width ? canvasActor.exports.get_width() : canvasActor.exports.get_canvas_width();
-  const h = canvasActor.exports.get_height ? canvasActor.exports.get_height() : canvasActor.exports.get_canvas_height();
-  let out = `\x1b[1mSurface (${w}x${h}) - Layers (${count}):\x1b[0m\n`;
+  const cw = canvasActor.exports.get_width ? canvasActor.exports.get_width() : canvasActor.exports.get_canvas_width();
+  const ch = canvasActor.exports.get_height ? canvasActor.exports.get_height() : canvasActor.exports.get_canvas_height();
+
+  let out = `\x1b[1mLayers (${count}) - canvas ${cw}x${ch}:\x1b[0m\n`;
   for (let i = 0; i < count; i++) {
     const vis = canvasActor.exports.get_layer_visible ? canvasActor.exports.get_layer_visible(i) : 1;
-    const op = canvasActor.exports.get_layer_opacity ? canvasActor.exports.get_layer_opacity(i) : 255;
-    const tid = canvasActor.exports.w_layer_get_texture ? canvasActor.exports.w_layer_get_texture(i) : i;
+    const op  = canvasActor.exports.get_layer_opacity ? canvasActor.exports.get_layer_opacity(i) : 255;
+    const w   = canvasActor.exports.w_layer_get_width  ? canvasActor.exports.w_layer_get_width(i)  : cw;
+    const h   = canvasActor.exports.w_layer_get_height ? canvasActor.exports.w_layer_get_height(i) : ch;
     const opPct = Math.round((op / 255) * 100);
-    const marker = (i === active) ? '\x1b[32m* [ACTIVE]\x1b[0m' : ' ';
-    out += `  ${marker} [${i}] (texture_id: ${tid}) ${vis ? 'visible' : 'HIDDEN'} - opacity: ${opPct}%\n`;
+
+    // Resolve a human-readable name from the JS textures map
+    let name = `layer_${i}`;
+    if (screenActor.textures) {
+      for (const [k, v] of screenActor.textures.entries()) {
+        if (v.wasmId === i) { name = k; break; }
+      }
+    }
+
+    const isDrawActive  = (i === active);
+    const shapeId       = screenActor.brushParams ? screenActor.brushParams.shape : 0;
+    const isShapeActive = (i === shapeId);
+    const isTexActive   = (name === (screenActor.activeTexture || ''));
+
+    const markers = [];
+    if (isDrawActive)  markers.push('draw');
+    if (isShapeActive) markers.push('shape');
+    if (isTexActive)   markers.push('tex');
+
+    const flag   = vis ? 'on ' : 'off';
+    const mark   = markers.length > 0 ? ` \x1b[32m[${markers.join(',')}]\x1b[0m` : '';
+    out += `  [${i}] "${name}" ${flag} ${w}x${h} ${opPct}%${mark}\n`;
   }
   return out;
 }
 
 /** Formats tool and brush properties for CLI output */
 function formatBrushesList(screenActor) {
-  let out = `\x1b[1mBrush & Tool Construction:\x1b[0m
-  Tools / Modes : brush (draw), eraser, smudge, blend, fill, lasso_fill
-  Shapes        : circle, square, chisel, <texture_name>, layer_<id> (samples alpha channel)
-  Parameters    : size, opacity, hardness/softness, flow, spacing, angle/rotate, roundness, scatter, grain, smudge, wetness, tolerance
-  Texture Props : texture (<name>|layer_<id>|none), texture_rotate, texture_scale
-  Builtin Tex   : paper, canvas, noise, dots, grid, grunge, hatch
+  let out = `\x1b[1mBrush & Tool:\x1b[0m
+  Tools/modes  : brush, eraser, smudge, blend, fill, lasso_fill
+  Shapes       : circle [0], square [1], chisel [2], or any layer by id/name
+  Parameters   : size, opacity, hardness/softness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance
+  Grain tex    : set texture <name|layer_id|none>  — rotated/scaled via texture_rotate, texture_scale
 `;
   return out;
 }
 
-/** Formats available texture list for CLI output */
+/** Formats available texture list for CLI output (same as layers) */
 function formatTexturesList(screenActor) {
-  const textures = new Map(screenActor.textures);
-
-  // Dynamically discover layer textures
-  if (screenActor.canvasActor && typeof screenActor.canvasActor.exports.get_layer_count === 'function') {
-    const lCount = screenActor.canvasActor.exports.get_layer_count();
-    const cw = screenActor.canvasActor.exports.get_width ? screenActor.canvasActor.exports.get_width() : screenActor.canvasActor.exports.get_canvas_width();
-    const ch = screenActor.canvasActor.exports.get_height ? screenActor.canvasActor.exports.get_height() : screenActor.canvasActor.exports.get_canvas_height();
-    for (let i = 0; i < lCount; i++) {
-      const tid = screenActor.canvasActor.exports.w_layer_get_texture ? screenActor.canvasActor.exports.w_layer_get_texture(i) : i;
-      const key = `layer_${i}`;
-      if (!textures.has(key)) {
-        textures.set(key, { width: cw, height: ch, wasmId: tid, category: 'layer' });
-      }
-    }
-  }
-
-  let out = `\x1b[1mTextures & Shapes (${textures.size}):\x1b[0m\n`;
-  for (const [name, tex] of textures.entries()) {
-    const isTexActive = (name === screenActor.activeTexture);
-    const shapeId = screenActor.brushParams ? screenActor.brushParams.shape : 0;
-    const isShapeActive = (tex.wasmId !== undefined && tex.wasmId === shapeId) ||
-      (name === 'circle' && shapeId === 0) ||
-      (name === 'square' && shapeId === 1) ||
-      (name === 'chisel' && shapeId === 2);
-
-    let marker = ' ';
-    if (isTexActive && isShapeActive) {
-      marker = '\x1b[32m* [ACTIVE TEX & SHAPE]\x1b[0m';
-    } else if (isTexActive) {
-      marker = '\x1b[32m* [ACTIVE TEX]\x1b[0m';
-    } else if (isShapeActive) {
-      marker = '\x1b[36m* [ACTIVE SHAPE]\x1b[0m';
-    }
-
-    const cat = tex.category ? ` [${tex.category}]` : '';
-    const idStr = (tex.wasmId !== undefined && tex.wasmId >= 0) ? ` (id: ${tex.wasmId})` : '';
-    out += `  ${marker} "${name}"${cat} (${tex.width}x${tex.height})${idStr}\n`;
-  }
-  return out;
+  return formatLayersList(screenActor);
 }
 
 /** Formats filter plugin list for CLI output */
@@ -571,11 +560,10 @@ class WesenhoScreenHost {
   }
 
   /**
-  /**
-   * Resolves a texture name, shape name, or layer identifier to a WASM texture ID.
-   * Uploads or links pixel data to WASM texture slot if not already done.
+   * Resolves a texture name, shape name, or layer identifier to a WASM layer ID.
+   * Registers texture as a WASM layer slot if not already done.
    * @param {string|number} name - Texture name, shape name, layer id/name, or numeric ID
-   * @returns {number} WASM texture ID (0..MAX_TEXTURES-1)
+   * @returns {number} WASM layer ID
    */
   getTextureId(name) {
     if (typeof name === 'number') return name;
@@ -667,30 +655,43 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Selects active texture by name and uploads its buffer into canvas memory.
+   * Ensures all JS-side textures have a WASM layer slot allocated and pixels uploaded.
+   * Call once after canvasActor is initialized.
+   */
+  registerAllTexturesAsLayers() {
+    if (!this.canvasActor || typeof this.canvasActor.exports.w_texture_create !== 'function') return;
+    for (const [name, tex] of this.textures.entries()) {
+      if (tex.wasmId !== undefined && tex.wasmId >= 0) continue; // already registered
+      const id = this.canvasActor.exports.w_texture_create(tex.width, tex.height);
+      if (id < 0) continue;
+      tex.wasmId = id;
+      const ptr = this.canvasActor.exports.w_texture_get_pixels(id);
+      if (ptr && tex.data) {
+        new Uint8Array(this.canvasActor.memory.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
+      }
+    }
+  }
+
+  /**
+   * Selects active grain texture by name.
+   * Registers the texture as a WASM layer if needed, then points the brush engine at that layer.
    */
   setTexture(name) {
     if (!name || name === 'none' || name === '0' || name === 'off') {
       this.activeTexture = 'none';
-      this.setBrushParam('texture_mode', 0);
-      if (this.canvasActor && typeof this.canvasActor.exports.w_set_texture === 'function') {
-        this.canvasActor.exports.w_set_texture(0, 0, 0);
+      // disable grain texture: set tex_layer to -1 (clears g_texture in WASM)
+      if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+        this.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, -1);
       }
       return true;
     }
     const lower = name.toLowerCase();
-    const texId = this.getTextureId(lower);
+    // Ensure texture registered as layer
+    const layerId = this.getTextureId(lower);
     this.activeTexture = lower;
-    const texModes = { paper: 1, canvas: 2, noise: 3, dots: 4, grid: 5, grunge: 6, hatch: 7 };
-    this.setBrushParam('texture_mode', texModes[this.activeTexture] || 1);
-
-    if (this.canvasActor && typeof this.canvasActor.exports.w_texture_get_pixels === 'function') {
-      const ptr = this.canvasActor.exports.w_texture_get_pixels(texId);
-      const w = this.canvasActor.exports.w_texture_get_width(texId);
-      const h = this.canvasActor.exports.w_texture_get_height(texId);
-      if (ptr && w > 0 && h > 0 && typeof this.canvasActor.exports.w_set_texture === 'function') {
-        this.canvasActor.exports.w_set_texture(ptr, w, h);
-      }
+    // Point brush engine at this layer for grain sampling
+    if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+      this.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, layerId);
     }
     return true;
   }
@@ -712,6 +713,7 @@ class WesenhoScreenHost {
 
   /**
    * Syncs all brush parameters to canvas.wasm or a plugin.
+   * Also registers all JS textures as WASM layers on first call.
    */
   syncBrushParams(target) {
     const mod = target || this.canvasActor;
@@ -721,6 +723,10 @@ class WesenhoScreenHost {
       if (pId !== undefined) {
         mod.exports.w_brush_set_param(pId, Math.floor(val));
       }
+    }
+    // Register all textures as layers in WASM so they appear in list layers
+    if (mod === this.canvasActor || !target) {
+      this.registerAllTexturesAsLayers();
     }
     if (this.activeTexture && this.activeTexture !== 'none') {
       this.setTexture(this.activeTexture);
