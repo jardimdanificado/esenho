@@ -1,13 +1,25 @@
+/**
+ * =========================================================================
+ * Hatch Brush Plugin (plugins/brushes/hatch/main.c)
+ * Parallel line cross-hatching shader brush with configurable spacing and angle.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int size = 20;
-static int angle = 45;
-static int spacing = 6;
+// --- Hatch Brush Parameters ---
+static int size = 20;    // Stamp radius in pixels
+static int angle = 45;   // Hatch orientation angle (degrees)
+static int spacing = 6;  // Distance between parallel hatching lines (pixels)
 
-static int tex_mode = 1;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Texture Modulation Parameters ---
+static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
 
+/**
+ * Fast square root approximation for continuous stroke interpolation.
+ */
 static inline float fast_sqrt(float val) {
     if (val <= 0.0f) return 0.0f;
     float x = val;
@@ -15,6 +27,9 @@ static inline float fast_sqrt(float val) {
     return x;
 }
 
+/**
+ * Samples texture color from host shared buffer with UV scaling and wrapping.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -28,6 +43,10 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Renders a cross-hatching pattern stamp within a circular boundary.
+ * Pixels are only placed where `(px + py) % spacing == 0`, producing crisp diagonal lines.
+ */
 static void stamp_hatch(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint32_t color, int is_eraser) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -44,6 +63,7 @@ static void stamp_hatch(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y
             if (px < 0 || px >= width) continue;
 
             if (dx * dx + dy * dy <= r2) {
+                // Diagonal parallel line periodic condition
                 if ((px + py) % spacing == 0) {
                     if (is_eraser) {
                         pixels[py * width + px] = 0x00000000;
@@ -70,6 +90,9 @@ static void stamp_hatch(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y
     }
 }
 
+/**
+ * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -123,4 +146,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

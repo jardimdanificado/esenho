@@ -1,14 +1,22 @@
 #include "wesenho.h"
 
+/* =========================================================================
+ * Surface Actor (Canvas / Drawing Engine)
+ * Manages document surface dimensions, multi-layer stack, blending,
+ * geometric drawing primitives, and text command protocol processing.
+ * ========================================================================= */
+
 #define DEFAULT_WIDTH  800
 #define DEFAULT_HEIGHT 1000
 
+/** Representation of an individual layer in the surface stack */
 typedef struct {
-    uint32_t *pixels;
-    uint8_t  visible;
-    uint8_t  opacity;
+    uint32_t *pixels;  /**< Pointer to RGBA32 raw pixel array */
+    uint8_t  visible;  /**< 1 = visible, 0 = hidden */
+    uint8_t  opacity;  /**< Layer opacity from 0 (transparent) to 255 (opaque) */
 } layer_t;
 
+/* Surface State */
 static wframebuffer_t *fb = 0;
 static uint32_t       doc_width = DEFAULT_WIDTH;
 static uint32_t       doc_height = DEFAULT_HEIGHT;
@@ -16,12 +24,15 @@ static layer_t        *layers = 0;
 static int            layer_count = 0;
 static int            layer_capacity = 0;
 static int            active_layer = 0;
-static uint32_t       *out_pixels = 0;
-static uint32_t       current_color = 0xFF000000;
+static uint32_t       *out_pixels = 0;         /**< Flattened/composited final pixel buffer */
+static uint32_t       current_color = 0xFF000000; /**< Active drawing color in RGBA32 */
 
 void force_composite(void);
 
-// Simple bump allocator for dynamic wasm memory
+/* =========================================================================
+ * Memory Management
+ * Simple bump allocator over WebAssembly linear heap.
+ * ========================================================================= */
 static uint8_t *heap_top = 0;
 
 static void *canvas_alloc(uint32_t size) {
@@ -40,6 +51,11 @@ static void *canvas_alloc(uint32_t size) {
     return (void*)cur;
 }
 
+/* =========================================================================
+ * Pixel Blending & Layer Operations
+ * ========================================================================= */
+
+/** Alpha-blends a source pixel with opacity modifier onto a destination pixel */
 static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod) {
     uint32_t sa = ((src >> 24) & 0xFF) * alpha_mod / 255;
     if (sa == 0) return dst;
@@ -63,6 +79,7 @@ static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
 }
 
+/** Clears layer pixels with fully transparent color (0x00000000) */
 static void clear_layer(layer_t *lay, uint32_t num_pixels) {
     if (!lay || !lay->pixels) return;
     for (uint32_t i = 0; i < num_pixels; i++) {
@@ -70,6 +87,7 @@ static void clear_layer(layer_t *lay, uint32_t num_pixels) {
     }
 }
 
+/** Allocates and pushes a new transparent layer to the layer stack */
 static int add_new_layer_internal(void) {
     uint32_t num_pixels = doc_width * doc_height;
 
@@ -93,6 +111,10 @@ static int add_new_layer_internal(void) {
     return idx;
 }
 
+/**
+ * Composites all visible layers from bottom to top on top of a dark checkerboard background.
+ * Output is stored in out_pixels.
+ */
 static void composite_surface(void) {
     if (!out_pixels) return;
     uint32_t w = doc_width;
@@ -135,6 +157,10 @@ void force_composite(void) {
     surface_dirty = 0;
 }
 
+/**
+ * Dynamically resizes the document surface dimensions.
+ * Reallocates the layer pixel buffers and composite buffer, preserving existing contents.
+ */
 static void resize_surface(uint32_t new_w, uint32_t new_h) {
     if (new_w < 16 || new_h < 16 || new_w > 4096 || new_h > 4096) return;
     if (new_w == doc_width && new_h == doc_height) return;
@@ -171,6 +197,11 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
     sync_fb();
 }
 
+/* =========================================================================
+ * Drawing Primitives (Bresenham Line, Rect, Midpoint Circle, Grid)
+ * ========================================================================= */
+
+/** Bresenham's line algorithm drawn directly on active layer */
 static void draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
     if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
     int w = doc_width;
@@ -194,6 +225,7 @@ static void draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
     }
 }
 
+/** Solid filled rectangle on active layer */
 static void draw_rect(int rx, int ry, int rw, int rh, uint32_t color) {
     if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
     uint32_t *pix = layers[active_layer].pixels;
@@ -208,6 +240,7 @@ static void draw_rect(int rx, int ry, int rw, int rh, uint32_t color) {
     }
 }
 
+/** Solid filled circle on active layer using distance bounds */
 static void draw_circle(int cx, int cy, int cr, uint32_t color) {
     if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
     int r2 = cr * cr;
@@ -225,6 +258,7 @@ static void draw_circle(int cx, int cy, int cr, uint32_t color) {
     }
 }
 
+/** Orthogonal grid pattern on active layer */
 static void draw_grid(int step, uint32_t color) {
     if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
     if (step < 4) step = 4;
@@ -241,11 +275,9 @@ static void draw_grid(int step, uint32_t color) {
     }
 }
 
-static int c_isspace(char c) {
-    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
-}
-
-
+/* =========================================================================
+ * Color Parsers
+ * ========================================================================= */
 
 static uint32_t c_parse_hex(const char *s) {
     uint32_t val = 0;
@@ -259,6 +291,7 @@ static uint32_t c_parse_hex(const char *s) {
     return val;
 }
 
+/** Parses color string into 32-bit RGBA integer (#RRGGBB, 0x..., or name) */
 static uint32_t c_parse_color(const char *s) {
     if (!s) return 0xFF000000;
     if (*s == '#') {
@@ -285,7 +318,10 @@ static uint32_t c_parse_color(const char *s) {
     return (uint32_t)c_atoi(s);
 }
 
-
+/* =========================================================================
+ * Text Command Dispatcher
+ * Parses string commands received from console actor, UI plugins, or host.
+ * ========================================================================= */
 static void handle_text_command(char *str) {
     char *argv[16];
     int argc = c_tokenize(str, argv, 16);
@@ -445,6 +481,14 @@ static void handle_text_command(char *str) {
     }
 }
 
+/* =========================================================================
+ * Actor Message Entrypoint
+ * ========================================================================= */
+
+/**
+ * Invoked by the Piolho host when a message arrives in piolho_page.
+ * Reads the text command, executes it, and forces a recomposite.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char cmd_buf[512];
@@ -455,8 +499,16 @@ void on_message(int32_t from_id, int32_t len) {
     force_composite();
 }
 
+/* =========================================================================
+ * Actor Lifecycle / Update Loop
+ * ========================================================================= */
+
 static int surface_initialized = 0;
 
+/**
+ * Called on each frame tick by the host.
+ * Initializes default surface if not ready, and recomposites if dirty.
+ */
 int32_t update(void) {
     if (!surface_initialized) {
         surface_initialized = 1;
@@ -474,6 +526,11 @@ int32_t update(void) {
     return UPDATE_OK;
 }
 
+/* =========================================================================
+ * Exported Guest Functions (Query & Memory Access)
+ * ========================================================================= */
+
+/** Returns pointer to active layer's pixel array */
 uint32_t *get_active_layer_pixels(void) {
     if (active_layer >= 0 && active_layer < layer_count && layers) {
         return layers[active_layer].pixels;
@@ -481,6 +538,7 @@ uint32_t *get_active_layer_pixels(void) {
     return 0;
 }
 
+/** Returns pointer to layer `idx` pixel array */
 uint32_t *get_layer_pixels(int32_t idx) {
     if (idx >= 0 && idx < layer_count && layers) {
         return layers[idx].pixels;
@@ -488,47 +546,39 @@ uint32_t *get_layer_pixels(int32_t idx) {
     return 0;
 }
 
+/** Returns pointer to final composited RGBA32 output buffer */
 uint32_t *get_composite_pixels(void) {
     return out_pixels;
 }
 
+/** Returns index of active drawing layer */
 int32_t get_active_layer(void) {
     return active_layer;
 }
 
+/** Returns total number of layers */
 int32_t get_layer_count(void) {
     return layer_count;
 }
 
+/** Returns document surface width */
 int32_t get_width(void) {
     return doc_width;
 }
 
+/** Returns document surface height */
 int32_t get_height(void) {
     return doc_height;
 }
 
-// Backward-compat aliases
-int32_t get_canvas_width(void) {
-    return doc_width;
-}
+/* Aliases for host compatibility */
+int32_t get_canvas_width(void) { return doc_width; }
+int32_t get_canvas_height(void) { return doc_height; }
+int32_t get_canvas_count(void) { return 1; }
+int32_t get_active_canvas(void) { return 0; }
+const char *get_canvas_name(int32_t idx) { return "main"; }
 
-int32_t get_canvas_height(void) {
-    return doc_height;
-}
-
-int32_t get_canvas_count(void) {
-    return 1;
-}
-
-int32_t get_active_canvas(void) {
-    return 0;
-}
-
-const char *get_canvas_name(int32_t idx) {
-    return "main";
-}
-
+/** Returns 1 if layer `idx` is visible, 0 if hidden */
 uint8_t get_layer_visible(int32_t idx) {
     if (idx >= 0 && idx < layer_count && layers) {
         return layers[idx].visible;
@@ -536,6 +586,7 @@ uint8_t get_layer_visible(int32_t idx) {
     return 0;
 }
 
+/** Returns layer opacity (0..255) */
 uint8_t get_layer_opacity(int32_t idx) {
     if (idx >= 0 && idx < layer_count && layers) {
         return layers[idx].opacity;

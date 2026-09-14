@@ -4,29 +4,48 @@
 #include <stdint.h>
 #include <stddef.h>
 
-/* Wagnostic ABI */
+/* =========================================================================
+ * Wagnostic / Piolho Actor ABI
+ * Core lifecycle and communication interface for WebAssembly actors.
+ * ========================================================================= */
+
+/** Update return codes for actor frame ticks */
 #define UPDATE_OK      0
 #define UPDATE_EXIT    1
 #define UPDATE_ERROR  -1
 
+/** Host extension querying hook (imports memory/state from host) */
 void *ask(const char *name);
+
+/** Called every frame/tick by the host runtime */
 int32_t update(void);
 
-/* Piolho ABI */
+/* Piolho Shared Page Buffer (Page 0 at address 0x0000) */
 #define PIOLHO_PAGE_SIZE 65536
 #define piolho_page ((uint8_t*)0)
 
-/* Base Actor IDs */
+/* Well-Known Actor IDs */
 #define ACTOR_BROKER    0
 #define ACTOR_HOST      0
 #define ACTOR_SCREEN    0
 #define ACTOR_CANVAS    1
 #define ACTOR_CONSOLE   10
 
+/** Sends `len` bytes from `piolho_page` to `target_id` */
 int32_t say(int32_t target_id, int32_t len);
+
+/** Message handler callback invoked when an actor receives a message */
 void on_message(int32_t from_id, int32_t len);
 
-/* Helper to send text command string to Host Actor */
+/* =========================================================================
+ * Text Protocol Message Dispatch Helpers
+ * Everything is sent as null-terminated UTF-8 text command strings.
+ * ========================================================================= */
+
+/**
+ * Sends a null-terminated command string to the Host Actor (ID 0).
+ * Copies `cmd` into `piolho_page` and invokes `say(ACTOR_HOST, len + 1)`.
+ */
 static inline void say_cmd(const char *cmd) {
     if (!cmd) return;
     int len = 0;
@@ -38,7 +57,10 @@ static inline void say_cmd(const char *cmd) {
     say(ACTOR_HOST, len + 1);
 }
 
-/* Helper to send text command string to any Actor */
+/**
+ * Sends a null-terminated text command string to a specific Actor ID.
+ * Copies `cmd` into `piolho_page` and invokes `say(target_id, len + 1)`.
+ */
 static inline void say_text(int32_t target_id, const char *cmd) {
     if (!cmd) return;
     int len = 0;
@@ -50,28 +72,35 @@ static inline void say_text(int32_t target_id, const char *cmd) {
     say(target_id, len + 1);
 }
 
+/* =========================================================================
+ * Wagnostic Standard Extensions (Host Provided Structs)
+ * ========================================================================= */
 
-/* Wagnostic Standard Extensions */
+/** Framebuffer descriptor returned by ask("std:framebuffer") or ask("canvas:layer") */
 typedef struct {
     uint32_t width;
     uint32_t height;
-    uint32_t pixels;
+    uint32_t pixels; /**< Guest memory pointer to uint32_t RGBA32 pixel buffer */
 } wframebuffer_t;
 
+/** Clock/timing structure */
 typedef struct {
     uint64_t ticks;
     uint64_t frequency;
     float    delta;
 } wclock_t;
 
+/** Keyboard input state */
 typedef struct {
     uint8_t keys[256];
 } wkeyboard_t;
 
+/* Mouse button bitmasks */
 #define WMOUSE_BTN_LEFT   (1 << 0)
 #define WMOUSE_BTN_RIGHT  (1 << 1)
 #define WMOUSE_BTN_MIDDLE (1 << 2)
 
+/** Mouse input state */
 typedef struct {
     int32_t  x;
     int32_t  y;
@@ -80,13 +109,23 @@ typedef struct {
     int32_t  wheel_y;
 } wmouse_t;
 
+/* Tool Identifiers */
 #define TOOL_BRUSH  0
 #define TOOL_ERASER 1
 #define TOOL_BUCKET 2
 
+/* Maximum layers supported per document */
 #define MAX_LAYERS_LIMIT 256
 
-/* Text Parsing Helpers for Actors & Plugins */
+/* =========================================================================
+ * Standalone Text Parsing Helpers (Libc-Free)
+ * Used across WASM actors and plugins for parsing text commands.
+ * ========================================================================= */
+
+/**
+ * Case-insensitive ASCII string comparison.
+ * Returns 0 if equal, negative if s1 < s2, positive if s1 > s2.
+ */
 static inline int c_strcasecmp(const char *s1, const char *s2) {
     if (!s1 || !s2) return -1;
     while (*s1 && *s2) {
@@ -99,6 +138,9 @@ static inline int c_strcasecmp(const char *s1, const char *s2) {
     return (int)((unsigned char)*s1 - (unsigned char)*s2);
 }
 
+/**
+ * Parses signed 32-bit integer from string. Supports negative numbers.
+ */
 static inline int c_atoi(const char *s) {
     if (!s) return 0;
     int sign = 1;
@@ -113,6 +155,9 @@ static inline int c_atoi(const char *s) {
     return val * sign;
 }
 
+/**
+ * Parses unsigned 32-bit integer (supports decimal or hex formatted as 0x...).
+ */
 static inline uint32_t c_parse_u32(const char *s) {
     if (!s) return 0;
     while (*s == ' ' || *s == '\t') s++;
@@ -137,6 +182,11 @@ static inline uint32_t c_parse_u32(const char *s) {
     return val;
 }
 
+/**
+ * In-place command tokenizer. Modifies `line` by inserting null terminators
+ * and populates `tokens` array with pointer to each token. Supports "quoted strings".
+ * Returns total number of extracted tokens.
+ */
 static inline int c_tokenize(char *line, char *tokens[], int max_tokens) {
     int count = 0;
     char *p = line;

@@ -1,15 +1,28 @@
+/**
+ * =========================================================================
+ * Airbrush Plugin (plugins/brushes/airbrush/main.c)
+ * Soft, low-hardness spray brush with smooth quadratic/Gaussian radial falloff.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int size = 24;
-static int opacity = 60;
-static int hardness = 20;
-static int flow = 25;
-static int spacing = 8;
+// --- Airbrush Configurable Parameters ---
+static int size = 24;          // Spray radius in pixels
+static int opacity = 60;       // Max spray opacity (0..100%)
+static int hardness = 20;      // Edge hardness / core concentration (0..100%)
+static int flow = 25;          // Buildup speed per dab (0..100%)
+static int spacing = 8;        // Dab spacing percentage along stroke
 
-static int tex_mode = 1;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Texture Modulation Parameters ---
+static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
 
+/**
+ * Fast square root approximation using Newton-Raphson.
+ * Used for Euclidean distance calculation during falloff computation.
+ */
 static inline float fast_sqrt(float val) {
     if (val <= 0.0f) return 0.0f;
     float x = val;
@@ -17,6 +30,10 @@ static inline float fast_sqrt(float val) {
     return x;
 }
 
+/**
+ * Standard Porter-Duff source-over pixel alpha blending.
+ * Blends source brush color onto layer destination pixel.
+ */
 static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod) {
     uint32_t sa = ((src >> 24) & 0xFF) * alpha_mod / 255;
     if (sa == 0) return dst;
@@ -40,6 +57,9 @@ static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
 }
 
+/**
+ * Samples texture color from host shared buffer with UV scaling and wrapping.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -53,6 +73,10 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Airbrush Stamp: Computes quadratic radial falloff `(1 - d/r)^2` from center,
+ * scaling alpha smoothly to create a soft, feather-edged spray cone.
+ */
 static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint32_t color, int is_eraser) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -63,6 +87,7 @@ static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint
     float hard_factor = ((float)hardness / 100.0f) * 0.7f + 0.3f;
     float base_alpha = ((float)opacity / 100.0f) * ((float)flow / 100.0f) * hard_factor * 0.4f;
 
+    // Scan bounding box around spray center
     for (int dy = -r; dy <= r; dy++) {
         int py = y + dy;
         if (py < 0 || py >= height) continue;
@@ -72,6 +97,7 @@ static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint
 
             float d = fast_sqrt((float)(dx * dx + dy * dy));
             if (d <= r_f) {
+                // Smooth quadratic falloff curve: 1.0 at center -> 0.0 at radius
                 float t = d / r_f;
                 float falloff = (1.0f - t) * (1.0f - t);
                 int stamp_a = (int)(255.0f * falloff * base_alpha);
@@ -79,6 +105,7 @@ static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint
                 if (stamp_a <= 0) continue;
 
                 uint32_t col = color;
+                // Optional texture grain/pattern modulation
                 if (tex_fb && tex_fb->width > 0 && tex_mode > 0 && tex_strength > 0) {
                     uint32_t t_col = sample_texture(tex_fb, px, py);
                     if (tex_mode == 1) {
@@ -96,6 +123,7 @@ static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint
                 if (stamp_a <= 0) continue;
 
                 if (is_eraser) {
+                    // Soft eraser attenuates layer alpha proportionately
                     uint32_t p = pixels[py * width + px];
                     uint32_t da = (p >> 24) & 0xFF;
                     if (da > 0) {
@@ -103,6 +131,7 @@ static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint
                         pixels[py * width + px] = (new_a << 24) | (p & 0x00FFFFFF);
                     }
                 } else {
+                    // Blend soft spray dab onto canvas
                     pixels[py * width + px] = blend_pixel(pixels[py * width + px], col, (uint8_t)stamp_a);
                 }
             }
@@ -110,6 +139,9 @@ static void stamp(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint
     }
 }
 
+/**
+ * Connects consecutive mouse positions with linearly interpolated spray dabs.
+ */
 static void draw_line(wframebuffer_t *fb, wframebuffer_t *tex_fb, float x0, float y0, float x1, float y1, uint32_t color, int is_eraser) {
     float dx = x1 - x0;
     float dy = y1 - y0;
@@ -129,6 +161,9 @@ static void draw_line(wframebuffer_t *fb, wframebuffer_t *tex_fb, float x0, floa
     }
 }
 
+/**
+ * Message Handler: Dispatches ASCII configuration and stroke commands from Piolho page buffer.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -175,4 +210,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

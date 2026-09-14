@@ -1,15 +1,29 @@
+/**
+ * =========================================================================
+ * Smudge Brush Plugin (plugins/brushes/smudge/main.c)
+ * Smear/finger-painting tool that copies pixels from previous position (x0,y0)
+ * and blends them into destination position (x1,y1) along the stroke direction.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int size = 18;
-static int wetness = 50; // 0..100%
+// --- Smudge Brush Parameters ---
+static int size = 18;    // Smear footprint radius in pixels
+static int wetness = 50; // Smear blend strength (0 = no smudge, 100 = full paint transfer)
 
-static int tex_mode = 1;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Texture Modulation Parameters ---
+static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
 
+// Temporary sample buffer holding pixel patch captured from previous position
 #define MAX_SAMPLE 4096
 static uint32_t sample_buf[MAX_SAMPLE];
 
+/**
+ * Fast square root approximation for stroke distance calculation.
+ */
 static inline float fast_sqrt(float val) {
     if (val <= 0.0f) return 0.0f;
     float x = val;
@@ -17,6 +31,9 @@ static inline float fast_sqrt(float val) {
     return x;
 }
 
+/**
+ * Linear color interpolation between source paint c1 and destination canvas pixel c2.
+ */
 static inline uint32_t blend_color(uint32_t c1, uint32_t c2, int rate) {
     uint32_t r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
     uint32_t r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
@@ -27,6 +44,9 @@ static inline uint32_t blend_color(uint32_t c1, uint32_t c2, int rate) {
     return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
+/**
+ * Samples texture color from host shared buffer with UV scaling and wrapping.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -40,6 +60,11 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Smudge Operation:
+ * 1. Grabs circular pixel patch centered at previous stroke coordinate (x0, y0) into sample buffer.
+ * 2. Transports and blends the sampled patch into destination position (x1, y1).
+ */
 static void smear(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x0, int y0, int x1, int y1) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -48,7 +73,7 @@ static void smear(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x0, int y0, in
     int r = size;
     int r2 = r * r;
 
-    // Grab source patch from x0, y0
+    // Step 1: Capture source patch from (x0, y0)
     int s_idx = 0;
     for (int dy = -r; dy <= r; dy++) {
         int py = y0 + dy;
@@ -64,7 +89,7 @@ static void smear(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x0, int y0, in
         }
     }
 
-    // Blend into x1, y1
+    // Step 2: Smudge-blend sampled patch into (x1, y1)
     s_idx = 0;
     for (int dy = -r; dy <= r; dy++) {
         int py = y1 + dy;
@@ -89,6 +114,9 @@ static void smear(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x0, int y0, in
     }
 }
 
+/**
+ * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -118,6 +146,7 @@ void on_message(int32_t from_id, int32_t len) {
         int prev_x = c_atoi(tokens[4]);
         int prev_y = c_atoi(tokens[5]);
 
+        // Smudge is only active while dragging (state != 0)
         if (state != 0) {
             wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
             if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
@@ -127,4 +156,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

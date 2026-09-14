@@ -1,13 +1,25 @@
+/**
+ * =========================================================================
+ * Calligraphy Brush Plugin (plugins/brushes/calligraphy/main.c)
+ * Angled flat chisel/ribbon brush with directional line width variation.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int size = 14;
-static int angle = 45; // deg
-static int aspect = 20; // 1..100%
+// --- Calligraphy Brush Parameters ---
+static int size = 14;   // Chisel nib span length in pixels
+static int angle = 45;  // Nib slant angle in degrees (45-degree rotated axis)
+static int aspect = 20; // Chisel thickness ratio (1..100%)
 
-static int tex_mode = 1;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Texture Modulation Parameters ---
+static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
 
+/**
+ * Fast square root approximation for continuous stroke interpolation.
+ */
 static inline float fast_sqrt(float val) {
     if (val <= 0.0f) return 0.0f;
     float x = val;
@@ -15,6 +27,9 @@ static inline float fast_sqrt(float val) {
     return x;
 }
 
+/**
+ * Samples texture color from host shared buffer with UV scaling and wrapping.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -28,6 +43,10 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Renders an angled flat chisel ribbon stamp at (x, y).
+ * Uses rotated coordinate system (u = dx + dy, v = dy - dx) for high-performance 45-degree ribbon projection.
+ */
 static void stamp_ribbon(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint32_t color, int is_eraser) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -43,11 +62,13 @@ static void stamp_ribbon(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int 
             int px = x + dx;
             if (px < 0 || px >= width) continue;
 
+            // Project coordinate to rotated 45-degree chisel coordinate space
             int u = dx + dy;
             int v = dy - dx;
             if (u < 0) u = -u;
             if (v < 0) v = -v;
 
+            // Check if within chisel ribbon bounds
             if (u <= r && v <= thick * 2) {
                 if (is_eraser) {
                     pixels[py * width + px] = 0x00000000;
@@ -73,6 +94,9 @@ static void stamp_ribbon(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int 
     }
 }
 
+/**
+ * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -127,4 +151,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

@@ -1,10 +1,23 @@
+/**
+ * =========================================================================
+ * Pixel Brush Plugin (plugins/brushes/pixel/main.c)
+ * Hard pixel-art pencil with integer Bresenham line rasterization and no antialiasing.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int size = 1;
-static int tex_mode = 0;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Pixel Brush Parameters ---
+static int size = 1; // Square pixel block dimension (1 = single pixel)
 
+// --- Texture Modulation Parameters ---
+static int tex_mode = 0;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
+
+/**
+ * Samples texture color from host shared buffer with UV scaling and wrapping.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -18,21 +31,30 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Returns pixel color with optional texture grain/pattern modulation.
+ */
 static inline uint32_t get_pixel_color(wframebuffer_t *tex_fb, int px, int py, uint32_t color) {
     if (!tex_fb || tex_fb->width == 0 || tex_mode == 0 || tex_strength == 0) return color;
     uint32_t t_col = sample_texture(tex_fb, px, py);
     uint32_t tr = t_col & 0xFF, tg = (t_col >> 8) & 0xFF, tb = (t_col >> 16) & 0xFF;
     if (tex_mode == 1) {
+        // Mode 1: Grain Mask - modulates alpha using texture luminance
         uint32_t lum = (tr * 77 + tg * 150 + tb * 29) >> 8;
         uint32_t a = (color >> 24) & 0xFF;
         uint32_t mod_a = (a * (lum * tex_strength + 255 * (100 - tex_strength))) / 25500;
         return (mod_a << 24) | (color & 0x00FFFFFF);
     } else {
+        // Mode 2: RGB Pattern - multiplies color components with texture RGB
         uint32_t cr = color & 0xFF, cg = (color >> 8) & 0xFF, cb = (color >> 16) & 0xFF;
         return (color & 0xFF000000) | (((cb * tb) / 255) << 16) | (((cg * tg) / 255) << 8) | ((cr * tr) / 255);
     }
 }
 
+/**
+ * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ * Uses classic integer Bresenham algorithm to connect stroke endpoints pixel-perfectly without gaps.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -76,6 +98,7 @@ void on_message(int32_t from_id, int32_t len) {
         int x1 = x;
         int y1 = y;
 
+        // Setup integer Bresenham line stepping
         int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
         int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
         int sx = (x0 < x1) ? 1 : -1;
@@ -85,6 +108,7 @@ void on_message(int32_t from_id, int32_t len) {
         int half = size / 2;
 
         while (1) {
+            // Write square block of size * size around current raster position
             for (int sy_off = 0; sy_off < size; sy_off++) {
                 int py = y0 + sy_off - half;
                 if (py < 0 || py >= height) continue;
@@ -103,4 +127,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

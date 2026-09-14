@@ -1,12 +1,24 @@
+/**
+ * =========================================================================
+ * Blend Brush Plugin (plugins/brushes/blend/main.c)
+ * Wet-media brush that dynamically samples and mixes paint with canvas pixels.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int size = 16;
-static int wetness = 60; // 0..100%
+// --- Blend Brush Parameters ---
+static int size = 16;       // Stamp radius in pixels
+static int wetness = 60;    // Canvas paint pick-up ratio (0 = pure color, 100 = full smear)
 
-static int tex_mode = 1;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Texture Modulation Parameters ---
+static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
 
+/**
+ * Fast square root approximation for continuous stroke interpolation.
+ */
 static inline float fast_sqrt(float val) {
     if (val <= 0.0f) return 0.0f;
     float x = val;
@@ -14,6 +26,9 @@ static inline float fast_sqrt(float val) {
     return x;
 }
 
+/**
+ * Samples texture color from host shared buffer with wrapping and scaling.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -27,6 +42,12 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Linear color interpolation between brush color c1 and underlying canvas pixel c2.
+ * @param c1    Brush color (0xAABBGGRR)
+ * @param c2    Existing canvas layer pixel
+ * @param rate  Blend weight of brush color (0..100)
+ */
 static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
     uint32_t r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
     uint32_t r2 = c2 & 0xFF, g2 = (c2 >> 8) & 0xFF, b2 = (c2 >> 16) & 0xFF, a2 = (c2 >> 24) & 0xFF;
@@ -38,6 +59,10 @@ static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
     return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
+/**
+ * Renders a wet blend dab: reads underlying layer color and blends it with brush color
+ * proportionally to wetness parameter.
+ */
 static void stamp_blend(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y, uint32_t brush_color, int is_eraser) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -60,6 +85,7 @@ static void stamp_blend(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y
                     uint32_t col = brush_color;
                     int cur_wet = wetness;
 
+                    // Texture grain modifies local wetness level
                     if (tex_fb && tex_fb->width > 0 && tex_mode > 0 && tex_strength > 0) {
                         uint32_t t_col = sample_texture(tex_fb, px, py);
                         uint32_t tr = t_col & 0xFF, tg = (t_col >> 8) & 0xFF, tb = (t_col >> 16) & 0xFF;
@@ -74,8 +100,10 @@ static void stamp_blend(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y
 
                     uint32_t existing = pixels[py * width + px];
                     if ((existing >> 24) == 0) {
+                        // Empty background: place brush color directly
                         pixels[py * width + px] = col;
                     } else {
+                        // Existing paint: wet blend new color with existing canvas pixel
                         pixels[py * width + px] = mix_color(col, existing, 100 - cur_wet);
                     }
                 }
@@ -84,6 +112,9 @@ static void stamp_blend(wframebuffer_t *fb, wframebuffer_t *tex_fb, int x, int y
     }
 }
 
+/**
+ * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -137,4 +168,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

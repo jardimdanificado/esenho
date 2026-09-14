@@ -1,14 +1,28 @@
+/**
+ * =========================================================================
+ * Flood Fill Plugin (plugins/brushes/fill/main.c)
+ * Breadth-first search (BFS) flood fill with Manhattan color tolerance and texture support.
+ * =========================================================================
+ */
+
 #include "wesenho.h"
 
-static int tolerance = 32;
-static int tex_mode = 1;       // 0=off, 1=grain/mask, 2=pattern
-static int tex_scale = 100;    // %
-static int tex_strength = 100; // 0..100%
+// --- Fill Configurable Parameters ---
+static int tolerance = 32; // Per-channel Manhattan color distance tolerance (0..255)
 
+// --- Texture Modulation Parameters ---
+static int tex_mode = 1;       // 0 = Off, 1 = Grain/Luminance mask, 2 = RGB Pattern
+static int tex_scale = 100;    // Texture UV scale percentage
+static int tex_strength = 100; // Texture modulation strength (0..100%)
+
+// Fixed-size FIFO queue for non-recursive 4-way BFS flood fill (avoids WASM call-stack overflow)
 #define MAX_QUEUE 262144
 static int32_t qx[MAX_QUEUE];
 static int32_t qy[MAX_QUEUE];
 
+/**
+ * Checks whether color c1 matches target color c2 within per-channel Manhattan tolerance.
+ */
 static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     if (c1 == c2) return 1;
     int r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF, a1 = (c1 >> 24) & 0xFF;
@@ -20,6 +34,9 @@ static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     return (dr <= tol && dg <= tol && db <= tol && da <= tol);
 }
 
+/**
+ * Samples texture color from host shared buffer with UV scaling and wrapping.
+ */
 static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     if (!tex_fb || !tex_fb->pixels || tex_fb->width == 0 || tex_fb->height == 0) return 0xFFFFFFFF;
     int tw = tex_fb->width;
@@ -33,23 +50,32 @@ static inline uint32_t sample_texture(wframebuffer_t *tex_fb, int x, int y) {
     return tp[ty * tw + tx];
 }
 
+/**
+ * Calculates final fill pixel value at (px, py), applying active texture grain or pattern.
+ */
 static inline uint32_t get_fill_pixel(wframebuffer_t *tex_fb, int px, int py, uint32_t base_color) {
     if (!tex_fb || tex_fb->width == 0 || tex_mode == 0 || tex_strength == 0) return base_color;
     uint32_t t_col = sample_texture(tex_fb, px, py);
     uint32_t tr = t_col & 0xFF, tg = (t_col >> 8) & 0xFF, tb = (t_col >> 16) & 0xFF;
 
-    if (tex_mode == 1) { // Grain/mask
+    if (tex_mode == 1) {
+        // Mode 1: Grain Mask - modulates fill alpha with texture luminance
         uint32_t lum = (tr * 77 + tg * 150 + tb * 29) >> 8;
         uint32_t a = (base_color >> 24) & 0xFF;
         uint32_t mod_a = (a * (lum * tex_strength + 255 * (100 - tex_strength))) / 25500;
         return (mod_a << 24) | (base_color & 0x00FFFFFF);
-    } else { // Pattern
+    } else {
+        // Mode 2: RGB Pattern - multiplies fill color with texture RGB
         uint32_t cr = base_color & 0xFF, cg = (base_color >> 8) & 0xFF, cb = (base_color >> 16) & 0xFF;
         uint32_t ca = base_color & 0xFF000000;
         return ca | (((cb * tb) / 255) << 16) | (((cg * tg) / 255) << 8) | ((cr * tr) / 255);
     }
 }
 
+/**
+ * Executes iterative BFS flood fill starting at (start_x, start_y).
+ * Replaces connected contiguous region matching target color with fill color.
+ */
 static void flood_fill(wframebuffer_t *fb, wframebuffer_t *tex_fb, int start_x, int start_y, uint32_t fill_color, int is_eraser) {
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
@@ -65,9 +91,10 @@ static void flood_fill(wframebuffer_t *fb, wframebuffer_t *tex_fb, int start_x, 
     qy[q_tail] = start_y;
     q_tail++;
 
-    // Mark visited by setting directly or tracking
+    // Mark starting pixel
     pixels[start_y * width + start_x] = is_eraser ? 0x00000000 : get_fill_pixel(tex_fb, start_x, start_y, fill_color);
 
+    // BFS 4-way expansion loop
     while (q_head < q_tail && q_tail < MAX_QUEUE - 4) {
         int x = qx[q_head];
         int y = qy[q_head];
@@ -95,6 +122,9 @@ static void flood_fill(wframebuffer_t *fb, wframebuffer_t *tex_fb, int start_x, 
     }
 }
 
+/**
+ * Message Handler: Processes text protocol commands ("set", "stroke") from Piolho page.
+ */
 void on_message(int32_t from_id, int32_t len) {
     if (len <= 0) return;
     char buf[256];
@@ -124,6 +154,7 @@ void on_message(int32_t from_id, int32_t len) {
         int is_eraser = c_atoi(tokens[7]);
 
         if (state == 0) {
+            // STROKE_START: trigger flood fill at clicked position
             wframebuffer_t *fb = (wframebuffer_t*)ask("canvas:layer");
             if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
             wframebuffer_t *tex_fb = (wframebuffer_t*)ask("brush:texture");
@@ -132,4 +163,6 @@ void on_message(int32_t from_id, int32_t len) {
     }
 }
 
+/** Piolho frame update hook */
 int32_t update(void) { return UPDATE_OK; }
+

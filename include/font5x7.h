@@ -1,9 +1,26 @@
 #ifndef FONT5X7_H
 #define FONT5X7_H
 
+/**
+ * =========================================================================
+ * 5x7 Monospaced Bitmap Font Table (include/font5x7.h)
+ * =========================================================================
+ * 
+ * Column-major 5x7 ASCII bitmap font definition (character codes 32..126).
+ * 
+ * Format:
+ *   - Each glyph is represented as an array of 5 uint8_t column bytes.
+ *   - Column 0 is the leftmost column; Column 4 is the rightmost column.
+ *   - Bit 0 (LSB) corresponds to the topmost pixel row (row 0).
+ *   - Bit 6 corresponds to the bottommost pixel row (row 6).
+ *   - Bit 7 is unused / padding.
+ *   - An implicit 1-pixel horizontal gap is appended when rendering text strings.
+ * =========================================================================
+ */
+
 #include <stdint.h>
 
-/* Complete 5x7 ASCII font (characters 32..126) */
+/* Complete 5x7 ASCII font table indexed directly by character ASCII code */
 static const uint8_t font5x7[128][5] = {
     [' '] = {0x00, 0x00, 0x00, 0x00, 0x00},
     ['!'] = {0x00, 0x00, 0x5F, 0x00, 0x00},

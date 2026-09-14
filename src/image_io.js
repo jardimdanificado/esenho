@@ -1,8 +1,16 @@
+/**
+ * =========================================================================
+ * Wesenho Image I/O Module
+ * Pure Node.js encoding & decoding for PNG, BMP, and PPM (P6) formats
+ * without external native image dependencies.
+ * =========================================================================
+ */
+
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
 
-// CRC32 table for PNG chunk checksums
+/** Precomputed CRC32 table for PNG chunk validation */
 const crcTable = new Uint32Array(256);
 for (let n = 0; n < 256; n++) {
   let c = n;
@@ -12,6 +20,13 @@ for (let n = 0; n < 256; n++) {
   crcTable[n] = c >>> 0;
 }
 
+/**
+ * Computes CRC32 checksum over a buffer range for PNG chunks.
+ * @param {Buffer} buf - Input buffer
+ * @param {number} offset - Start offset
+ * @param {number} length - Number of bytes to checksum
+ * @returns {number} 32-bit unsigned CRC
+ */
 function calcCrc32(buf, offset, length) {
   let crc = 0xFFFFFFFF;
   for (let i = 0; i < length; i++) {
@@ -20,6 +35,12 @@ function calcCrc32(buf, offset, length) {
   return (crc ^ 0xFFFFFFFF) >>> 0;
 }
 
+/**
+ * Constructs a binary PNG chunk [4 bytes length][4 bytes type][data][4 bytes crc32].
+ * @param {string} typeStr - 4-character ASCII chunk type (e.g. 'IHDR', 'IDAT', 'IEND')
+ * @param {Buffer|null} dataBuf - Payload buffer or null
+ * @returns {Buffer} Formatted chunk buffer
+ */
 function makePngChunk(typeStr, dataBuf) {
   const typeLen = 4;
   const dataLen = dataBuf ? dataBuf.length : 0;
@@ -37,7 +58,11 @@ function makePngChunk(typeStr, dataBuf) {
 }
 
 /**
- * Encode RGBA buffer (width x height x 4) into PNG buffer
+ * Encodes an RGBA pixel buffer (width * height * 4) into a valid PNG binary file buffer.
+ * @param {number} width - Image width in pixels
+ * @param {number} height - Image height in pixels
+ * @param {Buffer} rgbaBuffer - Raw RGBA byte buffer
+ * @returns {Buffer} Encoded PNG buffer
  */
 function encodePng(width, height, rgbaBuffer) {
   const header = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -72,7 +97,12 @@ function encodePng(width, height, rgbaBuffer) {
 }
 
 /**
- * Paeth predictor for PNG decoding
+ * Paeth predictor algorithm for PNG unfiltering (Filter type 4).
+ * Predicts current pixel value using left (a), above (b), and upper-left (c) neighbours.
+ * @param {number} a - Left byte
+ * @param {number} b - Upper byte
+ * @param {number} c - Upper-left byte
+ * @returns {number} Selected predictor byte
  */
 function paethPredictor(a, b, c) {
   const p = a + b - c;
@@ -85,7 +115,10 @@ function paethPredictor(a, b, c) {
 }
 
 /**
- * Decode PNG file buffer into { width, height, data: Buffer (RGBA) }
+ * Decodes a binary PNG file buffer into raw RGBA pixel data.
+ * Supports Grayscale (0), RGB (2), and RGBA (6) color types with standard filters (0-4).
+ * @param {Buffer} buf - PNG file buffer
+ * @returns {{ width: number, height: number, data: Buffer }} Decoded RGBA image
  */
 function decodePng(buf) {
   // Check PNG signature
@@ -180,7 +213,11 @@ function decodePng(buf) {
 }
 
 /**
- * Encode RGBA buffer into uncompressed 32-bit BMP buffer
+ * Encodes RGBA buffer into uncompressed 32-bit BMP (BGRA bottom-up format).
+ * @param {number} width - Image width
+ * @param {number} height - Image height
+ * @param {Buffer} rgbaBuffer - Raw RGBA pixel buffer
+ * @returns {Buffer} Formatted BMP binary buffer
  */
 function encodeBmp(width, height, rgbaBuffer) {
   const rowBytes = width * 4;
@@ -226,7 +263,10 @@ function encodeBmp(width, height, rgbaBuffer) {
 }
 
 /**
- * Decode BMP buffer into { width, height, data: Buffer (RGBA) }
+ * Decodes 24-bit or 32-bit BMP buffer into raw RGBA buffer.
+ * Supports top-down and standard bottom-up row ordering.
+ * @param {Buffer} buf - BMP file buffer
+ * @returns {{ width: number, height: number, data: Buffer }}
  */
 function decodeBmp(buf) {
   if (buf.length < 54 || buf.toString('ascii', 0, 2) !== 'BM') {
@@ -271,7 +311,11 @@ function decodeBmp(buf) {
 }
 
 /**
- * Encode RGBA buffer into PPM (P6) binary format
+ * Encodes RGBA buffer into standard binary PPM (P6) format.
+ * @param {number} width - Image width
+ * @param {number} height - Image height
+ * @param {Buffer} rgbaBuffer - Raw RGBA byte buffer
+ * @returns {Buffer} Formatted PPM buffer
  */
 function encodePpm(width, height, rgbaBuffer) {
   const header = Buffer.from(`P6\n${width} ${height}\n255\n`, 'ascii');
@@ -289,7 +333,9 @@ function encodePpm(width, height, rgbaBuffer) {
 }
 
 /**
- * Decode PPM (P6) buffer into { width, height, data: Buffer (RGBA) }
+ * Decodes binary PPM (P6) buffer into raw RGBA buffer.
+ * @param {Buffer} buf - PPM file buffer
+ * @returns {{ width: number, height: number, data: Buffer }}
  */
 function decodePpm(buf) {
   let pos = 0;
@@ -327,7 +373,13 @@ function decodePpm(buf) {
 }
 
 /**
- * Universal Save Image
+ * Universal image export: determines format from extension (.png, .bmp, .ppm)
+ * and writes the file to filesystem.
+ * @param {string} filePath - Output path
+ * @param {number} width - Image width
+ * @param {number} height - Image height
+ * @param {Buffer} rgbaBuffer - Raw RGBA buffer
+ * @returns {{ width: number, height: number, bytes: number, format: string }}
  */
 function saveImage(filePath, width, height, rgbaBuffer) {
   const ext = path.extname(filePath).toLowerCase();
@@ -347,7 +399,9 @@ function saveImage(filePath, width, height, rgbaBuffer) {
 }
 
 /**
- * Universal Load Image
+ * Universal image loader: reads file from disk and parses PNG, BMP, or PPM format.
+ * @param {string} filePath - Input path
+ * @returns {{ width: number, height: number, data: Buffer }}
  */
 function loadImage(filePath) {
   const fullPath = path.resolve(filePath);

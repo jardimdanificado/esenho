@@ -1,3 +1,15 @@
+/**
+ * =========================================================================
+ * Wesenho - Extensible Painting & Drawing Platform (Piolho Runtime)
+ * Architecture:
+ * - Host Actor (ID 0 / UnsafePiolho): Screen viewport, SDL window, REPL, plugin coordination.
+ * - Surface Actor (ID 1 / roms/canvas.wasm): Multi-layer composition, surface resizing, drawing.
+ * - Brush Plugins (plugins/brushes/*.wasm): Round, Airbrush, Pixel, Calligraphy, Smudge, etc.
+ * - Filter Plugins (plugins/filters/*.wasm): Invert, Blur, Noise, Dither, Grayscale, etc.
+ * - Text Protocol: All communication is passed as UTF-8 string commands over Piolho page.
+ * =========================================================================
+ */
+
 const sdl = require('@kmamal/sdl');
 const fs = require('fs');
 const path = require('path');
@@ -13,6 +25,10 @@ const ACTOR_CANVAS  = 1;
 const DOC_WIDTH  = 800;
 const DOC_HEIGHT = 1000;
 
+/**
+ * Generates default procedural textures (paper, canvas, noise, dots, grid, grunge).
+ * Used by brush plugins with texture grain/pattern mode enabled.
+ */
 function createProceduralTextures() {
   const map = new Map();
 
@@ -129,7 +145,12 @@ function createProceduralTextures() {
   return map;
 }
 
-// Math Evaluator
+/**
+ * Evaluates basic mathematical expressions in Lisp-style prefix format `(+ 1 2)`
+ * or standard arithmetic infix strings.
+ * @param {string} expr - Expression string to evaluate
+ * @returns {number} Evaluated number or NaN
+ */
 function evaluateMath(expr) {
   expr = expr.trim();
   if (expr.startsWith('(') && expr.endsWith(')')) {
@@ -176,11 +197,17 @@ function evaluateMath(expr) {
       return Function(`"use strict"; return (${expr});`)();
     }
   } catch (e) {
-    // ignore
+    // ignore invalid formula syntax
   }
   return NaN;
 }
 
+/**
+ * Parses user color string input (named color, #RRGGBB, or 'R G B [A]' numbers)
+ * into a packed 32-bit integer in 0xAABBGGRR byte order.
+ * @param {string} str - Color input string
+ * @returns {number|null} Packed 32-bit color integer or null if invalid
+ */
 function parseColorString(str) {
   str = str.trim().toLowerCase();
   const named = {
@@ -212,6 +239,12 @@ function parseColorString(str) {
   return null;
 }
 
+/**
+ * Reads a null-terminated UTF-8 C string from WebAssembly Linear Memory buffer.
+ * @param {WebAssembly.Memory} memory - WASM instance memory
+ * @param {number} ptr - Pointer offset in memory
+ * @returns {string} Decoded UTF-8 string
+ */
 function readCString(memory, ptr) {
   if (!ptr || !memory) return '';
   const bytes = new Uint8Array(memory.buffer, ptr);
@@ -220,6 +253,7 @@ function readCString(memory, ptr) {
   return new TextDecoder().decode(bytes.subarray(0, len));
 }
 
+/** Formats layer list for CLI output */
 function formatLayersList(canvasActor) {
   const count = canvasActor.instance.exports.get_layer_count();
   const active = canvasActor.instance.exports.get_active_layer();
@@ -236,6 +270,7 @@ function formatLayersList(canvasActor) {
   return out;
 }
 
+/** Formats brush plugin list for CLI output */
 function formatBrushesList(screenActor) {
   let out = `\x1b[1mBrushes:\x1b[0m\n`;
   for (const [name, actor] of screenActor.plugins.entries()) {
@@ -247,6 +282,7 @@ function formatBrushesList(screenActor) {
   return out;
 }
 
+/** Formats available texture list for CLI output */
 function formatTexturesList(screenActor) {
   let out = `\x1b[1mTextures (${screenActor.textures.size}):\x1b[0m\n`;
   for (const [name, tex] of screenActor.textures.entries()) {
@@ -256,6 +292,7 @@ function formatTexturesList(screenActor) {
   return out;
 }
 
+/** Formats filter plugin list for CLI output */
 function formatFiltersList(screenActor) {
   let out = `\x1b[1mFilters:\x1b[0m\n`;
   for (const [name, actor] of screenActor.plugins.entries()) {
@@ -266,9 +303,14 @@ function formatFiltersList(screenActor) {
   return out;
 }
 
-// Application State & Screen Host (Real Unsafe Piolho Actor)
+/**
+ * WesenhoScreenHost - Main Application State & Screen Host Actor.
+ * Coordinates the SDL viewport window, user input, REPL commands,
+ * Surface Canvas Actor, and dynamic WASM plugins.
+ */
 class WesenhoScreenHost {
   constructor() {
+    // Viewport & Pan/Zoom State
     this.windowWidth = 1000;
     this.windowHeight = 900;
     this.zoom = 0.72;
@@ -278,15 +320,18 @@ class WesenhoScreenHost {
     this.panStartX = 0;
     this.panStartY = 0;
 
+    // Mouse Tracking & Stroke State
     this.mouseState = { x: 0, y: 0, buttons: 0 };
     this.isDrawingOnCanvas = false;
     this.strokePrevX = -1;
     this.strokePrevY = -1;
 
+    // Active Tool, Brush & Color State
     this.activeBrush = 'round';
-    this.currentColor = 0xFF000000;
-    this.currentTool = 0; // 0 = brush, 1 = eraser
+    this.currentColor = 0xFF000000; // Opaque Black (0xAABBGGRR)
+    this.currentTool = 0;           // 0 = Brush, 1 = Eraser
 
+    // Configurable Brush Parameters
     this.brushParams = {
       size: 8,
       opacity: 100,
@@ -305,6 +350,7 @@ class WesenhoScreenHost {
       texture_strength: 100
     };
 
+    // Textures & Actors
     this.textures = createProceduralTextures();
     this.activeTexture = 'paper';
 
@@ -315,7 +361,7 @@ class WesenhoScreenHost {
     this.screenBuffer = Buffer.alloc(this.windowWidth * this.windowHeight * 4);
     this.rl = null;
 
-    // The native Piolho actor instance
+    // Native Piolho Screen Host Actor
     this.actor = new UnsafePiolho('screen', {
       id: ACTOR_SCREEN,
       immediateMessage: true,
@@ -325,6 +371,11 @@ class WesenhoScreenHost {
     });
   }
 
+  /**
+   * Dispatches a null-terminated UTF-8 text command string to the Canvas Actor (Actor ID 1),
+   * followed by an immediate layer re-composition.
+   * @param {string} cmdStr - Command text (e.g. "resize 800 600", "layer add")
+   */
   sendCanvasCmd(cmdStr) {
     if (!this.canvasActor) return;
     this.canvasActor.say(Buffer.from(cmdStr + '\0', 'utf8'), ACTOR_SCREEN);
@@ -333,10 +384,19 @@ class WesenhoScreenHost {
     }
   }
 
+  /**
+   * Retrieves the currently active procedural or imported texture object.
+   * @returns {{width: number, height: number, data: Buffer}|null}
+   */
   getActiveTexture() {
     return this.textures.get(this.activeTexture) || null;
   }
 
+  /**
+   * Prints formatted logs to REPL stdout without corrupting the current readline prompt.
+   * @param {string} text - Message text
+   * @param {number} color - Status color (0xFFFF5555 for error, 0xFF00FF88 for success)
+   */
   sendConsoleLog(text, color = 0xFF00FF88) {
     const ansiColor = (color === 0xFFFF5555) ? '\x1b[31m' : '\x1b[32m';
     if (this.rl) {
@@ -349,6 +409,12 @@ class WesenhoScreenHost {
     }
   }
 
+  /**
+   * Copies the raw pixel buffer from a canvas layer and registers it as a reusable brush texture.
+   * @param {number} layerIdx - Source layer index (-1 for active layer)
+   * @param {string} name - Name for the new texture
+   * @returns {boolean} True if converted successfully
+   */
   convertLayerToTexture(layerIdx, name) {
     if (!this.canvasActor || !this.canvasActor.instance) return false;
     const w = this.canvasActor.instance.exports.get_canvas_width();
@@ -367,6 +433,12 @@ class WesenhoScreenHost {
     return true;
   }
 
+  /**
+   * Exports the composite canvas or a single layer to disk (PNG, BMP, or PPM format).
+   * @param {string} filePath - Output path on disk
+   * @param {number} target - 0 = composite canvas, 1 = active layer
+   * @returns {{ok: boolean, error?: string, path?: string, format?: string, size?: number}}
+   */
   saveCanvasOrLayer(filePath, target) {
     if (!this.canvasActor || !this.canvasActor.instance) return { ok: false, error: 'Canvas not found' };
     const w = this.canvasActor.instance.exports.get_canvas_width();
@@ -389,6 +461,13 @@ class WesenhoScreenHost {
     }
   }
 
+  /**
+   * Imports an image file into the active layer, a new layer, or as a brush texture.
+   * @param {string} filePath - Path to image file
+   * @param {number} target - 0 = active layer, 1 = new layer, 2 = texture
+   * @param {string} [name] - Texture name if target === 2
+   * @returns {{ok: boolean, msg?: string, error?: string}}
+   */
   loadImageFromFile(filePath, target, name) {
     try {
       const img = loadImage(filePath);
@@ -435,6 +514,10 @@ class WesenhoScreenHost {
     }
   }
 
+  /**
+   * Dispatches a stroke text command to the currently active brush plugin actor.
+   * Format: `stroke <state> <x> <y> <prev_x> <prev_y> <color> <is_eraser>`
+   */
   sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
     const brushEntry = this.plugins.get(this.activeBrush);
     if (!brushEntry || !brushEntry.actor) return;
@@ -446,6 +529,10 @@ class WesenhoScreenHost {
     brushEntry.actor.say(strokeBuf, ACTOR_CANVAS);
   }
 
+  /**
+   * Inbound message handler for the Screen Host Piolho actor.
+   * Decodes incoming UTF-8 string messages and executes command.
+   */
   handleMessage(from, data) {
     if (!data) return;
     const buffer = Buffer.isBuffer(data) ? data : (data instanceof Uint8Array ? Buffer.from(data.buffer, data.byteOffset, data.byteLength) : Buffer.from(String(data)));
@@ -461,6 +548,13 @@ class WesenhoScreenHost {
     }
   }
 
+  /**
+   * Main text command interpreter for interactive terminal REPL and actor messages.
+   * Handles entity queries, layer manipulation, brush configuration, filters,
+   * image file I/O, drawing primitives, and math evaluation.
+   * @param {string} raw - Command line string
+   * @param {string|number} [from='repl'] - Sender identifier
+   */
   executeCommand(raw, from = 'repl') {
     raw = raw.trim();
     if (!raw) return;
@@ -983,6 +1077,10 @@ class WesenhoScreenHost {
     console.log(`\x1b[31merr: unknown command '${raw}'. Type 'help' for commands.\x1b[0m`);
   }
 
+  /**
+   * Initializes the native SDL window, event listeners for mouse drag drawing,
+   * middle-click panning, scroll wheel zooming, and resize.
+   */
   initWindow() {
     this.window = sdl.video.createWindow({
       title: 'wesenho',
@@ -1069,6 +1167,9 @@ class WesenhoScreenHost {
     this.window.on('close', () => process.exit(0));
   }
 
+  /**
+   * Sets up the interactive readline REPL on process.stdin.
+   */
   setupRepl() {
     this.rl = readline.createInterface({
       input: process.stdin,
@@ -1086,6 +1187,13 @@ class WesenhoScreenHost {
     });
   }
 
+  /**
+   * Main render pass:
+   * 1. Calls update() on Canvas Actor to composite visible layers.
+   * 2. Clears the host window framebuffer with dark background (0x18).
+   * 3. Projects composite surface pixels to screen using current pan offset and zoom scale.
+   * 4. Renders output buffer to SDL window.
+   */
   renderFrame() {
     if (!this.canvasActor || !this.canvasActor.instance) return;
     this.canvasActor.instance.exports.update();
@@ -1131,6 +1239,11 @@ class WesenhoScreenHost {
   }
 }
 
+/**
+ * Discovers compiled WASM plugins from `plugins/brushes` and `plugins/filters`.
+ * @param {string} baseDir - Root directory path
+ * @returns {Array<{id: number, name: string, type: string, wasmPath: string}>}
+ */
 function discoverModules(baseDir) {
   const modules = [];
   let nextId = 11;
@@ -1162,6 +1275,11 @@ function discoverModules(baseDir) {
   return modules;
 }
 
+/**
+ * Application Entry Point:
+ * Initializes Piolho extension registry, loads ROMs and plugins,
+ * wires inter-actor messaging, and starts the render loop.
+ */
 async function main() {
   const host = new WesenhoScreenHost();
   const registry = new ExtensionRegistry();
@@ -1327,3 +1445,4 @@ async function main() {
 }
 
 main().catch(console.error);
+
