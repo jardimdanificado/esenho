@@ -312,7 +312,7 @@ async function main() {
   const savedMobileH = localStorage.getItem('wesenho_mobile_drawer_height');
   if (savedMobileH) {
     const pH = parseInt(savedMobileH, 10);
-    if (pH >= 120 && pH <= window.innerHeight * 0.8) {
+    if (pH >= 80 && pH <= window.innerHeight * 0.85) {
       document.documentElement.style.setProperty('--mobile-drawer-height', `${pH}px`);
     }
   }
@@ -371,63 +371,131 @@ async function main() {
     });
   }
 
-  if (dockHandle) {
+  const bottomDock = document.getElementById('bottom-dock');
+  if (bottomDock) {
     let isDraggingDock = false;
+    let hasMoved = false;
     let startY = 0;
     let startH = 0;
     let targetPanel = null;
+    let suppressClickUntil = 0;
 
-    dockHandle.addEventListener('pointerdown', e => {
-      if (!isMobile()) return;
-      const uiEl = document.getElementById('ui-panel');
-      const consoleEl = document.getElementById('panel');
-      if (uiEl && !uiEl.classList.contains('hidden')) {
-        targetPanel = uiEl;
-      } else if (consoleEl && !consoleEl.classList.contains('hidden')) {
-        targetPanel = consoleEl;
-      } else {
-        toggleUi(true);
-        targetPanel = uiEl;
+    // Suppress click on dock buttons if a drag gesture occurred
+    bottomDock.addEventListener('click', (e) => {
+      if (Date.now() < suppressClickUntil) {
+        e.preventDefault();
+        e.stopPropagation();
       }
-      if (!targetPanel) return;
+    }, true);
 
-      isDraggingDock = true;
-      startY = e.clientY;
-      startH = targetPanel.offsetHeight || 280;
-      try { dockHandle.setPointerCapture(e.pointerId); } catch (_) {}
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'row-resize';
-    });
-
-    dockHandle.addEventListener('pointermove', e => {
+    const applyDockHeight = (clientY) => {
       if (!isDraggingDock || !targetPanel) return;
-      const dy = e.clientY - startY;
+      const dy = clientY - startY;
+      if (!hasMoved && Math.abs(dy) > 4) {
+        hasMoved = true;
+      }
+      if (!hasMoved) return;
+
       let newH = startH - dy;
-      newH = Math.max(90, Math.min(window.innerHeight * 0.75, newH));
+      newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
       document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
       targetPanel.style.height = `${newH}px`;
+      targetPanel.style.maxHeight = 'none';
+      targetPanel.style.minHeight = '0px';
       resize();
-    });
+    };
 
-    const finishDockDrag = (e) => {
+    const finishDockDrag = () => {
       if (!isDraggingDock) return;
       isDraggingDock = false;
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
-      try { dockHandle.releasePointerCapture(e.pointerId); } catch (_) {}
-      if (targetPanel) {
-        if (targetPanel.offsetHeight < 100) {
-          toggleUi(false);
-          toggleConsole(false);
-        } else {
-          localStorage.setItem('wesenho_mobile_drawer_height', targetPanel.offsetHeight);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', finishDockDrag);
+      window.removeEventListener('pointercancel', finishDockDrag);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', finishDockDrag);
+      window.removeEventListener('touchcancel', finishDockDrag);
+
+      if (hasMoved) {
+        suppressClickUntil = Date.now() + 250;
+        if (targetPanel) {
+          if (targetPanel.offsetHeight < 100) {
+            toggleUi(false);
+            toggleConsole(false);
+            targetPanel.style.height = '';
+            targetPanel.style.maxHeight = '';
+            targetPanel.style.minHeight = '';
+          } else {
+            localStorage.setItem('wesenho_mobile_drawer_height', targetPanel.offsetHeight);
+          }
         }
       }
       targetPanel = null;
+      hasMoved = false;
     };
 
-    dockHandle.addEventListener('pointerup', finishDockDrag);
-    dockHandle.addEventListener('pointercancel', finishDockDrag);
+    const onPointerMove = (e) => {
+      if (hasMoved && e.cancelable) e.preventDefault();
+      applyDockHeight(e.clientY);
+    };
+
+    const onTouchMove = (e) => {
+      if (e.touches && e.touches.length > 0) {
+        if (hasMoved && e.cancelable) e.preventDefault();
+        applyDockHeight(e.touches[0].clientY);
+      }
+    };
+
+    const handleDockStart = (clientY, isDirectHandle) => {
+      const uiEl = document.getElementById('ui-panel');
+      const consoleEl = document.getElementById('panel');
+      const uiHidden = !uiEl || uiEl.classList.contains('hidden');
+      const consoleHidden = !consoleEl || consoleEl.classList.contains('hidden');
+
+      if (!uiHidden) {
+        targetPanel = uiEl;
+        startH = uiEl.offsetHeight;
+      } else if (!consoleHidden) {
+        targetPanel = consoleEl;
+        startH = consoleEl.offsetHeight;
+      } else {
+        toggleUi(true);
+        targetPanel = uiEl;
+        startH = 0;
+      }
+      if (!targetPanel) return false;
+
+      isDraggingDock = true;
+      hasMoved = !!isDirectHandle;
+      startY = clientY;
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'row-resize';
+      return true;
+    };
+
+    bottomDock.addEventListener('pointerdown', e => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
+      if (!handleDockStart(e.clientY, isDirectHandle)) return;
+      if (isDirectHandle && e.cancelable) e.preventDefault();
+
+      window.addEventListener('pointermove', onPointerMove, { passive: false });
+      window.addEventListener('pointerup', finishDockDrag);
+      window.addEventListener('pointercancel', finishDockDrag);
+    });
+
+    bottomDock.addEventListener('touchstart', e => {
+      if (e.touches && e.touches.length > 0) {
+        const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
+        if (!handleDockStart(e.touches[0].clientY, isDirectHandle)) return;
+        if (isDirectHandle && e.cancelable) e.preventDefault();
+
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', finishDockDrag);
+        window.addEventListener('touchcancel', finishDockDrag);
+      }
+    }, { passive: false });
   }
 
   // On mobile initial setup: start with full-screen canvas (drawers closed)
@@ -1902,6 +1970,8 @@ function ensureUiPanel() {
     .ui-label-row { display: flex; justify-content: space-between; color: #a89984; }
     .ui-val { color: #fabd2f; font-weight: bold; }
     input[type=range] { accent-color: #fe8019; cursor: pointer; height: 4px; background: #282828; width: 100%; }
+    input[type=range]::-webkit-slider-thumb { transform: scale(0.65); cursor: pointer; }
+    input[type=range]::-moz-range-thumb { transform: scale(0.65); cursor: pointer; }
     .ui-select { background: #282828; color: #ebdbb2; border: 1px solid #3c3836; padding: 3px 5px; font: inherit; font-size: 11px; outline: none; width: 100%; }
     .color-preview-box { width: 32px; height: 28px; border: 1px solid #504945; flex-shrink: 0; position: relative; }
     #ui-color-picker { opacity: 0; width: 100%; height: 100%; position: absolute; top: 0; left: 0; cursor: pointer; }
@@ -1952,18 +2022,18 @@ function ensureUiPanel() {
       #layout { flex-direction: column; position: relative; height: 100vh; overflow: hidden; }
       #cvswrap { order: 1; flex: 1; width: 100%; min-height: 0; position: relative; overflow: hidden; }
       #toggle-ui, #toggle-panel { display: none !important; }
-      #bottom-dock { display: flex; flex-direction: column; order: 2; width: 100%; background: #1d2021; border-top: 1px solid #3c3836; z-index: 25; flex-shrink: 0; }
-      #bottom-dock-handle { width: 100%; height: 12px; cursor: row-resize; display: flex; align-items: center; justify-content: center; touch-action: none; }
-      #bottom-dock-handle::after { content: ''; width: 38px; height: 4px; background: #504945; border-radius: 2px; }
+      #bottom-dock { display: flex; flex-direction: column; order: 2; width: 100%; background: #1d2021; border-top: 1px solid #3c3836; z-index: 25; flex-shrink: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+      #bottom-dock-handle { width: 100%; height: 28px; cursor: row-resize; display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; padding: 4px 0; }
+      #bottom-dock-handle::after { content: ''; width: 44px; height: 4px; background: #504945; border-radius: 2px; pointer-events: none; }
       #bottom-dock-tabs { display: flex; align-items: stretch; height: 36px; padding: 0 6px 6px 6px; gap: 6px; }
-      .dock-tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 11px; font-weight: bold; background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 4px; cursor: pointer; user-select: none; touch-action: manipulation; }
+      .dock-tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 11px; font-weight: bold; background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 0; cursor: pointer; user-select: none; touch-action: manipulation; }
       .dock-tab-btn:hover { background: #32302f; color: #ebdbb2; }
       .dock-tab-btn.active { background: #3c3836; color: #fabd2f; border-color: #fabd2f; }
-      .dock-close-btn { flex: 0 0 36px; color: #928374; display: none; font-size: 13px; }
+      .dock-close-btn { flex: 0 0 36px; color: #928374; display: none; font-size: 13px; border-radius: 0; }
       .dock-close-btn.visible { display: flex; }
       #ui-panel, #panel { order: 3; width: 100% !important; border: none !important; background: #1d2021; flex-shrink: 0; }
-      #ui-panel { height: var(--mobile-drawer-height, 42vh); max-height: 75vh; min-height: 120px; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
-      #panel { height: var(--mobile-drawer-height, 42vh); max-height: 75vh; min-height: 120px; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
+      #ui-panel { height: var(--mobile-drawer-height, 42vh); max-height: 85vh; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
+      #panel { height: var(--mobile-drawer-height, 42vh); max-height: 85vh; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
       #ui-panel.hidden, #panel.hidden { height: 0 !important; min-height: 0 !important; max-height: 0 !important; display: none !important; border: none !important; }
       #ui-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px 24px; }
       #wterm { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }

@@ -138,6 +138,14 @@
       background: #282828;
       width: 100%;
     }
+    input[type=range]::-webkit-slider-thumb {
+      transform: scale(0.65);
+      cursor: pointer;
+    }
+    input[type=range]::-moz-range-thumb {
+      transform: scale(0.65);
+      cursor: pointer;
+    }
     .ui-select {
       background: #282828;
       color: #ebdbb2;
@@ -585,24 +593,31 @@
         border-top: 1px solid #3c3836;
         z-index: 25;
         flex-shrink: 0;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
       }
 
       #bottom-dock-handle {
         width: 100%;
-        height: 12px;
+        height: 28px;
         cursor: row-resize;
         display: flex;
         align-items: center;
         justify-content: center;
         touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+        padding: 4px 0;
       }
 
       #bottom-dock-handle::after {
         content: '';
-        width: 38px;
+        width: 44px;
         height: 4px;
         background: #504945;
         border-radius: 2px;
+        pointer-events: none;
       }
 
       #bottom-dock-tabs {
@@ -625,7 +640,7 @@
         background: #282828;
         color: #a89984;
         border: 1px solid #3c3836;
-        border-radius: 4px;
+        border-radius: 0;
         cursor: pointer;
         user-select: none;
         touch-action: manipulation;
@@ -648,6 +663,7 @@
         color: #928374;
         display: none;
         font-size: 13px;
+        border-radius: 0;
       }
 
       .dock-close-btn.visible {
@@ -665,8 +681,8 @@
 
       #ui-panel {
         height: var(--mobile-drawer-height, 42vh);
-        max-height: 75vh;
-        min-height: 120px;
+        max-height: 85vh;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         border-top: 1px solid #3c3836 !important;
@@ -674,8 +690,8 @@
 
       #panel {
         height: var(--mobile-drawer-height, 42vh);
-        max-height: 75vh;
-        min-height: 120px;
+        max-height: 85vh;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         border-top: 1px solid #3c3836 !important;
