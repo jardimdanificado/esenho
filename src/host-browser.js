@@ -3,6 +3,9 @@
  * Reuses all engine logic from src/wesenho.js unchanged.
  * Handles: fetch WASM, canvas events, touch (draw/pan/zoom/rotate), REPL.
  */
+if (typeof globalThis.process === 'undefined') {
+  globalThis.process = { stdout: { write: (s) => console.log(String(s)) } };
+}
 
 const FILTER_NAMES = [
   'blur','brightness','contrast','dither',
@@ -310,13 +313,23 @@ async function main() {
     const lines = [];
     const origLog = console.log;
     console.log = (...a) => lines.push(a.map(String).join(' '));
-    /* intercept process.stdout.write for list commands */
-    const origWrite = typeof process !== 'undefined' ? process.stdout.write : null;
+    const origWrite = (typeof process !== 'undefined' && process.stdout) ? process.stdout.write : null;
     if (origWrite) process.stdout.write = s => lines.push(String(s));
-    host.executeCommand(raw);
-    console.log = origLog;
-    if (origWrite) process.stdout.write = origWrite;
-    lines.forEach(l => { const c = l.trim().replace(/\x1b\[[^m]*m/g, ''); if (c) log(c); });
+    try {
+      host.executeCommand(raw);
+    } catch (err) {
+      log(`err: ${err.message}`, 'err');
+    } finally {
+      console.log = origLog;
+      if (origWrite) process.stdout.write = origWrite;
+    }
+    lines.forEach(l => {
+      const parts = String(l).split('\n');
+      for (const part of parts) {
+        const c = part.trimEnd().replace(/\x1b\[[^m]*m/g, '');
+        if (c) log(c);
+      }
+    });
   }
 
   inputEl.addEventListener('keydown', e => {

@@ -405,6 +405,18 @@ async function run() {
   // Test Math eval via pure Papagaio
   host.executeCommand('(10 + 20)');
 
+  // Test List commands
+  host.executeCommand('list');
+  host.executeCommand('list *');
+  host.executeCommand('list layers');
+  host.executeCommand('list textures');
+  host.executeCommand('list brushes');
+  host.executeCommand('list filters');
+  host.executeCommand('layers');
+  host.executeCommand('textures');
+  host.executeCommand('brushes');
+  host.executeCommand('filters');
+
   console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, and Filters verified 100%!');
 }
 

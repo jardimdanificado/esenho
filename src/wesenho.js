@@ -536,18 +536,33 @@ function formatBrushesList(screenActor) {
   return out;
 }
 
-/** Formats available texture list for CLI output (same as layers) */
+/** Formats available texture list for CLI output */
 function formatTexturesList(screenActor) {
-  return formatLayersList(screenActor);
+  const host = screenActor.textures ? screenActor : (screenActor.host || screenActor);
+  if (!host.textures || host.textures.size === 0) {
+    return '\x1b[1mTextures (0):\x1b[0m none\n';
+  }
+  let out = `\x1b[1mTextures (${host.textures.size}):\x1b[0m\n`;
+  for (const [name, tex] of host.textures.entries()) {
+    const isAct = (name === host.activeTexture) ? ' \x1b[32m[active]\x1b[0m' : '';
+    const wasm = tex.wasmId !== undefined ? ` (layer: ${tex.wasmId})` : '';
+    out += `  - "${name}" ${tex.width}x${tex.height}${wasm}${isAct}\n`;
+  }
+  return out;
 }
 
 /** Formats filter plugin list for CLI output */
 function formatFiltersList(screenActor) {
+  const host = screenActor.plugins ? screenActor : (screenActor.host || screenActor);
   let out = `\x1b[1mFilters:\x1b[0m\n`;
-  for (const [name, actor] of screenActor.plugins.entries()) {
-    if (actor.type === 'filter') {
-      out += `  - ${name}\n`;
+  if (host.plugins && host.plugins.size > 0) {
+    for (const [name, actor] of host.plugins.entries()) {
+      if (actor.type === 'filter') {
+        out += `  - ${name}\n`;
+      }
     }
+  } else {
+    out += '  (none loaded)\n';
   }
   return out;
 }
@@ -558,19 +573,19 @@ function formatFiltersList(screenActor) {
 function handleList(host, target) {
   const t = (target || 'all').toLowerCase();
   if (t === 'layer' || t === 'layers') {
-    process.stdout.write(formatLayersList(host.canvasActor));
+    console.log(formatLayersList(host).trimEnd());
   } else if (t === 'brush' || t === 'brushes' || t === 'tools') {
-    process.stdout.write(formatBrushesList(host));
+    console.log(formatBrushesList(host).trimEnd());
   } else if (t === 'texture' || t === 'textures') {
-    process.stdout.write(formatTexturesList(host));
+    console.log(formatTexturesList(host).trimEnd());
   } else if (t === 'filter' || t === 'filters') {
-    process.stdout.write(formatFiltersList(host));
-  } else if (t === 'all' || t === '') {
-    process.stdout.write('\x1b[1;34m=== Wesenho Entities ===\x1b[0m\n\n');
-    process.stdout.write(formatLayersList(host.canvasActor) + '\n');
-    process.stdout.write(formatBrushesList(host) + '\n');
-    process.stdout.write(formatTexturesList(host) + '\n');
-    process.stdout.write(formatFiltersList(host));
+    console.log(formatFiltersList(host).trimEnd());
+  } else if (t === 'all' || t === '' || t === '*') {
+    console.log('\x1b[1;34m=== Wesenho Entities ===\x1b[0m\n');
+    console.log(formatLayersList(host).trimEnd() + '\n');
+    console.log(formatBrushesList(host).trimEnd() + '\n');
+    console.log(formatTexturesList(host).trimEnd() + '\n');
+    console.log(formatFiltersList(host).trimEnd());
   } else {
     console.log(`\x1b[31merr: unknown list category '${target}'. Options: layers, brushes, textures, filters, all\x1b[0m`);
   }
@@ -962,10 +977,10 @@ const COMMAND_RULES = [
   // List entities
   { pat: "list $target", run: (m, host) => handleList(host, m.target) },
   { pat: "list", run: (m, host) => handleList(host, 'all') },
-  { pat: "layers", run: (m, host) => process.stdout.write(formatLayersList(host.canvasActor)) },
-  { pat: "brushes", run: (m, host) => process.stdout.write(formatBrushesList(host)) },
-  { pat: "textures", run: (m, host) => process.stdout.write(formatTexturesList(host)) },
-  { pat: "filters", run: (m, host) => process.stdout.write(formatFiltersList(host)) },
+  { pat: "layers", run: (m, host) => handleList(host, 'layers') },
+  { pat: "brushes", run: (m, host) => handleList(host, 'brushes') },
+  { pat: "textures", run: (m, host) => handleList(host, 'textures') },
+  { pat: "filters", run: (m, host) => handleList(host, 'filters') },
 
   // Get queries
   { pat: "get $cat $prop", run: (m, host) => handleGet(host, m.cat, m.prop) },
