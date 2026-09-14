@@ -194,7 +194,7 @@ static void clear_layer_pixels(uint32_t *pix, uint32_t num_pixels) {
     }
 }
 
-static void composite_surface(void) {
+static void composite_region(int rx0, int ry0, int rx1, int ry1) {
     uint32_t w = doc_width;
     uint32_t h = doc_height;
 
@@ -214,11 +214,19 @@ static void composite_surface(void) {
         out_pixels_cap = w * h;
     }
 
-    // Checkerboard background
-    for (uint32_t y = 0; y < h; y++) {
-        for (uint32_t x = 0; x < w; x++) {
-            int check = ((x / 16) + (y / 16)) & 1;
-            out_pixels[y * w + x] = check ? 0xFF2A2A2A : 0xFF222222;
+    if (rx0 < 0) rx0 = 0;
+    if (ry0 < 0) ry0 = 0;
+    if (rx1 >= (int)w) rx1 = (int)w - 1;
+    if (ry1 >= (int)h) ry1 = (int)h - 1;
+    if (rx0 > rx1 || ry0 > ry1) return;
+
+    // Checkerboard background for dirty region only
+    for (int y = ry0; y <= ry1; y++) {
+        int row = y * w;
+        int check_y = (y / 16);
+        for (int x = rx0; x <= rx1; x++) {
+            int check = ((x / 16) + check_y) & 1;
+            out_pixels[row + x] = check ? 0xFF2A2A2A : 0xFF222222;
         }
     }
 
@@ -234,15 +242,22 @@ static void composite_surface(void) {
         int lx = layers[l].x;
         int ly = layers[l].y;
 
-        for (int y = 0; y < th; y++) {
+        int sy0 = ry0 - ly; if (sy0 < 0) sy0 = 0;
+        int sy1 = ry1 - ly; if (sy1 >= th) sy1 = th - 1;
+        int sx0 = rx0 - lx; if (sx0 < 0) sx0 = 0;
+        int sx1 = rx1 - lx; if (sx1 >= tw) sx1 = tw - 1;
+
+        if (sx0 > sx1 || sy0 > sy1) continue;
+
+        for (int y = sy0; y <= sy1; y++) {
             int dy = ly + y;
-            if (dy < 0 || dy >= (int)h) continue;
-            for (int x = 0; x < tw; x++) {
+            int src_row = y * tw;
+            int out_row = dy * w;
+            for (int x = sx0; x <= sx1; x++) {
                 int dx = lx + x;
-                if (dx < 0 || dx >= (int)w) continue;
-                uint32_t src = src_pix[y * tw + x];
+                uint32_t src = src_pix[src_row + x];
                 if ((src & 0xFF000000) == 0) continue;
-                int out_idx = dy * w + dx;
+                int out_idx = out_row + dx;
                 out_pixels[out_idx] = blend_pixel(out_pixels[out_idx], src, op);
             }
         }
@@ -251,9 +266,13 @@ static void composite_surface(void) {
 
 static int surface_dirty = 1;
 
+static void composite_surface(void) {
+    composite_region(0, 0, (int)doc_width - 1, (int)doc_height - 1);
+    surface_dirty = 0;
+}
+
 void force_composite(void) {
     composite_surface();
-    surface_dirty = 0;
 }
 
 static void resize_surface(uint32_t new_w, uint32_t new_h) {
@@ -1206,6 +1225,17 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
     if (step_size < 1) step_size = 1;
     int steps = (dist / step_size) + 1;
 
+    int bound_r = (r * 142) / 100 + 2;
+    if (brush_config.scatter > 0) {
+        bound_r += (r * brush_config.scatter) / 100 + 1;
+    }
+    int al_x = (active_layer >= 0 && active_layer < layer_count) ? layers[active_layer].x : 0;
+    int al_y = (active_layer >= 0 && active_layer < layer_count) ? layers[active_layer].y : 0;
+    int d_x0 = (x0 < x1 ? x0 : x1) + al_x - bound_r;
+    int d_x1 = (x0 > x1 ? x0 : x1) + al_x + bound_r;
+    int d_y0 = (y0 < y1 ? y0 : y1) + al_y - bound_r;
+    int d_y1 = (y0 > y1 ? y0 : y1) + al_y + bound_r;
+
     for (int i = 0; i <= steps; i++) {
         int cx = (steps == 0) ? x0 : (x0 + (dx * i) / steps);
         int cy = (steps == 0) ? y0 : (y0 + (dy * i) / steps);
@@ -1222,7 +1252,7 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
         render_parametric_dab(pix, w, h, cx, cy, color, eraser, patch);
     }
 
-    force_composite();
+    composite_region(d_x0, d_y0, d_x1, d_y1);
 }
 
 W_EXPORT void w_force_composite(void) {

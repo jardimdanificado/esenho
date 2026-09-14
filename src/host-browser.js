@@ -14,7 +14,7 @@ const FILTER_NAMES = [
 ];
 
 const canvasEl   = document.getElementById('wcanvas');
-const ctx        = canvasEl.getContext('2d');
+const ctx        = canvasEl.getContext('2d', { desynchronized: true });
 const panelEl     = document.getElementById('panel');
 const termEl      = document.getElementById('wterm');
 const inputEl     = document.getElementById('wcmd');
@@ -520,6 +520,8 @@ async function main() {
 
   /* ── Render loop ── */
   let imgData = null;
+  let offscreen = null;
+  let offscreenCtx = null;
   let lassoPoints = [];
 
   function frame() {
@@ -539,11 +541,13 @@ async function main() {
     ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
 
     if (ptr && cw > 0 && ch > 0) {
-      if (!imgData || imgData.width !== cw || imgData.height !== ch)
+      if (!imgData || imgData.width !== cw || imgData.height !== ch) {
         imgData = ctx.createImageData(cw, ch);
+        offscreen = new OffscreenCanvas(cw, ch);
+        offscreenCtx = offscreen.getContext('2d');
+      }
       imgData.data.set(new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4));
-      const tmp = new OffscreenCanvas(cw, ch);
-      tmp.getContext('2d').putImageData(imgData, 0, 0);
+      offscreenCtx.putImageData(imgData, 0, 0);
 
       /* Draw with pan + zoom + rotation around doc center */
       const cx = host.panX + (cw * host.zoom) / 2;
@@ -552,7 +556,7 @@ async function main() {
       ctx.translate(cx, cy);
       ctx.rotate(host.canvasRotation);
       ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(tmp, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+      ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
 
       /* Optional Pixel Grid Overlay (when zoomed) */
       if (host.showPixelGrid && host.zoom >= 4) {
