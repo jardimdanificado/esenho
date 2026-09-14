@@ -90,10 +90,11 @@ const PARAM_IDS = {
   texture_rot: 16,
   tex_scale: 17,
   texture_scale: 17,
-  tex_size: 17,
-  texture_size: 17,
   tex_layer: 18,
-  texture_layer: 18
+  texture_layer: 18,
+  smooth: 19,
+  smoothing: 19,
+  stabilizer: 19
 };
 
 /**
@@ -515,7 +516,7 @@ function formatBrushesList(screenActor) {
   let out = `\x1b[1mBrush & Tool:\x1b[0m
   Tools/modes  : brush, eraser, smudge, blend, fill, lasso_fill
   Shapes       : circle [0], square [1], chisel [2], or any layer by id/name
-  Parameters   : size, opacity, hardness/softness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance
+  Parameters   : size, opacity, hardness/softness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance, smooth/smoothing
   Grain tex    : set texture <name|layer_id|none>  — rotated/scaled via texture_rotate, texture_scale
 `;
   return out;
@@ -584,7 +585,8 @@ class WesenhoScreenHost {
       texture_angle: 0,
       texture_scale: 100,
       shape: 0,
-      mode: 0
+      mode: 0,
+      smoothing: 0
     };
 
     // Textures & Actors
@@ -685,7 +687,8 @@ class WesenhoScreenHost {
         smudge_strength: 'smudge', tex_mode: 'texture_mode', type: 'mode',
         tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
         texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
-        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale'
+        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
+        smooth: 'smoothing', stabilizer: 'smoothing'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -787,23 +790,138 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Dispatches a stroke directly to the native Universal Brush Engine inside canvas.wasm.
+   * Dispatches a stroke to the native Universal Brush Engine inside canvas.wasm,
+   * applying configurable stabilizer / stroke smoothing (EMA + Bézier curvature).
    */
   sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
     if (!this.canvasActor || typeof this.canvasActor.exports.w_brush_stroke !== 'function') return;
 
     const col = (color !== undefined) ? color : this.currentColor;
     const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.currentTool === 1 ? 1 : 0);
+    const smooth = Math.max(0, Math.min(100, this.brushParams.smoothing || 0));
 
-    this.canvasActor.exports.w_brush_stroke(
-      state,
-      Math.floor(x),
-      Math.floor(y),
-      Math.floor(prev_x),
-      Math.floor(prev_y),
-      col >>> 0,
-      eraser
-    );
+    // Instant direct execution when smoothing is 0 or when using fill/lasso modes
+    if (smooth === 0 || this.brushParams.mode === 3 || this.brushParams.mode === 4) {
+      this.strokeSmoothX = x;
+      this.strokeSmoothY = y;
+      this.strokeHistory = null;
+      this.canvasActor.exports.w_brush_stroke(
+        state,
+        Math.floor(x),
+        Math.floor(y),
+        Math.floor(prev_x),
+        Math.floor(prev_y),
+        col >>> 0,
+        eraser
+      );
+      return;
+    }
+
+    // Configurable stroke stabilizer / smoothing
+    if (state === 0) { // STROKE_START
+      this.strokeSmoothX = x;
+      this.strokeSmoothY = y;
+      this.strokeHistory = [{ x, y }];
+      this.canvasActor.exports.w_brush_stroke(
+        0,
+        Math.floor(x),
+        Math.floor(y),
+        Math.floor(x),
+        Math.floor(y),
+        col >>> 0,
+        eraser
+      );
+      return;
+    }
+
+    if (state === 1) { // STROKE_MOVE
+      if (this.strokeSmoothX === undefined || this.strokeSmoothX === null) {
+        this.strokeSmoothX = prev_x;
+        this.strokeSmoothY = prev_y;
+      }
+      if (!this.strokeHistory || this.strokeHistory.length === 0) {
+        this.strokeHistory = [{ x: prev_x, y: prev_y }];
+      }
+
+      // Responsive Exponential Moving Average: smooth 1..100 maps factor from 0.90 down to 0.08
+      const factor = 1.0 - (smooth / 100) * 0.92;
+      const targetX = this.strokeSmoothX + (x - this.strokeSmoothX) * factor;
+      const targetY = this.strokeSmoothY + (y - this.strokeSmoothY) * factor;
+
+      const pPrev = { x: this.strokeSmoothX, y: this.strokeSmoothY };
+      const pCurr = { x: targetX, y: targetY };
+      const pOld = this.strokeHistory[0] || pPrev;
+
+      // Quadratic Bézier curve through midpoints for smooth corner rounding
+      const midPrev = {
+        x: (pPrev.x + pOld.x) / 2,
+        y: (pPrev.y + pOld.y) / 2
+      };
+      const midCurr = {
+        x: (pPrev.x + pCurr.x) / 2,
+        y: (pPrev.y + pCurr.y) / 2
+      };
+
+      const dist = Math.hypot(pCurr.x - pPrev.x, pCurr.y - pPrev.y);
+      const steps = Math.max(1, Math.min(4, Math.floor(dist / 3)));
+      let lastX = midPrev.x;
+      let lastY = midPrev.y;
+
+      for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        const invT = 1 - t;
+        const bx = invT * invT * midPrev.x + 2 * invT * t * pPrev.x + t * t * midCurr.x;
+        const by = invT * invT * midPrev.y + 2 * invT * t * pPrev.y + t * t * midCurr.y;
+
+        this.canvasActor.exports.w_brush_stroke(
+          1,
+          Math.floor(bx),
+          Math.floor(by),
+          Math.floor(lastX),
+          Math.floor(lastY),
+          col >>> 0,
+          eraser
+        );
+        lastX = bx;
+        lastY = by;
+      }
+
+      this.strokeSmoothX = targetX;
+      this.strokeSmoothY = targetY;
+      this.strokeHistory.unshift(pPrev);
+      if (this.strokeHistory.length > 4) this.strokeHistory.pop();
+      return;
+    }
+
+    if (state === 2) { // STROKE_END
+      // Catch up to final release coordinate
+      if (this.strokeSmoothX !== null && this.strokeSmoothX !== undefined) {
+        if (Math.hypot(x - this.strokeSmoothX, y - this.strokeSmoothY) >= 1) {
+          this.canvasActor.exports.w_brush_stroke(
+            1,
+            Math.floor(x),
+            Math.floor(y),
+            Math.floor(this.strokeSmoothX),
+            Math.floor(this.strokeSmoothY),
+            col >>> 0,
+            eraser
+          );
+        }
+      }
+      this.canvasActor.exports.w_brush_stroke(
+        2,
+        Math.floor(x),
+        Math.floor(y),
+        Math.floor(x),
+        Math.floor(y),
+        col >>> 0,
+        eraser
+      );
+      this.strokeSmoothX = null;
+      this.strokeSmoothY = null;
+      this.strokeHistory = null;
+      return;
+    }
   }
 
   /**
@@ -1099,6 +1217,7 @@ class WesenhoScreenHost {
     set tolerance <0..255>       Flood fill color tolerance
     set texture_rotate <0..359>  Texture pattern rotation in degrees
     set texture_scale <1..1000>  Texture pattern scale percentage
+    set smooth / smoothing <0..100> Stroke stabilizer & smoothing percentage
 
   \x1b[36mInspect & Query (list / get / status):\x1b[0m
     status / info                Show active tool, brush, surface & viewport status
@@ -1306,7 +1425,8 @@ class WesenhoScreenHost {
         smudge_strength: 'smudge', tex_mode: 'texture_mode', type: 'mode',
         tex_angle: 'texture_angle', tex_rotate: 'texture_angle', tex_rot: 'texture_angle',
         texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
-        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale'
+        tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
+        smooth: 'smoothing', stabilizer: 'smoothing'
       };
       const resolvedCat = canonGet[cat] || cat;
       if (this.brushParams[resolvedCat] !== undefined) {
@@ -1333,7 +1453,7 @@ class WesenhoScreenHost {
   Mode:    ${modes[this.brushParams.mode] || 'draw'}
   Shape:   ${shapes[this.brushParams.shape] || 'circle'}
   Texture: "${this.activeTexture}" (mode: ${this.brushParams.texture_mode})
-  Brush:   size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%, flow=${this.brushParams.flow}%, spacing=${this.brushParams.spacing}%
+  Brush:   size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%, flow=${this.brushParams.flow}%, spacing=${this.brushParams.spacing}%, smooth=${this.brushParams.smoothing || 0}%
   Angle:   ${this.brushParams.angle}°, roundness=${this.brushParams.roundness}%, grain=${this.brushParams.grain}%, scatter=${this.brushParams.scatter}%
   Color:   0x${this.currentColor.toString(16).padStart(8, '0')}
   Zoom:    ${(this.zoom * 100).toFixed(0)}% | Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})

@@ -349,12 +349,34 @@ async function run() {
   host.executeCommand('get shape');
   host.executeCommand('get texture');
 
+  // Test stroke smoothing & stabilization parameters and stroke execution
+  host.executeCommand('set smooth 45');
+  if (host.brushParams.smoothing !== 45) {
+    throw new Error(`Expected smoothing 45, got ${host.brushParams.smoothing}`);
+  }
+  host.executeCommand('set stabilizer 60');
+  if (host.brushParams.smoothing !== 60) {
+    throw new Error(`Expected smoothing 60, got ${host.brushParams.smoothing}`);
+  }
+
+  // Draw smoothed stroke
+  host.sendStroke(20, 20, 20, 20, 0, 0, 0xFFFF00FF);
+  host.sendStroke(40, 25, 20, 20, 1, 0, 0xFFFF00FF);
+  host.sendStroke(60, 40, 40, 25, 1, 0, 0xFFFF00FF);
+  host.sendStroke(60, 40, 60, 40, 2, 0, 0xFFFF00FF);
+
+  // Reset smooth to 0
+  host.executeCommand('set smooth 0');
+  if (host.brushParams.smoothing !== 0) {
+    throw new Error(`Expected smoothing 0, got ${host.brushParams.smoothing}`);
+  }
+
   // Test All Filters without crashing
   for (const f of filters) {
     host.executeCommand(`filter ${f}`);
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, and Filters verified 100%!');
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, and Filters verified 100%!');
 }
 
 run().catch(err => {

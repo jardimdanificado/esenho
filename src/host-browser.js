@@ -12,9 +12,11 @@ const FILTER_NAMES = [
 
 const canvasEl = document.getElementById('wcanvas');
 const ctx      = canvasEl.getContext('2d');
-const termEl   = document.getElementById('wterm');
-const inputEl  = document.getElementById('wcmd');
-const statusEl = document.getElementById('wstatus');
+const panelEl   = document.getElementById('panel');
+const termEl    = document.getElementById('wterm');
+const inputEl   = document.getElementById('wcmd');
+const statusEl  = document.getElementById('wstatus');
+const toggleBtn = document.getElementById('toggle-panel');
 
 /* ── Boot ── */
 async function main() {
@@ -39,20 +41,55 @@ async function main() {
   }
   log(`${host.plugins.size} filters loaded ✓`);
 
-  /* ── Canvas sizing + initial pan ── */
+  /* ── Canvas sizing + pan management ── */
+  let initializedPan = false;
   function resize() {
+    const prevW = canvasEl.width;
+    const prevH = canvasEl.height;
     canvasEl.width  = canvasEl.parentElement.clientWidth;
     canvasEl.height = canvasEl.parentElement.clientHeight;
     host.windowWidth  = canvasEl.width;
     host.windowHeight = canvasEl.height;
     const cw = host.canvasActor.exports.get_canvas_width();
     const ch = host.canvasActor.exports.get_canvas_height();
-    /* center doc on screen */
-    host.panX = (canvasEl.width  - cw * host.zoom) / 2;
-    host.panY = (canvasEl.height - ch * host.zoom) / 2;
+
+    if (!initializedPan) {
+      host.panX = (canvasEl.width  - cw * host.zoom) / 2;
+      host.panY = (canvasEl.height - ch * host.zoom) / 2;
+      initializedPan = true;
+    } else {
+      host.panX += (canvasEl.width - prevW) / 2;
+      host.panY += (canvasEl.height - prevH) / 2;
+    }
   }
   resize();
   window.addEventListener('resize', resize);
+
+  /* ── Toggle console panel ── */
+  function toggleConsole() {
+    const isHidden = panelEl.classList.toggle('hidden');
+    if (toggleBtn) {
+      toggleBtn.textContent = isHidden ? 'console [show]' : 'console [hide]';
+    }
+    resize();
+    if (!isHidden) inputEl.focus();
+  }
+
+  if (toggleBtn) {
+    toggleBtn.addEventListener('mousedown', e => e.stopPropagation());
+    toggleBtn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+    toggleBtn.addEventListener('click', e => {
+      e.stopPropagation();
+      toggleConsole();
+    });
+  }
+
+  window.addEventListener('keydown', e => {
+    if (e.key === '`' && e.ctrlKey) {
+      toggleConsole();
+      e.preventDefault();
+    }
+  });
 
   /* ── Render loop ── */
   let imgData = null;

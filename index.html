@@ -43,6 +43,31 @@
       border-top: 1px solid #2a2a2a; background: #111;
     }
 
+    #toggle-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 10;
+      background: rgba(20, 20, 20, 0.8);
+      color: #aaa;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 5px 9px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      user-select: none;
+      backdrop-filter: blur(4px);
+    }
+    #toggle-panel:hover {
+      background: #252525;
+      color: #50fa7b;
+      border-color: #444;
+    }
+    #panel.hidden {
+      display: none !important;
+    }
+
     /* ── Vertical / narrow screens: panel below canvas ── */
     @media (max-aspect-ratio: 3/4) {
       #layout { flex-direction: column; }
@@ -54,6 +79,7 @@
 <div id="layout">
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
+    <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide]</button>
   </div>
   <div id="panel">
     <div id="wterm"></div>
