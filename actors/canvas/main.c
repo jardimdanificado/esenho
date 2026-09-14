@@ -9,22 +9,17 @@ typedef struct {
     uint8_t  opacity;
 } layer_t;
 
-typedef struct {
-    char     name[24];
-    uint32_t width;
-    uint32_t height;
-    layer_t  *layers;
-    int      layer_count;
-    int      layer_capacity;
-    int      active_layer;
-    uint32_t *out_pixels;
-} canvas_doc_t;
-
 static wframebuffer_t *fb = 0;
-static canvas_doc_t   canvases[MAX_CANVASES_LIMIT];
-static int            canvas_count = 0;
-static int            active_canvas = 0;
+static uint32_t       doc_width = DEFAULT_WIDTH;
+static uint32_t       doc_height = DEFAULT_HEIGHT;
+static layer_t        *layers = 0;
+static int            layer_count = 0;
+static int            layer_capacity = 0;
+static int            active_layer = 0;
+static uint32_t       *out_pixels = 0;
 static uint32_t       current_color = 0xFF000000;
+
+void force_composite(void);
 
 // Simple bump allocator for dynamic wasm memory
 static uint8_t *heap_top = 0;
@@ -75,111 +70,83 @@ static void clear_layer(layer_t *lay, uint32_t num_pixels) {
     }
 }
 
-static int add_new_layer_internal(canvas_doc_t *doc) {
-    if (!doc) return -1;
-    uint32_t num_pixels = doc->width * doc->height;
+static int add_new_layer_internal(void) {
+    uint32_t num_pixels = doc_width * doc_height;
 
-    if (doc->layer_count >= doc->layer_capacity) {
-        int new_cap = doc->layer_capacity == 0 ? 16 : (doc->layer_capacity * 2);
+    if (layer_count >= layer_capacity) {
+        int new_cap = layer_capacity == 0 ? 16 : (layer_capacity * 2);
         layer_t *new_layers = (layer_t*)canvas_alloc(new_cap * sizeof(layer_t));
-        for (int i = 0; i < doc->layer_count; i++) {
-            new_layers[i] = doc->layers[i];
+        for (int i = 0; i < layer_count; i++) {
+            new_layers[i] = layers[i];
         }
-        doc->layers = new_layers;
-        doc->layer_capacity = new_cap;
+        layers = new_layers;
+        layer_capacity = new_cap;
     }
 
-    int idx = doc->layer_count;
-    doc->layers[idx].pixels = (uint32_t*)canvas_alloc(num_pixels * sizeof(uint32_t));
-    doc->layers[idx].visible = 1;
-    doc->layers[idx].opacity = 255;
-    clear_layer(&doc->layers[idx], num_pixels);
-    doc->layer_count++;
-    doc->active_layer = idx;
+    int idx = layer_count;
+    layers[idx].pixels = (uint32_t*)canvas_alloc(num_pixels * sizeof(uint32_t));
+    layers[idx].visible = 1;
+    layers[idx].opacity = 255;
+    clear_layer(&layers[idx], num_pixels);
+    layer_count++;
+    active_layer = idx;
     return idx;
 }
 
-static void composite_canvas(canvas_doc_t *doc) {
-    if (!doc || !doc->out_pixels) return;
-    uint32_t w = doc->width;
-    uint32_t h = doc->height;
+static void composite_surface(void) {
+    if (!out_pixels) return;
+    uint32_t w = doc_width;
+    uint32_t h = doc_height;
     uint32_t num_pixels = w * h;
 
     // Checkerboard pattern
     for (uint32_t y = 0; y < h; y++) {
         for (uint32_t x = 0; x < w; x++) {
             int check = ((x / 16) + (y / 16)) & 1;
-            doc->out_pixels[y * w + x] = check ? 0xFF2A2A2A : 0xFF222222;
+            out_pixels[y * w + x] = check ? 0xFF2A2A2A : 0xFF222222;
         }
     }
 
-    for (int l = 0; l < doc->layer_count; l++) {
-        if (!doc->layers[l].visible || !doc->layers[l].pixels) continue;
-        uint8_t op = doc->layers[l].opacity;
+    for (int l = 0; l < layer_count; l++) {
+        if (!layers[l].visible || !layers[l].pixels) continue;
+        uint8_t op = layers[l].opacity;
         if (op == 0) continue;
 
         for (uint32_t i = 0; i < num_pixels; i++) {
-            uint32_t src = doc->layers[l].pixels[i];
+            uint32_t src = layers[l].pixels[i];
             if ((src & 0xFF000000) == 0) continue;
-            doc->out_pixels[i] = blend_pixel(doc->out_pixels[i], src, op);
+            out_pixels[i] = blend_pixel(out_pixels[i], src, op);
         }
     }
 }
 
-static void sync_fb_to_active_canvas(void) {
-    if (!fb || active_canvas < 0 || active_canvas >= canvas_count) return;
-    canvas_doc_t *doc = &canvases[active_canvas];
-    fb->width = doc->width;
-    fb->height = doc->height;
-    fb->pixels = (uint32_t)(uintptr_t)doc->out_pixels;
+static void sync_fb(void) {
+    if (!fb) return;
+    fb->width = doc_width;
+    fb->height = doc_height;
+    fb->pixels = (uint32_t)(uintptr_t)out_pixels;
 }
 
-static int create_canvas_doc(const char *name, uint32_t width, uint32_t height) {
-    if (canvas_count >= MAX_CANVASES_LIMIT) return -1;
-    int idx = canvas_count;
-    canvas_doc_t *doc = &canvases[idx];
-
-    int i = 0;
-    while (name && name[i] && i < 23) {
-        doc->name[i] = name[i];
-        i++;
-    }
-    doc->name[i] = '\0';
-
-    doc->width = (width >= 16 && width <= 4096) ? width : DEFAULT_WIDTH;
-    doc->height = (height >= 16 && height <= 4096) ? height : DEFAULT_HEIGHT;
-    doc->layer_count = 0;
-    doc->layer_capacity = 0;
-    doc->layers = 0;
-    doc->active_layer = 0;
-    doc->out_pixels = (uint32_t*)canvas_alloc(doc->width * doc->height * sizeof(uint32_t));
-
-    add_new_layer_internal(doc);
-    composite_canvas(doc);
-
-    canvas_count++;
-    active_canvas = idx;
-    sync_fb_to_active_canvas();
-    return idx;
+void force_composite(void) {
+    composite_surface();
+    sync_fb();
 }
 
-static void resize_canvas_doc(canvas_doc_t *doc, uint32_t new_w, uint32_t new_h) {
-    if (!doc || new_w < 16 || new_h < 16 || new_w > 4096 || new_h > 4096) return;
-    if (new_w == doc->width && new_h == doc->height) return;
+static void resize_surface(uint32_t new_w, uint32_t new_h) {
+    if (new_w < 16 || new_h < 16 || new_w > 4096 || new_h > 4096) return;
+    if (new_w == doc_width && new_h == doc_height) return;
 
-    uint32_t old_w = doc->width;
-    uint32_t old_h = doc->height;
+    uint32_t old_w = doc_width;
+    uint32_t old_h = doc_height;
     uint32_t new_pixels = new_w * new_h;
 
-    // Allocate new composite buffer
-    doc->out_pixels = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
+    out_pixels = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
 
-    // Resize each layer and preserve overlapping content
     uint32_t copy_w = old_w < new_w ? old_w : new_w;
     uint32_t copy_h = old_h < new_h ? old_h : new_h;
 
-    for (int l = 0; l < doc->layer_count; l++) {
-        uint32_t *old_buf = doc->layers[l].pixels;
+    for (int l = 0; l < layer_count; l++) {
+        uint32_t *old_buf = layers[l].pixels;
         uint32_t *new_buf = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
 
         for (uint32_t i = 0; i < new_pixels; i++) new_buf[i] = 0x00000000;
@@ -192,74 +159,20 @@ static void resize_canvas_doc(canvas_doc_t *doc, uint32_t new_w, uint32_t new_h)
             }
         }
 
-        doc->layers[l].pixels = new_buf;
+        layers[l].pixels = new_buf;
     }
 
-    doc->width = new_w;
-    doc->height = new_h;
-    composite_canvas(doc);
-    sync_fb_to_active_canvas();
+    doc_width = new_w;
+    doc_height = new_h;
+    composite_surface();
+    sync_fb();
 }
 
-static int duplicate_canvas_doc(int src_idx, const char *new_name) {
-    if (canvas_count >= MAX_CANVASES_LIMIT) return -1;
-    if (src_idx < 0 || src_idx >= canvas_count) src_idx = active_canvas;
-    if (src_idx < 0 || src_idx >= canvas_count) return -1;
-
-    canvas_doc_t *src = &canvases[src_idx];
-    int dst_idx = canvas_count;
-    canvas_doc_t *dst = &canvases[dst_idx];
-
-    int i = 0;
-    while (new_name && new_name[i] && i < 23) {
-        dst->name[i] = new_name[i];
-        i++;
-    }
-    if (i == 0) {
-        int k = 0;
-        while (src->name[k] && k < 18) { dst->name[k] = src->name[k]; k++; }
-        const char *suf = "_copy";
-        for (int s = 0; suf[s] && k < 23; s++) dst->name[k++] = suf[s];
-        dst->name[k] = '\0';
-    } else {
-        dst->name[i] = '\0';
-    }
-
-    dst->width = src->width;
-    dst->height = src->height;
-    dst->layer_count = src->layer_count;
-    dst->layer_capacity = src->layer_count > 0 ? src->layer_count : 16;
-    dst->active_layer = src->active_layer;
-
-    uint32_t num_pixels = dst->width * dst->height;
-    dst->out_pixels = (uint32_t*)canvas_alloc(num_pixels * sizeof(uint32_t));
-
-    dst->layers = (layer_t*)canvas_alloc(dst->layer_capacity * sizeof(layer_t));
-    for (int l = 0; l < src->layer_count; l++) {
-        dst->layers[l].visible = src->layers[l].visible;
-        dst->layers[l].opacity = src->layers[l].opacity;
-        dst->layers[l].pixels = (uint32_t*)canvas_alloc(num_pixels * sizeof(uint32_t));
-        if (src->layers[l].pixels) {
-            for (uint32_t p = 0; p < num_pixels; p++) {
-                dst->layers[l].pixels[p] = src->layers[l].pixels[p];
-            }
-        } else {
-            clear_layer(&dst->layers[l], num_pixels);
-        }
-    }
-
-    composite_canvas(dst);
-    canvas_count++;
-    active_canvas = dst_idx;
-    sync_fb_to_active_canvas();
-    return dst_idx;
-}
-
-static void draw_line(canvas_doc_t *doc, int x0, int y0, int x1, int y1, uint32_t color) {
-    if (!doc || doc->active_layer < 0 || doc->active_layer >= doc->layer_count || !doc->layers[doc->active_layer].pixels) return;
-    int w = doc->width;
-    int h = doc->height;
-    uint32_t *pix = doc->layers[doc->active_layer].pixels;
+static void draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
+    if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
+    int w = doc_width;
+    int h = doc_height;
+    uint32_t *pix = layers[active_layer].pixels;
 
     int dx = (x1 > x0) ? (x1 - x0) : (x0 - x1);
     int dy = (y1 > y0) ? (y1 - y0) : (y0 - y1);
@@ -278,110 +191,324 @@ static void draw_line(canvas_doc_t *doc, int x0, int y0, int x1, int y1, uint32_
     }
 }
 
+static void draw_rect(int rx, int ry, int rw, int rh, uint32_t color) {
+    if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
+    uint32_t *pix = layers[active_layer].pixels;
+    for (int dy = 0; dy < rh; dy++) {
+        int py = ry + dy;
+        if (py < 0 || py >= (int)doc_height) continue;
+        for (int dx = 0; dx < rw; dx++) {
+            int px = rx + dx;
+            if (px < 0 || px >= (int)doc_width) continue;
+            pix[py * doc_width + px] = color;
+        }
+    }
+}
+
+static void draw_circle(int cx, int cy, int cr, uint32_t color) {
+    if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
+    int r2 = cr * cr;
+    uint32_t *pix = layers[active_layer].pixels;
+    for (int dy = -cr; dy <= cr; dy++) {
+        int py = cy + dy;
+        if (py < 0 || py >= (int)doc_height) continue;
+        for (int dx = -cr; dx <= cr; dx++) {
+            int px = cx + dx;
+            if (px < 0 || px >= (int)doc_width) continue;
+            if (dx * dx + dy * dy <= r2) {
+                pix[py * doc_width + px] = color;
+            }
+        }
+    }
+}
+
+static void draw_grid(int step, uint32_t color) {
+    if (active_layer < 0 || active_layer >= layer_count || !layers[active_layer].pixels) return;
+    if (step < 4) step = 4;
+    uint32_t *pix = layers[active_layer].pixels;
+    for (uint32_t y = 0; y < doc_height; y += step) {
+        for (uint32_t x = 0; x < doc_width; x++) {
+            pix[y * doc_width + x] = color;
+        }
+    }
+    for (uint32_t x = 0; x < doc_width; x += step) {
+        for (uint32_t y = 0; y < doc_height; y++) {
+            pix[y * doc_width + x] = color;
+        }
+    }
+}
+
+static int c_isspace(char c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+static int c_tolower(char c) {
+    return (c >= 'A' && c <= 'Z') ? (c + 32) : c;
+}
+
+static int c_strcasecmp(const char *a, const char *b) {
+    while (*a && *b) {
+        int diff = c_tolower(*a) - c_tolower(*b);
+        if (diff != 0) return diff;
+        a++;
+        b++;
+    }
+    return c_tolower(*a) - c_tolower(*b);
+}
+
+static int c_atoi(const char *s) {
+    if (!s) return 0;
+    while (c_isspace(*s)) s++;
+    int sign = 1;
+    if (*s == '-') { sign = -1; s++; }
+    else if (*s == '+') { s++; }
+    int res = 0;
+    while (*s >= '0' && *s <= '9') {
+        res = res * 10 + (*s - '0');
+        s++;
+    }
+    return res * sign;
+}
+
+static uint32_t c_parse_hex(const char *s) {
+    uint32_t val = 0;
+    while (*s) {
+        char c = *s++;
+        if (c >= '0' && c <= '9') val = (val << 4) | (c - '0');
+        else if (c >= 'a' && c <= 'f') val = (val << 4) | (c - 'a' + 10);
+        else if (c >= 'A' && c <= 'F') val = (val << 4) | (c - 'A' + 10);
+        else break;
+    }
+    return val;
+}
+
+static uint32_t c_parse_color(const char *s) {
+    if (!s) return 0xFF000000;
+    if (*s == '#') {
+        s++;
+        int len = 0;
+        while (s[len]) len++;
+        uint32_t h = c_parse_hex(s);
+        if (len == 6) {
+            return 0xFF000000 | h;
+        } else if (len == 8) {
+            return h;
+        }
+    } else if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X')) {
+        return c_parse_hex(s + 2);
+    }
+    if (c_strcasecmp(s, "black") == 0) return 0xFF000000;
+    if (c_strcasecmp(s, "white") == 0) return 0xFFFFFFFF;
+    if (c_strcasecmp(s, "red") == 0) return 0xFFFF0000;
+    if (c_strcasecmp(s, "green") == 0) return 0xFF00FF00;
+    if (c_strcasecmp(s, "blue") == 0) return 0xFF0000FF;
+    if (c_strcasecmp(s, "yellow") == 0) return 0xFFFFFF00;
+    if (c_strcasecmp(s, "cyan") == 0) return 0xFF00FFFF;
+    if (c_strcasecmp(s, "magenta") == 0) return 0xFFFF00FF;
+    return (uint32_t)c_atoi(s);
+}
+
+static int c_tokenize(char *str, char *argv[], int max_args) {
+    int argc = 0;
+    char *p = str;
+    while (*p && argc < max_args) {
+        while (*p && c_isspace(*p)) p++;
+        if (!*p) break;
+        if (*p == '"' || *p == '\'') {
+            char quote = *p++;
+            argv[argc++] = p;
+            while (*p && *p != quote) p++;
+            if (*p) { *p = '\0'; p++; }
+        } else {
+            argv[argc++] = p;
+            while (*p && !c_isspace(*p)) p++;
+            if (*p) { *p = '\0'; p++; }
+        }
+    }
+    return argc;
+}
+
+static void handle_text_command(char *str) {
+    char *argv[16];
+    int argc = c_tokenize(str, argv, 16);
+    if (argc == 0) return;
+
+    const char *c0 = argv[0];
+
+    // 1. Resize surface
+    if (c_strcasecmp(c0, "resize") == 0 && argc >= 3) {
+        int w = c_atoi(argv[1]);
+        int h = c_atoi(argv[2]);
+        if (w >= 16 && h >= 16) resize_surface(w, h);
+        return;
+    }
+    if (c_strcasecmp(c0, "set") == 0 && argc >= 4 && (c_strcasecmp(argv[1], "size") == 0 || c_strcasecmp(argv[1], "resolution") == 0)) {
+        int w = c_atoi(argv[2]);
+        int h = c_atoi(argv[3]);
+        if (w >= 16 && h >= 16) resize_surface(w, h);
+        return;
+    }
+    if (c_strcasecmp(c0, "set") == 0 && argc >= 3) {
+        if (c_strcasecmp(argv[1], "width") == 0) {
+            int w = c_atoi(argv[2]);
+            if (w >= 16) resize_surface(w, doc_height);
+            return;
+        } else if (c_strcasecmp(argv[1], "height") == 0) {
+            int h = c_atoi(argv[2]);
+            if (h >= 16) resize_surface(doc_width, h);
+            return;
+        }
+    }
+    // Backward compat: "canvas resize <w> <h>" or "set canvas size <w> <h>"
+    if (c_strcasecmp(c0, "canvas") == 0 && argc >= 4 && c_strcasecmp(argv[1], "resize") == 0) {
+        int w = c_atoi(argv[2]);
+        int h = c_atoi(argv[3]);
+        if (w >= 16 && h >= 16) resize_surface(w, h);
+        return;
+    }
+    if (c_strcasecmp(c0, "set") == 0 && argc >= 5 && c_strcasecmp(argv[1], "canvas") == 0 && c_strcasecmp(argv[2], "size") == 0) {
+        int w = c_atoi(argv[3]);
+        int h = c_atoi(argv[4]);
+        if (w >= 16 && h >= 16) resize_surface(w, h);
+        return;
+    }
+
+    // 2. Layer commands
+    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 2 && (c_strcasecmp(argv[1], "add") == 0 || c_strcasecmp(argv[1], "new") == 0)) ||
+        (c_strcasecmp(c0, "new") == 0 && argc >= 2 && c_strcasecmp(argv[1], "layer") == 0)) {
+        add_new_layer_internal();
+        return;
+    }
+
+    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 3 && (c_strcasecmp(argv[1], "select") == 0 || c_strcasecmp(argv[1], "set") == 0)) ||
+        (c_strcasecmp(c0, "set") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
+        int lidx = c_atoi(argv[2]);
+        if (lidx >= 0 && lidx < layer_count) active_layer = lidx;
+        return;
+    }
+
+    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 3 && c_strcasecmp(argv[1], "toggle") == 0) ||
+        (c_strcasecmp(c0, "toggle") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
+        int lidx = c_atoi(argv[2]);
+        if (lidx >= 0 && lidx < layer_count) layers[lidx].visible = !layers[lidx].visible;
+        return;
+    }
+
+    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 4 && c_strcasecmp(argv[1], "opacity") == 0) ||
+        (c_strcasecmp(c0, "opacity") == 0 && argc >= 4 && c_strcasecmp(argv[1], "layer") == 0)) {
+        int lidx = c_atoi(argv[2]);
+        int op = c_atoi(argv[3]);
+        if (op < 0) op = 0; if (op > 100) op = 100;
+        if (lidx >= 0 && lidx < layer_count) layers[lidx].opacity = (uint8_t)((op * 255) / 100);
+        return;
+    }
+
+    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 3 && c_strcasecmp(argv[1], "delete") == 0) ||
+        (c_strcasecmp(c0, "delete") == 0 && argc >= 3 && c_strcasecmp(argv[1], "layer") == 0)) {
+        int del_idx = c_atoi(argv[2]);
+        if (del_idx >= 0 && del_idx < layer_count) {
+            if (layer_count > 1) {
+                uint32_t *recycled = layers[del_idx].pixels;
+                for (int l = del_idx; l < layer_count - 1; l++) layers[l] = layers[l + 1];
+                layers[layer_count - 1].pixels = recycled;
+                clear_layer(&layers[layer_count - 1], doc_width * doc_height);
+                layer_count--;
+                if (active_layer >= layer_count) active_layer = layer_count - 1;
+            } else {
+                clear_layer(&layers[0], doc_width * doc_height);
+            }
+        }
+        return;
+    }
+
+    if ((c_strcasecmp(c0, "layer") == 0 && argc >= 2 && c_strcasecmp(argv[1], "clear") == 0) ||
+        (c_strcasecmp(c0, "clear") == 0 && argc >= 2 && c_strcasecmp(argv[1], "layer") == 0)) {
+        if (active_layer >= 0 && active_layer < layer_count) {
+            clear_layer(&layers[active_layer], doc_width * doc_height);
+        }
+        return;
+    }
+
+    // 3. Drawing commands
+    if (c_strcasecmp(c0, "draw") == 0 && argc >= 6 && c_strcasecmp(argv[1], "line") == 0) {
+        int x0 = c_atoi(argv[2]), y0 = c_atoi(argv[3]);
+        int x1 = c_atoi(argv[4]), y1 = c_atoi(argv[5]);
+        uint32_t col = (argc >= 7) ? c_parse_color(argv[6]) : current_color;
+        draw_line(x0, y0, x1, y1, col);
+        return;
+    }
+
+    if (c_strcasecmp(c0, "draw") == 0 && argc >= 6 && c_strcasecmp(argv[1], "rect") == 0) {
+        int rx = c_atoi(argv[2]), ry = c_atoi(argv[3]);
+        int rw = c_atoi(argv[4]), rh = c_atoi(argv[5]);
+        uint32_t col = (argc >= 7) ? c_parse_color(argv[6]) : current_color;
+        draw_rect(rx, ry, rw, rh, col);
+        return;
+    }
+
+    if (c_strcasecmp(c0, "draw") == 0 && argc >= 5 && c_strcasecmp(argv[1], "circle") == 0) {
+        int cx = c_atoi(argv[2]), cy = c_atoi(argv[3]), cr = c_atoi(argv[4]);
+        uint32_t col = (argc >= 6) ? c_parse_color(argv[5]) : current_color;
+        draw_circle(cx, cy, cr, col);
+        return;
+    }
+
+    if (c_strcasecmp(c0, "draw") == 0 && argc >= 3 && c_strcasecmp(argv[1], "grid") == 0) {
+        int step = c_atoi(argv[2]);
+        uint32_t col = (argc >= 4) ? c_parse_color(argv[3]) : current_color;
+        draw_grid(step, col);
+        return;
+    }
+
+    // 4. Color setting
+    if ((c_strcasecmp(c0, "color") == 0 && argc >= 3 && c_strcasecmp(argv[1], "set") == 0) ||
+        (c_strcasecmp(c0, "set") == 0 && argc >= 3 && c_strcasecmp(argv[1], "color") == 0)) {
+        current_color = c_parse_color(argv[2]);
+        return;
+    }
+    if (c_strcasecmp(c0, "color") == 0 && argc == 2) {
+        current_color = c_parse_color(argv[1]);
+        return;
+    }
+
+    // 5. Composite
+    if (c_strcasecmp(c0, "composite") == 0 || c_strcasecmp(c0, "refresh") == 0) {
+        force_composite();
+        return;
+    }
+}
+
 void on_message(int32_t from_id, int32_t len) {
+    if (len <= 0) return;
+
+    // Check if message is a text command
+    int is_text = 1;
+    for (int i = 0; i < len && i < 16; i++) {
+        uint8_t b = piolho_page[i];
+        if (b == 0) break;
+        if (b < 32 && b != '\n' && b != '\r' && b != '\t') {
+            is_text = 0;
+            break;
+        }
+    }
+
+    if (is_text) {
+        char cmd_buf[512];
+        int clen = (len < 511) ? len : 511;
+        for (int i = 0; i < clen; i++) cmd_buf[i] = (char)piolho_page[i];
+        cmd_buf[clen] = '\0';
+        handle_text_command(cmd_buf);
+        return;
+    }
+
     if (len < 4) return;
     uint32_t type = *(uint32_t*)piolho_page;
-    canvas_doc_t *doc = (active_canvas >= 0 && active_canvas < canvas_count) ? &canvases[active_canvas] : 0;
 
     switch (type) {
-        case MSG_CANVAS_NEW: {
-            if (len >= 12) {
-                wesenho_canvas_new_msg_t *nmsg = (wesenho_canvas_new_msg_t*)piolho_page;
-                create_canvas_doc((len >= 13 && nmsg->name[0]) ? nmsg->name : "canvas", nmsg->width, nmsg->height);
-            }
-            break;
-        }
-        case MSG_CANVAS_DUPLICATE: {
-            int src_idx = -1;
-            const char *new_name = 0;
-            if (len >= 8) {
-                src_idx = *(int32_t*)(piolho_page + 4);
-            }
-            if (len >= 9) {
-                new_name = (const char*)(piolho_page + 8);
-            }
-            duplicate_canvas_doc(src_idx, new_name);
-            break;
-        }
-        case MSG_CANVAS_SELECT: {
-            if (len >= 4) {
-                wesenho_canvas_select_msg_t *smsg = (wesenho_canvas_select_msg_t*)piolho_page;
-                int sel_idx = (len >= 8) ? smsg->canvas_idx : -1;
-                if (sel_idx >= 0 && sel_idx < canvas_count) {
-                    active_canvas = sel_idx;
-                    sync_fb_to_active_canvas();
-                } else if (len >= 9 && smsg->name[0]) {
-                    for (int c = 0; c < canvas_count; c++) {
-                        int match = 1;
-                        for (int k = 0; smsg->name[k] || canvases[c].name[k]; k++) {
-                            if (smsg->name[k] != canvases[c].name[k]) { match = 0; break; }
-                        }
-                        if (match) {
-                            active_canvas = c;
-                            sync_fb_to_active_canvas();
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-        }
         case MSG_CANVAS_RESIZE: {
-            if (len >= 12 && doc) {
+            if (len >= 12) {
                 wesenho_canvas_resize_msg_t *rmsg = (wesenho_canvas_resize_msg_t*)piolho_page;
-                resize_canvas_doc(doc, rmsg->width, rmsg->height);
-            }
-            break;
-        }
-        case MSG_CANVAS_DELETE: {
-            int del_idx = -1;
-            if (len >= 8) {
-                wesenho_canvas_select_msg_t *dmsg = (wesenho_canvas_select_msg_t*)piolho_page;
-                del_idx = dmsg->canvas_idx;
-                if (del_idx < 0 && len >= 9 && dmsg->name[0]) {
-                    for (int c = 0; c < canvas_count; c++) {
-                        int match = 1;
-                        for (int k = 0; dmsg->name[k] || canvases[c].name[k]; k++) {
-                            if (dmsg->name[k] != canvases[c].name[k]) { match = 0; break; }
-                        }
-                        if (match) { del_idx = c; break; }
-                    }
-                }
-            }
-            // If no target specified, delete current active canvas
-            if (del_idx < 0) del_idx = active_canvas;
-
-            if (del_idx >= 0 && del_idx < canvas_count) {
-                if (canvas_count > 1) {
-                    for (int c = del_idx; c < canvas_count - 1; c++) {
-                        canvases[c] = canvases[c + 1];
-                    }
-                    canvas_count--;
-                    if (active_canvas >= canvas_count) active_canvas = canvas_count - 1;
-                    sync_fb_to_active_canvas();
-                } else {
-                    // Only 1 canvas left: reset it
-                    for (int l = 0; l < canvases[0].layer_count; l++) {
-                        clear_layer(&canvases[0].layers[l], canvases[0].width * canvases[0].height);
-                    }
-                    composite_canvas(&canvases[0]);
-                    sync_fb_to_active_canvas();
-                }
-            }
-            break;
-        }
-        case MSG_CANVAS_RENAME: {
-            if (len >= 8) {
-                wesenho_canvas_rename_msg_t *rnmsg = (wesenho_canvas_rename_msg_t*)piolho_page;
-                int target_c = (rnmsg->canvas_idx >= 0 && rnmsg->canvas_idx < canvas_count) ? rnmsg->canvas_idx : active_canvas;
-                if (target_c >= 0 && target_c < canvas_count && len >= 9) {
-                    int i = 0;
-                    while (rnmsg->name[i] && i < 23) {
-                        canvases[target_c].name[i] = rnmsg->name[i];
-                        i++;
-                    }
-                    canvases[target_c].name[i] = '\0';
-                }
+                resize_surface(rmsg->width, rmsg->height);
             }
             break;
         }
@@ -389,214 +516,166 @@ void on_message(int32_t from_id, int32_t len) {
             current_color = *(uint32_t*)(piolho_page + 4);
             break;
         case MSG_EFFECT_CLEAR:
-            if (doc && doc->active_layer >= 0 && doc->active_layer < doc->layer_count) {
-                clear_layer(&doc->layers[doc->active_layer], doc->width * doc->height);
+            if (active_layer >= 0 && active_layer < layer_count) {
+                clear_layer(&layers[active_layer], doc_width * doc_height);
             }
             break;
         case MSG_LAYER_ADD:
-            if (doc) add_new_layer_internal(doc);
+            add_new_layer_internal();
             break;
         case MSG_LAYER_SELECT: {
             int lay_idx = *(int32_t*)(piolho_page + 4);
-            if (doc && lay_idx >= 0 && lay_idx < doc->layer_count) {
-                doc->active_layer = lay_idx;
+            if (lay_idx >= 0 && lay_idx < layer_count) {
+                active_layer = lay_idx;
             }
             break;
         }
         case MSG_LAYER_TOGGLE_VIS: {
             int lay_idx = *(int32_t*)(piolho_page + 4);
-            if (doc && lay_idx >= 0 && lay_idx < doc->layer_count) {
-                doc->layers[lay_idx].visible = !doc->layers[lay_idx].visible;
+            if (lay_idx >= 0 && lay_idx < layer_count) {
+                layers[lay_idx].visible = !layers[lay_idx].visible;
             }
             break;
         }
         case MSG_LAYER_SET_OPACITY: {
             int lay_idx = *(int32_t*)(piolho_page + 4);
             int op = *(int32_t*)(piolho_page + 8);
-            if (doc && lay_idx >= 0 && lay_idx < doc->layer_count) {
+            if (lay_idx >= 0 && lay_idx < layer_count) {
                 if (op < 0) op = 0; if (op > 100) op = 100;
-                doc->layers[lay_idx].opacity = (uint8_t)((op * 255) / 100);
+                layers[lay_idx].opacity = (uint8_t)((op * 255) / 100);
             }
             break;
         }
         case MSG_LAYER_DELETE: {
             int del_idx = *(int32_t*)(piolho_page + 4);
-            if (doc && del_idx >= 0 && del_idx < doc->layer_count) {
-                if (doc->layer_count > 1) {
-                    uint32_t *recycled = doc->layers[del_idx].pixels;
-                    for (int l = del_idx; l < doc->layer_count - 1; l++) {
-                        doc->layers[l] = doc->layers[l + 1];
+            if (del_idx >= 0 && del_idx < layer_count) {
+                if (layer_count > 1) {
+                    uint32_t *recycled = layers[del_idx].pixels;
+                    for (int l = del_idx; l < layer_count - 1; l++) {
+                        layers[l] = layers[l + 1];
                     }
-                    doc->layers[doc->layer_count - 1].pixels = recycled;
-                    clear_layer(&doc->layers[doc->layer_count - 1], doc->width * doc->height);
-                    doc->layer_count--;
-                    if (doc->active_layer >= doc->layer_count) doc->active_layer = doc->layer_count - 1;
+                    layers[layer_count - 1].pixels = recycled;
+                    clear_layer(&layers[layer_count - 1], doc_width * doc_height);
+                    layer_count--;
+                    if (active_layer >= layer_count) active_layer = layer_count - 1;
                 } else {
-                    clear_layer(&doc->layers[0], doc->width * doc->height);
+                    clear_layer(&layers[0], doc_width * doc_height);
                 }
             }
             break;
         }
         case MSG_DRAW_LINE: {
-            if (!doc) break;
             int x0 = (int16_t)(*(uint32_t*)(piolho_page + 4) >> 16);
             int y0 = (int16_t)(*(uint32_t*)(piolho_page + 4) & 0xFFFF);
             int x1 = (int16_t)(*(uint32_t*)(piolho_page + 8) >> 16);
             int y1 = (int16_t)(*(uint32_t*)(piolho_page + 8) & 0xFFFF);
-            draw_line(doc, x0, y0, x1, y1, current_color);
+            draw_line(x0, y0, x1, y1, current_color);
             break;
         }
         case MSG_DRAW_RECT: {
-            if (!doc || doc->active_layer < 0 || doc->active_layer >= doc->layer_count || !doc->layers[doc->active_layer].pixels) break;
             int rx = (int16_t)(*(uint32_t*)(piolho_page + 4) >> 16);
             int ry = (int16_t)(*(uint32_t*)(piolho_page + 4) & 0xFFFF);
             int rw = (int16_t)(*(uint32_t*)(piolho_page + 8) >> 16);
             int rh = (int16_t)(*(uint32_t*)(piolho_page + 8) & 0xFFFF);
-            uint32_t *pix = doc->layers[doc->active_layer].pixels;
-            for (int dy = 0; dy < rh; dy++) {
-                int py = ry + dy;
-                if (py < 0 || py >= (int)doc->height) continue;
-                for (int dx = 0; dx < rw; dx++) {
-                    int px = rx + dx;
-                    if (px < 0 || px >= (int)doc->width) continue;
-                    pix[py * doc->width + px] = current_color;
-                }
-            }
+            draw_rect(rx, ry, rw, rh, current_color);
             break;
         }
         case MSG_DRAW_CIRCLE: {
-            if (!doc || doc->active_layer < 0 || doc->active_layer >= doc->layer_count || !doc->layers[doc->active_layer].pixels) break;
             int cx = (int16_t)(*(uint32_t*)(piolho_page + 4) >> 16);
             int cy = (int16_t)(*(uint32_t*)(piolho_page + 4) & 0xFFFF);
             int cr = (int)(*(uint32_t*)(piolho_page + 8));
-            int r2 = cr * cr;
-            uint32_t *pix = doc->layers[doc->active_layer].pixels;
-            for (int dy = -cr; dy <= cr; dy++) {
-                int py = cy + dy;
-                if (py < 0 || py >= (int)doc->height) continue;
-                for (int dx = -cr; dx <= cr; dx++) {
-                    int px = cx + dx;
-                    if (px < 0 || px >= (int)doc->width) continue;
-                    if (dx * dx + dy * dy <= r2) {
-                        pix[py * doc->width + px] = current_color;
-                    }
-                }
-            }
+            draw_circle(cx, cy, cr, current_color);
             break;
         }
         case MSG_DRAW_GRID: {
-            if (!doc || doc->active_layer < 0 || doc->active_layer >= doc->layer_count || !doc->layers[doc->active_layer].pixels) break;
             int step = (int)(*(uint32_t*)(piolho_page + 4));
-            if (step < 4) step = 4;
-            uint32_t *pix = doc->layers[doc->active_layer].pixels;
-            for (uint32_t y = 0; y < doc->height; y += step) {
-                for (uint32_t x = 0; x < doc->width; x++) {
-                    pix[y * doc->width + x] = current_color;
-                }
-            }
-            for (uint32_t x = 0; x < doc->width; x += step) {
-                for (uint32_t y = 0; y < doc->height; y++) {
-                    pix[y * doc->width + x] = current_color;
-                }
-            }
+            draw_grid(step, current_color);
             break;
         }
     }
 }
 
-static int canvas_initialized = 0;
+static int surface_initialized = 0;
 
 int32_t update(void) {
-    if (!canvas_initialized) {
-        canvas_initialized = 1;
+    if (!surface_initialized) {
+        surface_initialized = 1;
         fb = (wframebuffer_t*)ask("std:framebuffer");
-        create_canvas_doc("canvas_0", DEFAULT_WIDTH, DEFAULT_HEIGHT);
+        out_pixels = (uint32_t*)canvas_alloc(doc_width * doc_height * sizeof(uint32_t));
+        add_new_layer_internal();
+        composite_surface();
+        sync_fb();
     }
 
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        sync_fb_to_active_canvas();
-    }
+    sync_fb();
     return UPDATE_OK;
 }
 
 uint32_t *get_active_layer_pixels(void) {
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        canvas_doc_t *doc = &canvases[active_canvas];
-        if (doc->active_layer >= 0 && doc->active_layer < doc->layer_count && doc->layers) {
-            return doc->layers[doc->active_layer].pixels;
-        }
+    if (active_layer >= 0 && active_layer < layer_count && layers) {
+        return layers[active_layer].pixels;
     }
     return 0;
 }
 
 uint32_t *get_layer_pixels(int32_t idx) {
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        canvas_doc_t *doc = &canvases[active_canvas];
-        if (idx >= 0 && idx < doc->layer_count && doc->layers) {
-            return doc->layers[idx].pixels;
-        }
+    if (idx >= 0 && idx < layer_count && layers) {
+        return layers[idx].pixels;
     }
     return 0;
 }
 
 uint32_t *get_composite_pixels(void) {
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        return canvases[active_canvas].out_pixels;
-    }
-    return 0;
+    return out_pixels;
 }
 
 int32_t get_active_layer(void) {
-    return (active_canvas >= 0 && active_canvas < canvas_count) ? canvases[active_canvas].active_layer : 0;
+    return active_layer;
 }
 
 int32_t get_layer_count(void) {
-    return (active_canvas >= 0 && active_canvas < canvas_count) ? canvases[active_canvas].layer_count : 0;
+    return layer_count;
 }
 
+int32_t get_width(void) {
+    return doc_width;
+}
+
+int32_t get_height(void) {
+    return doc_height;
+}
+
+// Backward-compat aliases
 int32_t get_canvas_width(void) {
-    return (active_canvas >= 0 && active_canvas < canvas_count) ? canvases[active_canvas].width : DEFAULT_WIDTH;
+    return doc_width;
 }
 
 int32_t get_canvas_height(void) {
-    return (active_canvas >= 0 && active_canvas < canvas_count) ? canvases[active_canvas].height : DEFAULT_HEIGHT;
+    return doc_height;
 }
 
 int32_t get_canvas_count(void) {
-    return canvas_count;
+    return 1;
 }
 
 int32_t get_active_canvas(void) {
-    return active_canvas;
+    return 0;
 }
 
 const char *get_canvas_name(int32_t idx) {
-    if (idx >= 0 && idx < canvas_count) return canvases[idx].name;
-    return "";
+    return "main";
 }
 
 uint8_t get_layer_visible(int32_t idx) {
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        if (idx >= 0 && idx < canvases[active_canvas].layer_count) {
-            return canvases[active_canvas].layers[idx].visible;
-        }
+    if (idx >= 0 && idx < layer_count && layers) {
+        return layers[idx].visible;
     }
     return 0;
 }
 
 uint8_t get_layer_opacity(int32_t idx) {
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        if (idx >= 0 && idx < canvases[active_canvas].layer_count) {
-            return canvases[active_canvas].layers[idx].opacity;
-        }
+    if (idx >= 0 && idx < layer_count && layers) {
+        return layers[idx].opacity;
     }
     return 0;
 }
-
-void force_composite(void) {
-    if (active_canvas >= 0 && active_canvas < canvas_count) {
-        composite_canvas(&canvases[active_canvas]);
-        sync_fb_to_active_canvas();
-    }
-}
-

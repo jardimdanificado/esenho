@@ -249,26 +249,12 @@ function readCString(memory, ptr) {
   return new TextDecoder().decode(bytes.subarray(0, len));
 }
 
-function formatCanvasesList(canvasActor) {
-  const count = canvasActor.instance.exports.get_canvas_count();
-  const active = canvasActor.instance.exports.get_active_canvas();
-  let out = `\x1b[1mCanvases (${count}):\x1b[0m\n`;
-  for (let i = 0; i < count; i++) {
-    const namePtr = canvasActor.instance.exports.get_canvas_name ? canvasActor.instance.exports.get_canvas_name(i) : 0;
-    const name = readCString(canvasActor.memory, namePtr) || `canvas_${i}`;
-    const marker = (i === active) ? '\x1b[32m* [ACTIVE]\x1b[0m' : ' ';
-    const w = (i === active) ? canvasActor.instance.exports.get_canvas_width() : '';
-    const h = (i === active) ? canvasActor.instance.exports.get_canvas_height() : '';
-    const dim = (w && h) ? ` (${w}x${h})` : '';
-    out += `  ${marker} [${i}] "${name}"${dim}\n`;
-  }
-  return out;
-}
-
 function formatLayersList(canvasActor) {
   const count = canvasActor.instance.exports.get_layer_count();
   const active = canvasActor.instance.exports.get_active_layer();
-  let out = `\x1b[1mLayers (${count}):\x1b[0m\n`;
+  const w = canvasActor.instance.exports.get_width ? canvasActor.instance.exports.get_width() : canvasActor.instance.exports.get_canvas_width();
+  const h = canvasActor.instance.exports.get_height ? canvasActor.instance.exports.get_height() : canvasActor.instance.exports.get_canvas_height();
+  let out = `\x1b[1mSurface (${w}x${h}) - Layers (${count}):\x1b[0m\n`;
   for (let i = 0; i < count; i++) {
     const vis = canvasActor.instance.exports.get_layer_visible ? canvasActor.instance.exports.get_layer_visible(i) : 1;
     const op = canvasActor.instance.exports.get_layer_opacity ? canvasActor.instance.exports.get_layer_opacity(i) : 255;
@@ -368,6 +354,11 @@ class WesenhoScreenHost {
     });
   }
 
+  sendCanvasCmd(cmdStr) {
+    if (!this.canvasActor) return;
+    this.canvasActor.say(Buffer.from(cmdStr + '\0', 'utf8'), ACTOR_SCREEN);
+  }
+
   getActiveTexture() {
     return this.textures.get(this.activeTexture) || null;
   }
@@ -440,7 +431,7 @@ class WesenhoScreenHost {
       const ch = this.canvasActor.instance.exports.get_canvas_height();
 
       if (target === 1) {
-        this.canvasActor.say(Buffer.from(new Uint32Array([MSG_LAYER_ADD, 0, 0, 0]).buffer), ACTOR_SCREEN);
+        this.sendCanvasCmd('layer add');
       }
 
       const pixPtr = this.canvasActor.instance.exports.get_active_layer_pixels();
@@ -557,26 +548,21 @@ class WesenhoScreenHost {
       console.log(`
 \x1b[1mAvailable Commands:\x1b[0m
   \x1b[36mInspect & Query (list / get):\x1b[0m
-    list [canvas|layers|brushes|textures|filters]  List all or specific category
-    get [canvas|layer|brush|texture|color|tool]    Get all or specific entity property
-    get canvas [width|height|size|id|name|count]   Get canvas properties
+    list [layers|brushes|textures|filters]         List all or specific category
+    get [surface|layer|brush|texture|color|tool]   Get all or specific entity property
+    get size / get width / get height              Get surface dimensions
     get layer [id|count|opacity|visible]           Get layer properties
     get brush [name|size|opacity|hardness|...]     Get brush parameters
     get texture [name|size|count]                  Get texture properties
     get color / get tool / get zoom / get pan      Get current tool/viewport state
 
-  \x1b[36mCanvas Commands:\x1b[0m
-    new canvas [name] [width] [height]   Create new canvas doc
-    duplicate canvas [name]              Duplicate active canvas
-    set canvas <name|id>                 Select active canvas
-    set canvas width <w>                 Resize canvas width
-    set canvas height <h>                Resize canvas height
-    set canvas size <w> <h>              Resize canvas (or: canvas resize <w> <h>)
-    delete canvas [name|id]              Delete canvas (defaults to active canvas)
-    rename canvas [id] <name>            Rename canvas
+  \x1b[36mSurface & Size Commands:\x1b[0m
+    resize <w> <h>                       Resize surface dimensions (min 16x16)
+    set size <w> <h>                     Set surface resolution
+    set width <w> / set height <h>       Set width or height
 
   \x1b[36mLayer Commands:\x1b[0m
-    new layer [name]                     Add new layer to active canvas
+    new layer [name]                     Add new layer
     set layer <id>                       Select active layer
     delete layer [id]                    Delete layer
     toggle layer [id]                    Toggle layer visibility
@@ -598,8 +584,8 @@ class WesenhoScreenHost {
                                          edge, grayscale, invert, noise, pixelate, sepia, threshold)
 
   \x1b[36mImage I/O Commands:\x1b[0m
-    save [canvas|layer] <filename>       Save image (PNG, BMP, PPM)
-    load image <filename> [layer|texture [name]] Load image file into canvas or texture
+    save [layer] <filename>              Save image (PNG, BMP, PPM)
+    load image <filename> [layer|texture [name]] Load image file into active layer or texture
 
   \x1b[36mTools & Colors:\x1b[0m
     set color <#hex|r g b|name>          Set drawing color (e.g. #ff0000, red, 255 0 0)
@@ -618,12 +604,10 @@ class WesenhoScreenHost {
     }
 
     // 2. UNIFIED LIST COMMANDS
-    if (cmd === 'list' || cmd === 'canvases' || cmd === 'layers' || cmd === 'brushes' || cmd === 'textures' || cmd === 'filters') {
+    if (cmd === 'list' || cmd === 'layers' || cmd === 'brushes' || cmd === 'textures' || cmd === 'filters') {
       const target = (cmd === 'list') ? (tokens[1] ? tokens[1].toLowerCase() : 'all') : cmd;
 
-      if (target === 'canvas' || target === 'canvases') {
-        process.stdout.write(formatCanvasesList(this.canvasActor));
-      } else if (target === 'layer' || target === 'layers') {
+      if (target === 'layer' || target === 'layers') {
         process.stdout.write(formatLayersList(this.canvasActor));
       } else if (target === 'brush' || target === 'brushes') {
         process.stdout.write(formatBrushesList(this));
@@ -633,13 +617,12 @@ class WesenhoScreenHost {
         process.stdout.write(formatFiltersList(this));
       } else if (target === 'all' || target === '') {
         process.stdout.write('\x1b[1;34m=== Wesenho Entities ===\x1b[0m\n\n');
-        process.stdout.write(formatCanvasesList(this.canvasActor) + '\n');
         process.stdout.write(formatLayersList(this.canvasActor) + '\n');
         process.stdout.write(formatBrushesList(this) + '\n');
         process.stdout.write(formatTexturesList(this) + '\n');
         process.stdout.write(formatFiltersList(this));
       } else {
-        console.log(`\x1b[31merr: unknown list category '${tokens[1]}'. Options: canvas, layers, brushes, textures, filters, all\x1b[0m`);
+        console.log(`\x1b[31merr: unknown list category '${tokens[1]}'. Options: layers, brushes, textures, filters, all\x1b[0m`);
       }
       return;
     }
@@ -659,21 +642,15 @@ class WesenhoScreenHost {
       const activeL = this.canvasActor.instance.exports.get_active_layer();
       const lCount = this.canvasActor.instance.exports.get_layer_count();
 
-      if (cat === 'canvas') {
-        if (prop === 'width' || prop === 'w') {
+      if (cat === 'surface' || cat === 'size' || cat === 'canvas' || cat === 'resolution') {
+        if (prop === 'width' || prop === 'w' || cat === 'width') {
           console.log(cw);
-        } else if (prop === 'height' || prop === 'h') {
+        } else if (prop === 'height' || prop === 'h' || cat === 'height') {
           console.log(ch);
-        } else if (prop === 'size' || prop === 'dim' || prop === 'dimensions') {
+        } else if (prop === 'size' || prop === 'dim' || prop === 'dimensions' || cat === 'size' || cat === 'resolution') {
           console.log(`${cw}x${ch}`);
-        } else if (prop === 'id' || prop === 'idx' || prop === 'index' || prop === 'active') {
-          console.log(activeC);
-        } else if (prop === 'name') {
-          console.log(cName);
-        } else if (prop === 'count' || prop === 'total') {
-          console.log(cCount);
         } else {
-          console.log(`canvas [${activeC}] "${cName}" ${cw}x${ch} (layers: ${lCount}, total canvases: ${cCount})`);
+          console.log(`surface ${cw}x${ch} (layers: ${lCount})`);
         }
         return;
       }
@@ -737,7 +714,7 @@ class WesenhoScreenHost {
         } else if (prop === 'hex') {
           console.log(hex);
         } else {
-          console.log(`${hex} (ARGB: 0x${c.toString(16).padStart(8, '0')}, rgba(${r}, ${g}, ${b}, ${a / 255}))`);
+          console.log(`color: ${hex} (rgba: ${r}, ${g}, ${b}, ${a})`);
         }
         return;
       }
@@ -748,7 +725,7 @@ class WesenhoScreenHost {
       }
 
       if (cat === 'zoom') {
-        console.log(`${this.zoom.toFixed(2)} (${Math.round(this.zoom * 100)}%)`);
+        console.log(`${(this.zoom * 100).toFixed(0)}%`);
         return;
       }
 
@@ -757,36 +734,19 @@ class WesenhoScreenHost {
         return;
       }
 
-      if (cat === '' || cat === 'all') {
-        console.log(`\x1b[1mActive State:\x1b[0m
-  Canvas:  [${activeC}] "${cName}" (${cw}x${ch}) [Total: ${cCount}]
-  Layer:   [${activeL}] of ${lCount}
-  Brush:   ${this.activeBrush} (size: ${this.brushParams.size}, opacity: ${this.brushParams.opacity}%)
-  Texture: "${this.activeTexture}"
-  Color:   0x${this.currentColor.toString(16).padStart(8, '0')}
-  Tool:    ${this.currentTool === 1 ? 'eraser' : 'brush'}
-  Zoom:    ${(this.zoom * 100).toFixed(0)}% | Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})
-`);
-        return;
-      }
-
-      console.log(`\x1b[31merr: unknown get property '${tokens.slice(1).join(' ')}'\x1b[0m`);
+      console.log(`err: unknown get category '${tokens[1]}'. Options: surface, layer, brush, texture, color, tool, zoom, pan`);
       return;
     }
 
     // 4. STATUS / INFO
     if (cmd === 'status' || cmd === 'info') {
-      const cw = this.canvasActor.instance.exports.get_canvas_width();
-      const ch = this.canvasActor.instance.exports.get_canvas_height();
-      const cCount = this.canvasActor.instance.exports.get_canvas_count();
-      const activeC = this.canvasActor.instance.exports.get_active_canvas();
       const activeL = this.canvasActor.instance.exports.get_active_layer();
       const lCount = this.canvasActor.instance.exports.get_layer_count();
-      const cNamePtr = this.canvasActor.instance.exports.get_canvas_name ? this.canvasActor.instance.exports.get_canvas_name(activeC) : 0;
-      const cName = readCString(this.canvasActor.memory, cNamePtr) || `canvas_${activeC}`;
+      const cw = this.canvasActor.instance.exports.get_width ? this.canvasActor.instance.exports.get_width() : this.canvasActor.instance.exports.get_canvas_width();
+      const ch = this.canvasActor.instance.exports.get_height ? this.canvasActor.instance.exports.get_height() : this.canvasActor.instance.exports.get_canvas_height();
 
       console.log(`\x1b[1mStatus:\x1b[0m
-  Canvas:  [${activeC}] "${cName}" (${cw}x${ch}) [Total: ${cCount}]
+  Surface: ${cw}x${ch}
   Layer:   [${activeL}] of ${lCount}
   Brush:   ${this.activeBrush} (size: ${this.brushParams.size})
   Texture: "${this.activeTexture}"
@@ -803,140 +763,43 @@ class WesenhoScreenHost {
       process.exit(0);
     }
 
-    // 6. CANVAS COMMANDS
-    if (cmd === 'new' && tokens[1] && tokens[1].toLowerCase() === 'canvas') {
-      const cname = tokens[2] || `canvas_${Date.now() % 1000}`;
-      const w = parseInt(tokens[3], 10) || DOC_WIDTH;
-      const h = parseInt(tokens[4], 10) || DOC_HEIGHT;
-
-      const buf = Buffer.alloc(32);
-      buf.writeUInt32LE(MSG_CANVAS_NEW, 0);
-      buf.writeUInt32LE(w, 4);
-      buf.writeUInt32LE(h, 8);
-      buf.write(cname.slice(0, 20), 12, 'utf8');
-      this.canvasActor.say(buf, ACTOR_SCREEN);
-      this.sendConsoleLog(`new canvas created: '${cname}' (${w}x${h})`);
+    // 6. RESIZE / SURFACE COMMANDS
+    if (cmd === 'resize' || (cmd === 'set' && tokens[1] && (tokens[1].toLowerCase() === 'size' || tokens[1].toLowerCase() === 'resolution' || (tokens[1].toLowerCase() === 'canvas' && tokens[2] && tokens[2].toLowerCase() === 'size')))) {
+      const w = parseInt(cmd === 'resize' ? tokens[1] : (tokens[1].toLowerCase() === 'canvas' ? tokens[3] : tokens[2]), 10);
+      const h = parseInt(cmd === 'resize' ? tokens[2] : (tokens[1].toLowerCase() === 'canvas' ? tokens[4] : tokens[3]), 10);
+      if (w >= 16 && h >= 16 && w <= 4096 && h <= 4096) {
+        this.sendCanvasCmd(`resize ${w} ${h}`);
+        this.sendConsoleLog(`surface resized to ${w}x${h}`);
+      } else {
+        this.sendConsoleLog('err: invalid dimensions (min 16x16, max 4096x4096)', 0xFFFF5555);
+      }
       return;
     }
 
-    if (cmd === 'duplicate' && tokens[1] && tokens[1].toLowerCase() === 'canvas') {
-      const newName = tokens[2] || '';
-      const buf = Buffer.alloc(32);
-      buf.writeUInt32LE(MSG_CANVAS_DUPLICATE, 0);
-      buf.writeInt32LE(-1, 4);
-      buf.write(newName.slice(0, 23), 8, 'utf8');
-      this.canvasActor.say(buf, ACTOR_SCREEN);
-      this.sendConsoleLog(`canvas duplicated ${newName ? `as '${newName}'` : ''}`);
-      return;
-    }
-
-    if (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'canvas') {
-      const sub = (tokens[2] || '').toLowerCase();
-      if (sub === 'width' && tokens[3]) {
-        const w = parseInt(tokens[3], 10);
-        const h = this.canvasActor.instance.exports.get_canvas_height();
+    if (cmd === 'set' && tokens[1]) {
+      const sub = tokens[1].toLowerCase();
+      if ((sub === 'width' || sub === 'w') && tokens[2]) {
+        const w = parseInt(tokens[2], 10);
+        const h = this.canvasActor.instance.exports.get_height ? this.canvasActor.instance.exports.get_height() : this.canvasActor.instance.exports.get_canvas_height();
         if (w >= 16 && w <= 4096) {
-          const buf = Buffer.alloc(12);
-          buf.writeUInt32LE(MSG_CANVAS_RESIZE, 0);
-          buf.writeUInt32LE(w, 4);
-          buf.writeUInt32LE(h, 8);
-          this.canvasActor.say(buf, ACTOR_SCREEN);
-          this.sendConsoleLog(`canvas width updated to ${w}`);
+          this.sendCanvasCmd(`resize ${w} ${h}`);
+          this.sendConsoleLog(`width updated to ${w}`);
         }
         return;
-      } else if (sub === 'height' && tokens[3]) {
-        const w = this.canvasActor.instance.exports.get_canvas_width();
-        const h = parseInt(tokens[3], 10);
+      } else if ((sub === 'height' || sub === 'h') && tokens[2]) {
+        const w = this.canvasActor.instance.exports.get_width ? this.canvasActor.instance.exports.get_width() : this.canvasActor.instance.exports.get_canvas_width();
+        const h = parseInt(tokens[2], 10);
         if (h >= 16 && h <= 4096) {
-          const buf = Buffer.alloc(12);
-          buf.writeUInt32LE(MSG_CANVAS_RESIZE, 0);
-          buf.writeUInt32LE(w, 4);
-          buf.writeUInt32LE(h, 8);
-          this.canvasActor.say(buf, ACTOR_SCREEN);
-          this.sendConsoleLog(`canvas height updated to ${h}`);
+          this.sendCanvasCmd(`resize ${w} ${h}`);
+          this.sendConsoleLog(`height updated to ${h}`);
         }
         return;
-      } else if (sub === 'size' && tokens[3] && tokens[4]) {
-        const w = parseInt(tokens[3], 10);
-        const h = parseInt(tokens[4], 10);
-        if (w >= 16 && h >= 16) {
-          const buf = Buffer.alloc(12);
-          buf.writeUInt32LE(MSG_CANVAS_RESIZE, 0);
-          buf.writeUInt32LE(w, 4);
-          buf.writeUInt32LE(h, 8);
-          this.canvasActor.say(buf, ACTOR_SCREEN);
-          this.sendConsoleLog(`canvas resized to ${w}x${h}`);
-        }
-        return;
-      } else if (tokens[2]) {
-        const target = tokens[2];
-        const id = parseInt(target, 10);
-        const buf = Buffer.alloc(32);
-        buf.writeUInt32LE(MSG_CANVAS_SELECT, 0);
-        buf.writeInt32LE(!isNaN(id) ? id : -1, 4);
-        buf.write(target.slice(0, 23), 8, 'utf8');
-        this.canvasActor.say(buf, ACTOR_SCREEN);
-        this.sendConsoleLog(`selected canvas '${target}'`);
-        return;
       }
-    }
-
-    if ((cmd === 'select' && tokens[1] && tokens[1].toLowerCase() === 'canvas') ||
-        (cmd === 'canvas' && tokens[1] && !['list', 'resize'].includes(tokens[1].toLowerCase()))) {
-      const target = (cmd === 'select') ? tokens[2] : tokens[1];
-      const id = parseInt(target, 10);
-      const buf = Buffer.alloc(32);
-      buf.writeUInt32LE(MSG_CANVAS_SELECT, 0);
-      buf.writeInt32LE(!isNaN(id) ? id : -1, 4);
-      buf.write(target.slice(0, 23), 8, 'utf8');
-      this.canvasActor.say(buf, ACTOR_SCREEN);
-      this.sendConsoleLog(`selected canvas '${target}'`);
-      return;
-    }
-
-    if ((cmd === 'delete' || cmd === 'remove') && tokens[1] && tokens[1].toLowerCase() === 'canvas') {
-      const target = tokens[2] || '';
-      const id = target ? parseInt(target, 10) : -1;
-      const buf = Buffer.alloc(32);
-      buf.writeUInt32LE(MSG_CANVAS_DELETE, 0);
-      buf.writeInt32LE(!isNaN(id) ? id : -1, 4);
-      buf.write(target.slice(0, 23), 8, 'utf8');
-      this.canvasActor.say(buf, ACTOR_SCREEN);
-      this.sendConsoleLog(`deleted canvas ${target ? `'${target}'` : '(active)'}`);
-      return;
-    }
-
-    if (cmd === 'canvas' && tokens[1] && tokens[1].toLowerCase() === 'resize' && tokens[2] && tokens[3]) {
-      const w = parseInt(tokens[2], 10);
-      const h = parseInt(tokens[3], 10);
-      if (w >= 16 && h >= 16) {
-        const buf = Buffer.alloc(12);
-        buf.writeUInt32LE(MSG_CANVAS_RESIZE, 0);
-        buf.writeUInt32LE(w, 4);
-        buf.writeUInt32LE(h, 8);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
-        this.sendConsoleLog(`canvas resized to ${w}x${h}`);
-      }
-      return;
-    }
-
-    if (cmd === 'rename' && tokens[1] && tokens[1].toLowerCase() === 'canvas') {
-      const newName = tokens[3] ? tokens[3] : tokens[2];
-      const targetId = tokens[3] ? parseInt(tokens[2], 10) : -1;
-      const buf = Buffer.alloc(32);
-      buf.writeUInt32LE(MSG_CANVAS_RENAME, 0);
-      buf.writeInt32LE(targetId, 4);
-      buf.write(newName.slice(0, 23), 8, 'utf8');
-      this.canvasActor.say(buf, ACTOR_SCREEN);
-      this.sendConsoleLog(`canvas renamed to '${newName}'`);
-      return;
     }
 
     // 7. LAYER COMMANDS
     if (cmd === 'new' && tokens[1] && tokens[1].toLowerCase() === 'layer') {
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32LE(MSG_LAYER_ADD, 0);
-      this.canvasActor.say(buf, ACTOR_SCREEN);
+      this.sendCanvasCmd('layer add');
       this.sendConsoleLog('new layer added');
       return;
     }
@@ -944,30 +807,21 @@ class WesenhoScreenHost {
     if (((cmd === 'select' || cmd === 'set') && tokens[1] && tokens[1].toLowerCase() === 'layer' && tokens[2]) ||
         (cmd === 'layer' && tokens[1] && !isNaN(parseInt(tokens[1], 10)))) {
       const id = parseInt(cmd === 'layer' ? tokens[1] : tokens[2], 10);
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32LE(MSG_LAYER_SELECT, 0);
-      buf.writeInt32LE(id, 4);
-      this.canvasActor.say(buf, ACTOR_SCREEN);
+      this.sendCanvasCmd(`layer select ${id}`);
       this.sendConsoleLog(`selected layer [${id}]`);
       return;
     }
 
     if ((cmd === 'delete' || cmd === 'remove') && tokens[1] && tokens[1].toLowerCase() === 'layer') {
       const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.instance.exports.get_active_layer();
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32LE(MSG_LAYER_DELETE, 0);
-      buf.writeInt32LE(id, 4);
-      this.canvasActor.say(buf, ACTOR_SCREEN);
+      this.sendCanvasCmd(`layer delete ${id}`);
       this.sendConsoleLog(`deleted layer [${id}]`);
       return;
     }
 
     if ((cmd === 'toggle' || cmd === 'hide' || cmd === 'show') && tokens[1] && tokens[1].toLowerCase() === 'layer') {
       const id = tokens[2] ? parseInt(tokens[2], 10) : this.canvasActor.instance.exports.get_active_layer();
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32LE(MSG_LAYER_TOGGLE_VIS, 0);
-      buf.writeInt32LE(id, 4);
-      this.canvasActor.say(buf, ACTOR_SCREEN);
+      this.sendCanvasCmd(`layer toggle ${id}`);
       this.sendConsoleLog(`toggled layer [${id}] visibility`);
       return;
     }
@@ -977,20 +831,14 @@ class WesenhoScreenHost {
       const id = (cmd === 'opacity') ? parseInt(tokens[2], 10) : this.canvasActor.instance.exports.get_active_layer();
       const val = parseInt((cmd === 'opacity') ? tokens[3] : tokens[3], 10);
       if (!isNaN(val)) {
-        const buf = Buffer.alloc(16);
-        buf.writeUInt32LE(MSG_LAYER_SET_OPACITY, 0);
-        buf.writeInt32LE(id, 4);
-        buf.writeInt32LE(Math.max(0, Math.min(100, val)), 8);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
+        this.sendCanvasCmd(`layer opacity ${id} ${val}`);
         this.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
       }
       return;
     }
 
     if (cmd === 'clear' || (cmd === 'clear' && tokens[1] && tokens[1].toLowerCase() === 'layer')) {
-      const buf = Buffer.alloc(16);
-      buf.writeUInt32LE(MSG_EFFECT_CLEAR, 0);
-      this.canvasActor.say(buf, ACTOR_SCREEN);
+      this.sendCanvasCmd('layer clear');
       this.sendConsoleLog('active layer cleared');
       return;
     }
@@ -1126,10 +974,7 @@ class WesenhoScreenHost {
       const parsed = parseColorString(colStr);
       if (parsed !== null) {
         this.currentColor = parsed;
-        const buf = Buffer.alloc(8);
-        buf.writeUInt32LE(MSG_SET_COLOR, 0);
-        buf.writeUInt32LE(parsed, 4);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
+        this.sendCanvasCmd(`color set 0x${parsed.toString(16)}`);
         this.sendConsoleLog(`color set to 0x${parsed.toString(16).padStart(8, '0')}`);
       } else {
         this.sendConsoleLog(`err: unknown color '${colStr}'`, 0xFFFF5555);
@@ -1141,10 +986,7 @@ class WesenhoScreenHost {
         (cmd === 'tool' && tokens[1])) {
       const t = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
       this.currentTool = (t === 'eraser' || t === 'erase') ? 1 : 0;
-      const buf = Buffer.alloc(8);
-      buf.writeUInt32LE(MSG_SET_TOOL, 0);
-      buf.writeUInt32LE(this.currentTool, 4);
-      this.canvasActor.say(buf, ACTOR_SCREEN);
+      this.sendCanvasCmd(`tool set ${this.currentTool === 1 ? 'eraser' : 'brush'}`);
       this.sendConsoleLog(`tool set to ${this.currentTool === 1 ? 'eraser' : 'brush'}`);
       return;
     }
@@ -1157,13 +999,7 @@ class WesenhoScreenHost {
         const y0 = parseInt(tokens[3], 10);
         const x1 = parseInt(tokens[4], 10);
         const y1 = parseInt(tokens[5], 10);
-        const buf = Buffer.alloc(12);
-        buf.writeUInt32LE(MSG_DRAW_LINE, 0);
-        buf.writeUInt16LE(y0, 4);
-        buf.writeUInt16LE(x0, 6);
-        buf.writeUInt16LE(y1, 8);
-        buf.writeUInt16LE(x1, 10);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
+        this.sendCanvasCmd(`draw line ${x0} ${y0} ${x1} ${y1}`);
         this.sendConsoleLog(`drew line from (${x0},${y0}) to (${x1},${y1})`);
         return;
       }
@@ -1172,13 +1008,7 @@ class WesenhoScreenHost {
         const y = parseInt(tokens[3], 10);
         const w = parseInt(tokens[4], 10);
         const h = parseInt(tokens[5], 10);
-        const buf = Buffer.alloc(12);
-        buf.writeUInt32LE(MSG_DRAW_RECT, 0);
-        buf.writeUInt16LE(y, 4);
-        buf.writeUInt16LE(x, 6);
-        buf.writeUInt16LE(h, 8);
-        buf.writeUInt16LE(w, 10);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
+        this.sendCanvasCmd(`draw rect ${x} ${y} ${w} ${h}`);
         this.sendConsoleLog(`drew rect at (${x},${y}) size ${w}x${h}`);
         return;
       }
@@ -1186,21 +1016,13 @@ class WesenhoScreenHost {
         const cx = parseInt(tokens[2], 10);
         const cy = parseInt(tokens[3], 10);
         const r = parseInt(tokens[4], 10);
-        const buf = Buffer.alloc(12);
-        buf.writeUInt32LE(MSG_DRAW_CIRCLE, 0);
-        buf.writeUInt16LE(cy, 4);
-        buf.writeUInt16LE(cx, 6);
-        buf.writeUInt16LE(r, 8);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
+        this.sendCanvasCmd(`draw circle ${cx} ${cy} ${r}`);
         this.sendConsoleLog(`drew circle at (${cx},${cy}) radius ${r}`);
         return;
       }
       if (shape === 'grid' && tokens.length >= 3) {
         const step = parseInt(tokens[2], 10);
-        const buf = Buffer.alloc(8);
-        buf.writeUInt32LE(MSG_DRAW_GRID, 0);
-        buf.writeUInt32LE(step, 4);
-        this.canvasActor.say(buf, ACTOR_SCREEN);
+        this.sendCanvasCmd(`draw grid ${step}`);
         this.sendConsoleLog(`drew grid with step ${step}`);
         return;
       }

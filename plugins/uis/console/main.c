@@ -8,7 +8,6 @@
 #define MAX_HISTORY     16
 #define MAX_TOKENS      12
 #define MAX_CONSOLE_LAYERS 256
-#define MAX_CONSOLE_CANVASES 64
 
 static wframebuffer_t *fb = 0;
 static wmouse_t       *mouse = 0;
@@ -30,12 +29,9 @@ static char history[MAX_HISTORY][MAX_LINE_LEN];
 static int history_count = 0;
 static int history_idx = -1;
 
-// Canvas Registry Mirror
-static char     canvas_names[MAX_CONSOLE_CANVASES][24];
-static uint32_t canvas_widths[MAX_CONSOLE_CANVASES];
-static uint32_t canvas_heights[MAX_CONSOLE_CANVASES];
-static int      canvas_count = 1;
-static int      active_canvas = 0;
+// Surface Dimensions Mirror
+static uint32_t surface_width = 800;
+static uint32_t surface_height = 1000;
 
 // Layer Registry Mirror
 static char layer_names[MAX_CONSOLE_LAYERS][16];
@@ -117,6 +113,112 @@ static void int_to_str(int val, char *buf) {
 }
 
 static void send_msg(uint32_t type, uint32_t p1, uint32_t p2, uint32_t p3) {
+    char buf[128];
+    char n1[16], n2[16];
+    if (type == MSG_LAYER_ADD) {
+        say_text(ACTOR_CANVAS, "layer add");
+        return;
+    }
+    if (type == MSG_LAYER_SELECT) {
+        int_to_str((int)p1, n1);
+        str_copy(buf, "layer select ", 32);
+        str_copy(buf + str_len(buf), n1, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_LAYER_DELETE) {
+        int_to_str((int)p1, n1);
+        str_copy(buf, "layer delete ", 32);
+        str_copy(buf + str_len(buf), n1, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_LAYER_TOGGLE_VIS) {
+        int_to_str((int)p1, n1);
+        str_copy(buf, "layer toggle ", 32);
+        str_copy(buf + str_len(buf), n1, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_LAYER_SET_OPACITY) {
+        int_to_str((int)p1, n1);
+        int_to_str((int)p2, n2);
+        str_copy(buf, "layer opacity ", 32);
+        str_copy(buf + str_len(buf), n1, 16);
+        str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), n2, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_EFFECT_CLEAR) {
+        say_text(ACTOR_CANVAS, "layer clear");
+        return;
+    }
+    if (type == MSG_SET_COLOR) {
+        int_to_str((int)p1, n1);
+        str_copy(buf, "color set ", 32);
+        str_copy(buf + str_len(buf), n1, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_SET_TOOL) {
+        say_text(ACTOR_CANVAS, (p1 == 1) ? "tool set eraser" : "tool set brush");
+        return;
+    }
+    if (type == MSG_DRAW_LINE) {
+        int x0 = (int16_t)(p1 >> 16);
+        int y0 = (int16_t)(p1 & 0xFFFF);
+        int x1 = (int16_t)(p2 >> 16);
+        int y1 = (int16_t)(p2 & 0xFFFF);
+        char s0[16], s1[16], s2[16], s3[16];
+        int_to_str(x0, s0); int_to_str(y0, s1); int_to_str(x1, s2); int_to_str(y1, s3);
+        str_copy(buf, "draw line ", 32);
+        str_copy(buf + str_len(buf), s0, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s1, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s2, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s3, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_DRAW_RECT) {
+        int rx = (int16_t)(p1 >> 16);
+        int ry = (int16_t)(p1 & 0xFFFF);
+        int rw = (int16_t)(p2 >> 16);
+        int rh = (int16_t)(p2 & 0xFFFF);
+        char s0[16], s1[16], s2[16], s3[16];
+        int_to_str(rx, s0); int_to_str(ry, s1); int_to_str(rw, s2); int_to_str(rh, s3);
+        str_copy(buf, "draw rect ", 32);
+        str_copy(buf + str_len(buf), s0, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s1, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s2, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s3, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_DRAW_CIRCLE) {
+        int cx = (int16_t)(p1 >> 16);
+        int cy = (int16_t)(p1 & 0xFFFF);
+        int cr = (int)p2;
+        char s0[16], s1[16], s2[16];
+        int_to_str(cx, s0); int_to_str(cy, s1); int_to_str(cr, s2);
+        str_copy(buf, "draw circle ", 32);
+        str_copy(buf + str_len(buf), s0, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s1, 16); str_copy(buf + str_len(buf), " ", 2);
+        str_copy(buf + str_len(buf), s2, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+    if (type == MSG_DRAW_GRID) {
+        int step = (int)p1;
+        char s0[16];
+        int_to_str(step, s0);
+        str_copy(buf, "draw grid ", 32);
+        str_copy(buf + str_len(buf), s0, 16);
+        say_text(ACTOR_CANVAS, buf);
+        return;
+    }
+
+    // fallback binary
     wesenho_msg_t *msg = (wesenho_msg_t*)piolho_page;
     msg->type = type;
     msg->param1 = p1;
@@ -189,18 +291,6 @@ static int parse_color_token(const char *tok, uint32_t *out) {
     return 0;
 }
 
-static int find_canvas_idx(const char *tok) {
-    if (!tok || !tok[0]) return -1;
-    int32_t id = -1;
-    if (parse_int(tok, &id)) {
-        if (id >= 0 && id < canvas_count) return id;
-    }
-    for (int i = 0; i < canvas_count; i++) {
-        if (str_cmp(canvas_names[i], tok) == 0) return i;
-    }
-    return -1;
-}
-
 static int find_layer_idx(const char *tok) {
     if (!tok || !tok[0]) return -1;
     int32_t id = -1;
@@ -213,45 +303,17 @@ static int find_layer_idx(const char *tok) {
     return -1;
 }
 
-static void send_canvas_new(const char *name, uint32_t width, uint32_t height) {
-    wesenho_canvas_new_msg_t *nmsg = (wesenho_canvas_new_msg_t*)piolho_page;
-    nmsg->type = MSG_CANVAS_NEW;
-    nmsg->width = width;
-    nmsg->height = height;
-    str_copy(nmsg->name, name, 24);
-    say(ACTOR_CANVAS, sizeof(wesenho_canvas_new_msg_t));
-}
-
-static void send_canvas_select(int idx, const char *name) {
-    wesenho_canvas_select_msg_t *smsg = (wesenho_canvas_select_msg_t*)piolho_page;
-    smsg->type = MSG_CANVAS_SELECT;
-    smsg->canvas_idx = idx;
-    str_copy(smsg->name, name ? name : "", 24);
-    say(ACTOR_CANVAS, sizeof(wesenho_canvas_select_msg_t));
-}
-
-static void send_canvas_resize(uint32_t w, uint32_t h) {
-    wesenho_canvas_resize_msg_t *rmsg = (wesenho_canvas_resize_msg_t*)piolho_page;
-    rmsg->type = MSG_CANVAS_RESIZE;
-    rmsg->width = w;
-    rmsg->height = h;
-    say(ACTOR_CANVAS, sizeof(wesenho_canvas_resize_msg_t));
-}
-
-static void send_canvas_delete(int idx, const char *name) {
-    wesenho_canvas_select_msg_t *dmsg = (wesenho_canvas_select_msg_t*)piolho_page;
-    dmsg->type = MSG_CANVAS_DELETE;
-    dmsg->canvas_idx = idx;
-    str_copy(dmsg->name, name ? name : "", 24);
-    say(ACTOR_CANVAS, sizeof(wesenho_canvas_select_msg_t));
-}
-
-static void send_canvas_rename(int idx, const char *name) {
-    wesenho_canvas_rename_msg_t *rnmsg = (wesenho_canvas_rename_msg_t*)piolho_page;
-    rnmsg->type = MSG_CANVAS_RENAME;
-    rnmsg->canvas_idx = idx;
-    str_copy(rnmsg->name, name, 24);
-    say(ACTOR_CANVAS, sizeof(wesenho_canvas_rename_msg_t));
+static void send_surface_resize(uint32_t w, uint32_t h) {
+    char cmd[64] = "resize ";
+    char num[16];
+    int p = str_len(cmd);
+    int_to_str(w, num);
+    for (int i = 0; num[i]; i++) cmd[p++] = num[i];
+    cmd[p++] = ' ';
+    int_to_str(h, num);
+    for (int i = 0; num[i]; i++) cmd[p++] = num[i];
+    cmd[p] = '\0';
+    say_text(ACTOR_CANVAS, cmd);
 }
 
 static void send_layer_rename(int idx, const char *name) {
@@ -264,87 +326,73 @@ static void send_layer_rename(int idx, const char *name) {
 }
 
 static void send_filter(const char *name, int32_t p1, int32_t p2) {
-    wesenho_filter_msg_t *fmsg = (wesenho_filter_msg_t*)piolho_page;
-    fmsg->type = MSG_APPLY_FILTER;
-    str_copy(fmsg->name, name, 20);
-    fmsg->param1 = p1;
-    fmsg->param2 = p2;
-    say(ACTOR_BROKER, sizeof(wesenho_filter_msg_t));
+    char cmd[64] = "filter ";
+    str_copy(cmd + 7, name, 20);
+    int p = str_len(cmd);
+    if (p1 != 0 || p2 != 0) {
+        cmd[p++] = ' ';
+        char num[16];
+        int_to_str(p1, num);
+        for (int i = 0; num[i]; i++) cmd[p++] = num[i];
+    }
+    if (p2 != 0) {
+        cmd[p++] = ' ';
+        char num[16];
+        int_to_str(p2, num);
+        for (int i = 0; num[i]; i++) cmd[p++] = num[i];
+    }
+    cmd[p] = '\0';
+    say_cmd(cmd);
 }
 
 static void send_set_brush(const char *name) {
-    wesenho_active_brush_msg_t *bmsg = (wesenho_active_brush_msg_t*)piolho_page;
-    bmsg->type = MSG_SET_ACTIVE_BRUSH;
-    str_copy(bmsg->name, name, 20);
-    say(ACTOR_BROKER, sizeof(wesenho_active_brush_msg_t));
+    char cmd[64] = "set brush ";
+    str_copy(cmd + 10, name, 24);
+    say_cmd(cmd);
 }
 
 static void send_brush_param(uint32_t param_id, int32_t val, const char *name) {
-    wesenho_brush_param_msg_t *pmsg = (wesenho_brush_param_msg_t*)piolho_page;
-    pmsg->type = MSG_BRUSH_SET_PARAM;
-    pmsg->param_id = param_id;
-    pmsg->value = val;
-    str_copy(pmsg->param_name, name ? name : "", 16);
-    say(ACTOR_BROKER, sizeof(wesenho_brush_param_msg_t));
+    char cmd[64] = "set brush ";
+    if (name && name[0]) str_copy(cmd + 10, name, 24);
+    int p = str_len(cmd);
+    cmd[p++] = ' ';
+    char num[16];
+    int_to_str(val, num);
+    for (int i = 0; num[i]; i++) cmd[p++] = num[i];
+    cmd[p] = '\0';
+    say_cmd(cmd);
 }
 
 static void send_set_texture(const char *name) {
-    wesenho_active_texture_msg_t *tmsg = (wesenho_active_texture_msg_t*)piolho_page;
-    tmsg->type = MSG_TEXTURE_SET_ACTIVE;
-    str_copy(tmsg->name, name, 24);
-    say(ACTOR_BROKER, sizeof(wesenho_active_texture_msg_t));
+    char cmd[64] = "set texture ";
+    str_copy(cmd + 12, name, 24);
+    say_cmd(cmd);
 }
 
 static void send_layer_to_texture(int layer_idx, const char *name) {
-    wesenho_layer_texture_msg_t *ltmsg = (wesenho_layer_texture_msg_t*)piolho_page;
-    ltmsg->type = MSG_LAYER_TO_TEXTURE;
-    ltmsg->layer_idx = layer_idx;
-    str_copy(ltmsg->name, name, 24);
-    say(ACTOR_BROKER, sizeof(wesenho_layer_texture_msg_t));
+    char cmd[64] = "layer to texture ";
+    if (name && name[0]) str_copy(cmd + 17, name, 24);
+    say_cmd(cmd);
 }
 
 static void send_save_image(int target, const char *path) {
-    wesenho_image_io_msg_t *smsg = (wesenho_image_io_msg_t*)piolho_page;
-    smsg->type = MSG_SAVE_IMAGE;
-    smsg->target = target;
-    str_copy(smsg->filepath, path, 64);
-    smsg->name[0] = '\0';
-    say(ACTOR_BROKER, sizeof(wesenho_image_io_msg_t));
+    char cmd[128];
+    if (target == 1) str_copy(cmd, "save layer ", 16);
+    else str_copy(cmd, "save ", 16);
+    str_copy(cmd + str_len(cmd), path, 64);
+    say_cmd(cmd);
 }
 
 static void send_load_image(int target, const char *path, const char *tex_name) {
-    wesenho_image_io_msg_t *lmsg = (wesenho_image_io_msg_t*)piolho_page;
-    lmsg->type = MSG_LOAD_IMAGE;
-    lmsg->target = target;
-    str_copy(lmsg->filepath, path, 64);
-    str_copy(lmsg->name, tex_name ? tex_name : "", 24);
-    say(ACTOR_BROKER, sizeof(wesenho_image_io_msg_t));
-}
-
-static void list_canvases(void) {
-    log_print("--- CANVASES ---", 0xFF00FFCC);
-    for (int i = 0; i < canvas_count; i++) {
-        char line[MAX_LINE_LEN] = "[";
-        char num[8];
-        int_to_str(i, num);
-        int p = 1;
-        for (int k = 0; num[k]; k++) line[p++] = num[k];
-        line[p++] = ']'; line[p++] = ' ';
-        for (int k = 0; canvas_names[i][k] && p < 20; k++) line[p++] = canvas_names[i][k];
-        while (p < 22) line[p++] = ' ';
-        line[p++] = '(';
-        int_to_str(canvas_widths[i], num);
-        for (int k = 0; num[k]; k++) line[p++] = num[k];
-        line[p++] = 'x';
-        int_to_str(canvas_heights[i], num);
-        for (int k = 0; num[k]; k++) line[p++] = num[k];
-        line[p++] = ')';
-        if (i == active_canvas) {
-            line[p++] = ' '; line[p++] = '<'; line[p++] = '*'; line[p++] = '>';
-        }
-        line[p] = '\0';
-        log_print(line, (i == active_canvas) ? 0xFFFFFFFF : 0xFFAABBCC);
+    char cmd[128] = "load image ";
+    str_copy(cmd + 11, path, 64);
+    if (target == 2) {
+        str_copy(cmd + str_len(cmd), " texture ", 16);
+        if (tex_name && tex_name[0]) str_copy(cmd + str_len(cmd), tex_name, 24);
+    } else {
+        str_copy(cmd + str_len(cmd), " layer", 8);
     }
+    say_cmd(cmd);
 }
 
 static void list_layers(void) {
@@ -396,140 +444,62 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 2. new canvas ["name"] [w] [h]
-    if (str_cmp(tokens[0], "new") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvas") == 0) {
-        if (canvas_count < MAX_CONSOLE_CANVASES) {
-            const char *cname = (ntok >= 3) ? tokens[2] : "canvas";
-            int32_t w = 800, h = 1000;
-            if (ntok >= 4) parse_int(tokens[3], &w);
-            if (ntok >= 5) parse_int(tokens[4], &h);
-            if (w < 16) w = 800;
-            if (h < 16) h = 1000;
-
-            int new_idx = canvas_count;
-            str_copy(canvas_names[new_idx], cname, 24);
-            canvas_widths[new_idx] = w;
-            canvas_heights[new_idx] = h;
-            active_canvas = new_idx;
-            canvas_count++;
-
-            send_canvas_new(cname, (uint32_t)w, (uint32_t)h);
-            char out[MAX_LINE_LEN] = "ok: new canvas created ";
-            str_copy(out + str_len(out), cname, 20);
-            log_print(out, 0xFF00FF88);
-        } else {
-            log_print("err: max canvases reached (64)", 0xFFFF5555);
-        }
-        return;
-    }
-
-    // 3. set / select canvas <name|id> | set canvas width <x> | set canvas height <y> | set canvas size <w> <h>
-    if (str_cmp(tokens[0], "set") == 0 && ntok >= 3 && str_cmp(tokens[1], "canvas") == 0) {
-        if (str_cmp(tokens[2], "width") == 0 && ntok >= 4) {
-            int32_t w = 800;
-            parse_int(tokens[3], &w);
-            if (w >= 16 && w <= 4096) {
-                canvas_widths[active_canvas] = w;
-                send_canvas_resize((uint32_t)w, canvas_heights[active_canvas]);
-                log_print("ok: canvas width updated", 0xFF00FF88);
-            }
-            return;
-        } else if (str_cmp(tokens[2], "height") == 0 && ntok >= 4) {
-            int32_t h = 1000;
-            parse_int(tokens[3], &h);
-            if (h >= 16 && h <= 4096) {
-                canvas_heights[active_canvas] = h;
-                send_canvas_resize(canvas_widths[active_canvas], (uint32_t)h);
-                log_print("ok: canvas height updated", 0xFF00FF88);
-            }
-            return;
-        } else if (str_cmp(tokens[2], "size") == 0 && ntok >= 5) {
-            int32_t w = 800, h = 1000;
-            parse_int(tokens[3], &w);
-            parse_int(tokens[4], &h);
-            if (w >= 16 && h >= 16) {
-                canvas_widths[active_canvas] = w;
-                canvas_heights[active_canvas] = h;
-                send_canvas_resize((uint32_t)w, (uint32_t)h);
-                log_print("ok: canvas resized", 0xFF00FF88);
-            }
-            return;
-        } else {
-            int idx = find_canvas_idx(tokens[2]);
-            if (idx >= 0) {
-                active_canvas = idx;
-                send_canvas_select(idx, tokens[2]);
-                char out[MAX_LINE_LEN] = "ok: selected canvas ";
-                str_copy(out + str_len(out), canvas_names[idx], 20);
-                log_print(out, 0xFF00FF88);
-            } else {
-                log_print("err: canvas not found", 0xFFFF5555);
-            }
-            return;
-        }
-    }
-
-    // 4. select canvas <name|id> | canvas <name|id>
-    if ((str_cmp(tokens[0], "select") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvas") == 0) ||
-        (str_cmp(tokens[0], "canvas") == 0 && ntok >= 2 && str_cmp(tokens[1], "list") != 0 && str_cmp(tokens[1], "resize") != 0)) {
-        const char *target = (str_cmp(tokens[0], "select") == 0) ? (ntok >= 3 ? tokens[2] : "") : tokens[1];
-        int idx = find_canvas_idx(target);
-        if (idx >= 0) {
-            active_canvas = idx;
-            send_canvas_select(idx, target);
-            char out[MAX_LINE_LEN] = "ok: selected canvas ";
-            str_copy(out + str_len(out), canvas_names[idx], 20);
-            log_print(out, 0xFF00FF88);
-        } else {
-            log_print("err: canvas not found", 0xFFFF5555);
-        }
-        return;
-    }
-
-    // 5. delete canvas <name|id>
-    if ((str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) && ntok >= 2 && str_cmp(tokens[1], "canvas") == 0) {
-        const char *target = (ntok >= 3) ? tokens[2] : "";
-        int idx = find_canvas_idx(target);
-        if (idx >= 0) {
-            send_canvas_delete(idx, target);
-            if (canvas_count > 1) {
-                for (int c = idx; c < canvas_count - 1; c++) {
-                    str_copy(canvas_names[c], canvas_names[c + 1], 24);
-                    canvas_widths[c] = canvas_widths[c + 1];
-                    canvas_heights[c] = canvas_heights[c + 1];
-                }
-                canvas_count--;
-                if (active_canvas >= canvas_count) active_canvas = canvas_count - 1;
-            }
-            char out[MAX_LINE_LEN] = "ok: deleted canvas ";
-            str_copy(out + str_len(out), target, 20);
-            log_print(out, 0xFF00FF88);
-        } else {
-            log_print("err: canvas not found", 0xFFFF5555);
-        }
-        return;
-    }
-
-    // 6. canvases / canvas list / list canvases
-    if (str_cmp(tokens[0], "canvases") == 0 ||
-        (str_cmp(tokens[0], "canvas") == 0 && ntok == 1) ||
-        (str_cmp(tokens[0], "canvas") == 0 && ntok >= 2 && str_cmp(tokens[1], "list") == 0) ||
-        (str_cmp(tokens[0], "list") == 0 && ntok >= 2 && str_cmp(tokens[1], "canvases") == 0)) {
-        list_canvases();
-        return;
-    }
-
-    // 7. canvas resize <w> <h>
-    if (str_cmp(tokens[0], "canvas") == 0 && ntok >= 4 && str_cmp(tokens[1], "resize") == 0) {
+    // 2. resize [w] [h] | set size [w] [h] | set width [w] | set height [h]
+    if (str_cmp(tokens[0], "resize") == 0 && ntok >= 3) {
         int32_t w = 800, h = 1000;
-        parse_int(tokens[2], &w);
-        parse_int(tokens[3], &h);
+        parse_int(tokens[1], &w);
+        parse_int(tokens[2], &h);
         if (w >= 16 && h >= 16) {
-            canvas_widths[active_canvas] = w;
-            canvas_heights[active_canvas] = h;
-            send_canvas_resize((uint32_t)w, (uint32_t)h);
-            log_print("ok: canvas resized", 0xFF00FF88);
+            surface_width = (uint32_t)w;
+            surface_height = (uint32_t)h;
+            send_surface_resize((uint32_t)w, (uint32_t)h);
+            log_print("ok: surface resized", 0xFF00FF88);
         }
+        return;
+    }
+    if (str_cmp(tokens[0], "set") == 0 && ntok >= 3) {
+        if ((str_cmp(tokens[1], "size") == 0 || str_cmp(tokens[1], "surface") == 0) && ntok >= 4) {
+            int32_t w = 800, h = 1000;
+            parse_int(tokens[2], &w);
+            parse_int(tokens[3], &h);
+            if (w >= 16 && h >= 16) {
+                surface_width = (uint32_t)w;
+                surface_height = (uint32_t)h;
+                send_surface_resize((uint32_t)w, (uint32_t)h);
+                log_print("ok: surface resized", 0xFF00FF88);
+            }
+            return;
+        }
+        if (str_cmp(tokens[1], "width") == 0) {
+            int32_t w = 800;
+            parse_int(tokens[2], &w);
+            if (w >= 16 && w <= 4096) {
+                surface_width = (uint32_t)w;
+                send_surface_resize(surface_width, surface_height);
+                log_print("ok: surface width updated", 0xFF00FF88);
+            }
+            return;
+        }
+        if (str_cmp(tokens[1], "height") == 0) {
+            int32_t h = 1000;
+            parse_int(tokens[2], &h);
+            if (h >= 16 && h <= 4096) {
+                surface_height = (uint32_t)h;
+                send_surface_resize(surface_width, surface_height);
+                log_print("ok: surface height updated", 0xFF00FF88);
+            }
+            return;
+        }
+    }
+    if (str_cmp(tokens[0], "surface") == 0 || (str_cmp(tokens[0], "size") == 0 && ntok == 1)) {
+        char line[MAX_LINE_LEN] = "Surface: ";
+        char num[16];
+        int_to_str(surface_width, num);
+        str_copy(line + str_len(line), num, 16);
+        str_copy(line + str_len(line), "x", 2);
+        int_to_str(surface_height, num);
+        str_copy(line + str_len(line), num, 16);
+        log_print(line, 0xFF00FF88);
         return;
     }
 
@@ -579,19 +549,8 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
         return;
     }
 
-    // 10. rename layer / current_layer / canvas
+    // 10. rename layer / current_layer
     if (str_cmp(tokens[0], "rename") == 0 && ntok >= 3) {
-        if (str_cmp(tokens[1], "canvas") == 0) {
-            const char *new_name = (ntok >= 4) ? tokens[3] : tokens[2];
-            int idx = (ntok >= 4) ? find_canvas_idx(tokens[2]) : active_canvas;
-            if (idx >= 0) {
-                str_copy(canvas_names[idx], new_name, 24);
-                send_canvas_rename(idx, new_name);
-                log_print("ok: canvas renamed", 0xFF00FF88);
-            }
-            return;
-        }
-
         int idx = active_layer;
         const char *new_name = tokens[2];
         if (str_cmp(tokens[1], "layer") == 0 && ntok >= 4) {
@@ -610,7 +569,7 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
     }
 
     // 11. delete layer <target>
-    if ((str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) && str_cmp(tokens[1], "canvas") != 0) {
+    if (str_cmp(tokens[0], "delete") == 0 || str_cmp(tokens[0], "remove") == 0) {
         const char *target = (ntok >= 3 && str_cmp(tokens[1], "layer") == 0) ? tokens[2] : (ntok >= 2 ? tokens[1] : "");
         int idx = find_layer_idx(target);
         if (idx >= 0) {
@@ -906,9 +865,8 @@ static void execute_sexpr(char tokens[MAX_TOKENS][32], int ntok) {
     }
     if (str_cmp(tokens[0], "help") == 0) {
         log_print("WESENHO COMMAND REFERENCE:", 0xFFFFFF00);
-        log_print("Canvas:   new canvas \"name\" [w] [h] | set canvas <name|id>", 0xFFAABBCC);
-        log_print("          set canvas width 1200 | set canvas height 900", 0xFFAABBCC);
-        log_print("          delete canvas <name|id> | canvases", 0xFFAABBCC);
+        log_print("Surface:  resize <w> <h> | set size <w> <h> | surface", 0xFFAABBCC);
+        log_print("          set width <w> | set height <h>", 0xFFAABBCC);
         log_print("Layers:   new layer \"name\" | delete layer <id|name>", 0xFFAABBCC);
         log_print("          set layer <id|name> | rename layer \"name\"", 0xFFAABBCC);
         log_print("          layer | toggle layer | set opacity 50", 0xFFAABBCC);
@@ -1211,6 +1169,10 @@ void on_message(int32_t from_id, int32_t len) {
             }
             break;
         }
+        case MSG_CANVAS_RESIZE:
+            surface_width = msg->param1;
+            surface_height = msg->param2;
+            break;
     }
 }
 
@@ -1222,11 +1184,8 @@ int32_t update(void) {
             fb->height = CONSOLE_HEIGHT;
             fb->pixels = (uint32_t)(uintptr_t)pixels;
         }
-        str_copy(canvas_names[0], "canvas_0", 24);
-        canvas_widths[0] = 800;
-        canvas_heights[0] = 1000;
-        canvas_count = 1;
-        active_canvas = 0;
+        surface_width = 800;
+        surface_height = 1000;
 
         str_copy(layer_names[0], "Layer 0", 16);
         layer_vis[0] = 1;

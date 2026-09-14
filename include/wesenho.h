@@ -38,6 +38,18 @@ static inline void say_cmd(const char *cmd) {
     say(ACTOR_HOST, len + 1);
 }
 
+/* Helper to send text command string to any Actor */
+static inline void say_text(int32_t target_id, const char *cmd) {
+    if (!cmd) return;
+    int len = 0;
+    while (cmd[len] && len < 4095) {
+        piolho_page[len] = (uint8_t)cmd[len];
+        len++;
+    }
+    piolho_page[len] = '\0';
+    say(target_id, len + 1);
+}
+
 
 /* Wagnostic Standard Extensions */
 typedef struct {
