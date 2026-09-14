@@ -514,7 +514,146 @@ async function run() {
     throw new Error(`Expected canvas rotation 0, got ${host.canvasRotation}`);
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, and Filters verified 100%!');
+  // Test Auto-Rotate parameter
+  host.executeCommand('set auto_rotate 1');
+  if (host.brushParams.auto_rotate !== 1) {
+    throw new Error(`Expected auto_rotate 1, got ${host.brushParams.auto_rotate}`);
+  }
+  host.executeCommand('set auto_rotate off');
+  if (host.brushParams.auto_rotate !== 0) {
+    throw new Error(`Expected auto_rotate 0, got ${host.brushParams.auto_rotate}`);
+  }
+  host.executeCommand('set auto_rotate on');
+
+  // Test Velocity Dynamics parameter
+  host.executeCommand('set velocity 75');
+  if (host.brushParams.velocity !== 75) {
+    throw new Error(`Expected velocity 75, got ${host.brushParams.velocity}`);
+  }
+
+  // Draw stroke with auto-rotate and velocity
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF4488CC);
+  host.sendStroke(130, 140, 100, 100, 1, 0, 0xFF4488CC);
+  host.sendStroke(130, 140, 130, 140, 2, 0, 0xFF4488CC);
+
+  // Test Undo / Redo
+  const activeLyr = canvas.exports.get_active_layer();
+  const lyrPtr = canvas.exports.get_layer_pixels(activeLyr);
+  const lyrW = canvas.exports.get_canvas_width();
+  const pixBeforeStroke = new Uint32Array(canvas.memory.buffer, lyrPtr, lyrW * 100)[50 * lyrW + 50];
+
+  // Draw distinct dab at (50, 50)
+  host.sendStroke(50, 50, 50, 50, 0, 0, 0xFF00FF00);
+  host.sendStroke(50, 50, 50, 50, 2, 0, 0xFF00FF00);
+  const pixAfterStroke = new Uint32Array(canvas.memory.buffer, lyrPtr, lyrW * 100)[50 * lyrW + 50];
+  if (pixAfterStroke !== 0xFF00FF00) {
+    throw new Error(`Expected pixel at (50, 50) to be 0xFF00FF00, got 0x${pixAfterStroke.toString(16)}`);
+  }
+
+  // Undo stroke
+  const undoRes = host.undo();
+  if (!undoRes.ok) {
+    throw new Error(`Undo failed: ${undoRes.msg}`);
+  }
+  const pixAfterUndo = new Uint32Array(canvas.memory.buffer, lyrPtr, lyrW * 100)[50 * lyrW + 50];
+  if (pixAfterUndo !== pixBeforeStroke) {
+    throw new Error(`Expected pixel after undo to be 0x${pixBeforeStroke.toString(16)}, got 0x${pixAfterUndo.toString(16)}`);
+  }
+
+  // Redo stroke
+  const redoRes = host.redo();
+  if (!redoRes.ok) {
+    throw new Error(`Redo failed: ${redoRes.msg}`);
+  }
+  const pixAfterRedo = new Uint32Array(canvas.memory.buffer, lyrPtr, lyrW * 100)[50 * lyrW + 50];
+  if (pixAfterRedo !== 0xFF00FF00) {
+    throw new Error(`Expected pixel after redo to be 0xFF00FF00, got 0x${pixAfterRedo.toString(16)}`);
+  }
+
+  // Test Undo via REPL command
+  host.executeCommand('undo');
+  const pixAfterUndoCmd = new Uint32Array(canvas.memory.buffer, lyrPtr, lyrW * 100)[50 * lyrW + 50];
+  if (pixAfterUndoCmd !== pixBeforeStroke) {
+    throw new Error(`Expected pixel after 'undo' command to match before stroke`);
+  }
+
+  // Test Redo via REPL command
+  host.executeCommand('redo');
+  const pixAfterRedoCmd = new Uint32Array(canvas.memory.buffer, lyrPtr, lyrW * 100)[50 * lyrW + 50];
+  if (pixAfterRedoCmd !== 0xFF00FF00) {
+    throw new Error(`Expected pixel after 'redo' command to be restored`);
+  }
+
+  // Test Phase 2: Taper & Fade parameters
+  host.executeCommand('set taper_in 80');
+  if (host.brushParams.taper_in !== 80) {
+    throw new Error(`Expected taper_in 80, got ${host.brushParams.taper_in}`);
+  }
+  host.executeCommand('set fade 350');
+  if (host.brushParams.fade !== 350) {
+    throw new Error(`Expected fade 350, got ${host.brushParams.fade}`);
+  }
+
+  // Test Phase 2: Jitters
+  host.executeCommand('set size_jitter 45');
+  if (host.brushParams.size_jitter !== 45) {
+    throw new Error(`Expected size_jitter 45, got ${host.brushParams.size_jitter}`);
+  }
+  host.executeCommand('set angle_jitter 180');
+  if (host.brushParams.angle_jitter !== 180) {
+    throw new Error(`Expected angle_jitter 180, got ${host.brushParams.angle_jitter}`);
+  }
+  host.executeCommand('set opacity_jitter 35');
+  if (host.brushParams.opacity_jitter !== 35) {
+    throw new Error(`Expected opacity_jitter 35, got ${host.brushParams.opacity_jitter}`);
+  }
+  host.executeCommand('set color_jitter 50');
+  if (host.brushParams.color_jitter !== 50) {
+    throw new Error(`Expected color_jitter 50, got ${host.brushParams.color_jitter}`);
+  }
+
+  // Test Phase 2: Dab Blend Modes (string & integer)
+  host.executeCommand('set dab_blend multiply');
+  if (host.brushParams.dab_blend !== 1) {
+    throw new Error(`Expected dab_blend multiply (1), got ${host.brushParams.dab_blend}`);
+  }
+  host.executeCommand('set dab_blend screen');
+  if (host.brushParams.dab_blend !== 2) {
+    throw new Error(`Expected dab_blend screen (2), got ${host.brushParams.dab_blend}`);
+  }
+  host.executeCommand('set dab_blend overlay');
+  if (host.brushParams.dab_blend !== 3) {
+    throw new Error(`Expected dab_blend overlay (3), got ${host.brushParams.dab_blend}`);
+  }
+  host.executeCommand('set dab_blend dodge');
+  if (host.brushParams.dab_blend !== 4) {
+    throw new Error(`Expected dab_blend dodge (4), got ${host.brushParams.dab_blend}`);
+  }
+  host.executeCommand('set dab_blend add');
+  if (host.brushParams.dab_blend !== 5) {
+    throw new Error(`Expected dab_blend add (5), got ${host.brushParams.dab_blend}`);
+  }
+  host.executeCommand('set dab_blend normal');
+  if (host.brushParams.dab_blend !== 0) {
+    throw new Error(`Expected dab_blend normal (0), got ${host.brushParams.dab_blend}`);
+  }
+
+  // Test stroke execution with taper, fade, jitters & blend without error
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF3366CC);
+  host.sendStroke(150, 120, 100, 100, 1, 0, 0xFF3366CC);
+  host.sendStroke(200, 150, 150, 120, 1, 0, 0xFF3366CC);
+  host.sendStroke(250, 180, 200, 150, 2, 0, 0xFF3366CC);
+
+  // Reset dynamics for clean state
+  host.executeCommand('set taper_in 0');
+  host.executeCommand('set fade 0');
+  host.executeCommand('set size_jitter 0');
+  host.executeCommand('set angle_jitter 0');
+  host.executeCommand('set opacity_jitter 0');
+  host.executeCommand('set color_jitter 0');
+  host.executeCommand('set dab_blend normal');
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, and Dab Blend Modes verified 100%!');
 }
 
 run().catch(err => {

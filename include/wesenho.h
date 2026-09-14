@@ -52,7 +52,26 @@ enum {
     W_PARAM_TEX_LAYER      = 18, /* layer index to use as grain texture (-1 = none) */
     W_PARAM_SMOOTH         = 19, /* stroke smoothing / stabilization percentage (0..100) */
     W_PARAM_MIDPOINT       = 20, /* bezier midpoint interpolation ratio (0..100 %, default 50) */
-    W_PARAM_TEX_CONTRAST   = 21  /* grain texture contrast (0..200 %, default 100) */
+    W_PARAM_TEX_CONTRAST   = 21, /* grain texture contrast (0..200 %, default 100) */
+    W_PARAM_AUTO_ROTATE    = 22, /* auto-rotate brush tip along stroke trajectory (0=off, 1=on) */
+    W_PARAM_VELOCITY       = 23, /* velocity dynamics sensitivity (0..100) */
+    W_PARAM_TAPER_IN       = 24, /* taper-in length in pixels (0..500) */
+    W_PARAM_TAPER_OUT      = 25, /* taper-out length in pixels (0..500) */
+    W_PARAM_FADE           = 26, /* stroke fade distance in pixels (0=off, 1..5000) */
+    W_PARAM_SIZE_JITTER    = 27, /* size random variation % (0..100) */
+    W_PARAM_ANGLE_JITTER   = 28, /* angle random variation degrees (0..360) */
+    W_PARAM_OPACITY_JITTER = 29, /* opacity/flow random variation % (0..100) */
+    W_PARAM_COLOR_JITTER   = 30, /* color random variation % (0..100) */
+    W_PARAM_DAB_BLEND      = 31  /* dab blend mode: 0=normal, 1=multiply, 2=screen, 3=overlay, 4=dodge, 5=add */
+};
+
+enum {
+    W_DAB_BLEND_NORMAL   = 0,
+    W_DAB_BLEND_MULTIPLY = 1,
+    W_DAB_BLEND_SCREEN   = 2,
+    W_DAB_BLEND_OVERLAY  = 3,
+    W_DAB_BLEND_DODGE    = 4,
+    W_DAB_BLEND_ADD      = 5
 };
 
 /* =========================================================================
@@ -147,6 +166,128 @@ static inline void w_sincos_deg(int deg, int *out_sin, int *out_cos) {
         case 2: *out_sin = -s; *out_cos = -c; break;
         case 3: *out_sin = -c; *out_cos = s;  break;
     }
+}
+
+/**
+ * Fast integer atan2 approximation in degrees (0..359).
+ * Zero floats, zero libc, pure integer math.
+ */
+static inline int w_atan2_deg(int dy, int dx) {
+    if (dx == 0 && dy == 0) return 0;
+    int abs_y = dy < 0 ? -dy : dy;
+    int abs_x = dx < 0 ? -dx : dx;
+    int angle;
+    if (abs_x >= abs_y) {
+        int r = (abs_y * 1024) / abs_x;
+        angle = (45 * r) / 1024;
+    } else {
+        int r = (abs_x * 1024) / abs_y;
+        angle = 90 - (45 * r) / 1024;
+    }
+    if (dx < 0 && dy >= 0) angle = 180 - angle;
+    else if (dx < 0 && dy < 0) angle = 180 + angle;
+    else if (dx >= 0 && dy < 0) angle = 360 - angle;
+    if (angle < 0) angle += 360;
+    return angle % 360;
+}
+
+/** Integer RGB -> HSV (h: 0..359, s: 0..255, v: 0..255) */
+static inline void w_rgb_to_hsv(uint32_t color, int *out_h, int *out_s, int *out_v) {
+    int r = color & 0xFF;
+    int g = (color >> 8) & 0xFF;
+    int b = (color >> 16) & 0xFF;
+
+    int max_c = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+    int min_c = (r < g) ? ((r < b) ? r : b) : ((g < b) ? g : b);
+    int delta = max_c - min_c;
+
+    *out_v = max_c;
+    if (max_c == 0 || delta == 0) {
+        *out_s = 0;
+        *out_h = 0;
+        return;
+    }
+
+    *out_s = (255 * delta) / max_c;
+
+    int h = 0;
+    if (max_c == r) {
+        h = (60 * (g - b)) / delta;
+    } else if (max_c == g) {
+        h = 120 + (60 * (b - r)) / delta;
+    } else {
+        h = 240 + (60 * (r - g)) / delta;
+    }
+    if (h < 0) h += 360;
+    *out_h = h % 360;
+}
+
+/** Integer HSV -> RGB (h: 0..359, s: 0..255, v: 0..255) */
+static inline uint32_t w_hsv_to_rgb(int h, int s, int v, uint32_t alpha) {
+    if (s <= 0) {
+        return (alpha << 24) | (v << 16) | (v << 8) | v;
+    }
+    h = h % 360;
+    if (h < 0) h += 360;
+
+    int region = h / 60;
+    int rem = h % 60;
+
+    int p = (v * (255 - s)) / 255;
+    int q = (v * (255 - (s * rem) / 60)) / 255;
+    int t = (v * (255 - (s * (60 - rem)) / 60)) / 255;
+
+    int r = 0, g = 0, b = 0;
+    switch (region) {
+        case 0: r = v; g = t; b = p; break;
+        case 1: r = q; g = v; b = p; break;
+        case 2: r = p; g = v; b = t; break;
+        case 3: r = p; g = q; b = v; break;
+        case 4: r = t; g = p; b = v; break;
+        default: r = v; g = p; b = q; break;
+    }
+    return (alpha << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+}
+
+/** Applies brush dab blend mode (Multiply, Screen, Overlay, Dodge, Add) */
+static inline uint32_t w_apply_dab_blend(int mode, uint32_t src, uint32_t dst) {
+    if (mode == 0) return src;
+    uint32_t sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF;
+    uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
+    uint32_t r, g, b;
+    switch (mode) {
+        case 1: // Multiply
+            r = (sr * dr) / 255;
+            g = (sg * dg) / 255;
+            b = (sb * db) / 255;
+            break;
+        case 2: // Screen
+            r = 255 - ((255 - sr) * (255 - dr)) / 255;
+            g = 255 - ((255 - sg) * (255 - dg)) / 255;
+            b = 255 - ((255 - sb) * (255 - db)) / 255;
+            break;
+        case 3: // Overlay
+            r = (dr < 128) ? (2 * sr * dr) / 255 : 255 - (2 * (255 - sr) * (255 - dr)) / 255;
+            g = (dg < 128) ? (2 * sg * dg) / 255 : 255 - (2 * (255 - sg) * (255 - dg)) / 255;
+            b = (db < 128) ? (2 * sb * db) / 255 : 255 - (2 * (255 - sb) * (255 - db)) / 255;
+            break;
+        case 4: // Color Dodge
+            r = (sr >= 255) ? 255 : ((dr * 255) / (255 - sr));
+            g = (sg >= 255) ? 255 : ((dg * 255) / (255 - sg));
+            b = (sb >= 255) ? 255 : ((db * 255) / (255 - sb));
+            if (r > 255) r = 255;
+            if (g > 255) g = 255;
+            if (b > 255) b = 255;
+            break;
+        case 5: // Add
+            r = sr + dr; if (r > 255) r = 255;
+            g = sg + dg; if (g > 255) g = 255;
+            b = sb + db; if (b > 255) b = 255;
+            break;
+        default:
+            return src;
+    }
+    return (src & 0xFF000000) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
 }
 
 /** Standard Porter-Duff Source-Over alpha blending into layer with stroke max_alpha cap */

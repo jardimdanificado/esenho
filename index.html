@@ -878,6 +878,8 @@
   <div id="bottom-dock">
     <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
     <div id="bottom-dock-tabs">
+      <button type="button" id="tab-dock-undo" class="dock-tab-btn" title="Undo (2-finger tap)">&#x21A9;</button>
+      <button type="button" id="tab-dock-redo" class="dock-tab-btn" title="Redo (3-finger tap)">&#x21AA;</button>
       <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
       <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
       <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
@@ -894,6 +896,10 @@
       <details class="ui-group" open>
         <summary>TOOLS</summary>
         <div class="ui-group-content">
+          <div class="ui-grid-2" style="margin-bottom: 5px;">
+            <button id="ui-btn-undo" class="ui-btn" title="Undo (Ctrl+Z or 2-finger tap)">&#x21A9; Undo</button>
+            <button id="ui-btn-redo" class="ui-btn" title="Redo (Ctrl+Y or 3-finger tap)">&#x21AA; Redo</button>
+          </div>
           <div class="ui-grid-3">
             <button class="ui-btn tool-btn active" data-tool="brush" title="Brush (Draw)">Brush</button>
             <button class="ui-btn tool-btn" data-tool="eraser" title="Eraser">Eraser</button>
@@ -986,6 +992,57 @@
           <div class="ui-control">
             <div class="ui-label-row"><span>Fill Tolerance</span><span id="ui-val-tolerance" class="ui-val">32</span></div>
             <input type="range" id="ui-slider-tolerance" min="0" max="255" value="32">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Velocity Dynamics</span><span id="ui-val-velocity" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-velocity" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Trajectory)
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <!-- Dynamics & Jitter -->
+      <details class="ui-group" open>
+        <summary>DYNAMICS &amp; JITTER</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Dab Blend Mode</span></div>
+            <select id="ui-select-dab-blend" class="ui-select">
+              <option value="normal">Normal</option>
+              <option value="multiply">Multiply</option>
+              <option value="screen">Screen</option>
+              <option value="overlay">Overlay</option>
+              <option value="dodge">Color Dodge</option>
+              <option value="add">Add</option>
+            </select>
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Taper In</span><span id="ui-val-taper-in" class="ui-val">0px</span></div>
+            <input type="range" id="ui-slider-taper-in" min="0" max="500" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Fade Distance</span><span id="ui-val-fade" class="ui-val">0px</span></div>
+            <input type="range" id="ui-slider-fade" min="0" max="2000" step="10" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Size Jitter</span><span id="ui-val-size-jitter" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-size-jitter" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Angle Jitter</span><span id="ui-val-angle-jitter" class="ui-val">0°</span></div>
+            <input type="range" id="ui-slider-angle-jitter" min="0" max="360" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Opacity Jitter</span><span id="ui-val-opacity-jitter" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-opacity-jitter" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Color Jitter (HSV)</span><span id="ui-val-color-jitter" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-color-jitter" min="0" max="100" value="0">
           </div>
         </div>
       </details>

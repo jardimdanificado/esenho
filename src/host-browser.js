@@ -515,6 +515,14 @@ async function main() {
     } else if ((e.key === 'b' || e.key === 'B' || e.key === 'u' || e.key === 'U') && (e.ctrlKey || e.altKey)) {
       toggleUi();
       e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.undo();
+      e.preventDefault();
+    } else if ((e.ctrlKey && (e.key === 'y' || e.key === 'Y')) || (e.ctrlKey && e.shiftKey && (e.key === 'z' || e.key === 'Z'))) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.redo();
+      e.preventDefault();
     }
   });
 
@@ -768,6 +776,11 @@ async function main() {
         touch.drawing = false;
         lassoPoints = [];
       }
+      if (e.touches.length === 2) {
+        touch.twoFingerTap = { time: Date.now(), moved: false };
+      } else if (e.touches.length === 3) {
+        touch.threeFingerTap = { time: Date.now(), moved: false };
+      }
     }
     touch.prevTouches = e.touches;
   }, { passive: false });
@@ -805,6 +818,13 @@ async function main() {
       const [a, b] = [e.touches[0], e.touches[1]];
       const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
 
+      if (touch.twoFingerTap) {
+        if (Math.hypot(a.clientX - pa.clientX, a.clientY - pa.clientY) > 8 ||
+            Math.hypot(b.clientX - pb.clientX, b.clientY - pb.clientY) > 8) {
+          touch.twoFingerTap.moved = true;
+        }
+      }
+
       /* Current / previous midpoints on screen */
       const mid  = touchMidpoint(a, b);
       const pmid = touchMidpoint(pa, pb);
@@ -827,6 +847,10 @@ async function main() {
       const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
       const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
       host.canvasRotation += curAngle - prevAngle;
+    } else if (e.touches.length === 3) {
+      if (touch.threeFingerTap) {
+        touch.threeFingerTap.moved = true;
+      }
     }
 
     touch.prevTouches = e.touches;
@@ -849,6 +873,17 @@ async function main() {
       touch.drawing = false;
       lassoPoints = [];
     }
+
+    if (touch.twoFingerTap && !touch.twoFingerTap.moved && (Date.now() - touch.twoFingerTap.time < 350)) {
+      host.undo();
+      touch.twoFingerTap = null;
+    } else if (touch.threeFingerTap && !touch.threeFingerTap.moved && (Date.now() - touch.threeFingerTap.time < 350)) {
+      host.redo();
+      touch.threeFingerTap = null;
+    }
+    if (e.touches.length < 2) touch.twoFingerTap = null;
+    if (e.touches.length < 3) touch.threeFingerTap = null;
+
     clearPendingTouch();
     touch.prevTouches = e.touches;
   }, { passive: false });
@@ -1146,6 +1181,41 @@ async function main() {
   bindSlider('ui-slider-tex-scale', 'ui-val-tex-scale', 'set texture_scale', '%');
   bindSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', 'set texture_rotate', '°');
   bindSlider('ui-slider-tex-contrast', 'ui-val-tex-contrast', 'set texture_contrast', '%');
+  bindSlider('ui-slider-velocity', 'ui-val-velocity', 'set velocity', '%');
+  bindSlider('ui-slider-taper-in', 'ui-val-taper-in', 'set taper_in', 'px');
+  bindSlider('ui-slider-fade', 'ui-val-fade', 'set fade', 'px');
+  bindSlider('ui-slider-size-jitter', 'ui-val-size-jitter', 'set size_jitter', '%');
+  bindSlider('ui-slider-angle-jitter', 'ui-val-angle-jitter', 'set angle_jitter', '°');
+  bindSlider('ui-slider-opacity-jitter', 'ui-val-opacity-jitter', 'set opacity_jitter', '%');
+  bindSlider('ui-slider-color-jitter', 'ui-val-color-jitter', 'set color_jitter', '%');
+
+  const dabBlendSel = document.getElementById('ui-select-dab-blend');
+  if (dabBlendSel) {
+    dabBlendSel.addEventListener('change', () => {
+      runCmd(`set dab_blend ${dabBlendSel.value}`);
+    });
+  }
+
+  const chkAutoRotate = document.getElementById('ui-chk-auto-rotate');
+  if (chkAutoRotate) {
+    chkAutoRotate.addEventListener('change', () => {
+      runCmd(`set auto_rotate ${chkAutoRotate.checked ? 1 : 0}`);
+    });
+  }
+
+  // Undo / Redo buttons
+  const handleUndo = () => host.undo();
+  const handleRedo = () => host.redo();
+
+  const btnUndo = document.getElementById('ui-btn-undo');
+  if (btnUndo) btnUndo.addEventListener('click', handleUndo);
+  const btnRedo = document.getElementById('ui-btn-redo');
+  if (btnRedo) btnRedo.addEventListener('click', handleRedo);
+
+  const dockUndo = document.getElementById('tab-dock-undo');
+  if (dockUndo) dockUndo.addEventListener('click', handleUndo);
+  const dockRedo = document.getElementById('tab-dock-redo');
+  if (dockRedo) dockRedo.addEventListener('click', handleRedo);
 
   // Active Layer Opacity slider (Photoshop style)
   const activeLayerOp = document.getElementById('ui-active-layer-op');
@@ -1586,6 +1656,20 @@ async function main() {
       setSlider('ui-slider-tex-scale', 'ui-val-tex-scale', bp.texture_scale || 100, '%');
       setSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', bp.texture_rotate || 0, '°');
       setSlider('ui-slider-tex-contrast', 'ui-val-tex-contrast', bp.texture_contrast !== undefined ? bp.texture_contrast : 100, '%');
+      setSlider('ui-slider-velocity', 'ui-val-velocity', bp.velocity || 0, '%');
+      setSlider('ui-slider-taper-in', 'ui-val-taper-in', bp.taper_in || 0, 'px');
+      setSlider('ui-slider-fade', 'ui-val-fade', bp.fade || 0, 'px');
+      setSlider('ui-slider-size-jitter', 'ui-val-size-jitter', bp.size_jitter || 0, '%');
+      setSlider('ui-slider-angle-jitter', 'ui-val-angle-jitter', bp.angle_jitter || 0, '°');
+      setSlider('ui-slider-opacity-jitter', 'ui-val-opacity-jitter', bp.opacity_jitter || 0, '%');
+      setSlider('ui-slider-color-jitter', 'ui-val-color-jitter', bp.color_jitter || 0, '%');
+      const dabBlendSel = document.getElementById('ui-select-dab-blend');
+      if (dabBlendSel && bp.dab_blend !== undefined) {
+        const blendNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+        dabBlendSel.value = blendNames[bp.dab_blend] || 'normal';
+      }
+      const chkAutoRot = document.getElementById('ui-chk-auto-rotate');
+      if (chkAutoRot) chkAutoRot.checked = !!bp.auto_rotate;
     }
 
     // C. Color
@@ -2054,6 +2138,10 @@ function ensureUiPanel() {
       <details class="ui-group" open>
         <summary>TOOLS</summary>
         <div class="ui-group-content">
+          <div class="ui-grid-2" style="margin-bottom: 5px;">
+            <button id="ui-btn-undo" class="ui-btn" title="Undo (Ctrl+Z or 2-finger tap)">&#x21A9; Undo</button>
+            <button id="ui-btn-redo" class="ui-btn" title="Redo (Ctrl+Y or 3-finger tap)">&#x21AA; Redo</button>
+          </div>
           <div class="ui-grid-3">
             <button class="ui-btn tool-btn active" data-tool="brush" title="Brush (Draw)">Brush</button>
             <button class="ui-btn tool-btn" data-tool="eraser" title="Eraser">Eraser</button>
@@ -2122,6 +2210,15 @@ function ensureUiPanel() {
           <div class="ui-control">
             <div class="ui-label-row"><span>Fill Tolerance</span><span id="ui-val-tolerance" class="ui-val">32</span></div>
             <input type="range" id="ui-slider-tolerance" min="0" max="255" value="32">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Velocity Dynamics</span><span id="ui-val-velocity" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-velocity" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Trajectory)
+            </label>
           </div>
         </div>
       </details>

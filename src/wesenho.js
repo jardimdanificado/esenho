@@ -116,7 +116,27 @@ const PARAM_IDS = {
   bezier: 20,
   texture_contrast: 21,
   tex_contrast: 21,
-  grain_contrast: 21
+  grain_contrast: 21,
+  auto_rotate: 22,
+  autorotate: 22,
+  direction_angle: 22,
+  follow_direction: 22,
+  velocity: 23,
+  speed: 23,
+  taper_in: 24,
+  taper: 24,
+  taper_start: 24,
+  taper_out: 25,
+  taper_end: 25,
+  fade: 26,
+  size_jitter: 27,
+  angle_jitter: 28,
+  opacity_jitter: 29,
+  flow_jitter: 29,
+  color_jitter: 30,
+  dab_blend: 31,
+  dab_blend_mode: 31,
+  blend_mode: 31
 };
 
 /**
@@ -756,7 +776,9 @@ function handleGet(host, rawCat, rawProp) {
     grain_scale: 'texture_scale', grain_size: 'texture_scale',
     smooth: 'smoothing', stabilizer: 'smoothing',
     bezier: 'midpoint', bezier_midpoint: 'midpoint',
-    tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast'
+    tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
+    taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
+    flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend'
   };
   const resolvedCat = canonGet[cat] || cat;
   if (host.brushParams[resolvedCat] !== undefined) {
@@ -1236,10 +1258,27 @@ const COMMAND_RULES = [
     run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer resize $w$int $h$int").run(m, host)
   },
 
+  // Undo / Redo History
+  {
+    pat: "undo",
+    run: (m, host) => {
+      const res = host.undo();
+      if (!res.ok) host.sendConsoleLog(res.msg || 'Nothing to undo', 0xFFFF5555);
+    }
+  },
+  {
+    pat: "redo",
+    run: (m, host) => {
+      const res = host.redo();
+      if (!res.ok) host.sendConsoleLog(res.msg || 'Nothing to redo', 0xFFFF5555);
+    }
+  },
+
   {
     pat: "clear layer $id$int",
     run: (m, host) => {
       const id = parseInt(m.id, 10);
+      host.pushUndoSnapshot(`clear layer ${id}`);
       host.canvasActor.exports.w_layer_clear(id);
       host.sendConsoleLog(`layer [${id}] cleared`);
     }
@@ -1247,6 +1286,7 @@ const COMMAND_RULES = [
   {
     pat: "clear layer",
     run: (m, host) => {
+      host.pushUndoSnapshot('clear active layer');
       host.canvasActor.exports.w_layer_clear(-1);
       host.sendConsoleLog('active layer cleared');
     }
@@ -1700,8 +1740,23 @@ class WesenhoScreenHost {
       mode: 0,
       smoothing: 0,
       midpoint: 50,
-      texture_contrast: 100
+      texture_contrast: 100,
+      auto_rotate: 0,
+      velocity: 0,
+      taper_in: 0,
+      taper_out: 0,
+      fade: 0,
+      size_jitter: 0,
+      angle_jitter: 0,
+      opacity_jitter: 0,
+      color_jitter: 0,
+      dab_blend: 0
     };
+
+    // Undo / Redo History
+    this.undoStack = [];
+    this.redoStack = [];
+    this.maxUndoSteps = 25;
 
     // Textures & Actors
     this.textures = createProceduralTextures();
@@ -1715,6 +1770,109 @@ class WesenhoScreenHost {
     this.window = null;
     this.screenBuffer = Buf.alloc(this.windowWidth * this.windowHeight * 4);
     this.rl = null;
+  }
+
+  /**
+   * Captures the active layer's current pixel buffer for the undo stack.
+   */
+  pushUndoSnapshot(action = 'draw') {
+    if (!this.canvasActor || !this.canvasActor.exports) return;
+    const exports = this.canvasActor.exports;
+    const layerIdx = (typeof exports.get_active_layer === 'function') ? exports.get_active_layer() : 3;
+    const ptr = (typeof exports.get_layer_pixels === 'function') ? exports.get_layer_pixels(layerIdx) : 0;
+    const w = (typeof exports.get_width === 'function') ? exports.get_width() : 0;
+    const h = (typeof exports.get_height === 'function') ? exports.get_height() : 0;
+    if (!ptr || w <= 0 || h <= 0) return;
+
+    const byteLen = w * h * 4;
+    const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, byteLen);
+    const pixelsCopy = new Uint8Array(byteLen);
+    pixelsCopy.set(raw);
+
+    this.undoStack.push({
+      action,
+      layerIdx,
+      width: w,
+      height: h,
+      pixels: pixelsCopy
+    });
+
+    if (this.undoStack.length > this.maxUndoSteps) {
+      this.undoStack.shift();
+    }
+    this.redoStack = [];
+  }
+
+  /**
+   * Reverts the active layer to the most recent undo snapshot.
+   */
+  undo() {
+    if (!this.canvasActor || !this.canvasActor.exports) return { ok: false, msg: 'canvas not ready' };
+    if (this.undoStack.length === 0) return { ok: false, msg: 'Nothing to undo' };
+
+    const exports = this.canvasActor.exports;
+    const snapshot = this.undoStack.pop();
+
+    const layerIdx = snapshot.layerIdx;
+    const ptr = (typeof exports.get_layer_pixels === 'function') ? exports.get_layer_pixels(layerIdx) : 0;
+    const w = (typeof exports.get_width === 'function') ? exports.get_width() : 0;
+    const h = (typeof exports.get_height === 'function') ? exports.get_height() : 0;
+
+    if (ptr && w === snapshot.width && h === snapshot.height) {
+      const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
+      const currentPixels = new Uint8Array(w * h * 4);
+      currentPixels.set(raw);
+
+      this.redoStack.push({
+        action: snapshot.action,
+        layerIdx,
+        width: w,
+        height: h,
+        pixels: currentPixels
+      });
+
+      raw.set(snapshot.pixels);
+      if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
+      this.sendConsoleLog(`undo: ${snapshot.action}`);
+      return { ok: true, action: snapshot.action };
+    }
+    return { ok: false, msg: 'layer dimension mismatch' };
+  }
+
+  /**
+   * Re-applies an undone action from the redo stack.
+   */
+  redo() {
+    if (!this.canvasActor || !this.canvasActor.exports) return { ok: false, msg: 'canvas not ready' };
+    if (this.redoStack.length === 0) return { ok: false, msg: 'Nothing to redo' };
+
+    const exports = this.canvasActor.exports;
+    const snapshot = this.redoStack.pop();
+
+    const layerIdx = snapshot.layerIdx;
+    const ptr = (typeof exports.get_layer_pixels === 'function') ? exports.get_layer_pixels(layerIdx) : 0;
+    const w = (typeof exports.get_width === 'function') ? exports.get_width() : 0;
+    const h = (typeof exports.get_height === 'function') ? exports.get_height() : 0;
+
+    if (ptr && w === snapshot.width && h === snapshot.height) {
+      const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
+      const currentPixels = new Uint8Array(w * h * 4);
+      currentPixels.set(raw);
+
+      this.undoStack.push({
+        action: snapshot.action,
+        layerIdx,
+        width: w,
+        height: h,
+        pixels: currentPixels
+      });
+
+      raw.set(snapshot.pixels);
+      if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
+      this.sendConsoleLog(`redo: ${snapshot.action}`);
+      return { ok: true, action: snapshot.action };
+    }
+    return { ok: false, msg: 'layer dimension mismatch' };
   }
 
   /**
@@ -1770,7 +1928,11 @@ class WesenhoScreenHost {
     let numericVal = val;
     if (typeof val === 'string') {
       const lower = val.toLowerCase();
-      if (key === 'shape') {
+      if (lower === 'on' || lower === 'true' || lower === 'yes') {
+        numericVal = 1;
+      } else if (lower === 'off' || lower === 'false' || lower === 'no') {
+        numericVal = 0;
+      } else if (key === 'shape') {
         if (lower === 'circle' || lower === 'round') numericVal = 0;
         else if (lower === 'square') numericVal = 1;
         else if (lower === 'chisel' || lower === 'flat') numericVal = 2;
@@ -1782,6 +1944,9 @@ class WesenhoScreenHost {
         else if (lower === 'fill' || lower === 'flood_fill') numericVal = 3;
         else if (lower === 'lasso_fill' || lower === 'lasso') numericVal = 4;
         else numericVal = parseInt(val, 10) || 0;
+      } else if (key === 'dab_blend' || key === 'dab_blend_mode' || key === 'blend_mode') {
+        const blendMap = { normal: 0, multiply: 1, screen: 2, overlay: 3, dodge: 4, color_dodge: 4, add: 5, linear_dodge: 5 };
+        numericVal = blendMap[lower] !== undefined ? blendMap[lower] : (parseInt(val, 10) || 0);
       } else {
         numericVal = parseFloat(val);
       }
@@ -1805,7 +1970,9 @@ class WesenhoScreenHost {
         grain_scale: 'texture_scale', grain_size: 'texture_scale',
         smooth: 'smoothing', stabilizer: 'smoothing',
         bezier: 'midpoint', bezier_midpoint: 'midpoint',
-        tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast'
+        tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
+        taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
+        flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -1916,6 +2083,40 @@ class WesenhoScreenHost {
     const col = (color !== undefined) ? color : this.currentColor;
     const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.currentTool === 1 ? 1 : 0);
     const smooth = Math.max(0, Math.min(100, this.brushParams.smoothing || 0));
+
+    if (state === 0) {
+      this.pushUndoSnapshot(this.currentTool === 1 ? 'eraser' : (['brush', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode] || 'brush'));
+      this.lastStrokeTime = Date.now();
+      this.strokeSpeed = 0;
+    } else if (state === 1 && this.brushParams.velocity > 0) {
+      const velStrength = Math.min(100, Math.max(0, this.brushParams.velocity)) / 100;
+      const now = Date.now();
+      const dt = Math.max(1, Math.min(100, now - (this.lastStrokeTime || now)));
+      this.lastStrokeTime = now;
+
+      const dist = Math.hypot(x - prev_x, y - prev_y);
+      const rawSpeed = dist / dt;
+
+      this.strokeSpeed = (this.strokeSpeed !== undefined)
+        ? (this.strokeSpeed * 0.7 + rawSpeed * 0.3)
+        : rawSpeed;
+
+      const speedFactor = Math.max(0.2, 1.0 - (this.strokeSpeed / 3.0) * (velStrength * 0.75));
+      const baseSize = this.brushParams.size || 8;
+      const dynamicSize = Math.max(1, Math.round(baseSize * speedFactor));
+      const baseFlow = this.brushParams.flow || 100;
+      const dynamicFlow = Math.max(5, Math.round(baseFlow * (0.5 + 0.5 * speedFactor)));
+
+      if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+        this.canvasActor.exports.w_brush_set_param(1 /* W_PARAM_SIZE */, dynamicSize);
+        this.canvasActor.exports.w_brush_set_param(4 /* W_PARAM_FLOW */, dynamicFlow);
+      }
+    } else if (state === 2 && this.brushParams.velocity > 0) {
+      if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+        this.canvasActor.exports.w_brush_set_param(1, this.brushParams.size || 8);
+        this.canvasActor.exports.w_brush_set_param(4, this.brushParams.flow || 100);
+      }
+    }
 
     // Instant direct execution when smoothing is 0 or when using fill/lasso modes
     if (smooth === 0 || this.brushParams.mode === 3 || this.brushParams.mode === 4) {
@@ -2056,6 +2257,8 @@ class WesenhoScreenHost {
     const ch = this.canvasActor.exports.get_canvas_height();
     const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
     if (!pixPtr || cw === 0 || ch === 0) return false;
+
+    this.pushUndoSnapshot(`filter ${fname}`);
 
     const byteLen = cw * ch * 4;
     if (!plugin.layerPtr || plugin.layerByteLen < byteLen) {
