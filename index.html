@@ -7,13 +7,337 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #1d2021; color: #ebdbb2;
-      font: 13px/1.4 'JetBrains Mono', 'Fira Code', monospace; overflow: hidden; }
+      font: 12px/1.4 'JetBrains Mono', 'Fira Code', monospace; overflow: hidden; }
 
-    #layout { display: flex; height: 100vh; }
+    #layout { display: flex; height: 100vh; position: relative; }
 
     /* ── Canvas area ── */
     #cvswrap { flex: 1; position: relative; overflow: hidden; background: #1d2021; min-width: 0; min-height: 0; }
     #wcanvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+
+    /* ── UI Panel (Left) - Gruvbox Dark ── */
+    #ui-panel {
+      position: relative;
+      width: 290px;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid #3c3836;
+      background: #1d2021;
+      flex-shrink: 0;
+      z-index: 15;
+    }
+    #ui-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: #504945 #1d2021;
+    }
+
+    details.ui-group {
+      border: 1px solid #3c3836;
+      background: #232524;
+      padding: 0;
+    }
+    details.ui-group summary {
+      background: #282828;
+      color: #ebdbb2;
+      padding: 5px 8px;
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 0.6px;
+      cursor: pointer;
+      user-select: none;
+      list-style: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #3c3836;
+    }
+    details.ui-group summary::-webkit-details-marker { display: none; }
+    details.ui-group summary::after { content: '▾'; color: #a89984; font-size: 10px; }
+    details.ui-group:not([open]) summary::after { content: '▸'; }
+    details.ui-group:not([open]) summary { border-bottom: none; }
+    .ui-group-content {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
+    .ui-row-gap { display: flex; align-items: center; gap: 6px; }
+    .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+    .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+
+    .ui-btn {
+      background: #282828;
+      color: #ebdbb2;
+      border: 1px solid #3c3836;
+      padding: 4px 6px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      text-align: center;
+      user-select: none;
+      transition: background 0.1s, border-color 0.1s;
+    }
+    .ui-btn:hover {
+      background: #3c3836;
+      color: #fabd2f;
+      border-color: #504945;
+    }
+    .ui-btn.active {
+      background: #3c3836;
+      color: #fabd2f;
+      border-color: #fabd2f;
+      font-weight: bold;
+    }
+    .ui-mini-btn {
+      background: #282828;
+      color: #ebdbb2;
+      border: 1px solid #3c3836;
+      font: inherit;
+      font-size: 10px;
+      padding: 2px 6px;
+      cursor: pointer;
+    }
+    .ui-mini-btn:hover {
+      background: #3c3836;
+      color: #fabd2f;
+      border-color: #fabd2f;
+    }
+    .ui-mini-btn.active {
+      background: #fabd2f;
+      color: #1d2021;
+      font-weight: bold;
+    }
+
+    .ui-control {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      font-size: 10px;
+    }
+    .ui-label-row {
+      display: flex;
+      justify-content: space-between;
+      color: #a89984;
+    }
+    .ui-val {
+      color: #fabd2f;
+      font-weight: bold;
+    }
+    input[type=range] {
+      accent-color: #fe8019;
+      cursor: pointer;
+      height: 4px;
+      background: #282828;
+      width: 100%;
+    }
+    .ui-select {
+      background: #282828;
+      color: #ebdbb2;
+      border: 1px solid #3c3836;
+      padding: 3px 5px;
+      font: inherit;
+      font-size: 11px;
+      outline: none;
+      width: 100%;
+    }
+
+    /* Color picker styles */
+    .color-preview-box {
+      width: 32px;
+      height: 28px;
+      border: 1px solid #504945;
+      flex-shrink: 0;
+      position: relative;
+    }
+    #ui-color-picker {
+      opacity: 0;
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      cursor: pointer;
+    }
+    #ui-color-hex {
+      flex: 1;
+      background: #282828;
+      border: 1px solid #3c3836;
+      color: #ebdbb2;
+      font: inherit;
+      font-size: 11px;
+      padding: 4px 6px;
+      outline: none;
+    }
+    .color-mode-tabs {
+      display: flex;
+      border: 1px solid #3c3836;
+      background: #1d2021;
+    }
+    .color-mode-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: #a89984;
+      padding: 3px;
+      font: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .color-mode-tab.active {
+      background: #3c3836;
+      color: #fabd2f;
+      font-weight: bold;
+    }
+    .color-sliders-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    /* Swatches */
+    .ui-swatches-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 3px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .swatch-item {
+      height: 20px;
+      border: 1px solid #3c3836;
+      cursor: pointer;
+      position: relative;
+    }
+    .swatch-item:hover {
+      border-color: #fbf1c7;
+      transform: scale(1.05);
+      z-index: 2;
+    }
+    .swatch-del {
+      display: none;
+      position: absolute;
+      top: -3px;
+      right: -3px;
+      background: #fb4934;
+      color: #fff;
+      font-size: 8px;
+      width: 12px;
+      height: 12px;
+      line-height: 11px;
+      text-align: center;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    .swatch-item:hover .swatch-del { display: block; }
+
+    /* Layers */
+    #ui-layers-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      max-height: 240px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #504945 #1d2021;
+    }
+    .ui-layer-card {
+      background: #282828;
+      border: 1px solid #3c3836;
+      padding: 5px 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .ui-layer-card.active-draw {
+      border-color: #b8bb26;
+      background: #2d302a;
+    }
+    .layer-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+    }
+    .layer-card-title {
+      font-weight: bold;
+      color: #ebdbb2;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+      flex: 1;
+    }
+    .ui-layer-card.active-draw .layer-card-title { color: #fabd2f; }
+    .badge-tag {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .badge-draw  { background: #b8bb26; color: #1d2021; }
+    .badge-shape { background: #fe8019; color: #1d2021; }
+    .badge-tex   { background: #83a598; color: #1d2021; }
+
+    .layer-actions-row {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .layer-opacity-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: #a89984;
+    }
+
+    /* UI "Orelha" (tab / pull-tab on panel edge) */
+    #toggle-ui {
+      position: absolute;
+      top: 14px;
+      right: 1px;
+      transform: translateX(100%);
+      z-index: 20;
+      background: #282828;
+      color: #ebdbb2;
+      border: 1px solid #504945;
+      border-left: 1px solid #282828;
+      border-radius: 0;
+      padding: 5px 9px;
+      font: inherit;
+      font-size: 11px;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
+    }
+    #toggle-ui:hover {
+      background: #3c3836;
+      color: #fabd2f;
+      border-color: #7c6f64;
+    }
+    #ui-panel.hidden {
+      width: 0 !important;
+      border-right: none !important;
+    }
+    #ui-panel.hidden > *:not(#toggle-ui) {
+      display: none !important;
+    }
+    #ui-panel.hidden #toggle-ui {
+      right: 0;
+      border-left: none;
+    }
 
     /* ── Panel (REPL + status) - Gruvbox Dark ── */
     #panel {
@@ -24,33 +348,32 @@
       border-left: 1px solid #3c3836;
       background: #1d2021;
       flex-shrink: 0;
+      z-index: 15;
     }
-
     #wterm {
       flex: 1; overflow-y: auto; padding: 8px 10px; font-size: 12px; line-height: 1.5;
       scrollbar-width: thin; scrollbar-color: #504945 #1d2021; color: #ebdbb2;
     }
     #wterm div        { white-space: pre-wrap; word-break: break-word; }
-    #wterm div.err    { color: #fb4934; } /* Gruvbox bright red */
-    #wterm div.ok     { color: #b8bb26; } /* Gruvbox bright green */
-    #wterm div.cmd    { color: #83a598; } /* Gruvbox bright blue */
+    #wterm div.err    { color: #fb4934; }
+    #wterm div.ok     { color: #b8bb26; }
+    #wterm div.cmd    { color: #83a598; }
 
     #inputrow {
       display: flex; align-items: center; gap: 6px;
       padding: 6px 10px; border-top: 1px solid #3c3836; background: #282828;
     }
-    #inputrow span { color: #fabd2f; font-weight: bold; flex-shrink: 0; } /* Gruvbox yellow */
+    #inputrow span { color: #fabd2f; font-weight: bold; flex-shrink: 0; }
     #wcmd {
       flex: 1; background: transparent; border: none; outline: none;
-      color: #fbf1c7; font: inherit; caret-color: #fe8019; /* Gruvbox orange */
+      color: #fbf1c7; font: inherit; caret-color: #fe8019;
     }
-
     #wstatus {
       padding: 5px 10px; font-size: 11px; color: #a89984;
       border-top: 1px solid #3c3836; background: #1d2021;
     }
 
-    /* Console "Orelha" (tab / pull-tab on panel edge) */
+    /* Console "Orelha" */
     #toggle-panel {
       position: absolute;
       top: 14px;
@@ -87,10 +410,33 @@
       border-right: none;
     }
 
-    /* ── Vertical / narrow screens: panel below canvas ── */
+    /* ── Narrow screens ── */
     @media (max-aspect-ratio: 3/4) {
       #layout { flex-direction: column; }
-      #panel  { width: 100%; height: 38vh; border-left: none; border-top: 1px solid #3c3836; }
+      #ui-panel {
+        width: 100%;
+        height: auto;
+        max-height: 32vh;
+        border-right: none;
+        border-bottom: 1px solid #3c3836;
+      }
+      #ui-panel.hidden {
+        width: 100% !important;
+        height: 0 !important;
+        border-bottom: none !important;
+      }
+      #toggle-ui {
+        top: auto;
+        bottom: 1px;
+        right: 14px;
+        transform: translateY(100%);
+        border: 1px solid #504945;
+        border-top: 1px solid #282828;
+        border-right: 1px solid #504945;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.4);
+      }
+      #ui-panel.hidden #toggle-ui { bottom: 0; border-top: none; }
+      #panel  { width: 100%; height: 35vh; border-left: none; border-top: 1px solid #3c3836; }
       #panel.hidden {
         width: 100% !important;
         height: 0 !important;
@@ -106,15 +452,230 @@
         border-right: 1px solid #504945;
         box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.4);
       }
-      #panel.hidden #toggle-panel {
-        top: 0;
-        border-bottom: none;
-      }
+      #panel.hidden #toggle-panel { top: 0; border-bottom: none; }
     }
   </style>
 </head>
 <body>
 <div id="layout">
+  <!-- ── Full UI Panel (Left) ── -->
+  <div id="ui-panel">
+    <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25C0; tools [hide]</button>
+    <div id="ui-scroll">
+
+      <!-- 1. Presets & Tools -->
+      <details class="ui-group" open>
+        <summary>TOOLS &amp; PRESETS</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Brush Preset</span></div>
+            <div class="ui-row-gap">
+              <select id="ui-select-preset" class="ui-select"></select>
+              <button id="ui-btn-save-preset" class="ui-mini-btn" title="Save current brush as preset">+ Save</button>
+              <button id="ui-btn-del-preset" class="ui-mini-btn" title="Delete custom preset">&#x2715;</button>
+            </div>
+          </div>
+          <div class="ui-grid-3">
+            <button class="ui-btn tool-btn active" data-tool="brush" title="Brush (Draw)">Brush</button>
+            <button class="ui-btn tool-btn" data-tool="eraser" title="Eraser">Eraser</button>
+            <button class="ui-btn tool-btn" data-tool="smudge" title="Smudge">Smudge</button>
+            <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
+            <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
+            <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- 2. Brush Parameters -->
+      <details class="ui-group" open>
+        <summary>BRUSH PARAMETERS</summary>
+        <div class="ui-group-content">
+          <!-- Primary -->
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Size</span><span id="ui-val-size" class="ui-val">16</span></div>
+            <input type="range" id="ui-slider-size" min="1" max="500" value="16">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Opacity</span><span id="ui-val-opacity" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-opacity" min="1" max="100" value="100">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Hardness</span><span id="ui-val-hardness" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-hardness" min="0" max="100" value="100">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Flow</span><span id="ui-val-flow" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-flow" min="1" max="100" value="100">
+          </div>
+          <!-- Dynamics -->
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Spacing</span><span id="ui-val-spacing" class="ui-val">5%</span></div>
+            <input type="range" id="ui-slider-spacing" min="1" max="200" value="5">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Smoothing</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-smoothing" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Bézier Midpoint</span><span id="ui-val-midpoint" class="ui-val">50%</span></div>
+            <input type="range" id="ui-slider-midpoint" min="0" max="100" value="50">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Angle</span><span id="ui-val-angle" class="ui-val">0°</span></div>
+            <input type="range" id="ui-slider-angle" min="0" max="359" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Roundness</span><span id="ui-val-roundness" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-roundness" min="1" max="100" value="100">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Scatter</span><span id="ui-val-scatter" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-scatter" min="0" max="200" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Grain / Noise</span><span id="ui-val-grain" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-grain" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Smudge Pickup</span><span id="ui-val-smudge" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-smudge" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Wetness Mix</span><span id="ui-val-wetness" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-wetness" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Fill Tolerance</span><span id="ui-val-tolerance" class="ui-val">32</span></div>
+            <input type="range" id="ui-slider-tolerance" min="0" max="255" value="32">
+          </div>
+        </div>
+      </details>
+
+      <!-- 3. Shape & Grain Texture -->
+      <details class="ui-group" open>
+        <summary>SHAPE &amp; GRAIN</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Tip Shape (Built-in &amp; Layers)</span></div>
+            <select id="ui-select-shape" class="ui-select"></select>
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Grain Texture (Textures &amp; Layers)</span></div>
+            <select id="ui-select-texture" class="ui-select"></select>
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Texture Scale</span><span id="ui-val-tex-scale" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-tex-scale" min="10" max="400" value="100">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Texture Rotate</span><span id="ui-val-tex-rotate" class="ui-val">0°</span></div>
+            <input type="range" id="ui-slider-tex-rotate" min="0" max="359" value="0">
+          </div>
+        </div>
+      </details>
+
+      <!-- 4. Color Picker (RGB + HSL + Swatches) -->
+      <details class="ui-group" open>
+        <summary>COLOR (RGB / HSL)</summary>
+        <div class="ui-group-content">
+          <div class="ui-row-gap">
+            <div class="color-preview-box" id="ui-color-preview">
+              <input type="color" id="ui-color-picker" value="#ebdbb2" title="Click for native color picker">
+            </div>
+            <input type="text" id="ui-color-hex" value="#ebdbb2" spellcheck="false" maxlength="7">
+            <button id="ui-btn-add-swatch" class="ui-mini-btn" title="Add current color to swatches">+ Swatch</button>
+          </div>
+
+          <div class="color-mode-tabs">
+            <button type="button" class="color-mode-tab active" id="tab-rgb">RGB</button>
+            <button type="button" class="color-mode-tab" id="tab-hsl">HSL</button>
+          </div>
+
+          <div id="panel-rgb" class="color-sliders-wrap">
+            <div class="ui-control">
+              <div class="ui-label-row"><span>R (Red)</span><span id="ui-val-rgb-r" class="ui-val">235</span></div>
+              <input type="range" id="ui-slider-r" min="0" max="255" value="235">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>G (Green)</span><span id="ui-val-rgb-g" class="ui-val">219</span></div>
+              <input type="range" id="ui-slider-g" min="0" max="255" value="219">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>B (Blue)</span><span id="ui-val-rgb-b" class="ui-val">178</span></div>
+              <input type="range" id="ui-slider-b" min="0" max="255" value="178">
+            </div>
+          </div>
+
+          <div id="panel-hsl" class="color-sliders-wrap" style="display:none;">
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Hue</span><span id="ui-val-hsl-h" class="ui-val">43°</span></div>
+              <input type="range" id="ui-slider-h" min="0" max="360" value="43">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Saturation</span><span id="ui-val-hsl-s" class="ui-val">60%</span></div>
+              <input type="range" id="ui-slider-s" min="0" max="100" value="60">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Lightness</span><span id="ui-val-hsl-l" class="ui-val">81%</span></div>
+              <input type="range" id="ui-slider-l" min="0" max="100" value="81">
+            </div>
+          </div>
+
+          <div class="ui-control" style="margin-top: 4px;">
+            <div class="ui-label-row"><span>Swatches (click to pick, hover ✕ to delete)</span></div>
+            <div id="ui-swatches-grid" class="ui-swatches-grid"></div>
+          </div>
+        </div>
+      </details>
+
+      <!-- 5. Layers (Canvas, Shapes & Textures) -->
+      <details class="ui-group" open>
+        <summary>LAYERS (CANVAS &amp; SHAPES)</summary>
+        <div class="ui-group-content">
+          <div class="ui-row-between">
+            <span style="font-size:10px; color:#a89984;">Manage &amp; Assign:</span>
+            <div class="ui-row-gap">
+              <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New Layer</button>
+              <button id="ui-btn-clear-layer" class="ui-mini-btn" title="Clear active layer">Clear</button>
+            </div>
+          </div>
+          <div id="ui-layers-list"></div>
+        </div>
+      </details>
+
+      <!-- 6. Filters & Actions -->
+      <details class="ui-group">
+        <summary>FILTERS &amp; EXPORT</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Filter Plugin</span></div>
+            <div class="ui-row-gap">
+              <select id="ui-select-filter" class="ui-select" style="flex:1;">
+                <option value="blur">Blur</option>
+                <option value="brightness">Brightness</option>
+                <option value="contrast">Contrast</option>
+                <option value="dither">Dither</option>
+                <option value="edge">Edge Detect</option>
+                <option value="grayscale">Grayscale</option>
+                <option value="invert">Invert</option>
+                <option value="noise">Noise</option>
+                <option value="pixelate">Pixelate</option>
+                <option value="sepia">Sepia</option>
+                <option value="threshold">Threshold</option>
+              </select>
+              <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
+            </div>
+          </div>
+          <div style="margin-top: 4px;">
+            <button id="ui-btn-export" class="ui-btn" style="width:100%;" title="Export composite drawing as PNG">Export PNG</button>
+          </div>
+        </div>
+      </details>
+
+    </div>
+  </div>
+
+  <!-- ── Canvas area ── -->
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
   </div>
