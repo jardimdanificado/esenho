@@ -29,15 +29,36 @@ const PARAM_IDS = {
   scatter: 8,
   tolerance: 9,
   tol: 9,
-  density: 10,
+  smudge: 10,
+  smudge_strength: 10,
   wetness: 11,
   grain: 12,
   texture_mode: 13,
   tex_mode: 13,
-  texture_scale: 14,
-  tex_scale: 14,
-  texture_strength: 15,
-  tex_strength: 15
+  shape: 14,
+  mode: 15,
+  type: 15
+};
+
+/**
+ * Built-in native brush presets for the Universal Brush Engine
+ */
+const BRUSH_PRESETS = {
+  round: { shape: 0, hardness: 80, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, opacity: 100, flow: 100, angle: 0 },
+  airbrush: { shape: 0, hardness: 0, opacity: 40, flow: 40, roundness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0, angle: 0 },
+  pixel: { shape: 1, hardness: 100, roundness: 100, size: 1, spacing: 10, mode: 0, grain: 0, scatter: 0, opacity: 100, flow: 100, angle: 0 },
+  square: { shape: 1, hardness: 100, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, angle: 0 },
+  calligraphy: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0 },
+  chisel: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0 },
+  charcoal: { shape: 0, grain: 40, hardness: 60, scatter: 10, roundness: 100, mode: 0, spacing: 20 },
+  hatch: { shape: 2, angle: 45, spacing: 80, hardness: 100, roundness: 30, mode: 0, grain: 0, scatter: 0 },
+  scatter: { shape: 0, scatter: 50, grain: 30, hardness: 80, roundness: 100, mode: 0, spacing: 30 },
+  smudge: { mode: 1, smudge: 60, shape: 0, hardness: 80, roundness: 100, grain: 0, scatter: 0 },
+  blend: { mode: 2, wetness: 50, shape: 0, hardness: 80, roundness: 100, grain: 0, scatter: 0 },
+  fill: { mode: 3, tolerance: 32 },
+  flood_fill: { mode: 3, tolerance: 32 },
+  lasso_fill: { mode: 4 },
+  lasso: { mode: 4 }
 };
 
 /**
@@ -327,15 +348,14 @@ function formatLayersList(canvasActor) {
   return out;
 }
 
-/** Formats brush plugin list for CLI output */
+/** Formats tool and brush properties for CLI output */
 function formatBrushesList(screenActor) {
-  let out = `\x1b[1mBrushes:\x1b[0m\n`;
-  for (const [name, actor] of screenActor.plugins.entries()) {
-    if (actor.type === 'brush') {
-      const marker = (name === screenActor.activeBrush) ? '\x1b[32m* [ACTIVE]\x1b[0m' : ' ';
-      out += `  ${marker} ${name}\n`;
-    }
-  }
+  let out = `\x1b[1mBrush & Tool Construction:\x1b[0m
+  Tools / Modes : brush (draw), eraser, smudge, blend, fill, lasso_fill
+  Shapes        : circle, square, chisel
+  Parameters    : size, opacity, hardness, flow, spacing, angle, roundness, scatter, grain, smudge, wetness, tolerance
+  Textures      : paper, canvas, noise, dots, grid, grunge, hatch, none
+`;
   return out;
 }
 
@@ -382,9 +402,10 @@ class WesenhoScreenHost {
     this.isDrawingOnCanvas = false;
     this.strokePrevX = -1;
     this.strokePrevY = -1;
+    this.strokeIsEraser = 0;
 
     // Active Tool, Brush & Color State
-    this.activeBrush = 'round';
+    this.activeBrush = 'custom';
     this.currentColor = 0xFF000000; // Opaque Black (0xAABBGGRR)
     this.currentTool = 0;           // 0 = Brush, 1 = Eraser
 
@@ -399,17 +420,19 @@ class WesenhoScreenHost {
       angle: 0,
       scatter: 0,
       tolerance: 32,
-      density: 50,
+      smudge: 60,
       wetness: 50,
-      grain: 50,
-      texture_mode: 1,
-      texture_scale: 100,
-      texture_strength: 100
+      grain: 0,
+      texture_mode: 0,
+      shape: 0,
+      mode: 0
     };
 
     // Textures & Actors
     this.textures = createProceduralTextures();
-    this.activeTexture = 'paper';
+    this.activeTexture = 'none';
+    this.canvasTexPtr = 0;
+    this.canvasTexByteLen = 0;
 
     this.canvasActor = null;
     this.plugins = new Map(); // name -> { type, module }
@@ -420,32 +443,96 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Syncs a parameter change across all loaded brush plugins directly via ABI.
+   * Sets a brush parameter and forwards it directly to canvas.wasm.
    */
   setBrushParam(paramName, val) {
     const pId = PARAM_IDS[paramName];
     if (pId === undefined) return;
-    this.brushParams[paramName] = val;
-    for (const entry of this.plugins.values()) {
-      if (entry.type === 'brush') {
-        const mod = entry.module || entry.actor;
-        if (mod && typeof mod.exports.w_brush_set_param === 'function') {
-          mod.exports.w_brush_set_param(pId, Math.floor(val));
-        }
+    let numericVal = val;
+    if (typeof val === 'string') {
+      const lower = val.toLowerCase();
+      if (paramName === 'shape') {
+        if (lower === 'circle' || lower === 'round') numericVal = 0;
+        else if (lower === 'square') numericVal = 1;
+        else if (lower === 'chisel' || lower === 'flat') numericVal = 2;
+        else numericVal = parseInt(val, 10) || 0;
+      } else if (paramName === 'mode' || paramName === 'type') {
+        if (lower === 'draw' || lower === 'brush') numericVal = 0;
+        else if (lower === 'smudge') numericVal = 1;
+        else if (lower === 'blend') numericVal = 2;
+        else if (lower === 'fill' || lower === 'flood_fill') numericVal = 3;
+        else if (lower === 'lasso_fill' || lower === 'lasso') numericVal = 4;
+        else numericVal = parseInt(val, 10) || 0;
+      } else {
+        numericVal = parseFloat(val);
       }
+    }
+    this.brushParams[paramName] = numericVal;
+    if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+      this.canvasActor.exports.w_brush_set_param(pId, Math.floor(numericVal));
     }
   }
 
   /**
-   * Syncs all brush parameters to a specific brush plugin.
+   * Selects active texture by name and uploads its buffer into canvas memory.
    */
-  syncBrushParams(plugin) {
-    if (!plugin || typeof plugin.exports.w_brush_set_param !== 'function') return;
+  setTexture(name) {
+    if (!name || name === 'none' || name === '0' || name === 'off') {
+      this.activeTexture = 'none';
+      this.setBrushParam('texture_mode', 0);
+      if (this.canvasActor && typeof this.canvasActor.exports.w_set_texture === 'function') {
+        this.canvasActor.exports.w_set_texture(0, 0, 0);
+      }
+      return true;
+    }
+    const tex = this.textures.get(name.toLowerCase());
+    if (!tex) return false;
+    this.activeTexture = name.toLowerCase();
+    const texModes = { paper: 1, canvas: 2, noise: 3, dots: 4, grid: 5, grunge: 6, hatch: 7 };
+    this.setBrushParam('texture_mode', texModes[this.activeTexture] || 1);
+
+    if (this.canvasActor && typeof this.canvasActor.exports.w_set_texture === 'function') {
+      const texByteLen = tex.width * tex.height * 4;
+      if (!this.canvasTexPtr || this.canvasTexByteLen < texByteLen) {
+        this.canvasTexPtr = 33554432; // 32MB offset in linear memory
+        this.canvasTexByteLen = texByteLen;
+      }
+      this.ensureMemory(this.canvasActor, this.canvasTexPtr + texByteLen);
+      new Uint8Array(this.canvasActor.memory.buffer, this.canvasTexPtr, texByteLen).set(tex.data);
+      this.canvasActor.exports.w_set_texture(this.canvasTexPtr, tex.width, tex.height);
+    }
+    return true;
+  }
+
+  /**
+   * Activates a predefined brush preset and sends all its parameters to canvas.wasm.
+   */
+  selectBrushPreset(name) {
+    const preset = BRUSH_PRESETS[name.toLowerCase()];
+    this.activeBrush = name.toLowerCase();
+    if (preset) {
+      for (const [k, v] of Object.entries(preset)) {
+        this.setBrushParam(k, v);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Syncs all brush parameters to canvas.wasm or a plugin.
+   */
+  syncBrushParams(target) {
+    const mod = target || this.canvasActor;
+    if (!mod || typeof mod.exports.w_brush_set_param !== 'function') return;
     for (const [key, val] of Object.entries(this.brushParams)) {
       const pId = PARAM_IDS[key];
       if (pId !== undefined) {
-        plugin.exports.w_brush_set_param(pId, Math.floor(val));
+        mod.exports.w_brush_set_param(pId, Math.floor(val));
       }
+    }
+    if (this.activeTexture && this.activeTexture !== 'none') {
+      this.setTexture(this.activeTexture);
     }
   }
 
@@ -461,65 +548,23 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Dispatches a stroke directly to the active brush plugin.
+   * Dispatches a stroke directly to the native Universal Brush Engine inside canvas.wasm.
    */
   sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
-    const brushEntry = this.plugins.get(this.activeBrush);
-    if (!brushEntry || !this.canvasActor) return;
-    const plugin = brushEntry.module || brushEntry.actor;
-    if (!plugin || typeof plugin.exports.w_brush_stroke !== 'function') return;
-
-    const cw = this.canvasActor.exports.get_canvas_width();
-    const ch = this.canvasActor.exports.get_canvas_height();
-    const pixPtr = this.canvasActor.exports.get_active_layer_pixels();
-    if (!pixPtr || cw === 0 || ch === 0) return;
-
-    const byteLen = cw * ch * 4;
-    if (!plugin.layerPtr || plugin.layerByteLen < byteLen) {
-      plugin.layerPtr = 1048576; // 1MB linear memory offset
-      plugin.layerByteLen = byteLen;
-    }
-
-    this.ensureMemory(plugin, plugin.layerPtr + byteLen);
-
-    // Copy canvas layer into plugin memory
-    new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen)
-      .set(new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen));
-
-    plugin.setLayer(plugin.layerPtr, cw, ch);
-
-    const tex = this.getActiveTexture();
-    if (tex && tex.width && tex.height && tex.data) {
-      const texByteLen = tex.width * tex.height * 4;
-      if (!plugin.texPtr || plugin.texByteLen < texByteLen) {
-        plugin.texPtr = plugin.layerPtr + Math.max(byteLen, 4096 * 4096 * 4);
-        plugin.texByteLen = texByteLen;
-      }
-      this.ensureMemory(plugin, plugin.texPtr + texByteLen);
-      new Uint8Array(plugin.memory.buffer, plugin.texPtr, texByteLen).set(tex.data);
-      plugin.setTexture(plugin.texPtr, tex.width, tex.height);
-    }
+    if (!this.canvasActor || typeof this.canvasActor.exports.w_brush_stroke !== 'function') return;
 
     const col = (color !== undefined) ? color : this.currentColor;
-    plugin.exports.w_brush_stroke(
+    const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.currentTool === 1 ? 1 : 0);
+
+    this.canvasActor.exports.w_brush_stroke(
       state,
       Math.floor(x),
       Math.floor(y),
       Math.floor(prev_x),
       Math.floor(prev_y),
       col >>> 0,
-      is_eraser ? 1 : 0
+      eraser
     );
-
-    // Copy modified pixels back to canvas
-    new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen)
-      .set(new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen));
-
-    if (this.canvasActor.exports.w_force_composite) {
-      this.canvasActor.exports.w_force_composite();
-    } else if (this.canvasActor.exports.force_composite) {
-      this.canvasActor.exports.force_composite();
-    }
   }
 
   /**
@@ -731,58 +776,52 @@ class WesenhoScreenHost {
     if (cmd === 'help') {
       console.log(`
 \x1b[1mAvailable Commands:\x1b[0m
-  \x1b[36mInspect & Query (list / get):\x1b[0m
-    list [layers|brushes|textures|filters]         List all or specific category
-    get [surface|layer|brush|texture|color|tool]   Get all or specific entity property
-    get size / get width / get height              Get surface dimensions
-    get layer [id|count|opacity|visible]           Get layer properties
-    get brush [name|size|opacity|hardness|...]     Get brush parameters
-    get texture [name|size|count]                  Get texture properties
-    get color / get tool / get zoom / get pan      Get current tool/viewport state
+  \x1b[36mTool & Brush Setup (Build Your Own Custom Brush):\x1b[0m
+    set tool <brush|eraser|square|circle|chisel|smudge|blend|fill|lasso_fill>
+    set mode <draw|eraser|smudge|blend|fill|lasso_fill>
+    set shape <circle|square|chisel>
+    set texture <paper|canvas|noise|dots|grid|grunge|hatch|none>
+    set size <val>               Brush tip radius/size (1..500)
+    set opacity <0..100>         Brush opacity percentage
+    set hardness <0..100>        0% soft airbrush to 100% hard edge
+    set flow <0..100>            Ink flow rate per dab
+    set spacing <1..500>         Dab interpolation spacing
+    set angle <0..359>           Tip rotation angle in degrees
+    set roundness <1..100>       Tip aspect ratio / roundness
+    set scatter <0..500>         Stochastic position jitter
+    set grain <0..100>           Stochastic pixel noise / grain
+    set smudge <0..100>          Smudge pick-up intensity
+    set wetness <0..100>         Color wetness mix ratio
+    set tolerance <0..255>       Flood fill color tolerance
 
-  \x1b[36mSurface & Size Commands:\x1b[0m
-    resize <w> <h>                       Resize surface dimensions (min 16x16)
-    set size <w> <h>                     Set surface resolution
-    set width <w> / set height <h>       Set width or height
+  \x1b[36mInspect & Query (list / get / status):\x1b[0m
+    status / info                Show active tool, brush, surface & viewport status
+    list [layers|textures|filters|all] List entities
+    get [tool|mode|shape|texture|size|opacity|hardness|flow|spacing|angle|roundness|scatter|grain|color|layer|surface]
 
-  \x1b[36mLayer Commands:\x1b[0m
-    new layer [name]                     Add new layer
-    set layer <id>                       Select active layer
-    delete layer [id]                    Delete layer
-    toggle layer [id]                    Toggle layer visibility
-    opacity layer <id> <0..100>          Set layer opacity
-    clear layer                          Clear active layer
-
-  \x1b[36mBrush & Setting Commands:\x1b[0m
-    set brush <name>                     Select brush (round, airbrush, blend, calligraphy,
-                                         charcoal, fill, hatch, lasso_fill, pixel, scatter, smudge)
-    set brush <param> <value>            Set param: size, opacity, hardness, flow, spacing,
-                                         angle, roundness, scatter, tolerance, density, wetness, grain
-
-  \x1b[36mTexture Commands:\x1b[0m
-    set texture <name>                   Select texture (paper, canvas, noise, dots, grid, grunge)
-    layer to texture [name]              Convert active layer to brush texture
+  \x1b[36mSurface & Layer Commands:\x1b[0m
+    resize <w> <h>               Resize canvas dimensions
+    new layer [name]             Add new layer
+    set layer <id>               Select active layer
+    delete layer [id]            Delete layer
+    toggle layer [id]            Toggle layer visibility
+    opacity layer <id> <0..100>  Set layer opacity
+    clear layer                  Clear active layer
+    layer to texture [name]      Convert active layer to reusable texture
 
   \x1b[36mFilter Commands:\x1b[0m
-    filter <name> [param1] [param2]      Apply filter (blur, brightness, contrast, dither,
-                                         edge, grayscale, invert, noise, pixelate, sepia, threshold)
+    filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
+                                 edge, grayscale, invert, noise, pixelate, sepia, threshold)
 
-  \x1b[36mImage I/O Commands:\x1b[0m
-    save [layer] <filename>              Save image (PNG, BMP, PPM)
-    load image <filename> [layer|texture [name]] Load image file into active layer or texture
-
-  \x1b[36mTools & Colors:\x1b[0m
-    set color <#hex|r g b|name>          Set drawing color (e.g. #ff0000, red, 255 0 0)
-    set tool <brush|eraser>              Set active tool
-    draw line <x0> <y0> <x1> <y1> [col]  Draw line primitive
-    draw rect <x> <y> <w> <h> [col]      Draw rectangle primitive
-    draw circle <x> <y> <r> [col]        Draw circle primitive
-    draw grid <step> [col]               Draw grid pattern
-
-  \x1b[36mSystem Commands:\x1b[0m
-    status / info                        Show active status overview
-    eval <expr>                          Evaluate math expression
-    exit / quit                          Quit wesenho
+  \x1b[36mImage I/O & Drawing:\x1b[0m
+    save [layer] <filename>      Export image (PNG, BMP, PPM)
+    load image <filename> [layer|texture [name]] Load image file
+    set color <#hex|r g b|name>  Set drawing color
+    draw line <x0> <y0> <x1> <y1> [col]
+    draw rect <x> <y> <w> <h> [col]
+    draw circle <cx> <cy> <r> [col]
+    draw grid <step> [col]
+    exit / quit                  Quit application
 `);
       return;
     }
@@ -793,7 +832,7 @@ class WesenhoScreenHost {
 
       if (target === 'layer' || target === 'layers') {
         process.stdout.write(formatLayersList(this.canvasActor));
-      } else if (target === 'brush' || target === 'brushes') {
+      } else if (target === 'brush' || target === 'brushes' || target === 'tools') {
         process.stdout.write(formatBrushesList(this));
       } else if (target === 'texture' || target === 'textures') {
         process.stdout.write(formatTexturesList(this));
@@ -854,20 +893,40 @@ class WesenhoScreenHost {
         return;
       }
 
-      if (cat === 'brush') {
-        if (prop === 'name' || prop === '') {
-          console.log(this.activeBrush);
-        } else if (prop === 'params' || prop === 'all') {
-          console.log(JSON.stringify(this.brushParams, null, 2));
-        } else if (this.brushParams[prop] !== undefined) {
-          console.log(this.brushParams[prop]);
+      if (cat === 'tool') {
+        if (this.currentTool === 1) {
+          console.log('eraser');
         } else {
-          console.log(`brush: ${this.activeBrush} | params: size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%`);
+          const modes = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill'];
+          console.log(modes[this.brushParams.mode] || 'brush');
         }
         return;
       }
 
-      if (cat === 'texture') {
+      if (cat === 'mode') {
+        const modes = ['draw', 'smudge', 'blend', 'fill', 'lasso_fill'];
+        console.log(modes[this.brushParams.mode] || 'draw');
+        return;
+      }
+
+      if (cat === 'shape') {
+        const shapes = ['circle', 'square', 'chisel'];
+        console.log(shapes[this.brushParams.shape] || 'circle');
+        return;
+      }
+
+      if (cat === 'brush') {
+        if (prop === 'params' || prop === 'all' || prop === '') {
+          console.log(JSON.stringify(this.brushParams, null, 2));
+        } else if (this.brushParams[prop] !== undefined) {
+          console.log(this.brushParams[prop]);
+        } else {
+          console.log(`brush: shape=${['circle', 'square', 'chisel'][this.brushParams.shape]}, mode=${['draw', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode]}, size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%`);
+        }
+        return;
+      }
+
+      if (cat === 'texture' || cat === 'tex') {
         const tex = this.getActiveTexture();
         if (prop === 'name' || prop === '') {
           console.log(this.activeTexture);
@@ -898,11 +957,6 @@ class WesenhoScreenHost {
         return;
       }
 
-      if (cat === 'tool') {
-        console.log(this.currentTool === 1 ? 'eraser' : 'brush');
-        return;
-      }
-
       if (cat === 'zoom') {
         console.log(`${(this.zoom * 100).toFixed(0)}%`);
         return;
@@ -913,7 +967,12 @@ class WesenhoScreenHost {
         return;
       }
 
-      console.log(`err: unknown get category '${tokens[1]}'. Options: surface, layer, brush, texture, color, tool, zoom, pan`);
+      if (this.brushParams[cat] !== undefined) {
+        console.log(this.brushParams[cat]);
+        return;
+      }
+
+      console.log(`err: unknown get property '${tokens[1]}'`);
       return;
     }
 
@@ -923,14 +982,18 @@ class WesenhoScreenHost {
       const lCount = this.canvasActor.exports.get_layer_count();
       const cw = this.canvasActor.exports.get_width ? this.canvasActor.exports.get_width() : this.canvasActor.exports.get_canvas_width();
       const ch = this.canvasActor.exports.get_height ? this.canvasActor.exports.get_height() : this.canvasActor.exports.get_canvas_height();
+      const shapes = ['circle', 'square', 'chisel'];
+      const modes = ['draw', 'smudge', 'blend', 'fill', 'lasso_fill'];
 
       console.log(`\x1b[1mStatus:\x1b[0m
-  Surface: ${cw}x${ch}
-  Layer:   [${activeL}] of ${lCount}
-  Brush:   ${this.activeBrush} (size: ${this.brushParams.size})
-  Texture: "${this.activeTexture}"
+  Surface: ${cw}x${ch} | Layer: [${activeL}] of ${lCount}
+  Tool:    ${this.currentTool === 1 ? 'eraser' : (modes[this.brushParams.mode] || 'brush')}
+  Mode:    ${modes[this.brushParams.mode] || 'draw'}
+  Shape:   ${shapes[this.brushParams.shape] || 'circle'}
+  Texture: "${this.activeTexture}" (mode: ${this.brushParams.texture_mode})
+  Brush:   size=${this.brushParams.size}, opacity=${this.brushParams.opacity}%, hardness=${this.brushParams.hardness}%, flow=${this.brushParams.flow}%, spacing=${this.brushParams.spacing}%
+  Angle:   ${this.brushParams.angle}°, roundness=${this.brushParams.roundness}%, grain=${this.brushParams.grain}%, scatter=${this.brushParams.scatter}%
   Color:   0x${this.currentColor.toString(16).padStart(8, '0')}
-  Tool:    ${this.currentTool === 1 ? 'eraser' : 'brush'}
   Zoom:    ${(this.zoom * 100).toFixed(0)}% | Pan: (${Math.round(this.panX)}, ${Math.round(this.panY)})
 `);
       return;
@@ -943,7 +1006,7 @@ class WesenhoScreenHost {
     }
 
     // 6. RESIZE / SURFACE COMMANDS
-    if (cmd === 'resize' || (cmd === 'set' && tokens[1] && (tokens[1].toLowerCase() === 'size' || tokens[1].toLowerCase() === 'resolution' || (tokens[1].toLowerCase() === 'canvas' && tokens[2] && tokens[2].toLowerCase() === 'size')))) {
+    if (cmd === 'resize' || (cmd === 'set' && tokens[1] && ((tokens[1].toLowerCase() === 'resolution' && tokens[2] && tokens[3]) || (tokens[1].toLowerCase() === 'size' && tokens[2] && tokens[3]) || (tokens[1].toLowerCase() === 'canvas' && tokens[2] && tokens[2].toLowerCase() === 'size' && tokens[3] && tokens[4])))) {
       const w = parseInt(cmd === 'resize' ? tokens[1] : (tokens[1].toLowerCase() === 'canvas' ? tokens[3] : tokens[2]), 10);
       const h = parseInt(cmd === 'resize' ? tokens[2] : (tokens[1].toLowerCase() === 'canvas' ? tokens[4] : tokens[3]), 10);
       if (w >= 16 && h >= 16 && w <= 4096 && h <= 4096) {
@@ -1026,36 +1089,128 @@ class WesenhoScreenHost {
       return;
     }
 
-    // 8. BRUSH COMMANDS
+    // 8. TOOL & MODE COMMANDS
+    if ((cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'tool' && tokens[2]) ||
+        (cmd === 'tool' && tokens[1])) {
+      const t = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
+      if (t === 'eraser' || t === 'erase') {
+        this.currentTool = 1;
+        this.sendConsoleLog('tool set to eraser');
+      } else if (t === 'brush' || t === 'draw') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 0);
+        this.sendConsoleLog('tool set to brush (draw)');
+      } else if (t === 'square' || t === 'circle' || t === 'round' || t === 'chisel' || t === 'flat') {
+        this.setBrushParam('shape', t);
+        this.sendConsoleLog(`brush shape set to ${t}`);
+      } else if (t === 'smudge') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 1);
+        this.sendConsoleLog('tool set to smudge');
+      } else if (t === 'blend') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 2);
+        this.sendConsoleLog('tool set to blend');
+      } else if (t === 'fill' || t === 'flood_fill') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 3);
+        this.sendConsoleLog('tool set to flood fill');
+      } else if (t === 'lasso_fill' || t === 'lasso') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 4);
+        this.sendConsoleLog('tool set to lasso fill');
+      } else {
+        this.sendConsoleLog(`err: unknown tool '${tokens[2]}'`, 0xFFFF5555);
+      }
+      return;
+    }
+
+    if (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'mode' && tokens[2]) {
+      const m = tokens[2].toLowerCase();
+      if (m === 'eraser' || m === 'erase') {
+        this.currentTool = 1;
+        this.sendConsoleLog('mode set to eraser');
+      } else if (m === 'draw' || m === 'brush') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 0);
+        this.sendConsoleLog('mode set to draw');
+      } else if (m === 'smudge') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 1);
+        this.sendConsoleLog('mode set to smudge');
+      } else if (m === 'blend') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 2);
+        this.sendConsoleLog('mode set to blend');
+      } else if (m === 'fill' || m === 'flood_fill') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 3);
+        this.sendConsoleLog('mode set to fill');
+      } else if (m === 'lasso_fill' || m === 'lasso') {
+        this.currentTool = 0;
+        this.setBrushParam('mode', 4);
+        this.sendConsoleLog('mode set to lasso fill');
+      } else {
+        this.sendConsoleLog(`err: unknown mode '${tokens[2]}'`, 0xFFFF5555);
+      }
+      return;
+    }
+
+    if (cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'shape' && tokens[2]) {
+      this.setBrushParam('shape', tokens[2]);
+      this.sendConsoleLog(`brush shape set to ${tokens[2]}`);
+      return;
+    }
+
+    // 9. TEXTURE COMMANDS
+    if ((cmd === 'set' && tokens[1] && (tokens[1].toLowerCase() === 'texture' || tokens[1].toLowerCase() === 'tex') && tokens[2]) ||
+        ((cmd === 'texture' || cmd === 'tex') && tokens[1])) {
+      const tname = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
+      const ok = this.setTexture(tname);
+      if (ok) {
+        this.sendConsoleLog(`texture set to '${tname}'`);
+      } else {
+        this.sendConsoleLog(`err: texture '${tname}' not found. Options: paper, canvas, noise, dots, grid, grunge, hatch, none`, 0xFFFF5555);
+      }
+      return;
+    }
+
+    if ((cmd === 'layer' && tokens[1] && tokens[1].toLowerCase() === 'to' && tokens[2] && tokens[2].toLowerCase() === 'texture') ||
+        cmd === 'layer-to-texture' || cmd === 'layertotexture') {
+      const tname = (cmd === 'layer' ? tokens[3] : tokens[1]) || `layer_${Date.now() % 1000}`;
+      const ok = this.convertLayerToTexture(-1, tname);
+      if (ok) {
+        this.sendConsoleLog(`layer converted to texture '${tname}'`);
+      } else {
+        this.sendConsoleLog(`err: failed converting layer to texture`, 0xFFFF5555);
+      }
+      return;
+    }
+
+    // 10. BRUSH / PARAMETER COMMANDS
     if ((cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'brush') || (cmd === 'brush' && tokens[1])) {
       const sub = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
       const val = (cmd === 'set' ? tokens[3] : tokens[2]);
 
       if (PARAM_IDS[sub] !== undefined && val !== undefined) {
-        const paramVal = parseFloat(val);
-        this.setBrushParam(sub, paramVal);
+        this.setBrushParam(sub, val);
         this.sendConsoleLog(`brush ${sub} set to ${val}`);
         return;
+      } else if (BRUSH_PRESETS[sub]) {
+        this.selectBrushPreset(sub);
+        this.sendConsoleLog(`brush preset '${sub}' applied`);
+        return;
       } else {
-        if (this.plugins.has(sub)) {
-          this.activeBrush = sub;
-          this.sendConsoleLog(`active brush switched to '${sub}'`);
-        } else {
-          this.sendConsoleLog(`err: brush '${sub}' not found`, 0xFFFF5555);
-        }
+        this.sendConsoleLog(`err: unknown brush parameter '${sub}'`, 0xFFFF5555);
         return;
       }
     }
 
-    // 9. TEXTURE COMMANDS
-    if ((cmd === 'set' && tokens[1] && tokens[1].toLowerCase() === 'texture') || (cmd === 'texture' && tokens[1])) {
-      const tname = (cmd === 'set' ? tokens[2] : tokens[1]).toLowerCase();
-      if (this.textures.has(tname)) {
-        this.activeTexture = tname;
-        this.sendConsoleLog(`active texture set to '${tname}'`);
-      } else {
-        this.sendConsoleLog(`err: texture '${tname}' not found`, 0xFFFF5555);
-      }
+    // Direct parameter setters: set size 20, set hardness 50, set angle 45, set roundness 30, set grain 20, set scatter 15, etc.
+    if (cmd === 'set' && tokens[1] && PARAM_IDS[tokens[1].toLowerCase()] !== undefined && tokens[2] !== undefined) {
+      const sub = tokens[1].toLowerCase();
+      this.setBrushParam(sub, tokens[2]);
+      this.sendConsoleLog(`brush ${sub} set to ${tokens[2]}`);
       return;
     }
 
@@ -1237,8 +1392,7 @@ class WesenhoScreenHost {
       } else if (this.isDrawingOnCanvas && (this.mouseState.buttons & 3)) {
         const docX = (this.mouseState.x - this.panX) / this.zoom;
         const docY = (this.mouseState.y - this.panY) / this.zoom;
-        const isEraser = (this.mouseState.buttons & 2) ? 1 : (this.currentTool === 1 ? 1 : 0);
-        this.sendStroke(docX, docY, this.strokePrevX, this.strokePrevY, 1 /* STROKE_MOVE */, isEraser, this.currentColor);
+        this.sendStroke(docX, docY, this.strokePrevX, this.strokePrevY, 1 /* STROKE_MOVE */, this.strokeIsEraser, this.currentColor);
         this.strokePrevX = docX;
         this.strokePrevY = docY;
       }
@@ -1259,8 +1413,8 @@ class WesenhoScreenHost {
         const docY = (this.mouseState.y - this.panY) / this.zoom;
         this.strokePrevX = docX;
         this.strokePrevY = docY;
-        const isEraser = (e.button === 3) ? 1 : (this.currentTool === 1 ? 1 : 0);
-        this.sendStroke(docX, docY, docX, docY, 0 /* STROKE_START */, isEraser, this.currentColor);
+        this.strokeIsEraser = (e.button === 3) ? 1 : (this.currentTool === 1 ? 1 : 0);
+        this.sendStroke(docX, docY, docX, docY, 0 /* STROKE_START */, this.strokeIsEraser, this.currentColor);
       }
     });
 
@@ -1274,12 +1428,12 @@ class WesenhoScreenHost {
 
       if ((this.mouseState.buttons & 3) === 0) {
         if (this.isDrawingOnCanvas) {
-          const isEraser = (this.currentTool === 1);
-          this.sendStroke(this.strokePrevX, this.strokePrevY, this.strokePrevX, this.strokePrevY, 2 /* STROKE_END */, isEraser, this.currentColor);
+          this.sendStroke(this.strokePrevX, this.strokePrevY, this.strokePrevX, this.strokePrevY, 2 /* STROKE_END */, this.strokeIsEraser, this.currentColor);
         }
         this.isDrawingOnCanvas = false;
         this.strokePrevX = -1;
         this.strokePrevY = -1;
+        this.strokeIsEraser = 0;
       }
     });
 
@@ -1372,7 +1526,7 @@ class WesenhoScreenHost {
 }
 
 /**
- * Discovers compiled WASM plugins from `plugins/brushes` and `plugins/filters`.
+ * Discovers compiled WASM filter plugins from `plugins/filters`.
  * @param {string} baseDir - Root directory path
  * @returns {Array<{id: number, name: string, type: string, wasmPath: string}>}
  */
@@ -1383,8 +1537,7 @@ function discoverModules(baseDir) {
   const pluginsDir = path.resolve(baseDir, 'plugins');
   if (fs.existsSync(pluginsDir)) {
     const subdirs = [
-      { dir: 'filters', type: 'filter' },
-      { dir: 'brushes', type: 'brush' }
+      { dir: 'filters', type: 'filter' }
     ];
     for (const { dir: sub, type } of subdirs) {
       const dir = path.join(pluginsDir, sub);
@@ -1420,17 +1573,15 @@ async function main() {
   if (host.canvasActor.exports.w_init) {
     host.canvasActor.exports.w_init(DOC_WIDTH, DOC_HEIGHT);
   }
+  host.syncBrushParams(host.canvasActor);
 
-  // Discover & Load WASM Plugins (Brushes & Filters)
+  // Discover & Load WASM Filter Plugins
   const moduleConfigs = discoverModules(path.resolve(__dirname, '..'));
   for (const mod of moduleConfigs) {
     const fullPath = path.resolve(__dirname, '..', mod.wasmPath);
     if (!fs.existsSync(fullPath)) continue;
 
     const pluginModule = new WesenhoModule(fullPath, { name: mod.name });
-    if (mod.type === 'brush') {
-      host.syncBrushParams(pluginModule);
-    }
     host.plugins.set(mod.name, { type: mod.type, module: pluginModule, actor: pluginModule });
   }
 
