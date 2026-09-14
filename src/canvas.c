@@ -84,6 +84,35 @@ static void ensure_layer_capacity(int min_cap) {
     layer_capacity = new_cap;
 }
 
+#define MAX_ORDER_LAYERS 256
+static int32_t layer_order[MAX_ORDER_LAYERS];
+static int32_t layer_order_count = 0;
+
+static void layer_order_add(int32_t idx) {
+    for (int i = 0; i < layer_order_count; i++) {
+        if (layer_order[i] == idx) return;
+    }
+    if (layer_order_count < MAX_ORDER_LAYERS) {
+        layer_order[layer_order_count++] = idx;
+    }
+}
+
+static void layer_order_remove(int32_t idx) {
+    int found = -1;
+    for (int i = 0; i < layer_order_count; i++) {
+        if (layer_order[i] == idx) {
+            found = i;
+            break;
+        }
+    }
+    if (found >= 0) {
+        for (int i = found; i < layer_order_count - 1; i++) {
+            layer_order[i] = layer_order[i + 1];
+        }
+        layer_order_count--;
+    }
+}
+
 static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
     if (w <= 0 || h <= 0) return -1;
     ensure_layer_capacity(layer_count + 1);
@@ -100,6 +129,7 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
             layers[i].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
             for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[i].pixels[p] = 0x00000000;
             if (i >= layer_count) layer_count = i + 1;
+            layer_order_add(i);
             return i;
         }
     }
@@ -115,6 +145,7 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
     layers[idx].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
     for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[idx].pixels[p] = 0x00000000;
     layer_count = idx + 1;
+    layer_order_add(idx);
     return idx;
 }
 
@@ -230,8 +261,10 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
         }
     }
 
-    for (int l = 0; l < layer_count; l++) {
-        if (!layers[l].in_use || !layers[l].visible) continue;
+    int order_cnt = (layer_order_count > 0) ? layer_order_count : layer_count;
+    for (int p = 0; p < order_cnt; p++) {
+        int l = (layer_order_count > 0) ? layer_order[p] : p;
+        if (l < 0 || l >= layer_count || !layers[l].in_use || !layers[l].visible) continue;
         uint8_t op = layers[l].opacity;
         if (op == 0) continue;
         uint32_t *src_pix = layers[l].pixels;
@@ -803,6 +836,7 @@ static void init_surface_if_needed(void) {
 
         layer_count = 4;
         active_layer = 3;
+        for (int i = 0; i < 4; i++) layer_order_add(i);
         force_composite();
     }
 }
@@ -887,6 +921,7 @@ W_EXPORT void w_layer_set_pixels(int32_t layer_idx, uint32_t *pixels, int32_t wi
         layers[layer_idx].width = width;
         layers[layer_idx].height = height;
         if (layer_idx >= layer_count) layer_count = layer_idx + 1;
+        layer_order_add(layer_idx);
     }
 }
 
@@ -896,6 +931,7 @@ W_EXPORT void w_layer_delete(int32_t idx) {
         clear_layer_pixels(layers[idx].pixels, layers[idx].width * layers[idx].height);
         layers[idx].in_use = 0;
         layers[idx].visible = 0;
+        layer_order_remove(idx);
         if (active_layer == idx) {
             for (int l = layer_count - 1; l >= 0; l--) {
                 if (layers[l].in_use && layers[l].visible) {
@@ -1041,6 +1077,96 @@ W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx) {
     active_layer = new_idx;
     force_composite();
     return new_idx;
+}
+
+W_EXPORT int32_t w_layer_get_order_count(void) {
+    init_surface_if_needed();
+    return layer_order_count;
+}
+
+W_EXPORT int32_t w_layer_get_order(int32_t pos) {
+    init_surface_if_needed();
+    if (pos >= 0 && pos < layer_order_count) return layer_order[pos];
+    return -1;
+}
+
+W_EXPORT int32_t w_layer_move_up(int32_t layer_idx) {
+    init_surface_if_needed();
+    int target = (layer_idx >= 0) ? layer_idx : active_layer;
+    for (int i = 0; i < layer_order_count - 1; i++) {
+        if (layer_order[i] == target) {
+            int32_t tmp = layer_order[i];
+            layer_order[i] = layer_order[i + 1];
+            layer_order[i + 1] = tmp;
+            force_composite();
+            return 1;
+        }
+    }
+    return 0;
+}
+
+W_EXPORT int32_t w_layer_move_down(int32_t layer_idx) {
+    init_surface_if_needed();
+    int target = (layer_idx >= 0) ? layer_idx : active_layer;
+    for (int i = 1; i < layer_order_count; i++) {
+        if (layer_order[i] == target) {
+            int32_t tmp = layer_order[i];
+            layer_order[i] = layer_order[i - 1];
+            layer_order[i - 1] = tmp;
+            force_composite();
+            return 1;
+        }
+    }
+    return 0;
+}
+
+W_EXPORT int32_t w_layer_merge_down(int32_t layer_idx) {
+    init_surface_if_needed();
+    int src = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (src < 0 || src >= layer_count || !layers[src].in_use) return -1;
+
+    int pos = -1;
+    for (int i = 0; i < layer_order_count; i++) {
+        if (layer_order[i] == src) {
+            pos = i;
+            break;
+        }
+    }
+    if (pos <= 0) return -1; // Cannot merge down bottom layer
+
+    int dst = layer_order[pos - 1];
+    if (dst < 0 || dst >= layer_count || !layers[dst].in_use) return -1;
+
+    layer_t *s = &layers[src];
+    layer_t *d = &layers[dst];
+    if (!s->pixels || !d->pixels) return -1;
+
+    int sw = s->width, sh = s->height;
+    int dw = d->width, dh = d->height;
+    uint8_t sop = s->opacity;
+
+    for (int y = 0; y < dh; y++) {
+        int sy = y + d->y - s->y;
+        if (sy < 0 || sy >= sh) continue;
+        int d_row = y * dw;
+        int s_row = sy * sw;
+        for (int x = 0; x < dw; x++) {
+            int sx = x + d->x - s->x;
+            if (sx < 0 || sx >= sw) continue;
+            uint32_t sp = s->pixels[s_row + sx];
+            if ((sp >> 24) == 0) continue;
+            d->pixels[d_row + x] = blend_pixel(d->pixels[d_row + x], sp, sop);
+        }
+    }
+
+    clear_layer_pixels(s->pixels, s->width * s->height);
+    s->in_use = 0;
+    s->visible = 0;
+    layer_order_remove(src);
+
+    active_layer = dst;
+    force_composite();
+    return dst;
 }
 
 // Backward-compatible Texture Aliases

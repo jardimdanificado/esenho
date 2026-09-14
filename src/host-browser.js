@@ -265,13 +265,14 @@ async function main() {
       if (!hasMoved) return;
 
       const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
+      const scale = parseFloat(getComputedStyle(panel).zoom) || 1;
       if (isVertical) {
-        let newH = (side === 'left') ? (startDim + dy) : (startDim - dy);
+        let newH = (side === 'left') ? (startDim + dy / scale) : (startDim - dy / scale);
         newH = Math.max(70, Math.min(window.innerHeight * 0.7, newH));
         panel.style.height = `${newH}px`;
         panel.style.maxHeight = `${newH}px`;
       } else {
-        let newW = (side === 'left') ? (startDim + dx) : (startDim - dx);
+        let newW = (side === 'left') ? (startDim + dx / scale) : (startDim - dx / scale);
         newW = Math.max(160, Math.min(window.innerWidth * 0.8, newW));
         panel.style.width = `${newW}px`;
       }
@@ -709,12 +710,13 @@ async function main() {
     e.preventDefault();
   }, { passive: false });
 
-  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate ── */
+  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo ── */
   const touch = {
     prevTouches: null,   /* TouchList snapshot from last event */
     drawing: false,
     pending: null,       /* Pending touch: { sx, sy, x, y } */
-    timer: null
+    timer: null,
+    tapGesture: null     /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
   };
 
   function commitPendingTouch() {
@@ -727,11 +729,6 @@ async function main() {
         lassoPoints = [{ x: p.x, y: p.y }];
       }
       host.sendStroke(p.x, p.y, p.x, p.y, 0, host.strokeIsEraser, host.currentColor);
-      touch.pending = null;
-    }
-    if (touch.timer) {
-      clearTimeout(touch.timer);
-      touch.timer = null;
     }
   }
 
@@ -759,7 +756,7 @@ async function main() {
 
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
       touch.pending = { sx, sy, x, y };
       if (touch.timer) clearTimeout(touch.timer);
@@ -776,10 +773,23 @@ async function main() {
         touch.drawing = false;
         lassoPoints = [];
       }
-      if (e.touches.length === 2) {
-        touch.twoFingerTap = { time: Date.now(), moved: false };
-      } else if (e.touches.length === 3) {
-        touch.threeFingerTap = { time: Date.now(), moved: false };
+      if (e.touches.length >= 2) {
+        if (!touch.tapGesture || (Date.now() - touch.tapGesture.time > 400)) {
+          touch.tapGesture = {
+            time: Date.now(),
+            maxFingers: e.touches.length,
+            moved: false,
+            startPositions: new Map()
+          };
+        } else if (e.touches.length > touch.tapGesture.maxFingers) {
+          touch.tapGesture.maxFingers = e.touches.length;
+        }
+        for (let i = 0; i < e.touches.length; i++) {
+          const t = e.touches[i];
+          if (!touch.tapGesture.startPositions.has(t.identifier)) {
+            touch.tapGesture.startPositions.set(t.identifier, { x: t.clientX, y: t.clientY });
+          }
+        }
       }
     }
     touch.prevTouches = e.touches;
@@ -787,7 +797,7 @@ async function main() {
 
   canvasEl.addEventListener('touchmove', e => {
     e.preventDefault();
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
       if (touch.pending) {
         const dist = Math.hypot(sx - touch.pending.sx, sy - touch.pending.sy);
@@ -805,7 +815,7 @@ async function main() {
         updateStatus(host, x, y);
       }
 
-    } else if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length === 2) {
+    } else if (e.touches.length >= 2) {
       clearPendingTouch();
       if (touch.drawing) {
         host.sendStroke(host.strokePrevX, host.strokePrevY,
@@ -815,41 +825,43 @@ async function main() {
         lassoPoints = [];
       }
 
-      const [a, b] = [e.touches[0], e.touches[1]];
-      const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
-
-      if (touch.twoFingerTap) {
-        if (Math.hypot(a.clientX - pa.clientX, a.clientY - pa.clientY) > 8 ||
-            Math.hypot(b.clientX - pb.clientX, b.clientY - pb.clientY) > 8) {
-          touch.twoFingerTap.moved = true;
+      if (touch.tapGesture && !touch.tapGesture.moved) {
+        for (let i = 0; i < e.touches.length; i++) {
+          const t = e.touches[i];
+          const sp = touch.tapGesture.startPositions.get(t.identifier);
+          if (sp && Math.hypot(t.clientX - sp.x, t.clientY - sp.y) > 12) {
+            touch.tapGesture.moved = true;
+            break;
+          }
         }
       }
 
-      /* Current / previous midpoints on screen */
-      const mid  = touchMidpoint(a, b);
-      const pmid = touchMidpoint(pa, pb);
+      if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length === 2) {
+        const [a, b] = [e.touches[0], e.touches[1]];
+        const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
 
-      /* Pan: midpoint delta */
-      host.panX += mid.sx - pmid.sx;
-      host.panY += mid.sy - pmid.sy;
+        /* Current / previous midpoints on screen */
+        const mid  = touchMidpoint(a, b);
+        const pmid = touchMidpoint(pa, pb);
 
-      /* Pinch-zoom around current midpoint */
-      const curDist  = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-      const prevDist = Math.hypot(pa.clientX - pb.clientX, pa.clientY - pb.clientY);
-      if (prevDist > 1) {
-        const f = curDist / prevDist, old = host.zoom;
-        host.zoom = Math.max(0.05, Math.min(20, host.zoom * f));
-        host.panX = mid.sx - (mid.sx - host.panX) * (host.zoom / old);
-        host.panY = mid.sy - (mid.sy - host.panY) * (host.zoom / old);
-      }
+        /* Pan: midpoint delta */
+        host.panX += mid.sx - pmid.sx;
+        host.panY += mid.sy - pmid.sy;
 
-      /* Rotation: angle between finger vectors */
-      const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
-      const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
-      host.canvasRotation += curAngle - prevAngle;
-    } else if (e.touches.length === 3) {
-      if (touch.threeFingerTap) {
-        touch.threeFingerTap.moved = true;
+        /* Pinch-zoom around current midpoint */
+        const curDist  = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+        const prevDist = Math.hypot(pa.clientX - pb.clientX, pa.clientY - pb.clientY);
+        if (prevDist > 1) {
+          const f = curDist / prevDist, old = host.zoom;
+          host.zoom = Math.max(0.05, Math.min(20, host.zoom * f));
+          host.panX = mid.sx - (mid.sx - host.panX) * (host.zoom / old);
+          host.panY = mid.sy - (mid.sy - host.panY) * (host.zoom / old);
+        }
+
+        /* Rotation: angle between finger vectors */
+        const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
+        const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
+        host.canvasRotation += curAngle - prevAngle;
       }
     }
 
@@ -874,15 +886,21 @@ async function main() {
       lassoPoints = [];
     }
 
-    if (touch.twoFingerTap && !touch.twoFingerTap.moved && (Date.now() - touch.twoFingerTap.time < 350)) {
-      host.undo();
-      touch.twoFingerTap = null;
-    } else if (touch.threeFingerTap && !touch.threeFingerTap.moved && (Date.now() - touch.threeFingerTap.time < 350)) {
-      host.redo();
-      touch.threeFingerTap = null;
+    if (touch.tapGesture) {
+      if (e.touches.length === 0) {
+        const elapsed = Date.now() - touch.tapGesture.time;
+        if (!touch.tapGesture.moved && elapsed < 400) {
+          if (touch.tapGesture.maxFingers === 3) {
+            host.redo();
+            log('Redo (3-finger tap)');
+          } else if (touch.tapGesture.maxFingers === 2) {
+            host.undo();
+            log('Undo (2-finger tap)');
+          }
+        }
+        touch.tapGesture = null;
+      }
     }
-    if (e.touches.length < 2) touch.twoFingerTap = null;
-    if (e.touches.length < 3) touch.threeFingerTap = null;
 
     clearPendingTouch();
     touch.prevTouches = e.touches;
@@ -897,6 +915,7 @@ async function main() {
       touch.drawing = false;
       lassoPoints = [];
     }
+    touch.tapGesture = null;
     touch.prevTouches = null;
   });
 
@@ -1407,76 +1426,120 @@ async function main() {
     renderSwatches();
   }
 
-  function renderSwatches() {
-    const grid = document.getElementById('ui-swatches-grid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    let swatchDeleteMode = false;
 
-    DEFAULT_SWATCHES.forEach(col => {
-      const el = document.createElement('div');
-      el.className = 'swatch-item';
-      el.style.background = col;
-      el.title = `${col} (built-in)`;
-      el.addEventListener('click', () => {
-        updateColorControlsFromHex(col);
-        runCmd(`set color ${col}`);
-      });
-      grid.appendChild(el);
-    });
+    function renderSwatches() {
+      const grid = document.getElementById('ui-swatches-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      grid.classList.toggle('delete-mode', swatchDeleteMode);
 
-    const custom = getCustomSwatches();
-    custom.forEach((col, idx) => {
-      const el = document.createElement('div');
-      el.className = 'swatch-item';
-      el.style.background = col;
-      el.title = `${col} (right-click or click [x] to delete)`;
-      el.addEventListener('click', () => {
-        updateColorControlsFromHex(col);
-        runCmd(`set color ${col}`);
-      });
-      el.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        removeCustomSwatch(idx);
+      DEFAULT_SWATCHES.forEach(col => {
+        const el = document.createElement('div');
+        el.className = 'swatch-item';
+        el.style.background = col;
+        el.title = `${col} (built-in)`;
+        el.addEventListener('click', () => {
+          updateColorControlsFromHex(col);
+          runCmd(`set color ${col}`);
+        });
+        grid.appendChild(el);
       });
 
-      const del = document.createElement('span');
-      del.className = 'swatch-del';
-      del.textContent = 'x';
-      del.title = 'Delete swatch';
-      del.addEventListener('click', e => {
-        e.stopPropagation();
-        removeCustomSwatch(idx);
+      const custom = getCustomSwatches();
+      custom.forEach((col, idx) => {
+        const el = document.createElement('div');
+        el.className = 'swatch-item';
+        el.style.background = col;
+        el.title = swatchDeleteMode
+          ? `Click to delete ${col}`
+          : `${col} (right-click, long-press, or toggle [- Del] to delete)`;
+
+        el.addEventListener('click', () => {
+          if (swatchDeleteMode) {
+            removeCustomSwatch(idx);
+            log(`Swatch ${col} removed [ok]`);
+          } else {
+            updateColorControlsFromHex(col);
+            runCmd(`set color ${col}`);
+          }
+        });
+
+        // Touch long-press to delete on mobile
+        let longPressTimer = null;
+        el.addEventListener('touchstart', () => {
+          longPressTimer = setTimeout(() => {
+            removeCustomSwatch(idx);
+            log(`Swatch ${col} removed [ok]`);
+          }, 450);
+        }, { passive: true });
+        el.addEventListener('touchend', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+        el.addEventListener('touchmove', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+
+        el.addEventListener('contextmenu', e => {
+          e.preventDefault();
+          removeCustomSwatch(idx);
+          log(`Swatch ${col} removed [ok]`);
+        });
+
+        const del = document.createElement('span');
+        del.className = 'swatch-del';
+        del.textContent = '✕';
+        del.title = 'Delete swatch';
+        del.addEventListener('click', e => {
+          e.stopPropagation();
+          removeCustomSwatch(idx);
+          log(`Swatch ${col} removed [ok]`);
+        });
+        el.appendChild(del);
+
+        grid.appendChild(el);
       });
-      el.appendChild(del);
+    }
 
-      grid.appendChild(el);
-    });
-  }
+    const addSwatchBtn = document.getElementById('ui-btn-add-swatch');
+    if (addSwatchBtn) {
+      addSwatchBtn.addEventListener('click', () => {
+        const hex = colorHex ? colorHex.value.trim() : '';
+        if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+          addCustomSwatch(hex);
+          log(`Swatch ${hex} added [ok]`);
+        }
+      });
+    }
 
-  const addSwatchBtn = document.getElementById('ui-btn-add-swatch');
-  if (addSwatchBtn) {
-    addSwatchBtn.addEventListener('click', () => {
-      const hex = colorHex ? colorHex.value.trim() : '';
-      if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
-        addCustomSwatch(hex);
-        log(`Swatch ${hex} added [ok]`);
-      }
-    });
-  }
+    const delSwatchBtn = document.getElementById('ui-btn-del-swatch');
+    if (delSwatchBtn) {
+      delSwatchBtn.addEventListener('click', () => {
+        swatchDeleteMode = !swatchDeleteMode;
+        delSwatchBtn.classList.toggle('del-active', swatchDeleteMode);
+        renderSwatches();
+      });
+    }
 
-  // 4. Layers Buttons
-  const addLayerBtn = document.getElementById('ui-btn-add-layer');
-  if (addLayerBtn) {
-    addLayerBtn.addEventListener('click', () => runCmd('new layer'));
-  }
-  const dupLayerBtn = document.getElementById('ui-btn-duplicate-layer');
-  if (dupLayerBtn) {
-    dupLayerBtn.addEventListener('click', () => runCmd('duplicate layer'));
-  }
-  const clearLayerBtn = document.getElementById('ui-btn-clear-layer');
-  if (clearLayerBtn) {
-    clearLayerBtn.addEventListener('click', () => runCmd('clear layer'));
-  }
+    // 4. Layers Buttons
+    const addLayerBtn = document.getElementById('ui-btn-add-layer');
+    if (addLayerBtn) {
+      addLayerBtn.addEventListener('click', () => runCmd('new layer'));
+    }
+    const newGroupBtn = document.getElementById('ui-btn-new-group');
+    if (newGroupBtn) {
+      newGroupBtn.addEventListener('click', () => {
+        const name = prompt('Folder name (or leave empty):', '');
+        if (name !== null) {
+          if (name.trim()) runCmd(`group new ${name.trim()}`);
+          else runCmd('group new');
+        }
+      });
+    }
+    const dupLayerBtn = document.getElementById('ui-btn-duplicate-layer');
+    if (dupLayerBtn) {
+      dupLayerBtn.addEventListener('click', () => runCmd('duplicate layer'));
+    }
+    const clearLayerBtn = document.getElementById('ui-btn-clear-layer');
+    if (clearLayerBtn) {
+      clearLayerBtn.addEventListener('click', () => runCmd('clear layer'));
+    }
 
   // View Navigation Controls
   const btnZoomIn = document.getElementById('ui-btn-zoom-in');
@@ -1546,6 +1609,76 @@ async function main() {
       localStorage.setItem('wesenho_pixel_grid', host.showPixelGrid ? '1' : '0');
     });
   }
+
+  // ── UI Scale / DPI Adaptation ──
+  function getAutoUiScale() {
+    const dpr = window.devicePixelRatio || 1;
+    if (dpr >= 2.2) return 1.5;
+    if (dpr >= 1.6) return 1.25;
+    if (dpr >= 1.3) return 1.15;
+    if (dpr <= 0.85) return 0.85;
+    return 1.0;
+  }
+
+  function applyUiScale(scaleVal) {
+    let effective = 1.0;
+    const isAuto = (!scaleVal || scaleVal === 'auto');
+    if (isAuto) {
+      effective = getAutoUiScale();
+    } else {
+      let cleaned = String(scaleVal).trim();
+      if (cleaned.endsWith('%')) {
+        effective = parseFloat(cleaned) / 100;
+      } else {
+        effective = parseFloat(cleaned);
+      }
+      if (isNaN(effective) || effective < 0.5 || effective > 3.0) effective = 1.0;
+    }
+
+    document.documentElement.style.setProperty('--ui-scale', effective);
+
+    const valEl = document.getElementById('ui-val-scale');
+    if (valEl) {
+      valEl.textContent = `${Math.round(effective * 100)}%${isAuto ? ' (auto)' : ''}`;
+    }
+
+    const selEl = document.getElementById('ui-select-scale');
+    if (selEl) {
+      if (isAuto) {
+        selEl.value = 'auto';
+      } else {
+        selEl.value = String(effective);
+        if (selEl.selectedIndex === -1) {
+          const opt = document.createElement('option');
+          opt.value = String(effective);
+          opt.textContent = `Custom (${Math.round(effective * 100)}%)`;
+          selEl.appendChild(opt);
+          selEl.value = String(effective);
+        }
+      }
+    }
+
+    try {
+      localStorage.setItem('wesenho_ui_scale', isAuto ? 'auto' : String(effective));
+    } catch (_) {}
+
+    setTimeout(() => {
+      if (typeof resize === 'function') resize();
+    }, 50);
+  }
+
+  host.onUiScaleChange = (val) => applyUiScale(val);
+
+  const selScale = document.getElementById('ui-select-scale');
+  if (selScale) {
+    selScale.addEventListener('change', () => {
+      host.setUiScale(selScale.value);
+    });
+  }
+
+  const savedScale = localStorage.getItem('wesenho_ui_scale') || 'auto';
+  host.uiScale = savedScale;
+  applyUiScale(savedScale);
 
   // Image Import via File Picker
   const fileInput = document.getElementById('ui-file-input');
@@ -1670,6 +1803,10 @@ async function main() {
       }
       const chkAutoRot = document.getElementById('ui-chk-auto-rotate');
       if (chkAutoRot) chkAutoRot.checked = !!bp.auto_rotate;
+      const selScale = document.getElementById('ui-select-scale');
+      if (selScale && host.uiScale) {
+        selScale.value = host.uiScale;
+      }
     }
 
     // C. Color
@@ -1767,11 +1904,90 @@ async function main() {
       if (activeLayerOpVal) activeLayerOpVal.textContent = curActivePct + '%';
     }
 
-    // Render Layers List (Photoshop-like single-row grid)
+    // Render Layers List (Photoshop-like top-to-bottom stacking order + Groups + Reordering + Merge Down)
     const layersList = document.getElementById('ui-layers-list');
     if (layersList) {
       layersList.innerHTML = '';
-      for (let i = 0; i < count; i++) {
+      const orderCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_order_count)
+        ? host.canvasActor.exports.w_layer_get_order_count()
+        : count;
+
+      const layerToGroup = new Map();
+      if (host.layerGroups) {
+        for (const grp of host.layerGroups.values()) {
+          for (const lid of grp.layerIds) {
+            layerToGroup.set(lid, grp);
+          }
+        }
+      }
+
+      const renderedGroups = new Set();
+
+      const createGroupHeader = (grp) => {
+        const grpRow = document.createElement('div');
+        grpRow.className = 'ui-layer-group-header';
+        grpRow.title = `Folder: ${grp.name} (${grp.layerIds.length} layers)`;
+
+        const toggleBtn = document.createElement('button');
+        toggleBtn.type = 'button';
+        toggleBtn.className = 'group-btn-collapse';
+        toggleBtn.textContent = grp.collapsed ? '▸' : '▾';
+        toggleBtn.title = grp.collapsed ? 'Expand folder' : 'Collapse folder';
+        toggleBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          grp.collapsed = !grp.collapsed;
+          syncUiFromHost();
+        });
+        grpRow.appendChild(toggleBtn);
+
+        const titleSpan = document.createElement('span');
+        titleSpan.className = 'group-title';
+        titleSpan.textContent = `📁 ${grp.name}`;
+        titleSpan.addEventListener('click', () => {
+          grp.collapsed = !grp.collapsed;
+          syncUiFromHost();
+        });
+        grpRow.appendChild(titleSpan);
+
+        const grpVisBtn = document.createElement('button');
+        grpVisBtn.type = 'button';
+        grpVisBtn.className = 'layer-btn-vis' + (grp.visible ? '' : ' hidden');
+        grpVisBtn.textContent = grp.visible ? '👁' : '—';
+        grpVisBtn.title = grp.visible ? 'Hide folder layers' : 'Show folder layers';
+        grpVisBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`group toggle ${grp.id}`);
+        });
+        grpRow.appendChild(grpVisBtn);
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'layer-btn-action';
+        addBtn.textContent = '+';
+        addBtn.title = `Add active layer [${activeDraw}] to ${grp.name}`;
+        addBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`group add ${grp.id} ${activeDraw}`);
+        });
+        grpRow.appendChild(addBtn);
+
+        const delGrpBtn = document.createElement('button');
+        delGrpBtn.type = 'button';
+        delGrpBtn.className = 'layer-btn-action btn-del';
+        delGrpBtn.textContent = '✕';
+        delGrpBtn.title = `Delete folder '${grp.name}'`;
+        delGrpBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete folder '${grp.name}'? (Layers won't be deleted)`)) {
+            runCmd(`group delete ${grp.id}`);
+          }
+        });
+        grpRow.appendChild(delGrpBtn);
+
+        return grpRow;
+      };
+
+      const renderLayerRow = (i, pos, inGroup) => {
         const vis = host.canvasActor.exports.get_layer_visible ? host.canvasActor.exports.get_layer_visible(i) : 1;
         const op = host.canvasActor.exports.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
         const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
@@ -1790,16 +2006,15 @@ async function main() {
         const isTex = (name === activeTex);
 
         const row = document.createElement('div');
-        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '');
+        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
         row.title = `[${i}] ${name} (${w}×${h}) - click to draw on this layer`;
 
-        // Row click selects layer
         row.addEventListener('click', (e) => {
           if (e.target.closest('button')) return;
           runCmd(`layer select ${i}`);
         });
 
-        // Col 1: Visibility eye button
+        // Col 1: Visibility eye
         const visCell = document.createElement('div');
         visCell.className = 'layer-cell-vis';
         const visBtn = document.createElement('button');
@@ -1814,7 +2029,7 @@ async function main() {
         visCell.appendChild(visBtn);
         row.appendChild(visCell);
 
-        // Col 2: Info (idx, name, dims)
+        // Col 2: Info
         const infoCell = document.createElement('div');
         infoCell.className = 'layer-cell-info';
         infoCell.innerHTML = `
@@ -1824,7 +2039,7 @@ async function main() {
         `;
         row.appendChild(infoCell);
 
-        // Col 3: Toggles (Shape, Grain)
+        // Col 3: Toggles
         const togglesCell = document.createElement('div');
         togglesCell.className = 'layer-cell-toggles';
 
@@ -1858,13 +2073,86 @@ async function main() {
         opCell.textContent = `${opPct}%`;
         row.appendChild(opCell);
 
-        // Col 5: Delete button (when count > 1)
-        const delCell = document.createElement('div');
-        delCell.className = 'layer-cell-del';
-        if (count > 1) {
+        // Col 5: Actions
+        const actCell = document.createElement('div');
+        actCell.className = 'layer-cell-actions';
+
+        // Move Up
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'layer-btn-action';
+        upBtn.textContent = '▲';
+        upBtn.title = 'Move layer up';
+        if (pos >= orderCount - 1) upBtn.disabled = true;
+        upBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer move up ${i}`);
+        });
+        actCell.appendChild(upBtn);
+
+        // Move Down
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'layer-btn-action';
+        downBtn.textContent = '▼';
+        downBtn.title = 'Move layer down';
+        if (pos <= 0) downBtn.disabled = true;
+        downBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer move down ${i}`);
+        });
+        actCell.appendChild(downBtn);
+
+        // Merge Down
+        const mergeBtn = document.createElement('button');
+        mergeBtn.type = 'button';
+        mergeBtn.className = 'layer-btn-action btn-merge';
+        mergeBtn.textContent = '⤓';
+        mergeBtn.title = 'Merge down into layer below';
+        if (pos <= 0) mergeBtn.disabled = true;
+        mergeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer merge down ${i}`);
+        });
+        actCell.appendChild(mergeBtn);
+
+        // Group assign/remove
+        if (inGroup) {
+          const remGrpBtn = document.createElement('button');
+          remGrpBtn.type = 'button';
+          remGrpBtn.className = 'layer-btn-action';
+          remGrpBtn.textContent = '⊟';
+          remGrpBtn.title = 'Remove from folder';
+          remGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            runCmd(`group remove ${i}`);
+          });
+          actCell.appendChild(remGrpBtn);
+        } else if (host.layerGroups && host.layerGroups.size > 0) {
+          const addGrpBtn = document.createElement('button');
+          addGrpBtn.type = 'button';
+          addGrpBtn.className = 'layer-btn-action';
+          addGrpBtn.textContent = '📁';
+          addGrpBtn.title = 'Add to folder';
+          addGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const grpList = Array.from(host.layerGroups.values());
+            if (grpList.length === 1) {
+              runCmd(`group add ${grpList[0].id} ${i}`);
+            } else {
+              const names = grpList.map(g => g.name).join(', ');
+              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
+              if (target) runCmd(`group add ${target} ${i}`);
+            }
+          });
+          actCell.appendChild(addGrpBtn);
+        }
+
+        // Delete button
+        if (orderCount > 1) {
           const delBtn = document.createElement('button');
           delBtn.type = 'button';
-          delBtn.className = 'layer-btn-del';
+          delBtn.className = 'layer-btn-action btn-del';
           delBtn.textContent = '✕';
           delBtn.title = `Delete layer [${i}] ${name}`;
           delBtn.addEventListener('click', (e) => {
@@ -1873,11 +2161,42 @@ async function main() {
               runCmd(`delete layer ${i}`);
             }
           });
-          delCell.appendChild(delBtn);
+          actCell.appendChild(delBtn);
         }
-        row.appendChild(delCell);
 
-        layersList.appendChild(row);
+        row.appendChild(actCell);
+        return row;
+      };
+
+      // 1. Render empty groups first at top
+      if (host.layerGroups) {
+        for (const grp of host.layerGroups.values()) {
+          if (grp.layerIds.length === 0) {
+            layersList.appendChild(createGroupHeader(grp));
+            renderedGroups.add(grp.id);
+          }
+        }
+      }
+
+      // 2. Render layers in top-to-bottom order (highest pos down to 0)
+      for (let pos = orderCount - 1; pos >= 0; pos--) {
+        const i = (host.canvasActor.exports.w_layer_get_order)
+          ? host.canvasActor.exports.w_layer_get_order(pos)
+          : pos;
+        if (i < 0 || i >= count) continue;
+
+        const grp = layerToGroup.get(i);
+        if (grp) {
+          if (!renderedGroups.has(grp.id)) {
+            layersList.appendChild(createGroupHeader(grp));
+            renderedGroups.add(grp.id);
+          }
+          if (!grp.collapsed) {
+            layersList.appendChild(renderLayerRow(i, pos, true));
+          }
+        } else {
+          layersList.appendChild(renderLayerRow(i, pos, false));
+        }
       }
     }
 
@@ -2100,6 +2419,16 @@ function ensureUiPanel() {
     .layer-row-bottom { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #928374; padding: 0 1px; }
     .layer-op-slider { flex: 1; height: 4px; accent-color: #fe8019; cursor: pointer; }
     .layer-op-val { width: 32px; text-align: right; font-size: 9px; color: #fabd2f; font-weight: bold; flex-shrink: 0; }
+    .ui-layer-row.ui-layer-in-group { padding-left: 14px; background: #1f2120; border-left: 3px solid #83a598; }
+    .ui-layer-group-header { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px; background: #282828; border-left: 3px solid #b8bb26; border-bottom: 1px solid #3c3836; font-size: 11px; color: #b8bb26; font-weight: 600; user-select: none; }
+    .ui-layer-group-header .group-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+    .group-btn-collapse { background: transparent; border: none; color: #b8bb26; font-size: 10px; width: 16px; height: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .layer-cell-actions { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
+    .layer-btn-action.btn-merge { color: #83a598; }
+    .layer-btn-action.btn-del { color: #928374; }
+    .layer-btn-action.btn-del:hover { color: #fb4934; background: #3c2020; }
+    .ui-swatches-grid.delete-mode .swatch-del { display: block; }
+    .ui-mini-btn.del-active { background: #fb4934 !important; color: #fff !important; border-color: #cc241d !important; font-weight: bold; }
     #toggle-ui { position: absolute; top: 14px; right: 1px; transform: translateX(100%); z-index: 20; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-left: 1px solid #282828; border-radius: 0; padding: 5px 9px; font: inherit; font-size: 11px; cursor: pointer; user-select: none; white-space: nowrap; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); }
     #toggle-ui:hover { background: #3c3836; color: #fabd2f; border-color: #7c6f64; }
     #ui-panel.hidden { width: 0 !important; border-right: none !important; }
@@ -2256,6 +2585,7 @@ function ensureUiPanel() {
             </div>
             <input type="text" id="ui-color-hex" value="#ebdbb2" spellcheck="false" maxlength="7">
             <button id="ui-btn-add-swatch" class="ui-mini-btn" title="Add current color to swatches">+ Swatch</button>
+            <button id="ui-btn-del-swatch" class="ui-mini-btn" title="Toggle delete swatch mode">- Del</button>
           </div>
           <div class="color-mode-tabs">
             <button type="button" class="color-mode-tab active" id="tab-rgb">RGB</button>
@@ -2290,7 +2620,7 @@ function ensureUiPanel() {
             </div>
           </div>
           <div class="ui-control" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Swatches (click to pick, hover [x] to delete)</span></div>
+            <div class="ui-label-row"><span>Swatches</span></div>
             <div id="ui-swatches-grid" class="ui-swatches-grid"></div>
           </div>
         </div>
@@ -2303,6 +2633,7 @@ function ensureUiPanel() {
             <div class="ui-row-gap">
               <button id="ui-btn-import-layer" class="ui-mini-btn" title="Import image as new layer">+ Import</button>
               <button id="ui-btn-add-layer" class="ui-mini-btn" title="Add new layer">+ New</button>
+              <button id="ui-btn-new-group" class="ui-mini-btn" title="Create new folder/group">+ Folder</button>
               <button id="ui-btn-duplicate-layer" class="ui-mini-btn" title="Duplicate active layer">Dup</button>
               <button id="ui-btn-clear-layer" class="ui-mini-btn" title="Clear active layer">Clear</button>
             </div>

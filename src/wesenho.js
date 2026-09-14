@@ -764,6 +764,11 @@ function handleGet(host, rawCat, rawProp) {
     return;
   }
 
+  if (cat === 'ui_scale' || cat === 'scale') {
+    console.log(host.uiScale);
+    return;
+  }
+
   const canonGet = {
     radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
     step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
@@ -1258,6 +1263,121 @@ const COMMAND_RULES = [
     run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer resize $w$int $h$int").run(m, host)
   },
 
+  // Layer Reordering & Merge Down
+  {
+    pat: "layer move up $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const ok = host.moveLayerUp(id);
+      if (ok) host.sendConsoleLog(`layer [${id}] moved up`);
+      else host.sendConsoleLog(`err: cannot move layer [${id}] up`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "layer move up",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer?.() ?? -1;
+      const ok = host.moveLayerUp(id);
+      if (ok) host.sendConsoleLog(`layer [${id}] moved up`);
+      else host.sendConsoleLog(`err: cannot move layer [${id}] up`, 0xFFFF5555);
+    }
+  },
+  { pat: "layer up $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move up $id$int").run(m, host) },
+  { pat: "layer up", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move up").run(m, host) },
+  {
+    pat: "layer move down $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const ok = host.moveLayerDown(id);
+      if (ok) host.sendConsoleLog(`layer [${id}] moved down`);
+      else host.sendConsoleLog(`err: cannot move layer [${id}] down`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "layer move down",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer?.() ?? -1;
+      const ok = host.moveLayerDown(id);
+      if (ok) host.sendConsoleLog(`layer [${id}] moved down`);
+      else host.sendConsoleLog(`err: cannot move layer [${id}] down`, 0xFFFF5555);
+    }
+  },
+  { pat: "layer down $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move down $id$int").run(m, host) },
+  { pat: "layer down", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move down").run(m, host) },
+
+  {
+    pat: "layer merge down $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const res = host.mergeLayerDown(id);
+      if (res >= 0) host.sendConsoleLog(`layer [${id}] merged into [${res}]`);
+      else host.sendConsoleLog(`err: cannot merge down layer [${id}]`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "layer merge down",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer?.() ?? -1;
+      const res = host.mergeLayerDown(id);
+      if (res >= 0) host.sendConsoleLog(`layer [${id}] merged into [${res}]`);
+      else host.sendConsoleLog(`err: cannot merge down layer [${id}]`, 0xFFFF5555);
+    }
+  },
+  { pat: "merge down", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer merge down").run(m, host) },
+  { pat: "layer merge", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer merge down").run(m, host) },
+
+  // Layer Groups / Folders
+  {
+    pat: "group new $name",
+    run: (m, host) => {
+      const grp = host.createGroup(m.name);
+      host.sendConsoleLog(`group '${grp.name}' created`);
+    }
+  },
+  {
+    pat: "group new",
+    run: (m, host) => {
+      const grp = host.createGroup();
+      host.sendConsoleLog(`group '${grp.name}' created`);
+    }
+  },
+  { pat: "new group $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "group new $name").run(m, host) },
+  { pat: "new group", run: (m, host) => COMMAND_RULES.find(r => r.pat === "group new").run(m, host) },
+  { pat: "folder new $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "group new $name").run(m, host) },
+  { pat: "folder new", run: (m, host) => COMMAND_RULES.find(r => r.pat === "group new").run(m, host) },
+  {
+    pat: "group add $group $id$int",
+    run: (m, host) => {
+      const ok = host.addLayerToGroup(m.group, parseInt(m.id, 10));
+      if (ok) host.sendConsoleLog(`added layer [${m.id}] to group '${m.group}'`);
+      else host.sendConsoleLog(`err: group '${m.group}' not found`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "group remove $id$int",
+    run: (m, host) => {
+      const ok = host.removeLayerFromGroup(parseInt(m.id, 10));
+      if (ok) host.sendConsoleLog(`removed layer [${m.id}] from group`);
+      else host.sendConsoleLog(`layer [${m.id}] was not in any group`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "group toggle $group",
+    run: (m, host) => {
+      const ok = host.toggleGroup(m.group);
+      if (ok) host.sendConsoleLog(`toggled group '${m.group}' visibility`);
+      else host.sendConsoleLog(`err: group '${m.group}' not found`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "group delete $group",
+    run: (m, host) => {
+      const ok = host.deleteGroup(m.group);
+      if (ok) host.sendConsoleLog(`deleted group '${m.group}'`);
+      else host.sendConsoleLog(`err: group '${m.group}' not found`, 0xFFFF5555);
+    }
+  },
+
   // Undo / Redo History
   {
     pat: "undo",
@@ -1459,6 +1579,36 @@ const COMMAND_RULES = [
   { pat: "rot reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rotate reset").run(m, host) },
   { pat: "rot 0", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rotate reset").run(m, host) },
   { pat: "rotate 0", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rotate reset").run(m, host) },
+
+  // UI Scale / DPI adaptation
+  {
+    pat: "set ui_scale $val",
+    run: (m, host) => {
+      host.setUiScale(m.val);
+      host.sendConsoleLog(`ui_scale set to ${m.val}`);
+    }
+  },
+  {
+    pat: "ui_scale $val",
+    run: (m, host) => {
+      host.setUiScale(m.val);
+      host.sendConsoleLog(`ui_scale set to ${m.val}`);
+    }
+  },
+  {
+    pat: "set ui scale $val",
+    run: (m, host) => {
+      host.setUiScale(m.val);
+      host.sendConsoleLog(`ui_scale set to ${m.val}`);
+    }
+  },
+  {
+    pat: "ui scale $val",
+    run: (m, host) => {
+      host.setUiScale(m.val);
+      host.sendConsoleLog(`ui_scale set to ${m.val}`);
+    }
+  },
   {
     pat: "set $param $val",
     run: (m, host) => handleDirectParam(host, m.param, m.val)
@@ -1758,6 +1908,14 @@ class WesenhoScreenHost {
     this.redoStack = [];
     this.maxUndoSteps = 25;
 
+    // UI Scale / DPI adaptation
+    this.uiScale = 'auto';
+    this.onUiScaleChange = null;
+
+    // Layer Groups / Folders
+    this.layerGroups = new Map(); // id -> { id, name, collapsed: false, visible: true, layerIds: [] }
+    this.groupCounter = 1;
+
     // Textures & Actors
     this.textures = createProceduralTextures();
     this.activeTexture = 'none';
@@ -1916,6 +2074,143 @@ class WesenhoScreenHost {
 
     const parsed = parseInt(name, 10);
     return isNaN(parsed) ? 0 : parsed;
+  }
+
+  /**
+   * Sets UI scale / DPI preference and triggers change handler if registered.
+   */
+  setUiScale(val) {
+    this.uiScale = val;
+    if (typeof this.onUiScaleChange === 'function') {
+      this.onUiScaleChange(val);
+    }
+  }
+
+  /**
+   * Moves a layer up in the stacking order.
+   */
+  moveLayerUp(id) {
+    if (!this.canvasActor?.exports?.w_layer_move_up) return false;
+    this.pushUndoSnapshot('layer move');
+    return this.canvasActor.exports.w_layer_move_up(id) === 1;
+  }
+
+  /**
+   * Moves a layer down in the stacking order.
+   */
+  moveLayerDown(id) {
+    if (!this.canvasActor?.exports?.w_layer_move_down) return false;
+    this.pushUndoSnapshot('layer move');
+    return this.canvasActor.exports.w_layer_move_down(id) === 1;
+  }
+
+  /**
+   * Merges a layer down onto the layer below it in stacking order.
+   */
+  mergeLayerDown(id) {
+    if (!this.canvasActor?.exports?.w_layer_merge_down) return -1;
+    this.pushUndoSnapshot('merge down');
+    const res = this.canvasActor.exports.w_layer_merge_down(id);
+    if (res >= 0) {
+      for (const grp of this.layerGroups.values()) {
+        grp.layerIds = grp.layerIds.filter(lid => lid !== id);
+      }
+    }
+    return res;
+  }
+
+  /**
+   * Creates a new layer group / folder.
+   */
+  createGroup(name) {
+    const id = `group_${this.groupCounter++}`;
+    const grp = {
+      id,
+      name: name || `Folder ${this.layerGroups.size + 1}`,
+      collapsed: false,
+      visible: true,
+      layerIds: []
+    };
+    this.layerGroups.set(id, grp);
+    return grp;
+  }
+
+  /**
+   * Adds a layer to a group / folder.
+   */
+  addLayerToGroup(groupIdOrName, layerId) {
+    let grp = this.layerGroups.get(groupIdOrName);
+    if (!grp) {
+      for (const g of this.layerGroups.values()) {
+        if (g.name.toLowerCase() === groupIdOrName.toLowerCase()) {
+          grp = g;
+          break;
+        }
+      }
+    }
+    if (!grp) return false;
+    for (const g of this.layerGroups.values()) {
+      g.layerIds = g.layerIds.filter(lid => lid !== layerId);
+    }
+    grp.layerIds.push(layerId);
+    return true;
+  }
+
+  /**
+   * Removes a layer from any group it belongs to.
+   */
+  removeLayerFromGroup(layerId) {
+    let changed = false;
+    for (const g of this.layerGroups.values()) {
+      const origLen = g.layerIds.length;
+      g.layerIds = g.layerIds.filter(lid => lid !== layerId);
+      if (g.layerIds.length !== origLen) changed = true;
+    }
+    return changed;
+  }
+
+  /**
+   * Toggles visibility of all layers in a group.
+   */
+  toggleGroup(groupIdOrName) {
+    let grp = this.layerGroups.get(groupIdOrName);
+    if (!grp) {
+      for (const g of this.layerGroups.values()) {
+        if (g.name.toLowerCase() === groupIdOrName.toLowerCase()) {
+          grp = g;
+          break;
+        }
+      }
+    }
+    if (!grp) return false;
+    grp.visible = !grp.visible;
+    if (this.canvasActor?.exports?.w_layer_toggle) {
+      for (const lid of grp.layerIds) {
+        const curVis = this.canvasActor.exports.get_layer_visible?.(lid) ?? 1;
+        if ((grp.visible && !curVis) || (!grp.visible && curVis)) {
+          this.canvasActor.exports.w_layer_toggle(lid);
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Deletes a group (does not delete child layers).
+   */
+  deleteGroup(groupIdOrName) {
+    let grpKey = this.layerGroups.has(groupIdOrName) ? groupIdOrName : null;
+    if (!grpKey) {
+      for (const [k, g] of this.layerGroups.entries()) {
+        if (g.name.toLowerCase() === groupIdOrName.toLowerCase()) {
+          grpKey = k;
+          break;
+        }
+      }
+    }
+    if (!grpKey) return false;
+    this.layerGroups.delete(grpKey);
+    return true;
   }
 
   /**

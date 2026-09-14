@@ -653,7 +653,95 @@ async function run() {
   host.executeCommand('set color_jitter 0');
   host.executeCommand('set dab_blend normal');
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, and Dab Blend Modes verified 100%!');
+  // Test UI Scale adaptation commands & events
+  let scaleChangeTriggered = false;
+  host.onUiScaleChange = (val) => {
+    scaleChangeTriggered = val;
+  };
+  host.executeCommand('set ui_scale 125%');
+  if (host.uiScale !== '125%' || scaleChangeTriggered !== '125%') {
+    throw new Error(`Expected ui_scale 125%, got ${host.uiScale} (callback: ${scaleChangeTriggered})`);
+  }
+  host.executeCommand('ui_scale 0.85');
+  if (host.uiScale !== '0.85' || scaleChangeTriggered !== '0.85') {
+    throw new Error(`Expected ui_scale 0.85, got ${host.uiScale}`);
+  }
+  host.executeCommand('ui scale auto');
+  if (host.uiScale !== 'auto' || scaleChangeTriggered !== 'auto') {
+    throw new Error(`Expected ui_scale auto, got ${host.uiScale}`);
+  }
+
+  // Test Layer Reordering (Move Up / Down) & Merge Down
+  const initialOrderCount = canvas.exports.w_layer_get_order_count();
+  host.executeCommand('new layer');
+  const layerA = canvas.exports.get_active_layer();
+  const orderCountAfterA = canvas.exports.w_layer_get_order_count();
+  if (orderCountAfterA !== initialOrderCount + 1) {
+    throw new Error(`Expected order count ${initialOrderCount + 1}, got ${orderCountAfterA}`);
+  }
+  // layerA should be top of stack
+  const topPos = orderCountAfterA - 1;
+  if (canvas.exports.w_layer_get_order(topPos) !== layerA) {
+    throw new Error(`Expected top layer to be ${layerA}, got ${canvas.exports.w_layer_get_order(topPos)}`);
+  }
+
+  // Move layerA down
+  host.executeCommand(`layer move down ${layerA}`);
+  if (canvas.exports.w_layer_get_order(topPos - 1) !== layerA) {
+    throw new Error(`Expected layer ${layerA} at pos ${topPos - 1} after move down`);
+  }
+
+  // Move layerA back up
+  host.executeCommand(`layer move up ${layerA}`);
+  if (canvas.exports.w_layer_get_order(topPos) !== layerA) {
+    throw new Error(`Expected layer ${layerA} at top pos ${topPos} after move up`);
+  }
+
+  // Paint on layerA then merge down
+  host.sendStroke(50, 50, 50, 50, 0, 0, 0xFF4488CC);
+  host.sendStroke(50, 50, 50, 50, 2, 0, 0xFF4488CC);
+  host.executeCommand('merge down');
+  const orderCountAfterMerge = canvas.exports.w_layer_get_order_count();
+  if (orderCountAfterMerge !== orderCountAfterA - 1) {
+    throw new Error(`Expected order count ${orderCountAfterA - 1} after merge down, got ${orderCountAfterMerge}`);
+  }
+
+  // Test Layer Groups / Folders
+  host.executeCommand('group new InkFolder');
+  let foundGroup = null;
+  for (const g of host.layerGroups.values()) {
+    if (g.name === 'InkFolder') { foundGroup = g; break; }
+  }
+  if (!foundGroup) throw new Error("Expected group 'InkFolder' to exist");
+
+  const curActive = canvas.exports.get_active_layer();
+  host.executeCommand(`group add InkFolder ${curActive}`);
+  if (!foundGroup.layerIds.includes(curActive)) {
+    throw new Error(`Expected layer ${curActive} in group InkFolder`);
+  }
+
+  host.executeCommand('group toggle InkFolder');
+  if (foundGroup.visible !== false) {
+    throw new Error("Expected InkFolder visible to be false after toggle");
+  }
+  host.executeCommand('group toggle InkFolder');
+  if (foundGroup.visible !== true) {
+    throw new Error("Expected InkFolder visible to be true after second toggle");
+  }
+
+  host.executeCommand(`group remove ${curActive}`);
+  if (foundGroup.layerIds.includes(curActive)) {
+    throw new Error(`Expected layer ${curActive} to be removed from group`);
+  }
+
+  host.executeCommand('group delete InkFolder');
+  let groupStillExists = false;
+  for (const g of host.layerGroups.values()) {
+    if (g.name === 'InkFolder') { groupStillExists = true; break; }
+  }
+  if (groupStillExists) throw new Error("Expected group 'InkFolder' to be deleted");
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, and Layer Groups verified 100%!');
 }
 
 run().catch(err => {
