@@ -8,7 +8,7 @@ FILTERS = $(patsubst plugins/filters/%/main.c,plugins/filters/%.wasm,$(FILTER_SR
 
 all: $(ROMS) $(FILTERS)
 
-roms/canvas.wasm: actors/canvas/main.c include/wesenho.h
+roms/canvas.wasm: src/canvas.c include/wesenho.h
 	mkdir -p roms
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 

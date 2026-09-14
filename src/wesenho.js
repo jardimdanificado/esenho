@@ -9,11 +9,38 @@
  * =========================================================================
  */
 
-const sdl = require('@kmamal/sdl');
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
-const { saveImage, loadImage } = require('./image_io');
+/* ── Platform shim ── wesenho.js runs in Node.js and in the browser.
+   In Node the real modules are loaded; in the browser stubs are used
+   so the engine logic compiles without modification.                  */
+const IS_BROWSER = typeof window !== 'undefined';
+
+let sdl, fs, path, readline, saveImage, loadImage;
+
+if (!IS_BROWSER) {
+  sdl      = require('@kmamal/sdl');
+  fs       = require('fs');
+  path     = require('path');
+  readline = require('readline');
+  ({ saveImage, loadImage } = require('./image_io'));
+} else {
+  /* Browser stubs — only used by Node-only methods (initWindow, setupRepl, etc.)
+     which are replaced by host-browser.js.  The engine core never calls these.  */
+  fs   = { readFileSync: () => { throw new Error('fs not available in browser'); },
+            existsSync: () => false, readdirSync: () => [] };
+  path = { basename: (p, ext) => p.split('/').pop().replace(ext || '', ''),
+            extname: p => { const d = p.lastIndexOf('.'); return d >= 0 ? p.slice(d) : ''; },
+            resolve: (...a) => a.join('/'), join: (...a) => a.join('/'),
+            relative: (_, p) => p };
+  readline   = null;
+  saveImage  = () => { throw new Error('image_io not available in browser'); };
+  loadImage  = () => { throw new Error('image_io not available in browser'); };
+}
+
+/* Browser-compatible Buffer shim (Buffer extends Uint8Array in Node, so
+   new Uint8Array() works on both sides for pixel data).                */
+const Buf = IS_BROWSER
+  ? { alloc: (n) => new Uint8Array(n), from: (a, o, l) => new Uint8Array(a, o, l) }
+  : Buffer;
 
 /**
  * Standard Parameter IDs matching include/wesenho.h enum
@@ -95,20 +122,35 @@ const BRUSH_PRESETS = {
  * Freestanding, libc-free WASM runner with direct ABI function exports.
  */
 class WesenhoModule {
-  constructor(wasmPath, options = {}) {
-    this.wasmPath = wasmPath;
-    this.name = options.name || path.basename(wasmPath, '.wasm');
-    const wasmBytes = fs.readFileSync(wasmPath);
+  /**
+   * @param {string|Uint8Array|ArrayBuffer} wasmPathOrBytes - File path (Node) or WASM bytes (browser/any)
+   */
+  constructor(wasmPathOrBytes, options = {}) {
+    const isBytes = wasmPathOrBytes instanceof Uint8Array
+                 || wasmPathOrBytes instanceof ArrayBuffer;
+    this.wasmPath = isBytes ? (options.name || 'module') : wasmPathOrBytes;
+    this.name = options.name || path.basename(String(this.wasmPath), '.wasm');
+    const wasmBytes = isBytes ? wasmPathOrBytes : fs.readFileSync(wasmPathOrBytes);
     this.wasmModule = new WebAssembly.Module(wasmBytes);
-    this.instance = new WebAssembly.Instance(this.wasmModule, {
-      env: {}
-    });
+    this.instance = new WebAssembly.Instance(this.wasmModule, { env: {} });
     this.exports = this.instance.exports;
     this.memory = this.exports.memory;
     this.layerPtr = 0;
     this.layerByteLen = 0;
     this.texPtr = 0;
     this.texByteLen = 0;
+  }
+
+  /**
+   * Async factory — fetches WASM from URL, works in browser and Node (via fetch polyfill).
+   * @param {string} url
+   * @param {object} [options]
+   * @returns {Promise<WesenhoModule>}
+   */
+  static async fromURL(url, options = {}) {
+    const resp = await fetch(url);
+    const bytes = new Uint8Array(await resp.arrayBuffer());
+    return new WesenhoModule(bytes, options);
   }
 
   setLayer(pixelsPtr, width, height) {
@@ -157,7 +199,7 @@ function createProceduralTextures() {
   // 1. Circle
   {
     const w = 64, h = 64;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       const dy = y - 32;
       for (let x = 0; x < w; x++) {
@@ -176,7 +218,7 @@ function createProceduralTextures() {
   // 2. Square
   {
     const w = 64, h = 64;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     buf.fill(0xFF);
     map.set('square', { width: w, height: h, data: buf, wasmId: 1, category: 'shape' });
   }
@@ -184,7 +226,7 @@ function createProceduralTextures() {
   // 3. Chisel
   {
     const w = 64, h = 64;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       const inside = (y >= 24 && y < 40);
       for (let x = 0; x < w; x++) {
@@ -202,7 +244,7 @@ function createProceduralTextures() {
   // 4. Paper (256x256)
   {
     const w = 256, h = 256;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const n1 = Math.sin(x * 0.15) * Math.cos(y * 0.15) * 15;
@@ -222,7 +264,7 @@ function createProceduralTextures() {
   // 5. Canvas (128x128)
   {
     const w = 128, h = 128;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const wx = Math.sin(x * Math.PI / 4) * 40;
@@ -241,7 +283,7 @@ function createProceduralTextures() {
   // 6. Noise (256x256)
   {
     const w = 256, h = 256;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let i = 0; i < w * h; i++) {
       const v = Math.floor(Math.random() * 256);
       buf[i * 4 + 0] = v;
@@ -255,7 +297,7 @@ function createProceduralTextures() {
   // 7. Dots (32x32)
   {
     const w = 32, h = 32;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const dx = (x % 16) - 8;
@@ -275,7 +317,7 @@ function createProceduralTextures() {
   // 8. Grid (32x32)
   {
     const w = 32, h = 32;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const isLine = (x % 16 === 0 || y % 16 === 0);
@@ -293,7 +335,7 @@ function createProceduralTextures() {
   // 9. Grunge (256x256)
   {
     const w = 256, h = 256;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const g1 = Math.sin(x * 0.05) * Math.sin(y * 0.05) * 80;
@@ -312,7 +354,7 @@ function createProceduralTextures() {
   // 10. Hatch (32x32)
   {
     const w = 32, h = 32;
-    const buf = Buffer.alloc(w * h * 4);
+    const buf = Buf.alloc(w * h * 4);
     for (let y = 0; y < h; y++) {
       for (let x = 0; x < w; x++) {
         const isLine = ((x + y) % 8 === 0 || (x + y) % 8 === 1);
@@ -555,7 +597,7 @@ class WesenhoScreenHost {
     this.plugins = new Map(); // name -> { type, module }
 
     this.window = null;
-    this.screenBuffer = Buffer.alloc(this.windowWidth * this.windowHeight * 4);
+    this.screenBuffer = Buf.alloc(this.windowWidth * this.windowHeight * 4);
     this.rl = null;
   }
 
@@ -850,7 +892,7 @@ class WesenhoScreenHost {
 
     const byteLen = w * h * 4;
     const rawBytes = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen);
-    const texBuf = Buffer.alloc(byteLen);
+    const texBuf = Buf.alloc(byteLen);
     texBuf.set(rawBytes);
 
     this.textures.set(name.toLowerCase(), { width: w, height: h, data: texBuf, wasmId: tid });
@@ -876,7 +918,7 @@ class WesenhoScreenHost {
 
     const byteLen = w * h * 4;
     const rawBytes = new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen);
-    const buf = Buffer.from(rawBytes);
+    const buf = Buf.from(rawBytes);
 
     try {
       const res = saveImage(filePath, w, h, buf);
@@ -1686,7 +1728,7 @@ class WesenhoScreenHost {
     this.window.on('resize', (e) => {
       this.windowWidth = e.width;
       this.windowHeight = e.height;
-      this.screenBuffer = Buffer.alloc(this.windowWidth * this.windowHeight * 4);
+      this.screenBuffer = Buf.alloc(this.windowWidth * this.windowHeight * 4);
     });
 
     this.window.on('mouseMove', (e) => {
@@ -1907,11 +1949,11 @@ async function main() {
   frameLoop();
 }
 
-if (require.main === module) {
+if (!IS_BROWSER && typeof require !== 'undefined' && require.main === module) {
   main().catch(console.error);
 }
 
-module.exports = {
+const _exports = {
   WesenhoModule,
   WesenhoScreenHost,
   PARAM_IDS,
@@ -1919,3 +1961,8 @@ module.exports = {
   parseColorString,
   createProceduralTextures
 };
+
+/* Node.js CommonJS export */
+if (typeof module !== 'undefined') module.exports = _exports;
+/* Browser global export (used by host-browser.js loaded as a plain <script>) */
+if (IS_BROWSER) Object.assign(globalThis, _exports);
