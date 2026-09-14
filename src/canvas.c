@@ -496,6 +496,12 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
     if (min_y < 0) min_y = 0;
     if (max_y >= height) max_y = height - 1;
 
+    uint32_t dab_flow_a = (255 * brush_config.flow) / 100;
+    if (dab_flow_a < 1 && brush_config.flow > 0) dab_flow_a = 1;
+
+    uint32_t max_stroke_a = (255 * brush_config.opacity) / 100;
+    if (max_stroke_a < 1 && brush_config.opacity > 0) max_stroke_a = 1;
+
     int node_x[256];
     for (int y = min_y; y <= max_y; y++) {
         int nodes = 0;
@@ -523,7 +529,26 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
             int x_start = node_x[i] < 0 ? 0 : node_x[i];
             int x_end = node_x[i + 1] >= width ? (width - 1) : node_x[i + 1];
             for (int x = x_start; x <= x_end; x++) {
-                pixels[y * width + x] = is_eraser ? 0x00000000 : fill_color;
+                if (brush_config.grain > 0) {
+                    if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
+                }
+
+                uint32_t a = dab_flow_a;
+                if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
+                    a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                }
+                if (a == 0) continue;
+
+                int idx = y * width + x;
+                uint32_t dst_p = pixels[idx];
+
+                if (is_eraser) {
+                    uint32_t da = (dst_p >> 24) & 0xFF;
+                    uint32_t na = (a >= da) ? 0 : (da - a);
+                    pixels[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                } else {
+                    pixels[idx] = w_blend_fast(fill_color, dst_p, a, max_stroke_a);
+                }
             }
         }
     }
@@ -635,8 +660,48 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     pix[idx] = mix_color(src, dst_p, brush_config.smudge_strength);
                 }
             } else if (brush_config.type == W_MODE_BLEND) {
-                if ((dst_p >> 24) == 0) pix[idx] = (max_stroke_a << 24) | (color & 0x00FFFFFF);
-                else pix[idx] = mix_color(color, dst_p, 100 - brush_config.wetness);
+                int step = (r > 6) ? (r / 4) : 1;
+                uint32_t c0 = dst_p;
+                uint32_t c1 = (x - step >= 0) ? pix[y * w + (x - step)] : c0;
+                uint32_t c2 = (x + step < w) ? pix[y * w + (x + step)] : c0;
+                uint32_t c3 = (y - step >= 0) ? pix[(y - step) * w + x] : c0;
+                uint32_t c4 = (y + step < h) ? pix[(y + step) * w + x] : c0;
+
+                uint32_t sum_r = 0, sum_g = 0, sum_b = 0, sum_a = 0, count = 0;
+                uint32_t samples[5] = { c0, c1, c2, c3, c4 };
+                for (int s = 0; s < 5; s++) {
+                    uint32_t p = samples[s];
+                    uint32_t pa = (p >> 24) & 0xFF;
+                    if (pa > 0) {
+                        sum_r += (p & 0xFF);
+                        sum_g += ((p >> 8) & 0xFF);
+                        sum_b += ((p >> 16) & 0xFF);
+                        sum_a += pa;
+                        count++;
+                    }
+                }
+
+                uint32_t local_c;
+                if (count > 0) {
+                    local_c = ((sum_a / count) << 24) |
+                              ((sum_b / count) << 16) |
+                              ((sum_g / count) << 8)  |
+                              (sum_r / count);
+                } else {
+                    local_c = color;
+                }
+
+                uint32_t target_c;
+                if ((dst_p >> 24) == 0 && count == 0) {
+                    target_c = color;
+                } else {
+                    int brush_rate = 100 - brush_config.wetness;
+                    if (brush_rate < 0) brush_rate = 0;
+                    if (brush_rate > 100) brush_rate = 100;
+                    target_c = mix_color(color, local_c, brush_rate);
+                }
+
+                pix[idx] = w_blend_fast(target_c, dst_p, a, max_stroke_a);
             } else {
                 pix[idx] = w_blend_fast(color, dst_p, a, max_stroke_a);
             }

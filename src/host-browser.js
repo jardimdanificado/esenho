@@ -94,24 +94,25 @@ async function main() {
 
   const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
 
-  let activeUiSubTab = 'tools'; // 'tools' or 'scripts'
-  function switchUiSubTab(tab) {
-    activeUiSubTab = tab;
-    const tabTools = document.getElementById('tab-sub-tools');
+  let activeConsoleSubTab = 'console'; // 'console' or 'scripts'
+  function switchConsoleSubTab(tab) {
+    activeConsoleSubTab = tab;
+    const tabConsole = document.getElementById('tab-sub-console');
     const tabScripts = document.getElementById('tab-sub-scripts');
-    const uiScroll = document.getElementById('ui-scroll');
+    const consoleView = document.getElementById('console-view');
     const uiScripts = document.getElementById('ui-scripts');
 
     if (tab === 'scripts') {
-      if (tabTools) tabTools.classList.remove('active');
+      if (tabConsole) tabConsole.classList.remove('active');
       if (tabScripts) tabScripts.classList.add('active');
-      if (uiScroll) uiScroll.style.display = 'none';
+      if (consoleView) consoleView.style.display = 'none';
       if (uiScripts) uiScripts.style.display = 'flex';
     } else {
-      if (tabTools) tabTools.classList.add('active');
+      if (tabConsole) tabConsole.classList.add('active');
       if (tabScripts) tabScripts.classList.remove('active');
-      if (uiScroll) uiScroll.style.display = 'flex';
+      if (consoleView) consoleView.style.display = 'flex';
       if (uiScripts) uiScripts.style.display = 'none';
+      if (inputEl) inputEl.focus();
     }
     updateDockTabs();
   }
@@ -127,21 +128,17 @@ async function main() {
     const uiOpen = uiEl && !uiEl.classList.contains('hidden');
     const consoleOpen = consoleEl && !consoleEl.classList.contains('hidden');
 
-    if (tabTools) tabTools.classList.toggle('active', uiOpen && activeUiSubTab === 'tools');
-    if (tabScripts) tabScripts.classList.toggle('active', uiOpen && activeUiSubTab === 'scripts');
-    if (tabConsole) tabConsole.classList.toggle('active', !!consoleOpen);
+    if (tabTools) tabTools.classList.toggle('active', !!uiOpen);
+    if (tabScripts) tabScripts.classList.toggle('active', consoleOpen && activeConsoleSubTab === 'scripts');
+    if (tabConsole) tabConsole.classList.toggle('active', consoleOpen && activeConsoleSubTab === 'console');
     if (btnClose) btnClose.classList.toggle('visible', !!(uiOpen || consoleOpen));
   }
 
-  /* ── Toggle UI tools/scripts panel ── */
-  function toggleUi(forceOpen, targetSubTab) {
+  /* ── Toggle UI tools panel ── */
+  function toggleUi(forceOpen) {
     const el = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
     if (!el) return;
-
-    if (targetSubTab) {
-      switchUiSubTab(targetSubTab);
-    }
 
     const isMob = isMobile();
     let willOpen;
@@ -170,11 +167,15 @@ async function main() {
     resize();
   }
 
-  /* ── Toggle console panel ── */
-  function toggleConsole(forceOpen) {
+  /* ── Toggle console/scripts panel ── */
+  function toggleConsole(forceOpen, targetSubTab) {
     const el = document.getElementById('panel');
     const uiEl = document.getElementById('ui-panel');
     if (!el) return;
+
+    if (targetSubTab) {
+      switchConsoleSubTab(targetSubTab);
+    }
 
     const isMob = isMobile();
     let willOpen;
@@ -201,7 +202,7 @@ async function main() {
     }
     updateDockTabs();
     resize();
-    if (willOpen && inputEl) inputEl.focus();
+    if (willOpen && activeConsoleSubTab === 'console' && inputEl) inputEl.focus();
   }
 
   /* ── Draggable Orelha Resizing & Toggle ── */
@@ -322,44 +323,44 @@ async function main() {
   const tabDockClose = document.getElementById('tab-dock-close');
   const dockHandle = document.getElementById('bottom-dock-handle');
 
-  const tabSubTools = document.getElementById('tab-sub-tools');
+  const tabSubConsole = document.getElementById('tab-sub-console');
   const tabSubScripts = document.getElementById('tab-sub-scripts');
-  if (tabSubTools) {
-    tabSubTools.addEventListener('click', () => switchUiSubTab('tools'));
+  if (tabSubConsole) {
+    tabSubConsole.addEventListener('click', () => switchConsoleSubTab('console'));
   }
   if (tabSubScripts) {
-    tabSubScripts.addEventListener('click', () => switchUiSubTab('scripts'));
+    tabSubScripts.addEventListener('click', () => switchConsoleSubTab('scripts'));
   }
 
   if (tabDockTools) {
     tabDockTools.addEventListener('click', () => {
       const el = document.getElementById('ui-panel');
-      const isOpen = el && !el.classList.contains('hidden') && activeUiSubTab === 'tools';
-      if (isOpen) {
-        toggleUi(false);
-      } else {
-        toggleUi(true, 'tools');
-      }
-    });
-  }
-
-  if (tabDockScripts) {
-    tabDockScripts.addEventListener('click', () => {
-      const el = document.getElementById('ui-panel');
-      const isOpen = el && !el.classList.contains('hidden') && activeUiSubTab === 'scripts';
-      if (isOpen) {
-        toggleUi(false);
-      } else {
-        toggleUi(true, 'scripts');
-      }
+      const isOpen = el && !el.classList.contains('hidden');
+      toggleUi(!isOpen);
     });
   }
 
   if (tabDockConsole) {
     tabDockConsole.addEventListener('click', () => {
       const el = document.getElementById('panel');
-      const isOpen = el && !el.classList.contains('hidden');
-      toggleConsole(!isOpen);
+      const isOpen = el && !el.classList.contains('hidden') && activeConsoleSubTab === 'console';
+      if (isOpen) {
+        toggleConsole(false);
+      } else {
+        toggleConsole(true, 'console');
+      }
+    });
+  }
+
+  if (tabDockScripts) {
+    tabDockScripts.addEventListener('click', () => {
+      const el = document.getElementById('panel');
+      const isOpen = el && !el.classList.contains('hidden') && activeConsoleSubTab === 'scripts';
+      if (isOpen) {
+        toggleConsole(false);
+      } else {
+        toggleConsole(true, 'scripts');
+      }
     });
   }
 
@@ -484,6 +485,28 @@ async function main() {
       ctx.rotate(host.canvasRotation);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(tmp, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+
+      /* Optional Pixel Grid Overlay (when zoomed) */
+      if (host.showPixelGrid && host.zoom >= 4) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+        ctx.strokeStyle = 'rgba(235, 219, 178, 0.18)';
+        ctx.lineWidth = 1 / (window.devicePixelRatio || 1);
+        ctx.beginPath();
+        const step = host.zoom;
+        const totalW = cw * step;
+        const totalH = ch * step;
+        for (let x = 0; x <= totalW; x += step) {
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, totalH);
+        }
+        for (let y = 0; y <= totalH; y += step) {
+          ctx.moveTo(0, y);
+          ctx.lineTo(totalW, y);
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
 
       /* Live Lasso Polygon Preview Overlay */
       if (lassoPoints.length > 1) {
@@ -753,171 +776,7 @@ async function main() {
     uiPanel.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
   }
 
-  // 1. Presets & Tools
-  const DEFAULT_PRESETS = [
-    { name: 'Pencil', tool: 'brush', mode: 0, size: 2, opacity: 100, hardness: 100, flow: 100, smoothing: 15, shape: 'circle' },
-    { name: 'Inker', tool: 'brush', mode: 0, size: 4, opacity: 100, hardness: 100, flow: 100, smoothing: 40, shape: 'circle' },
-    { name: 'Airbrush', tool: 'brush', mode: 0, size: 45, opacity: 40, hardness: 0, flow: 30, smoothing: 20, shape: 'circle' },
-    { name: 'Hard Round', tool: 'brush', mode: 0, size: 16, opacity: 100, hardness: 100, flow: 100, smoothing: 0, shape: 'circle' },
-    { name: 'Chisel', tool: 'brush', mode: 0, size: 28, opacity: 80, hardness: 85, flow: 80, shape: 'chisel', angle: 45, roundness: 40 },
-    { name: 'Charcoal', tool: 'brush', mode: 0, size: 24, opacity: 85, hardness: 70, flow: 90, grain: 45, texture: 'paper', shape: 'circle' },
-    { name: 'Smudge Tool', tool: 'smudge', mode: 1, size: 30, opacity: 100, hardness: 40, smudge: 70 },
-    { name: 'Blender Tool', tool: 'blend', mode: 2, size: 35, opacity: 100, hardness: 30, smudge: 50, wetness: 70 },
-    { name: 'Soft Eraser', tool: 'eraser', size: 30, opacity: 100, hardness: 20 },
-    { name: 'Hard Eraser', tool: 'eraser', size: 16, opacity: 100, hardness: 100 }
-  ];
-
-  function getCustomPresets() {
-    try {
-      return JSON.parse(localStorage.getItem('wesenho_brush_presets') || '[]');
-    } catch (_) { return []; }
-  }
-
-  function saveCustomPreset(preset) {
-    const list = getCustomPresets().filter(p => p.name !== preset.name);
-    list.push(preset);
-    localStorage.setItem('wesenho_brush_presets', JSON.stringify(list));
-  }
-
-  function deleteCustomPreset(name) {
-    const list = getCustomPresets().filter(p => p.name !== name);
-    localStorage.setItem('wesenho_brush_presets', JSON.stringify(list));
-  }
-
-  function populatePresetsDropdown() {
-    const sel = document.getElementById('ui-select-preset');
-    if (!sel) return;
-    const curVal = sel.value;
-    sel.innerHTML = '<option value="">-- Choose Preset --</option>';
-
-    const grpBuiltin = document.createElement('optgroup');
-    grpBuiltin.label = 'Built-in Presets';
-    DEFAULT_PRESETS.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = 'builtin:' + p.name;
-      opt.textContent = p.name;
-      grpBuiltin.appendChild(opt);
-    });
-    sel.appendChild(grpBuiltin);
-
-    const custom = getCustomPresets();
-    if (custom.length > 0) {
-      const grpCustom = document.createElement('optgroup');
-      grpCustom.label = 'Custom Presets';
-      custom.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = 'custom:' + p.name;
-        opt.textContent = p.name;
-        grpCustom.appendChild(opt);
-      });
-      sel.appendChild(grpCustom);
-    }
-    sel.value = curVal;
-  }
-
-  function applyPreset(p) {
-    if (!p) return;
-    if (p.tool === 'eraser') {
-      runCmd('set tool eraser');
-    } else if (p.tool === 'smudge') {
-      runCmd('set tool smudge');
-    } else if (p.tool === 'blend') {
-      runCmd('set tool blend');
-    } else if (p.tool === 'fill') {
-      runCmd('set tool fill');
-    } else if (p.tool === 'lasso_fill') {
-      runCmd('set tool lasso_fill');
-    } else {
-      runCmd('set tool brush');
-    }
-    if (p.size !== undefined) runCmd(`brush size ${p.size}`);
-    if (p.opacity !== undefined) runCmd(`brush opacity ${p.opacity}`);
-    if (p.hardness !== undefined) runCmd(`brush hardness ${p.hardness}`);
-    if (p.flow !== undefined) runCmd(`brush flow ${p.flow}`);
-    if (p.spacing !== undefined) runCmd(`set spacing ${p.spacing}`);
-    if (p.smoothing !== undefined) runCmd(`brush smooth ${p.smoothing}`);
-    if (p.midpoint !== undefined) runCmd(`set midpoint ${p.midpoint}`);
-    if (p.angle !== undefined) runCmd(`set angle ${p.angle}`);
-    if (p.roundness !== undefined) runCmd(`set roundness ${p.roundness}`);
-    if (p.scatter !== undefined) runCmd(`set scatter ${p.scatter}`);
-    if (p.grain !== undefined) runCmd(`set grain ${p.grain}`);
-    if (p.smudge !== undefined) runCmd(`set smudge ${p.smudge}`);
-    if (p.wetness !== undefined) runCmd(`set wetness ${p.wetness}`);
-    if (p.tolerance !== undefined) runCmd(`set tolerance ${p.tolerance}`);
-    if (p.shape !== undefined) runCmd(`set shape ${p.shape}`);
-    if (p.texture !== undefined) runCmd(`set texture ${p.texture}`);
-  }
-
-  const presetSel = document.getElementById('ui-select-preset');
-  if (presetSel) {
-    presetSel.addEventListener('change', () => {
-      const val = presetSel.value;
-      if (!val) return;
-      if (val.startsWith('builtin:')) {
-        const name = val.slice(8);
-        const p = DEFAULT_PRESETS.find(x => x.name === name);
-        if (p) applyPreset(p);
-      } else if (val.startsWith('custom:')) {
-        const name = val.slice(7);
-        const p = getCustomPresets().find(x => x.name === name);
-        if (p) applyPreset(p);
-      }
-    });
-  }
-
-  const savePresetBtn = document.getElementById('ui-btn-save-preset');
-  if (savePresetBtn) {
-    savePresetBtn.addEventListener('click', () => {
-      const name = prompt('Preset name:');
-      if (!name || !name.trim()) return;
-      const trimName = name.trim();
-      const shapes = ['circle', 'square', 'chisel'];
-      const p = {
-        name: trimName,
-        tool: host.currentTool === 1 ? 'eraser' : (['brush', 'smudge', 'blend', 'fill', 'lasso_fill'][host.brushParams.mode] || 'brush'),
-        size: host.brushParams.size,
-        opacity: host.brushParams.opacity,
-        hardness: host.brushParams.hardness,
-        flow: host.brushParams.flow,
-        spacing: host.brushParams.spacing,
-        smoothing: host.brushParams.smoothing || 0,
-        midpoint: host.brushParams.midpoint !== undefined ? host.brushParams.midpoint : 50,
-        angle: host.brushParams.angle,
-        roundness: host.brushParams.roundness,
-        scatter: host.brushParams.scatter,
-        grain: host.brushParams.grain,
-        smudge: host.brushParams.smudge,
-        wetness: host.brushParams.wetness,
-        tolerance: host.brushParams.tolerance,
-        shape: shapes[host.brushParams.shape] || `layer_${host.brushParams.shape}`,
-        texture: host.activeTexture || 'none'
-      };
-      saveCustomPreset(p);
-      populatePresetsDropdown();
-      if (presetSel) presetSel.value = 'custom:' + trimName;
-      log(`Preset '${trimName}' saved [ok]`);
-    });
-  }
-
-  const delPresetBtn = document.getElementById('ui-btn-del-preset');
-  if (delPresetBtn) {
-    delPresetBtn.addEventListener('click', () => {
-      const val = presetSel ? presetSel.value : '';
-      if (!val || !val.startsWith('custom:')) {
-        alert('Select a custom preset to delete.');
-        return;
-      }
-      const name = val.slice(7);
-      if (confirm(`Delete preset '${name}'?`)) {
-        deleteCustomPreset(name);
-        populatePresetsDropdown();
-        if (presetSel) presetSel.value = '';
-        log(`Preset '${name}' deleted [ok]`);
-      }
-    });
-  }
-
-  // Tool buttons
+  // 1. Tools
   document.querySelectorAll('.tool-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tool = btn.dataset.tool;
@@ -927,6 +786,46 @@ async function main() {
 
   /* ── User Scripts Manager & Runner (Pure REPL Commands) ── */
   const DEFAULT_SCRIPTS = [
+    {
+      name: 'preset_pencil',
+      code: `# Preset: Pencil\nset tool brush\nset size 2\nset opacity 100\nset hardness 100\nset flow 100\nbrush smooth 15\nset shape circle\nset texture none`
+    },
+    {
+      name: 'preset_inker',
+      code: `# Preset: Inker\nset tool brush\nset size 4\nset opacity 100\nset hardness 100\nset flow 100\nbrush smooth 40\nset shape circle\nset texture none`
+    },
+    {
+      name: 'preset_airbrush',
+      code: `# Preset: Airbrush\nset tool brush\nset size 45\nset opacity 40\nset hardness 0\nset flow 30\nbrush smooth 20\nset shape circle\nset texture none`
+    },
+    {
+      name: 'preset_hard_round',
+      code: `# Preset: Hard Round\nset tool brush\nset size 16\nset opacity 100\nset hardness 100\nset flow 100\nbrush smooth 0\nset shape circle\nset texture none`
+    },
+    {
+      name: 'preset_chisel',
+      code: `# Preset: Chisel\nset tool brush\nset size 28\nset opacity 80\nset hardness 85\nset flow 80\nset shape chisel\nset angle 45\nset roundness 40\nset texture none`
+    },
+    {
+      name: 'preset_charcoal',
+      code: `# Preset: Charcoal\nset tool brush\nset size 24\nset opacity 85\nset hardness 70\nset flow 90\nset grain 45\nset texture paper\nset shape circle`
+    },
+    {
+      name: 'preset_smudge',
+      code: `# Preset: Smudge Tool\nset tool smudge\nset size 30\nset opacity 100\nset hardness 40\nset smudge 70`
+    },
+    {
+      name: 'preset_blender',
+      code: `# Preset: Blender Tool\nset tool blend\nset size 35\nset opacity 100\nset hardness 30\nset smudge 50\nset wetness 70`
+    },
+    {
+      name: 'preset_soft_eraser',
+      code: `# Preset: Soft Eraser\nset tool eraser\nset size 30\nset opacity 100\nset hardness 20`
+    },
+    {
+      name: 'preset_hard_eraser',
+      code: `# Preset: Hard Eraser\nset tool eraser\nset size 16\nset opacity 100\nset hardness 100`
+    },
     {
       name: 'starter_canvas',
       code: `# Setup starter canvas and brush\nset tool brush\nset size 25\nset color #fabd2f\nset opacity 100\nset hardness 80\nbrush 200 200\nbrush 250 200\nbrush 300 200\nset color #fe8019\nset size 15\nbrush 250 250`
@@ -947,8 +846,8 @@ async function main() {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasOldJsDefaults = parsed.some(s => s.name === 'spiral_pattern.js' || (s.code && s.code.includes('runCmd(')));
-          if (!hasOldJsDefaults) return parsed;
+          const hasPresets = parsed.some(s => s.name === 'preset_pencil');
+          if (hasPresets) return parsed;
         }
       }
     } catch (_) {}
@@ -1390,6 +1289,16 @@ async function main() {
     });
   });
 
+  const chkPixelGrid = document.getElementById('ui-chk-pixel-grid');
+  host.showPixelGrid = localStorage.getItem('wesenho_pixel_grid') === '1';
+  if (chkPixelGrid) {
+    chkPixelGrid.checked = !!host.showPixelGrid;
+    chkPixelGrid.addEventListener('change', () => {
+      host.showPixelGrid = chkPixelGrid.checked;
+      localStorage.setItem('wesenho_pixel_grid', host.showPixelGrid ? '1' : '0');
+    });
+  }
+
   // Layer Resize Controls
   const btnResizeLayer = document.getElementById('ui-btn-resize-layer');
   const inputLayerW = document.getElementById('ui-layer-w');
@@ -1778,12 +1687,14 @@ async function main() {
     if (inputLayerH && document.activeElement !== inputLayerH && actH) {
       inputLayerH.value = actH;
     }
+    if (chkPixelGrid) {
+      chkPixelGrid.checked = !!host.showPixelGrid;
+    }
 
     updateDockTabs();
   }
 
   // Initial population
-  populatePresetsDropdown();
   populateScriptSelect();
   const initialScripts = getSavedScripts();
   if (initialScripts.length > 0 && scriptEditor && !scriptEditor.value) {
@@ -2014,16 +1925,8 @@ function ensureUiPanel() {
     <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25C0; tools [hide]</button>
     <div id="ui-scroll">
       <details class="ui-group" open>
-        <summary>TOOLS &amp; PRESETS</summary>
+        <summary>TOOLS</summary>
         <div class="ui-group-content">
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Brush Preset</span></div>
-            <div class="ui-row-gap">
-              <select id="ui-select-preset" class="ui-select"></select>
-              <button id="ui-btn-save-preset" class="ui-mini-btn" title="Save current brush as preset">+ Save</button>
-              <button id="ui-btn-del-preset" class="ui-mini-btn" title="Delete custom preset">&#x2715;</button>
-            </div>
-          </div>
           <div class="ui-grid-3">
             <button class="ui-btn tool-btn active" data-tool="brush" title="Brush (Draw)">Brush</button>
             <button class="ui-btn tool-btn" data-tool="eraser" title="Eraser">Eraser</button>

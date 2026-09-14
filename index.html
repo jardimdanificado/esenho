@@ -568,7 +568,7 @@
         padding: 8px 10px 24px;
       }
 
-      #ui-panel-tabs {
+      #panel-tabs {
         display: none !important;
       }
 
@@ -579,12 +579,19 @@
       }
     }
 
-    /* Panel Header Tabs (Tools / Scripts) */
-    #ui-panel-tabs {
+    /* Panel Header Tabs (Console / Scripts) */
+    #panel-tabs {
       display: flex;
       border-bottom: 1px solid #3c3836;
       background: #1d2021;
       flex-shrink: 0;
+    }
+    #console-view {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
     }
     .panel-header-tab {
       flex: 1;
@@ -661,24 +668,12 @@
   <!-- ── Full UI Panel (Left) ── -->
   <div id="ui-panel">
     <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25C0; tools [hide]</button>
-    <div id="ui-panel-tabs">
-      <button type="button" id="tab-sub-tools" class="panel-header-tab active">Tools</button>
-      <button type="button" id="tab-sub-scripts" class="panel-header-tab">Scripts</button>
-    </div>
     <div id="ui-scroll">
 
-      <!-- 1. Presets & Tools -->
+      <!-- 1. Tools -->
       <details class="ui-group" open>
-        <summary>TOOLS &amp; PRESETS</summary>
+        <summary>TOOLS</summary>
         <div class="ui-group-content">
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Brush Preset</span></div>
-            <div class="ui-row-gap">
-              <select id="ui-select-preset" class="ui-select"></select>
-              <button id="ui-btn-save-preset" class="ui-mini-btn" title="Save current brush as preset">+ Save</button>
-              <button id="ui-btn-del-preset" class="ui-mini-btn" title="Delete custom preset">&#x2715;</button>
-            </div>
-          </div>
           <div class="ui-grid-3">
             <button class="ui-btn tool-btn active" data-tool="brush" title="Brush (Draw)">Brush</button>
             <button class="ui-btn tool-btn" data-tool="eraser" title="Eraser">Eraser</button>
@@ -890,6 +885,11 @@
             <button class="ui-mini-btn btn-res-preset" data-w="1080" data-h="1080">1:1 Square</button>
             <button class="ui-mini-btn btn-res-preset" data-w="2048" data-h="2048">2K High</button>
           </div>
+          <div class="ui-control" style="margin-top: 6px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-pixel-grid"> Pixel Grid (when zoomed)
+            </label>
+          </div>
         </div>
       </details>
 
@@ -924,6 +924,39 @@
         </div>
       </details>
 
+    </div>
+  </div>
+
+  <!-- ── Canvas area ── -->
+  <div id="cvswrap">
+    <canvas id="wcanvas"></canvas>
+  </div>
+
+  <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
+  <div id="bottom-dock">
+    <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
+    <div id="bottom-dock-tabs">
+      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
+      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
+      <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
+      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">X</button>
+    </div>
+  </div>
+
+  <div id="panel" class="hidden">
+    <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25B6;</button>
+    <div id="panel-tabs">
+      <button type="button" id="tab-sub-console" class="panel-header-tab active">Console</button>
+      <button type="button" id="tab-sub-scripts" class="panel-header-tab">Scripts</button>
+    </div>
+    <div id="console-view">
+      <div id="wterm"></div>
+      <div id="inputrow">
+        <span>wesenho&gt;</span>
+        <input id="wcmd" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
+               placeholder="type a command…" autofocus>
+      </div>
+      <div id="wstatus">loading…</div>
     </div>
 
     <!-- Scripts Tab Panel -->
@@ -962,33 +995,6 @@
         </span>
       </div>
     </div>
-  </div>
-
-  <!-- ── Canvas area ── -->
-  <div id="cvswrap">
-    <canvas id="wcanvas"></canvas>
-  </div>
-
-  <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
-  <div id="bottom-dock">
-    <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
-    <div id="bottom-dock-tabs">
-      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
-      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
-      <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
-      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">X</button>
-    </div>
-  </div>
-
-  <div id="panel" class="hidden">
-    <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25B6;</button>
-    <div id="wterm"></div>
-    <div id="inputrow">
-      <span>wesenho&gt;</span>
-      <input id="wcmd" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-             placeholder="type a command…" autofocus>
-    </div>
-    <div id="wstatus">loading…</div>
   </div>
 </div>
 <script type="module">

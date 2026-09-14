@@ -729,6 +729,11 @@ function handleGet(host, rawCat, rawProp) {
     return;
   }
 
+  if (cat === 'grid' || cat === 'pixel_grid') {
+    console.log(host.showPixelGrid ? 'on' : 'off');
+    return;
+  }
+
   if (cat === 'zoom') {
     console.log(`${(host.zoom * 100).toFixed(0)}%`);
     return;
@@ -1290,6 +1295,24 @@ const COMMAND_RULES = [
   { pat: "midpoint $val", run: (m, host) => handleDirectParam(host, "midpoint", m.val) },
   { pat: "bezier $val", run: (m, host) => handleDirectParam(host, "bezier", m.val) },
   { pat: "bezier_midpoint $val", run: (m, host) => handleDirectParam(host, "bezier_midpoint", m.val) },
+  {
+    pat: "set grid $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      host.showPixelGrid = (v === 'on' || v === '1' || v === 'true' || v === 'yes');
+      host.sendConsoleLog(`pixel grid ${host.showPixelGrid ? 'enabled' : 'disabled'}`);
+    }
+  },
+  { pat: "grid $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set grid $val").run(m, host) },
+  { pat: "set pixel_grid $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set grid $val").run(m, host) },
+  { pat: "pixel_grid $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set grid $val").run(m, host) },
+  {
+    pat: "grid",
+    run: (m, host) => {
+      host.showPixelGrid = !host.showPixelGrid;
+      host.sendConsoleLog(`pixel grid ${host.showPixelGrid ? 'enabled' : 'disabled'}`);
+    }
+  },
   {
     pat: "set $param $val",
     run: (m, host) => handleDirectParam(host, m.param, m.val)
