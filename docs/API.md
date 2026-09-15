@@ -174,6 +174,7 @@ void w_brush_set_shape(int32_t shape);
 void w_brush_set_param(int32_t param_id, int32_t val);
 void w_brush_reset(void);
 void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser);
+void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 ```
 
 #### Primitives & Pixel Operations

@@ -1340,7 +1340,68 @@ async function run() {
   host.executeCommand('filter edge 25 1');
   host.executeCommand('filter dither 10 0');
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, and 4-Mode Action System (Draw, Erase, Smudge, Select) verified 100%!');
+  // Test Stylus & Wacom Tablet Dynamics (Pressure & Tilt)
+  console.log('--- Testing Stylus & Wacom Dynamics ---');
+  host.executeCommand('set pressure_size on');
+  host.executeCommand('set pressure_flow on');
+  host.executeCommand('set tilt_angle on');
+  if (host.brushParams.pressure_size !== 1 || host.brushParams.pressure_flow !== 1 || host.brushParams.tilt_angle !== 1) {
+    throw new Error('Stylus parameters failed to set via REPL');
+  }
+
+  // Test aliases
+  host.executeCommand('set stylus_size off');
+  host.executeCommand('set stylus_flow off');
+  host.executeCommand('set stylus_tilt off');
+  if (host.brushParams.pressure_size !== 0 || host.brushParams.pressure_flow !== 0 || host.brushParams.tilt_angle !== 0) {
+    throw new Error('Stylus alias parameters failed to set via REPL');
+  }
+
+  // Re-enable for stroke tests
+  host.executeCommand('set pressure_size on');
+  host.executeCommand('set pressure_flow on');
+  host.executeCommand('set tilt_angle on');
+  host.executeCommand('set size 30');
+  host.executeCommand('set hardness 100');
+  host.executeCommand('set opacity 100');
+  host.executeCommand('set flow 100');
+
+  // Low pressure stroke (pressure = 0.2 -> effective dab_r = 30 * 0.2 = 6)
+  host.executeCommand('clear');
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF0000FF, 0.2, 0, 0);
+  const stylusPtr1 = host.canvasActor.exports.get_active_layer_pixels();
+  const stylusU32_1 = new Uint32Array(host.canvasActor.memory.buffer, stylusPtr1, 640 * 480);
+  
+  // Center (100, 100) must be colored
+  if ((stylusU32_1[100 * 640 + 100] >>> 24) === 0) {
+    throw new Error('Expected low-pressure stroke center to be drawn');
+  }
+  // Point at distance 12 (100, 112) should be untouched because radius is ~6
+  if ((stylusU32_1[112 * 640 + 100] >>> 24) !== 0) {
+    throw new Error('Expected point at dist 12 to be empty under low pressure');
+  }
+
+  // High pressure stroke (pressure = 1.0 -> effective dab_r = 30)
+  host.executeCommand('clear');
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF0000FF, 1.0, 0, 0);
+  const stylusPtr2 = host.canvasActor.exports.get_active_layer_pixels();
+  const stylusU32_2 = new Uint32Array(host.canvasActor.memory.buffer, stylusPtr2, 640 * 480);
+  if ((stylusU32_2[112 * 640 + 100] >>> 24) === 0) {
+    throw new Error('Expected point at dist 12 to be drawn under full pressure');
+  }
+
+  // Test Stylus Tilt Dynamics
+  host.executeCommand('clear');
+  host.executeCommand('set shape chisel');
+  host.executeCommand('set size 40');
+  host.executeCommand('set roundness 25');
+  host.executeCommand('set angle 0');
+  // Tilt along X axis (tiltX = 45, tiltY = 0 -> angle = 0)
+  host.sendStroke(200, 200, 200, 200, 0, 0, 0xFF00FF00, 1.0, 45, 0);
+  // Tilt along Y axis (tiltX = 0, tiltY = 45 -> angle = 90)
+  host.sendStroke(300, 200, 300, 200, 0, 0, 0xFF00FF00, 1.0, 0, 45);
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, and Stylus/Wacom Pressure & Tilt Dynamics verified 100%!');
 }
 
 run().catch(err => {

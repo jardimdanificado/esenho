@@ -1443,7 +1443,13 @@ async function main() {
     return null;
   }
 
-  canvasEl.addEventListener('mousedown', e => {
+  let penActive = false;
+
+  canvasEl.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') return; // Handled by touch events (gestures/taps)
+    if (e.pointerType === 'pen') penActive = true;
+    try { canvasEl.setPointerCapture(e.pointerId); } catch (_) {}
+
     const { sx, sy, x, y } = clientPos(e);
     host.mouseState.x = sx; host.mouseState.y = sy;
     if (e.button === 1) {
@@ -1505,7 +1511,8 @@ async function main() {
         host.isDrawingOnCanvas = true;
         host.strokePrevX = x; host.strokePrevY = y;
         host.strokeIsEraser = 0;
-        host.sendStroke(x, y, x, y, 0, 0, 0xFF83A598);
+        const press = (e.pointerType === 'pen' && e.pressure !== undefined && e.pressure > 0) ? e.pressure : 1.0;
+        host.sendStroke(x, y, x, y, 0, 0, 0xFF83A598, press, e.tiltX || 0, e.tiltY || 0);
         e.preventDefault();
         return;
       }
@@ -1535,18 +1542,23 @@ async function main() {
       }
       host.isDrawingOnCanvas = true;
       host.strokePrevX = x; host.strokePrevY = y;
-      const isEraseMode = host.actionMode === 'erase';
-      host.strokeIsEraser = e.button === 2 ? 1 : (isEraseMode || host.currentTool === 1 ? 1 : 0);
+
+      // Check for hardware stylus eraser tip: button 5, buttons & 32
+      const isEraserTip = (e.pointerType === 'pen') && (e.button === 5 || ((e.buttons & 32) !== 0));
+      const isEraseMode = host.actionMode === 'erase' || isEraserTip;
+      host.strokeIsEraser = (e.button === 2 || isEraserTip) ? 1 : (isEraseMode || host.currentTool === 1 ? 1 : 0);
       const strokeCol = isEraseMode && curMode === 3 ? 0x00000000 : host.currentColor;
       if (host.brushParams && host.brushParams.mode === 4) {
         lassoPoints = [{ x, y }];
       }
-      host.sendStroke(x, y, x, y, 0, host.strokeIsEraser, strokeCol);
+      const press = (e.pointerType === 'pen' && e.pressure !== undefined && e.pressure > 0) ? e.pressure : 1.0;
+      host.sendStroke(x, y, x, y, 0, host.strokeIsEraser, strokeCol, press, e.tiltX || 0, e.tiltY || 0);
     }
     e.preventDefault();
   });
 
-  canvasEl.addEventListener('mousemove', e => {
+  canvasEl.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') return;
     const { sx, sy, x, y } = clientPos(e);
     host.mouseState.x = sx; host.mouseState.y = sy;
     if (host.isPanning) {
@@ -1601,7 +1613,7 @@ async function main() {
       lassoSelPoints.push({ x, y });
     } else if (host.brushParams && host.brushParams.mode === 5 && (host.mouseState.buttons & 3)) {
       sampleEyedropperColor(x, y, e.clientX, e.clientY);
-    } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3)) {
+    } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3 || e.buttons !== 0)) {
       const coalesced = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
       for (const ev of coalesced) {
         const pt = clientPos(ev);
@@ -1609,14 +1621,18 @@ async function main() {
           lassoPoints.push({ x: pt.x, y: pt.y });
         }
         const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
-        host.sendStroke(pt.x, pt.y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, strokeCol);
+        const press = (ev.pointerType === 'pen' && ev.pressure !== undefined && ev.pressure > 0) ? ev.pressure : 1.0;
+        host.sendStroke(pt.x, pt.y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, strokeCol, press, ev.tiltX || 0, ev.tiltY || 0);
         host.strokePrevX = pt.x; host.strokePrevY = pt.y;
       }
     }
     updateStatus(host, x, y);
   });
 
-  canvasEl.addEventListener('mouseup', e => {
+  const handlePointerUp = e => {
+    if (e.pointerType === 'touch') return;
+    if (e.pointerType === 'pen') penActive = false;
+    try { canvasEl.releasePointerCapture(e.pointerId); } catch (_) {}
     if (e.button === 1) { host.isPanning = false; }
     else {
       host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
@@ -1693,9 +1709,10 @@ async function main() {
       }
       if (!(host.mouseState.buttons & 3) && host.isDrawingOnCanvas) {
         const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
+        const press = (e.pointerType === 'pen' && e.pressure !== undefined && e.pressure > 0) ? e.pressure : 1.0;
         host.sendStroke(host.strokePrevX, host.strokePrevY,
                         host.strokePrevX, host.strokePrevY,
-                        2, host.strokeIsEraser, strokeCol);
+                        2, host.strokeIsEraser, strokeCol, press, e.tiltX || 0, e.tiltY || 0);
         host.isDrawingOnCanvas = false;
         lassoPoints = [];
         if (selectScratchLayerId >= 0) {
@@ -1703,7 +1720,10 @@ async function main() {
         }
       }
     }
-  });
+  };
+
+  canvasEl.addEventListener('pointerup', handlePointerUp);
+  canvasEl.addEventListener('pointercancel', handlePointerUp);
 
   canvasEl.addEventListener('wheel', e => {
     const r = canvasEl.getBoundingClientRect();
@@ -1777,6 +1797,10 @@ async function main() {
 
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
+    if (penActive && e.touches.length === 1) {
+      // Palm rejection: ignore single finger touch when stylus is touching screen
+      return;
+    }
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
       touch.pending = { sx, sy, x, y };
@@ -2817,6 +2841,27 @@ async function main() {
     });
   }
 
+  const chkPressureSize = document.getElementById('ui-chk-pressure-size');
+  if (chkPressureSize) {
+    chkPressureSize.addEventListener('change', () => {
+      runCmd(`set pressure_size ${chkPressureSize.checked ? 1 : 0}`);
+    });
+  }
+
+  const chkPressureFlow = document.getElementById('ui-chk-pressure-flow');
+  if (chkPressureFlow) {
+    chkPressureFlow.addEventListener('change', () => {
+      runCmd(`set pressure_flow ${chkPressureFlow.checked ? 1 : 0}`);
+    });
+  }
+
+  const chkTiltAngle = document.getElementById('ui-chk-tilt-angle');
+  if (chkTiltAngle) {
+    chkTiltAngle.addEventListener('change', () => {
+      runCmd(`set tilt_angle ${chkTiltAngle.checked ? 1 : 0}`);
+    });
+  }
+
   // Undo / Redo buttons
   const handleUndo = () => host.undo();
   const handleRedo = () => host.redo();
@@ -3650,6 +3695,12 @@ async function main() {
       }
       const chkAutoRot = document.getElementById('ui-chk-auto-rotate');
       if (chkAutoRot) chkAutoRot.checked = !!bp.auto_rotate;
+      const chkPSize = document.getElementById('ui-chk-pressure-size');
+      if (chkPSize) chkPSize.checked = bp.pressure_size !== undefined ? !!bp.pressure_size : true;
+      const chkPFlow = document.getElementById('ui-chk-pressure-flow');
+      if (chkPFlow) chkPFlow.checked = bp.pressure_flow !== undefined ? !!bp.pressure_flow : true;
+      const chkTilt = document.getElementById('ui-chk-tilt-angle');
+      if (chkTilt) chkTilt.checked = bp.tilt_angle !== undefined ? !!bp.tilt_angle : true;
       const chkSubpixel = document.getElementById('ui-chk-subpixel');
       if (chkSubpixel) chkSubpixel.checked = !!bp.subpixel;
       const symmetrySel = document.getElementById('ui-select-symmetry');
@@ -4554,6 +4605,21 @@ function ensureUiPanel() {
           <div class="ui-control" style="margin-top: 4px;">
             <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
               <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Trajectory)
+            </label>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-pressure-size" checked> Stylus Pressure Size
+            </label>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-pressure-flow" checked> Stylus Pressure Flow
+            </label>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-tilt-angle" checked> Stylus Tilt Dynamics
             </label>
           </div>
           <div class="ui-control" style="margin-top: 4px;">

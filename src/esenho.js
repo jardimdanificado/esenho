@@ -147,7 +147,13 @@ const PARAM_IDS = {
   dual_size: 36,
   dual_spacing: 37,
   symmetry: 38,
-  mirror: 38
+  mirror: 38,
+  pressure_size: 39,
+  stylus_size: 39,
+  pressure_flow: 40,
+  stylus_flow: 40,
+  tilt_angle: 41,
+  stylus_tilt: 41
 };
 
 /**
@@ -225,8 +231,13 @@ class EsenhoModule {
     }
   }
 
-  stroke(state, x, y, prevX, prevY, color, eraser) {
-    if (typeof this.exports.w_brush_stroke === 'function') {
+  stroke(state, x, y, prevX, prevY, color, eraser, pressure, tiltX, tiltY) {
+    const press = (pressure !== undefined && pressure !== null) ? Math.round(pressure * 1000) : 1000;
+    const tx = (tiltX !== undefined && tiltX !== null) ? Math.round(tiltX) : 0;
+    const ty = (tiltY !== undefined && tiltY !== null) ? Math.round(tiltY) : 0;
+    if (typeof this.exports.w_brush_stroke_ext === 'function') {
+      this.exports.w_brush_stroke_ext(state, x, y, prevX, prevY, color >>> 0, eraser ? 1 : 0, press, tx, ty);
+    } else if (typeof this.exports.w_brush_stroke === 'function') {
       this.exports.w_brush_stroke(state, x, y, prevX, prevY, color >>> 0, eraser ? 1 : 0);
     }
   }
@@ -2556,7 +2567,10 @@ class EsenhoScreenHost {
       color_pickup: 0,
       dual_shape: -1,
       dual_size: 100,
-      dual_spacing: 10
+      dual_spacing: 10,
+      pressure_size: 1,
+      pressure_flow: 1,
+      tilt_angle: 1
     };
 
     // Canvas Viewport Flip
@@ -3836,7 +3850,10 @@ class EsenhoScreenHost {
       color_pickup: 0,
       dual_shape: -1,
       dual_size: 100,
-      dual_spacing: 10
+      dual_spacing: 10,
+      pressure_size: 1,
+      pressure_flow: 1,
+      tilt_angle: 1
     };
     if (this.canvasActor && this.canvasActor.exports) {
       if (typeof this.canvasActor.exports.w_brush_reset === 'function') {
@@ -4020,7 +4037,7 @@ class EsenhoScreenHost {
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
         flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend',
         dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup',
-        mirror: 'symmetry'
+        mirror: 'symmetry', stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -4212,18 +4229,31 @@ class EsenhoScreenHost {
 
   /**
    * Dispatches a stroke to the native Universal Brush Engine inside canvas.wasm,
-   * applying configurable stabilizer / stroke smoothing (EMA + Bézier curvature).
+   * applying configurable stabilizer / stroke smoothing (EMA + Bézier curvature),
+   * pressure sensitivity and stylus tilt dynamics.
    */
-  sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
+  sendStroke(x, y, prev_x, prev_y, state, is_eraser, color, pressure, tiltX, tiltY) {
     if (this.brushParams && this.brushParams.mode === 5) {
       this.pickColor(x, y, true);
       return;
     }
-    if (!this.canvasActor || typeof this.canvasActor.exports.w_brush_stroke !== 'function') return;
+    if (!this.canvasActor || (typeof this.canvasActor.exports.w_brush_stroke !== 'function' && typeof this.canvasActor.exports.w_brush_stroke_ext !== 'function')) return;
 
     const col = (color !== undefined) ? color : this.currentColor;
     const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.actionMode === 'erase' || this.currentTool === 1 ? 1 : 0);
     const smooth = Math.max(0, Math.min(100, this.brushParams.smoothing || 0));
+
+    const press = (pressure !== undefined && pressure !== null) ? Math.round(pressure * 1000) : 1000;
+    const tx = (tiltX !== undefined && tiltX !== null) ? Math.round(tiltX) : 0;
+    const ty = (tiltY !== undefined && tiltY !== null) ? Math.round(tiltY) : 0;
+
+    const invokeStroke = (s, curX, curY, pX, pY) => {
+      if (typeof this.canvasActor.exports.w_brush_stroke_ext === 'function') {
+        this.canvasActor.exports.w_brush_stroke_ext(s, Math.floor(curX), Math.floor(curY), Math.floor(pX), Math.floor(pY), col >>> 0, eraser, press, tx, ty);
+      } else if (typeof this.canvasActor.exports.w_brush_stroke === 'function') {
+        this.canvasActor.exports.w_brush_stroke(s, Math.floor(curX), Math.floor(curY), Math.floor(pX), Math.floor(pY), col >>> 0, eraser);
+      }
+    };
 
     let effMode = (this.brushParams && this.brushParams.mode !== undefined) ? this.brushParams.mode : 0;
     if (this.actionMode === 'smudge') {
@@ -4281,15 +4311,7 @@ class EsenhoScreenHost {
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = null;
-      this.canvasActor.exports.w_brush_stroke(
-        state,
-        Math.floor(x),
-        Math.floor(y),
-        Math.floor(prev_x),
-        Math.floor(prev_y),
-        col >>> 0,
-        eraser
-      );
+      invokeStroke(state, x, y, prev_x, prev_y);
       return;
     }
 
@@ -4298,15 +4320,7 @@ class EsenhoScreenHost {
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = [{ x, y }];
-      this.canvasActor.exports.w_brush_stroke(
-        0,
-        Math.floor(x),
-        Math.floor(y),
-        Math.floor(x),
-        Math.floor(y),
-        col >>> 0,
-        eraser
-      );
+      invokeStroke(0, x, y, x, y);
       return;
     }
 
@@ -4351,15 +4365,7 @@ class EsenhoScreenHost {
         const bx = invT * invT * midPrev.x + 2 * invT * t * pPrev.x + t * t * midCurr.x;
         const by = invT * invT * midPrev.y + 2 * invT * t * pPrev.y + t * t * midCurr.y;
 
-        this.canvasActor.exports.w_brush_stroke(
-          1,
-          Math.floor(bx),
-          Math.floor(by),
-          Math.floor(lastX),
-          Math.floor(lastY),
-          col >>> 0,
-          eraser
-        );
+        invokeStroke(1, bx, by, lastX, lastY);
         lastX = bx;
         lastY = by;
       }
@@ -4375,26 +4381,10 @@ class EsenhoScreenHost {
       // Catch up to final release coordinate
       if (this.strokeSmoothX !== null && this.strokeSmoothX !== undefined) {
         if (Math.hypot(x - this.strokeSmoothX, y - this.strokeSmoothY) >= 1) {
-          this.canvasActor.exports.w_brush_stroke(
-            1,
-            Math.floor(x),
-            Math.floor(y),
-            Math.floor(this.strokeSmoothX),
-            Math.floor(this.strokeSmoothY),
-            col >>> 0,
-            eraser
-          );
+          invokeStroke(1, x, y, this.strokeSmoothX, this.strokeSmoothY);
         }
       }
-      this.canvasActor.exports.w_brush_stroke(
-        2,
-        Math.floor(x),
-        Math.floor(y),
-        Math.floor(x),
-        Math.floor(y),
-        col >>> 0,
-        eraser
-      );
+      invokeStroke(2, x, y, x, y);
       this.strokeSmoothX = null;
       this.strokeSmoothY = null;
       this.strokeHistory = null;

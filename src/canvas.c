@@ -651,6 +651,9 @@ typedef struct {
     int32_t dual_size;       // 1..500 % (default 100)
     int32_t dual_spacing;    // 1..500 % (default 20)
     int32_t symmetry;        // 0=off, 1=vertical, 2=horizontal, 3=both
+    int32_t pressure_size;   // 0=off, 1=on (stylus pressure scales size)
+    int32_t pressure_flow;   // 0=off, 1=on (stylus pressure scales flow)
+    int32_t tilt_angle;      // 0=off, 1=on (stylus tilt controls angle/roundness)
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -690,7 +693,10 @@ static w_brush_config_t brush_config = {
     .dual_shape = -1,
     .dual_size = 100,
     .dual_spacing = 10,
-    .symmetry = 0
+    .symmetry = 0,
+    .pressure_size = 1,
+    .pressure_flow = 1,
+    .tilt_angle = 1
 };
 
 static uint32_t rng_state = 0x87654321;
@@ -1594,6 +1600,9 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_DUAL_SIZE:      if (val > 0) brush_config.dual_size = val; break;
         case W_PARAM_DUAL_SPACING:   if (val > 0) brush_config.dual_spacing = val; break;
         case W_PARAM_SYMMETRY:       if (val >= 0 && val <= 3) brush_config.symmetry = val; break;
+        case W_PARAM_PRESSURE_SIZE:  brush_config.pressure_size = val ? 1 : 0; break;
+        case W_PARAM_PRESSURE_FLOW:  brush_config.pressure_flow = val ? 1 : 0; break;
+        case W_PARAM_TILT_ANGLE:     brush_config.tilt_angle = val ? 1 : 0; break;
     }
 }
 
@@ -1644,9 +1653,9 @@ static int32_t stroke_cum_dist = 0;
 static uint32_t stroke_pickup_color = 0;
 
 /**
- * Universal Brush Stroke Executor (interpolates dabs, handles smudge, fill, lasso).
+ * Universal Brush Stroke Executor (interpolates dabs, handles smudge, fill, lasso, pressure, tilt).
  */
-W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser) {
+W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
     init_surface_if_needed();
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
@@ -1775,23 +1784,35 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
         scale_factor = (scale_factor * taper_pct * fade_pct) / 10000;
         if (scale_factor <= 0) continue;
 
-        // Size with size_jitter
+        // Size with size_jitter and pressure sensitivity
         int dab_r = (brush_config.size * scale_factor) / 100;
+        if (brush_config.pressure_size && pressure >= 0) {
+            int p = pressure > 1000 ? 1000 : pressure;
+            dab_r = (dab_r * p) / 1000;
+        }
         if (brush_config.size_jitter > 0) {
             int sj = (int)(next_random() % (brush_config.size_jitter + 1));
             dab_r = (dab_r * (100 - sj)) / 100;
         }
         if (dab_r < 1) dab_r = 1;
 
-        // Angle with angle_jitter
+        // Angle with angle_jitter and stylus tilt dynamics
         int dab_angle = brush_config.angle;
+        if (brush_config.tilt_angle && (tilt_x != 0 || tilt_y != 0)) {
+            int tilt_deg = w_atan2_deg(tilt_y, tilt_x);
+            dab_angle = (dab_angle + tilt_deg + 360) % 360;
+        }
         if (brush_config.angle_jitter > 0) {
             int aj = (int)(next_random() % (brush_config.angle_jitter + 1));
             dab_angle = (dab_angle + aj) % 360;
         }
 
-        // Flow with opacity_jitter & depletion
+        // Flow with opacity_jitter, depletion and pressure sensitivity
         int dab_flow_pct = scale_factor;
+        if (brush_config.pressure_flow && pressure >= 0) {
+            int p = pressure > 1000 ? 1000 : pressure;
+            dab_flow_pct = (dab_flow_pct * p) / 1000;
+        }
         if (brush_config.opacity_jitter > 0) {
             int oj = (int)(next_random() % (brush_config.opacity_jitter + 1));
             dab_flow_pct = (dab_flow_pct * (100 - oj)) / 100;
@@ -1873,6 +1894,10 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
         d_y0 = 0; d_y1 = h - 1;
     }
     composite_region(d_x0, d_y0, d_x1, d_y1);
+}
+
+W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser) {
+    w_brush_stroke_ext(state, x0, y0, x1, y1, color, eraser, 1000, 0, 0);
 }
 
 W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite) {

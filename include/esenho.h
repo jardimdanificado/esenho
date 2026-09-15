@@ -74,7 +74,10 @@ enum {
     W_PARAM_DUAL_SHAPE     = 35, /* dual brush secondary tip layer index (-1 = none) */
     W_PARAM_DUAL_SIZE      = 36, /* dual brush secondary tip size % (1..500) */
     W_PARAM_DUAL_SPACING   = 37, /* dual brush secondary tip spacing % (1..500) */
-    W_PARAM_SYMMETRY       = 38  /* symmetry mode: 0=off, 1=vertical, 2=horizontal, 3=both */
+    W_PARAM_SYMMETRY       = 38, /* symmetry mode: 0=off, 1=vertical, 2=horizontal, 3=both */
+    W_PARAM_PRESSURE_SIZE  = 39, /* stylus pressure controls brush size: 0=off, 1=on */
+    W_PARAM_PRESSURE_FLOW  = 40, /* stylus pressure controls brush flow/opacity: 0=off, 1=on */
+    W_PARAM_TILT_ANGLE     = 41  /* stylus tilt controls brush angle/roundness: 0=off, 1=on */
 };
 
 enum {
@@ -138,6 +141,8 @@ W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
 W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample);
 W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx);
 W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
+W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser);
+W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 
 /* =========================================================================
  * Fast Math Helpers
