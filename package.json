@@ -1,9 +1,11 @@
 {
   "name": "esenho",
-  "version": "0.1.0",
+  "version": "0.3.3",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/test_text_protocol.js"
+    "test": "node tests/test_text_protocol.js",
+    "version": "node scripts/sync-version.js",
+    "sync": "node scripts/sync-version.js"
   },
   "keywords": [],
   "author": "",
