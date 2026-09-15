@@ -1075,6 +1075,25 @@
             <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
             <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
             <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Long-press)">Picker</button>
+            <button class="ui-btn tool-btn" data-tool="line" title="Line Guide (Drag to draw straight line)">Line</button>
+            <button class="ui-btn tool-btn" data-tool="rect" title="Rectangle Guide (Drag to draw rectangle)">Rect</button>
+            <button class="ui-btn tool-btn" data-tool="ellipse" title="Ellipse Guide (Drag to draw ellipse)">Ellipse</button>
+            <button class="ui-btn tool-btn" data-tool="select" title="Marquee Selection (Drag to select region)">Select</button>
+            <button class="ui-btn tool-btn" data-tool="lasso_select" title="Lasso Selection (Freehand polygon select)">Lasso Sel</button>
+            <button class="ui-btn tool-btn" data-tool="wand_select" title="Magic Wand (Click to flood-fill select by color)">Wand</button>
+          </div>
+          <div class="ui-grid-2" style="margin-top: 6px;">
+            <button id="ui-btn-copy" class="ui-btn" title="Copy selection → new floating layer">Copy</button>
+            <button id="ui-btn-cut" class="ui-btn" title="Cut selection → new floating layer">Cut</button>
+            <button id="ui-btn-paste" class="ui-btn" title="Paste clipboard to active layer">Paste</button>
+            <button id="ui-btn-deselect" class="ui-btn" title="Clear selection">Deselect</button>
+            <button id="ui-btn-transform-apply" class="ui-btn" title="Apply floating transform to layer">Apply Xform</button>
+            <button id="ui-btn-transform-cancel" class="ui-btn" title="Cancel floating transform">Cancel Xform</button>
+            <button id="ui-btn-transform-lock" class="ui-btn" title="Toggle selection lock during transform">Lock Sel</button>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-label">Wand Tolerance <span id="ui-wand-tol-val">30</span></label>
+            <input type="range" id="ui-slider-wand-tol" class="ui-slider" min="0" max="255" step="1" value="30">
           </div>
         </div>
       </details>
@@ -1424,11 +1443,38 @@
               <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
             </div>
           </div>
+          <div class="ui-control" id="ui-ctrl-filter-radius" style="margin-top: 4px;">
+            <div class="ui-label-row"><span>Filter Radius / Parameter</span><span id="ui-val-filter-radius" class="ui-val">5</span></div>
+            <input type="range" id="ui-slider-filter-radius" min="1" max="25" value="5">
+          </div>
           <div class="ui-grid-2" style="margin-top: 4px;">
             <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
             <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
           </div>
           <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
+        </div>
+      </details>
+
+      <!-- 8. Color Adjustments -->
+      <details class="ui-group">
+        <summary>ADJUSTMENTS (HSV / HSL)</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Hue Shift</span><span id="ui-val-hue" class="ui-val">0°</span></div>
+            <input type="range" id="ui-slider-hue" min="-180" max="180" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Saturation</span><span id="ui-val-sat" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-sat" min="-100" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Brightness / Value</span><span id="ui-val-bright" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-bright" min="-100" max="100" value="0">
+          </div>
+          <div class="ui-row-gap" style="margin-top: 6px;">
+            <button id="ui-btn-apply-hsv" class="ui-btn" style="flex: 1;">Apply HSL Adjust</button>
+            <button id="ui-btn-reset-hsv" class="ui-btn" style="flex: 1;">Reset Sliders</button>
+          </div>
         </div>
       </details>
 

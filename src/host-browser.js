@@ -649,6 +649,29 @@ async function main() {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.redo();
       e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 'c' || e.key === 'C')) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.copySelection();
+      log('copied selection [ok]');
+      e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.cutSelection();
+      log('cut selection [ok]');
+      e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.pasteClipboard();
+      log('pasted clipboard [ok]');
+      e.preventDefault();
+    } else if ((e.ctrlKey && (e.key === 'd' || e.key === 'D')) || e.key === 'Escape') {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.clearSelection();
+      e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      host.selectAll();
+      e.preventDefault();
     }
   });
 
@@ -657,6 +680,60 @@ async function main() {
   let offscreen = null;
   let offscreenCtx = null;
   let lassoPoints = [];
+
+  let isDraggingShape = false;
+  let shapeStartDoc = null;
+  let shapeCurDoc = null;
+  let isSelecting = false;
+  let selStartDoc = null;
+  let isLassoSelecting = false;   // mode 10: freehand polygon selection
+  let lassoSelPoints = [];         // polygon points for lasso selection
+  // Float transform drag state
+  let ftDragging = false;          // dragging the floating layer
+  let ftHandle = null;             // 'move' | 'tl'|'tr'|'bl'|'br'|'ml'|'mr'|'tm'|'bm'|'rot'
+  let ftDragStart = null;          // { sx, sy, x, y } screen+doc start
+  let ftDragOrigin = null;         // snapshot of floatingTransform at drag start
+
+  function rasterizeShape(start, end, mode) {
+    if (!start || !end) return;
+    const isEraser = host.currentTool === 1;
+    const col = host.currentColor;
+    if (mode === 6) { // Line
+      host.pushUndoSnapshot('shape line');
+      host.sendStroke(start.x, start.y, start.x, start.y, 0, isEraser, col);
+      host.sendStroke(end.x, end.y, start.x, start.y, 1, isEraser, col);
+      host.sendStroke(end.x, end.y, end.x, end.y, 2, isEraser, col);
+    } else if (mode === 7) { // Rect
+      host.pushUndoSnapshot('shape rect');
+      const x0 = start.x, y0 = start.y, x1 = end.x, y1 = end.y;
+      host.sendStroke(x0, y0, x0, y0, 0, isEraser, col);
+      host.sendStroke(x1, y0, x0, y0, 1, isEraser, col);
+      host.sendStroke(x1, y1, x1, y0, 1, isEraser, col);
+      host.sendStroke(x0, y1, x1, y1, 1, isEraser, col);
+      host.sendStroke(x0, y0, x0, y1, 1, isEraser, col);
+      host.sendStroke(x0, y0, x0, y0, 2, isEraser, col);
+    } else if (mode === 8) { // Ellipse
+      host.pushUndoSnapshot('shape ellipse');
+      const cx = (start.x + end.x) / 2;
+      const cy = (start.y + end.y) / 2;
+      const rx = Math.abs(end.x - start.x) / 2;
+      const ry = Math.abs(end.y - start.y) / 2;
+      if (rx > 0 && ry > 0) {
+        const steps = 36;
+        let prevX = cx + rx;
+        let prevY = cy;
+        host.sendStroke(prevX, prevY, prevX, prevY, 0, isEraser, col);
+        for (let i = 1; i <= steps; i++) {
+          const th = (i * 2 * Math.PI) / steps;
+          const px = cx + rx * Math.cos(th);
+          const py = cy + ry * Math.sin(th);
+          host.sendStroke(px, py, prevX, prevY, 1, isEraser, col);
+          prevX = px; prevY = py;
+        }
+        host.sendStroke(prevX, prevY, prevX, prevY, 2, isEraser, col);
+      }
+    }
+  }
 
   function frame() {
     if (canvasEl.parentElement) {
@@ -771,6 +848,166 @@ async function main() {
         ctx.restore();
       }
 
+      /* Live Shape Preview Overlay (Line, Rect, Ellipse) */
+      if (isDraggingShape && shapeStartDoc && shapeCurDoc) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+
+        const c = host.currentColor !== undefined ? host.currentColor : 0xFFEBDBB2;
+        const r = c & 0xFF, g = (c >> 8) & 0xFF, b = (c >> 16) & 0xFF;
+        const a = ((c >> 24) & 0xFF) / 255;
+        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.max(0.4, a)})`;
+        ctx.lineWidth = Math.max(1, (host.brushParams?.size || 1) * host.zoom);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        const sx = shapeStartDoc.x * host.zoom;
+        const sy = shapeStartDoc.y * host.zoom;
+        const ex = shapeCurDoc.x * host.zoom;
+        const ey = shapeCurDoc.y * host.zoom;
+
+        const curMode = host.brushParams ? host.brushParams.mode : 0;
+        if (curMode === 6) { // Line
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(ex, ey);
+          ctx.stroke();
+        } else if (curMode === 7) { // Rect
+          const rx = Math.min(sx, ex);
+          const ry = Math.min(sy, ey);
+          const rw = Math.abs(ex - sx);
+          const rh = Math.abs(ey - sy);
+          ctx.strokeRect(rx, ry, rw, rh);
+        } else if (curMode === 8) { // Ellipse
+          const cx_e = (sx + ex) / 2;
+          const cy_e = (sy + ey) / 2;
+          const radX = Math.abs(ex - sx) / 2;
+          const radY = Math.abs(ey - sy) / 2;
+          if (radX > 0 && radY > 0) {
+            ctx.beginPath();
+            ctx.ellipse(cx_e, cy_e, radX, radY, 0, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      /* Live Selection / Marching Ants Overlay */
+      if (host.selection && host.selection.active && host.selection.w > 0 && host.selection.h > 0) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+
+        const dashOff = (Date.now() / 60) % 8;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+
+        if (host.selection.type === 'lasso' && host.selection.points && host.selection.points.length > 1) {
+          // Lasso: draw polygon outline
+          ctx.beginPath();
+          ctx.moveTo(host.selection.points[0].x * host.zoom, host.selection.points[0].y * host.zoom);
+          for (let i = 1; i < host.selection.points.length; i++) {
+            ctx.lineTo(host.selection.points[i].x * host.zoom, host.selection.points[i].y * host.zoom);
+          }
+          ctx.closePath();
+          ctx.fillStyle = 'rgba(131, 165, 152, 0.12)';
+          ctx.fill();
+          ctx.strokeStyle = '#000000'; ctx.lineDashOffset = dashOff; ctx.stroke();
+          ctx.strokeStyle = '#ffffff'; ctx.lineDashOffset = dashOff + 4; ctx.stroke();
+        } else {
+          // Rect (or wand bounding box): draw rect
+          const selX = host.selection.x * host.zoom;
+          const selY = host.selection.y * host.zoom;
+          const selW = host.selection.w * host.zoom;
+          const selH = host.selection.h * host.zoom;
+          ctx.fillStyle = 'rgba(131, 165, 152, 0.15)';
+          ctx.fillRect(selX, selY, selW, selH);
+          ctx.strokeStyle = '#000000'; ctx.lineDashOffset = dashOff; ctx.strokeRect(selX, selY, selW, selH);
+          ctx.strokeStyle = '#ffffff'; ctx.lineDashOffset = dashOff + 4; ctx.strokeRect(selX, selY, selW, selH);
+        }
+
+        ctx.restore();
+      }
+
+      /* Live Lasso Selection Polygon preview (while dragging in mode 10) */
+      if (isLassoSelecting && lassoSelPoints.length > 1) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+        ctx.beginPath();
+        ctx.moveTo(lassoSelPoints[0].x * host.zoom, lassoSelPoints[0].y * host.zoom);
+        for (let i = 1; i < lassoSelPoints.length; i++) {
+          ctx.lineTo(lassoSelPoints[i].x * host.zoom, lassoSelPoints[i].y * host.zoom);
+        }
+        ctx.strokeStyle = '#fabd2f';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 5]);
+        ctx.lineDashOffset = (Date.now() / 40) % 10;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      /* Float Transform Overlay — rendered on top of WASM layer, with handles */
+      if (host.floatingTransform) {
+        const ft = host.floatingTransform;
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+
+        // Center of the floating selection in doc space
+        const fcx = ft.originX + ft.width / 2 + ft.tx;
+        const fcy = ft.originY + ft.height / 2 + ft.ty;
+        const fw = ft.width * Math.abs(ft.scaleX) * host.zoom;
+        const fh = ft.height * Math.abs(ft.scaleY) * host.zoom;
+        const fcxS = fcx * host.zoom;
+        const fcyS = fcy * host.zoom;
+
+        // Draw transform frame
+        ctx.save();
+        ctx.translate(fcxS, fcyS);
+        ctx.rotate(ft.rotation);
+        ctx.transform(1, 0, ft.skewX, 1, 0, 0);
+
+        // Tinted preview rect
+        ctx.fillStyle = 'rgba(69, 133, 136, 0.18)';
+        ctx.fillRect(-fw / 2, -fh / 2, fw, fh);
+        ctx.strokeStyle = '#83a598';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([]);
+        ctx.strokeRect(-fw / 2, -fh / 2, fw, fh);
+
+        // 8 resize handles
+        const hs = 7; // handle half-size px
+        const handlePositions = [
+          { id: 'tl', rx: -fw/2, ry: -fh/2 }, { id: 'tm', rx: 0,    ry: -fh/2 }, { id: 'tr', rx: fw/2,  ry: -fh/2 },
+          { id: 'ml', rx: -fw/2, ry: 0     },                                       { id: 'mr', rx: fw/2,  ry: 0     },
+          { id: 'bl', rx: -fw/2, ry: fh/2  }, { id: 'bm', rx: 0,    ry: fh/2  }, { id: 'br', rx: fw/2,  ry: fh/2  },
+        ];
+        ctx.fillStyle = '#ebdbb2';
+        ctx.strokeStyle = '#458588';
+        ctx.lineWidth = 1.5;
+        for (const h of handlePositions) {
+          ctx.fillRect(h.rx - hs/2, h.ry - hs/2, hs, hs);
+          ctx.strokeRect(h.rx - hs/2, h.ry - hs/2, hs, hs);
+        }
+
+        // Rotation handle above top-center
+        const rotHandleY = -fh / 2 - 22;
+        ctx.beginPath();
+        ctx.moveTo(0, -fh / 2);
+        ctx.lineTo(0, rotHandleY);
+        ctx.strokeStyle = '#83a598';
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(0, rotHandleY, hs / 2 + 1, 0, Math.PI * 2);
+        ctx.fillStyle = '#fabd2f';
+        ctx.fill();
+        ctx.strokeStyle = '#ebdbb2';
+        ctx.stroke();
+
+        ctx.restore(); // unrotate
+        ctx.restore(); // unshift origin
+      }
+
       ctx.restore();
     }
     requestAnimationFrame(frame);
@@ -835,6 +1072,39 @@ async function main() {
   /* ── Mouse events ── */
   canvasEl.addEventListener('contextmenu', e => e.preventDefault());
 
+  /* Helper: hit-test float transform handles. Returns handle id string or null. */
+  function ftHitTest(x, y) {
+    const ft = host.floatingTransform;
+    if (!ft) return null;
+    const cw = host.canvasActor.exports.get_canvas_width();
+    const ch = host.canvasActor.exports.get_canvas_height();
+    const fcx = (ft.originX + ft.width / 2 + ft.tx) * host.zoom;
+    const fcy = (ft.originY + ft.height / 2 + ft.ty) * host.zoom;
+    const fw = ft.width * Math.abs(ft.scaleX) * host.zoom;
+    const fh = ft.height * Math.abs(ft.scaleY) * host.zoom;
+    // Screen coords of x,y relative to floating center
+    // Need to map doc (x,y) → screen, then subtract float center
+    const sx2 = x * host.zoom, sy2 = y * host.zoom;
+    // Undo rotation + skew to get local coords
+    const cosR = Math.cos(-ft.rotation), sinR = Math.sin(-ft.rotation);
+    let ldx = sx2 - fcx, ldy = sy2 - fcy;
+    const lx = ldx * cosR - ldy * sinR - ldy * ft.skewX;
+    const ly = ldx * sinR + ldy * cosR;
+    const hs = 10; // hit radius px
+    const candidates = [
+      { id: 'tl', rx: -fw/2, ry: -fh/2 }, { id: 'tm', rx: 0, ry: -fh/2 }, { id: 'tr', rx: fw/2, ry: -fh/2 },
+      { id: 'ml', rx: -fw/2, ry: 0     },                                    { id: 'mr', rx: fw/2, ry: 0     },
+      { id: 'bl', rx: -fw/2, ry: fh/2  }, { id: 'bm', rx: 0, ry: fh/2  }, { id: 'br', rx: fw/2, ry: fh/2  },
+      { id: 'rot', rx: 0, ry: -fh/2 - 22 },
+    ];
+    for (const h of candidates) {
+      if (Math.abs(lx - h.rx) < hs && Math.abs(ly - h.ry) < hs) return h.id;
+    }
+    // Inside body → move
+    if (Math.abs(lx) < fw / 2 && Math.abs(ly) < fh / 2) return 'move';
+    return null;
+  }
+
   canvasEl.addEventListener('mousedown', e => {
     const { sx, sy, x, y } = clientPos(e);
     host.mouseState.x = sx; host.mouseState.y = sy;
@@ -842,8 +1112,54 @@ async function main() {
       host.isPanning = true; host.panStartX = sx; host.panStartY = sy;
     } else {
       host.mouseState.buttons |= e.button === 0 ? 1 : 2;
-      if (host.brushParams && host.brushParams.mode === 5) {
+      const curMode = host.brushParams ? host.brushParams.mode : 0;
+
+      // Float transform takes priority
+      if (host.floatingTransform) {
+        const handle = ftHitTest(x, y);
+        if (handle) {
+          ftDragging = true;
+          ftHandle = handle;
+          ftDragStart = { sx, sy, x, y };
+          const ft = host.floatingTransform;
+          ftDragOrigin = { tx: ft.tx, ty: ft.ty, scaleX: ft.scaleX, scaleY: ft.scaleY, rotation: ft.rotation, skewX: ft.skewX };
+          e.preventDefault();
+          return;
+        }
+        // Click outside float → apply
+        host.applyFloatTransform();
+        e.preventDefault();
+        return;
+      }
+
+      if (curMode === 5) {
         sampleEyedropperColor(x, y, e.clientX, e.clientY);
+        e.preventDefault();
+        return;
+      }
+      if (curMode >= 6 && curMode <= 8) {
+        isDraggingShape = true;
+        shapeStartDoc = { x, y };
+        shapeCurDoc = { x, y };
+        e.preventDefault();
+        return;
+      }
+      if (curMode === 9) {
+        isSelecting = true;
+        selStartDoc = { x, y };
+        host.clearSelection();
+        e.preventDefault();
+        return;
+      }
+      if (curMode === 10) {
+        isLassoSelecting = true;
+        lassoSelPoints = [{ x, y }];
+        host.clearSelection();
+        e.preventDefault();
+        return;
+      }
+      if (curMode === 11) {
+        host.wandSelect(x, y, host.wandTolerance);
         e.preventDefault();
         return;
       }
@@ -864,6 +1180,40 @@ async function main() {
     if (host.isPanning) {
       host.panX += sx - host.panStartX; host.panY += sy - host.panStartY;
       host.panStartX = sx; host.panStartY = sy;
+    } else if (ftDragging && ftHandle && ftDragStart && ftDragOrigin) {
+      const ft = host.floatingTransform;
+      if (ft) {
+        const ddx = (sx - ftDragStart.sx) / host.zoom;
+        const ddy = (sy - ftDragStart.sy) / host.zoom;
+        if (ftHandle === 'move') {
+          ft.tx = ftDragOrigin.tx + ddx;
+          ft.ty = ftDragOrigin.ty + ddy;
+        } else if (ftHandle === 'rot') {
+          const ocx = ft.originX + ft.width / 2 + ft.tx;
+          const ocy = ft.originY + ft.height / 2 + ft.ty;
+          ft.rotation = Math.atan2(y - ocy, x - ocx) + Math.PI / 2;
+        } else if (ftHandle === 'tl' || ftHandle === 'br') {
+          const sign = ftHandle === 'tl' ? -1 : 1;
+          ft.scaleX = Math.max(0.05, ftDragOrigin.scaleX + sign * ddx / (ft.width || 1));
+          ft.scaleY = Math.max(0.05, ftDragOrigin.scaleY + sign * ddy / (ft.height || 1));
+        } else if (ftHandle === 'tr' || ftHandle === 'bl') {
+          ft.scaleX = Math.max(0.05, ftDragOrigin.scaleX + (ftHandle === 'tr' ? 1 : -1) * ddx / (ft.width || 1));
+          ft.scaleY = Math.max(0.05, ftDragOrigin.scaleY + (ftHandle === 'bl' ? 1 : -1) * ddy / (ft.height || 1));
+        } else if (ftHandle === 'mr' || ftHandle === 'ml') {
+          const sign = ftHandle === 'mr' ? 1 : -1;
+          ft.scaleX = Math.max(0.05, ftDragOrigin.scaleX + sign * ddx / (ft.width || 1));
+        } else if (ftHandle === 'tm' || ftHandle === 'bm') {
+          const sign = ftHandle === 'bm' ? 1 : -1;
+          ft.scaleY = Math.max(0.05, ftDragOrigin.scaleY + sign * ddy / (ft.height || 1));
+        }
+        // If float transform layer pixels need update: mark for reapply on mouseup
+      }
+    } else if (isDraggingShape) {
+      shapeCurDoc = { x, y };
+    } else if (isSelecting && selStartDoc) {
+      host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+    } else if (isLassoSelecting) {
+      lassoSelPoints.push({ x, y });
     } else if (host.brushParams && host.brushParams.mode === 5 && (host.mouseState.buttons & 3)) {
       sampleEyedropperColor(x, y, e.clientX, e.clientY);
     } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3)) {
@@ -880,8 +1230,66 @@ async function main() {
     if (e.button === 1) { host.isPanning = false; }
     else {
       host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
+      if (ftDragging) {
+        ftDragging = false; ftHandle = null; ftDragStart = null; ftDragOrigin = null;
+        // Rewrite float layer pixels with current transform
+        const ft = host.floatingTransform;
+        if (ft) {
+          const ptr = host.canvasActor.exports.w_layer_get_pixels(ft.layerId);
+          if (ptr) {
+            const lw = host.canvasActor.exports.w_layer_get_width(ft.layerId);
+            const lh = host.canvasActor.exports.w_layer_get_height(ft.layerId);
+            const tgtU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh);
+            tgtU32.fill(0);
+            const cosR = Math.cos(-ft.rotation), sinR = Math.sin(-ft.rotation);
+            const isx = ft.scaleX !== 0 ? 1 / ft.scaleX : 1;
+            const isy = ft.scaleY !== 0 ? 1 / ft.scaleY : 1;
+            const fcx = ft.originX + ft.width / 2 + ft.tx;
+            const fcy = ft.originY + ft.height / 2 + ft.ty;
+            for (let oy = 0; oy < lh; oy++) {
+              for (let ox = 0; ox < lw; ox++) {
+                let dx2 = ox - fcx, dy2 = oy - fcy;
+                dx2 -= dy2 * ft.skewX;
+                const rx = dx2 * cosR - dy2 * sinR;
+                const ry = dx2 * sinR + dy2 * cosR;
+                const srcX = Math.round(rx * isx + ft.width / 2);
+                const srcY = Math.round(ry * isy + ft.height / 2);
+                if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
+                const sp = ft.pixels[srcY * ft.width + srcX];
+                if (((sp >> 24) & 0xFF) === 0) continue;
+                tgtU32[oy * lw + ox] = sp;
+              }
+            }
+            if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
+          }
+        }
+        return;
+      }
       if (host.brushParams && host.brushParams.mode === 5) {
         hideEyedropper();
+        return;
+      }
+      if (isDraggingShape && shapeStartDoc && shapeCurDoc) {
+        const curMode = host.brushParams ? host.brushParams.mode : 0;
+        rasterizeShape(shapeStartDoc, shapeCurDoc, curMode);
+        isDraggingShape = false;
+        shapeStartDoc = null;
+        shapeCurDoc = null;
+        return;
+      }
+      if (isSelecting && selStartDoc) {
+        const { x, y } = clientPos(e);
+        host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+        isSelecting = false;
+        selStartDoc = null;
+        return;
+      }
+      if (isLassoSelecting) {
+        isLassoSelecting = false;
+        if (lassoSelPoints.length >= 3) {
+          host.setLassoSelection(lassoSelPoints);
+        }
+        lassoSelPoints = [];
         return;
       }
       if (!(host.mouseState.buttons & 3) && host.isDrawingOnCanvas) {
@@ -970,6 +1378,22 @@ async function main() {
         return;
       }
 
+      const curMode = host.brushParams ? host.brushParams.mode : 0;
+      if (curMode >= 6 && curMode <= 8) {
+        isDraggingShape = true;
+        shapeStartDoc = { x, y };
+        shapeCurDoc = { x, y };
+        clearPendingTouch();
+        return;
+      }
+      if (curMode === 9) {
+        isSelecting = true;
+        selStartDoc = { x, y };
+        host.clearSelection();
+        clearPendingTouch();
+        return;
+      }
+
       // Long-press timer (300ms) for eyedropper loupe
       touch.longPressTimer = setTimeout(() => {
         touch.longPressTriggered = true;
@@ -988,6 +1412,15 @@ async function main() {
       if (isTouchPicker) {
         isTouchPicker = false;
         hideEyedropper();
+      }
+      if (isDraggingShape) {
+        isDraggingShape = false;
+        shapeStartDoc = null;
+        shapeCurDoc = null;
+      }
+      if (isSelecting) {
+        isSelecting = false;
+        selStartDoc = null;
       }
       clearPendingTouch();
       if (touch.drawing) {
@@ -1027,6 +1460,14 @@ async function main() {
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
         return;
       }
+      if (isDraggingShape) {
+        shapeCurDoc = { x, y };
+        return;
+      }
+      if (isSelecting && selStartDoc) {
+        host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+        return;
+      }
       if (touch.pending) {
         const dist = Math.hypot(sx - touch.pending.sx, sy - touch.pending.sy);
         if (dist > 5) {
@@ -1048,6 +1489,15 @@ async function main() {
       }
 
     } else if (e.touches.length >= 2) {
+      if (isDraggingShape) {
+        isDraggingShape = false;
+        shapeStartDoc = null;
+        shapeCurDoc = null;
+      }
+      if (isSelecting) {
+        isSelecting = false;
+        selStartDoc = null;
+      }
       clearPendingTouch();
       if (touch.drawing) {
         host.sendStroke(host.strokePrevX, host.strokePrevY,
@@ -1150,6 +1600,23 @@ async function main() {
       hideEyedropper();
       return;
     }
+    if (isDraggingShape && shapeStartDoc && shapeCurDoc) {
+      const curMode = host.brushParams ? host.brushParams.mode : 0;
+      rasterizeShape(shapeStartDoc, shapeCurDoc, curMode);
+      isDraggingShape = false;
+      shapeStartDoc = null;
+      shapeCurDoc = null;
+      clearPendingTouch();
+      touch.prevTouches = e.touches;
+      return;
+    }
+    if (isSelecting && selStartDoc) {
+      isSelecting = false;
+      selStartDoc = null;
+      clearPendingTouch();
+      touch.prevTouches = e.touches;
+      return;
+    }
     if (touch.pending && !touch.longPressTriggered) {
       /* Single-tap tap dab */
       commitPendingTouch();
@@ -1194,6 +1661,15 @@ async function main() {
     if (isTouchPicker) {
       isTouchPicker = false;
       hideEyedropper();
+    }
+    if (isDraggingShape) {
+      isDraggingShape = false;
+      shapeStartDoc = null;
+      shapeCurDoc = null;
+    }
+    if (isSelecting) {
+      isSelecting = false;
+      selStartDoc = null;
     }
     clearPendingTouch();
     if (touch.drawing) {
@@ -1264,6 +1740,38 @@ async function main() {
       runCmd(`set mode ${tool}`);
     });
   });
+
+  const btnCopy = document.getElementById('ui-btn-copy');
+  if (btnCopy) btnCopy.addEventListener('click', () => runCmd('copy'));
+  const btnCut = document.getElementById('ui-btn-cut');
+  if (btnCut) btnCut.addEventListener('click', () => runCmd('cut'));
+  const btnPaste = document.getElementById('ui-btn-paste');
+  if (btnPaste) btnPaste.addEventListener('click', () => runCmd('paste'));
+  const btnDeselect = document.getElementById('ui-btn-deselect');
+  if (btnDeselect) btnDeselect.addEventListener('click', () => runCmd('deselect'));
+
+  const btnXformApply = document.getElementById('ui-btn-transform-apply');
+  if (btnXformApply) btnXformApply.addEventListener('click', () => runCmd('transform apply'));
+  const btnXformCancel = document.getElementById('ui-btn-transform-cancel');
+  if (btnXformCancel) btnXformCancel.addEventListener('click', () => runCmd('transform cancel'));
+  const btnXformLock = document.getElementById('ui-btn-transform-lock');
+  if (btnXformLock) btnXformLock.addEventListener('click', () => {
+    if (host.floatingTransform) {
+      host.floatingTransform.locked = !host.floatingTransform.locked;
+      btnXformLock.classList.toggle('active', host.floatingTransform.locked);
+      host.sendConsoleLog(host.floatingTransform.locked ? 'selection locked' : 'selection unlocked');
+    }
+  });
+
+  const sliderWandTol = document.getElementById('ui-slider-wand-tol');
+  const wandTolVal = document.getElementById('ui-wand-tol-val');
+  if (sliderWandTol) {
+    sliderWandTol.addEventListener('input', () => {
+      const v = parseInt(sliderWandTol.value, 10);
+      host.wandTolerance = v;
+      if (wandTolVal) wandTolVal.textContent = v;
+    });
+  }
 
   /* ── User Scripts Manager & Runner (Pure REPL Commands) ── */
   const DEFAULT_SCRIPTS = [
@@ -2070,9 +2578,61 @@ async function main() {
   // 5. Filters & Export
   const applyFilterBtn = document.getElementById('ui-btn-apply-filter');
   const filterSel = document.getElementById('ui-select-filter');
+  const sliderFilterRadius = document.getElementById('ui-slider-filter-radius');
+  const valFilterRadius = document.getElementById('ui-val-filter-radius');
+  if (sliderFilterRadius && valFilterRadius) {
+    sliderFilterRadius.addEventListener('input', () => {
+      valFilterRadius.textContent = sliderFilterRadius.value;
+    });
+  }
   if (applyFilterBtn && filterSel) {
     applyFilterBtn.addEventListener('click', () => {
-      runCmd(`filter ${filterSel.value}`);
+      const radius = sliderFilterRadius ? sliderFilterRadius.value : '';
+      if (filterSel.value === 'blur' && radius) {
+        runCmd(`filter blur ${radius}`);
+      } else {
+        runCmd(`filter ${filterSel.value}`);
+      }
+    });
+  }
+
+  // 6. Layer Color Adjustments (HSV/HSL)
+  const sliderHue = document.getElementById('ui-slider-hue');
+  const valHue = document.getElementById('ui-val-hue');
+  if (sliderHue && valHue) {
+    sliderHue.addEventListener('input', () => {
+      valHue.textContent = sliderHue.value + '°';
+    });
+  }
+  const sliderSat = document.getElementById('ui-slider-sat');
+  const valSat = document.getElementById('ui-val-sat');
+  if (sliderSat && valSat) {
+    sliderSat.addEventListener('input', () => {
+      valSat.textContent = sliderSat.value + '%';
+    });
+  }
+  const sliderBright = document.getElementById('ui-slider-bright');
+  const valBright = document.getElementById('ui-val-bright');
+  if (sliderBright && valBright) {
+    sliderBright.addEventListener('input', () => {
+      valBright.textContent = sliderBright.value + '%';
+    });
+  }
+  const btnApplyHsv = document.getElementById('ui-btn-apply-hsv');
+  if (btnApplyHsv) {
+    btnApplyHsv.addEventListener('click', () => {
+      const h = sliderHue ? parseInt(sliderHue.value, 10) || 0 : 0;
+      const s = sliderSat ? parseInt(sliderSat.value, 10) || 0 : 0;
+      const v = sliderBright ? parseInt(sliderBright.value, 10) || 0 : 0;
+      runCmd(`adjust hsv ${h} ${s} ${v}`);
+    });
+  }
+  const btnResetHsv = document.getElementById('ui-btn-reset-hsv');
+  if (btnResetHsv) {
+    btnResetHsv.addEventListener('click', () => {
+      if (sliderHue) { sliderHue.value = '0'; if (valHue) valHue.textContent = '0°'; }
+      if (sliderSat) { sliderSat.value = '0'; if (valSat) valSat.textContent = '0%'; }
+      if (sliderBright) { sliderBright.value = '0'; if (valBright) valBright.textContent = '0%'; }
     });
   }
 
@@ -2266,7 +2826,7 @@ async function main() {
     // A. Tools
     const isEraser = host.currentTool === 1;
     const mode = host.brushParams ? host.brushParams.mode : 0;
-    const modeNames = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker'];
+    const modeNames = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker', 'line', 'rect', 'ellipse', 'select', 'lasso_select', 'wand_select'];
     const curToolName = isEraser ? 'eraser' : (modeNames[mode] || 'brush');
 
     document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -3106,6 +3666,25 @@ function ensureUiPanel() {
             <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
             <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
             <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Long-press)">Picker</button>
+            <button class="ui-btn tool-btn" data-tool="line" title="Line Guide (Drag to draw straight line)">Line</button>
+            <button class="ui-btn tool-btn" data-tool="rect" title="Rectangle Guide (Drag to draw rectangle)">Rect</button>
+            <button class="ui-btn tool-btn" data-tool="ellipse" title="Ellipse Guide (Drag to draw ellipse)">Ellipse</button>
+            <button class="ui-btn tool-btn" data-tool="select" title="Marquee Selection (Drag to select region)">Select</button>
+            <button class="ui-btn tool-btn" data-tool="lasso_select" title="Lasso Selection (Freehand polygon select)">Lasso Sel</button>
+            <button class="ui-btn tool-btn" data-tool="wand_select" title="Magic Wand (Click to flood-fill select by color)">Wand</button>
+          </div>
+          <div class="ui-grid-2" style="margin-top: 6px;">
+            <button id="ui-btn-copy" class="ui-btn" title="Copy selection → new floating layer">Copy</button>
+            <button id="ui-btn-cut" class="ui-btn" title="Cut selection → new floating layer">Cut</button>
+            <button id="ui-btn-paste" class="ui-btn" title="Paste clipboard to active layer">Paste</button>
+            <button id="ui-btn-deselect" class="ui-btn" title="Clear selection">Deselect</button>
+            <button id="ui-btn-transform-apply" class="ui-btn" title="Apply floating transform to layer">Apply Xform</button>
+            <button id="ui-btn-transform-cancel" class="ui-btn" title="Cancel floating transform">Cancel Xform</button>
+            <button id="ui-btn-transform-lock" class="ui-btn" title="Toggle selection lock during transform">Lock Sel</button>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-label">Wand Tolerance <span id="ui-wand-tol-val">30</span></label>
+            <input type="range" id="ui-slider-wand-tol" class="ui-slider" min="0" max="255" step="1" value="30">
           </div>
         </div>
       </details>
@@ -3345,11 +3924,36 @@ function ensureUiPanel() {
               <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
             </div>
           </div>
+          <div class="ui-control" id="ui-ctrl-filter-radius" style="margin-top: 4px;">
+            <div class="ui-label-row"><span>Filter Radius / Parameter</span><span id="ui-val-filter-radius" class="ui-val">5</span></div>
+            <input type="range" id="ui-slider-filter-radius" min="1" max="25" value="5">
+          </div>
           <div class="ui-grid-2" style="margin-top: 4px;">
             <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
             <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
           </div>
           <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
+        </div>
+      </details>
+      <details class="ui-group">
+        <summary>ADJUSTMENTS (HSV / HSL)</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Hue Shift</span><span id="ui-val-hue" class="ui-val">0°</span></div>
+            <input type="range" id="ui-slider-hue" min="-180" max="180" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Saturation</span><span id="ui-val-sat" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-sat" min="-100" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Brightness / Value</span><span id="ui-val-bright" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-bright" min="-100" max="100" value="0">
+          </div>
+          <div class="ui-row-gap" style="margin-top: 6px;">
+            <button id="ui-btn-apply-hsv" class="ui-btn" style="flex: 1;">Apply HSL Adjust</button>
+            <button id="ui-btn-reset-hsv" class="ui-btn" style="flex: 1;">Reset Sliders</button>
+          </div>
         </div>
       </details>
     </div>

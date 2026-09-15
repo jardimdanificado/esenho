@@ -490,6 +490,29 @@ static void draw_circle(int cx, int cy, int cr, uint32_t color) {
     }
 }
 
+static void draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color) {
+    int w = 0, h = 0;
+    uint32_t *pix = get_current_draw_target(&w, &h);
+    if (!pix || w <= 0 || h <= 0 || rx <= 0 || ry <= 0) return;
+
+    int64_t rx2 = (int64_t)rx * rx;
+    int64_t ry2 = (int64_t)ry * ry;
+    int64_t limit = rx2 * ry2;
+
+    for (int dy = -ry; dy <= ry; dy++) {
+        int py = cy + dy;
+        if (py < 0 || py >= h) continue;
+        int64_t dy2_rx2 = (int64_t)dy * dy * rx2;
+        for (int dx = -rx; dx <= rx; dx++) {
+            int px = cx + dx;
+            if (px < 0 || px >= w) continue;
+            if ((int64_t)dx * dx * ry2 + dy2_rx2 <= limit) {
+                pix[py * w + px] = color;
+            }
+        }
+    }
+}
+
 static void draw_grid(int step, uint32_t color) {
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
@@ -1341,6 +1364,47 @@ W_EXPORT void w_draw_rect(int x, int y, int w, int h, uint32_t color) {
 W_EXPORT void w_draw_circle(int cx, int cy, int r, uint32_t color) {
     init_surface_if_needed();
     draw_circle(cx, cy, r, color);
+    force_composite();
+}
+
+W_EXPORT void w_draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color) {
+    init_surface_if_needed();
+    draw_ellipse(cx, cy, rx, ry, color);
+    force_composite();
+}
+
+W_EXPORT void w_layer_adjust_hsv(int32_t layer_idx, int32_t d_hue, int32_t d_sat, int32_t d_val) {
+    init_surface_if_needed();
+    int idx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (idx < 0 || idx >= layer_count || !layers[idx].in_use) return;
+
+    layer_t *l = &layers[idx];
+    uint32_t count = (uint32_t)l->width * l->height;
+    for (uint32_t i = 0; i < count; i++) {
+        uint32_t p = l->pixels[i];
+        uint32_t a = (p >> 24) & 0xFF;
+        if (a == 0) continue;
+
+        int h = 0, s = 0, v = 0;
+        w_rgb_to_hsv(p, &h, &s, &v);
+
+        h = (h + d_hue) % 360;
+        if (h < 0) h += 360;
+
+        if (d_sat != 0) {
+            s = s + (s * d_sat) / 100;
+            if (s < 0) s = 0;
+            if (s > 255) s = 255;
+        }
+
+        if (d_val != 0) {
+            v = v + (v * d_val) / 100;
+            if (v < 0) v = 0;
+            if (v > 255) v = 255;
+        }
+
+        l->pixels[i] = w_hsv_to_rgb(h, s, v, a);
+    }
     force_composite();
 }
 

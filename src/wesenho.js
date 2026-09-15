@@ -489,7 +489,8 @@ function evaluateMath(expr) {
  * @param {string} str - Color input string
  * @returns {number|null} Packed 32-bit color integer or null if invalid
  */
-function parseColorString(str) {
+function parseColorString(str, fallback = null) {
+  if (!str) return fallback;
   str = str.trim().toLowerCase();
   const named = {
     black: 0xFF000000, white: 0xFFFFFFFF, red: 0xFF0000FF, green: 0xFF00FF00,
@@ -500,6 +501,26 @@ function parseColorString(str) {
 
   if (str.startsWith('#') || str.startsWith('$')) {
     const hex = str.slice(1);
+    if (hex.length === 6) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      return (0xFF000000 | (b << 16) | (g << 8) | r) >>> 0;
+    }
+    if (hex.length === 8) {
+      const r = parseInt(hex.slice(0, 2), 16);
+      const g = parseInt(hex.slice(2, 4), 16);
+      const b = parseInt(hex.slice(4, 6), 16);
+      const a = parseInt(hex.slice(6, 8), 16);
+      return (((a << 24) | (b << 16) | (g << 8) | r) >>> 0);
+    }
+  }
+
+  if (str.startsWith('0x')) {
+    const hex = str.slice(2);
+    if (hex.length === 8) {
+      return parseInt(hex, 16) >>> 0;
+    }
     if (hex.length === 6) {
       const r = parseInt(hex.slice(0, 2), 16);
       const g = parseInt(hex.slice(2, 4), 16);
@@ -517,7 +538,7 @@ function parseColorString(str) {
     return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
   }
 
-  return null;
+  return fallback;
 }
 
 /** Formats the flat layer list for CLI output. All layers are layers — no categories. */
@@ -921,6 +942,34 @@ function handleSetTool(host, rawTool) {
     host.currentTool = 0;
     host.setBrushParam('mode', 4);
     host.sendConsoleLog('tool set to lasso fill');
+  } else if (t === 'picker' || t === 'eyedropper' || t === 'pipette') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 5);
+    host.sendConsoleLog('tool set to picker');
+  } else if (t === 'line') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 6);
+    host.sendConsoleLog('tool set to line');
+  } else if (t === 'rect' || t === 'rectangle') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 7);
+    host.sendConsoleLog('tool set to rect');
+  } else if (t === 'ellipse' || t === 'circle_shape') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 8);
+    host.sendConsoleLog('tool set to ellipse');
+  } else if (t === 'select' || t === 'marquee') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 9);
+    host.sendConsoleLog('tool set to select');
+  } else if (t === 'lasso_select' || t === 'lasso select') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 10);
+    host.sendConsoleLog('tool set to lasso select');
+  } else if (t === 'wand' || t === 'magic_wand' || t === 'magic wand') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 11);
+    host.sendConsoleLog('tool set to magic wand');
   } else {
     host.sendConsoleLog(`err: unknown tool '${rawTool}'`, 0xFFFF5555);
   }
@@ -955,6 +1004,30 @@ function handleSetMode(host, rawMode) {
     host.currentTool = 0;
     host.setBrushParam('mode', 5);
     host.sendConsoleLog('mode set to picker');
+  } else if (m === 'line') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 6);
+    host.sendConsoleLog('mode set to line');
+  } else if (m === 'rect' || m === 'rectangle') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 7);
+    host.sendConsoleLog('mode set to rect');
+  } else if (m === 'ellipse' || m === 'circle_shape') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 8);
+    host.sendConsoleLog('mode set to ellipse');
+  } else if (m === 'select' || m === 'marquee') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 9);
+    host.sendConsoleLog('mode set to select');
+  } else if (m === 'lasso_select' || m === 'lasso select') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 10);
+    host.sendConsoleLog('mode set to lasso select');
+  } else if (m === 'wand' || m === 'magic_wand' || m === 'magic wand') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 11);
+    host.sendConsoleLog('mode set to magic wand');
   } else {
     host.sendConsoleLog(`err: unknown mode '${rawMode}'`, 0xFFFF5555);
   }
@@ -1091,8 +1164,19 @@ const COMMAND_RULES = [
     flip v / flip vertical       Mirror canvas viewport vertically
     set symmetry <off|v|h|quad>  Mirror brush strokes across axes
 
+  \x1b[36mSelection & Adjustments:\x1b[0m
+    select rect <x> <y> <w> <h>  Create rectangular selection
+    select lasso                  Switch to freehand lasso selection mode
+    select wand [tolerance]       Flood-fill select by color at clicked point
+    select all / deselect         Select all or clear selection
+    copy / cut / paste [x y]      Clipboard operations on selection
+    transform apply               Bake floating transform into layer
+    transform lock / unlock       Lock/unlock selection during transform
+    adjust hsv <h> <s> <v>       Adjust layer Hue (-180..180), Sat (-100..100), Value (-100..100)
+    adjust hue / sat / brightness <val>
+
   \x1b[36mFilter Commands:\x1b[0m
-    filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
+    filter <name> [p1] [p2]      Apply filter (blur [radius], brightness, contrast, dither,
                                  edge, grayscale, invert, noise, pixelate, sepia, threshold)
 
   \x1b[36mDrawing & I/O:\x1b[0m
@@ -1102,6 +1186,7 @@ const COMMAND_RULES = [
     draw line <x0> <y0> <x1> <y1> [col]
     draw rect <x> <y> <w> <h> [col]
     draw circle <cx> <cy> <r> [col]
+    draw ellipse <cx> <cy> <rx> <ry> [col]
     draw image / stamp <name> [x] [y] [w] [h] [opacity]
     save [canvas|layer] <file>   Export image to disk
     load image <file> [name]     Load image file into texture storage
@@ -2132,6 +2217,179 @@ const COMMAND_RULES = [
       host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), 0x44FFFFFF);
       host.sendConsoleLog(`drew grid step ${m.step}`);
     }
+  },
+  {
+    pat: "draw ellipse $cx$int $cy$int $rx$int $ry$int $col",
+    run: (m, host) => {
+      const col = parseColorString(m.col, host.currentColor);
+      host.canvasActor.exports.w_draw_ellipse(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.rx, 10), parseInt(m.ry, 10), col);
+      host.sendConsoleLog(`drew ellipse at (${m.cx},${m.cy}) radii ${m.rx}x${m.ry}`);
+    }
+  },
+  {
+    pat: "draw ellipse $cx$int $cy$int $rx$int $ry$int",
+    run: (m, host) => {
+      host.canvasActor.exports.w_draw_ellipse(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.rx, 10), parseInt(m.ry, 10), host.currentColor);
+      host.sendConsoleLog(`drew ellipse at (${m.cx},${m.cy}) radii ${m.rx}x${m.ry}`);
+    }
+  },
+
+  // Layer Color / HSV Adjustments
+  {
+    pat: "adjust hsv $h$int $s$int $v$int",
+    run: (m, host) => {
+      host.adjustLayerHsv(parseInt(m.h, 10), parseInt(m.s, 10), parseInt(m.v, 10));
+      host.sendConsoleLog(`layer adjusted HSV: hue ${m.h}°, sat ${m.s}%, val ${m.v}%`);
+    }
+  },
+  { pat: "adjust hsl $h$int $s$int $v$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "adjust hsv $h$int $s$int $v$int").run(m, host) },
+  {
+    pat: "adjust hue $h$int",
+    run: (m, host) => {
+      host.adjustLayerHsv(parseInt(m.h, 10), 0, 0);
+      host.sendConsoleLog(`layer adjusted hue: ${m.h}°`);
+    }
+  },
+  {
+    pat: "adjust sat $s$int",
+    run: (m, host) => {
+      host.adjustLayerHsv(0, parseInt(m.s, 10), 0);
+      host.sendConsoleLog(`layer adjusted saturation: ${m.s}%`);
+    }
+  },
+  { pat: "adjust saturation $s$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "adjust sat $s$int").run(m, host) },
+  {
+    pat: "adjust val $v$int",
+    run: (m, host) => {
+      host.adjustLayerHsv(0, 0, parseInt(m.v, 10));
+      host.sendConsoleLog(`layer adjusted brightness/value: ${m.v}%`);
+    }
+  },
+  { pat: "adjust brightness $v$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "adjust val $v$int").run(m, host) },
+  { pat: "adjust light $v$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "adjust val $v$int").run(m, host) },
+
+  // Selection & Clipboard Commands
+  {
+    pat: "select rect $x$int $y$int $w$int $h$int",
+    run: (m, host) => {
+      const sel = host.setSelection(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10));
+      host.sendConsoleLog(`selected rect (${sel.x},${sel.y}) size ${sel.w}x${sel.h}`);
+    }
+  },
+  {
+    pat: "select all",
+    run: (m, host) => {
+      const sel = host.selectAll();
+      host.sendConsoleLog(`selected all (${sel.w}x${sel.h})`);
+    }
+  },
+  {
+    pat: "select none",
+    run: (m, host) => {
+      host.clearSelection();
+      host.sendConsoleLog('selection cleared');
+    }
+  },
+  { pat: "select clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select none").run(m, host) },
+  { pat: "deselect", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select none").run(m, host) },
+  {
+    pat: "copy",
+    run: (m, host) => {
+      const cp = host.copySelection();
+      if (cp) host.sendConsoleLog(`copied ${cp.width}x${cp.height} pixels to clipboard`);
+      else host.sendConsoleLog('err: nothing to copy', 0xFFFF5555);
+    }
+  },
+  {
+    pat: "cut",
+    run: (m, host) => {
+      const cp = host.cutSelection();
+      if (cp) host.sendConsoleLog(`cut ${cp.width}x${cp.height} pixels to clipboard`);
+      else host.sendConsoleLog('err: nothing to cut', 0xFFFF5555);
+    }
+  },
+  {
+    pat: "paste $x$int $y$int",
+    run: (m, host) => {
+      const ok = host.pasteClipboard(parseInt(m.x, 10), parseInt(m.y, 10));
+      if (ok) host.sendConsoleLog(`pasted clipboard at (${m.x},${m.y})`);
+      else host.sendConsoleLog('err: clipboard is empty', 0xFFFF5555);
+    }
+  },
+  {
+    pat: "paste",
+    run: (m, host) => {
+      const ok = host.pasteClipboard();
+      if (ok) host.sendConsoleLog('pasted clipboard');
+      else host.sendConsoleLog('err: clipboard is empty', 0xFFFF5555);
+    }
+  },
+
+  // Lasso / Wand Select Mode Commands
+  {
+    pat: "select lasso",
+    run: (m, host) => {
+      host.currentTool = 0;
+      host.setBrushParam('mode', 10);
+      host.sendConsoleLog('switched to lasso selection mode');
+    }
+  },
+  {
+    pat: "select wand $tol$int",
+    run: (m, host) => {
+      host.wandTolerance = Math.max(0, parseInt(m.tol, 10));
+      host.currentTool = 0;
+      host.setBrushParam('mode', 11);
+      host.sendConsoleLog(`switched to magic wand (tolerance ${host.wandTolerance})`);
+    }
+  },
+  {
+    pat: "select wand",
+    run: (m, host) => {
+      host.currentTool = 0;
+      host.setBrushParam('mode', 11);
+      host.sendConsoleLog(`switched to magic wand (tolerance ${host.wandTolerance})`);
+    }
+  },
+  {
+    pat: "wand tolerance $t$int",
+    run: (m, host) => {
+      host.wandTolerance = Math.max(0, parseInt(m.t, 10));
+      host.sendConsoleLog(`wand tolerance set to ${host.wandTolerance}`);
+    }
+  },
+
+  // Transform Commands (floating selection)
+  {
+    pat: "transform apply",
+    run: (m, host) => {
+      const ok = host.applyFloatTransform();
+      if (!ok) host.sendConsoleLog('err: no active transform', 0xFFFF5555);
+    }
+  },
+  {
+    pat: "transform cancel",
+    run: (m, host) => {
+      host.cancelFloatTransform();
+    }
+  },
+  {
+    pat: "transform lock",
+    run: (m, host) => {
+      if (host.floatingTransform) {
+        host.floatingTransform.locked = true;
+        host.sendConsoleLog('selection locked during transform');
+      }
+    }
+  },
+  {
+    pat: "transform unlock",
+    run: (m, host) => {
+      if (host.floatingTransform) {
+        host.floatingTransform.locked = false;
+        host.sendConsoleLog('selection unlocked');
+      }
+    }
   }
 ];
 
@@ -2209,6 +2467,12 @@ class WesenhoScreenHost {
     // Canvas Viewport Flip
     this.flipH = false;
     this.flipV = false;
+
+    // Selection & Clipboard
+    this.selection = { active: false, type: 'rect', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+    this.clipboard = null;
+    this.floatingTransform = null; // { layerId, originLayerId, pixels, width, height, originX, originY, tx, ty, scaleX, scaleY, rotation, skewX, locked }
+    this.wandTolerance = 30; // default magic wand color tolerance
 
     // Undo / Redo History
     this.undoStack = [];
@@ -2524,6 +2788,411 @@ class WesenhoScreenHost {
   }
 
   /**
+   * Sets rectangular selection bounds.
+   */
+  setSelection(x, y, w, h) {
+    let rx = Math.round(x);
+    let ry = Math.round(y);
+    let rw = Math.round(w);
+    let rh = Math.round(h);
+    if (rw < 0) { rx += rw; rw = -rw; }
+    if (rh < 0) { ry += rh; rh = -rh; }
+    this.selection = { active: rw > 0 && rh > 0, type: 'rect', x: rx, y: ry, w: rw, h: rh, mask: null, points: null };
+    return this.selection;
+  }
+
+  /**
+   * Sets a freehand lasso selection from polygon points array [{x,y}...].
+   * Builds a pixel-level bitmask using ray-cast point-in-polygon test.
+   * Bounding box x/y/w/h also set for convenience.
+   */
+  setLassoSelection(points) {
+    if (!points || points.length < 3) { this.clearSelection(); return this.selection; }
+    const cw = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 800;
+    const ch = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 1000;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of points) {
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+    const bx = Math.max(0, Math.floor(minX));
+    const by = Math.max(0, Math.floor(minY));
+    const bx2 = Math.min(cw - 1, Math.ceil(maxX));
+    const by2 = Math.min(ch - 1, Math.ceil(maxY));
+    const bw = bx2 - bx + 1;
+    const bh = by2 - by + 1;
+    if (bw <= 0 || bh <= 0) { this.clearSelection(); return this.selection; }
+
+    // Build bitmask: 1 = inside polygon (ray-cast)
+    const mask = new Uint8Array(bw * bh);
+    for (let py = 0; py < bh; py++) {
+      const cy_p = by + py + 0.5;
+      for (let px = 0; px < bw; px++) {
+        const cx_p = bx + px + 0.5;
+        let inside = false;
+        const n = points.length;
+        for (let i = 0, j = n - 1; i < n; j = i++) {
+          const xi = points[i].x, yi = points[i].y;
+          const xj = points[j].x, yj = points[j].y;
+          if (((yi > cy_p) !== (yj > cy_p)) &&
+              (cx_p < (xj - xi) * (cy_p - yi) / (yj - yi) + xi)) {
+            inside = !inside;
+          }
+        }
+        if (inside) mask[py * bw + px] = 1;
+      }
+    }
+
+    this.selection = { active: true, type: 'lasso', x: bx, y: by, w: bw, h: bh, mask, points: points.slice() };
+    return this.selection;
+  }
+
+  /**
+   * Flood-fill (magic wand) selection from seed pixel (sx, sy) with color tolerance.
+   * Reads pixels from active layer via WASM. Result stored as lasso-style mask.
+   */
+  wandSelect(sx, sy, tolerance) {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels) return this.selection;
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    if (!ptr || lw <= 0 || lh <= 0) return this.selection;
+
+    const tol = (tolerance !== undefined) ? Math.max(0, tolerance) : (this.wandTolerance || 30);
+    const ix = Math.round(sx), iy = Math.round(sy);
+    if (ix < 0 || ix >= lw || iy < 0 || iy >= lh) return this.selection;
+
+    const pixels = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const seed = pixels[iy * lw + ix];
+    const sr = seed & 0xFF, sg = (seed >> 8) & 0xFF, sb = (seed >> 16) & 0xFF, sa = (seed >> 24) & 0xFF;
+
+    const visited = new Uint8Array(lw * lh);
+    const mask = new Uint8Array(lw * lh);
+    const queue = [[ix, iy]];
+    visited[iy * lw + ix] = 1;
+
+    while (queue.length > 0) {
+      const [cx_w, cy_w] = queue.shift();
+      const p = pixels[cy_w * lw + cx_w];
+      const pr = p & 0xFF, pg = (p >> 8) & 0xFF, pb = (p >> 16) & 0xFF, pa = (p >> 24) & 0xFF;
+      const dist = Math.sqrt((pr - sr) ** 2 + (pg - sg) ** 2 + (pb - sb) ** 2 + (pa - sa) ** 2);
+      if (dist > tol) continue;
+      mask[cy_w * lw + cx_w] = 1;
+      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+        const nx = cx_w + dx, ny = cy_w + dy;
+        if (nx >= 0 && nx < lw && ny >= 0 && ny < lh && !visited[ny * lw + nx]) {
+          visited[ny * lw + nx] = 1;
+          queue.push([nx, ny]);
+        }
+      }
+    }
+
+    this.selection = { active: true, type: 'lasso', x: 0, y: 0, w: lw, h: lh, mask, points: null };
+    return this.selection;
+  }
+
+  /**
+   * Clears active selection.
+   */
+  clearSelection() {
+    this.selection = { active: false, type: 'rect', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+    return this.selection;
+  }
+
+  /**
+   * Selects the full active layer or document bounds.
+   */
+  selectAll() {
+    const w = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 800;
+    const h = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 1000;
+    return this.setSelection(0, 0, w, h);
+  }
+
+  /**
+   * Extracts pixels from active layer within selection into a JS buffer.
+   * Applies lasso mask if active. Returns { pixels, width, height, originX, originY } or null.
+   */
+  _extractSelectionPixels() {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels) return null;
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    if (!ptr || lw <= 0 || lh <= 0) return null;
+
+    let sx = 0, sy = 0, sw = lw, sh = lh;
+    if (this.selection && this.selection.active && this.selection.w > 0 && this.selection.h > 0) {
+      sx = Math.max(0, this.selection.x);
+      sy = Math.max(0, this.selection.y);
+      sw = Math.min(lw - sx, this.selection.w);
+      sh = Math.min(lh - sy, this.selection.h);
+    }
+    if (sw <= 0 || sh <= 0) return null;
+
+    const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const outPixels = new Uint32Array(sw * sh);
+    const mask = (this.selection && this.selection.type === 'lasso') ? this.selection.mask : null;
+    for (let dy = 0; dy < sh; dy++) {
+      const srcRowStart = (sy + dy) * lw + sx;
+      const dstRowStart = dy * sw;
+      for (let dx = 0; dx < sw; dx++) {
+        const masked = mask && !mask[dy * sw + dx];
+        outPixels[dstRowStart + dx] = masked ? 0 : srcU32[srcRowStart + dx];
+      }
+    }
+    return { pixels: outPixels, width: sw, height: sh, originX: sx, originY: sy };
+  }
+
+  /**
+   * Copies selection → creates new floating layer above active layer with the pixels.
+   * Enters float transform mode so the layer can be moved/transformed.
+   */
+  copySelection() {
+    const ex = this._extractSelectionPixels();
+    if (!ex) return null;
+    this.clipboard = { width: ex.width, height: ex.height, w: ex.width, h: ex.height, pixels: ex.pixels };
+    this._createFloatingLayer(ex, false);
+    return this.clipboard;
+  }
+
+  /**
+   * Cuts selection → creates new floating layer above active layer, clears source pixels.
+   */
+  cutSelection() {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels) return null;
+    const ex = this._extractSelectionPixels();
+    if (!ex) return null;
+    this.clipboard = { width: ex.width, height: ex.height, w: ex.width, h: ex.height, pixels: ex.pixels };
+
+    this.pushUndoSnapshot('cut selection');
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+
+    const sx = Math.max(0, this.selection.x);
+    const sy = Math.max(0, this.selection.y);
+    const sw = Math.min(lw - sx, this.selection.w);
+    const sh = Math.min(lh - sy, this.selection.h);
+    const mask = (this.selection.type === 'lasso') ? this.selection.mask : null;
+    for (let dy = 0; dy < sh; dy++) {
+      const rowStart = (sy + dy) * lw + sx;
+      if (mask) {
+        for (let dx = 0; dx < sw; dx++) {
+          if (mask[dy * sw + dx]) srcU32[rowStart + dx] = 0;
+        }
+      } else {
+        srcU32.fill(0, rowStart, rowStart + sw);
+      }
+    }
+    if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
+
+    this._createFloatingLayer(ex, true);
+    return this.clipboard;
+  }
+
+  /**
+   * Creates a new WASM layer above the active layer, fills it with extracted pixels,
+   * and enters float transform mode.
+   * @param {Object} ex - { pixels, width, height, originX, originY }
+   * @param {boolean} fromCut - true if this was a cut (source pixels were cleared)
+   */
+  _createFloatingLayer(ex, fromCut) {
+    if (!this.canvasActor?.exports?.w_layer_add) return;
+    const sourceLayerId = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const newId = this.canvasActor.exports.w_layer_add();
+    if (newId < 0) return;
+
+    // Move new layer up until it's directly above the source layer
+    // w_layer_add places it at position 0 (bottom of order); move up until above source
+    if (this.canvasActor.exports.w_layer_move_up) {
+      const orderCount = this.canvasActor.exports.w_layer_get_order_count
+        ? this.canvasActor.exports.w_layer_get_order_count() : 64;
+      for (let i = 0; i < orderCount; i++) {
+        this.canvasActor.exports.w_layer_move_up(newId);
+      }
+    }
+
+    // Write pixels into the new layer at originX/originY
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(newId);
+    if (ptr) {
+      const lw = this.canvasActor.exports.w_layer_get_width(newId);
+      const lh = this.canvasActor.exports.w_layer_get_height(newId);
+      const tgtU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+      for (let dy = 0; dy < ex.height; dy++) {
+        const ty = ex.originY + dy;
+        if (ty < 0 || ty >= lh) continue;
+        for (let dx = 0; dx < ex.width; dx++) {
+          const tx = ex.originX + dx;
+          if (tx < 0 || tx >= lw) continue;
+          tgtU32[ty * lw + tx] = ex.pixels[dy * ex.width + dx];
+        }
+      }
+    }
+
+    // Select the new layer
+    if (this.canvasActor.exports.w_layer_select) this.canvasActor.exports.w_layer_select(newId);
+
+    // Enter float transform state
+    this.floatingTransform = {
+      layerId: newId,
+      originLayerId: sourceLayerId,
+      pixels: ex.pixels,
+      width: ex.width,
+      height: ex.height,
+      originX: ex.originX,
+      originY: ex.originY,
+      tx: 0, ty: 0,
+      scaleX: 1, scaleY: 1,
+      rotation: 0,
+      skewX: 0,
+      locked: false,
+      fromCut
+    };
+
+    if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
+    this.sendConsoleLog(`floating layer [${newId}] created — use transform handles or "transform apply"`);
+  }
+
+  /**
+   * Bakes the current floatingTransform into the floating layer's pixel buffer.
+   * Applies affine transform (translate + rotate + scale + skew) via nearest-neighbor sampling.
+   */
+  applyFloatTransform() {
+    const ft = this.floatingTransform;
+    if (!ft || !this.canvasActor?.exports?.w_layer_get_pixels) return false;
+
+    this.pushUndoSnapshot('transform apply');
+    const lw = this.canvasActor.exports.w_layer_get_width(ft.layerId);
+    const lh = this.canvasActor.exports.w_layer_get_height(ft.layerId);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(ft.layerId);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+
+    const tgtU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    tgtU32.fill(0);
+
+    // Build affine matrix from transform params
+    // Output pixel (ox, oy) ← source pixel via inverse transform
+    const cosR = Math.cos(-ft.rotation), sinR = Math.sin(-ft.rotation);
+    const isx = ft.scaleX !== 0 ? 1 / ft.scaleX : 1;
+    const isy = ft.scaleY !== 0 ? 1 / ft.scaleY : 1;
+    const cx = ft.originX + ft.width / 2, cy = ft.originY + ft.height / 2;
+
+    for (let oy = 0; oy < lh; oy++) {
+      for (let ox = 0; ox < lw; ox++) {
+        // Translate → unrotate → unscale → map to source
+        let dx = ox - (cx + ft.tx);
+        let dy = oy - (cy + ft.ty);
+        // Undo skewX
+        dx -= dy * ft.skewX;
+        // Undo rotation
+        const rx = dx * cosR - dy * sinR;
+        const ry = dx * sinR + dy * cosR;
+        // Undo scale → source coordinates relative to selection bbox
+        const srcX = Math.round(rx * isx + ft.width / 2);
+        const srcY = Math.round(ry * isy + ft.height / 2);
+        if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
+        const sp = ft.pixels[srcY * ft.width + srcX];
+        if ((sp >> 24 & 0xFF) === 0) continue;
+        tgtU32[oy * lw + ox] = sp;
+      }
+    }
+
+    this.floatingTransform = null;
+    if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
+    this.sendConsoleLog('transform applied');
+    return true;
+  }
+
+  /**
+   * Cancels float transform — discards the floating layer.
+   */
+  cancelFloatTransform() {
+    const ft = this.floatingTransform;
+    if (!ft) return;
+    // Delete the floating layer
+    if (this.canvasActor?.exports?.w_layer_delete) {
+      this.canvasActor.exports.w_layer_delete(ft.layerId);
+    }
+    // Restore source layer as active
+    if (this.canvasActor?.exports?.w_layer_select) {
+      this.canvasActor.exports.w_layer_select(ft.originLayerId);
+    }
+    this.floatingTransform = null;
+    if (this.canvasActor?.exports?.force_composite) this.canvasActor.exports.force_composite();
+    this.sendConsoleLog('transform cancelled');
+  }
+
+  /**
+   * Pastes clipboard content onto active layer at (x, y).
+   */
+  pasteClipboard(dstX, dstY) {
+    if (!this.clipboard || !this.clipboard.pixels || !this.canvasActor?.exports?.w_layer_get_pixels) return false;
+    this.pushUndoSnapshot('paste');
+
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+
+    let px = (dstX !== undefined) ? dstX : (this.selection.active ? this.selection.x : Math.round((lw - this.clipboard.width) / 2));
+    let py = (dstY !== undefined) ? dstY : (this.selection.active ? this.selection.y : Math.round((lh - this.clipboard.height) / 2));
+
+    const cw = this.clipboard.width;
+    const ch = this.clipboard.height;
+    const clipU32 = this.clipboard.pixels;
+    const targetU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+
+    for (let dy = 0; dy < ch; dy++) {
+      const ty = py + dy;
+      if (ty < 0 || ty >= lh) continue;
+      for (let dx = 0; dx < cw; dx++) {
+        const tx = px + dx;
+        if (tx < 0 || tx >= lw) continue;
+        const sp = clipU32[dy * cw + dx];
+        const sa = (sp >> 24) & 0xFF;
+        if (sa === 0) continue;
+        const tidx = ty * lw + tx;
+        if (sa === 255) {
+          targetU32[tidx] = sp;
+        } else {
+          const dp = targetU32[tidx];
+          const da = (dp >> 24) & 0xFF;
+          const outA = sa + (da * (255 - sa)) / 255;
+          const sr = sp & 0xFF, sg = (sp >> 8) & 0xFF, sb = (sp >> 16) & 0xFF;
+          const dr = dp & 0xFF, dg = (dp >> 8) & 0xFF, db = (dp >> 16) & 0xFF;
+          const outR = (sr * sa + dr * da * (255 - sa) / 255) / (outA || 1);
+          const outG = (sg * sa + dg * da * (255 - sa) / 255) / (outA || 1);
+          const outB = (sb * sa + db * da * (255 - sa) / 255) / (outA || 1);
+          targetU32[tidx] = (Math.min(255, Math.round(outA)) << 24) |
+                            (Math.min(255, Math.round(outB)) << 16) |
+                            (Math.min(255, Math.round(outG)) << 8)  |
+                            Math.min(255, Math.round(outR));
+        }
+      }
+    }
+    this.setSelection(px, py, cw, ch);
+    if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
+    return true;
+  }
+
+  /**
+   * Adjusts active layer Hue, Saturation and Value/Lightness.
+   */
+  adjustLayerHsv(dHue = 0, dSat = 0, dVal = 0, layerId) {
+    if (!this.canvasActor?.exports?.w_layer_adjust_hsv) return;
+    this.pushUndoSnapshot('adjust hsv');
+    const idx = (layerId !== undefined) ? layerId : -1;
+    this.canvasActor.exports.w_layer_adjust_hsv(idx, Math.round(dHue), Math.round(dSat), Math.round(dVal));
+  }
+
+  /**
    * Resets all tool/brush parameters to factory defaults.
    */
   resetTool() {
@@ -2765,11 +3434,17 @@ class WesenhoScreenHost {
   /**
    * Ensures all JS-side textures have a WASM layer slot allocated and pixels uploaded.
    * Call once after canvasActor is initialized.
+   * Also auto-assigns textures to tips/grains layer groups by category.
    */
   registerAllTexturesAsLayers() {
     if (!this.canvasActor || typeof this.canvasActor.exports.w_texture_create !== 'function') return;
     for (const [name, tex] of this.textures.entries()) {
-      if (tex.wasmId !== undefined && tex.wasmId >= 0) continue; // already registered
+      if (tex.wasmId !== undefined && tex.wasmId >= 0) {
+        // Pre-assigned (builtin shapes: circle=0, square=1, chisel=2) — just ensure group membership
+        if (tex.category === 'shape') this.addLayerToGroup('tips', tex.wasmId);
+        else if (tex.category === 'texture') this.addLayerToGroup('grains', tex.wasmId);
+        continue;
+      }
       const id = this.canvasActor.exports.w_texture_create(tex.width, tex.height);
       if (id < 0) continue;
       tex.wasmId = id;
@@ -2777,6 +3452,8 @@ class WesenhoScreenHost {
       if (ptr && tex.data) {
         new Uint8Array(this.canvasActor.memory.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
       }
+      if (tex.category === 'shape') this.addLayerToGroup('tips', id);
+      else if (tex.category === 'texture') this.addLayerToGroup('grains', id);
     }
   }
 

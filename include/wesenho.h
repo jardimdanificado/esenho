@@ -23,7 +23,11 @@ enum {
     W_MODE_BLEND      = 2,
     W_MODE_FILL       = 3,
     W_MODE_LASSO_FILL = 4,
-    W_MODE_PICKER     = 5
+    W_MODE_PICKER     = 5,
+    W_MODE_LINE       = 6,
+    W_MODE_RECT       = 7,
+    W_MODE_ELLIPSE    = 8,
+    W_MODE_SELECT     = 9
 };
 
 enum {

@@ -1025,7 +1025,112 @@ async function run() {
     throw new Error(`reset tool failed, brushParams: ${JSON.stringify(host.brushParams)}`);
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, and Reset Tool verified 100%!');
+  console.log('--- Testing Roadmap Phase 5 Features ---');
+  // 1. Shapes and Straight Line Guides
+  host.executeCommand('set mode line');
+  if (host.brushParams.mode !== 6) {
+    throw new Error(`Expected mode 6 for line, got ${host.brushParams.mode}`);
+  }
+  host.executeCommand('set mode rect');
+  if (host.brushParams.mode !== 7) {
+    throw new Error(`Expected mode 7 for rect, got ${host.brushParams.mode}`);
+  }
+  host.executeCommand('set mode ellipse');
+  if (host.brushParams.mode !== 8) {
+    throw new Error(`Expected mode 8 for ellipse, got ${host.brushParams.mode}`);
+  }
+  host.executeCommand('set mode select');
+  if (host.brushParams.mode !== 9) {
+    throw new Error(`Expected mode 9 for select, got ${host.brushParams.mode}`);
+  }
+
+  // Test draw ellipse command
+  host.executeCommand('set mode brush');
+  host.executeCommand('draw ellipse 200 200 30 20 #ff00ffff');
+  const pAct = canvas.exports.get_active_layer();
+  const pPtr = canvas.exports.get_layer_pixels(pAct);
+  const pWidth = canvas.exports.get_canvas_width();
+  const pPix = new Uint32Array(canvas.memory.buffer, pPtr, pWidth * 480);
+  if (pPix[200 * pWidth + (200 + 30)] !== 0xFFFF00FF) {
+    throw new Error('draw ellipse command failed: expected pixel at (230, 200)');
+  }
+
+  // 2. Selection & Clipboard Commands
+  host.executeCommand('select rect 190 190 45 40');
+  if (!host.selection.active || host.selection.x !== 190 || host.selection.y !== 190 || host.selection.w !== 45 || host.selection.h !== 40) {
+    throw new Error(`select rect failed, selection: ${JSON.stringify(host.selection)}`);
+  }
+  // Cut selection: copies to clipboard and clears layer region; creates floating layer
+  host.executeCommand('cut');
+  if (!host.clipboard || host.clipboard.w !== 45 || host.clipboard.h !== 40) {
+    throw new Error(`cut selection failed, clipboard: ${JSON.stringify(host.clipboard)}`);
+  }
+  curPix = new Uint32Array(canvas.memory.buffer, canvas.exports.get_layer_pixels(pAct), pWidth * 480);
+  if (curPix[200 * pWidth + 200] !== 0) {
+    throw new Error('cut selection failed: pixel inside selection was not cleared');
+  }
+  // Apply floating transform (commits it) and switch back to original layer for paste
+  host.executeCommand('transform apply');
+  host.executeCommand(`layer ${pAct}`);
+  // Paste to new location (300, 300)
+  host.executeCommand('paste 300 300');
+  curPix = new Uint32Array(canvas.memory.buffer, canvas.exports.get_layer_pixels(pAct), pWidth * 480);
+  if (curPix[310 * pWidth + 310] !== 0xFFFF00FF) {
+    throw new Error('paste clipboard failed: expected pixel at (310, 310)');
+  }
+  // Select all & deselect
+  host.executeCommand('select all');
+  if (!host.selection.active || host.selection.w !== 640 || host.selection.h !== 480) {
+    throw new Error('select all failed');
+  }
+  host.executeCommand('deselect');
+  if (host.selection.active) {
+    throw new Error('deselect failed: selection still active');
+  }
+
+  // 3. Layer Color Adjustments (HSV/HSL)
+  const getPix = () => new Uint32Array(canvas.memory.buffer, canvas.exports.get_layer_pixels(pAct), pWidth * 480);
+  host.executeCommand('draw rect 50 50 20 20 #ff0000ff');
+  const sampleIdx = 55 * pWidth + 55;
+  const beforeAdj = getPix()[sampleIdx];
+  const redB = (beforeAdj >> 16) & 0xFF;
+  const redG = (beforeAdj >> 8) & 0xFF;
+  const redR = beforeAdj & 0xFF;
+  const redA = (beforeAdj >> 24) & 0xFF;
+  if (redR < 200 || redG > 50 || redA !== 255) {
+    throw new Error(`Setup before HSV adjust failed, pixel: 0x${beforeAdj.toString(16)}`);
+  }
+  // Shift Hue +120° (Red -> Green)
+  host.executeCommand('adjust hue 120');
+  const afterHue = getPix()[sampleIdx];
+  const gB = (afterHue >> 16) & 0xFF;
+  const gG = (afterHue >> 8) & 0xFF;
+  const gR = afterHue & 0xFF;
+  const gA = (afterHue >> 24) & 0xFF;
+  if (gG < 200 || gR > 50 || gA !== 255) {
+    throw new Error(`adjust hue 120 failed: expected green pixel, got 0x${afterHue.toString(16)}`);
+  }
+  // Adjust Saturation -100% -> Grayscale
+  host.executeCommand('adjust sat -100');
+  const afterSat = getPix()[sampleIdx];
+  const satB = (afterSat >> 16) & 0xFF;
+  const satG = (afterSat >> 8) & 0xFF;
+  const satR = afterSat & 0xFF;
+  if (Math.abs(satR - satG) > 2 || Math.abs(satG - satB) > 2) {
+    throw new Error(`adjust sat -100 failed: expected grayscale pixel, got 0x${afterSat.toString(16)}`);
+  }
+  // Adjust Brightness / Value
+  host.executeCommand('adjust val -50');
+  const afterVal = getPix()[sampleIdx];
+  const valR = afterVal & 0xFF;
+  if (valR >= satR) {
+    throw new Error(`adjust val -50 failed: expected darker pixel, got ${valR} vs previous ${satR}`);
+  }
+
+  // 4. Test filter blur with radius
+  host.executeCommand('filter blur 5');
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, and Layer HSV Adjustments verified 100%!');
 }
 
 run().catch(err => {
