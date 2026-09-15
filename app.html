@@ -95,6 +95,7 @@
 
     .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
     .ui-row-gap { display: flex; align-items: center; gap: 6px; }
+    .ui-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
     .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
     .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 
@@ -1090,9 +1091,24 @@
             <button id="ui-btn-transform-apply" class="ui-btn" title="Apply floating transform to layer">Apply Xform</button>
             <button id="ui-btn-transform-cancel" class="ui-btn" title="Cancel floating transform">Cancel Xform</button>
           </div>
+          <div class="ui-control" style="margin-top: 6px;">
+            <label class="ui-label">Selection Mode</label>
+            <div class="ui-grid-4">
+              <button class="ui-btn sel-mode-btn active" data-selmode="replace" title="Replace / New selection">New</button>
+              <button class="ui-btn sel-mode-btn" data-selmode="add" title="Add to selection (+)">Add</button>
+              <button class="ui-btn sel-mode-btn" data-selmode="sub" title="Subtract from selection (-)">Sub</button>
+              <button class="ui-btn sel-mode-btn" data-selmode="intersect" title="Intersect selection (∩)">Intersect</button>
+            </div>
+          </div>
           <div class="ui-control" style="margin-top: 4px;">
             <label class="ui-label">Wand Tolerance <span id="ui-wand-tol-val">30</span></label>
             <input type="range" id="ui-slider-wand-tol" class="ui-slider" min="0" max="255" step="1" value="30">
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-label" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none;">
+              <input type="checkbox" id="ui-chk-adjacent" checked style="accent-color: #fabd2f; cursor: pointer; width: 14px; height: 14px; margin: 0;">
+              <span>Adjacent Pixels</span>
+            </label>
           </div>
         </div>
       </details>

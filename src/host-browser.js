@@ -689,6 +689,7 @@ async function main() {
   let shapeCurDoc = null;
   let isSelecting = false;
   let selStartDoc = null;
+  let selCurDoc = null;
   let isLassoSelecting = false;   // mode 10: freehand polygon selection
   let lassoSelPoints = [];         // polygon points for lasso selection
   // Float transform drag state
@@ -1016,6 +1017,28 @@ async function main() {
         ctx.restore();
       }
 
+      /* Live Rect Selection Preview (when dragging in mode 9 and mode is not replace) */
+      if (isSelecting && selStartDoc && selCurDoc && host.selectionMode !== 'replace') {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+        const z = host.zoom;
+        const rx = Math.min(selStartDoc.x, selCurDoc.x) * z;
+        const ry = Math.min(selStartDoc.y, selCurDoc.y) * z;
+        const rw = Math.abs(selCurDoc.x - selStartDoc.x) * z;
+        const rh = Math.abs(selCurDoc.y - selStartDoc.y) * z;
+        ctx.fillStyle = 'rgba(131, 165, 152, 0.15)';
+        ctx.fillRect(rx, ry, rw, rh);
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#000000';
+        ctx.lineDashOffset = dashOff;
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineDashOffset = dashOff + 4;
+        ctx.strokeRect(rx, ry, rw, rh);
+        ctx.restore();
+      }
+
       /* Float Transform Overlay — perspective quad outline + handles */
       if (host.floatingTransform && host.floatingTransform.corners) {
         const ft = host.floatingTransform;
@@ -1217,19 +1240,24 @@ async function main() {
       if (curMode === 9) {
         isSelecting = true;
         selStartDoc = { x, y };
-        host.clearSelection();
+        selCurDoc = { x, y };
+        if (host.selectionMode === 'replace') {
+          host.clearSelection();
+        }
         e.preventDefault();
         return;
       }
       if (curMode === 10) {
         isLassoSelecting = true;
         lassoSelPoints = [{ x, y }];
-        host.clearSelection();
+        if (host.selectionMode === 'replace') {
+          host.clearSelection();
+        }
         e.preventDefault();
         return;
       }
       if (curMode === 11) {
-        host.wandSelect(x, y, host.wandTolerance);
+        host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
         e.preventDefault();
         return;
       }
@@ -1291,7 +1319,10 @@ async function main() {
     } else if (isDraggingShape) {
       shapeCurDoc = { x, y };
     } else if (isSelecting && selStartDoc) {
-      host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+      selCurDoc = { x, y };
+      if (host.selectionMode === 'replace') {
+        host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+      }
     } else if (isLassoSelecting) {
       lassoSelPoints.push({ x, y });
     } else if (host.brushParams && host.brushParams.mode === 5 && (host.mouseState.buttons & 3)) {
@@ -1365,9 +1396,12 @@ async function main() {
       }
       if (isSelecting && selStartDoc) {
         const { x, y } = clientPos(e);
-        host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+        const finalX = selCurDoc ? selCurDoc.x : x;
+        const finalY = selCurDoc ? selCurDoc.y : y;
+        host.setSelection(selStartDoc.x, selStartDoc.y, finalX - selStartDoc.x, finalY - selStartDoc.y);
         isSelecting = false;
         selStartDoc = null;
+        selCurDoc = null;
         return;
       }
       if (isLassoSelecting) {
@@ -1475,7 +1509,20 @@ async function main() {
       if (curMode === 9) {
         isSelecting = true;
         selStartDoc = { x, y };
-        host.clearSelection();
+        selCurDoc = { x, y };
+        if (host.selectionMode === 'replace') host.clearSelection();
+        clearPendingTouch();
+        return;
+      }
+      if (curMode === 10) {
+        isLassoSelecting = true;
+        lassoSelPoints = [{ x, y }];
+        if (host.selectionMode === 'replace') host.clearSelection();
+        clearPendingTouch();
+        return;
+      }
+      if (curMode === 11) {
+        host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
         clearPendingTouch();
         return;
       }
@@ -1507,6 +1554,11 @@ async function main() {
       if (isSelecting) {
         isSelecting = false;
         selStartDoc = null;
+        selCurDoc = null;
+      }
+      if (isLassoSelecting) {
+        isLassoSelecting = false;
+        lassoSelPoints = [];
       }
       clearPendingTouch();
       if (touch.drawing) {
@@ -1551,7 +1603,14 @@ async function main() {
         return;
       }
       if (isSelecting && selStartDoc) {
-        host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+        selCurDoc = { x, y };
+        if (host.selectionMode === 'replace') {
+          host.setSelection(selStartDoc.x, selStartDoc.y, x - selStartDoc.x, y - selStartDoc.y);
+        }
+        return;
+      }
+      if (isLassoSelecting) {
+        lassoSelPoints.push({ x, y });
         return;
       }
       if (touch.pending) {
@@ -1697,8 +1756,22 @@ async function main() {
       return;
     }
     if (isSelecting && selStartDoc) {
+      if (selCurDoc) {
+        host.setSelection(selStartDoc.x, selStartDoc.y, selCurDoc.x - selStartDoc.x, selCurDoc.y - selStartDoc.y);
+      }
       isSelecting = false;
       selStartDoc = null;
+      selCurDoc = null;
+      clearPendingTouch();
+      touch.prevTouches = e.touches;
+      return;
+    }
+    if (isLassoSelecting) {
+      isLassoSelecting = false;
+      if (lassoSelPoints.length >= 3) {
+        host.setLassoSelection(lassoSelPoints);
+      }
+      lassoSelPoints = [];
       clearPendingTouch();
       touch.prevTouches = e.touches;
       return;
@@ -1848,6 +1921,25 @@ async function main() {
       const v = parseInt(sliderWandTol.value, 10);
       host.wandTolerance = v;
       if (wandTolVal) wandTolVal.textContent = v;
+    });
+  }
+
+  const selModeBtns = document.querySelectorAll('.sel-mode-btn');
+  selModeBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      selModeBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.getAttribute('data-selmode');
+      host.setSelectionMode(mode);
+      host.sendConsoleLog(`selection mode set to ${host.selectionMode}`);
+    });
+  });
+
+  const chkAdjacent = document.getElementById('ui-chk-adjacent');
+  if (chkAdjacent) {
+    chkAdjacent.addEventListener('change', () => {
+      host.wandAdjacent = chkAdjacent.checked;
+      host.sendConsoleLog(`wand adjacent set to ${host.wandAdjacent ? 'on' : 'off'}`);
     });
   }
 
@@ -2911,6 +3003,16 @@ async function main() {
       btn.classList.toggle('active', btn.dataset.tool === curToolName);
     });
 
+    const curSelMode = host.selectionMode || 'replace';
+    document.querySelectorAll('.sel-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
+    });
+
+    const chkAdj = document.getElementById('ui-chk-adjacent');
+    if (chkAdj && host.wandAdjacent !== undefined) {
+      chkAdj.checked = host.wandAdjacent;
+    }
+
     // B. Sliders
     if (host.brushParams) {
       const bp = host.brushParams;
@@ -3611,6 +3713,7 @@ function ensureUiPanel() {
     }
     .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
     .ui-row-gap { display: flex; align-items: center; gap: 6px; }
+    .ui-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
     .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
     .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
     .ui-btn {
@@ -3759,9 +3862,24 @@ function ensureUiPanel() {
             <button id="ui-btn-transform-apply" class="ui-btn" title="Apply floating transform to layer">Apply Xform</button>
             <button id="ui-btn-transform-cancel" class="ui-btn" title="Cancel floating transform">Cancel Xform</button>
           </div>
+          <div class="ui-control" style="margin-top: 6px;">
+            <label class="ui-label">Selection Mode</label>
+            <div class="ui-grid-4">
+              <button class="ui-btn sel-mode-btn active" data-selmode="replace" title="Replace / New selection">New</button>
+              <button class="ui-btn sel-mode-btn" data-selmode="add" title="Add to selection (+)">Add</button>
+              <button class="ui-btn sel-mode-btn" data-selmode="sub" title="Subtract from selection (-)">Sub</button>
+              <button class="ui-btn sel-mode-btn" data-selmode="intersect" title="Intersect selection (∩)">Intersect</button>
+            </div>
+          </div>
           <div class="ui-control" style="margin-top: 4px;">
             <label class="ui-label">Wand Tolerance <span id="ui-wand-tol-val">30</span></label>
             <input type="range" id="ui-slider-wand-tol" class="ui-slider" min="0" max="255" step="1" value="30">
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-label" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer; text-transform: none;">
+              <input type="checkbox" id="ui-chk-adjacent" checked style="accent-color: #fabd2f; cursor: pointer; width: 14px; height: 14px; margin: 0;">
+              <span>Adjacent Pixels</span>
+            </label>
           </div>
         </div>
       </details>

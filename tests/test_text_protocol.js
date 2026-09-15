@@ -1192,9 +1192,72 @@ async function run() {
   if (cPix[20 * cWidth + 20] !== 0) {
     throw new Error(`selection filter clip failed: outside pixel was modified!`);
   }
+  // 7. Test Selection Modes (Add, Sub, Intersect) and Adjacent Pixels Switch
+  host.executeCommand('set select_mode add');
+  if (host.selectionMode !== 'add') {
+    throw new Error(`set select_mode add failed, got ${host.selectionMode}`);
+  }
+  // Start with a rect at (10, 10, 20, 20)
+  host.setSelection(10, 10, 20, 20, 'replace');
+  // Add another adjacent rect at (30, 10, 20, 20)
+  host.setSelection(30, 10, 20, 20, 'add');
+  if (!host.selection.active || host.selection.x !== 10 || host.selection.y !== 10 || host.selection.w !== 40 || host.selection.h !== 20) {
+    throw new Error(`selection mode add failed: expected 40x20 rect at (10,10), got ${JSON.stringify(host.selection)}`);
+  }
+
+  // Subtract rect (25, 10, 10, 20) from the middle
+  host.executeCommand('set selection_mode sub');
+  host.setSelection(25, 10, 10, 20);
+  if (!host.selection.active || !host.selection.mask) {
+    throw new Error(`selection mode sub failed: expected masked selection, got ${JSON.stringify(host.selection)}`);
+  }
+  // Middle pixel (27, 15) must be carved out (0 in mask)
+  const subMaskX = 27 - host.selection.x;
+  const subMaskY = 15 - host.selection.y;
+  if (host.selection.mask[subMaskY * host.selection.w + subMaskX] !== 0) {
+    throw new Error('selection mode sub failed: center pixel still selected in mask');
+  }
+  // Left pixel (15, 15) must still be selected (1 in mask)
+  const leftMaskX = 15 - host.selection.x;
+  const leftMaskY = 15 - host.selection.y;
+  if (host.selection.mask[leftMaskY * host.selection.w + leftMaskX] !== 1) {
+    throw new Error('selection mode sub failed: left pixel was unselected');
+  }
+
+  // Test Intersect mode
+  host.setSelection(10, 10, 30, 30, 'replace');
+  host.setSelection(20, 20, 30, 30, 'intersect');
+  if (!host.selection.active || host.selection.x !== 20 || host.selection.y !== 20 || host.selection.w !== 20 || host.selection.h !== 20) {
+    throw new Error(`selection mode intersect failed: expected 20x20 at (20,20), got ${JSON.stringify(host.selection)}`);
+  }
+  host.executeCommand('deselect');
+  host.executeCommand('set select_mode replace');
+
+  // 8. Test Wand Adjacent (Contiguous vs Global) Switch
+  // Draw two disconnected red squares on layer
+  cPix.fill(0);
+  host.executeCommand('draw rect 50 50 20 20 #ff0000ff');
+  host.executeCommand('draw rect 100 50 20 20 #ff0000ff');
+
+  // Adjacent ON (default): clicking (55, 55) should only select the first square
+  host.executeCommand('wand adjacent on');
+  if (!host.wandAdjacent) throw new Error('wand adjacent on failed');
+  host.wandSelect(55, 55, 10);
+  if (!host.selection.active || host.selection.w > 25 || host.selection.x > 60) {
+    throw new Error(`wand contiguous failed: expected only first rect, got ${JSON.stringify(host.selection)}`);
+  }
+
+  // Adjacent OFF: clicking (55, 55) should globally select BOTH disconnected squares
+  host.executeCommand('wand adjacent off');
+  if (host.wandAdjacent) throw new Error('wand adjacent off failed');
+  host.wandSelect(55, 55, 10);
+  if (!host.selection.active || host.selection.x > 50 || (host.selection.x + host.selection.w) < 119) {
+    throw new Error(`wand global (adjacent off) failed: expected both squares, got ${JSON.stringify(host.selection)}`);
+  }
+  host.executeCommand('wand adjacent on');
   host.executeCommand('deselect');
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, and Selection-Clipped Drawing/Filters verified 100%!');
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), and Adjacent Pixels Switch verified 100%!');
 }
 
 run().catch(err => {

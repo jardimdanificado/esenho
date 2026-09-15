@@ -2378,6 +2378,45 @@ const COMMAND_RULES = [
       host.sendConsoleLog(`wand tolerance set to ${host.wandTolerance}`);
     }
   },
+  {
+    pat: "select mode $m",
+    run: (m, host) => {
+      host.setSelectionMode(m.m);
+      host.sendConsoleLog(`selection mode set to ${host.selectionMode}`);
+    }
+  },
+  {
+    pat: "selection mode $m",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "select mode $m").run(m, host)
+  },
+  {
+    pat: "set select_mode $m",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "select mode $m").run(m, host)
+  },
+  {
+    pat: "set selection_mode $m",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "select mode $m").run(m, host)
+  },
+  {
+    pat: "wand adjacent $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      host.wandAdjacent = (v === 'on' || v === 'true' || v === '1' || v === 'yes');
+      host.sendConsoleLog(`wand adjacent set to ${host.wandAdjacent ? 'on' : 'off'}`);
+    }
+  },
+  {
+    pat: "select adjacent $val",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "wand adjacent $val").run(m, host)
+  },
+  {
+    pat: "set wand_adjacent $val",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "wand adjacent $val").run(m, host)
+  },
+  {
+    pat: "set adjacent $val",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "wand adjacent $val").run(m, host)
+  },
 
   // Transform Commands (floating selection)
   {
@@ -2475,6 +2514,8 @@ class WesenhoScreenHost {
     this.clipboard = null;
     this.floatingTransform = null; // { layerId, originLayerId, pixels, width, height, originX, originY, tx, ty, scaleX, scaleY, rotation, skewX, locked }
     this.wandTolerance = 30; // default magic wand color tolerance
+    this.selectionMode = 'replace'; // 'replace' | 'add' | 'sub' | 'intersect'
+    this.wandAdjacent = true; // default: contiguous / adjacent pixels enabled
 
     // Undo / Redo History
     this.undoStack = [];
@@ -2792,16 +2833,200 @@ class WesenhoScreenHost {
   /**
    * Sets rectangular selection bounds.
    */
-  setSelection(x, y, w, h) {
+  setSelectionMode(mode) {
+    const m = String(mode).toLowerCase();
+    if (m === 'add' || m === 'union' || m === '+') this.selectionMode = 'add';
+    else if (m === 'sub' || m === 'subtract' || m === 'diff' || m === 'difference' || m === '-') this.selectionMode = 'sub';
+    else if (m === 'intersect' || m === 'intersection' || m === 'cap') this.selectionMode = 'intersect';
+    else this.selectionMode = 'replace';
+    return this.selectionMode;
+  }
+
+  applySelectionOp(newSel, mode) {
+    const m = (mode || this.selectionMode || 'replace').toLowerCase();
+    const s1 = this.selection;
+    const s2 = newSel;
+
+    if (m === 'replace' || m === 'new') {
+      if (!s2 || !s2.active || s2.w <= 0 || s2.h <= 0) {
+        return this.clearSelection();
+      }
+      this.selection = s2;
+      this.syncSelectionClip();
+      return this.selection;
+    }
+
+    const isInside = (sel, gx, gy) => {
+      if (!sel || !sel.active) return false;
+      if (gx < sel.x || gx >= sel.x + sel.w || gy < sel.y || gy >= sel.y + sel.h) return false;
+      if (!sel.mask) return true;
+      return sel.mask[(gy - sel.y) * sel.w + (gx - sel.x)] === 1;
+    };
+
+    if (m === 'add' || m === 'union') {
+      if (!s1 || !s1.active) {
+        this.selection = (s2 && s2.active) ? s2 : { active: false, type: 'rect', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+        this.syncSelectionClip();
+        return this.selection;
+      }
+      if (!s2 || !s2.active) {
+        return this.selection;
+      }
+      const x0 = Math.min(s1.x, s2.x);
+      const y0 = Math.min(s1.y, s2.y);
+      const x1 = Math.max(s1.x + s1.w, s2.x + s2.w);
+      const y1 = Math.max(s1.y + s1.h, s2.y + s2.h);
+      const bw = x1 - x0;
+      const bh = y1 - y0;
+      if (bw <= 0 || bh <= 0) return this.clearSelection();
+
+      const tempMask = new Uint8Array(bw * bh);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let count = 0;
+      for (let y = 0; y < bh; y++) {
+        const gy = y0 + y;
+        const row = y * bw;
+        for (let x = 0; x < bw; x++) {
+          const gx = x0 + x;
+          if (isInside(s1, gx, gy) || isInside(s2, gx, gy)) {
+            tempMask[row + x] = 1;
+            count++;
+            if (gx < minX) minX = gx;
+            if (gx > maxX) maxX = gx;
+            if (gy < minY) minY = gy;
+            if (gy > maxY) maxY = gy;
+          }
+        }
+      }
+      if (count === 0) return this.clearSelection();
+      const finalW = maxX - minX + 1;
+      const finalH = maxY - minY + 1;
+      if (count === finalW * finalH) {
+        this.selection = { active: true, type: 'rect', x: minX, y: minY, w: finalW, h: finalH, mask: null, points: null };
+      } else {
+        const finalMask = new Uint8Array(finalW * finalH);
+        for (let y = minY; y <= maxY; y++) {
+          const srcRow = (y - y0) * bw;
+          const dstRow = (y - minY) * finalW;
+          for (let x = minX; x <= maxX; x++) {
+            if (tempMask[srcRow + (x - x0)]) finalMask[dstRow + (x - minX)] = 1;
+          }
+        }
+        this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: finalW, h: finalH, mask: finalMask, points: null };
+      }
+      this.syncSelectionClip();
+      return this.selection;
+    }
+
+    if (m === 'sub' || m === 'subtract' || m === 'diff' || m === 'difference') {
+      if (!s1 || !s1.active) return this.clearSelection();
+      if (!s2 || !s2.active) return this.selection;
+
+      const x0 = s1.x, y0 = s1.y, bw = s1.w, bh = s1.h;
+      const tempMask = new Uint8Array(bw * bh);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let count = 0;
+      for (let y = 0; y < bh; y++) {
+        const gy = y0 + y;
+        const row = y * bw;
+        for (let x = 0; x < bw; x++) {
+          const gx = x0 + x;
+          if (isInside(s1, gx, gy) && !isInside(s2, gx, gy)) {
+            tempMask[row + x] = 1;
+            count++;
+            if (gx < minX) minX = gx;
+            if (gx > maxX) maxX = gx;
+            if (gy < minY) minY = gy;
+            if (gy > maxY) maxY = gy;
+          }
+        }
+      }
+      if (count === 0) return this.clearSelection();
+      const finalW = maxX - minX + 1;
+      const finalH = maxY - minY + 1;
+      if (count === finalW * finalH) {
+        this.selection = { active: true, type: 'rect', x: minX, y: minY, w: finalW, h: finalH, mask: null, points: null };
+      } else {
+        const finalMask = new Uint8Array(finalW * finalH);
+        for (let y = minY; y <= maxY; y++) {
+          const srcRow = (y - y0) * bw;
+          const dstRow = (y - minY) * finalW;
+          for (let x = minX; x <= maxX; x++) {
+            if (tempMask[srcRow + (x - x0)]) finalMask[dstRow + (x - minX)] = 1;
+          }
+        }
+        this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: finalW, h: finalH, mask: finalMask, points: null };
+      }
+      this.syncSelectionClip();
+      return this.selection;
+    }
+
+    if (m === 'intersect' || m === 'intersection') {
+      if (!s1 || !s1.active || !s2 || !s2.active) return this.clearSelection();
+
+      const x0 = Math.max(s1.x, s2.x);
+      const y0 = Math.max(s1.y, s2.y);
+      const x1 = Math.min(s1.x + s1.w, s2.x + s2.w);
+      const y1 = Math.min(s1.y + s1.h, s2.y + s2.h);
+      const bw = x1 - x0;
+      const bh = y1 - y0;
+      if (bw <= 0 || bh <= 0) return this.clearSelection();
+
+      const tempMask = new Uint8Array(bw * bh);
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      let count = 0;
+      for (let y = 0; y < bh; y++) {
+        const gy = y0 + y;
+        const row = y * bw;
+        for (let x = 0; x < bw; x++) {
+          const gx = x0 + x;
+          if (isInside(s1, gx, gy) && isInside(s2, gx, gy)) {
+            tempMask[row + x] = 1;
+            count++;
+            if (gx < minX) minX = gx;
+            if (gx > maxX) maxX = gx;
+            if (gy < minY) minY = gy;
+            if (gy > maxY) maxY = gy;
+          }
+        }
+      }
+      if (count === 0) return this.clearSelection();
+      const finalW = maxX - minX + 1;
+      const finalH = maxY - minY + 1;
+      if (count === finalW * finalH) {
+        this.selection = { active: true, type: 'rect', x: minX, y: minY, w: finalW, h: finalH, mask: null, points: null };
+      } else {
+        const finalMask = new Uint8Array(finalW * finalH);
+        for (let y = minY; y <= maxY; y++) {
+          const srcRow = (y - y0) * bw;
+          const dstRow = (y - minY) * finalW;
+          for (let x = minX; x <= maxX; x++) {
+            if (tempMask[srcRow + (x - x0)]) finalMask[dstRow + (x - minX)] = 1;
+          }
+        }
+        this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: finalW, h: finalH, mask: finalMask, points: null };
+      }
+      this.syncSelectionClip();
+      return this.selection;
+    }
+
+    this.selection = s2;
+    this.syncSelectionClip();
+    return this.selection;
+  }
+
+  /**
+   * Sets rectangular selection bounds.
+   */
+  setSelection(x, y, w, h, mode) {
     let rx = Math.round(x);
     let ry = Math.round(y);
     let rw = Math.round(w);
     let rh = Math.round(h);
     if (rw < 0) { rx += rw; rw = -rw; }
     if (rh < 0) { ry += rh; rh = -rh; }
-    this.selection = { active: rw > 0 && rh > 0, type: 'rect', x: rx, y: ry, w: rw, h: rh, mask: null, points: null };
-    this.syncSelectionClip();
-    return this.selection;
+    const newSel = { active: rw > 0 && rh > 0, type: 'rect', x: rx, y: ry, w: rw, h: rh, mask: null, points: null };
+    return this.applySelectionOp(newSel, mode || this.selectionMode || 'replace');
   }
 
   /**
@@ -2809,8 +3034,11 @@ class WesenhoScreenHost {
    * Builds a pixel-level bitmask using ray-cast point-in-polygon test.
    * Bounding box x/y/w/h also set for convenience.
    */
-  setLassoSelection(points) {
-    if (!points || points.length < 3) { this.clearSelection(); return this.selection; }
+  setLassoSelection(points, mode) {
+    if (!points || points.length < 3) {
+      const emptySel = { active: false, type: 'lasso', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+      return this.applySelectionOp(emptySel, mode || this.selectionMode || 'replace');
+    }
     const cw = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 800;
     const ch = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 1000;
 
@@ -2827,7 +3055,10 @@ class WesenhoScreenHost {
     const by2 = Math.min(ch - 1, Math.ceil(maxY));
     const bw = bx2 - bx + 1;
     const bh = by2 - by + 1;
-    if (bw <= 0 || bh <= 0) { this.clearSelection(); return this.selection; }
+    if (bw <= 0 || bh <= 0) {
+      const emptySel = { active: false, type: 'lasso', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+      return this.applySelectionOp(emptySel, mode || this.selectionMode || 'replace');
+    }
 
     // Build bitmask: 1 = inside polygon (ray-cast)
     const mask = new Uint8Array(bw * bh);
@@ -2849,16 +3080,15 @@ class WesenhoScreenHost {
       }
     }
 
-    this.selection = { active: true, type: 'lasso', x: bx, y: by, w: bw, h: bh, mask, points: points.slice() };
-    this.syncSelectionClip();
-    return this.selection;
+    const newSel = { active: true, type: 'lasso', x: bx, y: by, w: bw, h: bh, mask, points: points.slice() };
+    return this.applySelectionOp(newSel, mode || this.selectionMode || 'replace');
   }
 
   /**
    * Flood-fill (magic wand) selection from seed pixel (sx, sy) with color tolerance.
-   * Reads pixels from active layer via WASM. Result stored as lasso-style mask with tight bounding box.
+   * Supports contiguous (adjacent) and non-contiguous (global layer) modes.
    */
-  wandSelect(sx, sy, tolerance) {
+  wandSelect(sx, sy, tolerance, adjacent, mode) {
     if (!this.canvasActor?.exports?.w_layer_get_pixels) return this.selection;
     const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
     const lw = this.canvasActor.exports.w_layer_get_width(act);
@@ -2867,12 +3097,58 @@ class WesenhoScreenHost {
     if (!ptr || lw <= 0 || lh <= 0) return this.selection;
 
     const tol = (tolerance !== undefined) ? Math.max(0, tolerance) : (this.wandTolerance || 30);
+    const adj = (adjacent !== undefined) ? Boolean(adjacent) : (this.wandAdjacent !== undefined ? this.wandAdjacent : true);
+    const m = mode || this.selectionMode || 'replace';
+
     const ix = Math.round(sx), iy = Math.round(sy);
     if (ix < 0 || ix >= lw || iy < 0 || iy >= lh) return this.selection;
 
     const pixels = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
     const seed = pixels[iy * lw + ix];
     const sr = seed & 0xFF, sg = (seed >> 8) & 0xFF, sb = (seed >> 16) & 0xFF, sa = (seed >> 24) & 0xFF;
+
+    if (!adj) {
+      // Global (non-contiguous) color selection across active layer
+      let minX = lw, minY = lh, maxX = -1, maxY = -1;
+      let count = 0;
+      for (let y = 0; y < lh; y++) {
+        const row = y * lw;
+        for (let x = 0; x < lw; x++) {
+          const p = pixels[row + x];
+          const pr = p & 0xFF, pg = (p >> 8) & 0xFF, pb = (p >> 16) & 0xFF, pa = (p >> 24) & 0xFF;
+          const dist = Math.sqrt((pr - sr) ** 2 + (pg - sg) ** 2 + (pb - sb) ** 2 + (pa - sa) ** 2);
+          if (dist <= tol) {
+            count++;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      if (count === 0 || maxX < minX || maxY < minY) {
+        const emptySel = { active: false, type: 'lasso', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+        return this.applySelectionOp(emptySel, m);
+      }
+      const bw = maxX - minX + 1;
+      const bh = maxY - minY + 1;
+      const mask = new Uint8Array(bw * bh);
+      for (let y = minY; y <= maxY; y++) {
+        const row = y * lw;
+        const maskRow = (y - minY) * bw;
+        for (let x = minX; x <= maxX; x++) {
+          const p = pixels[row + x];
+          const pr = p & 0xFF, pg = (p >> 8) & 0xFF, pb = (p >> 16) & 0xFF, pa = (p >> 24) & 0xFF;
+          const dist = Math.sqrt((pr - sr) ** 2 + (pg - sg) ** 2 + (pb - sb) ** 2 + (pa - sa) ** 2);
+          if (dist <= tol) {
+            mask[maskRow + (x - minX)] = 1;
+          }
+        }
+      }
+      const newSel = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask, points: null };
+      this.sendConsoleLog(`magic wand (global) selected ${count} pixels (${bw}x${bh})`);
+      return this.applySelectionOp(newSel, m);
+    }
 
     const visited = new Uint8Array(lw * lh);
     const queue = new Int32Array(lw * lh);
@@ -2905,7 +3181,8 @@ class WesenhoScreenHost {
     }
 
     if (count === 0 || maxX < minX || maxY < minY) {
-      return this.clearSelection();
+      const emptySel = { active: false, type: 'lasso', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+      return this.applySelectionOp(emptySel, m);
     }
 
     const bw = maxX - minX + 1;
@@ -2924,10 +3201,9 @@ class WesenhoScreenHost {
       }
     }
 
-    this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask, points: null };
-    this.syncSelectionClip();
+    const newSel = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask, points: null };
     this.sendConsoleLog(`magic wand selected ${count} pixels (${bw}x${bh})`);
-    return this.selection;
+    return this.applySelectionOp(newSel, m);
   }
 
   /**
@@ -3065,7 +3341,7 @@ class WesenhoScreenHost {
 
     const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
     const outPixels = new Uint32Array(sw * sh);
-    const mask = (this.selection && this.selection.type === 'lasso') ? this.selection.mask : null;
+    const mask = (this.selection && this.selection.mask) ? this.selection.mask : null;
     for (let dy = 0; dy < sh; dy++) {
       const srcRowStart = (sy + dy) * lw + sx;
       const dstRowStart = dy * sw;
@@ -3109,7 +3385,7 @@ class WesenhoScreenHost {
     const sy = Math.max(0, this.selection.y);
     const sw = Math.min(lw - sx, this.selection.w);
     const sh = Math.min(lh - sy, this.selection.h);
-    const mask = (this.selection.type === 'lasso') ? this.selection.mask : null;
+    const mask = (this.selection && this.selection.mask) ? this.selection.mask : null;
     for (let dy = 0; dy < sh; dy++) {
       const rowStart = (sy + dy) * lw + sx;
       if (mask) {
