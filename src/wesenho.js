@@ -966,7 +966,7 @@ function handleSetTool(host, rawTool) {
     host.currentTool = 0;
     host.setBrushParam('mode', 10);
     host.sendConsoleLog('tool set to lasso select');
-  } else if (t === 'wand' || t === 'magic_wand' || t === 'magic wand') {
+  } else if (t === 'wand' || t === 'magic_wand' || t === 'magic wand' || t === 'wand_select' || t === 'wand select' || t === 'magic_wand_select' || t === 'magic wand select') {
     host.currentTool = 0;
     host.setBrushParam('mode', 11);
     host.sendConsoleLog('tool set to magic wand');
@@ -1024,7 +1024,7 @@ function handleSetMode(host, rawMode) {
     host.currentTool = 0;
     host.setBrushParam('mode', 10);
     host.sendConsoleLog('mode set to lasso select');
-  } else if (m === 'wand' || m === 'magic_wand' || m === 'magic wand') {
+  } else if (m === 'wand' || m === 'magic_wand' || m === 'magic wand' || m === 'wand_select' || m === 'wand select' || m === 'magic_wand_select' || m === 'magic wand select') {
     host.currentTool = 0;
     host.setBrushParam('mode', 11);
     host.sendConsoleLog('mode set to magic wand');
@@ -1171,7 +1171,7 @@ const COMMAND_RULES = [
     select all / deselect         Select all or clear selection
     copy / cut / paste [x y]      Clipboard operations on selection
     transform apply               Bake floating transform into layer
-    transform lock / unlock       Lock/unlock selection during transform
+    transform cancel              Cancel floating transform and discard floating layer
     adjust hsv <h> <s> <v>       Adjust layer Hue (-180..180), Sat (-100..100), Value (-100..100)
     adjust hue / sat / brightness <val>
 
@@ -1789,6 +1789,8 @@ const COMMAND_RULES = [
   // Modes & Shapes
   { pat: "set mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
   { pat: "mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
+  { pat: "set tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
+  { pat: "tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
   {
     pat: "set shape $shape",
     run: (m, host) => {
@@ -2372,24 +2374,6 @@ const COMMAND_RULES = [
     run: (m, host) => {
       host.cancelFloatTransform();
     }
-  },
-  {
-    pat: "transform lock",
-    run: (m, host) => {
-      if (host.floatingTransform) {
-        host.floatingTransform.locked = true;
-        host.sendConsoleLog('selection locked during transform');
-      }
-    }
-  },
-  {
-    pat: "transform unlock",
-    run: (m, host) => {
-      if (host.floatingTransform) {
-        host.floatingTransform.locked = false;
-        host.sendConsoleLog('selection unlocked');
-      }
-    }
   }
 ];
 
@@ -2852,7 +2836,7 @@ class WesenhoScreenHost {
 
   /**
    * Flood-fill (magic wand) selection from seed pixel (sx, sy) with color tolerance.
-   * Reads pixels from active layer via WASM. Result stored as lasso-style mask.
+   * Reads pixels from active layer via WASM. Result stored as lasso-style mask with tight bounding box.
    */
   wandSelect(sx, sy, tolerance) {
     if (!this.canvasActor?.exports?.w_layer_get_pixels) return this.selection;
@@ -2871,27 +2855,57 @@ class WesenhoScreenHost {
     const sr = seed & 0xFF, sg = (seed >> 8) & 0xFF, sb = (seed >> 16) & 0xFF, sa = (seed >> 24) & 0xFF;
 
     const visited = new Uint8Array(lw * lh);
-    const mask = new Uint8Array(lw * lh);
-    const queue = [[ix, iy]];
+    const queue = new Int32Array(lw * lh);
+    queue[0] = iy * lw + ix;
     visited[iy * lw + ix] = 1;
+    let head = 0, tail = 1;
 
-    while (queue.length > 0) {
-      const [cx_w, cy_w] = queue.shift();
-      const p = pixels[cy_w * lw + cx_w];
+    let minX = lw, minY = lh, maxX = -1, maxY = -1;
+    let count = 0;
+
+    while (head < tail) {
+      const idx = queue[head++];
+      const cx = idx % lw, cy = (idx / lw) | 0;
+
+      const p = pixels[idx];
       const pr = p & 0xFF, pg = (p >> 8) & 0xFF, pb = (p >> 16) & 0xFF, pa = (p >> 24) & 0xFF;
       const dist = Math.sqrt((pr - sr) ** 2 + (pg - sg) ** 2 + (pb - sb) ** 2 + (pa - sa) ** 2);
       if (dist > tol) continue;
-      mask[cy_w * lw + cx_w] = 1;
-      for (const [dx, dy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
-        const nx = cx_w + dx, ny = cy_w + dy;
-        if (nx >= 0 && nx < lw && ny >= 0 && ny < lh && !visited[ny * lw + nx]) {
-          visited[ny * lw + nx] = 1;
-          queue.push([nx, ny]);
-        }
+
+      count++;
+      if (cx < minX) minX = cx;
+      if (cx > maxX) maxX = cx;
+      if (cy < minY) minY = cy;
+      if (cy > maxY) maxY = cy;
+
+      if (cx > 0 && !visited[idx - 1]) { visited[idx - 1] = 1; queue[tail++] = idx - 1; }
+      if (cx < lw - 1 && !visited[idx + 1]) { visited[idx + 1] = 1; queue[tail++] = idx + 1; }
+      if (cy > 0 && !visited[idx - lw]) { visited[idx - lw] = 1; queue[tail++] = idx - lw; }
+      if (cy < lh - 1 && !visited[idx + lw]) { visited[idx + lw] = 1; queue[tail++] = idx + lw; }
+    }
+
+    if (count === 0 || maxX < minX || maxY < minY) {
+      return this.clearSelection();
+    }
+
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    const mask = new Uint8Array(bw * bh);
+
+    // Re-mark matched pixels inside tight bounding box
+    for (let i = 0; i < head; i++) {
+      const idx = queue[i];
+      const cx = idx % lw, cy = (idx / lw) | 0;
+      const p = pixels[idx];
+      const pr = p & 0xFF, pg = (p >> 8) & 0xFF, pb = (p >> 16) & 0xFF, pa = (p >> 24) & 0xFF;
+      const dist = Math.sqrt((pr - sr) ** 2 + (pg - sg) ** 2 + (pb - sb) ** 2 + (pa - sa) ** 2);
+      if (dist <= tol) {
+        mask[(cy - minY) * bw + (cx - minX)] = 1;
       }
     }
 
-    this.selection = { active: true, type: 'lasso', x: 0, y: 0, w: lw, h: lh, mask, points: null };
+    this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask, points: null };
+    this.sendConsoleLog(`magic wand selected ${count} pixels (${bw}x${bh})`);
     return this.selection;
   }
 
@@ -3038,20 +3052,23 @@ class WesenhoScreenHost {
     // Select the new layer
     if (this.canvasActor.exports.w_layer_select) this.canvasActor.exports.w_layer_select(newId);
 
-    // Enter float transform state
+    // Enter float transform state — 4 free corners for full perspective control
+    // corners: [tl, tr, br, bl] in doc space
+    const ox2 = ex.originX, oy2 = ex.originY, ew = ex.width, eh = ex.height;
     this.floatingTransform = {
       layerId: newId,
       originLayerId: sourceLayerId,
       pixels: ex.pixels,
-      width: ex.width,
-      height: ex.height,
-      originX: ex.originX,
-      originY: ex.originY,
-      tx: 0, ty: 0,
-      scaleX: 1, scaleY: 1,
-      rotation: 0,
-      skewX: 0,
-      locked: false,
+      width: ew,
+      height: eh,
+      originX: ox2,
+      originY: oy2,
+      corners: [
+        { x: ox2,      y: oy2      }, // tl
+        { x: ox2 + ew, y: oy2      }, // tr
+        { x: ox2 + ew, y: oy2 + eh }, // br
+        { x: ox2,      y: oy2 + eh }  // bl
+      ],
       fromCut
     };
 
@@ -3060,8 +3077,66 @@ class WesenhoScreenHost {
   }
 
   /**
+   * Solves 8x8 linear system Ax = b using Gaussian elimination with partial pivoting.
+   * Returns solution vector x (length 8) or null on failure.
+   */
+  _solveLinear8(A, b) {
+    const n = 8;
+    const aug = A.map((row, i) => [...row, b[i]]);
+    for (let col = 0; col < n; col++) {
+      // Partial pivot
+      let maxRow = col;
+      for (let r = col + 1; r < n; r++) {
+        if (Math.abs(aug[r][col]) > Math.abs(aug[maxRow][col])) maxRow = r;
+      }
+      [aug[col], aug[maxRow]] = [aug[maxRow], aug[col]];
+      if (Math.abs(aug[col][col]) < 1e-14) return null;
+      const pivot = aug[col][col];
+      for (let c2 = col; c2 <= n; c2++) aug[col][c2] /= pivot;
+      for (let r = 0; r < n; r++) {
+        if (r === col) continue;
+        const f = aug[r][col];
+        for (let c2 = col; c2 <= n; c2++) aug[r][c2] -= f * aug[col][c2];
+      }
+    }
+    return aug.map(row => row[n]);
+  }
+
+  /**
+   * Computes 3x3 homography (row-major, 9 elements) mapping srcPts → dstPts.
+   * Each pts array is [{x,y} × 4] in order [tl, tr, br, bl].
+   * Source pts are the 4 corners of the source buffer (0,0)→(w,h).
+   * Returns null if degenerate.
+   */
+  _computeHomography(srcPts, dstPts) {
+    const n = 4;
+    const A = [];
+    const bv = [];
+    for (let i = 0; i < n; i++) {
+      const sx = srcPts[i].x, sy = srcPts[i].y;
+      const dx = dstPts[i].x, dy = dstPts[i].y;
+      A.push([sx, sy, 1, 0, 0, 0, -dx * sx, -dx * sy]);
+      bv.push(dx);
+      A.push([0, 0, 0, sx, sy, 1, -dy * sx, -dy * sy]);
+      bv.push(dy);
+    }
+    const h = this._solveLinear8(A, bv);
+    if (!h) return null;
+    return [h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], 1];
+  }
+
+  /**
+   * Applies a 3x3 homography matrix (9-elem row-major) to point (x,y).
+   * Returns {x, y} in destination space.
+   */
+  _applyHomography(H, x, y) {
+    const W = H[6] * x + H[7] * y + H[8];
+    return { x: (H[0] * x + H[1] * y + H[2]) / W, y: (H[3] * x + H[4] * y + H[5]) / W };
+  }
+
+  /**
    * Bakes the current floatingTransform into the floating layer's pixel buffer.
-   * Applies affine transform (translate + rotate + scale + skew) via nearest-neighbor sampling.
+   * Uses inverse perspective homography for correct per-pixel sampling.
    */
   applyFloatTransform() {
     const ft = this.floatingTransform;
@@ -3076,30 +3151,50 @@ class WesenhoScreenHost {
     const tgtU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
     tgtU32.fill(0);
 
-    // Build affine matrix from transform params
-    // Output pixel (ox, oy) ← source pixel via inverse transform
-    const cosR = Math.cos(-ft.rotation), sinR = Math.sin(-ft.rotation);
-    const isx = ft.scaleX !== 0 ? 1 / ft.scaleX : 1;
-    const isy = ft.scaleY !== 0 ? 1 / ft.scaleY : 1;
-    const cx = ft.originX + ft.width / 2, cy = ft.originY + ft.height / 2;
+    // Source corners (in source pixel space, 0-based)
+    const srcPts = [
+      { x: 0,        y: 0         }, // tl
+      { x: ft.width, y: 0         }, // tr
+      { x: ft.width, y: ft.height }, // br
+      { x: 0,        y: ft.height }  // bl
+    ];
+    // Destination corners (in doc/output pixel space)
+    const dstPts = ft.corners;
 
-    for (let oy = 0; oy < lh; oy++) {
-      for (let ox = 0; ox < lw; ox++) {
-        // Translate → unrotate → unscale → map to source
-        let dx = ox - (cx + ft.tx);
-        let dy = oy - (cy + ft.ty);
-        // Undo skewX
-        dx -= dy * ft.skewX;
-        // Undo rotation
-        const rx = dx * cosR - dy * sinR;
-        const ry = dx * sinR + dy * cosR;
-        // Undo scale → source coordinates relative to selection bbox
-        const srcX = Math.round(rx * isx + ft.width / 2);
-        const srcY = Math.round(ry * isy + ft.height / 2);
-        if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
-        const sp = ft.pixels[srcY * ft.width + srcX];
-        if ((sp >> 24 & 0xFF) === 0) continue;
-        tgtU32[oy * lw + ox] = sp;
+    // Forward H: src → dst. Inverse H: dst → src.
+    const H_fwd = this._computeHomography(srcPts, dstPts);
+    const H_inv = H_fwd ? this._computeHomography(dstPts, srcPts) : null;
+    if (!H_inv) {
+      // Fallback: direct copy at origin position
+      for (let dy = 0; dy < ft.height; dy++) {
+        const ty = ft.originY + dy;
+        if (ty < 0 || ty >= lh) continue;
+        for (let dx = 0; dx < ft.width; dx++) {
+          const tx = ft.originX + dx;
+          if (tx < 0 || tx >= lw) continue;
+          tgtU32[ty * lw + tx] = ft.pixels[dy * ft.width + dx];
+        }
+      }
+    } else {
+      // Compute bounding box of destination quad to limit iteration
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of dstPts) {
+        if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
+        if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
+      }
+      const x0 = Math.max(0, Math.floor(minX)), y0 = Math.max(0, Math.floor(minY));
+      const x1 = Math.min(lw - 1, Math.ceil(maxX)), y1 = Math.min(lh - 1, Math.ceil(maxY));
+
+      for (let oy = y0; oy <= y1; oy++) {
+        for (let ox = x0; ox <= x1; ox++) {
+          const s = this._applyHomography(H_inv, ox + 0.5, oy + 0.5);
+          const srcX = Math.round(s.x - 0.5);
+          const srcY = Math.round(s.y - 0.5);
+          if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
+          const sp = ft.pixels[srcY * ft.width + srcX];
+          if (((sp >> 24) & 0xFF) === 0) continue;
+          tgtU32[oy * lw + ox] = sp;
+        }
       }
     }
 

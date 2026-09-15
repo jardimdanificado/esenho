@@ -1130,7 +1130,36 @@ async function run() {
   // 4. Test filter blur with radius
   host.executeCommand('filter blur 5');
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, and Layer HSV Adjustments verified 100%!');
+  // 5. Test Phase 6: Lasso & Wand Selection
+  host.executeCommand('set mode wand_select');
+  if (host.brushParams.mode !== 11) {
+    throw new Error(`set mode wand_select failed: expected mode 11, got ${host.brushParams.mode}`);
+  }
+  host.executeCommand('set tool wand_select');
+  if (host.brushParams.mode !== 11) {
+    throw new Error(`set tool wand_select failed: expected mode 11, got ${host.brushParams.mode}`);
+  }
+  host.executeCommand('wand tolerance 50');
+  if (host.wandTolerance !== 50) {
+    throw new Error(`wand tolerance 50 failed, got ${host.wandTolerance}`);
+  }
+  // Draw a solid rect to test wand selection
+  host.executeCommand('set mode draw');
+  host.executeCommand('draw rect 100 100 30 30 #00ff00ff');
+  host.wandSelect(110, 110, 10);
+  if (!host.selection.active || host.selection.x < 100 || host.selection.w < 20 || host.selection.h < 20) {
+    throw new Error(`wandSelect failed: selection=${JSON.stringify(host.selection)}`);
+  }
+  host.executeCommand('deselect');
+  if (host.selection.active) {
+    throw new Error('deselect after wand failed');
+  }
+  host.executeCommand('select lasso');
+  if (host.brushParams.mode !== 10) {
+    throw new Error(`select lasso failed: expected mode 10, got ${host.brushParams.mode}`);
+  }
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, and Lasso/Wand Selection verified 100%!');
 }
 
 run().catch(err => {

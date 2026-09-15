@@ -945,67 +945,61 @@ async function main() {
         ctx.restore();
       }
 
-      /* Float Transform Overlay — rendered on top of WASM layer, with handles */
-      if (host.floatingTransform) {
+      /* Float Transform Overlay — perspective quad outline + handles */
+      if (host.floatingTransform && host.floatingTransform.corners) {
         const ft = host.floatingTransform;
+        const c = ft.corners;
+        const z = host.zoom;
         ctx.save();
         ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
 
-        // Center of the floating selection in doc space
-        const fcx = ft.originX + ft.width / 2 + ft.tx;
-        const fcy = ft.originY + ft.height / 2 + ft.ty;
-        const fw = ft.width * Math.abs(ft.scaleX) * host.zoom;
-        const fh = ft.height * Math.abs(ft.scaleY) * host.zoom;
-        const fcxS = fcx * host.zoom;
-        const fcyS = fcy * host.zoom;
-
-        // Draw transform frame
-        ctx.save();
-        ctx.translate(fcxS, fcyS);
-        ctx.rotate(ft.rotation);
-        ctx.transform(1, 0, ft.skewX, 1, 0, 0);
-
-        // Tinted preview rect
-        ctx.fillStyle = 'rgba(69, 133, 136, 0.18)';
-        ctx.fillRect(-fw / 2, -fh / 2, fw, fh);
+        // Draw quad outline
+        ctx.beginPath();
+        ctx.moveTo(c[0].x * z, c[0].y * z);
+        ctx.lineTo(c[1].x * z, c[1].y * z);
+        ctx.lineTo(c[2].x * z, c[2].y * z);
+        ctx.lineTo(c[3].x * z, c[3].y * z);
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(69, 133, 136, 0.12)';
+        ctx.fill();
         ctx.strokeStyle = '#83a598';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([]);
-        ctx.strokeRect(-fw / 2, -fh / 2, fw, fh);
+        ctx.stroke();
 
-        // 8 resize handles
-        const hs = 7; // handle half-size px
-        const handlePositions = [
-          { id: 'tl', rx: -fw/2, ry: -fh/2 }, { id: 'tm', rx: 0,    ry: -fh/2 }, { id: 'tr', rx: fw/2,  ry: -fh/2 },
-          { id: 'ml', rx: -fw/2, ry: 0     },                                       { id: 'mr', rx: fw/2,  ry: 0     },
-          { id: 'bl', rx: -fw/2, ry: fh/2  }, { id: 'bm', rx: 0,    ry: fh/2  }, { id: 'br', rx: fw/2,  ry: fh/2  },
-        ];
+        // Corner handles (white square) — perspective control, each moves independently
+        const hs = 7;
         ctx.fillStyle = '#ebdbb2';
         ctx.strokeStyle = '#458588';
         ctx.lineWidth = 1.5;
-        for (const h of handlePositions) {
-          ctx.fillRect(h.rx - hs/2, h.ry - hs/2, hs, hs);
-          ctx.strokeRect(h.rx - hs/2, h.ry - hs/2, hs, hs);
+        for (let i = 0; i < 4; i++) {
+          const px = c[i].x * z, py = c[i].y * z;
+          ctx.fillRect(px - hs/2, py - hs/2, hs, hs);
+          ctx.strokeRect(px - hs/2, py - hs/2, hs, hs);
         }
 
-        // Rotation handle above top-center
-        const rotHandleY = -fh / 2 - 22;
-        ctx.beginPath();
-        ctx.moveTo(0, -fh / 2);
-        ctx.lineTo(0, rotHandleY);
-        ctx.strokeStyle = '#83a598';
-        ctx.setLineDash([3, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.beginPath();
-        ctx.arc(0, rotHandleY, hs / 2 + 1, 0, Math.PI * 2);
-        ctx.fillStyle = '#fabd2f';
-        ctx.fill();
-        ctx.strokeStyle = '#ebdbb2';
-        ctx.stroke();
+        // Edge midpoint handles (diamond) — skew: moves adjacent pair
+        const edgeMids = [
+          [(c[0].x + c[1].x)/2 * z, (c[0].y + c[1].y)/2 * z],
+          [(c[1].x + c[2].x)/2 * z, (c[1].y + c[2].y)/2 * z],
+          [(c[2].x + c[3].x)/2 * z, (c[2].y + c[3].y)/2 * z],
+          [(c[3].x + c[0].x)/2 * z, (c[3].y + c[0].y)/2 * z],
+        ];
+        ctx.fillStyle = '#a89984';
+        ctx.strokeStyle = '#458588';
+        const ds = 5; // diamond half-size
+        for (const [mx, my] of edgeMids) {
+          ctx.beginPath();
+          ctx.moveTo(mx, my - ds);
+          ctx.lineTo(mx + ds, my);
+          ctx.lineTo(mx, my + ds);
+          ctx.lineTo(mx - ds, my);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
 
-        ctx.restore(); // unrotate
-        ctx.restore(); // unshift origin
+        ctx.restore();
       }
 
       ctx.restore();
@@ -1073,35 +1067,39 @@ async function main() {
   canvasEl.addEventListener('contextmenu', e => e.preventDefault());
 
   /* Helper: hit-test float transform handles. Returns handle id string or null. */
+  /* Maps doc-space handle positions to screen-space, returns handle id or null */
   function ftHitTest(x, y) {
     const ft = host.floatingTransform;
-    if (!ft) return null;
-    const cw = host.canvasActor.exports.get_canvas_width();
-    const ch = host.canvasActor.exports.get_canvas_height();
-    const fcx = (ft.originX + ft.width / 2 + ft.tx) * host.zoom;
-    const fcy = (ft.originY + ft.height / 2 + ft.ty) * host.zoom;
-    const fw = ft.width * Math.abs(ft.scaleX) * host.zoom;
-    const fh = ft.height * Math.abs(ft.scaleY) * host.zoom;
-    // Screen coords of x,y relative to floating center
-    // Need to map doc (x,y) → screen, then subtract float center
-    const sx2 = x * host.zoom, sy2 = y * host.zoom;
-    // Undo rotation + skew to get local coords
-    const cosR = Math.cos(-ft.rotation), sinR = Math.sin(-ft.rotation);
-    let ldx = sx2 - fcx, ldy = sy2 - fcy;
-    const lx = ldx * cosR - ldy * sinR - ldy * ft.skewX;
-    const ly = ldx * sinR + ldy * cosR;
-    const hs = 10; // hit radius px
-    const candidates = [
-      { id: 'tl', rx: -fw/2, ry: -fh/2 }, { id: 'tm', rx: 0, ry: -fh/2 }, { id: 'tr', rx: fw/2, ry: -fh/2 },
-      { id: 'ml', rx: -fw/2, ry: 0     },                                    { id: 'mr', rx: fw/2, ry: 0     },
-      { id: 'bl', rx: -fw/2, ry: fh/2  }, { id: 'bm', rx: 0, ry: fh/2  }, { id: 'br', rx: fw/2, ry: fh/2  },
-      { id: 'rot', rx: 0, ry: -fh/2 - 22 },
+    if (!ft || !ft.corners) return null;
+    const z = host.zoom;
+    const hs = 10; // hit radius px in screen space
+    // Corner handles: c0=tl, c1=tr, c2=br, c3=bl
+    const c = ft.corners;
+    const cornerHandles = [
+      { id: 'c0', x: c[0].x, y: c[0].y },
+      { id: 'c1', x: c[1].x, y: c[1].y },
+      { id: 'c2', x: c[2].x, y: c[2].y },
+      { id: 'c3', x: c[3].x, y: c[3].y },
     ];
-    for (const h of candidates) {
-      if (Math.abs(lx - h.rx) < hs && Math.abs(ly - h.ry) < hs) return h.id;
+    // Edge midpoint handles (skew): e01=top, e12=right, e23=bottom, e30=left
+    const edgeHandles = [
+      { id: 'e01', x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 }, // top
+      { id: 'e12', x: (c[1].x + c[2].x) / 2, y: (c[1].y + c[2].y) / 2 }, // right
+      { id: 'e23', x: (c[2].x + c[3].x) / 2, y: (c[2].y + c[3].y) / 2 }, // bottom
+      { id: 'e30', x: (c[3].x + c[0].x) / 2, y: (c[3].y + c[0].y) / 2 }, // left
+    ];
+    for (const h of [...cornerHandles, ...edgeHandles]) {
+      const dx = (h.x - x) * z, dy = (h.y - y) * z;
+      if (Math.abs(dx) < hs && Math.abs(dy) < hs) return h.id;
     }
-    // Inside body → move
-    if (Math.abs(lx) < fw / 2 && Math.abs(ly) < fh / 2) return 'move';
+    // Inside quad check (simple point-in-quad via cross products)
+    function cross(ax, ay, bx, by) { return ax * by - ay * bx; }
+    let inside = true;
+    for (let i = 0; i < 4; i++) {
+      const a = c[i], b = c[(i + 1) % 4];
+      if (cross(b.x - a.x, b.y - a.y, x - a.x, y - a.y) < 0) { inside = false; break; }
+    }
+    if (inside) return 'move';
     return null;
   }
 
@@ -1122,7 +1120,8 @@ async function main() {
           ftHandle = handle;
           ftDragStart = { sx, sy, x, y };
           const ft = host.floatingTransform;
-          ftDragOrigin = { tx: ft.tx, ty: ft.ty, scaleX: ft.scaleX, scaleY: ft.scaleY, rotation: ft.rotation, skewX: ft.skewX };
+          // Deep copy corners for drag origin
+          ftDragOrigin = { corners: ft.corners.map(c => ({ x: c.x, y: c.y })) };
           e.preventDefault();
           return;
         }
@@ -1182,31 +1181,41 @@ async function main() {
       host.panStartX = sx; host.panStartY = sy;
     } else if (ftDragging && ftHandle && ftDragStart && ftDragOrigin) {
       const ft = host.floatingTransform;
-      if (ft) {
+      if (ft && ftDragOrigin.corners) {
         const ddx = (sx - ftDragStart.sx) / host.zoom;
         const ddy = (sy - ftDragStart.sy) / host.zoom;
+        const oc = ftDragOrigin.corners;
         if (ftHandle === 'move') {
-          ft.tx = ftDragOrigin.tx + ddx;
-          ft.ty = ftDragOrigin.ty + ddy;
-        } else if (ftHandle === 'rot') {
-          const ocx = ft.originX + ft.width / 2 + ft.tx;
-          const ocy = ft.originY + ft.height / 2 + ft.ty;
-          ft.rotation = Math.atan2(y - ocy, x - ocx) + Math.PI / 2;
-        } else if (ftHandle === 'tl' || ftHandle === 'br') {
-          const sign = ftHandle === 'tl' ? -1 : 1;
-          ft.scaleX = Math.max(0.05, ftDragOrigin.scaleX + sign * ddx / (ft.width || 1));
-          ft.scaleY = Math.max(0.05, ftDragOrigin.scaleY + sign * ddy / (ft.height || 1));
-        } else if (ftHandle === 'tr' || ftHandle === 'bl') {
-          ft.scaleX = Math.max(0.05, ftDragOrigin.scaleX + (ftHandle === 'tr' ? 1 : -1) * ddx / (ft.width || 1));
-          ft.scaleY = Math.max(0.05, ftDragOrigin.scaleY + (ftHandle === 'bl' ? 1 : -1) * ddy / (ft.height || 1));
-        } else if (ftHandle === 'mr' || ftHandle === 'ml') {
-          const sign = ftHandle === 'mr' ? 1 : -1;
-          ft.scaleX = Math.max(0.05, ftDragOrigin.scaleX + sign * ddx / (ft.width || 1));
-        } else if (ftHandle === 'tm' || ftHandle === 'bm') {
-          const sign = ftHandle === 'bm' ? 1 : -1;
-          ft.scaleY = Math.max(0.05, ftDragOrigin.scaleY + sign * ddy / (ft.height || 1));
+          // Translate all 4 corners
+          for (let i = 0; i < 4; i++) {
+            ft.corners[i].x = oc[i].x + ddx;
+            ft.corners[i].y = oc[i].y + ddy;
+          }
+        } else if (ftHandle === 'c0') {
+          ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
+        } else if (ftHandle === 'c1') {
+          ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
+        } else if (ftHandle === 'c2') {
+          ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
+        } else if (ftHandle === 'c3') {
+          ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
+        } else if (ftHandle === 'e01') {
+          // Top edge: move c0 and c1 together (skew top)
+          ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
+          ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
+        } else if (ftHandle === 'e23') {
+          // Bottom edge: move c2 and c3 together (skew bottom)
+          ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
+          ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
+        } else if (ftHandle === 'e30') {
+          // Left edge: move c0 and c3 together (skew left)
+          ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
+          ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
+        } else if (ftHandle === 'e12') {
+          // Right edge: move c1 and c2 together (skew right)
+          ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
+          ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
         }
-        // If float transform layer pixels need update: mark for reapply on mouseup
       }
     } else if (isDraggingShape) {
       shapeCurDoc = { x, y };
@@ -1232,7 +1241,7 @@ async function main() {
       host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
       if (ftDragging) {
         ftDragging = false; ftHandle = null; ftDragStart = null; ftDragOrigin = null;
-        // Rewrite float layer pixels with current transform
+        // Bake the homographic transform into the WASM layer pixels
         const ft = host.floatingTransform;
         if (ft) {
           const ptr = host.canvasActor.exports.w_layer_get_pixels(ft.layerId);
@@ -1241,23 +1250,29 @@ async function main() {
             const lh = host.canvasActor.exports.w_layer_get_height(ft.layerId);
             const tgtU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh);
             tgtU32.fill(0);
-            const cosR = Math.cos(-ft.rotation), sinR = Math.sin(-ft.rotation);
-            const isx = ft.scaleX !== 0 ? 1 / ft.scaleX : 1;
-            const isy = ft.scaleY !== 0 ? 1 / ft.scaleY : 1;
-            const fcx = ft.originX + ft.width / 2 + ft.tx;
-            const fcy = ft.originY + ft.height / 2 + ft.ty;
-            for (let oy = 0; oy < lh; oy++) {
-              for (let ox = 0; ox < lw; ox++) {
-                let dx2 = ox - fcx, dy2 = oy - fcy;
-                dx2 -= dy2 * ft.skewX;
-                const rx = dx2 * cosR - dy2 * sinR;
-                const ry = dx2 * sinR + dy2 * cosR;
-                const srcX = Math.round(rx * isx + ft.width / 2);
-                const srcY = Math.round(ry * isy + ft.height / 2);
-                if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
-                const sp = ft.pixels[srcY * ft.width + srcX];
-                if (((sp >> 24) & 0xFF) === 0) continue;
-                tgtU32[oy * lw + ox] = sp;
+            const srcPts = [
+              { x: 0, y: 0 }, { x: ft.width, y: 0 },
+              { x: ft.width, y: ft.height }, { x: 0, y: ft.height }
+            ];
+            const H_inv = host._computeHomography(ft.corners, srcPts);
+            if (H_inv) {
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              for (const c of ft.corners) {
+                if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
+                if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
+              }
+              const x0 = Math.max(0, Math.floor(minX)), y0 = Math.max(0, Math.floor(minY));
+              const x1 = Math.min(lw - 1, Math.ceil(maxX)), y1 = Math.min(lh - 1, Math.ceil(maxY));
+              for (let oy = y0; oy <= y1; oy++) {
+                for (let ox = x0; ox <= x1; ox++) {
+                  const W = H_inv[6] * (ox + 0.5) + H_inv[7] * (oy + 0.5) + H_inv[8];
+                  const srcX = Math.round((H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5);
+                  const srcY = Math.round((H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5);
+                  if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
+                  const sp = ft.pixels[srcY * ft.width + srcX];
+                  if (((sp >> 24) & 0xFF) === 0) continue;
+                  tgtU32[oy * lw + ox] = sp;
+                }
               }
             }
             if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
@@ -1754,14 +1769,6 @@ async function main() {
   if (btnXformApply) btnXformApply.addEventListener('click', () => runCmd('transform apply'));
   const btnXformCancel = document.getElementById('ui-btn-transform-cancel');
   if (btnXformCancel) btnXformCancel.addEventListener('click', () => runCmd('transform cancel'));
-  const btnXformLock = document.getElementById('ui-btn-transform-lock');
-  if (btnXformLock) btnXformLock.addEventListener('click', () => {
-    if (host.floatingTransform) {
-      host.floatingTransform.locked = !host.floatingTransform.locked;
-      btnXformLock.classList.toggle('active', host.floatingTransform.locked);
-      host.sendConsoleLog(host.floatingTransform.locked ? 'selection locked' : 'selection unlocked');
-    }
-  });
 
   const sliderWandTol = document.getElementById('ui-slider-wand-tol');
   const wandTolVal = document.getElementById('ui-wand-tol-val');
@@ -3680,7 +3687,6 @@ function ensureUiPanel() {
             <button id="ui-btn-deselect" class="ui-btn" title="Clear selection">Deselect</button>
             <button id="ui-btn-transform-apply" class="ui-btn" title="Apply floating transform to layer">Apply Xform</button>
             <button id="ui-btn-transform-cancel" class="ui-btn" title="Cancel floating transform">Cancel Xform</button>
-            <button id="ui-btn-transform-lock" class="ui-btn" title="Toggle selection lock during transform">Lock Sel</button>
           </div>
           <div class="ui-control" style="margin-top: 4px;">
             <label class="ui-label">Wand Tolerance <span id="ui-wand-tol-val">30</span></label>
