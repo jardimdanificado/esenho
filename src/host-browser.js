@@ -1533,12 +1533,16 @@ async function main() {
     } else if (host.brushParams && host.brushParams.mode === 5 && (host.mouseState.buttons & 3)) {
       sampleEyedropperColor(x, y, e.clientX, e.clientY);
     } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3)) {
-      if (host.brushParams && host.brushParams.mode === 4) {
-        lassoPoints.push({ x, y });
+      const coalesced = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
+      for (const ev of coalesced) {
+        const pt = clientPos(ev);
+        if (host.brushParams && host.brushParams.mode === 4) {
+          lassoPoints.push({ x: pt.x, y: pt.y });
+        }
+        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
+        host.sendStroke(pt.x, pt.y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, strokeCol);
+        host.strokePrevX = pt.x; host.strokePrevY = pt.y;
       }
-      const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
-      host.sendStroke(x, y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, strokeCol);
-      host.strokePrevX = x; host.strokePrevY = y;
     }
     updateStatus(host, x, y);
   });
