@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v1.0.0';
+const CACHE_NAME = 'esenho-v2.1.1';
 
 const PRECACHE_ASSETS = [
   './',
@@ -6,6 +6,8 @@ const PRECACHE_ASSETS = [
   './app.html',
   './manifest.webmanifest',
   './icon.svg',
+  './src/papagaio.bundle.js',
+  './src/project_store.js',
   './src/esenho.js',
   './src/host-browser.js',
   './src/image_io.js',
@@ -61,37 +63,25 @@ self.addEventListener('fetch', (event) => {
   // Ignore non-http / non-same-origin requests unless relative
   if (url.origin !== self.location.origin) return;
 
-  // Navigation requests (HTML pages): Network-first with Cache fallback
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req)
-        .then((networkRes) => {
+  // Network-first strategy for all resources with Cache fallback
+  event.respondWith(
+    fetch(req)
+      .then((networkRes) => {
+        if (networkRes && networkRes.status === 200) {
           const resClone = networkRes.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
-          return networkRes;
-        })
-        .catch(() => caches.match(req).then((cached) => cached || caches.match('./app.html') || caches.match('./index.html')))
-    );
-    return;
-  }
-
-  // Static assets & WASM: Cache-first with background network update
-  event.respondWith(
-    caches.match(req).then((cachedRes) => {
-      const fetchPromise = fetch(req)
-        .then((networkRes) => {
-          if (networkRes && networkRes.status === 200) {
-            const resClone = networkRes.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, resClone));
+        }
+        return networkRes;
+      })
+      .catch(() => {
+        return caches.match(req).then((cached) => {
+          if (cached) return cached;
+          if (req.mode === 'navigate') {
+            return caches.match('./app.html') || caches.match('./index.html');
           }
-          return networkRes;
-        })
-        .catch((err) => {
-          // Network failed, nothing to update
           return null;
         });
-
-      return cachedRes || fetchPromise;
-    })
+      })
   );
 });
+

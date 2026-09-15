@@ -68,6 +68,42 @@
     return bytes;
   }
 
+  /* ── 32-bit RLE Compression Helpers ── */
+  function rleEncodeU32(u32Array) {
+    const len = u32Array.length;
+    if (len === 0) return new Uint8Array(0);
+    const chunks = [];
+    let curVal = u32Array[0];
+    let curCount = 0;
+    for (let i = 0; i < len; i++) {
+      const val = u32Array[i];
+      if (val === curVal && curCount < 0xFFFFFFFF) {
+        curCount++;
+      } else {
+        chunks.push(curCount, curVal);
+        curVal = val;
+        curCount = 1;
+      }
+    }
+    chunks.push(curCount, curVal);
+    const out = new Uint32Array(chunks.length);
+    out.set(chunks);
+    return new Uint8Array(out.buffer);
+  }
+
+  function rleDecodeU32(u8Array, totalPixels) {
+    const in32 = new Uint32Array(u8Array.buffer, u8Array.byteOffset, Math.floor(u8Array.byteLength / 4));
+    const out = new Uint32Array(totalPixels);
+    let outIdx = 0;
+    for (let i = 0; i < in32.length; i += 2) {
+      const count = in32[i];
+      const val = in32[i + 1];
+      out.fill(val, outIdx, Math.min(totalPixels, outIdx + count));
+      outIdx += count;
+    }
+    return out;
+  }
+
   /* ── Fast Thumbnail Generator ── */
   function generateThumbnailDataUrl(pixelsU32, width, height, maxThumbSize = 220) {
     if (typeof document === "undefined" || !pixelsU32 || width <= 0 || height <= 0) return "";
@@ -106,6 +142,8 @@
   const EsenhoStore = {
     bytesToBase64,
     base64ToBytes,
+    rleEncodeU32,
+    rleDecodeU32,
     generateThumbnailDataUrl,
 
     async saveProject(project) {

@@ -1427,8 +1427,8 @@ async function run() {
   if (!Array.isArray(projData.layers) || projData.layers.length < 2) {
     throw new Error(`exportProject failed: expected at least 2 layers, got ${projData.layers?.length}`);
   }
-  if (!projData.layers[0].pixels || typeof projData.layers[0].pixels !== 'string') {
-    throw new Error('exportProject failed: layer pixels must be base64 string');
+  if (!projData.layers[0].pixels && projData.layers[0].encoding !== 'solid' && projData.layers[0].encoding !== 'empty') {
+    throw new Error('exportProject failed: expected pixels string or solid/empty encoding');
   }
   if (projData.settings.brushParams.size !== 42 || projData.settings.brushParams.opacity !== 77) {
     throw new Error('exportProject failed: brush parameters not preserved');

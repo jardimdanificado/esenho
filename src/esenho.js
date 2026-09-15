@@ -50,12 +50,22 @@ const Buf = IS_BROWSER
 let papagaio = null;
 function getPapagaio() {
   if (papagaio) return papagaio;
+  if (typeof globalThis !== 'undefined' && globalThis.papagaio) {
+    papagaio = globalThis.papagaio;
+    return papagaio;
+  }
+  if (typeof window !== 'undefined' && window.papagaio) {
+    papagaio = window.papagaio;
+    return papagaio;
+  }
   if (!IS_BROWSER) {
+    try {
+      papagaio = require('./papagaio.bundle.js').papagaio;
+      if (papagaio) return papagaio;
+    } catch (_) {}
     try {
       papagaio = require('./papagaio/index.js').papagaio;
     } catch (_) {}
-  } else if (typeof globalThis !== 'undefined' && globalThis.papagaio) {
-    papagaio = globalThis.papagaio;
   }
   return papagaio;
 }
@@ -4616,16 +4626,41 @@ class EsenhoScreenHost {
    * @returns {object|null} .esen project object
    */
   exportProject(name) {
-    if (!this.canvasActor || !this.canvasActor.instance) return null;
+    if (!this.canvasActor || !this.canvasActor.exports) return null;
     const w = this.canvasActor.exports.get_canvas_width();
     const h = this.canvasActor.exports.get_canvas_height();
     if (w <= 0 || h <= 0) return null;
 
     const layerCount = this.canvasActor.exports.get_layer_count ? this.canvasActor.exports.get_layer_count() : 4;
     const orderCount = this.canvasActor.exports.w_layer_get_order_count ? this.canvasActor.exports.w_layer_get_order_count() : 0;
+    
+    // 1. Gather only document drawing layers (id >= 3, skipping system tips 0..2 and unused textures)
     const layerOrder = [];
-    for (let i = 0; i < orderCount; i++) {
-      layerOrder.push(this.canvasActor.exports.w_layer_get_order(i));
+    const exportedLayerIds = [];
+    const seen = new Set();
+
+    for (let pos = 0; pos < orderCount; pos++) {
+      const id = this.canvasActor.exports.w_layer_get_order(pos);
+      if (id >= 3 && !seen.has(id)) {
+        layerOrder.push(id);
+        exportedLayerIds.push(id);
+        seen.add(id);
+      }
+    }
+
+    if (this.layerNames) {
+      for (const id of this.layerNames.keys()) {
+        if (id >= 3 && !seen.has(id)) {
+          layerOrder.push(id);
+          exportedLayerIds.push(id);
+          seen.add(id);
+        }
+      }
+    }
+
+    if (exportedLayerIds.length === 0) {
+      exportedLayerIds.push(3);
+      layerOrder.push(3);
     }
 
     const encodeB64 = (rawU8) => {
@@ -4645,8 +4680,30 @@ class EsenhoScreenHost {
       return btoa(binary);
     };
 
+    const rleEncodeU32Local = (u32Array) => {
+      const len = u32Array.length;
+      if (len === 0) return new Uint8Array(0);
+      const chunks = [];
+      let curVal = u32Array[0];
+      let curCount = 0;
+      for (let i = 0; i < len; i++) {
+        const val = u32Array[i];
+        if (val === curVal && curCount < 0xFFFFFFFF) {
+          curCount++;
+        } else {
+          chunks.push(curCount, curVal);
+          curVal = val;
+          curCount = 1;
+        }
+      }
+      chunks.push(curCount, curVal);
+      const out = new Uint32Array(chunks.length);
+      out.set(chunks);
+      return new Uint8Array(out.buffer);
+    };
+
     const layersData = [];
-    for (let i = 3; i < layerCount; i++) {
+    for (const i of exportedLayerIds) {
       const lw = this.canvasActor.exports.w_layer_get_width(i);
       const lh = this.canvasActor.exports.w_layer_get_height(i);
       const ptr = this.canvasActor.exports.w_layer_get_pixels(i);
@@ -4657,24 +4714,62 @@ class EsenhoScreenHost {
       const alphaLock = this.canvasActor.exports.w_layer_get_alpha_lock ? this.canvasActor.exports.w_layer_get_alpha_lock(i) : 0;
       const clipping = this.canvasActor.exports.w_layer_get_clipping ? this.canvasActor.exports.w_layer_get_clipping(i) : 0;
       const blendMode = this.canvasActor.exports.w_layer_get_blend_mode ? this.canvasActor.exports.w_layer_get_blend_mode(i) : 0;
-      
-      const byteLen = lw * lh * 4;
-      const rawBytes = new Uint8Array(this.canvasActor.memory.buffer, ptr, byteLen);
-      const pixelsBase64 = encodeB64(rawBytes);
+      const layerName = (this.layerNames && this.layerNames.get(i)) || (i === 3 ? 'Background' : `Layer ${i}`);
 
-      layersData.push({
+      const totalPixels = lw * lh;
+      const byteLen = totalPixels * 4;
+      const memBuf = this.canvasActor.memory.buffer;
+      if (ptr + byteLen > memBuf.byteLength) continue;
+
+      const u32 = (ptr % 4 === 0)
+        ? new Uint32Array(memBuf, ptr, totalPixels)
+        : new Uint32Array(new Uint8Array(memBuf, ptr, byteLen).slice().buffer);
+
+      // Check if layer is completely blank (all 0s) or solid uniform color
+      let isUniform = true;
+      const firstPixel = u32[0];
+      for (let p = 1; p < totalPixels; p++) {
+        if (u32[p] !== firstPixel) {
+          isUniform = false;
+          break;
+        }
+      }
+
+      const layerObj = {
         id: i,
-        name: i === 3 ? 'Background' : `Layer ${i}`,
+        name: layerName,
         width: lw,
         height: lh,
         visible,
         opacity,
         alphaLock,
         clipping,
-        blendMode,
-        pixels: pixelsBase64,
-        pixelsBase64
-      });
+        blendMode
+      };
+
+      if (isUniform) {
+        if (firstPixel === 0) {
+          layerObj.encoding = 'empty';
+        } else {
+          layerObj.encoding = 'solid';
+          layerObj.color = firstPixel >>> 0;
+        }
+      } else {
+        // Fast RLE compression
+        const rleU8 = (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.rleEncodeU32)
+          ? EsenhoStore.rleEncodeU32(u32)
+          : rleEncodeU32Local(u32);
+
+        if (rleU8.byteLength < totalPixels * 4 * 0.9) {
+          layerObj.encoding = 'rle32';
+          layerObj.pixels = encodeB64(rleU8);
+        } else {
+          layerObj.encoding = 'raw';
+          layerObj.pixels = encodeB64(new Uint8Array(this.canvasActor.memory.buffer, ptr, totalPixels * 4));
+        }
+      }
+
+      layersData.push(layerObj);
     }
 
     // Generate thumbnail from composite buffer
@@ -4736,7 +4831,7 @@ class EsenhoScreenHost {
     if (!projectData || !projectData.width || !projectData.height || !Array.isArray(projectData.layers)) {
       throw new Error('Invalid project data format');
     }
-    if (!this.canvasActor || !this.canvasActor.instance) {
+    if (!this.canvasActor || !this.canvasActor.exports) {
       throw new Error('Canvas actor not initialized');
     }
 
@@ -4758,6 +4853,19 @@ class EsenhoScreenHost {
       return out;
     };
 
+    const rleDecodeU32Local = (u8Array, totalPixels) => {
+      const in32 = new Uint32Array(u8Array.buffer, u8Array.byteOffset, Math.floor(u8Array.byteLength / 4));
+      const out = new Uint32Array(totalPixels);
+      let outIdx = 0;
+      for (let i = 0; i < in32.length; i += 2) {
+        const count = in32[i];
+        const val = in32[i + 1];
+        out.fill(val, outIdx, Math.min(totalPixels, outIdx + count));
+        outIdx += count;
+      }
+      return out;
+    };
+
     // Restore layers
     const layerMap = new Map(); // old id -> new id
     for (let i = 0; i < projectData.layers.length; i++) {
@@ -4772,14 +4880,41 @@ class EsenhoScreenHost {
       layerMap.set(l.id, targetId);
 
       if (targetId >= 0) {
-        const rawPix = l.pixelsBase64 || l.pixels;
-        if (rawPix) {
-          const u8 = decodeB64(rawPix);
-          const ptr = this.canvasActor.exports.w_layer_get_pixels(targetId);
-          if (ptr) {
-            new Uint8Array(this.canvasActor.memory.buffer, ptr, u8.byteLength).set(u8);
+        const ptr = this.canvasActor.exports.w_layer_get_pixels(targetId);
+        const lw = l.width || w;
+        const lh = l.height || h;
+        const totalPixels = lw * lh;
+
+        if (ptr) {
+          if (l.encoding === 'empty') {
+            new Uint32Array(this.canvasActor.memory.buffer, ptr, totalPixels).fill(0);
+          } else if (l.encoding === 'solid') {
+            const col = (l.color !== undefined) ? (l.color >>> 0) : 0;
+            new Uint32Array(this.canvasActor.memory.buffer, ptr, totalPixels).fill(col);
+          } else if (l.encoding === 'rle32') {
+            const raw = l.pixels || l.pixelsBase64;
+            if (raw) {
+              const rleBytes = decodeB64(raw);
+              const decodedU32 = (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.rleDecodeU32)
+                ? EsenhoStore.rleDecodeU32(rleBytes, totalPixels)
+                : rleDecodeU32Local(rleBytes, totalPixels);
+              new Uint32Array(this.canvasActor.memory.buffer, ptr, totalPixels).set(decodedU32);
+            }
+          } else {
+            // raw or legacy format
+            const raw = l.pixels || l.pixelsBase64;
+            if (raw) {
+              const u8 = decodeB64(raw);
+              new Uint8Array(this.canvasActor.memory.buffer, ptr, Math.min(u8.byteLength, totalPixels * 4)).set(u8);
+            }
           }
         }
+
+        if (l.name) {
+          if (!this.layerNames) this.layerNames = new Map();
+          this.layerNames.set(targetId, l.name);
+        }
+
         if (typeof this.canvasActor.exports.w_layer_set_visible === 'function') {
           this.canvasActor.exports.w_layer_set_visible(targetId, l.visible !== undefined ? (l.visible ? 1 : 0) : 1);
         }
