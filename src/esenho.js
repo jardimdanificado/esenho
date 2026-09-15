@@ -2295,15 +2295,27 @@ const COMMAND_RULES = [
     pat: "draw line $x0$int $y0$int $x1$int $y1$int $col",
     run: (m, host) => {
       const col = parseColorString(m.col, host.currentColor);
-      host.canvasActor.exports.w_draw_line(parseInt(m.x0, 10), parseInt(m.y0, 10), parseInt(m.x1, 10), parseInt(m.y1, 10), col);
+      const x0 = parseInt(m.x0, 10), y0 = parseInt(m.y0, 10);
+      const x1 = parseInt(m.x1, 10), y1 = parseInt(m.y1, 10);
+      const isEraser = (host.actionMode === 'erase' || host.currentTool === 1) ? 1 : 0;
+      host.executeWithSelectionClip(() => {
+        host.sendStroke(x0, y0, x0, y0, 0, isEraser, col);
+        host.sendStroke(x1, y1, x0, y0, 1, isEraser, col);
+        host.sendStroke(x1, y1, x1, y1, 2, isEraser, col);
+      });
       host.sendConsoleLog(`drew line from (${m.x0},${m.y0}) to (${m.x1},${m.y1})`);
     }
   },
   {
     pat: "draw line $x0$int $y0$int $x1$int $y1$int",
     run: (m, host) => {
+      const x0 = parseInt(m.x0, 10), y0 = parseInt(m.y0, 10);
+      const x1 = parseInt(m.x1, 10), y1 = parseInt(m.y1, 10);
+      const isEraser = (host.actionMode === 'erase' || host.currentTool === 1) ? 1 : 0;
       host.executeWithSelectionClip(() => {
-        host.canvasActor.exports.w_draw_line(parseInt(m.x0, 10), parseInt(m.y0, 10), parseInt(m.x1, 10), parseInt(m.y1, 10), host.currentColor);
+        host.sendStroke(x0, y0, x0, y0, 0, isEraser, host.currentColor);
+        host.sendStroke(x1, y1, x0, y0, 1, isEraser, host.currentColor);
+        host.sendStroke(x1, y1, x1, y1, 2, isEraser, host.currentColor);
       });
       host.sendConsoleLog(`drew line from (${m.x0},${m.y0}) to (${m.x1},${m.y1})`);
     }
@@ -2667,6 +2679,7 @@ class EsenhoScreenHost {
     this.groupCounter = 1;
     this.createGroup('tips');
     this.createGroup('grains');
+    this.createGroup('scripts');
 
     // Textures & Actors
     this.textures = createProceduralTextures();
@@ -4303,9 +4316,14 @@ class EsenhoScreenHost {
       this.pickColor(x, y, true);
       return;
     }
-    if (!this.canvasActor || (typeof this.canvasActor.exports.w_brush_stroke !== 'function' && typeof this.canvasActor.exports.w_brush_stroke_ext !== 'function')) return;
+    const curActive = (this.canvasActor && this.canvasActor.exports.get_active_layer) ? this.canvasActor.exports.get_active_layer() : 0;
+    if (curActive < 3 && this.canvasActor && typeof this.canvasActor.exports.w_layer_select === 'function') {
+      const count = this.canvasActor.exports.get_layer_count ? this.canvasActor.exports.get_layer_count() : 4;
+      this.canvasActor.exports.w_layer_select(count > 4 ? 4 : 3);
+    }
 
-    const col = (color !== undefined) ? color : this.currentColor;
+    const rawCol = (color !== undefined) ? color : this.currentColor;
+    const col = (rawCol & 0xFF000000) ? rawCol : (0xFF000000 | rawCol);
     const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.actionMode === 'erase' || this.currentTool === 1 ? 1 : 0);
     const smooth = Math.max(0, Math.min(100, this.brushParams.smoothing || 0));
 
@@ -4794,6 +4812,19 @@ class EsenhoScreenHost {
       }
     }
 
+    // Scripts
+    const scripts = [];
+    if (this.scripts && Array.isArray(this.scripts)) {
+      this.scripts.forEach(s => {
+        scripts.push({
+          id: s.id,
+          name: s.name,
+          code: s.code || '',
+          folderId: s.folderId || null
+        });
+      });
+    }
+
     const projId = this.currentProjectId || ('proj_' + Date.now());
     this.currentProjectId = projId;
     this.currentProjectName = name || this.currentProjectName || 'Untitled Project';
@@ -4818,7 +4849,8 @@ class EsenhoScreenHost {
       },
       layerOrder,
       layerGroups: groups,
-      layers: layersData
+      layers: layersData,
+      scripts
     };
   }
 
@@ -4961,12 +4993,33 @@ class EsenhoScreenHost {
           this.setBrushParam(k, v);
         }
       }
+      let selectedActive = false;
       if (s.activeLayerId !== undefined && layerMap.has(s.activeLayerId)) {
         const mappedActive = layerMap.get(s.activeLayerId);
-        if (typeof this.canvasActor.exports.w_layer_select === 'function') {
+        if (mappedActive >= 3 && typeof this.canvasActor.exports.w_layer_select === 'function') {
           this.canvasActor.exports.w_layer_select(mappedActive);
+          selectedActive = true;
         }
       }
+      if (!selectedActive) {
+        let topLayer = 3;
+        for (const newId of layerMap.values()) {
+          if (newId >= 3 && newId > topLayer) topLayer = newId;
+        }
+        if (typeof this.canvasActor.exports.w_layer_select === 'function') {
+          this.canvasActor.exports.w_layer_select(topLayer);
+        }
+      }
+    }
+
+    // Restore scripts
+    if (Array.isArray(projectData.scripts) && projectData.scripts.length > 0) {
+      this.scripts = projectData.scripts.map((s, idx) => ({
+        id: s.id || ('script_' + idx),
+        name: s.name || `script_${idx + 1}`,
+        code: s.code || '',
+        folderId: s.folderId !== undefined ? s.folderId : 'scripts'
+      }));
     }
 
     this.currentProjectId = projectData.id || ('proj_' + Date.now());

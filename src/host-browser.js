@@ -95,7 +95,10 @@ async function main() {
       const savedAction = localStorage.getItem('esenho_last_action_mode');
       if (savedAction) host.actionMode = savedAction;
       const savedCol = localStorage.getItem('esenho_last_color');
-      if (savedCol) host.currentColor = parseInt(savedCol, 10) >>> 0;
+      if (savedCol) {
+        const c = parseInt(savedCol, 10) >>> 0;
+        host.currentColor = (c & 0xFF000000) ? c : (0xFF000000 | c);
+      }
       const savedBP = localStorage.getItem('esenho_saved_brush_params');
       if (savedBP) {
         const parsedBP = JSON.parse(savedBP);
@@ -104,6 +107,19 @@ async function main() {
         }
       }
     } catch (_) {}
+
+    if (!host.currentColor || (host.currentColor & 0xFF000000) === 0) {
+      host.currentColor = 0xFF000000;
+    }
+
+    const curActive = (host.canvasActor && host.canvasActor.exports.get_active_layer) ? host.canvasActor.exports.get_active_layer() : 0;
+    if (curActive < 3) {
+      const count = host.canvasActor.exports.get_layer_count ? host.canvasActor.exports.get_layer_count() : 4;
+      const targetLayer = count > 4 ? 4 : 3;
+      if (typeof host.canvasActor.exports.w_layer_select === 'function') {
+        host.canvasActor.exports.w_layer_select(targetLayer);
+      }
+    }
 
     host.syncBrushParams(host.canvasActor);
     host.canvasActor.exports.force_composite();
@@ -235,15 +251,10 @@ async function main() {
 
     const secTools = document.getElementById('ui-section-tools');
     const secLayers = document.getElementById('ui-section-layers');
-    if (secTools && secLayers) {
-      if (!isMobile()) {
-        secTools.style.display = 'flex';
-        secLayers.style.display = 'flex';
-      } else {
-        secTools.style.display = (activeMobileTab === 'tools') ? 'flex' : 'none';
-        secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
-      }
-    }
+    const secConsole = document.getElementById('ui-section-console');
+    if (secTools) secTools.style.display = 'flex';
+    if (secLayers) secLayers.style.display = 'flex';
+    if (secConsole) secConsole.style.display = 'flex';
   }
   resize();
   window.addEventListener('resize', resize);
@@ -276,46 +287,34 @@ async function main() {
   function syncMobilePanels(isOpen, targetHeight) {
     const uiEl = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
-    if (!uiEl || !consoleEl) return;
+    if (!uiEl) return;
 
     if (!isOpen) {
       uiEl.classList.add('hidden');
       uiEl.style.height = '';
-      consoleEl.classList.add('hidden');
-      consoleEl.style.height = '';
+      if (consoleEl) {
+        consoleEl.classList.add('hidden');
+        consoleEl.style.height = '';
+      }
       return;
     }
 
-    const showTools = (activeMobileTab === 'tools' || activeMobileTab === 'layers');
-    const activeEl = showTools ? uiEl : consoleEl;
-    const inactiveEl = showTools ? consoleEl : uiEl;
-
-    inactiveEl.classList.add('hidden');
-    inactiveEl.style.height = '';
-
-    const wasHidden = activeEl.classList.contains('hidden');
-    activeEl.classList.remove('hidden');
-
-    const secTools = document.getElementById('ui-section-tools');
-    const secLayers = document.getElementById('ui-section-layers');
-    if (secTools && secLayers) {
-      if (isMobile()) {
-        secTools.style.display = (activeMobileTab === 'tools') ? 'flex' : 'none';
-        secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
-      } else {
-        secTools.style.display = 'flex';
-        secLayers.style.display = 'flex';
-      }
+    if (consoleEl) {
+      consoleEl.classList.add('hidden');
+      consoleEl.style.height = '';
     }
 
+    const wasHidden = uiEl.classList.contains('hidden');
+    uiEl.classList.remove('hidden');
+
     if (wasHidden && isMobile()) {
-      armTouchGuard(activeEl);
+      armTouchGuard(uiEl);
     }
 
     if (typeof targetHeight === 'number' && targetHeight > 0) {
-      activeEl.style.height = `${targetHeight}px`;
-      activeEl.style.maxHeight = 'none';
-      activeEl.style.minHeight = '0px';
+      uiEl.style.height = `${targetHeight}px`;
+      uiEl.style.maxHeight = 'none';
+      uiEl.style.minHeight = '0px';
     }
   }
 
@@ -342,7 +341,6 @@ async function main() {
   /* ── Toggle UI tools panel ── */
   function toggleUi(forceOpen) {
     const el = document.getElementById('ui-panel');
-    const consoleEl = document.getElementById('panel');
     if (!el) return;
 
     const isMob = isMobile();
@@ -357,25 +355,11 @@ async function main() {
       el.classList.remove('hidden');
       const secTools = document.getElementById('ui-section-tools');
       const secLayers = document.getElementById('ui-section-layers');
-      if (secTools && secLayers) {
-        if (isMob) {
-          secTools.style.display = (activeMobileTab === 'layers') ? 'none' : 'flex';
-          secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
-        } else {
-          secTools.style.display = 'flex';
-          secLayers.style.display = 'flex';
-        }
-      }
-      if (isMob) {
-        if (activeMobileTab !== 'layers') activeMobileTab = 'tools';
-        armTouchGuard(el);
-      }
-      if (isMob && consoleEl) {
-        consoleEl.classList.add('hidden');
-        consoleEl.style.height = '';
-        const btnC = document.getElementById('toggle-panel');
-        if (btnC) btnC.textContent = 'console [show] ▶';
-      }
+      const secConsole = document.getElementById('ui-section-console');
+      if (secTools) secTools.style.display = 'flex';
+      if (secLayers) secLayers.style.display = 'flex';
+      if (secConsole) secConsole.style.display = 'flex';
+      if (isMob) armTouchGuard(el);
     } else {
       el.classList.add('hidden');
       if (isMob) el.style.height = '';
@@ -383,9 +367,8 @@ async function main() {
 
     const btn = document.getElementById('toggle-ui');
     if (btn) {
-      btn.textContent = willOpen ? '▶ tools [hide]' : '◀ tools [show]';
+      btn.textContent = willOpen ? '> tools [hide]' : '< tools [show]';
     }
-    updateDockTabs();
     resize();
   }
 
@@ -546,265 +529,101 @@ async function main() {
     }
   }
 
-  const tabDockTools = document.getElementById('tab-dock-tools');
-  const tabDockLayers = document.getElementById('tab-dock-layers');
-  const tabDockConsole = document.getElementById('tab-dock-console');
-  const tabDockScripts = document.getElementById('tab-dock-scripts');
-  const tabDockClose = document.getElementById('tab-dock-close');
-  const dockHandle = document.getElementById('bottom-dock-handle');
-
-  const tabSubConsole = document.getElementById('tab-sub-console');
-  const tabSubScripts = document.getElementById('tab-sub-scripts');
-  if (tabSubConsole) {
-    tabSubConsole.addEventListener('click', () => switchConsoleSubTab('console'));
-  }
-  if (tabSubScripts) {
-    tabSubScripts.addEventListener('click', () => switchConsoleSubTab('scripts'));
-  }
-
-  function selectMobileTab(tab) {
-    activeMobileTab = tab;
-    if (tab === 'console') switchConsoleSubTab('console');
-    if (tab === 'scripts') switchConsoleSubTab('scripts');
-
-    const uiEl = document.getElementById('ui-panel');
-    const consoleEl = document.getElementById('panel');
-    const isDrawerOpen = (uiEl && !uiEl.classList.contains('hidden')) || (consoleEl && !consoleEl.classList.contains('hidden'));
-
-    // ONLY switch content if the drawer is already open. Never open drawer via buttons!
-    if (isDrawerOpen) {
-      const currentH = (uiEl && !uiEl.classList.contains('hidden'))
-        ? uiEl.offsetHeight
-        : ((consoleEl && !consoleEl.classList.contains('hidden')) ? consoleEl.offsetHeight : 0);
-      syncMobilePanels(true, currentH);
-      if (currentH >= 60) {
-        document.documentElement.style.setProperty('--mobile-drawer-height', `${currentH}px`);
-      }
-      resize();
-    } else {
-      syncMobilePanels(false);
-    }
-    updateDockTabs();
-  }
-
-  if (tabDockTools) {
-    tabDockTools.addEventListener('click', () => selectMobileTab('tools'));
-  }
-  if (tabDockLayers) {
-    tabDockLayers.addEventListener('click', () => selectMobileTab('layers'));
-  }
-  if (tabDockConsole) {
-    tabDockConsole.addEventListener('click', () => selectMobileTab('console'));
-  }
-  if (tabDockScripts) {
-    tabDockScripts.addEventListener('click', () => selectMobileTab('scripts'));
-  }
-
   const bottomDock = document.getElementById('bottom-dock');
-  if (bottomDock) {
+  const dockHandle = document.getElementById('bottom-dock-handle');
+  if (bottomDock && dockHandle) {
     let isDraggingDock = false;
     let hasMoved = false;
     let startY = 0;
     let startH = 0;
-    let initialCollapsed = false;
     let suppressClickUntil = 0;
 
-    if (localStorage.getItem('esenho_dock_tabs_collapsed') === '1') {
-      bottomDock.classList.add('tabs-collapsed');
-    }
-
-    // Suppress click on dock buttons if a drag gesture occurred
-    bottomDock.addEventListener('click', (e) => {
-      if (Date.now() < suppressClickUntil) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-    }, true);
-
-    let dockRafId = null;
-    let pendingClientY = null;
-
-    const updateDockHeightUI = (clientY) => {
+    const onPointerMove = (e) => {
       if (!isDraggingDock) return;
-      const scale = parseFloat(getComputedStyle(bottomDock).zoom) || 1;
-      const rawDy = clientY - startY;
-      const dy = rawDy / scale;
-
-      if (!hasMoved && Math.abs(dy) > 4) {
+      const dy = e.clientY - startY;
+      if (!hasMoved && Math.abs(dy) > 3) {
         hasMoved = true;
       }
       if (!hasMoved) return;
+      if (e.cancelable) e.preventDefault();
 
-      if (initialCollapsed) {
-        // Was fully collapsed (only handle visible). Dragging UP restores tabs first
-        if (-dy > 12) {
-          bottomDock.classList.remove('tabs-collapsed');
-        } else {
-          bottomDock.classList.add('tabs-collapsed');
-        }
-        // Dragging UP further opens drawer
-        if (-dy > 45) {
-          let newH = -dy - 40;
-          newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
-          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncMobilePanels(true, newH);
-        } else {
-          syncMobilePanels(false);
-        }
-      } else if (startH === 0) {
-        // Drawer was closed, tabs visible
-        // Dragging DOWN collapses tabs to hide buttons
-        if (dy > 18) {
-          bottomDock.classList.add('tabs-collapsed');
-        } else {
-          bottomDock.classList.remove('tabs-collapsed');
-        }
-        // Dragging UP opens the drawer
-        if (-dy > 12) {
-          let newH = -dy;
-          newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
-          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncMobilePanels(true, newH);
-        } else if (dy <= 18) {
-          syncMobilePanels(false);
-        }
+      let newH = (startH === 0) ? -dy : (startH - dy);
+      if (newH >= 50) {
+        newH = Math.min(window.innerHeight * 0.85, newH);
+        document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
+        syncMobilePanels(true, newH);
       } else {
-        // Drawer was open (startH > 0)
-        let newH = startH - dy;
-        if (newH >= 60) {
-          bottomDock.classList.remove('tabs-collapsed');
-          newH = Math.min(window.innerHeight * 0.85, newH);
-          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncMobilePanels(true, newH);
-        } else {
-          syncMobilePanels(false);
-          if (dy - startH > 25) {
-            bottomDock.classList.add('tabs-collapsed');
-          } else {
-            bottomDock.classList.remove('tabs-collapsed');
-          }
-        }
+        syncMobilePanels(false);
       }
     };
 
-    const applyDockHeight = (clientY) => {
-      pendingClientY = clientY;
-      if (!dockRafId) {
-        dockRafId = requestAnimationFrame(() => {
-          dockRafId = null;
-          if (pendingClientY !== null) {
-            updateDockHeightUI(pendingClientY);
-          }
-        });
-      }
-    };
-
-    const finishDockDrag = () => {
+    const finishDockDrag = (e) => {
       if (!isDraggingDock) return;
       isDraggingDock = false;
-      if (dockRafId) {
-        cancelAnimationFrame(dockRafId);
-        dockRafId = null;
-      }
-      if (pendingClientY !== null) {
-        updateDockHeightUI(pendingClientY);
-        pendingClientY = null;
-      }
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
+      try {
+        if (e && e.pointerId !== undefined) {
+          dockHandle.releasePointerCapture(e.pointerId);
+        }
+      } catch (_) {}
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', finishDockDrag);
       window.removeEventListener('pointercancel', finishDockDrag);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', finishDockDrag);
-      window.removeEventListener('touchcancel', finishDockDrag);
 
       if (hasMoved) {
         suppressClickUntil = Date.now() + 250;
-        const isCollapsed = bottomDock.classList.contains('tabs-collapsed');
-        localStorage.setItem('esenho_dock_tabs_collapsed', isCollapsed ? '1' : '0');
-
         const uiEl = document.getElementById('ui-panel');
-        const consoleEl = document.getElementById('panel');
-        const activeEl = (activeMobileTab === 'tools' || activeMobileTab === 'layers') ? uiEl : consoleEl;
-        if (activeEl && !activeEl.classList.contains('hidden')) {
-          if (activeEl.offsetHeight < 70) {
+        if (uiEl && !uiEl.classList.contains('hidden')) {
+          if (uiEl.offsetHeight < 70) {
             syncMobilePanels(false);
           } else {
-            localStorage.setItem('esenho_mobile_drawer_height', activeEl.offsetHeight);
+            localStorage.setItem('esenho_mobile_drawer_height', uiEl.offsetHeight);
           }
         }
       }
-      updateDockTabs();
       hasMoved = false;
       resize();
     };
 
-    const onPointerMove = (e) => {
-      if (hasMoved && e.cancelable) e.preventDefault();
-      applyDockHeight(e.clientY);
-    };
-
-    const onTouchMove = (e) => {
-      if (e.touches && e.touches.length > 0) {
-        if (hasMoved && e.cancelable) e.preventDefault();
-        applyDockHeight(e.touches[0].clientY);
-      }
-    };
-
-    const handleDockStart = (clientY, isDirectHandle) => {
-      if (!isDirectHandle) return false;
+    const onDockPointerDown = (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
       const uiEl = document.getElementById('ui-panel');
-      const consoleEl = document.getElementById('panel');
       const uiHidden = !uiEl || uiEl.classList.contains('hidden');
-      const consoleHidden = !consoleEl || consoleEl.classList.contains('hidden');
-
-      initialCollapsed = bottomDock.classList.contains('tabs-collapsed');
-
-      if (!uiHidden && consoleHidden) {
-        if (activeMobileTab !== 'layers') activeMobileTab = 'tools';
-        startH = uiEl.offsetHeight;
-      } else if (!consoleHidden && uiHidden) {
-        activeMobileTab = (activeConsoleSubTab === 'scripts') ? 'scripts' : 'console';
-        startH = consoleEl.offsetHeight;
-      } else if (!uiHidden && !consoleHidden) {
-        const curH = Math.max(uiEl.offsetHeight, consoleEl.offsetHeight);
-        syncMobilePanels(true, curH);
-        startH = curH;
-      } else {
-        startH = 0;
-      }
+      startH = uiHidden ? 0 : uiEl.offsetHeight;
 
       isDraggingDock = true;
       hasMoved = false;
-      startY = clientY;
+      startY = e.clientY;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
-      return true;
-    };
-
-    bottomDock.addEventListener('pointerdown', e => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
-      if (!handleDockStart(e.clientY, isDirectHandle)) return;
-      if (isDirectHandle && e.cancelable) e.preventDefault();
-
+      try {
+        dockHandle.setPointerCapture(e.pointerId);
+      } catch (_) {}
       window.addEventListener('pointermove', onPointerMove, { passive: false });
       window.addEventListener('pointerup', finishDockDrag);
       window.addEventListener('pointercancel', finishDockDrag);
-    });
+    };
 
-    bottomDock.addEventListener('touchstart', e => {
-      if (e.touches && e.touches.length > 0) {
-        const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
-        if (!handleDockStart(e.touches[0].clientY, isDirectHandle)) return;
-        if (isDirectHandle && e.cancelable) e.preventDefault();
+    dockHandle.addEventListener('pointerdown', onDockPointerDown);
+    bottomDock.addEventListener('pointerdown', onDockPointerDown);
 
-        window.addEventListener('touchmove', onTouchMove, { passive: false });
-        window.addEventListener('touchend', finishDockDrag);
-        window.addEventListener('touchcancel', finishDockDrag);
+    // Tap to toggle
+    bottomDock.addEventListener('click', (e) => {
+      if (Date.now() < suppressClickUntil || hasMoved) return;
+      const uiEl = document.getElementById('ui-panel');
+      if (!uiEl) return;
+      const isHidden = uiEl.classList.contains('hidden');
+      if (isHidden) {
+        let savedH = parseInt(localStorage.getItem('esenho_mobile_drawer_height'), 10) || Math.round(window.innerHeight * 0.42);
+        savedH = Math.max(120, Math.min(window.innerHeight * 0.85, savedH));
+        document.documentElement.style.setProperty('--mobile-drawer-height', `${savedH}px`);
+        syncMobilePanels(true, savedH);
+      } else {
+        syncMobilePanels(false);
       }
-    }, { passive: false });
+      resize();
+    });
   }
 
   // On mobile initial setup: start with full-screen canvas (drawers closed)
@@ -2582,43 +2401,44 @@ async function main() {
 
   function getSavedScripts() {
     try {
+      let list = [];
       const stored = localStorage.getItem('esenho_user_scripts_v3');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge user custom scripts that aren't in defaults
           const defaultNames = new Set(DEFAULT_SCRIPTS.map(s => s.name));
           const userCustom = parsed.filter(s => !defaultNames.has(s.name));
-          return [...DEFAULT_SCRIPTS, ...userCustom];
+          list = [...DEFAULT_SCRIPTS, ...userCustom];
         }
       }
-    } catch (_) {}
-    return DEFAULT_SCRIPTS.slice();
+      if (list.length === 0) list = DEFAULT_SCRIPTS.slice();
+      return list.map((s, idx) => ({
+        id: s.id || ('script_' + idx),
+        name: s.name || `script_${idx + 1}`,
+        code: s.code || '',
+        folderId: s.folderId !== undefined ? s.folderId : 'scripts'
+      }));
+    } catch (_) {
+      return DEFAULT_SCRIPTS.map((s, idx) => ({
+        id: 'script_' + idx,
+        name: s.name || `script_${idx + 1}`,
+        code: s.code || '',
+        folderId: 'scripts'
+      }));
+    }
   }
 
   function saveScriptsList(list) {
     localStorage.setItem('esenho_user_scripts_v3', JSON.stringify(list));
   }
 
-  function populateScriptSelect() {
-    const sel = document.getElementById('ui-script-select');
-    if (!sel) return;
-    const curVal = sel.value;
-    sel.innerHTML = '<option value="">-- Choose Script --</option>';
-    const list = getSavedScripts();
-    list.forEach((s, idx) => {
-      const opt = document.createElement('option');
-      opt.value = String(idx);
-      opt.textContent = s.name || `script_${idx + 1}`;
-      sel.appendChild(opt);
-    });
-    if (curVal !== '' && parseInt(curVal, 10) < list.length) sel.value = curVal;
-  }
+  host.scripts = getSavedScripts();
+  host.activeScript = null;
 
   function runScriptCode(code) {
-    code = code.trim();
+    code = (code || '').trim();
     if (!code) return;
-    log('--- Running script ---', 'cmd');
+    log('--- Running script on active layer ---', 'cmd');
     const lines = code.split('\n');
     let ran = 0;
     let errors = 0;
@@ -2641,82 +2461,82 @@ async function main() {
     syncUiFromHost();
   }
 
-  const scriptSel = document.getElementById('ui-script-select');
-  const scriptNameInp = document.getElementById('ui-script-name');
-  const scriptEditor = document.getElementById('ui-script-editor');
-  const btnRunScript = document.getElementById('ui-btn-run-script');
-  const btnSaveScript = document.getElementById('ui-btn-save-script');
-  const btnNewScript = document.getElementById('ui-btn-new-script');
-  const btnDelScript = document.getElementById('ui-btn-del-script');
-  const btnClearScript = document.getElementById('ui-btn-clear-script-editor');
+  const canvasScriptEditor = document.getElementById('canvas-script-editor');
+  const canvasScriptName = document.getElementById('canvas-script-name');
+  const canvasScriptTextarea = document.getElementById('canvas-script-textarea');
+  const canvasScriptBtnSave = document.getElementById('canvas-script-btn-save');
+  const canvasScriptBtnCancel = document.getElementById('canvas-script-btn-cancel');
 
-  if (scriptSel) {
-    scriptSel.addEventListener('change', () => {
-      const idx = parseInt(scriptSel.value, 10);
-      if (isNaN(idx)) return;
-      const list = getSavedScripts();
-      const s = list[idx];
-      if (s) {
-        if (scriptNameInp) scriptNameInp.value = s.name || '';
-        if (scriptEditor) scriptEditor.value = s.code || '';
-      }
+  function openCanvasScriptEditor(script) {
+    host.activeScript = script;
+    if (canvasScriptName) canvasScriptName.value = script.name || 'script';
+    if (canvasScriptTextarea) canvasScriptTextarea.value = script.code || '';
+    if (canvasScriptEditor) canvasScriptEditor.style.display = 'flex';
+    if (canvasScriptTextarea) canvasScriptTextarea.focus();
+    syncUiFromHost();
+  }
+
+  function closeCanvasScriptEditor(save = true) {
+    if (host.activeScript && save) {
+      if (canvasScriptName) host.activeScript.name = canvasScriptName.value.trim() || 'script';
+      if (canvasScriptTextarea) host.activeScript.code = canvasScriptTextarea.value;
+      saveScriptsList(host.scripts);
+    }
+    host.activeScript = null;
+    if (canvasScriptEditor) canvasScriptEditor.style.display = 'none';
+    syncUiFromHost();
+  }
+
+  if (canvasScriptBtnSave) {
+    canvasScriptBtnSave.addEventListener('click', () => {
+      closeCanvasScriptEditor(true);
     });
   }
 
-  if (btnNewScript) {
-    btnNewScript.addEventListener('click', () => {
-      if (scriptSel) scriptSel.value = '';
-      if (scriptNameInp) scriptNameInp.value = 'untitled';
-      if (scriptEditor) {
-        scriptEditor.value = `# New script\nset mode brush\nset size 20\nset color #fabd2f\n`;
-        scriptEditor.focus();
-      }
+  if (canvasScriptBtnCancel) {
+    canvasScriptBtnCancel.addEventListener('click', () => {
+      closeCanvasScriptEditor(false);
     });
   }
 
-  if (btnSaveScript) {
-    btnSaveScript.addEventListener('click', () => {
-      const name = (scriptNameInp ? scriptNameInp.value.trim() : '') || 'script';
-      const code = scriptEditor ? scriptEditor.value : '';
-      const list = getSavedScripts();
-      const existingIdx = list.findIndex(s => s.name === name);
-      if (existingIdx >= 0) {
-        list[existingIdx].code = code;
-      } else {
-        list.push({ name, code });
-      }
-      saveScriptsList(list);
-      populateScriptSelect();
-      log(`Script '${name}' saved [ok]`, 'ok');
+  const btnNewScriptLayer = document.getElementById('ui-btn-new-script-layer');
+  if (btnNewScriptLayer) {
+    btnNewScriptLayer.addEventListener('click', () => {
+      const newScript = {
+        id: 'script_' + Date.now(),
+        name: 'new_script',
+        code: '# Script for active layer\nset mode draw\nset tool brush\nset size 20\nset color #fabd2f\n',
+        folderId: 'scripts'
+      };
+      if (!host.scripts) host.scripts = [];
+      host.scripts.unshift(newScript);
+      saveScriptsList(host.scripts);
+      openCanvasScriptEditor(newScript);
     });
   }
 
-  if (btnDelScript) {
-    btnDelScript.addEventListener('click', () => {
-      const name = scriptNameInp ? scriptNameInp.value.trim() : '';
-      if (!name) return;
-      if (confirm(`Delete script '${name}'?`)) {
-        let list = getSavedScripts().filter(s => s.name !== name);
-        if (list.length === 0) list = DEFAULT_SCRIPTS.slice();
-        saveScriptsList(list);
-        populateScriptSelect();
-        if (scriptNameInp) scriptNameInp.value = '';
-        if (scriptEditor) scriptEditor.value = '';
-        log(`Script '${name}' deleted [ok]`, 'ok');
-      }
-    });
+  function moveScriptUp(script) {
+    if (!host.scripts) return;
+    const idx = host.scripts.indexOf(script);
+    if (idx > 0) {
+      const temp = host.scripts[idx - 1];
+      host.scripts[idx - 1] = host.scripts[idx];
+      host.scripts[idx] = temp;
+      saveScriptsList(host.scripts);
+      syncUiFromHost();
+    }
   }
 
-  if (btnRunScript) {
-    btnRunScript.addEventListener('click', () => {
-      if (scriptEditor) runScriptCode(scriptEditor.value);
-    });
-  }
-
-  if (btnClearScript) {
-    btnClearScript.addEventListener('click', () => {
-      if (scriptEditor) scriptEditor.value = '';
-    });
+  function moveScriptDown(script) {
+    if (!host.scripts) return;
+    const idx = host.scripts.indexOf(script);
+    if (idx >= 0 && idx < host.scripts.length - 1) {
+      const temp = host.scripts[idx + 1];
+      host.scripts[idx + 1] = host.scripts[idx];
+      host.scripts[idx] = temp;
+      saveScriptsList(host.scripts);
+      syncUiFromHost();
+    }
   }
 
   // 2. Wire All Sliders
@@ -3274,7 +3094,7 @@ async function main() {
 
         const del = document.createElement('span');
         del.className = 'swatch-del';
-        del.textContent = '✕';
+        del.textContent = 'x';
         del.title = 'Delete swatch';
         del.addEventListener('click', e => {
           e.stopPropagation();
@@ -3534,65 +3354,21 @@ async function main() {
     });
   }
 
-  // Project & .esen Savefile Controls
-  const inputProjName = document.getElementById('ui-project-name');
-  if (inputProjName) {
-    if (host.currentProjectName) inputProjName.value = host.currentProjectName;
-    inputProjName.addEventListener('input', () => {
-      host.currentProjectName = inputProjName.value.trim() || 'Untitled Project';
-      markCanvasDirty();
-    });
-  }
-
+  // Project & Autosave Storage Controls
   const btnSaveProject = document.getElementById('ui-btn-save-project');
   if (btnSaveProject) {
     btnSaveProject.addEventListener('click', async () => {
-      if (typeof host.exportProject !== 'function' || typeof EsenhoStore === 'undefined') return;
-      const projName = host.currentProjectName || (inputProjName ? inputProjName.value.trim() : 'Untitled Project');
-      const projData = host.exportProject(projName);
-      if (projData) {
-        projData.id = host.currentProjectId || ('proj_' + Date.now());
-        host.currentProjectId = projData.id;
-        await EsenhoStore.saveProject(projData);
-        EsenhoStore.exportEsenFile(projData);
-        markCanvasClean();
-        log(`Exported project '${projData.name}' (.esen) [ok]`);
-      }
+      await performAutosave(true);
+      log(`Project autosaved [ok]`);
     });
   }
 
-  const btnOpenProject = document.getElementById('ui-btn-open-project');
-  const fileInputProject = document.getElementById('ui-project-file-input');
-  if (btnOpenProject && fileInputProject) {
-    btnOpenProject.addEventListener('click', () => {
-      fileInputProject.click();
-    });
-    fileInputProject.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      try {
-        const projData = await EsenhoStore.importEsenFile(file);
-        if (projData && typeof host.loadProject === 'function') {
-          host.loadProject(projData);
-          host.currentProjectId = projData.id;
-          host.currentProjectName = projData.name || file.name.replace(/\.esen$/i, '');
-          if (inputProjName) inputProjName.value = host.currentProjectName;
-          await EsenhoStore.saveProject(projData);
-          localStorage.setItem('esenho_last_project_id', projData.id);
-          try {
-            const url = new URL(window.location);
-            url.searchParams.set('project', projData.id);
-            window.history.replaceState({}, '', url);
-          } catch (_) {}
-          markCanvasClean();
-          syncUiFromHost();
-          log(`Loaded project '${host.currentProjectName}' [ok]`);
-        }
-      } catch (err) {
-        log(`Error opening .esen file: ${err.message}`, 'err');
-      } finally {
-        fileInputProject.value = '';
-      }
+  const btnHome = document.getElementById('ui-btn-home');
+  if (btnHome) {
+    btnHome.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await performAutosave(true);
+      window.location.href = 'index.html';
     });
   }
 
@@ -3634,6 +3410,19 @@ async function main() {
       localStorage.setItem('esenho_pixel_grid', host.showPixelGrid ? '1' : '0');
     });
   }
+
+  // ── Category Master Accordion (Expand / Collapse All sub-windows) ──
+  document.querySelectorAll('.ui-section-title').forEach(title => {
+    title.addEventListener('click', () => {
+      const section = title.closest('.ui-panel-section');
+      if (!section) return;
+      const detailsList = section.querySelectorAll('details.ui-group');
+      const anyOpen = Array.from(detailsList).some(d => d.open);
+      detailsList.forEach(d => {
+        d.open = !anyOpen;
+      });
+    });
+  });
 
   // ── UI Scale / DPI Adaptation ──
   function getAutoUiScale() {
@@ -4052,7 +3841,7 @@ async function main() {
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'group-btn-collapse';
-        toggleBtn.textContent = grp.collapsed ? '▸' : '▾';
+        toggleBtn.textContent = grp.collapsed ? '>' : 'v';
         toggleBtn.title = grp.collapsed ? 'Expand folder' : 'Collapse folder';
         toggleBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4063,7 +3852,7 @@ async function main() {
 
         const titleSpan = document.createElement('span');
         titleSpan.className = 'group-title';
-        titleSpan.textContent = `📁 ${grp.name}`;
+        titleSpan.textContent = grp.name;
         titleSpan.addEventListener('click', () => {
           grp.collapsed = !grp.collapsed;
           syncUiFromHost();
@@ -4073,7 +3862,7 @@ async function main() {
         const grpVisBtn = document.createElement('button');
         grpVisBtn.type = 'button';
         grpVisBtn.className = 'layer-btn-vis' + (grp.visible ? '' : ' hidden');
-        grpVisBtn.textContent = grp.visible ? '👁' : '—';
+        grpVisBtn.textContent = grp.visible ? 'V' : '-';
         grpVisBtn.title = grp.visible ? 'Hide folder layers' : 'Show folder layers';
         grpVisBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4095,7 +3884,7 @@ async function main() {
         const delGrpBtn = document.createElement('button');
         delGrpBtn.type = 'button';
         delGrpBtn.className = 'layer-btn-action btn-del';
-        delGrpBtn.textContent = '✕';
+        delGrpBtn.textContent = 'x';
         delGrpBtn.title = `Delete folder '${grp.name}'`;
         delGrpBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4106,6 +3895,154 @@ async function main() {
         grpRow.appendChild(delGrpBtn);
 
         return grpRow;
+      };
+
+      const renderScriptRow = (script, inGroup) => {
+        const isScriptActive = (host.activeScript === script);
+        const row = document.createElement('div');
+        row.className = 'ui-layer-row ui-script-row' + (isScriptActive ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
+        row.title = `Script: ${script.name}`;
+
+        // Col 1: Type badge
+        const visCell = document.createElement('div');
+        visCell.className = 'layer-cell-vis';
+        const badge = document.createElement('span');
+        badge.className = 'script-type-badge';
+        badge.textContent = 'SCR';
+        visCell.appendChild(badge);
+        row.appendChild(visCell);
+
+        // Col 2: Info
+        const infoCell = document.createElement('div');
+        infoCell.className = 'layer-cell-info';
+        const lineCount = (script.code || '').split('\n').filter(l => l.trim().length > 0).length;
+        infoCell.innerHTML = `
+          <span class="layer-name-text" title="${script.name}">${script.name}</span>
+          <span class="layer-dims-text">${lineCount} lines</span>
+        `;
+        row.appendChild(infoCell);
+
+        // Col 3: Toggles (Active button to open/close canvas editor, Run button to execute on active layer)
+        const togglesCell = document.createElement('div');
+        togglesCell.className = 'layer-cell-toggles';
+
+        const activeBtn = document.createElement('button');
+        activeBtn.type = 'button';
+        activeBtn.className = 'layer-pill' + (isScriptActive ? ' active-layer-pill' : '');
+        activeBtn.textContent = 'Active';
+        activeBtn.title = isScriptActive ? 'Close script editor' : 'Edit script in canvas editor';
+        activeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (isScriptActive) {
+            closeCanvasScriptEditor(true);
+          } else {
+            openCanvasScriptEditor(script);
+          }
+        });
+        togglesCell.appendChild(activeBtn);
+
+        const runBtn = document.createElement('button');
+        runBtn.type = 'button';
+        runBtn.className = 'layer-pill';
+        runBtn.textContent = 'Run';
+        runBtn.style.color = '#8ec07c';
+        runBtn.title = 'Run script on active layer';
+        runBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runScriptCode(script.code);
+        });
+        togglesCell.appendChild(runBtn);
+        row.appendChild(togglesCell);
+
+        // Col 4: Spacer
+        const opCell = document.createElement('div');
+        opCell.className = 'layer-cell-op';
+        opCell.textContent = '';
+        row.appendChild(opCell);
+
+        // Col 5: Actions
+        const actCell = document.createElement('div');
+        actCell.className = 'layer-cell-actions';
+
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'layer-btn-action';
+        upBtn.textContent = '^';
+        upBtn.title = 'Move script up';
+        upBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveScriptUp(script);
+        });
+        actCell.appendChild(upBtn);
+
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'layer-btn-action';
+        downBtn.textContent = 'v';
+        downBtn.title = 'Move script down';
+        downBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveScriptDown(script);
+        });
+        actCell.appendChild(downBtn);
+
+        if (inGroup) {
+          const remGrpBtn = document.createElement('button');
+          remGrpBtn.type = 'button';
+          remGrpBtn.className = 'layer-btn-action';
+          remGrpBtn.textContent = '[-]';
+          remGrpBtn.title = 'Remove from folder';
+          remGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            script.folderId = null;
+            saveScriptsList(host.scripts);
+            syncUiFromHost();
+          });
+          actCell.appendChild(remGrpBtn);
+        } else if (host.layerGroups && host.layerGroups.size > 0) {
+          const addGrpBtn = document.createElement('button');
+          addGrpBtn.type = 'button';
+          addGrpBtn.className = 'layer-btn-action';
+          addGrpBtn.textContent = '[+]';
+          addGrpBtn.title = 'Add to folder';
+          addGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const grpList = Array.from(host.layerGroups.values());
+            if (grpList.length === 1) {
+              script.folderId = grpList[0].id;
+              saveScriptsList(host.scripts);
+              syncUiFromHost();
+            } else {
+              const names = grpList.map(g => g.name).join(', ');
+              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
+              const found = grpList.find(g => g.name === target || g.id === target);
+              if (found) {
+                script.folderId = found.id;
+                saveScriptsList(host.scripts);
+                syncUiFromHost();
+              }
+            }
+          });
+          actCell.appendChild(addGrpBtn);
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'layer-btn-action btn-del';
+        delBtn.textContent = 'x';
+        delBtn.title = `Delete script '${script.name}'`;
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete script '${script.name}'?`)) {
+            host.scripts = (host.scripts || []).filter(s => s !== script);
+            saveScriptsList(host.scripts);
+            syncUiFromHost();
+          }
+        });
+        actCell.appendChild(delBtn);
+
+        row.appendChild(actCell);
+        return row;
       };
 
       const renderLayerRow = (i, pos, inGroup) => {
@@ -4129,7 +4066,7 @@ async function main() {
           }
         }
 
-        const isDraw = (i === activeDraw);
+        const isDraw = (i === activeDraw) && !host.activeScript;
         const isShape = (i === shapeId);
         const isTex = (name === activeTex);
 
@@ -4137,13 +4074,13 @@ async function main() {
         row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
         row.title = `[${i}] ${name} (${w}×${h})`;
 
-        // Col 1: Visibility eye
+        // Col 1: Visibility
         const visCell = document.createElement('div');
         visCell.className = 'layer-cell-vis';
         const visBtn = document.createElement('button');
         visBtn.type = 'button';
         visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
-        visBtn.textContent = vis ? '👁' : '—';
+        visBtn.textContent = vis ? 'V' : '-';
         visBtn.title = vis ? 'Hide layer' : 'Show layer';
         visBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4173,6 +4110,9 @@ async function main() {
         activeBtn.title = 'Set as active drawing layer';
         activeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
+          if (host.activeScript) {
+            closeCanvasScriptEditor(true);
+          }
           runCmd(`layer select ${i}`);
         });
         togglesCell.appendChild(activeBtn);
@@ -4203,7 +4143,7 @@ async function main() {
         const lockBtn = document.createElement('button');
         lockBtn.type = 'button';
         lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
-        lockBtn.textContent = '🔒';
+        lockBtn.textContent = 'L';
         lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
         lockBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4215,7 +4155,7 @@ async function main() {
         const clipBtn = document.createElement('button');
         clipBtn.type = 'button';
         clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
-        clipBtn.textContent = '⮑';
+        clipBtn.textContent = 'L_';
         clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
         clipBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4266,7 +4206,7 @@ async function main() {
         const upBtn = document.createElement('button');
         upBtn.type = 'button';
         upBtn.className = 'layer-btn-action';
-        upBtn.textContent = '▲';
+        upBtn.textContent = '^';
         upBtn.title = 'Move layer up';
         if (pos >= orderCount - 1) upBtn.disabled = true;
         upBtn.addEventListener('click', (e) => {
@@ -4279,7 +4219,7 @@ async function main() {
         const downBtn = document.createElement('button');
         downBtn.type = 'button';
         downBtn.className = 'layer-btn-action';
-        downBtn.textContent = '▼';
+        downBtn.textContent = 'v';
         downBtn.title = 'Move layer down';
         if (pos <= 0) downBtn.disabled = true;
         downBtn.addEventListener('click', (e) => {
@@ -4292,7 +4232,7 @@ async function main() {
         const mergeBtn = document.createElement('button');
         mergeBtn.type = 'button';
         mergeBtn.className = 'layer-btn-action btn-merge';
-        mergeBtn.textContent = '⤓';
+        mergeBtn.textContent = 'v';
         mergeBtn.title = 'Merge down into layer below';
         if (pos <= 0) mergeBtn.disabled = true;
         mergeBtn.addEventListener('click', (e) => {
@@ -4308,7 +4248,7 @@ async function main() {
           const remGrpBtn = document.createElement('button');
           remGrpBtn.type = 'button';
           remGrpBtn.className = 'layer-btn-action';
-          remGrpBtn.textContent = '⊟';
+          remGrpBtn.textContent = '[-]';
           remGrpBtn.title = 'Remove from folder';
           remGrpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4319,7 +4259,7 @@ async function main() {
           const addGrpBtn = document.createElement('button');
           addGrpBtn.type = 'button';
           addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '📁';
+          addGrpBtn.textContent = '[+]';
           addGrpBtn.title = 'Add to folder';
           addGrpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4340,7 +4280,7 @@ async function main() {
           const delBtn = document.createElement('button');
           delBtn.type = 'button';
           delBtn.className = 'layer-btn-action btn-del';
-          delBtn.textContent = '✕';
+          delBtn.textContent = 'x';
           delBtn.title = `Delete layer [${i}] ${name}`;
           delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -4368,7 +4308,14 @@ async function main() {
         }
       }
 
-      // 2. Render layer folders below main layers (collapsed by default)
+      // 2. Render root-level scripts
+      if (host.scripts) {
+        host.scripts.filter(s => !s.folderId).forEach(script => {
+          layersList.appendChild(renderScriptRow(script, false));
+        });
+      }
+
+      // 3. Render layer folders below main layers (collapsed by default)
       if (host.layerGroups) {
         for (const grp of host.layerGroups.values()) {
           layersList.appendChild(createGroupHeader(grp));
@@ -4380,6 +4327,11 @@ async function main() {
               if (grp.layerIds.includes(i)) {
                 layersList.appendChild(renderLayerRow(i, pos, true));
               }
+            }
+            if (host.scripts) {
+              host.scripts.filter(s => s.folderId === grp.id || s.folderId === grp.name).forEach(script => {
+                layersList.appendChild(renderScriptRow(script, true));
+              });
             }
           }
         }
@@ -4395,13 +4347,6 @@ async function main() {
   }
 
   // Initial population
-  populateScriptSelect();
-  const initialScripts = getSavedScripts();
-  if (initialScripts.length > 0 && scriptEditor && !scriptEditor.value) {
-    if (scriptNameInp) scriptNameInp.value = initialScripts[0].name;
-    scriptEditor.value = initialScripts[0].code;
-    if (scriptSel) scriptSel.value = '0';
-  }
   renderSwatches();
   syncUiFromHost();
   log('Ready — left=draw  right=erase  mid/2-finger=pan  scroll/pinch=zoom  2-finger-twist=rotate');

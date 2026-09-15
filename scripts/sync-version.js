@@ -27,11 +27,15 @@ if (fs.existsSync(swPath)) {
 if (fs.existsSync(indexPath)) {
   let indexContent = fs.readFileSync(indexPath, "utf8");
   indexContent = indexContent.replace(
+    /<h1>Esenho [^<]+<\/h1>/,
+    `<h1>Esenho ${version}</h1>`
+  );
+  indexContent = indexContent.replace(
     /<span class="badge">v[^<]+<\/span>/,
     `<span class="badge">v${version}</span>`
   );
   fs.writeFileSync(indexPath, indexContent, "utf8");
-  console.log(`[sync-version] Updated index.html badge (-> v${version})`);
+  console.log(`[sync-version] Updated index.html (-> v${version})`);
 }
 
 // 3. Generate src/version.js

@@ -424,13 +424,8 @@
     <!-- Header -->
     <header class="brand-header">
       <div class="brand-title">
-        <h1>Esenho Studio</h1>
-        <p>Pixel Engine &amp; Digital Painting Studio</p>
-      </div>
-      <div class="brand-badges">
-        <span class="badge">WASM Universal</span>
-        <span class="badge">Autosave Active</span>
-        <span class="badge">v0.3.3</span>
+        <h1>Esenho 0.4.1</h1>
+        <p>Do not conform to the pattern of this world, but be transformed by the renewing of your mind.</p>
       </div>
     </header>
 
@@ -494,7 +489,7 @@
 
           <!-- Dropzone & Open File -->
           <div class="dropzone" id="project-dropzone" title="Click or drop a .esen project file here">
-            <div class="dropzone-text">📂 Open .esen Project File</div>
+            <div class="dropzone-text">[Open] .esen Project File</div>
             <div class="dropzone-sub">Drop file here or click to browse</div>
           </div>
           <input type="file" id="project-file-input" accept=".esen,application/json" style="display: none;">
@@ -511,7 +506,7 @@
 
           <div id="projects-list" class="projects-container">
             <div class="empty-state">
-              <span class="empty-icon">🎨</span>
+              <span class="empty-icon">[empty]</span>
               <div>No saved or autosaved projects yet.</div>
               <div style="margin-top: 4px; font-size: 10px;">Create a new canvas or drop an .esen file to start.</div>
             </div>
@@ -644,7 +639,7 @@
         if (!list || list.length === 0) {
           projectsList.innerHTML = `
             <div class="empty-state">
-              <span class="empty-icon">🎨</span>
+              <span class="empty-icon">[empty]</span>
               <div>No saved or autosaved projects yet.</div>
               <div style="margin-top: 4px; font-size: 10px;">Create a new canvas or drop an .esen file to start.</div>
             </div>
@@ -668,7 +663,7 @@
           } else {
             const placeholder = document.createElement("div");
             placeholder.className = "project-thumb-placeholder";
-            placeholder.textContent = "🖼";
+            placeholder.textContent = "[img]";
             thumbBox.appendChild(placeholder);
           }
 
@@ -699,6 +694,22 @@
           openLink.href = `app.html?project=${encodeURIComponent(proj.id)}`;
           openLink.textContent = "Open";
 
+          const renameBtn = document.createElement("button");
+          renameBtn.className = "btn-proj-export";
+          renameBtn.textContent = "Rename";
+          renameBtn.addEventListener("click", async () => {
+            const newName = prompt("Rename project:", proj.name);
+            if (newName && newName.trim() && newName.trim() !== proj.name) {
+              const fullProj = await EsenhoStore.getProject(proj.id);
+              if (fullProj) {
+                fullProj.name = newName.trim();
+                fullProj.updatedAt = new Date().toISOString();
+                await EsenhoStore.saveProject(fullProj);
+                await refreshRecentProjects();
+              }
+            }
+          });
+
           const exportBtn = document.createElement("button");
           exportBtn.className = "btn-proj-export";
           exportBtn.textContent = "Export .esen";
@@ -707,6 +718,13 @@
             if (fullProj) {
               EsenhoStore.exportEsenFile(fullProj);
             }
+          });
+
+          const pngBtn = document.createElement("button");
+          pngBtn.className = "btn-proj-export";
+          pngBtn.textContent = "Export PNG";
+          pngBtn.addEventListener("click", async () => {
+            await exportProjectPng(proj);
           });
 
           const delBtn = document.createElement("button");
@@ -720,7 +738,9 @@
           });
 
           actBox.appendChild(openLink);
+          actBox.appendChild(renameBtn);
           actBox.appendChild(exportBtn);
+          actBox.appendChild(pngBtn);
           actBox.appendChild(delBtn);
 
           card.appendChild(thumbBox);
@@ -732,6 +752,77 @@
       } catch (err) {
         console.warn("Failed to list projects:", err);
       }
+    }
+
+    async function exportProjectPng(proj) {
+      try {
+        const fullProj = await EsenhoStore.getProject(proj.id);
+        if (!fullProj) return;
+
+        const w = fullProj.width || 1280;
+        const h = fullProj.height || 720;
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+
+        if (fullProj.thumbnail && (!Array.isArray(fullProj.layers) || fullProj.layers.length === 0)) {
+          const img = new Image();
+          img.onload = () => {
+            ctx.drawImage(img, 0, 0, w, h);
+            downloadCanvasPng(canvas, fullProj.name);
+          };
+          img.src = fullProj.thumbnail;
+          return;
+        }
+
+        const order = fullProj.layerOrder || (fullProj.layers || []).map(l => l.id);
+        const layerMap = new Map((fullProj.layers || []).map(l => [l.id, l]));
+
+        for (const lid of order) {
+          const l = layerMap.get(lid);
+          if (!l || l.visible === 0 || l.encoding === 'empty') continue;
+
+          const lw = l.width || w;
+          const lh = l.height || h;
+          const layerCanvas = document.createElement("canvas");
+          layerCanvas.width = lw;
+          layerCanvas.height = lh;
+          const lctx = layerCanvas.getContext("2d");
+          const imgData = lctx.createImageData(lw, lh);
+          const u32 = new Uint32Array(imgData.data.buffer);
+
+          if (l.encoding === 'solid') {
+            u32.fill(l.color >>> 0);
+          } else if (l.encoding === 'rle32' && l.pixels) {
+            const rleBytes = EsenhoStore.base64ToBytes(l.pixels);
+            const decoded = EsenhoStore.rleDecodeU32(rleBytes, lw * lh);
+            u32.set(decoded);
+          } else if (l.pixels) {
+            const rawBytes = EsenhoStore.base64ToBytes(l.pixels);
+            new Uint8Array(imgData.data.buffer).set(rawBytes.subarray(0, lw * lh * 4));
+          }
+
+          lctx.putImageData(imgData, 0, 0);
+
+          ctx.save();
+          ctx.globalAlpha = (l.opacity !== undefined ? l.opacity : 255) / 255;
+          ctx.drawImage(layerCanvas, 0, 0);
+          ctx.restore();
+        }
+
+        downloadCanvasPng(canvas, fullProj.name);
+      } catch (err) {
+        alert("Failed to export PNG: " + err.message);
+      }
+    }
+
+    function downloadCanvasPng(canvas, name) {
+      const safeName = (name || "drawing").replace(/[/\\?%*:|"<>]/g, "_") + ".png";
+      const a = document.createElement("a");
+      a.href = canvas.toDataURL("image/png");
+      a.download = safeName;
+      a.click();
     }
 
     refreshRecentProjects();
