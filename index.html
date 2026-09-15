@@ -485,6 +485,37 @@
       border-color: #83a598;
       font-weight: bold;
     }
+    .layer-pill.active-lock {
+      background: #b16286;
+      color: #fbf1c7;
+      border-color: #d3869b;
+      font-weight: bold;
+    }
+    .layer-pill.active-clip {
+      background: #689d6a;
+      color: #fbf1c7;
+      border-color: #8ec07c;
+      font-weight: bold;
+    }
+    .layer-select-blend {
+      background: #1d2021;
+      color: #ebdbb2;
+      border: 1px solid #3c3836;
+      border-radius: 2px;
+      font: inherit;
+      font-size: 8px;
+      height: 16px;
+      padding: 0 1px;
+      outline: none;
+      cursor: pointer;
+    }
+    .layer-select-blend:focus {
+      border-color: #fabd2f;
+    }
+    .ui-layer-row.clipped-layer {
+      padding-left: 12px;
+      border-left: 2px solid #8ec07c;
+    }
     .touch-guard {
       pointer-events: none !important;
     }
@@ -1043,7 +1074,7 @@
             <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
             <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
             <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
-            <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Alt or Long-press)">Picker</button>
+            <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Long-press)">Picker</button>
           </div>
         </div>
       </details>
@@ -1059,6 +1090,7 @@
             <button id="ui-btn-zoom-100" class="ui-btn" title="100% (1:1)">100%</button>
             <button id="ui-btn-reset-pan" class="ui-btn" title="Center Canvas">Center</button>
             <button id="ui-btn-reset-rot" class="ui-btn" title="Reset Rotation to 0°">0° Rot</button>
+            <button id="ui-btn-flip-h" class="ui-btn" title="Flip Canvas Horizontally (Mirror View)">Flip H</button>
           </div>
           <div class="ui-control" style="margin-top: 4px;">
             <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
@@ -1188,6 +1220,15 @@
               <option value="overlay">Overlay</option>
               <option value="dodge">Color Dodge</option>
               <option value="add">Add</option>
+            </select>
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Symmetry Mirror</span></div>
+            <select id="ui-select-symmetry" class="ui-select">
+              <option value="0">Off</option>
+              <option value="1">Vertical Mirror (X axis)</option>
+              <option value="2">Horizontal Mirror (Y axis)</option>
+              <option value="3">Quad Mirror (4 Quadrants)</option>
             </select>
           </div>
           <div class="ui-control">

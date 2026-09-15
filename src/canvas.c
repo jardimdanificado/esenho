@@ -21,6 +21,9 @@ typedef struct {
     uint8_t  visible;    /**< 1 = active in composite, 0 = offscreen (shapes, textures) */
     uint8_t  opacity;    /**< 0..255 */
     uint8_t  in_use;     /**< 1 = allocated */
+    uint8_t  alpha_lock; /**< 1 = lock alpha channel */
+    uint8_t  clipping;   /**< 1 = clipping mask to layer below */
+    uint8_t  blend_mode; /**< 0=normal, 1=multiply, 2=screen, 3=overlay, 4=dodge, 5=add */
 } layer_t;
 
 static uint32_t doc_width = DEFAULT_WIDTH;
@@ -79,6 +82,9 @@ static void ensure_layer_capacity(int min_cap) {
         new_layers[i].visible = 0;
         new_layers[i].opacity = 255;
         new_layers[i].in_use = 0;
+        new_layers[i].alpha_lock = 0;
+        new_layers[i].clipping = 0;
+        new_layers[i].blend_mode = 0;
     }
     layers = new_layers;
     layer_capacity = new_cap;
@@ -94,6 +100,32 @@ static void layer_order_add(int32_t idx) {
     }
     if (layer_order_count < MAX_ORDER_LAYERS) {
         layer_order[layer_order_count++] = idx;
+    }
+}
+
+static void layer_order_insert_after(int32_t target, int32_t idx) {
+    for (int i = 0; i < layer_order_count; i++) {
+        if (layer_order[i] == idx) return;
+    }
+    if (layer_order_count >= MAX_ORDER_LAYERS) return;
+
+    int target_pos = -1;
+    if (target >= 0) {
+        for (int i = 0; i < layer_order_count; i++) {
+            if (layer_order[i] == target) {
+                target_pos = i;
+                break;
+            }
+        }
+    }
+    if (target_pos < 0 || target_pos >= layer_order_count - 1) {
+        layer_order[layer_order_count++] = idx;
+    } else {
+        for (int i = layer_order_count; i > target_pos + 1; i--) {
+            layer_order[i] = layer_order[i - 1];
+        }
+        layer_order[target_pos + 1] = idx;
+        layer_order_count++;
     }
 }
 
@@ -126,10 +158,13 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
             layers[i].y = 0;
             layers[i].visible = visible;
             layers[i].opacity = 255;
+            layers[i].alpha_lock = 0;
+            layers[i].clipping = 0;
+            layers[i].blend_mode = 0;
             layers[i].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
             for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[i].pixels[p] = 0x00000000;
             if (i >= layer_count) layer_count = i + 1;
-            layer_order_add(i);
+            layer_order_insert_after(active_layer, i);
             return i;
         }
     }
@@ -142,10 +177,13 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
     layers[idx].y = 0;
     layers[idx].visible = visible;
     layers[idx].opacity = 255;
+    layers[idx].alpha_lock = 0;
+    layers[idx].clipping = 0;
+    layers[idx].blend_mode = 0;
     layers[idx].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
     for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[idx].pixels[p] = 0x00000000;
     layer_count = idx + 1;
-    layer_order_add(idx);
+    layer_order_insert_after(active_layer, idx);
     return idx;
 }
 
@@ -195,14 +233,15 @@ static void init_builtin_shapes(void) {
  * Pixel Blending & Layer Operations
  * ========================================================================= */
 
-static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod) {
+static inline uint32_t blend_pixel_mode(uint32_t dst, uint32_t src, uint8_t alpha_mod, uint8_t blend_mode) {
     uint32_t sa = ((src >> 24) & 0xFF) * alpha_mod / 255;
     if (sa == 0) return dst;
-    if (sa == 255 && ((dst >> 24) & 0xFF) == 0) return (src & 0x00FFFFFF) | 0xFF000000;
+    if (blend_mode == 0 && sa == 255 && ((dst >> 24) & 0xFF) == 0) return (src & 0x00FFFFFF) | 0xFF000000;
 
-    uint32_t sr = src & 0xFF;
-    uint32_t sg = (src >> 8) & 0xFF;
-    uint32_t sb = (src >> 16) & 0xFF;
+    uint32_t blended_src = (blend_mode > 0) ? w_apply_dab_blend(blend_mode, src, dst) : src;
+    uint32_t sr = blended_src & 0xFF;
+    uint32_t sg = (blended_src >> 8) & 0xFF;
+    uint32_t sb = (blended_src >> 16) & 0xFF;
 
     uint32_t dr = dst & 0xFF;
     uint32_t dg = (dst >> 8) & 0xFF;
@@ -216,6 +255,10 @@ static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod
     uint32_t out_a = sa + (da * inv_sa) / 255;
 
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
+}
+
+static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod) {
+    return blend_pixel_mode(dst, src, alpha_mod, 0);
 }
 
 static void clear_layer_pixels(uint32_t *pix, uint32_t num_pixels) {
@@ -282,6 +325,24 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
 
         if (sx0 > sx1 || sy0 > sy1) continue;
 
+        // Base layer lookup if clipping mask
+        int base_l = -1;
+        if (layers[l].clipping) {
+            for (int bp = p - 1; bp >= 0; bp--) {
+                int cand = (layer_order_count > 0) ? layer_order[bp] : bp;
+                if (cand >= 0 && cand < layer_count && layers[cand].in_use && layers[cand].visible && !layers[cand].clipping) {
+                    base_l = cand;
+                    break;
+                }
+            }
+        }
+        uint32_t *base_pix = (base_l >= 0) ? layers[base_l].pixels : 0;
+        int base_w = (base_l >= 0) ? layers[base_l].width : 0;
+        int base_h = (base_l >= 0) ? layers[base_l].height : 0;
+        int base_lx = (base_l >= 0) ? layers[base_l].x : 0;
+        int base_ly = (base_l >= 0) ? layers[base_l].y : 0;
+        uint8_t blend_mode = layers[l].blend_mode;
+
         for (int y = sy0; y <= sy1; y++) {
             int dy = ly + y;
             int src_row = y * tw;
@@ -290,8 +351,21 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
                 int dx = lx + x;
                 uint32_t src = src_pix[src_row + x];
                 if ((src & 0xFF000000) == 0) continue;
+
+                uint8_t eff_op = op;
+                if (base_pix) {
+                    int bx = dx - base_lx;
+                    int by = dy - base_ly;
+                    if (bx < 0 || bx >= base_w || by < 0 || by >= base_h) continue;
+                    uint32_t bpix = base_pix[by * base_w + bx];
+                    uint32_t ba = (bpix >> 24) & 0xFF;
+                    if (ba == 0) continue;
+                    eff_op = (uint8_t)((op * ba) / 255);
+                    if (eff_op == 0) continue;
+                }
+
                 int out_idx = out_row + dx;
-                out_pixels[out_idx] = blend_pixel(out_pixels[out_idx], src, op);
+                out_pixels[out_idx] = blend_pixel_mode(out_pixels[out_idx], src, eff_op, blend_mode);
             }
         }
     }
@@ -505,6 +579,7 @@ typedef struct {
     int32_t dual_shape;      // -1=none, or layer id
     int32_t dual_size;       // 1..500 % (default 100)
     int32_t dual_spacing;    // 1..500 % (default 20)
+    int32_t symmetry;        // 0=off, 1=vertical, 2=horizontal, 3=both
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -543,7 +618,8 @@ static w_brush_config_t brush_config = {
     .color_pickup = 0,
     .dual_shape = -1,
     .dual_size = 100,
-    .dual_spacing = 20
+    .dual_spacing = 20,
+    .symmetry = 0
 };
 
 static uint32_t rng_state = 0x87654321;
@@ -590,6 +666,7 @@ static inline uint32_t mix_color(uint32_t c1, uint32_t c2, int rate) {
 
 static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_color, int is_eraser) {
     if (poly_count < 3) return;
+    int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     int min_y = poly_y[0], max_y = poly_y[0];
     for (int i = 1; i < poly_count; i++) {
         if (poly_y[i] < min_y) min_y = poly_y[i];
@@ -643,13 +720,18 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
 
                 int idx = y * width + x;
                 uint32_t dst_p = pixels[idx];
+                uint32_t orig_a = (dst_p >> 24) & 0xFF;
+                if (is_alpha_locked && orig_a == 0) continue;
 
                 if (is_eraser) {
-                    uint32_t da = (dst_p >> 24) & 0xFF;
-                    uint32_t na = (a >= da) ? 0 : (da - a);
-                    pixels[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                    if (!is_alpha_locked) {
+                        uint32_t da = orig_a;
+                        uint32_t na = (a >= da) ? 0 : (da - a);
+                        pixels[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                    }
                 } else {
-                    pixels[idx] = w_blend_fast(fill_color, dst_p, a, max_stroke_a);
+                    uint32_t res = w_blend_fast(fill_color, dst_p, a, max_stroke_a);
+                    pixels[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                 }
             }
         }
@@ -663,6 +745,7 @@ static int32_t last_trajectory_angle = 0;
  * Samples shape texture alpha channel for arbitrary tip geometry.
  */
 static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, uint32_t color, int eraser, uint32_t *src_patch, int dab_r, int dab_angle, int dab_flow_pct) {
+    int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     int r = (dab_r > 0) ? dab_r : brush_config.size;
     if (r < 1) r = 1;
     int roundness = brush_config.roundness > 0 ? brush_config.roundness : 100;
@@ -785,15 +868,20 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 
             int idx = y * w + x;
             uint32_t dst_p = pix[idx];
+            uint32_t orig_a = (dst_p >> 24) & 0xFF;
+            if (is_alpha_locked && orig_a == 0) continue;
 
             if (eraser) {
-                uint32_t da = (dst_p >> 24) & 0xFF;
-                uint32_t na = (a >= da) ? 0 : (da - a);
-                pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                if (!is_alpha_locked) {
+                    uint32_t da = orig_a;
+                    uint32_t na = (a >= da) ? 0 : (da - a);
+                    pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                }
             } else if (brush_config.type == W_MODE_SMUDGE && src_patch) {
                 uint32_t src = src_patch[patch_idx++];
                 if ((src >> 24) > 0) {
-                    pix[idx] = mix_color(src, dst_p, brush_config.smudge_strength);
+                    uint32_t res = mix_color(src, dst_p, brush_config.smudge_strength);
+                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                 }
             } else if (brush_config.type == W_MODE_BLEND) {
                 int step = (r > 6) ? (r / 4) : 1;
@@ -837,13 +925,15 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     target_c = mix_color(color, local_c, brush_rate);
                 }
 
-                pix[idx] = w_blend_fast(target_c, dst_p, a, max_stroke_a);
+                uint32_t res = w_blend_fast(target_c, dst_p, a, max_stroke_a);
+                pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
             } else {
                 uint32_t target_color = color;
                 if (brush_config.dab_blend > 0) {
                     target_color = w_apply_dab_blend(brush_config.dab_blend, color, dst_p);
                 }
-                pix[idx] = w_blend_fast(target_color, dst_p, a, max_stroke_a);
+                uint32_t res = w_blend_fast(target_color, dst_p, a, max_stroke_a);
+                pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
             }
         }
     }
@@ -1350,6 +1440,7 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_DUAL_SHAPE:     brush_config.dual_shape = val; break;
         case W_PARAM_DUAL_SIZE:      if (val > 0) brush_config.dual_size = val; break;
         case W_PARAM_DUAL_SPACING:   if (val > 0) brush_config.dual_spacing = val; break;
+        case W_PARAM_SYMMETRY:       if (val >= 0 && val <= 3) brush_config.symmetry = val; break;
     }
 }
 
@@ -1570,9 +1661,29 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
         }
 
         render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, patch, dab_r, dab_angle, dab_flow_pct);
+
+        if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+            int sym_x = w - 1 - cx;
+            render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, patch, dab_r, 180 - dab_angle, dab_flow_pct);
+        }
+        if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+            int sym_y = h - 1 - cy;
+            render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, patch, dab_r, -dab_angle, dab_flow_pct);
+        }
+        if (brush_config.symmetry == 3) {
+            int sym_x = w - 1 - cx;
+            int sym_y = h - 1 - cy;
+            render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, patch, dab_r, 180 + dab_angle, dab_flow_pct);
+        }
     }
 
     stroke_cum_dist += dist;
+    if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
+        d_x0 = 0; d_x1 = w - 1;
+    }
+    if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
+        d_y0 = 0; d_y1 = h - 1;
+    }
     composite_region(d_x0, d_y0, d_x1, d_y1);
 }
 
@@ -1649,5 +1760,60 @@ uint8_t get_layer_visible(int32_t idx) {
 
 uint8_t get_layer_opacity(int32_t idx) {
     if (idx >= 0 && idx < layer_count) return layers[idx].opacity;
+    return 0;
+}
+
+W_EXPORT void w_layer_set_alpha_lock(int32_t idx, int32_t locked) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        layers[target].alpha_lock = locked ? 1 : 0;
+    }
+}
+
+W_EXPORT int32_t w_layer_get_alpha_lock(int32_t idx) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        return layers[target].alpha_lock;
+    }
+    return 0;
+}
+
+W_EXPORT void w_layer_set_clipping(int32_t idx, int32_t clipping) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        layers[target].clipping = clipping ? 1 : 0;
+        force_composite();
+    }
+}
+
+W_EXPORT int32_t w_layer_get_clipping(int32_t idx) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        return layers[target].clipping;
+    }
+    return 0;
+}
+
+W_EXPORT void w_layer_set_blend_mode(int32_t idx, int32_t mode) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        if (mode < 0) mode = 0;
+        if (mode > 5) mode = 5;
+        layers[target].blend_mode = (uint8_t)mode;
+        force_composite();
+    }
+}
+
+W_EXPORT int32_t w_layer_get_blend_mode(int32_t idx) {
+    init_surface_if_needed();
+    int target = (idx >= 0) ? idx : active_layer;
+    if (target >= 0 && target < layer_count && layers[target].in_use) {
+        return layers[target].blend_mode;
+    }
     return 0;
 }

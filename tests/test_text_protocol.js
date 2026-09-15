@@ -672,6 +672,11 @@ async function run() {
   }
 
   // Test Layer Reordering (Move Up / Down) & Merge Down
+  const prevActive = canvas.exports.get_active_layer();
+  let prevActivePos = -1;
+  for (let p = 0; p < canvas.exports.w_layer_get_order_count(); p++) {
+    if (canvas.exports.w_layer_get_order(p) === prevActive) { prevActivePos = p; break; }
+  }
   const initialOrderCount = canvas.exports.w_layer_get_order_count();
   host.executeCommand('new layer');
   const layerA = canvas.exports.get_active_layer();
@@ -679,22 +684,22 @@ async function run() {
   if (orderCountAfterA !== initialOrderCount + 1) {
     throw new Error(`Expected order count ${initialOrderCount + 1}, got ${orderCountAfterA}`);
   }
-  // layerA should be top of stack
-  const topPos = orderCountAfterA - 1;
-  if (canvas.exports.w_layer_get_order(topPos) !== layerA) {
-    throw new Error(`Expected top layer to be ${layerA}, got ${canvas.exports.w_layer_get_order(topPos)}`);
+  // layerA should be immediately above prevActive in stack
+  const posA = prevActivePos + 1;
+  if (canvas.exports.w_layer_get_order(posA) !== layerA) {
+    throw new Error(`Expected layer ${layerA} above active at pos ${posA}, got ${canvas.exports.w_layer_get_order(posA)}`);
   }
 
   // Move layerA down
   host.executeCommand(`layer move down ${layerA}`);
-  if (canvas.exports.w_layer_get_order(topPos - 1) !== layerA) {
-    throw new Error(`Expected layer ${layerA} at pos ${topPos - 1} after move down`);
+  if (canvas.exports.w_layer_get_order(posA - 1) !== layerA) {
+    throw new Error(`Expected layer ${layerA} at pos ${posA - 1} after move down`);
   }
 
   // Move layerA back up
   host.executeCommand(`layer move up ${layerA}`);
-  if (canvas.exports.w_layer_get_order(topPos) !== layerA) {
-    throw new Error(`Expected layer ${layerA} at top pos ${topPos} after move up`);
+  if (canvas.exports.w_layer_get_order(posA) !== layerA) {
+    throw new Error(`Expected layer ${layerA} at pos ${posA} after move up`);
   }
 
   // Paint on layerA then merge down
@@ -792,7 +797,222 @@ async function run() {
   }
   host.executeCommand('dump brush');
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, and Dump Brush verified 100%!');
+  // ── Test History Command Fix ──
+  host.pushUndoSnapshot('test_history_action_1');
+  host.pushUndoSnapshot('test_history_action_2');
+  if (host.undoStack.length < 2) {
+    throw new Error(`Expected undoStack to have items, got ${host.undoStack.length}`);
+  }
+  // history command should run without throwing or erroring
+  host.executeCommand('history');
+  host.executeCommand('history clear');
+  if (host.undoStack.length !== 0 || host.redoStack.length !== 0) {
+    throw new Error(`Expected history clear to empty stacks, got undo:${host.undoStack.length} redo:${host.redoStack.length}`);
+  }
+
+  // ── Test Roadmap Phase 4 Features ──
+  console.log('--- Testing Roadmap Phase 4 Features ---');
+
+  // Reset tool and mode to normal brush drawing
+  host.currentTool = 0;
+  host.executeCommand('set mode draw');
+  host.executeCommand('set brush round');
+  host.executeCommand('set color_pickup 0');
+  host.executeCommand('set depletion 0');
+  host.executeCommand('set dual_shape none');
+  host.executeCommand('set opacity 100');
+  host.executeCommand('set flow 100');
+  host.executeCommand('set spacing 5');
+
+  // Select topmost visible document layer so new layers are placed on top of canvas
+  for (let p = canvas.exports.w_layer_get_order_count() - 1; p >= 0; p--) {
+    const l = canvas.exports.w_layer_get_order(p);
+    if (canvas.exports.get_layer_visible(l) && canvas.exports.w_layer_get_width(l) === 640) {
+      host.canvasActor.exports.w_layer_select(l);
+      break;
+    }
+  }
+
+  // 1. Alpha Lock
+  const testLayerAlpha = host.canvasActor.exports.w_layer_add();
+  host.canvasActor.exports.w_layer_select(testLayerAlpha);
+  const lw = host.canvasActor.exports.w_layer_get_width(testLayerAlpha);
+  const lh = host.canvasActor.exports.w_layer_get_height(testLayerAlpha);
+  // Draw a 20x20 red square in active layer
+  host.canvasActor.exports.w_draw_rect(50, 50, 20, 20, 0xFF0000FF); // Red (ABGR)
+  let lPixPtr = host.canvasActor.exports.w_layer_get_pixels(testLayerAlpha);
+  let lPixels = new Uint32Array(host.canvasActor.memory.buffer, lPixPtr, lw * lh);
+  if (lPixels[55 * lw + 55] !== 0xFF0000FF || lPixels[10 * lw + 10] !== 0) {
+    throw new Error('Alpha lock setup: initial square failed');
+  }
+
+  // Enable Alpha Lock
+  host.executeCommand('layer alpha_lock on');
+  if (host.getLayerAlphaLock(testLayerAlpha) !== 1) {
+    throw new Error(`Expected alpha_lock 1, got ${host.getLayerAlphaLock(testLayerAlpha)}`);
+  }
+
+  // Draw green dab across both transparent pixel (10, 10) and opaque pixel (55, 55)
+  host.executeCommand('set color green');
+  host.executeCommand('set brush size 10');
+  host.executeCommand('set brush hardness 100');
+  host.sendStroke(10, 10, 10, 10, 0, 0, 0xFF00FF00);
+  host.sendStroke(55, 55, 55, 55, 0, 0, 0xFF00FF00);
+
+  // Transparent pixel (10, 10) must REMAIN 0 (untouched by stroke)
+  if (lPixels[10 * lw + 10] !== 0) {
+    throw new Error(`Alpha lock failed: transparent pixel was modified to 0x${lPixels[10 * lw + 10].toString(16)}`);
+  }
+  // Opaque pixel (55, 55) must be painted green
+  if (lPixels[55 * lw + 55] !== 0xFF00FF00) {
+    throw new Error(`Alpha lock failed: opaque pixel was not painted, got 0x${lPixels[55 * lw + 55].toString(16)}`);
+  }
+
+  // Disable Alpha Lock
+  host.executeCommand('layer alpha_lock off');
+  if (host.getLayerAlphaLock(testLayerAlpha) !== 0) {
+    throw new Error('Alpha lock off failed');
+  }
+
+  // 2. Clipping Mask
+  const baseLayer = host.canvasActor.exports.w_layer_add();
+  const clippedLayer = host.canvasActor.exports.w_layer_add();
+
+  // Draw an opaque mask area on baseLayer: 40x40 at (200, 200)
+  host.canvasActor.exports.w_layer_select(baseLayer);
+  host.canvasActor.exports.w_draw_rect(200, 200, 40, 40, 0xFFFFFFFF);
+
+  // On clippedLayer, draw a wider area: 100x100 at (180, 180)
+  host.canvasActor.exports.w_layer_select(clippedLayer);
+  host.canvasActor.exports.w_draw_rect(180, 180, 100, 100, 0xFF0000FF); // Red
+
+  // Enable Clipping Mask on clippedLayer
+  host.executeCommand(`layer clipping ${clippedLayer} on`);
+  if (host.getLayerClipping(clippedLayer) !== 1) {
+    throw new Error(`Expected clipping 1, got ${host.getLayerClipping(clippedLayer)}`);
+  }
+
+  // Force composite and inspect output
+  host.canvasActor.exports.w_force_composite();
+  const cPtr = host.canvasActor.exports.get_composite_pixels();
+  const cPixels = new Uint32Array(host.canvasActor.memory.buffer, cPtr, 640 * 480);
+
+  // Pixel at (185, 185) is inside clippedLayer rect (red 0xFF0000FF) but outside baseLayer (200..240) -> must NOT be red (clipped!)
+  if (cPixels[185 * 640 + 185] === 0xFF0000FF) {
+    throw new Error(`Clipping mask failed: pixel outside base layer was not clipped! Got red color`);
+  }
+  // Pixel at (210, 210) is inside both baseLayer and clippedLayer -> must be red
+  if (cPixels[210 * 640 + 210] !== 0xFF0000FF) {
+    throw new Error(`Clipping mask failed: pixel inside base layer was not red! Got 0x${cPixels[210 * 640 + 210].toString(16)}`);
+  }
+
+  // Disable Clipping
+  host.executeCommand(`layer clipping ${clippedLayer} off`);
+  if (host.getLayerClipping(clippedLayer) !== 0) {
+    throw new Error('Clipping off failed');
+  }
+
+  // 3. Layer Blend Modes
+  const blendLayer = host.canvasActor.exports.w_layer_add();
+  const blendModes = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+  for (let i = 0; i < blendModes.length; i++) {
+    host.executeCommand(`layer blend ${blendLayer} ${blendModes[i]}`);
+    if (host.getLayerBlendMode(blendLayer) !== i) {
+      throw new Error(`Expected layer blend mode ${i} (${blendModes[i]}), got ${host.getLayerBlendMode(blendLayer)}`);
+    }
+  }
+  host.executeCommand(`layer blend ${blendLayer} normal`);
+
+  // 4. Flip Canvas Horizontal
+  if (host.flipH !== false) throw new Error('Expected initial flipH to be false');
+  host.executeCommand('flip canvas');
+  if (host.flipH !== true) throw new Error('Expected flipH true after flip canvas');
+  host.executeCommand('flip h');
+  if (host.flipH !== false) throw new Error('Expected flipH false after flip h');
+  host.executeCommand('view flip');
+  if (host.flipH !== true) throw new Error('Expected flipH true after view flip');
+  host.executeCommand('flip');
+  if (host.flipH !== false) throw new Error('Expected flipH false after toggle flip');
+
+  // 5. Real-Time Symmetry
+  const symLayer = host.canvasActor.exports.w_layer_add();
+  host.canvasActor.exports.w_layer_select(symLayer);
+
+  // Vertical Symmetry (Mirror across X axis)
+  host.executeCommand('set symmetry vertical');
+  if (host.brushParams.symmetry !== 1) {
+    throw new Error(`Expected symmetry 1 (vertical), got ${host.brushParams.symmetry}`);
+  }
+
+  const sPixPtr = host.canvasActor.exports.w_layer_get_pixels(symLayer);
+  const sPixels = new Uint32Array(host.canvasActor.memory.buffer, sPixPtr, 640 * 480);
+
+  // Paint a single dab at (120, 80)
+  host.executeCommand('set color #ff00ff');
+  host.executeCommand('set brush size 6');
+  host.executeCommand('set brush hardness 100');
+  host.sendStroke(120, 80, 120, 80, 0, 0, 0xFFFF00FF);
+
+  // Original point (120, 80) must have been painted
+  if (sPixels[80 * 640 + 120] === 0) {
+    throw new Error('Symmetry stroke original point was not painted');
+  }
+  // Mirrored point (640 - 1 - 120 = 519, 80) must also have been painted!
+  const mirrorX = 640 - 1 - 120;
+  if (sPixels[80 * 640 + mirrorX] === 0) {
+    throw new Error(`Symmetry vertical failed: mirrored point (${mirrorX}, 80) was not painted!`);
+  }
+
+  // Quad Symmetry (Horizontal + Vertical = 4 quadrants)
+  host.executeCommand('set symmetry quad');
+  if (host.brushParams.symmetry !== 3) {
+    throw new Error(`Expected symmetry 3 (quad), got ${host.brushParams.symmetry}`);
+  }
+  host.sendStroke(100, 60, 100, 60, 0, 0, 0xFFFF00FF);
+
+  const mx = 640 - 1 - 100;
+  const my = 480 - 1 - 60;
+  if (sPixels[60 * 640 + 100] === 0 || sPixels[60 * 640 + mx] === 0 ||
+      sPixels[my * 640 + 100] === 0 || sPixels[my * 640 + mx] === 0) {
+    throw new Error('Symmetry quad failed: one of 4 mirrored quadrants was not painted!');
+  }
+
+  // Turn symmetry off
+  host.executeCommand('set symmetry off');
+  if (host.brushParams.symmetry !== 0) {
+    throw new Error('Symmetry off failed');
+  }
+
+  // Check dump brush includes symmetry when enabled
+  host.executeCommand('set symmetry v');
+  const dumpedSym = host.dumpBrushScript();
+  if (!dumpedSym.includes('set symmetry vertical')) {
+    throw new Error(`Expected dump brush to include symmetry, got:\n${dumpedSym}`);
+  }
+  // Test Initial Folders: 'tips' and 'grains'
+  const groupNames = Array.from(host.layerGroups.values()).map(g => g.name);
+  if (!groupNames.includes('tips') || !groupNames.includes('grains')) {
+    throw new Error(`Expected initial folders 'tips' and 'grains', got: ${JSON.stringify(groupNames)}`);
+  }
+
+  // Test 'reset tool' Command
+  host.executeCommand('set size 55');
+  host.executeCommand('set opacity 40');
+  host.executeCommand('set hardness 20');
+  host.executeCommand('set symmetry quad');
+  host.executeCommand('set color_pickup 80');
+  host.executeCommand('# A comment should be ignored without error');
+  host.executeCommand('// Another comment');
+  if (host.brushParams.size !== 55 || host.brushParams.symmetry !== 3) {
+    throw new Error('Brush params setup before reset tool failed');
+  }
+  host.executeCommand('reset tool');
+  if (host.brushParams.size !== 8 || host.brushParams.opacity !== 100 || host.brushParams.hardness !== 80 ||
+      host.brushParams.symmetry !== 0 || host.brushParams.color_pickup !== 0) {
+    throw new Error(`reset tool failed, brushParams: ${JSON.stringify(host.brushParams)}`);
+  }
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, and Reset Tool verified 100%!');
 }
 
 run().catch(err => {

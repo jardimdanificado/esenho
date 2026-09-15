@@ -649,21 +649,6 @@ async function main() {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.redo();
       e.preventDefault();
-    } else if (e.key === 'Alt') {
-      if (!isAltPicker && (!document.activeElement || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA'))) {
-        isAltPicker = true;
-        canvasEl.style.cursor = 'crosshair';
-      }
-    }
-  });
-
-  window.addEventListener('keyup', e => {
-    if (e.key === 'Alt') {
-      if (isAltPicker) {
-        isAltPicker = false;
-        hideEyedropper();
-        canvasEl.style.cursor = '';
-      }
     }
   });
 
@@ -703,9 +688,37 @@ async function main() {
       const cy = host.panY + (ch * host.zoom) / 2;
       ctx.save();
       ctx.translate(cx, cy);
+      if (host.flipH) ctx.scale(-1, 1);
       ctx.rotate(host.canvasRotation);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+
+      /* Real-Time Symmetry Mirror Axis Guide Overlay */
+      if (host.brushParams && host.brushParams.symmetry > 0) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+        ctx.strokeStyle = 'rgba(254, 128, 25, 0.7)';
+        ctx.lineWidth = 1.5 / (window.devicePixelRatio || 1);
+        ctx.setLineDash([4, 4]);
+        const sym = host.brushParams.symmetry;
+        if (sym === 1 || sym === 3) {
+          // Vertical axis
+          const midX = (cw * host.zoom) / 2;
+          ctx.beginPath();
+          ctx.moveTo(midX, 0);
+          ctx.lineTo(midX, ch * host.zoom);
+          ctx.stroke();
+        }
+        if (sym === 2 || sym === 3) {
+          // Horizontal axis
+          const midY = (ch * host.zoom) / 2;
+          ctx.beginPath();
+          ctx.moveTo(0, midY);
+          ctx.lineTo(cw * host.zoom, midY);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
 
       /* Optional Pixel Grid Overlay (when zoomed) */
       if (host.showPixelGrid && host.zoom >= 4) {
@@ -764,17 +777,21 @@ async function main() {
   requestAnimationFrame(frame);
 
   /* ── Coordinate helpers ── */
-  /* Screen → document space, accounting for pan/zoom/rotation */
+  /* Screen → document space, accounting for pan/zoom/rotation/flip */
   function screenToDoc(sx, sy) {
     const cw = host.canvasActor.exports.get_canvas_width();
     const ch = host.canvasActor.exports.get_canvas_height();
     const ocx = host.panX + (cw * host.zoom) / 2; /* rotation origin on screen */
     const ocy = host.panY + (ch * host.zoom) / 2;
+    /* unflip */
+    let dx = sx - ocx;
+    let dy = sy - ocy;
+    if (host.flipH) dx = -dx;
     /* unrotate around origin */
     const cosA = Math.cos(-host.canvasRotation);
     const sinA = Math.sin(-host.canvasRotation);
-    const rx = (sx - ocx) * cosA - (sy - ocy) * sinA;
-    const ry = (sx - ocx) * sinA + (sy - ocy) * cosA;
+    const rx = dx * cosA - dy * sinA;
+    const ry = dx * sinA + dy * cosA;
     /* unzoom + unpan */
     return {
       x: (rx + (cw * host.zoom) / 2) / host.zoom,
@@ -791,7 +808,6 @@ async function main() {
   /* ── Eyedropper / Color Picker Ring ── */
   const ringEl = document.getElementById('eyedropper-ring');
   const ringInnerEl = document.getElementById('eyedropper-inner');
-  let isAltPicker = false;
   let isTouchPicker = false;
 
   function showEyedropper(cx, cy, hex) {
@@ -824,7 +840,7 @@ async function main() {
       host.isPanning = true; host.panStartX = sx; host.panStartY = sy;
     } else {
       host.mouseState.buttons |= e.button === 0 ? 1 : 2;
-      if (isAltPicker || (host.brushParams && host.brushParams.mode === 5)) {
+      if (host.brushParams && host.brushParams.mode === 5) {
         sampleEyedropperColor(x, y, e.clientX, e.clientY);
         e.preventDefault();
         return;
@@ -846,7 +862,7 @@ async function main() {
     if (host.isPanning) {
       host.panX += sx - host.panStartX; host.panY += sy - host.panStartY;
       host.panStartX = sx; host.panStartY = sy;
-    } else if ((isAltPicker || (host.brushParams && host.brushParams.mode === 5)) && (host.mouseState.buttons & 3)) {
+    } else if (host.brushParams && host.brushParams.mode === 5 && (host.mouseState.buttons & 3)) {
       sampleEyedropperColor(x, y, e.clientX, e.clientY);
     } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3)) {
       if (host.brushParams && host.brushParams.mode === 4) {
@@ -862,7 +878,7 @@ async function main() {
     if (e.button === 1) { host.isPanning = false; }
     else {
       host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
-      if (isAltPicker || (host.brushParams && host.brushParams.mode === 5)) {
+      if (host.brushParams && host.brushParams.mode === 5) {
         hideEyedropper();
         return;
       }
@@ -1054,28 +1070,67 @@ async function main() {
         const [a, b] = [e.touches[0], e.touches[1]];
         const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
 
-        /* Current / previous midpoints on screen */
         const mid  = touchMidpoint(a, b);
         const pmid = touchMidpoint(pa, pb);
 
-        /* Pan: midpoint delta */
-        host.panX += mid.sx - pmid.sx;
-        host.panY += mid.sy - pmid.sy;
-
-        /* Pinch-zoom around current midpoint */
         const curDist  = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const prevDist = Math.hypot(pa.clientX - pb.clientX, pa.clientY - pb.clientY);
-        if (prevDist > 1) {
-          const f = curDist / prevDist, old = host.zoom;
-          host.zoom = Math.max(0.05, Math.min(20, host.zoom * f));
-          host.panX = mid.sx - (mid.sx - host.panX) * (host.zoom / old);
-          host.panY = mid.sy - (mid.sy - host.panY) * (host.zoom / old);
+
+        // Rotation angle delta with deadzone & finger distance threshold
+        let dTheta = 0;
+        if (curDist > 40 && prevDist > 40) {
+          const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
+          const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
+          let rawDelta = curAngle - prevAngle;
+          while (rawDelta > Math.PI) rawDelta -= 2 * Math.PI;
+          while (rawDelta < -Math.PI) rawDelta += 2 * Math.PI;
+
+          // Deadzone to suppress finger tremor / jitter
+          if (Math.abs(rawDelta) > 0.008) {
+            // Damping when zoomed in close to avoid hyper-sensitive spinning
+            const damping = host.zoom > 2 ? Math.max(0.35, 1.0 / (host.zoom * 0.45)) : 0.85;
+            dTheta = rawDelta * damping;
+          }
         }
 
-        /* Rotation: angle between finger vectors */
-        const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
-        const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
-        host.canvasRotation += curAngle - prevAngle;
+        // Zoom scale factor
+        const oldZoom = host.zoom;
+        let scaleFactor = 1;
+        if (prevDist > 1 && curDist > 1) {
+          scaleFactor = curDist / prevDist;
+        }
+        const newZoom = Math.max(0.05, Math.min(20, oldZoom * scaleFactor));
+        const effectiveScale = newZoom / oldZoom;
+        host.zoom = newZoom;
+
+        // Anchor pan, zoom, and rotation around touch midpoint
+        const cw = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_canvas_width)
+          ? host.canvasActor.exports.get_canvas_width() : 640;
+        const ch = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_canvas_height)
+          ? host.canvasActor.exports.get_canvas_height() : 480;
+
+        let cx = host.panX + (cw * oldZoom) / 2;
+        let cy = host.panY + (ch * oldZoom) / 2;
+
+        // Midpoint translation
+        cx += (mid.sx - pmid.sx);
+        cy += (mid.sy - pmid.sy);
+
+        // Rotate & scale vector from mid to center
+        if (dTheta !== 0 || effectiveScale !== 1) {
+          const cosT = Math.cos(dTheta);
+          const sinT = Math.sin(dTheta);
+          const vx = cx - mid.sx;
+          const vy = cy - mid.sy;
+          const nvx = (vx * cosT - vy * sinT) * effectiveScale;
+          const nvy = (vx * sinT + vy * cosT) * effectiveScale;
+          cx = mid.sx + nvx;
+          cy = mid.sy + nvy;
+        }
+
+        host.panX = cx - (cw * host.zoom) / 2;
+        host.panY = cy - (ch * host.zoom) / 2;
+        host.canvasRotation += dTheta;
       }
     }
 
@@ -1256,7 +1311,7 @@ async function main() {
     },
     {
       name: 'swatches_palette',
-      code: `# Paint color swatches on canvas\nset mode brush\nset size 30\nset hardness 100\nset color #fb4934\nbrush 100 200\nset color #fe8019\nbrush 160 200\nset color #fabd2f\nbrush 220 200\nset color #b8bb26\nbrush 280 200\nset color #83a598\nbrush 340 200\nset color #d3869b\nbrush 400 200`
+      code: `# Paint color swatches on canvas\nreset tool\nset mode brush\nset size 30\nset hardness 100\nset opacity 100\nset flow 100\nset color #fb4934\nbrush 100 200\nset color #fe8019\nbrush 160 200\nset color #fabd2f\nbrush 220 200\nset color #b8bb26\nbrush 280 200\nset color #83a598\nbrush 340 200\nset color #d3869b\nbrush 400 200`
     },
     {
       name: 'layers_demo',
@@ -1614,6 +1669,13 @@ async function main() {
   if (dabBlendSel) {
     dabBlendSel.addEventListener('change', () => {
       runCmd(`set dab_blend ${dabBlendSel.value}`);
+    });
+  }
+
+  const symmetrySel = document.getElementById('ui-select-symmetry');
+  if (symmetrySel) {
+    symmetrySel.addEventListener('change', () => {
+      runCmd(`set symmetry ${symmetrySel.value}`);
     });
   }
 
@@ -1998,6 +2060,8 @@ async function main() {
   if (btnResetPan) btnResetPan.addEventListener('click', () => runCmd('pan reset'));
   const btnResetRot = document.getElementById('ui-btn-reset-rot');
   if (btnResetRot) btnResetRot.addEventListener('click', () => runCmd('rotate reset'));
+  const btnFlipH = document.getElementById('ui-btn-flip-h');
+  if (btnFlipH) btnFlipH.addEventListener('click', () => runCmd('flip canvas'));
 
   // 5. Filters & Export
   const applyFilterBtn = document.getElementById('ui-btn-apply-filter');
@@ -2254,6 +2318,14 @@ async function main() {
       if (chkAutoRot) chkAutoRot.checked = !!bp.auto_rotate;
       const chkSubpixel = document.getElementById('ui-chk-subpixel');
       if (chkSubpixel) chkSubpixel.checked = !!bp.subpixel;
+      const symmetrySel = document.getElementById('ui-select-symmetry');
+      if (symmetrySel && bp.symmetry !== undefined && document.activeElement !== symmetrySel) {
+        symmetrySel.value = String(bp.symmetry);
+      }
+      const btnFlipH = document.getElementById('ui-btn-flip-h');
+      if (btnFlipH) {
+        btnFlipH.classList.toggle('active', !!host.flipH);
+      }
       const selScale = document.getElementById('ui-select-scale');
       if (selScale && host.uiScale) {
         selScale.value = host.uiScale;
@@ -2478,6 +2550,9 @@ async function main() {
         const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
         const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
         const opPct = Math.round((op / 255) * 100);
+        const alphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(i) : 0;
+        const clipping = host.getLayerClipping ? host.getLayerClipping(i) : 0;
+        const blendMode = host.getLayerBlendMode ? host.getLayerBlendMode(i) : 0;
 
         let name = `layer_${i}`;
         if (host.textures) {
@@ -2491,7 +2566,7 @@ async function main() {
         const isTex = (name === activeTex);
 
         const row = document.createElement('div');
-        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
+        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
         row.title = `[${i}] ${name} (${w}×${h})`;
 
         // Col 1: Visibility eye
@@ -2555,6 +2630,57 @@ async function main() {
           runCmd(`set texture ${name}`);
         });
         togglesCell.appendChild(texBtn);
+
+        // Alpha Lock button
+        const lockBtn = document.createElement('button');
+        lockBtn.type = 'button';
+        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
+        lockBtn.textContent = '🔒';
+        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
+        lockBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
+        });
+        togglesCell.appendChild(lockBtn);
+
+        // Clipping Mask button
+        const clipBtn = document.createElement('button');
+        clipBtn.type = 'button';
+        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
+        clipBtn.textContent = '⮑';
+        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
+        clipBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
+        });
+        togglesCell.appendChild(clipBtn);
+
+        // Blend Mode dropdown
+        const blendSel = document.createElement('select');
+        blendSel.className = 'layer-select-blend';
+        blendSel.title = 'Layer Blend Mode';
+        const bOpts = [
+          { val: 0, label: 'Norm' },
+          { val: 1, label: 'Mult' },
+          { val: 2, label: 'Scrn' },
+          { val: 3, label: 'Over' },
+          { val: 4, label: 'Ddg' },
+          { val: 5, label: 'Add' }
+        ];
+        bOpts.forEach(optData => {
+          const opt = document.createElement('option');
+          opt.value = optData.val;
+          opt.textContent = optData.label;
+          if (optData.val === blendMode) opt.selected = true;
+          blendSel.appendChild(opt);
+        });
+        blendSel.addEventListener('change', (e) => {
+          e.stopPropagation();
+          runCmd(`layer blend ${i} ${blendSel.value}`);
+        });
+        blendSel.addEventListener('click', (e) => e.stopPropagation());
+        togglesCell.appendChild(blendSel);
+
         row.appendChild(togglesCell);
 
         // Col 4: Opacity text
@@ -2971,7 +3097,7 @@ function ensureUiPanel() {
             <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
             <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
             <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
-            <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Alt or Long-press)">Picker</button>
+            <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Long-press)">Picker</button>
           </div>
         </div>
       </details>

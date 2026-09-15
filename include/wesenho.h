@@ -69,7 +69,8 @@ enum {
     W_PARAM_COLOR_PICKUP   = 34, /* continuous color pickup rate % (0..100) */
     W_PARAM_DUAL_SHAPE     = 35, /* dual brush secondary tip layer index (-1 = none) */
     W_PARAM_DUAL_SIZE      = 36, /* dual brush secondary tip size % (1..500) */
-    W_PARAM_DUAL_SPACING   = 37  /* dual brush secondary tip spacing % (1..500) */
+    W_PARAM_DUAL_SPACING   = 37, /* dual brush secondary tip spacing % (1..500) */
+    W_PARAM_SYMMETRY       = 38  /* symmetry mode: 0=off, 1=vertical, 2=horizontal, 3=both */
 };
 
 enum {
@@ -80,6 +81,22 @@ enum {
     W_DAB_BLEND_DODGE    = 4,
     W_DAB_BLEND_ADD      = 5
 };
+
+enum {
+    W_LAYER_BLEND_NORMAL   = 0,
+    W_LAYER_BLEND_MULTIPLY = 1,
+    W_LAYER_BLEND_SCREEN   = 2,
+    W_LAYER_BLEND_OVERLAY  = 3,
+    W_LAYER_BLEND_DODGE    = 4,
+    W_LAYER_BLEND_ADD      = 5
+};
+
+W_EXPORT void w_layer_set_alpha_lock(int32_t idx, int32_t locked);
+W_EXPORT int32_t w_layer_get_alpha_lock(int32_t idx);
+W_EXPORT void w_layer_set_clipping(int32_t idx, int32_t clipping);
+W_EXPORT int32_t w_layer_get_clipping(int32_t idx);
+W_EXPORT void w_layer_set_blend_mode(int32_t idx, int32_t mode);
+W_EXPORT int32_t w_layer_get_blend_mode(int32_t idx);
 
 /* =========================================================================
  * Layer & Framebuffer ABI
@@ -315,15 +332,26 @@ static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, 
         out_a = da;
     }
     if (out_a > 255) out_a = 255;
+    if (out_a == 0) return dst;
 
     uint32_t sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF;
+
+    if (da == 0) {
+        return (out_a << 24) | ((sb & 0xFF) << 16) | ((sg & 0xFF) << 8) | (sr & 0xFF);
+    }
+
     uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
+    uint32_t dst_factor = (da * inv_sa) / 255;
 
-    uint32_t out_r = (sr * eff_sa + dr * inv_sa) / 255;
-    uint32_t out_g = (sg * eff_sa + dg * inv_sa) / 255;
-    uint32_t out_b = (sb * eff_sa + db * inv_sa) / 255;
+    uint32_t out_r = (sr * eff_sa + dr * dst_factor) / out_a;
+    uint32_t out_g = (sg * eff_sa + dg * dst_factor) / out_a;
+    uint32_t out_b = (sb * eff_sa + db * dst_factor) / out_a;
 
-    return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
+    if (out_r > 255) out_r = 255;
+    if (out_g > 255) out_g = 255;
+    if (out_b > 255) out_b = 255;
+
+    return (out_a << 24) | ((out_b & 0xFF) << 16) | ((out_g & 0xFF) << 8) | (out_r & 0xFF);
 }
 
 /** Texture masking: samples uploaded texture buffer or procedural grain/patterns with angle & scale */

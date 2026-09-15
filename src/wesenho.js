@@ -145,7 +145,9 @@ const PARAM_IDS = {
   dual_shape: 35,
   dual_brush: 35,
   dual_size: 36,
-  dual_spacing: 37
+  dual_spacing: 37,
+  symmetry: 38,
+  mirror: 38
 };
 
 /**
@@ -664,6 +666,16 @@ function handleGet(host, rawCat, rawProp) {
       console.log(`${opPct}%`);
     } else if (prop === 'visible' || prop === 'visibility' || prop === 'vis') {
       console.log(vis ? 'visible' : 'hidden');
+    } else if (prop === 'alpha_lock' || prop === 'alphalock') {
+      const lock = host.getLayerAlphaLock ? host.getLayerAlphaLock(targetId) : 0;
+      console.log(lock ? 'on' : 'off');
+    } else if (prop === 'clipping' || prop === 'clip') {
+      const clip = host.getLayerClipping ? host.getLayerClipping(targetId) : 0;
+      console.log(clip ? 'on' : 'off');
+    } else if (prop === 'blend' || prop === 'blend_mode') {
+      const bNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+      const bm = host.getLayerBlendMode ? host.getLayerBlendMode(targetId) : 0;
+      console.log(bNames[bm] || bm);
     } else {
       console.log(`layer [${targetId}] ${vis ? 'visible' : 'hidden'} opacity: ${opPct}% (active: ${activeL}, total: ${lCount})`);
     }
@@ -778,6 +790,18 @@ function handleGet(host, rawCat, rawProp) {
     return;
   }
 
+  if (cat === 'flip' || cat === 'flip_h' || cat === 'fliph') {
+    console.log(host.flipH ? 'on' : 'off');
+    return;
+  }
+
+  if (cat === 'symmetry' || cat === 'mirror') {
+    const sNames = ['off', 'vertical', 'horizontal', 'quad'];
+    const sVal = host.brushParams.symmetry || 0;
+    console.log(sNames[sVal] !== undefined ? sNames[sVal] : sVal);
+    return;
+  }
+
   const canonGet = {
     radius: 'size', rad: 'size', op: 'opacity', alpha: 'opacity', hard: 'hardness',
     step: 'spacing', rot: 'angle', rotation: 'angle', rotate: 'angle',
@@ -792,7 +816,8 @@ function handleGet(host, rawCat, rawProp) {
     bezier: 'midpoint', bezier_midpoint: 'midpoint',
     tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
     taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
-    flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend'
+    flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend',
+    mirror: 'symmetry'
   };
   const resolvedCat = canonGet[cat] || cat;
   if (host.brushParams[resolvedCat] !== undefined) {
@@ -1027,6 +1052,7 @@ const COMMAND_RULES = [
     set auto_rotate <on|off>     Auto-align tip rotation to stroke direction
     set velocity <0..100>        Speed dynamics (size modulation by speed)
     set ui_scale <val|auto>      Scale UI (e.g. 125%, 1.5, auto)
+    reset tool / reset brush     Reset all tool/brush parameters to factory defaults
 
   \x1b[36mInspect & Query:\x1b[0m
     status / info                Show active tool, brush, surface & viewport status
@@ -1043,6 +1069,9 @@ const COMMAND_RULES = [
     delete layer [id]            Delete layer
     toggle layer [id]            Toggle layer visibility
     opacity layer <id> <0..100>  Set layer opacity percentage
+    layer alpha_lock [id] <on|off> Lock layer alpha channel
+    layer clipping [id] <on|off> Clip layer to base layer below
+    layer blend [id] <mode>      Set layer blend mode (normal, multiply, screen, overlay, dodge, add)
     clear layer                  Clear active layer
     group new [name]             Create layer folder/group
     group add <group> <id>       Add layer to group
@@ -1052,7 +1081,9 @@ const COMMAND_RULES = [
 
   \x1b[36mHistory & Canvas Actions:\x1b[0m
     undo / redo                  Revert or reapply actions
-    history                      Show undo/redo stack
+    history [clear]              Show or clear undo/redo stack
+    flip canvas / flip h         Mirror canvas viewport horizontally
+    set symmetry <off|v|h|quad>  Mirror brush strokes across axes
 
   \x1b[36mFilter Commands:\x1b[0m
     filter <name> [p1] [p2]      Apply filter (blur, brightness, contrast, dither,
@@ -1242,6 +1273,82 @@ const COMMAND_RULES = [
     }
   },
 
+  // Layer Alpha Lock
+  {
+    pat: "layer alpha_lock $id$int $val",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const v = m.val.toLowerCase();
+      const lock = (v === 'on' || v === '1' || v === 'true');
+      host.setLayerAlphaLock(id, lock);
+      host.sendConsoleLog(`layer [${id}] alpha lock: ${lock ? 'on' : 'off'}`);
+    }
+  },
+  {
+    pat: "layer alpha_lock $val",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer?.() ?? 0;
+      const v = m.val.toLowerCase();
+      const lock = (v === 'on' || v === '1' || v === 'true');
+      host.setLayerAlphaLock(id, lock);
+      host.sendConsoleLog(`layer [${id}] alpha lock: ${lock ? 'on' : 'off'}`);
+    }
+  },
+  { pat: "layer alphalock $id$int $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer alpha_lock $id$int $val").run(m, host) },
+  { pat: "layer alphalock $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer alpha_lock $val").run(m, host) },
+  { pat: "alpha_lock $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer alpha_lock $val").run(m, host) },
+  { pat: "alphalock $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer alpha_lock $val").run(m, host) },
+
+  // Layer Clipping Mask
+  {
+    pat: "layer clipping $id$int $val",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const v = m.val.toLowerCase();
+      const clip = (v === 'on' || v === '1' || v === 'true');
+      host.setLayerClipping(id, clip);
+      host.sendConsoleLog(`layer [${id}] clipping: ${clip ? 'on' : 'off'}`);
+    }
+  },
+  {
+    pat: "layer clipping $val",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer?.() ?? 0;
+      const v = m.val.toLowerCase();
+      const clip = (v === 'on' || v === '1' || v === 'true');
+      host.setLayerClipping(id, clip);
+      host.sendConsoleLog(`layer [${id}] clipping: ${clip ? 'on' : 'off'}`);
+    }
+  },
+  { pat: "layer clip $id$int $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer clipping $id$int $val").run(m, host) },
+  { pat: "layer clip $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer clipping $val").run(m, host) },
+  { pat: "clipping $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer clipping $val").run(m, host) },
+  { pat: "clip $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer clipping $val").run(m, host) },
+
+  // Layer Blend Mode
+  {
+    pat: "layer blend $id$int $mode",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      host.setLayerBlendMode(id, m.mode);
+      const bNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+      const bm = host.getLayerBlendMode(id);
+      host.sendConsoleLog(`layer [${id}] blend mode: ${bNames[bm] || bm}`);
+    }
+  },
+  {
+    pat: "layer blend $mode",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer?.() ?? 0;
+      host.setLayerBlendMode(id, m.mode);
+      const bNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+      const bm = host.getLayerBlendMode(id);
+      host.sendConsoleLog(`layer [${id}] blend mode: ${bNames[bm] || bm}`);
+    }
+  },
+  { pat: "layer blend_mode $id$int $mode", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer blend $id$int $mode").run(m, host) },
+  { pat: "layer blend_mode $mode", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer blend $mode").run(m, host) },
+
   // Layer Resize Commands
   {
     pat: "layer resize $id$int $w$int $h$int $mode",
@@ -1429,6 +1536,51 @@ const COMMAND_RULES = [
     }
   },
 
+  // History Inspection and Clear
+  {
+    pat: "history clear",
+    run: (m, host) => {
+      host.undoStack = [];
+      host.redoStack = [];
+      host.sendConsoleLog("History stack cleared");
+    }
+  },
+  {
+    pat: "history",
+    run: (m, host) => {
+      host.sendConsoleLog(`--- History Stack ---`);
+      host.sendConsoleLog(`Undo stack (${host.undoStack.length} items):`);
+      if (host.undoStack.length === 0) {
+        host.sendConsoleLog(`  (empty)`);
+      } else {
+        host.undoStack.forEach((item, idx) => {
+          host.sendConsoleLog(`  [${idx + 1}] ${item.action} (layer ${item.layerIdx})`);
+        });
+      }
+      host.sendConsoleLog(`Redo stack (${host.redoStack.length} items):`);
+      if (host.redoStack.length === 0) {
+        host.sendConsoleLog(`  (empty)`);
+      } else {
+        host.redoStack.forEach((item, idx) => {
+          host.sendConsoleLog(`  [${idx + 1}] ${item.action} (layer ${item.layerIdx})`);
+        });
+      }
+    }
+  },
+
+  // Viewport / Canvas Flip Horizontal
+  {
+    pat: "flip canvas",
+    run: (m, host) => {
+      const flipped = host.toggleFlipH();
+      host.sendConsoleLog(`canvas flip horizontal: ${flipped ? 'on' : 'off'}`);
+    }
+  },
+  { pat: "flip horizontal", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
+  { pat: "flip h", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
+  { pat: "view flip", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
+  { pat: "flip", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
+
   {
     pat: "clear layer $id$int",
     run: (m, host) => {
@@ -1566,6 +1718,16 @@ const COMMAND_RULES = [
   { pat: "brush $sub $val", run: (m, host) => handleBrushParamOrPreset(host, m.sub, m.val) },
   { pat: "set brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
   { pat: "brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
+  {
+    pat: "reset tool",
+    run: (m, host) => {
+      host.resetTool();
+      host.sendConsoleLog("tool settings reset to defaults");
+    }
+  },
+  { pat: "tool reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset tool").run(m, host) },
+  { pat: "reset brush", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset tool").run(m, host) },
+  { pat: "brush reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset tool").run(m, host) },
 
   // Direct Parameter Setters (e.g. set size 20, set hardness 100, set opacity 50, etc.)
   { pat: "midpoint $val", run: (m, host) => handleDirectParam(host, "midpoint", m.val) },
@@ -1579,6 +1741,8 @@ const COMMAND_RULES = [
   { pat: "dual_brush $val", run: (m, host) => handleDirectParam(host, "dual_shape", m.val) },
   { pat: "dual_size $val", run: (m, host) => handleDirectParam(host, "dual_size", m.val) },
   { pat: "dual_spacing $val", run: (m, host) => handleDirectParam(host, "dual_spacing", m.val) },
+  { pat: "symmetry $val", run: (m, host) => handleDirectParam(host, "symmetry", m.val) },
+  { pat: "mirror $val", run: (m, host) => handleDirectParam(host, "symmetry", m.val) },
   {
     pat: "set grid $val",
     run: (m, host) => {
@@ -1809,6 +1973,10 @@ const COMMAND_RULES = [
       const g = Math.min(255, Math.max(0, parseInt(m.g, 10)));
       const b = Math.min(255, Math.max(0, parseInt(m.b, 10)));
       host.currentColor = (0xFF << 24) | (b << 16) | (g << 8) | r;
+      if (host.brushParams) {
+        const toHex = (n) => n.toString(16).padStart(2, '0');
+        host.brushParams.color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+      }
       host.sendConsoleLog(`color set to 0x${host.currentColor.toString(16).padStart(8, '0')}`);
     }
   },
@@ -1822,6 +1990,7 @@ const COMMAND_RULES = [
       const parsed = parseColorString(m.col, host.currentColor);
       if (parsed !== null) {
         host.currentColor = parsed;
+        if (host.brushParams) host.brushParams.color = m.col;
         host.sendConsoleLog(`color set to 0x${host.currentColor.toString(16).padStart(8, '0')}`);
       } else {
         host.sendConsoleLog(`err: unknown color '${m.col}'`, 0xFFFF5555);
@@ -1999,8 +2168,12 @@ class WesenhoScreenHost {
       angle_jitter: 0,
       opacity_jitter: 0,
       color_jitter: 0,
-      dab_blend: 0
+      dab_blend: 0,
+      symmetry: 0
     };
+
+    // Canvas Viewport Flip
+    this.flipH = false;
 
     // Undo / Redo History
     this.undoStack = [];
@@ -2014,6 +2187,8 @@ class WesenhoScreenHost {
     // Layer Groups / Folders
     this.layerGroups = new Map(); // id -> { id, name, collapsed: false, visible: true, layerIds: [] }
     this.groupCounter = 1;
+    this.createGroup('tips');
+    this.createGroup('grains');
 
     // Textures & Actors
     this.textures = createProceduralTextures();
@@ -2219,6 +2394,143 @@ class WesenhoScreenHost {
   }
 
   /**
+   * Sets alpha lock for a layer (prevents modifications to transparent pixels).
+   */
+  setLayerAlphaLock(id, locked) {
+    if (!this.canvasActor?.exports?.w_layer_set_alpha_lock) return false;
+    return this.canvasActor.exports.w_layer_set_alpha_lock(id, locked ? 1 : 0) === 1;
+  }
+
+  /**
+   * Gets alpha lock status of a layer.
+   */
+  getLayerAlphaLock(id) {
+    if (!this.canvasActor?.exports?.w_layer_get_alpha_lock) return 0;
+    return this.canvasActor.exports.w_layer_get_alpha_lock(id);
+  }
+
+  /**
+   * Sets clipping mask status for a layer (clips visibility to base layer below).
+   */
+  setLayerClipping(id, clipped) {
+    if (!this.canvasActor?.exports?.w_layer_set_clipping) return false;
+    const ok = this.canvasActor.exports.w_layer_set_clipping(id, clipped ? 1 : 0) === 1;
+    if (ok && this.canvasActor.exports.w_force_composite) this.canvasActor.exports.w_force_composite();
+    return ok;
+  }
+
+  /**
+   * Gets clipping mask status of a layer.
+   */
+  getLayerClipping(id) {
+    if (!this.canvasActor?.exports?.w_layer_get_clipping) return 0;
+    return this.canvasActor.exports.w_layer_get_clipping(id);
+  }
+
+  /**
+   * Sets blend mode for a layer (Normal, Multiply, Screen, Overlay, Dodge, Add).
+   */
+  setLayerBlendMode(id, mode) {
+    if (!this.canvasActor?.exports?.w_layer_set_blend_mode) return false;
+    let modeVal = mode;
+    if (typeof mode === 'string') {
+      const m = mode.toLowerCase();
+      if (m === 'normal') modeVal = 0;
+      else if (m === 'multiply') modeVal = 1;
+      else if (m === 'screen') modeVal = 2;
+      else if (m === 'overlay') modeVal = 3;
+      else if (m === 'dodge' || m === 'color_dodge') modeVal = 4;
+      else if (m === 'add' || m === 'linear_dodge') modeVal = 5;
+      else modeVal = parseInt(mode, 10) || 0;
+    }
+    const ok = this.canvasActor.exports.w_layer_set_blend_mode(id, modeVal) === 1;
+    if (ok && this.canvasActor.exports.w_force_composite) this.canvasActor.exports.w_force_composite();
+    return ok;
+  }
+
+  /**
+   * Gets blend mode of a layer.
+   */
+  getLayerBlendMode(id) {
+    if (!this.canvasActor?.exports?.w_layer_get_blend_mode) return 0;
+    return this.canvasActor.exports.w_layer_get_blend_mode(id);
+  }
+
+  /**
+   * Sets viewport horizontal flip.
+   */
+  setFlipH(val) {
+    this.flipH = !!val;
+    return this.flipH;
+  }
+
+  /**
+   * Toggles viewport horizontal flip.
+   */
+  toggleFlipH() {
+    this.flipH = !this.flipH;
+    return this.flipH;
+  }
+
+  /**
+   * Resets all tool/brush parameters to factory defaults.
+   */
+  resetTool() {
+    this.currentTool = 0; // brush
+    this.activeTexture = 'none';
+    this.brushParams = {
+      size: 8,
+      opacity: 100,
+      hardness: 80,
+      flow: 100,
+      spacing: 15,
+      roundness: 100,
+      angle: 0,
+      scatter: 0,
+      tolerance: 32,
+      smudge: 60,
+      wetness: 50,
+      grain: 0,
+      texture_mode: 0,
+      texture_angle: 0,
+      texture_scale: 100,
+      shape: 0,
+      mode: 0,
+      smoothing: 0,
+      midpoint: 50,
+      texture_contrast: 100,
+      auto_rotate: 0,
+      velocity: 0,
+      taper_in: 0,
+      taper_out: 0,
+      fade: 0,
+      size_jitter: 0,
+      angle_jitter: 0,
+      opacity_jitter: 0,
+      color_jitter: 0,
+      dab_blend: 0,
+      symmetry: 0,
+      subpixel: 0,
+      depletion: 0,
+      color_pickup: 0,
+      dual_shape: -1,
+      dual_size: 100,
+      dual_spacing: 20
+    };
+    if (this.canvasActor && this.canvasActor.exports) {
+      this.syncBrushParams();
+      if (typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.tex_layer, 0);
+        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.shape, 0);
+        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.mode, 0);
+      }
+      if (typeof this.canvasActor.exports.w_brush_set_symmetry === 'function') {
+        this.canvasActor.exports.w_brush_set_symmetry(0);
+      }
+    }
+  }
+
+  /**
    * Creates a new layer group / folder.
    */
   createGroup(name) {
@@ -2348,6 +2660,12 @@ class WesenhoScreenHost {
       } else if (key === 'dab_blend' || key === 'dab_blend_mode' || key === 'blend_mode') {
         const blendMap = { normal: 0, multiply: 1, screen: 2, overlay: 3, dodge: 4, color_dodge: 4, add: 5, linear_dodge: 5 };
         numericVal = blendMap[lower] !== undefined ? blendMap[lower] : (parseInt(val, 10) || 0);
+      } else if (key === 'symmetry' || key === 'mirror') {
+        if (lower === 'none' || lower === 'off' || lower === '0') numericVal = 0;
+        else if (lower === 'v' || lower === 'vertical' || lower === '1') numericVal = 1;
+        else if (lower === 'h' || lower === 'horizontal' || lower === '2') numericVal = 2;
+        else if (lower === 'quad' || lower === 'both' || lower === 'quadrant' || lower === '3') numericVal = 3;
+        else numericVal = parseInt(val, 10) || 0;
       } else {
         numericVal = parseFloat(val);
       }
@@ -2374,7 +2692,8 @@ class WesenhoScreenHost {
         tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
         flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend',
-        dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup'
+        dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup',
+        mirror: 'symmetry'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -2514,6 +2833,10 @@ class WesenhoScreenHost {
       lines.push(`set dual_shape ${bp.dual_shape}`);
       lines.push(`set dual_size ${bp.dual_size || 100}`);
       lines.push(`set dual_spacing ${bp.dual_spacing || 20}`);
+    }
+    if (bp.symmetry) {
+      const sNames = ['off', 'vertical', 'horizontal', 'quad'];
+      lines.push(`set symmetry ${sNames[bp.symmetry] || bp.symmetry}`);
     }
     return lines.join('\n');
   }
@@ -2995,7 +3318,7 @@ class WesenhoScreenHost {
    */
   executeCommand(raw, from = 'repl') {
     raw = raw.trim();
-    if (!raw) return;
+    if (!raw || raw.startsWith('#') || raw.startsWith('//')) return;
 
     const p = getPapagaio();
     if (!p || typeof p.match !== 'function') {
