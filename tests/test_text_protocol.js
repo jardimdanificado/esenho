@@ -1285,6 +1285,14 @@ async function run() {
     throw new Error('smudge failed to smear color to (65, 45)');
   }
 
+  // Test Smudge on empty area does NOT deposit paint
+  host.sendStroke(200, 200, 200, 200, 0, 0, 0xFF0000FF);
+  host.sendStroke(220, 200, 200, 200, 1, 0, 0xFF0000FF);
+  host.sendStroke(220, 200, 220, 200, 2, 0, 0xFF0000FF);
+  if ((afterU32[200 * smWidth + 210] >>> 24) !== 0) {
+    throw new Error('smudge on empty canvas unexpectedly deposited paint');
+  }
+
   host.executeCommand('set action_mode select');
   if (host.actionMode !== 'select') throw new Error(`set action_mode select failed, got ${host.actionMode}`);
   host.setEllipseSelection(150, 150, 20, 15);

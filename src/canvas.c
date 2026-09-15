@@ -949,19 +949,22 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
                 }
             } else if (brush_config.type == W_MODE_SMUDGE) {
+                if (move_dx == 0 && move_dy == 0) continue;
                 int sx = x - move_dx;
                 int sy = y - move_dy;
-                uint32_t sample_p = 0;
+                uint32_t src_p = 0;
                 if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
-                    sample_p = pix[sy * w + sx];
+                    src_p = pix[sy * w + sx];
                 }
-                uint32_t smudge_src = ((sample_p >> 24) > 0) ? mix_color(sample_p, color, 65) : color;
-                if (((smudge_src >> 24) & 0xFF) == 0) continue;
+                uint32_t src_a = (src_p >> 24) & 0xFF;
+                if (src_a == 0 && orig_a == 0) continue;
 
                 int strength = (brush_config.smudge_strength > 0) ? brush_config.smudge_strength : 70;
-                uint32_t sm_flow = (a * (uint32_t)strength) / 100;
-                if (sm_flow == 0) sm_flow = 1;
-                uint32_t res = w_blend_fast(smudge_src, dst_p, sm_flow, max_stroke_a);
+                int eff_t = (strength * a) / 255;
+                if (eff_t <= 0) continue;
+                if (eff_t > 100) eff_t = 100;
+
+                uint32_t res = mix_color(src_p, dst_p, eff_t);
                 pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
             } else if (brush_config.type == W_MODE_BLEND) {
                 int step = (r > 6) ? (r / 4) : 1;
@@ -1647,14 +1650,6 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
     if (state == 0) {
         stroke_cum_dist = 0;
         stroke_pickup_color = color;
-        if (brush_config.type == W_MODE_SMUDGE) {
-            if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h) {
-                uint32_t p0 = pix[y0 * w + x0];
-                if (((p0 >> 24) & 0xFF) > 0) {
-                    stroke_pickup_color = p0;
-                }
-            }
-        }
     }
 
     // 1. FLOOD FILL MODE
@@ -1808,12 +1803,11 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
 
         // Color with color_jitter and continuous color_pickup
         uint32_t dab_color = color;
-        if (brush_config.color_pickup > 0 || brush_config.type == W_MODE_SMUDGE) {
+        if (brush_config.color_pickup > 0) {
             if (cx >= 0 && cx < w && cy >= 0 && cy < h) {
                 uint32_t under_p = pix[cy * w + cx];
                 if (((under_p >> 24) & 0xFF) > 10) {
-                    int pickup_rate = (brush_config.color_pickup > 0) ? brush_config.color_pickup : 30;
-                    stroke_pickup_color = mix_color(under_p, stroke_pickup_color, pickup_rate);
+                    stroke_pickup_color = mix_color(under_p, stroke_pickup_color, brush_config.color_pickup);
                 }
             }
             dab_color = stroke_pickup_color;
