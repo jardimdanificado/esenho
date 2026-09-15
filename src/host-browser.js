@@ -7,12 +7,6 @@ if (typeof globalThis.process === 'undefined') {
   globalThis.process = { stdout: { write: (s) => console.log(String(s)) } };
 }
 
-const FILTER_NAMES = [
-  'blur','brightness','contrast','dither',
-  'edge','grayscale','invert','noise',
-  'pixelate','sepia','threshold'
-];
-
 const canvasEl   = document.getElementById('wcanvas');
 const ctx        = canvasEl.getContext('2d', { desynchronized: true });
 const panelEl     = document.getElementById('panel');
@@ -46,13 +40,26 @@ async function main() {
   host.syncBrushParams(host.canvasActor);
   log('canvas.wasm ready [ok]');
 
-  for (const name of FILTER_NAMES) {
-    try {
-      const mod = await WesenhoModule.fromURL(`plugins/${name}.wasm`, { name });
-      host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
-    } catch (e) { log(`warn: filter ${name} — ${e.message}`, 'err'); }
+  try {
+    const res = await fetch('plugins/manifest.json');
+    if (res.ok) {
+      const list = await res.json();
+      for (const item of list) {
+        const file = typeof item === 'string' ? item : item.file || item.name;
+        if (!file || !file.endsWith('.wasm')) continue;
+        const name = file.replace(/\.wasm$/i, '');
+        try {
+          const mod = await WesenhoModule.fromURL(`plugins/${file}`, { name });
+          host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
+        } catch (e) {
+          log(`warn: plugin ${file} — ${e.message}`, 'err');
+        }
+      }
+    }
+  } catch (e) {
+    log(`info: plugins dynamic discovery: ${e.message}`);
   }
-  log(`${host.plugins.size} filters loaded [ok]`);
+  log(`${host.plugins.size} plugins loaded [ok]`);
 
   /* ── Ensure UI Panel exists in DOM ── */
   ensureUiPanel();
@@ -2206,6 +2213,137 @@ async function main() {
 
   /* ── User Scripts Manager & Runner (Pure REPL Commands) ── */
   const DEFAULT_SCRIPTS = [
+    // 1. Tool Demonstrations
+    {
+      name: 'tool_brush_showcase',
+      code: `# Tool Showcase: Inking & Dynamic Brush\nreset tool\nset mode draw\nset tool brush\nset color #fabd2f\nset size 18\nset opacity 100\nset hardness 95\nset flow 100\nset smooth 30\ndraw line 100 120 400 120 #fabd2f\nset size 8\nset color #fe8019\ndraw line 100 160 400 160 #fe8019\nset size 35\nset hardness 20\nset color #fb4934\ndraw line 100 220 400 220 #fb4934`
+    },
+    {
+      name: 'tool_line_guide',
+      code: `# Tool Showcase: Line Guide Tool\nreset tool\nset mode draw\nset tool line\nset size 4\ndraw line 100 300 500 300 #83a598\ndraw line 300 100 300 500 #83a598\ndraw line 150 150 450 450 #b8bb26\ndraw line 150 450 450 150 #b8bb26\ndraw line 100 100 500 100 #d3869b\ndraw line 500 100 500 500 #d3869b\ndraw line 500 500 100 500 #d3869b\ndraw line 100 500 100 100 #d3869b`
+    },
+    {
+      name: 'tool_rect_guide',
+      code: `# Tool Showcase: Rectangle Guide & UI Cards\nreset tool\nset mode draw\nset tool rect\ndraw rect 80 80 480 320 #282828\ndraw rect 100 100 200 120 #458588\ndraw rect 340 100 200 120 #d79921\ndraw rect 100 260 440 100 #689d6a\ndraw rect 120 280 120 60 #fabd2f\ndraw rect 260 280 120 60 #fe8019\ndraw rect 400 280 120 60 #fb4934`
+    },
+    {
+      name: 'tool_ellipse_orbits',
+      code: `# Tool Showcase: Ellipse Guide & Celestial Orbits\nreset tool\nset mode draw\nset tool ellipse\ndraw circle 320 240 180 #3c3836\ndraw ellipse 320 240 220 90 #504945\ndraw ellipse 320 240 140 60 #665c54\ndraw circle 320 240 45 #fabd2f\ndraw circle 460 210 18 #83a598\ndraw circle 200 270 24 #fe8019\ndraw circle 150 200 12 #8ec07c`
+    },
+    {
+      name: 'tool_fill_bucket',
+      code: `# Tool Showcase: Flood Fill Bucket\nreset tool\nset mode draw\nset tool rect\ndraw rect 100 100 300 200 #ebdbb2\ndraw rect 120 120 120 70 #ebdbb2\ndraw rect 260 120 120 70 #ebdbb2\ndraw rect 120 210 260 70 #ebdbb2\nset tool fill\nset color #83a598\nfill 150 150 #83a598\nset color #fe8019\nfill 300 150 #fe8019\nset color #b8bb26\nfill 200 240 #b8bb26`
+    },
+    {
+      name: 'tool_magic_wand_select',
+      code: `# Tool Showcase: Magic Wand Selection\nreset tool\nset mode draw\nset tool rect\ndraw rect 100 100 150 150 #fb4934\ndraw rect 300 100 150 150 #fb4934\ndraw rect 200 280 200 100 #83a598\nset mode select\nset tool wand\nwand tolerance 30\nselect wand 30\nfilter brightness 40\nfilter sepia 80\nselect clear`
+    },
+    {
+      name: 'tool_lasso_cutout',
+      code: `# Tool Showcase: Lasso Selection & Transform\nreset tool\nset mode draw\nset tool ellipse\ndraw circle 250 200 60 #fabd2f\ndraw circle 230 185 10 #282828\ndraw circle 270 185 10 #282828\ndraw ellipse 250 225 25 12 #fb4934\nset mode select\nset tool lasso\nselect rect 180 130 140 140\ncut\npaste 420 200\ntransform apply\nselect clear`
+    },
+    {
+      name: 'tool_eyedropper_picker',
+      code: `# Tool Showcase: Eyedropper / Color Picker\nreset tool\nset mode draw\nset tool rect\ndraw rect 80 100 60 60 #fb4934\ndraw rect 160 100 60 60 #fabd2f\ndraw rect 240 100 60 60 #b8bb26\ndraw rect 320 100 60 60 #83a598\ndraw rect 400 100 60 60 #d3869b\npick 100 120\ndraw circle 110 220 25\npick 180 120\ndraw circle 190 220 25\npick 260 120\ndraw circle 270 220 25\npick 340 120\ndraw circle 350 220 25\npick 420 120\ndraw circle 430 220 25`
+    },
+    {
+      name: 'tool_blend_wetmedia',
+      code: `# Tool Showcase: Painterly Blend & Wet Media\nreset tool\nset mode draw\nset tool brush\nset size 45\nset hardness 60\nset opacity 100\ndraw rect 100 150 80 120 #fb4934\ndraw rect 180 150 80 120 #fabd2f\ndraw rect 260 150 80 120 #83a598\nset tool blend\nset mode smudge\nset size 50\nset hardness 30\nset smudge 60\nset wetness 75\nset color_pickup 50\nset depletion 30\nstroke 120 210 320 210`
+    },
+    {
+      name: 'tool_smudge_fire',
+      code: `# Tool Showcase: Smudge Fire Flames\nreset tool\nset mode draw\nset tool rect\ndraw rect 150 300 200 40 #fb4934\ndraw rect 180 290 140 30 #fe8019\ndraw rect 210 280 80 20 #fabd2f\nset mode smudge\nset tool brush\nset size 35\nset hardness 25\nset smudge 85\nstroke 200 300 190 180\nstroke 250 290 250 150\nstroke 280 300 300 170\nstroke 230 280 220 160`
+    },
+    {
+      name: 'tool_eraser_types',
+      code: `# Tool Showcase: Eraser Modes & Textures\nreset tool\nset mode draw\ndraw rect 80 80 400 240 #83a598\nset mode erase\nset tool brush\nset size 30\nset hardness 100\ndraw line 100 120 450 120\nset hardness 0\nset opacity 60\ndraw line 100 180 450 180\nset hardness 80\nset texture paper\nset grain 60\ndraw line 100 240 450 240`
+    },
+    {
+      name: 'tool_select_booleans',
+      code: `# Tool Showcase: Boolean Selection Modes\nreset tool\nset mode draw\nset tool rect\ndraw rect 50 50 400 300 #3c3836\nset mode select\nset select_mode replace\nselect rect 100 100 200 180\nset select_mode add\nselect rect 220 160 180 140\nset select_mode sub\nselect rect 160 140 120 100\nset mode draw\nset tool fill\nfill #fabd2f\nselect clear`
+    },
+
+    // 2. Brush Engine & Dynamics
+    {
+      name: 'brush_dual_texture',
+      code: `# Brush Engine: Dual Brush & Texture Dab\nreset tool\nset mode draw\nset tool brush\nset size 45\nset color #8ec07c\nset hardness 80\nset dual_shape chisel\nset dual_size 120\nset dual_spacing 25\nset texture grunge\nset grain 40\ndraw line 80 150 480 150\nset dual_shape square\nset color #d3869b\ndraw line 80 250 480 250`
+    },
+    {
+      name: 'brush_dynamics_jitters',
+      code: `# Brush Engine: Dynamics & Jitters (Foliage)\nreset tool\nset mode draw\nset tool brush\nset size 28\nset color #b8bb26\nset size_jitter 50\nset angle_jitter 180\nset opacity_jitter 40\nset color_jitter 35\nset spacing 20\ndraw line 100 180 450 180\nset color #83a598\nset size 40\nset size_jitter 70\ndraw line 100 260 450 260`
+    },
+    {
+      name: 'brush_calligraphy_taper',
+      code: `# Brush Engine: Calligraphy & Stroke Taper\nreset tool\nset mode draw\nset tool brush\nset size 22\nset hardness 90\nset color #ebdbb2\nset shape chisel\nset angle 45\nset roundness 35\nset taper_in 30\nset taper_out 40\nset smooth 45\ndraw line 100 150 400 150\ndraw line 120 220 420 220\ndraw line 140 290 440 290`
+    },
+    {
+      name: 'brush_textures_gallery',
+      code: `# Brush Engine: Texture & Grain Showcase\nreset tool\nset mode draw\nset tool brush\nset size 35\nset hardness 90\nset grain 65\nset color #fabd2f\nset texture paper\ndraw line 80 100 480 100\nset texture canvas\nset color #fe8019\ndraw line 80 150 480 150\nset texture noise\nset color #fb4934\ndraw line 80 200 480 200\nset texture dots\nset color #b8bb26\ndraw line 80 250 480 250\nset texture grid\nset color #83a598\ndraw line 80 300 480 300\nset texture grunge\nset color #d3869b\ndraw line 80 350 480 350\nset texture hatch\nset color #8ec07c\ndraw line 80 400 480 400`
+    },
+    {
+      name: 'brush_dab_blend_modes',
+      code: `# Brush Engine: Dab Blend Modes Showcase\nreset tool\nset mode draw\nset tool rect\ndraw rect 60 60 460 280 #504945\nset tool brush\nset size 40\nset hardness 70\nset opacity 80\nset color #fabd2f\nset dab_blend normal\ndraw line 80 100 480 100\nset dab_blend multiply\nset color #fb4934\ndraw line 80 150 480 150\nset dab_blend screen\nset color #8ec07c\ndraw line 80 200 480 200\nset dab_blend overlay\nset color #fe8019\ndraw line 80 250 480 250\nset dab_blend dodge\nset color #83a598\ndraw line 80 300 480 300`
+    },
+    {
+      name: 'brush_symmetry_mandala',
+      code: `# Brush Engine: Symmetry & Mandala Art\nreset tool\nset mode draw\nset tool brush\nset size 14\nset hardness 85\nset color #fabd2f\nset symmetry quad\ndraw circle 320 240 80\ndraw line 320 160 400 240\ndraw line 400 240 320 320\ndraw line 320 320 240 240\ndraw line 240 240 320 160\nset color #fe8019\ndraw circle 320 240 130\nset color #83a598\ndraw circle 320 240 35\nset symmetry off`
+    },
+
+    // 3. Layers & Compositing
+    {
+      name: 'layers_clipping_mask',
+      code: `# Layers: Clipping Mask Shading Workflow\nreset tool\nclear\nset mode draw\nset tool ellipse\ndraw circle 300 220 90 #d79921\nnew layer\nlayer clip on\nlayer blend multiply\nset mode draw\nset tool rect\ndraw rect 210 220 180 90 #00000088\nnew layer\nlayer clip on\nlayer blend screen\ndraw circle 260 180 35 #ffffffaa`
+    },
+    {
+      name: 'layers_alpha_lock',
+      code: `# Layers: Alpha Lock Painting\nreset tool\nclear\nset mode draw\nset tool rect\ndraw rect 150 120 250 180 #458588\nlayer alock on\nset tool brush\nset size 45\nset hardness 30\nset color #83a598\ndraw line 150 130 400 130\nset color #076678\ndraw line 150 280 400 280\nlayer alock off`
+    },
+    {
+      name: 'layers_multi_comp',
+      code: `# Layers: Multi-Layer Compositing Hierarchy\nreset tool\nclear\ndraw rect 0 0 640 480 #1d2021\ngroup create Background\ngroup create Characters\ngroup create FX\nnew layer\ndraw rect 50 50 540 380 #282828\nnew layer\ndraw circle 320 240 120 #b16286\nlayer blend overlay\nnew layer\ndraw line 100 100 540 380 #fabd2f\nlayer blend add`
+    },
+
+    // 4. Filters & Post-Processing
+    {
+      name: 'filters_full_suite',
+      code: `# Filters: Complete WASM Plugin Suite Test\nreset tool\nclear\ndraw rect 80 80 480 320 #458588\ndraw circle 320 240 80 #fabd2f\nfilter blur 4 2\nfilter brightness 20\nfilter contrast 25\nfilter noise 15 0\nfilter pixelate 4\nfilter sepia 50\nfilter threshold 110 0\nfilter invert 30 0\nfilter grayscale 40 0\nfilter edge 35 1\nfilter dither 15 0`
+    },
+    {
+      name: 'filters_retro_gameboy',
+      code: `# Filters: Retro 1-Bit GameBoy Look\nreset tool\nclear\ndraw rect 0 0 640 480 #8ec07c\ndraw circle 320 200 90 #1d2021\ndraw rect 220 280 200 120 #1d2021\nfilter pixelate 6\nfilter grayscale 100 0\nfilter contrast 50\nfilter dither 20 0\nadjust hsv 75 40 -10`
+    },
+    {
+      name: 'filters_bloom_glow',
+      code: `# Filters: Neon Bloom & Glow Effect\nreset tool\nclear\ndraw rect 0 0 640 480 #181818\nset tool brush\nset size 8\nset color #83a598\ndraw circle 320 220 80 #83a598\ndraw line 200 340 440 340 #83a598\nnew layer\ndraw circle 320 220 80 #83a598\ndraw line 200 340 440 340 #83a598\nfilter blur 18 3\nlayer blend screen\nfilter brightness 60`
+    },
+
+    // 5. Generative & Procedural Art (Bonus)
+    {
+      name: 'art_synthwave_sunset',
+      code: `# Generative Art: Synthwave 80s Sunset\nreset tool\nclear\ndraw rect 0 0 640 260 #1d2021\ndraw rect 0 260 640 220 #0f1012\ndraw circle 320 260 110 #fb4934\ndraw circle 320 260 95 #fabd2f\ndraw line 0 260 640 260 #fe8019\ndraw line 320 260 50 480 #d3869b\ndraw line 320 260 150 480 #d3869b\ndraw line 320 260 250 480 #d3869b\ndraw line 320 260 320 480 #d3869b\ndraw line 320 260 390 480 #d3869b\ndraw line 320 260 490 480 #d3869b\ndraw line 320 260 590 480 #d3869b\ndraw line 0 285 640 285 #b16286\ndraw line 0 320 640 320 #b16286\ndraw line 0 370 640 370 #b16286\ndraw line 0 435 640 435 #b16286`
+    },
+    {
+      name: 'art_pixel_rpg_hero',
+      code: `# Generative Art: Retro 16-Bit RPG Sprite\nreset tool\nclear\ndraw rect 0 0 640 480 #282828\ndraw rect 280 120 80 40 #928374\ndraw rect 270 160 100 80 #d5c4a1\ndraw rect 290 180 20 20 #282828\ndraw rect 330 180 20 20 #282828\ndraw rect 260 240 120 100 #458588\ndraw rect 290 260 60 60 #fabd2f\ndraw rect 230 250 30 90 #83a598\ndraw rect 380 230 20 110 #ebdbb2\ndraw rect 370 280 40 15 #d79921\ndraw rect 270 340 40 90 #504945\ndraw rect 330 340 40 90 #504945\ndraw rect 260 420 50 30 #3c3836\ndraw rect 330 420 50 30 #3c3836`
+    },
+    {
+      name: 'art_botanical_bonsai',
+      code: `# Generative Art: Botanical Bonsai Tree\nreset tool\nclear\ndraw rect 0 0 640 480 #1d2021\nset tool rect\ndraw rect 220 400 200 40 #d65d0e\ndraw rect 200 390 240 15 #af3a03\nset tool brush\nset size 28\nset color #7c6f64\nset hardness 85\ndraw line 320 390 320 280\ndraw line 320 280 240 220\ndraw line 320 280 390 210\ndraw line 240 220 190 180\ndraw line 390 210 440 170\nset size 35\nset hardness 20\nset color #689d6a\nset size_jitter 40\nset color_jitter 25\nset angle_jitter 180\ndraw circle 180 170 45 #689d6a\ndraw circle 240 190 40 #b8bb26\ndraw circle 380 190 45 #689d6a\ndraw circle 450 160 50 #b8bb26\ndraw circle 320 210 45 #8ec07c`
+    },
+    {
+      name: 'art_scifi_hud',
+      code: `# Generative Art: Sci-Fi Tactical HUD\nreset tool\nclear\ndraw rect 0 0 640 480 #0a0e14\ndraw circle 320 240 160 #00ffff44\ndraw circle 320 240 120 #00ffff88\ndraw circle 320 240 60 #00ffffff\ndraw line 320 60 320 420 #00ffff66\ndraw line 140 240 500 240 #00ffff66\ndraw rect 80 80 120 40 #00ffff33\ndraw rect 440 80 120 40 #00ffff33\ndraw rect 80 360 140 50 #00ffff33\ndraw rect 420 360 140 50 #00ffff33\ndraw line 80 100 200 100 #00ffffff\ndraw line 440 100 560 100 #00ffffff`
+    },
+    {
+      name: 'art_comic_panel',
+      code: `# Generative Art: Comic Strip 3-Panel Layout\nreset tool\nclear\ndraw rect 0 0 640 480 #ebdbb2\ndraw rect 40 40 560 400 #282828\ndraw rect 55 55 160 370 #fbf1c7\ndraw rect 235 55 160 370 #fbf1c7\ndraw rect 415 55 160 370 #fbf1c7\ndraw circle 135 180 40 #fabd2f\ndraw circle 315 250 50 #fb4934\ndraw rect 440 120 110 180 #83a598\ndraw ellipse 140 95 35 20 #ffffff\ndraw ellipse 320 140 45 25 #ffffff\ndraw ellipse 470 95 40 22 #ffffff`
+    },
+    {
+      name: 'art_stained_glass',
+      code: `# Generative Art: Stained Glass Rosette\nreset tool\nclear\ndraw rect 0 0 640 480 #1d2021\ndraw circle 320 240 170 #282828\ndraw circle 320 240 150 #cc241d\ndraw circle 320 240 120 #d79921\ndraw circle 320 240 90 #98971a\ndraw circle 320 240 60 #458588\ndraw circle 320 240 30 #b16286\ndraw line 320 70 320 410 #282828\ndraw line 150 240 490 240 #282828\ndraw line 200 120 440 360 #282828\ndraw line 200 360 440 120 #282828\nfilter brightness 25\nfilter contrast 35`
+    },
+
+    // 6. Brush Presets
     {
       name: 'preset_pencil',
       code: `# Preset: Pencil\nset mode brush\nset size 2\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 15\nset shape circle\nset texture none`
@@ -2245,29 +2383,19 @@ async function main() {
     {
       name: 'preset_hard_eraser',
       code: `# Preset: Hard Eraser\nset mode eraser\nset size 16\nset opacity 100\nset hardness 100`
-    },
-    {
-      name: 'starter_canvas',
-      code: `# Setup starter canvas and brush\nset mode brush\nset size 25\nset color #fabd2f\nset opacity 100\nset hardness 80\nbrush 200 200\nbrush 250 200\nbrush 300 200\nset color #fe8019\nset size 15\nbrush 250 250`
-    },
-    {
-      name: 'swatches_palette',
-      code: `# Paint color swatches on canvas\nreset tool\nset mode brush\nset size 30\nset hardness 100\nset opacity 100\nset flow 100\nset color #fb4934\nbrush 100 200\nset color #fe8019\nbrush 160 200\nset color #fabd2f\nbrush 220 200\nset color #b8bb26\nbrush 280 200\nset color #83a598\nbrush 340 200\nset color #d3869b\nbrush 400 200`
-    },
-    {
-      name: 'layers_demo',
-      code: `# Create and blend layers\nnew layer\nset mode brush\nset size 40\nset color #8ec07c\nbrush 200 150\nbrush 260 150\nnew layer\nset color #fabd2f\nbrush 230 180`
     }
   ];
 
   function getSavedScripts() {
     try {
-      const stored = localStorage.getItem('wesenho_user_scripts');
+      const stored = localStorage.getItem('wesenho_user_scripts_v3');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const hasPresets = parsed.some(s => s.name === 'preset_pencil');
-          if (hasPresets) return parsed;
+          // Merge user custom scripts that aren't in defaults
+          const defaultNames = new Set(DEFAULT_SCRIPTS.map(s => s.name));
+          const userCustom = parsed.filter(s => !defaultNames.has(s.name));
+          return [...DEFAULT_SCRIPTS, ...userCustom];
         }
       }
     } catch (_) {}
@@ -2275,7 +2403,7 @@ async function main() {
   }
 
   function saveScriptsList(list) {
-    localStorage.setItem('wesenho_user_scripts', JSON.stringify(list));
+    localStorage.setItem('wesenho_user_scripts_v3', JSON.stringify(list));
   }
 
   function populateScriptSelect() {
@@ -3009,23 +3137,140 @@ async function main() {
   // 5. Filters & Export
   const applyFilterBtn = document.getElementById('ui-btn-apply-filter');
   const filterSel = document.getElementById('ui-select-filter');
-  const sliderFilterRadius = document.getElementById('ui-slider-filter-radius');
-  const valFilterRadius = document.getElementById('ui-val-filter-radius');
-  if (sliderFilterRadius && valFilterRadius) {
-    sliderFilterRadius.addEventListener('input', () => {
-      valFilterRadius.textContent = sliderFilterRadius.value;
+  const filterParamsContainer = document.getElementById('ui-ctrl-filter-params');
+  const pluginInput = document.getElementById('ui-plugin-input');
+  const btnLoadPlugin = document.getElementById('ui-btn-load-plugin');
+
+  function populateFilterSelect() {
+    if (!filterSel) return;
+    const currentVal = filterSel.value;
+    filterSel.innerHTML = '';
+
+    for (const [name, p] of host.plugins.entries()) {
+      if (p.type !== 'filter' && typeof p.module?.exports?.w_filter_apply !== 'function' && typeof p.module?.exports?.w_plugin_filter !== 'function') continue;
+      const opt = document.createElement('option');
+      opt.value = name;
+      let label = name.charAt(0).toUpperCase() + name.slice(1);
+      try {
+        const info = p.module.getInfo();
+        if (info && info.name) label = info.name;
+      } catch (_) {}
+      opt.textContent = label;
+      filterSel.appendChild(opt);
+    }
+
+    if (currentVal && filterSel.querySelector(`option[value="${currentVal}"]`)) {
+      filterSel.value = currentVal;
+    }
+    updateFilterControls();
+  }
+
+  function updateFilterControls() {
+    if (!filterSel || !filterParamsContainer) return;
+    filterParamsContainer.innerHTML = '';
+    const name = filterSel.value;
+    if (!name) return;
+
+    const p = host.plugins.get(name);
+    if (!p || !p.module) return;
+
+    let info = null;
+    try {
+      info = p.module.getInfo();
+    } catch (_) {}
+
+    const params = (info && Array.isArray(info.params)) ? info.params : [];
+    if (params.length === 0) return;
+
+    params.forEach((param, idx) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'ui-control';
+      wrap.style.marginTop = '4px';
+
+      const labelRow = document.createElement('div');
+      labelRow.className = 'ui-label-row';
+
+      const lbl = document.createElement('span');
+      const unit = param.unit ? ` (${param.unit})` : '';
+      lbl.textContent = (param.name || param.id || `Param ${idx + 1}`) + unit;
+
+      const valSpan = document.createElement('span');
+      valSpan.className = 'ui-val';
+      const defVal = param.default !== undefined ? param.default : (param.min || 0);
+      valSpan.textContent = String(defVal);
+
+      labelRow.appendChild(lbl);
+      labelRow.appendChild(valSpan);
+
+      const slider = document.createElement('input');
+      slider.type = 'range';
+      slider.className = 'ui-filter-param-slider';
+      slider.dataset.paramId = param.id || `p${idx}`;
+      slider.min = param.min !== undefined ? param.min : 0;
+      slider.max = param.max !== undefined ? param.max : 100;
+      slider.step = param.step !== undefined ? param.step : 1;
+      slider.value = defVal;
+
+      slider.addEventListener('input', () => {
+        valSpan.textContent = slider.value;
+      });
+
+      wrap.appendChild(labelRow);
+      wrap.appendChild(slider);
+      filterParamsContainer.appendChild(wrap);
     });
   }
+
+  if (filterSel) {
+    filterSel.addEventListener('change', updateFilterControls);
+  }
+
   if (applyFilterBtn && filterSel) {
     applyFilterBtn.addEventListener('click', () => {
-      const radius = sliderFilterRadius ? sliderFilterRadius.value : '';
-      if (filterSel.value === 'blur' && radius) {
-        runCmd(`filter blur ${radius}`);
+      const sliders = filterParamsContainer ? filterParamsContainer.querySelectorAll('input[type="range"]') : [];
+      const args = Array.from(sliders).map(s => s.value);
+      if (args.length > 0) {
+        runCmd(`filter ${filterSel.value} ${args.join(' ')}`);
       } else {
         runCmd(`filter ${filterSel.value}`);
       }
     });
   }
+
+  async function registerPluginFile(file) {
+    if (!file || !file.name.toLowerCase().endsWith('.wasm')) {
+      log('warn: only .wasm plugin files are supported', 'err');
+      return;
+    }
+    const pluginName = file.name.replace(/\.wasm$/i, '').toLowerCase();
+    try {
+      const bytes = await file.arrayBuffer();
+      const mod = await WesenhoModule.fromBytes(bytes, { name: pluginName });
+      host.plugins.set(pluginName, { type: 'filter', module: mod, actor: mod });
+      populateFilterSelect();
+      if (filterSel) {
+        filterSel.value = pluginName;
+        updateFilterControls();
+      }
+      log(`Plugin "${pluginName}" loaded successfully [ok]`);
+    } catch (e) {
+      log(`err loading plugin ${file.name}: ${e.message}`, 'err');
+    }
+  }
+
+  if (btnLoadPlugin && pluginInput) {
+    btnLoadPlugin.addEventListener('click', () => pluginInput.click());
+  }
+
+  if (pluginInput) {
+    pluginInput.addEventListener('change', () => {
+      const file = pluginInput.files && pluginInput.files[0];
+      if (file) registerPluginFile(file);
+      pluginInput.value = '';
+    });
+  }
+
+  populateFilterSelect();
 
   // 6. Layer Color Adjustments (HSV/HSL)
   const sliderHue = document.getElementById('ui-slider-hue');
@@ -3249,6 +3494,23 @@ async function main() {
       reader.readAsDataURL(file);
     });
   }
+
+  window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+  });
+
+  window.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.name.toLowerCase().endsWith('.wasm')) {
+        await registerPluginFile(file);
+      }
+    }
+  });
 
   // 6. Master Sync Function
   function syncUiFromHost() {
@@ -4374,29 +4636,16 @@ function ensureUiPanel() {
             <div class="ui-label-row"><span>Filter Plugin</span></div>
             <div class="ui-row-gap">
               <select id="ui-select-filter" class="ui-select" style="flex:1;">
-                <option value="blur">Blur</option>
-                <option value="brightness">Brightness</option>
-                <option value="contrast">Contrast</option>
-                <option value="dither">Dither</option>
-                <option value="edge">Edge Detect</option>
-                <option value="grayscale">Grayscale</option>
-                <option value="invert">Invert</option>
-                <option value="noise">Noise</option>
-                <option value="pixelate">Pixelate</option>
-                <option value="sepia">Sepia</option>
-                <option value="threshold">Threshold</option>
               </select>
               <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
             </div>
           </div>
-          <div class="ui-control" id="ui-ctrl-filter-radius" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Filter Radius / Parameter</span><span id="ui-val-filter-radius" class="ui-val">5</span></div>
-            <input type="range" id="ui-slider-filter-radius" min="1" max="25" value="5">
-          </div>
-          <div class="ui-grid-2" style="margin-top: 4px;">
+          <div id="ui-ctrl-filter-params"></div>
+          <div class="ui-grid-2" style="margin-top: 6px;">
+            <button id="ui-btn-load-plugin" class="ui-btn" title="Load custom WASM filter plugin (.wasm)">Load Plugin (.wasm)</button>
             <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
-            <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
           </div>
+          <input type="file" id="ui-plugin-input" accept=".wasm" style="display: none;" />
           <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
         </div>
       </details>

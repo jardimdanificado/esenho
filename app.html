@@ -1447,29 +1447,16 @@
             <div class="ui-label-row"><span>Filter Plugin</span></div>
             <div class="ui-row-gap">
               <select id="ui-select-filter" class="ui-select" style="flex:1;">
-                <option value="blur">Blur</option>
-                <option value="brightness">Brightness</option>
-                <option value="contrast">Contrast</option>
-                <option value="dither">Dither</option>
-                <option value="edge">Edge Detect</option>
-                <option value="grayscale">Grayscale</option>
-                <option value="invert">Invert</option>
-                <option value="noise">Noise</option>
-                <option value="pixelate">Pixelate</option>
-                <option value="sepia">Sepia</option>
-                <option value="threshold">Threshold</option>
               </select>
               <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
             </div>
           </div>
-          <div class="ui-control" id="ui-ctrl-filter-radius" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Filter Radius / Parameter</span><span id="ui-val-filter-radius" class="ui-val">5</span></div>
-            <input type="range" id="ui-slider-filter-radius" min="1" max="25" value="5">
-          </div>
-          <div class="ui-grid-2" style="margin-top: 4px;">
+          <div id="ui-ctrl-filter-params"></div>
+          <div class="ui-grid-2" style="margin-top: 6px;">
+            <button id="ui-btn-load-plugin" class="ui-btn" title="Load custom WASM filter plugin (.wasm)">Load Plugin (.wasm)</button>
             <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
-            <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
           </div>
+          <input type="file" id="ui-plugin-input" accept=".wasm" style="display: none;" />
           <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
         </div>
       </details>

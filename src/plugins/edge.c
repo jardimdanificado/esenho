@@ -6,8 +6,9 @@
 
 #include "wesenho.h"
 
-#define MAX_DOC (800 * 1000)
-static uint32_t temp[MAX_DOC];
+W_EXPORT const char* w_plugin_get_info(void) {
+    return "{\"title\":\"Edge Detect\",\"params\":[{\"name\":\"Sensitivity\",\"min\":5,\"max\":150,\"default\":30},{\"name\":\"Paper Sketch\",\"min\":0,\"max\":1,\"default\":0}]}";
+}
 
 static inline int clamp255(int val) {
     if (val < 0) return 0;
@@ -23,14 +24,18 @@ static inline uint8_t get_lum(uint32_t p) {
 
 W_EXPORT void w_filter_apply(int32_t p1, int32_t p2) {
     wframebuffer_t *fb = w_get_layer();
-    if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;
+    if (!fb || !fb->pixels || fb->width <= 0 || fb->height <= 0) return;
+
+    int threshold = (p1 > 0) ? p1 : 30;
+    if (threshold > 255) threshold = 255;
+    int invert_sketch = (p2 != 0) ? 1 : 0; // 0 = black bg, 1 = white paper sketch
 
     uint32_t *pixels = (uint32_t*)(uintptr_t)fb->pixels;
     int width = fb->width;
     int height = fb->height;
     int total = width * height;
-    if (total > MAX_DOC) total = MAX_DOC;
 
+    uint32_t *temp = pixels + total;
     for (int i = 0; i < total; i++) temp[i] = pixels[i];
 
     for (int y = 1; y < height - 1; y++) {
@@ -49,10 +54,15 @@ W_EXPORT void w_filter_apply(int32_t p1, int32_t p2) {
             int mag = (gx < 0 ? -gx : gx) + (gy < 0 ? -gy : gy);
             uint8_t out = clamp255(mag);
 
-            if (out > 30) {
-                pixels[y * width + x] = 0xFF000000 | (out << 16) | (out << 8) | out;
+            if (out > threshold) {
+                if (invert_sketch) {
+                    uint8_t inv = 255 - out;
+                    pixels[y * width + x] = 0xFF000000 | (inv << 16) | (inv << 8) | inv;
+                } else {
+                    pixels[y * width + x] = 0xFF000000 | (out << 16) | (out << 8) | out;
+                }
             } else {
-                pixels[y * width + x] = 0x00000000;
+                pixels[y * width + x] = invert_sketch ? 0xFFFFFFFF : 0x00000000;
             }
         }
     }

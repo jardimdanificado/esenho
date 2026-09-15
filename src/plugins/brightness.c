@@ -6,6 +6,10 @@
 
 #include "wesenho.h"
 
+W_EXPORT const char* w_plugin_get_info(void) {
+    return "{\"title\":\"Brightness\",\"params\":[{\"name\":\"Delta\",\"min\":-100,\"max\":100,\"default\":30}]}";
+}
+
 static inline int clamp255(int val) {
     if (val < 0) return 0;
     if (val > 255) return 255;

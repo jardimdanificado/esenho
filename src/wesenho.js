@@ -231,6 +231,38 @@ class WesenhoModule {
     }
   }
 
+  readCString(ptr) {
+    if (!ptr || !this.memory) return '';
+    const u8 = new Uint8Array(this.memory.buffer);
+    let end = ptr;
+    while (end < u8.length && u8[end] !== 0) end++;
+    return new TextDecoder('utf-8').decode(u8.subarray(ptr, end));
+  }
+
+  getInfo() {
+    if (this._info) return this._info;
+    if (typeof this.exports.w_plugin_get_info === 'function') {
+      try {
+        const ptr = this.exports.w_plugin_get_info();
+        const jsonStr = this.readCString(ptr);
+        if (jsonStr) {
+          this._info = JSON.parse(jsonStr);
+          return this._info;
+        }
+      } catch (e) {
+        console.warn(`[wesenho] failed to parse plugin info for ${this.name}:`, e);
+      }
+    }
+    const defaultTitle = this.name ? (this.name.charAt(0).toUpperCase() + this.name.slice(1)) : 'Plugin';
+    this._info = {
+      title: defaultTitle,
+      params: [
+        { name: 'Parameter 1', min: 0, max: 255, default: 30 }
+      ]
+    };
+    return this._info;
+  }
+
   applyFilter(p1 = 0, p2 = 0) {
     if (typeof this.exports.w_filter_apply === 'function') {
       this.exports.w_filter_apply(p1, p2);
@@ -4386,19 +4418,26 @@ class WesenhoScreenHost {
     this.pushUndoSnapshot(`filter ${fname}`);
 
     const byteLen = cw * ch * 4;
-    if (!plugin.layerPtr || plugin.layerByteLen < byteLen) {
-      plugin.layerPtr = 1048576; // 1MB
-      plugin.layerByteLen = byteLen;
+    const requiredMem = 65536 + byteLen * 2 + 65536;
+    if (plugin.memory.buffer.byteLength < requiredMem) {
+      const currentBytes = plugin.memory.buffer.byteLength;
+      const pagesNeeded = Math.ceil((requiredMem - currentBytes) / 65536);
+      if (pagesNeeded > 0) {
+        plugin.memory.grow(pagesNeeded);
+      }
     }
+    const layerPtr = 65536;
+    plugin.layerPtr = layerPtr;
+    plugin.layerByteLen = byteLen;
 
     const beforeFilter = this.selection?.active
       ? new Uint32Array(new Uint32Array(this.canvasActor.memory.buffer, pixPtr, cw * ch))
       : null;
 
-    new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen)
+    new Uint8Array(plugin.memory.buffer, layerPtr, byteLen)
       .set(new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen));
 
-    plugin.setLayer(plugin.layerPtr, cw, ch);
+    plugin.setLayer(layerPtr, cw, ch);
 
     plugin.exports.w_filter_apply(p1, p2);
 

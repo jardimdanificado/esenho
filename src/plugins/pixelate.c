@@ -6,6 +6,10 @@
 
 #include "wesenho.h"
 
+W_EXPORT const char* w_plugin_get_info(void) {
+    return "{\"title\":\"Pixelate\",\"params\":[{\"name\":\"Block Size\",\"min\":2,\"max\":64,\"default\":8,\"unit\":\"px\"}]}";
+}
+
 W_EXPORT void w_filter_apply(int32_t p1, int32_t p2) {
     wframebuffer_t *fb = w_get_layer();
     if (!fb || !fb->pixels || fb->width == 0 || fb->height == 0) return;

@@ -6,7 +6,7 @@ ROMS = roms/canvas.wasm
 PLUGIN_SRCS = $(wildcard src/plugins/*.c)
 PLUGINS = $(patsubst src/plugins/%.c,plugins/%.wasm,$(PLUGIN_SRCS))
 
-all: $(ROMS) $(PLUGINS)
+all: $(ROMS) $(PLUGINS) plugins/manifest.json
 
 roms/canvas.wasm: src/canvas.c include/wesenho.h
 	mkdir -p roms
@@ -16,10 +16,14 @@ plugins/%.wasm: src/plugins/%.c include/wesenho.h
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
+plugins/manifest.json: $(PLUGINS)
+	@mkdir -p plugins
+	@node -e "const fs=require('fs'); const files=fs.readdirSync('plugins').filter(f=>f.endsWith('.wasm')).sort(); fs.writeFileSync('plugins/manifest.json', JSON.stringify(files, null, 2));"
+
 run: all
 	node src/wesenho.js
 
 clean:
-	rm -rf roms/*.wasm plugins/*.wasm
+	rm -rf roms/*.wasm plugins/*.wasm plugins/manifest.json
 
 .PHONY: all run clean

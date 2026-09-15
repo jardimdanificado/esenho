@@ -70,12 +70,16 @@ async function run() {
   host.canvasActor = canvas;
   host.syncBrushParams(canvas);
 
-  // Load filter plugins
-  const filters = ['blur', 'brightness', 'contrast', 'dither', 'edge', 'grayscale', 'invert', 'noise', 'pixelate', 'sepia', 'threshold'];
-  for (const f of filters) {
-    const wasmPath = path.resolve(__dirname, `../plugins/${f}.wasm`);
-    const mod = new WesenhoModule(wasmPath, { name: f });
-    host.plugins.set(f, { type: 'filter', module: mod, actor: mod });
+  // Dynamically discover and load filter plugins from plugins/
+  const pluginsDir = path.resolve(__dirname, '../plugins');
+  if (fs.existsSync(pluginsDir)) {
+    const files = fs.readdirSync(pluginsDir).filter(f => f.endsWith('.wasm')).sort();
+    for (const file of files) {
+      const f = file.replace(/\.wasm$/, '');
+      const wasmPath = path.join(pluginsDir, file);
+      const mod = new WesenhoModule(wasmPath, { name: f });
+      host.plugins.set(f, { type: 'filter', module: mod, actor: mod });
+    }
   }
 
   // Test Host Command execution
@@ -438,8 +442,8 @@ async function run() {
     throw new Error(`Expected brush size 33 from custom papagaio rule, got ${host.brushParams.size}`);
   }
 
-  // Test All Filters without crashing
-  for (const f of filters) {
+  // Test All Dynamically Discovered Filters without crashing
+  for (const f of host.plugins.keys()) {
     host.executeCommand(`filter ${f}`);
   }
 
@@ -1321,7 +1325,22 @@ async function run() {
   host.executeCommand('set action_mode draw');
   if (host.actionMode !== 'draw') throw new Error(`set action_mode draw failed, got ${host.actionMode}`);
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, and 4-Mode Action System (Draw, Erase, Smudge, Select) verified 100%!');
+  // Test Filter Parameterization (all filters with custom p1 and p2)
+  host.executeCommand('clear');
+  host.executeCommand('draw rect 50 50 100 100 #ff0000ff');
+  host.executeCommand('filter blur 8 2');
+  host.executeCommand('filter brightness 20');
+  host.executeCommand('filter contrast 15');
+  host.executeCommand('filter noise 10 1');
+  host.executeCommand('filter pixelate 4');
+  host.executeCommand('filter grayscale 50');
+  host.executeCommand('filter invert 50');
+  host.executeCommand('filter sepia 40');
+  host.executeCommand('filter threshold 100');
+  host.executeCommand('filter edge 25 1');
+  host.executeCommand('filter dither 10 0');
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, and 4-Mode Action System (Draw, Erase, Smudge, Select) verified 100%!');
 }
 
 run().catch(err => {
