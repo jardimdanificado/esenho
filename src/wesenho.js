@@ -988,38 +988,47 @@ function handleSetMode(host, rawMode) {
     host.sendConsoleLog('mode set to draw');
   } else if (m === 'brush') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 0);
     host.sendConsoleLog('tool set to brush');
   } else if (m === 'smudge') {
+    host.setActionMode('smudge');
     host.currentTool = 0;
     host.setBrushParam('mode', 1);
-    host.sendConsoleLog('tool set to smudge');
+    host.sendConsoleLog('action mode set to smudge');
   } else if (m === 'blend') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 2);
     host.sendConsoleLog('tool set to blend');
   } else if (m === 'fill' || m === 'flood_fill') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 3);
     host.sendConsoleLog('tool set to fill');
   } else if (m === 'lasso_fill' || m === 'lasso') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 4);
     host.sendConsoleLog('tool set to lasso');
   } else if (m === 'picker' || m === 'eyedropper' || m === 'pipette') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 5);
     host.sendConsoleLog('tool set to picker');
   } else if (m === 'line') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 6);
     host.sendConsoleLog('tool set to line');
   } else if (m === 'rect' || m === 'rectangle') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 7);
     host.sendConsoleLog('tool set to rect');
   } else if (m === 'ellipse' || m === 'circle_shape') {
     host.currentTool = 0;
+    if (host.actionMode === 'smudge') host.setActionMode('draw');
     host.setBrushParam('mode', 8);
     host.sendConsoleLog('tool set to ellipse');
   } else if (m === 'select' || m === 'marquee') {
@@ -3030,11 +3039,12 @@ class WesenhoScreenHost {
   }
 
   /**
-   * Sets global action mode: 'draw' | 'erase' | 'select'.
+   * Sets global action mode: 'draw' | 'erase' | 'smudge' | 'select'.
    */
   setActionMode(mode) {
     const m = String(mode).toLowerCase();
     if (m === 'erase' || m === 'eraser') this.actionMode = 'erase';
+    else if (m === 'smudge') this.actionMode = 'smudge';
     else if (m === 'select' || m === 'sel') this.actionMode = 'select';
     else this.actionMode = 'draw';
     return this.actionMode;
@@ -4179,11 +4189,28 @@ class WesenhoScreenHost {
     if (!this.canvasActor || typeof this.canvasActor.exports.w_brush_stroke !== 'function') return;
 
     const col = (color !== undefined) ? color : this.currentColor;
-    const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.currentTool === 1 ? 1 : 0);
+    const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.actionMode === 'erase' || this.currentTool === 1 ? 1 : 0);
     const smooth = Math.max(0, Math.min(100, this.brushParams.smoothing || 0));
 
+    let effMode = (this.brushParams && this.brushParams.mode !== undefined) ? this.brushParams.mode : 0;
+    if (this.actionMode === 'smudge') {
+      if (effMode !== 3 && effMode !== 4 && effMode !== 5) {
+        effMode = 1; // W_MODE_SMUDGE
+      }
+    }
+    if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
+      this.canvasActor.exports.w_brush_set_param(15 /* W_PARAM_MODE */, effMode);
+      if (this.actionMode === 'smudge') {
+        const smStrength = (this.brushParams && this.brushParams.smudge > 0) ? this.brushParams.smudge : 70;
+        this.canvasActor.exports.w_brush_set_param(10 /* W_PARAM_SMUDGE */, smStrength);
+      }
+    }
+
     if (state === 0) {
-      this.pushUndoSnapshot(this.currentTool === 1 ? 'eraser' : (['brush', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode] || 'brush'));
+      if (this.actionMode !== 'select') {
+        const actLabel = this.actionMode === 'erase' ? 'eraser' : (this.actionMode === 'smudge' ? 'smudge' : (['brush', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode] || 'brush'));
+        this.pushUndoSnapshot(actLabel);
+      }
       this.lastStrokeTime = Date.now();
       this.strokeSpeed = 0;
     } else if (state === 1 && this.brushParams.velocity > 0) {

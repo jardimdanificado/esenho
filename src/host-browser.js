@@ -698,34 +698,57 @@ async function main() {
   let ftDragStart = null;          // { sx, sy, x, y } screen+doc start
   let ftDragOrigin = null;         // snapshot of floatingTransform at drag start
 
-  let selectStrokeBackup = null;
+  let selectScratchSavedActive = null;
+  let selectScratchLayerId = -1;
+  let selectPreviewCanvas = null;
+  let selectPreviewCtx = null;
+  let selectPreviewImg = null;
 
-  function snapshotBrushSelectBackup() {
+  function beginBrushSelect() {
     if (!host.canvasActor?.exports?.w_layer_get_pixels) return;
-    const act = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
-    const ptr = host.canvasActor.exports.w_layer_get_pixels(act);
-    const lw = host.canvasActor.exports.w_layer_get_width(act);
-    const lh = host.canvasActor.exports.w_layer_get_height(act);
-    if (!ptr || lw <= 0 || lh <= 0) return;
-    selectStrokeBackup = new Uint32Array(new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh));
+    const getScratch = host.canvasActor.exports.w_get_selection_scratch_layer;
+    if (!getScratch) return;
+    selectScratchLayerId = getScratch();
+    if (selectScratchLayerId < 0) return;
+
+    selectScratchSavedActive = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 3;
+
+    if (host.canvasActor.exports.w_layer_clear) {
+      host.canvasActor.exports.w_layer_clear(selectScratchLayerId);
+    }
+    if (host.canvasActor.exports.w_set_clip) {
+      host.canvasActor.exports.w_set_clip(0, 0, 0, 0, 0, 0);
+    }
+    if (host.canvasActor.exports.w_layer_select) {
+      host.canvasActor.exports.w_layer_select(selectScratchLayerId);
+    }
   }
 
-  function commitBrushSelectBackup() {
-    if (!selectStrokeBackup || !host.canvasActor?.exports?.w_layer_get_pixels) return;
-    const act = host.canvasActor.exports.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
-    const ptr = host.canvasActor.exports.w_layer_get_pixels(act);
-    const lw = host.canvasActor.exports.w_layer_get_width(act);
-    const lh = host.canvasActor.exports.w_layer_get_height(act);
-    if (!ptr || lw <= 0 || lh <= 0) { selectStrokeBackup = null; return; }
+  function endBrushSelect() {
+    if (selectScratchLayerId < 0 || !host.canvasActor?.exports?.w_layer_get_pixels) {
+      selectScratchSavedActive = null;
+      return;
+    }
+    const ptr = host.canvasActor.exports.w_layer_get_pixels(selectScratchLayerId);
+    const lw = host.canvasActor.exports.w_layer_get_width(selectScratchLayerId);
+    const lh = host.canvasActor.exports.w_layer_get_height(selectScratchLayerId);
+    if (!ptr || lw <= 0 || lh <= 0) {
+      if (selectScratchSavedActive !== null && host.canvasActor.exports.w_layer_select) {
+        host.canvasActor.exports.w_layer_select(selectScratchSavedActive);
+      }
+      selectScratchSavedActive = null;
+      selectScratchLayerId = -1;
+      return;
+    }
 
-    const curU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh);
+    const u32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh);
     let minX = lw, minY = lh, maxX = -1, maxY = -1;
     let count = 0;
 
     for (let py = 0; py < lh; py++) {
       const row = py * lw;
       for (let px = 0; px < lw; px++) {
-        if (curU32[row + px] !== selectStrokeBackup[row + px]) {
+        if ((u32[row + px] >>> 24) > 0) {
           count++;
           if (px < minX) minX = px;
           if (px > maxX) maxX = px;
@@ -743,21 +766,36 @@ async function main() {
         const row = py * lw;
         const maskRow = (py - minY) * bw;
         for (let px = minX; px <= maxX; px++) {
-          if (curU32[row + px] !== selectStrokeBackup[row + px]) {
+          if ((u32[row + px] >>> 24) > 0) {
             mask[maskRow + (px - minX)] = 1;
           }
         }
       }
-      curU32.set(selectStrokeBackup);
-      if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
-      selectStrokeBackup = null;
+
+      if (host.canvasActor.exports.w_layer_clear) {
+        host.canvasActor.exports.w_layer_clear(selectScratchLayerId);
+      }
+      if (selectScratchSavedActive !== null && host.canvasActor.exports.w_layer_select) {
+        host.canvasActor.exports.w_layer_select(selectScratchSavedActive);
+      }
+      selectScratchSavedActive = null;
+      selectScratchLayerId = -1;
 
       const newSel = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask, points: null };
       host.applySelectionOp(newSel, host.selectionMode);
-    } else {
-      curU32.set(selectStrokeBackup);
+      host.syncSelectionClip();
       if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
-      selectStrokeBackup = null;
+    } else {
+      if (host.canvasActor.exports.w_layer_clear) {
+        host.canvasActor.exports.w_layer_clear(selectScratchLayerId);
+      }
+      if (selectScratchSavedActive !== null && host.canvasActor.exports.w_layer_select) {
+        host.canvasActor.exports.w_layer_select(selectScratchSavedActive);
+      }
+      selectScratchSavedActive = null;
+      selectScratchLayerId = -1;
+      host.syncSelectionClip();
+      if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
     }
   }
 
@@ -769,11 +807,11 @@ async function main() {
 
     if (mode === 6) { // Line
       if (isSelect) {
-        snapshotBrushSelectBackup();
+        beginBrushSelect();
         host.sendStroke(start.x, start.y, start.x, start.y, 0, 0, 0xFF83A598);
         host.sendStroke(end.x, end.y, start.x, start.y, 1, 0, 0xFF83A598);
         host.sendStroke(end.x, end.y, end.x, end.y, 2, 0, 0xFF83A598);
-        commitBrushSelectBackup();
+        endBrushSelect();
       } else {
         host.pushUndoSnapshot(isErase ? 'erase line' : 'shape line');
         host.sendStroke(start.x, start.y, start.x, start.y, 0, isErase ? 1 : 0, col);
@@ -897,6 +935,33 @@ async function main() {
         }
         ctx.stroke();
         ctx.restore();
+      }
+
+      /* Live Brush Selection Scratch Preview Overlay */
+      if (selectScratchLayerId >= 0 && host.isDrawingOnCanvas && host.actionMode === 'select') {
+        const sPtr = host.canvasActor.exports.w_layer_get_pixels(selectScratchLayerId);
+        const sW = host.canvasActor.exports.w_layer_get_width(selectScratchLayerId);
+        const sH = host.canvasActor.exports.w_layer_get_height(selectScratchLayerId);
+        if (sPtr && sW > 0 && sH > 0) {
+          if (!selectPreviewCanvas || selectPreviewCanvas.width !== sW || selectPreviewCanvas.height !== sH) {
+            selectPreviewCanvas = document.createElement('canvas');
+            selectPreviewCanvas.width = sW;
+            selectPreviewCanvas.height = sH;
+            selectPreviewCtx = selectPreviewCanvas.getContext('2d');
+            selectPreviewImg = selectPreviewCtx.createImageData(sW, sH);
+          }
+          const src32 = new Uint32Array(host.canvasActor.memory.buffer, sPtr, sW * sH);
+          const dst32 = new Uint32Array(selectPreviewImg.data.buffer);
+          for (let i = 0; i < src32.length; i++) {
+            dst32[i] = (src32[i] >>> 24) > 0 ? 0x8098A583 : 0;
+          }
+          selectPreviewCtx.putImageData(selectPreviewImg, 0, 0);
+          ctx.save();
+          ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(selectPreviewCanvas, 0, 0, cw * host.zoom, ch * host.zoom);
+          ctx.restore();
+        }
       }
 
       /* Live Lasso Polygon Preview Overlay */
@@ -1367,7 +1432,7 @@ async function main() {
           return;
         }
         // Brush, smudge, blend in select mode = brush stroke selection
-        snapshotBrushSelectBackup();
+        beginBrushSelect();
         host.isDrawingOnCanvas = true;
         host.strokePrevX = x; host.strokePrevY = y;
         host.strokeIsEraser = 0;
@@ -1471,7 +1536,8 @@ async function main() {
       if (host.brushParams && host.brushParams.mode === 4) {
         lassoPoints.push({ x, y });
       }
-      host.sendStroke(x, y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, host.currentColor);
+      const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
+      host.sendStroke(x, y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, strokeCol);
       host.strokePrevX = x; host.strokePrevY = y;
     }
     updateStatus(host, x, y);
@@ -1553,13 +1619,14 @@ async function main() {
         return;
       }
       if (!(host.mouseState.buttons & 3) && host.isDrawingOnCanvas) {
+        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
         host.sendStroke(host.strokePrevX, host.strokePrevY,
                         host.strokePrevX, host.strokePrevY,
-                        2, host.strokeIsEraser, host.currentColor);
+                        2, host.strokeIsEraser, strokeCol);
         host.isDrawingOnCanvas = false;
         lassoPoints = [];
-        if (selectStrokeBackup) {
-          commitBrushSelectBackup();
+        if (selectScratchLayerId >= 0) {
+          endBrushSelect();
         }
       }
     }
@@ -1594,7 +1661,7 @@ async function main() {
       host.strokePrevX = p.x; host.strokePrevY = p.y;
       const curMode = host.brushParams ? host.brushParams.mode : 0;
       if (host.actionMode === 'select') {
-        snapshotBrushSelectBackup();
+        beginBrushSelect();
         host.strokeIsEraser = 0;
         host.sendStroke(p.x, p.y, p.x, p.y, 0, 0, 0xFF83A598);
       } else {
@@ -1796,8 +1863,9 @@ async function main() {
         if (host.brushParams && host.brushParams.mode === 4) {
           lassoPoints.push({ x, y });
         }
+        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
         host.sendStroke(x, y, host.strokePrevX, host.strokePrevY,
-                        1, host.strokeIsEraser, host.currentColor);
+                        1, host.strokeIsEraser, strokeCol);
         host.strokePrevX = x; host.strokePrevY = y;
         updateStatus(host, x, y);
       }
@@ -1814,11 +1882,15 @@ async function main() {
       }
       clearPendingTouch();
       if (touch.drawing) {
+        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
         host.sendStroke(host.strokePrevX, host.strokePrevY,
                         host.strokePrevX, host.strokePrevY,
-                        2, host.strokeIsEraser, host.currentColor);
+                        2, host.strokeIsEraser, strokeCol);
         touch.drawing = false;
         lassoPoints = [];
+        if (selectScratchLayerId >= 0) {
+          endBrushSelect();
+        }
       }
 
       if (touch.tapGesture && !touch.tapGesture.moved) {
@@ -1948,22 +2020,24 @@ async function main() {
     if (touch.pending && !touch.longPressTriggered) {
       /* Single-tap tap dab */
       commitPendingTouch();
+      const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
       host.sendStroke(host.strokePrevX, host.strokePrevY,
                       host.strokePrevX, host.strokePrevY,
-                      2, host.strokeIsEraser, host.currentColor);
+                      2, host.strokeIsEraser, strokeCol);
       touch.drawing = false;
       lassoPoints = [];
-      if (selectStrokeBackup) {
-        commitBrushSelectBackup();
+      if (selectScratchLayerId >= 0) {
+        endBrushSelect();
       }
     } else if (e.touches.length === 0 && touch.drawing) {
+      const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
       host.sendStroke(host.strokePrevX, host.strokePrevY,
                       host.strokePrevX, host.strokePrevY,
-                      2, host.strokeIsEraser, host.currentColor);
+                      2, host.strokeIsEraser, strokeCol);
       touch.drawing = false;
       lassoPoints = [];
-      if (selectStrokeBackup) {
-        commitBrushSelectBackup();
+      if (selectScratchLayerId >= 0) {
+        endBrushSelect();
       }
     }
 
@@ -4029,15 +4103,15 @@ function ensureUiPanel() {
           </div>
           <div class="ui-control" style="margin-bottom: 6px;">
             <label class="ui-label">MODE</label>
-            <div class="ui-grid-3">
+            <div class="ui-grid-4">
               <button class="ui-btn mode-btn active" data-actionmode="draw" title="Draw Mode">Draw</button>
               <button class="ui-btn mode-btn" data-actionmode="erase" title="Erase Mode">Erase</button>
+              <button class="ui-btn mode-btn" data-actionmode="smudge" title="Smudge Mode">Smudge</button>
               <button class="ui-btn mode-btn" data-actionmode="select" title="Select Mode">Select</button>
             </div>
           </div>
-          <div class="ui-grid-3">
+          <div class="ui-grid-4">
             <button class="ui-btn tool-btn active" data-tool="brush" title="Brush">Brush</button>
-            <button class="ui-btn tool-btn" data-tool="smudge" title="Smudge">Smudge</button>
             <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
             <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
             <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso">Lasso</button>

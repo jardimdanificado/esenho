@@ -816,7 +816,7 @@ static int32_t last_trajectory_angle = 0;
  * Renders a single parametric dab at (cx, cy) onto active layer pixels.
  * Samples shape texture alpha channel for arbitrary tip geometry.
  */
-static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, uint32_t color, int eraser, uint32_t *src_patch, int dab_r, int dab_angle, int dab_flow_pct) {
+static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, uint32_t color, int eraser, int move_dx, int move_dy, int dab_r, int dab_angle, int dab_flow_pct) {
     int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     int r = (dab_r > 0) ? dab_r : brush_config.size;
     if (r < 1) r = 1;
@@ -852,8 +852,6 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
         shape_id = 0;
     }
     layer_t *stex = &layers[shape_id];
-
-    int patch_idx = 0;
 
     for (int y = min_y; y <= max_y; y++) {
         int dy = y - cy;
@@ -950,12 +948,21 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     uint32_t na = (a >= da) ? 0 : (da - a);
                     pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
                 }
-            } else if (brush_config.type == W_MODE_SMUDGE && src_patch) {
-                uint32_t src = src_patch[patch_idx++];
-                if ((src >> 24) > 0) {
-                    uint32_t res = mix_color(src, dst_p, brush_config.smudge_strength);
-                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+            } else if (brush_config.type == W_MODE_SMUDGE) {
+                int sx = x - move_dx;
+                int sy = y - move_dy;
+                uint32_t sample_p = 0;
+                if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+                    sample_p = pix[sy * w + sx];
                 }
+                uint32_t smudge_src = ((sample_p >> 24) > 0) ? mix_color(sample_p, color, 65) : color;
+                if (((smudge_src >> 24) & 0xFF) == 0) continue;
+
+                int strength = (brush_config.smudge_strength > 0) ? brush_config.smudge_strength : 70;
+                uint32_t sm_flow = (a * (uint32_t)strength) / 100;
+                if (sm_flow == 0) sm_flow = 1;
+                uint32_t res = w_blend_fast(smudge_src, dst_p, sm_flow, max_stroke_a);
+                pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
             } else if (brush_config.type == W_MODE_BLEND) {
                 int step = (r > 6) ? (r / 4) : 1;
                 uint32_t c0 = dst_p;
@@ -1061,6 +1068,26 @@ W_EXPORT void w_resize(uint32_t width, uint32_t height) {
 W_EXPORT int32_t w_layer_create(int32_t width, int32_t height) {
     init_surface_if_needed();
     return layer_alloc_slot(width, height, 0);
+}
+
+static int selection_scratch_layer = -1;
+
+W_EXPORT int32_t w_get_selection_scratch_layer(void) {
+    init_surface_if_needed();
+    int w = get_width();
+    int h = get_height();
+    if (selection_scratch_layer >= 0 && selection_scratch_layer < layer_count && layers[selection_scratch_layer].in_use) {
+        if (layers[selection_scratch_layer].width != w || layers[selection_scratch_layer].height != h) {
+            w_layer_resize(selection_scratch_layer, w, h, 0);
+        }
+        return selection_scratch_layer;
+    }
+    int idx = layer_alloc_slot(w, h, 0);
+    if (idx >= 0) {
+        layers[idx].visible = 0;
+        selection_scratch_layer = idx;
+    }
+    return idx;
 }
 
 W_EXPORT int32_t w_layer_add(void) {
@@ -1620,6 +1647,14 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
     if (state == 0) {
         stroke_cum_dist = 0;
         stroke_pickup_color = color;
+        if (brush_config.type == W_MODE_SMUDGE) {
+            if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h) {
+                uint32_t p0 = pix[y0 * w + x0];
+                if (((p0 >> 24) & 0xFF) > 0) {
+                    stroke_pickup_color = p0;
+                }
+            }
+        }
     }
 
     // 1. FLOOD FILL MODE
@@ -1674,8 +1709,8 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
     }
 
     // 3. CONTINUOUS DAB INTERPOLATION (Draw, Smudge, Blend)
-    int dx = x1 - x0;
-    int dy = y1 - y0;
+    int dx = x0 - x1;
+    int dy = y0 - y1;
     int dist = w_isqrt(dx * dx + dy * dy);
 
     if (dist > 1) {
@@ -1689,23 +1724,15 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
     int steps = (dist + step_size - 1) / step_size;
     if (steps < 1) steps = 1;
 
-    int patch_dim = (brush_config.size * 284) / 100 + 4;
-    uint32_t *patch = 0;
-    if (brush_config.type == W_MODE_SMUDGE) {
-        int sm_r = (brush_config.size * 142) / 100 + 1;
-        int sx0 = x0 - sm_r, sy0 = y0 - sm_r;
-        int sx1 = x0 + sm_r, sy1 = y0 + sm_r;
-        int pidx = 0;
-        for (int py = sy0; py <= sy1 && pidx < MAX_SAMPLE; py++) {
-            for (int px = sx0; px <= sx1 && pidx < MAX_SAMPLE; px++) {
-                if (px >= 0 && px < w && py >= 0 && py < h) {
-                    sample_buf[pidx++] = pix[py * w + px];
-                } else {
-                    sample_buf[pidx++] = 0;
-                }
-            }
-        }
-        patch = sample_buf;
+    int move_dx = 0, move_dy = 0;
+    if (dist > 0) {
+        int sm_step = (brush_config.size > 8) ? (brush_config.size / 4) : 2;
+        if (sm_step < 1) sm_step = 1;
+        if (sm_step > 8) sm_step = 8;
+        move_dx = (dx * sm_step) / dist;
+        move_dy = (dy * sm_step) / dist;
+        if (move_dx == 0 && dx != 0) move_dx = (dx > 0 ? 1 : -1);
+        if (move_dy == 0 && dy != 0) move_dy = (dy > 0 ? 1 : -1);
     }
 
     int d_bound = (brush_config.size * 142) / 100 + 4;
@@ -1776,16 +1803,17 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
         }
         if (dab_flow_pct <= 0) continue;
 
-        int cx = (steps == 0) ? x0 : (x0 + (dx * i) / steps);
-        int cy = (steps == 0) ? y0 : (y0 + (dy * i) / steps);
+        int cx = (steps <= 1) ? x0 : (x1 + (dx * (i + 1)) / steps);
+        int cy = (steps <= 1) ? y0 : (y1 + (dy * (i + 1)) / steps);
 
         // Color with color_jitter and continuous color_pickup
         uint32_t dab_color = color;
-        if (brush_config.color_pickup > 0) {
+        if (brush_config.color_pickup > 0 || brush_config.type == W_MODE_SMUDGE) {
             if (cx >= 0 && cx < w && cy >= 0 && cy < h) {
                 uint32_t under_p = pix[cy * w + cx];
                 if (((under_p >> 24) & 0xFF) > 10) {
-                    stroke_pickup_color = mix_color(under_p, stroke_pickup_color, brush_config.color_pickup);
+                    int pickup_rate = (brush_config.color_pickup > 0) ? brush_config.color_pickup : 30;
+                    stroke_pickup_color = mix_color(under_p, stroke_pickup_color, pickup_rate);
                 }
             }
             dab_color = stroke_pickup_color;
@@ -1821,20 +1849,20 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
             }
         }
 
-        render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, patch, dab_r, dab_angle, dab_flow_pct);
+        render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct);
 
         if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
             int sym_x = w - 1 - cx;
-            render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, patch, dab_r, 180 - dab_angle, dab_flow_pct);
+            render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct);
         }
         if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
             int sym_y = h - 1 - cy;
-            render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, patch, dab_r, -dab_angle, dab_flow_pct);
+            render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct);
         }
         if (brush_config.symmetry == 3) {
             int sym_x = w - 1 - cx;
             int sym_y = h - 1 - cy;
-            render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, patch, dab_r, 180 + dab_angle, dab_flow_pct);
+            render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct);
         }
     }
 

@@ -1254,9 +1254,37 @@ async function run() {
   if (!host.selection.active || host.selection.x > 50 || (host.selection.x + host.selection.w) < 119) {
     throw new Error(`wand global (adjacent off) failed: expected both squares, got ${JSON.stringify(host.selection)}`);
   }
-  // 9. Test Action Modes: Draw, Erase, Select
+  // 9. Test Action Modes: Draw, Erase, Smudge, Select
   host.executeCommand('set action_mode erase');
   if (host.actionMode !== 'erase') throw new Error(`set action_mode erase failed, got ${host.actionMode}`);
+  host.executeCommand('set action_mode smudge');
+  if (host.actionMode !== 'smudge') throw new Error(`set action_mode smudge failed, got ${host.actionMode}`);
+
+  // Test Smudge stroke smears paint
+  host.executeCommand('deselect');
+  host.executeCommand('clear');
+  host.executeCommand('set action_mode draw');
+  host.executeCommand('set size 10');
+  host.executeCommand('set hardness 100');
+  host.executeCommand('draw rect 40 40 20 20 #0000ffff'); // Blue square
+  const actL = host.canvasActor.exports.get_active_layer();
+  const smWidth = host.canvasActor.exports.w_layer_get_width(actL);
+  const smHeight = host.canvasActor.exports.w_layer_get_height(actL);
+  const beforeSmudge = host.canvasActor.exports.w_layer_get_pixels(actL);
+  const beforeU32 = new Uint32Array(host.canvasActor.memory.buffer, beforeSmudge, smWidth * smHeight);
+  if ((beforeU32[45 * smWidth + 65] >>> 24) !== 0) {
+    throw new Error('expected target pixel to be empty before smudge');
+  }
+  host.setActionMode('smudge');
+  host.sendStroke(50, 45, 50, 45, 0, 0, 0);
+  host.sendStroke(70, 45, 50, 45, 1, 0, 0);
+  host.sendStroke(70, 45, 70, 45, 2, 0, 0);
+  const afterSmudge = host.canvasActor.exports.w_layer_get_pixels(actL);
+  const afterU32 = new Uint32Array(host.canvasActor.memory.buffer, afterSmudge, smWidth * smHeight);
+  if ((afterU32[45 * smWidth + 65] >>> 24) === 0) {
+    throw new Error('smudge failed to smear color to (65, 45)');
+  }
+
   host.executeCommand('set action_mode select');
   if (host.actionMode !== 'select') throw new Error(`set action_mode select failed, got ${host.actionMode}`);
   host.setEllipseSelection(150, 150, 20, 15);
@@ -1264,10 +1292,28 @@ async function run() {
     throw new Error(`setEllipseSelection failed: ${JSON.stringify(host.selection)}`);
   }
   host.executeCommand('deselect');
+
+  // Test Selection scratch layer with brush over existing colored content
+  const scratchId = host.canvasActor.exports.w_get_selection_scratch_layer();
+  if (scratchId < 0) throw new Error('w_get_selection_scratch_layer failed');
+  const curAct = host.canvasActor.exports.get_active_layer();
+  host.canvasActor.exports.w_layer_select(scratchId);
+  host.canvasActor.exports.w_layer_clear(scratchId);
+  host.sendStroke(45, 45, 45, 45, 0, 0, 0xFF83A598);
+  host.sendStroke(65, 45, 45, 45, 1, 0, 0xFF83A598);
+  host.sendStroke(65, 45, 65, 45, 2, 0, 0xFF83A598);
+  const sPtr = host.canvasActor.exports.w_layer_get_pixels(scratchId);
+  const sU32 = new Uint32Array(host.canvasActor.memory.buffer, sPtr, smWidth * smHeight);
+  if ((sU32[45 * smWidth + 45] >>> 24) === 0 || (sU32[45 * smWidth + 65] >>> 24) === 0) {
+    throw new Error('brush selection on scratch layer failed to record stroked pixels');
+  }
+  host.canvasActor.exports.w_layer_clear(scratchId);
+  host.canvasActor.exports.w_layer_select(curAct);
+
   host.executeCommand('set action_mode draw');
   if (host.actionMode !== 'draw') throw new Error(`set action_mode draw failed, got ${host.actionMode}`);
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, and 3-Mode Action System (Draw, Erase, Select) verified 100%!');
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, and 4-Mode Action System (Draw, Erase, Smudge, Select) verified 100%!');
 }
 
 run().catch(err => {
