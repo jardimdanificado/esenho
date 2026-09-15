@@ -1070,7 +1070,7 @@ W_EXPORT void w_resize(uint32_t width, uint32_t height) {
 
 W_EXPORT int32_t w_layer_create(int32_t width, int32_t height) {
     init_surface_if_needed();
-    return layer_alloc_slot(width, height, 0);
+    return layer_alloc_slot(width, height, 1);
 }
 
 static int selection_scratch_layer = -1;
@@ -1111,6 +1111,10 @@ W_EXPORT void w_layer_select(int32_t idx) {
         active_layer = idx;
         force_composite();
     }
+}
+
+W_EXPORT void w_set_active_layer(int32_t idx) {
+    w_layer_select(idx);
 }
 
 W_EXPORT uint32_t *w_layer_get_pixels(int32_t layer_idx) {
@@ -1402,7 +1406,8 @@ W_EXPORT int32_t w_layer_merge_down(int32_t layer_idx) {
 
 // Backward-compatible Texture Aliases
 W_EXPORT int32_t w_texture_create(int32_t width, int32_t height) {
-    return w_layer_create(width, height);
+    init_surface_if_needed();
+    return layer_alloc_slot(width, height, 0);
 }
 W_EXPORT void w_texture_set_pixels(int32_t tex_id, uint32_t *pixels, int32_t width, int32_t height) {
     w_layer_set_pixels(tex_id, pixels, width, height);

@@ -128,7 +128,7 @@
       margin-bottom: 24px;
     }
 
-    .btn-preset {
+    .btn-preset, .btn-bg-preset {
       background: var(--bg-input);
       border: 1px solid var(--border);
       color: var(--text-muted);
@@ -141,13 +141,13 @@
       transition: all 0.1s;
     }
 
-    .btn-preset:hover {
+    .btn-preset:hover, .btn-bg-preset:hover {
       background: var(--border);
       color: var(--text);
       border-color: var(--border-bright);
     }
 
-    .btn-preset.active {
+    .btn-preset.active, .btn-bg-preset.active {
       background: var(--accent);
       color: #ffffff;
       border-color: var(--accent-hover);
@@ -165,7 +165,8 @@
       text-transform: uppercase;
       cursor: pointer;
       display: block;
-      transition: background-color 0.1s, transform 0.05s;
+      box-shadow: 0 4px 0 #b57614;
+      transition: transform 0.05s, background 0.1s;
     }
 
     .btn-start:hover {
@@ -218,18 +219,33 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label for="inp-bg" class="presets-label">Background Color</label>
+        <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 20px;">
+          <input type="color" id="inp-bg" name="bg" value="#fbf1c7" style="width: 46px; height: 34px; padding: 2px; background: var(--bg-input); border: 1px solid var(--border); cursor: pointer;">
+          <div class="presets-grid" style="flex: 1; grid-template-columns: repeat(4, 1fr); margin-bottom: 0;">
+            <button type="button" class="btn-bg-preset active" data-color="#fbf1c7" title="Antique Paper">Paper</button>
+            <button type="button" class="btn-bg-preset" data-color="#ffffff" title="Pure White">White</button>
+            <button type="button" class="btn-bg-preset" data-color="#282828" title="Dark Gruvbox">Dark</button>
+            <button type="button" class="btn-bg-preset" data-color="#000000" title="Pure Black">Black</button>
+          </div>
+        </div>
+      </div>
+
       <button type="submit" class="btn-start" id="btn-start">
         Create Canvas
       </button>
 
-      <p class="hint">Default: 1280 × 720 px if omitted</p>
+      <p class="hint">Default: 1280 × 720 px, Antique Paper Background</p>
     </form>
   </div>
 
   <script>
     const inpW = document.getElementById('inp-w');
     const inpH = document.getElementById('inp-h');
+    const inpBg = document.getElementById('inp-bg');
     const presets = document.querySelectorAll('.btn-preset');
+    const bgPresets = document.querySelectorAll('.btn-bg-preset');
     const form = document.getElementById('canvas-form');
 
     function updateActivePreset() {
@@ -252,6 +268,17 @@
         inpH.value = btn.dataset.h;
         updateActivePreset();
       });
+    });
+
+    bgPresets.forEach(btn => {
+      btn.addEventListener('click', () => {
+        inpBg.value = btn.dataset.color;
+        bgPresets.forEach(b => b.classList.toggle('active', b === btn));
+      });
+    });
+
+    inpBg.addEventListener('input', () => {
+      bgPresets.forEach(b => b.classList.toggle('active', b.dataset.color.toLowerCase() === inpBg.value.toLowerCase()));
     });
 
     inpW.addEventListener('input', updateActivePreset);

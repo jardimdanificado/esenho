@@ -36,8 +36,36 @@ async function main() {
   const urlParams = new URLSearchParams(window.location.search);
   const initW = parseInt(urlParams.get('w') || urlParams.get('width'), 10) || 1280;
   const initH = parseInt(urlParams.get('h') || urlParams.get('height'), 10) || 720;
+  let bgParam = urlParams.get('bg') || urlParams.get('bgcolor') || '#fbf1c7';
+  if (bgParam && !bgParam.startsWith('#')) bgParam = '#' + bgParam;
+
   host.canvasActor.exports.w_init(initW, initH);
   host.syncBrushParams(host.canvasActor);
+
+  // 1. Fill Background layer (slot 3) with chosen background color (default antique paper #fbf1c7)
+  const bgColInt = parseColorString(bgParam, 0xFFC7F1FB);
+  const bgPtr = host.canvasActor.exports.w_layer_get_pixels(3);
+  if (bgPtr) {
+    const bgPix = new Uint32Array(host.canvasActor.memory.buffer, bgPtr, initW * initH);
+    bgPix.fill(bgColInt);
+  }
+  if (!host.layerNames) host.layerNames = new Map();
+  host.layerNames.set(3, 'Background');
+
+  // 2. Create blank drawing layer directly above Background and set it as active
+  const drawLayerId = host.canvasActor.exports.w_layer_create(initW, initH);
+  if (drawLayerId >= 0) {
+    host.layerNames.set(drawLayerId, 'Layer 1');
+    if (typeof host.canvasActor.exports.w_layer_set_visible === 'function') {
+      host.canvasActor.exports.w_layer_set_visible(drawLayerId, 1);
+    }
+    if (typeof host.canvasActor.exports.w_layer_select === 'function') {
+      host.canvasActor.exports.w_layer_select(drawLayerId);
+    } else if (typeof host.canvasActor.exports.w_set_active_layer === 'function') {
+      host.canvasActor.exports.w_set_active_layer(drawLayerId);
+    }
+  }
+  host.canvasActor.exports.force_composite();
   log('canvas.wasm ready [ok]');
 
   try {
@@ -668,11 +696,6 @@ async function main() {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.cutSelection();
       log('cut selection [ok]');
-      e.preventDefault();
-    } else if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
-      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
-      host.pasteClipboard();
-      log('pasted clipboard [ok]');
       e.preventDefault();
     } else if ((e.ctrlKey && (e.key === 'd' || e.key === 'D')) || e.key === 'Escape') {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
@@ -3831,7 +3854,11 @@ async function main() {
         const blendMode = host.getLayerBlendMode ? host.getLayerBlendMode(i) : 0;
 
         let name = `layer_${i}`;
-        if (host.textures) {
+        if (i === 3) {
+          name = 'Background';
+        } else if (host.layerNames && host.layerNames.has(i)) {
+          name = host.layerNames.get(i);
+        } else if (host.textures) {
           for (const [k, v] of host.textures.entries()) {
             if (v.wasmId === i) { name = k; break; }
           }
@@ -4063,17 +4090,7 @@ async function main() {
         return row;
       };
 
-      // 1. Render empty groups first at top
-      if (host.layerGroups) {
-        for (const grp of host.layerGroups.values()) {
-          if (grp.layerIds.length === 0) {
-            layersList.appendChild(createGroupHeader(grp));
-            renderedGroups.add(grp.id);
-          }
-        }
-      }
-
-      // 2. Render layers in top-to-bottom order (highest pos down to 0)
+      // 1. Render all main document layers (not in folders) in top-to-bottom order (highest pos down to 0)
       for (let pos = orderCount - 1; pos >= 0; pos--) {
         const i = (host.canvasActor.exports.w_layer_get_order)
           ? host.canvasActor.exports.w_layer_get_order(pos)
@@ -4081,16 +4098,25 @@ async function main() {
         if (i < 0 || i >= count) continue;
 
         const grp = layerToGroup.get(i);
-        if (grp) {
-          if (!renderedGroups.has(grp.id)) {
-            layersList.appendChild(createGroupHeader(grp));
-            renderedGroups.add(grp.id);
-          }
-          if (!grp.collapsed) {
-            layersList.appendChild(renderLayerRow(i, pos, true));
-          }
-        } else {
+        if (!grp) {
           layersList.appendChild(renderLayerRow(i, pos, false));
+        }
+      }
+
+      // 2. Render layer folders below main layers (collapsed by default)
+      if (host.layerGroups) {
+        for (const grp of host.layerGroups.values()) {
+          layersList.appendChild(createGroupHeader(grp));
+          if (!grp.collapsed) {
+            for (let pos = orderCount - 1; pos >= 0; pos--) {
+              const i = (host.canvasActor.exports.w_layer_get_order)
+                ? host.canvasActor.exports.w_layer_get_order(pos)
+                : pos;
+              if (grp.layerIds.includes(i)) {
+                layersList.appendChild(renderLayerRow(i, pos, true));
+              }
+            }
+          }
         }
       }
     }

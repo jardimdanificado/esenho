@@ -2582,7 +2582,8 @@ class WesenhoScreenHost {
     this.onUiScaleChange = null;
 
     // Layer Groups / Folders
-    this.layerGroups = new Map(); // id -> { id, name, collapsed: false, visible: true, layerIds: [] }
+    this.layerGroups = new Map(); // id -> { id, name, collapsed: true, visible: true, layerIds: [] }
+    this.layerNames = new Map();  // layerId -> custom name
     this.groupCounter = 1;
     this.createGroup('tips');
     this.createGroup('grains');
@@ -3864,7 +3865,7 @@ class WesenhoScreenHost {
     const grp = {
       id,
       name: name || `Folder ${this.layerGroups.size + 1}`,
-      collapsed: false,
+      collapsed: true,
       visible: true,
       layerIds: []
     };
