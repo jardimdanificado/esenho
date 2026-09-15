@@ -438,9 +438,15 @@ async function main() {
       }
     }, true);
 
-    const applyDockHeight = (clientY) => {
+    let dockRafId = null;
+    let pendingClientY = null;
+
+    const updateDockHeightUI = (clientY) => {
       if (!isDraggingDock) return;
-      const dy = clientY - startY;
+      const scale = parseFloat(getComputedStyle(bottomDock).zoom) || 1;
+      const rawDy = clientY - startY;
+      const dy = rawDy / scale;
+
       if (!hasMoved && Math.abs(dy) > 4) {
         hasMoved = true;
       }
@@ -496,12 +502,31 @@ async function main() {
           }
         }
       }
-      resize();
+    };
+
+    const applyDockHeight = (clientY) => {
+      pendingClientY = clientY;
+      if (!dockRafId) {
+        dockRafId = requestAnimationFrame(() => {
+          dockRafId = null;
+          if (pendingClientY !== null) {
+            updateDockHeightUI(pendingClientY);
+          }
+        });
+      }
     };
 
     const finishDockDrag = () => {
       if (!isDraggingDock) return;
       isDraggingDock = false;
+      if (dockRafId) {
+        cancelAnimationFrame(dockRafId);
+        dockRafId = null;
+      }
+      if (pendingClientY !== null) {
+        updateDockHeightUI(pendingClientY);
+        pendingClientY = null;
+      }
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
       window.removeEventListener('pointermove', onPointerMove);
@@ -1713,11 +1738,14 @@ async function main() {
 
   function updateColorControlsFromHex(hex) {
     if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
-    if (colorPreview) colorPreview.style.background = hex;
-    if (colorPicker && document.activeElement !== colorPicker) colorPicker.value = hex;
-    if (colorHex && document.activeElement !== colorHex) colorHex.value = hex;
+    const cleanHex = hex.toLowerCase();
+    if (colorPreview) colorPreview.style.background = cleanHex;
+    if (colorPicker && document.activeElement !== colorPicker) {
+      colorPicker.value = cleanHex;
+    }
+    if (colorHex && document.activeElement !== colorHex) colorHex.value = cleanHex;
 
-    const rgb = hexToRgb(hex);
+    const rgb = hexToRgb(cleanHex);
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
     if (slR && document.activeElement !== slR) { slR.value = rgb.r; slR._currentVal = String(rgb.r); document.getElementById('ui-val-rgb-r').textContent = rgb.r; }
