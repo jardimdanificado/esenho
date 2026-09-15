@@ -1,0 +1,19 @@
+{
+  "name": "Esenho",
+  "short_name": "Esenho",
+  "description": "Minimalist pixel canvas and drawing editor",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1d2021",
+  "theme_color": "#1d2021",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
