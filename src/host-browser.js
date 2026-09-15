@@ -689,6 +689,7 @@ async function main() {
       ctx.save();
       ctx.translate(cx, cy);
       if (host.flipH) ctx.scale(-1, 1);
+      if (host.flipV) ctx.scale(1, -1);
       ctx.rotate(host.canvasRotation);
       ctx.imageSmoothingEnabled = false;
       ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
@@ -787,6 +788,7 @@ async function main() {
     let dx = sx - ocx;
     let dy = sy - ocy;
     if (host.flipH) dx = -dx;
+    if (host.flipV) dy = -dy;
     /* unrotate around origin */
     const cosA = Math.cos(-host.canvasRotation);
     const sinA = Math.sin(-host.canvasRotation);
@@ -2062,6 +2064,8 @@ async function main() {
   if (btnResetRot) btnResetRot.addEventListener('click', () => runCmd('rotate reset'));
   const btnFlipH = document.getElementById('ui-btn-flip-h');
   if (btnFlipH) btnFlipH.addEventListener('click', () => runCmd('flip canvas'));
+  const btnFlipV = document.getElementById('ui-btn-flip-v');
+  if (btnFlipV) btnFlipV.addEventListener('click', () => runCmd('flip v'));
 
   // 5. Filters & Export
   const applyFilterBtn = document.getElementById('ui-btn-apply-filter');
@@ -2325,6 +2329,10 @@ async function main() {
       const btnFlipH = document.getElementById('ui-btn-flip-h');
       if (btnFlipH) {
         btnFlipH.classList.toggle('active', !!host.flipH);
+      }
+      const btnFlipV = document.getElementById('ui-btn-flip-v');
+      if (btnFlipV) {
+        btnFlipV.classList.toggle('active', !!host.flipV);
       }
       const selScale = document.getElementById('ui-select-scale');
       if (selScale && host.uiScale) {

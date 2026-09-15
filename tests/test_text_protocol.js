@@ -923,7 +923,7 @@ async function run() {
   }
   host.executeCommand(`layer blend ${blendLayer} normal`);
 
-  // 4. Flip Canvas Horizontal
+  // 4. Flip Canvas Horizontal & Vertical
   if (host.flipH !== false) throw new Error('Expected initial flipH to be false');
   host.executeCommand('flip canvas');
   if (host.flipH !== true) throw new Error('Expected flipH true after flip canvas');
@@ -933,6 +933,18 @@ async function run() {
   if (host.flipH !== true) throw new Error('Expected flipH true after view flip');
   host.executeCommand('flip');
   if (host.flipH !== false) throw new Error('Expected flipH false after toggle flip');
+
+  if (host.flipV !== false) throw new Error('Expected initial flipV to be false');
+  host.executeCommand('flip v');
+  if (host.flipV !== true) throw new Error('Expected flipV true after flip v');
+  host.executeCommand('flip vertical');
+  if (host.flipV !== false) throw new Error('Expected flipV false after flip vertical');
+  host.executeCommand('view flip v');
+  if (host.flipV !== true) throw new Error('Expected flipV true after view flip v');
+  host.executeCommand('flip canvas');
+  if (host.flipH !== true || host.flipV !== true) throw new Error('Expected both flipH and flipV true');
+  host.executeCommand('flip reset');
+  if (host.flipH !== false || host.flipV !== false) throw new Error('Expected flip reset to clear both flips');
 
   // 5. Real-Time Symmetry
   const symLayer = host.canvasActor.exports.w_layer_add();
@@ -1007,8 +1019,9 @@ async function run() {
     throw new Error('Brush params setup before reset tool failed');
   }
   host.executeCommand('reset tool');
-  if (host.brushParams.size !== 8 || host.brushParams.opacity !== 100 || host.brushParams.hardness !== 80 ||
-      host.brushParams.symmetry !== 0 || host.brushParams.color_pickup !== 0) {
+  if (host.brushParams.size !== 16 || host.brushParams.opacity !== 100 || host.brushParams.hardness !== 100 ||
+      host.brushParams.spacing !== 5 || host.brushParams.smudge !== 0 || host.brushParams.wetness !== 0 ||
+      host.brushParams.symmetry !== 0 || host.brushParams.color_pickup !== 0 || host.activeTexture !== 'none') {
     throw new Error(`reset tool failed, brushParams: ${JSON.stringify(host.brushParams)}`);
   }
 

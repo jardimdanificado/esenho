@@ -585,16 +585,16 @@ typedef struct {
 static w_brush_config_t brush_config = {
     .type = W_MODE_DRAW,
     .shape = 0,
-    .size = 8,
+    .size = 16,
     .opacity = 100,
-    .hardness = 80,
+    .hardness = 100,
     .flow = 100,
-    .spacing = 15,
+    .spacing = 5,
     .angle = 0,
     .roundness = 100,
     .scatter = 0,
-    .smudge_strength = 50,
-    .wetness = 50,
+    .smudge_strength = 0,
+    .wetness = 0,
     .grain = 0,
     .tolerance = 32,
     .tex_mode = 0,
@@ -618,7 +618,7 @@ static w_brush_config_t brush_config = {
     .color_pickup = 0,
     .dual_shape = -1,
     .dual_size = 100,
-    .dual_spacing = 20,
+    .dual_spacing = 10,
     .symmetry = 0
 };
 
@@ -1442,6 +1442,49 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_DUAL_SPACING:   if (val > 0) brush_config.dual_spacing = val; break;
         case W_PARAM_SYMMETRY:       if (val >= 0 && val <= 3) brush_config.symmetry = val; break;
     }
+}
+
+W_EXPORT void w_brush_reset(void) {
+    brush_config.type = W_MODE_DRAW;
+    brush_config.shape = 0;
+    brush_config.size = 16;
+    brush_config.opacity = 100;
+    brush_config.hardness = 100;
+    brush_config.flow = 100;
+    brush_config.spacing = 5;
+    brush_config.angle = 0;
+    brush_config.roundness = 100;
+    brush_config.scatter = 0;
+    brush_config.smudge_strength = 0;
+    brush_config.wetness = 0;
+    brush_config.grain = 0;
+    brush_config.tolerance = 32;
+    brush_config.tex_mode = 0;
+    brush_config.tex_angle = 0;
+    brush_config.tex_scale = 100;
+    brush_config.smooth = 0;
+    brush_config.midpoint = 50;
+    brush_config.tex_contrast = 100;
+    brush_config.auto_rotate = 0;
+    brush_config.velocity = 0;
+    brush_config.taper_in = 0;
+    brush_config.taper_out = 0;
+    brush_config.fade = 0;
+    brush_config.size_jitter = 0;
+    brush_config.angle_jitter = 0;
+    brush_config.opacity_jitter = 0;
+    brush_config.color_jitter = 0;
+    brush_config.dab_blend = 0;
+    brush_config.subpixel = 0;
+    brush_config.depletion = 0;
+    brush_config.color_pickup = 0;
+    brush_config.dual_shape = -1;
+    brush_config.dual_size = 100;
+    brush_config.dual_spacing = 10;
+    brush_config.symmetry = 0;
+    g_texture.pixels = 0;
+    g_texture.width = 0;
+    g_texture.height = 0;
 }
 
 static int32_t stroke_cum_dist = 0;

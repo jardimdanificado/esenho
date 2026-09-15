@@ -795,6 +795,11 @@ function handleGet(host, rawCat, rawProp) {
     return;
   }
 
+  if (cat === 'flip_v' || cat === 'flipv') {
+    console.log(host.flipV ? 'on' : 'off');
+    return;
+  }
+
   if (cat === 'symmetry' || cat === 'mirror') {
     const sNames = ['off', 'vertical', 'horizontal', 'quad'];
     const sVal = host.brushParams.symmetry || 0;
@@ -1083,6 +1088,7 @@ const COMMAND_RULES = [
     undo / redo                  Revert or reapply actions
     history [clear]              Show or clear undo/redo stack
     flip canvas / flip h         Mirror canvas viewport horizontally
+    flip v / flip vertical       Mirror canvas viewport vertically
     set symmetry <off|v|h|quad>  Mirror brush strokes across axes
 
   \x1b[36mFilter Commands:\x1b[0m
@@ -1580,6 +1586,27 @@ const COMMAND_RULES = [
   { pat: "flip h", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
   { pat: "view flip", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
   { pat: "flip", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip canvas").run(m, host) },
+
+  // Viewport / Canvas Flip Vertical
+  {
+    pat: "flip v",
+    run: (m, host) => {
+      const flipped = host.toggleFlipV();
+      host.sendConsoleLog(`canvas flip vertical: ${flipped ? 'on' : 'off'}`);
+    }
+  },
+  { pat: "flip vertical", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip v").run(m, host) },
+  { pat: "view flip v", run: (m, host) => COMMAND_RULES.find(r => r.pat === "flip v").run(m, host) },
+
+  // Viewport Flip Reset
+  {
+    pat: "flip reset",
+    run: (m, host) => {
+      host.setFlipH(false);
+      host.setFlipV(false);
+      host.sendConsoleLog('canvas flip reset: off');
+    }
+  },
 
   {
     pat: "clear layer $id$int",
@@ -2136,20 +2163,21 @@ class WesenhoScreenHost {
     this.activeBrush = 'custom';
     this.currentColor = 0xFF000000; // Opaque Black (0xAABBGGRR)
     this.currentTool = 0;           // 0 = Brush, 1 = Eraser
+    this.activeTexture = 'none';
 
     // Configurable Brush Parameters
     this.brushParams = {
-      size: 8,
+      size: 16,
       opacity: 100,
-      hardness: 80,
+      hardness: 100,
       flow: 100,
-      spacing: 15,
+      spacing: 5,
       roundness: 100,
       angle: 0,
       scatter: 0,
       tolerance: 32,
-      smudge: 60,
-      wetness: 50,
+      smudge: 0,
+      wetness: 0,
       grain: 0,
       texture_mode: 0,
       texture_angle: 0,
@@ -2169,11 +2197,18 @@ class WesenhoScreenHost {
       opacity_jitter: 0,
       color_jitter: 0,
       dab_blend: 0,
-      symmetry: 0
+      symmetry: 0,
+      subpixel: 0,
+      depletion: 0,
+      color_pickup: 0,
+      dual_shape: -1,
+      dual_size: 100,
+      dual_spacing: 10
     };
 
     // Canvas Viewport Flip
     this.flipH = false;
+    this.flipV = false;
 
     // Undo / Redo History
     this.undoStack = [];
@@ -2473,23 +2508,39 @@ class WesenhoScreenHost {
   }
 
   /**
+   * Sets viewport vertical flip.
+   */
+  setFlipV(val) {
+    this.flipV = !!val;
+    return this.flipV;
+  }
+
+  /**
+   * Toggles viewport vertical flip.
+   */
+  toggleFlipV() {
+    this.flipV = !this.flipV;
+    return this.flipV;
+  }
+
+  /**
    * Resets all tool/brush parameters to factory defaults.
    */
   resetTool() {
     this.currentTool = 0; // brush
     this.activeTexture = 'none';
     this.brushParams = {
-      size: 8,
+      size: 16,
       opacity: 100,
-      hardness: 80,
+      hardness: 100,
       flow: 100,
-      spacing: 15,
+      spacing: 5,
       roundness: 100,
       angle: 0,
       scatter: 0,
       tolerance: 32,
-      smudge: 60,
-      wetness: 50,
+      smudge: 0,
+      wetness: 0,
       grain: 0,
       texture_mode: 0,
       texture_angle: 0,
@@ -2515,15 +2566,21 @@ class WesenhoScreenHost {
       color_pickup: 0,
       dual_shape: -1,
       dual_size: 100,
-      dual_spacing: 20
+      dual_spacing: 10
     };
     if (this.canvasActor && this.canvasActor.exports) {
+      if (typeof this.canvasActor.exports.w_brush_reset === 'function') {
+        this.canvasActor.exports.w_brush_reset();
+      }
       this.syncBrushParams();
       if (typeof this.canvasActor.exports.w_brush_set_param === 'function') {
-        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.tex_layer, 0);
+        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.tex_layer, -1);
         this.canvasActor.exports.w_brush_set_param(PARAM_IDS.shape, 0);
         this.canvasActor.exports.w_brush_set_param(PARAM_IDS.mode, 0);
+        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.texture_mode, 0);
+        this.canvasActor.exports.w_brush_set_param(PARAM_IDS.dual_shape, -1);
       }
+      this.setTexture('none');
       if (typeof this.canvasActor.exports.w_brush_set_symmetry === 'function') {
         this.canvasActor.exports.w_brush_set_symmetry(0);
       }
@@ -2859,6 +2916,8 @@ class WesenhoScreenHost {
     }
     if (this.activeTexture && this.activeTexture !== 'none') {
       this.setTexture(this.activeTexture);
+    } else {
+      this.setTexture('none');
     }
   }
 
