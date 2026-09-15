@@ -624,6 +624,21 @@ async function main() {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.redo();
       e.preventDefault();
+    } else if (e.key === 'Alt') {
+      if (!isAltPicker && (!document.activeElement || (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA'))) {
+        isAltPicker = true;
+        canvasEl.style.cursor = 'crosshair';
+      }
+    }
+  });
+
+  window.addEventListener('keyup', e => {
+    if (e.key === 'Alt') {
+      if (isAltPicker) {
+        isAltPicker = false;
+        hideEyedropper();
+        canvasEl.style.cursor = '';
+      }
     }
   });
 
@@ -748,6 +763,32 @@ async function main() {
     return { sx, sy, ...screenToDoc(sx, sy) };
   }
 
+  /* ── Eyedropper / Color Picker Ring ── */
+  const ringEl = document.getElementById('eyedropper-ring');
+  const ringInnerEl = document.getElementById('eyedropper-inner');
+  let isAltPicker = false;
+  let isTouchPicker = false;
+
+  function showEyedropper(cx, cy, hex) {
+    if (ringEl) {
+      ringEl.style.display = 'flex';
+      ringEl.style.left = `${cx}px`;
+      ringEl.style.top = `${cy}px`;
+    }
+    if (ringInnerEl) ringInnerEl.style.background = hex;
+  }
+
+  function hideEyedropper() {
+    if (ringEl) ringEl.style.display = 'none';
+  }
+
+  function sampleEyedropperColor(x, y, cx, cy) {
+    const hex = host.pickColor(x, y, true);
+    updateColorControlsFromHex(hex);
+    showEyedropper(cx, cy, hex);
+    return hex;
+  }
+
   /* ── Mouse events ── */
   canvasEl.addEventListener('contextmenu', e => e.preventDefault());
 
@@ -758,6 +799,11 @@ async function main() {
       host.isPanning = true; host.panStartX = sx; host.panStartY = sy;
     } else {
       host.mouseState.buttons |= e.button === 0 ? 1 : 2;
+      if (isAltPicker || (host.brushParams && host.brushParams.mode === 5)) {
+        sampleEyedropperColor(x, y, e.clientX, e.clientY);
+        e.preventDefault();
+        return;
+      }
       host.isDrawingOnCanvas = true;
       host.strokePrevX = x; host.strokePrevY = y;
       host.strokeIsEraser = e.button === 2 ? 1 : (host.currentTool === 1 ? 1 : 0);
@@ -775,6 +821,8 @@ async function main() {
     if (host.isPanning) {
       host.panX += sx - host.panStartX; host.panY += sy - host.panStartY;
       host.panStartX = sx; host.panStartY = sy;
+    } else if ((isAltPicker || (host.brushParams && host.brushParams.mode === 5)) && (host.mouseState.buttons & 3)) {
+      sampleEyedropperColor(x, y, e.clientX, e.clientY);
     } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3)) {
       if (host.brushParams && host.brushParams.mode === 4) {
         lassoPoints.push({ x, y });
@@ -789,6 +837,10 @@ async function main() {
     if (e.button === 1) { host.isPanning = false; }
     else {
       host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
+      if (isAltPicker || (host.brushParams && host.brushParams.mode === 5)) {
+        hideEyedropper();
+        return;
+      }
       if (!(host.mouseState.buttons & 3) && host.isDrawingOnCanvas) {
         host.sendStroke(host.strokePrevX, host.strokePrevY,
                         host.strokePrevX, host.strokePrevY,
@@ -816,6 +868,8 @@ async function main() {
     drawing: false,
     pending: null,       /* Pending touch: { sx, sy, x, y } */
     timer: null,
+    longPressTimer: null,
+    longPressTriggered: false,
     tapGesture: null     /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
   };
 
@@ -836,6 +890,10 @@ async function main() {
     if (touch.timer) {
       clearTimeout(touch.timer);
       touch.timer = null;
+    }
+    if (touch.longPressTimer) {
+      clearTimeout(touch.longPressTimer);
+      touch.longPressTimer = null;
     }
     touch.pending = null;
   }
@@ -859,12 +917,35 @@ async function main() {
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
       touch.pending = { sx, sy, x, y };
+      touch.longPressTriggered = false;
       if (touch.timer) clearTimeout(touch.timer);
+      if (touch.longPressTimer) clearTimeout(touch.longPressTimer);
+
+      if (host.brushParams && host.brushParams.mode === 5) {
+        isTouchPicker = true;
+        sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+        return;
+      }
+
+      // Long-press timer (300ms) for eyedropper loupe
+      touch.longPressTimer = setTimeout(() => {
+        touch.longPressTriggered = true;
+        isTouchPicker = true;
+        clearPendingTouch();
+        sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+      }, 300);
+
       touch.timer = setTimeout(() => {
-        commitPendingTouch();
-      }, 45);
+        if (!touch.longPressTriggered && !isTouchPicker) {
+          commitPendingTouch();
+        }
+      }, 50);
     } else {
       /* 2+ fingers landed: cancel pending dab and end any drawing stroke */
+      if (isTouchPicker) {
+        isTouchPicker = false;
+        hideEyedropper();
+      }
       clearPendingTouch();
       if (touch.drawing) {
         host.sendStroke(host.strokePrevX, host.strokePrevY,
@@ -899,9 +980,17 @@ async function main() {
     e.preventDefault();
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      if (isTouchPicker) {
+        sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+        return;
+      }
       if (touch.pending) {
         const dist = Math.hypot(sx - touch.pending.sx, sy - touch.pending.sy);
-        if (dist > 3) {
+        if (dist > 5) {
+          if (touch.longPressTimer) {
+            clearTimeout(touch.longPressTimer);
+            touch.longPressTimer = null;
+          }
           commitPendingTouch();
         }
       }
@@ -970,7 +1059,16 @@ async function main() {
 
   canvasEl.addEventListener('touchend', e => {
     e.preventDefault();
-    if (touch.pending) {
+    if (touch.longPressTimer) {
+      clearTimeout(touch.longPressTimer);
+      touch.longPressTimer = null;
+    }
+    if (isTouchPicker) {
+      isTouchPicker = false;
+      hideEyedropper();
+      return;
+    }
+    if (touch.pending && !touch.longPressTriggered) {
       /* Single-tap tap dab */
       commitPendingTouch();
       host.sendStroke(host.strokePrevX, host.strokePrevY,
@@ -1007,6 +1105,14 @@ async function main() {
   }, { passive: false });
 
   canvasEl.addEventListener('touchcancel', () => {
+    if (touch.longPressTimer) {
+      clearTimeout(touch.longPressTimer);
+      touch.longPressTimer = null;
+    }
+    if (isTouchPicker) {
+      isTouchPicker = false;
+      hideEyedropper();
+    }
     clearPendingTouch();
     if (touch.drawing) {
       host.sendStroke(host.strokePrevX, host.strokePrevY,
@@ -1309,6 +1415,10 @@ async function main() {
   bindSlider('ui-slider-angle-jitter', 'ui-val-angle-jitter', 'set angle_jitter', '°');
   bindSlider('ui-slider-opacity-jitter', 'ui-val-opacity-jitter', 'set opacity_jitter', '%');
   bindSlider('ui-slider-color-jitter', 'ui-val-color-jitter', 'set color_jitter', '%');
+  bindSlider('ui-slider-depletion', 'ui-val-depletion', 'set depletion', '%');
+  bindSlider('ui-slider-color-pickup', 'ui-val-color-pickup', 'set color_pickup', '%');
+  bindSlider('ui-slider-dual-size', 'ui-val-dual-size', 'set dual_size', '%');
+  bindSlider('ui-slider-dual-spacing', 'ui-val-dual-spacing', 'set dual_spacing', '%');
 
   // Mobile slider scroll protection: prevent accidental slider movement when scrolling vertically
   function initSliderTouchScrollProtection() {
@@ -1534,6 +1644,37 @@ async function main() {
   if (texSel) {
     texSel.addEventListener('change', () => {
       runCmd(`set texture ${texSel.value}`);
+    });
+  }
+
+  const dualShapeSel = document.getElementById('ui-select-dual-shape');
+  if (dualShapeSel) {
+    dualShapeSel.addEventListener('change', () => {
+      runCmd(`set dual_shape ${dualShapeSel.value}`);
+    });
+  }
+
+  const chkSubpixel = document.getElementById('ui-chk-subpixel');
+  if (chkSubpixel) {
+    chkSubpixel.addEventListener('change', () => {
+      runCmd(`set subpixel ${chkSubpixel.checked ? 'on' : 'off'}`);
+    });
+  }
+
+  const btnExportBrush = document.getElementById('ui-btn-export-brush');
+  if (btnExportBrush) {
+    btnExportBrush.addEventListener('click', async () => {
+      const script = host.dumpBrushScript();
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(script);
+          log('Brush preset copied to clipboard [ok]');
+        } else {
+          log(script);
+        }
+      } catch (_) {
+        log(script);
+      }
     });
   }
 
@@ -2029,7 +2170,7 @@ async function main() {
     // A. Tools
     const isEraser = host.currentTool === 1;
     const mode = host.brushParams ? host.brushParams.mode : 0;
-    const modeNames = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill'];
+    const modeNames = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker'];
     const curToolName = isEraser ? 'eraser' : (modeNames[mode] || 'brush');
 
     document.querySelectorAll('.tool-btn').forEach(btn => {
@@ -2072,6 +2213,10 @@ async function main() {
       setSlider('ui-slider-angle-jitter', 'ui-val-angle-jitter', bp.angle_jitter || 0, '°');
       setSlider('ui-slider-opacity-jitter', 'ui-val-opacity-jitter', bp.opacity_jitter || 0, '%');
       setSlider('ui-slider-color-jitter', 'ui-val-color-jitter', bp.color_jitter || 0, '%');
+      setSlider('ui-slider-depletion', 'ui-val-depletion', bp.depletion || 0, '%');
+      setSlider('ui-slider-color-pickup', 'ui-val-color-pickup', bp.color_pickup || 0, '%');
+      setSlider('ui-slider-dual-size', 'ui-val-dual-size', bp.dual_size !== undefined ? bp.dual_size : 100, '%');
+      setSlider('ui-slider-dual-spacing', 'ui-val-dual-spacing', bp.dual_spacing !== undefined ? bp.dual_spacing : 10, '%');
       const dabBlendSel = document.getElementById('ui-select-dab-blend');
       if (dabBlendSel && bp.dab_blend !== undefined) {
         const blendNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
@@ -2079,6 +2224,8 @@ async function main() {
       }
       const chkAutoRot = document.getElementById('ui-chk-auto-rotate');
       if (chkAutoRot) chkAutoRot.checked = !!bp.auto_rotate;
+      const chkSubpixel = document.getElementById('ui-chk-subpixel');
+      if (chkSubpixel) chkSubpixel.checked = !!bp.subpixel;
       const selScale = document.getElementById('ui-select-scale');
       if (selScale && host.uiScale) {
         selScale.value = host.uiScale;
@@ -2169,6 +2316,40 @@ async function main() {
         texSel.appendChild(opt);
       }
       texSel.value = activeTex;
+    }
+
+    // Populate Unified Dual Shape Dropdown (All Layers + None)
+    if (dualShapeSel) {
+      dualShapeSel.innerHTML = '';
+      const optNone = document.createElement('option');
+      optNone.value = 'none';
+      optNone.textContent = 'None (no dual brush)';
+      dualShapeSel.appendChild(optNone);
+
+      for (let i = 0; i < count; i++) {
+        let name = `layer_${i}`;
+        if (host.textures) {
+          for (const [k, v] of host.textures.entries()) {
+            if (v.wasmId === i) { name = k; break; }
+          }
+        }
+        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
+        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
+        const dimStr = (w && h) ? ` (${w}x${h})` : '';
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = `[${i}] ${name}${dimStr}`;
+        dualShapeSel.appendChild(opt);
+      }
+      const dualShapeId = host.brushParams ? host.brushParams.dual_shape : -1;
+      const builtins = ['circle', 'square', 'chisel'];
+      let activeDualName = dualShapeId === -1 ? 'none' : (builtins[dualShapeId] || `layer_${dualShapeId}`);
+      if (dualShapeId !== -1 && host.textures) {
+        for (const [k, v] of host.textures.entries()) {
+          if (v.wasmId === dualShapeId) { activeDualName = k; break; }
+        }
+      }
+      dualShapeSel.value = activeDualName;
     }
 
     // Sync active layer opacity slider (Photoshop style)
@@ -2762,6 +2943,7 @@ function ensureUiPanel() {
             <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
             <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
             <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
+            <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Alt or Long-press)">Picker</button>
           </div>
         </div>
       </details>
@@ -2821,6 +3003,14 @@ function ensureUiPanel() {
             <input type="range" id="ui-slider-wetness" min="0" max="100" value="0">
           </div>
           <div class="ui-control">
+            <div class="ui-label-row"><span>Paint Depletion</span><span id="ui-val-depletion" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-depletion" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Continuous Color Pickup</span><span id="ui-val-color-pickup" class="ui-val">0%</span></div>
+            <input type="range" id="ui-slider-color-pickup" min="0" max="100" value="0">
+          </div>
+          <div class="ui-control">
             <div class="ui-label-row"><span>Fill Tolerance</span><span id="ui-val-tolerance" class="ui-val">32</span></div>
             <input type="range" id="ui-slider-tolerance" min="0" max="255" value="32">
           </div>
@@ -2832,6 +3022,14 @@ function ensureUiPanel() {
             <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
               <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Trajectory)
             </label>
+          </div>
+          <div class="ui-control" style="margin-top: 4px;">
+            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="ui-chk-subpixel"> Subpixel Rendering (Anti-Aliased Edge)
+            </label>
+          </div>
+          <div class="ui-row-gap" style="margin-top: 6px;">
+            <button id="ui-btn-export-brush" class="ui-btn" style="flex: 1;" title="Copy current brush preset as REPL script to clipboard">Copy Brush Script</button>
           </div>
         </div>
       </details>
@@ -2857,6 +3055,18 @@ function ensureUiPanel() {
           <div class="ui-control">
             <div class="ui-label-row"><span>Grain Contrast</span><span id="ui-val-tex-contrast" class="ui-val">100%</span></div>
             <input type="range" id="ui-slider-tex-contrast" min="0" max="200" value="100">
+          </div>
+          <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
+            <div class="ui-label-row"><span>Dual Brush Shape</span></div>
+            <select id="ui-select-dual-shape" class="ui-select"></select>
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Dual Brush Size</span><span id="ui-val-dual-size" class="ui-val">100%</span></div>
+            <input type="range" id="ui-slider-dual-size" min="10" max="300" value="100">
+          </div>
+          <div class="ui-control">
+            <div class="ui-label-row"><span>Dual Brush Spacing</span><span id="ui-val-dual-spacing" class="ui-val">10%</span></div>
+            <input type="range" id="ui-slider-dual-spacing" min="1" max="200" value="10">
           </div>
         </div>
       </details>

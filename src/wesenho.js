@@ -136,7 +136,16 @@ const PARAM_IDS = {
   color_jitter: 30,
   dab_blend: 31,
   dab_blend_mode: 31,
-  blend_mode: 31
+  blend_mode: 31,
+  subpixel: 32,
+  depletion: 33,
+  paint_depletion: 33,
+  color_pickup: 34,
+  pickup: 34,
+  dual_shape: 35,
+  dual_brush: 35,
+  dual_size: 36,
+  dual_spacing: 37
 };
 
 /**
@@ -912,6 +921,10 @@ function handleSetMode(host, rawMode) {
     host.currentTool = 0;
     host.setBrushParam('mode', 4);
     host.sendConsoleLog('mode set to lasso fill');
+  } else if (m === 'picker' || m === 'eyedropper' || m === 'pipette') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 5);
+    host.sendConsoleLog('mode set to picker');
   } else {
     host.sendConsoleLog(`err: unknown mode '${rawMode}'`, 0xFFFF5555);
   }
@@ -1495,6 +1508,20 @@ const COMMAND_RULES = [
     }
   },
 
+  // Eyedropper / Color Picker
+  {
+    pat: "pick $x$int $y$int",
+    run: (m, host) => {
+      const x = parseInt(m.x, 10), y = parseInt(m.y, 10);
+      const hex = host.pickColor(x, y, true);
+      if (hex) {
+        host.sendConsoleLog(`picked color ${hex} at ${x},${y}`);
+      }
+    }
+  },
+  { pat: "picker $x$int $y$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "pick $x$int $y$int").run(m, host) },
+  { pat: "eyedropper $x$int $y$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "pick $x$int $y$int").run(m, host) },
+
   // Modes & Shapes
   { pat: "set mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
   { pat: "mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
@@ -1524,7 +1551,17 @@ const COMMAND_RULES = [
   { pat: "texture $tex", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set texture $tex").run(m, host) },
   { pat: "tex $tex", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set texture $tex").run(m, host) },
 
-  // Brush Presets and Parameters
+  // Brush Presets, Parameters, and Dump
+  {
+    pat: "dump brush",
+    run: (m, host) => {
+      const script = host.dumpBrushScript();
+      host.sendConsoleLog(script);
+    }
+  },
+  { pat: "dump tool", run: (m, host) => COMMAND_RULES.find(r => r.pat === "dump brush").run(m, host) },
+  { pat: "export brush", run: (m, host) => COMMAND_RULES.find(r => r.pat === "dump brush").run(m, host) },
+  { pat: "export tool", run: (m, host) => COMMAND_RULES.find(r => r.pat === "dump brush").run(m, host) },
   { pat: "set brush $sub $val", run: (m, host) => handleBrushParamOrPreset(host, m.sub, m.val) },
   { pat: "brush $sub $val", run: (m, host) => handleBrushParamOrPreset(host, m.sub, m.val) },
   { pat: "set brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
@@ -1534,6 +1571,14 @@ const COMMAND_RULES = [
   { pat: "midpoint $val", run: (m, host) => handleDirectParam(host, "midpoint", m.val) },
   { pat: "bezier $val", run: (m, host) => handleDirectParam(host, "bezier", m.val) },
   { pat: "bezier_midpoint $val", run: (m, host) => handleDirectParam(host, "bezier_midpoint", m.val) },
+  { pat: "subpixel $val", run: (m, host) => handleDirectParam(host, "subpixel", m.val) },
+  { pat: "depletion $val", run: (m, host) => handleDirectParam(host, "depletion", m.val) },
+  { pat: "color_pickup $val", run: (m, host) => handleDirectParam(host, "color_pickup", m.val) },
+  { pat: "pickup $val", run: (m, host) => handleDirectParam(host, "color_pickup", m.val) },
+  { pat: "dual_shape $val", run: (m, host) => handleDirectParam(host, "dual_shape", m.val) },
+  { pat: "dual_brush $val", run: (m, host) => handleDirectParam(host, "dual_shape", m.val) },
+  { pat: "dual_size $val", run: (m, host) => handleDirectParam(host, "dual_size", m.val) },
+  { pat: "dual_spacing $val", run: (m, host) => handleDirectParam(host, "dual_spacing", m.val) },
   {
     pat: "set grid $val",
     run: (m, host) => {
@@ -2292,7 +2337,14 @@ class WesenhoScreenHost {
         else if (lower === 'blend') numericVal = 2;
         else if (lower === 'fill' || lower === 'flood_fill') numericVal = 3;
         else if (lower === 'lasso_fill' || lower === 'lasso') numericVal = 4;
+        else if (lower === 'picker' || lower === 'eyedropper' || lower === 'pipette') numericVal = 5;
         else numericVal = parseInt(val, 10) || 0;
+      } else if (key === 'dual_shape' || key === 'dual_brush') {
+        if (lower === 'none' || lower === 'off' || lower === '0' || lower === '-1') numericVal = -1;
+        else if (lower === 'circle' || lower === 'round') numericVal = 0;
+        else if (lower === 'square') numericVal = 1;
+        else if (lower === 'chisel' || lower === 'flat') numericVal = 2;
+        else numericVal = this.getTextureId(lower);
       } else if (key === 'dab_blend' || key === 'dab_blend_mode' || key === 'blend_mode') {
         const blendMap = { normal: 0, multiply: 1, screen: 2, overlay: 3, dodge: 4, color_dodge: 4, add: 5, linear_dodge: 5 };
         numericVal = blendMap[lower] !== undefined ? blendMap[lower] : (parseInt(val, 10) || 0);
@@ -2321,7 +2373,8 @@ class WesenhoScreenHost {
         bezier: 'midpoint', bezier_midpoint: 'midpoint',
         tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
-        flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend'
+        flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend',
+        dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -2391,6 +2444,81 @@ class WesenhoScreenHost {
   }
 
   /**
+   * Samples pixel color at (x, y) from composite canvas or active layer.
+   * Updates host.currentColor and brushParams.color.
+   * Returns hex color string e.g. '#fabd2f'.
+   */
+  pickColor(x, y, sampleComposite = true) {
+    if (!this.canvasActor || !this.canvasActor.exports) return null;
+    let val = 0;
+    if (typeof this.canvasActor.exports.w_pick_color === 'function') {
+      val = this.canvasActor.exports.w_pick_color(x, y, sampleComposite ? 1 : 0);
+    } else {
+      const ptr = this.canvasActor.exports.get_composite_pixels();
+      const cw = this.canvasActor.exports.get_canvas_width?.() ?? 640;
+      const ch = this.canvasActor.exports.get_canvas_height?.() ?? 480;
+      if (x >= 0 && x < cw && y >= 0 && y < ch && this.canvasActor.memory) {
+        const u32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, cw * ch);
+        val = u32[y * cw + x];
+      }
+    }
+    const r = val & 0xFF;
+    const g = (val >> 8) & 0xFF;
+    const b = (val >> 16) & 0xFF;
+    const toHex = (n) => n.toString(16).padStart(2, '0');
+    const hex = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    this.currentColor = (val & 0xFF000000) ? val : (0xFF000000 | val);
+    this.brushParams.color = hex;
+    return hex;
+  }
+
+  /**
+   * Generates a reusable REPL script representing the current brush settings.
+   */
+  dumpBrushScript() {
+    const bp = this.brushParams || {};
+    const modes = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker'];
+    const modeName = (this.currentTool === 1) ? 'eraser' : (modes[bp.mode] || 'brush');
+    const lines = [
+      `# Wesenho Brush Preset`,
+      `set mode ${modeName}`,
+      `set size ${bp.size || 8}`,
+      `set opacity ${bp.opacity !== undefined ? bp.opacity : 100}`,
+      `set hardness ${bp.hardness !== undefined ? bp.hardness : 80}`,
+      `set flow ${bp.flow !== undefined ? bp.flow : 100}`,
+      `set spacing ${bp.spacing || 15}`,
+      `set angle ${bp.angle || 0}`,
+      `set roundness ${bp.roundness || 100}`,
+      `set scatter ${bp.scatter || 0}`,
+      `set smudge ${bp.smudge || 50}`,
+      `set wetness ${bp.wetness || 50}`,
+      `set grain ${bp.grain || 0}`,
+      `set smooth ${bp.smoothing || 0}`,
+      `set auto_rotate ${bp.auto_rotate ? 'on' : 'off'}`,
+      `set velocity ${bp.velocity || 0}`,
+      `set taper_in ${bp.taper_in || 0}`,
+      `set taper_out ${bp.taper_out || 0}`,
+      `set fade ${bp.fade || 0}`,
+      `set size_jitter ${bp.size_jitter || 0}`,
+      `set angle_jitter ${bp.angle_jitter || 0}`,
+      `set opacity_jitter ${bp.opacity_jitter || 0}`,
+      `set color_jitter ${bp.color_jitter || 0}`,
+      `set subpixel ${bp.subpixel ? 'on' : 'off'}`,
+      `set depletion ${bp.depletion || 0}`,
+      `set color_pickup ${bp.color_pickup || 0}`
+    ];
+    if (bp.color) {
+      lines.push(`set color ${bp.color}`);
+    }
+    if (bp.dual_shape !== undefined && bp.dual_shape >= 0) {
+      lines.push(`set dual_shape ${bp.dual_shape}`);
+      lines.push(`set dual_size ${bp.dual_size || 100}`);
+      lines.push(`set dual_spacing ${bp.dual_spacing || 20}`);
+    }
+    return lines.join('\n');
+  }
+
+  /**
    * Syncs all brush parameters to canvas.wasm or a plugin.
    * Also registers all JS textures as WASM layers on first call.
    */
@@ -2399,11 +2527,10 @@ class WesenhoScreenHost {
     if (!mod || typeof mod.exports.w_brush_set_param !== 'function') return;
     for (const [key, val] of Object.entries(this.brushParams)) {
       const pId = PARAM_IDS[key];
-      if (pId !== undefined) {
+      if (pId !== undefined && typeof val === 'number') {
         mod.exports.w_brush_set_param(pId, Math.floor(val));
       }
     }
-    // Register all textures as layers in WASM so they appear in list layers
     if (mod === this.canvasActor || !target) {
       this.registerAllTexturesAsLayers();
     }
@@ -2428,6 +2555,10 @@ class WesenhoScreenHost {
    * applying configurable stabilizer / stroke smoothing (EMA + Bézier curvature).
    */
   sendStroke(x, y, prev_x, prev_y, state, is_eraser, color) {
+    if (this.brushParams && this.brushParams.mode === 5) {
+      this.pickColor(x, y, true);
+      return;
+    }
     if (!this.canvasActor || typeof this.canvasActor.exports.w_brush_stroke !== 'function') return;
 
     const col = (color !== undefined) ? color : this.currentColor;

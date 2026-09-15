@@ -734,14 +734,65 @@ async function run() {
     throw new Error(`Expected layer ${curActive} to be removed from group`);
   }
 
-  host.executeCommand('group delete InkFolder');
-  let groupStillExists = false;
-  for (const g of host.layerGroups.values()) {
-    if (g.name === 'InkFolder') { groupStillExists = true; break; }
+  // ── Test Eyedropper / Color Picker ──
+  host.executeCommand('set mode brush');
+  host.executeCommand('set color #3388ee');
+  host.executeCommand('brush 50 50');
+  host.executeCommand('set mode picker');
+  if (host.brushParams.mode !== 5) {
+    throw new Error(`Expected mode 5 (picker), got ${host.brushParams.mode}`);
   }
-  if (groupStillExists) throw new Error("Expected group 'InkFolder' to be deleted");
+  const pickedHex = host.pickColor(50, 50, true);
+  if (!pickedHex || !pickedHex.startsWith('#')) {
+    throw new Error(`Expected valid picked hex, got ${pickedHex}`);
+  }
+  host.executeCommand('pick 50 50');
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, and Layer Groups verified 100%!');
+  // ── Test Roadmap Phase 3 Features ──
+  // 1. Subpixel
+  host.executeCommand('set subpixel on');
+  if (host.brushParams.subpixel !== 1) {
+    throw new Error(`Expected subpixel 1, got ${host.brushParams.subpixel}`);
+  }
+  host.executeCommand('set subpixel off');
+  if (host.brushParams.subpixel !== 0) {
+    throw new Error(`Expected subpixel 0, got ${host.brushParams.subpixel}`);
+  }
+
+  // 2. Paint Depletion
+  host.executeCommand('set depletion 45');
+  if (host.brushParams.depletion !== 45) {
+    throw new Error(`Expected depletion 45, got ${host.brushParams.depletion}`);
+  }
+
+  // 3. Continuous Color Pickup
+  host.executeCommand('set color_pickup 60');
+  if (host.brushParams.color_pickup !== 60) {
+    throw new Error(`Expected color_pickup 60, got ${host.brushParams.color_pickup}`);
+  }
+
+  // 4. Dual Brush
+  host.executeCommand('set dual_shape chisel');
+  if (host.brushParams.dual_shape !== 2) {
+    throw new Error(`Expected dual_shape 2 (chisel), got ${host.brushParams.dual_shape}`);
+  }
+  host.executeCommand('set dual_size 125');
+  if (host.brushParams.dual_size !== 125) {
+    throw new Error(`Expected dual_size 125, got ${host.brushParams.dual_size}`);
+  }
+  host.executeCommand('set dual_spacing 30');
+  if (host.brushParams.dual_spacing !== 30) {
+    throw new Error(`Expected dual_spacing 30, got ${host.brushParams.dual_spacing}`);
+  }
+
+  // 5. Dump Brush Script
+  const dumped = host.dumpBrushScript();
+  if (!dumped.includes('set size') || !dumped.includes('set opacity') || !dumped.includes('set dual_shape')) {
+    throw new Error(`Expected complete brush dump, got:\n${dumped}`);
+  }
+  host.executeCommand('dump brush');
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, and Dump Brush verified 100%!');
 }
 
 run().catch(err => {

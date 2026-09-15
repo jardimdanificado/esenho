@@ -22,7 +22,8 @@ enum {
     W_MODE_SMUDGE     = 1,
     W_MODE_BLEND      = 2,
     W_MODE_FILL       = 3,
-    W_MODE_LASSO_FILL = 4
+    W_MODE_LASSO_FILL = 4,
+    W_MODE_PICKER     = 5
 };
 
 enum {
@@ -62,7 +63,13 @@ enum {
     W_PARAM_ANGLE_JITTER   = 28, /* angle random variation degrees (0..360) */
     W_PARAM_OPACITY_JITTER = 29, /* opacity/flow random variation % (0..100) */
     W_PARAM_COLOR_JITTER   = 30, /* color random variation % (0..100) */
-    W_PARAM_DAB_BLEND      = 31  /* dab blend mode: 0=normal, 1=multiply, 2=screen, 3=overlay, 4=dodge, 5=add */
+    W_PARAM_DAB_BLEND      = 31, /* dab blend mode: 0=normal, 1=multiply, 2=screen, 3=overlay, 4=dodge, 5=add */
+    W_PARAM_SUBPIXEL       = 32, /* subpixel anti-aliasing rendering: 0=off, 1=on */
+    W_PARAM_DEPLETION      = 33, /* wet media paint depletion rate % (0..100) */
+    W_PARAM_COLOR_PICKUP   = 34, /* continuous color pickup rate % (0..100) */
+    W_PARAM_DUAL_SHAPE     = 35, /* dual brush secondary tip layer index (-1 = none) */
+    W_PARAM_DUAL_SIZE      = 36, /* dual brush secondary tip size % (1..500) */
+    W_PARAM_DUAL_SPACING   = 37  /* dual brush secondary tip spacing % (1..500) */
 };
 
 enum {
@@ -109,6 +116,7 @@ W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
 
 W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample);
 W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx);
+W_EXPORT uint32_t w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 
 /* =========================================================================
  * Fast Math Helpers
