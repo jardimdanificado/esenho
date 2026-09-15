@@ -93,8 +93,11 @@ async function main() {
   ensureUiPanel();
 
   /* ── Canvas sizing + pan management ── */
-  /* ── Canvas sizing + pan management ── */
+  const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
+  let activeMobileTab = 'tools';
+  let activeConsoleSubTab = 'console'; // 'console' or 'scripts'
   let initializedPan = false;
+
   function resize() {
     const parent = canvasEl.parentElement;
     if (!parent) return;
@@ -123,6 +126,18 @@ async function main() {
       host.panX += (canvasEl.width - prevW) / 2;
       host.panY += (canvasEl.height - prevH) / 2;
     }
+
+    const secTools = document.getElementById('ui-section-tools');
+    const secLayers = document.getElementById('ui-section-layers');
+    if (secTools && secLayers) {
+      if (!isMobile()) {
+        secTools.style.display = 'flex';
+        secLayers.style.display = 'flex';
+      } else {
+        secTools.style.display = (activeMobileTab === 'tools') ? 'flex' : 'none';
+        secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
+      }
+    }
   }
   resize();
   window.addEventListener('resize', resize);
@@ -130,9 +145,6 @@ async function main() {
     new ResizeObserver(() => resize()).observe(canvasEl.parentElement);
   }
 
-  const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
-
-  let activeConsoleSubTab = 'console'; // 'console' or 'scripts'
   function switchConsoleSubTab(tab) {
     activeConsoleSubTab = tab;
     const tabConsole = document.getElementById('tab-sub-console');
@@ -155,8 +167,6 @@ async function main() {
     updateDockTabs();
   }
 
-  let activeMobileTab = 'tools';
-
   function syncMobilePanels(isOpen, targetHeight) {
     const uiEl = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
@@ -170,7 +180,7 @@ async function main() {
       return;
     }
 
-    const showTools = (activeMobileTab === 'tools');
+    const showTools = (activeMobileTab === 'tools' || activeMobileTab === 'layers');
     const activeEl = showTools ? uiEl : consoleEl;
     const inactiveEl = showTools ? consoleEl : uiEl;
 
@@ -179,6 +189,18 @@ async function main() {
 
     const wasHidden = activeEl.classList.contains('hidden');
     activeEl.classList.remove('hidden');
+
+    const secTools = document.getElementById('ui-section-tools');
+    const secLayers = document.getElementById('ui-section-layers');
+    if (secTools && secLayers) {
+      if (isMobile()) {
+        secTools.style.display = (activeMobileTab === 'tools') ? 'flex' : 'none';
+        secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
+      } else {
+        secTools.style.display = 'flex';
+        secLayers.style.display = 'flex';
+      }
+    }
 
     if (wasHidden && isMobile()) {
       armTouchGuard(activeEl);
@@ -193,10 +215,12 @@ async function main() {
 
   function updateDockTabs() {
     const tabTools = document.getElementById('tab-dock-tools');
+    const tabLayers = document.getElementById('tab-dock-layers');
     const tabConsole = document.getElementById('tab-dock-console');
     const tabScripts = document.getElementById('tab-dock-scripts');
 
     if (tabTools) tabTools.classList.toggle('active', activeMobileTab === 'tools');
+    if (tabLayers) tabLayers.classList.toggle('active', activeMobileTab === 'layers');
     if (tabConsole) tabConsole.classList.toggle('active', activeMobileTab === 'console');
     if (tabScripts) tabScripts.classList.toggle('active', activeMobileTab === 'scripts');
   }
@@ -225,8 +249,19 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
+      const secTools = document.getElementById('ui-section-tools');
+      const secLayers = document.getElementById('ui-section-layers');
+      if (secTools && secLayers) {
+        if (isMob) {
+          secTools.style.display = (activeMobileTab === 'layers') ? 'none' : 'flex';
+          secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
+        } else {
+          secTools.style.display = 'flex';
+          secLayers.style.display = 'flex';
+        }
+      }
       if (isMob) {
-        activeMobileTab = 'tools';
+        if (activeMobileTab !== 'layers') activeMobileTab = 'tools';
         armTouchGuard(el);
       }
       if (isMob && consoleEl) {
@@ -406,6 +441,7 @@ async function main() {
   }
 
   const tabDockTools = document.getElementById('tab-dock-tools');
+  const tabDockLayers = document.getElementById('tab-dock-layers');
   const tabDockConsole = document.getElementById('tab-dock-console');
   const tabDockScripts = document.getElementById('tab-dock-scripts');
   const tabDockClose = document.getElementById('tab-dock-close');
@@ -447,6 +483,9 @@ async function main() {
 
   if (tabDockTools) {
     tabDockTools.addEventListener('click', () => selectMobileTab('tools'));
+  }
+  if (tabDockLayers) {
+    tabDockLayers.addEventListener('click', () => selectMobileTab('layers'));
   }
   if (tabDockConsole) {
     tabDockConsole.addEventListener('click', () => selectMobileTab('console'));
@@ -581,7 +620,7 @@ async function main() {
 
         const uiEl = document.getElementById('ui-panel');
         const consoleEl = document.getElementById('panel');
-        const activeEl = (activeMobileTab === 'tools') ? uiEl : consoleEl;
+        const activeEl = (activeMobileTab === 'tools' || activeMobileTab === 'layers') ? uiEl : consoleEl;
         if (activeEl && !activeEl.classList.contains('hidden')) {
           if (activeEl.offsetHeight < 70) {
             syncMobilePanels(false);
@@ -617,7 +656,7 @@ async function main() {
       initialCollapsed = bottomDock.classList.contains('tabs-collapsed');
 
       if (!uiHidden && consoleHidden) {
-        activeMobileTab = 'tools';
+        if (activeMobileTab !== 'layers') activeMobileTab = 'tools';
         startH = uiEl.offsetHeight;
       } else if (!consoleHidden && uiHidden) {
         activeMobileTab = (activeConsoleSubTab === 'scripts') ? 'scripts' : 'console';
