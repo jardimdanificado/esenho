@@ -1,1491 +1,256 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>wesenho</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wesenho — New Canvas</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%23282828'/><circle cx='16' cy='16' r='10' fill='%23fabd2f'/><circle cx='16' cy='16' r='5' fill='%23fb4934'/></svg>">
   <style>
     :root {
-      --ui-scale: 1;
-    }
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; background: #1d2021; color: #ebdbb2;
-      font: 12px/1.4 'JetBrains Mono', 'Fira Code', monospace; overflow: hidden; }
-
-    #layout { display: flex; height: 100vh; position: relative; }
-
-    /* ── Canvas area ── */
-    #cvswrap { flex: 1; position: relative; overflow: hidden; background: #1d2021; min-width: 0; min-height: 0; }
-    #wcanvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
-    .eyedropper-ring {
-      position: fixed;
-      width: 58px;
-      height: 58px;
-      border-radius: 50%;
-      border: 3px solid #fbf1c7;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 4px rgba(0, 0, 0, 0.6);
-      pointer-events: none;
-      z-index: 10000;
-      transform: translate(-50%, -50%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .eyedropper-inner {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      background: #ebdbb2;
-      border: 3px solid #282828;
+      --bg-dark: #1d2021;
+      --bg-card: #282828;
+      --bg-input: #3c3836;
+      --border: #504945;
+      --text: #ebdbb2;
+      --text-muted: #a89984;
+      --accent: #458588;
+      --accent-hover: #83a598;
+      --primary: #fabd2f;
+      --primary-hover: #fe8019;
     }
 
-    /* ── UI Panel (Right) - Gruvbox Dark ── */
-    #ui-panel {
-      position: relative;
-      width: 290px;
-      display: flex;
-      flex-direction: column;
-      border-left: 1px solid #3c3836;
-      background: #1d2021;
-      flex-shrink: 0;
-      z-index: 15;
-      zoom: var(--ui-scale, 1);
-    }
-    #ui-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
-    }
-
-    details.ui-group {
-      border: 1px solid #3c3836;
-      background: #232524;
+    * {
+      box-sizing: border-box;
+      margin: 0;
       padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     }
-    details.ui-group summary {
-      background: #282828;
-      color: #ebdbb2;
-      padding: 5px 8px;
-      font-size: 10px;
-      font-weight: bold;
-      letter-spacing: 0.6px;
-      cursor: pointer;
-      user-select: none;
-      list-style: none;
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text);
       display: flex;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-      border-bottom: 1px solid #3c3836;
-    }
-    details.ui-group summary::-webkit-details-marker { display: none; }
-    details.ui-group summary::after { content: '▾'; color: #a89984; font-size: 10px; }
-    details.ui-group:not([open]) summary::after { content: '▸'; }
-    details.ui-group:not([open]) summary { border-bottom: none; }
-    .ui-group-content {
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
+      min-height: 100vh;
+      padding: 20px;
     }
 
-    .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
-    .ui-row-gap { display: flex; align-items: center; gap: 6px; }
-    .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-    .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-
-    .ui-btn {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
-      padding: 4px 6px;
-      font: inherit;
-      font-size: 11px;
-      cursor: pointer;
-      text-align: center;
-      user-select: none;
-      transition: background 0.1s, border-color 0.1s;
-    }
-    .ui-btn:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #504945;
-    }
-    .ui-btn.active {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #fabd2f;
-      font-weight: bold;
-    }
-    .ui-mini-btn {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
-      font: inherit;
-      font-size: 10px;
-      padding: 2px 6px;
-      cursor: pointer;
-    }
-    .ui-mini-btn:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #fabd2f;
-    }
-    .ui-mini-btn.active {
-      background: #fabd2f;
-      color: #1d2021;
-      font-weight: bold;
-    }
-
-    .ui-control {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      font-size: 10px;
-    }
-    .ui-label-row {
-      display: flex;
-      justify-content: space-between;
-      color: #a89984;
-    }
-    .ui-val {
-      color: #fabd2f;
-      font-weight: bold;
-    }
-    input[type=range] {
-      accent-color: #fe8019;
-      cursor: pointer;
-      height: 4px;
-      background: #282828;
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 36px 32px;
       width: 100%;
-    }
-    input[type=range]::-webkit-slider-thumb {
-      transform: scale(0.65);
-      cursor: pointer;
-    }
-    input[type=range]::-moz-range-thumb {
-      transform: scale(0.65);
-      cursor: pointer;
-    }
-    .ui-select {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
-      padding: 3px 5px;
-      font: inherit;
-      font-size: 11px;
-      outline: none;
-      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
     }
 
-    /* Color picker styles */
-    .color-preview-box {
-      width: 32px;
-      height: 28px;
-      border: 1px solid #504945;
-      flex-shrink: 0;
-      position: relative;
-    }
-    #ui-color-picker {
-      opacity: 0;
-      width: 100%;
-      height: 100%;
-      position: absolute;
-      top: 0;
-      left: 0;
-      cursor: pointer;
-    }
-    #ui-color-hex {
-      flex: 1;
-      background: #282828;
-      border: 1px solid #3c3836;
-      color: #ebdbb2;
-      font: inherit;
-      font-size: 11px;
-      padding: 4px 6px;
-      outline: none;
-    }
-    .color-mode-tabs {
-      display: flex;
-      border: 1px solid #3c3836;
-      background: #1d2021;
-    }
-    .color-mode-tab {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: #a89984;
-      padding: 3px;
-      font: inherit;
-      font-size: 10px;
-      cursor: pointer;
+    .brand {
       text-align: center;
-    }
-    .color-mode-tab.active {
-      background: #3c3836;
-      color: #fabd2f;
-      font-weight: bold;
-    }
-    .color-sliders-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      margin-bottom: 28px;
     }
 
-    /* Swatches */
-    .ui-swatches-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 3px;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-    .swatch-item {
-      height: 20px;
-      border: 1px solid #3c3836;
-      cursor: pointer;
-      position: relative;
-    }
-    .swatch-item:hover {
-      border-color: #fbf1c7;
-      transform: scale(1.05);
-      z-index: 2;
-    }
-    .swatch-del {
-      display: none;
-      position: absolute;
-      top: -3px;
-      right: -3px;
-      background: #fb4934;
-      color: #fff;
-      font-size: 8px;
-      width: 12px;
-      height: 12px;
-      line-height: 11px;
-      text-align: center;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-    .swatch-item:hover .swatch-del { display: block; }
-    .ui-swatches-grid.delete-mode .swatch-del { display: block; }
-    .ui-mini-btn.del-active {
-      background: #fb4934 !important;
-      color: #fff !important;
-      border-color: #cc241d !important;
-      font-weight: bold;
-    }
-
-    /* Layers (Photoshop-like compact list) */
-    .layer-toolbar-top {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      color: #a89984;
-      padding: 2px 0 4px;
-    }
-    .layer-toolbar-top .layer-op-slider {
-      flex: 1;
-      height: 4px;
-      accent-color: #fe8019;
-      cursor: pointer;
-    }
-    .layer-toolbar-top .layer-op-val {
-      width: 34px;
-      text-align: right;
-      font-size: 10px;
-      color: #fabd2f;
-      font-weight: bold;
-      flex-shrink: 0;
-    }
-
-    #ui-layers-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1px;
-      margin-top: 4px;
-      max-height: 260px;
-      overflow-y: auto;
-      border: 1px solid #3c3836;
-      background: #181a1b;
-      border-radius: 2px;
-      scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
-    }
-    .ui-layer-row {
-      display: grid;
-      grid-template-columns: 20px minmax(0, 1fr) auto 30px auto;
-      align-items: center;
-      height: 24px;
-      padding: 0 4px;
-      gap: 3px;
-      background: #232524;
-      border-left: 3px solid transparent;
-      cursor: default;
-      user-select: none;
-      font-size: 11px;
-      line-height: 24px;
-      border-bottom: 1px solid #2d302e;
-      transition: background 0.08s;
-    }
-    .ui-layer-row:hover {
-      background: #2b2e2d;
-    }
-    .ui-layer-row.active-draw {
-      background: #363935;
-      border-left-color: #fabd2f;
-    }
-    .ui-layer-row.ui-layer-in-group {
-      padding-left: 14px;
-      background: #1f2120;
-      border-left: 3px solid #83a598;
-    }
-    .ui-layer-group-header {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      height: 24px;
-      padding: 0 6px;
-      background: #282828;
-      border-left: 3px solid #b8bb26;
-      border-bottom: 1px solid #3c3836;
-      font-size: 11px;
-      color: #b8bb26;
-      font-weight: 600;
-      user-select: none;
-    }
-    .ui-layer-group-header .group-title {
-      flex: 1;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      cursor: pointer;
-    }
-    .group-btn-collapse {
-      background: transparent;
-      border: none;
-      color: #b8bb26;
-      font-size: 10px;
-      width: 16px;
-      height: 16px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-    }
-    .layer-cell-vis {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .layer-btn-vis {
-      background: transparent;
-      border: none;
-      color: #ebdbb2;
-      width: 20px;
-      height: 20px;
-      font-size: 11px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      line-height: 1;
-      opacity: 0.85;
-      touch-action: manipulation;
-    }
-    .layer-btn-vis:hover {
-      opacity: 1;
-      color: #fabd2f;
-    }
-    .layer-btn-vis.hidden {
-      opacity: 0.25;
-      color: #928374;
-    }
-    .layer-cell-info {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      min-width: 0;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-    .layer-idx {
-      font-size: 10px;
-      color: #928374;
-      flex-shrink: 0;
-    }
-    .layer-name-text {
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      font-weight: 500;
-      font-size: 11px;
-      color: #ebdbb2;
-    }
-    .ui-layer-row.active-draw .layer-name-text {
-      color: #fabd2f;
-      font-weight: bold;
-    }
-    .layer-dims-text {
-      font-size: 9px;
-      color: #7c6f64;
-      flex-shrink: 0;
-    }
-    .layer-cell-toggles {
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      flex-shrink: 0;
-    }
-    .layer-pill {
-      background: #1d2021;
-      color: #7c6f64;
-      border: 1px solid #3c3836;
-      border-radius: 2px;
-      font: inherit;
-      font-size: 8px;
-      font-weight: 600;
-      padding: 0 4px;
-      height: 16px;
-      line-height: 14px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
+    .brand h1 {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      color: var(--primary);
       text-transform: uppercase;
-      letter-spacing: 0.3px;
-      user-select: none;
-      touch-action: manipulation;
+      margin-bottom: 6px;
     }
-    .layer-pill:hover {
-      color: #ebdbb2;
-      border-color: #504945;
+
+    .brand p {
+      font-size: 13px;
+      color: var(--text-muted);
     }
-    .layer-pill.active-layer-pill {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .dimensions-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .times-symbol {
+      color: var(--text-muted);
       font-weight: bold;
+      font-size: 16px;
+      padding-top: 22px;
     }
-    .layer-pill.active-shape {
-      background: #d65d0e;
-      color: #fbf1c7;
-      border-color: #fe8019;
-      font-weight: bold;
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
     }
-    .layer-pill.active-tex {
-      background: #458588;
-      color: #fbf1c7;
-      border-color: #83a598;
-      font-weight: bold;
-    }
-    .layer-pill.active-lock {
-      background: #b16286;
-      color: #fbf1c7;
-      border-color: #d3869b;
-      font-weight: bold;
-    }
-    .layer-pill.active-clip {
-      background: #689d6a;
-      color: #fbf1c7;
-      border-color: #8ec07c;
-      font-weight: bold;
-    }
-    .layer-select-blend {
-      background: #1d2021;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
-      border-radius: 2px;
-      font: inherit;
-      font-size: 8px;
-      height: 16px;
-      padding: 0 1px;
+
+    input[type="number"] {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: 600;
+      padding: 10px 12px;
       outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    input[type="number"]:focus {
+      border-color: var(--accent-hover);
+      box-shadow: 0 0 0 3px rgba(131, 165, 152, 0.2);
+    }
+
+    .presets-label {
+      margin-bottom: 8px;
+    }
+
+    .presets-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 24px;
+    }
+
+    .btn-preset {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-size: 12px;
+      padding: 7px 4px;
       cursor: pointer;
-    }
-    .layer-select-blend:focus {
-      border-color: #fabd2f;
-    }
-    .ui-layer-row.clipped-layer {
-      padding-left: 12px;
-      border-left: 2px solid #8ec07c;
-    }
-    .touch-guard {
-      pointer-events: none !important;
-    }
-    input[type="range"] {
-      touch-action: pan-y;
-    }
-    .layer-cell-op {
-      font-size: 10px;
-      color: #a89984;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      flex-shrink: 0;
-    }
-    .ui-layer-row.active-draw .layer-cell-op {
-      color: #fabd2f;
-      font-weight: bold;
-    }
-    .layer-cell-actions {
-      display: flex;
-      align-items: center;
-      gap: 1px;
-      flex-shrink: 0;
-    }
-    .layer-btn-action {
-      background: transparent;
-      border: none;
-      color: #928374;
-      width: 16px;
-      height: 18px;
-      font-size: 10px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      line-height: 1;
-      border-radius: 2px;
-    }
-    .layer-btn-action:hover {
-      background: #3c3836;
-      color: #ebdbb2;
-    }
-    .layer-btn-action:disabled {
-      opacity: 0.2;
-      cursor: default;
-      pointer-events: none;
-    }
-    .layer-btn-action.btn-merge {
-      color: #83a598;
-    }
-    .layer-btn-action.btn-merge:hover {
-      color: #8ec07c;
-      background: #2b3834;
-    }
-    .layer-btn-action.btn-del {
-      color: #928374;
-    }
-    .layer-btn-action.btn-del:hover {
-      color: #fb4934;
-      background: #3c2020;
-    }
-    .layer-cell-del {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .layer-btn-del {
-      background: transparent;
-      border: none;
-      color: #665c54;
-      width: 18px;
-      height: 18px;
-      font-size: 11px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0;
-      line-height: 1;
-      touch-action: manipulation;
-      border-radius: 2px;
-    }
-    .layer-btn-del:hover {
-      color: #fb4934;
-      background: #3c2020;
-    }
-
-    /* UI "Orelha" (tab / pull-tab on panel edge) */
-    #toggle-ui {
-      position: absolute;
-      top: 14px;
-      left: 1px;
-      transform: translateX(-100%);
-      z-index: 20;
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #504945;
-      border-right: 1px solid #282828;
-      border-radius: 0;
-      padding: 5px 9px;
-      font: inherit;
-      font-size: 11px;
-      cursor: col-resize;
-      touch-action: none;
-      user-select: none;
-      white-space: nowrap;
-      box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.4);
-    }
-    #toggle-ui:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #7c6f64;
-    }
-    #ui-panel.hidden {
-      width: 0 !important;
-      border-left: none !important;
-    }
-    #ui-panel.hidden > *:not(#toggle-ui) {
-      display: none !important;
-    }
-    #ui-panel.hidden #toggle-ui {
-      left: 0;
-      border-right: none;
-    }
-
-    /* ── Panel (REPL + status) - Gruvbox Dark ── */
-    #panel {
-      position: relative;
-      width: 320px;
-      display: flex;
-      flex-direction: column;
-      border-right: 1px solid #3c3836;
-      background: #1d2021;
-      flex-shrink: 0;
-      z-index: 15;
-      zoom: var(--ui-scale, 1);
-    }
-    #wterm {
-      flex: 1; overflow-y: auto; padding: 8px 10px; font-size: 12px; line-height: 1.5;
-      scrollbar-width: thin; scrollbar-color: #504945 #1d2021; color: #ebdbb2;
-    }
-    #wterm div        { white-space: pre-wrap; word-break: break-word; }
-    #wterm div.err    { color: #fb4934; }
-    #wterm div.ok     { color: #b8bb26; }
-    #wterm div.cmd    { color: #83a598; }
-
-    #inputrow {
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 10px; border-top: 1px solid #3c3836; background: #282828;
-    }
-    #inputrow span { color: #fabd2f; font-weight: bold; flex-shrink: 0; }
-    #wcmd {
-      flex: 1; background: transparent; border: none; outline: none;
-      color: #ebdbb2; font: inherit; caret-color: #fabd2f;
-    }
-    #wstatus {
-      padding: 4px 10px; font-size: 11px; background: #1d2021;
-      border-top: 1px solid #3c3836; color: #a89984;
-    }
-
-    /* Console "Orelha" */
-    #toggle-panel {
-      position: absolute;
-      top: 14px;
-      right: 1px;
-      transform: translateX(100%);
-      z-index: 20;
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #504945;
-      border-left: 1px solid #282828;
-      border-radius: 0;
-      padding: 5px 9px;
-      font: inherit;
-      font-size: 11px;
-      cursor: col-resize;
-      touch-action: none;
-      user-select: none;
-      white-space: nowrap;
-      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4);
-    }
-    #toggle-panel:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #7c6f64;
-    }
-    #panel.hidden {
-      width: 0 !important;
-      border-right: none !important;
-    }
-    #panel.hidden > *:not(#toggle-panel) {
-      display: none !important;
-    }
-    #panel.hidden #toggle-panel {
-      right: 0;
-      border-left: none;
-    }
-
-    /* ── Mobile Unified Bottom Dock & Drawer Tabs ── */
-    #bottom-dock {
-      display: none;
-      zoom: var(--ui-scale, 1);
-    }
-
-    /* ── Narrow screens / Mobile ── */
-    @media (max-width: 768px), (max-aspect-ratio: 3/4) {
-      #layout {
-        flex-direction: column;
-        position: relative;
-        height: 100vh;
-        height: 100dvh;
-        overflow: hidden;
-      }
-
-      #cvswrap {
-        order: 1;
-        flex: 1;
-        width: 100%;
-        min-height: 0;
-        position: relative;
-        overflow: hidden;
-      }
-
-      /* Hide floating desktop side tabs on mobile */
-      #toggle-ui, #toggle-panel {
-        display: none !important;
-      }
-
-      /* Unified Bottom Dock */
-      #bottom-dock {
-        display: flex;
-        flex-direction: column;
-        order: 2;
-        width: 100%;
-        background: #1d2021;
-        border-top: 1px solid #3c3836;
-        z-index: 25;
-        flex-shrink: 0;
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-      }
-
-      #bottom-dock-handle {
-        width: 100%;
-        height: 28px;
-        cursor: row-resize;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
-        padding: 4px 0;
-      }
-
-      #bottom-dock-handle::after {
-        content: '';
-        width: 44px;
-        height: 4px;
-        background: #504945;
-        border-radius: 2px;
-        pointer-events: none;
-      }
-
-      #bottom-dock-tabs {
-        display: flex;
-        align-items: stretch;
-        height: 36px;
-        padding: 0 6px 6px 6px;
-        gap: 6px;
-        overflow: hidden;
-        transition: height 0.12s ease, padding 0.12s ease, opacity 0.12s ease;
-      }
-
-      #bottom-dock.tabs-collapsed #bottom-dock-tabs {
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        padding: 0 !important;
-        opacity: 0 !important;
-        pointer-events: none !important;
-      }
-
-      .dock-tab-btn {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        font: inherit;
-        font-size: 11px;
-        font-weight: bold;
-        background: #282828;
-        color: #a89984;
-        border: 1px solid #3c3836;
-        border-radius: 0;
-        cursor: pointer;
-        user-select: none;
-        touch-action: manipulation;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
-
-      .dock-tab-btn:hover {
-        background: #32302f;
-        color: #ebdbb2;
-      }
-
-      .dock-tab-btn.active {
-        background: #3c3836;
-        color: #fabd2f;
-        border-color: #fabd2f;
-      }
-
-      /* Both panels come from below and occupy order: 3 */
-      #ui-panel, #panel {
-        order: 3;
-        width: 100% !important;
-        border: none !important;
-        background: #1d2021;
-        flex-shrink: 0;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-      }
-
-      #ui-panel {
-        height: var(--mobile-drawer-height, 42vh);
-        max-height: 85vh;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        border-top: 1px solid #3c3836 !important;
-      }
-
-      #panel {
-        height: var(--mobile-drawer-height, 42vh);
-        max-height: 85vh;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        border-top: 1px solid #3c3836 !important;
-      }
-
-      #ui-panel.hidden, #panel.hidden {
-        height: 0 !important;
-        min-height: 0 !important;
-        max-height: 0 !important;
-        display: none !important;
-        border: none !important;
-      }
-
-      /* Mutual exclusion: never allow both mobile drawer panels to render simultaneously */
-      #panel:not(.hidden) ~ #ui-panel {
-        display: none !important;
-      }
-
-      #ui-scroll {
-        flex: 1;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding: 8px 10px 24px;
-      }
-
-      #ui-scripts {
-        flex: 1;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-        padding: 8px 10px 24px;
-      }
-
-      #panel-tabs {
-        display: none !important;
-      }
-
-      #wterm {
-        flex: 1;
-        overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
-      }
-    }
-
-    /* Panel Header Tabs (Console / Scripts) */
-    #panel-tabs {
-      display: flex;
-      border-bottom: 1px solid #3c3836;
-      background: #1d2021;
-      flex-shrink: 0;
-    }
-    #console-view {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      min-height: 0;
-      overflow: hidden;
-    }
-    .panel-header-tab {
-      flex: 1;
-      padding: 6px 8px;
-      font: inherit;
-      font-size: 11px;
-      font-weight: bold;
-      background: #282828;
-      color: #a89984;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
+      transition: all 0.15s ease;
       text-align: center;
-      transition: background 0.1s, color 0.1s;
-    }
-    .panel-header-tab:hover {
-      color: #ebdbb2;
-      background: #32302f;
-    }
-    .panel-header-tab.active {
-      color: #fabd2f;
-      background: #232524;
-      border-bottom-color: #fabd2f;
+      user-select: none;
     }
 
-    /* Scripts Tab Panel */
-    #ui-scripts {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 10px 20px;
-      display: none;
-      flex-direction: column;
+    .btn-preset:hover, .btn-preset.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent-hover);
+    }
+
+    .btn-start {
+      width: 100%;
+      background: var(--primary);
+      color: #1d2021;
+      border: none;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      transition: background-color 0.15s, transform 0.1s;
+      display: flex;
+      justify-content: center;
+      align-items: center;
       gap: 8px;
-      scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
     }
-    #ui-script-editor {
-      width: 100%;
-      height: 220px;
-      min-height: 140px;
-      background: #181a1b;
-      border: 1px solid #3c3836;
-      color: #ebdbb2;
-      font-family: monospace;
+
+    .btn-start:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-start:active {
+      transform: scale(0.98);
+    }
+
+    .hint {
+      margin-top: 14px;
       font-size: 11px;
-      line-height: 1.4;
-      padding: 6px;
-      outline: none;
-      resize: vertical;
-      box-sizing: border-box;
-      tab-size: 2;
-    }
-    #ui-script-editor:focus {
-      border-color: #fabd2f;
-    }
-    .ui-input-text {
-      background: #282828;
-      border: 1px solid #3c3836;
-      color: #ebdbb2;
-      font: inherit;
-      font-size: 11px;
-      padding: 4px 6px;
-      outline: none;
-      width: 100%;
-      box-sizing: border-box;
-    }
-    .ui-input-text:focus {
-      border-color: #fabd2f;
+      text-align: center;
+      color: var(--text-muted);
     }
   </style>
 </head>
 <body>
-<div id="layout">
-  <div id="panel" class="hidden">
-    <button id="toggle-panel" type="button" title="Toggle Console (Ctrl+`)">console [hide] &#x25C0;</button>
-    <div id="panel-tabs">
-      <button type="button" id="tab-sub-console" class="panel-header-tab active">Console</button>
-      <button type="button" id="tab-sub-scripts" class="panel-header-tab">Scripts</button>
-    </div>
-    <div id="console-view">
-      <div id="wterm"></div>
-      <div id="inputrow">
-        <span>wesenho&gt;</span>
-        <input id="wcmd" type="text" autocomplete="off" autocorrect="off" spellcheck="false"
-               placeholder="type a command…" autofocus>
-      </div>
-      <div id="wstatus">loading…</div>
+  <div class="card">
+    <div class="brand">
+      <h1>Wesenho</h1>
+      <p>Pixel Engine &amp; Digital Painting Studio</p>
     </div>
 
-    <!-- Scripts Tab Panel -->
-    <div id="ui-scripts" style="display: none;">
-      <div class="ui-control">
-        <div class="ui-label-row"><span>Saved Scripts</span></div>
-        <div class="ui-row-gap">
-          <select id="ui-script-select" class="ui-select" style="flex:1;"></select>
-          <button id="ui-btn-new-script" class="ui-mini-btn" title="New blank script">+ New</button>
-          <button id="ui-btn-save-script" class="ui-mini-btn" title="Save script to local storage">Save</button>
-          <button id="ui-btn-del-script" class="ui-mini-btn" title="Delete current script">Del</button>
+    <form id="canvas-form" action="app.html" method="GET">
+      <div class="dimensions-row">
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="inp-w">Largura (W)</label>
+          <input type="number" id="inp-w" name="w" value="1280" min="64" max="8192" required>
+        </div>
+        <div class="times-symbol">×</div>
+        <div class="form-group" style="margin-bottom: 0;">
+          <label for="inp-h">Altura (H)</label>
+          <input type="number" id="inp-h" name="h" value="720" min="64" max="8192" required>
         </div>
       </div>
 
-      <div class="ui-control">
-        <div class="ui-label-row"><span>Script Name</span></div>
-        <input type="text" id="ui-script-name" class="ui-input-text" value="my_script" placeholder="script_name" spellcheck="false">
-      </div>
-
-      <div class="ui-control" style="flex: 1; display: flex; flex-direction: column;">
-        <div class="ui-label-row">
-          <span>Script Editor</span>
-          <span style="font-size: 9px; color: #a89984;">1 cmd / line</span>
+      <div class="form-group">
+        <label class="presets-label">Resoluções Rápidas</label>
+        <div class="presets-grid">
+          <button type="button" class="btn-preset active" data-w="1280" data-h="720">1280 × 720</button>
+          <button type="button" class="btn-preset" data-w="1920" data-h="1080">1920 × 1080</button>
+          <button type="button" class="btn-preset" data-w="800" data-h="600">800 × 600</button>
+          <button type="button" class="btn-preset" data-w="1024" data-h="1024">1024 × 1024</button>
+          <button type="button" class="btn-preset" data-w="720" data-h="1280">720 × 1280</button>
+          <button type="button" class="btn-preset" data-w="640" data-h="480">640 × 480</button>
         </div>
-        <textarea id="ui-script-editor" spellcheck="false" placeholder="# Wesenho script - 1 command per line&#10;set mode brush&#10;set size 25&#10;set color #fabd2f&#10;brush 150 150"></textarea>
       </div>
 
-      <div class="ui-row-gap" style="margin-top: 4px;">
-        <button id="ui-btn-run-script" class="ui-btn" style="flex: 1; font-weight: bold;">Run Script</button>
-        <button id="ui-btn-clear-script-editor" class="ui-mini-btn">Clear</button>
-      </div>
+      <button type="submit" class="btn-start" id="btn-start">
+        Começar a Pintar
+      </button>
 
-      <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
-        <span style="font-size: 10px; color: #a89984; line-height: 1.4;">
-          Each line runs as a REPL command. Lines starting with <code>#</code> or <code>//</code> are comments.
-        </span>
-      </div>
-    </div>
-  </div>
-  <!-- ── Canvas area ── -->
-  <div id="cvswrap">
-    <canvas id="wcanvas"></canvas>
-    <div id="eyedropper-ring" class="eyedropper-ring" style="display: none;">
-      <div class="eyedropper-inner" id="eyedropper-inner"></div>
-    </div>
+      <p class="hint">Padrão: 1280 × 720 pixels caso não preenchido</p>
+    </form>
   </div>
 
-  <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
-  <div id="bottom-dock">
-    <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
-    <div id="bottom-dock-tabs">
-      <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
-      <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
-      <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
-    </div>
-  </div>
+  <script>
+    const inpW = document.getElementById('inp-w');
+    const inpH = document.getElementById('inp-h');
+    const presets = document.querySelectorAll('.btn-preset');
+    const form = document.getElementById('canvas-form');
 
-  <!-- ── Full UI Panel (Right) ── -->
-  <div id="ui-panel">
-    <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25B6; tools [hide]</button>
-    <div id="ui-scroll">
+    function updateActivePreset() {
+      const w = parseInt(inpW.value, 10);
+      const h = parseInt(inpH.value, 10);
+      presets.forEach(p => {
+        const pw = parseInt(p.dataset.w, 10);
+        const ph = parseInt(p.dataset.h, 10);
+        if (pw === w && ph === h) {
+          p.classList.add('active');
+        } else {
+          p.classList.remove('active');
+        }
+      });
+    }
 
-      <!-- 1. Tools -->
-      <details class="ui-group" open>
-        <summary>TOOLS</summary>
-        <div class="ui-group-content">
-          <div class="ui-grid-2" style="margin-bottom: 5px;">
-            <button id="ui-btn-undo" class="ui-btn" title="Undo (Ctrl+Z or 2-finger tap)">&#x21A9; Undo</button>
-            <button id="ui-btn-redo" class="ui-btn" title="Redo (Ctrl+Y or 3-finger tap)">&#x21AA; Redo</button>
-          </div>
-          <div class="ui-grid-3">
-            <button class="ui-btn tool-btn active" data-tool="brush" title="Brush (Draw)">Brush</button>
-            <button class="ui-btn tool-btn" data-tool="eraser" title="Eraser">Eraser</button>
-            <button class="ui-btn tool-btn" data-tool="smudge" title="Smudge">Smudge</button>
-            <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
-            <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
-            <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
-            <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker (Long-press)">Picker</button>
-            <button class="ui-btn tool-btn" data-tool="line" title="Line Guide (Drag to draw straight line)">Line</button>
-            <button class="ui-btn tool-btn" data-tool="rect" title="Rectangle Guide (Drag to draw rectangle)">Rect</button>
-            <button class="ui-btn tool-btn" data-tool="ellipse" title="Ellipse Guide (Drag to draw ellipse)">Ellipse</button>
-            <button class="ui-btn tool-btn" data-tool="select" title="Marquee Selection (Drag to select region)">Select</button>
-            <button class="ui-btn tool-btn" data-tool="lasso_select" title="Lasso Selection (Freehand polygon select)">Lasso Sel</button>
-            <button class="ui-btn tool-btn" data-tool="wand_select" title="Magic Wand (Click to flood-fill select by color)">Wand</button>
-          </div>
-          <div class="ui-grid-2" style="margin-top: 6px;">
-            <button id="ui-btn-copy" class="ui-btn" title="Copy selection → new floating layer">Copy</button>
-            <button id="ui-btn-cut" class="ui-btn" title="Cut selection → new floating layer">Cut</button>
-            <button id="ui-btn-paste" class="ui-btn" title="Paste clipboard to active layer">Paste</button>
-            <button id="ui-btn-deselect" class="ui-btn" title="Clear selection">Deselect</button>
-            <button id="ui-btn-transform-apply" class="ui-btn" title="Apply floating transform to layer">Apply Xform</button>
-            <button id="ui-btn-transform-cancel" class="ui-btn" title="Cancel floating transform">Cancel Xform</button>
-          </div>
-          <div class="ui-control" style="margin-top: 4px;">
-            <label class="ui-label">Wand Tolerance <span id="ui-wand-tol-val">30</span></label>
-            <input type="range" id="ui-slider-wand-tol" class="ui-slider" min="0" max="255" step="1" value="30">
-          </div>
-        </div>
-      </details>
+    presets.forEach(btn => {
+      btn.addEventListener('click', () => {
+        inpW.value = btn.dataset.w;
+        inpH.value = btn.dataset.h;
+        updateActivePreset();
+      });
+    });
 
-      <!-- 2. View & Navigation -->
-      <details class="ui-group" open>
-        <summary>VIEW &amp; CANVAS</summary>
-        <div class="ui-group-content">
-          <div class="ui-grid-3">
-            <button id="ui-btn-zoom-in" class="ui-btn" title="Zoom In (+)">Zoom +</button>
-            <button id="ui-btn-zoom-out" class="ui-btn" title="Zoom Out (-)">Zoom -</button>
-            <button id="ui-btn-zoom-fit" class="ui-btn" title="Fit to Viewport">Fit</button>
-            <button id="ui-btn-zoom-100" class="ui-btn" title="100% (1:1)">100%</button>
-            <button id="ui-btn-reset-pan" class="ui-btn" title="Center Canvas">Center</button>
-            <button id="ui-btn-reset-rot" class="ui-btn" title="Reset Rotation to 0°">0° Rot</button>
-            <button id="ui-btn-flip-h" class="ui-btn" title="Flip Canvas Horizontally (Mirror View)">Flip H</button>
-            <button id="ui-btn-flip-v" class="ui-btn" title="Flip Canvas Vertically (Mirror View)">Flip V</button>
-          </div>
-          <div class="ui-control" style="margin-top: 4px;">
-            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="ui-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
-            </label>
-          </div>
-          <div class="ui-control" style="margin-top: 4px;">
-            <div class="ui-label-row">
-              <span>UI Scale / DPI</span>
-              <span id="ui-val-scale" class="ui-val">100%</span>
-            </div>
-            <select id="ui-select-scale" class="ui-select">
-              <option value="auto">Auto (Detect DPI)</option>
-              <option value="0.75">Small (75%)</option>
-              <option value="0.85">Compact (85%)</option>
-              <option value="1.0" selected>Normal (100%)</option>
-              <option value="1.15">Medium (115%)</option>
-              <option value="1.25">Large (125%)</option>
-              <option value="1.5">Touch / HiDPI (150%)</option>
-              <option value="1.75">Extra Large (175%)</option>
-              <option value="2.0">4K / Ultra (200%)</option>
-            </select>
-          </div>
-        </div>
-      </details>
+    inpW.addEventListener('input', updateActivePreset);
+    inpH.addEventListener('input', updateActivePreset);
 
-      <!-- 2. Brush Parameters -->
-      <details class="ui-group" open>
-        <summary>BRUSH PARAMETERS</summary>
-        <div class="ui-group-content">
-          <!-- Primary -->
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Size</span><span id="ui-val-size" class="ui-val">16</span></div>
-            <input type="range" id="ui-slider-size" min="1" max="500" value="16">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Opacity</span><span id="ui-val-opacity" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-opacity" min="1" max="100" value="100">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Hardness</span><span id="ui-val-hardness" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-hardness" min="0" max="100" value="100">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Flow</span><span id="ui-val-flow" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-flow" min="1" max="100" value="100">
-          </div>
-          <!-- Dynamics -->
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Spacing</span><span id="ui-val-spacing" class="ui-val">5%</span></div>
-            <input type="range" id="ui-slider-spacing" min="1" max="200" value="5">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Smoothing</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-smoothing" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Bézier Midpoint</span><span id="ui-val-midpoint" class="ui-val">50%</span></div>
-            <input type="range" id="ui-slider-midpoint" min="0" max="100" value="50">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Angle</span><span id="ui-val-angle" class="ui-val">0°</span></div>
-            <input type="range" id="ui-slider-angle" min="0" max="359" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Roundness</span><span id="ui-val-roundness" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-roundness" min="1" max="100" value="100">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Scatter</span><span id="ui-val-scatter" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-scatter" min="0" max="200" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Grain / Noise</span><span id="ui-val-grain" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-grain" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Smudge Pickup</span><span id="ui-val-smudge" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-smudge" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Wetness Mix</span><span id="ui-val-wetness" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-wetness" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Paint Depletion</span><span id="ui-val-depletion" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-depletion" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Continuous Color Pickup</span><span id="ui-val-color-pickup" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-color-pickup" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Fill Tolerance</span><span id="ui-val-tolerance" class="ui-val">32</span></div>
-            <input type="range" id="ui-slider-tolerance" min="0" max="255" value="32">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Velocity Dynamics</span><span id="ui-val-velocity" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-velocity" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control" style="margin-top: 4px;">
-            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Trajectory)
-            </label>
-          </div>
-          <div class="ui-control" style="margin-top: 4px;">
-            <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="ui-chk-subpixel"> Subpixel Rendering (Anti-Aliased Edge)
-            </label>
-          </div>
-          <div class="ui-row-gap" style="margin-top: 6px;">
-            <button id="ui-btn-export-brush" class="ui-btn" style="flex: 1;" title="Copy current brush preset as REPL script to clipboard">Copy Brush Script</button>
-          </div>
-        </div>
-      </details>
-
-      <!-- Dynamics & Jitter -->
-      <details class="ui-group" open>
-        <summary>DYNAMICS &amp; JITTER</summary>
-        <div class="ui-group-content">
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Dab Blend Mode</span></div>
-            <select id="ui-select-dab-blend" class="ui-select">
-              <option value="normal">Normal</option>
-              <option value="multiply">Multiply</option>
-              <option value="screen">Screen</option>
-              <option value="overlay">Overlay</option>
-              <option value="dodge">Color Dodge</option>
-              <option value="add">Add</option>
-            </select>
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Symmetry Mirror</span></div>
-            <select id="ui-select-symmetry" class="ui-select">
-              <option value="0">Off</option>
-              <option value="1">Vertical Mirror (X axis)</option>
-              <option value="2">Horizontal Mirror (Y axis)</option>
-              <option value="3">Quad Mirror (4 Quadrants)</option>
-            </select>
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Taper In</span><span id="ui-val-taper-in" class="ui-val">0px</span></div>
-            <input type="range" id="ui-slider-taper-in" min="0" max="500" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Fade Distance</span><span id="ui-val-fade" class="ui-val">0px</span></div>
-            <input type="range" id="ui-slider-fade" min="0" max="2000" step="10" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Size Jitter</span><span id="ui-val-size-jitter" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-size-jitter" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Angle Jitter</span><span id="ui-val-angle-jitter" class="ui-val">0°</span></div>
-            <input type="range" id="ui-slider-angle-jitter" min="0" max="360" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Opacity Jitter</span><span id="ui-val-opacity-jitter" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-opacity-jitter" min="0" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Color Jitter (HSV)</span><span id="ui-val-color-jitter" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-color-jitter" min="0" max="100" value="0">
-          </div>
-        </div>
-      </details>
-
-      <!-- 3. Shape & Grain Texture -->
-      <details class="ui-group" open>
-        <summary>SHAPE &amp; GRAIN</summary>
-        <div class="ui-group-content">
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Tip Shape (Built-in &amp; Layers)</span></div>
-            <select id="ui-select-shape" class="ui-select"></select>
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Grain Texture (Textures &amp; Layers)</span></div>
-            <select id="ui-select-texture" class="ui-select"></select>
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Texture Scale</span><span id="ui-val-tex-scale" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-tex-scale" min="10" max="400" value="100">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Texture Rotate</span><span id="ui-val-tex-rotate" class="ui-val">0°</span></div>
-            <input type="range" id="ui-slider-tex-rotate" min="0" max="359" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Grain Contrast</span><span id="ui-val-tex-contrast" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-tex-contrast" min="0" max="200" value="100">
-          </div>
-          <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
-            <div class="ui-label-row"><span>Dual Brush Shape</span></div>
-            <select id="ui-select-dual-shape" class="ui-select"></select>
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Dual Brush Size</span><span id="ui-val-dual-size" class="ui-val">100%</span></div>
-            <input type="range" id="ui-slider-dual-size" min="10" max="300" value="100">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Dual Brush Spacing</span><span id="ui-val-dual-spacing" class="ui-val">10%</span></div>
-            <input type="range" id="ui-slider-dual-spacing" min="1" max="200" value="10">
-          </div>
-        </div>
-      </details>
-
-      <!-- 4. Color Picker (RGB + HSL + Swatches) -->
-      <details class="ui-group" open>
-        <summary>COLOR (RGB / HSL)</summary>
-        <div class="ui-group-content">
-          <div class="ui-row-gap">
-            <div class="color-preview-box" id="ui-color-preview">
-              <input type="color" id="ui-color-picker" value="#ebdbb2" title="Click for native color picker">
-            </div>
-            <input type="text" id="ui-color-hex" value="#ebdbb2" spellcheck="false" maxlength="7">
-            <button id="ui-btn-add-swatch" class="ui-mini-btn" title="Add current color to swatches">+ Swatch</button>
-            <button id="ui-btn-del-swatch" class="ui-mini-btn" title="Toggle delete swatch mode">- Del</button>
-          </div>
-
-          <div class="color-mode-tabs">
-            <button type="button" class="color-mode-tab active" id="tab-rgb">RGB</button>
-            <button type="button" class="color-mode-tab" id="tab-hsl">HSL</button>
-          </div>
-
-          <div id="panel-rgb" class="color-sliders-wrap">
-            <div class="ui-control">
-              <div class="ui-label-row"><span>R (Red)</span><span id="ui-val-rgb-r" class="ui-val">235</span></div>
-              <input type="range" id="ui-slider-r" min="0" max="255" value="235">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>G (Green)</span><span id="ui-val-rgb-g" class="ui-val">219</span></div>
-              <input type="range" id="ui-slider-g" min="0" max="255" value="219">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>B (Blue)</span><span id="ui-val-rgb-b" class="ui-val">178</span></div>
-              <input type="range" id="ui-slider-b" min="0" max="255" value="178">
-            </div>
-          </div>
-
-          <div id="panel-hsl" class="color-sliders-wrap" style="display:none;">
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Hue</span><span id="ui-val-hsl-h" class="ui-val">43°</span></div>
-              <input type="range" id="ui-slider-h" min="0" max="360" value="43">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Saturation</span><span id="ui-val-hsl-s" class="ui-val">60%</span></div>
-              <input type="range" id="ui-slider-s" min="0" max="100" value="60">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Lightness</span><span id="ui-val-hsl-l" class="ui-val">81%</span></div>
-              <input type="range" id="ui-slider-l" min="0" max="100" value="81">
-            </div>
-          </div>
-
-          <div class="ui-control" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Swatches (click to pick, hover [x] to delete)</span></div>
-            <div id="ui-swatches-grid" class="ui-swatches-grid"></div>
-          </div>
-        </div>
-      </details>
-
-      <!-- 5. Layers (Canvas, Shapes & Textures) -->
-      <details class="ui-group" open>
-        <summary>LAYERS (CANVAS &amp; SHAPES)</summary>
-        <div class="ui-group-content">
-          <div class="layer-toolbar-top">
-            <span>Opacity:</span>
-            <input type="range" id="ui-active-layer-op" min="0" max="100" value="100" class="layer-op-slider" title="Active layer opacity">
-            <span id="ui-active-layer-op-val" class="layer-op-val">100%</span>
-          </div>
-          <div class="ui-row-gap" style="margin-bottom: 4px;">
-            <button id="ui-btn-add-layer" class="ui-mini-btn" style="flex: 1;" title="Add new layer">+ New</button>
-            <button id="ui-btn-new-group" class="ui-mini-btn" style="flex: 1;" title="Create new folder/group">+ Folder</button>
-            <button id="ui-btn-duplicate-layer" class="ui-mini-btn" style="flex: 1;" title="Duplicate active layer">Duplicate</button>
-            <button id="ui-btn-clear-layer" class="ui-mini-btn" style="flex: 1;" title="Clear active layer">Clear</button>
-            <button id="ui-btn-import-layer" class="ui-mini-btn" style="flex: 1;" title="Import image as new layer">+ Import</button>
-          </div>
-          <div id="ui-layers-list"></div>
-        </div>
-      </details>
-
-      <!-- 6. Canvas & Layer Resolution -->
-      <details class="ui-group">
-        <summary>ACTIVE LAYER / CANVAS SIZE</summary>
-        <div class="ui-group-content">
-          <div class="ui-label-row">
-            <span>Active Layer &amp; Canvas:</span>
-            <span id="ui-val-canvas-size" class="ui-val">640 x 480</span>
-          </div>
-          <div class="ui-row-gap" style="margin-top: 4px;">
-            <input type="number" id="ui-canvas-w" class="ui-input-num" value="640" min="1" max="16384" style="width: 62px;" title="Width (px)">
-            <span style="color: #a89984;">×</span>
-            <input type="number" id="ui-canvas-h" class="ui-input-num" value="480" min="1" max="16384" style="width: 62px;" title="Height (px)">
-            <label style="font-size: 10px; color: #ebdbb2; display: flex; align-items: center; gap: 3px; cursor: pointer;" title="Resample / Scale contents instead of cropping">
-              <input type="checkbox" id="ui-layer-resample" checked> Scale
-            </label>
-            <button id="ui-btn-resize-canvas" class="ui-btn" style="flex: 1;">Resize</button>
-          </div>
-          <div class="ui-grid-3" style="margin-top: 6px;">
-            <button class="ui-mini-btn btn-res-preset" data-w="640" data-h="480">640×480</button>
-            <button class="ui-mini-btn btn-res-preset" data-w="800" data-h="600">800×600</button>
-            <button class="ui-mini-btn btn-res-preset" data-w="1280" data-h="720">720p</button>
-            <button class="ui-mini-btn btn-res-preset" data-w="1920" data-h="1080">1080p</button>
-            <button class="ui-mini-btn btn-res-preset" data-w="1080" data-h="1080">1:1 Square</button>
-            <button class="ui-mini-btn btn-res-preset" data-w="2048" data-h="2048">2K High</button>
-          </div>
-        </div>
-      </details>
-
-      <!-- 7. Filters & Actions -->
-      <details class="ui-group">
-        <summary>FILTERS &amp; EXPORT</summary>
-        <div class="ui-group-content">
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Filter Plugin</span></div>
-            <div class="ui-row-gap">
-              <select id="ui-select-filter" class="ui-select" style="flex:1;">
-                <option value="blur">Blur</option>
-                <option value="brightness">Brightness</option>
-                <option value="contrast">Contrast</option>
-                <option value="dither">Dither</option>
-                <option value="edge">Edge Detect</option>
-                <option value="grayscale">Grayscale</option>
-                <option value="invert">Invert</option>
-                <option value="noise">Noise</option>
-                <option value="pixelate">Pixelate</option>
-                <option value="sepia">Sepia</option>
-                <option value="threshold">Threshold</option>
-              </select>
-              <button id="ui-btn-apply-filter" class="ui-btn" style="flex-shrink:0;">Apply</button>
-            </div>
-          </div>
-          <div class="ui-control" id="ui-ctrl-filter-radius" style="margin-top: 4px;">
-            <div class="ui-label-row"><span>Filter Radius / Parameter</span><span id="ui-val-filter-radius" class="ui-val">5</span></div>
-            <input type="range" id="ui-slider-filter-radius" min="1" max="25" value="5">
-          </div>
-          <div class="ui-grid-2" style="margin-top: 4px;">
-            <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
-            <button id="ui-btn-import" class="ui-btn" title="Import image as new layer">Import Image</button>
-          </div>
-          <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
-        </div>
-      </details>
-
-      <!-- 8. Color Adjustments -->
-      <details class="ui-group">
-        <summary>ADJUSTMENTS (HSV / HSL)</summary>
-        <div class="ui-group-content">
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Hue Shift</span><span id="ui-val-hue" class="ui-val">0°</span></div>
-            <input type="range" id="ui-slider-hue" min="-180" max="180" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Saturation</span><span id="ui-val-sat" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-sat" min="-100" max="100" value="0">
-          </div>
-          <div class="ui-control">
-            <div class="ui-label-row"><span>Brightness / Value</span><span id="ui-val-bright" class="ui-val">0%</span></div>
-            <input type="range" id="ui-slider-bright" min="-100" max="100" value="0">
-          </div>
-          <div class="ui-row-gap" style="margin-top: 6px;">
-            <button id="ui-btn-apply-hsv" class="ui-btn" style="flex: 1;">Apply HSL Adjust</button>
-            <button id="ui-btn-reset-hsv" class="ui-btn" style="flex: 1;">Reset Sliders</button>
-          </div>
-        </div>
-      </details>
-
-    </div>
-  </div>
-
-</div>
-<script type="module">
-  import { papagaio } from "./src/papagaio/index.js";
-  globalThis.papagaio = papagaio;
-</script>
-<script src="src/wesenho.js"></script>
-<script src="src/host-browser.js"></script>
+    form.addEventListener('submit', (e) => {
+      if (!inpW.value || parseInt(inpW.value, 10) <= 0) inpW.value = 1280;
+      if (!inpH.value || parseInt(inpH.value, 10) <= 0) inpH.value = 720;
+    });
+  </script>
 </body>
 </html>

@@ -39,7 +39,10 @@ async function main() {
     log(text, color === 0xFFFF5555 ? 'err' : 'ok');
 
   host.canvasActor = await WesenhoModule.fromURL('roms/canvas.wasm', { name: 'canvas' });
-  host.canvasActor.exports.w_init(800, 1000);
+  const urlParams = new URLSearchParams(window.location.search);
+  const initW = parseInt(urlParams.get('w') || urlParams.get('width'), 10) || 1280;
+  const initH = parseInt(urlParams.get('h') || urlParams.get('height'), 10) || 720;
+  host.canvasActor.exports.w_init(initW, initH);
   host.syncBrushParams(host.canvasActor);
   log('canvas.wasm ready [ok]');
 

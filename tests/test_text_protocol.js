@@ -1159,7 +1159,42 @@ async function run() {
     throw new Error(`select lasso failed: expected mode 10, got ${host.brushParams.mode}`);
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, and Lasso/Wand Selection verified 100%!');
+  // 6. Test Drawing & Filters Constrained to Selection
+  const actLayer = canvas.exports.get_active_layer();
+  const cWidth = canvas.exports.get_canvas_width();
+  const cPix = new Uint32Array(canvas.memory.buffer, canvas.exports.get_layer_pixels(actLayer), cWidth * 480);
+  cPix.fill(0); // clear layer
+
+  // Set selection rect (50, 50, 40, 40)
+  host.executeCommand('select rect 50 50 40 40');
+  // Draw rect covering (0, 0, 100, 100) with solid red
+  host.executeCommand('draw rect 0 0 100 100 #ff0000ff');
+
+  // Verify pixel inside selection (60, 60) is red
+  const insidePixel = cPix[60 * cWidth + 60];
+  if ((insidePixel & 0xFF) < 200) {
+    throw new Error(`selection drawing clip failed: expected red inside selection, got 0x${insidePixel.toString(16)}`);
+  }
+  // Verify pixel outside selection (20, 20) is still 0 (untouched)
+  const outsidePixel = cPix[20 * cWidth + 20];
+  if (outsidePixel !== 0) {
+    throw new Error(`selection drawing clip failed: expected untouched pixel outside selection, got 0x${outsidePixel.toString(16)}`);
+  }
+
+  // Test filter only applies inside selection
+  host.executeCommand('filter invert');
+  const insideInverted = cPix[60 * cWidth + 60];
+  // Inverted red (#ff0000) should have cyan tone (high green/blue)
+  if (((insideInverted >> 8) & 0xFF) < 200) {
+    throw new Error(`selection filter clip failed: expected inverted pixel inside selection, got 0x${insideInverted.toString(16)}`);
+  }
+  // Outside pixel must still be 0!
+  if (cPix[20 * cWidth + 20] !== 0) {
+    throw new Error(`selection filter clip failed: outside pixel was modified!`);
+  }
+  host.executeCommand('deselect');
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, and Selection-Clipped Drawing/Filters verified 100%!');
 }
 
 run().catch(err => {

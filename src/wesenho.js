@@ -238,9 +238,9 @@ class WesenhoModule {
   }
 }
 
-// Document Dimensions (Default Vertical Proportions)
-const DOC_WIDTH  = 800;
-const DOC_HEIGHT = 1000;
+// Document Dimensions (Default Proportions)
+const DOC_WIDTH  = 1280;
+const DOC_HEIGHT = 720;
 
 /**
  * Generates default procedural textures (paper, canvas, noise, dots, grid, grunge).
@@ -2171,7 +2171,9 @@ const COMMAND_RULES = [
   {
     pat: "draw line $x0$int $y0$int $x1$int $y1$int",
     run: (m, host) => {
-      host.canvasActor.exports.w_draw_line(parseInt(m.x0, 10), parseInt(m.y0, 10), parseInt(m.x1, 10), parseInt(m.y1, 10), host.currentColor);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_line(parseInt(m.x0, 10), parseInt(m.y0, 10), parseInt(m.x1, 10), parseInt(m.y1, 10), host.currentColor);
+      });
       host.sendConsoleLog(`drew line from (${m.x0},${m.y0}) to (${m.x1},${m.y1})`);
     }
   },
@@ -2179,14 +2181,18 @@ const COMMAND_RULES = [
     pat: "draw rect $x$int $y$int $w$int $h$int $col",
     run: (m, host) => {
       const col = parseColorString(m.col, host.currentColor);
-      host.canvasActor.exports.w_draw_rect(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), col);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_rect(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), col);
+      });
       host.sendConsoleLog(`drew rect at (${m.x},${m.y}) size ${m.w}x${m.h}`);
     }
   },
   {
     pat: "draw rect $x$int $y$int $w$int $h$int",
     run: (m, host) => {
-      host.canvasActor.exports.w_draw_rect(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), host.currentColor);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_rect(parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), host.currentColor);
+      });
       host.sendConsoleLog(`drew rect at (${m.x},${m.y}) size ${m.w}x${m.h}`);
     }
   },
@@ -2194,14 +2200,18 @@ const COMMAND_RULES = [
     pat: "draw circle $cx$int $cy$int $r$int $col",
     run: (m, host) => {
       const col = parseColorString(m.col, host.currentColor);
-      host.canvasActor.exports.w_draw_circle(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.r, 10), col);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_circle(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.r, 10), col);
+      });
       host.sendConsoleLog(`drew circle at (${m.cx},${m.cy}) radius ${m.r}`);
     }
   },
   {
     pat: "draw circle $cx$int $cy$int $r$int",
     run: (m, host) => {
-      host.canvasActor.exports.w_draw_circle(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.r, 10), host.currentColor);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_circle(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.r, 10), host.currentColor);
+      });
       host.sendConsoleLog(`drew circle at (${m.cx},${m.cy}) radius ${m.r}`);
     }
   },
@@ -2209,14 +2219,18 @@ const COMMAND_RULES = [
     pat: "draw grid $step$int $col",
     run: (m, host) => {
       const col = parseColorString(m.col, 0x44FFFFFF);
-      host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), col);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), col);
+      });
       host.sendConsoleLog(`drew grid step ${m.step}`);
     }
   },
   {
     pat: "draw grid $step$int",
     run: (m, host) => {
-      host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), 0x44FFFFFF);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_grid(parseInt(m.step, 10), 0x44FFFFFF);
+      });
       host.sendConsoleLog(`drew grid step ${m.step}`);
     }
   },
@@ -2224,14 +2238,18 @@ const COMMAND_RULES = [
     pat: "draw ellipse $cx$int $cy$int $rx$int $ry$int $col",
     run: (m, host) => {
       const col = parseColorString(m.col, host.currentColor);
-      host.canvasActor.exports.w_draw_ellipse(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.rx, 10), parseInt(m.ry, 10), col);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_ellipse(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.rx, 10), parseInt(m.ry, 10), col);
+      });
       host.sendConsoleLog(`drew ellipse at (${m.cx},${m.cy}) radii ${m.rx}x${m.ry}`);
     }
   },
   {
     pat: "draw ellipse $cx$int $cy$int $rx$int $ry$int",
     run: (m, host) => {
-      host.canvasActor.exports.w_draw_ellipse(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.rx, 10), parseInt(m.ry, 10), host.currentColor);
+      host.executeWithSelectionClip(() => {
+        host.canvasActor.exports.w_draw_ellipse(parseInt(m.cx, 10), parseInt(m.cy, 10), parseInt(m.rx, 10), parseInt(m.ry, 10), host.currentColor);
+      });
       host.sendConsoleLog(`drew ellipse at (${m.cx},${m.cy}) radii ${m.rx}x${m.ry}`);
     }
   },
@@ -2921,9 +2939,81 @@ class WesenhoScreenHost {
    * Selects the full active layer or document bounds.
    */
   selectAll() {
-    const w = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 800;
-    const h = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 1000;
+    const w = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : DOC_WIDTH;
+    const h = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : DOC_HEIGHT;
     return this.setSelection(0, 0, w, h);
+  }
+
+  /**
+   * Restores all pixels outside active selection from savedPixels back into active layer.
+   * Ensures that drawing/filters/adjustments only affect pixels inside the selection.
+   */
+  _clipActiveLayerToSelection(savedPixels) {
+    if (!this.selection?.active || !savedPixels || !this.canvasActor?.exports?.w_layer_get_pixels) return;
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    if (!ptr || lw <= 0 || lh <= 0) return;
+
+    const cur = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const sel = this.selection;
+    const mask = sel.mask;
+    const sx0 = Math.max(0, sel.x);
+    const sy0 = Math.max(0, sel.y);
+    const sx1 = Math.min(lw, sel.x + sel.w);
+    const sy1 = Math.min(lh, sel.y + sel.h);
+
+    for (let y = 0; y < lh; y++) {
+      const rowOffset = y * lw;
+      if (y < sy0 || y >= sy1) {
+        // Entire row outside selection box
+        cur.set(savedPixels.subarray(rowOffset, rowOffset + lw), rowOffset);
+      } else {
+        // Left margin outside selection
+        if (sx0 > 0) {
+          cur.set(savedPixels.subarray(rowOffset, rowOffset + sx0), rowOffset);
+        }
+        // Right margin outside selection
+        if (sx1 < lw) {
+          cur.set(savedPixels.subarray(rowOffset + sx1, rowOffset + lw), rowOffset + sx1);
+        }
+        // Inside selection bounding box: if lasso/wand mask present, check per-pixel bit
+        if (mask) {
+          const my = y - sel.y;
+          const maskRow = my * sel.w;
+          for (let x = sx0; x < sx1; x++) {
+            const mx = x - sel.x;
+            if (!mask[maskRow + mx]) {
+              cur[rowOffset + x] = savedPixels[rowOffset + x];
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Executes a drawing/modification action with selection clipping:
+   * snapshots active layer pixels, runs action, then restores pixels outside selection.
+   */
+  executeWithSelectionClip(action) {
+    let backup = null;
+    if (this.selection?.active && this.canvasActor?.exports?.w_layer_get_pixels) {
+      const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+      const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+      const lw = this.canvasActor.exports.w_layer_get_width(act);
+      const lh = this.canvasActor.exports.w_layer_get_height(act);
+      if (ptr && lw > 0 && lh > 0) {
+        backup = new Uint32Array(new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh));
+      }
+    }
+    action();
+    if (backup) {
+      this._clipActiveLayerToSelection(backup);
+      if (this.canvasActor.exports.w_force_composite) this.canvasActor.exports.w_force_composite();
+      else if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
+    }
   }
 
   /**
@@ -3284,7 +3374,9 @@ class WesenhoScreenHost {
     if (!this.canvasActor?.exports?.w_layer_adjust_hsv) return;
     this.pushUndoSnapshot('adjust hsv');
     const idx = (layerId !== undefined) ? layerId : -1;
-    this.canvasActor.exports.w_layer_adjust_hsv(idx, Math.round(dHue), Math.round(dSat), Math.round(dVal));
+    this.executeWithSelectionClip(() => {
+      this.canvasActor.exports.w_layer_adjust_hsv(idx, Math.round(dHue), Math.round(dSat), Math.round(dVal));
+    });
   }
 
   /**
@@ -3723,6 +3815,17 @@ class WesenhoScreenHost {
       this.pushUndoSnapshot(this.currentTool === 1 ? 'eraser' : (['brush', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode] || 'brush'));
       this.lastStrokeTime = Date.now();
       this.strokeSpeed = 0;
+      if (this.selection?.active && this.canvasActor?.exports?.w_layer_get_pixels) {
+        const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+        const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+        const lw = this.canvasActor.exports.w_layer_get_width(act);
+        const lh = this.canvasActor.exports.w_layer_get_height(act);
+        if (ptr && lw > 0 && lh > 0) {
+          this._strokeLayerBackup = new Uint32Array(new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh));
+        }
+      } else {
+        this._strokeLayerBackup = null;
+      }
     } else if (state === 1 && this.brushParams.velocity > 0) {
       const velStrength = Math.min(100, Math.max(0, this.brushParams.velocity)) / 100;
       const now = Date.now();
@@ -3767,6 +3870,10 @@ class WesenhoScreenHost {
         col >>> 0,
         eraser
       );
+      if (this._strokeLayerBackup) {
+        this._clipActiveLayerToSelection(this._strokeLayerBackup);
+        if (state === 2) this._strokeLayerBackup = null;
+      }
       return;
     }
 
@@ -3784,6 +3891,9 @@ class WesenhoScreenHost {
         col >>> 0,
         eraser
       );
+      if (this._strokeLayerBackup) {
+        this._clipActiveLayerToSelection(this._strokeLayerBackup);
+      }
       return;
     }
 
@@ -3841,6 +3951,10 @@ class WesenhoScreenHost {
         lastY = by;
       }
 
+      if (this._strokeLayerBackup) {
+        this._clipActiveLayerToSelection(this._strokeLayerBackup);
+      }
+
       this.strokeSmoothX = targetX;
       this.strokeSmoothY = targetY;
       this.strokeHistory.unshift(pPrev);
@@ -3872,6 +3986,10 @@ class WesenhoScreenHost {
         col >>> 0,
         eraser
       );
+      if (this._strokeLayerBackup) {
+        this._clipActiveLayerToSelection(this._strokeLayerBackup);
+        this._strokeLayerBackup = null;
+      }
       this.strokeSmoothX = null;
       this.strokeSmoothY = null;
       this.strokeHistory = null;
@@ -3901,7 +4019,9 @@ class WesenhoScreenHost {
       plugin.layerByteLen = byteLen;
     }
 
-    this.ensureMemory(plugin, plugin.layerPtr + byteLen);
+    const beforeFilter = this.selection?.active
+      ? new Uint32Array(new Uint32Array(this.canvasActor.memory.buffer, pixPtr, cw * ch))
+      : null;
 
     new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen)
       .set(new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen));
@@ -3912,6 +4032,10 @@ class WesenhoScreenHost {
 
     new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen)
       .set(new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen));
+
+    if (beforeFilter) {
+      this._clipActiveLayerToSelection(beforeFilter);
+    }
 
     if (this.canvasActor.exports.w_force_composite) {
       this.canvasActor.exports.w_force_composite();
