@@ -9,7 +9,6 @@ if (typeof globalThis.process === 'undefined') {
 
 const canvasEl   = document.getElementById('wcanvas');
 const ctx        = canvasEl.getContext('2d', { desynchronized: true });
-const panelEl     = document.getElementById('panel');
 const termEl      = document.getElementById('wterm');
 const inputEl     = document.getElementById('wcmd');
 const statusEl    = document.getElementById('wstatus');
@@ -136,9 +135,7 @@ async function main() {
 
   /* ── Canvas sizing + pan management ── */
   const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
-  let activeMobileTab = 'tools';
-  let activeConsoleSubTab = 'console'; // 'console' or 'scripts'
-  let initializedPan = false;
+      let initializedPan = false;
 
   let isCanvasDirty = false;
   function markCanvasDirty() {
@@ -233,17 +230,7 @@ async function main() {
       host.panY += (canvasEl.height - prevH) / 2;
     }
 
-    const secTools = document.getElementById('ui-section-tools');
-    const secLayers = document.getElementById('ui-section-layers');
-    if (secTools && secLayers) {
-      if (!isMobile()) {
-        secTools.style.display = 'flex';
-        secLayers.style.display = 'flex';
-      } else {
-        secTools.style.display = (activeMobileTab === 'tools') ? 'flex' : 'none';
-        secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
-      }
-    }
+    
   }
   resize();
   window.addEventListener('resize', resize);
@@ -251,85 +238,33 @@ async function main() {
     new ResizeObserver(() => resize()).observe(canvasEl.parentElement);
   }
 
-  function switchConsoleSubTab(tab) {
-    activeConsoleSubTab = tab;
-    const tabConsole = document.getElementById('tab-sub-console');
-    const tabScripts = document.getElementById('tab-sub-scripts');
-    const consoleView = document.getElementById('console-view');
-    const uiScripts = document.getElementById('ui-scripts');
+  
 
-    if (tab === 'scripts') {
-      if (tabConsole) tabConsole.classList.remove('active');
-      if (tabScripts) tabScripts.classList.add('active');
-      if (consoleView) consoleView.style.display = 'none';
-      if (uiScripts) uiScripts.style.display = 'flex';
-    } else {
-      if (tabConsole) tabConsole.classList.add('active');
-      if (tabScripts) tabScripts.classList.remove('active');
-      if (consoleView) consoleView.style.display = 'flex';
-      if (uiScripts) uiScripts.style.display = 'none';
-      if (inputEl) inputEl.focus();
-    }
-    updateDockTabs();
-  }
-
+  
   function syncMobilePanels(isOpen, targetHeight) {
     const uiEl = document.getElementById('ui-panel');
-    const consoleEl = document.getElementById('panel');
-    if (!uiEl || !consoleEl) return;
+    if (!uiEl) return;
 
     if (!isOpen) {
       uiEl.classList.add('hidden');
       uiEl.style.height = '';
-      consoleEl.classList.add('hidden');
-      consoleEl.style.height = '';
       return;
     }
 
-    const showTools = (activeMobileTab === 'tools' || activeMobileTab === 'layers');
-    const activeEl = showTools ? uiEl : consoleEl;
-    const inactiveEl = showTools ? consoleEl : uiEl;
-
-    inactiveEl.classList.add('hidden');
-    inactiveEl.style.height = '';
-
-    const wasHidden = activeEl.classList.contains('hidden');
-    activeEl.classList.remove('hidden');
-
-    const secTools = document.getElementById('ui-section-tools');
-    const secLayers = document.getElementById('ui-section-layers');
-    if (secTools && secLayers) {
-      if (isMobile()) {
-        secTools.style.display = (activeMobileTab === 'tools') ? 'flex' : 'none';
-        secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
-      } else {
-        secTools.style.display = 'flex';
-        secLayers.style.display = 'flex';
-      }
-    }
+    const wasHidden = uiEl.classList.contains('hidden');
+    uiEl.classList.remove('hidden');
 
     if (wasHidden && isMobile()) {
-      armTouchGuard(activeEl);
+      armTouchGuard(uiEl);
     }
 
     if (typeof targetHeight === 'number' && targetHeight > 0) {
-      activeEl.style.height = `${targetHeight}px`;
-      activeEl.style.maxHeight = 'none';
-      activeEl.style.minHeight = '0px';
+      uiEl.style.height = `${targetHeight}px`;
+      uiEl.style.maxHeight = 'none';
+      uiEl.style.minHeight = '0px';
     }
   }
-
-  function updateDockTabs() {
-    const tabTools = document.getElementById('tab-dock-tools');
-    const tabLayers = document.getElementById('tab-dock-layers');
-    const tabConsole = document.getElementById('tab-dock-console');
-    const tabScripts = document.getElementById('tab-dock-scripts');
-
-    if (tabTools) tabTools.classList.toggle('active', activeMobileTab === 'tools');
-    if (tabLayers) tabLayers.classList.toggle('active', activeMobileTab === 'layers');
-    if (tabConsole) tabConsole.classList.toggle('active', activeMobileTab === 'console');
-    if (tabScripts) tabScripts.classList.toggle('active', activeMobileTab === 'scripts');
-  }
+function updateDockTabs() {}
 
   function armTouchGuard(el) {
     if (!el) return;
@@ -342,7 +277,7 @@ async function main() {
   /* ── Toggle UI tools panel ── */
   function toggleUi(forceOpen) {
     const el = document.getElementById('ui-panel');
-    const consoleEl = document.getElementById('panel');
+    
     if (!el) return;
 
     const isMob = isMobile();
@@ -355,26 +290,9 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
-      const secTools = document.getElementById('ui-section-tools');
-      const secLayers = document.getElementById('ui-section-layers');
-      if (secTools && secLayers) {
-        if (isMob) {
-          secTools.style.display = (activeMobileTab === 'layers') ? 'none' : 'flex';
-          secLayers.style.display = (activeMobileTab === 'layers') ? 'flex' : 'none';
-        } else {
-          secTools.style.display = 'flex';
-          secLayers.style.display = 'flex';
-        }
-      }
+      
       if (isMob) {
-        if (activeMobileTab !== 'layers') activeMobileTab = 'tools';
         armTouchGuard(el);
-      }
-      if (isMob && consoleEl) {
-        consoleEl.classList.add('hidden');
-        consoleEl.style.height = '';
-        const btnC = document.getElementById('toggle-panel');
-        if (btnC) btnC.textContent = 'console [show] ▶';
       }
     } else {
       el.classList.add('hidden');
@@ -409,10 +327,7 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
-      if (isMob) {
-        activeMobileTab = (activeConsoleSubTab === 'scripts') ? 'scripts' : 'console';
-        armTouchGuard(el);
-      }
+      if (isMob) { armTouchGuard(el); }
       if (isMob && uiEl) {
         uiEl.classList.add('hidden');
         uiEl.style.height = '';
@@ -430,7 +345,7 @@ async function main() {
     }
     updateDockTabs();
     resize();
-    if (willOpen && activeConsoleSubTab === 'console' && inputEl) inputEl.focus();
+    if (willOpen && inputEl) inputEl.focus();
   }
 
   /* ── Draggable Orelha Resizing & Toggle ── */
@@ -534,8 +449,7 @@ async function main() {
     btn.addEventListener('pointercancel', finishDrag);
   }
 
-  setupDraggableTab('panel', 'toggle-panel', 'left', 'esenho_console_width');
-  setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
+    setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
 
   /* ── Mobile Unified Bottom Dock Listeners ── */
   const savedMobileH = localStorage.getItem('esenho_mobile_drawer_height');
@@ -546,78 +460,29 @@ async function main() {
     }
   }
 
-  const tabDockTools = document.getElementById('tab-dock-tools');
-  const tabDockLayers = document.getElementById('tab-dock-layers');
-  const tabDockConsole = document.getElementById('tab-dock-console');
-  const tabDockScripts = document.getElementById('tab-dock-scripts');
-  const tabDockClose = document.getElementById('tab-dock-close');
-  const dockHandle = document.getElementById('bottom-dock-handle');
-
-  const tabSubConsole = document.getElementById('tab-sub-console');
-  const tabSubScripts = document.getElementById('tab-sub-scripts');
-  if (tabSubConsole) {
-    tabSubConsole.addEventListener('click', () => switchConsoleSubTab('console'));
-  }
-  if (tabSubScripts) {
-    tabSubScripts.addEventListener('click', () => switchConsoleSubTab('scripts'));
-  }
-
-  function selectMobileTab(tab) {
-    activeMobileTab = tab;
-    if (tab === 'console') switchConsoleSubTab('console');
-    if (tab === 'scripts') switchConsoleSubTab('scripts');
-
-    const uiEl = document.getElementById('ui-panel');
-    const consoleEl = document.getElementById('panel');
-    const isDrawerOpen = (uiEl && !uiEl.classList.contains('hidden')) || (consoleEl && !consoleEl.classList.contains('hidden'));
-
-    // ONLY switch content if the drawer is already open. Never open drawer via buttons!
-    if (isDrawerOpen) {
-      const currentH = (uiEl && !uiEl.classList.contains('hidden'))
-        ? uiEl.offsetHeight
-        : ((consoleEl && !consoleEl.classList.contains('hidden')) ? consoleEl.offsetHeight : 0);
-      syncMobilePanels(true, currentH);
-      if (currentH >= 60) {
-        document.documentElement.style.setProperty('--mobile-drawer-height', `${currentH}px`);
-      }
-      resize();
-    } else {
-      syncMobilePanels(false);
-    }
-    updateDockTabs();
-  }
-
-  if (tabDockTools) {
-    tabDockTools.addEventListener('click', () => selectMobileTab('tools'));
-  }
-  if (tabDockLayers) {
-    tabDockLayers.addEventListener('click', () => selectMobileTab('layers'));
-  }
-  if (tabDockConsole) {
-    tabDockConsole.addEventListener('click', () => selectMobileTab('console'));
-  }
-  if (tabDockScripts) {
-    tabDockScripts.addEventListener('click', () => selectMobileTab('scripts'));
-  }
+  
 
   const bottomDock = document.getElementById('bottom-dock');
+  const dockHandle = document.getElementById('bottom-dock-handle');
   if (bottomDock) {
     let isDraggingDock = false;
     let hasMoved = false;
     let startY = 0;
     let startH = 0;
-    let initialCollapsed = false;
-    let suppressClickUntil = 0;
+        let suppressClickUntil = 0;
 
-    if (localStorage.getItem('esenho_dock_tabs_collapsed') === '1') {
-      bottomDock.classList.add('tabs-collapsed');
-    }
+    
 
     // Suppress click on dock buttons if a drag gesture occurred
     bottomDock.addEventListener('click', (e) => {
-      if (Date.now() < suppressClickUntil) {
-        e.preventDefault();
-        e.stopPropagation();
+      if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
+      const uiEl = document.getElementById('ui-panel');
+      const isHidden = !uiEl || uiEl.classList.contains('hidden');
+      if (isHidden) {
+        let newH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-drawer-height')) || (window.innerHeight * 0.42);
+        syncMobilePanels(true, newH);
+      } else {
+        syncMobilePanels(false);
       }
     }, true);
 
@@ -627,39 +492,10 @@ async function main() {
     const updateDockHeightUI = (clientY) => {
       if (!isDraggingDock) return;
       const scale = parseFloat(getComputedStyle(bottomDock).zoom) || 1;
-      const rawDy = clientY - startY;
-      const dy = rawDy / scale;
-
-      if (!hasMoved && Math.abs(dy) > 4) {
-        hasMoved = true;
-      }
+      const dy = (clientY - startY) / scale;
+      if (!hasMoved && Math.abs(dy) > 4) hasMoved = true;
       if (!hasMoved) return;
-
-      if (initialCollapsed) {
-        // Was fully collapsed (only handle visible). Dragging UP restores tabs first
-        if (-dy > 12) {
-          bottomDock.classList.remove('tabs-collapsed');
-        } else {
-          bottomDock.classList.add('tabs-collapsed');
-        }
-        // Dragging UP further opens drawer
-        if (-dy > 45) {
-          let newH = -dy - 40;
-          newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
-          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncMobilePanels(true, newH);
-        } else {
-          syncMobilePanels(false);
-        }
-      } else if (startH === 0) {
-        // Drawer was closed, tabs visible
-        // Dragging DOWN collapses tabs to hide buttons
-        if (dy > 18) {
-          bottomDock.classList.add('tabs-collapsed');
-        } else {
-          bottomDock.classList.remove('tabs-collapsed');
-        }
-        // Dragging UP opens the drawer
+      if (startH === 0) {
         if (-dy > 12) {
           let newH = -dy;
           newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
@@ -669,20 +505,13 @@ async function main() {
           syncMobilePanels(false);
         }
       } else {
-        // Drawer was open (startH > 0)
         let newH = startH - dy;
         if (newH >= 60) {
-          bottomDock.classList.remove('tabs-collapsed');
           newH = Math.min(window.innerHeight * 0.85, newH);
           document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
           syncMobilePanels(true, newH);
         } else {
           syncMobilePanels(false);
-          if (dy - startH > 25) {
-            bottomDock.classList.add('tabs-collapsed');
-          } else {
-            bottomDock.classList.remove('tabs-collapsed');
-          }
         }
       }
     };
@@ -721,12 +550,10 @@ async function main() {
 
       if (hasMoved) {
         suppressClickUntil = Date.now() + 250;
-        const isCollapsed = bottomDock.classList.contains('tabs-collapsed');
-        localStorage.setItem('esenho_dock_tabs_collapsed', isCollapsed ? '1' : '0');
 
         const uiEl = document.getElementById('ui-panel');
-        const consoleEl = document.getElementById('panel');
-        const activeEl = (activeMobileTab === 'tools' || activeMobileTab === 'layers') ? uiEl : consoleEl;
+        
+        const activeEl = uiEl;
         if (activeEl && !activeEl.classList.contains('hidden')) {
           if (activeEl.offsetHeight < 70) {
             syncMobilePanels(false);
@@ -755,26 +582,8 @@ async function main() {
     const handleDockStart = (clientY, isDirectHandle) => {
       if (!isDirectHandle) return false;
       const uiEl = document.getElementById('ui-panel');
-      const consoleEl = document.getElementById('panel');
       const uiHidden = !uiEl || uiEl.classList.contains('hidden');
-      const consoleHidden = !consoleEl || consoleEl.classList.contains('hidden');
-
-      initialCollapsed = bottomDock.classList.contains('tabs-collapsed');
-
-      if (!uiHidden && consoleHidden) {
-        if (activeMobileTab !== 'layers') activeMobileTab = 'tools';
-        startH = uiEl.offsetHeight;
-      } else if (!consoleHidden && uiHidden) {
-        activeMobileTab = (activeConsoleSubTab === 'scripts') ? 'scripts' : 'console';
-        startH = consoleEl.offsetHeight;
-      } else if (!uiHidden && !consoleHidden) {
-        const curH = Math.max(uiEl.offsetHeight, consoleEl.offsetHeight);
-        syncMobilePanels(true, curH);
-        startH = curH;
-      } else {
-        startH = 0;
-      }
-
+      startH = (!uiHidden) ? uiEl.offsetHeight : 0;
       isDraggingDock = true;
       hasMoved = false;
       startY = clientY;
@@ -810,9 +619,8 @@ async function main() {
   // On mobile initial setup: start with full-screen canvas (drawers closed)
   if (isMobile()) {
     const uiEl = document.getElementById('ui-panel');
-    const consoleEl = document.getElementById('panel');
+    
     if (uiEl) uiEl.classList.add('hidden');
-    if (consoleEl) consoleEl.classList.add('hidden');
     updateDockTabs();
     resize();
   }
