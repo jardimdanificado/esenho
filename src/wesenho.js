@@ -2800,6 +2800,7 @@ class WesenhoScreenHost {
     if (rw < 0) { rx += rw; rw = -rw; }
     if (rh < 0) { ry += rh; rh = -rh; }
     this.selection = { active: rw > 0 && rh > 0, type: 'rect', x: rx, y: ry, w: rw, h: rh, mask: null, points: null };
+    this.syncSelectionClip();
     return this.selection;
   }
 
@@ -2849,6 +2850,7 @@ class WesenhoScreenHost {
     }
 
     this.selection = { active: true, type: 'lasso', x: bx, y: by, w: bw, h: bh, mask, points: points.slice() };
+    this.syncSelectionClip();
     return this.selection;
   }
 
@@ -2923,6 +2925,7 @@ class WesenhoScreenHost {
     }
 
     this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask, points: null };
+    this.syncSelectionClip();
     this.sendConsoleLog(`magic wand selected ${count} pixels (${bw}x${bh})`);
     return this.selection;
   }
@@ -2932,6 +2935,7 @@ class WesenhoScreenHost {
    */
   clearSelection() {
     this.selection = { active: false, type: 'rect', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+    this.syncSelectionClip();
     return this.selection;
   }
 
@@ -2942,6 +2946,28 @@ class WesenhoScreenHost {
     const w = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : DOC_WIDTH;
     const h = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : DOC_HEIGHT;
     return this.setSelection(0, 0, w, h);
+  }
+
+  /**
+   * Synchronizes active selection clipping parameters with canvas.wasm engine.
+   */
+  syncSelectionClip() {
+    if (!this.canvasActor?.exports?.w_set_clip) return;
+    if (this.selection && this.selection.active && this.selection.w > 0 && this.selection.h > 0) {
+      const sel = this.selection;
+      let hasMask = 0;
+      if (sel.mask && this.canvasActor.exports.w_get_clip_mask_buffer) {
+        const maskLen = sel.w * sel.h;
+        const maskPtr = this.canvasActor.exports.w_get_clip_mask_buffer(maskLen);
+        if (maskPtr) {
+          new Uint8Array(this.canvasActor.memory.buffer, maskPtr, maskLen).set(sel.mask);
+          hasMask = 1;
+        }
+      }
+      this.canvasActor.exports.w_set_clip(1, sel.x, sel.y, sel.w, sel.h, hasMask);
+    } else {
+      this.canvasActor.exports.w_set_clip(0, 0, 0, 0, 0, 0);
+    }
   }
 
   /**
@@ -3815,17 +3841,6 @@ class WesenhoScreenHost {
       this.pushUndoSnapshot(this.currentTool === 1 ? 'eraser' : (['brush', 'smudge', 'blend', 'fill', 'lasso_fill'][this.brushParams.mode] || 'brush'));
       this.lastStrokeTime = Date.now();
       this.strokeSpeed = 0;
-      if (this.selection?.active && this.canvasActor?.exports?.w_layer_get_pixels) {
-        const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
-        const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
-        const lw = this.canvasActor.exports.w_layer_get_width(act);
-        const lh = this.canvasActor.exports.w_layer_get_height(act);
-        if (ptr && lw > 0 && lh > 0) {
-          this._strokeLayerBackup = new Uint32Array(new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh));
-        }
-      } else {
-        this._strokeLayerBackup = null;
-      }
     } else if (state === 1 && this.brushParams.velocity > 0) {
       const velStrength = Math.min(100, Math.max(0, this.brushParams.velocity)) / 100;
       const now = Date.now();
@@ -3870,10 +3885,6 @@ class WesenhoScreenHost {
         col >>> 0,
         eraser
       );
-      if (this._strokeLayerBackup) {
-        this._clipActiveLayerToSelection(this._strokeLayerBackup);
-        if (state === 2) this._strokeLayerBackup = null;
-      }
       return;
     }
 
@@ -3891,9 +3902,6 @@ class WesenhoScreenHost {
         col >>> 0,
         eraser
       );
-      if (this._strokeLayerBackup) {
-        this._clipActiveLayerToSelection(this._strokeLayerBackup);
-      }
       return;
     }
 
@@ -3951,10 +3959,6 @@ class WesenhoScreenHost {
         lastY = by;
       }
 
-      if (this._strokeLayerBackup) {
-        this._clipActiveLayerToSelection(this._strokeLayerBackup);
-      }
-
       this.strokeSmoothX = targetX;
       this.strokeSmoothY = targetY;
       this.strokeHistory.unshift(pPrev);
@@ -3986,10 +3990,6 @@ class WesenhoScreenHost {
         col >>> 0,
         eraser
       );
-      if (this._strokeLayerBackup) {
-        this._clipActiveLayerToSelection(this._strokeLayerBackup);
-        this._strokeLayerBackup = null;
-      }
       this.strokeSmoothX = null;
       this.strokeSmoothY = null;
       this.strokeHistory = null;

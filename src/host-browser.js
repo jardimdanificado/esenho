@@ -904,20 +904,80 @@ async function main() {
         ctx.lineWidth = 1.5;
         ctx.setLineDash([4, 4]);
 
-        if (host.selection.type === 'lasso' && host.selection.points && host.selection.points.length > 1) {
-          // Lasso: draw polygon outline
-          ctx.beginPath();
-          ctx.moveTo(host.selection.points[0].x * host.zoom, host.selection.points[0].y * host.zoom);
-          for (let i = 1; i < host.selection.points.length; i++) {
-            ctx.lineTo(host.selection.points[i].x * host.zoom, host.selection.points[i].y * host.zoom);
+        if (host.selection.mask) {
+          // Custom selection (lasso/wand mask): extract continuous boundary loops for identical visual style
+          const sel = host.selection;
+          const z = host.zoom;
+          if (!sel._maskLoops || sel._maskVer !== sel.mask) {
+            const mw = sel.w, mh = sel.h, m = sel.mask;
+            const adj = new Map();
+            const addEdge = (x0, y0, x1, y1) => {
+              const u = (y0 << 16) | x0;
+              const v = (y1 << 16) | x1;
+              let list = adj.get(u);
+              if (!list) { list = []; adj.set(u, list); }
+              list.push(v);
+            };
+
+            for (let my = 0; my < mh; my++) {
+              const row = my * mw;
+              for (let mx = 0; mx < mw; mx++) {
+                if (!m[row + mx]) continue;
+                // Clockwise oriented perimeter edges
+                if (my === 0 || !m[row - mw + mx]) addEdge(mx, my, mx + 1, my); // top: right
+                if (mx === mw - 1 || !m[row + mx + 1]) addEdge(mx + 1, my, mx + 1, my + 1); // right: down
+                if (my === mh - 1 || !m[row + mw + mx]) addEdge(mx + 1, my + 1, mx, my + 1); // bottom: left
+                if (mx === 0 || !m[row + mx - 1]) addEdge(mx, my + 1, mx, my); // left: up
+              }
+            }
+
+            const loops = [];
+            const maxIter = mw * mh * 4 + 10;
+            for (const [startU, targets] of adj) {
+              while (targets.length > 0) {
+                const loop = [];
+                let cur = startU;
+                let iter = 0;
+                while (iter++ < maxIter) {
+                  loop.push({ x: cur & 0xFFFF, y: cur >> 16 });
+                  const list = adj.get(cur);
+                  if (!list || list.length === 0) break;
+                  const nxt = list.pop();
+                  if (nxt === startU) break;
+                  cur = nxt;
+                }
+                if (loop.length >= 3) loops.push(loop);
+              }
+            }
+            sel._maskLoops = loops;
+            sel._maskVer = sel.mask;
           }
-          ctx.closePath();
-          ctx.fillStyle = 'rgba(131, 165, 152, 0.12)';
-          ctx.fill();
-          ctx.strokeStyle = '#000000'; ctx.lineDashOffset = dashOff; ctx.stroke();
-          ctx.strokeStyle = '#ffffff'; ctx.lineDashOffset = dashOff + 4; ctx.stroke();
+
+          const loops = sel._maskLoops;
+          if (loops && loops.length > 0) {
+            // Identical style: 1. Semi-transparent cyan fill
+            ctx.fillStyle = 'rgba(131, 165, 152, 0.15)';
+            ctx.beginPath();
+            for (const loop of loops) {
+              ctx.moveTo((sel.x + loop[0].x) * z, (sel.y + loop[0].y) * z);
+              for (let i = 1; i < loop.length; i++) {
+                ctx.lineTo((sel.x + loop[i].x) * z, (sel.y + loop[i].y) * z);
+              }
+              ctx.closePath();
+            }
+            ctx.fill('evenodd');
+
+            // Identical style: 2. Two-pass marching ants (black & white dashed stroke)
+            ctx.strokeStyle = '#000000';
+            ctx.lineDashOffset = dashOff;
+            ctx.stroke();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineDashOffset = dashOff + 4;
+            ctx.stroke();
+          }
         } else {
-          // Rect (or wand bounding box): draw rect
+          // Rectangular selection: draw exact rectangle marching ants
           const selX = host.selection.x * host.zoom;
           const selY = host.selection.y * host.zoom;
           const selW = host.selection.w * host.zoom;
@@ -940,10 +1000,18 @@ async function main() {
         for (let i = 1; i < lassoSelPoints.length; i++) {
           ctx.lineTo(lassoSelPoints[i].x * host.zoom, lassoSelPoints[i].y * host.zoom);
         }
-        ctx.strokeStyle = '#fabd2f';
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(131, 165, 152, 0.15)';
+        ctx.fill();
+
         ctx.lineWidth = 1.5;
-        ctx.setLineDash([5, 5]);
-        ctx.lineDashOffset = (Date.now() / 40) % 10;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = '#000000';
+        ctx.lineDashOffset = dashOff;
+        ctx.stroke();
+
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineDashOffset = dashOff + 4;
         ctx.stroke();
         ctx.restore();
       }

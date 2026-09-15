@@ -62,6 +62,48 @@ static void *canvas_alloc(uint32_t size) {
 }
 
 /* =========================================================================
+ * Selection Clipping
+ * Constrains all brush strokes, fills, shapes, and layer adjustments
+ * to the active selection rect or pixel mask.
+ * ========================================================================= */
+static int32_t clip_active = 0;
+static int32_t clip_x = 0;
+static int32_t clip_y = 0;
+static int32_t clip_w = 0;
+static int32_t clip_h = 0;
+static int32_t clip_has_mask = 0;
+static uint8_t *clip_mask_ptr = 0;
+static uint32_t clip_mask_cap = 0;
+
+W_EXPORT uint8_t *w_get_clip_mask_buffer(uint32_t size) {
+    if (size > clip_mask_cap) {
+        clip_mask_ptr = (uint8_t*)canvas_alloc(size + 1024);
+        clip_mask_cap = size + 1024;
+    }
+    return clip_mask_ptr;
+}
+
+W_EXPORT void w_set_clip(int32_t active, int32_t x, int32_t y, int32_t w, int32_t h, int32_t has_mask) {
+    clip_active = active;
+    clip_x = x;
+    clip_y = y;
+    clip_w = w;
+    clip_h = h;
+    clip_has_mask = has_mask;
+}
+
+static inline int is_pixel_clipped(int x, int y) {
+    if (!clip_active) return 0;
+    if (x < clip_x || x >= clip_x + clip_w || y < clip_y || y >= clip_y + clip_h) return 1;
+    if (clip_has_mask && clip_mask_ptr) {
+        int mx = x - clip_x;
+        int my = y - clip_y;
+        if (!clip_mask_ptr[my * clip_w + mx]) return 1;
+    }
+    return 0;
+}
+
+/* =========================================================================
  * Layer Allocation & Builtin Shapes
  * ========================================================================= */
 
@@ -447,7 +489,7 @@ static void draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
     int err = dx - dy;
 
     while (1) {
-        if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h) pix[y0 * w + x0] = color;
+        if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h && !is_pixel_clipped(x0, y0)) pix[y0 * w + x0] = color;
         if (x0 == x1 && y0 == y1) break;
         int e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -466,6 +508,7 @@ static void draw_rect(int rx, int ry, int rw, int rh, uint32_t color) {
         for (int dx = 0; dx < rw; dx++) {
             int px = rx + dx;
             if (px < 0 || px >= w) continue;
+            if (is_pixel_clipped(px, py)) continue;
             pix[py * w + px] = color;
         }
     }
@@ -484,7 +527,7 @@ static void draw_circle(int cx, int cy, int cr, uint32_t color) {
             int px = cx + dx;
             if (px < 0 || px >= w) continue;
             if (dx * dx + dy * dy <= r2) {
-                pix[py * w + px] = color;
+                if (!is_pixel_clipped(px, py)) pix[py * w + px] = color;
             }
         }
     }
@@ -507,7 +550,7 @@ static void draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color) {
             int px = cx + dx;
             if (px < 0 || px >= w) continue;
             if ((int64_t)dx * dx * ry2 + dy2_rx2 <= limit) {
-                pix[py * w + px] = color;
+                if (!is_pixel_clipped(px, py)) pix[py * w + px] = color;
             }
         }
     }
@@ -520,10 +563,14 @@ static void draw_grid(int step, uint32_t color) {
 
     if (step < 4) step = 4;
     for (int y = 0; y < h; y += step) {
-        for (int x = 0; x < w; x++) pix[y * w + x] = color;
+        for (int x = 0; x < w; x++) {
+            if (!is_pixel_clipped(x, y)) pix[y * w + x] = color;
+        }
     }
     for (int x = 0; x < w; x += step) {
-        for (int y = 0; y < h; y++) pix[y * w + x] = color;
+        for (int y = 0; y < h; y++) {
+            if (!is_pixel_clipped(x, y)) pix[y * w + x] = color;
+        }
     }
 }
 
@@ -542,6 +589,7 @@ static void draw_image_scaled(const uint32_t *src_pixels, int src_w, int src_h, 
         for (int dx = 0; dx < dst_w; dx++) {
             int px = dst_x + dx;
             if (px < 0 || px >= w) continue;
+            if (is_pixel_clipped(px, py)) continue;
 
             int sx = (dx * src_w) / dst_w;
             if (sx >= src_w) sx = src_w - 1;
@@ -731,6 +779,7 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
             int x_start = node_x[i] < 0 ? 0 : node_x[i];
             int x_end = node_x[i + 1] >= width ? (width - 1) : node_x[i + 1];
             for (int x = x_start; x <= x_end; x++) {
+                if (is_pixel_clipped(x, y)) continue;
                 if (brush_config.grain > 0) {
                     if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
                 }
@@ -809,6 +858,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     for (int y = min_y; y <= max_y; y++) {
         int dy = y - cy;
         for (int x = min_x; x <= max_x; x++) {
+            if (is_pixel_clipped(x, y)) continue;
             int dx = x - cx;
 
             // Rotate coordinates by angle
@@ -1381,6 +1431,10 @@ W_EXPORT void w_layer_adjust_hsv(int32_t layer_idx, int32_t d_hue, int32_t d_sat
     layer_t *l = &layers[idx];
     uint32_t count = (uint32_t)l->width * l->height;
     for (uint32_t i = 0; i < count; i++) {
+        int x = i % l->width;
+        int y = i / l->width;
+        if (is_pixel_clipped(x, y)) continue;
+
         uint32_t p = l->pixels[i];
         uint32_t a = (p >> 24) & 0xFF;
         if (a == 0) continue;
@@ -1570,7 +1624,7 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
 
     // 1. FLOOD FILL MODE
     if (brush_config.type == W_MODE_FILL) {
-        if (state == 0 && x1 >= 0 && x1 < w && y1 >= 0 && y1 < h) {
+        if (state == 0 && x1 >= 0 && x1 < w && y1 >= 0 && y1 < h && !is_pixel_clipped(x1, y1)) {
             uint32_t target_color = pix[y1 * w + x1];
             uint32_t fill_color = eraser ? 0x00000000 : color;
             if (target_color != fill_color) {
@@ -1584,7 +1638,7 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
                         int nx = cx + ddx[i], ny = cy + ddy[i];
                         if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
                             int nidx = ny * w + nx;
-                            if (color_match(pix[nidx], target_color, brush_config.tolerance)) {
+                            if (color_match(pix[nidx], target_color, brush_config.tolerance) && !is_pixel_clipped(nx, ny)) {
                                 pix[nidx] = fill_color;
                                 qx[tail] = nx; qy[tail] = ny; tail++;
                             }
