@@ -1254,10 +1254,20 @@ async function run() {
   if (!host.selection.active || host.selection.x > 50 || (host.selection.x + host.selection.w) < 119) {
     throw new Error(`wand global (adjacent off) failed: expected both squares, got ${JSON.stringify(host.selection)}`);
   }
-  host.executeCommand('wand adjacent on');
+  // 9. Test Action Modes: Draw, Erase, Select
+  host.executeCommand('set action_mode erase');
+  if (host.actionMode !== 'erase') throw new Error(`set action_mode erase failed, got ${host.actionMode}`);
+  host.executeCommand('set action_mode select');
+  if (host.actionMode !== 'select') throw new Error(`set action_mode select failed, got ${host.actionMode}`);
+  host.setEllipseSelection(150, 150, 20, 15);
+  if (!host.selection.active || !host.selection.mask || host.selection.w !== 41 || host.selection.h !== 31) {
+    throw new Error(`setEllipseSelection failed: ${JSON.stringify(host.selection)}`);
+  }
   host.executeCommand('deselect');
+  host.executeCommand('set action_mode draw');
+  if (host.actionMode !== 'draw') throw new Error(`set action_mode draw failed, got ${host.actionMode}`);
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), and Adjacent Pixels Switch verified 100%!');
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters, Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, and 3-Mode Action System (Draw, Erase, Select) verified 100%!');
 }
 
 run().catch(err => {

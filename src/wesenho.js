@@ -978,53 +978,62 @@ function handleSetTool(host, rawTool) {
 function handleSetMode(host, rawMode) {
   const m = rawMode.toLowerCase();
   if (m === 'eraser' || m === 'erase') {
+    host.setActionMode('erase');
     host.currentTool = 1;
-    host.sendConsoleLog('mode set to eraser');
-  } else if (m === 'draw' || m === 'brush') {
+    host.sendConsoleLog('action mode set to erase');
+  } else if (m === 'draw') {
+    host.setActionMode('draw');
     host.currentTool = 0;
     host.setBrushParam('mode', 0);
     host.sendConsoleLog('mode set to draw');
+  } else if (m === 'brush') {
+    host.currentTool = 0;
+    host.setBrushParam('mode', 0);
+    host.sendConsoleLog('tool set to brush');
   } else if (m === 'smudge') {
     host.currentTool = 0;
     host.setBrushParam('mode', 1);
-    host.sendConsoleLog('mode set to smudge');
+    host.sendConsoleLog('tool set to smudge');
   } else if (m === 'blend') {
     host.currentTool = 0;
     host.setBrushParam('mode', 2);
-    host.sendConsoleLog('mode set to blend');
+    host.sendConsoleLog('tool set to blend');
   } else if (m === 'fill' || m === 'flood_fill') {
     host.currentTool = 0;
     host.setBrushParam('mode', 3);
-    host.sendConsoleLog('mode set to fill');
+    host.sendConsoleLog('tool set to fill');
   } else if (m === 'lasso_fill' || m === 'lasso') {
     host.currentTool = 0;
     host.setBrushParam('mode', 4);
-    host.sendConsoleLog('mode set to lasso fill');
+    host.sendConsoleLog('tool set to lasso');
   } else if (m === 'picker' || m === 'eyedropper' || m === 'pipette') {
     host.currentTool = 0;
     host.setBrushParam('mode', 5);
-    host.sendConsoleLog('mode set to picker');
+    host.sendConsoleLog('tool set to picker');
   } else if (m === 'line') {
     host.currentTool = 0;
     host.setBrushParam('mode', 6);
-    host.sendConsoleLog('mode set to line');
+    host.sendConsoleLog('tool set to line');
   } else if (m === 'rect' || m === 'rectangle') {
     host.currentTool = 0;
     host.setBrushParam('mode', 7);
-    host.sendConsoleLog('mode set to rect');
+    host.sendConsoleLog('tool set to rect');
   } else if (m === 'ellipse' || m === 'circle_shape') {
     host.currentTool = 0;
     host.setBrushParam('mode', 8);
-    host.sendConsoleLog('mode set to ellipse');
+    host.sendConsoleLog('tool set to ellipse');
   } else if (m === 'select' || m === 'marquee') {
+    host.setActionMode('select');
     host.currentTool = 0;
     host.setBrushParam('mode', 9);
     host.sendConsoleLog('mode set to select');
   } else if (m === 'lasso_select' || m === 'lasso select') {
+    host.setActionMode('select');
     host.currentTool = 0;
     host.setBrushParam('mode', 10);
     host.sendConsoleLog('mode set to lasso select');
   } else if (m === 'wand' || m === 'magic_wand' || m === 'magic wand' || m === 'wand_select' || m === 'wand select' || m === 'magic_wand_select' || m === 'magic wand select') {
+    host.setActionMode('select');
     host.currentTool = 0;
     host.setBrushParam('mode', 11);
     host.sendConsoleLog('mode set to magic wand');
@@ -1787,6 +1796,10 @@ const COMMAND_RULES = [
   { pat: "eyedropper $x$int $y$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "pick $x$int $y$int").run(m, host) },
 
   // Modes & Shapes
+  { pat: "set action_mode $mode", run: (m, host) => { host.setActionMode(m.mode); host.sendConsoleLog(`action mode set to ${host.actionMode}`); } },
+  { pat: "set action mode $mode", run: (m, host) => { host.setActionMode(m.mode); host.sendConsoleLog(`action mode set to ${host.actionMode}`); } },
+  { pat: "action_mode $mode", run: (m, host) => { host.setActionMode(m.mode); host.sendConsoleLog(`action mode set to ${host.actionMode}`); } },
+  { pat: "action mode $mode", run: (m, host) => { host.setActionMode(m.mode); host.sendConsoleLog(`action mode set to ${host.actionMode}`); } },
   { pat: "set mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
   { pat: "mode $mode", run: (m, host) => handleSetMode(host, m.mode) },
   { pat: "set tool $tool", run: (m, host) => handleSetTool(host, m.tool) },
@@ -2516,6 +2529,7 @@ class WesenhoScreenHost {
     this.wandTolerance = 30; // default magic wand color tolerance
     this.selectionMode = 'replace'; // 'replace' | 'add' | 'sub' | 'intersect'
     this.wandAdjacent = true; // default: contiguous / adjacent pixels enabled
+    this.actionMode = 'draw'; // 'draw' | 'erase' | 'select' (global action mode)
 
     // Undo / Redo History
     this.undoStack = [];
@@ -3016,6 +3030,17 @@ class WesenhoScreenHost {
   }
 
   /**
+   * Sets global action mode: 'draw' | 'erase' | 'select'.
+   */
+  setActionMode(mode) {
+    const m = String(mode).toLowerCase();
+    if (m === 'erase' || m === 'eraser') this.actionMode = 'erase';
+    else if (m === 'select' || m === 'sel') this.actionMode = 'select';
+    else this.actionMode = 'draw';
+    return this.actionMode;
+  }
+
+  /**
    * Sets rectangular selection bounds.
    */
   setSelection(x, y, w, h, mode) {
@@ -3026,6 +3051,50 @@ class WesenhoScreenHost {
     if (rw < 0) { rx += rw; rw = -rw; }
     if (rh < 0) { ry += rh; rh = -rh; }
     const newSel = { active: rw > 0 && rh > 0, type: 'rect', x: rx, y: ry, w: rw, h: rh, mask: null, points: null };
+    return this.applySelectionOp(newSel, mode || this.selectionMode || 'replace');
+  }
+
+  /**
+   * Sets ellipse selection bounds.
+   */
+  setEllipseSelection(cx, cy, rx, ry, mode) {
+    const icx = Math.round(cx);
+    const icy = Math.round(cy);
+    const irx = Math.round(Math.abs(rx));
+    const iry = Math.round(Math.abs(ry));
+    if (irx <= 0 || iry <= 0) {
+      const emptySel = { active: false, type: 'lasso', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+      return this.applySelectionOp(emptySel, mode || this.selectionMode || 'replace');
+    }
+    const cw = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : DOC_WIDTH;
+    const ch = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : DOC_HEIGHT;
+
+    const bx = Math.max(0, icx - irx);
+    const by = Math.max(0, icy - iry);
+    const bx2 = Math.min(cw - 1, icx + irx);
+    const by2 = Math.min(ch - 1, icy + iry);
+    const bw = bx2 - bx + 1;
+    const bh = by2 - by + 1;
+    if (bw <= 0 || bh <= 0) {
+      const emptySel = { active: false, type: 'lasso', x: 0, y: 0, w: 0, h: 0, mask: null, points: null };
+      return this.applySelectionOp(emptySel, mode || this.selectionMode || 'replace');
+    }
+
+    const mask = new Uint8Array(bw * bh);
+    const rx2 = irx * irx;
+    const ry2 = iry * iry;
+    for (let py = 0; py < bh; py++) {
+      const dy = (by + py) - icy;
+      const dy2_rx2 = dy * dy * rx2;
+      const row = py * bw;
+      for (let px = 0; px < bw; px++) {
+        const dx = (bx + px) - icx;
+        if (dx * dx * ry2 + dy2_rx2 <= rx2 * ry2) {
+          mask[row + px] = 1;
+        }
+      }
+    }
+    const newSel = { active: true, type: 'lasso', x: bx, y: by, w: bw, h: bh, mask, points: null };
     return this.applySelectionOp(newSel, mode || this.selectionMode || 'replace');
   }
 
