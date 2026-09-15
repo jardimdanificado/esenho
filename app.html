@@ -1357,20 +1357,14 @@
         <details class="ui-group" open>
           <summary>PROJECT &amp; STORAGE</summary>
           <div class="ui-group-content">
-            <div class="ui-control">
-              <div class="ui-label-row">
-                <span>Project Name</span>
-                <span id="ui-autosave-badge" class="ui-val" style="color: #b8bb26;">Saved</span>
-              </div>
-              <input type="text" id="ui-project-name" class="ui-input" value="Untitled Project" style="width: 100%; background: #1d2021; border: 1px solid #3c3836; color: #ebdbb2; padding: 4px 6px; font-size: 11px;">
+            <div class="ui-grid-2" style="margin-top: 2px;">
+              <button id="ui-btn-save-project" class="ui-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;" title="Force Autosave Project">Save</button>
+              <button id="ui-btn-home" class="ui-btn" title="Autosave &amp; Return to Home Launcher">Home</button>
             </div>
-            <div class="ui-grid-2" style="margin-top: 4px;">
-              <button id="ui-btn-save-project" class="ui-btn" title="Download project savefile (.esen)">Save .esen</button>
-              <button id="ui-btn-open-project" class="ui-btn" title="Open .esen savefile from disk">Open .esen</button>
-              <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
-              <a href="index.html" id="ui-btn-home" class="ui-btn" style="text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center;" title="Go to Start Menu &amp; Recent Projects">Launcher</a>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 10px; color: #a89984;">
+              <span>Autosave:</span>
+              <span id="ui-autosave-badge" class="ui-val" style="color: #b8bb26;">Saved</span>
             </div>
-            <input type="file" id="ui-project-file-input" accept=".esen,application/json" style="display: none;" />
             <input type="file" id="ui-plugin-input" accept=".wasm" style="display: none;" />
             <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
           </div>

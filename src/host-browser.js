@@ -3342,65 +3342,21 @@ function updateDockTabs() {}
     });
   }
 
-  // Project & .esen Savefile Controls
-  const inputProjName = document.getElementById('ui-project-name');
-  if (inputProjName) {
-    if (host.currentProjectName) inputProjName.value = host.currentProjectName;
-    inputProjName.addEventListener('input', () => {
-      host.currentProjectName = inputProjName.value.trim() || 'Untitled Project';
-      markCanvasDirty();
-    });
-  }
-
+  // Project & Autosave Storage Controls
   const btnSaveProject = document.getElementById('ui-btn-save-project');
   if (btnSaveProject) {
     btnSaveProject.addEventListener('click', async () => {
-      if (typeof host.exportProject !== 'function' || typeof EsenhoStore === 'undefined') return;
-      const projName = host.currentProjectName || (inputProjName ? inputProjName.value.trim() : 'Untitled Project');
-      const projData = host.exportProject(projName);
-      if (projData) {
-        projData.id = host.currentProjectId || ('proj_' + Date.now());
-        host.currentProjectId = projData.id;
-        await EsenhoStore.saveProject(projData);
-        EsenhoStore.exportEsenFile(projData);
-        markCanvasClean();
-        log(`Exported project '${projData.name}' (.esen) [ok]`);
-      }
+      await performAutosave(true);
+      log(`Project autosaved [ok]`);
     });
   }
 
-  const btnOpenProject = document.getElementById('ui-btn-open-project');
-  const fileInputProject = document.getElementById('ui-project-file-input');
-  if (btnOpenProject && fileInputProject) {
-    btnOpenProject.addEventListener('click', () => {
-      fileInputProject.click();
-    });
-    fileInputProject.addEventListener('change', async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
-      try {
-        const projData = await EsenhoStore.importEsenFile(file);
-        if (projData && typeof host.loadProject === 'function') {
-          host.loadProject(projData);
-          host.currentProjectId = projData.id;
-          host.currentProjectName = projData.name || file.name.replace(/\.esen$/i, '');
-          if (inputProjName) inputProjName.value = host.currentProjectName;
-          await EsenhoStore.saveProject(projData);
-          localStorage.setItem('esenho_last_project_id', projData.id);
-          try {
-            const url = new URL(window.location);
-            url.searchParams.set('project', projData.id);
-            window.history.replaceState({}, '', url);
-          } catch (_) {}
-          markCanvasClean();
-          syncUiFromHost();
-          log(`Loaded project '${host.currentProjectName}' [ok]`);
-        }
-      } catch (err) {
-        log(`Error opening .esen file: ${err.message}`, 'err');
-      } finally {
-        fileInputProject.value = '';
-      }
+  const btnHome = document.getElementById('ui-btn-home');
+  if (btnHome) {
+    btnHome.addEventListener('click', async (e) => {
+      e.preventDefault();
+      await performAutosave(true);
+      window.location.href = 'index.html';
     });
   }
 
@@ -3871,7 +3827,7 @@ function updateDockTabs() {}
 
         const titleSpan = document.createElement('span');
         titleSpan.className = 'group-title';
-        titleSpan.textContent = `📁 ${grp.name}`;
+        titleSpan.textContent = grp.name;
         titleSpan.addEventListener('click', () => {
           grp.collapsed = !grp.collapsed;
           syncUiFromHost();
