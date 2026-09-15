@@ -3881,7 +3881,7 @@ function updateDockTabs() {}
         const grpVisBtn = document.createElement('button');
         grpVisBtn.type = 'button';
         grpVisBtn.className = 'layer-btn-vis' + (grp.visible ? '' : ' hidden');
-        grpVisBtn.textContent = grp.visible ? '👁' : '—';
+        grpVisBtn.textContent = grp.visible ? '◉' : '—';
         grpVisBtn.title = grp.visible ? 'Hide folder layers' : 'Show folder layers';
         grpVisBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -3951,7 +3951,7 @@ function updateDockTabs() {}
         const visBtn = document.createElement('button');
         visBtn.type = 'button';
         visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
-        visBtn.textContent = vis ? '👁' : '—';
+        visBtn.textContent = vis ? '◉' : '—';
         visBtn.title = vis ? 'Hide layer' : 'Show layer';
         visBtn.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -4127,7 +4127,7 @@ function updateDockTabs() {}
           const addGrpBtn = document.createElement('button');
           addGrpBtn.type = 'button';
           addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '📁';
+          addGrpBtn.textContent = '◫';
           addGrpBtn.title = 'Add to folder';
           addGrpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
