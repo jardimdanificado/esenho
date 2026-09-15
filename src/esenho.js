@@ -2574,7 +2574,30 @@ const COMMAND_RULES = [
     run: (m, host) => {
       host.cancelFloatTransform();
     }
-  }
+  },
+
+  // Clear data / cache
+  {
+    pat: "clear data",
+    run: (m, host) => {
+      if (typeof host.clearAllData === 'function') {
+        host.clearAllData();
+      } else {
+        host.sendConsoleLog('clearing cache and data...');
+        try {
+          if (typeof localStorage !== 'undefined') localStorage.clear();
+          if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+          if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+            indexedDB.deleteDatabase('EsenhoDB');
+          }
+        } catch (_) {}
+        host.sendConsoleLog('data cleared');
+      }
+    }
+  },
+  { pat: "data clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear data").run(m, host) },
+  { pat: "clear cache", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear data").run(m, host) },
+  { pat: "cache clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "clear data").run(m, host) }
 ];
 
 /**
@@ -2680,6 +2703,7 @@ class EsenhoScreenHost {
     this.createGroup('tips');
     this.createGroup('grains');
     this.createGroup('scripts');
+    this.createGroup('plugins');
 
     // Textures & Actors
     this.textures = createProceduralTextures();

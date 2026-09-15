@@ -219,6 +219,28 @@ async function main() {
     performAutosave(false);
   }, 60000);
 
+  host.clearAllData = async function() {
+    log('Clearing all local data and cache...');
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.clear();
+      if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+      if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+        indexedDB.deleteDatabase('EsenhoDB');
+      }
+      if (typeof caches !== 'undefined' && caches.keys) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map(k => caches.delete(k)));
+      }
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+    } catch (e) {
+      console.warn('Error clearing data:', e);
+    }
+    window.location.href = 'index.html';
+  };
+
 
   function resize() {
     const parent = canvasEl.parentElement;
@@ -2539,6 +2561,82 @@ async function main() {
     }
   }
 
+  const DEFAULT_FILTER_NAMES = [
+    'blur', 'brightness', 'contrast', 'dither', 'edge',
+    'grayscale', 'invert', 'noise', 'pixelate', 'sepia', 'threshold'
+  ];
+
+  function syncFilterPlugins() {
+    if (!host.filterPlugins) host.filterPlugins = [];
+    if (host.layerGroups && !Array.from(host.layerGroups.values()).some(g => g.name === 'plugins' || g.id === 'plugins')) {
+      host.createGroup('plugins');
+    }
+    let savedOrder = {};
+    try {
+      const stored = localStorage.getItem('esenho_user_filters_v1');
+      if (stored) savedOrder = JSON.parse(stored);
+    } catch (_) {}
+
+    const allNames = new Set(DEFAULT_FILTER_NAMES);
+    if (host.plugins) {
+      for (const [name, p] of host.plugins.entries()) {
+        if (p.type === 'filter' || typeof p.module?.exports?.w_filter_apply === 'function' || typeof p.module?.exports?.w_plugin_filter === 'function') {
+          allNames.add(name);
+        }
+      }
+    }
+
+    for (const name of allNames) {
+      const existing = host.filterPlugins.find(f => f.name === name);
+      if (!existing) {
+        const custom = savedOrder[name] || {};
+        let folder = custom.folderId;
+        if (folder === undefined || folder === 'filters') folder = 'plugins';
+        host.filterPlugins.push({
+          id: 'filter_' + name,
+          name: name,
+          folderId: folder
+        });
+      }
+    }
+  }
+
+  function saveFiltersList() {
+    try {
+      const obj = {};
+      (host.filterPlugins || []).forEach(f => {
+        obj[f.name] = { folderId: f.folderId };
+      });
+      localStorage.setItem('esenho_user_filters_v1', JSON.stringify(obj));
+    } catch (_) {}
+  }
+
+  function moveFilterUp(filter) {
+    if (!host.filterPlugins) return;
+    const idx = host.filterPlugins.indexOf(filter);
+    if (idx > 0) {
+      const temp = host.filterPlugins[idx - 1];
+      host.filterPlugins[idx - 1] = host.filterPlugins[idx];
+      host.filterPlugins[idx] = temp;
+      saveFiltersList();
+      syncUiFromHost();
+    }
+  }
+
+  function moveFilterDown(filter) {
+    if (!host.filterPlugins) return;
+    const idx = host.filterPlugins.indexOf(filter);
+    if (idx >= 0 && idx < host.filterPlugins.length - 1) {
+      const temp = host.filterPlugins[idx + 1];
+      host.filterPlugins[idx + 1] = host.filterPlugins[idx];
+      host.filterPlugins[idx] = temp;
+      saveFiltersList();
+      syncUiFromHost();
+    }
+  }
+
+  syncFilterPlugins();
+
   // 2. Wire All Sliders
   function bindSlider(id, badgeId, cmdPrefix, suffix = '') {
     const el = document.getElementById(id);
@@ -3282,15 +3380,23 @@ async function main() {
       const bytes = await file.arrayBuffer();
       const mod = await EsenhoModule.fromBytes(bytes, { name: pluginName });
       host.plugins.set(pluginName, { type: 'filter', module: mod, actor: mod });
+      syncFilterPlugins();
+      saveFiltersList();
       populateFilterSelect();
       if (filterSel) {
         filterSel.value = pluginName;
         updateFilterControls();
       }
+      syncUiFromHost();
       log(`Plugin "${pluginName}" loaded successfully [ok]`);
     } catch (e) {
       log(`err loading plugin ${file.name}: ${e.message}`, 'err');
     }
+  }
+
+  const btnAddFilter = document.getElementById('ui-btn-add-filter');
+  if (btnAddFilter && pluginInput) {
+    btnAddFilter.addEventListener('click', () => pluginInput.click());
   }
 
   if (btnLoadPlugin && pluginInput) {
@@ -4045,6 +4151,139 @@ async function main() {
         return row;
       };
 
+      const renderFilterRow = (plugin, inGroup) => {
+        const row = document.createElement('div');
+        row.className = 'ui-layer-row ui-filter-row' + (inGroup ? ' ui-layer-in-group' : '');
+        row.title = `Filter: ${plugin.name}`;
+
+        // Col 1: Type badge
+        const visCell = document.createElement('div');
+        visCell.className = 'layer-cell-vis';
+        const badge = document.createElement('span');
+        badge.className = 'filter-type-badge';
+        badge.textContent = 'FLT';
+        visCell.appendChild(badge);
+        row.appendChild(visCell);
+
+        // Col 2: Info
+        const infoCell = document.createElement('div');
+        infoCell.className = 'layer-cell-info';
+        infoCell.innerHTML = `
+          <span class="layer-name-text" title="${plugin.name}">${plugin.name}</span>
+          <span class="layer-dims-text">wasm filter</span>
+        `;
+        row.appendChild(infoCell);
+
+        // Col 3: Toggles (Apply button)
+        const togglesCell = document.createElement('div');
+        togglesCell.className = 'layer-cell-toggles';
+
+        const applyBtn = document.createElement('button');
+        applyBtn.type = 'button';
+        applyBtn.className = 'layer-pill';
+        applyBtn.textContent = 'Apply';
+        applyBtn.style.color = '#83a598';
+        applyBtn.title = `Apply ${plugin.name} filter on active layer`;
+        applyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`filter ${plugin.name}`);
+        });
+        togglesCell.appendChild(applyBtn);
+        row.appendChild(togglesCell);
+
+        // Col 4: Spacer
+        const opCell = document.createElement('div');
+        opCell.className = 'layer-cell-op';
+        opCell.textContent = '';
+        row.appendChild(opCell);
+
+        // Col 5: Actions
+        const actCell = document.createElement('div');
+        actCell.className = 'layer-cell-actions';
+
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'layer-btn-action';
+        upBtn.textContent = '^';
+        upBtn.title = 'Move filter up';
+        upBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveFilterUp(plugin);
+        });
+        actCell.appendChild(upBtn);
+
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'layer-btn-action';
+        downBtn.textContent = 'v';
+        downBtn.title = 'Move filter down';
+        downBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          moveFilterDown(plugin);
+        });
+        actCell.appendChild(downBtn);
+
+        if (inGroup) {
+          const remGrpBtn = document.createElement('button');
+          remGrpBtn.type = 'button';
+          remGrpBtn.className = 'layer-btn-action';
+          remGrpBtn.textContent = '[-]';
+          remGrpBtn.title = 'Remove from folder';
+          remGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            plugin.folderId = null;
+            saveFiltersList();
+            syncUiFromHost();
+          });
+          actCell.appendChild(remGrpBtn);
+        } else if (host.layerGroups && host.layerGroups.size > 0) {
+          const addGrpBtn = document.createElement('button');
+          addGrpBtn.type = 'button';
+          addGrpBtn.className = 'layer-btn-action';
+          addGrpBtn.textContent = '[+]';
+          addGrpBtn.title = 'Add to folder';
+          addGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const grpList = Array.from(host.layerGroups.values());
+            if (grpList.length === 1) {
+              plugin.folderId = grpList[0].id;
+              saveFiltersList();
+              syncUiFromHost();
+            } else {
+              const names = grpList.map(g => g.name).join(', ');
+              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
+              const found = grpList.find(g => g.name === target || g.id === target);
+              if (found) {
+                plugin.folderId = found.id;
+                saveFiltersList();
+                syncUiFromHost();
+              }
+            }
+          });
+          actCell.appendChild(addGrpBtn);
+        }
+
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'layer-btn-action btn-del';
+        delBtn.textContent = 'x';
+        delBtn.title = `Delete filter '${plugin.name}'`;
+        delBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete filter '${plugin.name}'?`)) {
+            host.filterPlugins = (host.filterPlugins || []).filter(f => f !== plugin);
+            host.plugins.delete(plugin.name);
+            saveFiltersList();
+            populateFilterSelect();
+            syncUiFromHost();
+          }
+        });
+        actCell.appendChild(delBtn);
+
+        row.appendChild(actCell);
+        return row;
+      };
+
       const renderLayerRow = (i, pos, inGroup) => {
         const vis = host.canvasActor.exports.get_layer_visible ? host.canvasActor.exports.get_layer_visible(i) : 1;
         const op = host.canvasActor.exports.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
@@ -4315,6 +4554,13 @@ async function main() {
         });
       }
 
+      // 2.5 Render root-level filter plugins
+      if (host.filterPlugins) {
+        host.filterPlugins.filter(f => !f.folderId).forEach(plugin => {
+          layersList.appendChild(renderFilterRow(plugin, false));
+        });
+      }
+
       // 3. Render layer folders below main layers (collapsed by default)
       if (host.layerGroups) {
         for (const grp of host.layerGroups.values()) {
@@ -4329,8 +4575,13 @@ async function main() {
               }
             }
             if (host.scripts) {
-              host.scripts.filter(s => s.folderId === grp.id || s.folderId === grp.name).forEach(script => {
+              host.scripts.filter(s => s.folderId === grp.id || s.folderId === grp.name || (grp.name === 'scripts' && s.folderId === 'scripts')).forEach(script => {
                 layersList.appendChild(renderScriptRow(script, true));
+              });
+            }
+            if (host.filterPlugins) {
+              host.filterPlugins.filter(f => f.folderId === grp.id || f.folderId === grp.name || ((grp.name === 'plugins' || grp.name === 'plugins/' || grp.name === 'filters') && (f.folderId === 'plugins' || f.folderId === 'plugins/' || f.folderId === 'filters'))).forEach(plugin => {
+                layersList.appendChild(renderFilterRow(plugin, true));
               });
             }
           }
