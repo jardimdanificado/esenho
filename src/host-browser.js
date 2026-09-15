@@ -2456,6 +2456,9 @@ async function main() {
 
   host.scripts = getSavedScripts();
   host.activeScript = null;
+  if (host.layerGroups && !Array.from(host.layerGroups.values()).some(g => g.name === 'scripts' || g.id === 'scripts')) {
+    host.createGroup('scripts');
+  }
 
   function runScriptCode(code) {
     code = (code || '').trim();
@@ -3225,7 +3228,47 @@ async function main() {
       });
     }
 
-    // 4. Layers Buttons
+    // 4. Layers UI & Sub-tabs
+    let layerTabMode = 'layers';
+
+    const layerTabs = document.getElementById('ui-layer-tabs');
+    if (layerTabs) {
+      layerTabs.querySelectorAll('.layer-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          layerTabs.querySelectorAll('.layer-tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          layerTabMode = btn.getAttribute('data-tab') || 'layers';
+          syncUiFromHost();
+        });
+      });
+    }
+
+    const layerBlendSel = document.getElementById('ui-layer-blend-select');
+    if (layerBlendSel) {
+      layerBlendSel.addEventListener('change', () => {
+        const act = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+        runCmd(`layer blend ${act} ${layerBlendSel.value}`);
+      });
+    }
+
+    const quickAlockBtn = document.getElementById('ui-btn-quick-alock');
+    if (quickAlockBtn) {
+      quickAlockBtn.addEventListener('click', () => {
+        const act = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+        const cur = host.getLayerAlphaLock ? host.getLayerAlphaLock(act) : 0;
+        runCmd(`layer alpha_lock ${act} ${cur ? 'off' : 'on'}`);
+      });
+    }
+
+    const quickClipBtn = document.getElementById('ui-btn-quick-clip');
+    if (quickClipBtn) {
+      quickClipBtn.addEventListener('click', () => {
+        const act = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+        const cur = host.getLayerClipping ? host.getLayerClipping(act) : 0;
+        runCmd(`layer clipping ${act} ${cur ? 'off' : 'on'}`);
+      });
+    }
+
     const addLayerBtn = document.getElementById('ui-btn-add-layer');
     if (addLayerBtn) {
       addLayerBtn.addEventListener('click', () => runCmd('new layer'));
@@ -3240,14 +3283,41 @@ async function main() {
         }
       });
     }
+    const mergeLayerBtn = document.getElementById('ui-btn-merge-layer');
+    if (mergeLayerBtn) {
+      mergeLayerBtn.addEventListener('click', () => {
+        const act = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+        if (confirm(`Merge layer #${act} down into layer below?`)) {
+          runCmd(`layer merge down ${act}`);
+        }
+      });
+    }
     const dupLayerBtn = document.getElementById('ui-btn-duplicate-layer');
     if (dupLayerBtn) {
-      dupLayerBtn.addEventListener('click', () => runCmd('duplicate layer'));
+      dupLayerBtn.addEventListener('click', () => {
+        const act = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+        runCmd(`layer duplicate ${act}`);
+      });
+    }
+    const deleteLayerBtn = document.getElementById('ui-btn-delete-layer');
+    if (deleteLayerBtn) {
+      deleteLayerBtn.addEventListener('click', () => {
+        const act = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+        if (confirm(`Delete active layer #${act}?`)) {
+          runCmd(`delete layer ${act}`);
+        }
+      });
     }
     const clearLayerBtn = document.getElementById('ui-btn-clear-layer');
     if (clearLayerBtn) {
       clearLayerBtn.addEventListener('click', () => runCmd('clear layer'));
     }
+
+    // Dismiss custom context menus on global click
+    document.addEventListener('click', () => {
+      const existing = document.getElementById('ui-layer-context-menu');
+      if (existing) existing.remove();
+    });
 
   // View Navigation Controls
   const btnZoomIn = document.getElementById('ui-btn-zoom-in');
@@ -3911,680 +3981,953 @@ async function main() {
       dualShapeSel.value = activeDualName;
     }
 
-    // Sync active layer opacity slider (Photoshop style)
-    const curActiveOp = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_opacity)
-      ? host.canvasActor.exports.get_layer_opacity(activeDraw) : 255;
-    const curActivePct = Math.round((curActiveOp / 255) * 100);
-    if (activeLayerOp && document.activeElement !== activeLayerOp) {
-      activeLayerOp.value = curActivePct;
-      if (activeLayerOpVal) activeLayerOpVal.textContent = curActivePct + '%';
-    }
-
-    // Render Layers List (Photoshop-like top-to-bottom stacking order + Groups + Reordering + Merge Down)
+    // ── Photoshop-like Layer Manager UI Sync ──
+    const layerHeaderBar = document.getElementById('ui-layer-header-bar');
+    const layerFooterBar = document.getElementById('ui-layer-footer-bar');
     const layersList = document.getElementById('ui-layers-list');
-    if (layersList) {
-      layersList.innerHTML = '';
-      const orderCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_order_count)
-        ? host.canvasActor.exports.w_layer_get_order_count()
-        : count;
 
-      const layerToGroup = new Map();
-      if (host.layerGroups) {
-        for (const grp of host.layerGroups.values()) {
-          for (const lid of grp.layerIds) {
-            layerToGroup.set(lid, grp);
-          }
-        }
+    if (layerTabMode === 'layers') {
+      if (layerHeaderBar) layerHeaderBar.style.display = 'flex';
+      if (layerFooterBar) layerFooterBar.style.display = 'flex';
+
+      // Sync active layer blend mode
+      if (layerBlendSel) {
+        const curBlend = host.getLayerBlendMode ? host.getLayerBlendMode(activeDraw) : 0;
+        layerBlendSel.value = curBlend;
       }
 
-      const renderedGroups = new Set();
+      // Sync active layer opacity slider
+      const curActiveOp = (host.canvasActor?.exports?.get_layer_opacity)
+        ? host.canvasActor.exports.get_layer_opacity(activeDraw) : 255;
+      const curActivePct = Math.round((curActiveOp / 255) * 100);
+      if (activeLayerOp && document.activeElement !== activeLayerOp) {
+        activeLayerOp.value = curActivePct;
+        if (activeLayerOpVal) activeLayerOpVal.textContent = curActivePct + '%';
+      }
 
-      const createGroupHeader = (grp) => {
-        const grpRow = document.createElement('div');
-        grpRow.className = 'ui-layer-group-header';
-        grpRow.title = `Folder: ${grp.name} (${grp.layerIds.length} layers)`;
+      // Sync quick toggles
+      if (quickAlockBtn) {
+        const alock = host.getLayerAlphaLock ? host.getLayerAlphaLock(activeDraw) : 0;
+        quickAlockBtn.classList.toggle('active', !!alock);
+      }
+      if (quickClipBtn) {
+        const clip = host.getLayerClipping ? host.getLayerClipping(activeDraw) : 0;
+        quickClipBtn.classList.toggle('active', !!clip);
+      }
+    } else {
+      if (layerHeaderBar) layerHeaderBar.style.display = 'none';
+      if (layerFooterBar) layerFooterBar.style.display = 'none';
+    }
 
-        const toggleBtn = document.createElement('button');
-        toggleBtn.type = 'button';
-        toggleBtn.className = 'group-btn-collapse';
-        toggleBtn.textContent = grp.collapsed ? '>' : 'v';
-        toggleBtn.title = grp.collapsed ? 'Expand folder' : 'Collapse folder';
-        toggleBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          grp.collapsed = !grp.collapsed;
-          syncUiFromHost();
-        });
-        grpRow.appendChild(toggleBtn);
+    if (layersList) {
+      layersList.innerHTML = '';
 
-        const titleSpan = document.createElement('span');
-        titleSpan.className = 'group-title';
-        titleSpan.textContent = grp.name;
-        titleSpan.addEventListener('click', () => {
-          grp.collapsed = !grp.collapsed;
-          syncUiFromHost();
-        });
-        grpRow.appendChild(titleSpan);
-
-        const grpVisBtn = document.createElement('button');
-        grpVisBtn.type = 'button';
-        grpVisBtn.className = 'layer-btn-vis' + (grp.visible ? '' : ' hidden');
-        grpVisBtn.textContent = grp.visible ? 'V' : '-';
-        grpVisBtn.title = grp.visible ? 'Hide folder layers' : 'Show folder layers';
-        grpVisBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`group toggle ${grp.id}`);
-        });
-        grpRow.appendChild(grpVisBtn);
-
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'layer-btn-action';
-        addBtn.textContent = '+';
-        addBtn.title = `Add active layer [${activeDraw}] to ${grp.name}`;
-        addBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`group add ${grp.id} ${activeDraw}`);
-        });
-        grpRow.appendChild(addBtn);
-
-        const delGrpBtn = document.createElement('button');
-        delGrpBtn.type = 'button';
-        delGrpBtn.className = 'layer-btn-action btn-del';
-        delGrpBtn.textContent = 'x';
-        delGrpBtn.title = `Delete folder '${grp.name}'`;
-        delGrpBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (confirm(`Delete folder '${grp.name}'? (Layers won't be deleted)`)) {
-            runCmd(`group delete ${grp.id}`);
-          }
-        });
-        grpRow.appendChild(delGrpBtn);
-
-        return grpRow;
+      const renderLayerThumb = (canvas, layerId) => {
+        if (!host.canvasActor?.exports?.w_layer_get_pixels || !host.canvasActor?.exports?.w_layer_get_width) return;
+        const ptr = host.canvasActor.exports.w_layer_get_pixels(layerId);
+        const lw = host.canvasActor.exports.w_layer_get_width(layerId);
+        const lh = host.canvasActor.exports.w_layer_get_height(layerId);
+        if (!ptr || lw <= 0 || lh <= 0) return;
+        try {
+          const ctx = canvas.getContext('2d');
+          const u8 = new Uint8ClampedArray(host.canvasActor.memory.buffer, ptr, lw * lh * 4);
+          const imgData = new ImageData(u8, lw, lh);
+          const off = document.createElement('canvas');
+          off.width = lw;
+          off.height = lh;
+          off.getContext('2d').putImageData(imgData, 0, 0);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+        } catch (_) {}
       };
 
-      const renderScriptRow = (script, inGroup) => {
-        const isScriptActive = (host.activeScript === script);
-        const row = document.createElement('div');
-        row.className = 'ui-layer-row ui-script-row' + (isScriptActive ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
-        row.title = `Script: ${script.name}`;
+      const showLayerContextMenu = (e, layerId, isGroup = false, grp = null) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const existing = document.getElementById('ui-layer-context-menu');
+        if (existing) existing.remove();
 
-        // Col 1: Type badge
-        const visCell = document.createElement('div');
-        visCell.className = 'layer-cell-vis';
-        const badge = document.createElement('span');
-        badge.className = 'script-type-badge';
-        badge.textContent = 'SCR';
-        visCell.appendChild(badge);
-        row.appendChild(visCell);
+        const menu = document.createElement('div');
+        menu.id = 'ui-layer-context-menu';
+        menu.className = 'layer-context-menu';
+        menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
+        menu.style.top = Math.min(e.clientY, window.innerHeight - 260) + 'px';
 
-        // Col 2: Info
-        const infoCell = document.createElement('div');
-        infoCell.className = 'layer-cell-info';
-        const lineCount = (script.code || '').split('\n').filter(l => l.trim().length > 0).length;
-        infoCell.innerHTML = `
-          <span class="layer-name-text" title="${script.name}">${script.name}</span>
-          <span class="layer-dims-text">${lineCount} lines</span>
-        `;
-        row.appendChild(infoCell);
+        let name = `layer_${layerId}`;
+        if (layerId === 3) name = 'Background';
+        else if (host.layerNames && host.layerNames.has(layerId)) name = host.layerNames.get(layerId);
 
-        // Col 3: Toggles (Active button to open/close canvas editor, Run button to execute on active layer)
-        const togglesCell = document.createElement('div');
-        togglesCell.className = 'layer-cell-toggles';
-
-        const activeBtn = document.createElement('button');
-        activeBtn.type = 'button';
-        activeBtn.className = 'layer-pill' + (isScriptActive ? ' active-layer-pill' : '');
-        activeBtn.textContent = 'Active';
-        activeBtn.title = isScriptActive ? 'Close script editor' : 'Edit script in canvas editor';
-        activeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (isScriptActive) {
-            closeCanvasScriptEditor(true);
-          } else {
-            openCanvasScriptEditor(script);
+        const addItem = (label, action, isDivider = false) => {
+          if (isDivider) {
+            const div = document.createElement('div');
+            div.className = 'layer-menu-divider';
+            menu.appendChild(div);
+            return;
           }
-        });
-        togglesCell.appendChild(activeBtn);
+          const item = document.createElement('div');
+          item.className = 'layer-menu-item';
+          item.innerHTML = label;
+          item.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            menu.remove();
+            action();
+          });
+          menu.appendChild(item);
+        };
 
-        const runBtn = document.createElement('button');
-        runBtn.type = 'button';
-        runBtn.className = 'layer-pill';
-        runBtn.textContent = 'Run';
-        runBtn.style.color = '#8ec07c';
-        runBtn.title = 'Run script on active layer';
-        runBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runScriptCode(script.code);
-        });
-        togglesCell.appendChild(runBtn);
-        row.appendChild(togglesCell);
+        if (!isGroup) {
+          const isAct = (layerId === activeDraw);
+          const alphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(layerId) : 0;
+          const clipping = host.getLayerClipping ? host.getLayerClipping(layerId) : 0;
 
-        // Col 4: Spacer
-        const opCell = document.createElement('div');
-        opCell.className = 'layer-cell-op';
-        opCell.textContent = '';
-        row.appendChild(opCell);
+          addItem(`<span>Select / Active</span>`, () => {
+            if (host.activeScript) closeCanvasScriptEditor(true);
+            runCmd(`layer select ${layerId}`);
+          });
+          addItem(`<span>▲ Move Layer Up</span>`, () => {
+            runCmd(`layer move up ${layerId}`);
+          });
+          addItem(`<span>▼ Move Layer Down</span>`, () => {
+            runCmd(`layer move down ${layerId}`);
+          });
+          addItem('', null, true);
 
-        // Col 5: Actions
-        const actCell = document.createElement('div');
-        actCell.className = 'layer-cell-actions';
+          addItem(alphaLock ? `<span>α Unlock Alpha</span>` : `<span>α Alpha Lock</span>`, () => {
+            runCmd(`layer alpha_lock ${layerId} ${alphaLock ? 'off' : 'on'}`);
+          });
+          addItem(clipping ? `<span>↳ Unclip Mask</span>` : `<span>↳ Clipping Mask</span>`, () => {
+            runCmd(`layer clipping ${layerId} ${clipping ? 'off' : 'on'}`);
+          });
+          addItem('', null, true);
 
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button';
-        upBtn.className = 'layer-btn-action';
-        upBtn.textContent = '^';
-        upBtn.title = 'Move script up';
-        upBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          moveScriptUp(script);
-        });
-        actCell.appendChild(upBtn);
+          addItem(`<span>▲ Use as Brush Tip</span>`, () => {
+            runCmd(`set shape ${name}`);
+          });
+          addItem(`<span>▦ Use as Grain Texture</span>`, () => {
+            runCmd(`set texture ${name}`);
+          });
+          addItem('', null, true);
 
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button';
-        downBtn.className = 'layer-btn-action';
-        downBtn.textContent = 'v';
-        downBtn.title = 'Move script down';
-        downBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          moveScriptDown(script);
-        });
-        actCell.appendChild(downBtn);
+          addItem(`<span>⧉ Duplicate Layer</span>`, () => {
+            runCmd(`layer duplicate ${layerId}`);
+          });
+          addItem(`<span>⤓ Merge Down</span>`, () => {
+            if (confirm(`Merge layer #${layerId} down?`)) runCmd(`layer merge down ${layerId}`);
+          });
+          addItem(`<span>✎ Rename Layer</span>`, () => {
+            const newName = prompt('New layer name:', name);
+            if (newName && newName.trim()) {
+              if (!host.layerNames) host.layerNames = new Map();
+              host.layerNames.set(layerId, newName.trim());
+              syncUiFromHost();
+            }
+          });
+          addItem(`<span>⌫ Clear Layer</span>`, () => {
+            if (confirm(`Clear contents of layer #${layerId}?`)) runCmd(`layer clear ${layerId}`);
+          });
+          addItem('', null, true);
 
-        if (inGroup) {
-          const remGrpBtn = document.createElement('button');
-          remGrpBtn.type = 'button';
-          remGrpBtn.className = 'layer-btn-action';
-          remGrpBtn.textContent = '[-]';
-          remGrpBtn.title = 'Remove from folder';
-          remGrpBtn.addEventListener('click', (e) => {
+          addItem(`<span style="color:#fb4934;">✕ Delete Layer</span>`, () => {
+            if (confirm(`Delete layer #${layerId} (${name})?`)) runCmd(`delete layer ${layerId}`);
+          });
+        } else {
+          addItem(`<span>✎ Rename Folder</span>`, () => {
+            const newName = prompt('New folder name:', grp.name);
+            if (newName && newName.trim()) {
+              grp.name = newName.trim();
+              syncUiFromHost();
+            }
+          });
+          addItem(grp.visible ? `<span>○ Hide Folder</span>` : `<span>◉ Show Folder</span>`, () => {
+            runCmd(`group toggle ${grp.id}`);
+          });
+          addItem('', null, true);
+          addItem(`<span style="color:#fb4934;">✕ Delete Folder</span>`, () => {
+            if (confirm(`Delete folder '${grp.name}'? (Layers will be preserved)`)) {
+              runCmd(`group delete ${grp.id}`);
+            }
+          });
+        }
+
+        document.body.appendChild(menu);
+      };
+
+      if (layerTabMode === 'layers') {
+        const orderCount = (host.canvasActor?.exports?.w_layer_get_order_count)
+          ? host.canvasActor.exports.w_layer_get_order_count()
+          : count;
+
+        const layerToGroup = new Map();
+        if (host.layerGroups) {
+          for (const grp of host.layerGroups.values()) {
+            for (const lid of grp.layerIds) {
+              layerToGroup.set(lid, grp);
+            }
+          }
+        }
+
+        // Touch Drag helper for Mobile
+        let touchDragState = null;
+
+        const attachTouchDrag = (handle, itemInfo, rowEl) => {
+          handle.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            const touch = e.touches[0];
+            touchDragState = {
+              item: itemInfo,
+              el: rowEl,
+              startY: touch.clientY,
+              active: false
+            };
+          }, { passive: true });
+
+          handle.addEventListener('touchmove', (e) => {
+            if (!touchDragState || e.touches.length !== 1) return;
+            const touch = e.touches[0];
+            const dy = Math.abs(touch.clientY - touchDragState.startY);
+            if (dy > 6) {
+              touchDragState.active = true;
+              e.preventDefault();
+              rowEl.classList.add('dragging');
+
+              const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+              const targetRow = elBelow?.closest('.ui-layer-row, .ui-layer-group-header');
+
+              document.querySelectorAll('.drag-over-top, .drag-over-bottom, .drag-over-group').forEach(el => {
+                if (el !== targetRow) el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-group');
+              });
+
+              if (targetRow && targetRow !== rowEl) {
+                if (targetRow.classList.contains('ui-layer-group-header')) {
+                  targetRow.classList.add('drag-over-group');
+                } else {
+                  const rect = targetRow.getBoundingClientRect();
+                  const isTop = (touch.clientY - rect.top) < (rect.height / 2);
+                  targetRow.classList.toggle('drag-over-top', isTop);
+                  targetRow.classList.toggle('drag-over-bottom', !isTop);
+                }
+              }
+            }
+          }, { passive: false });
+
+          handle.addEventListener('touchend', (e) => {
+            if (!touchDragState) return;
+            rowEl.classList.remove('dragging');
+            const touch = e.changedTouches[0];
+            const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+            const targetRow = elBelow?.closest('.ui-layer-row, .ui-layer-group-header');
+
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom, .drag-over-group').forEach(el => {
+              el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-group');
+            });
+
+            if (touchDragState.active && targetRow) {
+              if (targetRow.classList.contains('ui-layer-group-header')) {
+                const grpId = targetRow.getAttribute('data-group-id');
+                if (grpId && touchDragState.item.layerId !== undefined) {
+                  runCmd(`group add ${grpId} ${touchDragState.item.layerId}`);
+                }
+              } else if (targetRow !== rowEl && touchDragState.item.layerId !== undefined) {
+                const targetPos = parseInt(targetRow.getAttribute('data-pos'), 10);
+                if (!isNaN(targetPos)) {
+                  const rect = targetRow.getBoundingClientRect();
+                  const isTop = (touch.clientY - rect.top) < (rect.height / 2);
+                  let finalPos = isTop ? targetPos + 1 : targetPos;
+                  if (touchDragState.item.pos < targetPos && isTop) finalPos = targetPos;
+                  if (touchDragState.item.pos > targetPos && !isTop) finalPos = targetPos;
+                  runCmd(`layer move pos ${touchDragState.item.layerId} ${finalPos}`);
+
+                  const targetInGroup = targetRow.getAttribute('data-in-group') === 'true';
+                  const targetGrpId = targetRow.getAttribute('data-grp-id');
+                  if (targetInGroup && targetGrpId) {
+                    runCmd(`group add ${targetGrpId} ${touchDragState.item.layerId}`);
+                  } else if (!targetInGroup && touchDragState.item.inGroup) {
+                    runCmd(`group remove ${touchDragState.item.layerId}`);
+                  }
+                }
+              }
+            }
+            touchDragState = null;
+          });
+        };
+
+        const createGroupHeader = (grp) => {
+          const grpRow = document.createElement('div');
+          grpRow.className = 'ui-layer-group-header';
+          grpRow.setAttribute('data-group-id', grp.id);
+          grpRow.title = `Folder: ${grp.name} (Drag layers here to nest)`;
+
+          // Drag and drop for groups
+          grpRow.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            grpRow.classList.add('drag-over-group');
+          });
+          grpRow.addEventListener('dragleave', () => {
+            grpRow.classList.remove('drag-over-group');
+          });
+          grpRow.addEventListener('drop', (e) => {
+            e.preventDefault();
+            grpRow.classList.remove('drag-over-group');
+            try {
+              const data = JSON.parse(e.dataTransfer.getData('application/json'));
+              if (data && data.layerId !== undefined) {
+                runCmd(`group add ${grp.id} ${data.layerId}`);
+              }
+            } catch (_) {}
+          });
+
+          // Collapse button
+          const toggleBtn = document.createElement('button');
+          toggleBtn.type = 'button';
+          toggleBtn.className = 'group-btn-collapse';
+          toggleBtn.textContent = grp.collapsed ? '▸' : '▾';
+          toggleBtn.title = grp.collapsed ? 'Expand folder' : 'Collapse folder';
+          toggleBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            script.folderId = null;
-            saveScriptsList(host.scripts);
+            grp.collapsed = !grp.collapsed;
             syncUiFromHost();
           });
-          actCell.appendChild(remGrpBtn);
-        } else if (host.layerGroups && host.layerGroups.size > 0) {
-          const addGrpBtn = document.createElement('button');
-          addGrpBtn.type = 'button';
-          addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '[+]';
-          addGrpBtn.title = 'Add to folder';
-          addGrpBtn.addEventListener('click', (e) => {
+          grpRow.appendChild(toggleBtn);
+
+          // Visibility toggle
+          const visBtn = document.createElement('button');
+          visBtn.type = 'button';
+          visBtn.className = 'layer-btn-vis' + (grp.visible ? '' : ' hidden');
+          visBtn.textContent = grp.visible ? '◉' : '○';
+          visBtn.title = grp.visible ? 'Hide folder' : 'Show folder';
+          visBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const grpList = Array.from(host.layerGroups.values());
-            if (grpList.length === 1) {
-              script.folderId = grpList[0].id;
+            runCmd(`group toggle ${grp.id}`);
+          });
+          grpRow.appendChild(visBtn);
+
+          // Title
+          const titleSpan = document.createElement('span');
+          titleSpan.className = 'group-title';
+          titleSpan.textContent = `[ ${grp.name} ]`;
+          titleSpan.addEventListener('click', () => {
+            grp.collapsed = !grp.collapsed;
+            syncUiFromHost();
+          });
+          titleSpan.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            const newName = prompt('Rename folder:', grp.name);
+            if (newName && newName.trim()) {
+              grp.name = newName.trim();
+              syncUiFromHost();
+            }
+          });
+          grpRow.appendChild(titleSpan);
+
+          // Touch Drag Handle
+          const dragHandle = document.createElement('span');
+          dragHandle.className = 'layer-drag-handle';
+          dragHandle.textContent = '⠿';
+          dragHandle.title = 'Hold & drag to reorder';
+          attachTouchDrag(dragHandle, { type: 'group', groupId: grp.id }, grpRow);
+          grpRow.appendChild(dragHandle);
+
+          // Context menu
+          grpRow.addEventListener('contextmenu', (e) => showLayerContextMenu(e, 0, true, grp));
+
+          return grpRow;
+        };
+
+        const renderLayerRow = (i, pos, inGroup, grp) => {
+          const vis = host.canvasActor?.exports?.get_layer_visible ? host.canvasActor.exports.get_layer_visible(i) : 1;
+          const alphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(i) : 0;
+          const clipping = host.getLayerClipping ? host.getLayerClipping(i) : 0;
+          const isDraw = (i === activeDraw) && !host.activeScript;
+
+          let name = `layer_${i}`;
+          if (i === 3) name = 'Background';
+          else if (host.layerNames && host.layerNames.has(i)) name = host.layerNames.get(i);
+          else if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
+          }
+
+          const row = document.createElement('div');
+          row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
+          row.setAttribute('data-layer-id', i);
+          row.setAttribute('data-pos', pos);
+          row.setAttribute('data-in-group', inGroup ? 'true' : 'false');
+          if (grp) row.setAttribute('data-grp-id', grp.id);
+          row.title = `[#${i}] ${name} (Right-click for menu, drag to reorder)`;
+          row.draggable = true;
+
+          // Drag and drop handlers
+          row.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('application/json', JSON.stringify({ layerId: i, pos, inGroup: !!inGroup }));
+            row.classList.add('dragging');
+          });
+          row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom, .drag-over-group').forEach(el => {
+              el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-group');
+            });
+          });
+          row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const rect = row.getBoundingClientRect();
+            const isTop = (e.clientY - rect.top) < (rect.height / 2);
+            row.classList.toggle('drag-over-top', isTop);
+            row.classList.toggle('drag-over-bottom', !isTop);
+          });
+          row.addEventListener('dragleave', () => {
+            row.classList.remove('drag-over-top', 'drag-over-bottom');
+          });
+          row.addEventListener('drop', (e) => {
+            e.preventDefault();
+            row.classList.remove('drag-over-top', 'drag-over-bottom');
+            try {
+              const data = JSON.parse(e.dataTransfer.getData('application/json'));
+              if (data && data.layerId !== undefined && data.layerId !== i) {
+                const rect = row.getBoundingClientRect();
+                const isTop = (e.clientY - rect.top) < (rect.height / 2);
+                // Stacking order: top of list has highest pos
+                let targetPos = isTop ? pos + 1 : pos;
+                if (data.pos < pos && isTop) targetPos = pos;
+                if (data.pos > pos && !isTop) targetPos = pos;
+                runCmd(`layer move pos ${data.layerId} ${targetPos}`);
+
+                // Manage group membership on drop
+                if (inGroup && grp) {
+                  runCmd(`group add ${grp.id} ${data.layerId}`);
+                } else if (!inGroup && data.inGroup) {
+                  runCmd(`group remove ${data.layerId}`);
+                }
+              }
+            } catch (_) {}
+          });
+
+          // Visibility toggle
+          const visBtn = document.createElement('button');
+          visBtn.type = 'button';
+          visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
+          visBtn.textContent = vis ? '◉' : '○';
+          visBtn.title = vis ? 'Hide layer' : 'Show layer';
+          visBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            runCmd(`toggle layer ${i}`);
+          });
+          row.appendChild(visBtn);
+
+          // Live thumbnail
+          const thumbWrap = document.createElement('div');
+          thumbWrap.className = 'layer-thumb-wrap';
+          const thumbCanvas = document.createElement('canvas');
+          thumbCanvas.className = 'layer-thumb-canvas';
+          thumbCanvas.width = 22;
+          thumbCanvas.height = 22;
+          thumbWrap.appendChild(thumbCanvas);
+          renderLayerThumb(thumbCanvas, i);
+          row.appendChild(thumbWrap);
+
+          // Name & Double-click inline rename
+          const nameWrap = document.createElement('div');
+          nameWrap.className = 'layer-name-wrap';
+
+          const nameText = document.createElement('span');
+          nameText.className = 'layer-name-text';
+          nameText.textContent = name;
+          nameWrap.appendChild(nameText);
+
+          nameText.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'layer-name-input';
+            input.value = name;
+            nameWrap.replaceChild(input, nameText);
+            input.focus();
+            input.select();
+
+            const finishRename = () => {
+              const val = input.value.trim();
+              if (val && val !== name) {
+                if (!host.layerNames) host.layerNames = new Map();
+                host.layerNames.set(i, val);
+              }
+              syncUiFromHost();
+            };
+            input.addEventListener('blur', finishRename);
+            input.addEventListener('keydown', (ev) => {
+              if (ev.key === 'Enter') { finishRename(); }
+              if (ev.key === 'Escape') { syncUiFromHost(); }
+            });
+          });
+
+          row.appendChild(nameWrap);
+
+          // State badges
+          const badgesWrap = document.createElement('div');
+          badgesWrap.className = 'layer-badges';
+          if (alphaLock) {
+            const b = document.createElement('span');
+            b.className = 'layer-badge-icon alock';
+            b.textContent = 'α';
+            b.title = 'Alpha Lock Active';
+            badgesWrap.appendChild(b);
+          }
+          if (clipping) {
+            const b = document.createElement('span');
+            b.className = 'layer-badge-icon clip';
+            b.textContent = '↳';
+            b.title = 'Clipping Mask Active';
+            badgesWrap.appendChild(b);
+          }
+          row.appendChild(badgesWrap);
+
+          // Touch Drag Handle (Mobile & Desktop)
+          const dragHandle = document.createElement('span');
+          dragHandle.className = 'layer-drag-handle';
+          dragHandle.textContent = '⠿';
+          dragHandle.title = 'Hold & drag to reorder';
+          attachTouchDrag(dragHandle, { layerId: i, pos, inGroup: !!inGroup, grpId: grp?.id }, row);
+          row.appendChild(dragHandle);
+
+          // Select layer on click
+          row.addEventListener('click', () => {
+            if (host.activeScript) closeCanvasScriptEditor(true);
+            runCmd(`layer select ${i}`);
+          });
+
+          // Right click context menu
+          row.addEventListener('contextmenu', (e) => showLayerContextMenu(e, i, false));
+
+          return row;
+        };
+
+        const renderScriptRow = (script, inGroup, grp) => {
+          const isScriptActive = (host.activeScript === script);
+          const row = document.createElement('div');
+          row.className = 'ui-layer-row' + (isScriptActive ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '');
+          row.title = `Script: ${script.name}`;
+          row.draggable = true;
+
+          // Drag and drop for scripts
+          row.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('application/json', JSON.stringify({ type: 'script', name: script.name, inGroup: !!inGroup }));
+            row.classList.add('dragging');
+          });
+          row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom, .drag-over-group').forEach(el => {
+              el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-group');
+            });
+          });
+
+          // Badge SCR
+          const badge = document.createElement('span');
+          badge.style.fontSize = '8px';
+          badge.style.background = '#d79921';
+          badge.style.color = '#1d2021';
+          badge.style.padding = '1px 3px';
+          badge.style.borderRadius = '2px';
+          badge.style.fontWeight = 'bold';
+          badge.style.flexShrink = '0';
+          badge.textContent = 'SCR';
+          row.appendChild(badge);
+
+          // Name
+          const nameWrap = document.createElement('div');
+          nameWrap.className = 'layer-name-wrap';
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'layer-name-text';
+          nameSpan.textContent = script.name;
+          nameWrap.appendChild(nameSpan);
+          row.appendChild(nameWrap);
+
+          // Edit button
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'layer-footer-btn';
+          editBtn.style.flex = 'none';
+          editBtn.style.padding = '2px 5px';
+          editBtn.style.fontSize = '9px';
+          editBtn.textContent = isScriptActive ? 'Close' : 'Edit';
+          editBtn.title = 'Edit script in canvas editor';
+          editBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isScriptActive) closeCanvasScriptEditor(true);
+            else openCanvasScriptEditor(script);
+          });
+          row.appendChild(editBtn);
+
+          // Run button
+          const runBtn = document.createElement('button');
+          runBtn.type = 'button';
+          runBtn.className = 'layer-footer-btn';
+          runBtn.style.flex = 'none';
+          runBtn.style.padding = '2px 6px';
+          runBtn.style.fontSize = '9px';
+          runBtn.style.color = '#b8bb26';
+          runBtn.textContent = '▶';
+          runBtn.title = 'Run script on active layer';
+          runBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            runScriptCode(script.code);
+          });
+          row.appendChild(runBtn);
+
+          // Delete button
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'layer-footer-btn btn-danger';
+          delBtn.style.flex = 'none';
+          delBtn.style.padding = '2px 5px';
+          delBtn.style.fontSize = '9px';
+          delBtn.textContent = '✕';
+          delBtn.title = 'Delete script';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete script '${script.name}'?`)) {
+              host.scripts = (host.scripts || []).filter(s => s !== script);
               saveScriptsList(host.scripts);
               syncUiFromHost();
-            } else {
-              const names = grpList.map(g => g.name).join(', ');
-              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
-              const found = grpList.find(g => g.name === target || g.id === target);
-              if (found) {
-                script.folderId = found.id;
+            }
+          });
+          row.appendChild(delBtn);
+
+          return row;
+        };
+
+        const renderFilterRow = (plugin, inGroup, grp) => {
+          const row = document.createElement('div');
+          row.className = 'ui-layer-row' + (inGroup ? ' ui-layer-in-group' : '');
+          row.title = `Filter Plugin: ${plugin.name}`;
+          row.draggable = true;
+
+          // Drag and drop for plugins
+          row.addEventListener('dragstart', (e) => {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('application/json', JSON.stringify({ type: 'plugin', name: plugin.name, inGroup: !!inGroup }));
+            row.classList.add('dragging');
+          });
+          row.addEventListener('dragend', () => {
+            row.classList.remove('dragging');
+            document.querySelectorAll('.drag-over-top, .drag-over-bottom, .drag-over-group').forEach(el => {
+              el.classList.remove('drag-over-top', 'drag-over-bottom', 'drag-over-group');
+            });
+          });
+
+          // Badge FLT
+          const badge = document.createElement('span');
+          badge.style.fontSize = '8px';
+          badge.style.background = '#83a598';
+          badge.style.color = '#1d2021';
+          badge.style.padding = '1px 3px';
+          badge.style.borderRadius = '2px';
+          badge.style.fontWeight = 'bold';
+          badge.style.flexShrink = '0';
+          badge.textContent = 'FLT';
+          row.appendChild(badge);
+
+          // Name
+          const nameWrap = document.createElement('div');
+          nameWrap.className = 'layer-name-wrap';
+          const nameSpan = document.createElement('span');
+          nameSpan.className = 'layer-name-text';
+          nameSpan.textContent = plugin.name;
+          nameWrap.appendChild(nameSpan);
+          row.appendChild(nameWrap);
+
+          // Apply button
+          const applyBtn = document.createElement('button');
+          applyBtn.type = 'button';
+          applyBtn.className = 'layer-footer-btn';
+          applyBtn.style.flex = 'none';
+          applyBtn.style.padding = '2px 6px';
+          applyBtn.style.fontSize = '9px';
+          applyBtn.style.color = '#8ec07c';
+          applyBtn.textContent = 'Apply';
+          applyBtn.title = `Apply ${plugin.name} filter on active layer`;
+          applyBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            runCmd(`filter ${plugin.name}`);
+          });
+          row.appendChild(applyBtn);
+
+          // Delete button
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'layer-footer-btn btn-danger';
+          delBtn.style.flex = 'none';
+          delBtn.style.padding = '2px 5px';
+          delBtn.style.fontSize = '9px';
+          delBtn.textContent = '✕';
+          delBtn.title = 'Delete filter plugin';
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete filter '${plugin.name}'?`)) {
+              host.filterPlugins = (host.filterPlugins || []).filter(f => f !== plugin);
+              host.plugins.delete(plugin.name);
+              saveFiltersList();
+              populateFilterSelect();
+              syncUiFromHost();
+            }
+          });
+          row.appendChild(delBtn);
+
+          return row;
+        };
+
+        // Render main document layers (highest pos down to 0)
+        for (let pos = orderCount - 1; pos >= 0; pos--) {
+          const i = (host.canvasActor?.exports?.w_layer_get_order)
+            ? host.canvasActor.exports.w_layer_get_order(pos)
+            : pos;
+          if (i < 0 || i >= count) continue;
+
+          const grp = layerToGroup.get(i);
+          if (!grp) {
+            layersList.appendChild(renderLayerRow(i, pos, false));
+          }
+        }
+
+        // Render layer folders below main layers
+        if (host.layerGroups) {
+          for (const grp of host.layerGroups.values()) {
+            layersList.appendChild(createGroupHeader(grp));
+            if (!grp.collapsed) {
+              // 1. Drawing layers in group
+              for (let pos = orderCount - 1; pos >= 0; pos--) {
+                const i = (host.canvasActor?.exports?.w_layer_get_order)
+                  ? host.canvasActor.exports.w_layer_get_order(pos)
+                  : pos;
+                if (grp.layerIds.includes(i)) {
+                  layersList.appendChild(renderLayerRow(i, pos, true, grp));
+                }
+              }
+              // 2. Scripts in group
+              if (host.scripts) {
+                const grpScripts = host.scripts.filter(s =>
+                  s.folderId === grp.id || s.folderId === grp.name ||
+                  (grp.name.toLowerCase() === 'scripts' && (!s.folderId || s.folderId === 'scripts'))
+                );
+                grpScripts.forEach(s => layersList.appendChild(renderScriptRow(s, true, grp)));
+              }
+              // 3. Filter plugins in group
+              if (host.filterPlugins) {
+                const grpPlugins = host.filterPlugins.filter(f =>
+                  f.folderId === grp.id || f.folderId === grp.name ||
+                  ((grp.name.toLowerCase() === 'plugins' || grp.name.toLowerCase() === 'filters') && (!f.folderId || f.folderId === 'plugins' || f.folderId === 'filters'))
+                );
+                grpPlugins.forEach(f => layersList.appendChild(renderFilterRow(f, true, grp)));
+              }
+            }
+          }
+        }
+
+        // Render root-level scripts not in any folder
+        if (host.scripts) {
+          const allGrpNames = new Set(Array.from(host.layerGroups?.values() || []).flatMap(g => [g.id, g.name, g.name.toLowerCase()]));
+          const rootScripts = host.scripts.filter(s => s.folderId && !allGrpNames.has(s.folderId) && !allGrpNames.has(s.folderId.toLowerCase()));
+          rootScripts.forEach(s => layersList.appendChild(renderScriptRow(s, false)));
+        }
+        // Render root-level plugins not in any folder
+        if (host.filterPlugins) {
+          const allGrpNames = new Set(Array.from(host.layerGroups?.values() || []).flatMap(g => [g.id, g.name, g.name.toLowerCase()]));
+          const rootPlugins = host.filterPlugins.filter(f => f.folderId && !allGrpNames.has(f.folderId) && !allGrpNames.has(f.folderId.toLowerCase()));
+          rootPlugins.forEach(f => layersList.appendChild(renderFilterRow(f, false)));
+        }
+      } else if (layerTabMode === 'scripts') {
+        // Render Scripts sub-view
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.gap = '4px';
+        header.style.padding = '4px';
+        header.style.borderBottom = '1px solid #3c3836';
+        header.innerHTML = `
+          <button type="button" id="ui-btn-new-script-sub" class="ui-mini-btn" style="flex:1;">+ New Script</button>
+        `;
+        layersList.appendChild(header);
+
+        const newSubScriptBtn = header.querySelector('#ui-btn-new-script-sub');
+        if (newSubScriptBtn) {
+          newSubScriptBtn.addEventListener('click', () => {
+            const name = prompt('Script name:', `script_${(host.scripts || []).length + 1}`);
+            if (name && name.trim()) {
+              const s = { name: name.trim(), code: '# New script\n' };
+              if (!host.scripts) host.scripts = [];
+              host.scripts.push(s);
+              saveScriptsList(host.scripts);
+              openCanvasScriptEditor(s);
+            }
+          });
+        }
+
+        const scriptList = host.scripts || [];
+        if (scriptList.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.style.padding = '16px';
+          emptyMsg.style.color = '#7c6f64';
+          emptyMsg.style.textAlign = 'center';
+          emptyMsg.style.fontSize = '10px';
+          emptyMsg.textContent = 'No custom scripts yet';
+          layersList.appendChild(emptyMsg);
+        } else {
+          scriptList.forEach(script => {
+            const isScriptActive = (host.activeScript === script);
+            const row = document.createElement('div');
+            row.className = 'ui-layer-row' + (isScriptActive ? ' active-draw' : '');
+            row.style.cursor = 'default';
+
+            const badge = document.createElement('span');
+            badge.style.fontSize = '8px';
+            badge.style.background = '#d79921';
+            badge.style.color = '#1d2021';
+            badge.style.padding = '1px 3px';
+            badge.style.borderRadius = '2px';
+            badge.style.fontWeight = 'bold';
+            badge.textContent = 'SCR';
+            row.appendChild(badge);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.style.flex = '1';
+            nameSpan.style.overflow = 'hidden';
+            nameSpan.style.textOverflow = 'ellipsis';
+            nameSpan.style.whiteSpace = 'nowrap';
+            nameSpan.textContent = script.name;
+            row.appendChild(nameSpan);
+
+            const editBtn = document.createElement('button');
+            editBtn.type = 'button';
+            editBtn.className = 'layer-footer-btn';
+            editBtn.style.flex = 'none';
+            editBtn.style.padding = '2px 6px';
+            editBtn.textContent = isScriptActive ? 'Close' : 'Edit';
+            editBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (isScriptActive) closeCanvasScriptEditor(true);
+              else openCanvasScriptEditor(script);
+            });
+            row.appendChild(editBtn);
+
+            const runBtn = document.createElement('button');
+            runBtn.type = 'button';
+            runBtn.className = 'layer-footer-btn';
+            runBtn.style.flex = 'none';
+            runBtn.style.padding = '2px 6px';
+            runBtn.style.color = '#b8bb26';
+            runBtn.textContent = '▶';
+            runBtn.title = 'Run script on canvas';
+            runBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              runScriptCode(script.code);
+            });
+            row.appendChild(runBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'layer-footer-btn btn-danger';
+            delBtn.style.flex = 'none';
+            delBtn.style.padding = '2px 6px';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Delete script';
+            delBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (confirm(`Delete script '${script.name}'?`)) {
+                host.scripts = host.scripts.filter(s => s !== script);
                 saveScriptsList(host.scripts);
                 syncUiFromHost();
               }
-            }
+            });
+            row.appendChild(delBtn);
+
+            layersList.appendChild(row);
           });
-          actCell.appendChild(addGrpBtn);
+        }
+      } else if (layerTabMode === 'plugins') {
+        // Render Plugins / FX sub-view
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.gap = '4px';
+        header.style.padding = '4px';
+        header.style.borderBottom = '1px solid #3c3836';
+        header.innerHTML = `
+          <button type="button" id="ui-btn-load-plugin-sub" class="ui-mini-btn" style="flex:1;">+ Load WASM Plugin (.wasm)</button>
+        `;
+        layersList.appendChild(header);
+
+        const loadSubPluginBtn = header.querySelector('#ui-btn-load-plugin-sub');
+        if (loadSubPluginBtn && pluginInput) {
+          loadSubPluginBtn.addEventListener('click', () => pluginInput.click());
         }
 
-        const delBtn = document.createElement('button');
-        delBtn.type = 'button';
-        delBtn.className = 'layer-btn-action btn-del';
-        delBtn.textContent = 'x';
-        delBtn.title = `Delete script '${script.name}'`;
-        delBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (confirm(`Delete script '${script.name}'?`)) {
-            host.scripts = (host.scripts || []).filter(s => s !== script);
-            saveScriptsList(host.scripts);
-            syncUiFromHost();
-          }
-        });
-        actCell.appendChild(delBtn);
+        const pluginList = host.filterPlugins || [];
+        if (pluginList.length === 0) {
+          const emptyMsg = document.createElement('div');
+          emptyMsg.style.padding = '16px';
+          emptyMsg.style.color = '#7c6f64';
+          emptyMsg.style.textAlign = 'center';
+          emptyMsg.style.fontSize = '10px';
+          emptyMsg.textContent = 'No custom WASM filter plugins loaded';
+          layersList.appendChild(emptyMsg);
+        } else {
+          pluginList.forEach(plugin => {
+            const row = document.createElement('div');
+            row.className = 'ui-layer-row';
+            row.style.cursor = 'default';
 
-        row.appendChild(actCell);
-        return row;
-      };
+            const badge = document.createElement('span');
+            badge.style.fontSize = '8px';
+            badge.style.background = '#83a598';
+            badge.style.color = '#1d2021';
+            badge.style.padding = '1px 3px';
+            badge.style.borderRadius = '2px';
+            badge.style.fontWeight = 'bold';
+            badge.textContent = 'FLT';
+            row.appendChild(badge);
 
-      const renderFilterRow = (plugin, inGroup) => {
-        const row = document.createElement('div');
-        row.className = 'ui-layer-row ui-filter-row' + (inGroup ? ' ui-layer-in-group' : '');
-        row.title = `Filter: ${plugin.name}`;
+            const nameSpan = document.createElement('span');
+            nameSpan.style.flex = '1';
+            nameSpan.style.overflow = 'hidden';
+            nameSpan.style.textOverflow = 'ellipsis';
+            nameSpan.style.whiteSpace = 'nowrap';
+            nameSpan.textContent = plugin.name;
+            row.appendChild(nameSpan);
 
-        // Col 1: Type badge
-        const visCell = document.createElement('div');
-        visCell.className = 'layer-cell-vis';
-        const badge = document.createElement('span');
-        badge.className = 'filter-type-badge';
-        badge.textContent = 'FLT';
-        visCell.appendChild(badge);
-        row.appendChild(visCell);
+            const applyBtn = document.createElement('button');
+            applyBtn.type = 'button';
+            applyBtn.className = 'layer-footer-btn';
+            applyBtn.style.flex = 'none';
+            applyBtn.style.padding = '2px 6px';
+            applyBtn.style.color = '#8ec07c';
+            applyBtn.textContent = 'Apply';
+            applyBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              runCmd(`filter ${plugin.name}`);
+            });
+            row.appendChild(applyBtn);
 
-        // Col 2: Info
-        const infoCell = document.createElement('div');
-        infoCell.className = 'layer-cell-info';
-        infoCell.innerHTML = `
-          <span class="layer-name-text" title="${plugin.name}">${plugin.name}</span>
-          <span class="layer-dims-text">wasm filter</span>
-        `;
-        row.appendChild(infoCell);
-
-        // Col 3: Toggles (Apply button)
-        const togglesCell = document.createElement('div');
-        togglesCell.className = 'layer-cell-toggles';
-
-        const applyBtn = document.createElement('button');
-        applyBtn.type = 'button';
-        applyBtn.className = 'layer-pill';
-        applyBtn.textContent = 'Apply';
-        applyBtn.style.color = '#83a598';
-        applyBtn.title = `Apply ${plugin.name} filter on active layer`;
-        applyBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`filter ${plugin.name}`);
-        });
-        togglesCell.appendChild(applyBtn);
-        row.appendChild(togglesCell);
-
-        // Col 4: Spacer
-        const opCell = document.createElement('div');
-        opCell.className = 'layer-cell-op';
-        opCell.textContent = '';
-        row.appendChild(opCell);
-
-        // Col 5: Actions
-        const actCell = document.createElement('div');
-        actCell.className = 'layer-cell-actions';
-
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button';
-        upBtn.className = 'layer-btn-action';
-        upBtn.textContent = '^';
-        upBtn.title = 'Move filter up';
-        upBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          moveFilterUp(plugin);
-        });
-        actCell.appendChild(upBtn);
-
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button';
-        downBtn.className = 'layer-btn-action';
-        downBtn.textContent = 'v';
-        downBtn.title = 'Move filter down';
-        downBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          moveFilterDown(plugin);
-        });
-        actCell.appendChild(downBtn);
-
-        if (inGroup) {
-          const remGrpBtn = document.createElement('button');
-          remGrpBtn.type = 'button';
-          remGrpBtn.className = 'layer-btn-action';
-          remGrpBtn.textContent = '[-]';
-          remGrpBtn.title = 'Remove from folder';
-          remGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            plugin.folderId = null;
-            saveFiltersList();
-            syncUiFromHost();
-          });
-          actCell.appendChild(remGrpBtn);
-        } else if (host.layerGroups && host.layerGroups.size > 0) {
-          const addGrpBtn = document.createElement('button');
-          addGrpBtn.type = 'button';
-          addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '[+]';
-          addGrpBtn.title = 'Add to folder';
-          addGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const grpList = Array.from(host.layerGroups.values());
-            if (grpList.length === 1) {
-              plugin.folderId = grpList[0].id;
-              saveFiltersList();
-              syncUiFromHost();
-            } else {
-              const names = grpList.map(g => g.name).join(', ');
-              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
-              const found = grpList.find(g => g.name === target || g.id === target);
-              if (found) {
-                plugin.folderId = found.id;
+            const delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'layer-footer-btn btn-danger';
+            delBtn.style.flex = 'none';
+            delBtn.style.padding = '2px 6px';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Delete filter';
+            delBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (confirm(`Delete filter '${plugin.name}'?`)) {
+                host.filterPlugins = (host.filterPlugins || []).filter(f => f !== plugin);
+                host.plugins.delete(plugin.name);
                 saveFiltersList();
+                populateFilterSelect();
                 syncUiFromHost();
               }
-            }
+            });
+            row.appendChild(delBtn);
+
+            layersList.appendChild(row);
           });
-          actCell.appendChild(addGrpBtn);
-        }
-
-        const delBtn = document.createElement('button');
-        delBtn.type = 'button';
-        delBtn.className = 'layer-btn-action btn-del';
-        delBtn.textContent = 'x';
-        delBtn.title = `Delete filter '${plugin.name}'`;
-        delBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (confirm(`Delete filter '${plugin.name}'?`)) {
-            host.filterPlugins = (host.filterPlugins || []).filter(f => f !== plugin);
-            host.plugins.delete(plugin.name);
-            saveFiltersList();
-            populateFilterSelect();
-            syncUiFromHost();
-          }
-        });
-        actCell.appendChild(delBtn);
-
-        row.appendChild(actCell);
-        return row;
-      };
-
-      const renderLayerRow = (i, pos, inGroup) => {
-        const vis = host.canvasActor.exports.get_layer_visible ? host.canvasActor.exports.get_layer_visible(i) : 1;
-        const op = host.canvasActor.exports.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
-        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
-        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
-        const opPct = Math.round((op / 255) * 100);
-        const alphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(i) : 0;
-        const clipping = host.getLayerClipping ? host.getLayerClipping(i) : 0;
-        const blendMode = host.getLayerBlendMode ? host.getLayerBlendMode(i) : 0;
-
-        let name = `layer_${i}`;
-        if (i === 3) {
-          name = 'Background';
-        } else if (host.layerNames && host.layerNames.has(i)) {
-          name = host.layerNames.get(i);
-        } else if (host.textures) {
-          for (const [k, v] of host.textures.entries()) {
-            if (v.wasmId === i) { name = k; break; }
-          }
-        }
-
-        const isDraw = (i === activeDraw) && !host.activeScript;
-        const isShape = (i === shapeId);
-        const isTex = (name === activeTex);
-
-        const row = document.createElement('div');
-        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
-        row.title = `[${i}] ${name} (${w}×${h})`;
-
-        // Col 1: Visibility
-        const visCell = document.createElement('div');
-        visCell.className = 'layer-cell-vis';
-        const visBtn = document.createElement('button');
-        visBtn.type = 'button';
-        visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
-        visBtn.textContent = vis ? 'V' : '-';
-        visBtn.title = vis ? 'Hide layer' : 'Show layer';
-        visBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`toggle layer ${i}`);
-        });
-        visCell.appendChild(visBtn);
-        row.appendChild(visCell);
-
-        // Col 2: Info
-        const infoCell = document.createElement('div');
-        infoCell.className = 'layer-cell-info';
-        infoCell.innerHTML = `
-          <span class="layer-idx">#${i}</span>
-          <span class="layer-name-text" title="${name}">${name}</span>
-          <span class="layer-dims-text">${w}×${h}</span>
-        `;
-        row.appendChild(infoCell);
-
-        // Col 3: Toggles
-        const togglesCell = document.createElement('div');
-        togglesCell.className = 'layer-cell-toggles';
-
-        const activeBtn = document.createElement('button');
-        activeBtn.type = 'button';
-        activeBtn.className = 'layer-pill' + (isDraw ? ' active-layer-pill' : '');
-        activeBtn.textContent = 'Active';
-        activeBtn.title = 'Set as active drawing layer';
-        activeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (host.activeScript) {
-            closeCanvasScriptEditor(true);
-          }
-          runCmd(`layer select ${i}`);
-        });
-        togglesCell.appendChild(activeBtn);
-
-        const shapeBtn = document.createElement('button');
-        shapeBtn.type = 'button';
-        shapeBtn.className = 'layer-pill' + (isShape ? ' active-shape' : '');
-        shapeBtn.textContent = 'Tip';
-        shapeBtn.title = 'Use as brush tip (Shape)';
-        shapeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`set shape ${name}`);
-        });
-        togglesCell.appendChild(shapeBtn);
-
-        const texBtn = document.createElement('button');
-        texBtn.type = 'button';
-        texBtn.className = 'layer-pill' + (isTex ? ' active-tex' : '');
-        texBtn.textContent = 'Grain';
-        texBtn.title = 'Use as grain texture';
-        texBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`set texture ${name}`);
-        });
-        togglesCell.appendChild(texBtn);
-
-        // Alpha Lock button
-        const lockBtn = document.createElement('button');
-        lockBtn.type = 'button';
-        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
-        lockBtn.textContent = 'L';
-        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
-        lockBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
-        });
-        togglesCell.appendChild(lockBtn);
-
-        // Clipping Mask button
-        const clipBtn = document.createElement('button');
-        clipBtn.type = 'button';
-        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
-        clipBtn.textContent = 'L_';
-        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
-        clipBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
-        });
-        togglesCell.appendChild(clipBtn);
-
-        // Blend Mode dropdown
-        const blendSel = document.createElement('select');
-        blendSel.className = 'layer-select-blend';
-        blendSel.title = 'Layer Blend Mode';
-        const bOpts = [
-          { val: 0, label: 'Norm' },
-          { val: 1, label: 'Mult' },
-          { val: 2, label: 'Scrn' },
-          { val: 3, label: 'Over' },
-          { val: 4, label: 'Ddg' },
-          { val: 5, label: 'Add' }
-        ];
-        bOpts.forEach(optData => {
-          const opt = document.createElement('option');
-          opt.value = optData.val;
-          opt.textContent = optData.label;
-          if (optData.val === blendMode) opt.selected = true;
-          blendSel.appendChild(opt);
-        });
-        blendSel.addEventListener('change', (e) => {
-          e.stopPropagation();
-          runCmd(`layer blend ${i} ${blendSel.value}`);
-        });
-        blendSel.addEventListener('click', (e) => e.stopPropagation());
-        togglesCell.appendChild(blendSel);
-
-        row.appendChild(togglesCell);
-
-        // Col 4: Opacity text
-        const opCell = document.createElement('div');
-        opCell.className = 'layer-cell-op';
-        opCell.id = `layer-op-text-${i}`;
-        opCell.textContent = `${opPct}%`;
-        row.appendChild(opCell);
-
-        // Col 5: Actions
-        const actCell = document.createElement('div');
-        actCell.className = 'layer-cell-actions';
-
-        // Move Up
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button';
-        upBtn.className = 'layer-btn-action';
-        upBtn.textContent = '^';
-        upBtn.title = 'Move layer up';
-        if (pos >= orderCount - 1) upBtn.disabled = true;
-        upBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer move up ${i}`);
-        });
-        actCell.appendChild(upBtn);
-
-        // Move Down
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button';
-        downBtn.className = 'layer-btn-action';
-        downBtn.textContent = 'v';
-        downBtn.title = 'Move layer down';
-        if (pos <= 0) downBtn.disabled = true;
-        downBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer move down ${i}`);
-        });
-        actCell.appendChild(downBtn);
-
-        // Merge Down
-        const mergeBtn = document.createElement('button');
-        mergeBtn.type = 'button';
-        mergeBtn.className = 'layer-btn-action btn-merge';
-        mergeBtn.textContent = 'v';
-        mergeBtn.title = 'Merge down into layer below';
-        if (pos <= 0) mergeBtn.disabled = true;
-        mergeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (confirm(`Merge layer #${i} down into layer below? This action cannot be undone.`)) {
-            runCmd(`layer merge down ${i}`);
-          }
-        });
-        actCell.appendChild(mergeBtn);
-
-        // Group assign/remove
-        if (inGroup) {
-          const remGrpBtn = document.createElement('button');
-          remGrpBtn.type = 'button';
-          remGrpBtn.className = 'layer-btn-action';
-          remGrpBtn.textContent = '[-]';
-          remGrpBtn.title = 'Remove from folder';
-          remGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            runCmd(`group remove ${i}`);
-          });
-          actCell.appendChild(remGrpBtn);
-        } else if (host.layerGroups && host.layerGroups.size > 0) {
-          const addGrpBtn = document.createElement('button');
-          addGrpBtn.type = 'button';
-          addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '[+]';
-          addGrpBtn.title = 'Add to folder';
-          addGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const grpList = Array.from(host.layerGroups.values());
-            if (grpList.length === 1) {
-              runCmd(`group add ${grpList[0].id} ${i}`);
-            } else {
-              const names = grpList.map(g => g.name).join(', ');
-              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
-              if (target) runCmd(`group add ${target} ${i}`);
-            }
-          });
-          actCell.appendChild(addGrpBtn);
-        }
-
-        // Delete button
-        if (orderCount > 1) {
-          const delBtn = document.createElement('button');
-          delBtn.type = 'button';
-          delBtn.className = 'layer-btn-action btn-del';
-          delBtn.textContent = 'x';
-          delBtn.title = `Delete layer [${i}] ${name}`;
-          delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm(`Delete layer [${i}] ${name}?`)) {
-              runCmd(`delete layer ${i}`);
-            }
-          });
-          actCell.appendChild(delBtn);
-        }
-
-        row.appendChild(actCell);
-        return row;
-      };
-
-      // 1. Render all main document layers (not in folders) in top-to-bottom order (highest pos down to 0)
-      for (let pos = orderCount - 1; pos >= 0; pos--) {
-        const i = (host.canvasActor.exports.w_layer_get_order)
-          ? host.canvasActor.exports.w_layer_get_order(pos)
-          : pos;
-        if (i < 0 || i >= count) continue;
-
-        const grp = layerToGroup.get(i);
-        if (!grp) {
-          layersList.appendChild(renderLayerRow(i, pos, false));
-        }
-      }
-
-      // 2. Render root-level scripts
-      if (host.scripts) {
-        host.scripts.filter(s => !s.folderId).forEach(script => {
-          layersList.appendChild(renderScriptRow(script, false));
-        });
-      }
-
-      // 2.5 Render root-level filter plugins
-      if (host.filterPlugins) {
-        host.filterPlugins.filter(f => !f.folderId).forEach(plugin => {
-          layersList.appendChild(renderFilterRow(plugin, false));
-        });
-      }
-
-      // 3. Render layer folders below main layers (collapsed by default)
-      if (host.layerGroups) {
-        for (const grp of host.layerGroups.values()) {
-          layersList.appendChild(createGroupHeader(grp));
-          if (!grp.collapsed) {
-            for (let pos = orderCount - 1; pos >= 0; pos--) {
-              const i = (host.canvasActor.exports.w_layer_get_order)
-                ? host.canvasActor.exports.w_layer_get_order(pos)
-                : pos;
-              if (grp.layerIds.includes(i)) {
-                layersList.appendChild(renderLayerRow(i, pos, true));
-              }
-            }
-            if (host.scripts) {
-              host.scripts.filter(s => s.folderId === grp.id || s.folderId === grp.name || (grp.name === 'scripts' && s.folderId === 'scripts')).forEach(script => {
-                layersList.appendChild(renderScriptRow(script, true));
-              });
-            }
-            if (host.filterPlugins) {
-              host.filterPlugins.filter(f => f.folderId === grp.id || f.folderId === grp.name || ((grp.name === 'plugins' || grp.name === 'plugins/' || grp.name === 'filters') && (f.folderId === 'plugins' || f.folderId === 'plugins/' || f.folderId === 'filters'))).forEach(plugin => {
-                layersList.appendChild(renderFilterRow(plugin, true));
-              });
-            }
-          }
         }
       }
     }

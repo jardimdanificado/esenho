@@ -1,17 +1,21 @@
 # Esenho UI and Usage Documentation
 
-## 1. Getting Started: Canvas Launcher (`index.html`)
+## 1. Getting Started: Project Gallery & Launcher (`index.html`)
 
-The entry launcher configures canvas dimensions before initializing the WebAssembly environment:
-- **Width (PX) & Height (PX)**: Numeric inputs accepting values from 64 to 8192 pixels.
-- **Quick Presets**: Single-click resolution buttons:
-  - `1280x720` (Default 720p HD)
-  - `1920x1080` (1080p Full HD)
-  - `800x600` (Classic 4:3)
-  - `1024x1024` (1:1 Square)
-  - `720x1280` (Vertical Mobile / Portrait)
-  - `640x480` (Pixel Art / Retro Standard)
-- **Create Canvas**: Submits configuration to `app.html?w=<width>&h=<height>`.
+The entry launcher manages project creation, local storage in IndexedDB (`EsenhoDB`), and file I/O:
+- **Project Gallery**:
+  - Displays all saved projects with live metadata (name, resolution, creation and last-modified dates).
+  - **Open**: Launches the canvas studio (`app.html?project=<id>`).
+  - **Rename**: Renames the project within IndexedDB.
+  - **Export .esen**: Downloads complete project savefile with all layers, scripts, groups, and parameters.
+  - **Export PNG**: Renders and downloads composite PNG image directly from the project gallery without opening the studio.
+  - **Delete**: Removes project from local IndexedDB storage with confirmation.
+- **New Project Form**:
+  - **Width (PX) & Height (PX)**: Numeric inputs accepting values from 64 to 8192 pixels.
+  - **Quick Presets**: `1280x720` (720p HD), `1920x1080` (1080p Full HD), `800x600` (4:3), `1024x1024` (1:1 Square), `720x1280` (Mobile Portrait), `640x480` (Pixel Art).
+  - **Create Project**: Initializes project in IndexedDB and opens `app.html`.
+- **Import .esen**: File input to load existing `.esen` project files into IndexedDB.
+- **Version Badge**: Real-time project version synchronization with `package.json`.
 
 ---
 
@@ -19,9 +23,12 @@ The entry launcher configures canvas dimensions before initializing the WebAssem
 
 The studio workspace consists of four primary regions:
 1. **Interactive Viewport (`#cvswrap`, `#wcanvas`)**: Hardware-accelerated canvas using `desynchronized: true` 2D context for ultra-low latency rendering. Displays background transparency checkerboard (`#222222` / `#2A2A2A`), shape guides, selection boundaries, floating transform cages, and the eyedropper loupe ring.
+   - **Canvas Status Bar (`#cvs-status-bar` / `#wstatus`)**: Positioned at bottom-left of viewport showing pointer coordinates `(x, y)`, canvas dimensions `(W x H)`, zoom level `(Z%)`, and tool mode.
+   - **Canvas Script Editor (`#canvas-script-editor`)**: Full-canvas monospace overlay activated when a script layer is set to `Active`. Allows editing script code directly over the canvas with `Save` and `Cancel` buttons.
 2. **Right Tools & Parameters Panel (`#ui-panel`)**: Collapsible accordion panel containing 10 tool categories, toggled via `Alt+B` or `Ctrl+B`.
-3. **Left Console & Scripts Panel (`#panel`)**: Collapsible terminal drawer containing the REPL command-line interface and the multiline script editor. Toggled via `Ctrl+\``.
-4. **Bottom Unified Mobile Dock (`#bottom-dock`)**: Resizable drawer handle with quick tabs for mobile and tablet devices (`Tools`, `Console`, `Scripts`).
+   - **Project Section**: Contains `Save` button (forces instant autosave), `Home` button (autosaves and returns to gallery), and live autosave status badge (`Saved`, `Saving...`, `Unsaved`, `Save Error`).
+3. **Left Console Panel (`#panel`)**: Collapsible terminal drawer (`3. Console`) containing the REPL command-line interface. Toggled via `Ctrl+\``.
+4. **Bottom Unified Mobile Dock (`#bottom-dock`)**: Resizable drawer handle with quick tabs for touch devices (`Tools`, `Layers`, `Console`, `Filters`).
 
 ---
 
@@ -83,6 +90,7 @@ The studio workspace consists of four primary regions:
 - `Velocity Dynamics` (0..100%): Stroke thickness and opacity modulated by cursor/finger velocity.
 - `Auto-Rotate Checkbox`: Automatically aligns brush tip angle to trajectory tangent.
 - `Subpixel Rendering Checkbox`: Bilinear subpixel interpolation along dab perimeters.
+- `Pressure & Tilt Dynamics`: Wacom/Apple Pencil pressure sensitivity for size and flow, stylus tilt angle dynamics.
 - `Copy Brush Script`: Generates and copies full REPL script of current brush configuration to system clipboard.
 
 ### Group 4: DYNAMICS & JITTER
@@ -118,32 +126,43 @@ The studio workspace consists of four primary regions:
   - `- Del`: Toggles deletion mode on swatches.
   - Click any swatch to load into active paint color.
 
-### Group 7: LAYERS (Canvas & Shapes)
+### Group 7: LAYERS & CANVAS (Unified First-Class System)
 - `Active Layer Opacity Slider`: Direct opacity adjustment (0..100%).
-- Top Toolbar:
-  - `+ New`: Adds empty layer above active layer.
+- **Top Toolbar**:
+  - `+ New`: Adds empty drawing layer above active layer.
   - `+ Folder`: Creates organized layer folder/group.
+  - `+ Script`: Creates new automation script in layers list.
+  - `+ Filter`: Prompts file dialog to load custom `.wasm` filter plugin into layers list.
   - `Duplicate`: Duplicates active layer buffer and properties.
   - `Clear`: Empties pixel data of active layer to full transparency.
   - `+ Import`: Loads local image file directly as new layer.
-- Stacking List (Top renders over bottom):
-  - `Visibility Eye`: Shows or hides layer from composite.
-  - `Layer Tag`: Index, name, and pixel resolution dimensions.
-  - `Active Pill`: Sets layer as active target for painting.
-  - `Tip Pill`: Maps layer alpha channel as custom brush tip shape.
-  - `Grain Pill`: Maps layer pattern as custom grain texture.
-  - `Alpha Lock Button (Lock icon)`: Restricts drawing to existing non-transparent pixels.
-  - `Clipping Mask Button (Arrow icon)`: Constrains layer render to opacity of layer below.
-  - `Blend Mode Dropdown`: Normal, Multiply, Screen, Overlay, Dodge, Add.
-  - `▲ / ▼ Buttons`: Reorders layer up or down in render stack.
-  - `Merge Down Button`: Merges layer downward into layer directly underneath.
-  - `Folder Button`: Assigns layer to or removes from group.
-  - `Delete Button (X)`: Removes layer.
-- Folder Headers:
-  - Expand/collapse toggle arrow.
-  - Folder visibility toggle affecting all child layers.
-  - `+ Button`: Adds active layer into folder.
-  - `X Button`: Removes folder while preserving child layers.
+- **Unified Layer Stack**:
+  - **Drawing Layer Row**:
+    - Visibility toggle (`V` / `-`).
+    - Name and dimensions (double-click to rename).
+    - `Active`: Sets layer as active painting target.
+    - `ALock`: Alpha lock toggle (prevents modifying transparent pixels).
+    - `Clip`: Clipping mask toggle (constrains render to opacity of layer below).
+    - `Blend Mode`: Dropdown (Normal, Multiply, Screen, Overlay, Dodge, Add).
+    - `^` / `v`: Reorder layer position.
+    - `[-]` / `[+]`: Remove from or assign to folder.
+    - `x`: Delete layer.
+  - **Script Row (`SCR` badge)**:
+    - `Active`: Opens/closes full canvas text editor.
+    - `Run`: Executes script batch commands directly on active drawing layer.
+    - `^` / `v`: Reorder script.
+    - `[-]` / `[+]`: Remove from or assign to folder (default: `scripts/`).
+    - `x`: Delete script.
+  - **WASM Filter Row (`FLT` badge)**:
+    - `Apply`: Runs WASM filter kernel on active drawing layer.
+    - `^` / `v`: Reorder filter.
+    - `[-]` / `[+]`: Remove from or assign to folder (default: `plugins/`).
+    - `x`: Delete/unload filter plugin.
+- **Default System Folders**:
+  - `tips/`: Layer-based brush tips.
+  - `grains/`: Layer-based grain textures.
+  - `scripts/`: Stored automation scripts.
+  - `plugins/`: Compiled WASM filter plugins.
 
 ### Group 8: ACTIVE LAYER / CANVAS SIZE
 - Current canvas and active layer dimension readout.
@@ -154,21 +173,10 @@ The studio workspace consists of four primary regions:
 
 ### Group 9: FILTERS & EXPORT
 - Filter Dropdown:
-  - `Blur`: Low-pass spatial blur with adjustable radius.
-  - `Brightness`: Increases or decreases overall luminance.
-  - `Contrast`: Enhances dark and light tonal separation.
-  - `Dither`: Error-diffusion retro bitmask effect.
-  - `Edge Detect`: Highlights spatial contrast transitions.
-  - `Grayscale`: Converts color channels to weighted perceptual luminance.
-  - `Invert`: Photonegative channel inversion.
-  - `Noise`: Injects procedural grain across all channels.
-  - `Pixelate`: Quantizes image into blocky pixel clusters.
-  - `Sepia`: Applies warm vintage photographic tint.
-  - `Threshold`: Binarizes image into pure black and white.
-- Filter Radius / Parameter Slider: Adjusts kernel radius or intensity (1..25).
-- `Apply`: Runs WASM filter kernel on active layer.
-- `Export PNG`: Downloads flattened composite as PNG.
-- `Import Image`: Prompts local file selector and imports image.
+  - `Blur`, `Brightness`, `Contrast`, `Dither`, `Edge Detect`, `Grayscale`, `Invert`, `Noise`, `Pixelate`, `Sepia`, `Threshold`.
+- Filter Radius / Parameter Slider: Adjusts kernel radius or intensity.
+- `Apply`: Runs selected WASM filter kernel on active layer.
+- `Load Plugin`: Uploads external `.wasm` plugin.
 
 ### Group 10: ADJUSTMENTS (HSV / HSL)
 - `Hue Shift` (-180°..+180°): Rotates entire color wheel on active layer.
@@ -179,23 +187,13 @@ The studio workspace consists of four primary regions:
 
 ---
 
-## 4. Left Panel: Console & Scripts (`#panel`)
+## 4. Left Panel: Console (`#panel`)
 
-### Console Tab (`#console-view`)
-- Interactive REPL terminal displaying output log and command prompt (`esenho>`).
-- Auto-focused input field with command history navigation via Up and Down arrow keys.
-- Command parser executes all Esenho CLI commands with status messages and syntax error reporting.
-
-### Scripts Tab (`#ui-scripts`)
-- Automation script manager backed by browser `localStorage`.
-- Script selector dropdown with `+ New`, `Save`, and `Del` buttons.
-- Script Name input field.
-- Multiline code editor textarea:
-  - Executes sequential commands one line at a time.
-  - Ignores blank lines.
-  - Ignores comment lines starting with `#` or `//`.
-- `Run Script`: Executes entire script batch sequentially.
-- `Clear`: Empties script editor.
+- **Terminal Drawer (`3. Console`)**:
+  - Interactive REPL terminal displaying output log and command prompt (`esenho>`).
+  - Auto-focused input field with command history navigation via Up and Down arrow keys.
+  - Command parser executes all Esenho CLI commands (`help`, `status`, `list`, `brush`, `layer`, `filter`, `clear data`, etc.).
+  - Syntax error highlighting in terminal log.
 
 ---
 
@@ -206,6 +204,7 @@ The studio workspace consists of four primary regions:
 - **Middle Click + Drag** or **Spacebar + Left Click + Drag**: Pans canvas viewport smoothly.
 - **Mouse Wheel**: Zooms canvas in and out centered precisely around cursor position.
 - **Long Press (~300ms)**: Activates magnifying eyedropper loupe under cursor.
+- **Stylus Pressure & Tilt**: Dynamically scales dab size/flow and aligns tip angle.
 
 ### Touchscreen Gestures (Tablets & Mobile)
 - **1-Finger Drag**: Paints brush strokes, shapes, or selections.
@@ -237,6 +236,7 @@ When a selection is copied, cut, or pasted, an interactive floating cage appears
 | `Ctrl + V` | Paste clipboard to canvas |
 | `Ctrl + A` | Select entire canvas |
 | `Ctrl + D` or `Escape` | Clear selection or cancel transform |
-| `Ctrl + \`` | Toggle left Console / Scripts drawer |
+| `Ctrl + \`` | Toggle left Console drawer |
 | `Alt + B` or `Ctrl + B` | Toggle right Tools & Parameters panel |
 | `Up / Down Arrows` | In Console prompt: navigate command history |
+

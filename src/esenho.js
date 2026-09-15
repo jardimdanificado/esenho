@@ -1623,6 +1623,17 @@ const COMMAND_RULES = [
   },
   { pat: "layer down $id$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move down $id$int").run(m, host) },
   { pat: "layer down", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move down").run(m, host) },
+  {
+    pat: "layer move pos $id$int $pos$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      const pos = parseInt(m.pos, 10);
+      const ok = host.moveLayerToPosition(id, pos);
+      if (ok) host.sendConsoleLog(`layer [${id}] moved to pos ${pos}`);
+      else host.sendConsoleLog(`err: cannot move layer [${id}] to pos ${pos}`, 0xFFFF5555);
+    }
+  },
+  { pat: "layer moveto $id$int $pos$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "layer move pos $id$int $pos$int").run(m, host) },
 
   {
     pat: "layer merge down $id$int",
@@ -2891,6 +2902,39 @@ class EsenhoScreenHost {
     if (!this.canvasActor?.exports?.w_layer_move_down) return false;
     this.pushUndoSnapshot('layer move');
     return this.canvasActor.exports.w_layer_move_down(id) === 1;
+  }
+
+  /**
+   * Moves a layer to a specific target position in the stacking order.
+   * @param {number} id - Layer ID to move
+   * @param {number} targetPos - Target position (0 = bottom, orderCount - 1 = top)
+   */
+  moveLayerToPosition(id, targetPos) {
+    if (!this.canvasActor?.exports?.w_layer_get_order_count || !this.canvasActor?.exports?.w_layer_get_order) return false;
+    const orderCount = this.canvasActor.exports.w_layer_get_order_count();
+    if (targetPos < 0) targetPos = 0;
+    if (targetPos >= orderCount) targetPos = orderCount - 1;
+
+    let currentPos = -1;
+    for (let pos = 0; pos < orderCount; pos++) {
+      if (this.canvasActor.exports.w_layer_get_order(pos) === id) {
+        currentPos = pos;
+        break;
+      }
+    }
+    if (currentPos === -1 || currentPos === targetPos) return true;
+
+    this.pushUndoSnapshot('layer move');
+    if (targetPos > currentPos) {
+      for (let i = 0; i < targetPos - currentPos; i++) {
+        this.canvasActor.exports.w_layer_move_up(id);
+      }
+    } else {
+      for (let i = 0; i < currentPos - targetPos; i++) {
+        this.canvasActor.exports.w_layer_move_down(id);
+      }
+    }
+    return true;
   }
 
   /**

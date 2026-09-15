@@ -319,10 +319,76 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 - `flip v`: Flip viewport vertically.
 - `flip reset`: Reset view flipping.
 
-### History & I/O
+### History, Storage & I/O
 - `undo` / `redo`: Step through snapshot stack.
 - `history`: Print undo/redo stack entries.
 - `history clear`: Empty history stack.
 - `save canvas <filename>` / `export <filename>`: Save composite image as PNG.
 - `save layer <filename>`: Save active layer as PNG.
 - `load image <filename> [name]`: Import image file as new layer/texture.
+- `clear data` / `data clear` / `clear cache`: Completely wipe all local browser cache, localStorage, IndexedDB (`EsenhoDB`), CacheStorage, and unregister Service Workers, then redirect to launcher.
+
+---
+
+## 5. Native Project Save Format (`.esen`)
+
+Esenho projects serialize into a portable, structured JSON document (`.esen`):
+
+```json
+{
+  "version": 1,
+  "name": "Project Name",
+  "width": 1280,
+  "height": 720,
+  "createdAt": "2026-09-15T12:00:00.000Z",
+  "updatedAt": "2026-09-15T12:30:00.000Z",
+  "layers": [
+    {
+      "id": 3,
+      "name": "Background",
+      "visible": true,
+      "opacity": 255,
+      "alphaLock": false,
+      "clipping": false,
+      "blendMode": 0,
+      "order": 0,
+      "folderId": null,
+      "pixels": "<base64_encoded_rgba_byte_stream>"
+    }
+  ],
+  "groups": [
+    { "id": "tips", "name": "tips", "collapsed": true, "layerIds": [] },
+    { "id": "grains", "name": "grains", "collapsed": true, "layerIds": [] },
+    { "id": "scripts", "name": "scripts", "collapsed": true, "layerIds": [] },
+    { "id": "plugins", "name": "plugins", "collapsed": true, "layerIds": [] }
+  ],
+  "scripts": [
+    { "id": "script_1", "name": "draw_preset", "code": "set mode draw\nset size 30", "folderId": "scripts" }
+  ],
+  "settings": {
+    "currentColor": "#fabd2f",
+    "currentTool": "brush",
+    "actionMode": "draw",
+    "brushSize": 30,
+    "brushOpacity": 100
+  }
+}
+```
+
+### IndexedDB Storage (`EsenhoStore`)
+- Database: `EsenhoDB` (v1), Object Store: `projects`.
+- Methods: `saveProject(projectData)`, `getProject(id)`, `getAllProjects()`, `deleteProject(id)`.
+- Autosave is executed every 60 seconds and on navigation/Home clicks.
+
+---
+
+## 6. First-Class Citizens in the Layer System
+
+The layer hierarchy treats bitmap drawing layers, scripts, and WASM filter plugins as unified first-class entities:
+
+| Type | Badge | Description | Primary Action | Folders & Ordering |
+|---|---|---|---|---|
+| **Bitmap Layer** | *Index* | Standard pixel raster layer | `Active` (routes brush strokes) | Reorder `^`/`v`, `[-]`/`[+]` folder, `x` delete |
+| **Script Layer** | `SCR` | CLI batch automation script | `Active` (opens canvas code editor), `Run` (executes on active drawing layer) | Reorder `^`/`v`, `[-]`/`[+]` folder, `x` delete |
+| **WASM Filter** | `FLT` | Compiled WebAssembly image kernel | `Apply` (applies filter on active drawing layer) | Reorder `^`/`v`, `[-]`/`[+]` folder, `x` delete |
+

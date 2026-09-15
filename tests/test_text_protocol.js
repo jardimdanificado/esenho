@@ -706,6 +706,17 @@ async function run() {
     throw new Error(`Expected layer ${layerA} at pos ${posA} after move up`);
   }
 
+  // Move layerA to position 0 via layer move pos
+  host.executeCommand(`layer move pos ${layerA} 0`);
+  if (canvas.exports.w_layer_get_order(0) !== layerA) {
+    throw new Error(`Expected layer ${layerA} at pos 0 after layer move pos`);
+  }
+  // Restore layerA back to posA
+  host.executeCommand(`layer moveto ${layerA} ${posA}`);
+  if (canvas.exports.w_layer_get_order(posA) !== layerA) {
+    throw new Error(`Expected layer ${layerA} back at pos ${posA} after layer moveto`);
+  }
+
   // Paint on layerA then merge down
   host.sendStroke(50, 50, 50, 50, 0, 0, 0xFF4488CC);
   host.sendStroke(50, 50, 50, 50, 2, 0, 0xFF4488CC);
