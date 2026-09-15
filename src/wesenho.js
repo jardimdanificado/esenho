@@ -2325,6 +2325,7 @@ class WesenhoScreenHost {
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
+      if (canonKey === 'texture_angle') this.brushParams.texture_rotate = numericVal;
     }
 
     if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {

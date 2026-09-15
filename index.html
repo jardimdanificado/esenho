@@ -736,6 +736,17 @@
         height: 36px;
         padding: 0 6px 6px 6px;
         gap: 6px;
+        overflow: hidden;
+        transition: height 0.12s ease, padding 0.12s ease, opacity 0.12s ease;
+      }
+
+      #bottom-dock.tabs-collapsed #bottom-dock-tabs {
+        height: 0 !important;
+        min-height: 0 !important;
+        max-height: 0 !important;
+        padding: 0 !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
       }
 
       .dock-tab-btn {
@@ -766,18 +777,6 @@
         background: #3c3836;
         color: #fabd2f;
         border-color: #fabd2f;
-      }
-
-      .dock-close-btn {
-        flex: 0 0 36px;
-        color: #928374;
-        display: none;
-        font-size: 13px;
-        border-radius: 0;
-      }
-
-      .dock-close-btn.visible {
-        display: flex;
       }
 
       /* Both panels come from below and occupy order: 3 */
@@ -814,6 +813,11 @@
         max-height: 0 !important;
         display: none !important;
         border: none !important;
+      }
+
+      /* Mutual exclusion: never allow both mobile drawer panels to render simultaneously */
+      #panel:not(.hidden) ~ #ui-panel {
+        display: none !important;
       }
 
       #ui-scroll {
@@ -989,12 +993,9 @@
   <div id="bottom-dock">
     <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
     <div id="bottom-dock-tabs">
-      <button type="button" id="tab-dock-undo" class="dock-tab-btn" title="Undo (2-finger tap)">&#x21A9;</button>
-      <button type="button" id="tab-dock-redo" class="dock-tab-btn" title="Redo (3-finger tap)">&#x21AA;</button>
       <button type="button" id="tab-dock-tools" class="dock-tab-btn" title="Tools &amp; Presets (Alt+B)">Tools</button>
       <button type="button" id="tab-dock-console" class="dock-tab-btn" title="Console &amp; Commands (Ctrl+`)">Console</button>
       <button type="button" id="tab-dock-scripts" class="dock-tab-btn" title="Scripts &amp; Automation">Scripts</button>
-      <button type="button" id="tab-dock-close" class="dock-tab-btn dock-close-btn" title="Close Drawer">X</button>
     </div>
   </div>
 

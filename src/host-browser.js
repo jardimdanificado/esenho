@@ -117,21 +117,50 @@ async function main() {
     updateDockTabs();
   }
 
-  function updateDockTabs() {
+  let activeMobileTab = 'tools';
+
+  function syncMobilePanels(isOpen, targetHeight) {
     const uiEl = document.getElementById('ui-panel');
     const consoleEl = document.getElementById('panel');
+    if (!uiEl || !consoleEl) return;
+
+    if (!isOpen) {
+      uiEl.classList.add('hidden');
+      uiEl.style.height = '';
+      consoleEl.classList.add('hidden');
+      consoleEl.style.height = '';
+      return;
+    }
+
+    const showTools = (activeMobileTab === 'tools');
+    const activeEl = showTools ? uiEl : consoleEl;
+    const inactiveEl = showTools ? consoleEl : uiEl;
+
+    inactiveEl.classList.add('hidden');
+    inactiveEl.style.height = '';
+
+    const wasHidden = activeEl.classList.contains('hidden');
+    activeEl.classList.remove('hidden');
+
+    if (wasHidden && isMobile()) {
+      armTouchGuard(activeEl);
+    }
+
+    if (typeof targetHeight === 'number' && targetHeight > 0) {
+      activeEl.style.height = `${targetHeight}px`;
+      activeEl.style.maxHeight = 'none';
+      activeEl.style.minHeight = '0px';
+    }
+  }
+
+  function updateDockTabs() {
     const tabTools = document.getElementById('tab-dock-tools');
     const tabConsole = document.getElementById('tab-dock-console');
     const tabScripts = document.getElementById('tab-dock-scripts');
-    const btnClose = document.getElementById('tab-dock-close');
 
-    const uiOpen = uiEl && !uiEl.classList.contains('hidden');
-    const consoleOpen = consoleEl && !consoleEl.classList.contains('hidden');
-
-    if (tabTools) tabTools.classList.toggle('active', !!uiOpen);
-    if (tabScripts) tabScripts.classList.toggle('active', consoleOpen && activeConsoleSubTab === 'scripts');
-    if (tabConsole) tabConsole.classList.toggle('active', consoleOpen && activeConsoleSubTab === 'console');
-    if (btnClose) btnClose.classList.toggle('visible', !!(uiOpen || consoleOpen));
+    if (tabTools) tabTools.classList.toggle('active', activeMobileTab === 'tools');
+    if (tabConsole) tabConsole.classList.toggle('active', activeMobileTab === 'console');
+    if (tabScripts) tabScripts.classList.toggle('active', activeMobileTab === 'scripts');
   }
 
   function armTouchGuard(el) {
@@ -158,14 +187,19 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
-      if (isMob) armTouchGuard(el);
+      if (isMob) {
+        activeMobileTab = 'tools';
+        armTouchGuard(el);
+      }
       if (isMob && consoleEl) {
         consoleEl.classList.add('hidden');
+        consoleEl.style.height = '';
         const btnC = document.getElementById('toggle-panel');
         if (btnC) btnC.textContent = 'console [show] ▶';
       }
     } else {
       el.classList.add('hidden');
+      if (isMob) el.style.height = '';
     }
 
     const btn = document.getElementById('toggle-ui');
@@ -196,14 +230,19 @@ async function main() {
 
     if (willOpen) {
       el.classList.remove('hidden');
-      if (isMob) armTouchGuard(el);
+      if (isMob) {
+        activeMobileTab = (activeConsoleSubTab === 'scripts') ? 'scripts' : 'console';
+        armTouchGuard(el);
+      }
       if (isMob && uiEl) {
         uiEl.classList.add('hidden');
+        uiEl.style.height = '';
         const btnU = document.getElementById('toggle-ui');
         if (btnU) btnU.textContent = '◀ tools [show]';
       }
     } else {
       el.classList.add('hidden');
+      if (isMob) el.style.height = '';
     }
 
     const btn = document.getElementById('toggle-panel');
@@ -343,43 +382,39 @@ async function main() {
     tabSubScripts.addEventListener('click', () => switchConsoleSubTab('scripts'));
   }
 
+  function selectMobileTab(tab) {
+    activeMobileTab = tab;
+    if (tab === 'console') switchConsoleSubTab('console');
+    if (tab === 'scripts') switchConsoleSubTab('scripts');
+
+    const uiEl = document.getElementById('ui-panel');
+    const consoleEl = document.getElementById('panel');
+    const isDrawerOpen = (uiEl && !uiEl.classList.contains('hidden')) || (consoleEl && !consoleEl.classList.contains('hidden'));
+
+    // ONLY switch content if the drawer is already open. Never open drawer via buttons!
+    if (isDrawerOpen) {
+      const currentH = (uiEl && !uiEl.classList.contains('hidden'))
+        ? uiEl.offsetHeight
+        : ((consoleEl && !consoleEl.classList.contains('hidden')) ? consoleEl.offsetHeight : 0);
+      syncMobilePanels(true, currentH);
+      if (currentH >= 60) {
+        document.documentElement.style.setProperty('--mobile-drawer-height', `${currentH}px`);
+      }
+      resize();
+    } else {
+      syncMobilePanels(false);
+    }
+    updateDockTabs();
+  }
+
   if (tabDockTools) {
-    tabDockTools.addEventListener('click', () => {
-      const el = document.getElementById('ui-panel');
-      const isOpen = el && !el.classList.contains('hidden');
-      toggleUi(!isOpen);
-    });
+    tabDockTools.addEventListener('click', () => selectMobileTab('tools'));
   }
-
   if (tabDockConsole) {
-    tabDockConsole.addEventListener('click', () => {
-      const el = document.getElementById('panel');
-      const isOpen = el && !el.classList.contains('hidden') && activeConsoleSubTab === 'console';
-      if (isOpen) {
-        toggleConsole(false);
-      } else {
-        toggleConsole(true, 'console');
-      }
-    });
+    tabDockConsole.addEventListener('click', () => selectMobileTab('console'));
   }
-
   if (tabDockScripts) {
-    tabDockScripts.addEventListener('click', () => {
-      const el = document.getElementById('panel');
-      const isOpen = el && !el.classList.contains('hidden') && activeConsoleSubTab === 'scripts';
-      if (isOpen) {
-        toggleConsole(false);
-      } else {
-        toggleConsole(true, 'scripts');
-      }
-    });
-  }
-
-  if (tabDockClose) {
-    tabDockClose.addEventListener('click', () => {
-      toggleUi(false);
-      toggleConsole(false);
-    });
+    tabDockScripts.addEventListener('click', () => selectMobileTab('scripts'));
   }
 
   const bottomDock = document.getElementById('bottom-dock');
@@ -388,8 +423,12 @@ async function main() {
     let hasMoved = false;
     let startY = 0;
     let startH = 0;
-    let targetPanel = null;
+    let initialCollapsed = false;
     let suppressClickUntil = 0;
+
+    if (localStorage.getItem('wesenho_dock_tabs_collapsed') === '1') {
+      bottomDock.classList.add('tabs-collapsed');
+    }
 
     // Suppress click on dock buttons if a drag gesture occurred
     bottomDock.addEventListener('click', (e) => {
@@ -400,19 +439,63 @@ async function main() {
     }, true);
 
     const applyDockHeight = (clientY) => {
-      if (!isDraggingDock || !targetPanel) return;
+      if (!isDraggingDock) return;
       const dy = clientY - startY;
       if (!hasMoved && Math.abs(dy) > 4) {
         hasMoved = true;
       }
       if (!hasMoved) return;
 
-      let newH = startH - dy;
-      newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
-      document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-      targetPanel.style.height = `${newH}px`;
-      targetPanel.style.maxHeight = 'none';
-      targetPanel.style.minHeight = '0px';
+      if (initialCollapsed) {
+        // Was fully collapsed (only handle visible). Dragging UP restores tabs first
+        if (-dy > 12) {
+          bottomDock.classList.remove('tabs-collapsed');
+        } else {
+          bottomDock.classList.add('tabs-collapsed');
+        }
+        // Dragging UP further opens drawer
+        if (-dy > 45) {
+          let newH = -dy - 40;
+          newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
+          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
+          syncMobilePanels(true, newH);
+        } else {
+          syncMobilePanels(false);
+        }
+      } else if (startH === 0) {
+        // Drawer was closed, tabs visible
+        // Dragging DOWN collapses tabs to hide buttons
+        if (dy > 18) {
+          bottomDock.classList.add('tabs-collapsed');
+        } else {
+          bottomDock.classList.remove('tabs-collapsed');
+        }
+        // Dragging UP opens the drawer
+        if (-dy > 12) {
+          let newH = -dy;
+          newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
+          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
+          syncMobilePanels(true, newH);
+        } else if (dy <= 18) {
+          syncMobilePanels(false);
+        }
+      } else {
+        // Drawer was open (startH > 0)
+        let newH = startH - dy;
+        if (newH >= 60) {
+          bottomDock.classList.remove('tabs-collapsed');
+          newH = Math.min(window.innerHeight * 0.85, newH);
+          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
+          syncMobilePanels(true, newH);
+        } else {
+          syncMobilePanels(false);
+          if (dy - startH > 25) {
+            bottomDock.classList.add('tabs-collapsed');
+          } else {
+            bottomDock.classList.remove('tabs-collapsed');
+          }
+        }
+      }
       resize();
     };
 
@@ -430,20 +513,23 @@ async function main() {
 
       if (hasMoved) {
         suppressClickUntil = Date.now() + 250;
-        if (targetPanel) {
-          if (targetPanel.offsetHeight < 100) {
-            toggleUi(false);
-            toggleConsole(false);
-            targetPanel.style.height = '';
-            targetPanel.style.maxHeight = '';
-            targetPanel.style.minHeight = '';
+        const isCollapsed = bottomDock.classList.contains('tabs-collapsed');
+        localStorage.setItem('wesenho_dock_tabs_collapsed', isCollapsed ? '1' : '0');
+
+        const uiEl = document.getElementById('ui-panel');
+        const consoleEl = document.getElementById('panel');
+        const activeEl = (activeMobileTab === 'tools') ? uiEl : consoleEl;
+        if (activeEl && !activeEl.classList.contains('hidden')) {
+          if (activeEl.offsetHeight < 70) {
+            syncMobilePanels(false);
           } else {
-            localStorage.setItem('wesenho_mobile_drawer_height', targetPanel.offsetHeight);
+            localStorage.setItem('wesenho_mobile_drawer_height', activeEl.offsetHeight);
           }
         }
       }
-      targetPanel = null;
+      updateDockTabs();
       hasMoved = false;
+      resize();
     };
 
     const onPointerMove = (e) => {
@@ -465,21 +551,24 @@ async function main() {
       const uiHidden = !uiEl || uiEl.classList.contains('hidden');
       const consoleHidden = !consoleEl || consoleEl.classList.contains('hidden');
 
-      if (!uiHidden) {
-        targetPanel = uiEl;
+      initialCollapsed = bottomDock.classList.contains('tabs-collapsed');
+
+      if (!uiHidden && consoleHidden) {
+        activeMobileTab = 'tools';
         startH = uiEl.offsetHeight;
-      } else if (!consoleHidden) {
-        targetPanel = consoleEl;
+      } else if (!consoleHidden && uiHidden) {
+        activeMobileTab = (activeConsoleSubTab === 'scripts') ? 'scripts' : 'console';
         startH = consoleEl.offsetHeight;
+      } else if (!uiHidden && !consoleHidden) {
+        const curH = Math.max(uiEl.offsetHeight, consoleEl.offsetHeight);
+        syncMobilePanels(true, curH);
+        startH = curH;
       } else {
-        toggleUi(true);
-        targetPanel = uiEl;
         startH = 0;
       }
-      if (!targetPanel) return false;
 
       isDraggingDock = true;
-      hasMoved = !!isDirectHandle;
+      hasMoved = false;
       startY = clientY;
       document.body.style.userSelect = 'none';
       document.body.style.cursor = 'row-resize';
@@ -1974,7 +2063,7 @@ async function main() {
       setSlider('ui-slider-wetness', 'ui-val-wetness', bp.wetness, '%');
       setSlider('ui-slider-tolerance', 'ui-val-tolerance', bp.tolerance);
       setSlider('ui-slider-tex-scale', 'ui-val-tex-scale', bp.texture_scale || 100, '%');
-      setSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', bp.texture_rotate || 0, '°');
+      setSlider('ui-slider-tex-rotate', 'ui-val-tex-rotate', bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle !== undefined ? bp.texture_angle : 0), '°');
       setSlider('ui-slider-tex-contrast', 'ui-val-tex-contrast', bp.texture_contrast !== undefined ? bp.texture_contrast : 100, '%');
       setSlider('ui-slider-velocity', 'ui-val-velocity', bp.velocity || 0, '%');
       setSlider('ui-slider-taper-in', 'ui-val-taper-in', bp.taper_in || 0, 'px');
