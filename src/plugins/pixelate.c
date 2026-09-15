@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Pixelate\",\"params\":[{\"name\":\"Block Size\",\"min\":2,\"max\":64,\"default\":8,\"unit\":\"px\"}]}";

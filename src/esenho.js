@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho - Extensible Painting & Drawing Platform (Native WebAssembly)
+ * Esenho - Extensible Painting & Drawing Platform (Native WebAssembly)
  * Architecture:
  * - Host / Screen: Viewport, SDL window, REPL, plugin coordination, command parsing.
  * - Canvas Module (roms/canvas.wasm): Native multi-layer composition, resizing, drawing primitives.
@@ -9,7 +9,7 @@
  * =========================================================================
  */
 
-/* ── Platform shim ── wesenho.js runs in Node.js and in the browser.
+/* ── Platform shim ── esenho.js runs in Node.js and in the browser.
    In Node the real modules are loaded; in the browser stubs are used
    so the engine logic compiles without modification.                  */
 const IS_BROWSER = typeof window !== 'undefined';
@@ -57,7 +57,7 @@ function getPapagaio() {
 }
 
 /**
- * Standard Parameter IDs matching include/wesenho.h enum
+ * Standard Parameter IDs matching include/esenho.h enum
  */
 const PARAM_IDS = {
   size: 1,
@@ -172,10 +172,10 @@ const BRUSH_PRESETS = {
 };
 
 /**
- * Native Wesenho WebAssembly Module Wrapper.
+ * Native Esenho WebAssembly Module Wrapper.
  * Freestanding, libc-free WASM runner with direct ABI function exports.
  */
-class WesenhoModule {
+class EsenhoModule {
   /**
    * @param {string|Uint8Array|ArrayBuffer} wasmPathOrBytes - File path (Node) or WASM bytes (browser/any)
    */
@@ -199,12 +199,12 @@ class WesenhoModule {
    * Async factory — fetches WASM from URL, works in browser and Node (via fetch polyfill).
    * @param {string} url
    * @param {object} [options]
-   * @returns {Promise<WesenhoModule>}
+   * @returns {Promise<EsenhoModule>}
    */
   static async fromURL(url, options = {}) {
     const resp = await fetch(url);
     const bytes = new Uint8Array(await resp.arrayBuffer());
-    return new WesenhoModule(bytes, options);
+    return new EsenhoModule(bytes, options);
   }
 
   setLayer(pixelsPtr, width, height) {
@@ -250,7 +250,7 @@ class WesenhoModule {
           return this._info;
         }
       } catch (e) {
-        console.warn(`[wesenho] failed to parse plugin info for ${this.name}:`, e);
+        console.warn(`[esenho] failed to parse plugin info for ${this.name}:`, e);
       }
     }
     const defaultTitle = this.name ? (this.name.charAt(0).toUpperCase() + this.name.slice(1)) : 'Plugin';
@@ -673,7 +673,7 @@ function handleList(host, target) {
   } else if (t === 'filter' || t === 'filters') {
     console.log(formatFiltersList(host).trimEnd());
   } else if (t === 'all' || t === '' || t === '*') {
-    console.log('\x1b[1;34m=== Wesenho Entities ===\x1b[0m\n');
+    console.log('\x1b[1;34m=== Esenho Entities ===\x1b[0m\n');
     console.log(formatLayersList(host).trimEnd() + '\n');
     console.log(formatBrushesList(host).trimEnd() + '\n');
     console.log(formatTexturesList(host).trimEnd() + '\n');
@@ -1108,7 +1108,7 @@ function handleDirectParam(host, rawParam, val) {
 
 /**
  * Extensible command pattern table powered 100% by Papagaio.
- * Add custom syntax patterns here or push to WesenhoScreenHost.COMMAND_RULES!
+ * Add custom syntax patterns here or push to EsenhoScreenHost.COMMAND_RULES!
  */
 const COMMAND_RULES = [
   // Math expressions in parens or eval
@@ -2489,11 +2489,11 @@ const COMMAND_RULES = [
 ];
 
 /**
- * WesenhoScreenHost - Main Application State & Screen Host Actor.
+ * EsenhoScreenHost - Main Application State & Screen Host Actor.
  * Coordinates the SDL viewport window, user input, REPL commands,
  * Surface Canvas Actor, and dynamic WASM plugins.
  */
-class WesenhoScreenHost {
+class EsenhoScreenHost {
   constructor() {
     // Viewport & Pan/Zoom State
     this.windowWidth = 1000;
@@ -4134,7 +4134,7 @@ class WesenhoScreenHost {
     const modes = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker'];
     const modeName = (this.currentTool === 1) ? 'eraser' : (modes[bp.mode] || 'brush');
     const lines = [
-      `# Wesenho Brush Preset`,
+      `# Esenho Brush Preset`,
       `set mode ${modeName}`,
       `set size ${bp.size || 8}`,
       `set opacity ${bp.opacity !== undefined ? bp.opacity : 100}`,
@@ -4475,10 +4475,10 @@ class WesenhoScreenHost {
     if (this.rl) {
       readline.clearLine(process.stdout, 0);
       readline.cursorTo(process.stdout, 0);
-      console.log(`${ansiColor}[wesenho]\x1b[0m ${text}`);
+      console.log(`${ansiColor}[esenho]\x1b[0m ${text}`);
       this.rl.prompt(true);
     } else {
-      console.log(`${ansiColor}[wesenho]\x1b[0m ${text}`);
+      console.log(`${ansiColor}[esenho]\x1b[0m ${text}`);
     }
   }
 
@@ -4710,7 +4710,7 @@ class WesenhoScreenHost {
    */
   initWindow() {
     this.window = sdl.video.createWindow({
-      title: 'wesenho',
+      title: 'esenho',
       width: this.windowWidth,
       height: this.windowHeight,
       resizable: true
@@ -4800,10 +4800,10 @@ class WesenhoScreenHost {
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: '\x1b[36mwesenho>\x1b[0m '
+      prompt: '\x1b[36mesenho>\x1b[0m '
     });
 
-    console.log('\x1b[1;32m=== Wesenho Interactive Console Ready (Native WebAssembly) ===\x1b[0m');
+    console.log('\x1b[1;32m=== Esenho Interactive Console Ready (Native WebAssembly) ===\x1b[0m');
     console.log('Type \x1b[33mhelp\x1b[0m for command list. Mouse: Left=Draw, Right=Erase, Middle=Pan, Wheel=Zoom\n');
     this.rl.prompt();
 
@@ -4897,14 +4897,14 @@ function discoverModules(baseDir) {
 
 /**
  * Application Entry Point:
- * Loads Canvas ROM and plugins via WesenhoModule and starts the render loop.
+ * Loads Canvas ROM and plugins via EsenhoModule and starts the render loop.
  */
 async function main() {
-  const host = new WesenhoScreenHost();
+  const host = new EsenhoScreenHost();
 
   // Canvas WASM Module
   const canvasWasmPath = path.resolve(__dirname, '../roms/canvas.wasm');
-  host.canvasActor = new WesenhoModule(canvasWasmPath, { name: 'canvas' });
+  host.canvasActor = new EsenhoModule(canvasWasmPath, { name: 'canvas' });
   if (host.canvasActor.exports.w_init) {
     host.canvasActor.exports.w_init(DOC_WIDTH, DOC_HEIGHT);
   }
@@ -4916,7 +4916,7 @@ async function main() {
     const fullPath = path.resolve(__dirname, '..', mod.wasmPath);
     if (!fs.existsSync(fullPath)) continue;
 
-    const pluginModule = new WesenhoModule(fullPath, { name: mod.name });
+    const pluginModule = new EsenhoModule(fullPath, { name: mod.name });
     host.plugins.set(mod.name, { type: mod.type, module: pluginModule, actor: pluginModule });
   }
 
@@ -4937,11 +4937,11 @@ if (!IS_BROWSER && typeof require !== 'undefined' && require.main === module) {
   main().catch(console.error);
 }
 
-WesenhoScreenHost.COMMAND_RULES = COMMAND_RULES;
+EsenhoScreenHost.COMMAND_RULES = COMMAND_RULES;
 
 const _exports = {
-  WesenhoModule,
-  WesenhoScreenHost,
+  EsenhoModule,
+  EsenhoScreenHost,
   PARAM_IDS,
   COMMAND_RULES,
   getPapagaio,

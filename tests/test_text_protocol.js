@@ -1,10 +1,10 @@
 const path = require('path');
 const fs = require('fs');
-const { WesenhoScreenHost, WesenhoModule, PARAM_IDS, parseColorString } = require('../src/wesenho');
+const { EsenhoScreenHost, EsenhoModule, PARAM_IDS, parseColorString } = require('../src/esenho');
 
 async function run() {
   console.log('--- Testing Canvas Native Exports ---');
-  const canvas = new WesenhoModule(path.resolve(__dirname, '../roms/canvas.wasm'));
+  const canvas = new EsenhoModule(path.resolve(__dirname, '../roms/canvas.wasm'));
   canvas.exports.w_init(800, 1000);
 
   if (canvas.exports.get_canvas_width() !== 800 || canvas.exports.get_canvas_height() !== 1000) {
@@ -65,8 +65,8 @@ async function run() {
     throw new Error('Composite pixel still green! Clear did not composite');
   }
 
-  console.log('--- Testing WesenhoScreenHost REPL / Command Parsing ---');
-  const host = new WesenhoScreenHost();
+  console.log('--- Testing EsenhoScreenHost REPL / Command Parsing ---');
+  const host = new EsenhoScreenHost();
   host.canvasActor = canvas;
   host.syncBrushParams(canvas);
 
@@ -77,7 +77,7 @@ async function run() {
     for (const file of files) {
       const f = file.replace(/\.wasm$/, '');
       const wasmPath = path.join(pluginsDir, file);
-      const mod = new WesenhoModule(wasmPath, { name: f });
+      const mod = new EsenhoModule(wasmPath, { name: f });
       host.plugins.set(f, { type: 'filter', module: mod, actor: mod });
     }
   }
@@ -429,7 +429,7 @@ async function run() {
   }
 
   // Test Papagaio Custom Syntax Rule extension
-  WesenhoScreenHost.COMMAND_RULES.unshift({
+  EsenhoScreenHost.COMMAND_RULES.unshift({
     pat: "pincel tamanho $s$int cor $c",
     run: (m, h) => {
       h.setBrushParam('size', parseInt(m.s, 10));

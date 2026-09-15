@@ -8,11 +8,11 @@ PLUGINS = $(patsubst src/plugins/%.c,plugins/%.wasm,$(PLUGIN_SRCS))
 
 all: $(ROMS) $(PLUGINS) plugins/manifest.json
 
-roms/canvas.wasm: src/canvas.c include/wesenho.h
+roms/canvas.wasm: src/canvas.c include/esenho.h
 	mkdir -p roms
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
-plugins/%.wasm: src/plugins/%.c include/wesenho.h
+plugins/%.wasm: src/plugins/%.c include/esenho.h
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
@@ -21,7 +21,7 @@ plugins/manifest.json: $(PLUGINS)
 	@node -e "const fs=require('fs'); const files=fs.readdirSync('plugins').filter(f=>f.endsWith('.wasm')).sort(); fs.writeFileSync('plugins/manifest.json', JSON.stringify(files, null, 2));"
 
 run: all
-	node src/wesenho.js
+	node src/esenho.js
 
 clean:
 	rm -rf roms/*.wasm plugins/*.wasm plugins/manifest.json

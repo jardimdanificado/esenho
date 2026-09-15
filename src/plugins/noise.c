@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Noise\",\"params\":[{\"name\":\"Amount\",\"min\":1,\"max\":100,\"default\":25},{\"name\":\"Monochrome\",\"min\":0,\"max\":1,\"default\":0}]}";

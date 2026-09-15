@@ -1,11 +1,11 @@
-# Wesenho API Documentation
+# Esenho API Documentation
 
 ## 1. System Architecture
 
-Wesenho is an extensible digital painting engine built on WebAssembly and high-performance raster algorithms:
+Esenho is an extensible digital painting engine built on WebAssembly and high-performance raster algorithms:
 - **Core WASM Engine (`roms/canvas.wasm`)**: Written in C99, compiled to WebAssembly without libc dependencies. Manages linear memory, unified multi-layer framebuffers, parametric dab rendering, procedural grain sampling, integer math, and dirty-rect composite generation.
-- **Header & ABI (`include/wesenho.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, and filter ABI.
-- **Host & Runtime Actor (`src/wesenho.js`)**: Executes in Node.js and modern browsers. Implements `WesenhoScreenHost`, `WesenhoModule`, state management, undo/redo snapshot trees, clipboard, and the `papagaio` pattern-matching CLI compiler.
+- **Header & ABI (`include/esenho.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, and filter ABI.
+- **Host & Runtime Actor (`src/esenho.js`)**: Executes in Node.js and modern browsers. Implements `EsenhoScreenHost`, `EsenhoModule`, state management, undo/redo snapshot trees, clipboard, and the `papagaio` pattern-matching CLI compiler.
 - **Filter Plugins (`plugins/*.wasm`)**: Standalone WASM modules implementing image processing kernels (`blur`, `brightness`, `contrast`, `dither`, `edge`, `grayscale`, `invert`, `noise`, `pixelate`, `sepia`, `threshold`).
 - **Browser Host (`src/host-browser.js`)**: Glues the canvas element, multitouch gesture recognition, direct WebGL/2D blitting (`desynchronized: true`), and UI controls to the WASM core.
 
@@ -207,7 +207,7 @@ uint32_t  w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 Every filter plugin (`plugins/*.wasm`) exports a standard interface invoked on the active layer:
 
 ```c
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT void w_filter_apply(int32_t p1, int32_t p2);
 ```
@@ -231,7 +231,7 @@ Available plugins:
 
 ## 4. CLI / REPL Command Reference
 
-Wesenho includes a full command-line parser implemented through the `papagaio` pattern compiler. Commands run in the browser console (`Ctrl+\``) or automated script batches.
+Esenho includes a full command-line parser implemented through the `papagaio` pattern compiler. Commands run in the browser console (`Ctrl+\``) or automated script batches.
 
 ### System & Inspection
 - `status` / `info`: Print canvas resolution, layer count, active layer, and tool parameters.

@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Image I/O Module
+ * Esenho Image I/O Module
  * Pure Node.js encoding & decoding for PNG, BMP, and PPM (P6) formats
  * without external native image dependencies.
  * =========================================================================

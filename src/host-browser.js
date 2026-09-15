@@ -1,6 +1,6 @@
 /**
- * src/host-browser.js — Wesenho browser host
- * Reuses all engine logic from src/wesenho.js unchanged.
+ * src/host-browser.js — Esenho browser host
+ * Reuses all engine logic from src/esenho.js unchanged.
  * Handles: fetch WASM, canvas events, touch (draw/pan/zoom/rotate), REPL.
  */
 if (typeof globalThis.process === 'undefined') {
@@ -18,7 +18,7 @@ const toggleBtn   = document.getElementById('toggle-panel');
 /* ── Boot ── */
 async function main() {
   log('Loading canvas.wasm…');
-  const host = new WesenhoScreenHost();
+  const host = new EsenhoScreenHost();
   /* canvasRotation: radians, stored on host */
   host.canvasRotation = 0;
 
@@ -32,7 +32,7 @@ async function main() {
   host.sendConsoleLog = (text, color = 0xFF00FF88) =>
     log(text, color === 0xFFFF5555 ? 'err' : 'ok');
 
-  host.canvasActor = await WesenhoModule.fromURL('roms/canvas.wasm', { name: 'canvas' });
+  host.canvasActor = await EsenhoModule.fromURL('roms/canvas.wasm', { name: 'canvas' });
   const urlParams = new URLSearchParams(window.location.search);
   const initW = parseInt(urlParams.get('w') || urlParams.get('width'), 10) || 1280;
   const initH = parseInt(urlParams.get('h') || urlParams.get('height'), 10) || 720;
@@ -77,7 +77,7 @@ async function main() {
         if (!file || !file.endsWith('.wasm')) continue;
         const name = file.replace(/\.wasm$/i, '');
         try {
-          const mod = await WesenhoModule.fromURL(`plugins/${file}`, { name });
+          const mod = await EsenhoModule.fromURL(`plugins/${file}`, { name });
           host.plugins.set(name, { type: 'filter', module: mod, actor: mod });
         } catch (e) {
           log(`warn: plugin ${file} — ${e.message}`, 'err');
@@ -428,11 +428,11 @@ async function main() {
     btn.addEventListener('pointercancel', finishDrag);
   }
 
-  setupDraggableTab('panel', 'toggle-panel', 'left', 'wesenho_console_width');
-  setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'wesenho_ui_width');
+  setupDraggableTab('panel', 'toggle-panel', 'left', 'esenho_console_width');
+  setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
 
   /* ── Mobile Unified Bottom Dock Listeners ── */
-  const savedMobileH = localStorage.getItem('wesenho_mobile_drawer_height');
+  const savedMobileH = localStorage.getItem('esenho_mobile_drawer_height');
   if (savedMobileH) {
     const pH = parseInt(savedMobileH, 10);
     if (pH >= 80 && pH <= window.innerHeight * 0.85) {
@@ -503,7 +503,7 @@ async function main() {
     let initialCollapsed = false;
     let suppressClickUntil = 0;
 
-    if (localStorage.getItem('wesenho_dock_tabs_collapsed') === '1') {
+    if (localStorage.getItem('esenho_dock_tabs_collapsed') === '1') {
       bottomDock.classList.add('tabs-collapsed');
     }
 
@@ -616,7 +616,7 @@ async function main() {
       if (hasMoved) {
         suppressClickUntil = Date.now() + 250;
         const isCollapsed = bottomDock.classList.contains('tabs-collapsed');
-        localStorage.setItem('wesenho_dock_tabs_collapsed', isCollapsed ? '1' : '0');
+        localStorage.setItem('esenho_dock_tabs_collapsed', isCollapsed ? '1' : '0');
 
         const uiEl = document.getElementById('ui-panel');
         const consoleEl = document.getElementById('panel');
@@ -625,7 +625,7 @@ async function main() {
           if (activeEl.offsetHeight < 70) {
             syncMobilePanels(false);
           } else {
-            localStorage.setItem('wesenho_mobile_drawer_height', activeEl.offsetHeight);
+            localStorage.setItem('esenho_mobile_drawer_height', activeEl.offsetHeight);
           }
         }
       }
@@ -2450,7 +2450,7 @@ async function main() {
 
   function getSavedScripts() {
     try {
-      const stored = localStorage.getItem('wesenho_user_scripts_v3');
+      const stored = localStorage.getItem('esenho_user_scripts_v3');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -2465,7 +2465,7 @@ async function main() {
   }
 
   function saveScriptsList(list) {
-    localStorage.setItem('wesenho_user_scripts_v3', JSON.stringify(list));
+    localStorage.setItem('esenho_user_scripts_v3', JSON.stringify(list));
   }
 
   function populateScriptSelect() {
@@ -3043,7 +3043,7 @@ async function main() {
 
   function getCustomSwatches() {
     try {
-      return JSON.parse(localStorage.getItem('wesenho_custom_swatches') || '[]');
+      return JSON.parse(localStorage.getItem('esenho_custom_swatches') || '[]');
     } catch (_) { return []; }
   }
 
@@ -3051,7 +3051,7 @@ async function main() {
     const swatches = getCustomSwatches();
     if (!swatches.includes(color)) {
       swatches.push(color);
-      localStorage.setItem('wesenho_custom_swatches', JSON.stringify(swatches));
+      localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
       renderSwatches();
     }
   }
@@ -3059,7 +3059,7 @@ async function main() {
   function removeCustomSwatch(index) {
     const swatches = getCustomSwatches();
     swatches.splice(index, 1);
-    localStorage.setItem('wesenho_custom_swatches', JSON.stringify(swatches));
+    localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
     renderSwatches();
   }
 
@@ -3307,7 +3307,7 @@ async function main() {
     const pluginName = file.name.replace(/\.wasm$/i, '').toLowerCase();
     try {
       const bytes = await file.arrayBuffer();
-      const mod = await WesenhoModule.fromBytes(bytes, { name: pluginName });
+      const mod = await EsenhoModule.fromBytes(bytes, { name: pluginName });
       host.plugins.set(pluginName, { type: 'filter', module: mod, actor: mod });
       populateFilterSelect();
       if (filterSel) {
@@ -3411,12 +3411,12 @@ async function main() {
   });
 
   const chkPixelGrid = document.getElementById('ui-chk-pixel-grid');
-  host.showPixelGrid = localStorage.getItem('wesenho_pixel_grid') === '1';
+  host.showPixelGrid = localStorage.getItem('esenho_pixel_grid') === '1';
   if (chkPixelGrid) {
     chkPixelGrid.checked = !!host.showPixelGrid;
     chkPixelGrid.addEventListener('change', () => {
       host.showPixelGrid = chkPixelGrid.checked;
-      localStorage.setItem('wesenho_pixel_grid', host.showPixelGrid ? '1' : '0');
+      localStorage.setItem('esenho_pixel_grid', host.showPixelGrid ? '1' : '0');
     });
   }
 
@@ -3469,7 +3469,7 @@ async function main() {
     }
 
     try {
-      localStorage.setItem('wesenho_ui_scale', isAuto ? 'auto' : String(effective));
+      localStorage.setItem('esenho_ui_scale', isAuto ? 'auto' : String(effective));
     } catch (_) {}
 
     setTimeout(() => {
@@ -3486,7 +3486,7 @@ async function main() {
     });
   }
 
-  const savedScale = localStorage.getItem('wesenho_ui_scale') || 'auto';
+  const savedScale = localStorage.getItem('esenho_ui_scale') || 'auto';
   host.uiScale = savedScale;
   applyUiScale(savedScale);
 
@@ -4250,9 +4250,9 @@ function hslToRgb(h, s, l) {
 function ensureUiPanel() {
   if (document.getElementById('ui-panel')) return;
 
-  if (!document.getElementById('wesenho-ui-styles')) {
+  if (!document.getElementById('esenho-ui-styles')) {
     const style = document.createElement('style');
-    style.id = 'wesenho-ui-styles';
+    style.id = 'esenho-ui-styles';
     style.textContent = `
     #ui-panel {
       position: relative;
@@ -4741,7 +4741,7 @@ function ensureUiPanel() {
   const layout = document.getElementById('layout') || document.body;
   layout.appendChild(panel);
   if (typeof setupDraggableTab === 'function') {
-    setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'wesenho_ui_width');
+    setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
   }
 }
 

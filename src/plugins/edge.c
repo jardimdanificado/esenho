@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Edge Detect\",\"params\":[{\"name\":\"Sensitivity\",\"min\":5,\"max\":150,\"default\":30},{\"name\":\"Paper Sketch\",\"min\":0,\"max\":1,\"default\":0}]}";

@@ -1,4 +1,4 @@
-# Wesenho UI and Usage Documentation
+# Esenho UI and Usage Documentation
 
 ## 1. Getting Started: Canvas Launcher (`index.html`)
 
@@ -182,9 +182,9 @@ The studio workspace consists of four primary regions:
 ## 4. Left Panel: Console & Scripts (`#panel`)
 
 ### Console Tab (`#console-view`)
-- Interactive REPL terminal displaying output log and command prompt (`wesenho>`).
+- Interactive REPL terminal displaying output log and command prompt (`esenho>`).
 - Auto-focused input field with command history navigation via Up and Down arrow keys.
-- Command parser executes all Wesenho CLI commands with status messages and syntax error reporting.
+- Command parser executes all Esenho CLI commands with status messages and syntax error reporting.
 
 ### Scripts Tab (`#ui-scripts`)
 - Automation script manager backed by browser `localStorage`.

@@ -1,9 +1,9 @@
-#ifndef WESENHO_H
-#define WESENHO_H
+#ifndef ESENHO_H
+#define ESENHO_H
 
 /**
  * =========================================================================
- * Wesenho WebAssembly Header (include/wesenho.h)
+ * Esenho WebAssembly Header (include/esenho.h)
  * Universal Brush Engine & Filter ABI definitions.
  * =========================================================================
  */
@@ -430,4 +430,4 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
     return mod_a;
 }
 
-#endif /* WESENHO_H */
+#endif /* ESENHO_H */

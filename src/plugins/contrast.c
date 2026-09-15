@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Contrast\",\"params\":[{\"name\":\"Factor\",\"min\":-80,\"max\":80,\"default\":30}]}";

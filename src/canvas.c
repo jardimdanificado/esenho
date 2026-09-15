@@ -1,4 +1,4 @@
-#include "wesenho.h"
+#include "esenho.h"
 
 /* =========================================================================
  * Surface & Layer Actor (Canvas / Drawing Engine)
@@ -1023,7 +1023,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 }
 
 /* =========================================================================
- * Native Wesenho Canvas API Exports
+ * Native Esenho Canvas API Exports
  * ========================================================================= */
 
 static int surface_initialized = 0;

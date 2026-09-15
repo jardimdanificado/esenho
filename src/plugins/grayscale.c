@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Grayscale\",\"params\":[{\"name\":\"Intensity\",\"min\":0,\"max\":100,\"default\":100,\"unit\":\"%\"},{\"name\":\"Mode (0=Luma,1=Avg,2=Light)\",\"min\":0,\"max\":2,\"default\":0}]}";

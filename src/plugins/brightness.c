@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Brightness\",\"params\":[{\"name\":\"Delta\",\"min\":-100,\"max\":100,\"default\":30}]}";

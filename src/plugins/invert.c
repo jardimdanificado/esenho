@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "wesenho.h"
+#include "esenho.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Invert\",\"params\":[{\"name\":\"Intensity\",\"min\":0,\"max\":100,\"default\":100,\"unit\":\"%\"},{\"name\":\"Channel (0=All,1=R,2=G,3=B)\",\"min\":0,\"max\":3,\"default\":0}]}";
