@@ -395,39 +395,6 @@
     }
 
     /* ── Photoshop-like Layer Manager ── */
-    .layer-tab-nav {
-      display: flex;
-      background: #181a1b;
-      border: 1px solid #3c3836;
-      border-radius: 3px;
-      padding: 2px;
-      gap: 2px;
-      margin-bottom: 6px;
-    }
-    .layer-tab-btn {
-      flex: 1;
-      background: transparent;
-      border: none;
-      color: #a89984;
-      font: inherit;
-      font-size: 10px;
-      font-weight: 600;
-      padding: 3px 0;
-      border-radius: 2px;
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.1s;
-    }
-    .layer-tab-btn:hover {
-      color: #ebdbb2;
-      background: #282828;
-    }
-    .layer-tab-btn.active {
-      color: #1d2021;
-      background: #fabd2f;
-      font-weight: bold;
-    }
-
     .layer-header-bar {
       display: flex;
       flex-direction: column;
@@ -1581,13 +1548,6 @@
         <details class="ui-group" open>
           <summary>LAYERS &amp; CANVAS</summary>
           <div class="ui-group-content">
-            <!-- Layer Sub-tabs -->
-            <div class="layer-tab-nav" id="ui-layer-tabs">
-              <button type="button" class="layer-tab-btn active" data-tab="layers">Layers</button>
-              <button type="button" class="layer-tab-btn" data-tab="scripts">Scripts</button>
-              <button type="button" class="layer-tab-btn" data-tab="plugins">FX</button>
-            </div>
-
             <!-- Top Active Layer Controls (Photoshop style) -->
             <div class="layer-header-bar" id="ui-layer-header-bar">
               <div class="layer-header-row">
