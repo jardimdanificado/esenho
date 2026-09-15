@@ -1401,7 +1401,77 @@ async function run() {
   // Tilt along Y axis (tiltX = 0, tiltY = 45 -> angle = 90)
   host.sendStroke(300, 200, 300, 200, 0, 0, 0xFF00FF00, 1.0, 0, 45);
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, and Stylus/Wacom Pressure & Tilt Dynamics verified 100%!');
+  console.log('--- Testing Native .esen Project Savefile & Autosave Engine ---');
+  // Setup multi-layer drawing with specific properties
+  host.canvasActor.exports.w_init(320, 240);
+  host.executeCommand('clear');
+  host.executeCommand('set color #ff0055');
+  host.executeCommand('shape rect 20 20 40 40');
+  host.executeCommand('new layer OverlayLayer');
+  host.executeCommand('layer blend overlay');
+  host.executeCommand('layer alpha_lock on');
+  host.executeCommand('set color #00aaff');
+  host.executeCommand('shape rect 30 30 50 50');
+  host.executeCommand('group new InkGroup');
+  host.executeCommand('set size 42');
+  host.executeCommand('set opacity 77');
+
+  // Export project to .esen data object
+  const projData = host.exportProject('Masterpiece Test');
+  if (!projData || projData.magic !== 'ESENHO' || projData.version !== 1) {
+    throw new Error('exportProject failed: invalid magic or version');
+  }
+  if (projData.width !== 320 || projData.height !== 240) {
+    throw new Error(`exportProject failed: incorrect dimensions ${projData.width}x${projData.height}`);
+  }
+  if (!Array.isArray(projData.layers) || projData.layers.length < 2) {
+    throw new Error(`exportProject failed: expected at least 2 layers, got ${projData.layers?.length}`);
+  }
+  if (!projData.layers[0].pixels || typeof projData.layers[0].pixels !== 'string') {
+    throw new Error('exportProject failed: layer pixels must be base64 string');
+  }
+  if (projData.settings.brushParams.size !== 42 || projData.settings.brushParams.opacity !== 77) {
+    throw new Error('exportProject failed: brush parameters not preserved');
+  }
+
+  // Corrupt / Reset canvas to different state
+  host.canvasActor.exports.w_init(640, 480);
+  host.executeCommand('clear');
+
+  // Load project back
+  const loadedOk = host.loadProject(projData);
+  if (!loadedOk) {
+    throw new Error('loadProject returned false');
+  }
+  const loadedW = host.canvasActor.exports.get_canvas_width();
+  const loadedH = host.canvasActor.exports.get_canvas_height();
+  if (loadedW !== 320 || loadedH !== 240) {
+    throw new Error(`loadProject failed: expected 320x240, got ${loadedW}x${loadedH}`);
+  }
+  if (host.brushParams.size !== 42 || host.brushParams.opacity !== 77) {
+    throw new Error(`loadProject failed: brush size/opacity not restored, got ${host.brushParams.size}/${host.brushParams.opacity}`);
+  }
+
+  // Test REPL save and load project
+  const testSavePath = '/tmp/test_savefile.esen';
+  host.executeCommand(`save project ${testSavePath}`);
+  if (!fs.existsSync(testSavePath)) {
+    throw new Error(`REPL 'save project' did not create file at ${testSavePath}`);
+  }
+  const fileContent = JSON.parse(fs.readFileSync(testSavePath, 'utf8'));
+  if (fileContent.magic !== 'ESENHO' || fileContent.name !== 'Masterpiece Test') {
+    throw new Error(`Saved .esen file has invalid contents: ${JSON.stringify(fileContent)}`);
+  }
+
+  // Reset and load via REPL
+  host.canvasActor.exports.w_init(100, 100);
+  host.executeCommand(`load project ${testSavePath}`);
+  if (host.canvasActor.exports.get_canvas_width() !== 320) {
+    throw new Error('REPL load project failed to restore canvas width');
+  }
+  try { fs.unlinkSync(testSavePath); } catch (_) {}
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, and Native .esen Project Savefile Engine verified 100%!');
 }
 
 run().catch(err => {

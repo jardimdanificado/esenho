@@ -14,7 +14,7 @@
    so the engine logic compiles without modification.                  */
 const IS_BROWSER = typeof window !== 'undefined';
 
-let sdl, fs, path, readline, saveImage, loadImage;
+let sdl, fs, path, readline, saveImage, loadImage, EsenhoStore;
 
 if (!IS_BROWSER) {
   sdl      = require('@kmamal/sdl');
@@ -22,7 +22,11 @@ if (!IS_BROWSER) {
   path     = require('path');
   readline = require('readline');
   ({ saveImage, loadImage } = require('./image_io'));
+  try {
+    EsenhoStore = require('./project_store.js');
+  } catch (_) {}
 } else {
+  EsenhoStore = typeof window !== 'undefined' ? window.EsenhoStore : null;
   /* Browser stubs — only used by Node-only methods (initWindow, setupRepl, etc.)
      which are replaced by host-browser.js.  The engine core never calls these.  */
   fs   = { readFileSync: () => { throw new Error('fs not available in browser'); },
@@ -1312,6 +1316,17 @@ const COMMAND_RULES = [
 
   // Layer Commands
   {
+    pat: "new layer $name",
+    run: (m, host) => {
+      const idx = host.canvasActor.exports.w_layer_add();
+      if (!host.layerNames) host.layerNames = new Map();
+      host.layerNames.set(idx, m.name);
+      host.sendConsoleLog(`new layer [${idx}] '${m.name}' added`);
+    }
+  },
+  { pat: "layer add $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new layer $name").run(m, host) },
+  { pat: "layer new $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new layer $name").run(m, host) },
+  {
     pat: "new layer",
     run: (m, host) => {
       const idx = host.canvasActor.exports.w_layer_add();
@@ -2082,7 +2097,48 @@ const COMMAND_RULES = [
     }
   },
 
-  // Image I/O
+  // Image & Project I/O
+  {
+    pat: "save project $file",
+    run: (m, host) => {
+      const proj = host.exportProject(host.currentProjectName || m.file);
+      if (!proj) {
+        host.sendConsoleLog(`err: failed exporting project`, 0xFFFF5555);
+        return;
+      }
+      if (typeof fs !== 'undefined' && fs.writeFileSync) {
+        const name = m.file.endsWith('.esen') ? m.file : `${m.file}.esen`;
+        fs.writeFileSync(name, JSON.stringify(proj, null, 2));
+        host.sendConsoleLog(`project saved to '${name}'`);
+      } else if (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.exportEsenFile) {
+        const res = EsenhoStore.exportEsenFile(proj, m.file);
+        if (res.ok) host.sendConsoleLog(`project saved to '${res.filename}'`);
+        else host.sendConsoleLog(`err: failed saving project`, 0xFFFF5555);
+      }
+    }
+  },
+  { pat: "save project", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run({ file: host.currentProjectName || "project.esen" }, host) },
+  { pat: "export project $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run(m, host) },
+  { pat: "export project", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run({ file: host.currentProjectName || "project.esen" }, host) },
+  {
+    pat: "load project $file",
+    run: (m, host) => {
+      try {
+        if (typeof fs !== 'undefined' && fs.readFileSync) {
+          const raw = fs.readFileSync(m.file, 'utf-8');
+          const proj = JSON.parse(raw);
+          host.loadProject(proj);
+          host.sendConsoleLog(`project '${proj.name || m.file}' loaded successfully`);
+        } else {
+          host.sendConsoleLog(`err: load project via file picker in browser`, 0xFFFF5555);
+        }
+      } catch (e) {
+        host.sendConsoleLog(`err: failed loading project: ${e.message}`, 0xFFFF5555);
+      }
+    }
+  },
+  { pat: "open project $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load project $file").run(m, host) },
+
   {
     pat: "save canvas $file",
     run: (m, host) => {
@@ -2107,9 +2163,9 @@ const COMMAND_RULES = [
       else host.sendConsoleLog(`err: failed saving image: ${res.error}`, 0xFFFF5555);
     }
   },
-  { pat: "export $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save $file").run(m, host) },
   { pat: "export canvas $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save canvas $file").run(m, host) },
   { pat: "export layer $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save layer $file").run(m, host) },
+  { pat: "export $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save $file").run(m, host) },
   { pat: "export", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save $file").run({ file: "drawing.png" }, host) },
   {
     pat: "load image $file $name",
@@ -4551,6 +4607,241 @@ class EsenhoScreenHost {
     } catch (e) {
       return { ok: false, error: e.message };
     }
+  }
+
+  /**
+   * Serializes active document, all layers, groups, brush parameters, palette,
+   * and generates a project snapshot in the .esen (ESENHO v1) savefile format.
+   * @param {string} [name] - Project name
+   * @returns {object|null} .esen project object
+   */
+  exportProject(name) {
+    if (!this.canvasActor || !this.canvasActor.instance) return null;
+    const w = this.canvasActor.exports.get_canvas_width();
+    const h = this.canvasActor.exports.get_canvas_height();
+    if (w <= 0 || h <= 0) return null;
+
+    const layerCount = this.canvasActor.exports.get_layer_count ? this.canvasActor.exports.get_layer_count() : 4;
+    const orderCount = this.canvasActor.exports.w_layer_get_order_count ? this.canvasActor.exports.w_layer_get_order_count() : 0;
+    const layerOrder = [];
+    for (let i = 0; i < orderCount; i++) {
+      layerOrder.push(this.canvasActor.exports.w_layer_get_order(i));
+    }
+
+    const encodeB64 = (rawU8) => {
+      if (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.bytesToBase64) {
+        return EsenhoStore.bytesToBase64(rawU8);
+      }
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(rawU8.buffer, rawU8.byteOffset, rawU8.byteLength).toString('base64');
+      }
+      let binary = '';
+      const len = rawU8.byteLength;
+      const chunkSize = 0x8000;
+      for (let i = 0; i < len; i += chunkSize) {
+        const chunk = rawU8.subarray(i, Math.min(i + chunkSize, len));
+        binary += String.fromCharCode.apply(null, chunk);
+      }
+      return btoa(binary);
+    };
+
+    const layersData = [];
+    for (let i = 3; i < layerCount; i++) {
+      const lw = this.canvasActor.exports.w_layer_get_width(i);
+      const lh = this.canvasActor.exports.w_layer_get_height(i);
+      const ptr = this.canvasActor.exports.w_layer_get_pixels(i);
+      if (lw <= 0 || lh <= 0 || !ptr) continue;
+
+      const visible = this.canvasActor.exports.w_layer_get_visible ? this.canvasActor.exports.w_layer_get_visible(i) : 1;
+      const opacity = this.canvasActor.exports.w_layer_get_opacity ? this.canvasActor.exports.w_layer_get_opacity(i) : 255;
+      const alphaLock = this.canvasActor.exports.w_layer_get_alpha_lock ? this.canvasActor.exports.w_layer_get_alpha_lock(i) : 0;
+      const clipping = this.canvasActor.exports.w_layer_get_clipping ? this.canvasActor.exports.w_layer_get_clipping(i) : 0;
+      const blendMode = this.canvasActor.exports.w_layer_get_blend_mode ? this.canvasActor.exports.w_layer_get_blend_mode(i) : 0;
+      
+      const byteLen = lw * lh * 4;
+      const rawBytes = new Uint8Array(this.canvasActor.memory.buffer, ptr, byteLen);
+      const pixelsBase64 = encodeB64(rawBytes);
+
+      layersData.push({
+        id: i,
+        name: i === 3 ? 'Background' : `Layer ${i}`,
+        width: lw,
+        height: lh,
+        visible,
+        opacity,
+        alphaLock,
+        clipping,
+        blendMode,
+        pixels: pixelsBase64,
+        pixelsBase64
+      });
+    }
+
+    // Generate thumbnail from composite buffer
+    let thumbnail = '';
+    const compPtr = this.canvasActor.exports.get_composite_pixels ? this.canvasActor.exports.get_composite_pixels() : 0;
+    if (compPtr && typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.generateThumbnailDataUrl) {
+      const compU32 = new Uint32Array(this.canvasActor.memory.buffer, compPtr, w * h);
+      thumbnail = EsenhoStore.generateThumbnailDataUrl(compU32, w, h, 220);
+    }
+
+    // Layer Groups
+    const groups = [];
+    if (this.layerGroups) {
+      for (const [gid, g] of this.layerGroups.entries()) {
+        groups.push({
+          id: gid,
+          name: g.name,
+          collapsed: !!g.collapsed,
+          visible: g.visible !== undefined ? !!g.visible : true,
+          layerIds: Array.isArray(g.layerIds) ? [...g.layerIds] : []
+        });
+      }
+    }
+
+    const projId = this.currentProjectId || ('proj_' + Date.now());
+    this.currentProjectId = projId;
+    this.currentProjectName = name || this.currentProjectName || 'Untitled Project';
+
+    return {
+      magic: 'ESENHO',
+      version: 1,
+      id: projId,
+      name: this.currentProjectName,
+      width: w,
+      height: h,
+      createdAt: this.currentProjectCreatedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      thumbnail,
+      settings: {
+        activeTool: this.currentTool || 0,
+        actionMode: this.actionMode || 'draw',
+        currentColor: this.currentColor || 0xFF000000,
+        activeLayerId: this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3,
+        brushParams: { ...this.brushParams },
+        uiScale: this.uiScale || 'auto'
+      },
+      layerOrder,
+      layerGroups: groups,
+      layers: layersData
+    };
+  }
+
+  /**
+   * Deserializes and loads a .esen project structure into active engine state.
+   * @param {object} projectData - Parsed .esen savefile JSON object
+   * @returns {boolean} True if loaded successfully
+   */
+  loadProject(projectData) {
+    if (!projectData || !projectData.width || !projectData.height || !Array.isArray(projectData.layers)) {
+      throw new Error('Invalid project data format');
+    }
+    if (!this.canvasActor || !this.canvasActor.instance) {
+      throw new Error('Canvas actor not initialized');
+    }
+
+    const w = projectData.width;
+    const h = projectData.height;
+    this.canvasActor.exports.w_init(w, h);
+
+    const decodeB64 = (b64) => {
+      if (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.base64ToBytes) {
+        return EsenhoStore.base64ToBytes(b64);
+      }
+      if (typeof Buffer !== 'undefined') {
+        const b = Buffer.from(b64, 'base64');
+        return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+      }
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    };
+
+    // Restore layers
+    const layerMap = new Map(); // old id -> new id
+    for (let i = 0; i < projectData.layers.length; i++) {
+      const l = projectData.layers[i];
+      let targetId;
+      if (i === 0) {
+        // Background layer (always slot 3 in wasm)
+        targetId = 3;
+      } else {
+        targetId = this.canvasActor.exports.w_layer_create(l.width || w, l.height || h);
+      }
+      layerMap.set(l.id, targetId);
+
+      if (targetId >= 0) {
+        const rawPix = l.pixelsBase64 || l.pixels;
+        if (rawPix) {
+          const u8 = decodeB64(rawPix);
+          const ptr = this.canvasActor.exports.w_layer_get_pixels(targetId);
+          if (ptr) {
+            new Uint8Array(this.canvasActor.memory.buffer, ptr, u8.byteLength).set(u8);
+          }
+        }
+        if (typeof this.canvasActor.exports.w_layer_set_visible === 'function') {
+          this.canvasActor.exports.w_layer_set_visible(targetId, l.visible !== undefined ? (l.visible ? 1 : 0) : 1);
+        }
+        if (typeof this.canvasActor.exports.w_layer_set_opacity === 'function') {
+          this.canvasActor.exports.w_layer_set_opacity(targetId, l.opacity !== undefined ? l.opacity : 255);
+        }
+        if (typeof this.canvasActor.exports.w_layer_set_alpha_lock === 'function') {
+          this.canvasActor.exports.w_layer_set_alpha_lock(targetId, l.alphaLock ? 1 : 0);
+        }
+        if (typeof this.canvasActor.exports.w_layer_set_clipping === 'function') {
+          this.canvasActor.exports.w_layer_set_clipping(targetId, l.clipping ? 1 : 0);
+        }
+        if (typeof this.canvasActor.exports.w_layer_set_blend_mode === 'function') {
+          this.canvasActor.exports.w_layer_set_blend_mode(targetId, l.blendMode || 0);
+        }
+      }
+    }
+
+    // Restore groups
+    if (this.layerGroups) this.layerGroups.clear();
+    else this.layerGroups = new Map();
+    if (Array.isArray(projectData.layerGroups)) {
+      for (const g of projectData.layerGroups) {
+        const remappedIds = (g.layerIds || []).map(id => layerMap.has(id) ? layerMap.get(id) : id);
+        this.layerGroups.set(g.id, {
+          id: g.id,
+          name: g.name,
+          collapsed: !!g.collapsed,
+          visible: g.visible !== undefined ? !!g.visible : true,
+          layerIds: remappedIds
+        });
+      }
+    }
+
+    // Restore settings
+    if (projectData.settings) {
+      const s = projectData.settings;
+      if (s.activeTool !== undefined) this.currentTool = s.activeTool;
+      if (s.actionMode !== undefined) this.actionMode = s.actionMode;
+      if (s.currentColor !== undefined) this.currentColor = s.currentColor;
+      if (s.uiScale !== undefined) this.uiScale = s.uiScale;
+      if (s.brushParams) {
+        for (const [k, v] of Object.entries(s.brushParams)) {
+          this.setBrushParam(k, v);
+        }
+      }
+      if (s.activeLayerId !== undefined && layerMap.has(s.activeLayerId)) {
+        const mappedActive = layerMap.get(s.activeLayerId);
+        if (typeof this.canvasActor.exports.w_layer_select === 'function') {
+          this.canvasActor.exports.w_layer_select(mappedActive);
+        }
+      }
+    }
+
+    this.currentProjectId = projectData.id || ('proj_' + Date.now());
+    this.currentProjectName = projectData.name || 'Untitled Project';
+    this.currentProjectCreatedAt = projectData.createdAt || new Date().toISOString();
+
+    if (this.canvasActor.exports.force_composite) {
+      this.canvasActor.exports.force_composite();
+    }
+    return true;
   }
 
   /**

@@ -34,38 +34,80 @@ async function main() {
 
   host.canvasActor = await EsenhoModule.fromURL('roms/canvas.wasm', { name: 'canvas' });
   const urlParams = new URLSearchParams(window.location.search);
-  const initW = parseInt(urlParams.get('w') || urlParams.get('width'), 10) || 1280;
-  const initH = parseInt(urlParams.get('h') || urlParams.get('height'), 10) || 720;
-  let bgParam = urlParams.get('bg') || urlParams.get('bgcolor') || '#fbf1c7';
-  if (bgParam && !bgParam.startsWith('#')) bgParam = '#' + bgParam;
+  const projectIdParam = urlParams.get('project') || urlParams.get('p') || urlParams.get('id');
+  let projectLoaded = false;
 
-  host.canvasActor.exports.w_init(initW, initH);
-  host.syncBrushParams(host.canvasActor);
-
-  // 1. Fill Background layer (slot 3) with chosen background color (default antique paper #fbf1c7)
-  const bgColInt = parseColorString(bgParam, 0xFFC7F1FB);
-  const bgPtr = host.canvasActor.exports.w_layer_get_pixels(3);
-  if (bgPtr) {
-    const bgPix = new Uint32Array(host.canvasActor.memory.buffer, bgPtr, initW * initH);
-    bgPix.fill(bgColInt);
-  }
-  if (!host.layerNames) host.layerNames = new Map();
-  host.layerNames.set(3, 'Background');
-
-  // 2. Create blank drawing layer directly above Background and set it as active
-  const drawLayerId = host.canvasActor.exports.w_layer_create(initW, initH);
-  if (drawLayerId >= 0) {
-    host.layerNames.set(drawLayerId, 'Layer 1');
-    if (typeof host.canvasActor.exports.w_layer_set_visible === 'function') {
-      host.canvasActor.exports.w_layer_set_visible(drawLayerId, 1);
-    }
-    if (typeof host.canvasActor.exports.w_layer_select === 'function') {
-      host.canvasActor.exports.w_layer_select(drawLayerId);
-    } else if (typeof host.canvasActor.exports.w_set_active_layer === 'function') {
-      host.canvasActor.exports.w_set_active_layer(drawLayerId);
+  if (projectIdParam && typeof EsenhoStore !== 'undefined') {
+    try {
+      const savedProj = await EsenhoStore.getProject(projectIdParam);
+      if (savedProj) {
+        host.loadProject(savedProj);
+        projectLoaded = true;
+        host.currentProjectId = savedProj.id;
+        host.currentProjectName = savedProj.name || 'Untitled Project';
+        localStorage.setItem('esenho_last_project_id', savedProj.id);
+        log(`Loaded project '${savedProj.name}' (${savedProj.width}x${savedProj.height}) [ok]`);
+      }
+    } catch (e) {
+      console.warn('Failed loading project from IndexedDB:', e);
     }
   }
-  host.canvasActor.exports.force_composite();
+
+  if (!projectLoaded) {
+    const initW = parseInt(urlParams.get('w') || urlParams.get('width'), 10) || 1280;
+    const initH = parseInt(urlParams.get('h') || urlParams.get('height'), 10) || 720;
+    let bgParam = urlParams.get('bg') || urlParams.get('bgcolor') || '#fbf1c7';
+    if (bgParam && !bgParam.startsWith('#')) bgParam = '#' + bgParam;
+
+    host.canvasActor.exports.w_init(initW, initH);
+    host.currentProjectId = 'proj_' + Date.now();
+    host.currentProjectName = urlParams.get('name') || 'Untitled Project';
+    localStorage.setItem('esenho_last_project_id', host.currentProjectId);
+
+    // 1. Fill Background layer (slot 3) with chosen background color (default antique paper #fbf1c7)
+    const bgColInt = parseColorString(bgParam, 0xFFC7F1FB);
+    const bgPtr = host.canvasActor.exports.w_layer_get_pixels(3);
+    if (bgPtr) {
+      const bgPix = new Uint32Array(host.canvasActor.memory.buffer, bgPtr, initW * initH);
+      bgPix.fill(bgColInt);
+    }
+    if (!host.layerNames) host.layerNames = new Map();
+    host.layerNames.set(3, 'Background');
+
+    // 2. Create blank drawing layer directly above Background and set it as active
+    const drawLayerId = host.canvasActor.exports.w_layer_create(initW, initH);
+    if (drawLayerId >= 0) {
+      host.layerNames.set(drawLayerId, 'Layer 1');
+      if (typeof host.canvasActor.exports.w_layer_set_visible === 'function') {
+        host.canvasActor.exports.w_layer_set_visible(drawLayerId, 1);
+      }
+      if (typeof host.canvasActor.exports.w_layer_select === 'function') {
+        host.canvasActor.exports.w_layer_select(drawLayerId);
+      } else if (typeof host.canvasActor.exports.w_set_active_layer === 'function') {
+        host.canvasActor.exports.w_set_active_layer(drawLayerId);
+      }
+    }
+
+    // Restore user preferences
+    try {
+      const savedTool = localStorage.getItem('esenho_last_tool');
+      if (savedTool !== null) host.currentTool = parseInt(savedTool, 10) || 0;
+      const savedAction = localStorage.getItem('esenho_last_action_mode');
+      if (savedAction) host.actionMode = savedAction;
+      const savedCol = localStorage.getItem('esenho_last_color');
+      if (savedCol) host.currentColor = parseInt(savedCol, 10) >>> 0;
+      const savedBP = localStorage.getItem('esenho_saved_brush_params');
+      if (savedBP) {
+        const parsedBP = JSON.parse(savedBP);
+        for (const [k, v] of Object.entries(parsedBP)) {
+          host.setBrushParam(k, v);
+        }
+      }
+    } catch (_) {}
+
+    host.syncBrushParams(host.canvasActor);
+    host.canvasActor.exports.force_composite();
+  }
   log('canvas.wasm ready [ok]');
 
   try {
@@ -97,6 +139,70 @@ async function main() {
   let activeMobileTab = 'tools';
   let activeConsoleSubTab = 'console'; // 'console' or 'scripts'
   let initializedPan = false;
+
+  let isCanvasDirty = false;
+  function markCanvasDirty() {
+    isCanvasDirty = true;
+    const badge = document.getElementById('ui-autosave-badge');
+    if (badge) {
+      badge.textContent = 'Unsaved';
+      badge.style.color = '#fabd2f';
+    }
+    saveUserPreferences();
+  }
+
+  function markCanvasClean() {
+    isCanvasDirty = false;
+    const badge = document.getElementById('ui-autosave-badge');
+    if (badge) {
+      badge.textContent = 'Saved';
+      badge.style.color = '#b8bb26';
+    }
+  }
+
+  function saveUserPreferences() {
+    try {
+      if (host.currentTool !== undefined) localStorage.setItem('esenho_last_tool', String(host.currentTool));
+      if (host.actionMode) localStorage.setItem('esenho_last_action_mode', host.actionMode);
+      if (host.currentColor !== undefined) localStorage.setItem('esenho_last_color', String(host.currentColor));
+      if (host.brushParams) localStorage.setItem('esenho_saved_brush_params', JSON.stringify(host.brushParams));
+      if (host.currentProjectId) localStorage.setItem('esenho_last_project_id', host.currentProjectId);
+    } catch (_) {}
+  }
+
+  async function performAutosave(force = false) {
+    if (!force && !isCanvasDirty) return;
+    if (typeof EsenhoStore === 'undefined' || typeof host.exportProject !== 'function') return;
+
+    const badge = document.getElementById('ui-autosave-badge');
+    if (badge) {
+      badge.textContent = 'Saving...';
+      badge.style.color = '#fabd2f';
+    }
+
+    try {
+      const projName = host.currentProjectName || 'Untitled Project';
+      const projData = host.exportProject(projName);
+      if (!projData) return;
+      projData.id = host.currentProjectId || ('proj_' + Date.now());
+      host.currentProjectId = projData.id;
+      await EsenhoStore.saveProject(projData);
+      localStorage.setItem('esenho_last_project_id', projData.id);
+      markCanvasClean();
+    } catch (e) {
+      console.warn('Autosave failed:', e);
+      if (badge) {
+        badge.textContent = 'Save Error';
+        badge.style.color = '#fb4934';
+      }
+    }
+  }
+
+  // Periodic autosave every 60s
+  setInterval(() => {
+    performAutosave(false);
+  }, 60000);
+
 
   function resize() {
     const parent = canvasEl.parentElement;
@@ -1718,6 +1824,7 @@ async function main() {
         if (selectScratchLayerId >= 0) {
           endBrushSelect();
         }
+        markCanvasDirty();
       }
     }
   };
@@ -2203,6 +2310,7 @@ async function main() {
     if (origWrite) process.stdout.write = s => lines.push(String(s));
     try {
       host.executeCommand(raw);
+      markCanvasDirty();
     } catch (err) {
       log(`err: ${err.message}`, 'err');
     } finally {
@@ -3426,6 +3534,68 @@ async function main() {
     });
   }
 
+  // Project & .esen Savefile Controls
+  const inputProjName = document.getElementById('ui-project-name');
+  if (inputProjName) {
+    if (host.currentProjectName) inputProjName.value = host.currentProjectName;
+    inputProjName.addEventListener('input', () => {
+      host.currentProjectName = inputProjName.value.trim() || 'Untitled Project';
+      markCanvasDirty();
+    });
+  }
+
+  const btnSaveProject = document.getElementById('ui-btn-save-project');
+  if (btnSaveProject) {
+    btnSaveProject.addEventListener('click', async () => {
+      if (typeof host.exportProject !== 'function' || typeof EsenhoStore === 'undefined') return;
+      const projName = host.currentProjectName || (inputProjName ? inputProjName.value.trim() : 'Untitled Project');
+      const projData = host.exportProject(projName);
+      if (projData) {
+        projData.id = host.currentProjectId || ('proj_' + Date.now());
+        host.currentProjectId = projData.id;
+        await EsenhoStore.saveProject(projData);
+        EsenhoStore.exportEsenFile(projData);
+        markCanvasClean();
+        log(`Exported project '${projData.name}' (.esen) [ok]`);
+      }
+    });
+  }
+
+  const btnOpenProject = document.getElementById('ui-btn-open-project');
+  const fileInputProject = document.getElementById('ui-project-file-input');
+  if (btnOpenProject && fileInputProject) {
+    btnOpenProject.addEventListener('click', () => {
+      fileInputProject.click();
+    });
+    fileInputProject.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const projData = await EsenhoStore.importEsenFile(file);
+        if (projData && typeof host.loadProject === 'function') {
+          host.loadProject(projData);
+          host.currentProjectId = projData.id;
+          host.currentProjectName = projData.name || file.name.replace(/\.esen$/i, '');
+          if (inputProjName) inputProjName.value = host.currentProjectName;
+          await EsenhoStore.saveProject(projData);
+          localStorage.setItem('esenho_last_project_id', projData.id);
+          try {
+            const url = new URL(window.location);
+            url.searchParams.set('project', projData.id);
+            window.history.replaceState({}, '', url);
+          } catch (_) {}
+          markCanvasClean();
+          syncUiFromHost();
+          log(`Loaded project '${host.currentProjectName}' [ok]`);
+        }
+      } catch (err) {
+        log(`Error opening .esen file: ${err.message}`, 'err');
+      } finally {
+        fileInputProject.value = '';
+      }
+    });
+  }
+
   // Active Layer & Canvas Resize Controls
   const btnResizeCanvas = document.getElementById('ui-btn-resize-canvas');
   const inputCanvasW = document.getElementById('ui-canvas-w');
@@ -3729,6 +3899,11 @@ async function main() {
       const b = (c >> 16) & 0xFF;
       const hex = rgbToHex(r, g, b);
       updateColorControlsFromHex(hex);
+    }
+
+    const inpProj = document.getElementById('ui-project-name');
+    if (inpProj && document.activeElement !== inpProj && host.currentProjectName) {
+      inpProj.value = host.currentProjectName;
     }
 
     // D. Canvas Size (Active Layer)
@@ -4216,6 +4391,7 @@ async function main() {
     }
 
     updateDockTabs();
+    saveUserPreferences();
   }
 
   // Initial population
@@ -4760,8 +4936,29 @@ function ensureUiPanel() {
           </div>
         </div>
       </details>
+      <details class="ui-group" open>
+        <summary>PROJECT &amp; STORAGE</summary>
+        <div class="ui-group-content">
+          <div class="ui-control">
+            <div class="ui-label-row">
+              <span>Project Name</span>
+              <span id="ui-autosave-badge" class="ui-val" style="color: #b8bb26;">Saved</span>
+            </div>
+            <input type="text" id="ui-project-name" class="ui-input" value="Untitled Project" style="width: 100%; background: #1d2021; border: 1px solid #3c3836; color: #ebdbb2; padding: 4px 6px; font-size: 11px;">
+          </div>
+          <div class="ui-grid-2" style="margin-top: 4px;">
+            <button id="ui-btn-save-project" class="ui-btn" title="Download project savefile (.esen)">Save .esen</button>
+            <button id="ui-btn-open-project" class="ui-btn" title="Open .esen savefile from disk">Open .esen</button>
+            <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
+            <a href="index.html" id="ui-btn-home" class="ui-btn" style="text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center;" title="Go to Start Menu &amp; Recent Projects">Launcher</a>
+          </div>
+          <input type="file" id="ui-project-file-input" accept=".esen,application/json" style="display: none;" />
+          <input type="file" id="ui-plugin-input" accept=".wasm" style="display: none;" />
+          <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
+        </div>
+      </details>
       <details class="ui-group">
-        <summary>FILTERS &amp; EXPORT</summary>
+        <summary>FILTERS &amp; PLUGINS</summary>
         <div class="ui-group-content">
           <div class="ui-control">
             <div class="ui-label-row"><span>Filter Plugin</span></div>
@@ -4772,12 +4969,9 @@ function ensureUiPanel() {
             </div>
           </div>
           <div id="ui-ctrl-filter-params"></div>
-          <div class="ui-grid-2" style="margin-top: 6px;">
-            <button id="ui-btn-load-plugin" class="ui-btn" title="Load custom WASM filter plugin (.wasm)">Load Plugin (.wasm)</button>
-            <button id="ui-btn-export" class="ui-btn" title="Export composite drawing as PNG">Export PNG</button>
+          <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
+            <button id="ui-btn-load-plugin" class="ui-btn" style="width: 100%;" title="Load custom WASM filter plugin (.wasm)">Load Plugin (.wasm)</button>
           </div>
-          <input type="file" id="ui-plugin-input" accept=".wasm" style="display: none;" />
-          <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
         </div>
       </details>
       <details class="ui-group">
