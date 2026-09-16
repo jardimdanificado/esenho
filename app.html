@@ -919,40 +919,64 @@
       #touch-toolbar {
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 2px;
         position: absolute;
         top: 8px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 30;
-        background: rgba(40, 40, 40, 0.88);
+        background: rgba(30, 30, 30, 0.95);
         border: 1px solid #504945;
-        padding: 4px 10px;
-        height: 40px;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        opacity: 0.75;
+        border-radius: 6px;
+        padding: 2px 4px;
+        height: 34px;
+        max-width: calc(100vw - 8px);
+        box-sizing: border-box;
+        overflow-x: auto;
+        scrollbar-width: none;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+        opacity: 0.94;
         transition: opacity 0.2s;
         touch-action: none;
-        user-select: none;
-        -webkit-user-select: none;
       }
+      #touch-toolbar::-webkit-scrollbar { display: none; }
       #touch-toolbar:active, #touch-toolbar:hover {
         opacity: 1;
+      }
+      .tb-drag-handle {
+        width: 14px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #928374;
+        cursor: grab;
+        flex-shrink: 0;
+        touch-action: none;
+        user-select: none;
+      }
+      .tb-drag-handle:active {
+        cursor: grabbing;
+        color: #fabd2f;
       }
       #touch-toolbar .tb-btn {
         background: #3c3836;
         color: #ebdbb2;
         border: 1px solid #504945;
-        width: 32px;
-        height: 32px;
-        font-size: 14px;
+        border-radius: 3px;
+        width: 22px;
+        height: 22px;
+        font-size: 11px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         touch-action: manipulation;
         flex-shrink: 0;
+        padding: 0;
       }
       #touch-toolbar .tb-btn:active {
         background: #504945;
@@ -961,29 +985,90 @@
       }
       #touch-toolbar .tb-sep {
         width: 1px;
-        height: 24px;
-        background: #504945;
+        height: 16px;
+        background: #3c3836;
         flex-shrink: 0;
+        margin: 0 1px;
       }
       #touch-toolbar .tb-color-swatch {
-        width: 28px;
-        height: 28px;
-        border: 2px solid #504945;
+        width: 18px;
+        height: 18px;
+        border: 1.5px solid #665c54;
+        border-radius: 3px;
         flex-shrink: 0;
         cursor: pointer;
         touch-action: manipulation;
       }
-      #touch-toolbar .tb-label {
-        color: #a89984;
-        font-size: 10px;
-        white-space: nowrap;
-        flex-shrink: 0;
-        min-width: 30px;
-        text-align: center;
-      }
-      #touch-toolbar .tb-label .tb-val {
+      .tb-param-select {
+        background: #282828;
         color: #fabd2f;
+        border: 1px solid #504945;
+        border-radius: 3px;
+        font-size: 10px;
         font-weight: bold;
+        height: 22px;
+        width: 72px;
+        max-width: 72px;
+        padding: 0 2px;
+        cursor: pointer;
+        outline: none;
+        flex-shrink: 0;
+        touch-action: manipulation;
+        pointer-events: auto;
+        text-overflow: ellipsis;
+      }
+      .tb-dynamic-slot {
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        flex-shrink: 0;
+      }
+      .tb-mini-slider {
+        width: 44px;
+        height: 4px;
+        accent-color: #fe8019;
+        cursor: pointer;
+        touch-action: pan-y;
+        margin: 0;
+      }
+      .tb-val {
+        color: #ebdbb2;
+        font-weight: bold;
+        font-size: 9px;
+        min-width: 18px;
+        text-align: right;
+      }
+      .tb-chk-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        cursor: pointer;
+        font-size: 9px;
+        font-weight: bold;
+        color: #ebdbb2;
+        touch-action: manipulation;
+      }
+      .tb-chk-label input {
+        accent-color: #fabd2f;
+        cursor: pointer;
+        width: 14px;
+        height: 14px;
+        margin: 0;
+      }
+      .tb-select {
+        background: #282828;
+        color: #ebdbb2;
+        border: 1px solid #504945;
+        border-radius: 3px;
+        font-size: 9px;
+        height: 22px;
+        padding: 0 2px;
+        max-width: 78px;
+        outline: none;
+        cursor: pointer;
+        touch-action: manipulation;
+        pointer-events: auto;
+        text-overflow: ellipsis;
       }
 
       /* ── Mobile Layer Rows Touch-Friendly ── */
@@ -1062,39 +1147,6 @@
       .layer-swipe-btn.swipe-dup {
         background: #d65d0e;
       }
-    }
-
-    /* ── Touch Param Overlay (3-finger drag feedback) ── */
-    #touch-param-overlay {
-      display: none;
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 25;
-      pointer-events: none;
-      text-align: center;
-    }
-    #touch-param-overlay.visible {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-    }
-    #touch-param-circle {
-      border: 2px solid rgba(250, 189, 47, 0.7);
-      border-radius: 50%;
-      background: rgba(250, 189, 47, 0.08);
-      transition: width 0.05s, height 0.05s;
-    }
-    #touch-param-text {
-      background: rgba(40, 40, 40, 0.85);
-      color: #fabd2f;
-      font-size: 13px;
-      font-weight: bold;
-      padding: 4px 12px;
-      border: 1px solid #504945;
-      white-space: nowrap;
     }
 
     /* ── Touch Radial Menu (Pie Menu) ── */
@@ -1201,8 +1253,8 @@
     #bottom-dock-toolstrip {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 4px 8px;
+      gap: 4px;
+      padding: 4px 6px;
       overflow-x: auto;
       scrollbar-width: none;
       -webkit-overflow-scrolling: touch;
@@ -1210,20 +1262,38 @@
       border-bottom: 1px solid #3c3836;
     }
     #bottom-dock-toolstrip::-webkit-scrollbar { display: none; }
+    .dock-strip-label {
+      font-size: 9px;
+      font-weight: bold;
+      color: #fabd2f;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 0 2px;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .dock-strip-sep {
+      width: 1px;
+      height: 20px;
+      background: #504945;
+      flex-shrink: 0;
+      margin: 0 4px;
+    }
     .dock-strip-btn {
       flex-shrink: 0;
-      min-width: 44px;
-      height: 34px;
-      padding: 0 8px;
+      min-width: 40px;
+      height: 32px;
+      padding: 0 6px;
       background: #282828;
       border: 1px solid #3c3836;
+      border-radius: 3px;
       color: #ebdbb2;
       font: inherit;
       font-size: 11px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
+      gap: 3px;
       cursor: pointer;
       touch-action: manipulation;
     }
@@ -1294,93 +1364,6 @@
       border: 1px solid #504945;
       cursor: pointer;
       touch-action: manipulation;
-    }
-
-    /* ── Touch Gesture Cheat Sheet Modal ── */
-    #touch-cheat-sheet {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.75);
-      z-index: 10002;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-    #touch-cheat-sheet.active {
-      display: flex;
-    }
-    .cheat-sheet-card {
-      width: 100%;
-      max-width: 380px;
-      background: #1d2021;
-      border: 2px solid #fabd2f;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      box-shadow: 0 12px 36px rgba(0,0,0,0.9);
-    }
-    .cheat-sheet-title {
-      font-size: 13px;
-      font-weight: bold;
-      color: #fabd2f;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #3c3836;
-      padding-bottom: 6px;
-    }
-    .cheat-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-    }
-    .cheat-item {
-      background: #282828;
-      border: 1px solid #3c3836;
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    .cheat-item-icon {
-      font-size: 14px;
-      font-weight: bold;
-      color: #fe8019;
-    }
-    .cheat-item-desc {
-      font-size: 10px;
-      color: #ebdbb2;
-    }
-
-    /* ── Canvas-Only Fullscreen Mode ── */
-    body.canvas-only-mode #bottom-dock,
-    body.canvas-only-mode #ui-panel,
-    body.canvas-only-mode #panel,
-    body.canvas-only-mode #cvs-status-bar,
-    body.canvas-only-mode #touch-toolbar {
-      display: none !important;
-    }
-    #canvas-only-exit-btn {
-      display: none;
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      z-index: 10003;
-      background: rgba(40, 40, 40, 0.7);
-      border: 1px solid #fabd2f;
-      color: #fabd2f;
-      padding: 6px 10px;
-      font-size: 11px;
-      font-weight: bold;
-      border-radius: 4px;
-      backdrop-filter: blur(4px);
-    }
-    body.canvas-only-mode #canvas-only-exit-btn {
-      display: block;
     }
 
     /* Panel Header Tabs (Console / Scripts) */
@@ -1478,11 +1461,6 @@
     <div id="cvs-status-bar">
       <span id="wstatus">ready</span>
     </div>
-    <!-- Touch: 3-finger drag feedback overlay -->
-    <div id="touch-param-overlay">
-      <div id="touch-param-circle"></div>
-      <div id="touch-param-text"></div>
-    </div>
     <!-- Touch: Radial Menu (Pie Menu) -->
     <div id="touch-radial-menu">
       <div class="radial-backdrop"></div>
@@ -1502,34 +1480,88 @@
     </div>
     <!-- Touch: Floating toolbar (mobile only, hidden on desktop via CSS) -->
     <div id="touch-toolbar" style="display: none;">
+      <div class="tb-drag-handle" id="tb-drag-handle" title="Drag Toolbar">⠿</div>
       <button type="button" class="tb-btn" id="tb-undo" title="Undo (2-finger tap)">↶</button>
       <button type="button" class="tb-btn" id="tb-redo" title="Redo (3-finger tap)">↷</button>
       <div class="tb-sep"></div>
       <div class="tb-color-swatch" id="tb-color-swatch" title="Touch Color Picker"></div>
       <div class="tb-sep"></div>
-      <div class="tb-label"><span class="tb-val" id="tb-size-val">16</span>px</div>
-      <div class="tb-label">α<span class="tb-val" id="tb-opacity-val">100</span>%</div>
-      <div class="tb-sep"></div>
-      <button type="button" class="tb-btn" id="tb-fullscreen" title="Canvas Only Fullscreen">⛶</button>
-      <button type="button" class="tb-btn" id="tb-help" title="Gesture Guide">?</button>
+      <select id="tb-param-select" class="tb-param-select" title="Brush Parameter">
+        <optgroup label="Main Controls">
+          <option value="size" selected>Size</option>
+          <option value="opacity">Opacity</option>
+          <option value="flow">Flow</option>
+          <option value="hardness">Hardness</option>
+          <option value="spacing">Spacing</option>
+          <option value="smoothing">Smooth</option>
+          <option value="midpoint">Midpoint</option>
+          <option value="angle">Angle</option>
+          <option value="roundness">Round</option>
+          <option value="scatter">Scatter</option>
+        </optgroup>
+        <optgroup label="Special & Presets">
+          <option value="tip">★ Tip</option>
+          <option value="grain_tex">★ Grain</option>
+          <option value="script">★ Script</option>
+          <option value="dab_blend">Blend</option>
+          <option value="symmetry">Symmetry</option>
+          <option value="dual_shape">Dual</option>
+        </optgroup>
+        <optgroup label="Wet Media & Dynamics">
+          <option value="smudge">Smudge</option>
+          <option value="wetness">Wetness</option>
+          <option value="depletion">Deplete</option>
+          <option value="color_pickup">Pickup</option>
+          <option value="velocity">Velocity</option>
+          <option value="taper_in">Taper</option>
+          <option value="fade">Fade</option>
+          <option value="tolerance">Fill Tol</option>
+        </optgroup>
+        <optgroup label="Jitter">
+          <option value="size_jitter">Size Jitter</option>
+          <option value="angle_jitter">Ang Jitter</option>
+          <option value="opacity_jitter">Op Jitter</option>
+          <option value="color_jitter">Col Jitter</option>
+        </optgroup>
+        <optgroup label="Texture & Dual">
+          <option value="grain">Noise</option>
+          <option value="texture_scale">Tex Scale</option>
+          <option value="texture_rotate">Tex Rot</option>
+          <option value="texture_contrast">Tex Cont</option>
+          <option value="dual_size">Dual Size</option>
+          <option value="dual_spacing">Dual Spc</option>
+        </optgroup>
+        <optgroup label="Switches">
+          <option value="auto_rotate">Auto-Rot</option>
+          <option value="subpixel">Subpixel</option>
+          <option value="pressure_size">Press Size</option>
+          <option value="pressure_flow">Press Flow</option>
+          <option value="tilt_angle">Tilt Ang</option>
+        </optgroup>
+      </select>
+      <div id="tb-dynamic-slot" class="tb-dynamic-slot"></div>
     </div>
-    <button type="button" id="canvas-only-exit-btn" title="Exit Canvas-Only Mode">✕ Exit Fullscreen</button>
   </div>
 
   <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
   <div id="bottom-dock">
     <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
     <div id="bottom-dock-toolstrip">
-      <button type="button" class="dock-strip-btn active" data-tool="brush">✎ Brush</button>
-      <button type="button" class="dock-strip-btn" data-actionmode="erase">⌫ Erase</button>
-      <button type="button" class="dock-strip-btn" data-actionmode="smudge">≈ Smudge</button>
-      <button type="button" class="dock-strip-btn" data-tool="fill">▨ Fill</button>
-      <button type="button" class="dock-strip-btn" data-tool="picker">⊙ Picker</button>
-      <button type="button" class="dock-strip-btn" data-tool="lasso_fill">⚲ Lasso</button>
-      <button type="button" class="dock-strip-btn" data-actionmode="select">⬚ Select</button>
-      <button type="button" class="dock-strip-btn" data-tool="line">╱ Line</button>
-      <button type="button" class="dock-strip-btn" data-tool="rect">▭ Rect</button>
-      <button type="button" class="dock-strip-btn" data-tool="ellipse">⬭ Ellipse</button>
+      <span class="dock-strip-label">MODE</span>
+      <button type="button" class="dock-strip-btn dock-mode-btn active" data-actionmode="draw" title="Draw Mode">✎ Draw</button>
+      <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="erase" title="Erase Mode">⌫ Erase</button>
+      <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="smudge" title="Smudge Mode">≈ Smudge</button>
+      <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="select" title="Select Mode">⬚ Select</button>
+      <div class="dock-strip-sep"></div>
+      <span class="dock-strip-label">TOOL</span>
+      <button type="button" class="dock-strip-btn dock-tool-btn active" data-tool="brush" title="Brush">● Brush</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">≈ Blend</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">▨ Fill</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">⚲ Lasso</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="picker" title="Eyedropper / Color Picker">⊙ Picker</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">╱ Line</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">▭ Rect</button>
+      <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">⬭ Ellipse</button>
     </div>
 
   <!-- ── Full UI Panel (Right) ── -->
@@ -1653,7 +1685,7 @@
             </div>
             <div class="ui-control">
               <div class="ui-label-row"><span>Size</span><span id="ui-val-size" class="ui-val">16</span></div>
-              <input type="range" id="ui-slider-size" min="1" max="500" value="16">
+              <input type="range" id="ui-slider-size" min="1" max="100" value="16">
             </div>
             <div class="ui-control">
               <div class="ui-label-row"><span>α Opacity</span><span id="ui-val-opacity" class="ui-val">100%</span></div>
@@ -2039,53 +2071,6 @@
       <span id="touch-color-hex" style="font-size: 12px; font-weight: bold; color: #fabd2f;">#EBDBB2</span>
     </div>
     <div class="touch-color-swatches" id="touch-modal-swatches"></div>
-  </div>
-</div>
-
-<!-- ── Touch Gestures Onboarding / Cheat Sheet ── -->
-<div id="touch-cheat-sheet">
-  <div class="cheat-sheet-card">
-    <div class="cheat-sheet-title">
-      <span>TOUCH GESTURES GUIDE</span>
-      <button type="button" class="ui-mini-btn" id="btn-close-cheat-sheet">✕</button>
-    </div>
-    <div class="cheat-grid">
-      <div class="cheat-item">
-        <span class="cheat-item-icon">☝ 1 Finger</span>
-        <span class="cheat-item-desc">Draw / Paint / Select</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">✌ 2 Fingers Drag</span>
-        <span class="cheat-item-desc">Pan, Pinch-Zoom, Rotate</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">✌ 2-Finger Tap</span>
-        <span class="cheat-item-desc">Undo stroke</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">🤟 3-Finger Tap</span>
-        <span class="cheat-item-desc">Redo stroke</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">🖐 3 Fingers Drag</span>
-        <span class="cheat-item-desc">Size (↔) / Opacity (↕)</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">✋ 4-Finger Tap</span>
-        <span class="cheat-item-desc">Radial Quick Pie Menu</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">👆 Long Press</span>
-        <span class="cheat-item-desc">Eyedropper Loupe</span>
-      </div>
-      <div class="cheat-item">
-        <span class="cheat-item-icon">⇥ Edge Swipes</span>
-        <span class="cheat-item-desc">Left: Layers / Right: Tools</span>
-      </div>
-    </div>
-    <div style="display: flex; justify-content: flex-end; margin-top: 4px;">
-      <button type="button" class="ui-btn" id="btn-dismiss-cheat-sheet" style="background: #fabd2f; color: #1d2021; font-weight: bold; width: 100%;">Entendido!</button>
-    </div>
   </div>
 </div>
 

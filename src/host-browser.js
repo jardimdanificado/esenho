@@ -473,18 +473,20 @@ function updateDockTabs() {}
 
     
 
-    // Suppress click on dock buttons if a drag gesture occurred
-    bottomDock.addEventListener('click', (e) => {
-      if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
-      const uiEl = document.getElementById('ui-panel');
-      const isHidden = !uiEl || uiEl.classList.contains('hidden');
-      if (isHidden) {
-        let newH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-drawer-height')) || (window.innerHeight * 0.42);
-        syncMobilePanels(true, newH);
-      } else {
-        syncMobilePanels(false);
-      }
-    }, true);
+    // Toggle dock drawer only when clicking the handle directly
+    if (dockHandle) {
+      dockHandle.addEventListener('click', (e) => {
+        if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
+        const uiEl = document.getElementById('ui-panel');
+        const isHidden = !uiEl || uiEl.classList.contains('hidden');
+        if (isHidden) {
+          let newH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-drawer-height')) || (window.innerHeight * 0.42);
+          syncMobilePanels(true, newH);
+        } else {
+          syncMobilePanels(false);
+        }
+      });
+    }
 
     let dockRafId = null;
     let pendingClientY = null;
@@ -1651,7 +1653,7 @@ function updateDockTabs() {}
     e.preventDefault();
   }, { passive: false });
 
-  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo / 3-finger drag: size+opacity ── */
+  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo / 4-finger: radial menu ── */
   const touch = {
     prevTouches: null,   /* TouchList snapshot from last event */
     drawing: false,
@@ -1659,8 +1661,7 @@ function updateDockTabs() {}
     timer: null,
     longPressTimer: null,
     longPressTriggered: false,
-    tapGesture: null,    /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
-    threeFingerDrag: null /* 3-finger drag: { startX, startY, startSize, startOpacity } */
+    tapGesture: null     /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
   };
 
   function commitPendingTouch() {
@@ -1709,28 +1710,6 @@ function updateDockTabs() {}
       sx: (a.clientX + b.clientX) / 2 - r.left,
       sy: (a.clientY + b.clientY) / 2 - r.top
     };
-  }
-
-  /* ── 3-finger drag overlay helpers ── */
-  const paramOverlay = document.getElementById('touch-param-overlay');
-  const paramCircle  = document.getElementById('touch-param-circle');
-  const paramText    = document.getElementById('touch-param-text');
-
-  function showParamOverlay(size, opacity) {
-    if (!paramOverlay) return;
-    const displaySize = Math.max(8, Math.min(200, size));
-    if (paramCircle) {
-      paramCircle.style.width  = displaySize + 'px';
-      paramCircle.style.height = displaySize + 'px';
-    }
-    if (paramText) {
-      paramText.textContent = `Size: ${size}px  ·  Opacity: ${opacity}%`;
-    }
-    paramOverlay.classList.add('visible');
-  }
-
-  function hideParamOverlay() {
-    if (paramOverlay) paramOverlay.classList.remove('visible');
   }
 
   /* ── Haptic feedback utility ── */
@@ -1825,13 +1804,6 @@ function updateDockTabs() {}
     radialSelectedIndex = -1;
   }
 
-  /* ── Edge Swipes State ── */
-  let edgeSwipe = {
-    side: null, // 'left' | 'right' | 'bottom'
-    startX: 0,
-    startY: 0
-  };
-
   /* ── Finger velocity / dynamic pressure tracker ── */
   let lastTouchPoint = null;
   let lastTouchTime = 0;
@@ -1855,20 +1827,10 @@ function updateDockTabs() {}
       return;
     }
 
-    // Edge Swipes detection
     if (e.touches.length === 1) {
       const t = e.touches[0];
       lastTouchPoint = { x: t.clientX, y: t.clientY };
       lastTouchTime = performance.now();
-      if (t.clientX < 28) {
-        edgeSwipe = { side: 'left', startX: t.clientX, startY: t.clientY };
-      } else if (t.clientX > window.innerWidth - 28) {
-        edgeSwipe = { side: 'right', startX: t.clientX, startY: t.clientY };
-      } else if (t.clientY > window.innerHeight - 36) {
-        edgeSwipe = { side: 'bottom', startX: t.clientX, startY: t.clientY };
-      } else {
-        edgeSwipe.side = null;
-      }
     }
 
     if (penActive && e.touches.length === 1) {
@@ -1995,18 +1957,6 @@ function updateDockTabs() {}
           }
         }
       }
-      /* 3-finger drag: init size/opacity adjust */
-      if (e.touches.length >= 3 && !touch.threeFingerDrag) {
-        const mid3 = threeFingerMidpoint(e.touches);
-        const curSize = host.brushParams ? host.brushParams.size : 16;
-        const curOpacity = host.brushParams ? host.brushParams.opacity : 100;
-        touch.threeFingerDrag = {
-          startX: mid3.x,
-          startY: mid3.y,
-          startSize: curSize,
-          startOpacity: curOpacity
-        };
-      }
     }
     touch.prevTouches = e.touches;
   }, { passive: false });
@@ -2019,35 +1969,6 @@ function updateDockTabs() {}
         updateRadialFromPos(e.touches[0].clientX, e.touches[0].clientY);
       }
       return;
-    }
-
-    // Edge Swipes triggering
-    if (edgeSwipe.side && e.touches.length === 1) {
-      const t = e.touches[0];
-      const dx = t.clientX - edgeSwipe.startX;
-      const dy = t.clientY - edgeSwipe.startY;
-      if (edgeSwipe.side === 'left' && dx > 50) {
-        // Swipe left -> open Layers
-        edgeSwipe.side = null;
-        triggerHaptic(20);
-        const tabLayers = document.getElementById('tab-dock-layers');
-        if (tabLayers) tabLayers.click();
-        return;
-      } else if (edgeSwipe.side === 'right' && dx < -50) {
-        // Swipe right -> open Tools
-        edgeSwipe.side = null;
-        triggerHaptic(20);
-        const tabTools = document.getElementById('tab-dock-tools');
-        if (tabTools) tabTools.click();
-        return;
-      } else if (edgeSwipe.side === 'bottom' && dy < -45) {
-        // Swipe bottom up -> open drawer
-        edgeSwipe.side = null;
-        triggerHaptic(20);
-        const handle = document.getElementById('bottom-dock-handle');
-        if (handle) handle.click();
-        return;
-      }
     }
 
     if (e.touches.length === 1 && !touch.tapGesture) {
@@ -2138,47 +2059,6 @@ function updateDockTabs() {}
         }
       }
 
-      /* ── 3-finger drag: size (horizontal) + opacity (vertical) ── */
-      if (e.touches.length >= 3 && touch.threeFingerDrag) {
-        const mid3 = threeFingerMidpoint(e.touches);
-        const dx = mid3.x - touch.threeFingerDrag.startX;
-        const dy = mid3.y - touch.threeFingerDrag.startY;
-
-        // Horizontal → size (log scale: 1px per px at small sizes, accelerates)
-        const sizeSensitivity = Math.max(0.3, touch.threeFingerDrag.startSize / 150);
-        let newSize = Math.round(touch.threeFingerDrag.startSize + dx * sizeSensitivity);
-        newSize = Math.max(1, Math.min(500, newSize));
-
-        // Vertical → opacity (inverted: drag up = more opaque)
-        let newOpacity = Math.round(touch.threeFingerDrag.startOpacity - dy * 0.4);
-        newOpacity = Math.max(1, Math.min(100, newOpacity));
-
-        // Apply via REPL commands (same path as slider change)
-        runCmd(`brush size ${newSize}`);
-        runCmd(`brush opacity ${newOpacity}`);
-
-        // Update UI sliders
-        const sizeSlider = document.getElementById('ui-slider-size');
-        const sizeBadge  = document.getElementById('ui-val-size');
-        if (sizeSlider) { sizeSlider.value = newSize; sizeSlider._currentVal = String(newSize); }
-        if (sizeBadge) sizeBadge.textContent = String(newSize);
-
-        const opSlider = document.getElementById('ui-slider-opacity');
-        const opBadge  = document.getElementById('ui-val-opacity');
-        if (opSlider) { opSlider.value = newOpacity; opSlider._currentVal = String(newOpacity); }
-        if (opBadge) opBadge.textContent = newOpacity + '%';
-
-        // Toolbar labels
-        const tbSize = document.getElementById('tb-size-val');
-        const tbOp   = document.getElementById('tb-opacity-val');
-        if (tbSize) tbSize.textContent = String(newSize);
-        if (tbOp)   tbOp.textContent = String(newOpacity);
-
-        showParamOverlay(newSize, newOpacity);
-        touch.prevTouches = e.touches;
-        return; // Skip 2-finger pan/zoom while 3-finger dragging
-      }
-
       if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length === 2) {
         const [a, b] = [e.touches[0], e.touches[1]];
         const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
@@ -2264,18 +2144,9 @@ function updateDockTabs() {}
       return;
     }
 
-    edgeSwipe.side = null;
-
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
-    }
-    /* Clean up 3-finger drag */
-    if (touch.threeFingerDrag) {
-      if (e.touches.length < 3) {
-        touch.threeFingerDrag = null;
-        hideParamOverlay();
-      }
     }
     if (isTouchPicker) {
       isTouchPicker = false;
@@ -2365,7 +2236,6 @@ function updateDockTabs() {}
     if (radialActive) {
       closeRadialMenu(false);
     }
-    edgeSwipe.side = null;
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
@@ -2392,8 +2262,6 @@ function updateDockTabs() {}
       lassoPoints = [];
     }
     touch.tapGesture = null;
-    touch.threeFingerDrag = null;
-    hideParamOverlay();
     touch.prevTouches = null;
   });
 
@@ -3094,41 +2962,6 @@ function updateDockTabs() {}
   const touchColorHex = document.getElementById('touch-color-hex');
   const touchModalSwatches = document.getElementById('touch-modal-swatches');
 
-  const cheatSheetModal = document.getElementById('touch-cheat-sheet');
-  const btnCloseCheat = document.getElementById('btn-close-cheat-sheet');
-  const btnDismissCheat = document.getElementById('btn-dismiss-cheat-sheet');
-  const tbHelp = document.getElementById('tb-help');
-
-  // Canvas-Only Fullscreen Mode
-  function toggleCanvasOnly() {
-    document.body.classList.toggle('canvas-only-mode');
-    triggerHaptic(15);
-  }
-  const tbFullscreen = document.getElementById('tb-fullscreen');
-  if (tbFullscreen) tbFullscreen.addEventListener('click', toggleCanvasOnly);
-  const exitCanvasOnly = document.getElementById('canvas-only-exit-btn');
-  if (exitCanvasOnly) exitCanvasOnly.addEventListener('click', toggleCanvasOnly);
-
-  // Cheat Sheet Onboarding
-  function openCheatSheet() {
-    if (cheatSheetModal) cheatSheetModal.classList.add('active');
-    triggerHaptic(10);
-  }
-  function closeCheatSheet() {
-    if (cheatSheetModal) cheatSheetModal.classList.remove('active');
-  }
-  if (tbHelp) tbHelp.addEventListener('click', openCheatSheet);
-  if (btnCloseCheat) btnCloseCheat.addEventListener('click', closeCheatSheet);
-  if (btnDismissCheat) {
-    btnDismissCheat.addEventListener('click', () => {
-      try { localStorage.setItem('esenho_touch_onboarded', '1'); } catch (_) {}
-      closeCheatSheet();
-    });
-  }
-  if (isMobile() && !localStorage.getItem('esenho_touch_onboarded')) {
-    setTimeout(openCheatSheet, 800);
-  }
-
   // HSV Wheel Renderer & Touch Picker
   function hsvToRgb(h, s, v) {
     const c = v * s;
@@ -3244,6 +3077,7 @@ function updateDockTabs() {}
   }
 
   // Quick Toolstrip in Bottom Dock
+  // Quick Toolstrip in Bottom Dock
   const dockStripBtns = document.querySelectorAll('#bottom-dock-toolstrip .dock-strip-btn');
   dockStripBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3255,6 +3089,7 @@ function updateDockTabs() {}
         const panelBtn = document.querySelector(`.tool-btn[data-tool="${tool}"]`);
         if (panelBtn) panelBtn.click();
       } else if (action) {
+        runCmd(`mode ${action}`);
         const modeBtn = document.querySelector(`.mode-btn[data-actionmode="${action}"]`);
         if (modeBtn) modeBtn.click();
       }
@@ -3281,26 +3116,392 @@ function updateDockTabs() {}
       tbSwatch.addEventListener('click', openTouchColorModal);
     }
 
-    // Make toolbar draggable vertically
-    let tbDragY = null;
-    let tbStartTop = null;
+    // Parameter Configs for Dynamic Floating Toolbar Control
+    const TB_PARAM_CONFIGS = {
+      // Sliders
+      size: { type: 'slider', min: 1, max: 100, step: 1, suffix: '', cmd: 'brush size', getter: bp => bp.size },
+      opacity: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush opacity', getter: bp => bp.opacity },
+      flow: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow },
+      hardness: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness },
+      spacing: { type: 'slider', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing },
+      smoothing: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush smooth', getter: bp => bp.smoothing || 0 },
+      midpoint: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50) },
+      angle: { type: 'slider', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0 },
+      roundness: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100 },
+      scatter: { type: 'slider', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set scatter', getter: bp => bp.scatter || 0 },
+      smudge: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set smudge', getter: bp => bp.smudge || 0 },
+      wetness: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set wetness', getter: bp => bp.wetness || 0 },
+      depletion: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set depletion', getter: bp => bp.depletion || 0 },
+      color_pickup: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_pickup', getter: bp => bp.color_pickup || 0 },
+      velocity: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0 },
+      taper_in: { type: 'slider', min: 0, max: 500, step: 1, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0 },
+      fade: { type: 'slider', min: 0, max: 2000, step: 10, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0 },
+      tolerance: { type: 'slider', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32) },
+      size_jitter: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0 },
+      angle_jitter: { type: 'slider', min: 0, max: 360, step: 1, suffix: '°', cmd: 'set angle_jitter', getter: bp => bp.angle_jitter || 0 },
+      opacity_jitter: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set opacity_jitter', getter: bp => bp.opacity_jitter || 0 },
+      color_jitter: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_jitter', getter: bp => bp.color_jitter || 0 },
+      grain: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set grain', getter: bp => bp.grain || 0 },
+      texture_scale: { type: 'slider', min: 10, max: 400, step: 1, suffix: '%', cmd: 'set texture_scale', getter: bp => bp.texture_scale || 100 },
+      texture_rotate: { type: 'slider', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set texture_rotate', getter: bp => (bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle || 0)) },
+      texture_contrast: { type: 'slider', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set texture_contrast', getter: bp => (bp.texture_contrast !== undefined ? bp.texture_contrast : 100) },
+      dual_size: { type: 'slider', min: 10, max: 300, step: 1, suffix: '%', cmd: 'set dual_size', getter: bp => (bp.dual_size !== undefined ? bp.dual_size : 100) },
+      dual_spacing: { type: 'slider', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set dual_spacing', getter: bp => (bp.dual_spacing !== undefined ? bp.dual_spacing : 10) },
+
+      // Switches
+      auto_rotate: { type: 'switch', cmd: 'set auto_rotate', getter: bp => !!bp.auto_rotate },
+      subpixel: { type: 'switch', cmd: 'set subpixel', getter: bp => !!bp.subpixel },
+      pressure_size: { type: 'switch', cmd: 'set pressure_size', getter: bp => (bp.pressure_size !== undefined ? !!bp.pressure_size : true) },
+      pressure_flow: { type: 'switch', cmd: 'set pressure_flow', getter: bp => (bp.pressure_flow !== undefined ? !!bp.pressure_flow : true) },
+      tilt_angle: { type: 'switch', cmd: 'set tilt_angle', getter: bp => (bp.tilt_angle !== undefined ? !!bp.tilt_angle : true) },
+
+      // Special Selectors
+      tip: { type: 'select_tip' },
+      grain_tex: { type: 'select_grain' },
+      script: { type: 'select_script' },
+      dab_blend: { type: 'select_dab_blend' },
+      symmetry: { type: 'select_symmetry' },
+      dual_shape: { type: 'select_dual_shape' }
+    };
+
+    const tbParamSelect = document.getElementById('tb-param-select');
+    const tbDynamicSlot = document.getElementById('tb-dynamic-slot');
+
+    function renderTbDynamicSlot() {
+      if (!tbDynamicSlot || !tbParamSelect) return;
+      const key = tbParamSelect.value || 'size';
+      const cfg = TB_PARAM_CONFIGS[key] || TB_PARAM_CONFIGS.size;
+      tbDynamicSlot.innerHTML = '';
+
+      if (cfg.type === 'slider') {
+        const bp = host.brushParams || {};
+        const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'tb-mini-slider';
+        slider.id = 'tb-active-slider';
+        slider.min = cfg.min;
+        slider.max = cfg.max;
+        slider.step = cfg.step || 1;
+        slider.value = curVal !== undefined ? curVal : cfg.min;
+        slider._currentVal = String(slider.value);
+
+        const valBadge = document.createElement('span');
+        valBadge.className = 'tb-val';
+        valBadge.id = 'tb-active-val';
+        valBadge.textContent = slider.value + (cfg.suffix || '');
+
+        slider.addEventListener('input', () => {
+          valBadge.textContent = slider.value + (cfg.suffix || '');
+          runCmd(`${cfg.cmd} ${slider.value}`);
+        });
+        slider.addEventListener('change', () => {
+          slider._currentVal = String(slider.value);
+          runCmd(`${cfg.cmd} ${slider.value}`);
+        });
+
+        tbDynamicSlot.appendChild(slider);
+        tbDynamicSlot.appendChild(valBadge);
+      } else if (cfg.type === 'switch') {
+        const bp = host.brushParams || {};
+        const isChecked = cfg.getter ? cfg.getter(bp) : false;
+
+        const lbl = document.createElement('label');
+        lbl.className = 'tb-chk-label';
+
+        const chk = document.createElement('input');
+        chk.type = 'checkbox';
+        chk.id = 'tb-active-chk';
+        chk.checked = isChecked;
+
+        const txt = document.createElement('span');
+        txt.id = 'tb-active-chk-text';
+        txt.textContent = isChecked ? 'ON' : 'OFF';
+
+        chk.addEventListener('change', () => {
+          txt.textContent = chk.checked ? 'ON' : 'OFF';
+          runCmd(`${cfg.cmd} ${chk.checked ? 1 : 0}`);
+          triggerHaptic(10);
+        });
+
+        lbl.appendChild(chk);
+        lbl.appendChild(txt);
+        tbDynamicSlot.appendChild(lbl);
+      } else if (cfg.type === 'select_tip') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+
+        const count = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_count)
+          ? host.canvasActor.exports.get_layer_count() : 0;
+        for (let i = 0; i < count; i++) {
+          let name = `layer_${i}`;
+          if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
+          }
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = `[${i}] ${name}`;
+          sel.appendChild(opt);
+        }
+        const shapeId = host.brushParams ? host.brushParams.shape : 0;
+        const builtins = ['circle', 'square', 'chisel'];
+        let activeShapeName = builtins[shapeId] || `layer_${shapeId}`;
+        if (host.textures) {
+          for (const [k, v] of host.textures.entries()) {
+            if (v.wasmId === shapeId) { activeShapeName = k; break; }
+          }
+        }
+        sel.value = activeShapeName;
+
+        sel.addEventListener('change', () => {
+          runCmd(`set shape ${sel.value}`);
+          triggerHaptic(10);
+        });
+        tbDynamicSlot.appendChild(sel);
+      } else if (cfg.type === 'select_grain') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+
+        const optNone = document.createElement('option');
+        optNone.value = 'none';
+        optNone.textContent = 'None';
+        sel.appendChild(optNone);
+
+        const count = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_count)
+          ? host.canvasActor.exports.get_layer_count() : 0;
+        for (let i = 0; i < count; i++) {
+          let name = `layer_${i}`;
+          if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
+          }
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = `[${i}] ${name}`;
+          sel.appendChild(opt);
+        }
+        sel.value = host.activeTexture || 'none';
+
+        sel.addEventListener('change', () => {
+          runCmd(`set texture ${sel.value}`);
+          triggerHaptic(10);
+        });
+        tbDynamicSlot.appendChild(sel);
+      } else if (cfg.type === 'select_script') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+
+        const optPrompt = document.createElement('option');
+        optPrompt.value = '';
+        optPrompt.disabled = true;
+        optPrompt.selected = true;
+        optPrompt.textContent = '▶ Exec script...';
+        sel.appendChild(optPrompt);
+
+        const list = getSavedScripts();
+        list.forEach((s, idx) => {
+          const opt = document.createElement('option');
+          opt.value = String(idx);
+          opt.textContent = s.name || `script_${idx + 1}`;
+          sel.appendChild(opt);
+        });
+
+        sel.addEventListener('change', () => {
+          const idx = parseInt(sel.value, 10);
+          if (!isNaN(idx) && list[idx]) {
+            runScriptCode(list[idx].code);
+            triggerHaptic(15);
+          }
+          sel.selectedIndex = 0;
+        });
+        tbDynamicSlot.appendChild(sel);
+      } else if (cfg.type === 'select_dab_blend') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+        const blendNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+        blendNames.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b;
+          opt.textContent = b;
+          sel.appendChild(opt);
+        });
+        const curBlend = host.brushParams ? host.brushParams.dab_blend : 0;
+        sel.value = blendNames[curBlend] || 'normal';
+        sel.addEventListener('change', () => {
+          runCmd(`set dab_blend ${sel.value}`);
+          triggerHaptic(10);
+        });
+        tbDynamicSlot.appendChild(sel);
+      } else if (cfg.type === 'select_symmetry') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+        const symOptions = [
+          { val: '0', text: 'Off' },
+          { val: '1', text: 'Vertical' },
+          { val: '2', text: 'Horizontal' },
+          { val: '3', text: 'Quad' }
+        ];
+        symOptions.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.val;
+          opt.textContent = s.text;
+          sel.appendChild(opt);
+        });
+        const curSym = host.brushParams && host.brushParams.symmetry !== undefined ? String(host.brushParams.symmetry) : '0';
+        sel.value = curSym;
+        sel.addEventListener('change', () => {
+          runCmd(`set symmetry ${sel.value}`);
+          triggerHaptic(10);
+        });
+        tbDynamicSlot.appendChild(sel);
+      } else if (cfg.type === 'select_dual_shape') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+        const optNone = document.createElement('option');
+        optNone.value = 'none';
+        optNone.textContent = 'None';
+        sel.appendChild(optNone);
+
+        const count = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_count)
+          ? host.canvasActor.exports.get_layer_count() : 0;
+        for (let i = 0; i < count; i++) {
+          let name = `layer_${i}`;
+          if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
+          }
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = `[${i}] ${name}`;
+          sel.appendChild(opt);
+        }
+        sel.value = host.brushParams && host.brushParams.dual_shape !== undefined && host.brushParams.dual_shape >= 0
+          ? `layer_${host.brushParams.dual_shape}` : 'none';
+        sel.addEventListener('change', () => {
+          runCmd(`set dual_shape ${sel.value}`);
+          triggerHaptic(10);
+        });
+        tbDynamicSlot.appendChild(sel);
+      }
+    }
+
+    function syncTbDynamicSlot() {
+      if (!tbDynamicSlot || !tbParamSelect) return;
+      const key = tbParamSelect.value || 'size';
+      const cfg = TB_PARAM_CONFIGS[key] || TB_PARAM_CONFIGS.size;
+      const bp = host.brushParams;
+      if (!bp) return;
+
+      if (cfg.type === 'slider') {
+        const slider = document.getElementById('tb-active-slider');
+        const badge = document.getElementById('tb-active-val');
+        if (slider && document.activeElement !== slider && cfg.getter) {
+          const val = cfg.getter(bp);
+          if (val !== undefined) {
+            slider.value = val;
+            slider._currentVal = String(val);
+            if (badge) badge.textContent = val + (cfg.suffix || '');
+          }
+        }
+      } else if (cfg.type === 'switch') {
+        const chk = document.getElementById('tb-active-chk');
+        const txt = document.getElementById('tb-active-chk-text');
+        if (chk && cfg.getter) {
+          const val = cfg.getter(bp);
+          chk.checked = !!val;
+          if (txt) txt.textContent = val ? 'ON' : 'OFF';
+        }
+      }
+    }
+
+    if (tbParamSelect) {
+      tbParamSelect.addEventListener('change', () => {
+        triggerHaptic(10);
+        renderTbDynamicSlot();
+      });
+      renderTbDynamicSlot();
+    }
+
+    // Make toolbar draggable freely in 2D
+    let tbDragging = false;
+    let tbStartX = 0, tbStartY = 0;
+    let tbInitLeft = 0, tbInitTop = 0;
+
+    const startTbDrag = (clientX, clientY, target) => {
+      // Never start drag when clicking interactive controls (select, input, button, swatch, label)
+      if (target && target.closest('select, option, optgroup, input, button, label, #tb-color-swatch')) {
+        return false;
+      }
+      tbDragging = true;
+      tbStartX = clientX;
+      tbStartY = clientY;
+      const rect = touchToolbar.getBoundingClientRect();
+      tbInitLeft = rect.left;
+      tbInitTop = rect.top;
+      touchToolbar.style.transform = 'none';
+      touchToolbar.style.left = tbInitLeft + 'px';
+      touchToolbar.style.top = tbInitTop + 'px';
+      return true;
+    };
+
+    const moveTbDrag = (clientX, clientY) => {
+      if (!tbDragging) return;
+      const dx = clientX - tbStartX;
+      const dy = clientY - tbStartY;
+      const rect = touchToolbar.getBoundingClientRect();
+      const maxLeft = Math.max(0, window.innerWidth - rect.width);
+      const maxTop = Math.max(0, window.innerHeight - rect.height - 40);
+      const newLeft = Math.max(0, Math.min(maxLeft, tbInitLeft + dx));
+      const newTop = Math.max(4, Math.min(maxTop, tbInitTop + dy));
+      touchToolbar.style.left = newLeft + 'px';
+      touchToolbar.style.top = newTop + 'px';
+    };
+
+    const endTbDrag = () => {
+      tbDragging = false;
+    };
+
     touchToolbar.addEventListener('touchstart', (e) => {
-      if (e.target === touchToolbar || e.target.classList.contains('tb-sep') || e.target.classList.contains('tb-label')) {
-        tbDragY = e.touches[0].clientY;
-        tbStartTop = touchToolbar.offsetTop;
+      if (e.touches.length === 1) {
+        if (startTbDrag(e.touches[0].clientX, e.touches[0].clientY, e.target)) {
+          e.preventDefault();
+        }
+      }
+    }, { passive: false });
+
+    window.addEventListener('touchmove', (e) => {
+      if (tbDragging && e.touches.length === 1) {
+        moveTbDrag(e.touches[0].clientX, e.touches[0].clientY);
         e.preventDefault();
       }
     }, { passive: false });
-    touchToolbar.addEventListener('touchmove', (e) => {
-      if (tbDragY !== null) {
-        const dy = e.touches[0].clientY - tbDragY;
-        const newTop = Math.max(4, Math.min(window.innerHeight - 50, tbStartTop + dy));
-        touchToolbar.style.top = newTop + 'px';
+
+    window.addEventListener('touchend', endTbDrag);
+    window.addEventListener('touchcancel', endTbDrag);
+
+    touchToolbar.addEventListener('mousedown', (e) => {
+      if (startTbDrag(e.clientX, e.clientY, e.target)) {
         e.preventDefault();
       }
-    }, { passive: false });
-    touchToolbar.addEventListener('touchend', () => { tbDragY = null; });
-    touchToolbar.addEventListener('touchcancel', () => { tbDragY = null; });
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (tbDragging) {
+        moveTbDrag(e.clientX, e.clientY);
+        e.preventDefault();
+      }
+    });
+    window.addEventListener('mouseup', endTbDrag);
   }
 
   // Active Layer Opacity slider (Photoshop style)
@@ -4083,11 +4284,12 @@ function updateDockTabs() {}
       btn.classList.toggle('active', btn.dataset.tool === curToolName);
     });
 
-    // Sync Bottom Dock Quick Tool Strip
-    document.querySelectorAll('#bottom-dock-toolstrip .dock-strip-btn').forEach(btn => {
-      const isToolMatch = btn.dataset.tool && btn.dataset.tool === curToolName && curActionMode === 'draw';
-      const isActionMatch = btn.dataset.actionmode && btn.dataset.actionmode === curActionMode;
-      btn.classList.toggle('active', !!(isToolMatch || isActionMatch));
+    // Sync Bottom Dock Mode & Tool Buttons
+    document.querySelectorAll('#bottom-dock-toolstrip .dock-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.actionmode === curActionMode);
+    });
+    document.querySelectorAll('#bottom-dock-toolstrip .dock-tool-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tool === curToolName);
     });
 
     const curSelMode = host.selectionMode || 'replace';
@@ -4116,6 +4318,7 @@ function updateDockTabs() {}
       setSlider('ui-slider-opacity', 'ui-val-opacity', bp.opacity, '%');
       setSlider('ui-slider-hardness', 'ui-val-hardness', bp.hardness, '%');
       setSlider('ui-slider-flow', 'ui-val-flow', bp.flow, '%');
+      syncTbDynamicSlot();
       setSlider('ui-slider-spacing', 'ui-val-spacing', bp.spacing, '%');
       setSlider('ui-slider-smoothing', 'ui-val-smoothing', bp.smoothing || 0, '%');
       setSlider('ui-slider-midpoint', 'ui-val-midpoint', bp.midpoint !== undefined ? bp.midpoint : 50, '%');
@@ -5105,7 +5308,7 @@ function ensureUiPanel() {
         <div class="ui-group-content">
           <div class="ui-control">
             <div class="ui-label-row"><span>Size</span><span id="ui-val-size" class="ui-val">16</span></div>
-            <input type="range" id="ui-slider-size" min="1" max="500" value="16">
+            <input type="range" id="ui-slider-size" min="1" max="100" value="16">
           </div>
           <div class="ui-control">
             <div class="ui-label-row"><span>Opacity</span><span id="ui-val-opacity" class="ui-val">100%</span></div>

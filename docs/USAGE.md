@@ -208,13 +208,14 @@ The studio workspace consists of four primary regions:
 - **Long Press (~300ms)**: Activates magnifying eyedropper loupe under cursor.
 
 ### Touchscreen Gestures (Tablets & Mobile)
-- **1-Finger Drag**: Paints brush strokes, shapes, or selections.
-- **1-Finger Hold (~300ms)**: Displays circular eyedropper ring (`#eyedropper-ring`) sampling screen colors under finger.
-- **2-Finger Pinch**: Continuous zoom scaling between 5% and 2000%.
-- **2-Finger Drag**: Fluid two-dimensional viewport panning.
-- **2-Finger Twist**: Smooth viewport rotation around touch midpoint with built-in deadzone and damping to eliminate tremor.
-- **2-Finger Quick Tap**: Triggers `Undo`.
-- **3-Finger Quick Tap**: Triggers `Redo`.
+- **1-Finger Drag**: Paints continuous brush strokes, draws geometric shapes (Line, Rect, Ellipse), or creates selections (Marquee, Lasso, Wand).
+- **1-Finger Hold (300ms)**: Activates magnifying eyedropper loupe directly above finger with real-time color sampling and haptic feedback.
+- **2-Finger Pinch / Drag / Twist**: Viewport navigation combining zoom (5% to 2000%), two-dimensional pan, and rotation anchored to the touch midpoint. Automatically snaps to 0° rotation when close to horizontal.
+- **2-Finger Quick Tap**: Triggers Undo with haptic feedback.
+- **3-Finger Quick Tap**: Triggers Redo with haptic feedback.
+- **4-Finger Tap / Hold**: Opens the Radial Quick-Action Menu centered on screen or under fingers, allowing instant tool switching (Brush, Eraser, Smudge, Fill, Picker, Undo, Redo, Color).
+- **Floating Touch Toolbar**: Draggable 2D pill with Undo, Redo, HSV Color Picker Modal, and a dynamic parameter dropdown covering all brush parameters (Size 1-100, Opacity, Flow, Hardness, Dynamics, Jitters, Switches, and special selectors for Tip Shape layers, Grain Texture layers, and instant Script execution).
+- **Bottom Dock Drawer**: Unified mobile control center for Tools, Console, and Scripts, with separated Mode (Draw, Erase, Smudge, Select) and Tool (Brush, Blend, Fill, Lasso, Picker, Line, Rect, Ellipse) buttons.
 
 ### Floating Transform Cage Handles
 When a selection is copied, cut, or pasted, an interactive floating cage appears over the region:
