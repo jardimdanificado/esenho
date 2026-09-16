@@ -865,9 +865,39 @@ function updateDockTabs() {}
         imgData = ctx.createImageData(cw, ch);
         offscreen = new OffscreenCanvas(cw, ch);
         offscreenCtx = offscreen.getContext('2d');
+        new Uint32Array(imgData.data.buffer).set(new Uint32Array(host.canvasActor.memory.buffer, ptr, cw * ch));
+        offscreenCtx.putImageData(imgData, 0, 0);
+        if (host.canvasActor.exports.w_clear_dirty_bounds) host.canvasActor.exports.w_clear_dirty_bounds();
+      } else {
+        const hasDirty = (typeof host.canvasActor.exports.w_has_dirty_rect === 'function')
+          ? host.canvasActor.exports.w_has_dirty_rect()
+          : 1;
+        if (hasDirty) {
+          const dx0 = host.canvasActor.exports.w_get_dirty_x0();
+          const dy0 = host.canvasActor.exports.w_get_dirty_y0();
+          const dx1 = host.canvasActor.exports.w_get_dirty_x1();
+          const dy1 = host.canvasActor.exports.w_get_dirty_y1();
+          const dw = dx1 - dx0 + 1;
+          const dh = dy1 - dy0 + 1;
+          if (dw > 0 && dh > 0 && dx0 >= 0 && dy0 >= 0 && dx0 + dw <= cw && dy0 + dh <= ch) {
+            const wasmU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, cw * ch);
+            const imgU32 = new Uint32Array(imgData.data.buffer);
+            if (dw === cw && dh === ch) {
+              imgU32.set(wasmU32);
+              offscreenCtx.putImageData(imgData, 0, 0);
+            } else {
+              for (let y = dy0; y <= dy1; y++) {
+                const rowOffset = y * cw + dx0;
+                imgU32.set(wasmU32.subarray(rowOffset, rowOffset + dw), rowOffset);
+              }
+              offscreenCtx.putImageData(imgData, 0, 0, dx0, dy0, dw, dh);
+            }
+          }
+          if (typeof host.canvasActor.exports.w_clear_dirty_bounds === 'function') {
+            host.canvasActor.exports.w_clear_dirty_bounds();
+          }
+        }
       }
-      imgData.data.set(new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4));
-      offscreenCtx.putImageData(imgData, 0, 0);
 
       /* Draw with pan + zoom + rotation around doc center */
       const cx = host.panX + (cw * host.zoom) / 2;
@@ -1347,6 +1377,9 @@ function updateDockTabs() {}
   requestAnimationFrame(frame);
 
   /* ── Coordinate helpers ── */
+  const _scratchPoint = { sx: 0, sy: 0, x: 0, y: 0 };
+  const _scratchDoc = { x: 0, y: 0 };
+
   /* Screen → document space, accounting for pan/zoom/rotation/flip */
   function screenToDoc(sx, sy) {
     const cw = host.canvasActor.exports.get_canvas_width();
@@ -1364,16 +1397,20 @@ function updateDockTabs() {}
     const rx = dx * cosA - dy * sinA;
     const ry = dx * sinA + dy * cosA;
     /* unzoom + unpan */
-    return {
-      x: (rx + (cw * host.zoom) / 2) / host.zoom,
-      y: (ry + (ch * host.zoom) / 2) / host.zoom
-    };
+    _scratchDoc.x = (rx + (cw * host.zoom) / 2) / host.zoom;
+    _scratchDoc.y = (ry + (ch * host.zoom) / 2) / host.zoom;
+    return _scratchDoc;
   }
 
   function clientPos(e) {
     const r = canvasEl.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    return { sx, sy, ...screenToDoc(sx, sy) };
+    const doc = screenToDoc(sx, sy);
+    _scratchPoint.sx = sx;
+    _scratchPoint.sy = sy;
+    _scratchPoint.x = doc.x;
+    _scratchPoint.y = doc.y;
+    return _scratchPoint;
   }
 
   /* ── Eyedropper / Color Picker Ring ── */
@@ -1567,7 +1604,7 @@ function updateDockTabs() {}
     e.preventDefault();
   });
 
-  canvasEl.addEventListener('pointermove', e => {
+  const handlePointerMove = e => {
     if (e.pointerType === 'touch') return;
     const { sx, sy, x, y } = clientPos(e);
     host.mouseHover = { x, y, sx, sy, inside: true };
@@ -1638,7 +1675,13 @@ function updateDockTabs() {}
       }
     }
     updateStatus(host, x, y);
-  });
+  };
+
+  if (typeof window !== 'undefined' && 'onpointerrawupdate' in window) {
+    canvasEl.addEventListener('pointerrawupdate', handlePointerMove, { passive: false });
+  } else {
+    canvasEl.addEventListener('pointermove', handlePointerMove, { passive: false });
+  }
 
   const handlePointerUp = e => {
     if (e.pointerType === 'touch') return;
@@ -1797,10 +1840,16 @@ function updateDockTabs() {}
     touch.pending = null;
   }
 
+  const _scratchTouch = { sx: 0, sy: 0, x: 0, y: 0 };
   function touchDocPos(t) {
     const r = canvasEl.getBoundingClientRect();
     const sx = t.clientX - r.left, sy = t.clientY - r.top;
-    return { sx, sy, ...screenToDoc(sx, sy) };
+    const doc = screenToDoc(sx, sy);
+    _scratchTouch.sx = sx;
+    _scratchTouch.sy = sy;
+    _scratchTouch.x = doc.x;
+    _scratchTouch.y = doc.y;
+    return _scratchTouch;
   }
 
   function touchMidpoint(a, b) {

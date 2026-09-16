@@ -104,6 +104,12 @@ W_EXPORT void w_layer_set_clipping(int32_t idx, int32_t clipping);
 W_EXPORT int32_t w_layer_get_clipping(int32_t idx);
 W_EXPORT void w_layer_set_blend_mode(int32_t idx, int32_t mode);
 W_EXPORT int32_t w_layer_get_blend_mode(int32_t idx);
+W_EXPORT int32_t w_has_dirty_rect(void);
+W_EXPORT int32_t w_get_dirty_x0(void);
+W_EXPORT int32_t w_get_dirty_y0(void);
+W_EXPORT int32_t w_get_dirty_x1(void);
+W_EXPORT int32_t w_get_dirty_y1(void);
+W_EXPORT void w_clear_dirty_bounds(void);
 
 /* =========================================================================
  * Layer & Framebuffer ABI

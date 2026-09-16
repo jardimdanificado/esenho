@@ -2848,8 +2848,7 @@ class EsenhoScreenHost {
 
     const byteLen = w * h * 4;
     const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, byteLen);
-    const pixelsCopy = new Uint8Array(byteLen);
-    pixelsCopy.set(raw);
+    const pixelsCopy = raw.slice();
 
     this.undoStack.push({
       action,
@@ -2882,8 +2881,7 @@ class EsenhoScreenHost {
 
     if (ptr && w === snapshot.width && h === snapshot.height) {
       const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
-      const currentPixels = new Uint8Array(w * h * 4);
-      currentPixels.set(raw);
+      const currentPixels = raw.slice();
 
       this.redoStack.push({
         action: snapshot.action,
@@ -2918,8 +2916,7 @@ class EsenhoScreenHost {
 
     if (ptr && w === snapshot.width && h === snapshot.height) {
       const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
-      const currentPixels = new Uint8Array(w * h * 4);
-      currentPixels.set(raw);
+      const currentPixels = raw.slice();
 
       this.undoStack.push({
         action: snapshot.action,

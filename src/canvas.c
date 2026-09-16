@@ -1,4 +1,7 @@
 #include "esenho.h"
+#if defined(__wasm_simd128__)
+#include <wasm_simd128.h>
+#endif
 
 /* =========================================================================
  * Surface & Layer Actor (Canvas / Drawing Engine)
@@ -305,9 +308,68 @@ static inline uint32_t blend_pixel(uint32_t dst, uint32_t src, uint8_t alpha_mod
 
 static void clear_layer_pixels(uint32_t *pix, uint32_t num_pixels) {
     if (!pix) return;
+#if defined(__wasm_simd128__)
+    v128_t zero = wasm_i32x4_const(0, 0, 0, 0);
+    uint32_t i = 0;
+    for (; i + 16 <= num_pixels; i += 16) {
+        wasm_v128_store(pix + i, zero);
+        wasm_v128_store(pix + i + 4, zero);
+        wasm_v128_store(pix + i + 8, zero);
+        wasm_v128_store(pix + i + 12, zero);
+    }
+    for (; i < num_pixels; i++) {
+        pix[i] = 0x00000000;
+    }
+#else
     for (uint32_t i = 0; i < num_pixels; i++) {
         pix[i] = 0x00000000;
     }
+#endif
+}
+
+/* =========================================================================
+ * Dirty Rectangle Tracking
+ * Accumulates dirty bounding box for sub-region host blits
+ * ========================================================================= */
+static int32_t dirty_x0 = 0;
+static int32_t dirty_y0 = 0;
+static int32_t dirty_x1 = -1;
+static int32_t dirty_y1 = -1;
+
+static void mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+    if (x0 < 0) x0 = 0;
+    if (y0 < 0) y0 = 0;
+    if (x1 >= (int32_t)doc_width) x1 = (int32_t)doc_width - 1;
+    if (y1 >= (int32_t)doc_height) y1 = (int32_t)doc_height - 1;
+    if (x0 > x1 || y0 > y1) return;
+
+    if (dirty_x1 < dirty_x0 || dirty_y1 < dirty_y0) {
+        dirty_x0 = x0;
+        dirty_y0 = y0;
+        dirty_x1 = x1;
+        dirty_y1 = y1;
+    } else {
+        if (x0 < dirty_x0) dirty_x0 = x0;
+        if (y0 < dirty_y0) dirty_y0 = y0;
+        if (x1 > dirty_x1) dirty_x1 = x1;
+        if (y1 > dirty_y1) dirty_y1 = y1;
+    }
+}
+
+W_EXPORT int32_t w_has_dirty_rect(void) {
+    return (dirty_x1 >= dirty_x0 && dirty_y1 >= dirty_y0) ? 1 : 0;
+}
+
+W_EXPORT int32_t w_get_dirty_x0(void) { return dirty_x0; }
+W_EXPORT int32_t w_get_dirty_y0(void) { return dirty_y0; }
+W_EXPORT int32_t w_get_dirty_x1(void) { return dirty_x1; }
+W_EXPORT int32_t w_get_dirty_y1(void) { return dirty_y1; }
+
+W_EXPORT void w_clear_dirty_bounds(void) {
+    dirty_x0 = 0;
+    dirty_y0 = 0;
+    dirty_x1 = -1;
+    dirty_y1 = -1;
 }
 
 static void composite_region(int rx0, int ry0, int rx1, int ry1) {
@@ -335,6 +397,8 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
     if (rx1 >= (int)w) rx1 = (int)w - 1;
     if (ry1 >= (int)h) ry1 = (int)h - 1;
     if (rx0 > rx1 || ry0 > ry1) return;
+
+    mark_dirty_rect(rx0, ry0, rx1, ry1);
 
     // Checkerboard background for dirty region only
     for (int y = ry0; y <= ry1; y++) {
@@ -443,7 +507,7 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
             uint32_t *old_buf = layers[l].pixels;
             uint32_t *new_buf = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
 
-            for (uint32_t i = 0; i < new_pixels; i++) new_buf[i] = 0x00000000;
+            clear_layer_pixels(new_buf, new_pixels);
 
             if (old_buf) {
                 for (uint32_t y = 0; y < copy_h; y++) {
