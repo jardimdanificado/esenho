@@ -1979,6 +1979,42 @@ const COMMAND_RULES = [
       host.sendConsoleLog(`pixel grid ${host.showPixelGrid ? 'enabled' : 'disabled'}`);
     }
   },
+  {
+    pat: "set brush_outline $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      host.showBrushOutline = (v === 'on' || v === '1' || v === 'true' || v === 'yes');
+      host.sendConsoleLog(`brush outline ${host.showBrushOutline ? 'enabled' : 'disabled'}`);
+    }
+  },
+  { pat: "brush_outline $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set brush_outline $val").run(m, host) },
+  { pat: "set outline $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set brush_outline $val").run(m, host) },
+  { pat: "outline $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set brush_outline $val").run(m, host) },
+  {
+    pat: "outline",
+    run: (m, host) => {
+      host.showBrushOutline = !host.showBrushOutline;
+      host.sendConsoleLog(`brush outline ${host.showBrushOutline ? 'enabled' : 'disabled'}`);
+    }
+  },
+  {
+    pat: "set touch_undo $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      host.enableTouchUndoRedo = (v === 'on' || v === '1' || v === 'true' || v === 'yes');
+      host.sendConsoleLog(`touch undo/redo gestures ${host.enableTouchUndoRedo ? 'enabled' : 'disabled'}`);
+    }
+  },
+  { pat: "touch_undo $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set touch_undo $val").run(m, host) },
+  {
+    pat: "set touch_eyedropper $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      host.enableTouchEyedropper = (v === 'on' || v === '1' || v === 'true' || v === 'yes');
+      host.sendConsoleLog(`touch eyedropper gesture ${host.enableTouchEyedropper ? 'enabled' : 'disabled'}`);
+    }
+  },
+  { pat: "touch_eyedropper $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set touch_eyedropper $val").run(m, host) },
 
   // View Navigation
   {

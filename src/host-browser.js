@@ -242,6 +242,7 @@ async function main() {
 
   
   function syncMobilePanels(isOpen, targetHeight) {
+    if (!isMobile()) return;
     const uiEl = document.getElementById('ui-panel');
     if (!uiEl) return;
 
@@ -473,17 +474,22 @@ function updateDockTabs() {}
 
     
 
-    // Toggle dock drawer only when clicking the handle directly
+    // Toggle dock drawer on mobile, collapse/expand toolstrip on desktop
     if (dockHandle) {
       dockHandle.addEventListener('click', (e) => {
         if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
-        const uiEl = document.getElementById('ui-panel');
-        const isHidden = !uiEl || uiEl.classList.contains('hidden');
-        if (isHidden) {
-          let newH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-drawer-height')) || (window.innerHeight * 0.42);
-          syncMobilePanels(true, newH);
+        if (isMobile()) {
+          const uiEl = document.getElementById('ui-panel');
+          const isHidden = !uiEl || uiEl.classList.contains('hidden');
+          if (isHidden) {
+            let newH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-drawer-height')) || (window.innerHeight * 0.42);
+            syncMobilePanels(true, newH);
+          } else {
+            syncMobilePanels(false);
+          }
         } else {
-          syncMobilePanels(false);
+          bottomDock.classList.toggle('collapsed');
+          resize();
         }
       });
     }
@@ -583,6 +589,7 @@ function updateDockTabs() {}
 
     const handleDockStart = (clientY, isDirectHandle) => {
       if (!isDirectHandle) return false;
+      if (!isMobile()) return false;
       const uiEl = document.getElementById('ui-panel');
       const uiHidden = !uiEl || uiEl.classList.contains('hidden');
       startH = (!uiHidden) ? uiEl.offsetHeight : 0;
@@ -1258,6 +1265,81 @@ function updateDockTabs() {}
         ctx.restore();
       }
 
+      /* Live Brush Cursor Outline (Photoshop-style Delimiter) */
+      if (host.showBrushOutline !== false && host.mouseHover && host.mouseHover.inside && !host.isPanning) {
+        const bp = host.brushParams;
+        if (bp && (host.actionMode === 'draw' || host.actionMode === 'erase' || host.actionMode === 'smudge' || host.actionMode === 'select')) {
+          const curMode = bp.mode || 0;
+          if (curMode <= 2 || curMode === 6 || (host.actionMode === 'select' && (curMode === 0 || curMode === 1 || curMode === 2))) {
+            const size = Math.max(1, bp.size || 1);
+            const r = size / 2;
+            const roundness = (bp.roundness !== undefined ? bp.roundness : 100) / 100;
+            const angleRad = ((bp.angle || 0) * Math.PI) / 180;
+            const radX = r * host.zoom;
+            const radY = Math.max(1, r * roundness * host.zoom);
+            const shape = bp.shape || 0;
+
+            const drawOutlineAt = (docX, docY, alpha = 1.0) => {
+              ctx.save();
+              ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+              ctx.translate(docX * host.zoom, docY * host.zoom);
+              ctx.rotate(angleRad);
+
+              ctx.beginPath();
+              if (shape === 1) { // Square
+                const sw = Math.max(2, radX * 2);
+                const sh = Math.max(2, radY * 2);
+                ctx.rect(-sw / 2, -sh / 2, sw, sh);
+              } else if (shape === 2) { // Chisel
+                const cw_b = Math.max(2, radX * 2);
+                const ch_b = Math.max(2, radX * 0.25 * roundness * 2);
+                ctx.rect(-cw_b / 2, -ch_b / 2, cw_b, ch_b);
+              } else { // Circle / Ellipse / Texture Stamp
+                ctx.ellipse(0, 0, Math.max(1, radX), Math.max(1, radY), 0, 0, Math.PI * 2);
+              }
+
+              // Dual-pass stroke for maximum contrast on any background
+              ctx.setLineDash([]);
+              ctx.lineWidth = 2.5 / (window.devicePixelRatio || 1);
+              ctx.strokeStyle = `rgba(0, 0, 0, ${0.7 * alpha})`;
+              ctx.stroke();
+
+              ctx.lineWidth = 1.0 / (window.devicePixelRatio || 1);
+              ctx.strokeStyle = `rgba(255, 255, 255, ${0.95 * alpha})`;
+              ctx.stroke();
+
+              // Center crosshair / dot
+              if (alpha > 0.5) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(-1, -1, 2, 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+                ctx.fillRect(-0.5, -0.5, 1, 1);
+              }
+
+              ctx.restore();
+            };
+
+            // Main cursor outline
+            const mx = host.mouseHover.x;
+            const my = host.mouseHover.y;
+            drawOutlineAt(mx, my, 1.0);
+
+            // Symmetrical ghost outlines if symmetry is active
+            if (bp.symmetry > 0) {
+              if (bp.symmetry === 1 || bp.symmetry === 3) {
+                drawOutlineAt(cw - mx, my, 0.65);
+              }
+              if (bp.symmetry === 2 || bp.symmetry === 3) {
+                drawOutlineAt(mx, ch - my, 0.65);
+              }
+              if (bp.symmetry === 3) {
+                drawOutlineAt(cw - mx, ch - my, 0.65);
+              }
+            }
+          }
+        }
+      }
+
       ctx.restore();
     }
     requestAnimationFrame(frame);
@@ -1360,6 +1442,17 @@ function updateDockTabs() {}
   }
 
   let penActive = false;
+  host.mouseHover = { x: 0, y: 0, sx: 0, sy: 0, inside: false };
+
+  canvasEl.addEventListener('pointerenter', e => {
+    if (e.pointerType === 'touch') return;
+    const { sx, sy, x, y } = clientPos(e);
+    host.mouseHover = { x, y, sx, sy, inside: true };
+  });
+
+  canvasEl.addEventListener('pointerleave', () => {
+    if (host.mouseHover) host.mouseHover.inside = false;
+  });
 
   canvasEl.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') return; // Handled by touch events (gestures/taps)
@@ -1367,6 +1460,7 @@ function updateDockTabs() {}
     try { canvasEl.setPointerCapture(e.pointerId); } catch (_) {}
 
     const { sx, sy, x, y } = clientPos(e);
+    host.mouseHover = { x, y, sx, sy, inside: true };
     host.mouseState.x = sx; host.mouseState.y = sy;
     if (e.button === 1) {
       host.isPanning = true; host.panStartX = sx; host.panStartY = sy;
@@ -1476,6 +1570,7 @@ function updateDockTabs() {}
   canvasEl.addEventListener('pointermove', e => {
     if (e.pointerType === 'touch') return;
     const { sx, sy, x, y } = clientPos(e);
+    host.mouseHover = { x, y, sx, sy, inside: true };
     host.mouseState.x = sx; host.mouseState.y = sy;
     if (host.isPanning) {
       host.panX += sx - host.panStartX; host.panY += sy - host.panStartY;
@@ -1636,6 +1731,10 @@ function updateDockTabs() {}
         }
         markCanvasDirty();
       }
+      if (e.pointerType !== 'touch') {
+        const p = clientPos(e);
+        host.mouseHover = { x: p.x, y: p.y, sx: p.sx, sy: p.sy, inside: true };
+      }
     }
   };
 
@@ -1741,6 +1840,7 @@ function updateDockTabs() {}
     }
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      host.mouseHover = { x, y, sx, sy, inside: true };
       touch.pending = { sx, sy, x, y };
       touch.longPressTriggered = false;
       if (touch.timer) clearTimeout(touch.timer);
@@ -1796,14 +1896,16 @@ function updateDockTabs() {}
         return;
       }
 
-      // Long-press timer (300ms) for eyedropper loupe
-      touch.longPressTimer = setTimeout(() => {
-        touch.longPressTriggered = true;
-        isTouchPicker = true;
-        clearPendingTouch();
-        sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
-        triggerHaptic(15);
-      }, 300);
+      // Long-press timer (300ms) for eyedropper loupe (optional)
+      if (host.enableTouchEyedropper !== false) {
+        touch.longPressTimer = setTimeout(() => {
+          touch.longPressTriggered = true;
+          isTouchPicker = true;
+          clearPendingTouch();
+          sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+          triggerHaptic(15);
+        }, 300);
+      }
 
       touch.timer = setTimeout(() => {
         if (!touch.longPressTriggered && !isTouchPicker) {
@@ -1868,6 +1970,7 @@ function updateDockTabs() {}
 
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      host.mouseHover = { x, y, sx, sy, inside: true };
 
       // Estimate finger dynamic pressure based on velocity & contact radius
       if (lastTouchPoint) {
@@ -2098,7 +2201,7 @@ function updateDockTabs() {}
       }
     }
 
-    if (touch.tapGesture) {
+    if (touch.tapGesture && host.enableTouchUndoRedo !== false) {
       if (e.touches.length === 0) {
         const elapsed = Date.now() - touch.tapGesture.time;
         if (!touch.tapGesture.moved && elapsed < 400) {
@@ -2114,6 +2217,12 @@ function updateDockTabs() {}
         }
         touch.tapGesture = null;
       }
+    } else {
+      touch.tapGesture = null;
+    }
+
+    if (e.touches.length === 0 && host.mouseHover) {
+      host.mouseHover.inside = false;
     }
 
     clearPendingTouch();
@@ -2121,6 +2230,9 @@ function updateDockTabs() {}
   }, { passive: false });
 
   canvasEl.addEventListener('touchcancel', () => {
+    if (host.mouseHover) {
+      host.mouseHover.inside = false;
+    }
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
@@ -4123,6 +4235,36 @@ function updateDockTabs() {}
     });
   }
 
+  const chkBrushOutline = document.getElementById('ui-chk-brush-outline');
+  host.showBrushOutline = localStorage.getItem('esenho_brush_outline') !== '0';
+  if (chkBrushOutline) {
+    chkBrushOutline.checked = !!host.showBrushOutline;
+    chkBrushOutline.addEventListener('change', () => {
+      host.showBrushOutline = chkBrushOutline.checked;
+      localStorage.setItem('esenho_brush_outline', host.showBrushOutline ? '1' : '0');
+    });
+  }
+
+  const chkTouchUndoRedo = document.getElementById('ui-chk-touch-undo-redo');
+  host.enableTouchUndoRedo = localStorage.getItem('esenho_touch_undo_redo') !== '0';
+  if (chkTouchUndoRedo) {
+    chkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
+    chkTouchUndoRedo.addEventListener('change', () => {
+      host.enableTouchUndoRedo = chkTouchUndoRedo.checked;
+      localStorage.setItem('esenho_touch_undo_redo', host.enableTouchUndoRedo ? '1' : '0');
+    });
+  }
+
+  const chkTouchEyedropper = document.getElementById('ui-chk-touch-eyedropper');
+  host.enableTouchEyedropper = localStorage.getItem('esenho_touch_eyedropper') !== '0';
+  if (chkTouchEyedropper) {
+    chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
+    chkTouchEyedropper.addEventListener('change', () => {
+      host.enableTouchEyedropper = chkTouchEyedropper.checked;
+      localStorage.setItem('esenho_touch_eyedropper', host.enableTouchEyedropper ? '1' : '0');
+    });
+  }
+
   // ── UI Scale / DPI Adaptation ──
   function getAutoUiScale() {
     const dpr = window.devicePixelRatio || 1;
@@ -4992,6 +5134,15 @@ function updateDockTabs() {}
 
     if (chkPixelGrid) {
       chkPixelGrid.checked = !!host.showPixelGrid;
+    }
+    if (chkBrushOutline) {
+      chkBrushOutline.checked = !!host.showBrushOutline;
+    }
+    if (chkTouchUndoRedo) {
+      chkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
+    }
+    if (chkTouchEyedropper) {
+      chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
     }
 
     updateDockTabs();
