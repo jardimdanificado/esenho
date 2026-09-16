@@ -1492,7 +1492,65 @@ async function run() {
     throw new Error("Expected 'reset data' to trigger data clearing log");
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, and Reset Data Command verified 100%!');
+  // Test Brush Presets System & REPL Commands
+  console.log('--- Testing Brush Presets System ---');
+  host.executeCommand('preset inker');
+  if (host.activeBrush !== 'inker' || host.brushParams.hardness !== 100 || !!host.strokeIsEraser !== false) {
+    throw new Error(`Expected preset inker active with hardness 100, got activeBrush=${host.activeBrush}, hardness=${host.brushParams.hardness}`);
+  }
+
+  host.executeCommand('preset charcoal');
+  if (host.activeBrush !== 'charcoal' || host.brushParams.grain !== 60 || host.brushParams.scatter !== 18) {
+    throw new Error(`Expected preset charcoal active with grain 60 scatter 18, got activeBrush=${host.activeBrush}, grain=${host.brushParams.grain}`);
+  }
+
+  host.executeCommand('preset soft_eraser');
+  if (host.activeBrush !== 'soft_eraser' || !host.strokeIsEraser) {
+    throw new Error(`Expected preset soft_eraser with strokeIsEraser=true, got ${host.strokeIsEraser}`);
+  }
+
+  host.executeCommand('preset smudge');
+  if (host.actionMode !== 'smudge' || host.brushParams.mode !== 1) {
+    throw new Error(`Expected preset smudge to set actionMode=smudge mode=1, got actionMode=${host.actionMode}, mode=${host.brushParams.mode}`);
+  }
+
+  // Test custom preset save & select & delete via REPL
+  host.brushParams.size = 77;
+  host.brushParams.opacity = 88;
+  host.executeCommand('preset save test_custom');
+  if (!host.customBrushPresets || !host.customBrushPresets.test_custom) {
+    throw new Error("Expected customBrushPresets.test_custom to be created");
+  }
+  if (host.customBrushPresets.test_custom.size !== 77) {
+    throw new Error(`Expected custom preset size 77, got ${host.customBrushPresets.test_custom.size}`);
+  }
+
+  host.executeCommand('preset pencil');
+  if (host.brushParams.size === 77) {
+    throw new Error("Expected size to change when switching to pencil");
+  }
+
+  host.executeCommand('preset test_custom');
+  if (host.activeBrush !== 'test_custom' || host.brushParams.size !== 77 || host.brushParams.opacity !== 88) {
+    throw new Error(`Expected test_custom loaded with size 77 opacity 88, got activeBrush=${host.activeBrush}, size=${host.brushParams.size}`);
+  }
+
+  host.executeCommand('preset delete test_custom');
+  if (host.customBrushPresets.test_custom) {
+    throw new Error("Expected test_custom to be deleted");
+  }
+
+  // Test that switching from charcoal (grain, scatter, jitter) to inker resets all non-inker params cleanly
+  host.executeCommand('preset charcoal');
+  if (host.brushParams.grain !== 60 || host.brushParams.scatter !== 18 || host.brushParams.size_jitter !== 12) {
+    throw new Error("Charcoal params not set properly");
+  }
+  host.executeCommand('preset inker');
+  if (host.brushParams.grain !== 0 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 0 || host.activeTexture !== 'none') {
+    throw new Error(`Preset parameter leak: inker inherited previous params (grain=${host.brushParams.grain}, scatter=${host.brushParams.scatter}, jitter=${host.brushParams.size_jitter}, texture=${host.activeTexture})`);
+  }
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, Reset Data Command, and Professional Brush Presets System verified 100%!');
 }
 
 run().catch(err => {

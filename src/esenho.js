@@ -176,17 +176,132 @@ const PARAM_IDS = {
  * Built-in native brush presets for the Universal Brush Engine
  */
 const BRUSH_PRESETS = {
-  round: { shape: 0, hardness: 80, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, opacity: 100, flow: 100, angle: 0 },
-  airbrush: { shape: 0, hardness: 0, opacity: 40, flow: 40, roundness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0, angle: 0 },
-  pixel: { shape: 1, hardness: 100, roundness: 100, size: 1, spacing: 10, mode: 0, grain: 0, scatter: 0, opacity: 100, flow: 100, angle: 0 },
-  square: { shape: 1, hardness: 100, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, angle: 0 },
-  calligraphy: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0 },
-  chisel: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0 },
-  charcoal: { shape: 0, grain: 40, hardness: 60, scatter: 10, roundness: 100, mode: 0, spacing: 20 },
-  hatch: { shape: 2, angle: 45, spacing: 80, hardness: 100, roundness: 30, mode: 0, grain: 0, scatter: 0 },
-  scatter: { shape: 0, scatter: 50, grain: 30, hardness: 80, roundness: 100, mode: 0, spacing: 30 },
-  smudge: { mode: 1, smudge: 60, shape: 0, hardness: 80, roundness: 100, grain: 0, scatter: 0 },
-  blend: { mode: 2, wetness: 50, shape: 0, hardness: 80, roundness: 100, grain: 0, scatter: 0 },
+  // 1. Pencils & Inkers
+  pencil: {
+    name: 'Pencil',
+    desc: 'Graphite pencil with paper grain & pressure sensitivity',
+    shape: 0, size: 3, opacity: 90, hardness: 65, flow: 85, spacing: 8,
+    smoothing: 15, grain: 45, texture: 'paper', pressure_size: 1, pressure_flow: 1,
+    tilt_angle: 1, mode: 0, scatter: 4, eraser: 0
+  },
+  inker: {
+    name: 'Inker',
+    desc: 'Smooth comic inking pen with tapered ends',
+    shape: 0, size: 5, opacity: 100, hardness: 100, flow: 100, spacing: 5,
+    smoothing: 40, taper_in: 30, taper_out: 40, pressure_size: 1, pressure_flow: 0,
+    grain: 0, mode: 0, eraser: 0
+  },
+  pen: {
+    name: 'Studio Pen',
+    desc: 'Technical pen with steady clean line',
+    shape: 0, size: 4, opacity: 100, hardness: 100, flow: 100, spacing: 5,
+    smoothing: 25, pressure_size: 1, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
+  },
+
+  // 2. Markers & Airbrush
+  marker: {
+    name: 'Marker',
+    desc: 'Chisel marker with multiply ink layering',
+    shape: 2, size: 22, angle: 45, roundness: 35, opacity: 80, hardness: 90, flow: 80,
+    spacing: 8, smoothing: 10, dab_blend: 1, pressure_size: 0, pressure_flow: 1,
+    grain: 0, mode: 0, eraser: 0
+  },
+  highlighter: {
+    name: 'Highlighter',
+    desc: 'Wide chisel highlighter with multiply blend',
+    shape: 2, size: 32, angle: 90, roundness: 30, opacity: 45, hardness: 100, flow: 65,
+    spacing: 6, dab_blend: 1, pressure_size: 0, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
+  },
+  airbrush: {
+    name: 'Airbrush',
+    desc: 'Soft feathering airbrush for gradients and shading',
+    shape: 0, size: 42, opacity: 35, hardness: 0, flow: 25, spacing: 5,
+    smoothing: 20, pressure_size: 0, pressure_flow: 1, grain: 0, mode: 0, eraser: 0
+  },
+
+  // 3. Wet Media & Paint
+  oil: {
+    name: 'Oil Paint',
+    desc: 'Wet media oil paint with live color pickup and depletion',
+    shape: 0, size: 20, opacity: 100, hardness: 75, flow: 90, spacing: 8,
+    smoothing: 25, mode: 2, wetness: 60, color_pickup: 55, depletion: 35,
+    pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
+  },
+  paint: {
+    name: 'Oil Paint',
+    desc: 'Wet media oil paint with live color pickup and depletion',
+    shape: 0, size: 20, opacity: 100, hardness: 75, flow: 90, spacing: 8,
+    smoothing: 25, mode: 2, wetness: 60, color_pickup: 55, depletion: 35,
+    pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
+  },
+  watercolor: {
+    name: 'Watercolor',
+    desc: 'Translucent watery wash with organic bleeds',
+    shape: 0, size: 30, opacity: 40, hardness: 30, flow: 45, spacing: 8,
+    smoothing: 20, mode: 2, wetness: 80, color_pickup: 40, depletion: 50,
+    grain: 20, texture: 'paper', pressure_size: 1, pressure_flow: 1, eraser: 0
+  },
+  gouache: {
+    name: 'Gouache',
+    desc: 'Opaque matte paint with subtle edge blend',
+    shape: 0, size: 18, opacity: 95, hardness: 85, flow: 90, spacing: 8,
+    smoothing: 20, mode: 2, wetness: 40, color_pickup: 35, depletion: 25,
+    pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
+  },
+
+  // 4. Charcoal & Textures
+  charcoal: {
+    name: 'Charcoal',
+    desc: 'Gritty textured charcoal stick for rough sketching',
+    shape: 0, size: 20, opacity: 85, hardness: 55, flow: 80, spacing: 14,
+    grain: 60, texture: 'charcoal', scatter: 18, size_jitter: 12, smoothing: 10,
+    pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
+  },
+
+  // 5. Blenders & Smudge
+  smudge: {
+    name: 'Smudge',
+    desc: 'Finger smudge tool for softening edges',
+    shape: 0, size: 26, opacity: 100, hardness: 40, smudge: 75, spacing: 6,
+    smoothing: 15, mode: 1, grain: 0, eraser: 0
+  },
+  blend: {
+    name: 'Blender',
+    desc: 'Wet color mixer and blender',
+    shape: 0, size: 28, opacity: 100, hardness: 50, mode: 2, wetness: 70,
+    color_pickup: 50, spacing: 6, smoothing: 15, grain: 0, eraser: 0
+  },
+
+  // 6. Pixel Art
+  pixel: {
+    name: 'Pixel Art',
+    desc: '1px razor-sharp pixel pencil without subpixel AA',
+    shape: 1, size: 1, opacity: 100, hardness: 100, flow: 100, spacing: 100,
+    subpixel: 0, smoothing: 0, pressure_size: 0, pressure_flow: 0, grain: 0,
+    mode: 0, eraser: 0
+  },
+
+  // 7. Erasers
+  soft_eraser: {
+    name: 'Soft Eraser',
+    desc: 'Soft edge eraser for gentle fading and transitions',
+    shape: 0, size: 28, opacity: 100, hardness: 20, flow: 50, spacing: 8,
+    smoothing: 15, mode: 0, eraser: 1, grain: 0
+  },
+  hard_eraser: {
+    name: 'Hard Eraser',
+    desc: 'Clean cutout precision eraser',
+    shape: 0, size: 16, opacity: 100, hardness: 100, flow: 100, spacing: 5,
+    smoothing: 15, mode: 0, eraser: 1, grain: 0
+  },
+
+  // Compatibility aliases
+  round: { shape: 0, hardness: 80, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, opacity: 100, flow: 100, angle: 0, eraser: 0 },
+  square: { shape: 1, hardness: 100, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, angle: 0, eraser: 0 },
+  calligraphy: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0, eraser: 0 },
+  chisel: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0, eraser: 0 },
+  hatch: { shape: 2, angle: 45, spacing: 80, hardness: 100, roundness: 30, mode: 0, grain: 0, scatter: 0, eraser: 0 },
+  scatter: { shape: 0, scatter: 50, grain: 30, hardness: 80, roundness: 100, mode: 0, spacing: 30, eraser: 0 },
   fill: { mode: 3, tolerance: 32 },
   flood_fill: { mode: 3, tolerance: 32 },
   lasso_fill: { mode: 4 },
@@ -1124,15 +1239,15 @@ function handleSetMode(host, rawMode) {
 }
 
 function handleBrushParamOrPreset(host, sub, val) {
-  const s = sub.toLowerCase();
+  const s = sub.toLowerCase().trim();
   if (PARAM_IDS[s] !== undefined && val !== undefined) {
     host.setBrushParam(s, val);
     host.sendConsoleLog(`brush ${s} set to ${val}`);
-  } else if (BRUSH_PRESETS[s]) {
+  } else if (BRUSH_PRESETS[s] || (host.customBrushPresets && host.customBrushPresets[s])) {
     host.selectBrushPreset(s);
     host.sendConsoleLog(`brush preset '${s}' applied`);
   } else {
-    host.sendConsoleLog(`err: unknown brush parameter '${sub}'`, 0xFFFF5555);
+    host.sendConsoleLog(`err: unknown brush parameter or preset '${sub}'`, 0xFFFF5555);
   }
 }
 
@@ -1939,6 +2054,56 @@ const COMMAND_RULES = [
   { pat: "brush $sub $val", run: (m, host) => handleBrushParamOrPreset(host, m.sub, m.val) },
   { pat: "set brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
   { pat: "brush $preset", run: (m, host) => handleBrushParamOrPreset(host, m.preset, undefined) },
+  {
+    pat: "presets",
+    run: (m, host) => {
+      host.sendConsoleLog("--- Built-in Brush Presets ---");
+      for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+        if (p.name) host.sendConsoleLog(`  ${k.padEnd(14)} - ${p.name}: ${p.desc || ''}`);
+      }
+      if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
+        host.sendConsoleLog("--- Custom Presets ---");
+        for (const [k, p] of Object.entries(host.customBrushPresets)) {
+          host.sendConsoleLog(`  ${k.padEnd(14)} - ${p.name || k}`);
+        }
+      }
+    }
+  },
+  { pat: "list presets", run: (m, host) => COMMAND_RULES.find(r => r.pat === "presets").run(m, host) },
+  {
+    pat: "preset save $name",
+    run: (m, host) => {
+      if (!host.customBrushPresets) host.customBrushPresets = {};
+      const name = m.name.toLowerCase().trim();
+      host.customBrushPresets[name] = {
+        name: m.name,
+        ...JSON.parse(JSON.stringify(host.brushParams || {})),
+        eraser: host.strokeIsEraser ? 1 : 0
+      };
+      if (typeof localStorage !== 'undefined') {
+        try { localStorage.setItem('esenho_custom_brush_presets_v1', JSON.stringify(host.customBrushPresets)); } catch (_) {}
+      }
+      host.sendConsoleLog(`custom preset '${name}' saved`);
+    }
+  },
+  {
+    pat: "preset delete $name",
+    run: (m, host) => {
+      const name = m.name.toLowerCase().trim();
+      if (host.customBrushPresets && host.customBrushPresets[name]) {
+        delete host.customBrushPresets[name];
+        if (typeof localStorage !== 'undefined') {
+          try { localStorage.setItem('esenho_custom_brush_presets_v1', JSON.stringify(host.customBrushPresets)); } catch (_) {}
+        }
+        host.sendConsoleLog(`custom preset '${name}' deleted`);
+      } else {
+        host.sendConsoleLog(`err: custom preset '${name}' not found`, 0xFFFF5555);
+      }
+    }
+  },
+  { pat: "preset del $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "preset delete $name").run(m, host) },
+  { pat: "preset $name", run: (m, host) => handleBrushParamOrPreset(host, m.name, undefined) },
+  { pat: "set preset $name", run: (m, host) => handleBrushParamOrPreset(host, m.name, undefined) },
   {
     pat: "reset tool",
     run: (m, host) => {
@@ -4348,11 +4513,30 @@ class EsenhoScreenHost {
    * Activates a predefined brush preset and sends all its parameters to canvas.wasm.
    */
   selectBrushPreset(name) {
-    const preset = BRUSH_PRESETS[name.toLowerCase()];
-    this.activeBrush = name.toLowerCase();
+    const key = name.toLowerCase().trim();
+    const preset = BRUSH_PRESETS[key] || (this.customBrushPresets && this.customBrushPresets[key]);
+    this.activeBrush = key;
     if (preset) {
+      // 1. Reset all tool and brush parameters to clean defaults before applying preset
+      this.resetTool();
+
+      if (preset.eraser !== undefined) {
+        this.strokeIsEraser = preset.eraser ? 1 : 0;
+        this.actionMode = preset.eraser ? 'erase' : (preset.mode === 1 ? 'smudge' : 'draw');
+      } else if (preset.mode === 1) {
+        this.actionMode = 'smudge';
+        this.strokeIsEraser = 0;
+      } else {
+        this.actionMode = 'draw';
+        this.strokeIsEraser = 0;
+      }
       for (const [k, v] of Object.entries(preset)) {
-        this.setBrushParam(k, v);
+        if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser') continue;
+        if (k === 'texture' && typeof v === 'string') {
+          this.setTexture(v);
+        } else {
+          this.setBrushParam(k, v);
+        }
       }
       return true;
     }

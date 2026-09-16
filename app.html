@@ -1436,6 +1436,201 @@
       background-position: right 4px center;
     }
 
+
+    /* ── Floating Toolbar Dial Pill Button ── */
+    .tb-dial-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: #282828;
+      border: 1px solid #504945;
+      padding: 0 5px;
+      height: 22px;
+      color: #ebdbb2;
+      font-size: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+      flex-shrink: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .tb-dial-btn:hover {
+      border-color: #fabd2f;
+      background: #32302f;
+    }
+    .tb-dial-btn:active {
+      background: #3c3836;
+      border-color: #fabd2f;
+      color: #fabd2f;
+    }
+    .tb-dial-mini-ring {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+    .tb-dial-ring-bg {
+      fill: none;
+      stroke: #504945;
+      stroke-width: 3;
+    }
+    .tb-dial-ring-fill {
+      fill: none;
+      stroke: #fabd2f;
+      stroke-width: 3;
+      stroke-linecap: round;
+      transform: rotate(-90deg);
+      transform-origin: 50% 50%;
+    }
+
+    /* ── Arc Dial Modal & HUD Controls ── */
+    #arc-dial-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 10002;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #arc-dial-modal.active {
+      display: flex;
+    }
+    .arc-dial-box {
+      background: #1d2021;
+      border: 1.5px solid #504945;
+      padding: 14px 16px;
+      width: 240px;
+      max-width: 92vw;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.7);
+    }
+    .arc-dial-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-weight: bold;
+      color: #fabd2f;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #3c3836;
+      padding-bottom: 6px;
+    }
+    .arc-dial-stage {
+      position: relative;
+      width: 180px;
+      height: 180px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: crosshair;
+      touch-action: none;
+    }
+    #arc-dial-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+    }
+    .arc-track-bg {
+      fill: none;
+      stroke: #3c3836;
+      stroke-width: 12;
+      stroke-linecap: round;
+    }
+    .arc-track-fill {
+      fill: none;
+      stroke: #fabd2f;
+      stroke-width: 12;
+      stroke-linecap: round;
+      filter: drop-shadow(0 0 3px rgba(250, 189, 47, 0.4));
+    }
+    .arc-dial-thumb {
+      fill: #fabd2f;
+      stroke: #1d2021;
+      stroke-width: 3;
+      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
+      cursor: pointer;
+    }
+    .arc-dial-center {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .arc-dial-preview {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 2px;
+    }
+    .arc-dial-preview-circle {
+      border-radius: 50%;
+      background: #fabd2f;
+      max-width: 42px;
+      max-height: 42px;
+    }
+    .arc-dial-value-text {
+      font-size: 20px;
+      font-weight: bold;
+      color: #ebdbb2;
+      line-height: 1.1;
+      font-family: monospace, sans-serif;
+    }
+    .arc-dial-unit-text {
+      font-size: 10px;
+      color: #a89984;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    .arc-dial-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .arc-chip-btn {
+      background: #282828;
+      border: 1px solid #3c3836;
+      color: #ebdbb2;
+      font-size: 10px;
+      font-weight: bold;
+      padding: 3px 8px;
+      cursor: pointer;
+      border-radius: 0;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+    .arc-chip-btn:hover, .arc-chip-btn:active {
+      background: #3c3836;
+      border-color: #fabd2f;
+      color: #fabd2f;
+    }
+    .arc-chip-btn.active {
+      background: #fabd2f;
+      color: #1d2021;
+      border-color: #fabd2f;
+    }
+
     /* ── Touch HSV Color Picker Modal ── */
     #touch-color-modal {
       display: none;
@@ -1604,13 +1799,14 @@
       </div>
       <div id="bottom-dock-quickstrip">
         <select id="dock-quick-category" class="dock-category-select" title="Switch Quick Category">
-          <option value="tool" selected>[ Tools v ]</option>
-          <option value="mode">[ Mode v ]</option>
-          <option value="action">[ Action v ]</option>
+          <option value="tool" selected>[ Tools ]</option>
+          <option value="mode">[ Mode ]</option>
+          <option value="action">[ Action ]</option>
         </select>
         <div class="dock-strip-sep"></div>
         <div class="dock-group active" id="dock-group-tool">
-          <button type="button" class="dock-strip-btn dock-tool-btn active" data-tool="brush" title="Brush">Brush</button>
+          <select id="dock-select-brush-preset" class="dock-strip-select" style="max-width: 120px; font-weight: bold;" title="Brush Preset"></select>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="brush" title="Brush">Brush</button>
           <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
           <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
           <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
@@ -1661,6 +1857,7 @@
         <option value="scatter">Scatter</option>
       </optgroup>
       <optgroup label="Presets & Scripts">
+        <option value="preset">Preset</option>
         <option value="tip">Tip</option>
         <option value="grain_tex">Grain</option>
         <option value="script">Script</option>
@@ -1717,6 +1914,18 @@
 
       <!-- SECTION 1: PAINT & BRUSH -->
       <div id="ui-section-paint" class="ui-panel-section" data-drawertab="paint">
+        <!-- 0. Brush Presets -->
+        <details class="ui-group" open>
+          <summary>BRUSH PRESETS</summary>
+          <div class="ui-group-content">
+            <div class="ui-row-gap" style="align-items: center; gap: 4px;">
+              <select id="ui-select-brush-preset" class="ui-select" style="flex: 1; font-weight: bold;" title="Brush Preset"></select>
+              <button type="button" id="ui-btn-save-preset" class="ui-mini-btn" title="Save current brush settings as custom preset">+ Save</button>
+              <button type="button" id="ui-btn-del-preset" class="ui-mini-btn" style="display: none;" title="Delete selected custom preset">Del</button>
+            </div>
+          </div>
+        </details>
+
         <!-- 1. Paint & Color -->
         <details class="ui-group" open>
           <summary>PAINT &amp; COLOR</summary>
@@ -2268,6 +2477,29 @@
       <span id="touch-color-hex" style="font-size: 12px; font-weight: bold; color: #fabd2f;">#EBDBB2</span>
     </div>
     <div class="touch-color-swatches" id="touch-modal-swatches"></div>
+  </div>
+</div>
+
+<!-- ── Arc Dial Controller Modal ── -->
+<div id="arc-dial-modal">
+  <div class="arc-dial-box">
+    <div class="arc-dial-header">
+      <span id="arc-dial-title">Brush Parameter</span>
+      <button type="button" class="ui-mini-btn" id="btn-close-arc-dial">✕</button>
+    </div>
+    <div class="arc-dial-stage" id="arc-dial-stage">
+      <svg id="arc-dial-svg" viewBox="0 0 200 200">
+        <path id="arc-track-bg" class="arc-track-bg" />
+        <path id="arc-track-fill" class="arc-track-fill" />
+        <circle id="arc-dial-thumb" class="arc-dial-thumb" r="9" />
+      </svg>
+      <div class="arc-dial-center">
+        <div id="arc-dial-preview" class="arc-dial-preview"></div>
+        <div id="arc-dial-value-text" class="arc-dial-value-text">24</div>
+        <div id="arc-dial-unit-text" class="arc-dial-unit-text">px</div>
+      </div>
+    </div>
+    <div class="arc-dial-chips" id="arc-dial-chips"></div>
   </div>
 </div>
 

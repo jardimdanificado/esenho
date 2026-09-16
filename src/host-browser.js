@@ -1302,7 +1302,7 @@ function updateDockTabs() {}
           const curMode = bp.mode || 0;
           if (curMode <= 2 || curMode === 6 || (host.actionMode === 'select' && (curMode === 0 || curMode === 1 || curMode === 2))) {
             const size = Math.max(1, bp.size || 1);
-            const r = size / 2;
+            const r = size;
             const roundness = (bp.roundness !== undefined ? bp.roundness : 100) / 100;
             const angleRad = ((bp.angle || 0) * Math.PI) / 180;
             const radX = r * host.zoom;
@@ -1322,7 +1322,7 @@ function updateDockTabs() {}
                 ctx.rect(-sw / 2, -sh / 2, sw, sh);
               } else if (shape === 2) { // Chisel
                 const cw_b = Math.max(2, radX * 2);
-                const ch_b = Math.max(2, radX * 0.25 * roundness * 2);
+                const ch_b = Math.max(2, radY * 2);
                 ctx.rect(-cw_b / 2, -ch_b / 2, cw_b, ch_b);
               } else { // Circle / Ellipse / Texture Stamp
                 ctx.ellipse(0, 0, Math.max(1, radX), Math.max(1, radY), 0, 0, Math.PI * 2);
@@ -2575,50 +2575,135 @@ function updateDockTabs() {}
     {
       name: 'art_stained_glass',
       code: `# Generative Art: Stained Glass Rosette\nreset tool\nclear\ndraw rect 0 0 640 480 #1d2021\ndraw circle 320 240 170 #282828\ndraw circle 320 240 150 #cc241d\ndraw circle 320 240 120 #d79921\ndraw circle 320 240 90 #98971a\ndraw circle 320 240 60 #458588\ndraw circle 320 240 30 #b16286\ndraw line 320 70 320 410 #282828\ndraw line 150 240 490 240 #282828\ndraw line 200 120 440 360 #282828\ndraw line 200 360 440 120 #282828\nfilter brightness 25\nfilter contrast 35`
-    },
-
-    // 6. Brush Presets
-    {
-      name: 'preset_pencil',
-      code: `# Preset: Pencil\nset mode brush\nset size 2\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 15\nset shape circle\nset texture none`
-    },
-    {
-      name: 'preset_inker',
-      code: `# Preset: Inker\nset mode brush\nset size 4\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 40\nset shape circle\nset texture none`
-    },
-    {
-      name: 'preset_airbrush',
-      code: `# Preset: Airbrush\nset mode brush\nset size 45\nset opacity 40\nset hardness 0\nset flow 30\nset smooth 20\nset shape circle\nset texture none`
-    },
-    {
-      name: 'preset_hard_round',
-      code: `# Preset: Hard Round\nset mode brush\nset size 16\nset opacity 100\nset hardness 100\nset flow 100\nset smooth 0\nset shape circle\nset texture none`
-    },
-    {
-      name: 'preset_chisel',
-      code: `# Preset: Chisel\nset mode brush\nset size 28\nset opacity 80\nset hardness 85\nset flow 80\nset shape chisel\nset angle 45\nset roundness 40\nset texture none`
-    },
-    {
-      name: 'preset_charcoal',
-      code: `# Preset: Charcoal\nset mode brush\nset size 24\nset opacity 85\nset hardness 70\nset flow 90\nset grain 45\nset texture paper\nset shape circle`
-    },
-    {
-      name: 'preset_smudge',
-      code: `# Preset: Smudge Tool\nset mode smudge\nset size 30\nset opacity 100\nset hardness 40\nset smudge 70`
-    },
-    {
-      name: 'preset_blender',
-      code: `# Preset: Blender Tool\nset mode blend\nset size 35\nset opacity 100\nset hardness 30\nset smudge 50\nset wetness 70`
-    },
-    {
-      name: 'preset_soft_eraser',
-      code: `# Preset: Soft Eraser\nset mode eraser\nset size 30\nset opacity 100\nset hardness 20`
-    },
-    {
-      name: 'preset_hard_eraser',
-      code: `# Preset: Hard Eraser\nset mode eraser\nset size 16\nset opacity 100\nset hardness 100`
     }
   ];
+
+  /* ── Custom Brush Presets Manager ── */
+  function getCustomBrushPresets() {
+    try {
+      const stored = localStorage.getItem('esenho_custom_brush_presets_v1');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object') return parsed;
+      }
+    } catch (_) {}
+    return {};
+  }
+
+  function saveCustomBrushPresets(obj) {
+    try {
+      localStorage.setItem('esenho_custom_brush_presets_v1', JSON.stringify(obj));
+    } catch (_) {}
+  }
+
+  host.customBrushPresets = getCustomBrushPresets();
+
+  function populateBrushPresetsUI() {
+    const mainSel = document.getElementById('ui-select-brush-preset');
+    const dockSel = document.getElementById('dock-select-brush-preset');
+    const delBtn  = document.getElementById('ui-btn-del-preset');
+
+    const fillSelect = (sel) => {
+      if (!sel) return;
+      sel.innerHTML = '';
+
+      const grpBuiltin = document.createElement('optgroup');
+      grpBuiltin.label = 'Built-in Presets';
+      for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+        if (!p.name) continue;
+        const opt = document.createElement('option');
+        opt.value = k;
+        opt.textContent = p.name;
+        if (host.activeBrush === k) opt.selected = true;
+        grpBuiltin.appendChild(opt);
+      }
+      sel.appendChild(grpBuiltin);
+
+      const custom = host.customBrushPresets || {};
+      if (Object.keys(custom).length > 0) {
+        const grpCustom = document.createElement('optgroup');
+        grpCustom.label = 'Custom Presets';
+        for (const [k, p] of Object.entries(custom)) {
+          const opt = document.createElement('option');
+          opt.value = k;
+          opt.textContent = p.name || k;
+          if (host.activeBrush === k) opt.selected = true;
+          grpCustom.appendChild(opt);
+        }
+        sel.appendChild(grpCustom);
+      }
+    };
+
+    fillSelect(mainSel);
+    fillSelect(dockSel);
+
+    const isCustomActive = host.customBrushPresets && host.customBrushPresets[host.activeBrush];
+    if (delBtn) delBtn.style.display = isCustomActive ? 'inline-block' : 'none';
+  }
+
+  const mainPresetSel = document.getElementById('ui-select-brush-preset');
+  if (mainPresetSel) {
+    mainPresetSel.addEventListener('change', () => {
+      if (mainPresetSel.value) {
+        host.selectBrushPreset(mainPresetSel.value);
+        syncUiFromHost();
+        populateBrushPresetsUI();
+        triggerHaptic(10);
+      }
+    });
+  }
+
+  const dockPresetSel = document.getElementById('dock-select-brush-preset');
+  if (dockPresetSel) {
+    dockPresetSel.addEventListener('change', () => {
+      if (dockPresetSel.value) {
+        host.selectBrushPreset(dockPresetSel.value);
+        syncUiFromHost();
+        populateBrushPresetsUI();
+        triggerHaptic(10);
+      }
+    });
+  }
+
+  const btnSavePreset = document.getElementById('ui-btn-save-preset');
+  if (btnSavePreset) {
+    btnSavePreset.addEventListener('click', () => {
+      const name = window.prompt('Enter name for custom brush preset:');
+      if (name && name.trim()) {
+        const key = name.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!host.customBrushPresets) host.customBrushPresets = {};
+        host.customBrushPresets[key] = {
+          name: name.trim(),
+          desc: 'Custom user brush preset',
+          ...JSON.parse(JSON.stringify(host.brushParams || {})),
+          eraser: host.strokeIsEraser ? 1 : 0
+        };
+        saveCustomBrushPresets(host.customBrushPresets);
+        host.activeBrush = key;
+        populateBrushPresetsUI();
+        log(`Saved custom brush preset: ${name.trim()}`);
+        triggerHaptic(20);
+      }
+    });
+  }
+
+  const btnDelPreset = document.getElementById('ui-btn-del-preset');
+  if (btnDelPreset) {
+    btnDelPreset.addEventListener('click', () => {
+      const cur = host.activeBrush;
+      if (cur && host.customBrushPresets && host.customBrushPresets[cur]) {
+        if (window.confirm(`Delete custom preset "${host.customBrushPresets[cur].name || cur}"?`)) {
+          delete host.customBrushPresets[cur];
+          saveCustomBrushPresets(host.customBrushPresets);
+          host.selectBrushPreset('pencil');
+          populateBrushPresetsUI();
+          syncUiFromHost();
+          log(`Deleted custom preset: ${cur}`);
+          triggerHaptic(20);
+        }
+      }
+    });
+  }
 
   function getSavedScripts() {
     try {
@@ -3181,6 +3266,9 @@ function updateDockTabs() {}
   const dockGroups = document.querySelectorAll('#bottom-dock-quickstrip .dock-group');
 
   function switchDockCategory(catId) {
+    if (!document.getElementById(`dock-group-${catId}`)) {
+      catId = 'tool';
+    }
     if (dockQuickCategory) dockQuickCategory.value = catId;
     dockGroups.forEach(g => {
       g.classList.toggle('active', g.id === `dock-group-${catId}`);
@@ -3339,38 +3427,60 @@ function updateDockTabs() {}
       tbSwatch.addEventListener('click', openTouchColorModal);
     }
 
-    // Parameter Configs for Dynamic Floating Toolbar Control
+    // Polar & Arc SVG math helpers for Arc Dial
+    function polarToCartesian(cx, cy, r, angleInDegrees) {
+      const angleInRadians = (angleInDegrees) * Math.PI / 180.0;
+      return {
+        x: cx + (r * Math.cos(angleInRadians)),
+        y: cy + (r * Math.sin(angleInRadians))
+      };
+    }
+
+    function describeArc(x, y, radius, startAngle, endAngle) {
+      if (endAngle - startAngle >= 359.99) {
+        endAngle = startAngle + 359.99;
+      }
+      const start = polarToCartesian(x, y, radius, startAngle);
+      const end = polarToCartesian(x, y, radius, endAngle);
+      const largeArcFlag = (endAngle - startAngle <= 180) ? "0" : "1";
+      return [
+        "M", start.x, start.y,
+        "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y
+      ].join(" ");
+    }
+
+    // Parameter Configs for Dynamic Floating Toolbar Control with Arc Dial
     const TB_PARAM_CONFIGS = {
-      // Sliders
-      size: { type: 'slider', min: 1, max: 100, step: 1, suffix: '', cmd: 'brush size', getter: bp => bp.size },
-      opacity: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush opacity', getter: bp => bp.opacity },
-      flow: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow },
-      hardness: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness },
-      spacing: { type: 'slider', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing },
-      stabilization: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)) },
-      smoothing: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)) },
-      midpoint: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50) },
-      angle: { type: 'slider', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0 },
-      roundness: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100 },
-      scatter: { type: 'slider', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set scatter', getter: bp => bp.scatter || 0 },
-      smudge: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set smudge', getter: bp => bp.smudge || 0 },
-      wetness: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set wetness', getter: bp => bp.wetness || 0 },
-      depletion: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set depletion', getter: bp => bp.depletion || 0 },
-      color_pickup: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_pickup', getter: bp => bp.color_pickup || 0 },
-      velocity: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0 },
-      taper_in: { type: 'slider', min: 0, max: 500, step: 1, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0 },
-      fade: { type: 'slider', min: 0, max: 2000, step: 10, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0 },
-      tolerance: { type: 'slider', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32) },
-      size_jitter: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0 },
-      angle_jitter: { type: 'slider', min: 0, max: 360, step: 1, suffix: '°', cmd: 'set angle_jitter', getter: bp => bp.angle_jitter || 0 },
-      opacity_jitter: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set opacity_jitter', getter: bp => bp.opacity_jitter || 0 },
-      color_jitter: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_jitter', getter: bp => bp.color_jitter || 0 },
-      grain: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set grain', getter: bp => bp.grain || 0 },
-      texture_scale: { type: 'slider', min: 10, max: 400, step: 1, suffix: '%', cmd: 'set texture_scale', getter: bp => bp.texture_scale || 100 },
-      texture_rotate: { type: 'slider', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set texture_rotate', getter: bp => (bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle || 0)) },
-      texture_contrast: { type: 'slider', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set texture_contrast', getter: bp => (bp.texture_contrast !== undefined ? bp.texture_contrast : 100) },
-      dual_size: { type: 'slider', min: 10, max: 300, step: 1, suffix: '%', cmd: 'set dual_size', getter: bp => (bp.dual_size !== undefined ? bp.dual_size : 100) },
-      dual_spacing: { type: 'slider', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set dual_spacing', getter: bp => (bp.dual_spacing !== undefined ? bp.dual_spacing : 10) },
+      // Arc Dial Numerical Parameters
+      size: { type: 'dial', name: 'Brush Size', min: 1, max: 150, step: 1, suffix: 'px', cmd: 'brush size', getter: bp => bp.size, chips: [1, 3, 6, 12, 24, 48, 80, 120] },
+      opacity: { type: 'dial', name: 'Opacity', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush opacity', getter: bp => bp.opacity, chips: [10, 25, 50, 75, 100] },
+      flow: { type: 'dial', name: 'Flow', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow, chips: [10, 25, 50, 75, 100] },
+      hardness: { type: 'dial', name: 'Hardness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness, chips: [0, 25, 50, 75, 100] },
+      spacing: { type: 'dial', name: 'Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing, chips: [1, 5, 10, 25, 50, 100] },
+      stabilization: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
+      smoothing: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
+      midpoint: { type: 'dial', name: 'Midpoint', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50), chips: [10, 25, 50, 75, 90] },
+      angle: { type: 'dial', name: 'Angle', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0, chips: [0, 45, 90, 135, 180, 270] },
+      roundness: { type: 'dial', name: 'Roundness', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100, chips: [20, 35, 50, 75, 100] },
+      scatter: { type: 'dial', name: 'Scatter', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set scatter', getter: bp => bp.scatter || 0, chips: [0, 10, 25, 50, 100] },
+      smudge: { type: 'dial', name: 'Smudge', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set smudge', getter: bp => bp.smudge || 0, chips: [0, 25, 50, 75, 100] },
+      wetness: { type: 'dial', name: 'Wetness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set wetness', getter: bp => bp.wetness || 0, chips: [0, 25, 50, 75, 100] },
+      depletion: { type: 'dial', name: 'Depletion', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set depletion', getter: bp => bp.depletion || 0, chips: [0, 20, 40, 60, 80] },
+      color_pickup: { type: 'dial', name: 'Color Pickup', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_pickup', getter: bp => bp.color_pickup || 0, chips: [0, 25, 50, 75, 100] },
+      velocity: { type: 'dial', name: 'Velocity', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0, chips: [0, 25, 50, 75, 100] },
+      taper_in: { type: 'dial', name: 'Taper In', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0, chips: [0, 20, 50, 100, 200] },
+      fade: { type: 'dial', name: 'Fade', min: 0, max: 2000, step: 20, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0, chips: [0, 100, 300, 600, 1200] },
+      tolerance: { type: 'dial', name: 'Tolerance', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32), chips: [0, 16, 32, 64, 128] },
+      size_jitter: { type: 'dial', name: 'Size Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0, chips: [0, 15, 30, 50, 80] },
+      angle_jitter: { type: 'dial', name: 'Angle Jitter', min: 0, max: 360, step: 1, suffix: '°', cmd: 'set angle_jitter', getter: bp => bp.angle_jitter || 0, chips: [0, 45, 90, 180, 360] },
+      opacity_jitter: { type: 'dial', name: 'Opacity Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set opacity_jitter', getter: bp => bp.opacity_jitter || 0, chips: [0, 15, 30, 50, 80] },
+      color_jitter: { type: 'dial', name: 'Color Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_jitter', getter: bp => bp.color_jitter || 0, chips: [0, 15, 30, 50, 80] },
+      grain: { type: 'dial', name: 'Grain Noise', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set grain', getter: bp => bp.grain || 0, chips: [0, 20, 40, 60, 80] },
+      texture_scale: { type: 'dial', name: 'Tex Scale', min: 10, max: 400, step: 5, suffix: '%', cmd: 'set texture_scale', getter: bp => bp.texture_scale || 100, chips: [50, 75, 100, 150, 200] },
+      texture_rotate: { type: 'dial', name: 'Tex Rotate', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set texture_rotate', getter: bp => (bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle || 0)), chips: [0, 45, 90, 180, 270] },
+      texture_contrast: { type: 'dial', name: 'Tex Contrast', min: 0, max: 200, step: 5, suffix: '%', cmd: 'set texture_contrast', getter: bp => (bp.texture_contrast !== undefined ? bp.texture_contrast : 100), chips: [50, 80, 100, 120, 150] },
+      dual_size: { type: 'dial', name: 'Dual Size', min: 10, max: 300, step: 5, suffix: '%', cmd: 'set dual_size', getter: bp => (bp.dual_size !== undefined ? bp.dual_size : 100), chips: [50, 75, 100, 150, 200] },
+      dual_spacing: { type: 'dial', name: 'Dual Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set dual_spacing', getter: bp => (bp.dual_spacing !== undefined ? bp.dual_spacing : 10), chips: [5, 10, 25, 50, 100] },
 
       // Switches
       auto_rotate: { type: 'switch', cmd: 'set auto_rotate', getter: bp => !!bp.auto_rotate },
@@ -3380,6 +3490,7 @@ function updateDockTabs() {}
       tilt_angle: { type: 'switch', cmd: 'set tilt_angle', getter: bp => (bp.tilt_angle !== undefined ? !!bp.tilt_angle : true) },
 
       // Special Selectors
+      preset: { type: 'select_preset' },
       tip: { type: 'select_tip' },
       grain_tex: { type: 'select_grain' },
       script: { type: 'select_script' },
@@ -3388,6 +3499,189 @@ function updateDockTabs() {}
       dual_shape: { type: 'select_dual_shape' },
       save_tool: { type: 'save_tool' }
     };
+
+    // Arc Dial Modal Controller State & Event Handlers
+    let curDialKey = 'size';
+    let isDialTracking = false;
+
+    const arcDialModal = document.getElementById('arc-dial-modal');
+    const arcDialTitle = document.getElementById('arc-dial-title');
+    const arcDialStage = document.getElementById('arc-dial-stage');
+    const arcTrackBg = document.getElementById('arc-track-bg');
+    const arcTrackFill = document.getElementById('arc-track-fill');
+    const arcDialThumb = document.getElementById('arc-dial-thumb');
+    const arcDialValText = document.getElementById('arc-dial-value-text');
+    const arcDialUnitText = document.getElementById('arc-dial-unit-text');
+    const arcDialPreview = document.getElementById('arc-dial-preview');
+    const arcDialChips = document.getElementById('arc-dial-chips');
+    const btnCloseArcDial = document.getElementById('btn-close-arc-dial');
+
+    if (arcTrackBg) {
+      arcTrackBg.setAttribute('d', describeArc(100, 100, 68, 135, 405));
+    }
+
+    function openArcDial(paramKey) {
+      curDialKey = paramKey || tbParamSelect?.value || 'size';
+      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+      if (arcDialTitle) arcDialTitle.textContent = cfg.name || curDialKey.toUpperCase();
+      if (arcDialUnitText) arcDialUnitText.textContent = cfg.suffix || '';
+
+      if (arcDialChips) {
+        arcDialChips.innerHTML = '';
+        const chips = cfg.chips || [cfg.min, Math.round(cfg.min + (cfg.max - cfg.min) * 0.25), Math.round(cfg.min + (cfg.max - cfg.min) * 0.5), Math.round(cfg.min + (cfg.max - cfg.min) * 0.75), cfg.max];
+        const bp = host.brushParams || {};
+        const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+
+        chips.forEach(cVal => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = `arc-chip-btn${cVal === curVal ? ' active' : ''}`;
+          btn.textContent = `${cVal}${cfg.suffix || ''}`;
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setDialValue(cVal, true);
+            triggerHaptic(15);
+          });
+          arcDialChips.appendChild(btn);
+        });
+      }
+
+      updateArcDialDisplay();
+      if (arcDialModal) arcDialModal.classList.add('active');
+    }
+
+    function closeArcDial() {
+      if (arcDialModal) arcDialModal.classList.remove('active');
+      isDialTracking = false;
+    }
+
+    if (btnCloseArcDial) {
+      btnCloseArcDial.addEventListener('click', closeArcDial);
+    }
+    if (arcDialModal) {
+      arcDialModal.addEventListener('click', (e) => {
+        if (e.target === arcDialModal) closeArcDial();
+      });
+    }
+
+    function setDialValue(val, runCommand = true) {
+      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+      val = Math.max(cfg.min, Math.min(cfg.max, val));
+      if (cfg.step) {
+        val = Math.round((val - cfg.min) / cfg.step) * cfg.step + cfg.min;
+      }
+      if (runCommand) {
+        runCmd(`${cfg.cmd} ${val}`);
+      }
+      updateArcDialDisplay();
+      syncTbDynamicSlot();
+    }
+
+    function updateArcDialDisplay() {
+      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+      const bp = host.brushParams || {};
+      const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+      const t = Math.max(0, Math.min(1, (curVal - cfg.min) / (cfg.max - cfg.min)));
+
+      const curAngle = 135 + t * 270;
+      if (arcTrackFill) {
+        if (t > 0.001) {
+          arcTrackFill.setAttribute('d', describeArc(100, 100, 68, 135, curAngle));
+          arcTrackFill.style.display = 'block';
+        } else {
+          arcTrackFill.style.display = 'none';
+        }
+      }
+
+      if (arcDialThumb) {
+        const p = polarToCartesian(100, 100, 68, curAngle);
+        arcDialThumb.setAttribute('cx', p.x);
+        arcDialThumb.setAttribute('cy', p.y);
+      }
+
+      if (arcDialValText) arcDialValText.textContent = String(curVal);
+
+      if (arcDialPreview) {
+        arcDialPreview.innerHTML = '';
+        if (curDialKey === 'size') {
+          const circle = document.createElement('div');
+          circle.className = 'arc-dial-preview-circle';
+          const maxPreviewPx = 40;
+          const pxSize = Math.max(2, Math.min(maxPreviewPx, (curVal / 150) * maxPreviewPx));
+          circle.style.width = pxSize + 'px';
+          circle.style.height = pxSize + 'px';
+          arcDialPreview.appendChild(circle);
+        } else if (curDialKey === 'opacity' || curDialKey === 'flow') {
+          const swatch = document.createElement('div');
+          swatch.style.width = '32px';
+          swatch.style.height = '32px';
+          swatch.style.background = '#fabd2f';
+          swatch.style.opacity = String(curVal / 100);
+          swatch.style.border = '1px solid #504945';
+          arcDialPreview.appendChild(swatch);
+        } else if (curDialKey === 'angle' || curDialKey === 'texture_rotate') {
+          const needle = document.createElement('div');
+          needle.style.width = '2px';
+          needle.style.height = '34px';
+          needle.style.background = '#fabd2f';
+          needle.style.transform = `rotate(${curVal}deg)`;
+          needle.style.transformOrigin = 'center center';
+          needle.style.borderRadius = '1px';
+          arcDialPreview.appendChild(needle);
+        }
+      }
+
+      if (arcDialChips) {
+        arcDialChips.querySelectorAll('.arc-chip-btn').forEach(btn => {
+          const num = parseFloat(btn.textContent);
+          btn.classList.toggle('active', num === curVal);
+        });
+      }
+    }
+
+    function handleDialPointer(e) {
+      if (!arcDialStage) return;
+      const rect = arcDialStage.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+      const normDeg = (deg - 135 + 360) % 360;
+
+      let t = 0;
+      if (normDeg <= 270) {
+        t = normDeg / 270;
+      } else {
+        t = normDeg < 315 ? 1.0 : 0.0;
+      }
+
+      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+      const val = cfg.min + t * (cfg.max - cfg.min);
+      setDialValue(val, true);
+    }
+
+    if (arcDialStage) {
+      arcDialStage.addEventListener('pointerdown', (e) => {
+        isDialTracking = true;
+        arcDialStage.setPointerCapture(e.pointerId);
+        handleDialPointer(e);
+        triggerHaptic(10);
+      });
+      arcDialStage.addEventListener('pointermove', (e) => {
+        if (!isDialTracking) return;
+        handleDialPointer(e);
+      });
+      const endTracking = (e) => {
+        if (isDialTracking) {
+          isDialTracking = false;
+          try { arcDialStage.releasePointerCapture(e.pointerId); } catch (_) {}
+          triggerHaptic(15);
+        }
+      };
+      arcDialStage.addEventListener('pointerup', endTracking);
+      arcDialStage.addEventListener('pointercancel', endTracking);
+    }
 
     const tbParamSelect = document.getElementById('tb-param-select');
     const tbDynamicSlot = document.getElementById('tb-dynamic-slot');
@@ -3398,36 +3692,66 @@ function updateDockTabs() {}
       const cfg = TB_PARAM_CONFIGS[key] || TB_PARAM_CONFIGS.size;
       tbDynamicSlot.innerHTML = '';
 
-      if (cfg.type === 'slider') {
+      if (cfg.type === 'dial') {
         const bp = host.brushParams || {};
         const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+        const t = Math.max(0, Math.min(1, (curVal - cfg.min) / (cfg.max - cfg.min)));
 
-        const slider = document.createElement('input');
-        slider.type = 'range';
-        slider.className = 'tb-mini-slider';
-        slider.id = 'tb-active-slider';
-        slider.min = cfg.min;
-        slider.max = cfg.max;
-        slider.step = cfg.step || 1;
-        slider.value = curVal !== undefined ? curVal : cfg.min;
-        slider._currentVal = String(slider.value);
+        const dialBtn = document.createElement('button');
+        dialBtn.type = 'button';
+        dialBtn.className = 'tb-dial-btn';
+        dialBtn.id = 'tb-active-dial-btn';
+        dialBtn.title = 'Tap for Arc Dial or scrub to adjust value';
 
-        const valBadge = document.createElement('span');
-        valBadge.className = 'tb-val';
-        valBadge.id = 'tb-active-val';
-        valBadge.textContent = slider.value + (cfg.suffix || '');
+        const circumference = 2 * Math.PI * 4.5;
+        const strokeOffset = circumference * (1 - t);
+        dialBtn.innerHTML = `
+          <svg class="tb-dial-mini-ring" viewBox="0 0 16 16">
+            <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-bg" />
+            <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-fill" id="tb-active-mini-ring" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${strokeOffset.toFixed(1)}" />
+          </svg>
+          <span class="tb-val" id="tb-active-val">${curVal}${cfg.suffix || ''}</span>
+        `;
 
-        slider.addEventListener('input', () => {
-          valBadge.textContent = slider.value + (cfg.suffix || '');
-          runCmd(`${cfg.cmd} ${slider.value}`);
-        });
-        slider.addEventListener('change', () => {
-          slider._currentVal = String(slider.value);
-          runCmd(`${cfg.cmd} ${slider.value}`);
+        dialBtn.addEventListener('click', () => {
+          openArcDial(key);
+          triggerHaptic(15);
         });
 
-        tbDynamicSlot.appendChild(slider);
-        tbDynamicSlot.appendChild(valBadge);
+        let isScrubbing = false;
+        let scrubStartX = 0;
+        let scrubStartVal = curVal;
+
+        dialBtn.addEventListener('pointerdown', (e) => {
+          isScrubbing = true;
+          scrubStartX = e.clientX;
+          const freshVal = cfg.getter ? cfg.getter(host.brushParams || {}) : cfg.min;
+          scrubStartVal = freshVal !== undefined ? freshVal : cfg.min;
+          dialBtn.setPointerCapture(e.pointerId);
+        });
+
+        dialBtn.addEventListener('pointermove', (e) => {
+          if (!isScrubbing) return;
+          const dx = e.clientX - scrubStartX;
+          if (Math.abs(dx) > 3) {
+            const range = cfg.max - cfg.min;
+            const deltaVal = (dx / 120) * range;
+            const targetVal = scrubStartVal + deltaVal;
+            curDialKey = key;
+            setDialValue(targetVal, true);
+          }
+        });
+
+        const stopScrub = (e) => {
+          if (isScrubbing) {
+            isScrubbing = false;
+            try { dialBtn.releasePointerCapture(e.pointerId); } catch (_) {}
+          }
+        };
+        dialBtn.addEventListener('pointerup', stopScrub);
+        dialBtn.addEventListener('pointercancel', stopScrub);
+
+        tbDynamicSlot.appendChild(dialBtn);
       } else if (cfg.type === 'switch') {
         const bp = host.brushParams || {};
         const isChecked = cfg.getter ? cfg.getter(bp) : false;
@@ -3638,6 +3962,54 @@ function updateDockTabs() {}
           }
         });
         tbDynamicSlot.appendChild(btn);
+      } else if (cfg.type === 'select_preset') {
+        const sel = document.createElement('select');
+        sel.className = 'tb-select';
+        sel.id = 'tb-active-sel';
+
+        const optPrompt = document.createElement('option');
+        optPrompt.value = '';
+        optPrompt.disabled = true;
+        optPrompt.selected = true;
+        optPrompt.textContent = '-- Choose Preset --';
+        sel.appendChild(optPrompt);
+
+        // Built-in presets
+        const optGrpBuiltin = document.createElement('optgroup');
+        optGrpBuiltin.label = 'Built-in Presets';
+        for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+          if (!p.name) continue;
+          const opt = document.createElement('option');
+          opt.value = k;
+          opt.textContent = p.name;
+          if (host.activeBrush === k) opt.selected = true;
+          optGrpBuiltin.appendChild(opt);
+        }
+        sel.appendChild(optGrpBuiltin);
+
+        // Custom presets
+        if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
+          const optGrpCustom = document.createElement('optgroup');
+          optGrpCustom.label = 'Custom Presets';
+          for (const [k, p] of Object.entries(host.customBrushPresets)) {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = p.name || k;
+            if (host.activeBrush === k) opt.selected = true;
+            optGrpCustom.appendChild(opt);
+          }
+          sel.appendChild(optGrpCustom);
+        }
+
+        sel.addEventListener('change', () => {
+          if (sel.value) {
+            host.selectBrushPreset(sel.value);
+            syncUiFromHost();
+            populateBrushPresetsUI();
+            triggerHaptic(15);
+          }
+        });
+        tbDynamicSlot.appendChild(sel);
       }
     }
 
@@ -3648,15 +4020,22 @@ function updateDockTabs() {}
       const bp = host.brushParams;
       if (!bp) return;
 
-      if (cfg.type === 'slider') {
-        const slider = document.getElementById('tb-active-slider');
+      if (cfg.type === 'dial') {
         const badge = document.getElementById('tb-active-val');
-        if (slider && document.activeElement !== slider && cfg.getter) {
+        const miniRing = document.getElementById('tb-active-mini-ring');
+        if (cfg.getter) {
           const val = cfg.getter(bp);
           if (val !== undefined) {
-            slider.value = val;
-            slider._currentVal = String(val);
             if (badge) badge.textContent = val + (cfg.suffix || '');
+            if (miniRing) {
+              const t = Math.max(0, Math.min(1, (val - cfg.min) / (cfg.max - cfg.min)));
+              const circumference = 2 * Math.PI * 4.5;
+              const strokeOffset = circumference * (1 - t);
+              miniRing.setAttribute('stroke-dashoffset', strokeOffset.toFixed(1));
+            }
+            if (arcDialModal && arcDialModal.classList.contains('active') && curDialKey === key) {
+              updateArcDialDisplay();
+            }
           }
         }
       } else if (cfg.type === 'switch') {
@@ -4697,6 +5076,18 @@ function updateDockTabs() {}
       btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
     });
 
+    // Sync Preset dropdowns
+    const curPreset = host.activeBrush;
+    const pSel = document.getElementById('ui-select-brush-preset');
+    if (pSel && curPreset && document.activeElement !== pSel) pSel.value = curPreset;
+    const dSel = document.getElementById('dock-select-brush-preset');
+    if (dSel && curPreset && document.activeElement !== dSel) dSel.value = curPreset;
+    const delPresetBtn = document.getElementById('ui-btn-del-preset');
+    if (delPresetBtn) {
+      const isCustomActive = host.customBrushPresets && host.customBrushPresets[curPreset];
+      delPresetBtn.style.display = isCustomActive ? 'inline-block' : 'none';
+    }
+
     const chkAdj = document.getElementById('ui-chk-adjacent');
     if (chkAdj && host.wandAdjacent !== undefined) {
       chkAdj.checked = host.wandAdjacent;
@@ -5417,6 +5808,7 @@ function updateDockTabs() {}
   }
 
   // Initial population
+  populateBrushPresetsUI();
   populateScriptSelect();
   const initialScripts = getSavedScripts();
   if (initialScripts.length > 0 && scriptEditor && !scriptEditor.value) {
