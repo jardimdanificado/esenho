@@ -26,10 +26,17 @@ if (fs.existsSync(swPath)) {
 // 2. Update index.html badge
 if (fs.existsSync(indexPath)) {
   let indexContent = fs.readFileSync(indexPath, "utf8");
+
   indexContent = indexContent.replace(
     /<span class="badge">v[^<]+<\/span>/,
     `<span class="badge">v${version}</span>`
   );
+  // Also update <h1>Esenho X.Y.Z</h1>
+  indexContent = indexContent.replace(
+    /<h1>Esenho [0-9.]+<\/h1>/,
+    `<h1>Esenho ${version}</h1>`
+  );
+
   fs.writeFileSync(indexPath, indexContent, "utf8");
   console.log(`[sync-version] Updated index.html badge (-> v${version})`);
 }
