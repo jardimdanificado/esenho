@@ -1651,7 +1651,7 @@ function updateDockTabs() {}
     e.preventDefault();
   }, { passive: false });
 
-  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo ── */
+  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo / 3-finger drag: size+opacity ── */
   const touch = {
     prevTouches: null,   /* TouchList snapshot from last event */
     drawing: false,
@@ -1659,7 +1659,8 @@ function updateDockTabs() {}
     timer: null,
     longPressTimer: null,
     longPressTriggered: false,
-    tapGesture: null     /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
+    tapGesture: null,    /* Multi-finger tap: { time, maxFingers, moved, startPositions } */
+    threeFingerDrag: null /* 3-finger drag: { startX, startY, startSize, startOpacity } */
   };
 
   function commitPendingTouch() {
@@ -1710,8 +1711,166 @@ function updateDockTabs() {}
     };
   }
 
+  /* ── 3-finger drag overlay helpers ── */
+  const paramOverlay = document.getElementById('touch-param-overlay');
+  const paramCircle  = document.getElementById('touch-param-circle');
+  const paramText    = document.getElementById('touch-param-text');
+
+  function showParamOverlay(size, opacity) {
+    if (!paramOverlay) return;
+    const displaySize = Math.max(8, Math.min(200, size));
+    if (paramCircle) {
+      paramCircle.style.width  = displaySize + 'px';
+      paramCircle.style.height = displaySize + 'px';
+    }
+    if (paramText) {
+      paramText.textContent = `Size: ${size}px  ·  Opacity: ${opacity}%`;
+    }
+    paramOverlay.classList.add('visible');
+  }
+
+  function hideParamOverlay() {
+    if (paramOverlay) paramOverlay.classList.remove('visible');
+  }
+
+  /* ── Haptic feedback utility ── */
+  function triggerHaptic(pattern = 10) {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        navigator.vibrate(pattern);
+      }
+    } catch (_) {}
+  }
+
+  /* ── Radial Pie Menu Controller ── */
+  const radialMenu = document.getElementById('touch-radial-menu');
+  const radialColorPrev = document.getElementById('radial-color-preview');
+  const radialToolLabel = document.getElementById('radial-tool-label');
+  const radialItems = document.querySelectorAll('.radial-item');
+
+  let radialActive = false;
+  let radialCenter = { x: 0, y: 0 };
+  let radialSelectedIndex = -1;
+
+  function openRadialMenu(clientX, clientY) {
+    if (!radialMenu) return;
+    radialCenter = { x: clientX, y: clientY };
+    radialMenu.style.left = `${clientX}px`;
+    radialMenu.style.top = `${clientY}px`;
+    radialMenu.classList.add('active');
+    radialActive = true;
+    radialSelectedIndex = 0; // Default brush
+    highlightRadialItem(0);
+
+    if (radialColorPrev && host.currentColor !== undefined) {
+      const c = host.currentColor;
+      const hex = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF);
+      radialColorPrev.style.background = hex;
+    }
+    triggerHaptic(20);
+  }
+
+  function highlightRadialItem(index) {
+    radialSelectedIndex = index;
+    radialItems.forEach((el, idx) => {
+      const isSel = (idx === index);
+      el.classList.toggle('highlighted', isSel);
+      if (isSel && radialToolLabel) {
+        const span = el.querySelector('span');
+        radialToolLabel.textContent = span ? span.textContent : '';
+      }
+    });
+  }
+
+  function updateRadialFromPos(clientX, clientY) {
+    if (!radialActive) return;
+    const dx = clientX - radialCenter.x;
+    const dy = clientY - radialCenter.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 20) return; // Inside deadzone
+
+    // Angle in degrees [0..360), with 0 at Top (-90 deg in cartesian)
+    let deg = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
+    if (deg < 0) deg += 360;
+
+    // 8 slices -> 45 deg each (slice 0 centered at 0 deg [-22.5 to 22.5])
+    const sliceIndex = Math.floor((deg + 22.5) / 45) % 8;
+    if (sliceIndex !== radialSelectedIndex) {
+      highlightRadialItem(sliceIndex);
+      triggerHaptic(8);
+    }
+  }
+
+  function closeRadialMenu(commit = true) {
+    if (!radialActive || !radialMenu) return;
+    radialActive = false;
+    radialMenu.classList.remove('active');
+
+    if (commit && radialSelectedIndex >= 0) {
+      const el = radialItems[radialSelectedIndex];
+      if (el) {
+        const type = el.dataset.type;
+        const val = el.dataset.val;
+        if (type === 'tool') {
+          runCmd(`tool ${val}`);
+          const btn = document.querySelector(`.tool-btn[data-tool="${val}"]`);
+          if (btn) btn.click();
+        } else if (type === 'action') {
+          const btn = document.querySelector(`.mode-btn[data-actionmode="${val}"]`);
+          if (btn) btn.click();
+        }
+        triggerHaptic(15);
+      }
+    }
+    radialSelectedIndex = -1;
+  }
+
+  /* ── Edge Swipes State ── */
+  let edgeSwipe = {
+    side: null, // 'left' | 'right' | 'bottom'
+    startX: 0,
+    startY: 0
+  };
+
+  /* ── Finger velocity / dynamic pressure tracker ── */
+  let lastTouchPoint = null;
+  let lastTouchTime = 0;
+  let estimatedFingerPressure = 0.5;
+
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
+    if (radialActive) {
+      if (e.touches.length > 0) {
+        updateRadialFromPos(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      return;
+    }
+
+    // 4-finger tap or touch directly opens Radial Menu
+    if (e.touches.length === 4) {
+      let sumX = 0, sumY = 0;
+      for (let i = 0; i < 4; i++) { sumX += e.touches[i].clientX; sumY += e.touches[i].clientY; }
+      openRadialMenu(sumX / 4, sumY / 4);
+      clearPendingTouch();
+      return;
+    }
+
+    // Edge Swipes detection
+    if (e.touches.length === 1) {
+      const t = e.touches[0];
+      lastTouchPoint = { x: t.clientX, y: t.clientY };
+      lastTouchTime = performance.now();
+      if (t.clientX < 28) {
+        edgeSwipe = { side: 'left', startX: t.clientX, startY: t.clientY };
+      } else if (t.clientX > window.innerWidth - 28) {
+        edgeSwipe = { side: 'right', startX: t.clientX, startY: t.clientY };
+      } else if (t.clientY > window.innerHeight - 36) {
+        edgeSwipe = { side: 'bottom', startX: t.clientX, startY: t.clientY };
+      } else {
+        edgeSwipe.side = null;
+      }
+    }
+
     if (penActive && e.touches.length === 1) {
       // Palm rejection: ignore single finger touch when stylus is touching screen
       return;
@@ -1726,6 +1885,7 @@ function updateDockTabs() {}
       if (host.brushParams && host.brushParams.mode === 5) {
         isTouchPicker = true;
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+        triggerHaptic(12);
         return;
       }
 
@@ -1778,6 +1938,7 @@ function updateDockTabs() {}
         isTouchPicker = true;
         clearPendingTouch();
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+        triggerHaptic(15);
       }, 300);
 
       touch.timer = setTimeout(() => {
@@ -1834,14 +1995,75 @@ function updateDockTabs() {}
           }
         }
       }
+      /* 3-finger drag: init size/opacity adjust */
+      if (e.touches.length >= 3 && !touch.threeFingerDrag) {
+        const mid3 = threeFingerMidpoint(e.touches);
+        const curSize = host.brushParams ? host.brushParams.size : 16;
+        const curOpacity = host.brushParams ? host.brushParams.opacity : 100;
+        touch.threeFingerDrag = {
+          startX: mid3.x,
+          startY: mid3.y,
+          startSize: curSize,
+          startOpacity: curOpacity
+        };
+      }
     }
     touch.prevTouches = e.touches;
   }, { passive: false });
 
   canvasEl.addEventListener('touchmove', e => {
     e.preventDefault();
+
+    if (radialActive) {
+      if (e.touches.length > 0) {
+        updateRadialFromPos(e.touches[0].clientX, e.touches[0].clientY);
+      }
+      return;
+    }
+
+    // Edge Swipes triggering
+    if (edgeSwipe.side && e.touches.length === 1) {
+      const t = e.touches[0];
+      const dx = t.clientX - edgeSwipe.startX;
+      const dy = t.clientY - edgeSwipe.startY;
+      if (edgeSwipe.side === 'left' && dx > 50) {
+        // Swipe left -> open Layers
+        edgeSwipe.side = null;
+        triggerHaptic(20);
+        const tabLayers = document.getElementById('tab-dock-layers');
+        if (tabLayers) tabLayers.click();
+        return;
+      } else if (edgeSwipe.side === 'right' && dx < -50) {
+        // Swipe right -> open Tools
+        edgeSwipe.side = null;
+        triggerHaptic(20);
+        const tabTools = document.getElementById('tab-dock-tools');
+        if (tabTools) tabTools.click();
+        return;
+      } else if (edgeSwipe.side === 'bottom' && dy < -45) {
+        // Swipe bottom up -> open drawer
+        edgeSwipe.side = null;
+        triggerHaptic(20);
+        const handle = document.getElementById('bottom-dock-handle');
+        if (handle) handle.click();
+        return;
+      }
+    }
+
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+
+      // Estimate finger dynamic pressure based on velocity & contact radius
+      if (lastTouchPoint) {
+        const now = performance.now();
+        const dt = Math.max(1, now - lastTouchTime);
+        const speed = Math.hypot(e.touches[0].clientX - lastTouchPoint.x, e.touches[0].clientY - lastTouchPoint.y) / dt;
+        const force = e.touches[0].force || ((e.touches[0].radiusX || 12) / 25);
+        estimatedFingerPressure = Math.max(0.1, Math.min(1.0, 0.3 + (force * 0.4) + Math.min(0.3, speed * 0.08)));
+        lastTouchPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        lastTouchTime = now;
+      }
+
       if (isTouchPicker) {
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
         return;
@@ -1916,6 +2138,47 @@ function updateDockTabs() {}
         }
       }
 
+      /* ── 3-finger drag: size (horizontal) + opacity (vertical) ── */
+      if (e.touches.length >= 3 && touch.threeFingerDrag) {
+        const mid3 = threeFingerMidpoint(e.touches);
+        const dx = mid3.x - touch.threeFingerDrag.startX;
+        const dy = mid3.y - touch.threeFingerDrag.startY;
+
+        // Horizontal → size (log scale: 1px per px at small sizes, accelerates)
+        const sizeSensitivity = Math.max(0.3, touch.threeFingerDrag.startSize / 150);
+        let newSize = Math.round(touch.threeFingerDrag.startSize + dx * sizeSensitivity);
+        newSize = Math.max(1, Math.min(500, newSize));
+
+        // Vertical → opacity (inverted: drag up = more opaque)
+        let newOpacity = Math.round(touch.threeFingerDrag.startOpacity - dy * 0.4);
+        newOpacity = Math.max(1, Math.min(100, newOpacity));
+
+        // Apply via REPL commands (same path as slider change)
+        runCmd(`brush size ${newSize}`);
+        runCmd(`brush opacity ${newOpacity}`);
+
+        // Update UI sliders
+        const sizeSlider = document.getElementById('ui-slider-size');
+        const sizeBadge  = document.getElementById('ui-val-size');
+        if (sizeSlider) { sizeSlider.value = newSize; sizeSlider._currentVal = String(newSize); }
+        if (sizeBadge) sizeBadge.textContent = String(newSize);
+
+        const opSlider = document.getElementById('ui-slider-opacity');
+        const opBadge  = document.getElementById('ui-val-opacity');
+        if (opSlider) { opSlider.value = newOpacity; opSlider._currentVal = String(newOpacity); }
+        if (opBadge) opBadge.textContent = newOpacity + '%';
+
+        // Toolbar labels
+        const tbSize = document.getElementById('tb-size-val');
+        const tbOp   = document.getElementById('tb-opacity-val');
+        if (tbSize) tbSize.textContent = String(newSize);
+        if (tbOp)   tbOp.textContent = String(newOpacity);
+
+        showParamOverlay(newSize, newOpacity);
+        touch.prevTouches = e.touches;
+        return; // Skip 2-finger pan/zoom while 3-finger dragging
+      }
+
       if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length === 2) {
         const [a, b] = [e.touches[0], e.touches[1]];
         const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
@@ -1981,6 +2244,12 @@ function updateDockTabs() {}
         host.panX = cx - (cw * host.zoom) / 2;
         host.panY = cy - (ch * host.zoom) / 2;
         host.canvasRotation += dTheta;
+
+        // Snap rotation near 0° with subtle haptic
+        if (Math.abs(host.canvasRotation) < 0.03 && host.canvasRotation !== 0) {
+          host.canvasRotation = 0;
+          triggerHaptic(8);
+        }
       }
     }
 
@@ -1989,9 +2258,24 @@ function updateDockTabs() {}
 
   canvasEl.addEventListener('touchend', e => {
     e.preventDefault();
+
+    if (radialActive) {
+      closeRadialMenu(true);
+      return;
+    }
+
+    edgeSwipe.side = null;
+
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
+    }
+    /* Clean up 3-finger drag */
+    if (touch.threeFingerDrag) {
+      if (e.touches.length < 3) {
+        touch.threeFingerDrag = null;
+        hideParamOverlay();
+      }
     }
     if (isTouchPicker) {
       isTouchPicker = false;
@@ -2057,11 +2341,15 @@ function updateDockTabs() {}
       if (e.touches.length === 0) {
         const elapsed = Date.now() - touch.tapGesture.time;
         if (!touch.tapGesture.moved && elapsed < 400) {
-          if (touch.tapGesture.maxFingers === 3) {
+          if (touch.tapGesture.maxFingers >= 4) {
+            openRadialMenu(window.innerWidth / 2, window.innerHeight / 2);
+          } else if (touch.tapGesture.maxFingers === 3) {
             host.redo();
+            triggerHaptic(15);
             log('Redo (3-finger tap)');
           } else if (touch.tapGesture.maxFingers === 2) {
             host.undo();
+            triggerHaptic(15);
             log('Undo (2-finger tap)');
           }
         }
@@ -2074,6 +2362,10 @@ function updateDockTabs() {}
   }, { passive: false });
 
   canvasEl.addEventListener('touchcancel', () => {
+    if (radialActive) {
+      closeRadialMenu(false);
+    }
+    edgeSwipe.side = null;
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
@@ -2100,6 +2392,8 @@ function updateDockTabs() {}
       lassoPoints = [];
     }
     touch.tapGesture = null;
+    touch.threeFingerDrag = null;
+    hideParamOverlay();
     touch.prevTouches = null;
   });
 
@@ -2791,6 +3085,223 @@ function updateDockTabs() {}
   if (dockUndo) dockUndo.addEventListener('click', handleUndo);
   const dockRedo = document.getElementById('tab-dock-redo');
   if (dockRedo) dockRedo.addEventListener('click', handleRedo);
+
+  /* ── Floating Touch Toolbar & Touch Controls ── */
+  const touchToolbar = document.getElementById('touch-toolbar');
+  const touchColorModal = document.getElementById('touch-color-modal');
+  const btnCloseTouchColor = document.getElementById('btn-close-touch-color');
+  const touchColorCanvas = document.getElementById('touch-color-canvas');
+  const touchColorHex = document.getElementById('touch-color-hex');
+  const touchModalSwatches = document.getElementById('touch-modal-swatches');
+
+  const cheatSheetModal = document.getElementById('touch-cheat-sheet');
+  const btnCloseCheat = document.getElementById('btn-close-cheat-sheet');
+  const btnDismissCheat = document.getElementById('btn-dismiss-cheat-sheet');
+  const tbHelp = document.getElementById('tb-help');
+
+  // Canvas-Only Fullscreen Mode
+  function toggleCanvasOnly() {
+    document.body.classList.toggle('canvas-only-mode');
+    triggerHaptic(15);
+  }
+  const tbFullscreen = document.getElementById('tb-fullscreen');
+  if (tbFullscreen) tbFullscreen.addEventListener('click', toggleCanvasOnly);
+  const exitCanvasOnly = document.getElementById('canvas-only-exit-btn');
+  if (exitCanvasOnly) exitCanvasOnly.addEventListener('click', toggleCanvasOnly);
+
+  // Cheat Sheet Onboarding
+  function openCheatSheet() {
+    if (cheatSheetModal) cheatSheetModal.classList.add('active');
+    triggerHaptic(10);
+  }
+  function closeCheatSheet() {
+    if (cheatSheetModal) cheatSheetModal.classList.remove('active');
+  }
+  if (tbHelp) tbHelp.addEventListener('click', openCheatSheet);
+  if (btnCloseCheat) btnCloseCheat.addEventListener('click', closeCheatSheet);
+  if (btnDismissCheat) {
+    btnDismissCheat.addEventListener('click', () => {
+      try { localStorage.setItem('esenho_touch_onboarded', '1'); } catch (_) {}
+      closeCheatSheet();
+    });
+  }
+  if (isMobile() && !localStorage.getItem('esenho_touch_onboarded')) {
+    setTimeout(openCheatSheet, 800);
+  }
+
+  // HSV Wheel Renderer & Touch Picker
+  function hsvToRgb(h, s, v) {
+    const c = v * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = v - c;
+    let r1 = 0, g1 = 0, b1 = 0;
+    if (h < 60) { r1 = c; g1 = x; }
+    else if (h < 120) { r1 = x; g1 = c; }
+    else if (h < 180) { g1 = c; b1 = x; }
+    else if (h < 240) { g1 = x; b1 = c; }
+    else if (h < 300) { r1 = x; b1 = c; }
+    else { r1 = c; b1 = x; }
+    return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+  }
+
+  function drawTouchHsvWheel() {
+    if (!touchColorCanvas) return;
+    const ctx = touchColorCanvas.getContext('2d');
+    const w = touchColorCanvas.width, h = touchColorCanvas.height;
+    const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) - 6;
+    const imgData = ctx.createImageData(w, h);
+    const data = imgData.data;
+
+    for (let py = 0; py < h; py++) {
+      for (let px = 0; px < w; px++) {
+        const dx = px - cx, dy = py - cy;
+        const dist = Math.hypot(dx, dy);
+        const idx = (py * w + px) * 4;
+        if (dist <= r) {
+          const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+          const sat = Math.min(1.0, dist / r);
+          const [red, green, blue] = hsvToRgb(angle, sat, 1.0);
+          data[idx]     = red;
+          data[idx + 1] = green;
+          data[idx + 2] = blue;
+          data[idx + 3] = 255;
+        } else {
+          data[idx + 3] = 0;
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  function pickColorFromWheel(clientX, clientY) {
+    if (!touchColorCanvas) return;
+    const rect = touchColorCanvas.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
+    const cx = rect.width / 2;
+    const cy = rect.height / 2;
+    const dx = x - cx, dy = y - cy;
+    const dist = Math.hypot(dx, dy);
+    const r = Math.min(cx, cy) - 6;
+    if (dist <= r) {
+      const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+      const sat = Math.min(1.0, dist / r);
+      const [red, green, blue] = hsvToRgb(angle, sat, 1.0);
+      const hex = rgbToHex(red, green, blue);
+      runCmd(`color ${hex}`);
+      if (touchColorHex) touchColorHex.textContent = hex.toUpperCase();
+      triggerHaptic(8);
+    }
+  }
+
+  function renderTouchModalSwatches() {
+    if (!touchModalSwatches) return;
+    touchModalSwatches.innerHTML = '';
+    const swatches = [
+      '#ebdbb2', '#fabd2f', '#fe8019', '#fb4934', '#b8bb26', '#83a598',
+      '#d3869b', '#8ec07c', '#a89984', '#928374', '#504945', '#282828'
+    ];
+    swatches.forEach(hex => {
+      const slot = document.createElement('div');
+      slot.className = 'touch-swatch-slot';
+      slot.style.background = hex;
+      slot.addEventListener('click', () => {
+        runCmd(`color ${hex}`);
+        if (touchColorHex) touchColorHex.textContent = hex.toUpperCase();
+        triggerHaptic(12);
+      });
+      touchModalSwatches.appendChild(slot);
+    });
+  }
+
+  function openTouchColorModal() {
+    if (!touchColorModal) return;
+    touchColorModal.classList.add('active');
+    drawTouchHsvWheel();
+    renderTouchModalSwatches();
+    if (host.currentColor !== undefined && touchColorHex) {
+      const c = host.currentColor;
+      touchColorHex.textContent = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF).toUpperCase();
+    }
+    triggerHaptic(10);
+  }
+  function closeTouchColorModal() {
+    if (touchColorModal) touchColorModal.classList.remove('active');
+  }
+  if (btnCloseTouchColor) btnCloseTouchColor.addEventListener('click', closeTouchColorModal);
+
+  if (touchColorCanvas) {
+    let wheelTracking = false;
+    touchColorCanvas.addEventListener('pointerdown', (e) => {
+      wheelTracking = true;
+      pickColorFromWheel(e.clientX, e.clientY);
+    });
+    touchColorCanvas.addEventListener('pointermove', (e) => {
+      if (wheelTracking) pickColorFromWheel(e.clientX, e.clientY);
+    });
+    touchColorCanvas.addEventListener('pointerup', () => { wheelTracking = false; });
+    touchColorCanvas.addEventListener('pointercancel', () => { wheelTracking = false; });
+  }
+
+  // Quick Toolstrip in Bottom Dock
+  const dockStripBtns = document.querySelectorAll('#bottom-dock-toolstrip .dock-strip-btn');
+  dockStripBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      triggerHaptic(10);
+      const tool = btn.dataset.tool;
+      const action = btn.dataset.actionmode;
+      if (tool) {
+        runCmd(`tool ${tool}`);
+        const panelBtn = document.querySelector(`.tool-btn[data-tool="${tool}"]`);
+        if (panelBtn) panelBtn.click();
+      } else if (action) {
+        const modeBtn = document.querySelector(`.mode-btn[data-actionmode="${action}"]`);
+        if (modeBtn) modeBtn.click();
+      }
+    });
+  });
+
+  if (touchToolbar) {
+    // Show only on mobile
+    const checkToolbarVisibility = () => {
+      touchToolbar.style.display = isMobile() ? 'flex' : 'none';
+    };
+    checkToolbarVisibility();
+    window.addEventListener('resize', checkToolbarVisibility);
+
+    // Undo / Redo
+    const tbUndo = document.getElementById('tb-undo');
+    const tbRedo = document.getElementById('tb-redo');
+    if (tbUndo) tbUndo.addEventListener('click', handleUndo);
+    if (tbRedo) tbRedo.addEventListener('click', handleRedo);
+
+    // Color swatch: tap opens Touch HSV Color Picker Modal
+    const tbSwatch = document.getElementById('tb-color-swatch');
+    if (tbSwatch) {
+      tbSwatch.addEventListener('click', openTouchColorModal);
+    }
+
+    // Make toolbar draggable vertically
+    let tbDragY = null;
+    let tbStartTop = null;
+    touchToolbar.addEventListener('touchstart', (e) => {
+      if (e.target === touchToolbar || e.target.classList.contains('tb-sep') || e.target.classList.contains('tb-label')) {
+        tbDragY = e.touches[0].clientY;
+        tbStartTop = touchToolbar.offsetTop;
+        e.preventDefault();
+      }
+    }, { passive: false });
+    touchToolbar.addEventListener('touchmove', (e) => {
+      if (tbDragY !== null) {
+        const dy = e.touches[0].clientY - tbDragY;
+        const newTop = Math.max(4, Math.min(window.innerHeight - 50, tbStartTop + dy));
+        touchToolbar.style.top = newTop + 'px';
+        e.preventDefault();
+      }
+    }, { passive: false });
+    touchToolbar.addEventListener('touchend', () => { tbDragY = null; });
+    touchToolbar.addEventListener('touchcancel', () => { tbDragY = null; });
+  }
 
   // Active Layer Opacity slider (Photoshop style)
   const activeLayerOp = document.getElementById('ui-active-layer-op');
@@ -3572,6 +4083,13 @@ function updateDockTabs() {}
       btn.classList.toggle('active', btn.dataset.tool === curToolName);
     });
 
+    // Sync Bottom Dock Quick Tool Strip
+    document.querySelectorAll('#bottom-dock-toolstrip .dock-strip-btn').forEach(btn => {
+      const isToolMatch = btn.dataset.tool && btn.dataset.tool === curToolName && curActionMode === 'draw';
+      const isActionMatch = btn.dataset.actionmode && btn.dataset.actionmode === curActionMode;
+      btn.classList.toggle('active', !!(isToolMatch || isActionMatch));
+    });
+
     const curSelMode = host.selectionMode || 'replace';
     document.querySelectorAll('.sel-mode-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
@@ -3663,6 +4181,26 @@ function updateDockTabs() {}
       const b = (c >> 16) & 0xFF;
       const hex = rgbToHex(r, g, b);
       updateColorControlsFromHex(hex);
+
+      // Sync floating toolbar color swatch
+      const tbSwatch = document.getElementById('tb-color-swatch');
+      if (tbSwatch) tbSwatch.style.background = hex;
+
+      // Sync radial menu preview
+      const radPrev = document.getElementById('radial-color-preview');
+      if (radPrev) radPrev.style.background = hex;
+
+      // Sync touch color modal hex
+      const tHex = document.getElementById('touch-color-hex');
+      if (tHex) tHex.textContent = hex.toUpperCase();
+    }
+
+    // Sync floating toolbar size/opacity labels
+    if (host.brushParams) {
+      const tbSizeVal = document.getElementById('tb-size-val');
+      const tbOpVal   = document.getElementById('tb-opacity-val');
+      if (tbSizeVal) tbSizeVal.textContent = String(host.brushParams.size);
+      if (tbOpVal)   tbOpVal.textContent = String(host.brushParams.opacity);
     }
 
     const inpProj = document.getElementById('ui-project-name');
@@ -4116,6 +4654,97 @@ function updateDockTabs() {}
         }
 
         row.appendChild(actCell);
+
+        /* ── Mobile: Swipe actions on layer row ── */
+        if (isMobile()) {
+          // Create swipe action panel
+          const swipePanel = document.createElement('div');
+          swipePanel.className = 'layer-swipe-actions';
+
+          const swipeDel = document.createElement('button');
+          swipeDel.type = 'button';
+          swipeDel.className = 'layer-swipe-btn swipe-del';
+          swipeDel.textContent = 'Del';
+          swipeDel.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete layer [${i}] ${name}?`)) {
+              runCmd(`delete layer ${i}`);
+            }
+          });
+
+          const swipeMerge = document.createElement('button');
+          swipeMerge.type = 'button';
+          swipeMerge.className = 'layer-swipe-btn swipe-merge';
+          swipeMerge.textContent = 'Merge';
+          if (pos <= 0) swipeMerge.style.opacity = '0.3';
+          swipeMerge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (pos > 0) runCmd(`layer merge down ${i}`);
+          });
+
+          const swipeDup = document.createElement('button');
+          swipeDup.type = 'button';
+          swipeDup.className = 'layer-swipe-btn swipe-dup';
+          swipeDup.textContent = 'Dup';
+          swipeDup.addEventListener('click', (e) => {
+            e.stopPropagation();
+            runCmd(`layer select ${i}`);
+            runCmd('duplicate layer');
+          });
+
+          swipePanel.appendChild(swipeDup);
+          swipePanel.appendChild(swipeMerge);
+          swipePanel.appendChild(swipeDel);
+          row.appendChild(swipePanel);
+
+          // Swipe detection
+          let swipeStartX = null;
+          let swipeStartY = null;
+          let swiping = false;
+
+          row.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+              swipeStartX = e.touches[0].clientX;
+              swipeStartY = e.touches[0].clientY;
+              swiping = false;
+            }
+          }, { passive: true });
+
+          row.addEventListener('touchmove', (e) => {
+            if (swipeStartX === null) return;
+            const dx = e.touches[0].clientX - swipeStartX;
+            const dy = e.touches[0].clientY - swipeStartY;
+            // Only swipe if horizontal movement dominates
+            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 20) {
+              swiping = true;
+              if (dx < -40) {
+                // Swipe left: reveal action buttons
+                swipePanel.classList.add('revealed');
+              } else if (dx > 40) {
+                // Swipe right: hide action buttons or toggle visibility
+                if (swipePanel.classList.contains('revealed')) {
+                  swipePanel.classList.remove('revealed');
+                } else {
+                  runCmd(`toggle layer ${i}`);
+                  swipeStartX = null; // Prevent repeated toggles
+                }
+              }
+            }
+          }, { passive: true });
+
+          row.addEventListener('touchend', () => {
+            swipeStartX = null;
+            swipeStartY = null;
+          }, { passive: true });
+
+          // Tap outside swipe panel closes it
+          row.addEventListener('click', () => {
+            if (!swiping && swipePanel.classList.contains('revealed')) {
+              swipePanel.classList.remove('revealed');
+            }
+          });
+        }
+
         return row;
       };
 
