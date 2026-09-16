@@ -1265,6 +1265,7 @@ const COMMAND_RULES = [
     draw image / stamp <name> [x] [y] [w] [h] [opacity]
     save [canvas|layer] <file>   Export image to disk
     load image <file> [name]     Load image file into texture storage
+    reset cache / clear cache    Clear service worker cache and reload page
     exit / quit                  Quit application
 `);
     }
@@ -2562,7 +2563,25 @@ const COMMAND_RULES = [
     run: (m, host) => {
       host.cancelFloatTransform();
     }
-  }
+  },
+
+  // Cache Reset
+  {
+    pat: "reset cache",
+    run: (m, host) => {
+      host.sendConsoleLog('clearing cache and reloading...');
+      if ('caches' in self || 'caches' in window) {
+        const c = typeof caches !== 'undefined' ? caches : window.caches;
+        c.keys().then((names) => Promise.all(names.map((n) => c.delete(n)))).then(() => {
+          location.reload(true);
+        });
+      } else {
+        location.reload(true);
+      }
+    }
+  },
+  { pat: "cache reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset cache").run(m, host) },
+  { pat: "clear cache", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset cache").run(m, host) }
 ];
 
 /**
