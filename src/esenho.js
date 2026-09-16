@@ -1281,6 +1281,7 @@ const COMMAND_RULES = [
     save [canvas|layer] <file>   Export image to disk
     load image <file> [name]     Load image file into texture storage
     reset cache / clear cache    Clear service worker cache and reload page
+    reset data / clear data      Clear all storage (IndexedDB + LocalStorage) and return to launcher
     exit / quit                  Quit application
 `);
     }
@@ -2680,7 +2681,40 @@ const COMMAND_RULES = [
     }
   },
   { pat: "cache reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset cache").run(m, host) },
-  { pat: "clear cache", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset cache").run(m, host) }
+  { pat: "clear cache", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset cache").run(m, host) },
+
+  // Data Reset (IndexedDB + LocalStorage + SessionStorage)
+  {
+    pat: "reset data",
+    run: (m, host) => {
+      host.sendConsoleLog('clearing all user data (IndexedDB + LocalStorage) and returning to launcher...');
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.clear();
+        if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+      } catch (_) {}
+      const targetUrl = (typeof window !== 'undefined' && window.location) ? 'index.html' : null;
+      if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+        try {
+          const req = indexedDB.deleteDatabase('EsenhoDB');
+          req.onsuccess = () => {
+            if (targetUrl) window.location.href = targetUrl;
+          };
+          req.onerror = () => {
+            if (targetUrl) window.location.href = targetUrl;
+          };
+          req.onblocked = () => {
+            if (targetUrl) window.location.href = targetUrl;
+          };
+        } catch (_) {
+          if (targetUrl) window.location.href = targetUrl;
+        }
+      } else if (targetUrl) {
+        window.location.href = targetUrl;
+      }
+    }
+  },
+  { pat: "data reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset data").run(m, host) },
+  { pat: "clear data", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset data").run(m, host) }
 ];
 
 /**

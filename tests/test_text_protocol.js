@@ -1479,7 +1479,20 @@ async function run() {
   }
   try { fs.unlinkSync(testSavePath); } catch (_) {}
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, and Native .esen Project Savefile Engine verified 100%!');
+  // Test reset data command rule
+  let dataResetLogged = false;
+  const origLog = host.sendConsoleLog;
+  host.sendConsoleLog = (msg) => {
+    if (msg.includes('clearing all user data')) dataResetLogged = true;
+    origLog.call(host, msg);
+  };
+  host.executeCommand('reset data');
+  host.sendConsoleLog = origLog;
+  if (!dataResetLogged) {
+    throw new Error("Expected 'reset data' to trigger data clearing log");
+  }
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, and Reset Data Command verified 100%!');
 }
 
 run().catch(err => {

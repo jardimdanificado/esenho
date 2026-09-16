@@ -359,4 +359,5 @@ Apply a named preset with `brush <preset>` or `set brush <preset>`:
 
 ### Cache & Maintenance
 - `reset cache` / `cache reset` / `clear cache`: Delete all service worker caches and reload the page (browser only).
+- `reset data` / `data reset` / `clear data`: Delete all persistent client storage (`IndexedDB` + `LocalStorage` + `SessionStorage`) and return to launcher.
 
