@@ -69,6 +69,41 @@
       z-index: 15;
       zoom: var(--ui-scale, 1);
     }
+    #ui-drawer-tabs {
+      display: flex;
+      background: #181a1b;
+      border-bottom: 1px solid #3c3836;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+    .drawer-tab-btn {
+      flex: 1;
+      padding: 7px 4px;
+      font: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      background: #181a1b;
+      color: #a89984;
+      border: none;
+      border-right: 1px solid #282828;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      text-align: center;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .drawer-tab-btn:last-child {
+      border-right: none;
+    }
+    .drawer-tab-btn:hover {
+      background: #282828;
+      color: #ebdbb2;
+    }
+    .drawer-tab-btn.active {
+      background: #282828;
+      color: #fabd2f;
+      border-bottom: 2px solid #fabd2f;
+    }
     #ui-scroll {
       flex: 1;
       overflow-y: auto;
@@ -757,13 +792,16 @@
       zoom: var(--ui-scale, 1);
     }
 
+    #bottom-dock.collapsed #bottom-dock-nav,
+    #bottom-dock.collapsed #bottom-dock-panels,
+    #bottom-dock.collapsed #bottom-dock-quickstrip,
     #bottom-dock.collapsed #bottom-dock-toolstrip {
-      display: none;
+      display: none !important;
     }
 
     #bottom-dock-handle {
       width: 100%;
-      height: 12px;
+      height: 14px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -771,17 +809,17 @@
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
-      padding: 2px 0;
+      padding: 1px 4px;
       background: #181a1b;
       border-bottom: 1px solid #282828;
+      position: relative;
     }
 
     #bottom-dock.collapsed #bottom-dock-handle {
       border-bottom: none;
     }
 
-    #bottom-dock-handle::after {
-      content: '';
+    .dock-handle-bar {
       width: 44px;
       height: 3px;
       background: #504945;
@@ -789,12 +827,44 @@
       pointer-events: none;
     }
 
-    #bottom-dock-handle:hover::after {
+    #bottom-dock-handle:hover .dock-handle-bar {
       background: #fabd2f;
     }
 
-    /* ── Narrow screens / Mobile ── */
-    @media (max-width: 768px), (max-aspect-ratio: 3/4) {
+    .dock-handle-toggle {
+      position: absolute;
+      right: 2px;
+      top: 0;
+      bottom: 0;
+      width: 44px;
+      height: 100%;
+      background: transparent;
+      border: none;
+      color: #a89984;
+      font-size: 11px;
+      cursor: pointer;
+      line-height: 1;
+      user-select: none;
+      -webkit-user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      touch-action: manipulation;
+      z-index: 10;
+      padding: 0;
+    }
+
+    .dock-handle-toggle:hover, .dock-handle-toggle:active {
+      color: #fabd2f;
+      background: rgba(250, 189, 47, 0.1);
+    }
+
+    #bottom-dock.collapsed .dock-handle-toggle {
+      transform: rotate(180deg);
+    }
+
+    /* ── Narrow screens / Mobile (<= 768px only) ── */
+    @media (max-width: 768px) {
       #layout {
         flex-direction: column;
         position: relative;
@@ -803,8 +873,15 @@
         overflow: hidden;
       }
 
+      #main-column {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        overflow: hidden;
+      }
+
       #cvswrap {
-        order: 1;
         flex: 1;
         width: 100%;
         min-height: 0;
@@ -819,93 +896,35 @@
 
       /* Unified Bottom Dock on mobile */
       #bottom-dock {
-        order: 2;
-        padding-bottom: env(safe-area-inset-bottom, 0px);
-      }
-
-      #bottom-dock-handle {
-        height: 24px;
-        padding: 4px 0;
-        cursor: row-resize;
-      }
-
-      #bottom-dock-handle::after {
-        content: '';
-        width: 44px;
-        height: 4px;
-        background: #504945;
-        border-radius: 2px;
-        pointer-events: none;
-      }
-
-      #bottom-dock-tabs {
-        display: flex;
-        align-items: stretch;
-        height: 36px;
-        padding: 0 6px 6px 6px;
-        gap: 6px;
-        overflow: hidden;
-        transition: height 0.12s ease, padding 0.12s ease, opacity 0.12s ease;
-      }
-
-        
-
-      .dock-tab-btn {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 6px;
-        font: inherit;
-        font-size: 11px;
-        font-weight: bold;
-        background: #282828;
-        color: #a89984;
-        border: 1px solid #3c3836;
-        border-radius: 0;
-        cursor: pointer;
-        user-select: none;
-        touch-action: manipulation;
-        transition: background 0.15s, color 0.15s, border-color 0.15s;
-      }
-
-      .dock-tab-btn:hover {
-        background: #32302f;
-        color: #ebdbb2;
-      }
-
-      .dock-tab-btn.active {
-        background: #3c3836;
-        color: #fabd2f;
-        border-color: #fabd2f;
-      }
-
-      /* Both panels come from below and occupy order: 3 */
-      #ui-panel {
-        order: 3;
-        width: 100% !important;
-        border: none !important;
-        background: #1d2021;
+        width: 100%;
         flex-shrink: 0;
         padding-bottom: env(safe-area-inset-bottom, 0px);
       }
 
-      #ui-panel {
-        height: var(--mobile-drawer-height, 42vh);
-        max-height: 85vh;
-        min-height: 0;
-        display: flex;
-        flex-direction: column;
-        border-top: 1px solid #3c3836 !important;
+      #bottom-dock-handle {
+        height: 20px;
+        padding: 3px 0;
+        cursor: row-resize;
       }
 
-      #panel {
+      .dock-handle-bar {
+        width: 44px;
+        height: 4px;
+      }
+
+      /* Mobile drawer */
+      #ui-panel {
+        width: 100% !important;
+        border-left: none !important;
+        border-top: 1px solid #3c3836 !important;
+        background: #1d2021;
+        flex-shrink: 0;
         height: var(--mobile-drawer-height, 42vh);
         max-height: 85vh;
         min-height: 0;
         display: flex;
         flex-direction: column;
-        border-top: 1px solid #3c3836 !important;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
       }
 
       #ui-panel.hidden {
@@ -970,6 +989,10 @@
         opacity: 0.94;
         transition: opacity 0.2s;
         touch-action: none;
+        zoom: var(--touch-toolbar-scale, 1);
+      }
+      #touch-toolbar.hidden {
+        display: none !important;
       }
       #touch-toolbar::-webkit-scrollbar { display: none; }
       #touch-toolbar:active, #touch-toolbar:hover {
@@ -1190,80 +1213,133 @@
       }
     }
 
-    /* ── Dock Script Selector Modal ── */
-    #dock-script-modal {
-      display: none;
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.65);
-      z-index: 10001;
-      align-items: center;
-      justify-content: center;
-    }
-    #dock-script-modal.active {
-      display: flex;
-    }
-    .dock-script-content {
-      background: #1d2021;
-      border: 1px solid #504945;
-      width: 90%;
-      max-width: 320px;
-      max-height: 80vh;
-      display: flex;
-      flex-direction: column;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-    }
-    .dock-script-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 12px;
+    /* ── Bottom Dock Script Dropdown ── */
+    .dock-strip-select {
       background: #282828;
-      border-bottom: 1px solid #3c3836;
-      font-weight: bold;
-      font-size: 12px;
       color: #fabd2f;
-    }
-    .dock-script-list {
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      overflow-y: auto;
-      max-height: 60vh;
-    }
-    .dock-script-item {
-      background: #282828;
       border: 1px solid #3c3836;
-      color: #ebdbb2;
-      padding: 8px 12px;
+      border-radius: 0;
+      font: inherit;
       font-size: 11px;
       font-weight: bold;
-      text-align: left;
+      height: 30px;
+      padding: 0 4px;
+      outline: none;
       cursor: pointer;
+      flex-shrink: 0;
+      touch-action: manipulation;
+    }
+    .dock-strip-select:hover {
+      border-color: #fabd2f;
+    }
+
+
+    /* ── Bottom Dock Tabs & Panels ── */
+    #bottom-dock-nav {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      background: #181a1b;
+      border-bottom: 1px solid #282828;
+      padding: 0 4px;
+      gap: 2px;
+      user-select: none;
+      -webkit-user-select: none;
+      overflow-x: auto;
+      scrollbar-width: none;
     }
-    .dock-script-item:active {
-      background: #fabd2f;
-      color: #1d2021;
+    #bottom-dock-nav::-webkit-scrollbar { display: none; }
+
+    .dock-nav-btn {
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      border-radius: 0;
+      color: #a89984;
+      font: inherit;
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 4px 8px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
     }
 
+    .dock-nav-btn:hover {
+      color: #ebdbb2;
+      background: #282828;
+    }
 
-    /* ── Bottom Dock Quick Tool Strip ── */
-    #bottom-dock-toolstrip {
+    .dock-nav-btn.active {
+      color: #fabd2f;
+      border-bottom-color: #fabd2f;
+      background: #282828;
+    }
+
+    #bottom-dock-panels {
       display: flex;
+      flex-direction: column;
+      background: #1d2021;
+      border-bottom: 1px solid #3c3836;
+    }
+
+    .dock-panel {
+      display: none;
       align-items: center;
       gap: 4px;
       padding: 4px 6px;
       overflow-x: auto;
       scrollbar-width: none;
       -webkit-overflow-scrolling: touch;
-      background: #181a1b;
-      border-bottom: 1px solid #3c3836;
     }
+
+    .dock-panel.active {
+      display: flex;
+    }
+
+    #bottom-dock-quickstrip,
+    #bottom-dock-toolstrip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      overflow-x: auto;
+      height: 36px;
+      box-sizing: border-box;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      background: #181a1b;
+      flex-shrink: 0;
+    }
+    #bottom-dock-quickstrip::-webkit-scrollbar,
     #bottom-dock-toolstrip::-webkit-scrollbar { display: none; }
+
+    .dock-category-select {
+      height: 28px;
+      background: #282828;
+      color: #fabd2f;
+      border: 1px solid #fabd2f;
+      font: inherit;
+      font-size: 11px;
+      font-weight: bold;
+      padding: 0 6px;
+      cursor: pointer;
+      outline: none;
+      flex-shrink: 0;
+      border-radius: 0;
+    }
+
+    .dock-group {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .dock-group.active {
+      display: flex;
+    }
+
     .dock-strip-label {
       font-size: 9px;
       font-weight: bold;
@@ -1284,8 +1360,8 @@
     .dock-strip-btn {
       flex-shrink: 0;
       min-width: 38px;
-      height: 30px;
-      padding: 0 6px;
+      height: 28px;
+      padding: 0 8px;
       background: #282828;
       border: 1px solid #3c3836;
       border-radius: 0;
@@ -1298,12 +1374,27 @@
       gap: 3px;
       cursor: pointer;
       touch-action: manipulation;
+      white-space: nowrap;
+    }
+    .dock-strip-btn:hover {
+      background: #3c3836;
+      color: #fabd2f;
+      border-color: #504945;
     }
     .dock-strip-btn.active {
       background: #fabd2f;
       color: #1d2021;
       border-color: #fabd2f;
       font-weight: bold;
+    }
+    select.dock-strip-select {
+      appearance: none;
+      -webkit-appearance: none;
+      outline: none;
+      padding-right: 14px;
+      background-image: url('data:image/svg+xml;utf8,<svg fill="%23ebdbb2" height="10" viewBox="0 0 24 24" width="10" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+      background-repeat: no-repeat;
+      background-position: right 4px center;
     }
 
     /* ── Touch HSV Color Picker Modal ── */
@@ -1466,43 +1557,44 @@
       </div>
     </div>
 
-    <!-- ── Bottom Dock & Drawer Tabs ── -->
+    <!-- ── Bottom Dock & Quick Strip ── -->
     <div id="bottom-dock">
-      <div id="bottom-dock-handle" title="Drag up/down to resize drawer"></div>
-      <div id="bottom-dock-toolstrip">
-        <span class="dock-strip-label">MODE</span>
-        <button type="button" class="dock-strip-btn dock-mode-btn active" data-actionmode="draw" title="Draw Mode">✎ Draw</button>
-        <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="erase" title="Erase Mode">⌫ Erase</button>
-        <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="smudge" title="Smudge Mode">≈ Smudge</button>
-        <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="select" title="Select Mode">⬚ Select</button>
-        <div class="dock-strip-sep"></div>
-        <span class="dock-strip-label">TOOL</span>
-        <button type="button" class="dock-strip-btn dock-tool-btn active" data-tool="brush" title="Brush">● Brush</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">≈ Blend</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">▨ Fill</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">⚲ Lasso</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="picker" title="Eyedropper / Color Picker">⊙ Picker</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">╱ Line</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">▭ Rect</button>
-        <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">⬭ Ellipse</button>
-        <div class="dock-strip-sep"></div>
-        <span class="dock-strip-label">ACTION</span>
-        <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="copy" title="Copy selection">⎘ Copy</button>
-        <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cut" title="Cut selection">✂ Cut</button>
-        <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="deselect" title="Deselect">✕ Desel</button>
-        <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="apply_xform" title="Apply transform">✓ Apply</button>
-        <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cancel_xform" title="Cancel transform">⃠ Cancel</button>
-        <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="run_script" title="Run Script">▶ Script</button>
+      <div id="bottom-dock-handle" title="Drag up/down to resize drawer | Click to toggle buttons">
+        <div class="dock-handle-bar"></div>
+        <button type="button" id="btn-toggle-dock-strip" class="dock-handle-toggle" title="Toggle Quick Buttons">v</button>
       </div>
-
-      <!-- ── Dock Script Selector Modal ── -->
-      <div id="dock-script-modal">
-        <div class="dock-script-content">
-          <div class="dock-script-header">
-            <span>RUN SCRIPT</span>
-            <button type="button" id="btn-close-dock-script" class="tb-btn" style="border-radius:0;">✕</button>
-          </div>
-          <div id="dock-script-list" class="dock-script-list"></div>
+      <div id="bottom-dock-quickstrip">
+        <select id="dock-quick-category" class="dock-category-select" title="Switch Quick Category">
+          <option value="tool" selected>[ Tools v ]</option>
+          <option value="mode">[ Mode v ]</option>
+          <option value="action">[ Action v ]</option>
+        </select>
+        <div class="dock-strip-sep"></div>
+        <div class="dock-group active" id="dock-group-tool">
+          <button type="button" class="dock-strip-btn dock-tool-btn active" data-tool="brush" title="Brush">Brush</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="picker" title="Eyedropper / Color Picker">Picker</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">Line</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">Rect</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">Ellipse</button>
+        </div>
+        <div class="dock-group" id="dock-group-mode">
+          <button type="button" class="dock-strip-btn dock-mode-btn active" data-actionmode="draw" title="Draw Mode">Draw</button>
+          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="erase" title="Erase Mode">Erase</button>
+          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="smudge" title="Smudge Mode">Smudge</button>
+          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="select" title="Select Mode">Select</button>
+        </div>
+        <div class="dock-group" id="dock-group-action">
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="copy" title="Copy selection">Copy</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cut" title="Cut selection">Cut</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="deselect" title="Deselect">Desel</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="apply_xform" title="Apply transform">Apply</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cancel_xform" title="Cancel transform">Cancel</button>
+          <select id="dock-script-select" class="dock-strip-btn dock-strip-select" title="Run Script">
+            <option value="" disabled selected>Script</option>
+          </select>
         </div>
       </div>
     </div>
@@ -1510,9 +1602,9 @@
 
   <!-- Touch: Floating toolbar (mobile only, hidden on desktop via CSS) -->
   <div id="touch-toolbar" style="display: none;">
-    <div class="tb-drag-handle" id="tb-drag-handle" title="Drag Toolbar">⠿</div>
-    <button type="button" class="tb-btn" id="tb-undo" title="Undo (2-finger tap)">↶</button>
-    <button type="button" class="tb-btn" id="tb-redo" title="Redo (3-finger tap)">↷</button>
+    <div class="tb-drag-handle" id="tb-drag-handle" title="Drag Toolbar">::</div>
+    <button type="button" class="tb-btn" id="tb-undo" title="Undo (2-finger tap)">Undo</button>
+    <button type="button" class="tb-btn" id="tb-redo" title="Redo (3-finger tap)">Redo</button>
     <div class="tb-sep"></div>
     <div class="tb-color-swatch" id="tb-color-swatch" title="Touch Color Picker"></div>
     <div class="tb-sep"></div>
@@ -1523,17 +1615,17 @@
         <option value="flow">Flow</option>
         <option value="hardness">Hardness</option>
         <option value="spacing">Spacing</option>
-        <option value="smoothing">Smooth</option>
+        <option value="smoothing">Stabilize</option>
         <option value="midpoint">Midpoint</option>
         <option value="angle">Angle</option>
         <option value="roundness">Round</option>
         <option value="scatter">Scatter</option>
       </optgroup>
       <optgroup label="Presets & Scripts">
-        <option value="tip">★ Tip</option>
-        <option value="grain_tex">★ Grain</option>
-        <option value="script">★ Script</option>
-        <option value="save_tool">★ Save Tool</option>
+        <option value="tip">Tip</option>
+        <option value="grain_tex">Grain</option>
+        <option value="script">Script</option>
+        <option value="save_tool">Save Tool</option>
         <option value="dab_blend">Blend</option>
         <option value="symmetry">Symmetry</option>
         <option value="dual_shape">Dual</option>
@@ -1575,11 +1667,18 @@
 
   <!-- ── Full UI Panel (Right) ── -->
   <div id="ui-panel">
-    <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">&#x25B6; tools [hide]</button>
+    <button id="toggle-ui" type="button" title="Toggle Tools (Alt+B or Ctrl+B)">[hide tools]</button>
+    <div id="ui-drawer-tabs">
+      <button type="button" class="drawer-tab-btn active" data-drawertab="paint">Paint</button>
+      <button type="button" class="drawer-tab-btn" data-drawertab="layers">Layers</button>
+      <button type="button" class="drawer-tab-btn" data-drawertab="filters">Filters</button>
+      <button type="button" class="drawer-tab-btn" data-drawertab="console">Console</button>
+      <button type="button" class="drawer-tab-btn" data-drawertab="scripts">Scripts</button>
+    </div>
     <div id="ui-scroll">
 
-      <!-- SECTION 1: TOOLS & PAINT (Groups 1 & 2) -->
-      <details id="ui-section-tools" class="ui-panel-section" open>
+      <!-- SECTION 1: TOOLS & PAINT -->
+      <details id="ui-section-paint" class="ui-panel-section" data-drawertab="paint" open>
         <summary class="ui-section-title" style="cursor: pointer; list-style: none;">1. Paint &amp; Brush</summary>
 
         <!-- 1. Paint & Color -->
@@ -1587,27 +1686,27 @@
           <summary>PAINT &amp; COLOR</summary>
           <div class="ui-group-content">
             <div class="ui-grid-2" style="margin-bottom: 5px;">
-              <button id="ui-btn-undo" class="ui-btn" title="Undo (Ctrl+Z or 2-finger tap)">↳ Undo</button>
-              <button id="ui-btn-redo" class="ui-btn" title="Redo (Ctrl+Y or 3-finger tap)">&#x21AA; Redo</button>
+              <button id="ui-btn-undo" class="ui-btn" title="Undo (Ctrl+Z or 2-finger tap)">Undo</button>
+              <button id="ui-btn-redo" class="ui-btn" title="Redo (Ctrl+Y or 3-finger tap)">Redo</button>
             </div>
             <div class="ui-control" style="margin-bottom: 6px;">
               <label class="ui-label">MODE</label>
               <div class="ui-grid-4">
-                <button class="ui-btn mode-btn active" data-actionmode="draw" title="Draw Mode">✎ Draw</button>
-                <button class="ui-btn mode-btn" data-actionmode="erase" title="Erase Mode">⌫ Erase</button>
-                <button class="ui-btn mode-btn" data-actionmode="smudge" title="Smudge Mode">≈ Smudge</button>
-                <button class="ui-btn mode-btn" data-actionmode="select" title="Select Mode">⬚ Select</button>
+                <button class="ui-btn mode-btn active" data-actionmode="draw" title="Draw Mode">Draw</button>
+                <button class="ui-btn mode-btn" data-actionmode="erase" title="Erase Mode">Erase</button>
+                <button class="ui-btn mode-btn" data-actionmode="smudge" title="Smudge Mode">Smudge</button>
+                <button class="ui-btn mode-btn" data-actionmode="select" title="Select Mode">Select</button>
               </div>
             </div>
             <div class="ui-grid-4">
-              <button class="ui-btn tool-btn active" data-tool="brush" title="Brush">● Brush</button>
-              <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">≈ Blend</button>
-              <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">▨ Fill</button>
-              <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso">⚲ Lasso</button>
-              <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker">⊙ Picker</button>
-              <button class="ui-btn tool-btn" data-tool="line" title="Line Guide">╱ Line</button>
-              <button class="ui-btn tool-btn" data-tool="rect" title="Rectangle Guide (Filled)">▭ Rect</button>
-              <button class="ui-btn tool-btn" data-tool="ellipse" title="Ellipse Guide (Filled)">⬭ Ellipse</button>
+              <button class="ui-btn tool-btn active" data-tool="brush" title="Brush">Brush</button>
+              <button class="ui-btn tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
+              <button class="ui-btn tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
+              <button class="ui-btn tool-btn" data-tool="lasso_fill" title="Lasso">Lasso</button>
+              <button class="ui-btn tool-btn" data-tool="picker" title="Eyedropper / Color Picker">Picker</button>
+              <button class="ui-btn tool-btn" data-tool="line" title="Line Guide">Line</button>
+              <button class="ui-btn tool-btn" data-tool="rect" title="Rectangle Guide (Filled)">Rect</button>
+              <button class="ui-btn tool-btn" data-tool="ellipse" title="Ellipse Guide (Filled)">Ellipse</button>
             </div>
             <div class="ui-grid-2" style="margin-top: 6px;">
               <button id="ui-btn-copy" class="ui-btn" title="Copy selection → new floating layer">Copy</button>
@@ -1652,6 +1751,7 @@
               <button type="button" class="color-mode-tab" id="tab-hsl">HSL</button>
             </div>
 
+            <!-- RGB Sliders (Default) -->
             <div id="panel-rgb" class="color-sliders-wrap">
               <div class="ui-control">
                 <div class="ui-label-row"><span>R (Red)</span><span id="ui-val-rgb-r" class="ui-val">235</span></div>
@@ -1667,10 +1767,11 @@
               </div>
             </div>
 
-            <div id="panel-hsl" class="color-sliders-wrap" style="display:none;">
+            <!-- HSL Sliders (Hidden initially) -->
+            <div id="panel-hsl" class="color-sliders-wrap" style="display: none;">
               <div class="ui-control">
                 <div class="ui-label-row"><span>Hue</span><span id="ui-val-hsl-h" class="ui-val">43°</span></div>
-                <input type="range" id="ui-slider-h" min="0" max="360" value="43">
+                <input type="range" id="ui-slider-h" min="0" max="359" value="43">
               </div>
               <div class="ui-control">
                 <div class="ui-label-row"><span>Saturation</span><span id="ui-val-hsl-s" class="ui-val">60%</span></div>
@@ -1682,32 +1783,7 @@
               </div>
             </div>
 
-            <div class="ui-control" style="margin-top: 4px;">
-              <div class="ui-label-row"><span>Swatches (click to pick, hover [x] to delete)</span></div>
-              <div id="ui-swatches-grid" class="ui-swatches-grid"></div>
-            </div>
-
-            <!-- Tip & Primary Brush Controls -->
-            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
-              <div class="ui-label-row"><span>Tip Shape</span></div>
-              <select id="ui-select-shape" class="ui-select"></select>
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Size</span><span id="ui-val-size" class="ui-val">16</span></div>
-              <input type="range" id="ui-slider-size" min="1" max="100" value="16">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>α Opacity</span><span id="ui-val-opacity" class="ui-val">100%</span></div>
-              <input type="range" id="ui-slider-opacity" min="1" max="100" value="100">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Hardness</span><span id="ui-val-hardness" class="ui-val">100%</span></div>
-              <input type="range" id="ui-slider-hardness" min="0" max="100" value="100">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Flow</span><span id="ui-val-flow" class="ui-val">100%</span></div>
-              <input type="range" id="ui-slider-flow" min="1" max="100" value="100">
-            </div>
+            <div class="swatches-wrap" id="ui-swatches"></div>
           </div>
         </details>
 
@@ -1720,7 +1796,7 @@
               <input type="range" id="ui-slider-spacing" min="1" max="200" value="5">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Smoothing</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
+              <div class="ui-label-row"><span>Stabilization</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
               <input type="range" id="ui-slider-smoothing" min="0" max="100" value="0">
             </div>
             <div class="ui-control">
@@ -1736,45 +1812,92 @@
               <input type="range" id="ui-slider-roundness" min="1" max="100" value="100">
             </div>
             <div class="ui-control">
+              <div class="ui-label-row"><span>Hardness</span><span id="ui-val-hardness" class="ui-val">100%</span></div>
+              <input type="range" id="ui-slider-hardness" min="0" max="100" value="100">
+            </div>
+            <div class="ui-control">
               <div class="ui-label-row"><span>Scatter</span><span id="ui-val-scatter" class="ui-val">0%</span></div>
               <input type="range" id="ui-slider-scatter" min="0" max="200" value="0">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Velocity Dynamics</span><span id="ui-val-velocity" class="ui-val">0%</span></div>
-              <input type="range" id="ui-slider-velocity" min="0" max="100" value="0">
-            </div>
-            <div class="ui-control" style="margin-top: 4px;">
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Trajectory)
-              </label>
-            </div>
-            <div class="ui-control" style="margin-top: 4px;">
-              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="ui-chk-subpixel"> Subpixel Rendering (Anti-Aliased Edge)
-              </label>
-            </div>
-
-            <!-- Jitter & Dab Blend -->
-            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
-              <div class="ui-label-row"><span>Dab Blend Mode</span></div>
-              <select id="ui-select-dab-blend" class="ui-select">
-                <option value="normal">Normal</option>
-                <option value="multiply">Multiply</option>
-                <option value="screen">Screen</option>
-                <option value="overlay">Overlay</option>
-                <option value="dodge">Color Dodge</option>
-                <option value="add">Add</option>
-              </select>
+              <div class="ui-label-row"><span>Smudge</span><span id="ui-val-smudge" class="ui-val">0%</span></div>
+              <input type="range" id="ui-slider-smudge" min="0" max="100" value="0">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Taper In</span><span id="ui-val-taper-in" class="ui-val">0px</span></div>
+              <div class="ui-label-row"><span>Wetness</span><span id="ui-val-wetness" class="ui-val">0%</span></div>
+              <input type="range" id="ui-slider-wetness" min="0" max="100" value="0">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Depletion (Dry Out)</span><span id="ui-val-depletion" class="ui-val">0%</span></div>
+              <input type="range" id="ui-slider-depletion" min="0" max="100" value="0">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Color Pickup</span><span id="ui-val-color-pickup" class="ui-val">0%</span></div>
+              <input type="range" id="ui-slider-color-pickup" min="0" max="100" value="0">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Velocity Scale</span><span id="ui-val-velocity" class="ui-val">0%</span></div>
+              <input type="range" id="ui-slider-velocity" min="0" max="100" value="0">
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Taper In (Distance)</span><span id="ui-val-taper-in" class="ui-val">0px</span></div>
               <input type="range" id="ui-slider-taper-in" min="0" max="500" value="0">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Fade Distance</span><span id="ui-val-fade" class="ui-val">0px</span></div>
-              <input type="range" id="ui-slider-fade" min="0" max="2000" step="10" value="0">
+              <div class="ui-label-row"><span>Fade Out (Distance)</span><span id="ui-val-fade" class="ui-val">0px</span></div>
+              <input type="range" id="ui-slider-fade" min="0" max="2000" value="0">
             </div>
             <div class="ui-control">
+              <div class="ui-label-row"><span>Dab Blend Mode</span></div>
+              <select id="ui-select-dab-blend" class="ui-select">
+                <option value="normal">Normal (Mix)</option>
+                <option value="multiply">Multiply (Darken)</option>
+                <option value="screen">Screen (Lighten)</option>
+                <option value="overlay">Overlay (Contrast)</option>
+                <option value="dodge">Color Dodge (Glow)</option>
+                <option value="add">Linear Add</option>
+              </select>
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Brush Tip Shape</span></div>
+              <select id="ui-select-tip" class="ui-select">
+                <option value="0">Circle (Round)</option>
+                <option value="1">Square (Blocky)</option>
+                <option value="2">Calligraphy (Angle)</option>
+                <option value="3">Bristle / Fan</option>
+                <option value="4">Airbrush (Soft)</option>
+                <option value="5">Rake / Multi-dot</option>
+                <option value="6">Pixel (Hard 1-bit)</option>
+                <option value="7">Noise / Spray</option>
+              </select>
+            </div>
+            <div class="ui-control">
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ui-chk-auto-rotate"> Auto-Rotate (Follow Path)
+              </label>
+            </div>
+            <div class="ui-control">
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ui-chk-subpixel"> Subpixel Precision
+              </label>
+            </div>
+
+            <!-- Stylus Dynamics -->
+            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
+              <div class="ui-label-row" style="margin-bottom: 2px;"><span>Stylus Dynamics</span></div>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ui-chk-pressure-size" checked> Pressure &rarr; Size
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; margin-top: 3px;">
+                <input type="checkbox" id="ui-chk-pressure-flow" checked> Pressure &rarr; Flow
+              </label>
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; margin-top: 3px;">
+                <input type="checkbox" id="ui-chk-tilt-angle" checked> Tilt &rarr; Angle
+              </label>
+            </div>
+
+            <!-- Jitters -->
+            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
               <div class="ui-label-row"><span>Size Jitter</span><span id="ui-val-size-jitter" class="ui-val">0%</span></div>
               <input type="range" id="ui-slider-size-jitter" min="0" max="100" value="0">
             </div>
@@ -1787,64 +1910,60 @@
               <input type="range" id="ui-slider-opacity-jitter" min="0" max="100" value="0">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Color Jitter (HSV)</span><span id="ui-val-color-jitter" class="ui-val">0%</span></div>
+              <div class="ui-label-row"><span>Hue / Color Jitter</span><span id="ui-val-color-jitter" class="ui-val">0%</span></div>
               <input type="range" id="ui-slider-color-jitter" min="0" max="100" value="0">
             </div>
 
-            <!-- Grain & Dual Brush -->
-            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
-              <div class="ui-label-row"><span>Grain Texture (Textures &amp; Layers)</span></div>
-              <select id="ui-select-texture" class="ui-select"></select>
+            <!-- Texture & Grain -->
+            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
+              <div class="ui-label-row"><span>Texture / Grain Type</span></div>
+              <select id="ui-select-grain-tex" class="ui-select">
+                <option value="none">None (Smooth)</option>
+                <option value="paper">Fine Paper</option>
+                <option value="canvas">Coarse Canvas</option>
+                <option value="noise">Perlin Noise</option>
+                <option value="halftone">Halftone Dots</option>
+                <option value="charcoal">Charcoal Grain</option>
+              </select>
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Grain / Noise</span><span id="ui-val-grain" class="ui-val">0%</span></div>
+              <div class="ui-label-row"><span>Texture Depth</span><span id="ui-val-grain" class="ui-val">0%</span></div>
               <input type="range" id="ui-slider-grain" min="0" max="100" value="0">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Texture Scale</span><span id="ui-val-tex-scale" class="ui-val">100%</span></div>
-              <input type="range" id="ui-slider-tex-scale" min="10" max="400" value="100">
+              <div class="ui-label-row"><span>Texture Scale</span><span id="ui-val-texture-scale" class="ui-val">100%</span></div>
+              <input type="range" id="ui-slider-texture-scale" min="10" max="400" value="100">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Texture Rotate</span><span id="ui-val-tex-rotate" class="ui-val">0°</span></div>
-              <input type="range" id="ui-slider-tex-rotate" min="0" max="359" value="0">
+              <div class="ui-label-row"><span>Texture Angle</span><span id="ui-val-texture-rotate" class="ui-val">0°</span></div>
+              <input type="range" id="ui-slider-texture-rotate" min="0" max="359" value="0">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Grain Contrast</span><span id="ui-val-tex-contrast" class="ui-val">100%</span></div>
-              <input type="range" id="ui-slider-tex-contrast" min="0" max="200" value="100">
+              <div class="ui-label-row"><span>Texture Contrast</span><span id="ui-val-texture-contrast" class="ui-val">100%</span></div>
+              <input type="range" id="ui-slider-texture-contrast" min="0" max="200" value="100">
             </div>
-            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
-              <div class="ui-label-row"><span>Dual Brush Shape</span></div>
-              <select id="ui-select-dual-shape" class="ui-select"></select>
+
+            <!-- Dual Dab -->
+            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 4px;">
+              <div class="ui-label-row"><span>Dual Brush Secondary Tip</span></div>
+              <select id="ui-select-dual-shape" class="ui-select">
+                <option value="0">Disabled (Single Tip)</option>
+                <option value="1">Circle</option>
+                <option value="2">Square</option>
+                <option value="3">Calligraphy</option>
+                <option value="4">Bristle</option>
+                <option value="5">Airbrush</option>
+                <option value="6">Rake</option>
+                <option value="7">Noise</option>
+              </select>
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Dual Brush Size</span><span id="ui-val-dual-size" class="ui-val">100%</span></div>
+              <div class="ui-label-row"><span>Dual Tip Size</span><span id="ui-val-dual-size" class="ui-val">100%</span></div>
               <input type="range" id="ui-slider-dual-size" min="10" max="300" value="100">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Dual Brush Spacing</span><span id="ui-val-dual-spacing" class="ui-val">10%</span></div>
+              <div class="ui-label-row"><span>Dual Tip Spacing</span><span id="ui-val-dual-spacing" class="ui-val">10%</span></div>
               <input type="range" id="ui-slider-dual-spacing" min="1" max="200" value="10">
-            </div>
-
-            <!-- Wet Media -->
-            <div class="ui-control" style="border-top: 1px solid #3c3836; padding-top: 6px; margin-top: 6px;">
-              <div class="ui-label-row"><span>Smudge Pickup</span><span id="ui-val-smudge" class="ui-val">0%</span></div>
-              <input type="range" id="ui-slider-smudge" min="0" max="100" value="0">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Wetness Mix</span><span id="ui-val-wetness" class="ui-val">0%</span></div>
-              <input type="range" id="ui-slider-wetness" min="0" max="100" value="0">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Paint Depletion</span><span id="ui-val-depletion" class="ui-val">0%</span></div>
-              <input type="range" id="ui-slider-depletion" min="0" max="100" value="0">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Continuous Color Pickup</span><span id="ui-val-color-pickup" class="ui-val">0%</span></div>
-              <input type="range" id="ui-slider-color-pickup" min="0" max="100" value="0">
-            </div>
-            <div class="ui-control">
-              <div class="ui-label-row"><span>Fill Tolerance</span><span id="ui-val-tolerance" class="ui-val">32</span></div>
-              <input type="range" id="ui-slider-tolerance" min="0" max="255" value="32">
             </div>
 
             <div class="ui-row-gap" style="margin-top: 6px;">
@@ -1854,9 +1973,9 @@
         </details>
       </details>
 
-      <!-- SECTION 2: LAYERS & FX (Groups 3 & 4) -->
-      <details id="ui-section-layers" class="ui-panel-section" open>
-        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">2. Layers &amp; FX</summary>
+      <!-- SECTION 2: LAYERS & CANVAS -->
+      <details id="ui-section-layers" class="ui-panel-section" data-drawertab="layers" open>
+        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">2. Layers &amp; Canvas</summary>
 
         <!-- 3. Layers & Canvas -->
         <details class="ui-group" open>
@@ -1869,10 +1988,10 @@
             </div>
             <div class="ui-row-gap" style="margin-bottom: 4px;">
               <button id="ui-btn-add-layer" class="ui-mini-btn" style="flex: 1;" title="Add new layer">+ Layer</button>
-              <button id="ui-btn-new-group" class="ui-mini-btn" style="flex: 1;" title="Create new folder/group">◫ Folder</button>
-              <button id="ui-btn-duplicate-layer" class="ui-mini-btn" style="flex: 1;" title="⧉ Dup active layer">⧉ Dup</button>
-              <button id="ui-btn-clear-layer" class="ui-mini-btn" style="flex: 1;" title="Clear active layer">⌧ Clear</button>
-              <button id="ui-btn-import-layer" class="ui-mini-btn" style="flex: 1;" title="Import image as new layer">⇪ Import</button>
+              <button id="ui-btn-new-group" class="ui-mini-btn" style="flex: 1;" title="Create new folder/group">Folder</button>
+              <button id="ui-btn-duplicate-layer" class="ui-mini-btn" style="flex: 1;" title="Dup active layer">Dup</button>
+              <button id="ui-btn-clear-layer" class="ui-mini-btn" style="flex: 1;" title="Clear active layer">Clear</button>
+              <button id="ui-btn-import-layer" class="ui-mini-btn" style="flex: 1;" title="Import image as new layer">Import</button>
             </div>
             <div id="ui-layers-list"></div>
 
@@ -1924,18 +2043,23 @@
             <input type="file" id="ui-file-input" accept="image/*" style="display: none;" />
           </div>
         </details>
+      </details>
 
-        <!-- 4. Viewport & FX -->
+      <!-- SECTION 3: FILTERS & SETTINGS -->
+      <details id="ui-section-filters" class="ui-panel-section" data-drawertab="filters" open>
+        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">3. Filters &amp; Settings</summary>
+
+        <!-- Viewport & FX -->
         <details class="ui-group" open>
           <summary>VIEWPORT &amp; FX</summary>
           <div class="ui-group-content">
             <div class="ui-grid-3">
-              <button id="ui-btn-zoom-in" class="ui-btn" title="Zoom In (+)">⊕ Zoom</button>
-              <button id="ui-btn-zoom-out" class="ui-btn" title="Zoom Out (-)">⊖ Zoom</button>
+              <button id="ui-btn-zoom-in" class="ui-btn" title="Zoom In (+)">Zoom +</button>
+              <button id="ui-btn-zoom-out" class="ui-btn" title="Zoom Out (-)">Zoom -</button>
               <button id="ui-btn-zoom-fit" class="ui-btn" title="Fit to Viewport">Fit</button>
               <button id="ui-btn-zoom-100" class="ui-btn" title="100% (1:1)">100%</button>
               <button id="ui-btn-reset-pan" class="ui-btn" title="Center Canvas">Center</button>
-              <button id="ui-btn-reset-rot" class="ui-btn" title="Reset Rotation to 0°">0° Rot</button>
+              <button id="ui-btn-reset-rot" class="ui-btn" title="Reset Rotation to 0°">0 Deg</button>
               <button id="ui-btn-flip-h" class="ui-btn" title="Flip Canvas Horizontally (Mirror View)">Flip H</button>
               <button id="ui-btn-flip-v" class="ui-btn" title="Flip Canvas Vertically (Mirror View)">Flip V</button>
             </div>
@@ -1966,6 +2090,32 @@
             <div class="ui-control" style="margin-top: 4px;">
               <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
                 <input type="checkbox" id="ui-chk-touch-eyedropper" checked> Touch Long-Press Eyedropper
+              </label>
+            </div>
+            <div class="ui-control" style="margin-top: 4px;">
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ui-chk-floating-toolbar" checked> Show Floating Toolbar
+              </label>
+            </div>
+            <div class="ui-control" style="margin-top: 4px;">
+              <div class="ui-label-row">
+                <span>Floating Toolbar Scale</span>
+                <span id="ui-val-toolbar-scale" class="ui-val">100%</span>
+              </div>
+              <select id="ui-select-toolbar-scale" class="ui-select">
+                <option value="0.75">Small (75%)</option>
+                <option value="0.85">Compact (85%)</option>
+                <option value="1.0" selected>Normal (100%)</option>
+                <option value="1.15">Medium (115%)</option>
+                <option value="1.25">Large (125%)</option>
+                <option value="1.5">Touch / HiDPI (150%)</option>
+                <option value="1.75">Extra Large (175%)</option>
+                <option value="2.0">4K / Ultra (200%)</option>
+              </select>
+            </div>
+            <div class="ui-control" style="margin-top: 4px;">
+              <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="ui-chk-dock-toolstrip" checked> Show Bottom Dock Quick Buttons
               </label>
             </div>
             <div class="ui-control" style="margin-top: 4px;">
@@ -2019,9 +2169,9 @@
       </details>
 
 
-      <!-- SECTION 3: CONSOLE -->
-      <details id="ui-section-console" class="ui-panel-section" open>
-        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">3. Console</summary>
+      <!-- SECTION 4: CONSOLE -->
+      <details id="ui-section-console" class="ui-panel-section" data-drawertab="console" open>
+        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">4. Console</summary>
         <div id="console-view" style="flex: none; height: 150px; display: flex; flex-direction: column;">
 
       <div id="wterm"></div>
@@ -2035,16 +2185,16 @@
         </div>
       </details>
 
-      <!-- SECTION 4: SCRIPTS -->
-      <details id="ui-section-scripts" class="ui-panel-section" open>
-        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">4. Scripts</summary>
+      <!-- SECTION 5: SCRIPTS -->
+      <details id="ui-section-scripts" class="ui-panel-section" data-drawertab="scripts" open>
+        <summary class="ui-section-title" style="cursor: pointer; list-style: none;">5. Scripts</summary>
         <div id="ui-scripts" style="display: flex; flex-direction: column; gap: 8px;">
 
       <div class="ui-control">
         <div class="ui-label-row"><span>Saved Scripts</span></div>
         <div class="ui-row-gap">
           <select id="ui-script-select" class="ui-select" style="flex:1;"></select>
-          <button id="ui-btn-new-script" class="ui-mini-btn" title="New blank script">+ Layer</button>
+          <button id="ui-btn-new-script" class="ui-mini-btn" title="New blank script">+ New</button>
           <button id="ui-btn-save-script" class="ui-mini-btn" title="Save script to local storage">Save</button>
           <button id="ui-btn-del-script" class="ui-mini-btn" title="Delete current script">Del</button>
         </div>
@@ -2085,7 +2235,7 @@
   <div class="touch-color-box">
     <div class="touch-color-header">
       <span>Touch HSV Color</span>
-      <button type="button" class="ui-mini-btn" id="btn-close-touch-color">✕</button>
+      <button type="button" class="ui-mini-btn" id="btn-close-touch-color">Close</button>
     </div>
     <div class="touch-color-wheel-wrap">
       <canvas id="touch-color-canvas" width="260" height="260"></canvas>

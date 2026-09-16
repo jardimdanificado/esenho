@@ -370,6 +370,14 @@ async function run() {
   if (host.brushParams.smoothing !== 60) {
     throw new Error(`Expected smoothing 60, got ${host.brushParams.smoothing}`);
   }
+  host.executeCommand('set stabilize 50');
+  if (host.brushParams.smoothing !== 50) {
+    throw new Error(`Expected smoothing 50, got ${host.brushParams.smoothing}`);
+  }
+  host.executeCommand('brush stabilization 75');
+  if (host.brushParams.smoothing !== 75) {
+    throw new Error(`Expected smoothing 75, got ${host.brushParams.smoothing}`);
+  }
 
   // Draw smoothed stroke
   host.sendStroke(20, 20, 20, 20, 0, 0, 0xFFFF00FF);

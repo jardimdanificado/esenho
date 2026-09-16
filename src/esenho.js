@@ -125,6 +125,8 @@ const PARAM_IDS = {
   smooth: 19,
   smoothing: 19,
   stabilizer: 19,
+  stabilize: 19,
+  stabilization: 19,
   midpoint: 20,
   bezier_midpoint: 20,
   bezier: 20,
@@ -895,7 +897,7 @@ function handleGet(host, rawCat, rawProp) {
     texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
     tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
     grain_scale: 'texture_scale', grain_size: 'texture_scale',
-    smooth: 'smoothing', stabilizer: 'smoothing',
+    smooth: 'smoothing', stabilizer: 'smoothing', stabilize: 'smoothing', stabilization: 'smoothing',
     bezier: 'midpoint', bezier_midpoint: 'midpoint',
     tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
     taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
@@ -2015,6 +2017,50 @@ const COMMAND_RULES = [
     }
   },
   { pat: "touch_eyedropper $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set touch_eyedropper $val").run(m, host) },
+  {
+    pat: "set toolbar_scale $val",
+    run: (m, host) => {
+      let scale = parseFloat(m.val);
+      if (isNaN(scale)) scale = 1.0;
+      if (scale > 5) scale /= 100;
+      scale = Math.max(0.4, Math.min(3.0, scale));
+      if (typeof host.setFloatingToolbarScale === 'function') {
+        host.setFloatingToolbarScale(scale);
+      } else {
+        host.floatingToolbarScale = scale;
+      }
+      host.sendConsoleLog(`floating toolbar scale set to ${(scale * 100).toFixed(0)}%`);
+    }
+  },
+  { pat: "toolbar_scale $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set toolbar_scale $val").run(m, host) },
+  {
+    pat: "set touch_toolbar $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      const show = (v === 'on' || v === '1' || v === 'true' || v === 'yes' || v === 'show');
+      if (typeof host.setFloatingToolbarVisible === 'function') {
+        host.setFloatingToolbarVisible(show);
+      } else {
+        host.showFloatingToolbar = show;
+      }
+      host.sendConsoleLog(`floating toolbar ${show ? 'visible' : 'hidden'}`);
+    }
+  },
+  { pat: "touch_toolbar $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set touch_toolbar $val").run(m, host) },
+  {
+    pat: "set dock_toolstrip $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      const show = (v === 'on' || v === '1' || v === 'true' || v === 'yes' || v === 'show');
+      if (typeof host.setDockToolstripVisible === 'function') {
+        host.setDockToolstripVisible(show);
+      } else {
+        host.showDockToolstrip = show;
+      }
+      host.sendConsoleLog(`bottom dock quick buttons ${show ? 'visible' : 'hidden'}`);
+    }
+  },
+  { pat: "dock_toolstrip $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set dock_toolstrip $val").run(m, host) },
 
   // View Navigation
   {
@@ -2907,6 +2953,36 @@ class EsenhoScreenHost {
     this.uiScale = val;
     if (typeof this.onUiScaleChange === 'function') {
       this.onUiScaleChange(val);
+    }
+  }
+
+  /**
+   * Sets floating toolbar scale preference.
+   */
+  setFloatingToolbarScale(val) {
+    this.floatingToolbarScale = val;
+    if (typeof this.onFloatingToolbarScaleChange === 'function') {
+      this.onFloatingToolbarScaleChange(val);
+    }
+  }
+
+  /**
+   * Sets floating toolbar visibility.
+   */
+  setFloatingToolbarVisible(show) {
+    this.showFloatingToolbar = show;
+    if (typeof this.onFloatingToolbarVisibleChange === 'function') {
+      this.onFloatingToolbarVisibleChange(show);
+    }
+  }
+
+  /**
+   * Sets bottom dock toolstrip visibility.
+   */
+  setDockToolstripVisible(show) {
+    this.showDockToolstrip = show;
+    if (typeof this.onDockToolstripVisibleChange === 'function') {
+      this.onDockToolstripVisibleChange(show);
     }
   }
 
@@ -4169,7 +4245,7 @@ class EsenhoScreenHost {
         texture_angle: 'texture_angle', texture_rotate: 'texture_angle', texture_rot: 'texture_angle',
         tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
         grain_scale: 'texture_scale', grain_size: 'texture_scale',
-        smooth: 'smoothing', stabilizer: 'smoothing',
+        smooth: 'smoothing', stabilizer: 'smoothing', stabilize: 'smoothing', stabilization: 'smoothing',
         bezier: 'midpoint', bezier_midpoint: 'midpoint',
         tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',

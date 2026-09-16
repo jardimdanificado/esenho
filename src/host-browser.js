@@ -134,8 +134,8 @@ async function main() {
   ensureUiPanel();
 
   /* ── Canvas sizing + pan management ── */
-  const isMobile = () => window.matchMedia('(max-width: 768px), (max-aspect-ratio: 3/4)').matches;
-      let initializedPan = false;
+  const isMobile = () => window.innerWidth <= 768;
+  let initializedPan = false;
 
   let isCanvasDirty = false;
   function markCanvasDirty() {
@@ -355,13 +355,17 @@ function updateDockTabs() {}
     const btn = document.getElementById(btnId);
     if (!panel || !btn) return;
 
-    // Restore saved width if available
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      const parsed = parseInt(saved, 10);
-      if (parsed > 100 && parsed < window.innerWidth * 0.85) {
-        panel.style.width = `${parsed}px`;
+    // Restore saved width if available on desktop
+    if (!isMobile()) {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (parsed > 160 && parsed < window.innerWidth * 0.75) {
+          panel.style.width = `${parsed}px`;
+        }
       }
+      panel.style.height = '';
+      panel.style.maxHeight = '';
     }
 
     let isDragging = false;
@@ -372,21 +376,20 @@ function updateDockTabs() {}
 
     btn.addEventListener('pointerdown', e => {
       if (e.button !== 0) return;
+      if (isMobile()) return;
       e.stopPropagation();
       isDragging = true;
       hasMoved = false;
       startX = e.clientX;
       startY = e.clientY;
-
-      const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
-      startDim = isVertical ? panel.offsetHeight : panel.offsetWidth;
+      startDim = panel.offsetWidth;
 
       try {
         btn.setPointerCapture(e.pointerId);
       } catch (_) {}
 
       document.body.style.userSelect = 'none';
-      document.body.style.cursor = isVertical ? 'row-resize' : 'col-resize';
+      document.body.style.cursor = 'col-resize';
     });
 
     btn.addEventListener('pointermove', e => {
@@ -408,18 +411,12 @@ function updateDockTabs() {}
 
       if (!hasMoved) return;
 
-      const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
       const scale = parseFloat(getComputedStyle(panel).zoom) || 1;
-      if (isVertical) {
-        let newH = (side === 'left') ? (startDim + dy / scale) : (startDim - dy / scale);
-        newH = Math.max(70, Math.min(window.innerHeight * 0.7, newH));
-        panel.style.height = `${newH}px`;
-        panel.style.maxHeight = `${newH}px`;
-      } else {
-        let newW = (side === 'left') ? (startDim + dx / scale) : (startDim - dx / scale);
-        newW = Math.max(160, Math.min(window.innerWidth * 0.8, newW));
-        panel.style.width = `${newW}px`;
-      }
+      let newW = (side === 'left') ? (startDim + dx / scale) : (startDim - dx / scale);
+      newW = Math.max(160, Math.min(window.innerWidth * 0.75, newW));
+      panel.style.width = `${newW}px`;
+      panel.style.height = '';
+      panel.style.maxHeight = '';
       resize();
     });
 
@@ -433,8 +430,7 @@ function updateDockTabs() {}
       } catch (_) {}
 
       if (hasMoved) {
-        const isVertical = window.matchMedia('(max-aspect-ratio: 3/4)').matches;
-        const finalDim = isVertical ? panel.offsetHeight : panel.offsetWidth;
+        const finalDim = panel.offsetWidth;
         localStorage.setItem(storageKey, finalDim);
       } else {
         if (panelId === 'ui-panel') {
@@ -450,7 +446,7 @@ function updateDockTabs() {}
     btn.addEventListener('pointercancel', finishDrag);
   }
 
-    setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
+  setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
 
   /* ── Mobile Unified Bottom Dock Listeners ── */
   const savedMobileH = localStorage.getItem('esenho_mobile_drawer_height');
@@ -477,6 +473,7 @@ function updateDockTabs() {}
     // Toggle dock drawer on mobile, collapse/expand toolstrip on desktop
     if (dockHandle) {
       dockHandle.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle')) return;
         if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
         if (isMobile()) {
           const uiEl = document.getElementById('ui-panel');
@@ -587,7 +584,8 @@ function updateDockTabs() {}
       }
     };
 
-    const handleDockStart = (clientY, isDirectHandle) => {
+    const handleDockStart = (clientY, isDirectHandle, target) => {
+      if (target && target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return false;
       if (!isDirectHandle) return false;
       if (!isMobile()) return false;
       const uiEl = document.getElementById('ui-panel');
@@ -603,8 +601,9 @@ function updateDockTabs() {}
 
     bottomDock.addEventListener('pointerdown', e => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return;
       const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
-      if (!handleDockStart(e.clientY, isDirectHandle)) return;
+      if (!handleDockStart(e.clientY, isDirectHandle, e.target)) return;
       if (isDirectHandle && e.cancelable) e.preventDefault();
 
       window.addEventListener('pointermove', onPointerMove, { passive: false });
@@ -614,8 +613,9 @@ function updateDockTabs() {}
 
     bottomDock.addEventListener('touchstart', e => {
       if (e.touches && e.touches.length > 0) {
+        if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return;
         const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
-        if (!handleDockStart(e.touches[0].clientY, isDirectHandle)) return;
+        if (!handleDockStart(e.touches[0].clientY, isDirectHandle, e.target)) return;
         if (isDirectHandle && e.cancelable) e.preventDefault();
 
         window.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -2730,7 +2730,7 @@ function updateDockTabs() {}
   bindSlider('ui-slider-hardness', 'ui-val-hardness', 'brush hardness', '%');
   bindSlider('ui-slider-flow', 'ui-val-flow', 'brush flow', '%');
   bindSlider('ui-slider-spacing', 'ui-val-spacing', 'set spacing', '%');
-  bindSlider('ui-slider-smoothing', 'ui-val-smoothing', 'brush smooth', '%');
+  bindSlider('ui-slider-smoothing', 'ui-val-smoothing', 'brush stabilize', '%');
   bindSlider('ui-slider-midpoint', 'ui-val-midpoint', 'set midpoint', '%');
   bindSlider('ui-slider-angle', 'ui-val-angle', 'set angle', '°');
   bindSlider('ui-slider-roundness', 'ui-val-roundness', 'set roundness', '%');
@@ -3097,46 +3097,93 @@ function updateDockTabs() {}
     touchColorCanvas.addEventListener('pointercancel', () => { wheelTracking = false; });
   }
 
-  /* ── Dock Script Runner Modal ── */
-  const dockScriptModal = document.getElementById('dock-script-modal');
-  const btnCloseDockScript = document.getElementById('btn-close-dock-script');
-  const dockScriptList = document.getElementById('dock-script-list');
-
-  function openDockScriptModal() {
-    if (!dockScriptModal || !dockScriptList) return;
-    dockScriptList.innerHTML = '';
-    const scripts = getSavedScripts();
-    scripts.forEach(s => {
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'dock-script-item';
-      item.textContent = s.name;
-      item.addEventListener('click', () => {
-        closeDockScriptModal();
-        runScriptCode(s.code);
-        triggerHaptic(15);
+  // Bottom dock script selector dropdown
+  const dockScriptSelect = document.getElementById('dock-script-select');
+  if (dockScriptSelect) {
+    function populateDockScriptDropdown() {
+      dockScriptSelect.innerHTML = '<option value="" disabled selected>▶ Script</option>';
+      const scripts = getSavedScripts();
+      scripts.forEach((s, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = s.name;
+        dockScriptSelect.appendChild(opt);
       });
-      dockScriptList.appendChild(item);
+    }
+
+    dockScriptSelect.addEventListener('focus', populateDockScriptDropdown);
+    dockScriptSelect.addEventListener('pointerdown', populateDockScriptDropdown);
+    dockScriptSelect.addEventListener('mousedown', populateDockScriptDropdown);
+    dockScriptSelect.addEventListener('change', () => {
+      const idx = parseInt(dockScriptSelect.value, 10);
+      const scripts = getSavedScripts();
+      if (!isNaN(idx) && scripts[idx]) {
+        runScriptCode(scripts[idx].code);
+        triggerHaptic(15);
+      }
+      dockScriptSelect.value = '';
+      populateDockScriptDropdown();
     });
-    dockScriptModal.classList.add('active');
-    triggerHaptic(10);
+    populateDockScriptDropdown();
   }
 
-  function closeDockScriptModal() {
-    if (dockScriptModal) dockScriptModal.classList.remove('active');
+  // Bottom Dock Quick Category Dropdown
+  const dockQuickCategory = document.getElementById('dock-quick-category');
+  const dockGroups = document.querySelectorAll('#bottom-dock-quickstrip .dock-group');
+
+  function switchDockCategory(catId) {
+    if (dockQuickCategory) dockQuickCategory.value = catId;
+    dockGroups.forEach(g => {
+      g.classList.toggle('active', g.id === `dock-group-${catId}`);
+    });
+    try {
+      localStorage.setItem('esenho_dock_category', catId);
+    } catch (_) {}
   }
 
-  if (btnCloseDockScript) {
-    btnCloseDockScript.addEventListener('click', closeDockScriptModal);
-  }
-  if (dockScriptModal) {
-    dockScriptModal.addEventListener('click', e => {
-      if (e.target === dockScriptModal) closeDockScriptModal();
+  if (dockQuickCategory) {
+    dockQuickCategory.addEventListener('change', () => {
+      triggerHaptic(10);
+      switchDockCategory(dockQuickCategory.value);
     });
   }
 
-  // Quick Toolstrip in Bottom Dock
-  const dockStripBtns = document.querySelectorAll('#bottom-dock-toolstrip .dock-strip-btn');
+  const savedDockCat = localStorage.getItem('esenho_dock_category') || 'tool';
+  switchDockCategory(savedDockCat);
+
+  // Right Panel / Mobile Drawer Tabs (Paint, Layers, Filters, Console, Scripts)
+  const drawerTabBtns = document.querySelectorAll('#ui-drawer-tabs .drawer-tab-btn');
+  const uiSections = document.querySelectorAll('#ui-scroll .ui-panel-section');
+
+  function switchDrawerTab(tabId) {
+    drawerTabBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.drawertab === tabId);
+    });
+    uiSections.forEach(sec => {
+      const match = sec.dataset.drawertab === tabId;
+      sec.style.display = match ? 'flex' : 'none';
+      if (match && sec.tagName.toLowerCase() === 'details') {
+        sec.open = true;
+      }
+    });
+    try {
+      localStorage.setItem('esenho_drawer_active_tab', tabId);
+    } catch (_) {}
+  }
+
+  drawerTabBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      triggerHaptic(10);
+      switchDrawerTab(btn.dataset.drawertab);
+    });
+  });
+
+  const savedDrawerTab = localStorage.getItem('esenho_drawer_active_tab') || 'paint';
+  switchDrawerTab(savedDrawerTab);
+
+  // Quick Buttons in Bottom Dock Panels
+  const dockStripBtns = document.querySelectorAll('#bottom-dock .dock-strip-btn:not(select)');
   dockStripBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       triggerHaptic(10);
@@ -3162,8 +3209,6 @@ function updateDockTabs() {}
           runCmd('transform apply');
         } else if (dockaction === 'cancel_xform') {
           runCmd('transform cancel');
-        } else if (dockaction === 'run_script') {
-          openDockScriptModal();
         }
       }
     });
@@ -3186,7 +3231,7 @@ function updateDockTabs() {}
     if (bp.flow !== undefined) lines.push(`brush flow ${bp.flow}`);
     if (bp.hardness !== undefined) lines.push(`brush hardness ${bp.hardness}`);
     if (bp.spacing !== undefined) lines.push(`set spacing ${bp.spacing}`);
-    if (bp.smoothing !== undefined) lines.push(`brush smooth ${bp.smoothing}`);
+    if (bp.smoothing !== undefined || bp.stabilization !== undefined) lines.push(`brush stabilize ${bp.stabilization !== undefined ? bp.stabilization : bp.smoothing}`);
     if (bp.midpoint !== undefined) lines.push(`set midpoint ${bp.midpoint}`);
     if (bp.angle !== undefined) lines.push(`set angle ${bp.angle}`);
     if (bp.roundness !== undefined) lines.push(`set roundness ${bp.roundness}`);
@@ -3251,7 +3296,8 @@ function updateDockTabs() {}
       flow: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow },
       hardness: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness },
       spacing: { type: 'slider', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing },
-      smoothing: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush smooth', getter: bp => bp.smoothing || 0 },
+      stabilization: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)) },
+      smoothing: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)) },
       midpoint: { type: 'slider', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50) },
       angle: { type: 'slider', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0 },
       roundness: { type: 'slider', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100 },
@@ -3762,13 +3808,18 @@ function updateDockTabs() {}
     const rgb = hexToRgb(cleanHex);
     const hsl = rgbToHsl(rgb.r, rgb.g, rgb.b);
 
-    if (slR && document.activeElement !== slR) { slR.value = rgb.r; slR._currentVal = String(rgb.r); document.getElementById('ui-val-rgb-r').textContent = rgb.r; }
-    if (slG && document.activeElement !== slG) { slG.value = rgb.g; slG._currentVal = String(rgb.g); document.getElementById('ui-val-rgb-g').textContent = rgb.g; }
-    if (slB && document.activeElement !== slB) { slB.value = rgb.b; slB._currentVal = String(rgb.b); document.getElementById('ui-val-rgb-b').textContent = rgb.b; }
+    const setBadge = (id, txt) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
 
-    if (slH && document.activeElement !== slH) { slH.value = hsl.h; slH._currentVal = String(hsl.h); document.getElementById('ui-val-hsl-h').textContent = hsl.h + '°'; }
-    if (slS && document.activeElement !== slS) { slS.value = hsl.s; slS._currentVal = String(hsl.s); document.getElementById('ui-val-hsl-s').textContent = hsl.s + '%'; }
-    if (slL && document.activeElement !== slL) { slL.value = hsl.l; slL._currentVal = String(hsl.l); document.getElementById('ui-val-hsl-l').textContent = hsl.l + '%'; }
+    if (slR && document.activeElement !== slR) { slR.value = rgb.r; slR._currentVal = String(rgb.r); setBadge('ui-val-rgb-r', rgb.r); }
+    if (slG && document.activeElement !== slG) { slG.value = rgb.g; slG._currentVal = String(rgb.g); setBadge('ui-val-rgb-g', rgb.g); }
+    if (slB && document.activeElement !== slB) { slB.value = rgb.b; slB._currentVal = String(rgb.b); setBadge('ui-val-rgb-b', rgb.b); }
+
+    if (slH && document.activeElement !== slH) { slH.value = hsl.h; slH._currentVal = String(hsl.h); setBadge('ui-val-hsl-h', hsl.h + '°'); }
+    if (slS && document.activeElement !== slS) { slS.value = hsl.s; slS._currentVal = String(hsl.s); setBadge('ui-val-hsl-s', hsl.s + '%'); }
+    if (slL && document.activeElement !== slL) { slL.value = hsl.l; slL._currentVal = String(hsl.l); setBadge('ui-val-hsl-l', hsl.l + '%'); }
   }
 
   function onRgbSliderChange() {
@@ -3778,9 +3829,13 @@ function updateDockTabs() {}
     slR._currentVal = String(r);
     slG._currentVal = String(g);
     slB._currentVal = String(b);
-    document.getElementById('ui-val-rgb-r').textContent = r;
-    document.getElementById('ui-val-rgb-g').textContent = g;
-    document.getElementById('ui-val-rgb-b').textContent = b;
+    const setBadge = (id, txt) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
+    setBadge('ui-val-rgb-r', r);
+    setBadge('ui-val-rgb-g', g);
+    setBadge('ui-val-rgb-b', b);
     const hex = rgbToHex(r, g, b);
     updateColorControlsFromHex(hex);
     runCmd(`set color ${hex}`);
@@ -3793,9 +3848,13 @@ function updateDockTabs() {}
     slH._currentVal = String(h);
     slS._currentVal = String(s);
     slL._currentVal = String(l);
-    document.getElementById('ui-val-hsl-h').textContent = h + '°';
-    document.getElementById('ui-val-hsl-s').textContent = s + '%';
-    document.getElementById('ui-val-hsl-l').textContent = l + '%';
+    const setBadge = (id, txt) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
+    setBadge('ui-val-hsl-h', h + '°');
+    setBadge('ui-val-hsl-s', s + '%');
+    setBadge('ui-val-hsl-l', l + '%');
     const rgb = hslToRgb(h, s, l);
     const hex = rgbToHex(rgb.r, rgb.g, rgb.b);
     updateColorControlsFromHex(hex);
@@ -3803,27 +3862,27 @@ function updateDockTabs() {}
   }
 
   if (slR) {
-    slR.addEventListener('input', () => { document.getElementById('ui-val-rgb-r').textContent = slR.value; });
+    slR.addEventListener('input', () => { const el = document.getElementById('ui-val-rgb-r'); if (el) el.textContent = slR.value; });
     slR.addEventListener('change', onRgbSliderChange);
   }
   if (slG) {
-    slG.addEventListener('input', () => { document.getElementById('ui-val-rgb-g').textContent = slG.value; });
+    slG.addEventListener('input', () => { const el = document.getElementById('ui-val-rgb-g'); if (el) el.textContent = slG.value; });
     slG.addEventListener('change', onRgbSliderChange);
   }
   if (slB) {
-    slB.addEventListener('input', () => { document.getElementById('ui-val-rgb-b').textContent = slB.value; });
+    slB.addEventListener('input', () => { const el = document.getElementById('ui-val-rgb-b'); if (el) el.textContent = slB.value; });
     slB.addEventListener('change', onRgbSliderChange);
   }
   if (slH) {
-    slH.addEventListener('input', () => { document.getElementById('ui-val-hsl-h').textContent = slH.value + '°'; });
+    slH.addEventListener('input', () => { const el = document.getElementById('ui-val-hsl-h'); if (el) el.textContent = slH.value + '°'; });
     slH.addEventListener('change', onHslSliderChange);
   }
   if (slS) {
-    slS.addEventListener('input', () => { document.getElementById('ui-val-hsl-s').textContent = slS.value + '%'; });
+    slS.addEventListener('input', () => { const el = document.getElementById('ui-val-hsl-s'); if (el) el.textContent = slS.value + '%'; });
     slS.addEventListener('change', onHslSliderChange);
   }
   if (slL) {
-    slL.addEventListener('input', () => { document.getElementById('ui-val-hsl-l').textContent = slL.value + '%'; });
+    slL.addEventListener('input', () => { const el = document.getElementById('ui-val-hsl-l'); if (el) el.textContent = slL.value + '%'; });
     slL.addEventListener('change', onHslSliderChange);
   }
 
@@ -4289,6 +4348,108 @@ function updateDockTabs() {}
     });
   }
 
+  // Floating toolbar visibility & scale
+  const chkFloatingToolbar = document.getElementById('ui-chk-floating-toolbar');
+  const selToolbarScale = document.getElementById('ui-select-toolbar-scale');
+  const valToolbarScale = document.getElementById('ui-val-toolbar-scale');
+  const btnCloseToolbar = document.getElementById('tb-btn-close');
+
+  function applyFloatingToolbarVisible(show) {
+    host.showFloatingToolbar = !!show;
+    if (touchToolbar) {
+      touchToolbar.classList.toggle('hidden', !show);
+    }
+    if (chkFloatingToolbar) {
+      chkFloatingToolbar.checked = !!show;
+    }
+    try {
+      localStorage.setItem('esenho_show_floating_toolbar', show ? '1' : '0');
+    } catch (_) {}
+  }
+
+  function applyFloatingToolbarScale(scaleVal) {
+    let scale = parseFloat(scaleVal) || 1.0;
+    scale = Math.max(0.4, Math.min(3.0, scale));
+    host.floatingToolbarScale = scale;
+    document.documentElement.style.setProperty('--touch-toolbar-scale', String(scale));
+    if (valToolbarScale) {
+      valToolbarScale.textContent = `${Math.round(scale * 100)}%`;
+    }
+    if (selToolbarScale) {
+      selToolbarScale.value = String(scale);
+      if (selToolbarScale.selectedIndex === -1) {
+        const opt = document.createElement('option');
+        opt.value = String(scale);
+        opt.textContent = `Custom (${Math.round(scale * 100)}%)`;
+        selToolbarScale.appendChild(opt);
+        selToolbarScale.value = String(scale);
+      }
+    }
+    try {
+      localStorage.setItem('esenho_floating_toolbar_scale', String(scale));
+    } catch (_) {}
+  }
+
+  host.setFloatingToolbarVisible = applyFloatingToolbarVisible;
+  host.onFloatingToolbarVisibleChange = applyFloatingToolbarVisible;
+  host.setFloatingToolbarScale = applyFloatingToolbarScale;
+  host.onFloatingToolbarScaleChange = applyFloatingToolbarScale;
+
+  if (chkFloatingToolbar) {
+    chkFloatingToolbar.addEventListener('change', () => applyFloatingToolbarVisible(chkFloatingToolbar.checked));
+  }
+  if (selToolbarScale) {
+    selToolbarScale.addEventListener('change', () => applyFloatingToolbarScale(selToolbarScale.value));
+  }
+
+  const savedToolbarShow = localStorage.getItem('esenho_show_floating_toolbar') !== '0';
+  applyFloatingToolbarVisible(savedToolbarShow);
+
+  const savedToolbarScale = localStorage.getItem('esenho_floating_toolbar_scale') || '1.0';
+  applyFloatingToolbarScale(savedToolbarScale);
+
+  // Bottom Dock quick buttons toggle
+  const chkDockToolstrip = document.getElementById('ui-chk-dock-toolstrip');
+  const btnToggleDockStrip = document.getElementById('btn-toggle-dock-strip');
+
+  function applyDockToolstripVisible(show) {
+    host.showDockToolstrip = !!show;
+    if (bottomDock) {
+      bottomDock.classList.toggle('collapsed', !show);
+    }
+    if (chkDockToolstrip) {
+      chkDockToolstrip.checked = !!show;
+    }
+    if (btnToggleDockStrip) {
+      btnToggleDockStrip.title = show ? 'Hide Quick Buttons' : 'Show Quick Buttons';
+    }
+    try {
+      localStorage.setItem('esenho_show_dock_toolstrip', show ? '1' : '0');
+    } catch (_) {}
+    if (typeof resize === 'function') resize();
+  }
+
+  host.setDockToolstripVisible = applyDockToolstripVisible;
+  host.onDockToolstripVisibleChange = applyDockToolstripVisible;
+
+  if (chkDockToolstrip) {
+    chkDockToolstrip.addEventListener('change', () => applyDockToolstripVisible(chkDockToolstrip.checked));
+  }
+  if (btnToggleDockStrip) {
+    const handleToggleClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerHaptic(10);
+      applyDockToolstripVisible(bottomDock.classList.contains('collapsed'));
+    };
+    btnToggleDockStrip.addEventListener('click', handleToggleClick);
+    btnToggleDockStrip.addEventListener('pointerdown', (e) => { e.stopPropagation(); });
+    btnToggleDockStrip.addEventListener('touchstart', (e) => { e.stopPropagation(); }, { passive: true });
+  }
+
+  const savedDockShow = localStorage.getItem('esenho_show_dock_toolstrip') !== '0';
+  applyDockToolstripVisible(savedDockShow);
+
   // ── UI Scale / DPI Adaptation ──
   function getAutoUiScale() {
     const dpr = window.devicePixelRatio || 1;
@@ -4463,10 +4624,10 @@ function updateDockTabs() {}
     });
 
     // Sync Bottom Dock Mode & Tool Buttons
-    document.querySelectorAll('#bottom-dock-toolstrip .dock-mode-btn').forEach(btn => {
+    document.querySelectorAll('#bottom-dock .dock-mode-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.actionmode === curActionMode);
     });
-    document.querySelectorAll('#bottom-dock-toolstrip .dock-tool-btn').forEach(btn => {
+    document.querySelectorAll('#bottom-dock .dock-tool-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tool === curToolName);
     });
 
@@ -4498,7 +4659,7 @@ function updateDockTabs() {}
       setSlider('ui-slider-flow', 'ui-val-flow', bp.flow, '%');
       syncTbDynamicSlot();
       setSlider('ui-slider-spacing', 'ui-val-spacing', bp.spacing, '%');
-      setSlider('ui-slider-smoothing', 'ui-val-smoothing', bp.smoothing || 0, '%');
+      setSlider('ui-slider-smoothing', 'ui-val-smoothing', bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0), '%');
       setSlider('ui-slider-midpoint', 'ui-val-midpoint', bp.midpoint !== undefined ? bp.midpoint : 50, '%');
       setSlider('ui-slider-angle', 'ui-val-angle', bp.angle, '°');
       setSlider('ui-slider-roundness', 'ui-val-roundness', bp.roundness, '%');
@@ -4551,6 +4712,18 @@ function updateDockTabs() {}
       const selScale = document.getElementById('ui-select-scale');
       if (selScale && host.uiScale) {
         selScale.value = host.uiScale;
+      }
+      const chkFT = document.getElementById('ui-chk-floating-toolbar');
+      if (chkFT && host.showFloatingToolbar !== undefined) {
+        chkFT.checked = !!host.showFloatingToolbar;
+      }
+      const chkDT = document.getElementById('ui-chk-dock-toolstrip');
+      if (chkDT && host.showDockToolstrip !== undefined) {
+        chkDT.checked = !!host.showDockToolstrip;
+      }
+      const selTS = document.getElementById('ui-select-toolbar-scale');
+      if (selTS && host.floatingToolbarScale !== undefined && document.activeElement !== selTS) {
+        selTS.value = String(host.floatingToolbarScale);
       }
     }
 
@@ -5402,7 +5575,7 @@ function ensureUiPanel() {
     #ui-panel.hidden > *:not(#toggle-ui) { display: none !important; }
     /* ── Mobile Unified Bottom Dock & Drawer Tabs ── */
     #bottom-dock { display: none; }
-    @media (max-width: 768px), (max-aspect-ratio: 3/4) {
+    @media (max-width: 768px) {
       #layout { flex-direction: column; position: relative; height: 100vh; overflow: hidden; }
       #cvswrap { order: 1; flex: 1; width: 100%; min-height: 0; position: relative; overflow: hidden; }
       #toggle-ui, #toggle-panel { display: none !important; }
@@ -5510,7 +5683,7 @@ function ensureUiPanel() {
             <input type="range" id="ui-slider-spacing" min="1" max="200" value="5">
           </div>
           <div class="ui-control">
-            <div class="ui-label-row"><span>Smoothing</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
+            <div class="ui-label-row"><span>Stabilization</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
             <input type="range" id="ui-slider-smoothing" min="0" max="100" value="0">
           </div>
           <div class="ui-control">
