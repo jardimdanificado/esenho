@@ -1653,7 +1653,7 @@ function updateDockTabs() {}
     e.preventDefault();
   }, { passive: false });
 
-  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo / 4-finger: radial menu ── */
+  /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo ── */
   const touch = {
     prevTouches: null,   /* TouchList snapshot from last event */
     drawing: false,
@@ -1721,89 +1721,6 @@ function updateDockTabs() {}
     } catch (_) {}
   }
 
-  /* ── Radial Pie Menu Controller ── */
-  const radialMenu = document.getElementById('touch-radial-menu');
-  const radialColorPrev = document.getElementById('radial-color-preview');
-  const radialToolLabel = document.getElementById('radial-tool-label');
-  const radialItems = document.querySelectorAll('.radial-item');
-
-  let radialActive = false;
-  let radialCenter = { x: 0, y: 0 };
-  let radialSelectedIndex = -1;
-
-  function openRadialMenu(clientX, clientY) {
-    if (!radialMenu) return;
-    radialCenter = { x: clientX, y: clientY };
-    radialMenu.style.left = `${clientX}px`;
-    radialMenu.style.top = `${clientY}px`;
-    radialMenu.classList.add('active');
-    radialActive = true;
-    radialSelectedIndex = 0; // Default brush
-    highlightRadialItem(0);
-
-    if (radialColorPrev && host.currentColor !== undefined) {
-      const c = host.currentColor;
-      const hex = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF);
-      radialColorPrev.style.background = hex;
-    }
-    triggerHaptic(20);
-  }
-
-  function highlightRadialItem(index) {
-    radialSelectedIndex = index;
-    radialItems.forEach((el, idx) => {
-      const isSel = (idx === index);
-      el.classList.toggle('highlighted', isSel);
-      if (isSel && radialToolLabel) {
-        const span = el.querySelector('span');
-        radialToolLabel.textContent = span ? span.textContent : '';
-      }
-    });
-  }
-
-  function updateRadialFromPos(clientX, clientY) {
-    if (!radialActive) return;
-    const dx = clientX - radialCenter.x;
-    const dy = clientY - radialCenter.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 20) return; // Inside deadzone
-
-    // Angle in degrees [0..360), with 0 at Top (-90 deg in cartesian)
-    let deg = (Math.atan2(dy, dx) * 180 / Math.PI) + 90;
-    if (deg < 0) deg += 360;
-
-    // 8 slices -> 45 deg each (slice 0 centered at 0 deg [-22.5 to 22.5])
-    const sliceIndex = Math.floor((deg + 22.5) / 45) % 8;
-    if (sliceIndex !== radialSelectedIndex) {
-      highlightRadialItem(sliceIndex);
-      triggerHaptic(8);
-    }
-  }
-
-  function closeRadialMenu(commit = true) {
-    if (!radialActive || !radialMenu) return;
-    radialActive = false;
-    radialMenu.classList.remove('active');
-
-    if (commit && radialSelectedIndex >= 0) {
-      const el = radialItems[radialSelectedIndex];
-      if (el) {
-        const type = el.dataset.type;
-        const val = el.dataset.val;
-        if (type === 'tool') {
-          runCmd(`tool ${val}`);
-          const btn = document.querySelector(`.tool-btn[data-tool="${val}"]`);
-          if (btn) btn.click();
-        } else if (type === 'action') {
-          const btn = document.querySelector(`.mode-btn[data-actionmode="${val}"]`);
-          if (btn) btn.click();
-        }
-        triggerHaptic(15);
-      }
-    }
-    radialSelectedIndex = -1;
-  }
-
   /* ── Finger velocity / dynamic pressure tracker ── */
   let lastTouchPoint = null;
   let lastTouchTime = 0;
@@ -1811,21 +1728,6 @@ function updateDockTabs() {}
 
   canvasEl.addEventListener('touchstart', e => {
     e.preventDefault();
-    if (radialActive) {
-      if (e.touches.length > 0) {
-        updateRadialFromPos(e.touches[0].clientX, e.touches[0].clientY);
-      }
-      return;
-    }
-
-    // 4-finger tap or touch directly opens Radial Menu
-    if (e.touches.length === 4) {
-      let sumX = 0, sumY = 0;
-      for (let i = 0; i < 4; i++) { sumX += e.touches[i].clientX; sumY += e.touches[i].clientY; }
-      openRadialMenu(sumX / 4, sumY / 4);
-      clearPendingTouch();
-      return;
-    }
 
     if (e.touches.length === 1) {
       const t = e.touches[0];
@@ -1963,13 +1865,6 @@ function updateDockTabs() {}
 
   canvasEl.addEventListener('touchmove', e => {
     e.preventDefault();
-
-    if (radialActive) {
-      if (e.touches.length > 0) {
-        updateRadialFromPos(e.touches[0].clientX, e.touches[0].clientY);
-      }
-      return;
-    }
 
     if (e.touches.length === 1 && !touch.tapGesture) {
       const { sx, sy, x, y } = touchDocPos(e.touches[0]);
@@ -2139,11 +2034,6 @@ function updateDockTabs() {}
   canvasEl.addEventListener('touchend', e => {
     e.preventDefault();
 
-    if (radialActive) {
-      closeRadialMenu(true);
-      return;
-    }
-
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
@@ -2212,9 +2102,7 @@ function updateDockTabs() {}
       if (e.touches.length === 0) {
         const elapsed = Date.now() - touch.tapGesture.time;
         if (!touch.tapGesture.moved && elapsed < 400) {
-          if (touch.tapGesture.maxFingers >= 4) {
-            openRadialMenu(window.innerWidth / 2, window.innerHeight / 2);
-          } else if (touch.tapGesture.maxFingers === 3) {
+          if (touch.tapGesture.maxFingers === 3) {
             host.redo();
             triggerHaptic(15);
             log('Redo (3-finger tap)');
@@ -2233,9 +2121,6 @@ function updateDockTabs() {}
   }, { passive: false });
 
   canvasEl.addEventListener('touchcancel', () => {
-    if (radialActive) {
-      closeRadialMenu(false);
-    }
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
@@ -3076,25 +2961,131 @@ function updateDockTabs() {}
     touchColorCanvas.addEventListener('pointercancel', () => { wheelTracking = false; });
   }
 
-  // Quick Toolstrip in Bottom Dock
+  /* ── Dock Script Runner Modal ── */
+  const dockScriptModal = document.getElementById('dock-script-modal');
+  const btnCloseDockScript = document.getElementById('btn-close-dock-script');
+  const dockScriptList = document.getElementById('dock-script-list');
+
+  function openDockScriptModal() {
+    if (!dockScriptModal || !dockScriptList) return;
+    dockScriptList.innerHTML = '';
+    const scripts = getSavedScripts();
+    scripts.forEach(s => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'dock-script-item';
+      item.textContent = s.name;
+      item.addEventListener('click', () => {
+        closeDockScriptModal();
+        runScriptCode(s.code);
+        triggerHaptic(15);
+      });
+      dockScriptList.appendChild(item);
+    });
+    dockScriptModal.classList.add('active');
+    triggerHaptic(10);
+  }
+
+  function closeDockScriptModal() {
+    if (dockScriptModal) dockScriptModal.classList.remove('active');
+  }
+
+  if (btnCloseDockScript) {
+    btnCloseDockScript.addEventListener('click', closeDockScriptModal);
+  }
+  if (dockScriptModal) {
+    dockScriptModal.addEventListener('click', e => {
+      if (e.target === dockScriptModal) closeDockScriptModal();
+    });
+  }
+
   // Quick Toolstrip in Bottom Dock
   const dockStripBtns = document.querySelectorAll('#bottom-dock-toolstrip .dock-strip-btn');
   dockStripBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       triggerHaptic(10);
       const tool = btn.dataset.tool;
-      const action = btn.dataset.actionmode;
+      const actionmode = btn.dataset.actionmode;
+      const dockaction = btn.dataset.dockaction;
       if (tool) {
         runCmd(`tool ${tool}`);
         const panelBtn = document.querySelector(`.tool-btn[data-tool="${tool}"]`);
         if (panelBtn) panelBtn.click();
-      } else if (action) {
-        runCmd(`mode ${action}`);
-        const modeBtn = document.querySelector(`.mode-btn[data-actionmode="${action}"]`);
+      } else if (actionmode) {
+        runCmd(`mode ${actionmode}`);
+        const modeBtn = document.querySelector(`.mode-btn[data-actionmode="${actionmode}"]`);
         if (modeBtn) modeBtn.click();
+      } else if (dockaction) {
+        if (dockaction === 'copy') {
+          runCmd('copy');
+        } else if (dockaction === 'cut') {
+          runCmd('cut');
+        } else if (dockaction === 'deselect') {
+          runCmd('deselect');
+        } else if (dockaction === 'apply_xform') {
+          runCmd('transform apply');
+        } else if (dockaction === 'cancel_xform') {
+          runCmd('transform cancel');
+        } else if (dockaction === 'run_script') {
+          openDockScriptModal();
+        }
       }
     });
   });
+
+  function dumpCurrentToolScript(name) {
+    const bp = host.brushParams || {};
+    const lines = [
+      `# Tool Preset: ${name}`,
+      `set action_mode ${host.actionMode || 'draw'}`,
+      `set mode ${host.activeToolName || 'brush'}`,
+    ];
+    if (host.currentColor !== undefined) {
+      const c = host.currentColor;
+      const hex = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF);
+      lines.push(`set color ${hex}`);
+    }
+    if (bp.size !== undefined) lines.push(`brush size ${bp.size}`);
+    if (bp.opacity !== undefined) lines.push(`brush opacity ${bp.opacity}`);
+    if (bp.flow !== undefined) lines.push(`brush flow ${bp.flow}`);
+    if (bp.hardness !== undefined) lines.push(`brush hardness ${bp.hardness}`);
+    if (bp.spacing !== undefined) lines.push(`set spacing ${bp.spacing}`);
+    if (bp.smoothing !== undefined) lines.push(`brush smooth ${bp.smoothing}`);
+    if (bp.midpoint !== undefined) lines.push(`set midpoint ${bp.midpoint}`);
+    if (bp.angle !== undefined) lines.push(`set angle ${bp.angle}`);
+    if (bp.roundness !== undefined) lines.push(`set roundness ${bp.roundness}`);
+    if (bp.scatter !== undefined) lines.push(`set scatter ${bp.scatter}`);
+    if (bp.smudge !== undefined) lines.push(`set smudge ${bp.smudge}`);
+    if (bp.wetness !== undefined) lines.push(`set wetness ${bp.wetness}`);
+    if (bp.depletion !== undefined) lines.push(`set depletion ${bp.depletion}`);
+    if (bp.color_pickup !== undefined) lines.push(`set color_pickup ${bp.color_pickup}`);
+    if (bp.velocity !== undefined) lines.push(`set velocity ${bp.velocity}`);
+    if (bp.taper_in !== undefined) lines.push(`set taper_in ${bp.taper_in}`);
+    if (bp.fade !== undefined) lines.push(`set fade ${bp.fade}`);
+    if (bp.tolerance !== undefined) lines.push(`set tolerance ${bp.tolerance}`);
+    if (bp.size_jitter !== undefined) lines.push(`set size_jitter ${bp.size_jitter}`);
+    if (bp.angle_jitter !== undefined) lines.push(`set angle_jitter ${bp.angle_jitter}`);
+    if (bp.opacity_jitter !== undefined) lines.push(`set opacity_jitter ${bp.opacity_jitter}`);
+    if (bp.color_jitter !== undefined) lines.push(`set color_jitter ${bp.color_jitter}`);
+    if (bp.grain !== undefined) lines.push(`set grain ${bp.grain}`);
+    if (bp.texture_scale !== undefined) lines.push(`set texture_scale ${bp.texture_scale}`);
+    if (bp.texture_rotate !== undefined) lines.push(`set texture_rotate ${bp.texture_rotate}`);
+    if (bp.texture_contrast !== undefined) lines.push(`set texture_contrast ${bp.texture_contrast}`);
+    if (bp.dual_size !== undefined) lines.push(`set dual_size ${bp.dual_size}`);
+    if (bp.dual_spacing !== undefined) lines.push(`set dual_spacing ${bp.dual_spacing}`);
+    if (bp.auto_rotate !== undefined) lines.push(`set auto_rotate ${bp.auto_rotate ? 1 : 0}`);
+    if (bp.subpixel !== undefined) lines.push(`set subpixel ${bp.subpixel ? 1 : 0}`);
+    if (bp.pressure_size !== undefined) lines.push(`set pressure_size ${bp.pressure_size ? 1 : 0}`);
+    if (bp.pressure_flow !== undefined) lines.push(`set pressure_flow ${bp.pressure_flow ? 1 : 0}`);
+    if (bp.tilt_angle !== undefined) lines.push(`set tilt_angle ${bp.tilt_angle ? 1 : 0}`);
+    if (bp.dab_blend !== undefined) {
+      const blendNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
+      lines.push(`set dab_blend ${blendNames[bp.dab_blend] || 'normal'}`);
+    }
+    if (bp.symmetry !== undefined) lines.push(`set symmetry ${bp.symmetry}`);
+    if (host.activeTexture) lines.push(`set texture ${host.activeTexture}`);
+    return lines.join('\n');
+  }
 
   if (touchToolbar) {
     // Show only on mobile
@@ -3161,7 +3152,8 @@ function updateDockTabs() {}
       script: { type: 'select_script' },
       dab_blend: { type: 'select_dab_blend' },
       symmetry: { type: 'select_symmetry' },
-      dual_shape: { type: 'select_dual_shape' }
+      dual_shape: { type: 'select_dual_shape' },
+      save_tool: { type: 'save_tool' }
     };
 
     const tbParamSelect = document.getElementById('tb-param-select');
@@ -3393,6 +3385,26 @@ function updateDockTabs() {}
           triggerHaptic(10);
         });
         tbDynamicSlot.appendChild(sel);
+      } else if (cfg.type === 'save_tool') {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'tb-btn';
+        btn.style.borderRadius = '0';
+        btn.textContent = '💾 Save Script';
+        btn.addEventListener('click', () => {
+          const name = window.prompt('Enter script name for current tool:');
+          if (name && name.trim()) {
+            const trimmed = name.trim().replace(/\s+/g, '_');
+            const scriptCode = dumpCurrentToolScript(trimmed);
+            const list = getSavedScripts().filter(s => s.name !== trimmed);
+            list.push({ name: trimmed, code: scriptCode });
+            saveScriptsList(list);
+            populateScriptSelect();
+            log(`Saved tool script: ${trimmed}`);
+            triggerHaptic(20);
+          }
+        });
+        tbDynamicSlot.appendChild(btn);
       }
     }
 
@@ -4388,10 +4400,6 @@ function updateDockTabs() {}
       // Sync floating toolbar color swatch
       const tbSwatch = document.getElementById('tb-color-swatch');
       if (tbSwatch) tbSwatch.style.background = hex;
-
-      // Sync radial menu preview
-      const radPrev = document.getElementById('radial-color-preview');
-      if (radPrev) radPrev.style.background = hex;
 
       // Sync touch color modal hex
       const tHex = document.getElementById('touch-color-hex');

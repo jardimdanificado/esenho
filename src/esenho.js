@@ -2582,14 +2582,18 @@ const COMMAND_RULES = [
   {
     pat: "reset cache",
     run: (m, host) => {
-      host.sendConsoleLog('clearing cache and reloading...');
-      if ('caches' in self || 'caches' in window) {
-        const c = typeof caches !== 'undefined' ? caches : window.caches;
-        c.keys().then((names) => Promise.all(names.map((n) => c.delete(n)))).then(() => {
-          location.reload(true);
+      host.sendConsoleLog('clearing cache and returning to launcher...');
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.clear();
+        if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+      } catch (_) {}
+      const targetUrl = (typeof window !== 'undefined' && window.location) ? 'index.html' : null;
+      if (typeof caches !== 'undefined') {
+        caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n)))).finally(() => {
+          if (targetUrl) window.location.href = targetUrl;
         });
-      } else {
-        location.reload(true);
+      } else if (targetUrl) {
+        window.location.href = targetUrl;
       }
     }
   },

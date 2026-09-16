@@ -920,19 +920,21 @@
         display: flex;
         align-items: center;
         gap: 2px;
-        position: absolute;
+        position: fixed;
         top: 8px;
         left: 50%;
         transform: translateX(-50%);
-        z-index: 30;
+        z-index: 999;
         background: rgba(30, 30, 30, 0.95);
         border: 1px solid #504945;
-        border-radius: 6px;
+        border-radius: 0;
         padding: 2px 4px;
-        height: 34px;
+        height: 32px;
+        width: max-content;
         max-width: calc(100vw - 8px);
         box-sizing: border-box;
-        overflow-x: auto;
+        overflow: visible;
+        white-space: nowrap;
         scrollbar-width: none;
         backdrop-filter: blur(8px);
         -webkit-backdrop-filter: blur(8px);
@@ -947,7 +949,7 @@
       }
       .tb-drag-handle {
         width: 14px;
-        height: 26px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -966,7 +968,7 @@
         background: #3c3836;
         color: #ebdbb2;
         border: 1px solid #504945;
-        border-radius: 3px;
+        border-radius: 0;
         width: 22px;
         height: 22px;
         font-size: 11px;
@@ -994,7 +996,7 @@
         width: 18px;
         height: 18px;
         border: 1.5px solid #665c54;
-        border-radius: 3px;
+        border-radius: 0;
         flex-shrink: 0;
         cursor: pointer;
         touch-action: manipulation;
@@ -1003,12 +1005,12 @@
         background: #282828;
         color: #fabd2f;
         border: 1px solid #504945;
-        border-radius: 3px;
+        border-radius: 0;
         font-size: 10px;
         font-weight: bold;
         height: 22px;
-        width: 72px;
-        max-width: 72px;
+        width: 58px;
+        max-width: 58px;
         padding: 0 2px;
         cursor: pointer;
         outline: none;
@@ -1024,7 +1026,7 @@
         flex-shrink: 0;
       }
       .tb-mini-slider {
-        width: 44px;
+        width: 20px;
         height: 4px;
         accent-color: #fe8019;
         cursor: pointer;
@@ -1035,7 +1037,7 @@
         color: #ebdbb2;
         font-weight: bold;
         font-size: 9px;
-        min-width: 18px;
+        min-width: 14px;
         text-align: right;
       }
       .tb-chk-label {
@@ -1059,11 +1061,11 @@
         background: #282828;
         color: #ebdbb2;
         border: 1px solid #504945;
-        border-radius: 3px;
+        border-radius: 0;
         font-size: 9px;
         height: 22px;
         padding: 0 2px;
-        max-width: 78px;
+        max-width: 64px;
         outline: none;
         cursor: pointer;
         touch-action: manipulation;
@@ -1085,25 +1087,36 @@
       .layer-btn-vis {
         width: 40px !important;
         height: 40px !important;
-        font-size: 18px !important;
+        font-size: 16px !important;
+        touch-action: manipulation;
       }
-      .layer-btn-action {
-        width: 32px !important;
-        height: 32px !important;
-        font-size: 14px !important;
+      .layer-btn-del {
+        width: 36px !important;
+        height: 36px !important;
+        touch-action: manipulation;
+      }
+      .layer-btn-up, .layer-btn-down, .layer-btn-alock, .layer-btn-clip, .layer-btn-merge {
+        min-width: 36px !important;
+        height: 36px !important;
+        touch-action: manipulation;
+      }
+      .layer-tag {
+        font-size: 11px !important;
+        padding: 4px 6px !important;
+        height: 32px;
+        display: flex;
+        align-items: center;
       }
       .layer-pill {
-        height: 26px !important;
+        padding: 4px 6px !important;
         font-size: 10px !important;
-        padding: 0 6px !important;
-        line-height: 24px !important;
+        height: 32px;
+        display: flex;
+        align-items: center;
       }
-      .layer-name-text {
-        font-size: 13px !important;
-      }
-      .layer-select-blend {
-        height: 26px !important;
-        font-size: 10px !important;
+      .layer-sel-blend {
+        height: 34px !important;
+        font-size: 11px !important;
       }
       .layer-cell-actions {
         gap: 4px !important;
@@ -1149,105 +1162,66 @@
       }
     }
 
-    /* ── Touch Radial Menu (Pie Menu) ── */
-    #touch-radial-menu {
-      position: fixed;
-      width: 220px;
-      height: 220px;
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 10000;
-      transform: translate(-50%, -50%) scale(0.6);
-      opacity: 0;
-      transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.15s ease;
+    /* ── Dock Script Selector Modal ── */
+    #dock-script-modal {
       display: none;
-    }
-    #touch-radial-menu.active {
-      display: block;
-      opacity: 1;
-      transform: translate(-50%, -50%) scale(1);
-    }
-    .radial-backdrop {
-      position: absolute;
+      position: fixed;
       inset: 0;
-      border-radius: 50%;
-      background: rgba(29, 32, 33, 0.92);
-      border: 2px solid #504945;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(251, 241, 199, 0.1);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: rgba(0,0,0,0.65);
+      z-index: 10001;
+      align-items: center;
+      justify-content: center;
     }
-    .radial-center {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
+    #dock-script-modal.active {
+      display: flex;
+    }
+    .dock-script-content {
+      background: #1d2021;
+      border: 1px solid #504945;
+      width: 90%;
+      max-width: 320px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+    }
+    .dock-script-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
       background: #282828;
-      border: 2px solid #ebdbb2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-      z-index: 5;
-    }
-    .radial-center-color {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      border: 1px solid #504945;
-      background: #ebdbb2;
-    }
-    .radial-center-label {
-      font-size: 8px;
+      border-bottom: 1px solid #3c3836;
       font-weight: bold;
+      font-size: 12px;
       color: #fabd2f;
-      margin-top: 2px;
-      text-transform: uppercase;
-      max-width: 48px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
-    .radial-item {
-      position: absolute;
-      width: 44px;
-      height: 44px;
-      margin-left: -22px;
-      margin-top: -22px;
-      border-radius: 50%;
-      background: #32302f;
-      border: 1px solid #504945;
-      color: #ebdbb2;
+    .dock-script-list {
+      padding: 8px;
       display: flex;
       flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      max-height: 60vh;
+    }
+    .dock-script-item {
+      background: #282828;
+      border: 1px solid #3c3836;
+      color: #ebdbb2;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: bold;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
       align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      user-select: none;
-      transition: background 0.1s, transform 0.1s, border-color 0.1s;
-      z-index: 4;
+      justify-content: space-between;
     }
-    .radial-item span {
-      font-size: 8px;
-      line-height: 1;
-      margin-top: 2px;
-      color: #a89984;
-    }
-    .radial-item.highlighted {
+    .dock-script-item:active {
       background: #fabd2f;
       color: #1d2021;
-      border-color: #fbf1c7;
-      transform: scale(1.18);
-      box-shadow: 0 0 12px rgba(250, 189, 47, 0.6);
     }
-    .radial-item.highlighted span {
-      color: #1d2021;
-      font-weight: bold;
-    }
+
 
     /* ── Bottom Dock Quick Tool Strip ── */
     #bottom-dock-toolstrip {
@@ -1281,12 +1255,12 @@
     }
     .dock-strip-btn {
       flex-shrink: 0;
-      min-width: 40px;
-      height: 32px;
+      min-width: 38px;
+      height: 30px;
       padding: 0 6px;
       background: #282828;
       border: 1px solid #3c3836;
-      border-radius: 3px;
+      border-radius: 0;
       color: #ebdbb2;
       font: inherit;
       font-size: 11px;
@@ -1461,86 +1435,71 @@
     <div id="cvs-status-bar">
       <span id="wstatus">ready</span>
     </div>
-    <!-- Touch: Radial Menu (Pie Menu) -->
-    <div id="touch-radial-menu">
-      <div class="radial-backdrop"></div>
-      <div class="radial-center">
-        <div class="radial-center-color" id="radial-color-preview"></div>
-        <div class="radial-center-label" id="radial-tool-label">BRUSH</div>
-      </div>
-      <!-- 8 radial items calculated around 360 deg -->
-      <div class="radial-item" data-index="0" data-type="tool" data-val="brush" style="left: 110px; top: 22px;">✎<span>Brush</span></div>
-      <div class="radial-item" data-index="1" data-type="action" data-val="erase" style="left: 172px; top: 48px;">⌫<span>Erase</span></div>
-      <div class="radial-item" data-index="2" data-type="action" data-val="smudge" style="left: 198px; top: 110px;">≈<span>Smudge</span></div>
-      <div class="radial-item" data-index="3" data-type="tool" data-val="fill" style="left: 172px; top: 172px;">▨<span>Fill</span></div>
-      <div class="radial-item" data-index="4" data-type="tool" data-val="picker" style="left: 110px; top: 198px;">⊙<span>Picker</span></div>
-      <div class="radial-item" data-index="5" data-type="tool" data-val="lasso_fill" style="left: 48px; top: 172px;">⚲<span>Lasso</span></div>
-      <div class="radial-item" data-index="6" data-type="action" data-val="select" style="left: 22px; top: 110px;">⬚<span>Select</span></div>
-      <div class="radial-item" data-index="7" data-type="tool" data-val="rect" style="left: 48px; top: 48px;">▭<span>Rect</span></div>
-    </div>
-    <!-- Touch: Floating toolbar (mobile only, hidden on desktop via CSS) -->
-    <div id="touch-toolbar" style="display: none;">
-      <div class="tb-drag-handle" id="tb-drag-handle" title="Drag Toolbar">⠿</div>
-      <button type="button" class="tb-btn" id="tb-undo" title="Undo (2-finger tap)">↶</button>
-      <button type="button" class="tb-btn" id="tb-redo" title="Redo (3-finger tap)">↷</button>
-      <div class="tb-sep"></div>
-      <div class="tb-color-swatch" id="tb-color-swatch" title="Touch Color Picker"></div>
-      <div class="tb-sep"></div>
-      <select id="tb-param-select" class="tb-param-select" title="Brush Parameter">
-        <optgroup label="Main Controls">
-          <option value="size" selected>Size</option>
-          <option value="opacity">Opacity</option>
-          <option value="flow">Flow</option>
-          <option value="hardness">Hardness</option>
-          <option value="spacing">Spacing</option>
-          <option value="smoothing">Smooth</option>
-          <option value="midpoint">Midpoint</option>
-          <option value="angle">Angle</option>
-          <option value="roundness">Round</option>
-          <option value="scatter">Scatter</option>
-        </optgroup>
-        <optgroup label="Special & Presets">
-          <option value="tip">★ Tip</option>
-          <option value="grain_tex">★ Grain</option>
-          <option value="script">★ Script</option>
-          <option value="dab_blend">Blend</option>
-          <option value="symmetry">Symmetry</option>
-          <option value="dual_shape">Dual</option>
-        </optgroup>
-        <optgroup label="Wet Media & Dynamics">
-          <option value="smudge">Smudge</option>
-          <option value="wetness">Wetness</option>
-          <option value="depletion">Deplete</option>
-          <option value="color_pickup">Pickup</option>
-          <option value="velocity">Velocity</option>
-          <option value="taper_in">Taper</option>
-          <option value="fade">Fade</option>
-          <option value="tolerance">Fill Tol</option>
-        </optgroup>
-        <optgroup label="Jitter">
-          <option value="size_jitter">Size Jitter</option>
-          <option value="angle_jitter">Ang Jitter</option>
-          <option value="opacity_jitter">Op Jitter</option>
-          <option value="color_jitter">Col Jitter</option>
-        </optgroup>
-        <optgroup label="Texture & Dual">
-          <option value="grain">Noise</option>
-          <option value="texture_scale">Tex Scale</option>
-          <option value="texture_rotate">Tex Rot</option>
-          <option value="texture_contrast">Tex Cont</option>
-          <option value="dual_size">Dual Size</option>
-          <option value="dual_spacing">Dual Spc</option>
-        </optgroup>
-        <optgroup label="Switches">
-          <option value="auto_rotate">Auto-Rot</option>
-          <option value="subpixel">Subpixel</option>
-          <option value="pressure_size">Press Size</option>
-          <option value="pressure_flow">Press Flow</option>
-          <option value="tilt_angle">Tilt Ang</option>
-        </optgroup>
-      </select>
-      <div id="tb-dynamic-slot" class="tb-dynamic-slot"></div>
-    </div>
+  </div>
+
+  <!-- Touch: Floating toolbar (mobile only, hidden on desktop via CSS) -->
+  <div id="touch-toolbar" style="display: none;">
+    <div class="tb-drag-handle" id="tb-drag-handle" title="Drag Toolbar">⠿</div>
+    <button type="button" class="tb-btn" id="tb-undo" title="Undo (2-finger tap)">↶</button>
+    <button type="button" class="tb-btn" id="tb-redo" title="Redo (3-finger tap)">↷</button>
+    <div class="tb-sep"></div>
+    <div class="tb-color-swatch" id="tb-color-swatch" title="Touch Color Picker"></div>
+    <div class="tb-sep"></div>
+    <select id="tb-param-select" class="tb-param-select" title="Brush Parameter">
+      <optgroup label="Main Controls">
+        <option value="size" selected>Size</option>
+        <option value="opacity">Opacity</option>
+        <option value="flow">Flow</option>
+        <option value="hardness">Hardness</option>
+        <option value="spacing">Spacing</option>
+        <option value="smoothing">Smooth</option>
+        <option value="midpoint">Midpoint</option>
+        <option value="angle">Angle</option>
+        <option value="roundness">Round</option>
+        <option value="scatter">Scatter</option>
+      </optgroup>
+      <optgroup label="Presets & Scripts">
+        <option value="tip">★ Tip</option>
+        <option value="grain_tex">★ Grain</option>
+        <option value="script">★ Script</option>
+        <option value="save_tool">★ Save Tool</option>
+        <option value="dab_blend">Blend</option>
+        <option value="symmetry">Symmetry</option>
+        <option value="dual_shape">Dual</option>
+      </optgroup>
+      <optgroup label="Wet Media & Dynamics">
+        <option value="smudge">Smudge</option>
+        <option value="wetness">Wetness</option>
+        <option value="depletion">Deplete</option>
+        <option value="color_pickup">Pickup</option>
+        <option value="velocity">Velocity</option>
+        <option value="taper_in">Taper</option>
+        <option value="fade">Fade</option>
+        <option value="tolerance">Fill Tol</option>
+      </optgroup>
+      <optgroup label="Jitter">
+        <option value="size_jitter">Size Jitter</option>
+        <option value="angle_jitter">Ang Jitter</option>
+        <option value="opacity_jitter">Op Jitter</option>
+        <option value="color_jitter">Col Jitter</option>
+      </optgroup>
+      <optgroup label="Texture & Dual">
+        <option value="grain">Noise</option>
+        <option value="texture_scale">Tex Scale</option>
+        <option value="texture_rotate">Tex Rot</option>
+        <option value="texture_contrast">Tex Cont</option>
+        <option value="dual_size">Dual Size</option>
+        <option value="dual_spacing">Dual Spc</option>
+      </optgroup>
+      <optgroup label="Switches">
+        <option value="auto_rotate">Auto-Rot</option>
+        <option value="subpixel">Subpixel</option>
+        <option value="pressure_size">Press Size</option>
+        <option value="pressure_flow">Press Flow</option>
+        <option value="tilt_angle">Tilt Ang</option>
+      </optgroup>
+    </select>
+    <div id="tb-dynamic-slot" class="tb-dynamic-slot"></div>
   </div>
 
   <!-- ── Mobile Unified Bottom Dock & Drawer Tabs ── -->
@@ -1562,7 +1521,26 @@
       <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">╱ Line</button>
       <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">▭ Rect</button>
       <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">⬭ Ellipse</button>
+      <div class="dock-strip-sep"></div>
+      <span class="dock-strip-label">ACTION</span>
+      <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="copy" title="Copy selection">⎘ Copy</button>
+      <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cut" title="Cut selection">✂ Cut</button>
+      <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="deselect" title="Deselect">✕ Desel</button>
+      <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="apply_xform" title="Apply transform">✓ Apply</button>
+      <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cancel_xform" title="Cancel transform">⃠ Cancel</button>
+      <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="run_script" title="Run Script">▶ Script</button>
     </div>
+
+  <!-- ── Dock Script Selector Modal ── -->
+  <div id="dock-script-modal">
+    <div class="dock-script-content">
+      <div class="dock-script-header">
+        <span>RUN SCRIPT</span>
+        <button type="button" id="btn-close-dock-script" class="tb-btn" style="border-radius:0;">✕</button>
+      </div>
+      <div id="dock-script-list" class="dock-script-list"></div>
+    </div>
+  </div>
 
   <!-- ── Full UI Panel (Right) ── -->
   <div id="ui-panel">
