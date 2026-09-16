@@ -814,6 +814,8 @@
 
     #bottom-dock.collapsed #bottom-dock-nav,
     #bottom-dock.collapsed #bottom-dock-panels,
+    #bottom-dock.collapsed #bottom-dock-bars,
+    #bottom-dock.collapsed #bottom-dock-paramstrip,
     #bottom-dock.collapsed #bottom-dock-quickstrip,
     #bottom-dock.collapsed #bottom-dock-toolstrip {
       display: none !important;
@@ -982,107 +984,63 @@
         -webkit-overflow-scrolling: touch;
       }
 
-      /* ── Floating Touch Toolbar ── */
-      #touch-toolbar {
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        position: fixed;
-        top: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 999;
-        background: rgba(30, 30, 30, 0.95);
-        border: 1px solid #504945;
-        border-radius: 0;
-        padding: 2px 4px;
-        height: 32px;
-        width: max-content;
-        max-width: calc(100vw - 8px);
-        box-sizing: border-box;
-        overflow: visible;
-        white-space: nowrap;
-        scrollbar-width: none;
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        box-shadow: 0 4px 14px rgba(0,0,0,0.5);
-        opacity: 0.94;
-        transition: opacity 0.2s;
-        touch-action: none;
-        zoom: var(--touch-toolbar-scale, 1);
-      }
-      #touch-toolbar.hidden {
-        display: none !important;
-      }
-      #touch-toolbar::-webkit-scrollbar { display: none; }
-      #touch-toolbar:active, #touch-toolbar:hover {
-        opacity: 1;
-      }
-      .tb-drag-handle {
-        width: 14px;
-        height: 24px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 11px;
-        color: #928374;
-        cursor: grab;
-        flex-shrink: 0;
-        touch-action: none;
-        user-select: none;
-      }
-      .tb-drag-handle:active {
-        cursor: grabbing;
-        color: #fabd2f;
-      }
-      #touch-toolbar .tb-btn {
-        background: #3c3836;
+      /* ── Docked Quick Toolbar Elements ── */
+      .tb-btn {
+        background: #282828;
         color: #ebdbb2;
-        border: 1px solid #504945;
+        border: 1px solid #3c3836;
         border-radius: 0;
-        width: 22px;
-        height: 22px;
-        font-size: 11px;
+        min-width: 28px;
+        height: 28px;
+        font-size: 13px;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
         touch-action: manipulation;
         flex-shrink: 0;
-        padding: 0;
+        padding: 0 5px;
       }
-      #touch-toolbar .tb-btn:active {
+      .tb-btn:hover {
+        background: #3c3836;
+        color: #fabd2f;
+        border-color: #504945;
+      }
+      .tb-btn:active {
         background: #504945;
         color: #fabd2f;
         border-color: #fabd2f;
       }
-      #touch-toolbar .tb-sep {
+      .tb-sep {
         width: 1px;
-        height: 16px;
-        background: #3c3836;
+        height: 20px;
+        background: #504945;
         flex-shrink: 0;
-        margin: 0 1px;
+        margin: 0 4px;
       }
-      #touch-toolbar .tb-color-swatch {
-        width: 18px;
-        height: 18px;
+      .tb-color-swatch {
+        width: 24px;
+        height: 24px;
         border: 1.5px solid #665c54;
         border-radius: 0;
         flex-shrink: 0;
         cursor: pointer;
         touch-action: manipulation;
+        box-sizing: border-box;
+      }
+      .tb-color-swatch:hover {
+        border-color: #fabd2f;
       }
       .tb-param-select {
         background: #282828;
         color: #fabd2f;
         border: 1px solid #504945;
         border-radius: 0;
-        font-size: 10px;
+        font-size: 11px;
         font-weight: bold;
-        height: 22px;
-        width: 58px;
-        max-width: 58px;
-        padding: 0 2px;
+        height: 28px;
+        max-width: 80px;
+        padding: 0 4px;
         cursor: pointer;
         outline: none;
         flex-shrink: 0;
@@ -1090,10 +1048,13 @@
         pointer-events: auto;
         text-overflow: ellipsis;
       }
+      .tb-param-select:hover {
+        border-color: #fabd2f;
+      }
       .tb-dynamic-slot {
         display: flex;
         align-items: center;
-        gap: 2px;
+        gap: 3px;
         flex-shrink: 0;
       }
       .tb-mini-slider {
@@ -1107,19 +1068,21 @@
       .tb-val {
         color: #ebdbb2;
         font-weight: bold;
-        font-size: 9px;
+        font-size: 10px;
         min-width: 14px;
         text-align: right;
       }
       .tb-chk-label {
         display: inline-flex;
         align-items: center;
-        gap: 3px;
+        gap: 4px;
         cursor: pointer;
-        font-size: 9px;
+        font-size: 11px;
         font-weight: bold;
         color: #ebdbb2;
         touch-action: manipulation;
+        height: 28px;
+        padding: 0 4px;
       }
       .tb-chk-label input {
         accent-color: #fabd2f;
@@ -1131,12 +1094,12 @@
       .tb-select {
         background: #282828;
         color: #ebdbb2;
-        border: 1px solid #504945;
+        border: 1px solid #3c3836;
         border-radius: 0;
-        font-size: 9px;
-        height: 22px;
-        padding: 0 2px;
-        max-width: 64px;
+        font-size: 11px;
+        height: 28px;
+        padding: 0 4px;
+        max-width: 120px;
         outline: none;
         cursor: pointer;
         touch-action: manipulation;
@@ -1337,6 +1300,46 @@
       display: flex;
     }
 
+    #bottom-dock-bars {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+    }
+    .dock-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      overflow-x: auto;
+      height: 36px;
+      box-sizing: border-box;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      background: #181a1b;
+      border-bottom: 1px solid #282828;
+      flex-shrink: 0;
+    }
+    .dock-bar-row:first-child {
+      background: #202224;
+    }
+    .dock-bar-row::-webkit-scrollbar { display: none; }
+
+    #bottom-dock-paramstrip {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 6px;
+      overflow-x: auto;
+      height: 36px;
+      box-sizing: border-box;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      background: #202224;
+      border-bottom: 1px solid #282828;
+      flex-shrink: 0;
+    }
+    #bottom-dock-paramstrip::-webkit-scrollbar { display: none; }
+
     #bottom-dock-quickstrip,
     #bottom-dock-toolstrip {
       display: flex;
@@ -1353,6 +1356,128 @@
     }
     #bottom-dock-quickstrip::-webkit-scrollbar,
     #bottom-dock-toolstrip::-webkit-scrollbar { display: none; }
+
+    /* ── Custom Toolbar Manager Modal ── */
+    #toolbar-manager-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 10003;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+      touch-action: auto;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #toolbar-manager-modal.active {
+      display: flex;
+    }
+    .toolbar-mgr-box {
+      width: 100%;
+      max-width: 540px;
+      max-height: 88vh;
+      background: #1d2021;
+      border: 1.5px solid #504945;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.85);
+      color: #ebdbb2;
+      font-size: 11px;
+      touch-action: auto;
+      overflow: hidden;
+    }
+    .toolbar-mgr-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: bold;
+      color: #fabd2f;
+      font-size: 12px;
+      border-bottom: 1px solid #3c3836;
+      padding-bottom: 6px;
+    }
+    .toolbar-mgr-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #282828;
+      border: 1px solid #3c3836;
+      padding: 4px 8px;
+      gap: 6px;
+    }
+
+    /* Slider & Input Widgets for Modular Dockbars */
+    .tb-slider-widget {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 6px;
+      height: 28px;
+      background: #282828;
+      border: 1px solid #3c3836;
+      border-radius: 4px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .tb-slider-widget .dock-strip-slider {
+      width: 70px;
+      accent-color: #fabd2f;
+      cursor: pointer;
+      height: 14px;
+      touch-action: pan-x;
+    }
+    .tb-input-widget {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 0 5px;
+      height: 28px;
+      background: #282828;
+      border: 1px solid #3c3836;
+      border-radius: 4px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .tb-input-widget input[type="number"] {
+      width: 44px;
+      height: 22px;
+      background: #1d2021;
+      border: 1px solid #504945;
+      color: #ebdbb2;
+      font-size: 11px;
+      text-align: center;
+      border-radius: 3px;
+      padding: 0 2px;
+      font-family: inherit;
+    }
+    .tb-input-widget input[type="number"]::-webkit-inner-spin-button,
+    .tb-input-widget input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .toolbar-mgr-item-row:hover {
+      border-color: #504945;
+    }
+    .toolbar-mgr-item-title {
+      flex: 1;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .toolbar-mgr-item-actions {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
 
     .dock-category-select {
       height: 28px;
@@ -1793,112 +1918,50 @@
 
     <!-- ── Bottom Dock & Quick Strip ── -->
     <div id="bottom-dock">
-      <div id="bottom-dock-handle" title="Drag up/down to resize drawer | Click to toggle buttons">
+      <div id="bottom-dock-handle" title="Drag up/down to resize drawer">
         <div class="dock-handle-bar"></div>
+        <button type="button" id="btn-open-toolbar-mgr" class="dock-handle-btn" title="Customize Dock Bars" style="position: absolute; left: 4px; top: 0; bottom: 0; background: transparent; border: none; color: #fabd2f; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; font-weight: bold; font-family: inherit; z-index: 25; padding: 0 8px; touch-action: manipulation;">[ + Custom Bars ]</button>
         <button type="button" id="btn-toggle-dock-strip" class="dock-handle-toggle" title="Toggle Quick Buttons">v</button>
       </div>
-      <div id="bottom-dock-quickstrip">
-        <select id="dock-quick-category" class="dock-category-select" title="Switch Quick Category">
-          <option value="tool" selected>[ Tools ]</option>
-          <option value="mode">[ Mode ]</option>
-          <option value="action">[ Action ]</option>
-        </select>
-        <div class="dock-strip-sep"></div>
-        <div class="dock-group active" id="dock-group-tool">
-          <select id="dock-select-brush-preset" class="dock-strip-select" style="max-width: 120px; font-weight: bold;" title="Brush Preset"></select>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="brush" title="Brush">Brush</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="picker" title="Eyedropper / Color Picker">Picker</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">Line</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">Rect</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">Ellipse</button>
-        </div>
-        <div class="dock-group" id="dock-group-mode">
-          <button type="button" class="dock-strip-btn dock-mode-btn active" data-actionmode="draw" title="Draw Mode">Draw</button>
-          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="erase" title="Erase Mode">Erase</button>
-          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="smudge" title="Smudge Mode">Smudge</button>
-          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="select" title="Select Mode">Select</button>
-        </div>
-        <div class="dock-group" id="dock-group-action">
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="copy" title="Copy selection">Copy</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cut" title="Cut selection">Cut</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="deselect" title="Deselect">Desel</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="apply_xform" title="Apply transform">Apply</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cancel_xform" title="Cancel transform">Cancel</button>
-          <select id="dock-script-select" class="dock-strip-btn dock-strip-select" title="Run Script">
-            <option value="" disabled selected>Script</option>
-          </select>
-        </div>
-      </div>
+
+      <!-- Dynamic Modular Toolbars Container -->
+      <div id="bottom-dock-bars"></div>
     </div>
   </div>
 
-  <!-- Touch: Floating toolbar (mobile only, hidden on desktop via CSS) -->
-  <div id="touch-toolbar" style="display: none;">
-    <div class="tb-drag-handle" id="tb-drag-handle" title="Drag Toolbar">::</div>
-    <button type="button" class="tb-btn" id="tb-undo" title="Undo (2-finger tap)">↶</button>
-    <button type="button" class="tb-btn" id="tb-redo" title="Redo (3-finger tap)">↷</button>
-    <div class="tb-sep"></div>
-    <div class="tb-color-swatch" id="tb-color-swatch" title="Touch Color Picker"></div>
-    <div class="tb-sep"></div>
-    <select id="tb-param-select" class="tb-param-select" title="Brush Parameter">
-      <optgroup label="Main Controls">
-        <option value="size" selected>Size</option>
-        <option value="opacity">Opacity</option>
-        <option value="flow">Flow</option>
-        <option value="hardness">Hardness</option>
-        <option value="spacing">Spacing</option>
-        <option value="smoothing">Stabilize</option>
-        <option value="midpoint">Midpoint</option>
-        <option value="angle">Angle</option>
-        <option value="roundness">Round</option>
-        <option value="scatter">Scatter</option>
-      </optgroup>
-      <optgroup label="Presets & Scripts">
-        <option value="preset">Preset</option>
-        <option value="tip">Tip</option>
-        <option value="grain_tex">Grain</option>
-        <option value="script">Script</option>
-        <option value="save_tool">Save Tool</option>
-        <option value="dab_blend">Blend</option>
-        <option value="symmetry">Symmetry</option>
-        <option value="dual_shape">Dual</option>
-      </optgroup>
-      <optgroup label="Wet Media & Dynamics">
-        <option value="smudge">Smudge</option>
-        <option value="wetness">Wetness</option>
-        <option value="depletion">Deplete</option>
-        <option value="color_pickup">Pickup</option>
-        <option value="velocity">Velocity</option>
-        <option value="taper_in">Taper</option>
-        <option value="fade">Fade</option>
-        <option value="tolerance">Fill Tol</option>
-      </optgroup>
-      <optgroup label="Jitter">
-        <option value="size_jitter">Size Jitter</option>
-        <option value="angle_jitter">Ang Jitter</option>
-        <option value="opacity_jitter">Op Jitter</option>
-        <option value="color_jitter">Col Jitter</option>
-      </optgroup>
-      <optgroup label="Texture & Dual">
-        <option value="grain">Noise</option>
-        <option value="texture_scale">Tex Scale</option>
-        <option value="texture_rotate">Tex Rot</option>
-        <option value="texture_contrast">Tex Cont</option>
-        <option value="dual_size">Dual Size</option>
-        <option value="dual_spacing">Dual Spc</option>
-      </optgroup>
-      <optgroup label="Switches">
-        <option value="auto_rotate">Auto-Rot</option>
-        <option value="subpixel">Subpixel</option>
-        <option value="pressure_size">Press Size</option>
-        <option value="pressure_flow">Press Flow</option>
-        <option value="tilt_angle">Tilt Ang</option>
-      </optgroup>
-    </select>
-    <div id="tb-dynamic-slot" class="tb-dynamic-slot"></div>
+  <!-- ── Custom Toolbar Manager Modal ── -->
+  <div id="toolbar-manager-modal">
+    <div class="toolbar-mgr-box">
+      <div class="toolbar-mgr-header">
+        <span>CUSTOM TOOLBAR MANAGER</span>
+        <button type="button" class="dock-strip-btn" id="btn-close-toolbar-mgr" style="min-width: 24px; height: 24px; padding: 0 6px;">✕</button>
+      </div>
+      <div style="display: flex; gap: 6px; align-items: center;">
+        <label style="font-size: 11px; font-weight: bold; color: #ebdbb2;">Active Bar:</label>
+        <select id="tb-mgr-select-bar" class="ui-select" style="flex: 1; height: 28px;"></select>
+        <button type="button" class="dock-strip-btn" id="tb-mgr-btn-add-bar" title="Add New Custom Bar">+ New Bar</button>
+        <button type="button" class="dock-strip-btn" id="tb-mgr-btn-rename-bar" title="Rename Selected Bar">Rename</button>
+        <button type="button" class="dock-strip-btn" id="tb-mgr-btn-del-bar" title="Delete Selected Bar" style="color: #fb4934;">Del</button>
+      </div>
+      <div style="background: #181a1b; border: 1px solid #3c3836; padding: 8px; display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 10px; font-weight: bold; color: #b8bb26; text-transform: uppercase;">+ Add Item to Selected Bar</div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <select id="tb-mgr-select-new-widget" class="ui-select" style="flex: 1; height: 28px;"></select>
+          <button type="button" class="dock-strip-btn" id="tb-mgr-btn-add-widget" style="background: #fabd2f; color: #1d2021; font-weight: bold;">+ Add</button>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; flex: 1; min-height: 0;">
+        <div style="font-size: 10px; font-weight: bold; color: #ebdbb2; text-transform: uppercase;">Items in Selected Bar (Left to Right):</div>
+        <div id="tb-mgr-items-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; background: #181a1b; border: 1px solid #3c3836; padding: 6px;"></div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #3c3836; padding-top: 8px; margin-top: 4px;">
+        <button type="button" class="dock-strip-btn" id="tb-mgr-btn-reset-default" style="color: #fe8019;">Reset Defaults</button>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="dock-strip-btn" id="tb-mgr-btn-export">Export JSON</button>
+          <button type="button" class="dock-strip-btn" id="tb-mgr-btn-import">Import JSON</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ── Full UI Panel (Right) ── -->
@@ -2372,6 +2435,9 @@
                 <option value="1.75">Extra Large (175%)</option>
                 <option value="2.0">4K / Ultra (200%)</option>
               </select>
+            </div>
+            <div class="ui-control" style="margin-top: 6px;">
+              <button type="button" id="ui-btn-open-toolbar-mgr" class="dock-strip-btn" style="width: 100%; height: 28px; justify-content: center; font-weight: bold; color: #fabd2f; border-color: #fabd2f;">Customize Dock Toolbars...</button>
             </div>
             <div class="ui-control" style="margin-top: 4px;">
               <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">

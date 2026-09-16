@@ -473,7 +473,7 @@ function updateDockTabs() {}
     // Toggle dock drawer on mobile, collapse/expand toolstrip on desktop
     if (dockHandle) {
       dockHandle.addEventListener('click', (e) => {
-        if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle')) return;
+        if (e.target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle')) return;
         if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
         if (isMobile()) {
           const uiEl = document.getElementById('ui-panel');
@@ -585,7 +585,7 @@ function updateDockTabs() {}
     };
 
     const handleDockStart = (clientY, isDirectHandle, target) => {
-      if (target && target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return false;
+      if (target && target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return false;
       if (!isDirectHandle) return false;
       if (!isMobile()) return false;
       const uiEl = document.getElementById('ui-panel');
@@ -601,7 +601,7 @@ function updateDockTabs() {}
 
     bottomDock.addEventListener('pointerdown', e => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return;
+      if (e.target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return;
       const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
       if (!handleDockStart(e.clientY, isDirectHandle, e.target)) return;
       if (isDirectHandle && e.cancelable) e.preventDefault();
@@ -3407,462 +3407,931 @@ function updateDockTabs() {}
     return lines.join('\n');
   }
 
-  if (touchToolbar) {
-    // Show only on mobile
-    const checkToolbarVisibility = () => {
-      touchToolbar.style.display = isMobile() ? 'flex' : 'none';
+  // ── Modular User-Customizable Dock Toolbar System & Arc Dial HUD ──
+
+  // Polar & Arc SVG math helpers for Arc Dial
+  function polarToCartesian(cx, cy, r, angleInDegrees) {
+    const angleInRadians = (angleInDegrees) * Math.PI / 180.0;
+    return {
+      x: cx + (r * Math.cos(angleInRadians)),
+      y: cy + (r * Math.sin(angleInRadians))
     };
-    checkToolbarVisibility();
-    window.addEventListener('resize', checkToolbarVisibility);
+  }
 
-    // Undo / Redo
-    const tbUndo = document.getElementById('tb-undo');
-    const tbRedo = document.getElementById('tb-redo');
-    if (tbUndo) tbUndo.addEventListener('click', handleUndo);
-    if (tbRedo) tbRedo.addEventListener('click', handleRedo);
-
-    // Color swatch: tap opens Touch HSV Color Picker Modal
-    const tbSwatch = document.getElementById('tb-color-swatch');
-    if (tbSwatch) {
-      tbSwatch.addEventListener('click', openTouchColorModal);
+  function describeArc(x, y, radius, startAngle, endAngle) {
+    if (endAngle - startAngle >= 359.99) {
+      endAngle = startAngle + 359.99;
     }
+    const start = polarToCartesian(x, y, radius, startAngle);
+    const end = polarToCartesian(x, y, radius, endAngle);
+    const largeArcFlag = (endAngle - startAngle <= 180) ? "0" : "1";
+    return [
+      "M", start.x, start.y,
+      "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y
+    ].join(" ");
+  }
 
-    // Polar & Arc SVG math helpers for Arc Dial
-    function polarToCartesian(cx, cy, r, angleInDegrees) {
-      const angleInRadians = (angleInDegrees) * Math.PI / 180.0;
-      return {
-        x: cx + (r * Math.cos(angleInRadians)),
-        y: cy + (r * Math.sin(angleInRadians))
-      };
-    }
+  // Parameter Configs for Numerical Parameters and Dials
+  const TB_PARAM_CONFIGS = {
+    size: { type: 'dial', name: 'Brush Size', min: 1, max: 150, step: 1, suffix: 'px', cmd: 'brush size', getter: bp => bp.size, chips: [1, 3, 6, 12, 24, 48, 80, 120] },
+    opacity: { type: 'dial', name: 'Opacity', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush opacity', getter: bp => bp.opacity, chips: [10, 25, 50, 75, 100] },
+    flow: { type: 'dial', name: 'Flow', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow, chips: [10, 25, 50, 75, 100] },
+    hardness: { type: 'dial', name: 'Hardness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness, chips: [0, 25, 50, 75, 100] },
+    spacing: { type: 'dial', name: 'Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing, chips: [1, 5, 10, 25, 50, 100] },
+    stabilization: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
+    smoothing: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
+    midpoint: { type: 'dial', name: 'Midpoint', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50), chips: [10, 25, 50, 75, 90] },
+    angle: { type: 'dial', name: 'Angle', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0, chips: [0, 45, 90, 135, 180, 270] },
+    roundness: { type: 'dial', name: 'Roundness', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100, chips: [20, 35, 50, 75, 100] },
+    scatter: { type: 'dial', name: 'Scatter', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set scatter', getter: bp => bp.scatter || 0, chips: [0, 10, 25, 50, 100] },
+    smudge: { type: 'dial', name: 'Smudge', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set smudge', getter: bp => bp.smudge || 0, chips: [0, 25, 50, 75, 100] },
+    wetness: { type: 'dial', name: 'Wetness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set wetness', getter: bp => bp.wetness || 0, chips: [0, 25, 50, 75, 100] },
+    depletion: { type: 'dial', name: 'Depletion', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set depletion', getter: bp => bp.depletion || 0, chips: [0, 20, 40, 60, 80] },
+    color_pickup: { type: 'dial', name: 'Color Pickup', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_pickup', getter: bp => bp.color_pickup || 0, chips: [0, 25, 50, 75, 100] },
+    velocity: { type: 'dial', name: 'Velocity', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0, chips: [0, 25, 50, 75, 100] },
+    taper_in: { type: 'dial', name: 'Taper In', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0, chips: [0, 20, 50, 100, 200] },
+    fade: { type: 'dial', name: 'Fade', min: 0, max: 2000, step: 20, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0, chips: [0, 100, 300, 600, 1200] },
+    tolerance: { type: 'dial', name: 'Tolerance', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32), chips: [0, 16, 32, 64, 128] },
+    size_jitter: { type: 'dial', name: 'Size Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0, chips: [0, 15, 30, 50, 80] },
+    angle_jitter: { type: 'dial', name: 'Angle Jitter', min: 0, max: 360, step: 1, suffix: '°', cmd: 'set angle_jitter', getter: bp => bp.angle_jitter || 0, chips: [0, 45, 90, 180, 360] },
+    opacity_jitter: { type: 'dial', name: 'Opacity Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set opacity_jitter', getter: bp => bp.opacity_jitter || 0, chips: [0, 15, 30, 50, 80] },
+    color_jitter: { type: 'dial', name: 'Color Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_jitter', getter: bp => bp.color_jitter || 0, chips: [0, 15, 30, 50, 80] },
+    grain: { type: 'dial', name: 'Grain Noise', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set grain', getter: bp => bp.grain || 0, chips: [0, 20, 40, 60, 80] },
+    texture_scale: { type: 'dial', name: 'Tex Scale', min: 10, max: 400, step: 5, suffix: '%', cmd: 'set texture_scale', getter: bp => bp.texture_scale || 100, chips: [50, 75, 100, 150, 200] },
+    texture_rotate: { type: 'dial', name: 'Tex Rotate', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set texture_rotate', getter: bp => (bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle || 0)), chips: [0, 45, 90, 180, 270] },
+    texture_contrast: { type: 'dial', name: 'Tex Contrast', min: 0, max: 200, step: 5, suffix: '%', cmd: 'set texture_contrast', getter: bp => (bp.texture_contrast !== undefined ? bp.texture_contrast : 100), chips: [50, 80, 100, 120, 150] },
+    dual_size: { type: 'dial', name: 'Dual Size', min: 10, max: 300, step: 5, suffix: '%', cmd: 'set dual_size', getter: bp => (bp.dual_size !== undefined ? bp.dual_size : 100), chips: [50, 75, 100, 150, 200] },
+    dual_spacing: { type: 'dial', name: 'Dual Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set dual_spacing', getter: bp => (bp.dual_spacing !== undefined ? bp.dual_spacing : 10), chips: [5, 10, 25, 50, 100] },
 
-    function describeArc(x, y, radius, startAngle, endAngle) {
-      if (endAngle - startAngle >= 359.99) {
-        endAngle = startAngle + 359.99;
-      }
-      const start = polarToCartesian(x, y, radius, startAngle);
-      const end = polarToCartesian(x, y, radius, endAngle);
-      const largeArcFlag = (endAngle - startAngle <= 180) ? "0" : "1";
-      return [
-        "M", start.x, start.y,
-        "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y
-      ].join(" ");
-    }
+    // Switches
+    auto_rotate: { type: 'switch', name: 'Auto-Rotate', cmd: 'set auto_rotate', getter: bp => !!bp.auto_rotate },
+    subpixel: { type: 'switch', name: 'Subpixel', cmd: 'set subpixel', getter: bp => !!bp.subpixel },
+    pressure_size: { type: 'switch', name: 'Pressure Size', cmd: 'set pressure_size', getter: bp => (bp.pressure_size !== undefined ? !!bp.pressure_size : true) },
+    pressure_flow: { type: 'switch', name: 'Pressure Flow', cmd: 'set pressure_flow', getter: bp => (bp.pressure_flow !== undefined ? !!bp.pressure_flow : true) },
+    tilt_angle: { type: 'switch', name: 'Tilt Angle', cmd: 'set tilt_angle', getter: bp => (bp.tilt_angle !== undefined ? !!bp.tilt_angle : true) },
 
-    // Parameter Configs for Dynamic Floating Toolbar Control with Arc Dial
-    const TB_PARAM_CONFIGS = {
-      // Arc Dial Numerical Parameters
-      size: { type: 'dial', name: 'Brush Size', min: 1, max: 150, step: 1, suffix: 'px', cmd: 'brush size', getter: bp => bp.size, chips: [1, 3, 6, 12, 24, 48, 80, 120] },
-      opacity: { type: 'dial', name: 'Opacity', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush opacity', getter: bp => bp.opacity, chips: [10, 25, 50, 75, 100] },
-      flow: { type: 'dial', name: 'Flow', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow, chips: [10, 25, 50, 75, 100] },
-      hardness: { type: 'dial', name: 'Hardness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness, chips: [0, 25, 50, 75, 100] },
-      spacing: { type: 'dial', name: 'Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing, chips: [1, 5, 10, 25, 50, 100] },
-      stabilization: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
-      smoothing: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
-      midpoint: { type: 'dial', name: 'Midpoint', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50), chips: [10, 25, 50, 75, 90] },
-      angle: { type: 'dial', name: 'Angle', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0, chips: [0, 45, 90, 135, 180, 270] },
-      roundness: { type: 'dial', name: 'Roundness', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100, chips: [20, 35, 50, 75, 100] },
-      scatter: { type: 'dial', name: 'Scatter', min: 0, max: 200, step: 1, suffix: '%', cmd: 'set scatter', getter: bp => bp.scatter || 0, chips: [0, 10, 25, 50, 100] },
-      smudge: { type: 'dial', name: 'Smudge', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set smudge', getter: bp => bp.smudge || 0, chips: [0, 25, 50, 75, 100] },
-      wetness: { type: 'dial', name: 'Wetness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set wetness', getter: bp => bp.wetness || 0, chips: [0, 25, 50, 75, 100] },
-      depletion: { type: 'dial', name: 'Depletion', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set depletion', getter: bp => bp.depletion || 0, chips: [0, 20, 40, 60, 80] },
-      color_pickup: { type: 'dial', name: 'Color Pickup', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_pickup', getter: bp => bp.color_pickup || 0, chips: [0, 25, 50, 75, 100] },
-      velocity: { type: 'dial', name: 'Velocity', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0, chips: [0, 25, 50, 75, 100] },
-      taper_in: { type: 'dial', name: 'Taper In', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0, chips: [0, 20, 50, 100, 200] },
-      fade: { type: 'dial', name: 'Fade', min: 0, max: 2000, step: 20, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0, chips: [0, 100, 300, 600, 1200] },
-      tolerance: { type: 'dial', name: 'Tolerance', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32), chips: [0, 16, 32, 64, 128] },
-      size_jitter: { type: 'dial', name: 'Size Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0, chips: [0, 15, 30, 50, 80] },
-      angle_jitter: { type: 'dial', name: 'Angle Jitter', min: 0, max: 360, step: 1, suffix: '°', cmd: 'set angle_jitter', getter: bp => bp.angle_jitter || 0, chips: [0, 45, 90, 180, 360] },
-      opacity_jitter: { type: 'dial', name: 'Opacity Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set opacity_jitter', getter: bp => bp.opacity_jitter || 0, chips: [0, 15, 30, 50, 80] },
-      color_jitter: { type: 'dial', name: 'Color Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_jitter', getter: bp => bp.color_jitter || 0, chips: [0, 15, 30, 50, 80] },
-      grain: { type: 'dial', name: 'Grain Noise', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set grain', getter: bp => bp.grain || 0, chips: [0, 20, 40, 60, 80] },
-      texture_scale: { type: 'dial', name: 'Tex Scale', min: 10, max: 400, step: 5, suffix: '%', cmd: 'set texture_scale', getter: bp => bp.texture_scale || 100, chips: [50, 75, 100, 150, 200] },
-      texture_rotate: { type: 'dial', name: 'Tex Rotate', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set texture_rotate', getter: bp => (bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle || 0)), chips: [0, 45, 90, 180, 270] },
-      texture_contrast: { type: 'dial', name: 'Tex Contrast', min: 0, max: 200, step: 5, suffix: '%', cmd: 'set texture_contrast', getter: bp => (bp.texture_contrast !== undefined ? bp.texture_contrast : 100), chips: [50, 80, 100, 120, 150] },
-      dual_size: { type: 'dial', name: 'Dual Size', min: 10, max: 300, step: 5, suffix: '%', cmd: 'set dual_size', getter: bp => (bp.dual_size !== undefined ? bp.dual_size : 100), chips: [50, 75, 100, 150, 200] },
-      dual_spacing: { type: 'dial', name: 'Dual Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set dual_spacing', getter: bp => (bp.dual_spacing !== undefined ? bp.dual_spacing : 10), chips: [5, 10, 25, 50, 100] },
+    // Special Selectors
+    preset: { type: 'select_preset', name: 'Brush Presets' },
+    tip: { type: 'select_tip', name: 'Brush Tip Shape' },
+    grain_tex: { type: 'select_grain', name: 'Grain Texture' },
+    script: { type: 'select_script', name: 'Run Script' },
+    dab_blend: { type: 'select_dab_blend', name: 'Dab Blend Mode' },
+    symmetry: { type: 'select_symmetry', name: 'Symmetry' },
+    dual_shape: { type: 'select_dual_shape', name: 'Dual Brush Mask' },
+    save_tool: { type: 'save_tool', name: 'Save Brush as Script' }
+  };
 
-      // Switches
-      auto_rotate: { type: 'switch', cmd: 'set auto_rotate', getter: bp => !!bp.auto_rotate },
-      subpixel: { type: 'switch', cmd: 'set subpixel', getter: bp => !!bp.subpixel },
-      pressure_size: { type: 'switch', cmd: 'set pressure_size', getter: bp => (bp.pressure_size !== undefined ? !!bp.pressure_size : true) },
-      pressure_flow: { type: 'switch', cmd: 'set pressure_flow', getter: bp => (bp.pressure_flow !== undefined ? !!bp.pressure_flow : true) },
-      tilt_angle: { type: 'switch', cmd: 'set tilt_angle', getter: bp => (bp.tilt_angle !== undefined ? !!bp.tilt_angle : true) },
+  // Arc Dial Modal Controller State & Event Handlers
+  let curDialKey = 'size';
+  let isDialTracking = false;
 
-      // Special Selectors
-      preset: { type: 'select_preset' },
-      tip: { type: 'select_tip' },
-      grain_tex: { type: 'select_grain' },
-      script: { type: 'select_script' },
-      dab_blend: { type: 'select_dab_blend' },
-      symmetry: { type: 'select_symmetry' },
-      dual_shape: { type: 'select_dual_shape' },
-      save_tool: { type: 'save_tool' }
-    };
+  const arcDialModal = document.getElementById('arc-dial-modal');
+  const arcDialTitle = document.getElementById('arc-dial-title');
+  const arcDialStage = document.getElementById('arc-dial-stage');
+  const arcTrackBg = document.getElementById('arc-track-bg');
+  const arcTrackFill = document.getElementById('arc-track-fill');
+  const arcDialThumb = document.getElementById('arc-dial-thumb');
+  const arcDialValText = document.getElementById('arc-dial-value-text');
+  const arcDialUnitText = document.getElementById('arc-dial-unit-text');
+  const arcDialPreview = document.getElementById('arc-dial-preview');
+  const arcDialChips = document.getElementById('arc-dial-chips');
+  const btnCloseArcDial = document.getElementById('btn-close-arc-dial');
 
-    // Arc Dial Modal Controller State & Event Handlers
-    let curDialKey = 'size';
-    let isDialTracking = false;
+  if (arcTrackBg) {
+    arcTrackBg.setAttribute('d', describeArc(100, 100, 68, 135, 405));
+  }
 
-    const arcDialModal = document.getElementById('arc-dial-modal');
-    const arcDialTitle = document.getElementById('arc-dial-title');
-    const arcDialStage = document.getElementById('arc-dial-stage');
-    const arcTrackBg = document.getElementById('arc-track-bg');
-    const arcTrackFill = document.getElementById('arc-track-fill');
-    const arcDialThumb = document.getElementById('arc-dial-thumb');
-    const arcDialValText = document.getElementById('arc-dial-value-text');
-    const arcDialUnitText = document.getElementById('arc-dial-unit-text');
-    const arcDialPreview = document.getElementById('arc-dial-preview');
-    const arcDialChips = document.getElementById('arc-dial-chips');
-    const btnCloseArcDial = document.getElementById('btn-close-arc-dial');
+  function openArcDial(paramKey) {
+    curDialKey = paramKey || 'size';
+    const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+    if (arcDialTitle) arcDialTitle.textContent = cfg.name || curDialKey.toUpperCase();
+    if (arcDialUnitText) arcDialUnitText.textContent = cfg.suffix || '';
 
-    if (arcTrackBg) {
-      arcTrackBg.setAttribute('d', describeArc(100, 100, 68, 135, 405));
-    }
-
-    function openArcDial(paramKey) {
-      curDialKey = paramKey || tbParamSelect?.value || 'size';
-      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
-      if (arcDialTitle) arcDialTitle.textContent = cfg.name || curDialKey.toUpperCase();
-      if (arcDialUnitText) arcDialUnitText.textContent = cfg.suffix || '';
-
-      if (arcDialChips) {
-        arcDialChips.innerHTML = '';
-        const chips = cfg.chips || [cfg.min, Math.round(cfg.min + (cfg.max - cfg.min) * 0.25), Math.round(cfg.min + (cfg.max - cfg.min) * 0.5), Math.round(cfg.min + (cfg.max - cfg.min) * 0.75), cfg.max];
-        const bp = host.brushParams || {};
-        const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
-
-        chips.forEach(cVal => {
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = `arc-chip-btn${cVal === curVal ? ' active' : ''}`;
-          btn.textContent = `${cVal}${cfg.suffix || ''}`;
-          btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            setDialValue(cVal, true);
-            triggerHaptic(15);
-          });
-          arcDialChips.appendChild(btn);
-        });
-      }
-
-      updateArcDialDisplay();
-      if (arcDialModal) arcDialModal.classList.add('active');
-    }
-
-    function closeArcDial() {
-      if (arcDialModal) arcDialModal.classList.remove('active');
-      isDialTracking = false;
-    }
-
-    if (btnCloseArcDial) {
-      btnCloseArcDial.addEventListener('click', closeArcDial);
-    }
-    if (arcDialModal) {
-      arcDialModal.addEventListener('click', (e) => {
-        if (e.target === arcDialModal) closeArcDial();
-      });
-    }
-
-    function setDialValue(val, runCommand = true) {
-      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
-      val = Math.max(cfg.min, Math.min(cfg.max, val));
-      if (cfg.step) {
-        val = Math.round((val - cfg.min) / cfg.step) * cfg.step + cfg.min;
-      }
-      if (runCommand) {
-        runCmd(`${cfg.cmd} ${val}`);
-      }
-      updateArcDialDisplay();
-      syncTbDynamicSlot();
-    }
-
-    function updateArcDialDisplay() {
-      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+    if (arcDialChips) {
+      arcDialChips.innerHTML = '';
+      const chips = cfg.chips || [cfg.min, Math.round(cfg.min + (cfg.max - cfg.min) * 0.25), Math.round(cfg.min + (cfg.max - cfg.min) * 0.5), Math.round(cfg.min + (cfg.max - cfg.min) * 0.75), cfg.max];
       const bp = host.brushParams || {};
       const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
-      const t = Math.max(0, Math.min(1, (curVal - cfg.min) / (cfg.max - cfg.min)));
 
-      const curAngle = 135 + t * 270;
-      if (arcTrackFill) {
-        if (t > 0.001) {
-          arcTrackFill.setAttribute('d', describeArc(100, 100, 68, 135, curAngle));
-          arcTrackFill.style.display = 'block';
-        } else {
-          arcTrackFill.style.display = 'none';
-        }
-      }
-
-      if (arcDialThumb) {
-        const p = polarToCartesian(100, 100, 68, curAngle);
-        arcDialThumb.setAttribute('cx', p.x);
-        arcDialThumb.setAttribute('cy', p.y);
-      }
-
-      if (arcDialValText) arcDialValText.textContent = String(curVal);
-
-      if (arcDialPreview) {
-        arcDialPreview.innerHTML = '';
-        if (curDialKey === 'size') {
-          const circle = document.createElement('div');
-          circle.className = 'arc-dial-preview-circle';
-          const maxPreviewPx = 40;
-          const pxSize = Math.max(2, Math.min(maxPreviewPx, (curVal / 150) * maxPreviewPx));
-          circle.style.width = pxSize + 'px';
-          circle.style.height = pxSize + 'px';
-          arcDialPreview.appendChild(circle);
-        } else if (curDialKey === 'opacity' || curDialKey === 'flow') {
-          const swatch = document.createElement('div');
-          swatch.style.width = '32px';
-          swatch.style.height = '32px';
-          swatch.style.background = '#fabd2f';
-          swatch.style.opacity = String(curVal / 100);
-          swatch.style.border = '1px solid #504945';
-          arcDialPreview.appendChild(swatch);
-        } else if (curDialKey === 'angle' || curDialKey === 'texture_rotate') {
-          const needle = document.createElement('div');
-          needle.style.width = '2px';
-          needle.style.height = '34px';
-          needle.style.background = '#fabd2f';
-          needle.style.transform = `rotate(${curVal}deg)`;
-          needle.style.transformOrigin = 'center center';
-          needle.style.borderRadius = '1px';
-          arcDialPreview.appendChild(needle);
-        }
-      }
-
-      if (arcDialChips) {
-        arcDialChips.querySelectorAll('.arc-chip-btn').forEach(btn => {
-          const num = parseFloat(btn.textContent);
-          btn.classList.toggle('active', num === curVal);
-        });
-      }
-    }
-
-    function handleDialPointer(e) {
-      if (!arcDialStage) return;
-      const rect = arcDialStage.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const deg = Math.atan2(dy, dx) * 180 / Math.PI;
-      const normDeg = (deg - 135 + 360) % 360;
-
-      let t = 0;
-      if (normDeg <= 270) {
-        t = normDeg / 270;
-      } else {
-        t = normDeg < 315 ? 1.0 : 0.0;
-      }
-
-      const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
-      const val = cfg.min + t * (cfg.max - cfg.min);
-      setDialValue(val, true);
-    }
-
-    if (arcDialStage) {
-      arcDialStage.addEventListener('pointerdown', (e) => {
-        isDialTracking = true;
-        arcDialStage.setPointerCapture(e.pointerId);
-        handleDialPointer(e);
-        triggerHaptic(10);
-      });
-      arcDialStage.addEventListener('pointermove', (e) => {
-        if (!isDialTracking) return;
-        handleDialPointer(e);
-      });
-      const endTracking = (e) => {
-        if (isDialTracking) {
-          isDialTracking = false;
-          try { arcDialStage.releasePointerCapture(e.pointerId); } catch (_) {}
+      chips.forEach(cVal => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `arc-chip-btn${cVal === curVal ? ' active' : ''}`;
+        btn.textContent = `${cVal}${cfg.suffix || ''}`;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setDialValue(cVal, true);
           triggerHaptic(15);
-        }
-      };
-      arcDialStage.addEventListener('pointerup', endTracking);
-      arcDialStage.addEventListener('pointercancel', endTracking);
+        });
+        arcDialChips.appendChild(btn);
+      });
     }
 
-    const tbParamSelect = document.getElementById('tb-param-select');
-    const tbDynamicSlot = document.getElementById('tb-dynamic-slot');
+    updateArcDialDisplay();
+    if (arcDialModal) arcDialModal.classList.add('active');
+  }
 
-    function renderTbDynamicSlot() {
-      if (!tbDynamicSlot || !tbParamSelect) return;
-      const key = tbParamSelect.value || 'size';
-      const cfg = TB_PARAM_CONFIGS[key] || TB_PARAM_CONFIGS.size;
-      tbDynamicSlot.innerHTML = '';
+  function closeArcDial() {
+    if (arcDialModal) arcDialModal.classList.remove('active');
+    isDialTracking = false;
+  }
 
-      if (cfg.type === 'dial') {
-        const bp = host.brushParams || {};
-        const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
-        const t = Math.max(0, Math.min(1, (curVal - cfg.min) / (cfg.max - cfg.min)));
+  if (btnCloseArcDial) {
+    btnCloseArcDial.addEventListener('click', closeArcDial);
+  }
+  if (arcDialModal) {
+    arcDialModal.addEventListener('click', (e) => {
+      if (e.target === arcDialModal) closeArcDial();
+    });
+  }
 
-        const dialBtn = document.createElement('button');
-        dialBtn.type = 'button';
-        dialBtn.className = 'tb-dial-btn';
-        dialBtn.id = 'tb-active-dial-btn';
-        dialBtn.title = 'Tap for Arc Dial or scrub to adjust value';
+  function setDialValue(val, runCommand = true) {
+    const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+    val = Math.max(cfg.min, Math.min(cfg.max, val));
+    if (cfg.step) {
+      val = Math.round((val - cfg.min) / cfg.step) * cfg.step + cfg.min;
+    }
+    if (runCommand) {
+      runCmd(`${cfg.cmd} ${val}`);
+    }
+    updateArcDialDisplay();
+    syncModularToolbars();
+  }
 
-        const circumference = 2 * Math.PI * 4.5;
-        const strokeOffset = circumference * (1 - t);
-        dialBtn.innerHTML = `
-          <svg class="tb-dial-mini-ring" viewBox="0 0 16 16">
-            <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-bg" />
-            <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-fill" id="tb-active-mini-ring" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${strokeOffset.toFixed(1)}" />
-          </svg>
-          <span class="tb-val" id="tb-active-val">${curVal}${cfg.suffix || ''}</span>
+  function updateArcDialDisplay() {
+    const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+    const bp = host.brushParams || {};
+    const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+    const t = Math.max(0, Math.min(1, (curVal - cfg.min) / (cfg.max - cfg.min)));
+
+    const curAngle = 135 + t * 270;
+    if (arcTrackFill) {
+      if (t > 0.001) {
+        arcTrackFill.setAttribute('d', describeArc(100, 100, 68, 135, curAngle));
+        arcTrackFill.style.display = 'block';
+      } else {
+        arcTrackFill.style.display = 'none';
+      }
+    }
+
+    if (arcDialThumb) {
+      const p = polarToCartesian(100, 100, 68, curAngle);
+      arcDialThumb.setAttribute('cx', p.x);
+      arcDialThumb.setAttribute('cy', p.y);
+    }
+
+    if (arcDialValText) arcDialValText.textContent = String(curVal);
+
+    if (arcDialPreview) {
+      arcDialPreview.innerHTML = '';
+      if (curDialKey === 'size') {
+        const circle = document.createElement('div');
+        circle.className = 'arc-dial-preview-circle';
+        const maxPreviewPx = 40;
+        const pxSize = Math.max(2, Math.min(maxPreviewPx, (curVal / 150) * maxPreviewPx));
+        circle.style.width = pxSize + 'px';
+        circle.style.height = pxSize + 'px';
+        arcDialPreview.appendChild(circle);
+      } else if (curDialKey === 'opacity' || curDialKey === 'flow') {
+        const swatch = document.createElement('div');
+        swatch.style.width = '32px';
+        swatch.style.height = '32px';
+        swatch.style.background = '#fabd2f';
+        swatch.style.opacity = String(curVal / 100);
+        swatch.style.border = '1px solid #504945';
+        arcDialPreview.appendChild(swatch);
+      } else if (curDialKey === 'angle' || curDialKey === 'texture_rotate') {
+        const needle = document.createElement('div');
+        needle.style.width = '2px';
+        needle.style.height = '34px';
+        needle.style.background = '#fabd2f';
+        needle.style.transform = `rotate(${curVal}deg)`;
+        needle.style.transformOrigin = 'center center';
+        needle.style.borderRadius = '1px';
+        arcDialPreview.appendChild(needle);
+      }
+    }
+
+    if (arcDialChips) {
+      arcDialChips.querySelectorAll('.arc-chip-btn').forEach(btn => {
+        const num = parseFloat(btn.textContent);
+        btn.classList.toggle('active', num === curVal);
+      });
+    }
+  }
+
+  function handleDialPointer(e) {
+    if (!arcDialStage) return;
+    const rect = arcDialStage.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = e.clientX - cx;
+    const dy = e.clientY - cy;
+    const deg = Math.atan2(dy, dx) * 180 / Math.PI;
+    const normDeg = (deg - 135 + 360) % 360;
+
+    let t = 0;
+    if (normDeg <= 270) {
+      t = normDeg / 270;
+    } else {
+      t = normDeg < 315 ? 1.0 : 0.0;
+    }
+
+    const cfg = TB_PARAM_CONFIGS[curDialKey] || TB_PARAM_CONFIGS.size;
+    const val = cfg.min + t * (cfg.max - cfg.min);
+    setDialValue(val, true);
+  }
+
+  if (arcDialStage) {
+    arcDialStage.addEventListener('pointerdown', (e) => {
+      isDialTracking = true;
+      arcDialStage.setPointerCapture(e.pointerId);
+      handleDialPointer(e);
+      triggerHaptic(10);
+    });
+    arcDialStage.addEventListener('pointermove', (e) => {
+      if (!isDialTracking) return;
+      handleDialPointer(e);
+    });
+    const endTracking = (e) => {
+      if (isDialTracking) {
+        isDialTracking = false;
+        try { arcDialStage.releasePointerCapture(e.pointerId); } catch (_) {}
+        triggerHaptic(15);
+      }
+    };
+    arcDialStage.addEventListener('pointerup', endTracking);
+    arcDialStage.addEventListener('pointercancel', endTracking);
+  }
+
+  // ── Helper to build an Arc Dial widget pill ──
+  function createDialWidgetElement(paramKey) {
+    const cfg = TB_PARAM_CONFIGS[paramKey] || TB_PARAM_CONFIGS.size;
+    const bp = host.brushParams || {};
+    const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+
+    const dialBtn = document.createElement('button');
+    dialBtn.type = 'button';
+    dialBtn.className = 'tb-dial-btn';
+    dialBtn.title = `Tap for Radial Dial | Drag horizontally to scrub ${cfg.name || paramKey}`;
+
+    const t = Math.max(0, Math.min(1, (curVal - cfg.min) / (cfg.max - cfg.min)));
+    const circumference = 2 * Math.PI * 4.5;
+    const strokeOffset = circumference * (1 - t);
+
+    dialBtn.innerHTML = `
+      <svg class="tb-dial-mini-ring" viewBox="0 0 16 16">
+        <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-bg" />
+        <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-fill" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${strokeOffset.toFixed(1)}" />
+      </svg>
+      <span class="tb-val">${curVal}${cfg.suffix || ''}</span>
+    `;
+
+    const miniRing = dialBtn.querySelector('.tb-dial-ring-fill');
+    const valSpan = dialBtn.querySelector('.tb-val');
+
+    dialBtn.addEventListener('click', (e) => {
+      if (!dialBtn._didScrub) {
+        openArcDial(paramKey);
+        triggerHaptic(15);
+      }
+    });
+
+    let isScrubbing = false;
+    let scrubStartX = 0;
+    let scrubStartVal = curVal;
+
+    dialBtn.addEventListener('pointerdown', (e) => {
+      isScrubbing = true;
+      dialBtn._didScrub = false;
+      scrubStartX = e.clientX;
+      const freshVal = cfg.getter ? cfg.getter(host.brushParams || {}) : cfg.min;
+      scrubStartVal = freshVal !== undefined ? freshVal : cfg.min;
+      dialBtn.setPointerCapture(e.pointerId);
+    });
+
+    dialBtn.addEventListener('pointermove', (e) => {
+      if (!isScrubbing) return;
+      const dx = e.clientX - scrubStartX;
+      if (Math.abs(dx) > 3) {
+        dialBtn._didScrub = true;
+        const range = cfg.max - cfg.min;
+        const deltaVal = (dx / 120) * range;
+        const targetVal = scrubStartVal + deltaVal;
+        curDialKey = paramKey;
+        setDialValue(targetVal, true);
+      }
+    });
+
+    const stopScrub = (e) => {
+      if (isScrubbing) {
+        isScrubbing = false;
+        try { dialBtn.releasePointerCapture(e.pointerId); } catch (_) {}
+      }
+    };
+    dialBtn.addEventListener('pointerup', stopScrub);
+    dialBtn.addEventListener('pointercancel', stopScrub);
+
+    const syncFn = () => {
+      const liveBp = host.brushParams || {};
+      const liveVal = cfg.getter ? cfg.getter(liveBp) : cfg.min;
+      if (liveVal !== undefined) {
+        if (valSpan) valSpan.textContent = `${liveVal}${cfg.suffix || ''}`;
+        if (miniRing) {
+          const liveT = Math.max(0, Math.min(1, (liveVal - cfg.min) / (cfg.max - cfg.min)));
+          const c = 2 * Math.PI * 4.5;
+          miniRing.setAttribute('stroke-dashoffset', (c * (1 - liveT)).toFixed(1));
+        }
+      }
+    };
+
+    return { el: dialBtn, sync: syncFn };
+  }
+
+  // ── Helper to build a Direct Touch Slider widget ──
+  function createSliderWidgetElement(paramKey) {
+    const cfg = TB_PARAM_CONFIGS[paramKey] || TB_PARAM_CONFIGS.size;
+    const bp = host.brushParams || {};
+    const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'tb-slider-widget';
+
+    const lbl = document.createElement('span');
+    lbl.style.fontSize = '10px';
+    lbl.style.fontWeight = 'bold';
+    lbl.style.color = '#a89984';
+    lbl.style.whiteSpace = 'nowrap';
+    lbl.textContent = cfg.name || paramKey;
+
+    const slider = document.createElement('input');
+    slider.type = 'range';
+    slider.min = String(cfg.min);
+    slider.max = String(cfg.max);
+    slider.step = String(cfg.step || 1);
+    slider.value = String(curVal);
+    slider.className = 'dock-strip-slider';
+
+    const valBadge = document.createElement('span');
+    valBadge.style.fontSize = '10px';
+    valBadge.style.color = '#ebdbb2';
+    valBadge.style.minWidth = '28px';
+    valBadge.style.textAlign = 'right';
+    valBadge.style.fontFamily = 'monospace';
+    valBadge.textContent = `${curVal}${cfg.suffix || ''}`;
+
+    let isTouching = false;
+    slider.addEventListener('pointerdown', (e) => {
+      isTouching = true;
+      e.stopPropagation();
+    });
+    const stopTouch = () => { isTouching = false; };
+    slider.addEventListener('pointerup', stopTouch);
+    slider.addEventListener('pointercancel', stopTouch);
+
+    const onValChange = () => {
+      const v = parseFloat(slider.value);
+      if (!isNaN(v)) {
+        valBadge.textContent = `${v}${cfg.suffix || ''}`;
+        runCmd(`${cfg.cmd} ${v}`);
+      }
+    };
+
+    slider.addEventListener('input', onValChange);
+    slider.addEventListener('change', () => {
+      onValChange();
+      triggerHaptic(10);
+    });
+
+    wrap.appendChild(lbl);
+    wrap.appendChild(slider);
+    wrap.appendChild(valBadge);
+
+    const syncFn = () => {
+      if (isTouching) return;
+      const liveBp = host.brushParams || {};
+      const liveVal = cfg.getter ? cfg.getter(liveBp) : cfg.min;
+      if (liveVal !== undefined && document.activeElement !== slider) {
+        slider.value = String(liveVal);
+        valBadge.textContent = `${liveVal}${cfg.suffix || ''}`;
+      }
+    };
+
+    return { el: wrap, sync: syncFn };
+  }
+
+  // ── Helper to build a Direct Number / Text Input widget ──
+  function createInputWidgetElement(paramKey) {
+    const cfg = TB_PARAM_CONFIGS[paramKey] || TB_PARAM_CONFIGS.size;
+    const bp = host.brushParams || {};
+    const curVal = cfg.getter ? cfg.getter(bp) : cfg.min;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'tb-input-widget';
+
+    const lbl = document.createElement('span');
+    lbl.style.fontSize = '10px';
+    lbl.style.fontWeight = 'bold';
+    lbl.style.color = '#a89984';
+    lbl.style.whiteSpace = 'nowrap';
+    lbl.textContent = cfg.name || paramKey;
+
+    const btnMinus = document.createElement('button');
+    btnMinus.type = 'button';
+    btnMinus.className = 'dock-strip-btn';
+    btnMinus.style.minWidth = '18px';
+    btnMinus.style.height = '22px';
+    btnMinus.style.padding = '0';
+    btnMinus.style.lineHeight = '20px';
+    btnMinus.style.fontSize = '12px';
+    btnMinus.textContent = '−';
+    btnMinus.title = `Decrease ${cfg.name || paramKey}`;
+
+    const numInput = document.createElement('input');
+    numInput.type = 'number';
+    numInput.min = String(cfg.min);
+    numInput.max = String(cfg.max);
+    numInput.step = String(cfg.step || 1);
+    numInput.value = String(curVal);
+
+    const btnPlus = document.createElement('button');
+    btnPlus.type = 'button';
+    btnPlus.className = 'dock-strip-btn';
+    btnPlus.style.minWidth = '18px';
+    btnPlus.style.height = '22px';
+    btnPlus.style.padding = '0';
+    btnPlus.style.lineHeight = '20px';
+    btnPlus.style.fontSize = '12px';
+    btnPlus.textContent = '+';
+    btnPlus.title = `Increase ${cfg.name || paramKey}`;
+
+    let suf = null;
+    if (cfg.suffix) {
+      suf = document.createElement('span');
+      suf.style.fontSize = '9px';
+      suf.style.color = '#928374';
+      suf.textContent = cfg.suffix;
+    }
+
+    const applyValue = (val) => {
+      let clamped = Math.max(cfg.min, Math.min(cfg.max, val));
+      if (cfg.step && cfg.step >= 1) {
+        clamped = Math.round(clamped / cfg.step) * cfg.step;
+      }
+      numInput.value = String(clamped);
+      runCmd(`${cfg.cmd} ${clamped}`);
+      triggerHaptic(10);
+    };
+
+    btnMinus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cur = parseFloat(numInput.value) || cfg.min;
+      const st = cfg.step || 1;
+      applyValue(cur - st);
+    });
+
+    btnPlus.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const cur = parseFloat(numInput.value) || cfg.min;
+      const st = cfg.step || 1;
+      applyValue(cur + st);
+    });
+
+    numInput.addEventListener('change', () => {
+      const v = parseFloat(numInput.value);
+      if (!isNaN(v)) applyValue(v);
+    });
+
+    numInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const v = parseFloat(numInput.value);
+        if (!isNaN(v)) applyValue(v);
+        numInput.blur();
+      }
+    });
+
+    wrap.appendChild(lbl);
+    wrap.appendChild(btnMinus);
+    wrap.appendChild(numInput);
+    wrap.appendChild(btnPlus);
+    if (suf) wrap.appendChild(suf);
+
+    const syncFn = () => {
+      const liveBp = host.brushParams || {};
+      const liveVal = cfg.getter ? cfg.getter(liveBp) : cfg.min;
+      if (liveVal !== undefined && document.activeElement !== numInput) {
+        numInput.value = String(liveVal);
+      }
+    };
+
+    return { el: wrap, sync: syncFn };
+  }
+
+  // ── Modular Widget Registry ──
+  const MODULAR_WIDGET_REGISTRY = {
+    // 1. Compound Widgets
+    'category_switcher': {
+      category: 'Compound',
+      label: 'Tools & Modes Switcher ([ Tools ] [ Mode ] [ Action ])',
+      render: () => {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'inline-flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '4px';
+
+        const catSel = document.createElement('select');
+        catSel.id = 'dock-quick-category';
+        catSel.className = 'dock-category-select';
+        catSel.innerHTML = `
+          <option value="tool" selected>[ Tools ]</option>
+          <option value="mode">[ Mode ]</option>
+          <option value="action">[ Action ]</option>
         `;
 
-        dialBtn.addEventListener('click', () => {
-          openArcDial(key);
-          triggerHaptic(15);
+        const sep = document.createElement('div');
+        sep.className = 'dock-strip-sep';
+
+        const groupTool = document.createElement('div');
+        groupTool.className = 'dock-group active';
+        groupTool.id = 'dock-group-tool';
+        groupTool.innerHTML = `
+          <select id="dock-select-brush-preset" class="dock-strip-select" style="max-width: 120px; font-weight: bold;" title="Brush Preset"></select>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="brush" title="Brush">Brush</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="picker" title="Eyedropper / Color Picker">Picker</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">Line</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">Rect</button>
+          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">Ellipse</button>
+        `;
+
+        const groupMode = document.createElement('div');
+        groupMode.className = 'dock-group';
+        groupMode.id = 'dock-group-mode';
+        groupMode.innerHTML = `
+          <button type="button" class="dock-strip-btn dock-mode-btn active" data-actionmode="draw" title="Draw Mode">Draw</button>
+          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="erase" title="Erase Mode">Erase</button>
+          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="smudge" title="Smudge Mode">Smudge</button>
+          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="select" title="Select Mode">Select</button>
+        `;
+
+        const groupAction = document.createElement('div');
+        groupAction.className = 'dock-group';
+        groupAction.id = 'dock-group-action';
+        groupAction.innerHTML = `
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="copy" title="Copy selection">Copy</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cut" title="Cut selection">Cut</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="deselect" title="Deselect">Desel</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="apply_xform" title="Apply transform">Apply</button>
+          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cancel_xform" title="Cancel transform">Cancel</button>
+          <select id="dock-script-select" class="dock-strip-btn dock-strip-select" title="Run Script">
+            <option value="" disabled selected>Script</option>
+          </select>
+        `;
+
+        catSel.addEventListener('change', () => {
+          groupTool.classList.toggle('active', catSel.value === 'tool');
+          groupMode.classList.toggle('active', catSel.value === 'mode');
+          groupAction.classList.toggle('active', catSel.value === 'action');
+          triggerHaptic(10);
         });
 
-        let isScrubbing = false;
-        let scrubStartX = 0;
-        let scrubStartVal = curVal;
-
-        dialBtn.addEventListener('pointerdown', (e) => {
-          isScrubbing = true;
-          scrubStartX = e.clientX;
-          const freshVal = cfg.getter ? cfg.getter(host.brushParams || {}) : cfg.min;
-          scrubStartVal = freshVal !== undefined ? freshVal : cfg.min;
-          dialBtn.setPointerCapture(e.pointerId);
+        // Event delegation for tool, mode, action buttons
+        groupTool.querySelectorAll('.dock-tool-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tool = btn.getAttribute('data-tool');
+            if (tool) runCmd(`tool ${tool}`);
+            triggerHaptic(12);
+          });
         });
 
-        dialBtn.addEventListener('pointermove', (e) => {
-          if (!isScrubbing) return;
-          const dx = e.clientX - scrubStartX;
-          if (Math.abs(dx) > 3) {
-            const range = cfg.max - cfg.min;
-            const deltaVal = (dx / 120) * range;
-            const targetVal = scrubStartVal + deltaVal;
-            curDialKey = key;
-            setDialValue(targetVal, true);
+        groupMode.querySelectorAll('.dock-mode-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const mode = btn.getAttribute('data-actionmode');
+            if (mode) runCmd(`mode ${mode}`);
+            triggerHaptic(12);
+          });
+        });
+
+        groupAction.querySelectorAll('.dock-act-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const act = btn.getAttribute('data-dockaction');
+            if (act === 'copy') runCmd('selection copy');
+            else if (act === 'cut') runCmd('selection cut');
+            else if (act === 'deselect') runCmd('selection clear');
+            else if (act === 'apply_xform') runCmd('transform apply');
+            else if (act === 'cancel_xform') runCmd('transform cancel');
+            triggerHaptic(12);
+          });
+        });
+
+        const scriptSelect = groupAction.querySelector('#dock-script-select');
+        if (scriptSelect) {
+          const populate = () => {
+            scriptSelect.innerHTML = '<option value="" disabled selected>Script</option>';
+            const list = getSavedScripts();
+            list.forEach((s, idx) => {
+              const opt = document.createElement('option');
+              opt.value = String(idx);
+              opt.textContent = s.name;
+              scriptSelect.appendChild(opt);
+            });
+          };
+          scriptSelect.addEventListener('focus', populate);
+          scriptSelect.addEventListener('pointerdown', populate);
+          scriptSelect.addEventListener('change', () => {
+            const list = getSavedScripts();
+            const idx = parseInt(scriptSelect.value, 10);
+            if (!isNaN(idx) && list[idx]) {
+              runScriptCode(list[idx].code);
+              triggerHaptic(15);
+            }
+            scriptSelect.selectedIndex = 0;
+          });
+        }
+
+        wrap.appendChild(catSel);
+        wrap.appendChild(sep);
+        wrap.appendChild(groupTool);
+        wrap.appendChild(groupMode);
+        wrap.appendChild(groupAction);
+
+        const syncFn = () => {
+          // Sync active preset dropdown
+          const presetSel = groupTool.querySelector('#dock-select-brush-preset');
+          if (presetSel && host.brushPresets) {
+            if (presetSel.options.length <= 1) {
+              presetSel.innerHTML = '';
+              const optGrpBuiltin = document.createElement('optgroup');
+              optGrpBuiltin.label = 'Built-in Presets';
+              for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+                if (!p.name) continue;
+                const opt = document.createElement('option');
+                opt.value = k;
+                opt.textContent = p.name;
+                optGrpBuiltin.appendChild(opt);
+              }
+              presetSel.appendChild(optGrpBuiltin);
+            }
+            if (host.activeBrush) presetSel.value = host.activeBrush;
           }
-        });
 
-        const stopScrub = (e) => {
-          if (isScrubbing) {
-            isScrubbing = false;
-            try { dialBtn.releasePointerCapture(e.pointerId); } catch (_) {}
+          // Sync active tool buttons
+          groupTool.querySelectorAll('.dock-tool-btn').forEach(btn => {
+            const t = btn.getAttribute('data-tool');
+            btn.classList.toggle('active', host.currentTool === t);
+          });
+
+          // Sync active mode buttons
+          groupMode.querySelectorAll('.dock-mode-btn').forEach(btn => {
+            const m = btn.getAttribute('data-actionmode');
+            btn.classList.toggle('active', host.actionMode === m);
+          });
+        };
+
+        const presetSel = groupTool.querySelector('#dock-select-brush-preset');
+        if (presetSel) {
+          presetSel.addEventListener('change', () => {
+            if (presetSel.value) {
+              host.selectBrushPreset(presetSel.value);
+              syncUiFromHost();
+              triggerHaptic(15);
+            }
+          });
+        }
+
+        return { el: wrap, sync: syncFn };
+      }
+    },
+
+    'param_picker': {
+      category: 'Compound',
+      label: 'Parameter Dropdown + Dynamic Arc Dial Slot',
+      render: () => {
+        const wrap = document.createElement('div');
+        wrap.style.display = 'inline-flex';
+        wrap.style.alignItems = 'center';
+        wrap.style.gap = '4px';
+
+        const sel = document.createElement('select');
+        sel.id = 'tb-param-select';
+        sel.className = 'tb-param-select';
+        sel.title = 'Brush Parameter';
+        sel.innerHTML = `
+          <optgroup label="Main Controls">
+            <option value="size" selected>Size</option>
+            <option value="opacity">Opacity</option>
+            <option value="flow">Flow</option>
+            <option value="hardness">Hardness</option>
+            <option value="spacing">Spacing</option>
+            <option value="smoothing">Stabilize</option>
+            <option value="midpoint">Midpoint</option>
+            <option value="angle">Angle</option>
+            <option value="roundness">Round</option>
+            <option value="scatter">Scatter</option>
+          </optgroup>
+          <optgroup label="Presets & Scripts">
+            <option value="preset">Preset</option>
+            <option value="tip">Tip</option>
+            <option value="grain_tex">Grain</option>
+            <option value="script">Script</option>
+            <option value="save_tool">Save Tool</option>
+            <option value="dab_blend">Blend</option>
+            <option value="symmetry">Symmetry</option>
+            <option value="dual_shape">Dual</option>
+          </optgroup>
+          <optgroup label="Wet Media & Dynamics">
+            <option value="smudge">Smudge</option>
+            <option value="wetness">Wetness</option>
+            <option value="depletion">Deplete</option>
+            <option value="color_pickup">Pickup</option>
+            <option value="velocity">Velocity</option>
+            <option value="taper_in">Taper</option>
+            <option value="fade">Fade</option>
+            <option value="tolerance">Fill Tol</option>
+          </optgroup>
+          <optgroup label="Jitter">
+            <option value="size_jitter">Size Jitter</option>
+            <option value="angle_jitter">Ang Jitter</option>
+            <option value="opacity_jitter">Op Jitter</option>
+            <option value="color_jitter">Col Jitter</option>
+          </optgroup>
+          <optgroup label="Texture & Dual">
+            <option value="grain">Noise</option>
+            <option value="texture_scale">Tex Scale</option>
+            <option value="texture_rotate">Tex Rot</option>
+            <option value="texture_contrast">Tex Cont</option>
+            <option value="dual_size">Dual Size</option>
+            <option value="dual_spacing">Dual Spc</option>
+          </optgroup>
+          <optgroup label="Switches">
+            <option value="auto_rotate">Auto-Rot</option>
+            <option value="subpixel">Subpixel</option>
+            <option value="pressure_size">Press Size</option>
+            <option value="pressure_flow">Press Flow</option>
+            <option value="tilt_angle">Tilt Ang</option>
+          </optgroup>
+        `;
+
+        const slot = document.createElement('div');
+        slot.id = 'tb-dynamic-slot';
+        slot.className = 'tb-dynamic-slot';
+
+        let activeDialWidget = null;
+
+        function renderDynamicSlot() {
+          slot.innerHTML = '';
+          const key = sel.value || 'size';
+          const cfg = TB_PARAM_CONFIGS[key] || TB_PARAM_CONFIGS.size;
+          activeDialWidget = null;
+
+          if (cfg.type === 'dial') {
+            activeDialWidget = createDialWidgetElement(key);
+            slot.appendChild(activeDialWidget.el);
+          } else if (cfg.type === 'switch') {
+            const bp = host.brushParams || {};
+            const isChecked = cfg.getter ? cfg.getter(bp) : false;
+            const lbl = document.createElement('label');
+            lbl.className = 'tb-chk-label';
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.checked = isChecked;
+            const txt = document.createElement('span');
+            txt.textContent = isChecked ? 'ON' : 'OFF';
+
+            chk.addEventListener('change', () => {
+              runCmd(`${cfg.cmd} ${chk.checked ? 1 : 0}`);
+              txt.textContent = chk.checked ? 'ON' : 'OFF';
+              triggerHaptic(10);
+            });
+            lbl.appendChild(chk);
+            lbl.appendChild(txt);
+            slot.appendChild(lbl);
+          } else if (cfg.type === 'select_preset') {
+            const pSel = document.createElement('select');
+            pSel.className = 'tb-select';
+            pSel.innerHTML = '<option value="" disabled selected>-- Preset --</option>';
+            for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+              if (!p.name) continue;
+              const opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = p.name;
+              pSel.appendChild(opt);
+            }
+            pSel.addEventListener('change', () => {
+              if (pSel.value) {
+                host.selectBrushPreset(pSel.value);
+                syncUiFromHost();
+                triggerHaptic(15);
+              }
+            });
+            slot.appendChild(pSel);
+          }
+        }
+
+        sel.addEventListener('change', () => {
+          renderDynamicSlot();
+          triggerHaptic(10);
+        });
+        renderDynamicSlot();
+
+        wrap.appendChild(sel);
+        wrap.appendChild(slot);
+
+        const syncFn = () => {
+          if (activeDialWidget) activeDialWidget.sync();
+        };
+
+        return { el: wrap, sync: syncFn };
+      }
+    },
+
+    'swatch': {
+      category: 'Compound',
+      label: 'Live Color Swatch (HSV Modal Picker)',
+      render: () => {
+        const swatch = document.createElement('div');
+        swatch.id = 'tb-color-swatch';
+        swatch.className = 'tb-color-swatch';
+        swatch.title = 'Touch Color Picker';
+        if (host.currentColor !== undefined) {
+          const c = host.currentColor;
+          swatch.style.background = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF);
+        }
+        swatch.addEventListener('click', openTouchColorModal);
+        const syncFn = () => {
+          if (host.currentColor !== undefined) {
+            const c = host.currentColor;
+            swatch.style.background = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF);
           }
         };
-        dialBtn.addEventListener('pointerup', stopScrub);
-        dialBtn.addEventListener('pointercancel', stopScrub);
+        return { el: swatch, sync: syncFn };
+      }
+    },
 
-        tbDynamicSlot.appendChild(dialBtn);
-      } else if (cfg.type === 'switch') {
-        const bp = host.brushParams || {};
-        const isChecked = cfg.getter ? cfg.getter(bp) : false;
-
-        const lbl = document.createElement('label');
-        lbl.className = 'tb-chk-label';
-
-        const chk = document.createElement('input');
-        chk.type = 'checkbox';
-        chk.id = 'tb-active-chk';
-        chk.checked = isChecked;
-
-        const txt = document.createElement('span');
-        txt.id = 'tb-active-chk-text';
-        txt.textContent = isChecked ? 'ON' : 'OFF';
-
-        chk.addEventListener('change', () => {
-          txt.textContent = chk.checked ? 'ON' : 'OFF';
-          runCmd(`${cfg.cmd} ${chk.checked ? 1 : 0}`);
-          triggerHaptic(10);
-        });
-
-        lbl.appendChild(chk);
-        lbl.appendChild(txt);
-        tbDynamicSlot.appendChild(lbl);
-      } else if (cfg.type === 'select_tip') {
+    'preset_select': {
+      category: 'Compound',
+      label: 'Brush Presets Dropdown',
+      render: () => {
         const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
-
-        const count = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_count)
-          ? host.canvasActor.exports.get_layer_count() : 0;
-        for (let i = 0; i < count; i++) {
-          let name = `layer_${i}`;
-          if (host.textures) {
-            for (const [k, v] of host.textures.entries()) {
-              if (v.wasmId === i) { name = k; break; }
-            }
+        sel.className = 'dock-strip-select';
+        sel.style.maxWidth = '130px';
+        sel.style.fontWeight = 'bold';
+        sel.title = 'Brush Preset';
+        const populate = () => {
+          sel.innerHTML = '';
+          const optGrpBuiltin = document.createElement('optgroup');
+          optGrpBuiltin.label = 'Built-in Presets';
+          for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
+            if (!p.name) continue;
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = p.name;
+            optGrpBuiltin.appendChild(opt);
           }
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = `[${i}] ${name}`;
-          sel.appendChild(opt);
-        }
-        const shapeId = host.brushParams ? host.brushParams.shape : 0;
-        const builtins = ['circle', 'square', 'chisel'];
-        let activeShapeName = builtins[shapeId] || `layer_${shapeId}`;
-        if (host.textures) {
-          for (const [k, v] of host.textures.entries()) {
-            if (v.wasmId === shapeId) { activeShapeName = k; break; }
-          }
-        }
-        sel.value = activeShapeName;
-
+          sel.appendChild(optGrpBuiltin);
+          if (host.activeBrush) sel.value = host.activeBrush;
+        };
+        populate();
         sel.addEventListener('change', () => {
-          runCmd(`set shape ${sel.value}`);
-          triggerHaptic(10);
+          if (sel.value) {
+            host.selectBrushPreset(sel.value);
+            syncUiFromHost();
+            triggerHaptic(15);
+          }
         });
-        tbDynamicSlot.appendChild(sel);
-      } else if (cfg.type === 'select_grain') {
+        const syncFn = () => {
+          if (host.activeBrush && sel.value !== host.activeBrush) {
+            sel.value = host.activeBrush;
+          }
+        };
+        return { el: sel, sync: syncFn };
+      }
+    },
+
+    'script_select': {
+      category: 'Compound',
+      label: 'Script Runner Dropdown',
+      render: () => {
         const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
-
-        const optNone = document.createElement('option');
-        optNone.value = 'none';
-        optNone.textContent = 'None';
-        sel.appendChild(optNone);
-
-        const count = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_count)
-          ? host.canvasActor.exports.get_layer_count() : 0;
-        for (let i = 0; i < count; i++) {
-          let name = `layer_${i}`;
-          if (host.textures) {
-            for (const [k, v] of host.textures.entries()) {
-              if (v.wasmId === i) { name = k; break; }
-            }
-          }
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = `[${i}] ${name}`;
-          sel.appendChild(opt);
-        }
-        sel.value = host.activeTexture || 'none';
-
+        sel.className = 'dock-strip-select';
+        sel.title = 'Run Saved Script';
+        const populate = () => {
+          sel.innerHTML = '<option value="" disabled selected>Script</option>';
+          const list = getSavedScripts();
+          list.forEach((s, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = s.name;
+            sel.appendChild(opt);
+          });
+        };
+        populate();
+        sel.addEventListener('focus', populate);
+        sel.addEventListener('pointerdown', populate);
         sel.addEventListener('change', () => {
-          runCmd(`set texture ${sel.value}`);
-          triggerHaptic(10);
-        });
-        tbDynamicSlot.appendChild(sel);
-      } else if (cfg.type === 'select_script') {
-        const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
-
-        const optPrompt = document.createElement('option');
-        optPrompt.value = '';
-        optPrompt.disabled = true;
-        optPrompt.selected = true;
-        optPrompt.textContent = '▶ Exec script...';
-        sel.appendChild(optPrompt);
-
-        const list = getSavedScripts();
-        list.forEach((s, idx) => {
-          const opt = document.createElement('option');
-          opt.value = String(idx);
-          opt.textContent = s.name || `script_${idx + 1}`;
-          sel.appendChild(opt);
-        });
-
-        sel.addEventListener('change', () => {
+          const list = getSavedScripts();
           const idx = parseInt(sel.value, 10);
           if (!isNaN(idx) && list[idx]) {
             runScriptCode(list[idx].code);
@@ -3870,273 +4339,625 @@ function updateDockTabs() {}
           }
           sel.selectedIndex = 0;
         });
-        tbDynamicSlot.appendChild(sel);
-      } else if (cfg.type === 'select_dab_blend') {
-        const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
-        const blendNames = ['normal', 'multiply', 'screen', 'overlay', 'dodge', 'add'];
-        blendNames.forEach(b => {
-          const opt = document.createElement('option');
-          opt.value = b;
-          opt.textContent = b;
-          sel.appendChild(opt);
-        });
-        const curBlend = host.brushParams ? host.brushParams.dab_blend : 0;
-        sel.value = blendNames[curBlend] || 'normal';
-        sel.addEventListener('change', () => {
-          runCmd(`set dab_blend ${sel.value}`);
-          triggerHaptic(10);
-        });
-        tbDynamicSlot.appendChild(sel);
-      } else if (cfg.type === 'select_symmetry') {
-        const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
-        const symOptions = [
-          { val: '0', text: 'Off' },
-          { val: '1', text: 'Vertical' },
-          { val: '2', text: 'Horizontal' },
-          { val: '3', text: 'Quad' }
-        ];
-        symOptions.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.val;
-          opt.textContent = s.text;
-          sel.appendChild(opt);
-        });
-        const curSym = host.brushParams && host.brushParams.symmetry !== undefined ? String(host.brushParams.symmetry) : '0';
-        sel.value = curSym;
-        sel.addEventListener('change', () => {
-          runCmd(`set symmetry ${sel.value}`);
-          triggerHaptic(10);
-        });
-        tbDynamicSlot.appendChild(sel);
-      } else if (cfg.type === 'select_dual_shape') {
-        const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
-        const optNone = document.createElement('option');
-        optNone.value = 'none';
-        optNone.textContent = 'None';
-        sel.appendChild(optNone);
+        return { el: sel, sync: () => {} };
+      }
+    }
+  };
 
-        const count = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_count)
-          ? host.canvasActor.exports.get_layer_count() : 0;
-        for (let i = 0; i < count; i++) {
-          let name = `layer_${i}`;
-          if (host.textures) {
-            for (const [k, v] of host.textures.entries()) {
-              if (v.wasmId === i) { name = k; break; }
-            }
-          }
-          const opt = document.createElement('option');
-          opt.value = name;
-          opt.textContent = `[${i}] ${name}`;
-          sel.appendChild(opt);
-        }
-        sel.value = host.brushParams && host.brushParams.dual_shape !== undefined && host.brushParams.dual_shape >= 0
-          ? `layer_${host.brushParams.dual_shape}` : 'none';
-        sel.addEventListener('change', () => {
-          runCmd(`set dual_shape ${sel.value}`);
-          triggerHaptic(10);
-        });
-        tbDynamicSlot.appendChild(sel);
-      } else if (cfg.type === 'save_tool') {
+  // Register all Parameter Widgets (Arc Dial, Direct Slider, Number Input)
+  Object.entries(TB_PARAM_CONFIGS).forEach(([paramKey, cfg]) => {
+    if (cfg.type === 'dial') {
+      // 1. Arc Dial
+      MODULAR_WIDGET_REGISTRY[`dial:${paramKey}`] = {
+        category: 'Param: Arc Dials',
+        label: `Arc Dial: ${cfg.name || paramKey}`,
+        render: () => createDialWidgetElement(paramKey)
+      };
+
+      // 2. Touch Slider
+      MODULAR_WIDGET_REGISTRY[`slider:${paramKey}`] = {
+        category: 'Param: Sliders',
+        label: `Slider: ${cfg.name || paramKey}`,
+        render: () => createSliderWidgetElement(paramKey)
+      };
+
+      // 3. Number / Text Input
+      MODULAR_WIDGET_REGISTRY[`input:${paramKey}`] = {
+        category: 'Param: Number Inputs',
+        label: `Input: ${cfg.name || paramKey}`,
+        render: () => createInputWidgetElement(paramKey)
+      };
+    }
+  });
+
+  // Register all Tools
+  const TOOL_NAMES = [
+    { id: 'brush', label: 'Brush' },
+    { id: 'blend', label: 'Blend' },
+    { id: 'fill', label: 'Fill' },
+    { id: 'lasso_fill', label: 'Lasso' },
+    { id: 'picker', label: 'Picker' },
+    { id: 'line', label: 'Line' },
+    { id: 'rect', label: 'Rect' },
+    { id: 'ellipse', label: 'Ellipse' }
+  ];
+  TOOL_NAMES.forEach(t => {
+    MODULAR_WIDGET_REGISTRY[`tool:${t.id}`] = {
+      category: 'Tools',
+      label: `Tool: ${t.label}`,
+      render: () => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'tb-btn';
-        btn.style.borderRadius = '0';
-        btn.textContent = 'Save Script';
+        btn.className = 'dock-strip-btn dock-tool-btn';
+        btn.textContent = t.label;
+        btn.title = `Tool: ${t.label}`;
         btn.addEventListener('click', () => {
-          const name = window.prompt('Enter script name for current tool:');
-          if (name && name.trim()) {
-            const trimmed = name.trim().replace(/\s+/g, '_');
-            const scriptCode = dumpCurrentToolScript(trimmed);
-            const list = getSavedScripts().filter(s => s.name !== trimmed);
-            list.push({ name: trimmed, code: scriptCode });
-            saveScriptsList(list);
-            populateScriptSelect();
-            log(`Saved tool script: ${trimmed}`);
-            triggerHaptic(20);
-          }
+          runCmd(`tool ${t.id}`);
+          triggerHaptic(12);
         });
-        tbDynamicSlot.appendChild(btn);
-      } else if (cfg.type === 'select_preset') {
-        const sel = document.createElement('select');
-        sel.className = 'tb-select';
-        sel.id = 'tb-active-sel';
+        const syncFn = () => {
+          btn.classList.toggle('active', host.currentTool === t.id);
+        };
+        return { el: btn, sync: syncFn };
+      }
+    };
+  });
 
-        const optPrompt = document.createElement('option');
-        optPrompt.value = '';
-        optPrompt.disabled = true;
-        optPrompt.selected = true;
-        optPrompt.textContent = '-- Choose Preset --';
-        sel.appendChild(optPrompt);
-
-        // Built-in presets
-        const optGrpBuiltin = document.createElement('optgroup');
-        optGrpBuiltin.label = 'Built-in Presets';
-        for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-          if (!p.name) continue;
-          const opt = document.createElement('option');
-          opt.value = k;
-          opt.textContent = p.name;
-          if (host.activeBrush === k) opt.selected = true;
-          optGrpBuiltin.appendChild(opt);
-        }
-        sel.appendChild(optGrpBuiltin);
-
-        // Custom presets
-        if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
-          const optGrpCustom = document.createElement('optgroup');
-          optGrpCustom.label = 'Custom Presets';
-          for (const [k, p] of Object.entries(host.customBrushPresets)) {
-            const opt = document.createElement('option');
-            opt.value = k;
-            opt.textContent = p.name || k;
-            if (host.activeBrush === k) opt.selected = true;
-            optGrpCustom.appendChild(opt);
-          }
-          sel.appendChild(optGrpCustom);
-        }
-
-        sel.addEventListener('change', () => {
-          if (sel.value) {
-            host.selectBrushPreset(sel.value);
-            syncUiFromHost();
-            populateBrushPresetsUI();
-            triggerHaptic(15);
-          }
+  // Register all Modes
+  const MODE_NAMES = [
+    { id: 'draw', label: 'Draw' },
+    { id: 'erase', label: 'Erase' },
+    { id: 'smudge', label: 'Smudge' },
+    { id: 'select', label: 'Select' }
+  ];
+  MODE_NAMES.forEach(m => {
+    MODULAR_WIDGET_REGISTRY[`mode:${m.id}`] = {
+      category: 'Modes',
+      label: `Mode: ${m.label}`,
+      render: () => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dock-strip-btn dock-mode-btn';
+        btn.textContent = m.label;
+        btn.title = `Mode: ${m.label}`;
+        btn.addEventListener('click', () => {
+          runCmd(`mode ${m.id}`);
+          triggerHaptic(12);
         });
-        tbDynamicSlot.appendChild(sel);
+        const syncFn = () => {
+          btn.classList.toggle('active', host.actionMode === m.id);
+        };
+        return { el: btn, sync: syncFn };
       }
-    }
+    };
+  });
 
-    function syncTbDynamicSlot() {
-      if (!tbDynamicSlot || !tbParamSelect) return;
-      const key = tbParamSelect.value || 'size';
-      const cfg = TB_PARAM_CONFIGS[key] || TB_PARAM_CONFIGS.size;
-      const bp = host.brushParams;
-      if (!bp) return;
-
-      if (cfg.type === 'dial') {
-        const badge = document.getElementById('tb-active-val');
-        const miniRing = document.getElementById('tb-active-mini-ring');
-        if (cfg.getter) {
-          const val = cfg.getter(bp);
-          if (val !== undefined) {
-            if (badge) badge.textContent = val + (cfg.suffix || '');
-            if (miniRing) {
-              const t = Math.max(0, Math.min(1, (val - cfg.min) / (cfg.max - cfg.min)));
-              const circumference = 2 * Math.PI * 4.5;
-              const strokeOffset = circumference * (1 - t);
-              miniRing.setAttribute('stroke-dashoffset', strokeOffset.toFixed(1));
-            }
-            if (arcDialModal && arcDialModal.classList.contains('active') && curDialKey === key) {
-              updateArcDialDisplay();
-            }
-          }
-        }
-      } else if (cfg.type === 'switch') {
-        const chk = document.getElementById('tb-active-chk');
-        const txt = document.getElementById('tb-active-chk-text');
-        if (chk && cfg.getter) {
-          const val = cfg.getter(bp);
-          chk.checked = !!val;
-          if (txt) txt.textContent = val ? 'ON' : 'OFF';
-        }
+  // Register all Actions
+  const ACTION_ITEMS = [
+    { id: 'undo', label: '↶ Undo', title: 'Undo (Ctrl+Z)', cmd: () => handleUndo() },
+    { id: 'redo', label: '↷ Redo', title: 'Redo (Ctrl+Y)', cmd: () => handleRedo() },
+    { id: 'copy', label: 'Copy', title: 'Copy Selection', cmd: () => runCmd('selection copy') },
+    { id: 'cut', label: 'Cut', title: 'Cut Selection', cmd: () => runCmd('selection cut') },
+    { id: 'deselect', label: 'Desel', title: 'Deselect', cmd: () => runCmd('selection clear') },
+    { id: 'apply_xform', label: 'Apply', title: 'Apply Transform', cmd: () => runCmd('transform apply') },
+    { id: 'cancel_xform', label: 'Cancel', title: 'Cancel Transform', cmd: () => runCmd('transform cancel') },
+    { id: 'flip_h', label: 'Flip H', title: 'Flip Canvas Horizontally', cmd: () => runCmd('canvas flip h') },
+    { id: 'flip_v', label: 'Flip V', title: 'Flip Canvas Vertically', cmd: () => runCmd('canvas flip v') },
+    { id: 'clear_layer', label: 'Clear', title: 'Clear Active Layer', cmd: () => runCmd('clear') },
+    { id: 'open_customizer', label: '⚙ Bars', title: 'Customize Toolbars', cmd: () => openToolbarManagerModal() }
+  ];
+  ACTION_ITEMS.forEach(act => {
+    MODULAR_WIDGET_REGISTRY[`action:${act.id}`] = {
+      category: 'Actions',
+      label: `Action: ${act.label}`,
+      render: () => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'dock-strip-btn';
+        btn.textContent = act.label;
+        btn.title = act.title;
+        btn.addEventListener('click', () => {
+          act.cmd();
+          triggerHaptic(12);
+        });
+        return { el: btn, sync: () => {} };
       }
+    };
+  });
+
+  // Register Layout Items
+  MODULAR_WIDGET_REGISTRY['separator'] = {
+    category: 'Layout',
+    label: 'Separator (Line Divider)',
+    render: () => {
+      const sep = document.createElement('div');
+      sep.className = 'tb-sep';
+      return { el: sep, sync: () => {} };
     }
-
-    if (tbParamSelect) {
-      tbParamSelect.addEventListener('change', () => {
-        triggerHaptic(10);
-        renderTbDynamicSlot();
-      });
-      renderTbDynamicSlot();
+  };
+  MODULAR_WIDGET_REGISTRY['spacer'] = {
+    category: 'Layout',
+    label: 'Spacer (Space)',
+    render: () => {
+      const sp = document.createElement('div');
+      sp.style.width = '8px';
+      sp.style.flexShrink = '0';
+      return { el: sp, sync: () => {} };
     }
+  };
 
-    // Make toolbar draggable freely in 2D
-    let tbDragging = false;
-    let tbStartX = 0, tbStartY = 0;
-    let tbInitLeft = 0, tbInitTop = 0;
+  // ── Toolbar State & Persistence ──
+  const DEFAULT_MODULAR_TOOLBARS = [
+    {
+      id: 'bar_tweaks',
+      name: 'Quick Tweaks',
+      items: [
+        { type: 'action:undo' },
+        { type: 'action:redo' },
+        { type: 'separator' },
+        { type: 'swatch' },
+        { type: 'separator' },
+        { type: 'param_picker' }
+      ]
+    },
+    {
+      id: 'bar_tools',
+      name: 'Tools & Modes',
+      items: [
+        { type: 'category_switcher' }
+      ]
+    }
+  ];
 
-    const getTbScale = () => {
-      const scaleStr = getComputedStyle(document.documentElement).getPropertyValue('--touch-toolbar-scale');
-      const parsed = parseFloat(scaleStr);
-      if (!isNaN(parsed) && parsed > 0) return parsed;
-      const rect = touchToolbar.getBoundingClientRect();
-      return (touchToolbar.offsetWidth > 0 ? (rect.width / touchToolbar.offsetWidth) : 1.0) || 1.0;
-    };
+  let currentModularToolbars = null;
+  let activeModularWidgets = [];
 
-    const startTbDrag = (clientX, clientY, target) => {
-      // Never start drag when clicking interactive controls (select, option, optgroup, input, button, swatch, label)
-      if (target && target.closest('select, option, optgroup, input, button, label, #tb-color-swatch')) {
-        return false;
-      }
-      const scale = getTbScale();
-      tbDragging = true;
-      tbStartX = clientX;
-      tbStartY = clientY;
-      const rect = touchToolbar.getBoundingClientRect();
-      tbInitLeft = rect.left / scale;
-      tbInitTop = rect.top / scale;
-      touchToolbar.style.transform = 'none';
-      touchToolbar.style.left = tbInitLeft + 'px';
-      touchToolbar.style.top = tbInitTop + 'px';
-      return true;
-    };
-
-    const moveTbDrag = (clientX, clientY) => {
-      if (!tbDragging) return;
-      const scale = getTbScale();
-      const dx = (clientX - tbStartX) / scale;
-      const dy = (clientY - tbStartY) / scale;
-      const rect = touchToolbar.getBoundingClientRect();
-      const maxLeft = Math.max(0, (window.innerWidth - rect.width) / scale);
-      const maxTop = Math.max(0, (window.innerHeight - rect.height - 40) / scale);
-      const newLeft = Math.max(0, Math.min(maxLeft, tbInitLeft + dx));
-      const newTop = Math.max(4 / scale, Math.min(maxTop, tbInitTop + dy));
-      touchToolbar.style.left = newLeft + 'px';
-      touchToolbar.style.top = newTop + 'px';
-    };
-
-    const endTbDrag = () => {
-      tbDragging = false;
-    };
-
-    touchToolbar.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 1) {
-        if (startTbDrag(e.touches[0].clientX, e.touches[0].clientY, e.target)) {
-          e.preventDefault();
+  function loadModularToolbars() {
+    try {
+      const stored = localStorage.getItem('esenho_custom_toolbars');
+      if (stored !== null) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          return parsed;
         }
       }
-    }, { passive: false });
-
-    window.addEventListener('touchmove', (e) => {
-      if (tbDragging && e.touches.length === 1) {
-        moveTbDrag(e.touches[0].clientX, e.touches[0].clientY);
-        e.preventDefault();
-      }
-    }, { passive: false });
-
-    window.addEventListener('touchend', endTbDrag);
-    window.addEventListener('touchcancel', endTbDrag);
-
-    touchToolbar.addEventListener('mousedown', (e) => {
-      if (startTbDrag(e.clientX, e.clientY, e.target)) {
-        e.preventDefault();
-      }
-    });
-    window.addEventListener('mousemove', (e) => {
-      if (tbDragging) {
-        moveTbDrag(e.clientX, e.clientY);
-        e.preventDefault();
-      }
-    });
-    window.addEventListener('mouseup', endTbDrag);
+    } catch (_) {}
+    return JSON.parse(JSON.stringify(DEFAULT_MODULAR_TOOLBARS));
   }
+
+  function saveModularToolbars() {
+    try {
+      localStorage.setItem('esenho_custom_toolbars', JSON.stringify(currentModularToolbars));
+    } catch (_) {}
+  }
+
+  function renderModularToolbars() {
+    const container = document.getElementById('bottom-dock-bars');
+    if (!container) return;
+    container.innerHTML = '';
+    activeModularWidgets = [];
+
+    if (!currentModularToolbars) {
+      currentModularToolbars = loadModularToolbars();
+    }
+
+    currentModularToolbars.forEach(bar => {
+      const row = document.createElement('div');
+      row.className = 'dock-bar-row';
+      row.setAttribute('data-bar-id', bar.id);
+
+      (bar.items || []).forEach(item => {
+        let itemType = item.type;
+        let renderer = MODULAR_WIDGET_REGISTRY[itemType];
+
+        // Handle direct script button
+        if (itemType === 'script_btn' && item.scriptName) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'dock-strip-btn';
+          btn.textContent = item.scriptName;
+          btn.title = `Run script "${item.scriptName}"`;
+          btn.addEventListener('click', () => {
+            const scripts = getSavedScripts();
+            const found = scripts.find(s => s.name === item.scriptName);
+            if (found) {
+              runScriptCode(found.code);
+              triggerHaptic(15);
+            } else {
+              alert(`Script "${item.scriptName}" not found.`);
+            }
+          });
+          row.appendChild(btn);
+          return;
+        }
+
+        if (renderer && renderer.render) {
+          const widgetInstance = renderer.render(item);
+          if (widgetInstance && widgetInstance.el) {
+            row.appendChild(widgetInstance.el);
+            if (widgetInstance.sync) {
+              activeModularWidgets.push(widgetInstance.sync);
+            }
+          }
+        }
+      });
+
+      container.appendChild(row);
+    });
+
+    syncModularToolbars();
+  }
+
+  function syncModularToolbars() {
+    activeModularWidgets.forEach(syncFn => {
+      try { syncFn(); } catch (_) {}
+    });
+  }
+
+  // ── Toolbar Manager Modal UI ──
+  const toolbarMgrModal = document.getElementById('toolbar-manager-modal');
+  const btnCloseToolbarMgr = document.getElementById('btn-close-toolbar-mgr');
+  const btnOpenToolbarMgr = document.getElementById('btn-open-toolbar-mgr');
+  const uiBtnOpenToolbarMgr = document.getElementById('ui-btn-open-toolbar-mgr');
+
+  const tbMgrSelectBar = document.getElementById('tb-mgr-select-bar');
+  const tbMgrBtnAddBar = document.getElementById('tb-mgr-btn-add-bar');
+  const tbMgrBtnRenameBar = document.getElementById('tb-mgr-btn-rename-bar');
+  const tbMgrBtnDelBar = document.getElementById('tb-mgr-btn-del-bar');
+  const tbMgrSelectNewWidget = document.getElementById('tb-mgr-select-new-widget');
+  const tbMgrBtnAddWidget = document.getElementById('tb-mgr-btn-add-widget');
+  const tbMgrItemsList = document.getElementById('tb-mgr-items-list');
+  const tbMgrBtnResetDefault = document.getElementById('tb-mgr-btn-reset-default');
+  const tbMgrBtnExport = document.getElementById('tb-mgr-btn-export');
+  const tbMgrBtnImport = document.getElementById('tb-mgr-btn-import');
+
+  let selectedBarIndex = 0;
+
+  function populateNewWidgetDropdown() {
+    if (!tbMgrSelectNewWidget) return;
+    tbMgrSelectNewWidget.innerHTML = '';
+
+    const categories = {};
+    Object.entries(MODULAR_WIDGET_REGISTRY).forEach(([key, reg]) => {
+      const cat = reg.category || 'Other';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push({ key, label: reg.label });
+    });
+
+    Object.entries(categories).forEach(([catName, items]) => {
+      const optGroup = document.createElement('optgroup');
+      optGroup.label = catName;
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item.key;
+        opt.textContent = item.label;
+        optGroup.appendChild(opt);
+      });
+      tbMgrSelectNewWidget.appendChild(optGroup);
+    });
+
+    // Add saved scripts as custom 1-click button options
+    const scripts = getSavedScripts();
+    if (scripts.length > 0) {
+      const scriptGroup = document.createElement('optgroup');
+      scriptGroup.label = 'Custom Script 1-Click Buttons';
+      scripts.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = `script_btn:${s.name}`;
+        opt.textContent = `Script Button: ${s.name}`;
+        scriptGroup.appendChild(opt);
+      });
+      tbMgrSelectNewWidget.appendChild(scriptGroup);
+    }
+  }
+
+  function renderToolbarManagerUI() {
+    if (!currentModularToolbars) currentModularToolbars = loadModularToolbars();
+
+    populateNewWidgetDropdown();
+
+    if (currentModularToolbars.length === 0) {
+      selectedBarIndex = -1;
+      if (tbMgrSelectBar) {
+        tbMgrSelectBar.innerHTML = '<option value="-1" disabled selected>(No bars — Click "+ New Bar")</option>';
+        tbMgrSelectBar.disabled = true;
+      }
+      if (tbMgrBtnRenameBar) tbMgrBtnRenameBar.disabled = true;
+      if (tbMgrBtnDelBar) tbMgrBtnDelBar.disabled = true;
+      if (tbMgrBtnAddWidget) tbMgrBtnAddWidget.disabled = true;
+      if (tbMgrSelectNewWidget) tbMgrSelectNewWidget.disabled = true;
+      if (tbMgrItemsList) {
+        tbMgrItemsList.innerHTML = '<div style="color: #928374; font-style: italic; padding: 12px; text-align: center;">No toolbars configured.<br>Click <strong>"+ New Bar"</strong> to create one.</div>';
+      }
+      return;
+    }
+
+    if (selectedBarIndex < 0 || selectedBarIndex >= currentModularToolbars.length) {
+      selectedBarIndex = Math.max(0, currentModularToolbars.length - 1);
+    }
+
+    if (tbMgrSelectBar) {
+      tbMgrSelectBar.disabled = false;
+      tbMgrSelectBar.innerHTML = '';
+      currentModularToolbars.forEach((b, idx) => {
+        const opt = document.createElement('option');
+        opt.value = String(idx);
+        opt.textContent = `[Bar ${idx + 1}] ${b.name || 'Toolbar'}`;
+        if (idx === selectedBarIndex) opt.selected = true;
+        tbMgrSelectBar.appendChild(opt);
+      });
+    }
+
+    if (tbMgrBtnRenameBar) tbMgrBtnRenameBar.disabled = false;
+    if (tbMgrBtnDelBar) tbMgrBtnDelBar.disabled = false;
+    if (tbMgrBtnAddWidget) tbMgrBtnAddWidget.disabled = false;
+    if (tbMgrSelectNewWidget) tbMgrSelectNewWidget.disabled = false;
+
+    // Render items list for currently selected bar
+    if (tbMgrItemsList) {
+      tbMgrItemsList.innerHTML = '';
+      const currentBar = currentModularToolbars[selectedBarIndex];
+      if (!currentBar || !currentBar.items || currentBar.items.length === 0) {
+        tbMgrItemsList.innerHTML = '<div style="color: #928374; font-style: italic; padding: 6px;">Bar is empty. Add items using the dropdown above.</div>';
+      } else {
+        currentBar.items.forEach((item, itemIdx) => {
+          const row = document.createElement('div');
+          row.className = 'toolbar-mgr-item-row';
+
+          let displayName = item.type;
+          if (item.type === 'script_btn') {
+            displayName = `Script Button: ${item.scriptName}`;
+          } else if (MODULAR_WIDGET_REGISTRY[item.type]) {
+            displayName = MODULAR_WIDGET_REGISTRY[item.type].label;
+          }
+
+          const titleSpan = document.createElement('span');
+          titleSpan.className = 'toolbar-mgr-item-title';
+          titleSpan.textContent = `${itemIdx + 1}. ${displayName}`;
+
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'toolbar-mgr-item-actions';
+
+          // Move Left / Up button
+          const btnMoveLeft = document.createElement('button');
+          btnMoveLeft.type = 'button';
+          btnMoveLeft.className = 'dock-strip-btn';
+          btnMoveLeft.style.padding = '0 6px';
+          btnMoveLeft.textContent = '◀';
+          btnMoveLeft.title = 'Move Left';
+          btnMoveLeft.disabled = itemIdx === 0;
+          btnMoveLeft.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const temp = currentBar.items[itemIdx];
+            currentBar.items[itemIdx] = currentBar.items[itemIdx - 1];
+            currentBar.items[itemIdx - 1] = temp;
+            saveModularToolbars();
+            renderModularToolbars();
+            renderToolbarManagerUI();
+            triggerHaptic(10);
+          });
+
+          // Move Right / Down button
+          const btnMoveRight = document.createElement('button');
+          btnMoveRight.type = 'button';
+          btnMoveRight.className = 'dock-strip-btn';
+          btnMoveRight.style.padding = '0 6px';
+          btnMoveRight.textContent = '▶';
+          btnMoveRight.title = 'Move Right';
+          btnMoveRight.disabled = itemIdx === currentBar.items.length - 1;
+          btnMoveRight.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const temp = currentBar.items[itemIdx];
+            currentBar.items[itemIdx] = currentBar.items[itemIdx + 1];
+            currentBar.items[itemIdx + 1] = temp;
+            saveModularToolbars();
+            renderModularToolbars();
+            renderToolbarManagerUI();
+            triggerHaptic(10);
+          });
+
+          // Delete Item button
+          const btnDelete = document.createElement('button');
+          btnDelete.type = 'button';
+          btnDelete.className = 'dock-strip-btn';
+          btnDelete.style.padding = '0 6px';
+          btnDelete.style.color = '#fb4934';
+          btnDelete.textContent = '✕';
+          btnDelete.title = 'Remove Item';
+          btnDelete.addEventListener('click', (e) => {
+            e.stopPropagation();
+            currentBar.items.splice(itemIdx, 1);
+            saveModularToolbars();
+            renderModularToolbars();
+            renderToolbarManagerUI();
+            triggerHaptic(15);
+          });
+
+          actionsDiv.appendChild(btnMoveLeft);
+          actionsDiv.appendChild(btnMoveRight);
+          actionsDiv.appendChild(btnDelete);
+
+          row.appendChild(titleSpan);
+          row.appendChild(actionsDiv);
+          tbMgrItemsList.appendChild(row);
+        });
+      }
+    }
+  }
+
+  function openToolbarManagerModal() {
+    if (toolbarMgrModal) {
+      renderToolbarManagerUI();
+      toolbarMgrModal.classList.add('active');
+      triggerHaptic(12);
+    }
+  }
+
+  function closeToolbarManagerModal() {
+    if (toolbarMgrModal) {
+      toolbarMgrModal.classList.remove('active');
+    }
+  }
+
+  if (btnOpenToolbarMgr) {
+    const handleOpen = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      openToolbarManagerModal();
+    };
+    btnOpenToolbarMgr.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btnOpenToolbarMgr.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+    btnOpenToolbarMgr.addEventListener('click', handleOpen);
+  }
+  if (uiBtnOpenToolbarMgr) {
+    const handleOpenUi = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      openToolbarManagerModal();
+    };
+    uiBtnOpenToolbarMgr.addEventListener('pointerdown', (e) => e.stopPropagation());
+    uiBtnOpenToolbarMgr.addEventListener('click', handleOpenUi);
+  }
+  if (btnCloseToolbarMgr) btnCloseToolbarMgr.addEventListener('click', closeToolbarManagerModal);
+  if (toolbarMgrModal) {
+    toolbarMgrModal.addEventListener('click', (e) => {
+      if (e.target === toolbarMgrModal) closeToolbarManagerModal();
+    });
+  }
+
+  if (tbMgrSelectBar) {
+    tbMgrSelectBar.addEventListener('change', () => {
+      selectedBarIndex = parseInt(tbMgrSelectBar.value, 10) || 0;
+      renderToolbarManagerUI();
+    });
+  }
+
+  if (tbMgrBtnAddBar) {
+    tbMgrBtnAddBar.addEventListener('click', () => {
+      const name = window.prompt('New Toolbar Name:', `Custom Bar ${(currentModularToolbars ? currentModularToolbars.length : 0) + 1}`);
+      if (name && name.trim()) {
+        if (!currentModularToolbars) currentModularToolbars = [];
+        const newId = `bar_${Date.now()}`;
+        currentModularToolbars.push({
+          id: newId,
+          name: name.trim(),
+          items: []
+        });
+        selectedBarIndex = currentModularToolbars.length - 1;
+        saveModularToolbars();
+        renderModularToolbars();
+        renderToolbarManagerUI();
+        triggerHaptic(15);
+      }
+    });
+  }
+
+  if (tbMgrBtnRenameBar) {
+    tbMgrBtnRenameBar.addEventListener('click', () => {
+      if (!currentModularToolbars || selectedBarIndex < 0) return;
+      const currentBar = currentModularToolbars[selectedBarIndex];
+      if (!currentBar) return;
+      const name = window.prompt('Rename Toolbar:', currentBar.name || '');
+      if (name && name.trim()) {
+        currentBar.name = name.trim();
+        saveModularToolbars();
+        renderModularToolbars();
+        renderToolbarManagerUI();
+        triggerHaptic(10);
+      }
+    });
+  }
+
+  if (tbMgrBtnDelBar) {
+    tbMgrBtnDelBar.addEventListener('click', () => {
+      if (!currentModularToolbars || currentModularToolbars.length === 0 || selectedBarIndex < 0) return;
+      const barToDelete = currentModularToolbars[selectedBarIndex];
+      if (confirm(`Delete toolbar "${barToDelete?.name || 'Toolbar'}"?`)) {
+        currentModularToolbars.splice(selectedBarIndex, 1);
+        selectedBarIndex = Math.max(-1, currentModularToolbars.length - 1);
+        saveModularToolbars();
+        renderModularToolbars();
+        renderToolbarManagerUI();
+        triggerHaptic(15);
+      }
+    });
+  }
+
+  if (tbMgrBtnAddWidget) {
+    tbMgrBtnAddWidget.addEventListener('click', () => {
+      if (!currentModularToolbars || currentModularToolbars.length === 0 || selectedBarIndex < 0) return;
+      const currentBar = currentModularToolbars[selectedBarIndex];
+      if (!currentBar) return;
+      if (!currentBar.items) currentBar.items = [];
+
+      const chosenVal = tbMgrSelectNewWidget.value;
+      if (!chosenVal) return;
+
+      if (chosenVal.startsWith('script_btn:')) {
+        const scriptName = chosenVal.replace('script_btn:', '');
+        currentBar.items.push({ type: 'script_btn', scriptName: scriptName });
+      } else {
+        currentBar.items.push({ type: chosenVal });
+      }
+
+      saveModularToolbars();
+      renderModularToolbars();
+      renderToolbarManagerUI();
+      triggerHaptic(12);
+    });
+  }
+
+  if (tbMgrBtnResetDefault) {
+    tbMgrBtnResetDefault.addEventListener('click', () => {
+      if (confirm('Reset toolbars to default factory layout?')) {
+        currentModularToolbars = JSON.parse(JSON.stringify(DEFAULT_MODULAR_TOOLBARS));
+        selectedBarIndex = 0;
+        saveModularToolbars();
+        renderModularToolbars();
+        renderToolbarManagerUI();
+        triggerHaptic(20);
+      }
+    });
+  }
+
+  if (tbMgrBtnExport) {
+    tbMgrBtnExport.addEventListener('click', () => {
+      const jsonStr = JSON.stringify(currentModularToolbars || [], null, 2);
+      navigator.clipboard.writeText(jsonStr).then(() => {
+        alert('Toolbar configuration JSON copied to clipboard!');
+      }).catch(() => {
+        window.prompt('Copy Toolbar JSON configuration:', jsonStr);
+      });
+    });
+  }
+
+  if (tbMgrBtnImport) {
+    tbMgrBtnImport.addEventListener('click', () => {
+      const jsonStr = window.prompt('Paste Toolbar JSON configuration:');
+      if (jsonStr && jsonStr.trim()) {
+        try {
+          const parsed = JSON.parse(jsonStr.trim());
+          if (Array.isArray(parsed)) {
+            currentModularToolbars = parsed;
+            selectedBarIndex = parsed.length > 0 ? 0 : -1;
+            saveModularToolbars();
+            renderModularToolbars();
+            renderToolbarManagerUI();
+            alert('Toolbars imported successfully!');
+            triggerHaptic(20);
+          } else {
+            alert('Invalid toolbar JSON format.');
+          }
+        } catch (err) {
+          alert(`Failed to import JSON: ${err.message}`);
+        }
+      }
+    });
+  }
+
+  // Initial render of modular toolbars
+  renderModularToolbars();
+
 
   // Active Layer Opacity slider (Photoshop style)
   const activeLayerOp = document.getElementById('ui-active-layer-op');
@@ -5109,7 +5930,6 @@ function updateDockTabs() {}
       setSlider('ui-slider-opacity', 'ui-val-opacity', bp.opacity, '%');
       setSlider('ui-slider-hardness', 'ui-val-hardness', bp.hardness, '%');
       setSlider('ui-slider-flow', 'ui-val-flow', bp.flow, '%');
-      syncTbDynamicSlot();
       setSlider('ui-slider-spacing', 'ui-val-spacing', bp.spacing, '%');
       setSlider('ui-slider-smoothing', 'ui-val-smoothing', bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0), '%');
       setSlider('ui-slider-midpoint', 'ui-val-midpoint', bp.midpoint !== undefined ? bp.midpoint : 50, '%');
@@ -5197,12 +6017,9 @@ function updateDockTabs() {}
       if (tHex) tHex.textContent = hex.toUpperCase();
     }
 
-    // Sync floating toolbar size/opacity labels
-    if (host.brushParams) {
-      const tbSizeVal = document.getElementById('tb-size-val');
-      const tbOpVal   = document.getElementById('tb-opacity-val');
-      if (tbSizeVal) tbSizeVal.textContent = String(host.brushParams.size);
-      if (tbOpVal)   tbOpVal.textContent = String(host.brushParams.opacity);
+    // Sync modular dock toolbars (dials, active tools, modes, swatch, presets)
+    if (typeof syncModularToolbars === 'function') {
+      syncModularToolbars();
     }
 
     const inpProj = document.getElementById('ui-project-name');
