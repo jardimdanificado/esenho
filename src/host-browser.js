@@ -3101,7 +3101,7 @@ function updateDockTabs() {}
   const dockScriptSelect = document.getElementById('dock-script-select');
   if (dockScriptSelect) {
     function populateDockScriptDropdown() {
-      dockScriptSelect.innerHTML = '<option value="" disabled selected>▶ Script</option>';
+      dockScriptSelect.innerHTML = '<option value="" disabled selected>Script</option>';
       const scripts = getSavedScripts();
       scripts.forEach((s, idx) => {
         const opt = document.createElement('option');
@@ -3151,11 +3151,13 @@ function updateDockTabs() {}
   const savedDockCat = localStorage.getItem('esenho_dock_category') || 'tool';
   switchDockCategory(savedDockCat);
 
-  // Right Panel / Mobile Drawer Tabs (Paint, Layers, Filters, Console, Scripts)
+  // Right Panel / Mobile Drawer Tabs (Paint, Layers, Settings, Console)
   const drawerTabBtns = document.querySelectorAll('#ui-drawer-tabs .drawer-tab-btn');
   const uiSections = document.querySelectorAll('#ui-scroll .ui-panel-section');
 
   function switchDrawerTab(tabId) {
+    if (tabId === 'filters') tabId = 'settings';
+    if (tabId === 'scripts') tabId = 'console';
     drawerTabBtns.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.drawertab === tabId);
     });
@@ -3572,7 +3574,7 @@ function updateDockTabs() {}
         btn.type = 'button';
         btn.className = 'tb-btn';
         btn.style.borderRadius = '0';
-        btn.textContent = '💾 Save Script';
+        btn.textContent = 'Save Script';
         btn.addEventListener('click', () => {
           const name = window.prompt('Enter script name for current tool:');
           if (name && name.trim()) {
@@ -3632,17 +3634,26 @@ function updateDockTabs() {}
     let tbStartX = 0, tbStartY = 0;
     let tbInitLeft = 0, tbInitTop = 0;
 
+    const getTbScale = () => {
+      const scaleStr = getComputedStyle(document.documentElement).getPropertyValue('--touch-toolbar-scale');
+      const parsed = parseFloat(scaleStr);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+      const rect = touchToolbar.getBoundingClientRect();
+      return (touchToolbar.offsetWidth > 0 ? (rect.width / touchToolbar.offsetWidth) : 1.0) || 1.0;
+    };
+
     const startTbDrag = (clientX, clientY, target) => {
-      // Never start drag when clicking interactive controls (select, input, button, swatch, label)
+      // Never start drag when clicking interactive controls (select, option, optgroup, input, button, swatch, label)
       if (target && target.closest('select, option, optgroup, input, button, label, #tb-color-swatch')) {
         return false;
       }
+      const scale = getTbScale();
       tbDragging = true;
       tbStartX = clientX;
       tbStartY = clientY;
       const rect = touchToolbar.getBoundingClientRect();
-      tbInitLeft = rect.left;
-      tbInitTop = rect.top;
+      tbInitLeft = rect.left / scale;
+      tbInitTop = rect.top / scale;
       touchToolbar.style.transform = 'none';
       touchToolbar.style.left = tbInitLeft + 'px';
       touchToolbar.style.top = tbInitTop + 'px';
@@ -3651,13 +3662,14 @@ function updateDockTabs() {}
 
     const moveTbDrag = (clientX, clientY) => {
       if (!tbDragging) return;
-      const dx = clientX - tbStartX;
-      const dy = clientY - tbStartY;
+      const scale = getTbScale();
+      const dx = (clientX - tbStartX) / scale;
+      const dy = (clientY - tbStartY) / scale;
       const rect = touchToolbar.getBoundingClientRect();
-      const maxLeft = Math.max(0, window.innerWidth - rect.width);
-      const maxTop = Math.max(0, window.innerHeight - rect.height - 40);
+      const maxLeft = Math.max(0, (window.innerWidth - rect.width) / scale);
+      const maxTop = Math.max(0, (window.innerHeight - rect.height - 40) / scale);
       const newLeft = Math.max(0, Math.min(maxLeft, tbInitLeft + dx));
-      const newTop = Math.max(4, Math.min(maxTop, tbInitTop + dy));
+      const newTop = Math.max(4 / scale, Math.min(maxTop, tbInitTop + dy));
       touchToolbar.style.left = newLeft + 'px';
       touchToolbar.style.top = newTop + 'px';
     };
@@ -4989,6 +5001,10 @@ function updateDockTabs() {}
         row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
         row.title = `[${i}] ${name} (${w}×${h})`;
 
+        // Row Top: Visibility, Name/Info, Opacity, Actions
+        const rowTop = document.createElement('div');
+        rowTop.className = 'layer-row-top';
+
         // Col 1: Visibility eye
         const visCell = document.createElement('div');
         visCell.className = 'layer-cell-vis';
@@ -5002,7 +5018,7 @@ function updateDockTabs() {}
           runCmd(`toggle layer ${i}`);
         });
         visCell.appendChild(visBtn);
-        row.appendChild(visCell);
+        rowTop.appendChild(visCell);
 
         // Col 2: Info
         const infoCell = document.createElement('div');
@@ -5012,105 +5028,16 @@ function updateDockTabs() {}
           <span class="layer-name-text" title="${name}">${name}</span>
           <span class="layer-dims-text">${w}×${h}</span>
         `;
-        row.appendChild(infoCell);
+        rowTop.appendChild(infoCell);
 
-        // Col 3: Toggles
-        const togglesCell = document.createElement('div');
-        togglesCell.className = 'layer-cell-toggles';
-
-        const activeBtn = document.createElement('button');
-        activeBtn.type = 'button';
-        activeBtn.className = 'layer-pill' + (isDraw ? ' active-layer-pill' : '');
-        activeBtn.textContent = 'Active';
-        activeBtn.title = 'Set as active drawing layer';
-        activeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer select ${i}`);
-        });
-        togglesCell.appendChild(activeBtn);
-
-        const shapeBtn = document.createElement('button');
-        shapeBtn.type = 'button';
-        shapeBtn.className = 'layer-pill' + (isShape ? ' active-shape' : '');
-        shapeBtn.textContent = 'Tip';
-        shapeBtn.title = 'Use as brush tip (Shape)';
-        shapeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`set shape ${name}`);
-        });
-        togglesCell.appendChild(shapeBtn);
-
-        const texBtn = document.createElement('button');
-        texBtn.type = 'button';
-        texBtn.className = 'layer-pill' + (isTex ? ' active-tex' : '');
-        texBtn.textContent = 'Grain';
-        texBtn.title = 'Use as grain texture';
-        texBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`set texture ${name}`);
-        });
-        togglesCell.appendChild(texBtn);
-
-        // Alpha Lock button
-        const lockBtn = document.createElement('button');
-        lockBtn.type = 'button';
-        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
-        lockBtn.textContent = '🔒';
-        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
-        lockBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
-        });
-        togglesCell.appendChild(lockBtn);
-
-        // Clipping Mask button
-        const clipBtn = document.createElement('button');
-        clipBtn.type = 'button';
-        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
-        clipBtn.textContent = '⮑';
-        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
-        clipBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
-        });
-        togglesCell.appendChild(clipBtn);
-
-        // Blend Mode dropdown
-        const blendSel = document.createElement('select');
-        blendSel.className = 'layer-select-blend';
-        blendSel.title = 'Layer Blend Mode';
-        const bOpts = [
-          { val: 0, label: 'Norm' },
-          { val: 1, label: 'Mult' },
-          { val: 2, label: 'Scrn' },
-          { val: 3, label: 'Over' },
-          { val: 4, label: 'Ddg' },
-          { val: 5, label: 'Add' }
-        ];
-        bOpts.forEach(optData => {
-          const opt = document.createElement('option');
-          opt.value = optData.val;
-          opt.textContent = optData.label;
-          if (optData.val === blendMode) opt.selected = true;
-          blendSel.appendChild(opt);
-        });
-        blendSel.addEventListener('change', (e) => {
-          e.stopPropagation();
-          runCmd(`layer blend ${i} ${blendSel.value}`);
-        });
-        blendSel.addEventListener('click', (e) => e.stopPropagation());
-        togglesCell.appendChild(blendSel);
-
-        row.appendChild(togglesCell);
-
-        // Col 4: Opacity text
+        // Col 3: Opacity text
         const opCell = document.createElement('div');
         opCell.className = 'layer-cell-op';
         opCell.id = `layer-op-text-${i}`;
         opCell.textContent = `${opPct}%`;
-        row.appendChild(opCell);
+        rowTop.appendChild(opCell);
 
-        // Col 5: Actions
+        // Col 4: Actions
         const actCell = document.createElement('div');
         actCell.className = 'layer-cell-actions';
 
@@ -5203,7 +5130,101 @@ function updateDockTabs() {}
           actCell.appendChild(delBtn);
         }
 
-        row.appendChild(actCell);
+        rowTop.appendChild(actCell);
+        row.appendChild(rowTop);
+
+        // Row Bottom: Toggles & modes
+        const rowBottom = document.createElement('div');
+        rowBottom.className = 'layer-row-bottom';
+
+        const togglesCell = document.createElement('div');
+        togglesCell.className = 'layer-cell-toggles';
+
+        const activeBtn = document.createElement('button');
+        activeBtn.type = 'button';
+        activeBtn.className = 'layer-pill' + (isDraw ? ' active-layer-pill' : '');
+        activeBtn.textContent = 'Active';
+        activeBtn.title = 'Set as active drawing layer';
+        activeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer select ${i}`);
+        });
+        togglesCell.appendChild(activeBtn);
+
+        const shapeBtn = document.createElement('button');
+        shapeBtn.type = 'button';
+        shapeBtn.className = 'layer-pill' + (isShape ? ' active-shape' : '');
+        shapeBtn.textContent = 'Tip';
+        shapeBtn.title = 'Use as brush tip (Shape)';
+        shapeBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`set shape ${name}`);
+        });
+        togglesCell.appendChild(shapeBtn);
+
+        const texBtn = document.createElement('button');
+        texBtn.type = 'button';
+        texBtn.className = 'layer-pill' + (isTex ? ' active-tex' : '');
+        texBtn.textContent = 'Grain';
+        texBtn.title = 'Use as grain texture';
+        texBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`set texture ${name}`);
+        });
+        togglesCell.appendChild(texBtn);
+
+        // Alpha Lock button (unicode lock symbol)
+        const lockBtn = document.createElement('button');
+        lockBtn.type = 'button';
+        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
+        lockBtn.textContent = '⚿';
+        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
+        lockBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
+        });
+        togglesCell.appendChild(lockBtn);
+
+        // Clipping Mask button
+        const clipBtn = document.createElement('button');
+        clipBtn.type = 'button';
+        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
+        clipBtn.textContent = '⮑';
+        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
+        clipBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
+        });
+        togglesCell.appendChild(clipBtn);
+
+        // Blend Mode dropdown
+        const blendSel = document.createElement('select');
+        blendSel.className = 'layer-select-blend';
+        blendSel.title = 'Layer Blend Mode';
+        const bOpts = [
+          { val: 0, label: 'Norm' },
+          { val: 1, label: 'Mult' },
+          { val: 2, label: 'Scrn' },
+          { val: 3, label: 'Over' },
+          { val: 4, label: 'Ddg' },
+          { val: 5, label: 'Add' }
+        ];
+        bOpts.forEach(optData => {
+          const opt = document.createElement('option');
+          opt.value = optData.val;
+          opt.textContent = optData.label;
+          if (optData.val === blendMode) opt.selected = true;
+          blendSel.appendChild(opt);
+        });
+        blendSel.addEventListener('change', (e) => {
+          e.stopPropagation();
+          runCmd(`layer blend ${i} ${blendSel.value}`);
+        });
+        blendSel.addEventListener('click', (e) => e.stopPropagation());
+        togglesCell.appendChild(blendSel);
+
+        rowBottom.appendChild(togglesCell);
+        row.appendChild(rowBottom);
 
         /* ── Mobile: Swipe actions on layer row ── */
         if (isMobile()) {
