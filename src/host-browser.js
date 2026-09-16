@@ -2294,15 +2294,39 @@ function updateDockTabs() {}
     });
   }
 
+  const cmdForm = document.getElementById('inputrow');
+  let lastSubmitTime = 0;
+
+  const submitCommand = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    if (!inputEl) return;
+    const now = Date.now();
+    const val = inputEl.value;
+    if (now - lastSubmitTime < 60 && val === '') return;
+    lastSubmitTime = now;
+    inputEl.value = '';
+    runCmd(val);
+  };
+
+  if (cmdForm && cmdForm.tagName === 'FORM') {
+    cmdForm.addEventListener('submit', submitCommand);
+  }
+
   inputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter') {
-      runCmd(inputEl.value); inputEl.value = ''; e.preventDefault();
+    if (e.key === 'Enter' || e.keyCode === 13 || e.which === 13) {
+      submitCommand(e);
     } else if (e.key === 'ArrowUp') {
       hl.i = Math.min(hl.i + 1, history.length - 1);
       inputEl.value = history[history.length - 1 - hl.i] || ''; e.preventDefault();
     } else if (e.key === 'ArrowDown') {
       hl.i = Math.max(hl.i - 1, -1);
       inputEl.value = hl.i < 0 ? '' : history[history.length - 1 - hl.i] || ''; e.preventDefault();
+    }
+  });
+
+  inputEl.addEventListener('keyup', e => {
+    if ((e.key === 'Enter' || e.keyCode === 13 || e.which === 13) && inputEl.value) {
+      submitCommand(e);
     }
   });
 
