@@ -4986,10 +4986,24 @@ function updateDockTabs() {}
       runCmd(`set shape ${shapeSel.value}`);
     });
   }
+  const tipSel = document.getElementById('ui-select-tip');
+  if (tipSel) {
+    tipSel.addEventListener('change', () => {
+      host.setBrushParam('shape', parseInt(tipSel.value, 10));
+      syncUiFromHost();
+    });
+  }
   const texSel = document.getElementById('ui-select-texture');
   if (texSel) {
     texSel.addEventListener('change', () => {
       runCmd(`set texture ${texSel.value}`);
+    });
+  }
+  const grainSel = document.getElementById('ui-select-grain-tex');
+  if (grainSel) {
+    grainSel.addEventListener('change', () => {
+      host.setTexture(grainSel.value);
+      syncUiFromHost();
     });
   }
 
@@ -5972,6 +5986,18 @@ function updateDockTabs() {}
       const symmetrySel = document.getElementById('ui-select-symmetry');
       if (symmetrySel && bp.symmetry !== undefined && document.activeElement !== symmetrySel) {
         symmetrySel.value = String(bp.symmetry);
+      }
+      const tipSel = document.getElementById('ui-select-tip');
+      if (tipSel && bp.shape !== undefined && document.activeElement !== tipSel) {
+        tipSel.value = String(bp.shape);
+      }
+      const grainSel = document.getElementById('ui-select-grain-tex');
+      if (grainSel && document.activeElement !== grainSel) {
+        grainSel.value = host.activeTexture || 'none';
+      }
+      const dualShapeSelEl = document.getElementById('ui-select-dual-shape');
+      if (dualShapeSelEl && bp.dual_shape !== undefined && document.activeElement !== dualShapeSelEl) {
+        dualShapeSelEl.value = String(bp.dual_shape);
       }
       const btnFlipH = document.getElementById('ui-btn-flip-h');
       if (btnFlipH) {

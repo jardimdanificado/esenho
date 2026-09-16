@@ -1442,6 +1442,14 @@ async function run() {
     throw new Error('exportProject failed: brush parameters not preserved');
   }
 
+  const overlayLayer = projData.layers.find(l => l.name === 'OverlayLayer');
+  if (!overlayLayer) {
+    throw new Error(`exportProject failed: expected layer with name 'OverlayLayer'`);
+  }
+  if (!overlayLayer.alphaLock) {
+    throw new Error('exportProject failed: alphaLock not set on OverlayLayer');
+  }
+
   // Corrupt / Reset canvas to different state
   host.canvasActor.exports.w_init(640, 480);
   host.executeCommand('clear');
@@ -1458,6 +1466,14 @@ async function run() {
   }
   if (host.brushParams.size !== 42 || host.brushParams.opacity !== 77) {
     throw new Error(`loadProject failed: brush size/opacity not restored, got ${host.brushParams.size}/${host.brushParams.opacity}`);
+  }
+  const overlayEntry = Array.from(host.layerNames.entries()).find(([id, name]) => name === 'OverlayLayer');
+  if (!overlayEntry) {
+    throw new Error('loadProject failed: OverlayLayer not found in host.layerNames');
+  }
+  const restoredOverlayId = overlayEntry[0];
+  if (host.canvasActor.exports.w_layer_get_alpha_lock(restoredOverlayId) !== 1) {
+    throw new Error('loadProject failed: alpha lock not restored on layer');
   }
 
   // Test REPL save and load project

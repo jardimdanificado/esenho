@@ -430,6 +430,27 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
     } else if (mode == 7) { /* Hatch */
         int pat = ((tx + ty) % 6 == 0 || (tx + ty) % 6 == 1) ? 255 : 0;
         mod_a = (base_a * pat) / 255;
+    } else if (mode == 8) { /* Watercolor Cold Press Paper */
+        uint32_t n1 = ((tx * 239847 + ty * 983471) ^ (tx * 7)) & 0xFF;
+        int pit = (((tx / 3) * 11 + (ty / 3) * 13) % 23 < 4) ? 40 : 255;
+        mod_a = (base_a * n1 * pit) / (255 * 255);
+    } else if (mode == 9) { /* Charcoal Tooth */
+        uint32_t n = (((tx / 2) * 589237 + (ty / 2) * 782391) ^ (tx * 31 + ty * 19)) & 0xFF;
+        int tooth = (n > 140) ? 255 : (n > 70 ? 120 : 20);
+        mod_a = (base_a * tooth) / 255;
+    } else if (mode == 10) { /* Wood Grain */
+        int wave = (int)(tx + (ty * ty / 120) % 24);
+        int ring = (wave % 12 < 3) ? 255 : 70;
+        mod_a = (base_a * ring) / 255;
+    } else if (mode == 11) { /* Leather / Cellular Pores */
+        int cx = tx % 10 - 5, cy = ty % 10 - 5;
+        int d = cx * cx + cy * cy;
+        int pore = (d <= 3) ? 40 : 240;
+        mod_a = (base_a * pore) / 255;
+    } else if (mode == 12) { /* Dense Linen */
+        int lx = (tx % 4 < 2), ly = (ty % 4 < 2);
+        int pat = (lx ^ ly) ? 245 : 65;
+        mod_a = (base_a * pat) / 255;
     }
     if (tex_contrast != 100 && tex_contrast >= 0 && base_a > 0) {
         int factor = (mod_a * 255) / base_a;

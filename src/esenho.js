@@ -176,126 +176,198 @@ const PARAM_IDS = {
  * Built-in native brush presets for the Universal Brush Engine
  */
 const BRUSH_PRESETS = {
-  // 1. Pencils & Inkers
+  // 1. Pencils & Sketching
   pencil: {
-    name: 'Pencil',
-    desc: 'Graphite pencil with paper grain & pressure sensitivity',
-    shape: 0, size: 3, opacity: 90, hardness: 65, flow: 85, spacing: 8,
-    smoothing: 15, grain: 45, texture: 'paper', pressure_size: 1, pressure_flow: 1,
-    tilt_angle: 1, mode: 0, scatter: 4, eraser: 0
+    name: 'HB Pencil',
+    desc: 'Graphite sketch pencil with paper grain & tilt shading',
+    shape: 0, size: 4, opacity: 90, hardness: 65, flow: 85, spacing: 5,
+    smoothing: 12, grain: 35, texture: 'paper', pressure_size: 1, pressure_flow: 1,
+    tilt_angle: 1, mode: 0, scatter: 2, subpixel: 1, eraser: 0
   },
-  inker: {
-    name: 'Inker',
-    desc: 'Smooth comic inking pen with tapered ends',
-    shape: 0, size: 5, opacity: 100, hardness: 100, flow: 100, spacing: 5,
-    smoothing: 40, taper_in: 30, taper_out: 40, pressure_size: 1, pressure_flow: 0,
-    grain: 0, mode: 0, eraser: 0
+  soft_pencil: {
+    name: '6B Graphite',
+    desc: 'Soft dark graphite with rich paper tooth',
+    shape: 0, size: 8, opacity: 85, hardness: 45, flow: 75, spacing: 6,
+    smoothing: 12, grain: 55, texture: 'paper', pressure_size: 1, pressure_flow: 1,
+    tilt_angle: 1, mode: 0, scatter: 4, subpixel: 1, eraser: 0
   },
-  pen: {
-    name: 'Studio Pen',
-    desc: 'Technical pen with steady clean line',
-    shape: 0, size: 4, opacity: 100, hardness: 100, flow: 100, spacing: 5,
-    smoothing: 25, pressure_size: 1, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
+  tech_pen: {
+    name: 'Technical Pen',
+    desc: 'Razor-sharp precision drafting pen with fixed width',
+    shape: 0, size: 2, opacity: 100, hardness: 100, flow: 100, spacing: 4,
+    smoothing: 25, pressure_size: 0, pressure_flow: 0, grain: 0, mode: 0, subpixel: 1, eraser: 0
   },
 
-  // 2. Markers & Airbrush
+  // 2. Inkers & Line Art
+  inker: {
+    name: 'Studio Inker',
+    desc: 'Smooth comic inking brush with dynamic pressure taper',
+    shape: 0, size: 6, opacity: 100, hardness: 100, flow: 100, spacing: 4,
+    smoothing: 35, taper_in: 20, taper_out: 30, pressure_size: 1, pressure_flow: 0,
+    grain: 0, mode: 0, subpixel: 1, eraser: 0
+  },
+  gpen: {
+    name: 'Manga G-Pen',
+    desc: 'Expressive dip pen with high pressure flare & velocity dynamic',
+    shape: 0, size: 8, opacity: 100, hardness: 100, flow: 100, spacing: 4,
+    smoothing: 30, velocity: 25, taper_in: 15, pressure_size: 1, pressure_flow: 0,
+    grain: 0, mode: 0, subpixel: 1, eraser: 0
+  },
+  dry_ink: {
+    name: 'Dry Ink',
+    desc: 'Rough dry brush with textured bristled edges',
+    shape: 0, size: 10, opacity: 95, hardness: 70, flow: 90, spacing: 7,
+    grain: 40, texture: 'charcoal', size_jitter: 10, pressure_size: 1, pressure_flow: 1,
+    smoothing: 15, mode: 0, subpixel: 1, eraser: 0
+  },
+  fountain: {
+    name: 'Fountain Pen',
+    desc: 'Angled chisel fountain pen with calligraphy flair',
+    shape: 2, size: 7, angle: 45, roundness: 40, opacity: 95, hardness: 95, flow: 100,
+    spacing: 5, smoothing: 20, pressure_size: 1, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
+  },
+
+  // 3. Markers & Highlighters
   marker: {
-    name: 'Marker',
-    desc: 'Chisel marker with multiply ink layering',
-    shape: 2, size: 22, angle: 45, roundness: 35, opacity: 80, hardness: 90, flow: 80,
-    spacing: 8, smoothing: 10, dab_blend: 1, pressure_size: 0, pressure_flow: 1,
+    name: 'Art Marker',
+    desc: 'Broad angled alcohol marker with multiply glaze layering',
+    shape: 2, size: 24, angle: 45, roundness: 35, opacity: 75, hardness: 90, flow: 85,
+    spacing: 6, smoothing: 15, dab_blend: 1, pressure_size: 0, pressure_flow: 1,
+    grain: 0, mode: 0, eraser: 0
+  },
+  brush_marker: {
+    name: 'Brush Marker',
+    desc: 'Flexible brush marker with smooth gradient buildup',
+    shape: 0, size: 16, opacity: 80, hardness: 80, flow: 85, spacing: 5,
+    smoothing: 25, dab_blend: 1, taper_in: 10, taper_out: 15, pressure_size: 1, pressure_flow: 1,
     grain: 0, mode: 0, eraser: 0
   },
   highlighter: {
     name: 'Highlighter',
-    desc: 'Wide chisel highlighter with multiply blend',
-    shape: 2, size: 32, angle: 90, roundness: 30, opacity: 45, hardness: 100, flow: 65,
-    spacing: 6, dab_blend: 1, pressure_size: 0, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
-  },
-  airbrush: {
-    name: 'Airbrush',
-    desc: 'Soft feathering airbrush for gradients and shading',
-    shape: 0, size: 42, opacity: 35, hardness: 0, flow: 25, spacing: 5,
-    smoothing: 20, pressure_size: 0, pressure_flow: 1, grain: 0, mode: 0, eraser: 0
+    desc: 'Translucent fluorescent flat highlighter',
+    shape: 2, size: 36, angle: 90, roundness: 25, opacity: 40, hardness: 100, flow: 70,
+    spacing: 5, dab_blend: 1, pressure_size: 0, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
   },
 
-  // 3. Wet Media & Paint
+  // 4. Wet Media & Painting
   oil: {
-    name: 'Oil Paint',
-    desc: 'Wet media oil paint with live color pickup and depletion',
-    shape: 0, size: 20, opacity: 100, hardness: 75, flow: 90, spacing: 8,
-    smoothing: 25, mode: 2, wetness: 60, color_pickup: 55, depletion: 35,
+    name: 'Oil Impasto',
+    desc: 'Thick wet oil paint with live pigment pickup and canvas blend',
+    shape: 0, size: 24, opacity: 100, hardness: 75, flow: 95, spacing: 7,
+    smoothing: 20, mode: 2, wetness: 55, color_pickup: 60, depletion: 35,
     pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
   },
-  paint: {
-    name: 'Oil Paint',
-    desc: 'Wet media oil paint with live color pickup and depletion',
-    shape: 0, size: 20, opacity: 100, hardness: 75, flow: 90, spacing: 8,
-    smoothing: 25, mode: 2, wetness: 60, color_pickup: 55, depletion: 35,
+  acrylic: {
+    name: 'Wet Acrylic',
+    desc: 'Smooth opaque acrylic paint with subtle edge mixing',
+    shape: 0, size: 20, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    smoothing: 20, mode: 2, wetness: 40, color_pickup: 45, depletion: 20,
     pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
   },
   watercolor: {
-    name: 'Watercolor',
-    desc: 'Translucent watery wash with organic bleeds',
-    shape: 0, size: 30, opacity: 40, hardness: 30, flow: 45, spacing: 8,
-    smoothing: 20, mode: 2, wetness: 80, color_pickup: 40, depletion: 50,
-    grain: 20, texture: 'paper', pressure_size: 1, pressure_flow: 1, eraser: 0
+    name: 'Watercolor Wash',
+    desc: 'Translucent watery wash with organic bleeding and paper texture',
+    shape: 0, size: 32, opacity: 35, hardness: 25, flow: 40, spacing: 6,
+    smoothing: 25, mode: 2, wetness: 85, color_pickup: 30, depletion: 50,
+    grain: 25, texture: 'paper', pressure_size: 1, pressure_flow: 1, eraser: 0
   },
   gouache: {
     name: 'Gouache',
-    desc: 'Opaque matte paint with subtle edge blend',
-    shape: 0, size: 18, opacity: 95, hardness: 85, flow: 90, spacing: 8,
-    smoothing: 20, mode: 2, wetness: 40, color_pickup: 35, depletion: 25,
+    desc: 'Opaque velvety matte gouache with clean edges',
+    shape: 0, size: 18, opacity: 95, hardness: 85, flow: 90, spacing: 6,
+    smoothing: 20, mode: 2, wetness: 35, color_pickup: 30, depletion: 25,
     pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
   },
 
-  // 4. Charcoal & Textures
+  // 5. Charcoal & Pastels
   charcoal: {
-    name: 'Charcoal',
-    desc: 'Gritty textured charcoal stick for rough sketching',
-    shape: 0, size: 20, opacity: 85, hardness: 55, flow: 80, spacing: 14,
+    name: 'Vine Charcoal',
+    desc: 'Textured dusty charcoal stick for gesture sketch and blocking',
+    shape: 0, size: 22, opacity: 80, hardness: 45, flow: 75, spacing: 12,
     grain: 60, texture: 'charcoal', scatter: 18, size_jitter: 12, smoothing: 10,
     pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
   },
+  pastel: {
+    name: 'Chalk Pastel',
+    desc: 'Dense powdery chalk pastel for expressive blending',
+    shape: 0, size: 18, opacity: 90, hardness: 60, flow: 85, spacing: 10,
+    grain: 50, texture: 'canvas', scatter: 8, smoothing: 12,
+    pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
+  },
 
-  // 5. Blenders & Smudge
+  // 6. Airbrushes
+  airbrush: {
+    name: 'Soft Airbrush',
+    desc: 'Ultra-soft feathering airbrush for smooth gradients and shadows',
+    shape: 0, size: 50, opacity: 30, hardness: 0, flow: 25, spacing: 4,
+    smoothing: 20, pressure_size: 0, pressure_flow: 1, grain: 0, mode: 0, eraser: 0
+  },
+  hard_airbrush: {
+    name: 'Flow Airbrush',
+    desc: 'Medium airbrush with pressure size and velocity response',
+    shape: 0, size: 35, opacity: 45, hardness: 20, flow: 40, spacing: 4,
+    smoothing: 20, pressure_size: 1, pressure_flow: 1, grain: 0, mode: 0, eraser: 0
+  },
+
+  // 7. Blenders & Smudgers
   smudge: {
-    name: 'Smudge',
-    desc: 'Finger smudge tool for softening edges',
-    shape: 0, size: 26, opacity: 100, hardness: 40, smudge: 75, spacing: 6,
+    name: 'Finger Smudge',
+    desc: 'Soft finger blender for smoothing edges and color gradients',
+    shape: 0, size: 30, opacity: 100, hardness: 35, smudge: 80, spacing: 5,
     smoothing: 15, mode: 1, grain: 0, eraser: 0
   },
   blend: {
-    name: 'Blender',
-    desc: 'Wet color mixer and blender',
-    shape: 0, size: 28, opacity: 100, hardness: 50, mode: 2, wetness: 70,
-    color_pickup: 50, spacing: 6, smoothing: 15, grain: 0, eraser: 0
+    name: 'Paint Blender',
+    desc: 'Wet color mixer and surface pigment blender',
+    shape: 0, size: 28, opacity: 100, hardness: 50, mode: 2, wetness: 80,
+    color_pickup: 60, spacing: 5, smoothing: 15, grain: 0, eraser: 0
+  },
+  rake_blend: {
+    name: 'Bristle Smear',
+    desc: 'Textured bristle smudger for directional hair/fur smudging',
+    shape: 3, size: 32, opacity: 100, hardness: 60, smudge: 75, spacing: 6,
+    smoothing: 15, mode: 1, grain: 0, eraser: 0
   },
 
-  // 6. Pixel Art
+  // 8. Erasers
+  soft_eraser: {
+    name: 'Kneaded Eraser',
+    desc: 'Soft feathered eraser for gentle lifting and soft highlights',
+    shape: 0, size: 32, opacity: 100, hardness: 15, flow: 45, spacing: 6,
+    smoothing: 15, mode: 0, eraser: 1, grain: 0
+  },
+  hard_eraser: {
+    name: 'Vinyl Eraser',
+    desc: 'Clean razor-sharp eraser for exact cutouts',
+    shape: 0, size: 18, opacity: 100, hardness: 100, flow: 100, spacing: 4,
+    smoothing: 15, mode: 0, eraser: 1, grain: 0
+  },
+  textured_eraser: {
+    name: 'Grunge Eraser',
+    desc: 'Textured eraser for weathering and organic distressing',
+    shape: 0, size: 26, opacity: 100, hardness: 50, flow: 80, spacing: 10,
+    grain: 50, texture: 'grunge', smoothing: 10, mode: 0, eraser: 1
+  },
+
+  // 9. Special & FX
+  halftone: {
+    name: 'Comic Screentone',
+    desc: 'Manga halftone screen dots pattern',
+    shape: 0, size: 30, opacity: 100, hardness: 90, flow: 100, spacing: 10,
+    texture: 'dots', texture_mode: 4, pressure_size: 0, pressure_flow: 1,
+    smoothing: 10, mode: 0, eraser: 0
+  },
   pixel: {
-    name: 'Pixel Art',
-    desc: '1px razor-sharp pixel pencil without subpixel AA',
+    name: 'Pixel Pencil',
+    desc: '1px pixel-perfect pencil without anti-aliasing',
     shape: 1, size: 1, opacity: 100, hardness: 100, flow: 100, spacing: 100,
     subpixel: 0, smoothing: 0, pressure_size: 0, pressure_flow: 0, grain: 0,
     mode: 0, eraser: 0
   },
 
-  // 7. Erasers
-  soft_eraser: {
-    name: 'Soft Eraser',
-    desc: 'Soft edge eraser for gentle fading and transitions',
-    shape: 0, size: 28, opacity: 100, hardness: 20, flow: 50, spacing: 8,
-    smoothing: 15, mode: 0, eraser: 1, grain: 0
-  },
-  hard_eraser: {
-    name: 'Hard Eraser',
-    desc: 'Clean cutout precision eraser',
-    shape: 0, size: 16, opacity: 100, hardness: 100, flow: 100, spacing: 5,
-    smoothing: 15, mode: 0, eraser: 1, grain: 0
-  },
-
   // Compatibility aliases
+  pen: { shape: 0, size: 4, opacity: 100, hardness: 100, flow: 100, spacing: 4, smoothing: 25, mode: 0, eraser: 0 },
+  paint: { shape: 0, size: 24, opacity: 100, hardness: 75, flow: 95, spacing: 7, smoothing: 20, mode: 2, wetness: 55, color_pickup: 60, depletion: 35, eraser: 0 },
   round: { shape: 0, hardness: 80, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, opacity: 100, flow: 100, angle: 0, eraser: 0 },
   square: { shape: 1, hardness: 100, roundness: 100, mode: 0, spacing: 15, grain: 0, scatter: 0, angle: 0, eraser: 0 },
   calligraphy: { shape: 2, angle: 45, roundness: 30, hardness: 100, mode: 0, spacing: 10, grain: 0, scatter: 0, eraser: 0 },
@@ -468,8 +540,152 @@ function createProceduralTextures() {
     map.set('chisel', { width: w, height: h, data: buf, wasmId: 2, category: 'shape' });
   }
 
+  // 4. Bristle (3-strand vertical fine bristles, 64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = Math.abs(y - 32);
+      const falloff = dy <= 26 ? (1 - dy / 26) : 0;
+      for (let x = 0; x < w; x++) {
+        const isB1 = Math.abs(x - 22) <= 3;
+        const isB2 = Math.abs(x - 32) <= 3;
+        const isB3 = Math.abs(x - 42) <= 3;
+        const inside = (isB1 || isB2 || isB3) && falloff > 0;
+        const a = inside ? Math.floor(255 * falloff) : 0;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('bristle', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 5. Rake (5-strand rake fan, 64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = Math.abs(y - 32);
+      const falloff = dy <= 28 ? (1 - dy / 28) : 0;
+      for (let x = 0; x < w; x++) {
+        const strand = (x % 11 === 0 || (x + 1) % 11 === 0) && x >= 8 && x <= 56;
+        const a = (strand && falloff > 0) ? Math.floor(255 * falloff) : 0;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('rake', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 6. Charcoal Grit Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = y - 32;
+      for (let x = 0; x < w; x++) {
+        const dx = x - 32;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        let a = 0;
+        if (d <= 30) {
+          const edge = 1 - d / 30;
+          const noise = ((x * 179 + y * 283) ^ (x * y * 7)) & 0xFF;
+          a = (noise > 70) ? Math.floor(edge * 255) : 0;
+        }
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('charcoal_tip', { width: w, height: h, data: buf, category: 'shape' });
+    map.set('charcoal', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 7. Dagger / Teardrop Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const widthAtY = (y / 64) * 26;
+      for (let x = 0; x < w; x++) {
+        const dx = Math.abs(x - 32);
+        const inside = dx <= widthAtY && y >= 6 && y <= 58;
+        const a = inside ? 0xFF : 0x00;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('dagger', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 8. Stipple Multi-Point Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    const points = [
+      [32,32,4],[22,26,3],[42,24,3],[20,38,3],[44,36,3],[32,18,2],[30,46,2],[14,30,2],[50,30,2],[26,30,2],[38,32,2]
+    ];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let inside = false;
+        for (const [px, py, pr] of points) {
+          const dx = x - px, dy = y - py;
+          if (dx * dx + dy * dy <= pr * pr) { inside = true; break; }
+        }
+        const a = inside ? 0xFF : 0x00;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('stipple', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 9. Splatter Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    const drops = [
+      [32,32,8],[18,20,3],[46,18,4],[14,42,3],[48,46,4],[28,52,2],[36,12,3],[10,28,2],[54,32,2],[24,40,3],[40,24,3]
+    ];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let inside = false;
+        for (const [px, py, pr] of drops) {
+          const dx = x - px, dy = y - py;
+          if (dx * dx + dy * dy <= pr * pr) { inside = true; break; }
+        }
+        const a = inside ? 0xFF : 0x00;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('splatter', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 10. Cloud / Foliage Cluster (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    const lobes = [[32,32,18],[22,26,12],[42,26,12],[24,38,12],[40,38,12]];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let maxA = 0;
+        for (const [lx, ly, lr] of lobes) {
+          const dx = x - lx, dy = y - ly;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d <= lr) {
+            const edge = Math.floor(255 * (1 - d / lr));
+            if (edge > maxA) maxA = edge;
+          }
+        }
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = maxA;
+      }
+    }
+    map.set('cloud', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
   // Procedural Textures
-  // 4. Paper (256x256)
+  // 1. Paper (256x256)
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
@@ -480,16 +696,13 @@ function createProceduralTextures() {
         const noise = (Math.random() - 0.5) * 45;
         const v = Math.max(0, Math.min(255, Math.floor(210 + n1 + n2 + noise)));
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v;
-        buf[idx + 1] = v;
-        buf[idx + 2] = v;
-        buf[idx + 3] = 0xFF;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
     }
     map.set('paper', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 5. Canvas (128x128)
+  // 2. Canvas (128x128)
   {
     const w = 128, h = 128;
     const buf = Buf.alloc(w * h * 4);
@@ -499,30 +712,24 @@ function createProceduralTextures() {
         const wy = Math.sin(y * Math.PI / 4) * 40;
         const v = Math.max(0, Math.min(255, Math.floor(180 + wx + wy + (Math.random() - 0.5) * 30)));
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v;
-        buf[idx + 1] = v;
-        buf[idx + 2] = v;
-        buf[idx + 3] = 0xFF;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
     }
     map.set('canvas', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 6. Noise (256x256)
+  // 3. Noise (256x256)
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
     for (let i = 0; i < w * h; i++) {
       const v = Math.floor(Math.random() * 256);
-      buf[i * 4 + 0] = v;
-      buf[i * 4 + 1] = v;
-      buf[i * 4 + 2] = v;
-      buf[i * 4 + 3] = 0xFF;
+      buf[i * 4 + 0] = v; buf[i * 4 + 1] = v; buf[i * 4 + 2] = v; buf[i * 4 + 3] = 0xFF;
     }
     map.set('noise', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 7. Dots (32x32)
+  // 4. Dots (32x32)
   {
     const w = 32, h = 32;
     const buf = Buf.alloc(w * h * 4);
@@ -533,16 +740,13 @@ function createProceduralTextures() {
         const d = Math.sqrt(dx * dx + dy * dy);
         const v = d < 5 ? 240 : 40;
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v;
-        buf[idx + 1] = v;
-        buf[idx + 2] = v;
-        buf[idx + 3] = 0xFF;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
     }
     map.set('dots', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 8. Grid (32x32)
+  // 5. Grid (32x32)
   {
     const w = 32, h = 32;
     const buf = Buf.alloc(w * h * 4);
@@ -551,16 +755,13 @@ function createProceduralTextures() {
         const isLine = (x % 16 === 0 || y % 16 === 0);
         const v = isLine ? 240 : 40;
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v;
-        buf[idx + 1] = v;
-        buf[idx + 2] = v;
-        buf[idx + 3] = 0xFF;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
     }
     map.set('grid', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 9. Grunge (256x256)
+  // 6. Grunge (256x256)
   {
     const w = 256, h = 256;
     const buf = Buf.alloc(w * h * 4);
@@ -570,16 +771,13 @@ function createProceduralTextures() {
         const g2 = Math.cos(x * 0.2 + y * 0.1) * 40;
         const v = Math.max(0, Math.min(255, Math.floor(128 + g1 + g2 + (Math.random() - 0.5) * 70)));
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v;
-        buf[idx + 1] = v;
-        buf[idx + 2] = v;
-        buf[idx + 3] = 0xFF;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
     }
     map.set('grunge', { width: w, height: h, data: buf, category: 'texture' });
   }
 
-  // 10. Hatch (32x32)
+  // 7. Hatch (32x32)
   {
     const w = 32, h = 32;
     const buf = Buf.alloc(w * h * 4);
@@ -588,13 +786,86 @@ function createProceduralTextures() {
         const isLine = ((x + y) % 8 === 0 || (x + y) % 8 === 1);
         const v = isLine ? 240 : 40;
         const idx = (y * w + x) * 4;
-        buf[idx + 0] = v;
-        buf[idx + 1] = v;
-        buf[idx + 2] = v;
-        buf[idx + 3] = 0xFF;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
       }
     }
     map.set('hatch', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 8. Watercolor Paper (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const pit = (((Math.floor(x / 3)) * 11 + (Math.floor(y / 3)) * 13) % 23 < 4) ? 40 : 255;
+        const n = Math.floor(190 + (Math.random() - 0.5) * 50);
+        const v = Math.floor((n * pit) / 255);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('watercolor', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 9. Charcoal Tooth Paper (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const tooth = Math.random() > 0.45 ? 255 : (Math.random() > 0.2 ? 120 : 30);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = tooth; buf[idx + 1] = tooth; buf[idx + 2] = tooth; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('charcoal_tooth', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 10. Wood Grain (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const wave = Math.floor(x + (y * y / 120) % 24);
+        const ring = (wave % 12 < 3) ? 245 : 75;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = ring; buf[idx + 1] = ring; buf[idx + 2] = ring; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('wood', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 11. Leather Pores (128x128)
+  {
+    const w = 128, h = 128;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const cx = (x % 10) - 5, cy = (y % 10) - 5;
+        const d = cx * cx + cy * cy;
+        const v = d <= 3 ? 40 : 240;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('leather', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 12. Dense Linen (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const lx = (x % 4 < 2), ly = (y % 4 < 2);
+        const v = (lx ^ ly) ? 240 : 70;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('linen', { width: w, height: h, data: buf, category: 'texture' });
   }
 
   return map;
@@ -5230,6 +5501,8 @@ class EsenhoScreenHost {
     };
 
     // Restore layers
+    if (this.layerNames) this.layerNames.clear();
+    else this.layerNames = new Map();
     const layerMap = new Map(); // old id -> new id
     for (let i = 0; i < projectData.layers.length; i++) {
       const l = projectData.layers[i];

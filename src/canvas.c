@@ -1257,6 +1257,14 @@ W_EXPORT void w_layer_toggle(int32_t idx) {
     }
 }
 
+W_EXPORT void w_layer_set_visible(int32_t idx, int32_t visible) {
+    init_surface_if_needed();
+    if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
+        layers[idx].visible = visible ? 1 : 0;
+        force_composite();
+    }
+}
+
 W_EXPORT void w_layer_opacity(int32_t idx, uint32_t opacity) {
     init_surface_if_needed();
     if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
@@ -1264,6 +1272,10 @@ W_EXPORT void w_layer_opacity(int32_t idx, uint32_t opacity) {
         layers[idx].opacity = (uint8_t)opacity;
         force_composite();
     }
+}
+
+W_EXPORT void w_layer_set_opacity(int32_t idx, uint32_t opacity) {
+    w_layer_opacity(idx, opacity);
 }
 
 W_EXPORT void w_layer_clear(int32_t idx) {
