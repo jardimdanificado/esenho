@@ -238,5 +238,8 @@ When a selection is copied, cut, or pasted, an interactive floating cage appears
 | `Ctrl + A` | Select entire canvas |
 | `Ctrl + D` or `Escape` | Clear selection or cancel transform |
 | `Ctrl + \`` | Toggle left Console / Scripts drawer |
-| `Alt + B` or `Ctrl + B` | Toggle right Tools & Parameters panel |
+| `Alt + B`, `Ctrl + B`, `Alt + U`, or `Ctrl + U` | Toggle right Tools & Parameters panel |
 | `Up / Down Arrows` | In Console prompt: navigate command history |
+
+> **Note:** Undo, redo, copy, cut, select-all, and deselect shortcuts are suppressed while a text input or textarea is focused, to avoid interfering with normal text editing.
+

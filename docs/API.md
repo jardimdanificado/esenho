@@ -241,6 +241,11 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 - `get layer [id|opacity|visible|alpha_lock|clipping|blend]`: Query layer properties.
 - `get tool` / `get mode` / `get shape` / `get brush`: Query active tool configuration.
 
+### Math & Scripting
+- `eval <expr>`: Evaluate a mathematical expression and print result (e.g. `eval 2+2`, `eval 512*0.75`).
+- `(<expr>)`: Inline math shorthand — any parenthesised expression is evaluated as math (e.g. `(100/3)`).
+- `log <msg>`: Print an arbitrary message to the console (useful inside scripts).
+
 ### Canvas & Document
 - `resize <w> <h>`: Resize document canvas.
 - `set resolution <w> <h>`: Alias for `resize`.
@@ -249,10 +254,10 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 - `set ui_scale <auto|0.75|0.85|1.0|1.15|1.25|1.5|1.75|2.0>`: Adjust UI zoom scale.
 
 ### Layer Stack & Operations
-- `new layer` / `layer add`: Allocate new transparent layer.
-- `layer select <id>` / `set layer <id>`: Set active drawing layer.
-- `delete layer [id]`: Delete specified or active layer.
-- `duplicate layer [id]`: Clone specified or active layer.
+- `new layer [name]` / `layer add [name]`: Allocate new transparent layer (optional name).
+- `layer select <id>` / `set layer <id>` / `layer <id>`: Set active drawing layer.
+- `delete layer [id]` / `remove layer [id]`: Delete specified or active layer.
+- `duplicate layer [id]` / `layer dup [id]` / `dup layer [id]`: Clone layer.
 - `toggle layer [id]` / `hide layer` / `show layer`: Toggle layer visibility.
 - `opacity layer [id] <0..100>`: Set layer opacity percentage.
 - `layer alpha_lock [id] <on|off>`: Toggle alpha preservation lock.
@@ -275,12 +280,33 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 ### Brush & Tool Configuration
 - `set tool <brush|eraser|smudge|blend|fill|lasso_fill|picker|line|rect|ellipse|select>`: Set active tool.
 - `set mode <draw|smudge|blend|fill|lasso_fill>`: Set stroke execution mode.
+- `set action_mode <mode>` / `action mode <mode>`: Set raw action mode integer directly.
 - `set shape <circle|square|chisel|layer_name>`: Set brush tip shape.
 - `set texture <paper|canvas|noise|dots|grid|grunge|hatch|none|layer_name>`: Set grain texture.
 - `set color <#hex|r g b>`: Set active color (supports `#rrggbb`, `#aarrggbb`, `r g b`).
 - `set <param_name> <val>`: Configure any parameter (`size`, `opacity`, `hardness`, `flow`, `spacing`, `smooth`, `angle`, `roundness`, `scatter`, `smudge`, `wetness`, `depletion`, `color_pickup`, `taper_in`, `taper_out`, `fade`, `size_jitter`, `angle_jitter`, `opacity_jitter`, `color_jitter`, `dab_blend`, `symmetry`, `subpixel`).
 - `dump brush` / `export brush`: Dump current brush configuration as executable CLI script.
-- `reset tool`: Reset brush and tool parameters to defaults.
+- `reset tool` / `tool reset` / `reset brush` / `brush reset`: Reset brush and tool parameters to defaults.
+
+#### Brush Presets
+Apply a named preset with `brush <preset>` or `set brush <preset>`:
+
+| Preset | Description |
+|---|---|
+| `round` | Classic soft-edge round brush |
+| `airbrush` | Low opacity, soft spray |
+| `pixel` | 1px hard square, no anti-aliasing |
+| `square` | Hard square tip |
+| `calligraphy` / `chisel` | 45° chisel nib |
+| `charcoal` | Grainy, high-scatter charcoal stroke |
+| `hatch` | Wide-spaced chisel for cross-hatching |
+| `scatter` | Random scattered dabs |
+| `smudge` | Smudge mode preset |
+| `blend` | Wet-media blend preset |
+| `fill` | Flood fill mode (tolerance 32) |
+| `flood_fill` | Alias for `fill` |
+| `lasso_fill` | Lasso solid fill preset |
+| `lasso` | Alias for `lasso_fill` |
 
 ### Drawing Primitives
 - `brush <x> <y>` / `dab <x> <y>`: Paint single dab at coordinate.
@@ -292,11 +318,12 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 - `draw grid <step> [color]`
 - `draw image <name> <x> <y> [w] [h] [opacity]`
 - `stamp <name> <x> <y>`: Alias for `draw image`.
+- `pick <x> <y>` / `picker <x> <y>` / `eyedropper <x> <y>`: Sample color at document coordinates and set as active color.
 
 ### Selection, Clipboard & Transform
 - `select rect <x> <y> <w> <h>`: Select rectangular area.
 - `select all`: Select entire canvas.
-- `select none` / `deselect`: Clear active selection.
+- `select none` / `select clear` / `deselect`: Clear active selection.
 - `select lasso`: Enter freehand polygon selection mode.
 - `select wand [tolerance]`: Enter color flood selection mode.
 - `wand tolerance <tol>`: Set magic wand color tolerance (0..255).
@@ -308,15 +335,16 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 
 ### Color Adjustments & Filters
 - `adjust hsv <h> <s> <v>`: Shift hue (-180..180), saturation (-100..100), and value (-100..100).
-- `adjust hue <h>`, `adjust sat <s>`, `adjust val <v>`.
+- `adjust hue <h>`, `adjust sat <s>`, `adjust val <v>` / `adjust brightness <v>` / `adjust light <v>`.
 - `filter <filter_name> [p1] [p2]`: Apply WASM filter plugin.
 
 ### Viewport Navigation
-- `zoom <in|out|fit|reset|percentage>`: Adjust zoom scale.
-- `pan <reset|center>`: Re-center canvas.
-- `rotate reset` / `rot 0`: Reset canvas rotation angle.
-- `flip canvas` / `flip h`: Flip viewport horizontally (mirror view).
-- `flip v`: Flip viewport vertically.
+- `zoom <in|out|fit|reset>`: Adjust zoom scale.
+- `zoom <N>` / `zoom <N>%`: Set zoom to exact percentage (e.g. `zoom 200` → 200%).
+- `pan reset` / `pan center`: Re-center canvas.
+- `rotate reset` / `rot 0` / `rotate 0`: Reset canvas rotation angle.
+- `flip canvas` / `flip h` / `flip` / `flip horizontal`: Flip viewport horizontally (mirror view).
+- `flip v` / `flip vertical`: Flip viewport vertically.
 - `flip reset`: Reset view flipping.
 
 ### History & I/O
@@ -326,3 +354,9 @@ Esenho includes a full command-line parser implemented through the `papagaio` pa
 - `save canvas <filename>` / `export <filename>`: Save composite image as PNG.
 - `save layer <filename>`: Save active layer as PNG.
 - `load image <filename> [name]`: Import image file as new layer/texture.
+- `save project [file]` / `export project [file]`: Serialize entire project (all layers, history, settings) to `.esen` JSON file.
+- `load project <file>` / `open project <file>`: Load a `.esen` project file (Node.js / CLI only; use file picker in browser).
+
+### Cache & Maintenance
+- `reset cache` / `cache reset` / `clear cache`: Delete all service worker caches and reload the page (browser only).
+
