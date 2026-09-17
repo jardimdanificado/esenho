@@ -959,7 +959,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     if (r < 1) r = 1;
     int roundness = brush_config.roundness > 0 ? brush_config.roundness : 100;
     int inner_r = (r * brush_config.hardness) / 100;
-
+    int r_sq = r * r;
+    int inner_r_sq = inner_r * inner_r;
     int bound_r = (r * 142) / 100 + 1;
 
     int sin_val = 0, cos_val = 1024;
@@ -967,7 +968,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     if (brush_config.auto_rotate) {
         eff_angle = (eff_angle + last_trajectory_angle + 360) % 360;
     }
-    if (eff_angle != 0) {
+    int is_unrotated = (eff_angle == 0);
+    if (!is_unrotated) {
         w_sincos_deg(eff_angle, &sin_val, &cos_val);
     }
 
@@ -988,61 +990,80 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
         shape_id = 0;
     }
     layer_t *stex = &layers[shape_id];
+    int is_builtin_circle = (shape_id == 0);
+    int is_builtin_square = (shape_id == 1);
+    int has_dual = (brush_config.dual_shape >= 0 && brush_config.dual_shape < layer_count && layers[brush_config.dual_shape].in_use);
+    layer_t *dtex = has_dual ? &layers[brush_config.dual_shape] : 0;
+    int dual_r = has_dual ? ((r * brush_config.dual_size) / 100) : 1;
+    if (dual_r < 1) dual_r = 1;
+
+    int has_tex = (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0));
 
     for (int y = min_y; y <= max_y; y++) {
         int dy = y - cy;
+        int row_u = dy * sin_val;
+        int row_v = dy * cos_val;
+        int row_idx = y * w;
+
         for (int x = min_x; x <= max_x; x++) {
             if (is_pixel_clipped(x, y)) continue;
             int dx = x - cx;
 
-            // Rotate coordinates by angle
-            int u = (dx * cos_val + dy * sin_val) / 1024;
-            int v = (-dx * sin_val + dy * cos_val) / 1024;
-            int v_scaled = (v * 100) / roundness;
+            int u, v;
+            if (is_unrotated) {
+                u = dx;
+                v = dy;
+            } else {
+                u = (dx * cos_val + row_u) >> 10;
+                v = (-dx * sin_val + row_v) >> 10;
+            }
 
+            int v_scaled = (roundness == 100) ? v : ((v * 100) / roundness);
             int abs_u = u < 0 ? -u : u;
+            if (abs_u > r) continue;
             int abs_v = v_scaled < 0 ? -v_scaled : v_scaled;
-            if (abs_u > r || abs_v > r) continue;
+            if (abs_v > r) continue;
 
-            // Sample shape layer alpha
-            uint32_t shape_a = 0;
-            if (stex->pixels && stex->width > 0 && stex->height > 0) {
-                int sx = ((u + r) * (stex->width - 1)) / (2 * r);
-                int sy = ((v_scaled + r) * (stex->height - 1)) / (2 * r);
-                if (sx >= 0 && sx < stex->width && sy >= 0 && sy < stex->height) {
-                    uint32_t sp = stex->pixels[sy * stex->width + sx];
-                    shape_a = (sp >> 24) & 0xFF;
+            int dist_sq = u * u + v_scaled * v_scaled;
+            if (!is_builtin_square && dist_sq > r_sq) continue;
+
+            uint32_t shape_a = 255;
+            if (!is_builtin_circle && !is_builtin_square) {
+                if (stex->pixels && stex->width > 0 && stex->height > 0) {
+                    int sx = ((u + r) * (stex->width - 1)) / (2 * r);
+                    int sy = ((v_scaled + r) * (stex->height - 1)) / (2 * r);
+                    if (sx >= 0 && sx < stex->width && sy >= 0 && sy < stex->height) {
+                        uint32_t sp = stex->pixels[sy * stex->width + sx];
+                        shape_a = (sp >> 24) & 0xFF;
+                    } else {
+                        shape_a = 0;
+                    }
                 }
             }
             if (shape_a == 0) continue;
 
-            // Dual brush: multiply secondary tip shape alpha if enabled
-            if (brush_config.dual_shape >= 0 && brush_config.dual_shape < layer_count && layers[brush_config.dual_shape].in_use) {
-                layer_t *dtex = &layers[brush_config.dual_shape];
-                if (dtex->pixels && dtex->width > 0 && dtex->height > 0) {
-                    int dual_r = (r * brush_config.dual_size) / 100;
-                    if (dual_r < 1) dual_r = 1;
-                    int dsx = ((u + dual_r) * (dtex->width - 1)) / (2 * dual_r);
-                    int dsy = ((v_scaled + dual_r) * (dtex->height - 1)) / (2 * dual_r);
-                    uint32_t dual_a = 0;
-                    if (dsx >= 0 && dsx < dtex->width && dsy >= 0 && dsy < dtex->height) {
-                        dual_a = (dtex->pixels[dsy * dtex->width + dsx] >> 24) & 0xFF;
-                    }
-                    shape_a = (shape_a * dual_a) / 255;
-                    if (shape_a == 0) continue;
+            // Dual brush
+            if (has_dual && dtex && dtex->pixels && dtex->width > 0 && dtex->height > 0) {
+                int dsx = ((u + dual_r) * (dtex->width - 1)) / (2 * dual_r);
+                int dsy = ((v_scaled + dual_r) * (dtex->height - 1)) / (2 * dual_r);
+                uint32_t dual_a = 0;
+                if (dsx >= 0 && dsx < dtex->width && dsy >= 0 && dsy < dtex->height) {
+                    dual_a = (dtex->pixels[dsy * dtex->width + dsx] >> 24) & 0xFF;
                 }
+                shape_a = (shape_a * dual_a) / 255;
+                if (shape_a == 0) continue;
             }
 
-            int dist_sq = u * u + v_scaled * v_scaled;
-            int dist = w_isqrt(dist_sq);
-
-            // Subpixel anti-aliasing edge falloff for fine tip control
-            if (brush_config.subpixel && dist >= r - 1) {
-                int edge = (r * 255 - dist * 255);
-                if (edge < 0) edge = 0;
-                if (edge > 255) edge = 255;
-                shape_a = (shape_a * (uint32_t)edge) / 255;
-                if (shape_a == 0) continue;
+            int dist = -1;
+            if (brush_config.subpixel) {
+                dist = w_isqrt(dist_sq);
+                if (dist >= r - 1) {
+                    int edge = (r * 255 - dist * 255);
+                    if (edge < 0) edge = 0;
+                    if (edge > 255) edge = 255;
+                    shape_a = (shape_a * (uint32_t)edge) / 255;
+                    if (shape_a == 0) continue;
+                }
             }
 
             // Stochastic Grain
@@ -1053,27 +1074,30 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             // Hardness / Softness falloff & Flow alpha calculation
             uint32_t a = (dab_flow_a * shape_a) / 255;
             if (brush_config.hardness < 100 && r > 0) {
-                if (brush_config.hardness == 0) {
-                    int num = (r - dist);
-                    if (num < 0) num = 0;
-                    a = (a * num * num) / (r * r);
-                } else if (dist > inner_r) {
-                    int num = (r - dist);
-                    int den = (r - inner_r);
-                    if (den > 0 && num > 0) {
-                        a = (a * num) / den;
+                if (dist_sq > inner_r_sq) {
+                    if (dist < 0) dist = w_isqrt(dist_sq);
+                    if (brush_config.hardness == 0) {
+                        int num = (r - dist);
+                        if (num < 0) num = 0;
+                        a = (a * num * num) / (r_sq > 0 ? r_sq : 1);
                     } else {
-                        a = 0;
+                        int num = (r - dist);
+                        int den = (r - inner_r);
+                        if (den > 0 && num > 0) {
+                            a = (a * num) / den;
+                        } else {
+                            a = 0;
+                        }
                     }
                 }
             }
 
-            if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
+            if (has_tex) {
                 a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
             }
             if (a == 0) continue;
 
-            int idx = y * w + x;
+            int idx = row_idx + x;
             uint32_t dst_p = pix[idx];
             uint32_t orig_a = (dst_p >> 24) & 0xFF;
             if (is_alpha_locked && orig_a == 0) continue;

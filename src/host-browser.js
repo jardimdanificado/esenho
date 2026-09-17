@@ -6710,6 +6710,8 @@ async function main() {
   });
 
   // 6. Master Sync Function
+  let lastLayerOptionsCount = -1;
+  let lastLayerTreeSig = '';
   function syncUiFromHost() {
     if (!host.canvasActor || !host.canvasActor.exports) return;
 
@@ -6905,23 +6907,25 @@ async function main() {
     const shapeId = host.brushParams ? host.brushParams.shape : 0;
     const activeTex = host.activeTexture || 'none';
 
-    // Populate Unified Shape Dropdown (All Layers)
+    // Populate Unified Shape Dropdown (All Layers) - only if count changed
     if (shapeSel) {
-      shapeSel.innerHTML = '';
-      for (let i = 0; i < count; i++) {
-        let name = `layer_${i}`;
-        if (host.textures) {
-          for (const [k, v] of host.textures.entries()) {
-            if (v.wasmId === i) { name = k; break; }
+      if (lastLayerOptionsCount !== count) {
+        shapeSel.innerHTML = '';
+        for (let i = 0; i < count; i++) {
+          let name = `layer_${i}`;
+          if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
           }
+          const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
+          const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
+          const dimStr = (w && h) ? ` (${w}x${h})` : '';
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = `[${i}] ${name}${dimStr}`;
+          shapeSel.appendChild(opt);
         }
-        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
-        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
-        const dimStr = (w && h) ? ` (${w}x${h})` : '';
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = `[${i}] ${name}${dimStr}`;
-        shapeSel.appendChild(opt);
       }
       const builtins = ['circle', 'square', 'chisel'];
       let activeShapeName = builtins[shapeId] || `layer_${shapeId}`;
@@ -6930,57 +6934,61 @@ async function main() {
           if (v.wasmId === shapeId) { activeShapeName = k; break; }
         }
       }
-      shapeSel.value = activeShapeName;
+      if (document.activeElement !== shapeSel) shapeSel.value = activeShapeName;
     }
 
     // Populate Unified Texture Dropdown (All Layers + None)
     if (texSel) {
-      texSel.innerHTML = '';
-      const optNone = document.createElement('option');
-      optNone.value = 'none';
-      optNone.textContent = 'None (no texture)';
-      texSel.appendChild(optNone);
+      if (lastLayerOptionsCount !== count) {
+        texSel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = 'none';
+        optNone.textContent = 'None (no texture)';
+        texSel.appendChild(optNone);
 
-      for (let i = 0; i < count; i++) {
-        let name = `layer_${i}`;
-        if (host.textures) {
-          for (const [k, v] of host.textures.entries()) {
-            if (v.wasmId === i) { name = k; break; }
+        for (let i = 0; i < count; i++) {
+          let name = `layer_${i}`;
+          if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
           }
+          const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
+          const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
+          const dimStr = (w && h) ? ` (${w}x${h})` : '';
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = `[${i}] ${name}${dimStr}`;
+          texSel.appendChild(opt);
         }
-        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
-        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
-        const dimStr = (w && h) ? ` (${w}x${h})` : '';
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = `[${i}] ${name}${dimStr}`;
-        texSel.appendChild(opt);
       }
-      texSel.value = activeTex;
+      if (document.activeElement !== texSel) texSel.value = activeTex;
     }
 
     // Populate Unified Dual Shape Dropdown (All Layers + None)
     if (dualShapeSel) {
-      dualShapeSel.innerHTML = '';
-      const optNone = document.createElement('option');
-      optNone.value = 'none';
-      optNone.textContent = 'None (no dual brush)';
-      dualShapeSel.appendChild(optNone);
+      if (lastLayerOptionsCount !== count) {
+        dualShapeSel.innerHTML = '';
+        const optNone = document.createElement('option');
+        optNone.value = 'none';
+        optNone.textContent = 'None (no dual brush)';
+        dualShapeSel.appendChild(optNone);
 
-      for (let i = 0; i < count; i++) {
-        let name = `layer_${i}`;
-        if (host.textures) {
-          for (const [k, v] of host.textures.entries()) {
-            if (v.wasmId === i) { name = k; break; }
+        for (let i = 0; i < count; i++) {
+          let name = `layer_${i}`;
+          if (host.textures) {
+            for (const [k, v] of host.textures.entries()) {
+              if (v.wasmId === i) { name = k; break; }
+            }
           }
+          const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
+          const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
+          const dimStr = (w && h) ? ` (${w}x${h})` : '';
+          const opt = document.createElement('option');
+          opt.value = name;
+          opt.textContent = `[${i}] ${name}${dimStr}`;
+          dualShapeSel.appendChild(opt);
         }
-        const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
-        const h = host.canvasActor.exports.w_layer_get_height ? host.canvasActor.exports.w_layer_get_height(i) : 0;
-        const dimStr = (w && h) ? ` (${w}x${h})` : '';
-        const opt = document.createElement('option');
-        opt.value = name;
-        opt.textContent = `[${i}] ${name}${dimStr}`;
-        dualShapeSel.appendChild(opt);
       }
       const dualShapeId = host.brushParams ? host.brushParams.dual_shape : -1;
       const builtins = ['circle', 'square', 'chisel'];
@@ -6990,8 +6998,10 @@ async function main() {
           if (v.wasmId === dualShapeId) { activeDualName = k; break; }
         }
       }
-      dualShapeSel.value = activeDualName;
+      if (document.activeElement !== dualShapeSel) dualShapeSel.value = activeDualName;
     }
+
+    lastLayerOptionsCount = count;
 
     // Sync active layer opacity slider (Photoshop style)
     const curActiveOp = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_opacity)
@@ -7002,14 +7012,26 @@ async function main() {
       if (activeLayerOpVal) activeLayerOpVal.textContent = curActivePct + '%';
     }
 
-    // Render Layers List (Photoshop-like top-to-bottom stacking order + Groups + Reordering + Merge Down)
     // Render Layers List (Photoshop-like hierarchical layer & folder tree + Drag-and-Drop + Reordering + Stacking order sync)
     const layersList = document.getElementById('ui-layers-list');
+    const orderCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_order_count)
+      ? host.canvasActor.exports.w_layer_get_order_count()
+      : count;
+
+    const currentTreeSig = `${count}_${orderCount}_${host.layerGroups?.length || 0}_${Array.from(host.layerGroups || []).map(g => `${g.id}:${g.collapsed}:${(g.children||[]).length}`).join(',')}_${host.layerNames?.size || 0}`;
+
     if (layersList) {
+      if (currentTreeSig === lastLayerTreeSig) {
+        // Fast update without DOM destruction
+        layersList.querySelectorAll('.ui-layer-row').forEach(row => {
+          const lid = parseInt(row.getAttribute('data-layer-id'), 10);
+          row.classList.toggle('active-draw', lid === activeDraw);
+        });
+        return;
+      }
+
+      lastLayerTreeSig = currentTreeSig;
       layersList.innerHTML = '';
-      const orderCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_order_count)
-        ? host.canvasActor.exports.w_layer_get_order_count()
-        : count;
 
       host.ensureTreeIntegrity();
 
