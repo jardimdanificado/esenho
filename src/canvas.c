@@ -953,7 +953,7 @@ static int32_t last_trajectory_angle = 0;
  * Renders a single parametric dab at (cx, cy) onto active layer pixels.
  * Samples shape texture alpha channel for arbitrary tip geometry.
  */
-static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, uint32_t color, int eraser, int move_dx, int move_dy, int dab_r, int dab_angle, int dab_flow_pct) {
+static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, uint32_t color, int eraser, int move_dx, int move_dy, int dab_r, int dab_angle, int dab_flow_pct, int cur_d) {
     int is_alpha_locked = (active_layer >= 0 && active_layer < layer_count && layers[active_layer].alpha_lock);
     int r = (dab_r > 0) ? dab_r : brush_config.size;
     if (r < 1) r = 1;
@@ -965,17 +965,16 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     int sin_val = 0, cos_val = 1024;
     int eff_angle = dab_angle;
     if (brush_config.auto_rotate) {
-        eff_angle = (eff_angle + last_trajectory_angle) % 360;
-        if (eff_angle < 0) eff_angle += 360;
+        eff_angle = (eff_angle + last_trajectory_angle + 360) % 360;
     }
     if (eff_angle != 0) {
         w_sincos_deg(eff_angle, &sin_val, &cos_val);
     }
 
-    int min_x = cx - bound_r < 0 ? 0 : cx - bound_r;
-    int max_x = cx + bound_r >= w ? w - 1 : cx + bound_r;
-    int min_y = cy - bound_r < 0 ? 0 : cy - bound_r;
-    int max_y = cy + bound_r >= h ? h - 1 : cy + bound_r;
+    int min_x = cx - bound_r; if (min_x < 0) min_x = 0;
+    int max_x = cx + bound_r; if (max_x >= w) max_x = w - 1;
+    int min_y = cy - bound_r; if (min_y < 0) min_y = 0;
+    int max_y = cy + bound_r; if (max_y >= h) max_y = h - 1;
 
     int eff_flow = (brush_config.flow * dab_flow_pct) / 100;
     uint32_t dab_flow_a = (255 * eff_flow) / 100;
@@ -1155,17 +1154,51 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 
                 uint32_t target_c;
                 if ((dst_p >> 24) == 0 && count == 0) {
+                    if (brush_config.depletion > 0) {
+                        int dep_pct = (cur_d * brush_config.depletion) / 500;
+                        if (dep_pct > 100) dep_pct = 100;
+                        int fresh_rate = ((100 - brush_config.wetness) * (100 - dep_pct)) / 100;
+                        if (fresh_rate <= 0) continue;
+                    }
                     target_c = color;
                 } else {
                     int brush_rate = 100 - brush_config.wetness;
+                    if (brush_config.depletion > 0) {
+                        int dep_pct = (cur_d * brush_config.depletion) / 500;
+                        if (dep_pct > 100) dep_pct = 100;
+                        brush_rate = (brush_rate * (100 - dep_pct)) / 100;
+                    }
                     if (brush_rate < 0) brush_rate = 0;
                     if (brush_rate > 100) brush_rate = 100;
                     target_c = mix_color(color, local_c, brush_rate);
+                    if ((color >> 24) != 0 || (local_c >> 24) != 0) {
+                        uint32_t col_a = (color >> 24) & 0xFF;
+                        uint32_t loc_a = (local_c >> 24) & 0xFF;
+                        uint32_t max_a = col_a > loc_a ? col_a : loc_a;
+                        if (max_a > 0) {
+                            target_c = (max_a << 24) | (target_c & 0x00FFFFFF);
+                        }
+                    }
                 }
 
-                uint32_t eff_a = (a * max_stroke_a) / 255;
-                uint32_t res = w_blend_fast(target_c, dst_p, eff_a, 255);
-                pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                if (!brush_config.buildup && stroke_tag && stroke_mask && stroke_orig) {
+                    if (stroke_tag[idx] != stroke_generation) {
+                        stroke_tag[idx] = stroke_generation;
+                        stroke_orig[idx] = dst_p;
+                        stroke_mask[idx] = 0;
+                    }
+                    uint32_t cur_m = stroke_mask[idx];
+                    uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                    if (new_m > 255) new_m = 255;
+                    stroke_mask[idx] = (uint8_t)new_m;
+                    uint32_t eff_stroke_a = (new_m * max_stroke_a) / 255;
+                    uint32_t res = w_blend_fast(target_c, stroke_orig[idx], eff_stroke_a, 255);
+                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                } else {
+                    uint32_t eff_dab_a = (a * max_stroke_a) / 255;
+                    uint32_t res = w_blend_fast(target_c, dst_p, eff_dab_a, 255);
+                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                }
             } else {
                 uint32_t target_color = color;
                 if (brush_config.dab_blend > 0) {
@@ -2005,7 +2038,7 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
             int oj = (int)(next_random() % (brush_config.opacity_jitter + 1));
             dab_flow_pct = (dab_flow_pct * (100 - oj)) / 100;
         }
-        if (brush_config.depletion > 0) {
+        if (brush_config.depletion > 0 && brush_config.type != W_MODE_BLEND) {
             int dep_pct = (cur_d * brush_config.depletion) / 500;
             if (dep_pct > 100) dep_pct = 100;
             dab_flow_pct = (dab_flow_pct * (100 - dep_pct)) / 100;
@@ -2057,20 +2090,20 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
             }
         }
 
-        render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct);
+        render_parametric_dab(pix, w, h, cx, cy, dab_color, eraser, move_dx, move_dy, dab_r, dab_angle, dab_flow_pct, cur_d);
 
         if (brush_config.symmetry == 1 || brush_config.symmetry == 3) {
             int sym_x = w - 1 - cx;
-            render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct);
+            render_parametric_dab(pix, w, h, sym_x, cy, dab_color, eraser, -move_dx, move_dy, dab_r, 180 - dab_angle, dab_flow_pct, cur_d);
         }
         if (brush_config.symmetry == 2 || brush_config.symmetry == 3) {
             int sym_y = h - 1 - cy;
-            render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct);
+            render_parametric_dab(pix, w, h, cx, sym_y, dab_color, eraser, move_dx, -move_dy, dab_r, -dab_angle, dab_flow_pct, cur_d);
         }
         if (brush_config.symmetry == 3) {
             int sym_x = w - 1 - cx;
             int sym_y = h - 1 - cy;
-            render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct);
+            render_parametric_dab(pix, w, h, sym_x, sym_y, dab_color, eraser, -move_dx, -move_dy, dab_r, 180 + dab_angle, dab_flow_pct, cur_d);
         }
     }
 

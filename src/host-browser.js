@@ -2923,6 +2923,81 @@ async function main() {
   }
   initSliderTouchScrollProtection();
 
+  function initGlobalTouchTooltips() {
+    let tooltipEl = document.getElementById('touch-tooltip-bubble');
+    if (!tooltipEl) {
+      tooltipEl = document.createElement('div');
+      tooltipEl.id = 'touch-tooltip-bubble';
+      tooltipEl.style.cssText = 'position:fixed;z-index:999999;pointer-events:none;background:#282828;color:#ebdbb2;border:1px solid #504945;border-radius:4px;padding:4px 8px;font-size:11px;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.5);max-width:240px;line-height:1.3;display:none;opacity:0;transition:opacity 0.15s ease;';
+      document.body.appendChild(tooltipEl);
+    }
+
+    let timer = null;
+    let startX = 0, startY = 0;
+    let currentTarget = null;
+    let currentText = '';
+
+    const hideTooltip = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (tooltipEl) {
+        tooltipEl.style.opacity = '0';
+        tooltipEl.style.display = 'none';
+      }
+      currentTarget = null;
+    };
+
+    document.addEventListener('touchstart', (e) => {
+      hideTooltip();
+      if (e.touches.length !== 1) return;
+      const target = e.target.closest('[title]');
+      if (!target) return;
+      if (target.closest('canvas, #canvas, .ui-layer-row, .ui-layer-group-header, .arc-dial-container, #touch-color-wheel-canvas, #touch-color-box-canvas, input[type="range"]')) {
+        return;
+      }
+      const title = target.getAttribute('title');
+      if (!title || !title.trim()) return;
+
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      currentTarget = target;
+      currentText = title.trim();
+
+      timer = setTimeout(() => {
+        timer = null;
+        if (!currentTarget) return;
+        tooltipEl.textContent = currentText;
+        tooltipEl.style.display = 'block';
+        tooltipEl.style.opacity = '1';
+
+        const pad = 12;
+        let x = startX;
+        let y = startY - 40;
+        if (y < 20) y = startY + 30;
+
+        tooltipEl.style.left = `${Math.max(10, Math.min(window.innerWidth - 250, x - 50))}px`;
+        tooltipEl.style.top = `${y}px`;
+        triggerHaptic(15);
+      }, 350);
+    }, { passive: true });
+
+    document.addEventListener('touchmove', (e) => {
+      if (timer && e.touches.length > 0) {
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (Math.hypot(dx, dy) > 10) {
+          hideTooltip();
+        }
+      }
+    }, { passive: true });
+
+    document.addEventListener('touchend', hideTooltip, { passive: true });
+    document.addEventListener('touchcancel', hideTooltip, { passive: true });
+  }
+  initGlobalTouchTooltips();
+
   const dabBlendSel = document.getElementById('ui-select-dab-blend');
   if (dabBlendSel) {
     dabBlendSel.addEventListener('change', () => {
@@ -3170,11 +3245,46 @@ async function main() {
     updateSvBoxCursor();
   }
 
+  function updateSvBoxCursor() {
+    if (!touchSvboxCursor || !touchSvboxCanvas) return;
+    const x = Math.max(0, Math.min(100, studioSat * 100));
+    const y = Math.max(0, Math.min(100, (1 - studioVal) * 100));
+    touchSvboxCursor.style.left = `${x}%`;
+    touchSvboxCursor.style.top = `${y}%`;
+  }
+
   // Swatches functions & persistence
   const DEFAULT_SWATCHES = [
     '#fb4934', '#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598',
     '#d3869b', '#fbf1c7', '#ebdbb2', '#928374', '#282828', '#000000'
   ];
+
+  let activePaletteName = localStorage.getItem('esenho_active_palette') || 'gruvbox';
+
+  function getActivePaletteName() {
+    return activePaletteName;
+  }
+
+  function getPaletteColors(name) {
+    if (name === 'custom') {
+      return getCustomSwatches();
+    }
+    return PALETTE_PRESETS[name] || PALETTE_PRESETS.gruvbox;
+  }
+
+  function getActivePaletteColors() {
+    return getPaletteColors(activePaletteName);
+  }
+
+  function setActivePalette(name) {
+    if (name !== 'custom' && !PALETTE_PRESETS[name]) name = 'gruvbox';
+    activePaletteName = name;
+    localStorage.setItem('esenho_active_palette', name);
+    if (touchPaletteSelect && touchPaletteSelect.value !== name) {
+      touchPaletteSelect.value = name;
+    }
+    broadcastSwatchesChanged();
+  }
 
   function getCustomSwatches() {
     try {
@@ -3183,12 +3293,14 @@ async function main() {
   }
 
   function addCustomSwatch(color) {
+    color = (color || '').trim().toUpperCase();
+    if (!color.startsWith('#')) color = '#' + color;
     const swatches = getCustomSwatches();
     if (!swatches.includes(color)) {
       swatches.push(color);
       localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
-      broadcastSwatchesChanged();
     }
+    setActivePalette('custom');
   }
 
   function removeCustomSwatch(index) {
@@ -3206,29 +3318,28 @@ async function main() {
     grid.innerHTML = '';
     grid.classList.toggle('delete-mode', swatchDeleteMode);
 
-    DEFAULT_SWATCHES.forEach(col => {
-      const el = document.createElement('div');
-      el.className = 'swatch-item';
-      el.style.background = col;
-      el.title = `${col} (built-in)`;
-      el.addEventListener('click', () => {
-        updateColorControlsFromHex(col);
-        runCmd(`set color ${col}`);
-      });
-      grid.appendChild(el);
-    });
+    const colors = getActivePaletteColors();
+    const isCustom = activePaletteName === 'custom';
+    const curHex = (host.currentColor !== undefined)
+      ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+      : '';
 
-    const custom = getCustomSwatches();
-    custom.forEach((col, idx) => {
+    if (colors.length === 0) {
+      grid.innerHTML = '<div style="grid-column: 1 / -1; color: #928374; font-size: 11px; font-style: italic; padding: 6px; text-align: center;">No swatches in custom palette.<br>Click "+ Swatch" to save current color.</div>';
+      return;
+    }
+
+    colors.forEach((col, idx) => {
       const el = document.createElement('div');
       el.className = 'swatch-item';
       el.style.background = col;
-      el.title = swatchDeleteMode
+      if (curHex && col.toUpperCase() === curHex) el.classList.add('active');
+      el.title = swatchDeleteMode && isCustom
         ? `Click to delete ${col}`
-        : `${col} (right-click, long-press, or toggle [- Del] to delete)`;
+        : `${col} (${activePaletteName})`;
 
       el.addEventListener('click', () => {
-        if (swatchDeleteMode) {
+        if (swatchDeleteMode && isCustom) {
           removeCustomSwatch(idx);
           log(`Swatch ${col} removed [ok]`);
         } else {
@@ -3237,33 +3348,35 @@ async function main() {
         }
       });
 
-      // Touch long-press to delete on mobile
-      let longPressTimer = null;
-      el.addEventListener('touchstart', () => {
-        longPressTimer = setTimeout(() => {
+      if (isCustom) {
+        // Touch long-press to delete on mobile
+        let longPressTimer = null;
+        el.addEventListener('touchstart', () => {
+          longPressTimer = setTimeout(() => {
+            removeCustomSwatch(idx);
+            log(`Swatch ${col} removed [ok]`);
+          }, 450);
+        }, { passive: true });
+        el.addEventListener('touchend', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+        el.addEventListener('touchmove', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+
+        el.addEventListener('contextmenu', e => {
+          e.preventDefault();
           removeCustomSwatch(idx);
           log(`Swatch ${col} removed [ok]`);
-        }, 450);
-      }, { passive: true });
-      el.addEventListener('touchend', () => { if (longPressTimer) clearTimeout(longPressTimer); });
-      el.addEventListener('touchmove', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+        });
 
-      el.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        removeCustomSwatch(idx);
-        log(`Swatch ${col} removed [ok]`);
-      });
-
-      const del = document.createElement('span');
-      del.className = 'swatch-del';
-      del.textContent = '✕';
-      del.title = 'Delete swatch';
-      del.addEventListener('click', e => {
-        e.stopPropagation();
-        removeCustomSwatch(idx);
-        log(`Swatch ${col} removed [ok]`);
-      });
-      el.appendChild(del);
+        const del = document.createElement('span');
+        del.className = 'swatch-del';
+        del.textContent = '✕';
+        del.title = 'Delete swatch';
+        del.addEventListener('click', e => {
+          e.stopPropagation();
+          removeCustomSwatch(idx);
+          log(`Swatch ${col} removed [ok]`);
+        });
+        el.appendChild(del);
+      }
 
       grid.appendChild(el);
     });
@@ -3279,12 +3392,11 @@ async function main() {
   function renderTouchQuickSwatches() {
     if (!touchQuickSwatchesRow) return;
     touchQuickSwatchesRow.innerHTML = '';
-    const swatches = getCustomSwatches();
     const currentHex = (host.currentColor !== undefined)
       ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
       : '';
 
-    const listToShow = swatches.length > 0 ? swatches : PALETTE_PRESETS.gruvbox.slice(0, 10);
+    const listToShow = getActivePaletteColors().slice(0, 16);
     listToShow.forEach(hex => {
       const slot = document.createElement('div');
       slot.className = 'touch-swatch-slot';
@@ -3308,18 +3420,13 @@ async function main() {
     if (!touchModalSwatches) return;
     touchModalSwatches.innerHTML = '';
 
-    const selectedPal = touchPaletteSelect ? touchPaletteSelect.value : 'custom';
-    let colors = [];
-    if (selectedPal === 'custom') {
-      colors = getCustomSwatches();
-      if (colors.length === 0) {
-        touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: #928374; font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
-        return;
-      }
-    } else if (PALETTE_PRESETS[selectedPal]) {
-      colors = PALETTE_PRESETS[selectedPal];
-    } else {
-      colors = PALETTE_PRESETS.gruvbox;
+    const selectedPal = touchPaletteSelect ? touchPaletteSelect.value : activePaletteName;
+    const colors = getPaletteColors(selectedPal);
+    const isCustom = selectedPal === 'custom';
+
+    if (colors.length === 0) {
+      touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: #928374; font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
+      return;
     }
 
     const currentHex = (host.currentColor !== undefined)
@@ -3329,17 +3436,16 @@ async function main() {
     colors.forEach((hex, idx) => {
       const slot = document.createElement('div');
       slot.className = 'touch-swatch-slot';
-      if (studioDelMode && selectedPal === 'custom') slot.classList.add('del-mode');
+      if (studioDelMode && isCustom) slot.classList.add('del-mode');
       slot.style.background = hex;
       if (currentHex && hex.toUpperCase() === currentHex) {
         slot.style.borderColor = '#fabd2f';
       }
-      slot.title = studioDelMode && selectedPal === 'custom' ? `Click to delete ${hex}` : hex;
+      slot.title = studioDelMode && isCustom ? `Click to delete ${hex}` : hex;
 
       slot.addEventListener('click', () => {
-        if (studioDelMode && selectedPal === 'custom') {
+        if (studioDelMode && isCustom) {
           removeCustomSwatch(idx);
-          broadcastSwatchesChanged();
           triggerHaptic(15);
         } else {
           applyColorFromStudio(hex);
@@ -3395,11 +3501,11 @@ async function main() {
     if (studioActiveMode === 'wheel') drawTouchHsvWheel();
     if (studioActiveMode === 'box') drawTouchSvBox();
 
+    updateSvBoxCursor();
     renderTouchQuickSwatches();
     if (typeof updateColorControlsFromHex === 'function') {
       updateColorControlsFromHex(hex);
     }
-    syncModularToolbars();
   }
 
   function switchStudioMode(mode) {
@@ -3424,8 +3530,9 @@ async function main() {
   });
 
   if (touchPaletteSelect) {
+    touchPaletteSelect.value = activePaletteName;
     touchPaletteSelect.addEventListener('change', () => {
-      renderTouchModalSwatches();
+      setActivePalette(touchPaletteSelect.value);
       triggerHaptic(10);
     });
   }
@@ -4403,8 +4510,7 @@ async function main() {
 
     function renderStrip() {
       wrap.innerHTML = '';
-      const custom = getCustomSwatches();
-      const list = custom.length > 0 ? custom : DEFAULT_SWATCHES.slice(0, 8);
+      const list = getActivePaletteColors().slice(0, 12);
       const curHex = (host.currentColor !== undefined)
         ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
         : '';
@@ -6908,11 +7014,97 @@ async function main() {
       host.ensureTreeIntegrity();
 
       let layerDragSource = null; // { type: 'layer'|'group', id: number|string }
+      let touchReorderState = null;
 
       const clearDropIndicators = () => {
         layersList.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group').forEach(el => {
           el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
         });
+      };
+
+      const attachTouchReorder = (el, type, id) => {
+        let timer = null;
+        let startX = 0, startY = 0;
+
+        el.addEventListener('touchstart', (e) => {
+          if (e.touches.length !== 1) return;
+          if (e.target.closest('button, input, select, .layer-slider, .layer-op-slider')) return;
+          startX = e.touches[0].clientX;
+          startY = e.touches[0].clientY;
+
+          timer = setTimeout(() => {
+            timer = null;
+            touchReorderState = { type, id, startEl: el, lastTarget: null, lastDropPos: null };
+            layerDragSource = { type, id };
+            el.classList.add('touch-reordering');
+            triggerHaptic(20);
+          }, 300);
+        }, { passive: true });
+
+        el.addEventListener('touchmove', (e) => {
+          if (timer) {
+            const dx = e.touches[0].clientX - startX;
+            const dy = e.touches[0].clientY - startY;
+            if (Math.hypot(dx, dy) > 10) {
+              clearTimeout(timer);
+              timer = null;
+            }
+          }
+          if (touchReorderState && touchReorderState.id === id) {
+            if (e.cancelable) e.preventDefault();
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const targetEl = document.elementFromPoint(touchX, touchY);
+            const row = targetEl?.closest('.ui-layer-row, .ui-layer-group-header');
+            clearDropIndicators();
+            if (row && row !== el) {
+              const rect = row.getBoundingClientRect();
+              const relY = (touchY - rect.top) / rect.height;
+              const isGroup = row.classList.contains('ui-layer-group-header');
+              const targetId = isGroup ? row.getAttribute('data-group-id') : parseInt(row.getAttribute('data-layer-id'), 10);
+              const targetType = isGroup ? 'group' : 'layer';
+
+              let dropPos = 'inside';
+              if (isGroup) {
+                if (relY < 0.25) { dropPos = 'before'; row.classList.add('drop-indicator-top'); }
+                else if (relY > 0.75) { dropPos = 'after'; row.classList.add('drop-indicator-bottom'); }
+                else { dropPos = 'inside'; row.classList.add('drop-target-group'); }
+              } else {
+                if (relY < 0.5) { dropPos = 'before'; row.classList.add('drop-indicator-top'); }
+                else { dropPos = 'after'; row.classList.add('drop-indicator-bottom'); }
+              }
+              touchReorderState.lastTarget = { type: targetType, id: targetId };
+              touchReorderState.lastDropPos = dropPos;
+            } else {
+              touchReorderState.lastTarget = null;
+              touchReorderState.lastDropPos = null;
+            }
+          }
+        }, { passive: false });
+
+        const finishTouch = () => {
+          if (timer) {
+            clearTimeout(timer);
+            timer = null;
+          }
+          if (touchReorderState && touchReorderState.id === id) {
+            el.classList.remove('touch-reordering');
+            clearDropIndicators();
+            if (touchReorderState.lastTarget && touchReorderState.lastDropPos) {
+              const tgt = touchReorderState.lastTarget;
+              if (tgt.type !== touchReorderState.type || String(tgt.id) !== String(touchReorderState.id)) {
+                host.reorderTreeItem(touchReorderState.type, touchReorderState.id, tgt.type, tgt.id, touchReorderState.lastDropPos);
+                triggerHaptic(15);
+                syncUiFromHost();
+              }
+            }
+            touchReorderState = null;
+            layerDragSource = null;
+          }
+        };
+
+        el.addEventListener('touchend', finishTouch);
+        el.addEventListener('touchcancel', finishTouch);
       };
 
       const createGroupHeader = (grp, depth = 0, parentGroup = null) => {
@@ -6921,6 +7113,8 @@ async function main() {
         grpRow.style.paddingLeft = `${6 + depth * 16}px`;
         grpRow.title = `Folder: ${grp.name} (${(grp.children || []).length} items)`;
         grpRow.setAttribute('data-group-id', grp.id);
+
+        attachTouchReorder(grpRow, 'group', grp.id);
 
         // HTML5 Drag & Drop
         grpRow.draggable = true;
@@ -7123,6 +7317,8 @@ async function main() {
         row.style.paddingLeft = `${6 + depth * 16}px`;
         row.title = `[${i}] ${name} (${w}×${h})`;
         row.setAttribute('data-layer-id', i);
+
+        attachTouchReorder(row, 'layer', i);
 
         // HTML5 Drag & Drop
         row.draggable = true;
