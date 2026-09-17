@@ -282,7 +282,7 @@ static void init_builtin_shapes(void) {
 static inline uint32_t blend_pixel_mode(uint32_t dst, uint32_t src, uint8_t alpha_mod, uint8_t blend_mode) {
     uint32_t sa = ((src >> 24) & 0xFF) * alpha_mod / 255;
     if (sa == 0) return dst;
-    if (blend_mode == 0 && sa == 255 && ((dst >> 24) & 0xFF) == 0) return (src & 0x00FFFFFF) | 0xFF000000;
+    if (blend_mode == 0 && sa == 255) return src;
 
     uint32_t blended_src = (blend_mode > 0) ? w_apply_dab_blend(blend_mode, src, dst) : src;
     uint32_t sr = blended_src & 0xFF;
@@ -454,6 +454,48 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
             int dy = ly + y;
             int src_row = y * tw;
             int out_row = dy * w;
+
+            if (blend_mode == 0 && op == 255 && !base_pix) {
+                int x = sx0;
+#if defined(__wasm_simd128__)
+                v128_t v_mask_alpha = wasm_i32x4_splat(0xFF000000);
+                v128_t v_zero = wasm_i32x4_splat(0);
+                for (; x + 3 <= sx1; x += 4) {
+                    v128_t vsrc = wasm_v128_load(src_pix + src_row + x);
+                    v128_t v_src_alpha = wasm_v128_and(vsrc, v_mask_alpha);
+                    if (wasm_i32x4_all_true(wasm_i32x4_eq(v_src_alpha, v_mask_alpha))) {
+                        wasm_v128_store(out_pixels + out_row + lx + x, vsrc);
+                        continue;
+                    }
+                    if (wasm_i32x4_all_true(wasm_i32x4_eq(v_src_alpha, v_zero))) {
+                        continue;
+                    }
+                    for (int k = 0; k < 4; k++) {
+                        int cx = x + k;
+                        uint32_t sp = src_pix[src_row + cx];
+                        uint32_t sa = (sp >> 24) & 0xFF;
+                        if (sa == 0) continue;
+                        if (sa == 255) {
+                            out_pixels[out_row + lx + cx] = sp;
+                        } else {
+                            out_pixels[out_row + lx + cx] = blend_pixel_mode(out_pixels[out_row + lx + cx], sp, 255, 0);
+                        }
+                    }
+                }
+#endif
+                for (; x <= sx1; x++) {
+                    uint32_t sp = src_pix[src_row + x];
+                    uint32_t sa = (sp >> 24) & 0xFF;
+                    if (sa == 0) continue;
+                    if (sa == 255) {
+                        out_pixels[out_row + lx + x] = sp;
+                    } else {
+                        out_pixels[out_row + lx + x] = blend_pixel_mode(out_pixels[out_row + lx + x], sp, 255, 0);
+                    }
+                }
+                continue;
+            }
+
             for (int x = sx0; x <= sx1; x++) {
                 int dx = lx + x;
                 uint32_t src = src_pix[src_row + x];
@@ -799,6 +841,37 @@ static void ensure_stroke_buffers(uint32_t required_pixels) {
     }
 }
 
+static uint8_t g_hardness_lut[1024];
+static int g_lut_hardness = -1;
+
+static void update_hardness_lut(int hardness) {
+    if (hardness == g_lut_hardness) return;
+    g_lut_hardness = hardness;
+    int inner_unit = (hardness * 256) / 100;
+    for (int i = 0; i < 1024; i++) {
+        // i corresponds to (dist/r)^2 in range 0..1023
+        int dist_approx = w_isqrt((i * 65536) / 1023); // 0..256
+        if (hardness == 100) {
+            g_hardness_lut[i] = 255;
+        } else if (hardness == 0) {
+            int num = 256 - dist_approx;
+            if (num < 0) num = 0;
+            g_hardness_lut[i] = (uint8_t)((num * num) / 256);
+        } else if (dist_approx > inner_unit) {
+            int num = 256 - dist_approx;
+            int den = 256 - inner_unit;
+            if (den > 0 && num > 0) {
+                int val = (num * 255) / den;
+                g_hardness_lut[i] = (val > 255) ? 255 : (uint8_t)val;
+            } else {
+                g_hardness_lut[i] = 0;
+            }
+        } else {
+            g_hardness_lut[i] = 255;
+        }
+    }
+}
+
 static uint32_t rng_state = 0x87654321;
 static inline uint32_t next_random(void) {
     rng_state ^= (rng_state << 13);
@@ -999,33 +1072,49 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 
     int has_tex = (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0));
 
+    update_hardness_lut(brush_config.hardness);
+
     for (int y = min_y; y <= max_y; y++) {
         int dy = y - cy;
         int row_u = dy * sin_val;
         int row_v = dy * cos_val;
         int row_idx = y * w;
 
-        for (int x = min_x; x <= max_x; x++) {
+        int row_min_x = min_x;
+        int row_max_x = max_x;
+
+        int v_scaled = (roundness == 100) ? dy : ((dy * 100) / roundness);
+        int v_scaled_sq = v_scaled * v_scaled;
+
+        if (is_unrotated) {
+            if (!is_builtin_square && v_scaled_sq > r_sq) continue;
+            if (!is_builtin_square) {
+                int span_u = w_isqrt(r_sq - v_scaled_sq);
+                if (cx - span_u > row_min_x) row_min_x = cx - span_u;
+                if (cx + span_u < row_max_x) row_max_x = cx + span_u;
+            }
+        }
+
+        for (int x = row_min_x; x <= row_max_x; x++) {
             if (is_pixel_clipped(x, y)) continue;
             int dx = x - cx;
 
-            int u, v;
+            int u, v, dist_sq;
             if (is_unrotated) {
                 u = dx;
                 v = dy;
+                dist_sq = dx * dx + v_scaled_sq;
             } else {
                 u = (dx * cos_val + row_u) >> 10;
                 v = (-dx * sin_val + row_v) >> 10;
+                v_scaled = (roundness == 100) ? v : ((v * 100) / roundness);
+                int abs_u = u < 0 ? -u : u;
+                if (abs_u > r) continue;
+                int abs_v = v_scaled < 0 ? -v_scaled : v_scaled;
+                if (abs_v > r) continue;
+                dist_sq = u * u + v_scaled * v_scaled;
+                if (!is_builtin_square && dist_sq > r_sq) continue;
             }
-
-            int v_scaled = (roundness == 100) ? v : ((v * 100) / roundness);
-            int abs_u = u < 0 ? -u : u;
-            if (abs_u > r) continue;
-            int abs_v = v_scaled < 0 ? -v_scaled : v_scaled;
-            if (abs_v > r) continue;
-
-            int dist_sq = u * u + v_scaled * v_scaled;
-            if (!is_builtin_square && dist_sq > r_sq) continue;
 
             uint32_t shape_a = 255;
             if (!is_builtin_circle && !is_builtin_square) {
@@ -1054,9 +1143,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (shape_a == 0) continue;
             }
 
-            int dist = -1;
             if (brush_config.subpixel) {
-                dist = w_isqrt(dist_sq);
+                int dist = w_isqrt(dist_sq);
                 if (dist >= r - 1) {
                     int edge = (r * 255 - dist * 255);
                     if (edge < 0) edge = 0;
@@ -1071,24 +1159,14 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
             }
 
-            // Hardness / Softness falloff & Flow alpha calculation
+            // Hardness / Softness falloff & Flow alpha calculation via LUT
             uint32_t a = (dab_flow_a * shape_a) / 255;
-            if (brush_config.hardness < 100 && r > 0) {
+            if (brush_config.hardness < 100 && r > 0 && !is_builtin_square) {
                 if (dist_sq > inner_r_sq) {
-                    if (dist < 0) dist = w_isqrt(dist_sq);
-                    if (brush_config.hardness == 0) {
-                        int num = (r - dist);
-                        if (num < 0) num = 0;
-                        a = (a * num * num) / (r_sq > 0 ? r_sq : 1);
-                    } else {
-                        int num = (r - dist);
-                        int den = (r - inner_r);
-                        if (den > 0 && num > 0) {
-                            a = (a * num) / den;
-                        } else {
-                            a = 0;
-                        }
-                    }
+                    int lut_idx = (dist_sq * 1023) / (r_sq > 0 ? r_sq : 1);
+                    if (lut_idx > 1023) lut_idx = 1023;
+                    uint32_t hard_factor = g_hardness_lut[lut_idx];
+                    a = (a * hard_factor) / 255;
                 }
             }
 
@@ -1997,6 +2075,11 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
 
     // Spacing calculation based on brush size
     int step_size = (brush_config.size * brush_config.spacing) / 100;
+    if (brush_config.size > 150) {
+        int min_step = brush_config.size / 10;
+        if (min_step < 15) min_step = 15;
+        if (step_size < min_step) step_size = min_step;
+    }
     if (step_size < 1) step_size = 1;
 
     int steps = (dist + step_size - 1) / step_size;
