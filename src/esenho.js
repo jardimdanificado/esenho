@@ -1668,6 +1668,7 @@ const COMMAND_RULES = [
     load image <file> [name]     Load image file into texture storage
     reset cache / clear cache    Clear service worker cache and reload page
     reset data / clear data      Clear all storage (IndexedDB + LocalStorage) and return to launcher
+    reset all / clear all        Clear both cache and all user storage and return to launcher
     exit / quit                  Quit application
 `);
     }
@@ -3150,7 +3151,47 @@ const COMMAND_RULES = [
     }
   },
   { pat: "data reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset data").run(m, host) },
-  { pat: "clear data", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset data").run(m, host) }
+  { pat: "clear data", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset data").run(m, host) },
+
+  // All Reset (Cache + IndexedDB + LocalStorage + SessionStorage)
+  {
+    pat: "reset all",
+    run: (m, host) => {
+      host.sendConsoleLog('clearing cache and all user data, returning to launcher...');
+      try {
+        if (typeof localStorage !== 'undefined') localStorage.clear();
+        if (typeof sessionStorage !== 'undefined') sessionStorage.clear();
+      } catch (_) {}
+      const targetUrl = (typeof window !== 'undefined' && window.location) ? 'index.html' : null;
+      const doCacheDelete = () => {
+        if (typeof caches !== 'undefined') {
+          return caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n))));
+        }
+        return Promise.resolve();
+      };
+      const doIdbDelete = () => {
+        return new Promise((resolve) => {
+          if (typeof indexedDB !== 'undefined' && indexedDB.deleteDatabase) {
+            try {
+              const req = indexedDB.deleteDatabase('EsenhoDB');
+              req.onsuccess = () => resolve();
+              req.onerror = () => resolve();
+              req.onblocked = () => resolve();
+            } catch (_) {
+              resolve();
+            }
+          } else {
+            resolve();
+          }
+        });
+      };
+      Promise.all([doCacheDelete(), doIdbDelete()]).finally(() => {
+        if (targetUrl) window.location.href = targetUrl;
+      });
+    }
+  },
+  { pat: "all reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset all").run(m, host) },
+  { pat: "clear all", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset all").run(m, host) }
 ];
 
 /**

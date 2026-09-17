@@ -4109,16 +4109,18 @@ async function main() {
     let scrubStartVal = curVal;
 
     dialBtn.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
       isScrubbing = true;
       dialBtn._didScrub = false;
       scrubStartX = e.clientX;
       const freshVal = cfg.getter ? cfg.getter(host.brushParams || {}) : cfg.min;
       scrubStartVal = freshVal !== undefined ? freshVal : cfg.min;
-      dialBtn.setPointerCapture(e.pointerId);
+      try { dialBtn.setPointerCapture(e.pointerId); } catch (_) {}
     });
 
     dialBtn.addEventListener('pointermove', (e) => {
       if (!isScrubbing) return;
+      e.stopPropagation();
       const dx = e.clientX - scrubStartX;
       if (Math.abs(dx) > 3) {
         dialBtn._didScrub = true;
@@ -4541,8 +4543,8 @@ async function main() {
           <option value="flip_v">Flip Vertical</option>
           <option value="clear">Clear Canvas</option>
           <option value="save_swatch">+ Save Swatch</option>
-          <option value="open_color_picker">🎨 Color Studio</option>
-          <option value="open_customizer">⚙ Toolbar Customizer</option>
+          <option value="open_color_picker">Color Studio</option>
+          <option value="open_customizer">Toolbar Customizer</option>
         `;
         sel.addEventListener('change', () => {
           const act = sel.value;
@@ -4600,15 +4602,15 @@ async function main() {
             <option value="roundness">Round</option>
             <option value="scatter">Scatter</option>
           </optgroup>
-          <optgroup label="Presets & Scripts">
+          <optgroup label="Presets & Tips">
             <option value="preset">Preset</option>
-            <option value="tip">Tip</option>
-            <option value="grain_tex">Grain</option>
+            <option value="tip">Tip Shape</option>
+            <option value="grain_tex">Texture</option>
             <option value="script">Script</option>
-            <option value="save_tool">Save Tool</option>
-            <option value="dab_blend">Blend</option>
+            <option value="save_tool">Copy Script</option>
+            <option value="dab_blend">Dab Blend</option>
             <option value="symmetry">Symmetry</option>
-            <option value="dual_shape">Dual</option>
+            <option value="dual_shape">Dual Shape</option>
           </optgroup>
           <optgroup label="Wet Media & Dynamics">
             <option value="smudge">Smudge</option>
@@ -4680,12 +4682,21 @@ async function main() {
           } else if (cfg.type === 'select_preset') {
             const pSel = document.createElement('select');
             pSel.className = 'tb-select';
-            pSel.innerHTML = '<option value="" disabled selected>-- Preset --</option>';
+            pSel.innerHTML = '<option value="" disabled selected>-- Presets --</option>';
             for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
               if (!p.name) continue;
               const opt = document.createElement('option');
               opt.value = k;
               opt.textContent = p.name;
+              if (host.activeBrush === k) opt.selected = true;
+              pSel.appendChild(opt);
+            }
+            const custom = host.customBrushPresets || {};
+            for (const [k, p] of Object.entries(custom)) {
+              const opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = p.name || k;
+              if (host.activeBrush === k) opt.selected = true;
               pSel.appendChild(opt);
             }
             pSel.addEventListener('change', () => {
@@ -4696,6 +4707,131 @@ async function main() {
               }
             });
             slot.appendChild(pSel);
+          } else if (cfg.type === 'select_tip') {
+            const tSel = document.createElement('select');
+            tSel.className = 'tb-select';
+            tSel.innerHTML = `
+              <option value="0">Round</option>
+              <option value="1">Chisel</option>
+              <option value="2">Dry Brush</option>
+              <option value="3">Calligraphic</option>
+              <option value="4">Pencil</option>
+              <option value="5">Rake</option>
+              <option value="6">Pixel</option>
+            `;
+            const curTip = (host.brushParams && host.brushParams.shape !== undefined) ? host.brushParams.shape : 0;
+            tSel.value = String(curTip);
+            tSel.addEventListener('change', () => {
+              runCmd(`set shape ${tSel.value}`);
+              triggerHaptic(10);
+            });
+            slot.appendChild(tSel);
+          } else if (cfg.type === 'select_grain') {
+            const gSel = document.createElement('select');
+            gSel.className = 'tb-select';
+            gSel.innerHTML = `
+              <option value="none">None</option>
+              <option value="canvas">Canvas</option>
+              <option value="paper">Paper</option>
+              <option value="noise">Noise</option>
+              <option value="grunge">Grunge</option>
+            `;
+            gSel.value = (host.brushParams && host.brushParams.texture) ? host.brushParams.texture : 'none';
+            gSel.addEventListener('change', () => {
+              runCmd(`set texture ${gSel.value}`);
+              triggerHaptic(10);
+            });
+            slot.appendChild(gSel);
+          } else if (cfg.type === 'select_script') {
+            const sSel = document.createElement('select');
+            sSel.className = 'tb-select';
+            sSel.innerHTML = '<option value="" disabled selected>-- Script --</option>';
+            const list = getSavedScripts();
+            list.forEach((s, idx) => {
+              const opt = document.createElement('option');
+              opt.value = String(idx);
+              opt.textContent = s.name;
+              sSel.appendChild(opt);
+            });
+            sSel.addEventListener('change', () => {
+              const idx = parseInt(sSel.value, 10);
+              if (!isNaN(idx) && list[idx]) {
+                runScriptCode(list[idx].code);
+                triggerHaptic(15);
+              }
+              sSel.selectedIndex = 0;
+            });
+            slot.appendChild(sSel);
+          } else if (cfg.type === 'select_dab_blend') {
+            const bSel = document.createElement('select');
+            bSel.className = 'tb-select';
+            bSel.innerHTML = `
+              <option value="0">Normal</option>
+              <option value="1">Multiply</option>
+              <option value="2">Screen</option>
+              <option value="3">Overlay</option>
+              <option value="4">Add</option>
+              <option value="5">Dodge</option>
+            `;
+            bSel.value = String((host.brushParams && host.brushParams.dab_blend !== undefined) ? host.brushParams.dab_blend : 0);
+            bSel.addEventListener('change', () => {
+              runCmd(`set dab_blend ${bSel.value}`);
+              triggerHaptic(10);
+            });
+            slot.appendChild(bSel);
+          } else if (cfg.type === 'select_symmetry') {
+            const symSel = document.createElement('select');
+            symSel.className = 'tb-select';
+            symSel.innerHTML = `
+              <option value="off">Sym: Off</option>
+              <option value="vertical">Sym: Vertical</option>
+              <option value="horizontal">Sym: Horizontal</option>
+              <option value="quad">Sym: Quad</option>
+              <option value="radial">Sym: Radial</option>
+            `;
+            symSel.value = (host.brushParams && host.brushParams.symmetry) ? host.brushParams.symmetry : 'off';
+            symSel.addEventListener('change', () => {
+              runCmd(`set symmetry ${symSel.value}`);
+              triggerHaptic(10);
+            });
+            slot.appendChild(symSel);
+          } else if (cfg.type === 'select_dual_shape') {
+            const dSel = document.createElement('select');
+            dSel.className = 'tb-select';
+            dSel.innerHTML = `
+              <option value="0">Dual: None</option>
+              <option value="1">Dual: Round</option>
+              <option value="2">Dual: Dry Brush</option>
+              <option value="3">Dual: Noise</option>
+              <option value="4">Dual: Rake</option>
+            `;
+            dSel.value = String((host.brushParams && host.brushParams.dual_shape !== undefined) ? host.brushParams.dual_shape : 0);
+            dSel.addEventListener('change', () => {
+              runCmd(`set dual_shape ${dSel.value}`);
+              triggerHaptic(10);
+            });
+            slot.appendChild(dSel);
+          } else if (cfg.type === 'save_tool') {
+            const stBtn = document.createElement('button');
+            stBtn.type = 'button';
+            stBtn.className = 'dock-strip-btn';
+            stBtn.textContent = 'Copy Script';
+            stBtn.title = 'Copy current brush setup as runnable script';
+            stBtn.addEventListener('click', async () => {
+              const script = host.dumpBrushScript();
+              try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                  await navigator.clipboard.writeText(script);
+                  log('Brush preset copied to clipboard [ok]');
+                } else {
+                  log(script);
+                }
+              } catch (_) {
+                log(script);
+              }
+              triggerHaptic(15);
+            });
+            slot.appendChild(stBtn);
           }
         }
 
@@ -4755,7 +4891,7 @@ async function main() {
         sel.style.fontWeight = 'bold';
         sel.title = 'Brush Preset';
         const populate = () => {
-          sel.innerHTML = '';
+          sel.innerHTML = '<option value="" disabled selected>-- Presets --</option>';
           const optGrpBuiltin = document.createElement('optgroup');
           optGrpBuiltin.label = 'Built-in Presets';
           for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
@@ -4766,9 +4902,23 @@ async function main() {
             optGrpBuiltin.appendChild(opt);
           }
           sel.appendChild(optGrpBuiltin);
+          const custom = host.customBrushPresets || {};
+          if (Object.keys(custom).length > 0) {
+            const grpCustom = document.createElement('optgroup');
+            grpCustom.label = 'Custom Presets';
+            for (const [k, p] of Object.entries(custom)) {
+              const opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = p.name || k;
+              grpCustom.appendChild(opt);
+            }
+            sel.appendChild(grpCustom);
+          }
           if (host.activeBrush) sel.value = host.activeBrush;
         };
         populate();
+        sel.addEventListener('focus', populate);
+        sel.addEventListener('pointerdown', populate);
         sel.addEventListener('change', () => {
           if (sel.value) {
             host.selectBrushPreset(sel.value);
@@ -4984,27 +5134,47 @@ async function main() {
   };
 
   // ── Toolbar State & Persistence ──
+  function normalizeModularItemType(type) {
+    if (!type || typeof type !== 'string') return type;
+    if (type.startsWith('param:')) {
+      const parts = type.split(':');
+      if (parts.length === 3) {
+        return `${parts[2]}:${parts[1]}`;
+      } else if (parts.length === 2) {
+        return `dial:${parts[1]}`;
+      }
+    }
+    return type;
+  }
+
+  // ── Toolbar State & Persistence ──
   const DEFAULT_MODULAR_TOOLBARS = [
     {
-      id: 'bar_tweaks',
-      name: 'Quick Tweaks',
+      id: 'bar_tools',
+      name: 'Tools & Actions',
       items: [
         { type: 'action:undo' },
         { type: 'action:redo' },
         { type: 'separator' },
-        { type: 'swatch' },
-        { type: 'separator' },
-        { type: 'param_picker' }
-      ]
-    },
-    {
-      id: 'bar_tools',
-      name: 'Tools & Modes',
-      items: [
         { type: 'preset_select' },
         { type: 'tool_select' },
         { type: 'mode_select' },
         { type: 'action_select' }
+      ]
+    },
+    {
+      id: 'bar_brush_palette',
+      name: 'Brush Controls & Palette',
+      items: [
+        { type: 'swatch' },
+        { type: 'swatch_strip' },
+        { type: 'separator' },
+        { type: 'dial:size' },
+        { type: 'dial:opacity' },
+        { type: 'dial:flow' },
+        { type: 'dial:stabilization' },
+        { type: 'separator' },
+        { type: 'param_picker' }
       ]
     }
   ];
@@ -5029,6 +5199,14 @@ async function main() {
                   newItems.push({ type: 'mode_select' });
                   newItems.push({ type: 'action_select' });
                   migrated = true;
+                } else if (item && item.type) {
+                  const normType = normalizeModularItemType(item.type);
+                  if (normType !== item.type) {
+                    migrated = true;
+                    newItems.push({ ...item, type: normType });
+                  } else {
+                    newItems.push(item);
+                  }
                 } else {
                   newItems.push(item);
                 }
@@ -5068,7 +5246,7 @@ async function main() {
       row.setAttribute('data-bar-id', bar.id);
 
       (bar.items || []).forEach(item => {
-        let itemType = item.type;
+        let itemType = normalizeModularItemType(item.type);
         let renderer = MODULAR_WIDGET_REGISTRY[itemType];
 
         // Handle direct script button
@@ -5197,7 +5375,7 @@ async function main() {
       <option value="swatch">Color Swatch (Opens Studio)</option>
       <option value="swatch_strip">Swatch Strip (Interactive Palette Bar)</option>
       <option value="action:save_swatch">Quick Action: + Save Swatch</option>
-      <option value="action:open_color_picker">Quick Action: 🎨 Color Studio</option>
+      <option value="action:open_color_picker">Quick Action: Color Studio</option>
     `;
     tbMgrSelectNewWidget.appendChild(colorGroup);
 
@@ -6242,7 +6420,8 @@ async function main() {
       chkDockToolstrip.checked = !!show;
     }
     if (btnToggleDockStrip) {
-      btnToggleDockStrip.title = show ? 'Hide Quick Buttons' : 'Show Quick Buttons';
+      btnToggleDockStrip.textContent = show ? '[ hide ]' : '[ show ]';
+      btnToggleDockStrip.title = show ? 'Hide Quick Bars' : 'Show Quick Bars';
     }
     try {
       localStorage.setItem('esenho_show_dock_toolstrip', show ? '1' : '0');

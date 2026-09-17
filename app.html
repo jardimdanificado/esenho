@@ -931,12 +931,16 @@
       right: 2px;
       top: 0;
       bottom: 0;
-      width: 44px;
+      width: auto;
+      min-width: 48px;
+      padding: 0 6px;
       height: 100%;
       background: transparent;
       border: none;
       color: #a89984;
+      font-family: inherit;
       font-size: 11px;
+      font-weight: bold;
       cursor: pointer;
       line-height: 1;
       user-select: none;
@@ -946,16 +950,11 @@
       justify-content: center;
       touch-action: manipulation;
       z-index: 10;
-      padding: 0;
     }
 
     .dock-handle-toggle:hover, .dock-handle-toggle:active {
       color: #fabd2f;
       background: rgba(250, 189, 47, 0.1);
-    }
-
-    #bottom-dock.collapsed .dock-handle-toggle {
-      transform: rotate(180deg);
     }
 
     /* ── Docked Quick Toolbar Elements ── */
@@ -1549,7 +1548,7 @@
       font-size: 10px;
       font-weight: bold;
       cursor: pointer;
-      touch-action: manipulation;
+      touch-action: none;
       flex-shrink: 0;
       user-select: none;
       -webkit-user-select: none;
@@ -1902,8 +1901,6 @@
       display: flex;
       align-items: center;
       gap: 3px;
-      overflow-x: auto;
-      max-width: 180px;
       flex-shrink: 0;
       padding: 1px 2px;
     }
@@ -1942,32 +1939,6 @@
       border: 1px solid #3c3836;
       box-sizing: border-box;
       overflow: hidden;
-    }
-    .console-header-bar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      background: #1d2021;
-      border-bottom: 1px solid #3c3836;
-      padding: 4px 8px;
-      font-size: 9px;
-      user-select: none;
-      flex-shrink: 0;
-    }
-    .console-status-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #b8bb26;
-      box-shadow: 0 0 4px #b8bb26;
-      flex-shrink: 0;
-    }
-    .console-title {
-      color: #a89984;
-      font-weight: bold;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      font-size: 9px;
     }
     #wterm {
       flex: 1;
@@ -2155,8 +2126,8 @@
   <div id="bottom-dock">
     <div id="bottom-dock-handle" title="Drag up/down to resize drawer">
       <div class="dock-handle-bar"></div>
-      <button type="button" id="btn-open-toolbar-mgr" class="dock-handle-btn" title="Customize Dock Bars" style="position: absolute; left: 4px; top: 0; bottom: 0; background: transparent; border: none; color: #fabd2f; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; font-weight: bold; font-family: inherit; z-index: 25; padding: 0 8px; touch-action: manipulation;">[ + Custom Bars ]</button>
-      <button type="button" id="btn-toggle-dock-strip" class="dock-handle-toggle" title="Toggle Quick Buttons">v</button>
+      <button type="button" id="btn-open-toolbar-mgr" class="dock-handle-btn" title="Customize Dock Bars" style="position: absolute; left: 4px; top: 0; bottom: 0; background: transparent; border: none; color: #fabd2f; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px; font-weight: bold; font-family: inherit; z-index: 25; padding: 0 8px; touch-action: manipulation;">[ + Custom ]</button>
+      <button type="button" id="btn-toggle-dock-strip" class="dock-handle-toggle" title="Toggle Quick Bars">[ hide ]</button>
     </div>
 
     <!-- Dynamic Modular Toolbars Container (ALWAYS visible quick tools) -->
@@ -2687,10 +2658,6 @@
           </summary>
           <div class="ui-group-content" style="padding: 0;">
             <div id="console-view">
-              <div class="console-header-bar">
-                <div class="console-status-dot"></div>
-                <span class="console-title">esenho interactive terminal</span>
-              </div>
               <div id="wterm"></div>
               <form id="inputrow" action="javascript:void(0);">
                 <span class="wcmd-prompt">esenho&gt;</span>
