@@ -20,6 +20,9 @@ async function main() {
   const host = new EsenhoScreenHost();
   /* canvasRotation: radians, stored on host */
   host.canvasRotation = 0;
+  host.render = () => {
+    if (typeof host.renderFrame === 'function') host.renderFrame();
+  };
 
   if (!globalThis.papagaio) {
     try {
@@ -3181,17 +3184,6 @@ async function main() {
     ];
   }
 
-  function hexToRgb(hex) {
-    hex = (hex || '').replace('#', '').trim();
-    if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('');
-    }
-    if (hex.length !== 6) return [235, 219, 178];
-    const num = parseInt(hex, 16);
-    if (isNaN(num)) return [235, 219, 178];
-    return [(num >> 16) & 0xFF, (num >> 8) & 0xFF, num & 0xFF];
-  }
-
   function drawTouchHsvWheel() {
     if (!touchColorCanvas) return;
     const ctx = touchColorCanvas.getContext('2d');
@@ -6029,6 +6021,8 @@ async function main() {
     if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return;
     const cleanHex = hex.toLowerCase();
     if (colorPreview) colorPreview.style.background = cleanHex;
+    const ipChip = document.getElementById('ip-color-chip');
+    if (ipChip) ipChip.style.backgroundColor = cleanHex;
     if (colorPicker && document.activeElement !== colorPicker) {
       colorPicker.value = cleanHex;
     }
@@ -7804,6 +7798,1124 @@ async function main() {
 
     updateDockTabs();
     saveUserPreferences();
+    syncInfinitePainterUI();
+  }
+
+  /* ── Infinite Painter Ergonomic UI Controller ── */
+  function initInfinitePainterUI() {
+    const ipTopBar = document.getElementById('ip-top-bar');
+    const ipBottomRibbon = document.getElementById('ip-bottom-ribbon');
+    if (!ipTopBar || !ipBottomRibbon) return;
+
+    // Helper: Close all sheets
+    const closeAllSheets = () => {
+      document.querySelectorAll('.ip-sheet-modal').forEach(m => m.classList.remove('active'));
+    };
+
+    // Helper: Toggle sheet
+    const toggleSheet = (id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const wasActive = el.classList.contains('active');
+      closeAllSheets();
+      if (!wasActive) el.classList.add('active');
+      triggerHaptic(12);
+    };
+
+    // Close on backdrop click
+    document.querySelectorAll('.ip-sheet-modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.remove('active');
+        }
+      });
+    });
+
+    // 1. Top Bar Buttons
+    const btnIpMenu = document.getElementById('btn-ip-menu');
+    if (btnIpMenu) btnIpMenu.addEventListener('click', () => toggleSheet('sheet-menu'));
+
+    const btnIpUndo = document.getElementById('btn-ip-undo');
+    if (btnIpUndo) btnIpUndo.addEventListener('click', () => { handleUndo(); triggerHaptic(15); });
+
+    const btnIpRedo = document.getElementById('btn-ip-redo');
+    if (btnIpRedo) btnIpRedo.addEventListener('click', () => { handleRedo(); triggerHaptic(15); });
+
+    const btnIpGrid = document.getElementById('btn-ip-grid');
+    if (btnIpGrid) {
+      btnIpGrid.addEventListener('click', () => {
+        host.showPixelGrid = !host.showPixelGrid;
+        if (chkPixelGrid) chkPixelGrid.checked = host.showPixelGrid;
+        btnIpGrid.classList.toggle('active', host.showPixelGrid);
+        host.render();
+        triggerHaptic(10);
+      });
+    }
+
+    const btnIpSym = document.getElementById('btn-ip-symmetry');
+    if (btnIpSym) {
+      btnIpSym.addEventListener('click', () => {
+        const curSym = (host.brushParams && host.brushParams.symmetry !== undefined) ? host.brushParams.symmetry : 0;
+        const nextSym = (curSym + 1) % 4;
+        runCmd(`set symmetry ${nextSym}`);
+        btnIpSym.classList.toggle('active', nextSym > 0);
+        triggerHaptic(10);
+      });
+    }
+
+    const btnIpLayers = document.getElementById('btn-ip-layers');
+    if (btnIpLayers) btnIpLayers.addEventListener('click', () => toggleSheet('sheet-layers'));
+
+    const btnIpLab = document.getElementById('btn-ip-lab');
+    if (btnIpLab) btnIpLab.addEventListener('click', () => toggleSheet('sheet-lab'));
+
+    // 2. Side Thumb HUD: Sliders & Swap
+    const trackSize = document.getElementById('ip-vtrack-size');
+    const fillSize = document.getElementById('ip-vfill-size');
+    const thumbSize = document.getElementById('ip-vthumb-size');
+    const valSize = document.getElementById('ip-hud-size-val');
+
+    const handleSizeDrag = (clientY) => {
+      if (!trackSize || !host.brushParams) return;
+      const rect = trackSize.getBoundingClientRect();
+      const pos = Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height));
+      const newSize = Math.max(1, Math.round(pos * pos * 260 + pos * 40));
+      runCmd(`set size ${newSize}`);
+      if (valSize) valSize.textContent = newSize;
+      if (fillSize) fillSize.style.height = `${pos * 100}%`;
+      if (thumbSize) thumbSize.style.bottom = `${pos * 100}%`;
+    };
+
+    if (trackSize) {
+      let isDraggingSize = false;
+      const onPointerDown = (e) => {
+        isDraggingSize = true;
+        handleSizeDrag(e.clientY || (e.touches && e.touches[0].clientY));
+        e.preventDefault();
+      };
+      const onPointerMove = (e) => {
+        if (!isDraggingSize) return;
+        handleSizeDrag(e.clientY || (e.touches && e.touches[0].clientY));
+        e.preventDefault();
+      };
+      const onPointerUp = () => {
+        if (isDraggingSize) {
+          isDraggingSize = false;
+          triggerHaptic(8);
+        }
+      };
+      trackSize.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    }
+
+    const trackOp = document.getElementById('ip-vtrack-op');
+    const fillOp = document.getElementById('ip-vfill-op');
+    const thumbOp = document.getElementById('ip-vthumb-op');
+    const valOp = document.getElementById('ip-hud-op-val');
+
+    const handleOpDrag = (clientY) => {
+      if (!trackOp || !host.brushParams) return;
+      const rect = trackOp.getBoundingClientRect();
+      const pos = Math.max(0.01, Math.min(1, 1 - (clientY - rect.top) / rect.height));
+      const newOp = Math.round(pos * 100);
+      runCmd(`set opacity ${newOp}`);
+      if (valOp) valOp.textContent = `${newOp}%`;
+      if (fillOp) fillOp.style.height = `${pos * 100}%`;
+      if (thumbOp) thumbOp.style.bottom = `${pos * 100}%`;
+    };
+
+    if (trackOp) {
+      let isDraggingOp = false;
+      const onPointerDown = (e) => {
+        isDraggingOp = true;
+        handleOpDrag(e.clientY || (e.touches && e.touches[0].clientY));
+        e.preventDefault();
+      };
+      const onPointerMove = (e) => {
+        if (!isDraggingOp) return;
+        handleOpDrag(e.clientY || (e.touches && e.touches[0].clientY));
+        e.preventDefault();
+      };
+      const onPointerUp = () => {
+        if (isDraggingOp) {
+          isDraggingOp = false;
+          triggerHaptic(8);
+        }
+      };
+      trackOp.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      window.addEventListener('pointercancel', onPointerUp);
+    }
+
+    // Quick swap between Brush & Eraser
+    let prevDrawBrush = 'pencil';
+    const btnSwap = document.getElementById('btn-ip-swap-mode');
+    if (btnSwap) {
+      btnSwap.addEventListener('click', () => {
+        const isCurrentlyEraser = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
+        if (isCurrentlyEraser) {
+          host.actionMode = 'draw';
+          runCmd(`set mode brush`);
+          if (prevDrawBrush) host.selectBrushPreset(prevDrawBrush);
+        } else {
+          if (host.activeBrush && host.activeBrush !== 'hard_eraser' && host.activeBrush !== 'soft_eraser') {
+            prevDrawBrush = host.activeBrush;
+          }
+          host.actionMode = 'erase';
+          runCmd(`set mode erase`);
+        }
+        syncUiFromHost();
+        triggerHaptic(18);
+      });
+    }
+
+    // 3. Bottom Ribbon Buttons
+    const btnIpColor = document.getElementById('btn-ip-color');
+    if (btnIpColor) {
+      btnIpColor.addEventListener('click', () => {
+        if (typeof openTouchColorModal === 'function') openTouchColorModal();
+        else {
+          const tm = document.getElementById('touch-color-modal');
+          if (tm) tm.classList.add('active');
+        }
+        triggerHaptic(12);
+      });
+    }
+
+    const btnIpBrush = document.getElementById('btn-ip-brush');
+    if (btnIpBrush) {
+      btnIpBrush.addEventListener('click', () => {
+        if (host.actionMode === 'erase' || host.actionMode === 'smudge') {
+          host.actionMode = 'draw';
+          runCmd(`set mode brush`);
+          syncUiFromHost();
+        }
+        toggleSheet('sheet-brushes');
+      });
+    }
+
+    const btnIpEraser = document.getElementById('btn-ip-eraser');
+    if (btnIpEraser) {
+      btnIpEraser.addEventListener('click', () => {
+        host.actionMode = 'erase';
+        runCmd(`set mode erase`);
+        syncUiFromHost();
+        triggerHaptic(12);
+      });
+    }
+
+    const btnIpBlend = document.getElementById('btn-ip-blend');
+    if (btnIpBlend) {
+      btnIpBlend.addEventListener('click', () => {
+        host.actionMode = 'smudge';
+        runCmd(`set mode blend`);
+        syncUiFromHost();
+        triggerHaptic(12);
+      });
+    }
+
+    const btnIpTools = document.getElementById('btn-ip-tools');
+    if (btnIpTools) btnIpTools.addEventListener('click', () => toggleSheet('sheet-tools'));
+
+    const btnIpBottomLayers = document.getElementById('btn-ip-bottom-layers');
+    if (btnIpBottomLayers) btnIpBottomLayers.addEventListener('click', () => toggleSheet('sheet-layers'));
+
+    const btnIpPixel = document.getElementById('btn-ip-pixel');
+    if (btnIpPixel) btnIpPixel.addEventListener('click', () => toggleSheet('sheet-pixelart'));
+
+    // 4. Brush Shelf Grid Population
+    const brushShelfGrid = document.getElementById('ip-brush-cards-grid');
+    const catPills = document.querySelectorAll('#ip-brush-cat-pills .ip-pill-btn');
+    let activeBrushCat = 'all';
+
+    const renderBrushShelf = () => {
+      if (!brushShelfGrid) return;
+      brushShelfGrid.innerHTML = '';
+
+      const presetsMap = { ...BRUSH_PRESETS, ...(host.customBrushPresets || {}) };
+      for (const [key, preset] of Object.entries(presetsMap)) {
+        if (!preset.name) continue;
+
+        let cat = 'paint';
+        if (['pencil', 'soft_pencil', 'tech_pen'].includes(key)) cat = 'sketch';
+        else if (['inker', 'gpen', 'dry_ink', 'fountain', 'marker', 'brush_marker'].includes(key)) cat = 'ink';
+        else if (['pixel', 'halftone'].includes(key)) cat = 'pixel';
+        else if (['charcoal', 'pastel'].includes(key)) cat = 'charcoal';
+        else if (['airbrush', 'hard_airbrush'].includes(key)) cat = 'airbrush';
+        else if (['soft_eraser', 'hard_eraser', 'textured_eraser'].includes(key)) cat = 'eraser';
+        else if (host.customBrushPresets && host.customBrushPresets[key]) cat = 'custom';
+
+        if (activeBrushCat !== 'all' && activeBrushCat !== cat) continue;
+
+        const card = document.createElement('div');
+        card.className = `ip-brush-card${host.activeBrush === key ? ' active' : ''}`;
+        card.innerHTML = `
+          <div class="ip-brush-card-top">
+            <span class="ip-brush-card-title">${preset.name}</span>
+            <span style="font-size: 9px; color: #a89984; font-weight: bold;">${preset.size || 12}px</span>
+          </div>
+          <div class="ip-brush-card-desc">${preset.desc || 'Custom calibrated brush preset'}</div>
+        `;
+        card.addEventListener('click', () => {
+          host.selectBrushPreset(key);
+          host.actionMode = 'draw';
+          syncUiFromHost();
+          closeAllSheets();
+          triggerHaptic(15);
+        });
+        brushShelfGrid.appendChild(card);
+      }
+    };
+
+    catPills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        catPills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activeBrushCat = pill.dataset.bcat || 'all';
+        renderBrushShelf();
+        triggerHaptic(8);
+      });
+    });
+
+    renderBrushShelf();
+
+    const btnSaveCustomBrush = document.getElementById('btn-ip-save-brush-preset');
+    if (btnSaveCustomBrush) {
+      btnSaveCustomBrush.addEventListener('click', () => {
+        const name = prompt('Preset Name:', 'Custom Brush');
+        if (name && name.trim() && host.brushParams) {
+          const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+          const custom = host.customBrushPresets || {};
+          custom[key] = {
+            ...host.brushParams,
+            name: name.trim(),
+            desc: `User custom preset (${host.brushParams.size}px)`
+          };
+          host.customBrushPresets = custom;
+          saveCustomBrushPresets(custom);
+          populateBrushPresetsUI();
+          renderBrushShelf();
+          triggerHaptic(15);
+        }
+      });
+    }
+
+    const btnOpenLabFromShelf = document.getElementById('btn-ip-open-lab-from-shelf');
+    if (btnOpenLabFromShelf) {
+      btnOpenLabFromShelf.addEventListener('click', () => {
+        toggleSheet('sheet-lab');
+      });
+    }
+
+    // 5. Tools Sheet Cards
+    document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const tool = card.dataset.tool;
+        const actMode = card.dataset.actionmode || 'draw';
+        host.actionMode = actMode;
+        if (tool === 'select') {
+          host.currentTool = 'select_rect';
+        } else {
+          runCmd(`set mode ${tool}`);
+        }
+        syncUiFromHost();
+        closeAllSheets();
+        triggerHaptic(12);
+      });
+    });
+
+    // Selection buttons
+    const btnIpCopy = document.getElementById('btn-ip-copy');
+    if (btnIpCopy) btnIpCopy.addEventListener('click', () => { runCmd('copy'); closeAllSheets(); });
+    const btnIpCut = document.getElementById('btn-ip-cut');
+    if (btnIpCut) btnIpCut.addEventListener('click', () => { runCmd('cut'); closeAllSheets(); });
+    const btnIpPaste = document.getElementById('btn-ip-paste');
+    if (btnIpPaste) btnIpPaste.addEventListener('click', () => { runCmd('paste'); closeAllSheets(); });
+    const btnIpDeselect = document.getElementById('btn-ip-deselect');
+    if (btnIpDeselect) btnIpDeselect.addEventListener('click', () => { runCmd('deselect'); closeAllSheets(); });
+    const btnIpXformApply = document.getElementById('btn-ip-xform-apply');
+    if (btnIpXformApply) btnIpXformApply.addEventListener('click', () => { runCmd('transform apply'); closeAllSheets(); });
+    const btnIpXformCancel = document.getElementById('btn-ip-xform-cancel');
+    if (btnIpXformCancel) btnIpXformCancel.addEventListener('click', () => { runCmd('transform cancel'); closeAllSheets(); });
+
+    // 6. Pixel Art Suite
+    const cardPixel1 = document.getElementById('card-ip-pixel-1px');
+    if (cardPixel1) {
+      cardPixel1.addEventListener('click', () => {
+        host.selectBrushPreset('pixel');
+        runCmd('set size 1');
+        host.showPixelGrid = true;
+        syncUiFromHost();
+        closeAllSheets();
+        triggerHaptic(15);
+      });
+    }
+
+    const cardPixel2 = document.getElementById('card-ip-pixel-2px');
+    if (cardPixel2) {
+      cardPixel2.addEventListener('click', () => {
+        host.selectBrushPreset('pixel');
+        runCmd('set size 2');
+        syncUiFromHost();
+        closeAllSheets();
+        triggerHaptic(15);
+      });
+    }
+
+    const cardPixel4 = document.getElementById('card-ip-pixel-4px');
+    if (cardPixel4) {
+      cardPixel4.addEventListener('click', () => {
+        host.selectBrushPreset('pixel');
+        runCmd('set size 4');
+        syncUiFromHost();
+        closeAllSheets();
+        triggerHaptic(15);
+      });
+    }
+
+    const cardPixelDither = document.getElementById('card-ip-pixel-dither');
+    if (cardPixelDither) {
+      cardPixelDither.addEventListener('click', () => {
+        host.selectBrushPreset('halftone');
+        syncUiFromHost();
+        closeAllSheets();
+        triggerHaptic(15);
+      });
+    }
+
+    const btnPixelGrid = document.getElementById('btn-ip-pixel-grid-toggle');
+    if (btnPixelGrid) {
+      btnPixelGrid.addEventListener('click', () => {
+        host.showPixelGrid = !host.showPixelGrid;
+        btnPixelGrid.classList.toggle('active', host.showPixelGrid);
+        host.render();
+        triggerHaptic(10);
+      });
+    }
+
+    const btnPixel100 = document.getElementById('btn-ip-pixel-zoom-100');
+    if (btnPixel100) {
+      btnPixel100.addEventListener('click', () => {
+        if (host.zoomTo100) host.zoomTo100();
+        closeAllSheets();
+      });
+    }
+
+    const btnSymX = document.getElementById('btn-ip-pixel-sym-x');
+    if (btnSymX) btnSymX.addEventListener('click', () => { runCmd('set symmetry 1'); closeAllSheets(); });
+    const btnSymY = document.getElementById('btn-ip-pixel-sym-y');
+    if (btnSymY) btnSymY.addEventListener('click', () => { runCmd('set symmetry 2'); closeAllSheets(); });
+    const btnSymQuad = document.getElementById('btn-ip-pixel-sym-quad');
+    if (btnSymQuad) btnSymQuad.addEventListener('click', () => { runCmd('set symmetry 3'); closeAllSheets(); });
+
+    // Pixel Palettes
+    const btnPalGameboy = document.getElementById('btn-ip-pal-gameboy');
+    if (btnPalGameboy) {
+      btnPalGameboy.addEventListener('click', () => {
+        if (touchPaletteSelect) touchPaletteSelect.value = 'retro_gameboy';
+        if (typeof openTouchColorModal === 'function') openTouchColorModal('palettes');
+        closeAllSheets();
+      });
+    }
+
+    const btnPalGruvbox = document.getElementById('btn-ip-pal-gruvbox');
+    if (btnPalGruvbox) {
+      btnPalGruvbox.addEventListener('click', () => {
+        if (touchPaletteSelect) touchPaletteSelect.value = 'gruvbox';
+        if (typeof openTouchColorModal === 'function') openTouchColorModal('palettes');
+        closeAllSheets();
+      });
+    }
+
+    const btnPalCyber = document.getElementById('btn-ip-pal-cyber');
+    if (btnPalCyber) {
+      btnPalCyber.addEventListener('click', () => {
+        if (touchPaletteSelect) touchPaletteSelect.value = 'cyberpunk';
+        if (typeof openTouchColorModal === 'function') openTouchColorModal('palettes');
+        closeAllSheets();
+      });
+    }
+
+    // 7. Layer Sheet Controls
+    const ipLayerOpSlider = document.getElementById('ip-active-layer-op-slider');
+    const ipLayerOpVal = document.getElementById('ip-active-layer-op-val');
+    if (ipLayerOpSlider) {
+      ipLayerOpSlider.addEventListener('input', () => {
+        const val = parseInt(ipLayerOpSlider.value, 10);
+        if (ipLayerOpVal) ipLayerOpVal.textContent = `${val}%`;
+        const activeIdx = host.canvasActor?.exports?.w_layer_get_active ? host.canvasActor.exports.w_layer_get_active() : 0;
+        const alpha = Math.round((val / 100) * 255);
+        if (host.canvasActor?.exports?.set_layer_opacity) {
+          host.canvasActor.exports.set_layer_opacity(activeIdx, alpha);
+          host.render();
+        }
+      });
+    }
+
+    const btnIpAddLayer = document.getElementById('btn-ip-add-layer');
+    if (btnIpAddLayer) btnIpAddLayer.addEventListener('click', () => { runCmd('new layer'); });
+    const btnIpAddFolder = document.getElementById('btn-ip-add-folder');
+    if (btnIpAddFolder) btnIpAddFolder.addEventListener('click', () => { runCmd('new group'); });
+    const btnIpDupLayer = document.getElementById('btn-ip-dup-layer');
+    if (btnIpDupLayer) btnIpDupLayer.addEventListener('click', () => { runCmd('duplicate layer'); });
+    const btnIpMergeLayer = document.getElementById('btn-ip-merge-layer');
+    if (btnIpMergeLayer) btnIpMergeLayer.addEventListener('click', () => { runCmd('layer merge down'); });
+    const btnIpClearLayer = document.getElementById('btn-ip-clear-layer');
+    if (btnIpClearLayer) btnIpClearLayer.addEventListener('click', () => { runCmd('clear'); });
+    const btnIpDelLayer = document.getElementById('btn-ip-del-layer');
+    if (btnIpDelLayer) {
+      btnIpDelLayer.addEventListener('click', () => {
+        const activeIdx = host.canvasActor?.exports?.w_layer_get_active ? host.canvasActor.exports.w_layer_get_active() : 0;
+        if (confirm(`Delete active layer ${activeIdx}?`)) runCmd(`delete layer ${activeIdx}`);
+      });
+    }
+
+    // 8. Menu Sheet Project / Canvas Resize / Export
+    const btnIpSaveProj = document.getElementById('btn-ip-save-proj');
+    if (btnIpSaveProj) {
+      btnIpSaveProj.addEventListener('click', async () => {
+        if (typeof handleSaveProject === 'function') await handleSaveProject();
+        const badge = document.getElementById('ip-menu-autosave-badge');
+        if (badge) { badge.textContent = 'Saved!'; badge.style.color = '#b8bb26'; }
+        triggerHaptic(20);
+      });
+    }
+
+    const btnIpExportPng = document.getElementById('btn-ip-export-png');
+    if (btnIpExportPng) btnIpExportPng.addEventListener('click', () => { runCmd('export png'); closeAllSheets(); });
+
+    const btnIpExportEsen = document.getElementById('btn-ip-export-esen');
+    if (btnIpExportEsen) btnIpExportEsen.addEventListener('click', () => { runCmd('export esen'); closeAllSheets(); });
+
+    const btnIpApplyResize = document.getElementById('btn-ip-apply-resize');
+    const inpCw = document.getElementById('ip-inp-cw');
+    const inpCh = document.getElementById('ip-inp-ch');
+    if (btnIpApplyResize && inpCw && inpCh) {
+      btnIpApplyResize.addEventListener('click', () => {
+        const w = parseInt(inpCw.value, 10);
+        const h = parseInt(inpCh.value, 10);
+        if (w > 0 && h > 0) {
+          runCmd(`canvas resize ${w} ${h}`);
+          closeAllSheets();
+        }
+      });
+    }
+
+    document.querySelectorAll('.ip-btn-quick-res').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (inpCw && inpCh) {
+          inpCw.value = btn.dataset.w;
+          inpCh.value = btn.dataset.h;
+        }
+      });
+    });
+
+    const btnIpZoomFit = document.getElementById('btn-ip-zoom-fit');
+    if (btnIpZoomFit) btnIpZoomFit.addEventListener('click', () => { if (host.zoomToFit) host.zoomToFit(); closeAllSheets(); });
+    const btnIpZoom100 = document.getElementById('btn-ip-zoom-100');
+    if (btnIpZoom100) btnIpZoom100.addEventListener('click', () => { if (host.zoomTo100) host.zoomTo100(); closeAllSheets(); });
+    const btnIpRotZero = document.getElementById('btn-ip-rot-zero');
+    if (btnIpRotZero) btnIpRotZero.addEventListener('click', () => { if (host.resetRotation) host.resetRotation(); closeAllSheets(); });
+    const btnIpFlipH = document.getElementById('btn-ip-flip-h');
+    if (btnIpFlipH) btnIpFlipH.addEventListener('click', () => { if (host.toggleFlipH) host.toggleFlipH(); closeAllSheets(); });
+    const btnIpFlipV = document.getElementById('btn-ip-flip-v');
+    if (btnIpFlipV) btnIpFlipV.addEventListener('click', () => { if (host.toggleFlipV) host.toggleFlipV(); closeAllSheets(); });
+    const btnIpCenter = document.getElementById('btn-ip-center');
+    if (btnIpCenter) btnIpCenter.addEventListener('click', () => { if (host.centerCanvas) host.centerCanvas(); closeAllSheets(); });
+
+    // UI Layout Mode Switcher
+    const applyUiMode = (mode) => {
+      const isClassic = mode === 'classic';
+      document.body.classList.toggle('ui-mode-classic', isClassic);
+      localStorage.setItem('esenho_ui_mode', mode);
+      const btnIp = document.getElementById('btn-set-ui-ip');
+      const btnClassic = document.getElementById('btn-set-ui-classic');
+      if (btnIp) {
+        btnIp.classList.toggle('active', !isClassic);
+        btnIp.style.background = !isClassic ? '#fabd2f' : '';
+        btnIp.style.color = !isClassic ? '#1d2021' : '';
+      }
+      if (btnClassic) {
+        btnClassic.classList.toggle('active', isClassic);
+        btnClassic.style.background = isClassic ? '#fabd2f' : '';
+        btnClassic.style.color = isClassic ? '#1d2021' : '';
+      }
+      if (isClassic) {
+        const panel = document.getElementById('ui-panel');
+        if (panel) panel.classList.remove('hidden');
+      }
+    };
+
+    const savedUiMode = localStorage.getItem('esenho_ui_mode') || 'ip';
+    applyUiMode(savedUiMode);
+
+    const btnSetUiIp = document.getElementById('btn-set-ui-ip');
+    if (btnSetUiIp) btnSetUiIp.addEventListener('click', () => { applyUiMode('ip'); closeAllSheets(); });
+
+    const btnSetUiClassic = document.getElementById('btn-set-ui-classic');
+    if (btnSetUiClassic) btnSetUiClassic.addEventListener('click', () => { applyUiMode('classic'); closeAllSheets(); });
+
+    const btnClassicToIp = document.getElementById('btn-classic-switch-to-ip');
+    if (btnClassicToIp) btnClassicToIp.addEventListener('click', () => { applyUiMode('ip'); });
+
+    // Terminal & Scripts Sheet
+    const btnIpOpenConsole = document.getElementById('btn-ip-open-console');
+    if (btnIpOpenConsole) {
+      btnIpOpenConsole.addEventListener('click', () => {
+        toggleSheet('sheet-console');
+      });
+    }
+
+    const conTabs = document.querySelectorAll('#ip-console-tabs .ip-pill-btn');
+    const conPanels = document.querySelectorAll('.ip-console-panel');
+    conTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        conTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.contab;
+        conPanels.forEach(p => {
+          p.style.display = (p.dataset.conpanel === target) ? 'flex' : 'none';
+        });
+      });
+    });
+
+    const ipCmdForm = document.getElementById('inputrow-ip');
+    const ipCmdInp = document.getElementById('wcmd-ip');
+    if (ipCmdForm && ipCmdInp) {
+      ipCmdForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const cmd = ipCmdInp.value.trim();
+        if (cmd) {
+          log(`> ${cmd}`);
+          runCmd(cmd);
+          ipCmdInp.value = '';
+        }
+      });
+    }
+
+    const ipBtnClear = document.getElementById('ip-btn-console-clear');
+    if (ipBtnClear) {
+      ipBtnClear.addEventListener('click', () => {
+        const t = document.getElementById('wterm-ip');
+        if (t) t.innerHTML = '';
+        if (termEl) termEl.innerHTML = '';
+      });
+    }
+
+    const ipBtnHelp = document.getElementById('ip-btn-console-help');
+    if (ipBtnHelp) {
+      ipBtnHelp.addEventListener('click', () => {
+        runCmd('help');
+      });
+    }
+
+    const ipScriptSel = document.getElementById('ip-script-select');
+    const ipScriptName = document.getElementById('ip-script-name');
+    const ipScriptEditor = document.getElementById('ip-script-editor');
+    const ipBtnNewScript = document.getElementById('ip-btn-new-script');
+    const ipBtnSaveScript = document.getElementById('ip-btn-save-script');
+    const ipBtnDelScript = document.getElementById('ip-btn-del-script');
+    const ipBtnRunScript = document.getElementById('ip-btn-run-script');
+    const ipBtnRunSel = document.getElementById('ip-btn-run-selection');
+
+    const syncIpScripts = () => {
+      if (!ipScriptSel) return;
+      const scripts = getSavedScripts();
+      ipScriptSel.innerHTML = '';
+      scripts.forEach((s, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = s.name;
+        ipScriptSel.appendChild(opt);
+      });
+      if (scripts.length > 0) {
+        if (ipScriptName && !ipScriptName.value) ipScriptName.value = scripts[0].name;
+        if (ipScriptEditor && !ipScriptEditor.value) ipScriptEditor.value = scripts[0].code;
+      }
+    };
+    syncIpScripts();
+
+    if (ipScriptSel) {
+      ipScriptSel.addEventListener('change', () => {
+        const scripts = getSavedScripts();
+        const s = scripts[parseInt(ipScriptSel.value, 10)];
+        if (s) {
+          if (ipScriptName) ipScriptName.value = s.name;
+          if (ipScriptEditor) ipScriptEditor.value = s.code;
+        }
+      });
+    }
+
+    if (ipBtnNewScript) {
+      ipBtnNewScript.addEventListener('click', () => {
+        if (ipScriptName) ipScriptName.value = 'new_script';
+        if (ipScriptEditor) ipScriptEditor.value = '# Write commands here\n';
+      });
+    }
+
+    if (ipBtnSaveScript) {
+      ipBtnSaveScript.addEventListener('click', () => {
+        const name = (ipScriptName?.value || 'script').trim();
+        const code = ipScriptEditor?.value || '';
+        let scripts = getSavedScripts();
+        const existingIdx = scripts.findIndex(s => s.name === name);
+        if (existingIdx >= 0) {
+          scripts[existingIdx].code = code;
+        } else {
+          scripts.push({ name, code });
+        }
+        localStorage.setItem('esenho_saved_scripts', JSON.stringify(scripts));
+        syncIpScripts();
+        populateScriptSelect();
+        alert(`Script "${name}" saved!`);
+      });
+    }
+
+    if (ipBtnDelScript) {
+      ipBtnDelScript.addEventListener('click', () => {
+        const name = (ipScriptName?.value || '').trim();
+        let scripts = getSavedScripts().filter(s => s.name !== name);
+        localStorage.setItem('esenho_saved_scripts', JSON.stringify(scripts));
+        syncIpScripts();
+        populateScriptSelect();
+      });
+    }
+
+    if (ipBtnRunScript) {
+      ipBtnRunScript.addEventListener('click', () => {
+        const code = ipScriptEditor?.value || '';
+        executeScriptCode(code);
+      });
+    }
+
+    if (ipBtnRunSel) {
+      ipBtnRunSel.addEventListener('click', () => {
+        if (!ipScriptEditor) return;
+        const selStart = ipScriptEditor.selectionStart;
+        const selEnd = ipScriptEditor.selectionEnd;
+        const code = ipScriptEditor.value.substring(selStart, selEnd);
+        if (code.trim()) executeScriptCode(code);
+        else executeScriptCode(ipScriptEditor.value);
+      });
+    }
+
+    // 9. Brush Studio Lab Tabs & Controls
+    const labTabs = document.querySelectorAll('#ip-lab-tabs .ip-pill-btn');
+    const labPanels = document.querySelectorAll('.ip-lab-tab-panel');
+    labTabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        labTabs.forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        const target = tab.dataset.labtab;
+        labPanels.forEach(p => {
+          p.style.display = (p.dataset.labpanel === target) ? 'flex' : 'none';
+        });
+      });
+    });
+
+    const shapeBtns = document.querySelectorAll('.ip-shape-btn');
+    shapeBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        shapeBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const sId = parseInt(btn.dataset.shape, 10);
+        runCmd(`set shape ${sId}`);
+        triggerHaptic(10);
+        updateTestPad();
+      });
+    });
+
+    const linkLabSlider = (sliderId, valId, cmdName, suf = '') => {
+      const s = document.getElementById(sliderId);
+      const v = document.getElementById(valId);
+      if (s) {
+        s.addEventListener('input', () => {
+          runCmd(`set ${cmdName} ${s.value}`);
+          if (v) v.textContent = s.value + suf;
+          updateTestPad();
+        });
+      }
+    };
+
+    // Tip & Shape
+    linkLabSlider('ip-slider-hardness', 'ip-val-hardness', 'hardness', '%');
+    linkLabSlider('ip-slider-roundness', 'ip-val-roundness', 'roundness', '%');
+    linkLabSlider('ip-slider-angle', 'ip-val-angle', 'angle', '°');
+
+    // Dynamics
+    linkLabSlider('ip-slider-spacing', 'ip-val-spacing', 'spacing', '%');
+    linkLabSlider('ip-slider-smoothing', 'ip-val-smoothing', 'stabilization', '%');
+    linkLabSlider('ip-slider-midpoint', 'ip-val-midpoint', 'midpoint', '%');
+    linkLabSlider('ip-slider-velocity', 'ip-val-velocity', 'velocity', '%');
+    linkLabSlider('ip-slider-taper-in', 'ip-val-taper-in', 'taper_in', '%');
+    linkLabSlider('ip-slider-taper-out', 'ip-val-taper-out', 'taper_out', '%');
+    linkLabSlider('ip-slider-fade', 'ip-val-fade', 'fade', '%');
+
+    // Wet & Mix
+    linkLabSlider('ip-slider-wetness', 'ip-val-wetness', 'wetness', '%');
+    linkLabSlider('ip-slider-smudge', 'ip-val-smudge', 'smudge', '%');
+    linkLabSlider('ip-slider-pickup', 'ip-val-pickup', 'color_pickup', '%');
+    linkLabSlider('ip-slider-depletion', 'ip-val-depletion', 'depletion', '%');
+
+    // Jitter & Dual
+    linkLabSlider('ip-slider-jitter-size', 'ip-val-jitter-size', 'size_jitter', '%');
+    linkLabSlider('ip-slider-jitter-angle', 'ip-val-jitter-angle', 'angle_jitter', '%');
+    linkLabSlider('ip-slider-jitter-op', 'ip-val-jitter-op', 'opacity_jitter', '%');
+    linkLabSlider('ip-slider-jitter-color', 'ip-val-jitter-color', 'color_jitter', '%');
+    linkLabSlider('ip-slider-scatter', 'ip-val-scatter', 'scatter', '%');
+    linkLabSlider('ip-slider-dual-size', 'ip-val-dual-size', 'dual_size', '%');
+    linkLabSlider('ip-slider-dual-spacing', 'ip-val-dual-spacing', 'dual_spacing', '%');
+
+    // Texture
+    linkLabSlider('ip-slider-grain', 'ip-val-grain', 'grain', '%');
+    linkLabSlider('ip-slider-tex-scale', 'ip-val-tex-scale', 'texture_scale', '%');
+    linkLabSlider('ip-slider-tex-contrast', 'ip-val-tex-contrast', 'texture_contrast', '%');
+    linkLabSlider('ip-slider-tex-rotate', 'ip-val-tex-rotate', 'texture_rotate', '°');
+
+    // Checkbox toggles
+    const bindToggleBtn = (btnId, chkId, cmdName) => {
+      const btn = document.getElementById(btnId);
+      const chk = document.getElementById(chkId);
+      if (btn && chk) {
+        btn.addEventListener('click', () => {
+          chk.checked = !chk.checked;
+          runCmd(`set ${cmdName} ${chk.checked ? 1 : 0}`);
+          triggerHaptic(10);
+        });
+      }
+    };
+    bindToggleBtn('btn-ip-lab-autorotate', 'chk-ip-lab-autorotate', 'auto_rotate');
+    bindToggleBtn('btn-ip-lab-subpixel', 'chk-ip-lab-subpixel', 'subpixel');
+    bindToggleBtn('btn-ip-lab-press-size', 'chk-ip-lab-press-size', 'pressure_size');
+    bindToggleBtn('btn-ip-lab-press-flow', 'chk-ip-lab-press-flow', 'pressure_flow');
+    bindToggleBtn('btn-ip-lab-tilt-angle', 'chk-ip-lab-tilt-angle', 'tilt_angle');
+    bindToggleBtn('btn-ip-lab-buildup', 'chk-ip-lab-buildup', 'buildup');
+
+    // Dropdown selects
+    const bindSelect = (selId, cmdName) => {
+      const sel = document.getElementById(selId);
+      if (sel) {
+        sel.addEventListener('change', (e) => {
+          runCmd(`set ${cmdName} ${e.target.value}`);
+          updateTestPad();
+        });
+      }
+    };
+    bindSelect('ip-sel-dab-blend', 'dab_blend');
+    bindSelect('ip-sel-dual-shape', 'dual_shape');
+    bindSelect('ip-sel-texture', 'texture');
+    bindSelect('ip-sel-tex-mode', 'texture_mode');
+
+    // Reset & Save preset buttons
+    const btnLabReset = document.getElementById('btn-ip-lab-reset');
+    if (btnLabReset) {
+      btnLabReset.addEventListener('click', () => {
+        runCmd('reset tool');
+        syncInfinitePainterUI();
+        triggerHaptic(15);
+        updateTestPad();
+      });
+    }
+
+    const btnLabSave = document.getElementById('btn-ip-lab-save');
+    if (btnLabSave) {
+      btnLabSave.addEventListener('click', () => {
+        const name = prompt('Enter custom brush preset name:', 'My Custom Brush');
+        if (name && name.trim()) {
+          const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
+          if (host.customBrushPresets) {
+            host.customBrushPresets[key] = {
+              name: name.trim(),
+              category: 'custom',
+              params: { ...(host.brushParams || {}) }
+            };
+          }
+          populateBrushPresetsUI();
+          syncInfinitePainterUI();
+          alert(`Brush preset "${name.trim()}" saved!`);
+        }
+      });
+    }
+
+    // 10. Live Brush Test Pad
+    const padCanvas = document.getElementById('ip-brush-testpad');
+    let padCtx = null;
+    if (padCanvas) {
+      padCtx = padCanvas.getContext('2d');
+      const clearPad = () => {
+        if (!padCtx) return;
+        padCtx.fillStyle = '#232524';
+        padCtx.fillRect(0, 0, padCanvas.width, padCanvas.height);
+      };
+      clearPad();
+
+      const btnPadClear = document.getElementById('btn-ip-pad-clear');
+      if (btnPadClear) btnPadClear.addEventListener('click', clearPad);
+
+      let padDrawing = false;
+      let lastX = 0, lastY = 0;
+
+      const getPadPos = (e) => {
+        const r = padCanvas.getBoundingClientRect();
+        const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+        return {
+          x: (clientX - r.left) * (padCanvas.width / r.width),
+          y: (clientY - r.top) * (padCanvas.height / r.height)
+        };
+      };
+
+      const startPad = (e) => {
+        padDrawing = true;
+        const pos = getPadPos(e);
+        lastX = pos.x;
+        lastY = pos.y;
+        e.preventDefault();
+      };
+
+      const movePad = (e) => {
+        if (!padDrawing || !padCtx) return;
+        const pos = getPadPos(e);
+        const bp = host.brushParams || {};
+        const sz = Math.max(1, Math.min(48, (bp.size || 16) * 0.75));
+        const op = (bp.opacity !== undefined ? bp.opacity : 100) / 100;
+        padCtx.strokeStyle = host.brushColor || '#fabd2f';
+        padCtx.globalAlpha = op;
+        padCtx.lineWidth = sz;
+        padCtx.lineCap = (bp.shape === 1) ? 'square' : 'round';
+        padCtx.lineJoin = 'round';
+        padCtx.beginPath();
+        padCtx.moveTo(lastX, lastY);
+        padCtx.lineTo(pos.x, pos.y);
+        padCtx.stroke();
+        padCtx.globalAlpha = 1.0;
+        lastX = pos.x;
+        lastY = pos.y;
+        e.preventDefault();
+      };
+
+      const endPad = () => { padDrawing = false; };
+
+      padCanvas.addEventListener('pointerdown', startPad);
+      padCanvas.addEventListener('pointermove', movePad);
+      padCanvas.addEventListener('pointerup', endPad);
+      padCanvas.addEventListener('pointercancel', endPad);
+
+      window._updateBrushTestPad = () => {
+        if (!padCtx) return;
+        clearPad();
+        const bp = host.brushParams || {};
+        const sz = Math.max(2, Math.min(36, (bp.size || 16) * 0.6));
+        const op = (bp.opacity !== undefined ? bp.opacity : 100) / 100;
+        padCtx.save();
+        padCtx.strokeStyle = host.brushColor || '#fabd2f';
+        padCtx.globalAlpha = op;
+        padCtx.lineWidth = sz;
+        padCtx.lineCap = (bp.shape === 1) ? 'square' : 'round';
+        padCtx.lineJoin = 'round';
+        padCtx.beginPath();
+        padCtx.moveTo(20, 36);
+        padCtx.bezierCurveTo(90, 8, 170, 64, 250, 20);
+        padCtx.lineTo(320, 36);
+        padCtx.stroke();
+        padCtx.restore();
+      };
+      setTimeout(window._updateBrushTestPad, 100);
+    }
+
+    function updateTestPad() {
+      if (typeof window._updateBrushTestPad === 'function') {
+        window._updateBrushTestPad();
+      }
+    }
+  }
+
+  function syncInfinitePainterUI() {
+    // 1. Color chip
+    const colorChip = document.getElementById('ip-color-chip');
+    if (colorChip) {
+      if (host.currentColor !== undefined) {
+        const hex = rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF);
+        colorChip.style.backgroundColor = hex;
+      } else if (host.brushParams && host.brushParams.color !== undefined) {
+        colorChip.style.backgroundColor = host.brushParams.color;
+      }
+    }
+
+    // 2. Active Brush Name
+    const brushNameLabel = document.getElementById('ip-active-brush-name');
+    if (brushNameLabel) {
+      const activeKey = host.activeBrush;
+      const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
+      brushNameLabel.textContent = p?.name || activeKey || 'Studio Inker';
+    }
+
+    // 3. Thumb HUD Size & Opacity
+    if (host.brushParams) {
+      const bp = host.brushParams;
+      const szVal = document.getElementById('ip-hud-size-val');
+      const szFill = document.getElementById('ip-vfill-size');
+      const szThumb = document.getElementById('ip-vthumb-size');
+      if (szVal) szVal.textContent = bp.size;
+      if (szFill && szThumb) {
+        const ratio = Math.max(0.02, Math.min(1, Math.sqrt(bp.size / 300)));
+        szFill.style.height = `${ratio * 100}%`;
+        szThumb.style.bottom = `${ratio * 100}%`;
+      }
+
+      const opVal = document.getElementById('ip-hud-op-val');
+      const opFill = document.getElementById('ip-vfill-op');
+      const opThumb = document.getElementById('ip-vthumb-op');
+      if (opVal) opVal.textContent = `${bp.opacity}%`;
+      if (opFill && opThumb) {
+        const opRatio = Math.max(0.01, Math.min(1, bp.opacity / 100));
+        opFill.style.height = `${opRatio * 100}%`;
+        opThumb.style.bottom = `${opRatio * 100}%`;
+      }
+    }
+
+    // 4. Ribbon mode buttons
+    const isErase = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
+    const isSmudge = host.actionMode === 'smudge' || (host.brushParams && host.brushParams.mode === 1);
+    const isDraw = !isErase && !isSmudge;
+
+    const btnBrush = document.getElementById('btn-ip-brush');
+    const btnEraser = document.getElementById('btn-ip-eraser');
+    const btnBlend = document.getElementById('btn-ip-blend');
+    if (btnBrush) btnBrush.classList.toggle('active', isDraw);
+    if (btnEraser) btnEraser.classList.toggle('active', isErase);
+    if (btnBlend) btnBlend.classList.toggle('active', isSmudge);
+
+    // Swap mode button
+    const btnSwap = document.getElementById('btn-ip-swap-mode');
+    if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
+
+    // 5. Grid & Symmetry buttons
+    const btnGrid = document.getElementById('btn-ip-grid');
+    if (btnGrid) btnGrid.classList.toggle('active', !!host.showPixelGrid);
+
+    const btnSym = document.getElementById('btn-ip-symmetry');
+    if (btnSym) {
+      const sym = host.brushParams?.symmetry || 0;
+      btnSym.classList.toggle('active', sym > 0);
+    }
+
+    // 6. Layer count badge
+    const badge = document.getElementById('ip-layer-badge');
+    if (badge && host.canvasActor?.exports?.w_layer_get_count) {
+      badge.textContent = host.canvasActor.exports.w_layer_get_count();
+    }
+
+    // 7. Synchronize sheet layer list with live layer rows
+    const ipSheetLayersList = document.getElementById('ip-sheet-layers-list');
+    const uiLayersList = document.getElementById('ui-layers-list');
+    if (ipSheetLayersList && uiLayersList && uiLayersList.children.length > 0) {
+      if (ipSheetLayersList.dataset.syncSig !== uiLayersList.innerHTML) {
+        ipSheetLayersList.innerHTML = '';
+        Array.from(uiLayersList.children).forEach(child => {
+          const clone = child.cloneNode(true);
+          clone.addEventListener('click', () => child.click());
+          clone.querySelectorAll('button').forEach((b, idx) => {
+            const origB = child.querySelectorAll('button')[idx];
+            if (origB) b.addEventListener('click', (e) => { e.stopPropagation(); origB.click(); });
+          });
+          ipSheetLayersList.appendChild(clone);
+        });
+        ipSheetLayersList.dataset.syncSig = uiLayersList.innerHTML;
+      }
+    }
+
+    // 8. Brush Studio Lab values synchronization
+    if (host.brushParams) {
+      const bp = host.brushParams;
+      const setLabSlider = (sliderId, valId, val, suf = '') => {
+        const s = document.getElementById(sliderId);
+        const v = document.getElementById(valId);
+        if (s && val !== undefined) {
+          s.value = val;
+          if (v) v.textContent = val + suf;
+        }
+      };
+
+      const labName = document.getElementById('ip-lab-brush-name');
+      if (labName) {
+        const activeKey = host.activeBrush;
+        const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
+        labName.textContent = `(${p?.name || activeKey || 'Custom'})`;
+      }
+
+      // Tip shape active buttons
+      const curShape = bp.shape !== undefined ? bp.shape : 0;
+      document.querySelectorAll('.ip-shape-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.shape, 10) === curShape);
+      });
+
+      // Tip
+      setLabSlider('ip-slider-hardness', 'ip-val-hardness', bp.hardness ?? 100, '%');
+      setLabSlider('ip-slider-roundness', 'ip-val-roundness', bp.roundness ?? 100, '%');
+      setLabSlider('ip-slider-angle', 'ip-val-angle', bp.angle ?? 0, '°');
+
+      // Dynamics
+      setLabSlider('ip-slider-spacing', 'ip-val-spacing', bp.spacing ?? 5, '%');
+      setLabSlider('ip-slider-smoothing', 'ip-val-smoothing', bp.smoothing ?? 0, '%');
+      setLabSlider('ip-slider-midpoint', 'ip-val-midpoint', bp.midpoint ?? 50, '%');
+      setLabSlider('ip-slider-velocity', 'ip-val-velocity', bp.velocity ?? 0, '%');
+      setLabSlider('ip-slider-taper-in', 'ip-val-taper-in', bp.taper_in ?? 0, '%');
+      setLabSlider('ip-slider-taper-out', 'ip-val-taper-out', bp.taper_out ?? 0, '%');
+      setLabSlider('ip-slider-fade', 'ip-val-fade', bp.fade ?? 0, '%');
+
+      // Wet
+      setLabSlider('ip-slider-wetness', 'ip-val-wetness', bp.wetness ?? 0, '%');
+      setLabSlider('ip-slider-smudge', 'ip-val-smudge', bp.smudge ?? 0, '%');
+      setLabSlider('ip-slider-pickup', 'ip-val-pickup', bp.color_pickup ?? 0, '%');
+      setLabSlider('ip-slider-depletion', 'ip-val-depletion', bp.depletion ?? 0, '%');
+
+      // Jitters
+      setLabSlider('ip-slider-jitter-size', 'ip-val-jitter-size', bp.size_jitter ?? 0, '%');
+      setLabSlider('ip-slider-jitter-angle', 'ip-val-jitter-angle', bp.angle_jitter ?? 0, '%');
+      setLabSlider('ip-slider-jitter-op', 'ip-val-jitter-op', bp.opacity_jitter ?? 0, '%');
+      setLabSlider('ip-slider-jitter-color', 'ip-val-jitter-color', bp.color_jitter ?? 0, '%');
+      setLabSlider('ip-slider-scatter', 'ip-val-scatter', bp.scatter ?? 0, '%');
+      setLabSlider('ip-slider-dual-size', 'ip-val-dual-size', bp.dual_size ?? 100, '%');
+      setLabSlider('ip-slider-dual-spacing', 'ip-val-dual-spacing', bp.dual_spacing ?? 10, '%');
+
+      // Texture
+      setLabSlider('ip-slider-grain', 'ip-val-grain', bp.grain ?? 0, '%');
+      setLabSlider('ip-slider-tex-scale', 'ip-val-tex-scale', bp.texture_scale ?? 100, '%');
+      setLabSlider('ip-slider-tex-contrast', 'ip-val-tex-contrast', bp.texture_contrast ?? 100, '%');
+      setLabSlider('ip-slider-tex-rotate', 'ip-val-tex-rotate', bp.texture_rotate ?? (bp.texture_angle ?? 0), '°');
+
+      // Toggles
+      const setChk = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.checked = !!val;
+      };
+      setChk('chk-ip-lab-autorotate', bp.auto_rotate);
+      setChk('chk-ip-lab-subpixel', bp.subpixel);
+      setChk('chk-ip-lab-press-size', bp.pressure_size ?? 1);
+      setChk('chk-ip-lab-press-flow', bp.pressure_flow ?? 1);
+      setChk('chk-ip-lab-tilt-angle', bp.tilt_angle ?? 1);
+      setChk('chk-ip-lab-buildup', bp.buildup);
+
+      // Selects
+      const setSel = (id, val) => {
+        const el = document.getElementById(id);
+        if (el && val !== undefined) el.value = val;
+      };
+      setSel('ip-sel-dab-blend', bp.dab_blend ?? 0);
+      setSel('ip-sel-dual-shape', bp.dual_shape ?? -1);
+      setSel('ip-sel-texture', host.activeTexture || 'none');
+      setSel('ip-sel-tex-mode', bp.texture_mode ?? 0);
+
+      if (typeof window._updateBrushTestPad === 'function') {
+        window._updateBrushTestPad();
+      }
+    }
   }
 
   // Initial population
@@ -7816,6 +8928,7 @@ async function main() {
     if (scriptSel) scriptSel.value = '0';
   }
   renderSwatches();
+  initInfinitePainterUI();
   syncUiFromHost();
   log('Ready — left=draw  right=erase  mid/2-finger=pan  scroll/pinch=zoom  2-finger-twist=rotate');
   statusEl.textContent = 'ready';
@@ -7823,11 +8936,8 @@ async function main() {
 
 /* ── Helpers ── */
 function log(msg, cls = '') {
-  if (!termEl) return;
-  const el = document.createElement('div');
-  el.className = 'wterm-line';
-  let effCls = cls;
   const str = String(msg).replace(/\x1b\[[^m]*m/g, '');
+  let effCls = cls;
   if (!effCls) {
     if (str.startsWith('> ')) effCls = 'cmd';
     else if (str.includes('[ok]') || str.startsWith('ok:') || str.startsWith('Ready') || str.startsWith('SUCCESS') || str.includes('loaded successfully')) effCls = 'ok';
@@ -7835,10 +8945,16 @@ function log(msg, cls = '') {
     else if (str.startsWith('warn')) effCls = 'warn';
     else if (str.startsWith('info:') || str.startsWith('---')) effCls = 'info';
   }
-  if (effCls) el.classList.add(effCls);
-  el.textContent = str;
-  termEl.appendChild(el);
-  termEl.scrollTop = termEl.scrollHeight;
+
+  [termEl, document.getElementById('wterm-ip')].forEach(tEl => {
+    if (!tEl) return;
+    const el = document.createElement('div');
+    el.className = 'wterm-line';
+    if (effCls) el.classList.add(effCls);
+    el.textContent = str;
+    tEl.appendChild(el);
+    tEl.scrollTop = tEl.scrollHeight;
+  });
 }
 
 function updateStatus(host, docX, docY) {
@@ -7852,8 +8968,20 @@ function updateStatus(host, docX, docY) {
 
 /* ── Color math helpers ── */
 function hexToRgb(hex) {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return m ? { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) } : { r: 0, g: 0, b: 0 };
+  let clean = (hex || '').replace('#', '').trim();
+  if (clean.length === 3) {
+    clean = clean.split('').map(c => c + c).join('');
+  }
+  const m = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(clean);
+  const r = m ? parseInt(m[1], 16) : 0;
+  const g = m ? parseInt(m[2], 16) : 0;
+  const b = m ? parseInt(m[3], 16) : 0;
+  return {
+    r, g, b,
+    0: r, 1: g, 2: b,
+    length: 3,
+    [Symbol.iterator]: function* () { yield r; yield g; yield b; }
+  };
 }
 function rgbToHex(r, g, b) {
   return '#' + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
@@ -7899,7 +9027,7 @@ function hslToRgb(h, s, l) {
 
 /* ── Fallback DOM auto-injection ── */
 function ensureUiPanel() {
-  if (document.getElementById('ui-panel')) return;
+  if (document.getElementById('ip-top-bar') || document.getElementById('ui-panel')) return;
 
   if (!document.getElementById('esenho-ui-styles')) {
     const style = document.createElement('style');
@@ -7914,158 +9042,6 @@ function ensureUiPanel() {
       background: #1d2021;
       flex-shrink: 0;
       z-index: 15;
-    }
-    #ui-scroll {
-      flex: 1;
-      overflow-y: auto;
-      padding: 8px 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
-    }
-    details.ui-group {
-      border: 1px solid #3c3836;
-      background: #232524;
-      padding: 0;
-    }
-    details.ui-group summary {
-      background: #282828;
-      color: #ebdbb2;
-      padding: 5px 8px;
-      font-size: 10px;
-      font-weight: bold;
-      letter-spacing: 0.6px;
-      cursor: pointer;
-      user-select: none;
-      list-style: none;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      border-bottom: 1px solid #3c3836;
-    }
-    details.ui-group summary::-webkit-details-marker { display: none; }
-    details.ui-group summary::after { content: '▾'; color: #a89984; font-size: 10px; }
-    details.ui-group:not([open]) summary::after { content: '▸'; }
-    details.ui-group:not([open]) summary { border-bottom: none; }
-    .ui-group-content {
-      padding: 8px;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-    .ui-row-between { display: flex; justify-content: space-between; align-items: center; }
-    .ui-row-gap { display: flex; align-items: center; gap: 6px; }
-    .ui-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-    .ui-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
-    .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
-    .ui-btn {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
-      padding: 4px 6px;
-      font: inherit;
-      font-size: 11px;
-      cursor: pointer;
-      text-align: center;
-      user-select: none;
-      transition: background 0.1s, border-color 0.1s;
-    }
-    .ui-btn:hover { background: #3c3836; color: #fabd2f; border-color: #504945; }
-    .ui-btn.active { background: #3c3836; color: #fabd2f; border-color: #fabd2f; font-weight: bold; }
-    .ui-mini-btn {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
-      font: inherit;
-      font-size: 10px;
-      padding: 2px 6px;
-      cursor: pointer;
-    }
-    .ui-mini-btn:hover { background: #3c3836; color: #fabd2f; border-color: #fabd2f; }
-    .ui-mini-btn.active { background: #fabd2f; color: #1d2021; font-weight: bold; }
-    .ui-control { display: flex; flex-direction: column; gap: 2px; font-size: 10px; }
-    .ui-label-row { display: flex; justify-content: space-between; color: #a89984; }
-    .ui-val { color: #fabd2f; font-weight: bold; }
-    input[type=range] { accent-color: #fe8019; cursor: pointer; height: 4px; background: #282828; width: 100%; }
-    input[type=range]::-webkit-slider-thumb { transform: scale(0.65); cursor: pointer; }
-    input[type=range]::-moz-range-thumb { transform: scale(0.65); cursor: pointer; }
-    .ui-select { background: #282828; color: #ebdbb2; border: 1px solid #3c3836; padding: 3px 5px; font: inherit; font-size: 11px; outline: none; width: 100%; }
-    .color-preview-box { width: 32px; height: 28px; border: 1px solid #504945; flex-shrink: 0; position: relative; }
-    #ui-color-picker { opacity: 0; width: 100%; height: 100%; position: absolute; top: 0; left: 0; cursor: pointer; }
-    #ui-color-hex { flex: 1; background: #282828; border: 1px solid #3c3836; color: #ebdbb2; font: inherit; font-size: 11px; padding: 4px 6px; outline: none; }
-    .color-mode-tabs { display: flex; border: 1px solid #3c3836; background: #1d2021; }
-    .color-mode-tab { flex: 1; background: transparent; border: none; color: #a89984; padding: 3px; font: inherit; font-size: 10px; cursor: pointer; text-align: center; }
-    .color-mode-tab.active { background: #3c3836; color: #fabd2f; font-weight: bold; }
-    .color-sliders-wrap { display: flex; flex-direction: column; gap: 4px; }
-    .ui-swatches-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 3px; max-height: 120px; overflow-y: auto; }
-    .swatch-item { height: 20px; border: 1px solid #3c3836; cursor: pointer; position: relative; }
-    .swatch-item:hover { border-color: #fbf1c7; transform: scale(1.05); z-index: 2; }
-    .swatch-del { display: none; position: absolute; top: -3px; right: -3px; background: #fb4934; color: #fff; font-size: 8px; width: 12px; height: 12px; line-height: 11px; text-align: center; border-radius: 50%; cursor: pointer; }
-    .swatch-item:hover .swatch-del { display: block; }
-    #ui-layers-list { display: flex; flex-direction: column; gap: 3px; max-height: 290px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #504945 #1d2021; padding-right: 2px; }
-    .ui-layer-card { background: #242625; border: 1px solid #3c3836; border-left: 3px solid transparent; border-radius: 3px; padding: 4px 6px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; cursor: pointer; user-select: none; }
-    .ui-layer-card:hover { background: #282a28; border-color: #504945; }
-    .ui-layer-card.active-draw { background: #2a2d28; border-color: #665c54; border-left-color: #b8bb26; box-shadow: 0 1px 3px rgba(0,0,0,0.25); }
-    .layer-row-top { display: flex; align-items: center; gap: 5px; min-height: 22px; }
-    .layer-btn-vis { background: transparent; border: 1px solid #3c3836; border-radius: 3px; color: #ebdbb2; width: 22px; height: 20px; font-size: 11px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; padding: 0; }
-    .layer-btn-vis:hover { background: #3c3836; color: #fabd2f; border-color: #504945; }
-    .layer-btn-vis.hidden { opacity: 0.35; color: #928374; }
-    .layer-title-wrap { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow: hidden; white-space: nowrap; }
-    .layer-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: bold; font-size: 11px; color: #ebdbb2; }
-    .ui-layer-card.active-draw .layer-title-text { color: #fabd2f; }
-    .layer-dims { font-size: 9px; color: #928374; flex-shrink: 0; }
-    .badge-tag { font-size: 8px; padding: 1px 3px; border-radius: 2px; font-weight: bold; text-transform: uppercase; flex-shrink: 0; }
-    .badge-draw  { background: #b8bb26; color: #1d2021; }
-    .badge-shape { background: #fe8019; color: #1d2021; }
-    .badge-tex   { background: #83a598; color: #1d2021; }
-    .layer-btn-group { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
-    .layer-btn-action { background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 2px; font: inherit; font-size: 9px; padding: 2px 5px; height: 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-    .layer-btn-action:hover { color: #ebdbb2; background: #3c3836; border-color: #504945; }
-    .layer-btn-action.active-shape { background: #af3a03; color: #fbf1c7; border-color: #fe8019; font-weight: bold; }
-    .layer-btn-action.active-tex { background: #076678; color: #fbf1c7; border-color: #83a598; font-weight: bold; }
-    .layer-btn-icon { background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 2px; font: inherit; font-size: 10px; width: 20px; height: 20px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
-    .layer-btn-icon:hover { color: #ebdbb2; background: #3c3836; border-color: #665c54; }
-    .layer-btn-icon.layer-btn-del:hover { color: #fb4934; border-color: #cc241d; background: #321c1c; }
-    .layer-row-bottom { display: flex; align-items: center; gap: 6px; font-size: 10px; color: #928374; padding: 0 1px; }
-    .layer-op-slider { flex: 1; height: 4px; accent-color: #fe8019; cursor: pointer; }
-    .layer-op-val { width: 32px; text-align: right; font-size: 9px; color: #fabd2f; font-weight: bold; flex-shrink: 0; }
-    .ui-layer-row.ui-layer-in-group { padding-left: 14px; background: #1f2120; border-left: 3px solid #83a598; }
-    .ui-layer-group-header { display: flex; align-items: center; gap: 4px; height: 24px; padding: 0 6px; background: #282828; border-left: 3px solid #b8bb26; border-bottom: 1px solid #3c3836; font-size: 11px; color: #b8bb26; font-weight: 600; user-select: none; }
-    .ui-layer-group-header .group-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
-    .group-btn-collapse { background: transparent; border: none; color: #b8bb26; font-size: 10px; width: 16px; height: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
-    .layer-cell-actions { display: flex; align-items: center; gap: 1px; flex-shrink: 0; }
-    .layer-btn-action.btn-merge { color: #83a598; }
-    .layer-btn-action.btn-del { color: #928374; }
-    .layer-btn-action.btn-del:hover { color: #fb4934; background: #3c2020; }
-    .ui-swatches-grid.delete-mode .swatch-del { display: block; }
-    .ui-mini-btn.del-active { background: #fb4934 !important; color: #fff !important; border-color: #cc241d !important; font-weight: bold; }
-    #toggle-ui { position: absolute; top: 14px; right: 1px; transform: translateX(100%); z-index: 20; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-left: 1px solid #282828; border-radius: 0; padding: 5px 9px; font: inherit; font-size: 11px; cursor: pointer; user-select: none; white-space: nowrap; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.4); }
-    #toggle-ui:hover { background: #3c3836; color: #fabd2f; border-color: #7c6f64; }
-    #ui-panel.hidden { width: 0 !important; border-right: none !important; }
-    #ui-panel.hidden > *:not(#toggle-ui) { display: none !important; }
-    /* ── Mobile Unified Bottom Dock & Drawer Tabs ── */
-    #bottom-dock { display: none; }
-    @media (max-width: 768px) {
-      #layout { flex-direction: column; position: relative; height: 100vh; overflow: hidden; }
-      #cvswrap { order: 1; flex: 1; width: 100%; min-height: 0; position: relative; overflow: hidden; }
-      #toggle-ui, #toggle-panel { display: none !important; }
-      #bottom-dock { display: flex; flex-direction: column; order: 2; width: 100%; background: #1d2021; border-top: 1px solid #3c3836; z-index: 25; flex-shrink: 0; touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; }
-      #bottom-dock-handle { width: 100%; height: 28px; cursor: row-resize; display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; padding: 4px 0; }
-      #bottom-dock-handle::after { content: ''; width: 44px; height: 4px; background: #504945; border-radius: 2px; pointer-events: none; }
-      #bottom-dock-tabs { display: flex; align-items: stretch; height: 36px; padding: 0 6px 6px 6px; gap: 6px; }
-      .dock-tab-btn { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 11px; font-weight: bold; background: #282828; color: #a89984; border: 1px solid #3c3836; border-radius: 0; cursor: pointer; user-select: none; touch-action: manipulation; }
-      .dock-tab-btn:hover { background: #32302f; color: #ebdbb2; }
-      .dock-tab-btn.active { background: #3c3836; color: #fabd2f; border-color: #fabd2f; }
-      .dock-close-btn { flex: 0 0 36px; color: #928374; display: none; font-size: 13px; border-radius: 0; }
-      .dock-close-btn.visible { display: flex; }
-      #ui-panel, #panel { order: 3; width: 100% !important; border: none !important; background: #1d2021; flex-shrink: 0; }
-      #ui-panel { height: var(--mobile-drawer-height, 42vh); max-height: 85vh; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
-      #panel { height: var(--mobile-drawer-height, 42vh); max-height: 85vh; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid #3c3836 !important; }
-      #ui-panel.hidden, #panel.hidden { height: 0 !important; min-height: 0 !important; max-height: 0 !important; display: none !important; border: none !important; }
-      #ui-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 8px 10px 24px; }
-      #wterm { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     }
     `;
     document.head.appendChild(style);

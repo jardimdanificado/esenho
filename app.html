@@ -219,29 +219,23 @@
       border: 3px solid #282828;
     }
 
-    /* ── UI Drawer Panel - Mobile-First Gruvbox Dark ── */
+    /* ── UI Panel Drawer ── */
     #ui-panel {
-      position: relative;
-      width: 100%;
-      border-left: none;
-      border-top: 1px solid #3c3836;
+      display: none;
       background: #1d2021;
-      flex-shrink: 0;
-      height: var(--mobile-drawer-height, 42vh);
-      max-height: 75vh;
-      min-height: 0;
-      display: flex;
+      border-top: 1px solid #3c3836;
       flex-direction: column;
-      z-index: 20;
-      overflow: hidden;
-      padding-bottom: env(safe-area-inset-bottom, 0px);
+      height: 40vh;
+      max-height: 80vh;
+      min-height: 120px;
     }
-    #ui-panel.hidden {
-      height: 0 !important;
-      min-height: 0 !important;
-      max-height: 0 !important;
+    body:not(.ui-mode-classic) #ui-panel {
       display: none !important;
-      border: none !important;
+      height: 0 !important;
+      position: absolute !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
     }
     #ui-drawer-tabs {
       display: flex;
@@ -903,19 +897,23 @@
       background: #3c2020;
     }
 
-    /* ── Bottom Dock (Mobile-First Unified) ── */
+    /* ── Bottom Dock (Classic Mode) ── */
     #bottom-dock {
       display: flex;
       flex-direction: column;
-      width: 100%;
-      background: #1d2021;
-      border-top: 1px solid #3c3836;
-      z-index: 25;
       flex-shrink: 0;
-      touch-action: pan-x pan-y;
-      user-select: none;
-      -webkit-user-select: none;
-      zoom: var(--ui-scale, 1);
+      background: #181a1b;
+      border-top: 1px solid #3c3836;
+      position: relative;
+      z-index: 40;
+    }
+    body:not(.ui-mode-classic) #bottom-dock {
+      display: none !important;
+      height: 0 !important;
+      position: absolute !important;
+      pointer-events: none !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
     }
 
     #bottom-dock.collapsed #bottom-dock-nav,
@@ -1215,7 +1213,6 @@
       .layer-swipe-btn.swipe-dup {
         background: #d65d0e;
       }
-    }
 
     /* ── Bottom Dock Script Dropdown ── */
     .dock-strip-select {
@@ -2159,10 +2156,741 @@
     #ui-script-editor:focus {
       border-color: #fabd2f;
     }
+
+    /* ── Infinite Painter Touch Ergonomic System ── */
+    #ip-top-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      background: rgba(29, 32, 33, 0.95);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(80, 73, 69, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 6px;
+      z-index: 60;
+      user-select: none;
+      -webkit-user-select: none;
+      padding-top: env(safe-area-inset-top, 0px);
+      flex-wrap: nowrap;
+      overflow: hidden;
+    }
+    .ip-bar-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .ip-btn, .ip-btn-icon {
+      height: 32px;
+      min-width: 32px;
+      padding: 0 6px;
+      background: #282828;
+      border: 1px solid #3c3836;
+      border-radius: 6px !important;
+      color: #ebdbb2;
+      font-size: 11px;
+      font-weight: bold;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+      flex-shrink: 0;
+    }
+    .ip-btn-icon {
+      padding: 0;
+      width: 32px;
+    }
+    .ip-btn:hover, .ip-btn-icon:hover {
+      background: #32302f;
+      border-color: #504945;
+      color: #fbf1c7;
+    }
+    .ip-btn:active, .ip-btn-icon:active {
+      transform: scale(0.92);
+      background: #3c3836;
+      border-color: #fabd2f;
+      color: #fabd2f;
+    }
+    .ip-btn.active, .ip-btn-icon.active {
+      background: #fabd2f;
+      color: #1d2021;
+      border-color: #fabd2f;
+    }
+    .ip-btn.active svg, .ip-btn-icon.active svg {
+      stroke: #1d2021;
+    }
+    .ip-badge {
+      background: #fabd2f;
+      color: #1d2021;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 6px !important;
+      margin-left: 1px;
+    }
+
+    /* ── Side Thumb HUD (Size, Opacity & Swap) ── */
+    #ip-thumb-hud {
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 55;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      background: rgba(29, 32, 33, 0.88);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      padding: 8px 5px;
+      border: 1px solid rgba(80, 73, 69, 0.7);
+      border-radius: 16px !important;
+      box-shadow: 0 6px 22px rgba(0,0,0,0.65);
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .ip-hud-control {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      position: relative;
+    }
+    .ip-hud-pill {
+      background: #181a1b;
+      border: 1px solid #3c3836;
+      border-radius: 8px !important;
+      padding: 2px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 32px;
+    }
+    .ip-hud-lbl {
+      font-size: 7px;
+      font-weight: bold;
+      color: #a89984;
+      text-transform: uppercase;
+      line-height: 1;
+    }
+    .ip-hud-val {
+      font-size: 9px;
+      font-weight: 800;
+      color: #fabd2f;
+      line-height: 1.2;
+    }
+    .ip-vslider-track {
+      width: 20px;
+      height: 90px;
+      background: #181a1b;
+      border: 1px solid #3c3836;
+      border-radius: 10px !important;
+      position: relative;
+      overflow: hidden;
+      cursor: ns-resize;
+      touch-action: none;
+    }
+    .ip-vslider-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: linear-gradient(to top, #d79921, #fabd2f);
+      border-radius: 8px !important;
+      pointer-events: none;
+    }
+    .ip-vslider-thumb {
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      height: 8px;
+      background: #fbf1c7;
+      border-radius: 4px !important;
+      box-shadow: 0 0 5px rgba(0,0,0,0.9);
+      pointer-events: none;
+      transform: translateY(50%);
+    }
+    .ip-hud-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 16px !important;
+      background: #282828;
+      border: 1px solid #504945;
+      color: #ebdbb2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+    }
+    .ip-hud-btn:hover {
+      background: #3c3836;
+      color: #fabd2f;
+      border-color: #fabd2f;
+    }
+    .ip-hud-btn:active {
+      transform: scale(0.9);
+      background: #fabd2f;
+      color: #1d2021;
+    }
+    .ip-hud-btn.is-eraser {
+      background: #cc241d;
+      border-color: #fb4934;
+      color: #fff;
+    }
+
+    /* ── Bottom Infinite Painter Main Ribbon ── */
+    #ip-bottom-ribbon {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 16px);
+      max-width: 440px;
+      height: 52px;
+      background: rgba(29, 32, 33, 0.94);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(80, 73, 69, 0.8);
+      border-radius: 14px !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 4px;
+      z-index: 60;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.75);
+      margin-bottom: env(safe-area-inset-bottom, 0px);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ip-ribbon-btn {
+      flex: 1;
+      height: 44px;
+      max-width: 70px;
+      min-width: 0;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px !important;
+      color: #a89984;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 0;
+      flex-shrink: 1;
+    }
+    .ip-ribbon-btn svg {
+      stroke: #a89984;
+      transition: stroke 0.12s ease;
+    }
+    .ip-ribbon-btn:hover {
+      color: #ebdbb2;
+      background: rgba(60, 56, 54, 0.4);
+    }
+    .ip-ribbon-btn:hover svg {
+      stroke: #ebdbb2;
+    }
+    .ip-ribbon-btn:active {
+      transform: scale(0.92);
+      background: #3c3836;
+    }
+    .ip-ribbon-btn.active {
+      background: #282828;
+      border-color: #fabd2f;
+      color: #fabd2f;
+      font-weight: bold;
+    }
+    .ip-ribbon-btn.active svg {
+      stroke: #fabd2f;
+    }
+    .ip-color-chip-wrap {
+      width: 22px;
+      height: 22px;
+      border-radius: 50% !important;
+      border: 2px solid #ebdbb2;
+      box-shadow: 0 0 5px rgba(0,0,0,0.8);
+      overflow: hidden;
+      flex-shrink: 0;
+      background: #ebdbb2;
+    }
+    .ip-ribbon-label {
+      max-width: 58px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      line-height: 1;
+    }
+
+    /* ── Compact Floating Popovers (Anchored, never full-screen) ── */
+    .ip-sheet-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      z-index: 90;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ip-sheet-modal.active {
+      display: block;
+    }
+    .ip-sheet {
+      position: absolute;
+      background: #1d2021;
+      border: 1.5px solid #504945;
+      border-radius: 14px !important;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 36px rgba(0,0,0,0.85);
+      animation: ipPopFade 0.16s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+      z-index: 100;
+    }
+    @keyframes ipPopFade {
+      from { transform: scale(0.96); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    /* Top-Left Popover (Project Menu) */
+    #sheet-menu .ip-sheet {
+      top: 48px;
+      left: 8px;
+      width: 250px;
+      max-height: calc(100vh - 64px);
+    }
+
+    /* Top-Right Popovers (Layers & Lab) */
+    #sheet-layers .ip-sheet {
+      top: 48px;
+      right: 8px;
+      width: 270px;
+      max-height: calc(100vh - 70px);
+    }
+    #sheet-lab .ip-sheet {
+      top: 48px;
+      right: 8px;
+      width: calc(100% - 16px);
+      max-width: 380px;
+      max-height: calc(100vh - 64px);
+    }
+    .ip-shape-btn {
+      font-size: 10px;
+      padding: 4px 2px;
+      height: 28px;
+    }
+    .ip-shape-btn.active {
+      background: #fabd2f;
+      color: #1d2021;
+      border-color: #fabd2f;
+      font-weight: bold;
+    }
+
+    /* Bottom Floating Shelves (Brushes, Tools, Pixel Art) */
+    #sheet-brushes .ip-sheet {
+      bottom: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 16px);
+      max-width: 460px;
+      max-height: calc(100vh - 84px);
+    }
+    #sheet-tools .ip-sheet {
+      bottom: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 16px);
+      max-width: 360px;
+      max-height: 56vh;
+    }
+    #sheet-pixelart .ip-sheet {
+      bottom: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 16px);
+      max-width: 360px;
+      max-height: 56vh;
+    }
+    #sheet-console .ip-sheet {
+      top: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 16px);
+      max-width: 480px;
+      max-height: calc(100vh - 64px);
+    }
+
+    /* ── UI Layout Modes: Classic Dock vs Modern Touch ── */
+    body.ui-mode-classic #ip-top-bar,
+    body.ui-mode-classic #ip-thumb-hud,
+    body.ui-mode-classic #ip-bottom-ribbon,
+    body.ui-mode-classic .ip-sheet-modal {
+      display: none !important;
+    }
+    body.ui-mode-classic #bottom-dock {
+      display: flex !important;
+      position: relative !important;
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      height: auto !important;
+    }
+    body.ui-mode-classic #ui-panel:not(.hidden) {
+      display: flex !important;
+      position: relative !important;
+      pointer-events: auto !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+
+    .ip-sheet-handle-row {
+      display: none;
+    }
+    .ip-sheet-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px 6px;
+      border-bottom: 1px solid #3c3836;
+      font-size: 11px;
+      font-weight: bold;
+      color: #fabd2f;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .ip-sheet-close {
+      width: 22px;
+      height: 22px;
+      border-radius: 11px !important;
+      background: #282828;
+      border: 1px solid #3c3836;
+      color: #a89984;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 11px;
+    }
+    .ip-sheet-close:hover {
+      background: #3c3836;
+      color: #ebdbb2;
+      border-color: #fabd2f;
+    }
+    .ip-sheet-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: #504945 #1d2021;
+    }
+
+    /* ── Category Pill Tabs ── */
+    .ip-pills-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 2px 8px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+    .ip-pills-row::-webkit-scrollbar { display: none; }
+    .ip-pill-btn {
+      padding: 6px 12px;
+      border-radius: 14px !important;
+      background: #282828;
+      border: 1px solid #3c3836;
+      color: #a89984;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      touch-action: manipulation;
+      flex-shrink: 0;
+    }
+    .ip-pill-btn:hover {
+      color: #ebdbb2;
+      border-color: #504945;
+    }
+    .ip-pill-btn.active {
+      background: #fabd2f;
+      color: #1d2021;
+      border-color: #fabd2f;
+      font-weight: 800;
+    }
+
+    /* ── Brush Shelf Cards Grid ── */
+    .ip-brush-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    @media (min-width: 440px) {
+      .ip-brush-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+    .ip-brush-card {
+      background: #232524;
+      border: 1.5px solid #3c3836;
+      border-radius: 10px !important;
+      padding: 10px 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+    }
+    .ip-brush-card:hover {
+      background: #2b2e2d;
+      border-color: #504945;
+    }
+    .ip-brush-card:active {
+      transform: scale(0.96);
+    }
+    .ip-brush-card.active {
+      background: #2d302a;
+      border-color: #fabd2f;
+      box-shadow: 0 0 10px rgba(250, 189, 47, 0.25);
+    }
+    .ip-brush-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .ip-brush-card-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #ebdbb2;
+    }
+    .ip-brush-card.active .ip-brush-card-title {
+      color: #fabd2f;
+    }
+    .ip-brush-card-desc {
+      font-size: 10px;
+      color: #a89984;
+      line-height: 1.3;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* ── Tools / Shapes Grid ── */
+    .ip-tools-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .ip-tool-card {
+      background: #232524;
+      border: 1.5px solid #3c3836;
+      border-radius: 10px !important;
+      padding: 12px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.12s ease;
+    }
+    .ip-tool-card:hover {
+      background: #2b2e2d;
+      border-color: #504945;
+    }
+    .ip-tool-card:active {
+      transform: scale(0.95);
+    }
+    .ip-tool-card.active {
+      background: #2d302a;
+      border-color: #fabd2f;
+    }
+    .ip-tool-card.active svg {
+      stroke: #fabd2f;
+    }
+    .ip-tool-card-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .ip-tool-card-name {
+      font-size: 12px;
+      font-weight: bold;
+      color: #ebdbb2;
+    }
+    .ip-tool-card.active .ip-tool-card-name {
+      color: #fabd2f;
+    }
+    .ip-tool-card-sub {
+      font-size: 9px;
+      color: #a89984;
+    }
+
+    /* ── Pixel Art Action Grid ── */
+    .ip-pixel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .ip-pixel-card {
+      background: #232524;
+      border: 1.5px solid #3c3836;
+      border-radius: 10px !important;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .ip-pixel-card:hover {
+      border-color: #504945;
+      background: #2b2e2d;
+    }
+    .ip-pixel-card:active {
+      transform: scale(0.96);
+    }
+    .ip-pixel-card.active {
+      border-color: #fabd2f;
+      background: #2d302a;
+    }
+    .ip-pixel-card-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #ebdbb2;
+    }
+    .ip-pixel-card.active .ip-pixel-card-title {
+      color: #fabd2f;
+    }
+    .ip-pixel-card-sub {
+      font-size: 10px;
+      color: #a89984;
+    }
+
+    /* ── Clean Large Touch Slider Control ── */
+    .ip-touch-control {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      background: #232524;
+      border: 1px solid #3c3836;
+      border-radius: 8px !important;
+      padding: 8px 10px;
+    }
+    .ip-touch-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: bold;
+      color: #a89984;
+    }
+    .ip-touch-val {
+      color: #fabd2f;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .ip-touch-slider {
+      width: 100%;
+      height: 8px;
+      accent-color: #fabd2f;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
 <div id="layout">
+  <!-- ── Infinite Painter Top Header Bar ── -->
+  <header id="ip-top-bar">
+    <div class="ip-bar-group">
+      <button type="button" id="btn-ip-menu" class="ip-btn-icon" title="Menu, Project & Canvas">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <a href="index.html" id="btn-ip-home" class="ip-btn-icon" title="Launcher / Start Menu" style="text-decoration: none;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      </a>
+    </div>
+
+    <div class="ip-bar-group">
+      <button type="button" id="btn-ip-undo" class="ip-btn-icon" title="Undo (2-finger tap)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      </button>
+      <button type="button" id="btn-ip-redo" class="ip-btn-icon" title="Redo (3-finger tap)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+      </button>
+      <button type="button" id="btn-ip-grid" class="ip-btn" title="Toggle Pixel Grid">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+        <span>Grid</span>
+      </button>
+      <button type="button" id="btn-ip-symmetry" class="ip-btn" title="Symmetry Mirror">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="3 3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/></svg>
+        <span>Sym</span>
+      </button>
+    </div>
+
+    <div class="ip-bar-group">
+      <button type="button" id="btn-ip-layers" class="ip-btn" title="Layers Stack">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+        <span>Layers</span>
+        <span id="ip-layer-badge" class="ip-badge">1</span>
+      </button>
+      <button type="button" id="btn-ip-lab" class="ip-btn-icon" title="Brush Dynamics Lab">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Infinite Painter Side Thumb HUD (Size, Opacity, Brush/Eraser Toggle) ── -->
+  <div id="ip-thumb-hud">
+    <div class="ip-hud-control" id="ip-hud-size-ctrl" title="Brush Size (drag up/down)">
+      <div class="ip-hud-pill">
+        <span class="ip-hud-lbl">Size</span>
+        <span id="ip-hud-size-val" class="ip-hud-val">12</span>
+      </div>
+      <div class="ip-vslider-track" id="ip-vtrack-size">
+        <div class="ip-vslider-fill" id="ip-vfill-size" style="height: 25%;"></div>
+        <div class="ip-vslider-thumb" id="ip-vthumb-size" style="bottom: 25%;"></div>
+      </div>
+    </div>
+
+    <div class="ip-hud-control" id="ip-hud-op-ctrl" title="Brush Opacity (drag up/down)">
+      <div class="ip-hud-pill">
+        <span class="ip-hud-lbl">Opac</span>
+        <span id="ip-hud-op-val" class="ip-hud-val">100%</span>
+      </div>
+      <div class="ip-vslider-track" id="ip-vtrack-op">
+        <div class="ip-vslider-fill" id="ip-vfill-op" style="height: 100%;"></div>
+        <div class="ip-vslider-thumb" id="ip-vthumb-op" style="bottom: 100%;"></div>
+      </div>
+    </div>
+
+    <button type="button" id="btn-ip-swap-mode" class="ip-hud-btn" title="Toggle Brush / Eraser">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13.5L8.5 22H3v-5.5l9.5-9.5L18 13.5z"/><path d="M14 5.5l3.5-3.5a2.12 2.12 0 0 1 3 3L17 8.5 14 5.5z"/></svg>
+    </button>
+  </div>
+
   <!-- ── Canvas area ── -->
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
@@ -2174,7 +2902,616 @@
     </div>
   </div>
 
-    <!-- ── Bottom Dock & Drawer ── -->
+  <!-- ── Infinite Painter Bottom Ribbon ── -->
+  <nav id="ip-bottom-ribbon">
+    <button type="button" id="btn-ip-color" class="ip-ribbon-btn" title="Color Studio (Wheel, Palettes, HSV)">
+      <div class="ip-color-chip-wrap">
+        <div id="ip-color-chip" style="width: 100%; height: 100%; background: #ebdbb2;"></div>
+      </div>
+      <span>Color</span>
+    </button>
+
+    <button type="button" id="btn-ip-brush" class="ip-ribbon-btn active" title="Brush Shelf & Presets">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+      <span id="ip-active-brush-name" class="ip-ribbon-label">Studio Inker</span>
+    </button>
+
+    <button type="button" id="btn-ip-blend" class="ip-ribbon-btn" title="Blend / Smudge Mode">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+      <span>Blend</span>
+    </button>
+
+    <button type="button" id="btn-ip-tools" class="ip-ribbon-btn" title="Shapes, Fill & Selection">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="6" cy="6" r="3"/><rect x="14" y="3" width="7" height="7" rx="1"/><polygon points="12 21 5 13 19 13"/></svg>
+      <span>Tools</span>
+    </button>
+
+    <button type="button" id="btn-ip-bottom-layers" class="ip-ribbon-btn" title="Layers Stack">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <span>Layers</span>
+    </button>
+  </nav>
+
+  <!-- ── SHEET 1: BRUSH SHELF ── -->
+  <div id="sheet-brushes" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-brushes').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <span>BRUSH LIBRARY</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-brushes').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content">
+        <div class="ip-pills-row" id="ip-brush-cat-pills">
+          <button type="button" class="ip-pill-btn active" data-bcat="all">All</button>
+          <button type="button" class="ip-pill-btn" data-bcat="sketch">Sketch</button>
+          <button type="button" class="ip-pill-btn" data-bcat="ink">Inking</button>
+          <button type="button" class="ip-pill-btn" data-bcat="paint">Painting</button>
+          <button type="button" class="ip-pill-btn" data-bcat="pixel">Pixel Art</button>
+          <button type="button" class="ip-pill-btn" data-bcat="charcoal">Charcoal</button>
+          <button type="button" class="ip-pill-btn" data-bcat="airbrush">Airbrush</button>
+          <button type="button" class="ip-pill-btn" data-bcat="custom">Custom</button>
+        </div>
+        <div id="ip-brush-cards-grid" class="ip-brush-grid"></div>
+        <div style="display: flex; gap: 8px; margin-top: 6px;">
+          <button type="button" id="btn-ip-save-brush-preset" class="ip-btn" style="flex: 1; background: #fabd2f; color: #1d2021; font-weight: bold;">+ Save Current Brush</button>
+          <button type="button" id="btn-ip-open-lab-from-shelf" class="ip-btn" style="flex: 1;">Open Brush Lab</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 2: LAYERS STACK ── -->
+  <div id="sheet-layers" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-layers').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <span>LAYERS STACK</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-layers').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content">
+        <!-- Active Layer Opacity & Blend -->
+        <div class="ip-touch-control">
+          <div class="ip-touch-label-row">
+            <span>Layer Opacity</span>
+            <span id="ip-active-layer-op-val" class="ip-touch-val">100%</span>
+          </div>
+          <input type="range" id="ip-active-layer-op-slider" min="0" max="100" value="100" class="ip-touch-slider">
+        </div>
+
+        <!-- Compact Mini Layer Toolbar -->
+        <div style="display: flex; gap: 4px; align-items: center; justify-content: space-between; padding: 2px 0;">
+          <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="flex: 1.2; height: 26px; font-size: 10px; background: #fabd2f; color: #1d2021; font-weight: bold; border-radius: 4px;" title="New Layer">+ Layer</button>
+          <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="flex: 1.2; height: 26px; font-size: 10px; border-radius: 4px;" title="New Folder / Group">+ Group</button>
+          <button type="button" id="btn-ip-dup-layer" class="ip-mini-btn" style="height: 26px; font-size: 10px; padding: 0 6px; border-radius: 4px;" title="Duplicate Layer">Dup</button>
+          <button type="button" id="btn-ip-merge-layer" class="ip-mini-btn" style="height: 26px; font-size: 10px; padding: 0 6px; border-radius: 4px;" title="Merge Down">Merge</button>
+          <button type="button" id="btn-ip-clear-layer" class="ip-mini-btn" style="height: 26px; font-size: 10px; padding: 0 6px; border-radius: 4px;" title="Clear Layer Content">Clear</button>
+          <button type="button" id="btn-ip-del-layer" class="ip-mini-btn" style="height: 26px; font-size: 10px; padding: 0 6px; color: #fb4934; border-radius: 4px;" title="Delete Layer">Del</button>
+        </div>
+
+        <!-- Layer List Host Container -->
+        <div id="ip-sheet-layers-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 3: SHAPES & SELECTION TOOLS ── -->
+  <div id="sheet-tools" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-tools').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <span>DRAWING &amp; SELECTION TOOLS</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-tools').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content">
+        <div class="ip-tools-grid">
+          <div class="ip-tool-card active" data-tool="brush" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Freehand Brush</span>
+              <span class="ip-tool-card-sub">Standard drawing</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="fill" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11l-8-8-8.5 8.5a2.12 2.12 0 0 0 0 3l5 5a2.12 2.12 0 0 0 3 0L19 11z"/><path d="M5 2l5 5"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Flood Fill</span>
+              <span class="ip-tool-card-sub">Paint bucket</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="lasso_fill" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Lasso Fill</span>
+              <span class="ip-tool-card-sub">Filled silhouette</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="line" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Line Guide</span>
+              <span class="ip-tool-card-sub">Straight rule</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="rect" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Rectangle</span>
+              <span class="ip-tool-card-sub">Filled box guide</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="ellipse" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Ellipse</span>
+              <span class="ip-tool-card-sub">Filled circle guide</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="picker" data-actionmode="draw">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2l4 4-8 8-4-4 8-8z"/><path d="M6 14l-2 6 6-2"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Eyedropper</span>
+              <span class="ip-tool-card-sub">Pick canvas color</span>
+            </div>
+          </div>
+
+          <div class="ip-tool-card" data-tool="select" data-actionmode="select">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+            <div class="ip-tool-card-info">
+              <span class="ip-tool-card-name">Marquee Select</span>
+              <span class="ip-tool-card-sub">Cut/Copy region</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selection Operations -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Selection Actions</span>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
+            <button type="button" id="btn-ip-copy" class="ip-btn">Copy</button>
+            <button type="button" id="btn-ip-cut" class="ip-btn">Cut</button>
+            <button type="button" id="btn-ip-paste" class="ip-btn">Paste</button>
+            <button type="button" id="btn-ip-deselect" class="ip-btn">Clear</button>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" id="btn-ip-xform-apply" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;">Apply Transform</button>
+            <button type="button" id="btn-ip-xform-cancel" class="ip-btn">Cancel Transform</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 4: PIXEL ART SUITE ── -->
+  <div id="sheet-pixelart" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-pixelart').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <span>PIXEL ART STUDIO</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-pixelart').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content">
+        <div class="ip-pixel-grid">
+          <div class="ip-pixel-card" id="card-ip-pixel-1px">
+            <span class="ip-pixel-card-title">1px Pixel Pencil</span>
+            <span class="ip-pixel-card-sub">Exact 1-pixel hard square tip</span>
+          </div>
+
+          <div class="ip-pixel-card" id="card-ip-pixel-2px">
+            <span class="ip-pixel-card-title">2px Block Brush</span>
+            <span class="ip-pixel-card-sub">2x2 chunky pixel block</span>
+          </div>
+
+          <div class="ip-pixel-card" id="card-ip-pixel-4px">
+            <span class="ip-pixel-card-title">4px Chunky Brush</span>
+            <span class="ip-pixel-card-sub">4x4 retro pixel block</span>
+          </div>
+
+          <div class="ip-pixel-card" id="card-ip-pixel-dither">
+            <span class="ip-pixel-card-title">Dither Screentone</span>
+            <span class="ip-pixel-card-sub">Checkerboard shading brush</span>
+          </div>
+        </div>
+
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Pixel Helpers</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" id="btn-ip-pixel-grid-toggle" class="ip-btn">Pixel Grid (4x+)</button>
+            <button type="button" id="btn-ip-pixel-zoom-100" class="ip-btn">100% 1:1 Pixel</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <button type="button" id="btn-ip-pixel-sym-x" class="ip-btn">Sym Vertical</button>
+            <button type="button" id="btn-ip-pixel-sym-y" class="ip-btn">Sym Horiz</button>
+            <button type="button" id="btn-ip-pixel-sym-quad" class="ip-btn">Sym Quad</button>
+          </div>
+        </div>
+
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Retro Color Palettes</span>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" id="btn-ip-pal-gameboy" class="ip-btn" style="flex: 1;">GameBoy 4-Color</button>
+            <button type="button" id="btn-ip-pal-gruvbox" class="ip-btn" style="flex: 1;">Gruvbox Dark</button>
+            <button type="button" id="btn-ip-pal-cyber" class="ip-btn" style="flex: 1;">Cyberpunk</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 5: MAIN PROJECT / MENU / SETTINGS ── -->
+  <div id="sheet-menu" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-menu').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <span>PROJECT &amp; SETTINGS</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-menu').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content">
+        <!-- Project storage -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Project File</span>
+            <span id="ip-menu-autosave-badge" style="font-size: 10px; color: #b8bb26; font-weight: bold;">Autosaved</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;">Save Project</button>
+            <a href="index.html" class="ip-btn" style="text-decoration: none; justify-content: center;">Start Launcher</a>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
+            <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
+          </div>
+        </div>
+
+        <!-- Canvas Dimensions -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Canvas Resolution</span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="width: 70px; height: 32px; font-size: 12px; text-align: center;">
+            <span style="color: #a89984; font-weight: bold;">×</span>
+            <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 32px; font-size: 12px; text-align: center;">
+            <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 32px; background: #fabd2f; color: #1d2021; font-weight: bold;">Resize</button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
+            <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
+            <button type="button" class="ip-btn ip-btn-quick-res" data-w="1280" data-h="720">720p</button>
+            <button type="button" class="ip-btn ip-btn-quick-res" data-w="1920" data-h="1080">1080p</button>
+            <button type="button" class="ip-btn ip-btn-quick-res" data-w="1080" data-h="1080">1:1 Square</button>
+          </div>
+        </div>
+
+        <!-- View Controls -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Viewport Navigation</span>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
+            <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
+            <button type="button" id="btn-ip-rot-zero" class="ip-btn">0° Rotate</button>
+            <button type="button" id="btn-ip-flip-h" class="ip-btn">Flip Horiz</button>
+            <button type="button" id="btn-ip-flip-v" class="ip-btn">Flip Vert</button>
+            <button type="button" id="btn-ip-center" class="ip-btn">Center</button>
+          </div>
+        </div>
+
+        <!-- Interface Mode Switcher -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">UI Interface Mode</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" id="btn-set-ui-ip" class="ip-btn active" style="font-weight: bold; background: #fabd2f; color: #1d2021;">Modern Touch</button>
+            <button type="button" id="btn-set-ui-classic" class="ip-btn">Classic Dock</button>
+          </div>
+        </div>
+
+        <!-- Developer REPL Console & Scripts -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Console &amp; Scripts</span>
+          <button type="button" id="btn-ip-open-console" class="ip-btn" style="width: 100%;">Open REPL Terminal &amp; Scripts</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 6: BRUSH LAB DYNAMICS / BRUSH STUDIO ── -->
+  <div id="sheet-lab" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-lab').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span>BRUSH STUDIO LAB</span>
+          <span id="ip-lab-brush-name" style="font-size: 9px; color: #a89984; text-transform: none; font-weight: normal;">(Inker)</span>
+        </div>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <button type="button" id="btn-ip-lab-reset" class="ip-btn ip-mini-btn" title="Reset Brush Parameters">Reset</button>
+          <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;" title="Save Custom Preset">+ Save</button>
+          <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-lab').classList.remove('active')">✕</button>
+        </div>
+      </div>
+
+      <!-- Sub-tabs for Brush Lab categories -->
+      <div class="ip-pills-row" id="ip-lab-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid #3c3836; background: #181a1b;">
+        <button type="button" class="ip-pill-btn active" data-labtab="tip">Tip &amp; Shape</button>
+        <button type="button" class="ip-pill-btn" data-labtab="dynamics">Dynamics</button>
+        <button type="button" class="ip-pill-btn" data-labtab="stylus">Stylus</button>
+        <button type="button" class="ip-pill-btn" data-labtab="wet">Wet &amp; Mix</button>
+        <button type="button" class="ip-pill-btn" data-labtab="jitter">Jitter &amp; Dual</button>
+        <button type="button" class="ip-pill-btn" data-labtab="texture">Texture</button>
+      </div>
+
+      <div class="ip-sheet-content" style="padding: 8px 10px; gap: 8px; max-height: calc(100vh - 240px); overflow-y: auto;">
+        <!-- TAB 1: TIP & SHAPE -->
+        <div class="ip-lab-tab-panel" data-labpanel="tip" style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Tip Shape</span></div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;" id="ip-lab-shape-grid">
+              <button type="button" class="ip-btn ip-shape-btn active" data-shape="0">Circle</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="1">Square</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="2">Diamond</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="3">Soft</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="4">Chisel</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="5">Star</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="6">Callig</button>
+              <button type="button" class="ip-btn ip-shape-btn" data-shape="7">Spray</button>
+            </div>
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Hardness</span><span id="ip-val-hardness" class="ip-touch-val">100%</span></div>
+            <input type="range" id="ip-slider-hardness" min="0" max="100" value="100" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Roundness (Aspect)</span><span id="ip-val-roundness" class="ip-touch-val">100%</span></div>
+            <input type="range" id="ip-slider-roundness" min="1" max="100" value="100" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Angle / Rotation</span><span id="ip-val-angle" class="ip-touch-val">0°</span></div>
+            <input type="range" id="ip-slider-angle" min="0" max="360" value="0" class="ip-touch-slider">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+            <button type="button" id="btn-ip-lab-autorotate" class="ip-btn" style="justify-content: flex-start; padding: 6px 8px;">
+              <input type="checkbox" id="chk-ip-lab-autorotate" style="margin-right: 4px; pointer-events: none;"> Follow Stroke
+            </button>
+            <button type="button" id="btn-ip-lab-subpixel" class="ip-btn" style="justify-content: flex-start; padding: 6px 8px;">
+              <input type="checkbox" id="chk-ip-lab-subpixel" style="margin-right: 4px; pointer-events: none;"> Subpixel
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: DYNAMICS & SPEED -->
+        <div class="ip-lab-tab-panel" data-labpanel="dynamics" style="display: none; flex-direction: column; gap: 8px;">
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Spacing</span><span id="ip-val-spacing" class="ip-touch-val">5%</span></div>
+            <input type="range" id="ip-slider-spacing" min="1" max="200" value="5" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Stabilization (Smoothing)</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Streamline Midpoint</span><span id="ip-val-midpoint" class="ip-touch-val">50%</span></div>
+            <input type="range" id="ip-slider-midpoint" min="0" max="100" value="50" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Velocity Dynamic Scaling</span><span id="ip-val-velocity" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-velocity" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Taper Start Pinch</span><span id="ip-val-taper-in" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-taper-in" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Taper End Release</span><span id="ip-val-taper-out" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-taper-out" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Fade Decay</span><span id="ip-val-fade" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-fade" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+        </div>
+
+        <!-- TAB 3: STYLUS & PEN -->
+        <div class="ip-lab-tab-panel" data-labpanel="stylus" style="display: none; flex-direction: column; gap: 8px;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <button type="button" id="btn-ip-lab-press-size" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+              <input type="checkbox" id="chk-ip-lab-press-size" checked style="margin-right: 6px; pointer-events: none;"> Pressure Controls Size
+            </button>
+            <button type="button" id="btn-ip-lab-press-flow" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+              <input type="checkbox" id="chk-ip-lab-press-flow" checked style="margin-right: 6px; pointer-events: none;"> Pressure Controls Flow
+            </button>
+            <button type="button" id="btn-ip-lab-tilt-angle" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+              <input type="checkbox" id="chk-ip-lab-tilt-angle" checked style="margin-right: 6px; pointer-events: none;"> Stylus Tilt Angle
+            </button>
+            <button type="button" id="btn-ip-lab-buildup" class="ip-btn" style="justify-content: flex-start; padding: 8px 10px; width: 100%;">
+              <input type="checkbox" id="chk-ip-lab-buildup" style="margin-right: 6px; pointer-events: none;"> Airbrush Continuous Buildup
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 4: WET & MIX -->
+        <div class="ip-lab-tab-panel" data-labpanel="wet" style="display: none; flex-direction: column; gap: 8px;">
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Wetness (Paint Mix)</span><span id="ip-val-wetness" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-wetness" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Smudge Drag Strength</span><span id="ip-val-smudge" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-smudge" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Color Pickup</span><span id="ip-val-pickup" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-pickup" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Paint Depletion (Drying)</span><span id="ip-val-depletion" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-depletion" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Dab Blend Mode</span></div>
+            <select id="ip-sel-dab-blend" class="ui-select" style="height: 32px; font-size: 11px;">
+              <option value="0">Normal</option>
+              <option value="1">Multiply</option>
+              <option value="2">Screen</option>
+              <option value="3">Overlay</option>
+              <option value="4">Darken</option>
+              <option value="5">Lighten</option>
+              <option value="6">Color Dodge</option>
+              <option value="7">Color Burn</option>
+              <option value="8">Hard Light</option>
+              <option value="9">Soft Light</option>
+              <option value="10">Difference</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- TAB 5: JITTER & DUAL BRUSH -->
+        <div class="ip-lab-tab-panel" data-labpanel="jitter" style="display: none; flex-direction: column; gap: 8px;">
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Size Jitter</span><span id="ip-val-jitter-size" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-jitter-size" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Angle Jitter</span><span id="ip-val-jitter-angle" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-jitter-angle" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Opacity Jitter</span><span id="ip-val-jitter-op" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-jitter-op" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Color Jitter</span><span id="ip-val-jitter-color" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-jitter-color" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Scatter</span><span id="ip-val-scatter" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-scatter" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Dual Brush Shape</span></div>
+            <select id="ip-sel-dual-shape" class="ui-select" style="height: 32px; font-size: 11px;">
+              <option value="-1">None (Disabled)</option>
+              <option value="0">Circle</option>
+              <option value="1">Square</option>
+              <option value="2">Diamond</option>
+              <option value="3">Soft</option>
+              <option value="4">Chisel</option>
+              <option value="5">Star</option>
+              <option value="6">Callig</option>
+            </select>
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Dual Brush Size</span><span id="ip-val-dual-size" class="ip-touch-val">100%</span></div>
+            <input type="range" id="ip-slider-dual-size" min="10" max="300" value="100" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Dual Brush Spacing</span><span id="ip-val-dual-spacing" class="ip-touch-val">10%</span></div>
+            <input type="range" id="ip-slider-dual-spacing" min="1" max="100" value="10" class="ip-touch-slider">
+          </div>
+        </div>
+
+        <!-- TAB 6: TEXTURE & GRAIN -->
+        <div class="ip-lab-tab-panel" data-labpanel="texture" style="display: none; flex-direction: column; gap: 8px;">
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Active Texture Pattern</span></div>
+            <select id="ip-sel-texture" class="ui-select" style="height: 32px; font-size: 11px;">
+              <option value="none">None (Smooth)</option>
+              <option value="paper">Paper Grain</option>
+              <option value="canvas">Canvas Weave</option>
+              <option value="noise">Fine Noise</option>
+              <option value="dots">Halftone Dots</option>
+              <option value="grid">Pixel Grid</option>
+              <option value="grunge">Rough Grunge</option>
+              <option value="hatch">Cross Hatch</option>
+            </select>
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Texture Mode</span></div>
+            <select id="ip-sel-tex-mode" class="ui-select" style="height: 32px; font-size: 11px;">
+              <option value="0">Multiply (Standard)</option>
+              <option value="1">Subtract (Etched)</option>
+              <option value="2">Overlay (Vibrant)</option>
+            </select>
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Grain Depth</span><span id="ip-val-grain" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-grain" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Texture Scale</span><span id="ip-val-tex-scale" class="ip-touch-val">100%</span></div>
+            <input type="range" id="ip-slider-tex-scale" min="10" max="400" value="100" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Texture Contrast</span><span id="ip-val-tex-contrast" class="ip-touch-val">100%</span></div>
+            <input type="range" id="ip-slider-tex-contrast" min="0" max="200" value="100" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span>Texture Rotation</span><span id="ip-val-tex-rotate" class="ip-touch-val">0°</span></div>
+            <input type="range" id="ip-slider-tex-rotate" min="0" max="360" value="0" class="ip-touch-slider">
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Scratchpad Test Pad at bottom of Brush Lab -->
+      <div style="background: #181a1b; border-top: 1px solid #3c3836; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 9px; font-weight: bold; color: #a89984; text-transform: uppercase;">Live Test Pad</span>
+          <button type="button" id="btn-ip-pad-clear" class="ip-btn ip-mini-btn" style="font-size: 9px; padding: 1px 6px;">Clear Pad</button>
+        </div>
+        <canvas id="ip-brush-testpad" width="340" height="72" style="width: 100%; height: 72px; background: #232524; border: 1px solid #3c3836; border-radius: 6px; cursor: crosshair; touch-action: none;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 7: CONSOLE & SCRIPTS REPL POPUP ── -->
+  <div id="sheet-console" class="ip-sheet-modal">
+    <div class="ip-sheet">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-console').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span>TERMINAL &amp; SCRIPTS</span>
+        </div>
+        <div style="display: flex; gap: 4px; align-items: center;">
+          <button type="button" id="ip-btn-console-clear" class="ip-btn ip-mini-btn" title="Clear Terminal">Clear</button>
+          <button type="button" id="ip-btn-console-help" class="ip-btn ip-mini-btn" title="Command Help">Help</button>
+          <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-console').classList.remove('active')">✕</button>
+        </div>
+      </div>
+      <div class="ip-pills-row" id="ip-console-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid #3c3836; background: #181a1b;">
+        <button type="button" class="ip-pill-btn active" data-contab="term">REPL Terminal</button>
+        <button type="button" class="ip-pill-btn" data-contab="scripts">Script Editor</button>
+      </div>
+      <div class="ip-sheet-content" style="padding: 8px; gap: 8px; max-height: calc(100vh - 120px); overflow-y: auto;">
+        <!-- Terminal Panel -->
+        <div class="ip-console-panel active" data-conpanel="term" style="display: flex; flex-direction: column; gap: 6px; height: 320px;">
+          <div id="wterm-ip" style="flex: 1; background: #121415; border: 1px solid #3c3836; border-radius: 4px; padding: 8px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #ebdbb2; display: flex; flex-direction: column; gap: 2px;"></div>
+          <form id="inputrow-ip" action="javascript:void(0);" style="display: flex; gap: 4px;">
+            <input id="wcmd-ip" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                   enterkeyhint="send" placeholder="type a command (e.g. help, set size 30)..." style="flex: 1; height: 32px;">
+            <button type="submit" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; padding: 0 12px;">Run</button>
+          </form>
+        </div>
+        <!-- Scripts Panel -->
+        <div class="ip-console-panel" data-conpanel="scripts" style="display: none; flex-direction: column; gap: 6px;">
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <select id="ip-script-select" class="ui-select" style="flex: 1; height: 30px;"></select>
+            <button type="button" id="ip-btn-new-script" class="ip-btn ip-mini-btn" style="height: 30px;">+ New</button>
+            <button type="button" id="ip-btn-save-script" class="ip-btn ip-mini-btn" style="height: 30px; background: #fabd2f; color: #1d2021; font-weight: bold;">Save</button>
+            <button type="button" id="ip-btn-del-script" class="ip-btn ip-mini-btn" style="height: 30px; color: #fb4934;">Del</button>
+          </div>
+          <input type="text" id="ip-script-name" class="ui-input-text" value="my_script" placeholder="script_name" spellcheck="false" style="height: 28px;">
+          <textarea id="ip-script-editor" style="width: 100%; height: 180px; font-family: monospace; font-size: 11px;"></textarea>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" id="ip-btn-run-script" class="ip-btn" style="flex: 1; height: 32px; background: #b8bb26; color: #1d2021; font-weight: bold;">▶ Run Script</button>
+            <button type="button" id="ip-btn-run-selection" class="ip-btn" style="flex: 1; height: 32px;">Run Selected</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Legacy Bottom Dock & Drawer (Classic UI Mode) ── -->
   <div id="bottom-dock">
     <div id="bottom-dock-handle" title="Drag up/down to resize drawer">
       <div class="dock-handle-bar"></div>
@@ -2189,10 +3526,11 @@
     <div id="ui-panel" class="hidden">
       <div id="ui-drawer-tabs">
         <button type="button" class="drawer-tab-btn active" data-drawertab="paint">Paint</button>
-      <button type="button" class="drawer-tab-btn" data-drawertab="layers">Layers</button>
-      <button type="button" class="drawer-tab-btn" data-drawertab="settings">Settings</button>
-      <button type="button" class="drawer-tab-btn" data-drawertab="console">Console</button>
-    </div>
+        <button type="button" class="drawer-tab-btn" data-drawertab="layers">Layers</button>
+        <button type="button" class="drawer-tab-btn" data-drawertab="settings">Settings</button>
+        <button type="button" class="drawer-tab-btn" data-drawertab="console">Console</button>
+        <button type="button" id="btn-classic-switch-to-ip" class="drawer-tab-btn" style="color: #fabd2f; font-weight: bold; margin-left: auto;" title="Switch to Modern Infinite Painter UI">📱 Modern UI</button>
+      </div>
     <div id="ui-scroll">
 
       <!-- SECTION 1: PAINT & BRUSH -->

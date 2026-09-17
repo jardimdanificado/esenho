@@ -44,6 +44,9 @@
     if (typeof Buffer !== "undefined") {
       return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength).toString("base64");
     }
+    if (typeof Uint8Array.prototype.toBase64 === "function") {
+      try { return u8.toBase64(); } catch (_) {}
+    }
     let binary = "";
     const len = u8.byteLength;
     const chunkSize = 0x8000;
@@ -59,11 +62,18 @@
       const buf = Buffer.from(b64, "base64");
       return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     }
+    if (typeof Uint8Array.fromBase64 === "function") {
+      try { return Uint8Array.fromBase64(b64); } catch (_) {}
+    }
     const binary = atob(b64);
     const len = binary.length;
     const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary.charCodeAt(i);
+    const step = 65536;
+    for (let i = 0; i < len; i += step) {
+      const end = Math.min(i + step, len);
+      for (let j = i; j < end; j++) {
+        bytes[j] = binary.charCodeAt(j);
+      }
     }
     return bytes;
   }
@@ -72,7 +82,8 @@
   function rleEncodeU32(u32Array) {
     const len = u32Array.length;
     if (len === 0) return new Uint8Array(0);
-    const chunks = [];
+    let chunks = new Uint32Array(Math.min(len * 2, 262144));
+    let chunkCount = 0;
     let curVal = u32Array[0];
     let curCount = 0;
     for (let i = 0; i < len; i++) {
@@ -80,26 +91,39 @@
       if (val === curVal && curCount < 0xFFFFFFFF) {
         curCount++;
       } else {
-        chunks.push(curCount, curVal);
+        if (chunkCount + 2 > chunks.length) {
+          const next = new Uint32Array(chunks.length * 2);
+          next.set(chunks);
+          chunks = next;
+        }
+        chunks[chunkCount++] = curCount;
+        chunks[chunkCount++] = curVal;
         curVal = val;
         curCount = 1;
       }
     }
-    chunks.push(curCount, curVal);
-    const out = new Uint32Array(chunks.length);
-    out.set(chunks);
-    return new Uint8Array(out.buffer);
+    if (chunkCount + 2 > chunks.length) {
+      const next = new Uint32Array(chunks.length + 2);
+      next.set(chunks);
+      chunks = next;
+    }
+    chunks[chunkCount++] = curCount;
+    chunks[chunkCount++] = curVal;
+    return new Uint8Array(chunks.buffer, chunks.byteOffset, chunkCount * 4);
   }
 
   function rleDecodeU32(u8Array, totalPixels) {
     const in32 = new Uint32Array(u8Array.buffer, u8Array.byteOffset, Math.floor(u8Array.byteLength / 4));
     const out = new Uint32Array(totalPixels);
     let outIdx = 0;
-    for (let i = 0; i < in32.length; i += 2) {
+    const inLen = in32.length;
+    for (let i = 0; i < inLen; i += 2) {
       const count = in32[i];
       const val = in32[i + 1];
-      out.fill(val, outIdx, Math.min(totalPixels, outIdx + count));
+      const end = Math.min(totalPixels, outIdx + count);
+      out.fill(val, outIdx, end);
       outIdx += count;
+      if (outIdx >= totalPixels) break;
     }
     return out;
   }
