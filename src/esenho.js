@@ -6481,7 +6481,9 @@ class EsenhoScreenHost {
       }
     }
 
-    this.window.render(this.windowWidth, this.windowHeight, this.windowWidth * 4, 'rgba32', this.screenBuffer);
+    if (this.window && typeof this.window.render === 'function') {
+      this.window.render(this.windowWidth, this.windowHeight, this.windowWidth * 4, 'rgba32', this.screenBuffer);
+    }
   }
 }
 

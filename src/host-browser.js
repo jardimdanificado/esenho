@@ -21,7 +21,9 @@ async function main() {
   /* canvasRotation: radians, stored on host */
   host.canvasRotation = 0;
   host.render = () => {
-    if (typeof host.renderFrame === 'function') host.renderFrame();
+    if (host.canvasActor && host.canvasActor.exports && typeof host.canvasActor.exports.w_render === 'function') {
+      host.canvasActor.exports.w_render();
+    }
   };
 
   if (!globalThis.papagaio) {
@@ -7034,6 +7036,8 @@ async function main() {
 
     // Render Layers List (Photoshop-like hierarchical layer & folder tree + Drag-and-Drop + Reordering + Stacking order sync)
     const layersList = document.getElementById('ui-layers-list');
+    const ipSheetLayersList = document.getElementById('ip-sheet-layers-list');
+    const layerContainers = [layersList, ipSheetLayersList].filter(Boolean);
     const orderCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_order_count)
       ? host.canvasActor.exports.w_layer_get_order_count()
       : count;
@@ -7069,29 +7073,33 @@ async function main() {
     const treeStructure = host.layerTree ? JSON.stringify(host.layerTree) : '';
     const currentTreeSig = `${count}|${orderCount}|${wasmOrderStr}|${layerProps.join(';')}|${groupProps.join(';')}|${treeStructure}`;
 
-    if (layersList) {
+    if (layerContainers.length > 0) {
       if (currentTreeSig === lastLayerTreeSig) {
         // Fast update without DOM destruction
-        layersList.querySelectorAll('.ui-layer-row').forEach(row => {
-          const lid = parseInt(row.getAttribute('data-layer-id'), 10);
-          row.classList.toggle('active-draw', lid === activeDraw);
+        layerContainers.forEach(container => {
+          container.querySelectorAll('.ui-layer-row').forEach(row => {
+            const lid = parseInt(row.getAttribute('data-layer-id'), 10);
+            row.classList.toggle('active-draw', lid === activeDraw);
+          });
         });
         return;
       }
 
       lastLayerTreeSig = currentTreeSig;
-      layersList.innerHTML = '';
-
       host.ensureTreeIntegrity();
 
-      let layerDragSource = null; // { type: 'layer'|'group', id: number|string }
-      let touchReorderState = null;
+      const renderLayerTreeToContainer = (targetContainer) => {
+        if (!targetContainer) return;
+        targetContainer.innerHTML = '';
 
-      const clearDropIndicators = () => {
-        layersList.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group').forEach(el => {
-          el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
-        });
-      };
+        let layerDragSource = null; // { type: 'layer'|'group', id: number|string }
+        let touchReorderState = null;
+
+        const clearDropIndicators = () => {
+          targetContainer.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group').forEach(el => {
+            el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+          });
+        };
 
       const attachTouchReorder = (el, type, id) => {
         let timer = null;
@@ -7763,12 +7771,12 @@ async function main() {
       const renderTreeNode = (node, depth = 0, parentGroup = null) => {
         if (node.type === 'layer') {
           const layerEl = renderLayerRow(node.id, depth, parentGroup);
-          if (layerEl) layersList.appendChild(layerEl);
+          if (layerEl) targetContainer.appendChild(layerEl);
         } else if (node.type === 'group') {
           const grp = host.layerGroups.get(node.id);
           if (grp) {
             const grpHeader = createGroupHeader(grp, depth, parentGroup);
-            layersList.appendChild(grpHeader);
+            targetContainer.appendChild(grpHeader);
             if (!grp.collapsed && Array.isArray(grp.children)) {
               for (const childNode of grp.children) {
                 renderTreeNode(childNode, depth + 1, grp);
@@ -7781,7 +7789,10 @@ async function main() {
       for (const rootNode of (host.layerTree || [])) {
         renderTreeNode(rootNode, 0, null);
       }
-    }
+    };
+
+    layerContainers.forEach(container => renderLayerTreeToContainer(container));
+  }
 
     if (chkPixelGrid) {
       chkPixelGrid.checked = !!host.showPixelGrid;
@@ -7869,108 +7880,291 @@ async function main() {
     const btnIpLab = document.getElementById('btn-ip-lab');
     if (btnIpLab) btnIpLab.addEventListener('click', () => toggleSheet('sheet-lab'));
 
-    // 2. Side Thumb HUD: Sliders & Swap
-    const trackSize = document.getElementById('ip-vtrack-size');
-    const fillSize = document.getElementById('ip-vfill-size');
-    const thumbSize = document.getElementById('ip-vthumb-size');
-    const valSize = document.getElementById('ip-hud-size-val');
+    // 2. Customizable Side Thumb HUD Controller
+    const HUD_AVAILABLE_SLIDERS = [
+      { id: 'size', label: 'Size', key: 'size', min: 1, max: 300, isCurve: true, unit: '', defaultOn: true },
+      { id: 'opacity', label: 'Opac', key: 'opacity', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: true },
+      { id: 'flow', label: 'Flow', key: 'flow', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'hardness', label: 'Hard', key: 'hardness', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'smoothing', label: 'Smth', key: 'smoothing', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'spacing', label: 'Spac', key: 'spacing', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'pickup', label: 'Mix', key: 'color_pickup', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false }
+    ];
 
-    const handleSizeDrag = (clientY) => {
-      if (!trackSize || !host.brushParams) return;
-      const rect = trackSize.getBoundingClientRect();
-      const pos = Math.max(0, Math.min(1, 1 - (clientY - rect.top) / rect.height));
-      const newSize = Math.max(1, Math.round(pos * pos * 260 + pos * 40));
-      runCmd(`set size ${newSize}`);
-      if (valSize) valSize.textContent = newSize;
-      if (fillSize) fillSize.style.height = `${pos * 100}%`;
-      if (thumbSize) thumbSize.style.bottom = `${pos * 100}%`;
+    const HUD_AVAILABLE_ACTIONS = [
+      { id: 'swap_mode', label: 'Brush/Eraser', title: 'Toggle Brush / Eraser', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13.5L8.5 22H3v-5.5l9.5-9.5L18 13.5z"/><path d="M14 5.5l3.5-3.5a2.12 2.12 0 0 1 3 3L17 8.5 14 5.5z"/></svg>', defaultOn: true },
+      { id: 'pipette', label: 'Eyedropper', title: 'Pipette Eyedropper', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 2.5l7 7L18 13l-7-7 3.5-3.5z"/><path d="M11 6L3 14v7h7l8-8"/><circle cx="5.5" cy="18.5" r="1.5"/></svg>', defaultOn: false },
+      { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', defaultOn: false },
+      { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Y)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>', defaultOn: false },
+      { id: 'clear_layer', label: 'Clear Layer', title: 'Clear Active Layer', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', defaultOn: false },
+      { id: 'hud_gear', label: '⚙ Settings', title: 'Customize Side HUD', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false }
+    ];
+
+    let ipActiveHudConfig = {
+      sliders: ['size', 'opacity'],
+      actions: ['swap_mode']
     };
 
-    if (trackSize) {
-      let isDraggingSize = false;
-      const onPointerDown = (e) => {
-        isDraggingSize = true;
-        handleSizeDrag(e.clientY || (e.touches && e.touches[0].clientY));
-        e.preventDefault();
-      };
-      const onPointerMove = (e) => {
-        if (!isDraggingSize) return;
-        handleSizeDrag(e.clientY || (e.touches && e.touches[0].clientY));
-        e.preventDefault();
-      };
-      const onPointerUp = () => {
-        if (isDraggingSize) {
-          isDraggingSize = false;
-          triggerHaptic(8);
+    try {
+      const savedHud = localStorage.getItem('esenho_ip_hud_config');
+      if (savedHud) {
+        const parsed = JSON.parse(savedHud);
+        if (Array.isArray(parsed.sliders) && Array.isArray(parsed.actions)) {
+          ipActiveHudConfig = parsed;
         }
-      };
-      trackSize.addEventListener('pointerdown', onPointerDown);
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
-    }
+      }
+    } catch (_) {}
 
-    const trackOp = document.getElementById('ip-vtrack-op');
-    const fillOp = document.getElementById('ip-vfill-op');
-    const thumbOp = document.getElementById('ip-vthumb-op');
-    const valOp = document.getElementById('ip-hud-op-val');
+    const renderIpThumbHud = () => {
+      const hud = document.getElementById('ip-thumb-hud');
+      if (!hud) return;
+      hud.innerHTML = '';
 
-    const handleOpDrag = (clientY) => {
-      if (!trackOp || !host.brushParams) return;
-      const rect = trackOp.getBoundingClientRect();
-      const pos = Math.max(0.01, Math.min(1, 1 - (clientY - rect.top) / rect.height));
-      const newOp = Math.round(pos * 100);
-      runCmd(`set opacity ${newOp}`);
-      if (valOp) valOp.textContent = `${newOp}%`;
-      if (fillOp) fillOp.style.height = `${pos * 100}%`;
-      if (thumbOp) thumbOp.style.bottom = `${pos * 100}%`;
-    };
+      // Sliders
+      ipActiveHudConfig.sliders.forEach(sid => {
+        const sDef = HUD_AVAILABLE_SLIDERS.find(s => s.id === sid);
+        if (!sDef) return;
 
-    if (trackOp) {
-      let isDraggingOp = false;
-      const onPointerDown = (e) => {
-        isDraggingOp = true;
-        handleOpDrag(e.clientY || (e.touches && e.touches[0].clientY));
-        e.preventDefault();
-      };
-      const onPointerMove = (e) => {
-        if (!isDraggingOp) return;
-        handleOpDrag(e.clientY || (e.touches && e.touches[0].clientY));
-        e.preventDefault();
-      };
-      const onPointerUp = () => {
-        if (isDraggingOp) {
-          isDraggingOp = false;
-          triggerHaptic(8);
-        }
-      };
-      trackOp.addEventListener('pointerdown', onPointerDown);
-      window.addEventListener('pointermove', onPointerMove);
-      window.addEventListener('pointerup', onPointerUp);
-      window.addEventListener('pointercancel', onPointerUp);
-    }
+        const ctrl = document.createElement('div');
+        ctrl.className = 'ip-hud-control';
+        ctrl.id = `ip-hud-${sDef.id}-ctrl`;
+        ctrl.title = `${sDef.label} (drag up/down)`;
+        ctrl.innerHTML = `
+          <div class="ip-hud-pill">
+            <span class="ip-hud-lbl">${sDef.label}</span>
+            <span id="ip-hud-${sDef.id}-val" class="ip-hud-val">--</span>
+          </div>
+          <div class="ip-vslider-track" id="ip-vtrack-${sDef.id}">
+            <div class="ip-vslider-fill" id="ip-vfill-${sDef.id}"></div>
+            <div class="ip-vslider-thumb" id="ip-vthumb-${sDef.id}"></div>
+          </div>
+        `;
+        hud.appendChild(ctrl);
 
-    // Quick swap between Brush & Eraser
-    let prevDrawBrush = 'pencil';
-    const btnSwap = document.getElementById('btn-ip-swap-mode');
-    if (btnSwap) {
-      btnSwap.addEventListener('click', () => {
-        const isCurrentlyEraser = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
-        if (isCurrentlyEraser) {
-          host.actionMode = 'draw';
-          runCmd(`set mode brush`);
-          if (prevDrawBrush) host.selectBrushPreset(prevDrawBrush);
-        } else {
-          if (host.activeBrush && host.activeBrush !== 'hard_eraser' && host.activeBrush !== 'soft_eraser') {
-            prevDrawBrush = host.activeBrush;
+        const track = ctrl.querySelector('.ip-vslider-track');
+        const valEl = ctrl.querySelector('.ip-hud-val');
+        const fillEl = ctrl.querySelector('.ip-vslider-fill');
+        const thumbEl = ctrl.querySelector('.ip-vslider-thumb');
+        let isDragging = false;
+
+        const handleDrag = (clientY) => {
+          if (!track || !host.brushParams) return;
+          const rect = track.getBoundingClientRect();
+          const pos = Math.max(0.005, Math.min(1, 1 - (clientY - rect.top) / rect.height));
+          let val;
+          if (sDef.isCurve) {
+            val = Math.max(1, Math.min(300, Math.round(pos * pos * 299 + 1)));
+          } else {
+            val = Math.round((sDef.min || 0) + pos * ((sDef.max || 100) - (sDef.min || 0)));
           }
-          host.actionMode = 'erase';
-          runCmd(`set mode erase`);
+          if (valEl) valEl.textContent = `${val}${sDef.unit || ''}`;
+          if (fillEl) fillEl.style.height = `${pos * 100}%`;
+          if (thumbEl) thumbEl.style.bottom = `${pos * 100}%`;
+
+          host.brushParams[sDef.key] = val;
+          runCmd(`set ${sDef.key} ${val}`);
+          syncUiFromHost();
+        };
+
+        const onDown = (e) => {
+          isDragging = true;
+          if (e.pointerId && typeof ctrl.setPointerCapture === 'function') {
+            try { ctrl.setPointerCapture(e.pointerId); } catch (_) {}
+          }
+          const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+          handleDrag(clientY);
+          e.preventDefault();
+        };
+
+        const onMove = (e) => {
+          if (!isDragging) return;
+          const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
+          handleDrag(clientY);
+          e.preventDefault();
+        };
+
+        const onUp = (e) => {
+          if (isDragging) {
+            isDragging = false;
+            if (e.pointerId && typeof ctrl.releasePointerCapture === 'function') {
+              try { ctrl.releasePointerCapture(e.pointerId); } catch (_) {}
+            }
+            triggerHaptic(8);
+          }
+        };
+
+        ctrl.addEventListener('pointerdown', onDown);
+        ctrl.addEventListener('pointermove', onMove);
+        ctrl.addEventListener('pointerup', onUp);
+        ctrl.addEventListener('pointercancel', onUp);
+
+        ctrl.addEventListener('touchstart', onDown, { passive: false });
+        ctrl.addEventListener('touchmove', onMove, { passive: false });
+        ctrl.addEventListener('touchend', onUp);
+        ctrl.addEventListener('touchcancel', onUp);
+      });
+
+      // Actions
+      let prevDrawBrush = 'pencil';
+      ipActiveHudConfig.actions.forEach(aid => {
+        const aDef = HUD_AVAILABLE_ACTIONS.find(a => a.id === aid);
+        if (!aDef) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ip-hud-btn';
+        btn.id = aDef.id === 'swap_mode' ? 'btn-ip-swap-mode' : `btn-ip-hud-${aDef.id}`;
+        btn.title = aDef.title;
+        btn.innerHTML = aDef.icon;
+
+        if (aDef.id === 'swap_mode') {
+          btn.addEventListener('click', () => {
+            const isCurrentlyEraser = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
+            if (isCurrentlyEraser) {
+              host.actionMode = 'draw';
+              runCmd(`set mode brush`);
+              if (prevDrawBrush) host.selectBrushPreset(prevDrawBrush);
+            } else {
+              if (host.activeBrush && host.activeBrush !== 'hard_eraser' && host.activeBrush !== 'soft_eraser') {
+                prevDrawBrush = host.activeBrush;
+              }
+              host.actionMode = 'erase';
+              runCmd(`set mode erase`);
+            }
+            syncUiFromHost();
+            triggerHaptic(18);
+          });
+        } else if (aDef.id === 'pipette') {
+          btn.addEventListener('click', () => {
+            host.actionMode = host.actionMode === 'color_picker' ? 'draw' : 'color_picker';
+            syncUiFromHost();
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'undo') {
+          btn.addEventListener('click', () => { handleUndo(); triggerHaptic(12); });
+        } else if (aDef.id === 'redo') {
+          btn.addEventListener('click', () => { handleRedo(); triggerHaptic(12); });
+        } else if (aDef.id === 'clear_layer') {
+          btn.addEventListener('click', () => {
+            if (confirm('Clear current active layer?')) runCmd('clear');
+            triggerHaptic(15);
+          });
+        } else if (aDef.id === 'hud_gear') {
+          btn.addEventListener('click', () => {
+            openHudCustomizer();
+            triggerHaptic(12);
+          });
         }
-        syncUiFromHost();
-        triggerHaptic(18);
+
+        hud.appendChild(btn);
+      });
+
+      syncInfinitePainterUI();
+    };
+
+    const openHudCustomizer = () => {
+      const modal = document.getElementById('sheet-hud-customizer');
+      if (!modal) return;
+      const sGrid = document.getElementById('ip-hud-sliders-toggle-grid');
+      const aGrid = document.getElementById('ip-hud-actions-toggle-grid');
+
+      if (sGrid) {
+        sGrid.innerHTML = '';
+        HUD_AVAILABLE_SLIDERS.forEach(s => {
+          const item = document.createElement('label');
+          item.className = 'ip-btn';
+          item.style.display = 'flex';
+          item.style.alignItems = 'center';
+          item.style.gap = '6px';
+          item.style.cursor = 'pointer';
+          const isChecked = ipActiveHudConfig.sliders.includes(s.id);
+          item.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} data-hud-slider="${s.id}"> <span>${s.label} (${s.id})</span>`;
+          item.querySelector('input').addEventListener('change', (e) => {
+            if (e.target.checked) {
+              if (!ipActiveHudConfig.sliders.includes(s.id)) ipActiveHudConfig.sliders.push(s.id);
+            } else {
+              ipActiveHudConfig.sliders = ipActiveHudConfig.sliders.filter(x => x !== s.id);
+            }
+            localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
+            renderIpThumbHud();
+          });
+          sGrid.appendChild(item);
+        });
+      }
+
+      if (aGrid) {
+        aGrid.innerHTML = '';
+        HUD_AVAILABLE_ACTIONS.forEach(a => {
+          const item = document.createElement('label');
+          item.className = 'ip-btn';
+          item.style.display = 'flex';
+          item.style.alignItems = 'center';
+          item.style.gap = '6px';
+          item.style.cursor = 'pointer';
+          const isChecked = ipActiveHudConfig.actions.includes(a.id);
+          item.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} data-hud-action="${a.id}"> <span>${a.label}</span>`;
+          item.querySelector('input').addEventListener('change', (e) => {
+            if (e.target.checked) {
+              if (!ipActiveHudConfig.actions.includes(a.id)) ipActiveHudConfig.actions.push(a.id);
+            } else {
+              ipActiveHudConfig.actions = ipActiveHudConfig.actions.filter(x => x !== a.id);
+            }
+            localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
+            renderIpThumbHud();
+          });
+          aGrid.appendChild(item);
+        });
+      }
+
+      modal.classList.add('active');
+    };
+
+    // HUD Customizer Presets
+    const btnHudDefault = document.getElementById('btn-ip-hud-preset-default');
+    if (btnHudDefault) {
+      btnHudDefault.addEventListener('click', () => {
+        ipActiveHudConfig = { sliders: ['size', 'opacity'], actions: ['swap_mode'] };
+        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
+        renderIpThumbHud();
+        openHudCustomizer();
+        triggerHaptic(12);
       });
     }
+
+    const btnHudPro = document.getElementById('btn-ip-hud-preset-pro');
+    if (btnHudPro) {
+      btnHudPro.addEventListener('click', () => {
+        ipActiveHudConfig = { sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing'], actions: ['swap_mode', 'pipette', 'hud_gear'] };
+        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
+        renderIpThumbHud();
+        openHudCustomizer();
+        triggerHaptic(12);
+      });
+    }
+
+    const btnHudFull = document.getElementById('btn-ip-hud-preset-full');
+    if (btnHudFull) {
+      btnHudFull.addEventListener('click', () => {
+        ipActiveHudConfig = {
+          sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'spacing', 'pickup'],
+          actions: ['swap_mode', 'pipette', 'undo', 'redo', 'clear_layer', 'hud_gear']
+        };
+        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
+        renderIpThumbHud();
+        openHudCustomizer();
+        triggerHaptic(12);
+      });
+    }
+
+    const btnOpenHudCust = document.getElementById('btn-ip-open-hud-customizer');
+    if (btnOpenHudCust) btnOpenHudCust.addEventListener('click', () => { closeAllSheets(); openHudCustomizer(); });
+
+    const btnCloseHudCust = document.getElementById('btn-ip-hud-save-close');
+    if (btnCloseHudCust) btnCloseHudCust.addEventListener('click', () => {
+      document.getElementById('sheet-hud-customizer')?.classList.remove('active');
+    });
+
+    renderIpThumbHud();
 
     // 3. Bottom Ribbon Buttons
     const btnIpColor = document.getElementById('btn-ip-color');
@@ -8755,31 +8949,37 @@ async function main() {
       brushNameLabel.textContent = p?.name || activeKey || 'Studio Inker';
     }
 
-    // 3. Thumb HUD Size & Opacity
+    // 3. Thumb HUD Dynamic Sliders & Actions
     if (host.brushParams) {
       const bp = host.brushParams;
-      const szVal = document.getElementById('ip-hud-size-val');
-      const szFill = document.getElementById('ip-vfill-size');
-      const szThumb = document.getElementById('ip-vthumb-size');
-      if (szVal) szVal.textContent = bp.size;
-      if (szFill && szThumb) {
-        const ratio = Math.max(0.02, Math.min(1, Math.sqrt(bp.size / 300)));
-        szFill.style.height = `${ratio * 100}%`;
-        szThumb.style.bottom = `${ratio * 100}%`;
-      }
-
-      const opVal = document.getElementById('ip-hud-op-val');
-      const opFill = document.getElementById('ip-vfill-op');
-      const opThumb = document.getElementById('ip-vthumb-op');
-      if (opVal) opVal.textContent = `${bp.opacity}%`;
-      if (opFill && opThumb) {
-        const opRatio = Math.max(0.01, Math.min(1, bp.opacity / 100));
-        opFill.style.height = `${opRatio * 100}%`;
-        opThumb.style.bottom = `${opRatio * 100}%`;
-      }
+      const slidersDef = [
+        { id: 'size', key: 'size', isCurve: true, unit: '', min: 1, max: 300 },
+        { id: 'opacity', key: 'opacity', isCurve: false, unit: '%', min: 1, max: 100 },
+        { id: 'flow', key: 'flow', isCurve: false, unit: '%', min: 1, max: 100 },
+        { id: 'hardness', key: 'hardness', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'smoothing', key: 'smoothing', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'spacing', key: 'spacing', isCurve: false, unit: '%', min: 1, max: 100 },
+        { id: 'pickup', key: 'color_pickup', isCurve: false, unit: '%', min: 0, max: 100 }
+      ];
+      slidersDef.forEach(s => {
+        const valEl = document.getElementById(`ip-hud-${s.id}-val`);
+        const fillEl = document.getElementById(`ip-vfill-${s.id}`);
+        const thumbEl = document.getElementById(`ip-vthumb-${s.id}`);
+        if (!valEl || !fillEl || !thumbEl) return;
+        const rawVal = bp[s.key] !== undefined ? bp[s.key] : (s.key === 'color_pickup' ? (bp.color_pickup || 0) : 0);
+        valEl.textContent = `${rawVal}${s.unit || ''}`;
+        let ratio = 0;
+        if (s.isCurve) {
+          ratio = Math.max(0.01, Math.min(1, Math.sqrt(Math.max(0, rawVal - 1) / 299)));
+        } else {
+          ratio = Math.max(0.01, Math.min(1, ((rawVal || 0) - (s.min || 0)) / ((s.max || 100) - (s.min || 0))));
+        }
+        fillEl.style.height = `${ratio * 100}%`;
+        thumbEl.style.bottom = `${ratio * 100}%`;
+      });
     }
 
-    // 4. Ribbon mode buttons
+    // 4. Ribbon mode & HUD buttons
     const isErase = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
     const isSmudge = host.actionMode === 'smudge' || (host.brushParams && host.brushParams.mode === 1);
     const isDraw = !isErase && !isSmudge;
@@ -8791,9 +8991,12 @@ async function main() {
     if (btnEraser) btnEraser.classList.toggle('active', isErase);
     if (btnBlend) btnBlend.classList.toggle('active', isSmudge);
 
-    // Swap mode button
+    // Swap mode button & Pipette HUD button
     const btnSwap = document.getElementById('btn-ip-swap-mode');
     if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
+
+    const btnPipette = document.getElementById('btn-ip-hud-pipette');
+    if (btnPipette) btnPipette.classList.toggle('active', host.actionMode === 'color_picker');
 
     // 5. Grid & Symmetry buttons
     const btnGrid = document.getElementById('btn-ip-grid');
@@ -8811,26 +9014,7 @@ async function main() {
       badge.textContent = host.canvasActor.exports.w_layer_get_count();
     }
 
-    // 7. Synchronize sheet layer list with live layer rows
-    const ipSheetLayersList = document.getElementById('ip-sheet-layers-list');
-    const uiLayersList = document.getElementById('ui-layers-list');
-    if (ipSheetLayersList && uiLayersList && uiLayersList.children.length > 0) {
-      if (ipSheetLayersList.dataset.syncSig !== uiLayersList.innerHTML) {
-        ipSheetLayersList.innerHTML = '';
-        Array.from(uiLayersList.children).forEach(child => {
-          const clone = child.cloneNode(true);
-          clone.addEventListener('click', () => child.click());
-          clone.querySelectorAll('button').forEach((b, idx) => {
-            const origB = child.querySelectorAll('button')[idx];
-            if (origB) b.addEventListener('click', (e) => { e.stopPropagation(); origB.click(); });
-          });
-          ipSheetLayersList.appendChild(clone);
-        });
-        ipSheetLayersList.dataset.syncSig = uiLayersList.innerHTML;
-      }
-    }
-
-    // 8. Brush Studio Lab values synchronization
+    // 7. Brush Studio Lab values synchronization
     if (host.brushParams) {
       const bp = host.brushParams;
       const setLabSlider = (sliderId, valId, val, suf = '') => {

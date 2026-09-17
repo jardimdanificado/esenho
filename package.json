@@ -1,6 +1,6 @@
 {
   "name": "esenho",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "index.js",
   "scripts": {
     "test": "node tests/test_text_protocol.js",

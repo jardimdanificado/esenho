@@ -2265,6 +2265,8 @@
       align-items: center;
       gap: 3px;
       position: relative;
+      touch-action: none;
+      cursor: ns-resize;
     }
     .ip-hud-pill {
       background: #181a1b;
@@ -2275,6 +2277,8 @@
       flex-direction: column;
       align-items: center;
       min-width: 32px;
+      touch-action: none;
+      cursor: ns-resize;
     }
     .ip-hud-lbl {
       font-size: 7px;
@@ -2916,11 +2920,6 @@
       <span id="ip-active-brush-name" class="ip-ribbon-label">Studio Inker</span>
     </button>
 
-    <button type="button" id="btn-ip-blend" class="ip-ribbon-btn" title="Blend / Smudge Mode">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-      <span>Blend</span>
-    </button>
-
     <button type="button" id="btn-ip-tools" class="ip-ribbon-btn" title="Shapes, Fill & Selection">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="6" cy="6" r="3"/><rect x="14" y="3" width="7" height="7" rx="1"/><polygon points="12 21 5 13 19 13"/></svg>
       <span>Tools</span>
@@ -3158,10 +3157,7 @@
             <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Project File</span>
             <span id="ip-menu-autosave-badge" style="font-size: 10px; color: #b8bb26; font-weight: bold;">Autosaved</span>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;">Save Project</button>
-            <a href="index.html" class="ip-btn" style="text-decoration: none; justify-content: center;">Start Launcher</a>
-          </div>
+          <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; width: 100%;">Save Project</button>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
             <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
@@ -3198,13 +3194,14 @@
           </div>
         </div>
 
-        <!-- Interface Mode Switcher -->
+        <!-- UI & HUD Customization -->
         <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">UI Interface Mode</span>
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">UI &amp; Customization</span>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <button type="button" id="btn-set-ui-ip" class="ip-btn active" style="font-weight: bold; background: #fabd2f; color: #1d2021;">Modern Touch</button>
             <button type="button" id="btn-set-ui-classic" class="ip-btn">Classic Dock</button>
           </div>
+          <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: #fabd2f; color: #fabd2f;">⚙ Customize Side Thumb HUD</button>
         </div>
 
         <!-- Developer REPL Console & Scripts -->
@@ -3507,6 +3504,37 @@
             <button type="button" id="ip-btn-run-selection" class="ip-btn" style="flex: 1; height: 32px;">Run Selected</button>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SHEET 8: HUD CUSTOMIZER MODAL ── -->
+  <div id="sheet-hud-customizer" class="ip-sheet-modal">
+    <div class="ip-sheet" style="max-height: 85vh;">
+      <div class="ip-sheet-handle-row" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')"><div class="ip-sheet-handle"></div></div>
+      <div class="ip-sheet-header">
+        <span>CUSTOMIZE SIDE THUMB HUD</span>
+        <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')">✕</button>
+      </div>
+      <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px; max-height: calc(85vh - 70px); overflow-y: auto;">
+        <div style="color: #a89984; font-size: 11px;">
+          Choose which vertical sliders and quick action buttons appear on your left thumb HUD:
+        </div>
+
+        <div style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Vertical Sliders</div>
+        <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+
+        <div style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase; margin-top: 4px;">Quick Action Buttons</div>
+        <div id="ip-hud-actions-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
+
+        <div style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase; margin-top: 4px;">Presets</div>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+          <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
+          <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
+          <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
+        </div>
+
+        <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: #fabd2f; color: #1d2021; font-weight: bold; padding: 9px; margin-top: 4px;">Apply &amp; Close</button>
       </div>
     </div>
   </div>
