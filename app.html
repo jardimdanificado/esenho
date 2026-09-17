@@ -1292,10 +1292,21 @@
       border-bottom: 1px solid #282828;
       flex-shrink: 0;
     }
+    .dock-bar-row > * {
+      flex-shrink: 0;
+    }
     .dock-bar-row:first-child {
       background: #202224;
     }
     .dock-bar-row::-webkit-scrollbar { display: none; }
+
+    .tb-param-picker-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+      box-sizing: border-box;
+    }
 
     #bottom-dock-paramstrip {
       display: flex;

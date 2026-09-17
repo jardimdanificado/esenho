@@ -356,28 +356,19 @@ async function main() {
 
     const updateDockHeightUI = (clientY) => {
       if (!isDraggingDock) return;
-      const dy = clientY - startY;
+      const scale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ui-scale')) || 1;
+      const dy = (clientY - startY) / scale;
       if (!hasMoved && Math.abs(dy) > 3) hasMoved = true;
       if (!hasMoved) return;
 
       const maxH = Math.round(window.innerHeight * 0.75);
-      if (startH === 0) {
-        if (-dy > 12) {
-          let newH = Math.max(80, Math.min(maxH, -dy));
-          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncDrawerPanel(true, newH);
-        } else if (dy <= 18) {
-          syncDrawerPanel(false);
-        }
+      const newH = Math.max(0, Math.min(maxH, startH - dy));
+
+      if (newH > 20) {
+        document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
+        syncDrawerPanel(true, newH);
       } else {
-        let newH = startH - dy;
-        if (newH >= 70) {
-          newH = Math.min(maxH, newH);
-          document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncDrawerPanel(true, newH);
-        } else {
-          syncDrawerPanel(false);
-        }
+        syncDrawerPanel(false);
       }
     };
 
@@ -421,7 +412,9 @@ async function main() {
           if (uiEl.offsetHeight < 70) {
             syncDrawerPanel(false);
           } else {
-            localStorage.setItem('esenho_mobile_drawer_height', uiEl.offsetHeight);
+            const finalH = Math.max(80, uiEl.offsetHeight);
+            syncDrawerPanel(true, finalH);
+            localStorage.setItem('esenho_mobile_drawer_height', finalH);
           }
         }
       }
@@ -4581,9 +4574,11 @@ async function main() {
       label: 'Dynamic Parameter Slot + Dropdown',
       render: () => {
         const wrap = document.createElement('div');
+        wrap.className = 'tb-param-picker-wrap';
         wrap.style.display = 'inline-flex';
         wrap.style.alignItems = 'center';
         wrap.style.gap = '4px';
+        wrap.style.flexShrink = '0';
 
         const sel = document.createElement('select');
         sel.id = 'tb-param-select';
@@ -4688,7 +4683,6 @@ async function main() {
               const opt = document.createElement('option');
               opt.value = k;
               opt.textContent = p.name;
-              if (host.activeBrush === k) opt.selected = true;
               pSel.appendChild(opt);
             }
             const custom = host.customBrushPresets || {};
@@ -4696,7 +4690,6 @@ async function main() {
               const opt = document.createElement('option');
               opt.value = k;
               opt.textContent = p.name || k;
-              if (host.activeBrush === k) opt.selected = true;
               pSel.appendChild(opt);
             }
             pSel.addEventListener('change', () => {
@@ -4705,6 +4698,7 @@ async function main() {
                 syncUiFromHost();
                 triggerHaptic(15);
               }
+              pSel.selectedIndex = 0;
             });
             slot.appendChild(pSel);
           } else if (cfg.type === 'select_tip') {
@@ -4914,7 +4908,6 @@ async function main() {
             }
             sel.appendChild(grpCustom);
           }
-          if (host.activeBrush) sel.value = host.activeBrush;
         };
         populate();
         sel.addEventListener('focus', populate);
@@ -4925,13 +4918,9 @@ async function main() {
             syncUiFromHost();
             triggerHaptic(15);
           }
+          sel.selectedIndex = 0;
         });
-        const syncFn = () => {
-          if (host.activeBrush && sel.value !== host.activeBrush) {
-            sel.value = host.activeBrush;
-          }
-        };
-        return { el: sel, sync: syncFn };
+        return { el: sel, sync: () => {} };
       }
     },
 
