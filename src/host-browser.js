@@ -6610,20 +6610,21 @@ async function main() {
     }
 
     const selEl = document.getElementById('ui-select-scale');
-    if (selEl) {
+    const selIpScale = document.getElementById('ip-select-ui-scale');
+    [selEl, selIpScale].filter(Boolean).forEach(sEl => {
       if (isAuto) {
-        selEl.value = 'auto';
+        sEl.value = 'auto';
       } else {
-        selEl.value = String(effective);
-        if (selEl.selectedIndex === -1) {
+        sEl.value = String(effective);
+        if (sEl.selectedIndex === -1) {
           const opt = document.createElement('option');
           opt.value = String(effective);
           opt.textContent = `Custom (${Math.round(effective * 100)}%)`;
-          selEl.appendChild(opt);
-          selEl.value = String(effective);
+          sEl.appendChild(opt);
+          sEl.value = String(effective);
         }
       }
-    }
+    });
 
     try {
       localStorage.setItem('esenho_ui_scale', isAuto ? 'auto' : String(effective));
@@ -7886,9 +7887,30 @@ async function main() {
       { id: 'opacity', label: 'Opac', key: 'opacity', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: true },
       { id: 'flow', label: 'Flow', key: 'flow', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'hardness', label: 'Hard', key: 'hardness', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'roundness', label: 'Round', key: 'roundness', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'angle', label: 'Angle', key: 'angle', min: 0, max: 360, isCurve: false, unit: '°', defaultOn: false },
+      { id: 'spacing', label: 'Spac', key: 'spacing', min: 1, max: 200, isCurve: false, unit: '%', defaultOn: false },
       { id: 'smoothing', label: 'Smth', key: 'smoothing', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
-      { id: 'spacing', label: 'Spac', key: 'spacing', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false },
-      { id: 'pickup', label: 'Mix', key: 'color_pickup', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false }
+      { id: 'midpoint', label: 'MidPt', key: 'midpoint', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'velocity', label: 'Velo', key: 'velocity', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'taper_in', label: 'TapIn', key: 'taper_in', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'taper_out', label: 'TapOut', key: 'taper_out', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'fade', label: 'Fade', key: 'fade', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'wetness', label: 'Wet', key: 'wetness', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'smudge', label: 'Smdg', key: 'smudge', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'pickup', label: 'Mix', key: 'color_pickup', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'depletion', label: 'Dry', key: 'depletion', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'scatter', label: 'Scat', key: 'scatter', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'size_jitter', label: 'JitSz', key: 'size_jitter', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'angle_jitter', label: 'JitAng', key: 'angle_jitter', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'opacity_jitter', label: 'JitOp', key: 'opacity_jitter', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'color_jitter', label: 'JitCol', key: 'color_jitter', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'grain', label: 'Grain', key: 'grain', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'tex_scale', label: 'TexSz', key: 'texture_scale', min: 10, max: 400, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'tex_contrast', label: 'TexCt', key: 'texture_contrast', min: 0, max: 200, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'tex_rotate', label: 'TexRot', key: 'texture_rotate', min: 0, max: 360, isCurve: false, unit: '°', defaultOn: false },
+      { id: 'dual_size', label: 'DualSz', key: 'dual_size', min: 10, max: 300, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'dual_spacing', label: 'DualSp', key: 'dual_spacing', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false }
     ];
 
     const HUD_AVAILABLE_ACTIONS = [
@@ -8213,9 +8235,6 @@ async function main() {
 
     const btnIpTools = document.getElementById('btn-ip-tools');
     if (btnIpTools) btnIpTools.addEventListener('click', () => toggleSheet('sheet-tools'));
-
-    const btnIpBottomLayers = document.getElementById('btn-ip-bottom-layers');
-    if (btnIpBottomLayers) btnIpBottomLayers.addEventListener('click', () => toggleSheet('sheet-layers'));
 
     const btnIpPixel = document.getElementById('btn-ip-pixel');
     if (btnIpPixel) btnIpPixel.addEventListener('click', () => toggleSheet('sheet-pixelart'));
@@ -8698,7 +8717,7 @@ async function main() {
       });
     }
 
-    // 9. Brush Studio Lab Tabs & Controls
+    // 9. Brush Lab Tabs & Controls
     const labTabs = document.querySelectorAll('#ip-lab-tabs .ip-pill-btn');
     const labPanels = document.querySelectorAll('.ip-lab-tab-panel');
     labTabs.forEach(tab => {
@@ -8712,17 +8731,41 @@ async function main() {
       });
     });
 
-    const shapeBtns = document.querySelectorAll('.ip-shape-btn');
-    shapeBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        shapeBtns.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        const sId = parseInt(btn.dataset.shape, 10);
-        runCmd(`set shape ${sId}`);
+    const selBrushShape = document.getElementById('ip-sel-brush-shape');
+    if (selBrushShape) {
+      selBrushShape.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val.startsWith('layer:')) {
+          const lId = parseInt(val.split(':')[1], 10);
+          runCmd(`set shape ${lId}`);
+        } else {
+          runCmd(`set shape ${val}`);
+        }
         triggerHaptic(10);
-        updateTestPad();
       });
-    });
+    }
+
+    const selBrushTex = document.getElementById('ip-sel-texture');
+    if (selBrushTex) {
+      selBrushTex.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val.startsWith('layer:')) {
+          const lId = parseInt(val.split(':')[1], 10);
+          runCmd(`set tex_layer ${lId}`);
+        } else {
+          runCmd(`set tex_layer -1`);
+          runCmd(`set texture ${val}`);
+        }
+        triggerHaptic(10);
+      });
+    }
+
+    const selIpUiScale = document.getElementById('ip-select-ui-scale');
+    if (selIpUiScale) {
+      selIpUiScale.addEventListener('change', (e) => {
+        host.setUiScale(e.target.value);
+      });
+    }
 
     const linkLabSlider = (sliderId, valId, cmdName, suf = '') => {
       const s = document.getElementById(sliderId);
@@ -8731,7 +8774,6 @@ async function main() {
         s.addEventListener('input', () => {
           runCmd(`set ${cmdName} ${s.value}`);
           if (v) v.textContent = s.value + suf;
-          updateTestPad();
         });
       }
     };
@@ -8796,13 +8838,11 @@ async function main() {
       if (sel) {
         sel.addEventListener('change', (e) => {
           runCmd(`set ${cmdName} ${e.target.value}`);
-          updateTestPad();
         });
       }
     };
     bindSelect('ip-sel-dab-blend', 'dab_blend');
     bindSelect('ip-sel-dual-shape', 'dual_shape');
-    bindSelect('ip-sel-texture', 'texture');
     bindSelect('ip-sel-tex-mode', 'texture_mode');
 
     // Reset & Save preset buttons
@@ -8812,7 +8852,6 @@ async function main() {
         runCmd('reset tool');
         syncInfinitePainterUI();
         triggerHaptic(15);
-        updateTestPad();
       });
     }
 
@@ -8834,98 +8873,6 @@ async function main() {
           alert(`Brush preset "${name.trim()}" saved!`);
         }
       });
-    }
-
-    // 10. Live Brush Test Pad
-    const padCanvas = document.getElementById('ip-brush-testpad');
-    let padCtx = null;
-    if (padCanvas) {
-      padCtx = padCanvas.getContext('2d');
-      const clearPad = () => {
-        if (!padCtx) return;
-        padCtx.fillStyle = '#232524';
-        padCtx.fillRect(0, 0, padCanvas.width, padCanvas.height);
-      };
-      clearPad();
-
-      const btnPadClear = document.getElementById('btn-ip-pad-clear');
-      if (btnPadClear) btnPadClear.addEventListener('click', clearPad);
-
-      let padDrawing = false;
-      let lastX = 0, lastY = 0;
-
-      const getPadPos = (e) => {
-        const r = padCanvas.getBoundingClientRect();
-        const clientX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-        const clientY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-        return {
-          x: (clientX - r.left) * (padCanvas.width / r.width),
-          y: (clientY - r.top) * (padCanvas.height / r.height)
-        };
-      };
-
-      const startPad = (e) => {
-        padDrawing = true;
-        const pos = getPadPos(e);
-        lastX = pos.x;
-        lastY = pos.y;
-        e.preventDefault();
-      };
-
-      const movePad = (e) => {
-        if (!padDrawing || !padCtx) return;
-        const pos = getPadPos(e);
-        const bp = host.brushParams || {};
-        const sz = Math.max(1, Math.min(48, (bp.size || 16) * 0.75));
-        const op = (bp.opacity !== undefined ? bp.opacity : 100) / 100;
-        padCtx.strokeStyle = host.brushColor || '#fabd2f';
-        padCtx.globalAlpha = op;
-        padCtx.lineWidth = sz;
-        padCtx.lineCap = (bp.shape === 1) ? 'square' : 'round';
-        padCtx.lineJoin = 'round';
-        padCtx.beginPath();
-        padCtx.moveTo(lastX, lastY);
-        padCtx.lineTo(pos.x, pos.y);
-        padCtx.stroke();
-        padCtx.globalAlpha = 1.0;
-        lastX = pos.x;
-        lastY = pos.y;
-        e.preventDefault();
-      };
-
-      const endPad = () => { padDrawing = false; };
-
-      padCanvas.addEventListener('pointerdown', startPad);
-      padCanvas.addEventListener('pointermove', movePad);
-      padCanvas.addEventListener('pointerup', endPad);
-      padCanvas.addEventListener('pointercancel', endPad);
-
-      window._updateBrushTestPad = () => {
-        if (!padCtx) return;
-        clearPad();
-        const bp = host.brushParams || {};
-        const sz = Math.max(2, Math.min(36, (bp.size || 16) * 0.6));
-        const op = (bp.opacity !== undefined ? bp.opacity : 100) / 100;
-        padCtx.save();
-        padCtx.strokeStyle = host.brushColor || '#fabd2f';
-        padCtx.globalAlpha = op;
-        padCtx.lineWidth = sz;
-        padCtx.lineCap = (bp.shape === 1) ? 'square' : 'round';
-        padCtx.lineJoin = 'round';
-        padCtx.beginPath();
-        padCtx.moveTo(20, 36);
-        padCtx.bezierCurveTo(90, 8, 170, 64, 250, 20);
-        padCtx.lineTo(320, 36);
-        padCtx.stroke();
-        padCtx.restore();
-      };
-      setTimeout(window._updateBrushTestPad, 100);
-    }
-
-    function updateTestPad() {
-      if (typeof window._updateBrushTestPad === 'function') {
-        window._updateBrushTestPad();
-      }
     }
   }
 
@@ -8949,7 +8896,7 @@ async function main() {
       brushNameLabel.textContent = p?.name || activeKey || 'Studio Inker';
     }
 
-    // 3. Thumb HUD Dynamic Sliders & Actions
+    // 3. Thumb HUD Dynamic Sliders & Actions (All 28 supported sliders)
     if (host.brushParams) {
       const bp = host.brushParams;
       const slidersDef = [
@@ -8957,16 +8904,45 @@ async function main() {
         { id: 'opacity', key: 'opacity', isCurve: false, unit: '%', min: 1, max: 100 },
         { id: 'flow', key: 'flow', isCurve: false, unit: '%', min: 1, max: 100 },
         { id: 'hardness', key: 'hardness', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'roundness', key: 'roundness', isCurve: false, unit: '%', min: 1, max: 100 },
+        { id: 'angle', key: 'angle', isCurve: false, unit: '°', min: 0, max: 360 },
+        { id: 'spacing', key: 'spacing', isCurve: false, unit: '%', min: 1, max: 200 },
         { id: 'smoothing', key: 'smoothing', isCurve: false, unit: '%', min: 0, max: 100 },
-        { id: 'spacing', key: 'spacing', isCurve: false, unit: '%', min: 1, max: 100 },
-        { id: 'pickup', key: 'color_pickup', isCurve: false, unit: '%', min: 0, max: 100 }
+        { id: 'midpoint', key: 'midpoint', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'velocity', key: 'velocity', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'taper_in', key: 'taper_in', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'taper_out', key: 'taper_out', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'fade', key: 'fade', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'wetness', key: 'wetness', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'smudge', key: 'smudge', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'pickup', key: 'color_pickup', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'depletion', key: 'depletion', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'scatter', key: 'scatter', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'size_jitter', key: 'size_jitter', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'angle_jitter', key: 'angle_jitter', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'opacity_jitter', key: 'opacity_jitter', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'color_jitter', key: 'color_jitter', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'grain', key: 'grain', isCurve: false, unit: '%', min: 0, max: 100 },
+        { id: 'tex_scale', key: 'texture_scale', isCurve: false, unit: '%', min: 10, max: 400 },
+        { id: 'tex_contrast', key: 'texture_contrast', isCurve: false, unit: '%', min: 0, max: 200 },
+        { id: 'tex_rotate', key: 'texture_rotate', isCurve: false, unit: '°', min: 0, max: 360 },
+        { id: 'dual_size', key: 'dual_size', isCurve: false, unit: '%', min: 10, max: 300 },
+        { id: 'dual_spacing', key: 'dual_spacing', isCurve: false, unit: '%', min: 1, max: 100 }
       ];
       slidersDef.forEach(s => {
         const valEl = document.getElementById(`ip-hud-${s.id}-val`);
         const fillEl = document.getElementById(`ip-vfill-${s.id}`);
         const thumbEl = document.getElementById(`ip-vthumb-${s.id}`);
         if (!valEl || !fillEl || !thumbEl) return;
-        const rawVal = bp[s.key] !== undefined ? bp[s.key] : (s.key === 'color_pickup' ? (bp.color_pickup || 0) : 0);
+        let rawVal = bp[s.key];
+        if (rawVal === undefined) {
+          if (s.key === 'smoothing' && bp.stabilization !== undefined) rawVal = bp.stabilization;
+          else if (s.key === 'texture_scale' && bp.tex_scale !== undefined) rawVal = bp.tex_scale;
+          else if (s.key === 'texture_contrast' && bp.tex_contrast !== undefined) rawVal = bp.tex_contrast;
+          else if (s.key === 'texture_rotate' && bp.texture_angle !== undefined) rawVal = bp.texture_angle;
+          else if (s.key === 'color_pickup' && bp.pickup !== undefined) rawVal = bp.pickup;
+          else rawVal = s.min || 0;
+        }
         valEl.textContent = `${rawVal}${s.unit || ''}`;
         let ratio = 0;
         if (s.isCurve) {
@@ -9008,13 +8984,35 @@ async function main() {
       btnSym.classList.toggle('active', sym > 0);
     }
 
-    // 6. Layer count badge
-    const badge = document.getElementById('ip-layer-badge');
-    if (badge && host.canvasActor?.exports?.w_layer_get_count) {
-      badge.textContent = host.canvasActor.exports.w_layer_get_count();
+    // 6. Brush Lab values & Layer pickers synchronization
+    const layerCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_count)
+      ? host.canvasActor.exports.w_layer_get_count()
+      : 1;
+
+    const shapeOptgroup = document.getElementById('ip-optgroup-shape-layers');
+    if (shapeOptgroup) {
+      shapeOptgroup.innerHTML = '';
+      for (let i = 0; i < layerCount; i++) {
+        const opt = document.createElement('option');
+        opt.value = `layer:${i}`;
+        const name = host.layerNames?.get(i) || `Layer ${i + 1}`;
+        opt.textContent = `Layer: ${name} (ID: ${i})`;
+        shapeOptgroup.appendChild(opt);
+      }
     }
 
-    // 7. Brush Studio Lab values synchronization
+    const texOptgroup = document.getElementById('ip-optgroup-tex-layers');
+    if (texOptgroup) {
+      texOptgroup.innerHTML = '';
+      for (let i = 0; i < layerCount; i++) {
+        const opt = document.createElement('option');
+        opt.value = `layer:${i}`;
+        const name = host.layerNames?.get(i) || `Layer ${i + 1}`;
+        opt.textContent = `Layer: ${name} (ID: ${i})`;
+        texOptgroup.appendChild(opt);
+      }
+    }
+
     if (host.brushParams) {
       const bp = host.brushParams;
       const setLabSlider = (sliderId, valId, val, suf = '') => {
@@ -9033,11 +9031,18 @@ async function main() {
         labName.textContent = `(${p?.name || activeKey || 'Custom'})`;
       }
 
-      // Tip shape active buttons
-      const curShape = bp.shape !== undefined ? bp.shape : 0;
-      document.querySelectorAll('.ip-shape-btn').forEach(btn => {
-        btn.classList.toggle('active', parseInt(btn.dataset.shape, 10) === curShape);
-      });
+      // Tip shape selection
+      const selShape = document.getElementById('ip-sel-brush-shape');
+      if (selShape) {
+        const curShape = bp.shape !== undefined ? bp.shape : 0;
+        if (typeof curShape === 'string' && curShape.startsWith('layer:')) {
+          selShape.value = curShape;
+        } else if (curShape >= 0 && curShape <= 7) {
+          selShape.value = String(curShape);
+        } else {
+          selShape.value = `layer:${curShape}`;
+        }
+      }
 
       // Tip
       setLabSlider('ip-slider-hardness', 'ip-val-hardness', bp.hardness ?? 100, '%');
@@ -9093,12 +9098,15 @@ async function main() {
       };
       setSel('ip-sel-dab-blend', bp.dab_blend ?? 0);
       setSel('ip-sel-dual-shape', bp.dual_shape ?? -1);
-      setSel('ip-sel-texture', host.activeTexture || 'none');
-      setSel('ip-sel-tex-mode', bp.texture_mode ?? 0);
-
-      if (typeof window._updateBrushTestPad === 'function') {
-        window._updateBrushTestPad();
+      const selTex = document.getElementById('ip-sel-texture');
+      if (selTex) {
+        if (bp.tex_layer !== undefined && bp.tex_layer >= 0) {
+          selTex.value = `layer:${bp.tex_layer}`;
+        } else {
+          selTex.value = host.activeTexture || bp.texture || 'none';
+        }
       }
+      setSel('ip-sel-tex-mode', bp.texture_mode ?? 0);
     }
   }
 
