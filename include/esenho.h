@@ -77,7 +77,8 @@ enum {
     W_PARAM_SYMMETRY       = 38, /* symmetry mode: 0=off, 1=vertical, 2=horizontal, 3=both */
     W_PARAM_PRESSURE_SIZE  = 39, /* stylus pressure controls brush size: 0=off, 1=on */
     W_PARAM_PRESSURE_FLOW  = 40, /* stylus pressure controls brush flow/opacity: 0=off, 1=on */
-    W_PARAM_TILT_ANGLE     = 41  /* stylus tilt controls brush angle/roundness: 0=off, 1=on */
+    W_PARAM_TILT_ANGLE     = 41, /* stylus tilt controls brush angle/roundness: 0=off, 1=on */
+    W_PARAM_BUILDUP        = 42  /* continuous dab buildup mode within single stroke: 0=off (stroke opacity ceiling), 1=on */
 };
 
 enum {
@@ -292,6 +293,8 @@ static inline uint32_t w_hsv_to_rgb(int h, int s, int v, uint32_t alpha) {
 /** Applies brush dab blend mode (Multiply, Screen, Overlay, Dodge, Add) */
 static inline uint32_t w_apply_dab_blend(int mode, uint32_t src, uint32_t dst) {
     if (mode == 0) return src;
+    uint32_t da = (dst >> 24) & 0xFF;
+    if (da == 0) return src;
     uint32_t sr = src & 0xFF, sg = (src >> 8) & 0xFF, sb = (src >> 16) & 0xFF;
     uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
     uint32_t r, g, b;
@@ -341,10 +344,8 @@ static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, 
     uint32_t inv_sa = 255 - eff_sa;
 
     uint32_t out_a = eff_sa + (da * inv_sa) / 255;
-    if (max_alpha > 0 && out_a > max_alpha && da < max_alpha) {
+    if (max_alpha > 0 && out_a > max_alpha) {
         out_a = max_alpha;
-    } else if (max_alpha > 0 && out_a > max_alpha && da >= max_alpha) {
-        out_a = da;
     }
     if (out_a > 255) out_a = 255;
     if (out_a == 0) return dst;
@@ -357,10 +358,12 @@ static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, 
 
     uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
     uint32_t dst_factor = (da * inv_sa) / 255;
+    uint32_t norm_a = eff_sa + dst_factor;
+    if (norm_a == 0) norm_a = 1;
 
-    uint32_t out_r = (sr * eff_sa + dr * dst_factor) / out_a;
-    uint32_t out_g = (sg * eff_sa + dg * dst_factor) / out_a;
-    uint32_t out_b = (sb * eff_sa + db * dst_factor) / out_a;
+    uint32_t out_r = (sr * eff_sa + dr * dst_factor) / norm_a;
+    uint32_t out_g = (sg * eff_sa + dg * dst_factor) / norm_a;
+    uint32_t out_b = (sb * eff_sa + db * dst_factor) / norm_a;
 
     if (out_r > 255) out_r = 255;
     if (out_g > 255) out_g = 255;

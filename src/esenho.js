@@ -169,7 +169,10 @@ const PARAM_IDS = {
   pressure_flow: 40,
   stylus_flow: 40,
   tilt_angle: 41,
-  stylus_tilt: 41
+  stylus_tilt: 41,
+  buildup: 42,
+  accumulate: 42,
+  build_up: 42
 };
 
 /**
@@ -3289,7 +3292,8 @@ class EsenhoScreenHost {
       dual_spacing: 10,
       pressure_size: 1,
       pressure_flow: 1,
-      tilt_angle: 1
+      tilt_angle: 1,
+      buildup: 0
     };
 
     // Canvas Viewport Flip
@@ -4661,7 +4665,8 @@ class EsenhoScreenHost {
       dual_spacing: 10,
       pressure_size: 1,
       pressure_flow: 1,
-      tilt_angle: 1
+      tilt_angle: 1,
+      buildup: 0
     };
     if (this.canvasActor && this.canvasActor.exports) {
       if (typeof this.canvasActor.exports.w_brush_reset === 'function') {
@@ -4844,8 +4849,9 @@ class EsenhoScreenHost {
    * @param {'layer'|'group'} targetType
    * @param {number|string} targetId
    * @param {'before'|'after'|'inside'} dropPos
+   * @param {boolean} [pushUndo=true]
    */
-  reorderTreeItem(draggedType, draggedId, targetType, targetId, dropPos) {
+  reorderTreeItem(draggedType, draggedId, targetType, targetId, dropPos, pushUndo = true) {
     this.ensureTreeIntegrity();
     if (draggedType === targetType && String(draggedId) === String(targetId)) return false;
 
@@ -4943,7 +4949,7 @@ class EsenhoScreenHost {
 
     this.ensureTreeIntegrity();
     this.syncWasmLayerOrderFromTree();
-    this.pushUndoSnapshot('layer tree reorder');
+    if (pushUndo) this.pushUndoSnapshot('layer tree reorder');
     return true;
   }
 
@@ -4980,7 +4986,7 @@ class EsenhoScreenHost {
   /**
    * Adds a layer to a group / folder.
    */
-  addLayerToGroup(groupIdOrName, layerId) {
+  addLayerToGroup(groupIdOrName, layerId, pushUndo = true) {
     let grp = this.layerGroups.get(groupIdOrName);
     if (!grp) {
       for (const g of this.layerGroups.values()) {
@@ -4991,7 +4997,11 @@ class EsenhoScreenHost {
       }
     }
     if (!grp) return false;
-    return this.reorderTreeItem('layer', layerId, 'group', grp.id, 'inside');
+    const lId = parseInt(layerId, 10);
+    if (grp.children && grp.children.some(c => c.type === 'layer' && c.id === lId)) {
+      return true;
+    }
+    return this.reorderTreeItem('layer', lId, 'group', grp.id, 'inside', pushUndo);
   }
 
   /**
@@ -5241,7 +5251,8 @@ class EsenhoScreenHost {
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
         flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend',
         dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup',
-        mirror: 'symmetry', stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle'
+        mirror: 'symmetry', stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle',
+        accumulate: 'buildup', build_up: 'buildup'
       };
       const canonKey = canonMap[key] || key;
       this.brushParams[canonKey] = numericVal;
@@ -5259,12 +5270,14 @@ class EsenhoScreenHost {
    * Also auto-assigns textures to tips/grains layer groups by category.
    */
   registerAllTexturesAsLayers() {
+    if (this._texturesRegistered) return;
     if (!this.canvasActor || typeof this.canvasActor.exports.w_texture_create !== 'function') return;
+    this._texturesRegistered = true;
     for (const [name, tex] of this.textures.entries()) {
       if (tex.wasmId !== undefined && tex.wasmId >= 0) {
         // Pre-assigned (builtin shapes: circle=0, square=1, chisel=2) — just ensure group membership
-        if (tex.category === 'shape') this.addLayerToGroup('tips', tex.wasmId);
-        else if (tex.category === 'texture') this.addLayerToGroup('grains', tex.wasmId);
+        if (tex.category === 'shape') this.addLayerToGroup('tips', tex.wasmId, false);
+        else if (tex.category === 'texture') this.addLayerToGroup('grains', tex.wasmId, false);
         continue;
       }
       const id = this.canvasActor.exports.w_texture_create(tex.width, tex.height);
@@ -5274,8 +5287,8 @@ class EsenhoScreenHost {
       if (ptr && tex.data) {
         new Uint8Array(this.canvasActor.memory.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
       }
-      if (tex.category === 'shape') this.addLayerToGroup('tips', id);
-      else if (tex.category === 'texture') this.addLayerToGroup('grains', id);
+      if (tex.category === 'shape') this.addLayerToGroup('tips', id, false);
+      else if (tex.category === 'texture') this.addLayerToGroup('grains', id, false);
     }
   }
 

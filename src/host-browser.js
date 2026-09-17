@@ -2717,6 +2717,11 @@ async function main() {
     el._currentVal = String(el.value);
     el.addEventListener('input', () => {
       if (badge) badge.textContent = el.value + suffix;
+      const num = parseFloat(el.value);
+      if (!isNaN(num)) {
+        const pKey = cmdPrefix.replace(/^(brush|set)\s+/, '').trim();
+        host.setBrushParam(pKey, num);
+      }
     });
     el.addEventListener('change', () => {
       el._currentVal = String(el.value);
@@ -5782,6 +5787,11 @@ async function main() {
         ? host.canvasActor.exports.get_active_layer() : 0;
       const opCell = document.getElementById(`layer-op-text-${curActive}`);
       if (opCell) opCell.textContent = activeLayerOp.value + '%';
+      const val = parseInt(activeLayerOp.value, 10);
+      const op255 = Math.min(255, Math.max(0, Math.round(val * 255 / 100)));
+      if (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_opacity) {
+        host.canvasActor.exports.w_layer_opacity(curActive, op255);
+      }
     });
     activeLayerOp.addEventListener('change', () => {
       activeLayerOp._currentVal = String(activeLayerOp.value);

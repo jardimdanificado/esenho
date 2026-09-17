@@ -138,6 +138,62 @@ async function run() {
     throw new Error(`Expected alpha ~102 (40% opacity), got ${opAlpha}`);
   }
 
+  // Test Opacity Blending over existing opaque background
+  // Paint opaque green at 200, 200
+  host.executeCommand('set opacity 100');
+  host.sendStroke(200, 200, 200, 200, 0, 0, 0xFF00FF00); // ABGR Green
+  // Paint 50% opacity Red at 200, 200
+  host.executeCommand('set opacity 50');
+  host.sendStroke(200, 200, 200, 200, 0, 0, 0xFF0000FF); // ABGR Red (50%)
+  const blendPix = pixels[200 * 640 + 200];
+  const blendR = blendPix & 0xFF;
+  const blendG = (blendPix >> 8) & 0xFF;
+  const blendA = (blendPix >> 24) & 0xFF;
+  if (blendA !== 255 || blendR < 100 || blendR > 155 || blendG < 100 || blendG > 155) {
+    throw new Error(`Expected 50% blend of Red and Green (R~128, G~128, A=255), got R=${blendR}, G=${blendG}, A=${blendA}`);
+  }
+
+  // Test Photoshop-style Stroke Ceiling vs Multi-Stroke Accumulation
+  // 1. Single stroke with 50% opacity: multiple moves in same stroke (state=1) shouldn't exceed ~128 alpha
+  host.executeCommand('clear layer');
+  host.executeCommand('set opacity 50');
+  host.executeCommand('set flow 100');
+  host.executeCommand('set buildup off');
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF0000FF); // Start stroke 1
+  host.sendStroke(100, 100, 100, 100, 1, 0, 0xFF0000FF); // Move in stroke 1
+  host.sendStroke(100, 100, 100, 100, 1, 0, 0xFF0000FF); // Move in stroke 1
+  host.sendStroke(100, 100, 100, 100, 2, 0, 0xFF0000FF); // End stroke 1
+  const s1A = (pixels[100 * 640 + 100] >> 24) & 0xFF;
+  if (s1A < 115 || s1A > 135) {
+    throw new Error(`Expected single stroke opacity capped at ~128, got ${s1A}`);
+  }
+
+  // 2. Separate stroke 2 on top of stroke 1: must accumulate alpha beyond 128 (to ~192)
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF0000FF); // Start stroke 2
+  host.sendStroke(100, 100, 100, 100, 2, 0, 0xFF0000FF); // End stroke 2
+  const s2A = (pixels[100 * 640 + 100] >> 24) & 0xFF;
+  if (s2A < 180 || s2A > 205) {
+    throw new Error(`Expected 2nd stroke to accumulate alpha to ~192, got ${s2A}`);
+  }
+
+  // 3. Separate stroke 3 on top: must accumulate to ~224
+  host.sendStroke(100, 100, 100, 100, 0, 0, 0xFF0000FF); // Start stroke 3
+  host.sendStroke(100, 100, 100, 100, 2, 0, 0xFF0000FF); // End stroke 3
+  const s3A = (pixels[100 * 640 + 100] >> 24) & 0xFF;
+  if (s3A < 215 || s3A > 235) {
+    throw new Error(`Expected 3rd stroke to accumulate alpha to ~224, got ${s3A}`);
+  }
+
+  // 4. Test Continuous Buildup Mode (accumulate on)
+  host.executeCommand('set buildup on');
+  host.sendStroke(150, 150, 150, 150, 0, 0, 0xFF0000FF);
+  host.sendStroke(150, 150, 150, 150, 1, 0, 0xFF0000FF);
+  const buildupA = (pixels[150 * 640 + 150] >> 24) & 0xFF;
+  if (buildupA < 180) {
+    throw new Error(`Expected buildup mode to accumulate alpha in same stroke, got ${buildupA}`);
+  }
+  host.executeCommand('set buildup off');
+
   // Test Softness alias
   host.executeCommand('set softness 100'); // hardness = 0 (airbrush)
   if (host.brushParams.hardness !== 0) {

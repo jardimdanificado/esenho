@@ -41,6 +41,7 @@ static uint32_t out_pixels_cap = 0;
 void force_composite(void);
 int32_t get_width(void);
 int32_t get_height(void);
+static void ensure_stroke_buffers(uint32_t required_pixels);
 
 /* =========================================================================
  * Memory Management
@@ -525,6 +526,7 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
 
     doc_width = new_w;
     doc_height = new_h;
+    ensure_stroke_buffers(new_pixels);
     composite_surface();
 }
 
@@ -541,6 +543,15 @@ static inline uint32_t *get_current_draw_target(int *out_w, int *out_h) {
     return 0;
 }
 
+static inline void set_pixel_blended(uint32_t *pix, int idx, uint32_t color) {
+    uint32_t ca = (color >> 24) & 0xFF;
+    if (ca == 255) {
+        pix[idx] = color;
+    } else if (ca > 0) {
+        pix[idx] = blend_pixel(pix[idx], color, ca);
+    }
+}
+
 static void draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
@@ -553,7 +564,9 @@ static void draw_line(int x0, int y0, int x1, int y1, uint32_t color) {
     int err = dx - dy;
 
     while (1) {
-        if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h && !is_pixel_clipped(x0, y0)) pix[y0 * w + x0] = color;
+        if (x0 >= 0 && x0 < w && y0 >= 0 && y0 < h && !is_pixel_clipped(x0, y0)) {
+            set_pixel_blended(pix, y0 * w + x0, color);
+        }
         if (x0 == x1 && y0 == y1) break;
         int e2 = 2 * err;
         if (e2 > -dy) { err -= dy; x0 += sx; }
@@ -573,7 +586,7 @@ static void draw_rect(int rx, int ry, int rw, int rh, uint32_t color) {
             int px = rx + dx;
             if (px < 0 || px >= w) continue;
             if (is_pixel_clipped(px, py)) continue;
-            pix[py * w + px] = color;
+            set_pixel_blended(pix, py * w + px, color);
         }
     }
 }
@@ -591,7 +604,7 @@ static void draw_circle(int cx, int cy, int cr, uint32_t color) {
             int px = cx + dx;
             if (px < 0 || px >= w) continue;
             if (dx * dx + dy * dy <= r2) {
-                if (!is_pixel_clipped(px, py)) pix[py * w + px] = color;
+                if (!is_pixel_clipped(px, py)) set_pixel_blended(pix, py * w + px, color);
             }
         }
     }
@@ -614,7 +627,7 @@ static void draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color) {
             int px = cx + dx;
             if (px < 0 || px >= w) continue;
             if ((int64_t)dx * dx * ry2 + dy2_rx2 <= limit) {
-                if (!is_pixel_clipped(px, py)) pix[py * w + px] = color;
+                if (!is_pixel_clipped(px, py)) set_pixel_blended(pix, py * w + px, color);
             }
         }
     }
@@ -718,6 +731,7 @@ typedef struct {
     int32_t pressure_size;   // 0=off, 1=on (stylus pressure scales size)
     int32_t pressure_flow;   // 0=off, 1=on (stylus pressure scales flow)
     int32_t tilt_angle;      // 0=off, 1=on (stylus tilt controls angle/roundness)
+    int32_t buildup;         // 0=off (Photoshop stroke opacity ceiling), 1=on (continuous accumulation)
 } w_brush_config_t;
 
 static w_brush_config_t brush_config = {
@@ -760,8 +774,30 @@ static w_brush_config_t brush_config = {
     .symmetry = 0,
     .pressure_size = 1,
     .pressure_flow = 1,
-    .tilt_angle = 1
+    .tilt_angle = 1,
+    .buildup = 0
 };
+
+static uint32_t stroke_generation = 0;
+static uint32_t *stroke_tag = 0;
+static uint8_t  *stroke_mask = 0;
+static uint32_t *stroke_orig = 0;
+static uint32_t stroke_buf_cap = 0;
+
+static void ensure_stroke_buffers(uint32_t required_pixels) {
+    if (required_pixels > stroke_buf_cap) {
+        stroke_buf_cap = required_pixels;
+        stroke_tag = (uint32_t*)canvas_alloc(required_pixels * sizeof(uint32_t));
+        stroke_mask = (uint8_t*)canvas_alloc(required_pixels * sizeof(uint8_t));
+        stroke_orig = (uint32_t*)canvas_alloc(required_pixels * sizeof(uint32_t));
+        for (uint32_t i = 0; i < required_pixels; i++) {
+            stroke_tag[i] = 0;
+            stroke_mask[i] = 0;
+            stroke_orig[i] = 0;
+        }
+        stroke_generation = 1;
+    }
+}
 
 static uint32_t rng_state = 0x87654321;
 static inline uint32_t next_random(void) {
@@ -854,7 +890,7 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                     if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
                 }
 
-                uint32_t a = dab_flow_a;
+                uint32_t a = (dab_flow_a * max_stroke_a) / 255;
                 if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
                     a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
                 }
@@ -867,13 +903,44 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
 
                 if (is_eraser) {
                     if (!is_alpha_locked) {
-                        uint32_t da = orig_a;
-                        uint32_t na = (a >= da) ? 0 : (da - a);
-                        pixels[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                        if (!brush_config.buildup && stroke_tag && stroke_mask && stroke_orig) {
+                            if (stroke_tag[idx] != stroke_generation) {
+                                stroke_tag[idx] = stroke_generation;
+                                stroke_orig[idx] = dst_p;
+                                stroke_mask[idx] = 0;
+                            }
+                            uint32_t cur_m = stroke_mask[idx];
+                            uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                            if (new_m > 255) new_m = 255;
+                            stroke_mask[idx] = (uint8_t)new_m;
+                            uint32_t eff_erase_a = (new_m * max_stroke_a) / 255;
+                            uint32_t init_da = (stroke_orig[idx] >> 24) & 0xFF;
+                            uint32_t na = (eff_erase_a >= init_da) ? 0 : (init_da - eff_erase_a);
+                            pixels[idx] = (na == 0) ? 0 : ((na << 24) | (stroke_orig[idx] & 0x00FFFFFF));
+                        } else {
+                            uint32_t da = orig_a;
+                            uint32_t na = (a >= da) ? 0 : (da - a);
+                            pixels[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                        }
                     }
                 } else {
-                    uint32_t res = w_blend_fast(fill_color, dst_p, a, max_stroke_a);
-                    pixels[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                    if (!brush_config.buildup && stroke_tag && stroke_mask && stroke_orig) {
+                        if (stroke_tag[idx] != stroke_generation) {
+                            stroke_tag[idx] = stroke_generation;
+                            stroke_orig[idx] = dst_p;
+                            stroke_mask[idx] = 0;
+                        }
+                        uint32_t cur_m = stroke_mask[idx];
+                        uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                        if (new_m > 255) new_m = 255;
+                        stroke_mask[idx] = (uint8_t)new_m;
+                        uint32_t eff_a = (new_m * max_stroke_a) / 255;
+                        uint32_t res = w_blend_fast(fill_color, stroke_orig[idx], eff_a, 255);
+                        pixels[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                    } else {
+                        uint32_t res = w_blend_fast(fill_color, dst_p, a, max_stroke_a);
+                        pixels[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                    }
                 }
             }
         }
@@ -984,7 +1051,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
             }
 
-            // Hardness / Softness falloff
+            // Hardness / Softness falloff & Flow alpha calculation
             uint32_t a = (dab_flow_a * shape_a) / 255;
             if (brush_config.hardness < 100 && r > 0) {
                 if (brush_config.hardness == 0) {
@@ -1014,9 +1081,26 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
 
             if (eraser) {
                 if (!is_alpha_locked) {
-                    uint32_t da = orig_a;
-                    uint32_t na = (a >= da) ? 0 : (da - a);
-                    pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                    if (!brush_config.buildup && stroke_tag && stroke_mask && stroke_orig) {
+                        if (stroke_tag[idx] != stroke_generation) {
+                            stroke_tag[idx] = stroke_generation;
+                            stroke_orig[idx] = dst_p;
+                            stroke_mask[idx] = 0;
+                        }
+                        uint32_t cur_m = stroke_mask[idx];
+                        uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                        if (new_m > 255) new_m = 255;
+                        stroke_mask[idx] = (uint8_t)new_m;
+                        uint32_t eff_erase_a = (new_m * max_stroke_a) / 255;
+                        uint32_t init_da = (stroke_orig[idx] >> 24) & 0xFF;
+                        uint32_t na = (eff_erase_a >= init_da) ? 0 : (init_da - eff_erase_a);
+                        pix[idx] = (na == 0) ? 0 : ((na << 24) | (stroke_orig[idx] & 0x00FFFFFF));
+                    } else {
+                        uint32_t eff_erase_a = (a * max_stroke_a) / 255;
+                        uint32_t da = orig_a;
+                        uint32_t na = (eff_erase_a >= da) ? 0 : (da - eff_erase_a);
+                        pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
+                    }
                 }
             } else if (brush_config.type == W_MODE_SMUDGE) {
                 if (move_dx == 0 && move_dy == 0) continue;
@@ -1030,7 +1114,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (src_a == 0 && orig_a == 0) continue;
 
                 int strength = (brush_config.smudge_strength > 0) ? brush_config.smudge_strength : 70;
-                int eff_t = (strength * a) / 255;
+                uint32_t eff_a = (a * max_stroke_a) / 255;
+                int eff_t = (strength * eff_a) / 255;
                 if (eff_t <= 0) continue;
                 if (eff_t > 100) eff_t = 100;
 
@@ -1078,15 +1163,32 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     target_c = mix_color(color, local_c, brush_rate);
                 }
 
-                uint32_t res = w_blend_fast(target_c, dst_p, a, max_stroke_a);
+                uint32_t eff_a = (a * max_stroke_a) / 255;
+                uint32_t res = w_blend_fast(target_c, dst_p, eff_a, 255);
                 pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
             } else {
                 uint32_t target_color = color;
                 if (brush_config.dab_blend > 0) {
                     target_color = w_apply_dab_blend(brush_config.dab_blend, color, dst_p);
                 }
-                uint32_t res = w_blend_fast(target_color, dst_p, a, max_stroke_a);
-                pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                if (!brush_config.buildup && stroke_tag && stroke_mask && stroke_orig) {
+                    if (stroke_tag[idx] != stroke_generation) {
+                        stroke_tag[idx] = stroke_generation;
+                        stroke_orig[idx] = dst_p;
+                        stroke_mask[idx] = 0;
+                    }
+                    uint32_t cur_m = stroke_mask[idx];
+                    uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                    if (new_m > 255) new_m = 255;
+                    stroke_mask[idx] = (uint8_t)new_m;
+                    uint32_t eff_stroke_a = (new_m * max_stroke_a) / 255;
+                    uint32_t res = w_blend_fast(target_color, stroke_orig[idx], eff_stroke_a, 255);
+                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                } else {
+                    uint32_t eff_dab_a = (a * max_stroke_a) / 255;
+                    uint32_t res = w_blend_fast(target_color, dst_p, eff_dab_a, 255);
+                    pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
+                }
             }
         }
     }
@@ -1118,6 +1220,7 @@ static void init_surface_if_needed(void) {
         layer_count = 4;
         active_layer = 3;
         for (int i = 0; i < 4; i++) layer_order_add(i);
+        ensure_stroke_buffers(doc_width * doc_height);
         force_composite();
     }
 }
@@ -1679,6 +1782,7 @@ W_EXPORT void w_brush_set_param(int32_t param_id, int32_t val) {
         case W_PARAM_PRESSURE_SIZE:  brush_config.pressure_size = val ? 1 : 0; break;
         case W_PARAM_PRESSURE_FLOW:  brush_config.pressure_flow = val ? 1 : 0; break;
         case W_PARAM_TILT_ANGLE:     brush_config.tilt_angle = val ? 1 : 0; break;
+        case W_PARAM_BUILDUP:        brush_config.buildup = val ? 1 : 0; break;
     }
 }
 
@@ -1720,6 +1824,7 @@ W_EXPORT void w_brush_reset(void) {
     brush_config.dual_size = 100;
     brush_config.dual_spacing = 10;
     brush_config.symmetry = 0;
+    brush_config.buildup = 0;
     g_texture.pixels = 0;
     g_texture.width = 0;
     g_texture.height = 0;
@@ -1738,6 +1843,13 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     if (!pix || w <= 0 || h <= 0) return;
 
     if (state == 0) {
+        stroke_generation++;
+        if (stroke_generation == 0) {
+            if (stroke_tag && stroke_buf_cap > 0) {
+                for (uint32_t i = 0; i < stroke_buf_cap; i++) stroke_tag[i] = 0;
+            }
+            stroke_generation = 1;
+        }
         stroke_cum_dist = 0;
         stroke_pickup_color = color;
     }
