@@ -3864,6 +3864,70 @@ async function main() {
     });
   });
 
+  function enableDragToScroll(el) {
+    if (!el || el._dragToScrollInit) return;
+    el._dragToScrollInit = true;
+
+    // Mouse wheel horizontal scroll conversion
+    el.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        el.scrollLeft += e.deltaY;
+        e.preventDefault();
+      }
+    }, { passive: false });
+
+    let isDown = false;
+    let startX = 0;
+    let scrollStart = 0;
+    let moved = false;
+
+    el.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      if (e.target.closest('input[type="range"], input[type="text"], input[type="number"], select')) {
+        return;
+      }
+      isDown = true;
+      moved = false;
+      startX = e.clientX;
+      scrollStart = el.scrollLeft;
+    });
+
+    const onPointerMove = (e) => {
+      if (!isDown) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) {
+        moved = true;
+        el.scrollLeft = scrollStart - dx;
+      }
+    };
+
+    const endDrag = () => {
+      if (isDown) {
+        isDown = false;
+        if (moved) {
+          const captureClick = (ev) => {
+            ev.stopPropagation();
+            ev.preventDefault();
+          };
+          window.addEventListener('click', captureClick, { capture: true, once: true });
+          setTimeout(() => {
+            window.removeEventListener('click', captureClick, { capture: true });
+          }, 80);
+        }
+      }
+    };
+
+    window.addEventListener('pointermove', onPointerMove, { passive: true });
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
+  }
+
+  ['bottom-dock-nav', 'bottom-dock-paramstrip', 'bottom-dock-quickstrip', 'bottom-dock-toolstrip', 'ui-drawer-tabs', 'touch-quick-swatches-row'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) enableDragToScroll(el);
+  });
+  document.querySelectorAll('.dock-panel').forEach(p => enableDragToScroll(p));
+
   function dumpCurrentToolScript(name) {
     const bp = host.brushParams || {};
     const lines = [
@@ -4202,49 +4266,10 @@ async function main() {
     const miniRing = dialBtn.querySelector('.tb-dial-ring-fill');
     const valSpan = dialBtn.querySelector('.tb-val');
 
-    dialBtn.addEventListener('click', (e) => {
-      if (!dialBtn._didScrub) {
-        openArcDial(paramKey);
-        triggerHaptic(15);
-      }
+    dialBtn.addEventListener('click', () => {
+      openArcDial(paramKey);
+      triggerHaptic(15);
     });
-
-    let isScrubbing = false;
-    let scrubStartX = 0;
-    let scrubStartVal = curVal;
-
-    dialBtn.addEventListener('pointerdown', (e) => {
-      e.stopPropagation();
-      isScrubbing = true;
-      dialBtn._didScrub = false;
-      scrubStartX = e.clientX;
-      const freshVal = cfg.getter ? cfg.getter(host.brushParams || {}) : cfg.min;
-      scrubStartVal = freshVal !== undefined ? freshVal : cfg.min;
-      try { dialBtn.setPointerCapture(e.pointerId); } catch (_) {}
-    });
-
-    dialBtn.addEventListener('pointermove', (e) => {
-      if (!isScrubbing) return;
-      e.stopPropagation();
-      const dx = e.clientX - scrubStartX;
-      if (Math.abs(dx) > 3) {
-        dialBtn._didScrub = true;
-        const range = cfg.max - cfg.min;
-        const deltaVal = (dx / 120) * range;
-        const targetVal = scrubStartVal + deltaVal;
-        curDialKey = paramKey;
-        setDialValue(targetVal, true);
-      }
-    });
-
-    const stopScrub = (e) => {
-      if (isScrubbing) {
-        isScrubbing = false;
-        try { dialBtn.releasePointerCapture(e.pointerId); } catch (_) {}
-      }
-    };
-    dialBtn.addEventListener('pointerup', stopScrub);
-    dialBtn.addEventListener('pointercancel', stopScrub);
 
     const syncFn = () => {
       const liveBp = host.brushParams || {};
@@ -5382,6 +5407,7 @@ async function main() {
       });
 
       container.appendChild(row);
+      enableDragToScroll(row);
     });
 
     syncModularToolbars();
@@ -8025,7 +8051,7 @@ function ensureUiPanel() {
       #layout { flex-direction: column; position: relative; height: 100vh; overflow: hidden; }
       #cvswrap { order: 1; flex: 1; width: 100%; min-height: 0; position: relative; overflow: hidden; }
       #toggle-ui, #toggle-panel { display: none !important; }
-      #bottom-dock { display: flex; flex-direction: column; order: 2; width: 100%; background: #1d2021; border-top: 1px solid #3c3836; z-index: 25; flex-shrink: 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+      #bottom-dock { display: flex; flex-direction: column; order: 2; width: 100%; background: #1d2021; border-top: 1px solid #3c3836; z-index: 25; flex-shrink: 0; touch-action: pan-x pan-y; user-select: none; -webkit-user-select: none; }
       #bottom-dock-handle { width: 100%; height: 28px; cursor: row-resize; display: flex; align-items: center; justify-content: center; touch-action: none; user-select: none; -webkit-user-select: none; padding: 4px 0; }
       #bottom-dock-handle::after { content: ''; width: 44px; height: 4px; background: #504945; border-radius: 2px; pointer-events: none; }
       #bottom-dock-tabs { display: flex; align-items: stretch; height: 36px; padding: 0 6px 6px 6px; gap: 6px; }
