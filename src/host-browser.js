@@ -7018,7 +7018,36 @@ async function main() {
       ? host.canvasActor.exports.w_layer_get_order_count()
       : count;
 
-    const currentTreeSig = `${count}_${orderCount}_${host.layerGroups?.length || 0}_${Array.from(host.layerGroups || []).map(g => `${g.id}:${g.collapsed}:${(g.children||[]).length}`).join(',')}_${host.layerNames?.size || 0}`;
+    let wasmOrderStr = '';
+    if (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_order) {
+      const arr = [];
+      for (let i = 0; i < orderCount; i++) arr.push(host.canvasActor.exports.w_layer_get_order(i));
+      wasmOrderStr = arr.join(',');
+    }
+
+    const layerProps = [];
+    for (let i = 0; i < count; i++) {
+      const vis = host.canvasActor?.exports?.w_layer_get_visible ? host.canvasActor.exports.w_layer_get_visible(i) : 1;
+      const lock = host.canvasActor?.exports?.w_layer_get_alpha_lock ? host.canvasActor.exports.w_layer_get_alpha_lock(i) : 0;
+      const clip = host.canvasActor?.exports?.w_layer_get_clipping ? host.canvasActor.exports.w_layer_get_clipping(i) : 0;
+      const bm = host.canvasActor?.exports?.w_layer_get_blend_mode ? host.canvasActor.exports.w_layer_get_blend_mode(i) : 0;
+      const op = host.canvasActor?.exports?.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
+      const name = host.layerNames?.get(i) || '';
+      layerProps.push(`${i}:${vis}:${lock}:${clip}:${bm}:${op}:${name}`);
+    }
+
+    const groupProps = [];
+    if (host.layerGroups instanceof Map) {
+      for (const g of host.layerGroups.values()) {
+        const ch = Array.isArray(g.children)
+          ? g.children.map(c => typeof c === 'object' && c !== null ? `${c.type}:${c.id}` : String(c)).join(',')
+          : '';
+        groupProps.push(`${g.id}:${g.name}:${g.collapsed ? 1 : 0}:${g.visible ? 1 : 0}:${g.parentId || ''}:[${ch}]`);
+      }
+    }
+
+    const treeStructure = host.layerTree ? JSON.stringify(host.layerTree) : '';
+    const currentTreeSig = `${count}|${orderCount}|${wasmOrderStr}|${layerProps.join(';')}|${groupProps.join(';')}|${treeStructure}`;
 
     if (layersList) {
       if (currentTreeSig === lastLayerTreeSig) {
