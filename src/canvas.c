@@ -1152,6 +1152,18 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     local_c = color;
                 }
 
+                // If smudge_strength > 0, pull pixels from trailing stroke vector
+                if (brush_config.smudge_strength > 0 && (move_dx != 0 || move_dy != 0)) {
+                    int sx = x - move_dx;
+                    int sy = y - move_dy;
+                    if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+                        uint32_t src_p = pix[sy * w + sx];
+                        if (((src_p >> 24) & 0xFF) > 0) {
+                            local_c = mix_color(src_p, local_c, brush_config.smudge_strength);
+                        }
+                    }
+                }
+
                 uint32_t target_c;
                 if ((dst_p >> 24) == 0 && count == 0) {
                     if (brush_config.depletion > 0) {
@@ -1201,8 +1213,20 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 }
             } else {
                 uint32_t target_color = color;
+                if (brush_config.smudge_strength > 0 && (move_dx != 0 || move_dy != 0)) {
+                    int sx = x - move_dx;
+                    int sy = y - move_dy;
+                    uint32_t src_p = 0;
+                    if (sx >= 0 && sx < w && sy >= 0 && sy < h) {
+                        src_p = pix[sy * w + sx];
+                    }
+                    uint32_t src_a = (src_p >> 24) & 0xFF;
+                    if (src_a > 0) {
+                        target_color = mix_color(src_p, target_color, brush_config.smudge_strength);
+                    }
+                }
                 if (brush_config.dab_blend > 0) {
-                    target_color = w_apply_dab_blend(brush_config.dab_blend, color, dst_p);
+                    target_color = w_apply_dab_blend(brush_config.dab_blend, target_color, dst_p);
                 }
                 if (!brush_config.buildup && stroke_tag && stroke_mask && stroke_orig) {
                     if (stroke_tag[idx] != stroke_generation) {

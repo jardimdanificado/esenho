@@ -5499,10 +5499,10 @@ class EsenhoScreenHost {
     }
     if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
       this.canvasActor.exports.w_brush_set_param(15 /* W_PARAM_MODE */, effMode);
-      if (this.actionMode === 'smudge') {
-        const smStrength = (this.brushParams && this.brushParams.smudge > 0) ? this.brushParams.smudge : 70;
-        this.canvasActor.exports.w_brush_set_param(10 /* W_PARAM_SMUDGE */, smStrength);
-      }
+      const smStrength = (this.actionMode === 'smudge')
+        ? ((this.brushParams && this.brushParams.smudge > 0) ? this.brushParams.smudge : 70)
+        : ((this.brushParams && this.brushParams.smudge !== undefined) ? this.brushParams.smudge : 0);
+      this.canvasActor.exports.w_brush_set_param(10 /* W_PARAM_SMUDGE */, smStrength);
     }
 
     if (state === 0) {
