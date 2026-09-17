@@ -572,12 +572,17 @@
       gap: 3px;
       background: #232524;
       border-left: 3px solid transparent;
-      cursor: default;
+      cursor: grab;
       user-select: none;
+      -webkit-user-select: none;
       font-size: 11px;
       border-bottom: 1px solid #2d302e;
       transition: background 0.08s;
       box-sizing: border-box;
+      position: relative;
+    }
+    .ui-layer-row:active {
+      cursor: grabbing;
     }
     .ui-layer-row:hover {
       background: #2b2e2d;
@@ -587,9 +592,22 @@
       border-left-color: #fabd2f;
     }
     .ui-layer-row.ui-layer-in-group {
-      padding-left: 14px;
       background: #1f2120;
       border-left: 3px solid #83a598;
+    }
+    .ui-layer-row.is-dragging, .ui-layer-group-header.is-dragging {
+      opacity: 0.4;
+      background: #3c3836 !important;
+    }
+    .drop-indicator-top {
+      border-top: 2px solid #fabd2f !important;
+    }
+    .drop-indicator-bottom {
+      border-bottom: 2px solid #fabd2f !important;
+    }
+    .drop-target-group {
+      outline: 2px dashed #b8bb26 !important;
+      background: #323624 !important;
     }
     .layer-row-top {
       display: flex;
@@ -615,8 +633,8 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      height: 24px;
-      padding: 0 6px;
+      min-height: 26px;
+      padding: 2px 6px;
       background: #282828;
       border-left: 3px solid #b8bb26;
       border-bottom: 1px solid #3c3836;
@@ -624,6 +642,13 @@
       color: #b8bb26;
       font-weight: 600;
       user-select: none;
+      -webkit-user-select: none;
+      cursor: grab;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .ui-layer-group-header:active {
+      cursor: grabbing;
     }
     .ui-layer-group-header .group-title {
       flex: 1;

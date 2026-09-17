@@ -746,9 +746,54 @@ async function run() {
     throw new Error("Expected InkFolder visible to be true after second toggle");
   }
 
-  host.executeCommand(`group remove ${curActive}`);
-  if (foundGroup.layerIds.includes(curActive)) {
-    throw new Error(`Expected layer ${curActive} to be removed from group`);
+  // Test Hierarchical Folders & Tree Stacking Sync
+  host.executeCommand('group new ParentFolder');
+  let parentG = Array.from(host.layerGroups.values()).find(g => g.name === 'ParentFolder');
+  if (!parentG) throw new Error("Expected ParentFolder to exist");
+  
+  host.executeCommand('group new ChildFolder');
+  host.executeCommand('group nest ChildFolder ParentFolder');
+  let childG = Array.from(host.layerGroups.values()).find(g => g.name === 'ChildFolder');
+  if (!childG || childG.parentId !== parentG.id) {
+    throw new Error("Expected ChildFolder to be nested inside ParentFolder");
+  }
+  if (!parentG.children.some(c => c.id === childG.id)) {
+    throw new Error("Expected ParentFolder children to include ChildFolder id");
+  }
+
+  // Add a layer to ChildFolder
+  host.executeCommand('layer new ChildLayer');
+  const childLayerId = canvas.exports.get_active_layer();
+  host.executeCommand(`group add ChildFolder ${childLayerId}`);
+  if (!childG.layerIds.includes(childLayerId)) {
+    throw new Error("Expected childLayerId to be inside ChildFolder");
+  }
+
+  // Create another layer on top and ensure it is at root
+  host.executeCommand('layer new TopLayer');
+  const topLayerId = canvas.exports.get_active_layer();
+  host.removeLayerFromGroup(topLayerId);
+
+  // Test tree reordering: move ParentFolder above TopLayer
+  host.reorderTreeItem('group', parentG.id, 'layer', topLayerId, 'before');
+  let wasmOrder = [];
+  const orderCnt = canvas.exports.w_layer_get_order_count();
+  for (let i = 0; i < orderCnt; i++) {
+    wasmOrder.push(canvas.exports.w_layer_get_order(i));
+  }
+  const topLayerIdx = wasmOrder.indexOf(topLayerId);
+  const childLayerIdx = wasmOrder.indexOf(childLayerId);
+  if (topLayerIdx >= childLayerIdx) {
+    throw new Error(`Expected TopLayer (idx ${topLayerIdx}) to be below ChildLayer (idx ${childLayerIdx}) after folder moved above`);
+  }
+
+  // Test group deletion with tree cleanup
+  host.executeCommand('group delete ChildFolder');
+  if (host.layerGroups.has(childG.id)) {
+    throw new Error("Expected ChildFolder to be removed from layerGroups");
+  }
+  if (parentG.children.some(c => c.id === childG.id)) {
+    throw new Error("Expected ChildFolder id to be removed from ParentFolder children");
   }
 
   // ── Test Eyedropper / Color Picker ──

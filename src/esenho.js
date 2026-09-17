@@ -2085,6 +2085,30 @@ const COMMAND_RULES = [
     }
   },
   {
+    pat: "group nest $group $parent",
+    run: (m, host) => {
+      const ok = host.nestGroup(m.group, m.parent);
+      if (ok) host.sendConsoleLog(`nested group '${m.group}' under '${m.parent}'`);
+      else host.sendConsoleLog(`err: could not nest group '${m.group}'`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "group move up $group",
+    run: (m, host) => {
+      const ok = host.moveGroup(m.group, 'up');
+      if (ok) host.sendConsoleLog(`moved group '${m.group}' up`);
+      else host.sendConsoleLog(`err: could not move group '${m.group}'`, 0xFFFF5555);
+    }
+  },
+  {
+    pat: "group move down $group",
+    run: (m, host) => {
+      const ok = host.moveGroup(m.group, 'down');
+      if (ok) host.sendConsoleLog(`moved group '${m.group}' down`);
+      else host.sendConsoleLog(`err: could not move group '${m.group}'`, 0xFFFF5555);
+    }
+  },
+  {
     pat: "group toggle $group",
     run: (m, host) => {
       const ok = host.toggleGroup(m.group);
@@ -3290,8 +3314,9 @@ class EsenhoScreenHost {
     this.uiScale = 'auto';
     this.onUiScaleChange = null;
 
-    // Layer Groups / Folders
-    this.layerGroups = new Map(); // id -> { id, name, collapsed: true, visible: true, layerIds: [] }
+    // Layer Groups / Folders & Hierarchy Tree
+    this.layerGroups = new Map(); // id -> { id, name, collapsed: boolean, visible: boolean, parentId: string|null, children: [], layerIds: [] }
+    this.layerTree = [];          // root list: Array<{ type: 'layer' | 'group', id: number | string }>
     this.layerNames = new Map();  // layerId -> custom name
     this.groupCounter = 1;
     this.createGroup('tips');
@@ -3499,8 +3524,39 @@ class EsenhoScreenHost {
    */
   moveLayerUp(id) {
     if (!this.canvasActor?.exports?.w_layer_move_up) return false;
+    this.ensureTreeIntegrity();
+    const findAndMoveUp = (list) => {
+      for (let i = 0; i < list.length; i++) {
+        const node = list[i];
+        if (node.type === 'layer' && node.id === id) {
+          if (i > 0) {
+            const tmp = list[i - 1];
+            list[i - 1] = list[i];
+            list[i] = tmp;
+            return true;
+          }
+          return false;
+        }
+        if (node.type === 'group') {
+          const grp = this.layerGroups.get(node.id);
+          if (grp && grp.children && findAndMoveUp(grp.children)) {
+            grp.layerIds = grp.children.filter(c => c.type === 'layer').map(c => c.id);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    const movedInTree = findAndMoveUp(this.layerTree);
+    if (movedInTree) {
+      this.syncWasmLayerOrderFromTree();
+      this.pushUndoSnapshot('layer move');
+      return true;
+    }
     this.pushUndoSnapshot('layer move');
-    return this.canvasActor.exports.w_layer_move_up(id) === 1;
+    const res = this.canvasActor.exports.w_layer_move_up(id) === 1;
+    this.ensureTreeIntegrity();
+    return res;
   }
 
   /**
@@ -3508,8 +3564,39 @@ class EsenhoScreenHost {
    */
   moveLayerDown(id) {
     if (!this.canvasActor?.exports?.w_layer_move_down) return false;
+    this.ensureTreeIntegrity();
+    const findAndMoveDown = (list) => {
+      for (let i = 0; i < list.length; i++) {
+        const node = list[i];
+        if (node.type === 'layer' && node.id === id) {
+          if (i < list.length - 1) {
+            const tmp = list[i + 1];
+            list[i + 1] = list[i];
+            list[i] = tmp;
+            return true;
+          }
+          return false;
+        }
+        if (node.type === 'group') {
+          const grp = this.layerGroups.get(node.id);
+          if (grp && grp.children && findAndMoveDown(grp.children)) {
+            grp.layerIds = grp.children.filter(c => c.type === 'layer').map(c => c.id);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    const movedInTree = findAndMoveDown(this.layerTree);
+    if (movedInTree) {
+      this.syncWasmLayerOrderFromTree();
+      this.pushUndoSnapshot('layer move');
+      return true;
+    }
     this.pushUndoSnapshot('layer move');
-    return this.canvasActor.exports.w_layer_move_down(id) === 1;
+    const res = this.canvasActor.exports.w_layer_move_down(id) === 1;
+    this.ensureTreeIntegrity();
+    return res;
   }
 
   /**
@@ -3520,9 +3607,8 @@ class EsenhoScreenHost {
     this.pushUndoSnapshot('merge down');
     const res = this.canvasActor.exports.w_layer_merge_down(id);
     if (res >= 0) {
-      for (const grp of this.layerGroups.values()) {
-        grp.layerIds = grp.layerIds.filter(lid => lid !== id);
-      }
+      this.ensureTreeIntegrity();
+      this.syncWasmLayerOrderFromTree();
     }
     return res;
   }
@@ -4597,18 +4683,297 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Synchronizes the layer tree data structure with the current WASM layers.
+   * Ensures every active WASM layer is present in the tree and stale layers are removed.
+   */
+  ensureTreeIntegrity() {
+    if (!this.layerTree) this.layerTree = [];
+    if (!this.layerGroups) this.layerGroups = new Map();
+
+    const orderCount = (this.canvasActor?.exports?.w_layer_get_order_count)
+      ? this.canvasActor.exports.w_layer_get_order_count()
+      : 0;
+
+    const activeWasmLayers = new Set();
+    for (let p = 0; p < orderCount; p++) {
+      const lid = this.canvasActor.exports.w_layer_get_order(p);
+      if (lid >= 0) activeWasmLayers.add(lid);
+    }
+
+    const treeLayerIds = new Set();
+    const cleanNodeList = (list, parentGroupId = null) => {
+      const cleaned = [];
+      for (const node of list) {
+        if (node.type === 'layer') {
+          if (activeWasmLayers.size === 0 || activeWasmLayers.has(node.id)) {
+            treeLayerIds.add(node.id);
+            cleaned.push(node);
+          }
+        } else if (node.type === 'group') {
+          const grp = this.layerGroups.get(node.id);
+          if (grp) {
+            grp.parentId = parentGroupId;
+            grp.children = cleanNodeList(grp.children || [], grp.id);
+            grp.layerIds = grp.children.filter(c => c.type === 'layer').map(c => c.id);
+            cleaned.push(node);
+          }
+        }
+      }
+      return cleaned;
+    };
+
+    this.layerTree = cleanNodeList(this.layerTree, null);
+
+    // If layerTree is completely empty, initialize it from WASM order top-to-bottom
+    if (this.layerTree.length === 0 && orderCount > 0) {
+      for (let p = orderCount - 1; p >= 0; p--) {
+        const lid = this.canvasActor.exports.w_layer_get_order(p);
+        if (lid >= 0) {
+          this.layerTree.push({ type: 'layer', id: lid });
+          treeLayerIds.add(lid);
+        }
+      }
+      return;
+    }
+
+    // Insert any missing WASM layers at their relative stack position
+    for (let p = 0; p < orderCount; p++) {
+      const lid = this.canvasActor.exports.w_layer_get_order(p);
+      if (lid >= 0 && !treeLayerIds.has(lid)) {
+        let inserted = false;
+        if (p > 0) {
+          const belowLid = this.canvasActor.exports.w_layer_get_order(p - 1);
+          const insertBeforeInList = (list) => {
+            for (let i = 0; i < list.length; i++) {
+              if (list[i].type === 'layer' && list[i].id === belowLid) {
+                list.splice(i, 0, { type: 'layer', id: lid });
+                return true;
+              }
+              if (list[i].type === 'group') {
+                const grp = this.layerGroups.get(list[i].id);
+                if (grp && grp.children && insertBeforeInList(grp.children)) return true;
+              }
+            }
+            return false;
+          };
+          inserted = insertBeforeInList(this.layerTree);
+        }
+
+        if (!inserted && p < orderCount - 1) {
+          const aboveLid = this.canvasActor.exports.w_layer_get_order(p + 1);
+          const insertAfterInList = (list) => {
+            for (let i = 0; i < list.length; i++) {
+              if (list[i].type === 'layer' && list[i].id === aboveLid) {
+                list.splice(i + 1, 0, { type: 'layer', id: lid });
+                return true;
+              }
+              if (list[i].type === 'group') {
+                const grp = this.layerGroups.get(list[i].id);
+                if (grp && grp.children && insertAfterInList(grp.children)) return true;
+              }
+            }
+            return false;
+          };
+          inserted = insertAfterInList(this.layerTree);
+        }
+
+        if (!inserted) {
+          this.layerTree.unshift({ type: 'layer', id: lid });
+        }
+        treeLayerIds.add(lid);
+      }
+    }
+  }
+
+  /**
+   * Traverses the layer hierarchy from bottom to top to produce the exact WASM layer ordering array.
+   */
+  getFlattenedLayersFromTree() {
+    this.ensureTreeIntegrity();
+    const result = [];
+    const traverseTopToBottom = (list) => {
+      for (const node of list) {
+        if (node.type === 'layer') {
+          result.push(node.id);
+        } else if (node.type === 'group') {
+          const grp = this.layerGroups.get(node.id);
+          if (grp && Array.isArray(grp.children)) {
+            traverseTopToBottom(grp.children);
+          }
+        }
+      }
+    };
+    traverseTopToBottom(this.layerTree);
+    return result.slice().reverse();
+  }
+
+  /**
+   * Synchronizes the WASM layer stack order to match the hierarchical tree.
+   */
+  syncWasmLayerOrderFromTree() {
+    if (!this.canvasActor?.exports?.w_layer_get_order_count || !this.canvasActor?.exports?.w_layer_move_up) return;
+    const targetOrder = this.getFlattenedLayersFromTree();
+    const orderCount = this.canvasActor.exports.w_layer_get_order_count();
+    if (targetOrder.length !== orderCount) return;
+
+    for (let targetPos = 0; targetPos < targetOrder.length; targetPos++) {
+      const targetId = targetOrder[targetPos];
+      let curPos = -1;
+      for (let p = 0; p < orderCount; p++) {
+        if (this.canvasActor.exports.w_layer_get_order(p) === targetId) {
+          curPos = p;
+          break;
+        }
+      }
+      if (curPos === -1) continue;
+      while (curPos > targetPos) {
+        this.canvasActor.exports.w_layer_move_down(targetId);
+        curPos--;
+      }
+      while (curPos < targetPos) {
+        this.canvasActor.exports.w_layer_move_up(targetId);
+        curPos++;
+      }
+    }
+  }
+
+  /**
+   * Reorders an item in the tree (drag-and-drop or programmatic reordering).
+   * @param {'layer'|'group'} draggedType
+   * @param {number|string} draggedId
+   * @param {'layer'|'group'} targetType
+   * @param {number|string} targetId
+   * @param {'before'|'after'|'inside'} dropPos
+   */
+  reorderTreeItem(draggedType, draggedId, targetType, targetId, dropPos) {
+    this.ensureTreeIntegrity();
+    if (draggedType === targetType && String(draggedId) === String(targetId)) return false;
+
+    // Prevent nesting a group inside itself or inside any of its descendants
+    if (draggedType === 'group' && targetType === 'group') {
+      const isDescendant = (parentGid, searchGid) => {
+        const pGrp = this.layerGroups.get(parentGid);
+        if (!pGrp || !pGrp.children) return false;
+        for (const child of pGrp.children) {
+          if (child.type === 'group') {
+            if (String(child.id) === String(searchGid)) return true;
+            if (isDescendant(child.id, searchGid)) return true;
+          }
+        }
+        return false;
+      };
+      if (String(draggedId) === String(targetId) || isDescendant(draggedId, targetId)) {
+        return false;
+      }
+    }
+
+    // 1. Remove dragged item from current location in tree
+    let removedNode = null;
+    const removeRecursive = (list) => {
+      for (let i = 0; i < list.length; i++) {
+        const node = list[i];
+        if (node.type === draggedType && String(node.id) === String(draggedId)) {
+          removedNode = list.splice(i, 1)[0];
+          return true;
+        }
+        if (node.type === 'group') {
+          const grp = this.layerGroups.get(node.id);
+          if (grp && grp.children && removeRecursive(grp.children)) {
+            grp.layerIds = grp.children.filter(c => c.type === 'layer').map(c => c.id);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    removeRecursive(this.layerTree);
+
+    if (!removedNode) {
+      removedNode = { type: draggedType, id: (draggedType === 'layer') ? parseInt(draggedId, 10) : String(draggedId) };
+    }
+
+    // 2. Insert into target location
+    if (dropPos === 'inside' && targetType === 'group') {
+      const targetGrp = this.layerGroups.get(targetId);
+      if (targetGrp) {
+        if (!targetGrp.children) targetGrp.children = [];
+        targetGrp.children.unshift(removedNode);
+        if (draggedType === 'group') {
+          const dGrp = this.layerGroups.get(draggedId);
+          if (dGrp) dGrp.parentId = targetGrp.id;
+        }
+        targetGrp.layerIds = targetGrp.children.filter(c => c.type === 'layer').map(c => c.id);
+      } else {
+        this.layerTree.push(removedNode);
+      }
+    } else {
+      let inserted = false;
+      const insertRecursive = (list, parentGid = null) => {
+        for (let i = 0; i < list.length; i++) {
+          const node = list[i];
+          if (node.type === targetType && String(node.id) === String(targetId)) {
+            const insertIdx = (dropPos === 'before') ? i : i + 1;
+            list.splice(insertIdx, 0, removedNode);
+            if (draggedType === 'group') {
+              const dGrp = this.layerGroups.get(draggedId);
+              if (dGrp) dGrp.parentId = parentGid;
+            }
+            inserted = true;
+            return true;
+          }
+          if (node.type === 'group') {
+            const grp = this.layerGroups.get(node.id);
+            if (grp && grp.children && insertRecursive(grp.children, grp.id)) {
+              grp.layerIds = grp.children.filter(c => c.type === 'layer').map(c => c.id);
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+
+      if (!insertRecursive(this.layerTree, null)) {
+        this.layerTree.push(removedNode);
+        if (draggedType === 'group') {
+          const dGrp = this.layerGroups.get(draggedId);
+          if (dGrp) dGrp.parentId = null;
+        }
+      }
+    }
+
+    this.ensureTreeIntegrity();
+    this.syncWasmLayerOrderFromTree();
+    this.pushUndoSnapshot('layer tree reorder');
+    return true;
+  }
+
+  /**
    * Creates a new layer group / folder.
    */
-  createGroup(name) {
+  createGroup(name, parentGroupId = null) {
+    this.ensureTreeIntegrity();
     const id = `group_${this.groupCounter++}`;
     const grp = {
       id,
       name: name || `Folder ${this.layerGroups.size + 1}`,
-      collapsed: true,
+      collapsed: false,
       visible: true,
+      parentId: parentGroupId || null,
+      children: [],
       layerIds: []
     };
     this.layerGroups.set(id, grp);
+
+    if (parentGroupId && this.layerGroups.has(parentGroupId)) {
+      const parentGrp = this.layerGroups.get(parentGroupId);
+      if (!parentGrp.children) parentGrp.children = [];
+      parentGrp.children.unshift({ type: 'group', id });
+    } else {
+      this.layerTree.unshift({ type: 'group', id });
+    }
+
+    this.ensureTreeIntegrity();
+    this.syncWasmLayerOrderFromTree();
     return grp;
   }
 
@@ -4626,30 +4991,93 @@ class EsenhoScreenHost {
       }
     }
     if (!grp) return false;
-    for (const g of this.layerGroups.values()) {
-      g.layerIds = g.layerIds.filter(lid => lid !== layerId);
-    }
-    grp.layerIds.push(layerId);
-    return true;
+    return this.reorderTreeItem('layer', layerId, 'group', grp.id, 'inside');
   }
 
   /**
    * Removes a layer from any group it belongs to.
    */
   removeLayerFromGroup(layerId) {
-    let changed = false;
-    for (const g of this.layerGroups.values()) {
-      const origLen = g.layerIds.length;
-      g.layerIds = g.layerIds.filter(lid => lid !== layerId);
-      if (g.layerIds.length !== origLen) changed = true;
+    this.ensureTreeIntegrity();
+    const firstItem = this.layerTree[0];
+    if (firstItem) {
+      return this.reorderTreeItem('layer', layerId, firstItem.type, firstItem.id, 'before');
     }
-    return changed;
+    return this.reorderTreeItem('layer', layerId, 'layer', layerId, 'before');
+  }
+
+  /**
+   * Moves a group up or down in its container stack.
+   */
+  moveGroup(groupIdOrName, direction) {
+    let grp = this.layerGroups.get(groupIdOrName);
+    if (!grp) {
+      for (const g of this.layerGroups.values()) {
+        if (g.name.toLowerCase() === groupIdOrName.toLowerCase()) { grp = g; break; }
+      }
+    }
+    if (!grp) return false;
+
+    const parentList = (grp.parentId && this.layerGroups.has(grp.parentId))
+      ? this.layerGroups.get(grp.parentId).children
+      : this.layerTree;
+
+    const idx = parentList.findIndex(node => node.type === 'group' && node.id === grp.id);
+    if (idx === -1) return false;
+
+    if (direction === 'up' && idx > 0) {
+      const prev = parentList[idx - 1];
+      parentList[idx - 1] = parentList[idx];
+      parentList[idx] = prev;
+    } else if (direction === 'down' && idx < parentList.length - 1) {
+      const next = parentList[idx + 1];
+      parentList[idx + 1] = parentList[idx];
+      parentList[idx] = next;
+    } else {
+      return false;
+    }
+
+    this.ensureTreeIntegrity();
+    this.syncWasmLayerOrderFromTree();
+    this.pushUndoSnapshot('group move');
+    return true;
+  }
+
+  /**
+   * Nests a group into a parent group, or moves it to root if parent is 'root'.
+   */
+  nestGroup(groupIdOrName, parentGroupIdOrName) {
+    let grp = this.layerGroups.get(groupIdOrName);
+    if (!grp) {
+      for (const g of this.layerGroups.values()) {
+        if (g.name.toLowerCase() === groupIdOrName.toLowerCase()) { grp = g; break; }
+      }
+    }
+    if (!grp) return false;
+
+    if (!parentGroupIdOrName || parentGroupIdOrName.toLowerCase() === 'root') {
+      const firstItem = this.layerTree[0];
+      if (firstItem) {
+        return this.reorderTreeItem('group', grp.id, firstItem.type, firstItem.id, 'before');
+      }
+      return this.reorderTreeItem('group', grp.id, 'group', grp.id, 'before');
+    }
+
+    let parentGrp = this.layerGroups.get(parentGroupIdOrName);
+    if (!parentGrp) {
+      for (const g of this.layerGroups.values()) {
+        if (g.name.toLowerCase() === parentGroupIdOrName.toLowerCase()) { parentGrp = g; break; }
+      }
+    }
+    if (!parentGrp) return false;
+    return this.reorderTreeItem('group', grp.id, 'group', parentGrp.id, 'inside');
   }
 
   /**
    * Toggles visibility of all layers in a group.
    */
   toggleGroup(groupIdOrName) {
+    this.ensureTreeIntegrity();
     let grp = this.layerGroups.get(groupIdOrName);
     if (!grp) {
       for (const g of this.layerGroups.values()) {
@@ -4661,21 +5089,28 @@ class EsenhoScreenHost {
     }
     if (!grp) return false;
     grp.visible = !grp.visible;
-    if (this.canvasActor?.exports?.w_layer_toggle) {
-      for (const lid of grp.layerIds) {
-        const curVis = this.canvasActor.exports.get_layer_visible?.(lid) ?? 1;
-        if ((grp.visible && !curVis) || (!grp.visible && curVis)) {
-          this.canvasActor.exports.w_layer_toggle(lid);
+    const setVisRecursive = (g, isVis) => {
+      for (const child of (g.children || [])) {
+        if (child.type === 'layer') {
+          const curVis = this.canvasActor?.exports?.get_layer_visible ? this.canvasActor.exports.get_layer_visible(child.id) : 1;
+          if ((isVis && !curVis) || (!isVis && curVis)) {
+            this.canvasActor?.exports?.w_layer_toggle?.(child.id);
+          }
+        } else if (child.type === 'group') {
+          const subG = this.layerGroups.get(child.id);
+          if (subG) setVisRecursive(subG, isVis && subG.visible);
         }
       }
-    }
+    };
+    setVisRecursive(grp, grp.visible);
     return true;
   }
 
   /**
-   * Deletes a group (does not delete child layers).
+   * Deletes a group (does not delete child layers unless deleteLayers is true).
    */
-  deleteGroup(groupIdOrName) {
+  deleteGroup(groupIdOrName, deleteLayers = false) {
+    this.ensureTreeIntegrity();
     let grpKey = this.layerGroups.has(groupIdOrName) ? groupIdOrName : null;
     if (!grpKey) {
       for (const [k, g] of this.layerGroups.entries()) {
@@ -4686,7 +5121,54 @@ class EsenhoScreenHost {
       }
     }
     if (!grpKey) return false;
-    this.layerGroups.delete(grpKey);
+    const grp = this.layerGroups.get(grpKey);
+
+    if (deleteLayers && this.canvasActor?.exports?.w_layer_delete) {
+      const deleteContained = (g) => {
+        for (const child of (g.children || [])) {
+          if (child.type === 'layer') {
+            this.canvasActor.exports.w_layer_delete(child.id);
+          } else if (child.type === 'group') {
+            const subG = this.layerGroups.get(child.id);
+            if (subG) deleteContained(subG);
+          }
+        }
+      };
+      deleteContained(grp);
+    }
+
+    const removeGroupFromList = (list) => {
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].type === 'group' && list[i].id === grp.id) {
+          if (!deleteLayers && grp.children && grp.children.length > 0) {
+            list.splice(i, 1, ...grp.children);
+            for (const child of grp.children) {
+              if (child.type === 'group') {
+                const subG = this.layerGroups.get(child.id);
+                if (subG) subG.parentId = grp.parentId;
+              }
+            }
+          } else {
+            list.splice(i, 1);
+          }
+          return true;
+        }
+        if (list[i].type === 'group') {
+          const parentG = this.layerGroups.get(list[i].id);
+          if (parentG && parentG.children && removeGroupFromList(parentG.children)) {
+            parentG.layerIds = parentG.children.filter(c => c.type === 'layer').map(c => c.id);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    removeGroupFromList(this.layerTree);
+
+    this.layerGroups.delete(grp.id);
+    this.ensureTreeIntegrity();
+    this.syncWasmLayerOrderFromTree();
+    this.pushUndoSnapshot('delete group');
     return true;
   }
 
@@ -5455,7 +5937,7 @@ class EsenhoScreenHost {
       thumbnail = EsenhoStore.generateThumbnailDataUrl(compU32, w, h, 220);
     }
 
-    // Layer Groups
+    // Layer Groups & Tree
     const groups = [];
     if (this.layerGroups) {
       for (const [gid, g] of this.layerGroups.entries()) {
@@ -5464,10 +5946,13 @@ class EsenhoScreenHost {
           name: g.name,
           collapsed: !!g.collapsed,
           visible: g.visible !== undefined ? !!g.visible : true,
-          layerIds: Array.isArray(g.layerIds) ? [...g.layerIds] : []
+          parentId: g.parentId || null,
+          layerIds: Array.isArray(g.layerIds) ? [...g.layerIds] : [],
+          children: Array.isArray(g.children) ? JSON.parse(JSON.stringify(g.children)) : []
         });
       }
     }
+    const layerTree = this.layerTree ? JSON.parse(JSON.stringify(this.layerTree)) : [];
 
     const projId = this.currentProjectId || ('proj_' + Date.now());
     this.currentProjectId = projId;
@@ -5492,6 +5977,7 @@ class EsenhoScreenHost {
         uiScale: this.uiScale || 'auto'
       },
       layerOrder,
+      layerTree,
       layerGroups: groups,
       layers: layersData
     };
@@ -5616,15 +6102,41 @@ class EsenhoScreenHost {
     if (Array.isArray(projectData.layerGroups)) {
       for (const g of projectData.layerGroups) {
         const remappedIds = (g.layerIds || []).map(id => layerMap.has(id) ? layerMap.get(id) : id);
+        const remappedChildren = (Array.isArray(g.children) && g.children.length > 0)
+          ? g.children.map(c => {
+              if (c.type === 'layer') {
+                return { type: 'layer', id: layerMap.has(c.id) ? layerMap.get(c.id) : c.id };
+              }
+              return { ...c };
+            })
+          : remappedIds.map(lid => ({ type: 'layer', id: lid }));
+
         this.layerGroups.set(g.id, {
           id: g.id,
           name: g.name,
           collapsed: !!g.collapsed,
           visible: g.visible !== undefined ? !!g.visible : true,
-          layerIds: remappedIds
+          parentId: g.parentId || null,
+          layerIds: remappedIds,
+          children: remappedChildren
         });
       }
     }
+
+    // Restore layer tree
+    if (Array.isArray(projectData.layerTree) && projectData.layerTree.length > 0) {
+      this.layerTree = projectData.layerTree.map(node => {
+        if (node.type === 'layer') {
+          return { type: 'layer', id: layerMap.has(node.id) ? layerMap.get(node.id) : node.id };
+        }
+        return { ...node };
+      });
+    } else {
+      this.layerTree = [];
+    }
+
+    this.ensureTreeIntegrity();
+    this.syncWasmLayerOrderFromTree();
 
     // Restore settings
     if (projectData.settings) {

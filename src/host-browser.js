@@ -6887,6 +6887,7 @@ async function main() {
     }
 
     // Render Layers List (Photoshop-like top-to-bottom stacking order + Groups + Reordering + Merge Down)
+    // Render Layers List (Photoshop-like hierarchical layer & folder tree + Drag-and-Drop + Reordering + Stacking order sync)
     const layersList = document.getElementById('ui-layers-list');
     if (layersList) {
       layersList.innerHTML = '';
@@ -6894,22 +6895,79 @@ async function main() {
         ? host.canvasActor.exports.w_layer_get_order_count()
         : count;
 
-      const layerToGroup = new Map();
-      if (host.layerGroups) {
-        for (const grp of host.layerGroups.values()) {
-          for (const lid of grp.layerIds) {
-            layerToGroup.set(lid, grp);
-          }
-        }
-      }
+      host.ensureTreeIntegrity();
 
-      const renderedGroups = new Set();
+      let layerDragSource = null; // { type: 'layer'|'group', id: number|string }
 
-      const createGroupHeader = (grp) => {
+      const clearDropIndicators = () => {
+        layersList.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group').forEach(el => {
+          el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+        });
+      };
+
+      const createGroupHeader = (grp, depth = 0, parentGroup = null) => {
         const grpRow = document.createElement('div');
-        grpRow.className = 'ui-layer-group-header';
-        grpRow.title = `Folder: ${grp.name} (${grp.layerIds.length} layers)`;
+        grpRow.className = 'ui-layer-group-header' + (grp.collapsed ? ' group-collapsed' : '');
+        grpRow.style.paddingLeft = `${6 + depth * 16}px`;
+        grpRow.title = `Folder: ${grp.name} (${(grp.children || []).length} items)`;
+        grpRow.setAttribute('data-group-id', grp.id);
 
+        // HTML5 Drag & Drop
+        grpRow.draggable = true;
+        grpRow.addEventListener('dragstart', (e) => {
+          layerDragSource = { type: 'group', id: grp.id };
+          grpRow.classList.add('is-dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', grp.id);
+          e.stopPropagation();
+        });
+        grpRow.addEventListener('dragend', () => {
+          layerDragSource = null;
+          clearDropIndicators();
+          grpRow.classList.remove('is-dragging');
+        });
+
+        grpRow.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!layerDragSource) return;
+          if (layerDragSource.type === 'group' && layerDragSource.id === grp.id) return;
+          const rect = grpRow.getBoundingClientRect();
+          const relY = (e.clientY - rect.top) / rect.height;
+          clearDropIndicators();
+          if (relY < 0.25) {
+            grpRow.classList.add('drop-indicator-top');
+          } else if (relY > 0.75) {
+            grpRow.classList.add('drop-indicator-bottom');
+          } else {
+            grpRow.classList.add('drop-target-group');
+          }
+        });
+
+        grpRow.addEventListener('dragleave', (e) => {
+          if (!grpRow.contains(e.relatedTarget)) {
+            grpRow.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+          }
+        });
+
+        grpRow.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!layerDragSource) return;
+          if (layerDragSource.type === 'group' && layerDragSource.id === grp.id) return;
+          const rect = grpRow.getBoundingClientRect();
+          const relY = (e.clientY - rect.top) / rect.height;
+          let dropPos = 'inside';
+          if (relY < 0.25) dropPos = 'before';
+          else if (relY > 0.75) dropPos = 'after';
+
+          host.reorderTreeItem(layerDragSource.type, layerDragSource.id, 'group', grp.id, dropPos);
+          clearDropIndicators();
+          syncUiFromHost();
+          triggerHaptic(15);
+        });
+
+        // 1. Collapse/Expand button
         const toggleBtn = document.createElement('button');
         toggleBtn.type = 'button';
         toggleBtn.className = 'group-btn-collapse';
@@ -6922,6 +6980,14 @@ async function main() {
         });
         grpRow.appendChild(toggleBtn);
 
+        // 2. Folder icon
+        const iconSpan = document.createElement('span');
+        iconSpan.style.fontSize = '12px';
+        iconSpan.style.marginRight = '2px';
+        iconSpan.textContent = grp.collapsed ? '📁' : '📂';
+        grpRow.appendChild(iconSpan);
+
+        // 3. Group Name (click toggles, double-click renames)
         const titleSpan = document.createElement('span');
         titleSpan.className = 'group-title';
         titleSpan.textContent = grp.name;
@@ -6929,30 +6995,73 @@ async function main() {
           grp.collapsed = !grp.collapsed;
           syncUiFromHost();
         });
+        titleSpan.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const newName = prompt('Rename folder:', grp.name);
+          if (newName && newName.trim()) {
+            grp.name = newName.trim();
+            syncUiFromHost();
+          }
+        });
         grpRow.appendChild(titleSpan);
 
+        // 4. Group Visibility toggle
         const grpVisBtn = document.createElement('button');
         grpVisBtn.type = 'button';
         grpVisBtn.className = 'layer-btn-vis' + (grp.visible ? '' : ' hidden');
         grpVisBtn.textContent = grp.visible ? '◉' : '—';
-        grpVisBtn.title = grp.visible ? 'Hide folder layers' : 'Show folder layers';
+        grpVisBtn.title = grp.visible ? 'Hide folder' : 'Show folder';
         grpVisBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`group toggle ${grp.id}`);
         });
         grpRow.appendChild(grpVisBtn);
 
-        const addBtn = document.createElement('button');
-        addBtn.type = 'button';
-        addBtn.className = 'layer-btn-action';
-        addBtn.textContent = '+';
-        addBtn.title = `Add active layer [${activeDraw}] to ${grp.name}`;
-        addBtn.addEventListener('click', (e) => {
+        // 5. Add Layer inside
+        const addLyrBtn = document.createElement('button');
+        addLyrBtn.type = 'button';
+        addLyrBtn.className = 'layer-btn-action';
+        addLyrBtn.textContent = '+';
+        addLyrBtn.title = `Add new layer into '${grp.name}'`;
+        addLyrBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          runCmd(`group add ${grp.id} ${activeDraw}`);
+          if (host.canvasActor?.exports?.w_layer_add) {
+            const newLid = host.canvasActor.exports.w_layer_add();
+            if (newLid >= 0) {
+              host.addLayerToGroup(grp.id, newLid);
+              grp.collapsed = false;
+              syncUiFromHost();
+              triggerHaptic(15);
+            }
+          }
         });
-        grpRow.appendChild(addBtn);
+        grpRow.appendChild(addLyrBtn);
 
+        // 6. Move Up button
+        const upBtn = document.createElement('button');
+        upBtn.type = 'button';
+        upBtn.className = 'layer-btn-action';
+        upBtn.textContent = '▲';
+        upBtn.title = `Move folder '${grp.name}' up in stack`;
+        upBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`group move up ${grp.id}`);
+        });
+        grpRow.appendChild(upBtn);
+
+        // 7. Move Down button
+        const downBtn = document.createElement('button');
+        downBtn.type = 'button';
+        downBtn.className = 'layer-btn-action';
+        downBtn.textContent = '▼';
+        downBtn.title = `Move folder '${grp.name}' down in stack`;
+        downBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`group move down ${grp.id}`);
+        });
+        grpRow.appendChild(downBtn);
+
+        // 8. Delete Group button
         const delGrpBtn = document.createElement('button');
         delGrpBtn.type = 'button';
         delGrpBtn.className = 'layer-btn-action btn-del';
@@ -6960,8 +7069,13 @@ async function main() {
         delGrpBtn.title = `Delete folder '${grp.name}'`;
         delGrpBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (confirm(`Delete folder '${grp.name}'? (Layers won't be deleted)`)) {
+          const hasChildren = (grp.children && grp.children.length > 0);
+          if (!hasChildren) {
             runCmd(`group delete ${grp.id}`);
+          } else {
+            const delContent = confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`);
+            host.deleteGroup(grp.id, delContent);
+            syncUiFromHost();
           }
         });
         grpRow.appendChild(delGrpBtn);
@@ -6969,7 +7083,7 @@ async function main() {
         return grpRow;
       };
 
-      const renderLayerRow = (i, pos, inGroup) => {
+      const renderLayerRow = (i, depth = 0, parentGroup = null) => {
         const vis = host.canvasActor.exports.get_layer_visible ? host.canvasActor.exports.get_layer_visible(i) : 1;
         const op = host.canvasActor.exports.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
         const w = host.canvasActor.exports.w_layer_get_width ? host.canvasActor.exports.w_layer_get_width(i) : 0;
@@ -6995,8 +7109,61 @@ async function main() {
         const isTex = (name === activeTex);
 
         const row = document.createElement('div');
-        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (inGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
+        row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (parentGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
+        row.style.paddingLeft = `${6 + depth * 16}px`;
         row.title = `[${i}] ${name} (${w}×${h})`;
+        row.setAttribute('data-layer-id', i);
+
+        // HTML5 Drag & Drop
+        row.draggable = true;
+        row.addEventListener('dragstart', (e) => {
+          layerDragSource = { type: 'layer', id: i };
+          row.classList.add('is-dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', String(i));
+          e.stopPropagation();
+        });
+        row.addEventListener('dragend', () => {
+          layerDragSource = null;
+          clearDropIndicators();
+          row.classList.remove('is-dragging');
+        });
+
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!layerDragSource) return;
+          if (layerDragSource.type === 'layer' && layerDragSource.id === i) return;
+          const rect = row.getBoundingClientRect();
+          const relY = (e.clientY - rect.top) / rect.height;
+          clearDropIndicators();
+          if (relY < 0.5) {
+            row.classList.add('drop-indicator-top');
+          } else {
+            row.classList.add('drop-indicator-bottom');
+          }
+        });
+
+        row.addEventListener('dragleave', (e) => {
+          if (!row.contains(e.relatedTarget)) {
+            row.classList.remove('drop-indicator-top', 'drop-indicator-bottom');
+          }
+        });
+
+        row.addEventListener('drop', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!layerDragSource) return;
+          if (layerDragSource.type === 'layer' && layerDragSource.id === i) return;
+          const rect = row.getBoundingClientRect();
+          const relY = (e.clientY - rect.top) / rect.height;
+          const dropPos = relY < 0.5 ? 'before' : 'after';
+
+          host.reorderTreeItem(layerDragSource.type, layerDragSource.id, 'layer', i, dropPos);
+          clearDropIndicators();
+          syncUiFromHost();
+          triggerHaptic(15);
+        });
 
         // Row Top: Visibility, Name/Info, Opacity, Actions
         const rowTop = document.createElement('div');
@@ -7025,6 +7192,15 @@ async function main() {
           <span class="layer-name-text" title="${name}">${name}</span>
           <span class="layer-dims-text">${w}×${h}</span>
         `;
+        infoCell.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          const newName = prompt(`Rename layer #${i}:`, name);
+          if (newName && newName.trim()) {
+            if (!host.layerNames) host.layerNames = new Map();
+            host.layerNames.set(i, newName.trim());
+            syncUiFromHost();
+          }
+        });
         rowTop.appendChild(infoCell);
 
         // Col 3: Opacity text
@@ -7043,8 +7219,7 @@ async function main() {
         upBtn.type = 'button';
         upBtn.className = 'layer-btn-action';
         upBtn.textContent = '▲';
-        upBtn.title = 'Move layer up';
-        if (pos >= orderCount - 1) upBtn.disabled = true;
+        upBtn.title = 'Move layer up in stack';
         upBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`layer move up ${i}`);
@@ -7056,8 +7231,7 @@ async function main() {
         downBtn.type = 'button';
         downBtn.className = 'layer-btn-action';
         downBtn.textContent = '▼';
-        downBtn.title = 'Move layer down';
-        if (pos <= 0) downBtn.disabled = true;
+        downBtn.title = 'Move layer down in stack';
         downBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           runCmd(`layer move down ${i}`);
@@ -7070,7 +7244,6 @@ async function main() {
         mergeBtn.className = 'layer-btn-action btn-merge';
         mergeBtn.textContent = '⤓';
         mergeBtn.title = 'Merge down into layer below';
-        if (pos <= 0) mergeBtn.disabled = true;
         mergeBtn.addEventListener('click', (e) => {
           e.stopPropagation();
           if (confirm(`Merge layer #${i} down into layer below? This action cannot be undone.`)) {
@@ -7079,13 +7252,13 @@ async function main() {
         });
         actCell.appendChild(mergeBtn);
 
-        // Group assign/remove
-        if (inGroup) {
+        // Group assign/remove button
+        if (parentGroup) {
           const remGrpBtn = document.createElement('button');
           remGrpBtn.type = 'button';
           remGrpBtn.className = 'layer-btn-action';
           remGrpBtn.textContent = '⊟';
-          remGrpBtn.title = 'Remove from folder';
+          remGrpBtn.title = 'Remove from folder (move to root)';
           remGrpBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             runCmd(`group remove ${i}`);
@@ -7170,7 +7343,7 @@ async function main() {
         });
         togglesCell.appendChild(texBtn);
 
-        // Alpha Lock button (unicode lock symbol)
+        // Alpha Lock button
         const lockBtn = document.createElement('button');
         lockBtn.type = 'button';
         lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
@@ -7225,7 +7398,6 @@ async function main() {
 
         /* ── Mobile: Swipe actions on layer row ── */
         if (isMobile()) {
-          // Create swipe action panel
           const swipePanel = document.createElement('div');
           swipePanel.className = 'layer-swipe-actions';
 
@@ -7244,10 +7416,9 @@ async function main() {
           swipeMerge.type = 'button';
           swipeMerge.className = 'layer-swipe-btn swipe-merge';
           swipeMerge.textContent = 'Merge';
-          if (pos <= 0) swipeMerge.style.opacity = '0.3';
           swipeMerge.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (pos > 0) runCmd(`layer merge down ${i}`);
+            runCmd(`layer merge down ${i}`);
           });
 
           const swipeDup = document.createElement('button');
@@ -7265,7 +7436,6 @@ async function main() {
           swipePanel.appendChild(swipeDel);
           row.appendChild(swipePanel);
 
-          // Swipe detection
           let swipeStartX = null;
           let swipeStartY = null;
           let swiping = false;
@@ -7282,19 +7452,16 @@ async function main() {
             if (swipeStartX === null) return;
             const dx = e.touches[0].clientX - swipeStartX;
             const dy = e.touches[0].clientY - swipeStartY;
-            // Only swipe if horizontal movement dominates
             if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 20) {
               swiping = true;
               if (dx < -40) {
-                // Swipe left: reveal action buttons
                 swipePanel.classList.add('revealed');
               } else if (dx > 40) {
-                // Swipe right: hide action buttons or toggle visibility
                 if (swipePanel.classList.contains('revealed')) {
                   swipePanel.classList.remove('revealed');
                 } else {
                   runCmd(`toggle layer ${i}`);
-                  swipeStartX = null; // Prevent repeated toggles
+                  swipeStartX = null;
                 }
               }
             }
@@ -7305,7 +7472,6 @@ async function main() {
             swipeStartY = null;
           }, { passive: true });
 
-          // Tap outside swipe panel closes it
           row.addEventListener('click', () => {
             if (!swiping && swipePanel.classList.contains('revealed')) {
               swipePanel.classList.remove('revealed');
@@ -7316,34 +7482,27 @@ async function main() {
         return row;
       };
 
-      // 1. Render all main document layers (not in folders) in top-to-bottom order (highest pos down to 0)
-      for (let pos = orderCount - 1; pos >= 0; pos--) {
-        const i = (host.canvasActor.exports.w_layer_get_order)
-          ? host.canvasActor.exports.w_layer_get_order(pos)
-          : pos;
-        if (i < 0 || i >= count) continue;
-
-        const grp = layerToGroup.get(i);
-        if (!grp) {
-          layersList.appendChild(renderLayerRow(i, pos, false));
-        }
-      }
-
-      // 2. Render layer folders below main layers (collapsed by default)
-      if (host.layerGroups) {
-        for (const grp of host.layerGroups.values()) {
-          layersList.appendChild(createGroupHeader(grp));
-          if (!grp.collapsed) {
-            for (let pos = orderCount - 1; pos >= 0; pos--) {
-              const i = (host.canvasActor.exports.w_layer_get_order)
-                ? host.canvasActor.exports.w_layer_get_order(pos)
-                : pos;
-              if (grp.layerIds.includes(i)) {
-                layersList.appendChild(renderLayerRow(i, pos, true));
+      // Recursive tree rendering
+      const renderTreeNode = (node, depth = 0, parentGroup = null) => {
+        if (node.type === 'layer') {
+          const layerEl = renderLayerRow(node.id, depth, parentGroup);
+          if (layerEl) layersList.appendChild(layerEl);
+        } else if (node.type === 'group') {
+          const grp = host.layerGroups.get(node.id);
+          if (grp) {
+            const grpHeader = createGroupHeader(grp, depth, parentGroup);
+            layersList.appendChild(grpHeader);
+            if (!grp.collapsed && Array.isArray(grp.children)) {
+              for (const childNode of grp.children) {
+                renderTreeNode(childNode, depth + 1, grp);
               }
             }
           }
         }
+      };
+
+      for (const rootNode of (host.layerTree || [])) {
+        renderTreeNode(rootNode, 0, null);
       }
     }
 
