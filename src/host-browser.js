@@ -241,31 +241,45 @@ async function main() {
   
 
   
-  function syncMobilePanels(isOpen, targetHeight) {
-    if (!isMobile()) return;
+  /* ── Mobile-First Unified Bottom Dock & Drawer ── */
+  const savedMobileH = localStorage.getItem('esenho_mobile_drawer_height');
+  if (savedMobileH) {
+    const pH = parseInt(savedMobileH, 10);
+    if (pH >= 80 && pH <= window.innerHeight * 0.85) {
+      document.documentElement.style.setProperty('--mobile-drawer-height', `${pH}px`);
+    }
+  }
+
+  function syncDrawerPanel(isOpen, targetHeight) {
     const uiEl = document.getElementById('ui-panel');
     if (!uiEl) return;
 
     if (!isOpen) {
       uiEl.classList.add('hidden');
       uiEl.style.height = '';
+      resize();
       return;
     }
 
     const wasHidden = uiEl.classList.contains('hidden');
     uiEl.classList.remove('hidden');
 
-    if (wasHidden && isMobile()) {
+    if (wasHidden) {
       armTouchGuard(uiEl);
     }
 
-    if (typeof targetHeight === 'number' && targetHeight > 0) {
-      uiEl.style.height = `${targetHeight}px`;
-      uiEl.style.maxHeight = 'none';
-      uiEl.style.minHeight = '0px';
+    let h = targetHeight;
+    if (typeof h !== 'number' || h <= 0) {
+      const saved = parseInt(localStorage.getItem('esenho_mobile_drawer_height'), 10);
+      h = saved || Math.round(window.innerHeight * 0.42);
     }
+    h = Math.max(80, Math.min(Math.round(window.innerHeight * 0.75), h));
+    uiEl.style.height = `${h}px`;
+    document.documentElement.style.setProperty('--mobile-drawer-height', `${h}px`);
+    resize();
   }
-function updateDockTabs() {}
+  const syncMobilePanels = syncDrawerPanel;
+  function updateDockTabs() {}
 
   function armTouchGuard(el) {
     if (!el) return;
@@ -278,10 +292,8 @@ function updateDockTabs() {}
   /* ── Toggle UI tools panel ── */
   function toggleUi(forceOpen) {
     const el = document.getElementById('ui-panel');
-    
     if (!el) return;
 
-    const isMob = isMobile();
     let willOpen;
     if (typeof forceOpen === 'boolean') {
       willOpen = forceOpen;
@@ -289,175 +301,35 @@ function updateDockTabs() {}
       willOpen = el.classList.contains('hidden');
     }
 
-    if (willOpen) {
-      el.classList.remove('hidden');
-      
-      if (isMob) {
-        armTouchGuard(el);
-      }
-    } else {
-      el.classList.add('hidden');
-      if (isMob) el.style.height = '';
-    }
-
-    const btn = document.getElementById('toggle-ui');
-    if (btn) {
-      btn.textContent = willOpen ? '▶ tools [hide]' : '◀ tools [show]';
-    }
-    updateDockTabs();
-    resize();
+    syncDrawerPanel(willOpen);
   }
 
-  /* ── Toggle console/scripts panel ── */
+  /* ── Toggle console/scripts tab in bottom drawer ── */
   function toggleConsole(forceOpen, targetSubTab) {
-    const el = document.getElementById('panel');
     const uiEl = document.getElementById('ui-panel');
-    if (!el) return;
+    if (!uiEl) return;
 
-    if (targetSubTab) {
-      switchConsoleSubTab(targetSubTab);
-    }
-
-    const isMob = isMobile();
     let willOpen;
     if (typeof forceOpen === 'boolean') {
       willOpen = forceOpen;
     } else {
-      willOpen = el.classList.contains('hidden');
+      willOpen = uiEl.classList.contains('hidden');
     }
 
     if (willOpen) {
-      el.classList.remove('hidden');
-      if (isMob) { armTouchGuard(el); }
-      if (isMob && uiEl) {
-        uiEl.classList.add('hidden');
-        uiEl.style.height = '';
-        const btnU = document.getElementById('toggle-ui');
-        if (btnU) btnU.textContent = '◀ tools [show]';
-      }
+      switchDrawerTab('console');
+      syncDrawerPanel(true);
+      const cmdInput = document.getElementById('wcmd');
+      if (cmdInput) cmdInput.focus();
     } else {
-      el.classList.add('hidden');
-      if (isMob) el.style.height = '';
+      syncDrawerPanel(false);
     }
-
-    const btn = document.getElementById('toggle-panel');
-    if (btn) {
-      btn.textContent = willOpen ? 'console [hide] ◀' : 'console [show] ▶';
-    }
-    updateDockTabs();
-    resize();
-    if (willOpen && inputEl) inputEl.focus();
   }
 
-  /* ── Draggable Orelha Resizing & Toggle ── */
+  /* ── Draggable Tab Setup (Legacy compatibility) ── */
   function setupDraggableTab(panelId, btnId, side, storageKey) {
-    const panel = document.getElementById(panelId);
-    const btn = document.getElementById(btnId);
-    if (!panel || !btn) return;
-
-    // Restore saved width if available on desktop
-    if (!isMobile()) {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = parseInt(saved, 10);
-        if (parsed > 160 && parsed < window.innerWidth * 0.75) {
-          panel.style.width = `${parsed}px`;
-        }
-      }
-      panel.style.height = '';
-      panel.style.maxHeight = '';
-    }
-
-    let isDragging = false;
-    let hasMoved = false;
-    let startX = 0;
-    let startY = 0;
-    let startDim = 0;
-
-    btn.addEventListener('pointerdown', e => {
-      if (e.button !== 0) return;
-      if (isMobile()) return;
-      e.stopPropagation();
-      isDragging = true;
-      hasMoved = false;
-      startX = e.clientX;
-      startY = e.clientY;
-      startDim = panel.offsetWidth;
-
-      try {
-        btn.setPointerCapture(e.pointerId);
-      } catch (_) {}
-
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'col-resize';
-    });
-
-    btn.addEventListener('pointermove', e => {
-      if (!isDragging) return;
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-
-      if (!hasMoved && Math.hypot(dx, dy) > 3) {
-        hasMoved = true;
-        if (panel.classList.contains('hidden')) {
-          panel.classList.remove('hidden');
-          if (panelId === 'ui-panel') {
-            btn.textContent = '▶ tools [hide]';
-          } else {
-            btn.textContent = 'console [hide] ◀';
-          }
-        }
-      }
-
-      if (!hasMoved) return;
-
-      const scale = parseFloat(getComputedStyle(panel).zoom) || 1;
-      let newW = (side === 'left') ? (startDim + dx / scale) : (startDim - dx / scale);
-      newW = Math.max(160, Math.min(window.innerWidth * 0.75, newW));
-      panel.style.width = `${newW}px`;
-      panel.style.height = '';
-      panel.style.maxHeight = '';
-      resize();
-    });
-
-    const finishDrag = (e) => {
-      if (!isDragging) return;
-      isDragging = false;
-      document.body.style.userSelect = '';
-      document.body.style.cursor = '';
-      try {
-        btn.releasePointerCapture(e.pointerId);
-      } catch (_) {}
-
-      if (hasMoved) {
-        const finalDim = panel.offsetWidth;
-        localStorage.setItem(storageKey, finalDim);
-      } else {
-        if (panelId === 'ui-panel') {
-          toggleUi();
-        } else {
-          toggleConsole();
-        }
-      }
-      hasMoved = false;
-    };
-
-    btn.addEventListener('pointerup', finishDrag);
-    btn.addEventListener('pointercancel', finishDrag);
+    // No-op in unified mobile-first bottom dock layout
   }
-
-  setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
-
-  /* ── Mobile Unified Bottom Dock Listeners ── */
-  const savedMobileH = localStorage.getItem('esenho_mobile_drawer_height');
-  if (savedMobileH) {
-    const pH = parseInt(savedMobileH, 10);
-    if (pH >= 80 && pH <= window.innerHeight * 0.85) {
-      document.documentElement.style.setProperty('--mobile-drawer-height', `${pH}px`);
-    }
-  }
-
-  
 
   const bottomDock = document.getElementById('bottom-dock');
   const dockHandle = document.getElementById('bottom-dock-handle');
@@ -466,28 +338,16 @@ function updateDockTabs() {}
     let hasMoved = false;
     let startY = 0;
     let startH = 0;
-        let suppressClickUntil = 0;
+    let suppressClickUntil = 0;
 
-    
-
-    // Toggle dock drawer on mobile, collapse/expand toolstrip on desktop
+    // Toggle dock drawer on handle click
     if (dockHandle) {
       dockHandle.addEventListener('click', (e) => {
         if (e.target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle')) return;
         if (Date.now() < suppressClickUntil) { e.preventDefault(); e.stopPropagation(); return; }
-        if (isMobile()) {
-          const uiEl = document.getElementById('ui-panel');
-          const isHidden = !uiEl || uiEl.classList.contains('hidden');
-          if (isHidden) {
-            let newH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--mobile-drawer-height')) || (window.innerHeight * 0.42);
-            syncMobilePanels(true, newH);
-          } else {
-            syncMobilePanels(false);
-          }
-        } else {
-          bottomDock.classList.toggle('collapsed');
-          resize();
-        }
+        const uiEl = document.getElementById('ui-panel');
+        const isHidden = !uiEl || uiEl.classList.contains('hidden');
+        syncDrawerPanel(isHidden);
       });
     }
 
@@ -496,27 +356,27 @@ function updateDockTabs() {}
 
     const updateDockHeightUI = (clientY) => {
       if (!isDraggingDock) return;
-      const scale = parseFloat(getComputedStyle(bottomDock).zoom) || 1;
-      const dy = (clientY - startY) / scale;
-      if (!hasMoved && Math.abs(dy) > 4) hasMoved = true;
+      const dy = clientY - startY;
+      if (!hasMoved && Math.abs(dy) > 3) hasMoved = true;
       if (!hasMoved) return;
+
+      const maxH = Math.round(window.innerHeight * 0.75);
       if (startH === 0) {
         if (-dy > 12) {
-          let newH = -dy;
-          newH = Math.max(60, Math.min(window.innerHeight * 0.85, newH));
+          let newH = Math.max(80, Math.min(maxH, -dy));
           document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncMobilePanels(true, newH);
+          syncDrawerPanel(true, newH);
         } else if (dy <= 18) {
-          syncMobilePanels(false);
+          syncDrawerPanel(false);
         }
       } else {
         let newH = startH - dy;
-        if (newH >= 60) {
-          newH = Math.min(window.innerHeight * 0.85, newH);
+        if (newH >= 70) {
+          newH = Math.min(maxH, newH);
           document.documentElement.style.setProperty('--mobile-drawer-height', `${newH}px`);
-          syncMobilePanels(true, newH);
+          syncDrawerPanel(true, newH);
         } else {
-          syncMobilePanels(false);
+          syncDrawerPanel(false);
         }
       }
     };
@@ -557,13 +417,11 @@ function updateDockTabs() {}
         suppressClickUntil = Date.now() + 250;
 
         const uiEl = document.getElementById('ui-panel');
-        
-        const activeEl = uiEl;
-        if (activeEl && !activeEl.classList.contains('hidden')) {
-          if (activeEl.offsetHeight < 70) {
-            syncMobilePanels(false);
+        if (uiEl && !uiEl.classList.contains('hidden')) {
+          if (uiEl.offsetHeight < 70) {
+            syncDrawerPanel(false);
           } else {
-            localStorage.setItem('esenho_mobile_drawer_height', activeEl.offsetHeight);
+            localStorage.setItem('esenho_mobile_drawer_height', uiEl.offsetHeight);
           }
         }
       }
@@ -587,7 +445,6 @@ function updateDockTabs() {}
     const handleDockStart = (clientY, isDirectHandle, target) => {
       if (target && target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return false;
       if (!isDirectHandle) return false;
-      if (!isMobile()) return false;
       const uiEl = document.getElementById('ui-panel');
       const uiHidden = !uiEl || uiEl.classList.contains('hidden');
       startH = (!uiHidden) ? uiEl.offsetHeight : 0;
@@ -601,7 +458,7 @@ function updateDockTabs() {}
 
     bottomDock.addEventListener('pointerdown', e => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
-      if (e.target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return;
+      if (e.target.closest('#btn-open-toolbar-mgr, #btn-toggle-dock-strip, .dock-handle-btn, .dock-handle-toggle, .dock-nav-btn, .dock-panel, #ui-panel, #bottom-dock-bars')) return;
       const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
       if (!handleDockStart(e.clientY, isDirectHandle, e.target)) return;
       if (isDirectHandle && e.cancelable) e.preventDefault();
@@ -613,7 +470,7 @@ function updateDockTabs() {}
 
     bottomDock.addEventListener('touchstart', e => {
       if (e.touches && e.touches.length > 0) {
-        if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel')) return;
+        if (e.target.closest('#btn-toggle-dock-strip, .dock-handle-toggle, .dock-nav-btn, .dock-panel, #ui-panel, #bottom-dock-bars')) return;
         const isDirectHandle = (e.target === dockHandle || (dockHandle && dockHandle.contains(e.target)));
         if (!handleDockStart(e.touches[0].clientY, isDirectHandle, e.target)) return;
         if (isDirectHandle && e.cancelable) e.preventDefault();
@@ -625,14 +482,11 @@ function updateDockTabs() {}
     }, { passive: false });
   }
 
-  // On mobile initial setup: start with full-screen canvas (drawers closed)
-  if (isMobile()) {
-    const uiEl = document.getElementById('ui-panel');
-    
-    if (uiEl) uiEl.classList.add('hidden');
-    updateDockTabs();
-    resize();
-  }
+  // Initial setup: start with full-screen canvas (drawer closed)
+  const initialUiEl = document.getElementById('ui-panel');
+  if (initialUiEl) initialUiEl.classList.add('hidden');
+  updateDockTabs();
+  resize();
 
   window.addEventListener('keydown', e => {
     if (e.key === '`' && e.ctrlKey) {
@@ -2379,6 +2233,24 @@ function updateDockTabs() {}
     }
   });
 
+  const btnClearConsole = document.getElementById('ui-btn-clear-console');
+  if (btnClearConsole) {
+    btnClearConsole.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (termEl) termEl.innerHTML = '';
+      triggerHaptic(10);
+    });
+  }
+
+  const btnHelpConsole = document.getElementById('ui-btn-help-console');
+  if (btnHelpConsole) {
+    btnHelpConsole.addEventListener('click', (e) => {
+      e.stopPropagation();
+      runCmd('help');
+      triggerHaptic(10);
+    });
+  }
+
   /* ── UI Controls & Sync ── */
   const uiPanel = document.getElementById('ui-panel');
   if (uiPanel) {
@@ -3109,16 +2981,116 @@ function updateDockTabs() {}
   const dockRedo = document.getElementById('tab-dock-redo');
   if (dockRedo) dockRedo.addEventListener('click', handleRedo);
 
-  /* ── Floating Touch Toolbar & Touch Controls ── */
+  /* ── Color Studio Modal & Multi-Model Color Picker ── */
   const touchToolbar = document.getElementById('touch-toolbar');
   const touchColorModal = document.getElementById('touch-color-modal');
   const btnCloseTouchColor = document.getElementById('btn-close-touch-color');
+  const touchColorPrevChip = document.getElementById('touch-color-prev-chip');
+  const touchColorCurrChip = document.getElementById('touch-color-curr-chip');
+
+  // Mode Tabs
+  const touchColorTabBtns = document.querySelectorAll('#touch-color-modal .touch-color-tab-btn');
+  const touchColorPanels = {
+    wheel: document.getElementById('touch-panel-wheel'),
+    box: document.getElementById('touch-panel-box'),
+    sliders: document.getElementById('touch-panel-sliders'),
+    palettes: document.getElementById('touch-panel-palettes')
+  };
+
+  // Tab 1: Wheel elements
   const touchColorCanvas = document.getElementById('touch-color-canvas');
-  const touchColorHex = document.getElementById('touch-color-hex');
+  const touchWheelValSlider = document.getElementById('touch-wheel-val-slider');
+  const touchValReadout = document.getElementById('touch-val-readout');
+
+  // Tab 2: SV Box elements
+  const touchSvboxCanvas = document.getElementById('touch-svbox-canvas');
+  const touchSvboxCursor = document.getElementById('touch-svbox-cursor');
+  const touchBoxHueSlider = document.getElementById('touch-box-hue-slider');
+  const touchBoxHueReadout = document.getElementById('touch-box-hue-readout');
+
+  // Tab 3: Sliders elements
+  const touchSliderR = document.getElementById('touch-slider-r');
+  const touchSliderG = document.getElementById('touch-slider-g');
+  const touchSliderB = document.getElementById('touch-slider-b');
+  const touchNumR = document.getElementById('touch-num-r');
+  const touchNumG = document.getElementById('touch-num-g');
+  const touchNumB = document.getElementById('touch-num-b');
+  const touchSliderH = document.getElementById('touch-slider-h');
+  const touchSliderS = document.getElementById('touch-slider-s');
+  const touchSliderV = document.getElementById('touch-slider-v');
+  const touchValH = document.getElementById('touch-val-h');
+  const touchValS = document.getElementById('touch-val-s');
+  const touchValV = document.getElementById('touch-val-v');
+
+  // Tab 4: Palettes & Swatches elements
+  const touchPaletteSelect = document.getElementById('touch-palette-select');
   const touchModalSwatches = document.getElementById('touch-modal-swatches');
 
-  // HSV Wheel Renderer & Touch Picker
+  // Persistent Hex & Actions
+  const touchColorHexInput = document.getElementById('touch-color-hex-input');
+  const btnTouchCopyHex = document.getElementById('btn-touch-copy-hex');
+  const btnTouchAddSwatch = document.getElementById('btn-touch-add-swatch');
+  const btnTouchDelSwatch = document.getElementById('btn-touch-del-swatch');
+  const touchQuickSwatchesRow = document.getElementById('touch-quick-swatches-row');
+
+  // Studio State
+  let studioPrevHex = '#EBDBB2';
+  let studioHue = 43;
+  let studioSat = 0.6;
+  let studioVal = 0.92;
+  let studioActiveMode = 'wheel';
+  let studioDelMode = false;
+
+  const PALETTE_PRESETS = {
+    gruvbox: [
+      '#282828', '#3c3836', '#504945', '#7c6f64', '#928374', '#a89984',
+      '#ebdbb2', '#fbf1c7', '#fb4934', '#fe8019', '#fabd2f', '#b8bb26',
+      '#8ec07c', '#83a598', '#d3869b', '#b16286', '#458588', '#d65d0e'
+    ],
+    vibrant: [
+      '#ff0055', '#ff5500', '#ffcc00', '#00ee77', '#00ccff', '#7700ff',
+      '#ff00aa', '#ffffff', '#888888', '#000000', '#00ffff', '#ffff00'
+    ],
+    pastels: [
+      '#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8c5ff',
+      '#ffd1dc', '#d4f0f0', '#ffe4e1', '#f0fff0', '#f5f5dc', '#faf0e6'
+    ],
+    shades: [
+      '#000000', '#1c1c1c', '#383838', '#545454', '#707070', '#8c8c8c',
+      '#a8a8a8', '#c4c4c4', '#e0e0e0', '#f0f0f0', '#f8f8f8', '#ffffff'
+    ],
+    cyberpunk: [
+      '#05d9e8', '#005670', '#01012b', '#d1f7ff', '#ff2a6d', '#010a43',
+      '#ffc2c2', '#ffe600', '#7122fa', '#f50057', '#00e5ff', '#18ffff'
+    ],
+    retro_gameboy: [
+      '#0f380f', '#306230', '#8bac0f', '#9bbc0f'
+    ]
+  };
+
+  function rgbToHsv(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    let h = 0;
+    const s = max === 0 ? 0 : d / max;
+    const v = max;
+
+    if (max !== min) {
+      switch (max) {
+        case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+        case g: h = (b - r) / d + 2; break;
+        case b: h = (r - g) / d + 4; break;
+      }
+      h /= 6;
+    }
+    return [Math.round(h * 360) % 360, s, v];
+  }
+
   function hsvToRgb(h, s, v) {
+    h = (h % 360 + 360) % 360;
+    s = Math.max(0, Math.min(1, s));
+    v = Math.max(0, Math.min(1, v));
     const c = v * s;
     const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
     const m = v - c;
@@ -3129,14 +3101,29 @@ function updateDockTabs() {}
     else if (h < 240) { g1 = x; b1 = c; }
     else if (h < 300) { r1 = x; b1 = c; }
     else { r1 = c; b1 = x; }
-    return [Math.round((r1 + m) * 255), Math.round((g1 + m) * 255), Math.round((b1 + m) * 255)];
+    return [
+      Math.max(0, Math.min(255, Math.round((r1 + m) * 255))),
+      Math.max(0, Math.min(255, Math.round((g1 + m) * 255))),
+      Math.max(0, Math.min(255, Math.round((b1 + m) * 255)))
+    ];
+  }
+
+  function hexToRgb(hex) {
+    hex = (hex || '').replace('#', '').trim();
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join('');
+    }
+    if (hex.length !== 6) return [235, 219, 178];
+    const num = parseInt(hex, 16);
+    if (isNaN(num)) return [235, 219, 178];
+    return [(num >> 16) & 0xFF, (num >> 8) & 0xFF, num & 0xFF];
   }
 
   function drawTouchHsvWheel() {
     if (!touchColorCanvas) return;
     const ctx = touchColorCanvas.getContext('2d');
     const w = touchColorCanvas.width, h = touchColorCanvas.height;
-    const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) - 6;
+    const cx = w / 2, cy = h / 2, r = Math.min(cx, cy) - 4;
     const imgData = ctx.createImageData(w, h);
     const data = imgData.data;
 
@@ -3148,7 +3135,7 @@ function updateDockTabs() {}
         if (dist <= r) {
           const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
           const sat = Math.min(1.0, dist / r);
-          const [red, green, blue] = hsvToRgb(angle, sat, 1.0);
+          const [red, green, blue] = hsvToRgb(angle, sat, studioVal);
           data[idx]     = red;
           data[idx + 1] = green;
           data[idx + 2] = blue;
@@ -3161,74 +3148,493 @@ function updateDockTabs() {}
     ctx.putImageData(imgData, 0, 0);
   }
 
-  function pickColorFromWheel(clientX, clientY) {
-    if (!touchColorCanvas) return;
-    const rect = touchColorCanvas.getBoundingClientRect();
-    const x = clientX - rect.left;
-    const y = clientY - rect.top;
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
-    const dx = x - cx, dy = y - cy;
-    const dist = Math.hypot(dx, dy);
-    const r = Math.min(cx, cy) - 6;
-    if (dist <= r) {
-      const angle = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
-      const sat = Math.min(1.0, dist / r);
-      const [red, green, blue] = hsvToRgb(angle, sat, 1.0);
-      const hex = rgbToHex(red, green, blue);
-      runCmd(`color ${hex}`);
-      if (touchColorHex) touchColorHex.textContent = hex.toUpperCase();
-      triggerHaptic(8);
+  function drawTouchSvBox() {
+    if (!touchSvboxCanvas) return;
+    const ctx = touchSvboxCanvas.getContext('2d');
+    const w = touchSvboxCanvas.width, h = touchSvboxCanvas.height;
+
+    const [r0, g0, b0] = hsvToRgb(studioHue, 1.0, 1.0);
+    ctx.fillStyle = `rgb(${r0}, ${g0}, ${b0})`;
+    ctx.fillRect(0, 0, w, h);
+
+    const gradWhite = ctx.createLinearGradient(0, 0, w, 0);
+    gradWhite.addColorStop(0, 'rgba(255,255,255,1)');
+    gradWhite.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = gradWhite;
+    ctx.fillRect(0, 0, w, h);
+
+    const gradBlack = ctx.createLinearGradient(0, 0, 0, h);
+    gradBlack.addColorStop(0, 'rgba(0,0,0,0)');
+    gradBlack.addColorStop(1, 'rgba(0,0,0,1)');
+    ctx.fillStyle = gradBlack;
+    ctx.fillRect(0, 0, w, h);
+
+    updateSvBoxCursor();
+  }
+
+  // Swatches functions & persistence
+  const DEFAULT_SWATCHES = [
+    '#fb4934', '#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598',
+    '#d3869b', '#fbf1c7', '#ebdbb2', '#928374', '#282828', '#000000'
+  ];
+
+  function getCustomSwatches() {
+    try {
+      return JSON.parse(localStorage.getItem('esenho_custom_swatches') || '[]');
+    } catch (_) { return []; }
+  }
+
+  function addCustomSwatch(color) {
+    const swatches = getCustomSwatches();
+    if (!swatches.includes(color)) {
+      swatches.push(color);
+      localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
+      broadcastSwatchesChanged();
     }
+  }
+
+  function removeCustomSwatch(index) {
+    const swatches = getCustomSwatches();
+    swatches.splice(index, 1);
+    localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
+    broadcastSwatchesChanged();
+  }
+
+  let swatchDeleteMode = false;
+
+  function renderSwatches() {
+    const grid = document.getElementById('ui-swatches-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    grid.classList.toggle('delete-mode', swatchDeleteMode);
+
+    DEFAULT_SWATCHES.forEach(col => {
+      const el = document.createElement('div');
+      el.className = 'swatch-item';
+      el.style.background = col;
+      el.title = `${col} (built-in)`;
+      el.addEventListener('click', () => {
+        updateColorControlsFromHex(col);
+        runCmd(`set color ${col}`);
+      });
+      grid.appendChild(el);
+    });
+
+    const custom = getCustomSwatches();
+    custom.forEach((col, idx) => {
+      const el = document.createElement('div');
+      el.className = 'swatch-item';
+      el.style.background = col;
+      el.title = swatchDeleteMode
+        ? `Click to delete ${col}`
+        : `${col} (right-click, long-press, or toggle [- Del] to delete)`;
+
+      el.addEventListener('click', () => {
+        if (swatchDeleteMode) {
+          removeCustomSwatch(idx);
+          log(`Swatch ${col} removed [ok]`);
+        } else {
+          updateColorControlsFromHex(col);
+          runCmd(`set color ${col}`);
+        }
+      });
+
+      // Touch long-press to delete on mobile
+      let longPressTimer = null;
+      el.addEventListener('touchstart', () => {
+        longPressTimer = setTimeout(() => {
+          removeCustomSwatch(idx);
+          log(`Swatch ${col} removed [ok]`);
+        }, 450);
+      }, { passive: true });
+      el.addEventListener('touchend', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+      el.addEventListener('touchmove', () => { if (longPressTimer) clearTimeout(longPressTimer); });
+
+      el.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        removeCustomSwatch(idx);
+        log(`Swatch ${col} removed [ok]`);
+      });
+
+      const del = document.createElement('span');
+      del.className = 'swatch-del';
+      del.textContent = '✕';
+      del.title = 'Delete swatch';
+      del.addEventListener('click', e => {
+        e.stopPropagation();
+        removeCustomSwatch(idx);
+        log(`Swatch ${col} removed [ok]`);
+      });
+      el.appendChild(del);
+
+      grid.appendChild(el);
+    });
+  }
+
+  function broadcastSwatchesChanged() {
+    renderSwatches();
+    renderTouchModalSwatches();
+    renderTouchQuickSwatches();
+    syncModularToolbars();
+  }
+
+  function renderTouchQuickSwatches() {
+    if (!touchQuickSwatchesRow) return;
+    touchQuickSwatchesRow.innerHTML = '';
+    const swatches = getCustomSwatches();
+    const currentHex = (host.currentColor !== undefined)
+      ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+      : '';
+
+    const listToShow = swatches.length > 0 ? swatches : PALETTE_PRESETS.gruvbox.slice(0, 10);
+    listToShow.forEach(hex => {
+      const slot = document.createElement('div');
+      slot.className = 'touch-swatch-slot';
+      slot.style.width = '24px';
+      slot.style.height = '20px';
+      slot.style.flexShrink = '0';
+      slot.style.background = hex;
+      if (currentHex && hex.toUpperCase() === currentHex) {
+        slot.style.border = '2px solid #fabd2f';
+      }
+      slot.title = hex;
+      slot.addEventListener('click', () => {
+        applyColorFromStudio(hex);
+        triggerHaptic(10);
+      });
+      touchQuickSwatchesRow.appendChild(slot);
+    });
   }
 
   function renderTouchModalSwatches() {
     if (!touchModalSwatches) return;
     touchModalSwatches.innerHTML = '';
-    const swatches = [
-      '#ebdbb2', '#fabd2f', '#fe8019', '#fb4934', '#b8bb26', '#83a598',
-      '#d3869b', '#8ec07c', '#a89984', '#928374', '#504945', '#282828'
-    ];
-    swatches.forEach(hex => {
+
+    const selectedPal = touchPaletteSelect ? touchPaletteSelect.value : 'custom';
+    let colors = [];
+    if (selectedPal === 'custom') {
+      colors = getCustomSwatches();
+      if (colors.length === 0) {
+        touchModalSwatches.innerHTML = '<div style="grid-column: 1 / -1; color: #928374; font-size: 10px; font-style: italic; padding: 8px; text-align: center;">No custom swatches saved yet.<br>Click <strong>"+ Swatch"</strong> to add current color.</div>';
+        return;
+      }
+    } else if (PALETTE_PRESETS[selectedPal]) {
+      colors = PALETTE_PRESETS[selectedPal];
+    } else {
+      colors = PALETTE_PRESETS.gruvbox;
+    }
+
+    const currentHex = (host.currentColor !== undefined)
+      ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+      : '';
+
+    colors.forEach((hex, idx) => {
       const slot = document.createElement('div');
       slot.className = 'touch-swatch-slot';
+      if (studioDelMode && selectedPal === 'custom') slot.classList.add('del-mode');
       slot.style.background = hex;
+      if (currentHex && hex.toUpperCase() === currentHex) {
+        slot.style.borderColor = '#fabd2f';
+      }
+      slot.title = studioDelMode && selectedPal === 'custom' ? `Click to delete ${hex}` : hex;
+
       slot.addEventListener('click', () => {
-        runCmd(`color ${hex}`);
-        if (touchColorHex) touchColorHex.textContent = hex.toUpperCase();
-        triggerHaptic(12);
+        if (studioDelMode && selectedPal === 'custom') {
+          removeCustomSwatch(idx);
+          broadcastSwatchesChanged();
+          triggerHaptic(15);
+        } else {
+          applyColorFromStudio(hex);
+          triggerHaptic(12);
+        }
       });
+
       touchModalSwatches.appendChild(slot);
+    });
+  }
+
+  function applyColorFromStudio(hex, skipHostCmd = false) {
+    hex = (hex || '').trim();
+    if (!hex.startsWith('#')) hex = '#' + hex;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+
+    hex = hex.toUpperCase();
+    const [r, g, b] = hexToRgb(hex);
+    const [h, s, v] = rgbToHsv(r, g, b);
+
+    studioHue = h;
+    studioSat = s;
+    studioVal = v;
+
+    if (!skipHostCmd) {
+      runCmd(`color ${hex}`);
+    }
+
+    if (touchColorCurrChip) touchColorCurrChip.style.background = hex;
+    if (touchColorHexInput && document.activeElement !== touchColorHexInput) {
+      touchColorHexInput.value = hex;
+    }
+
+    if (touchWheelValSlider) touchWheelValSlider.value = Math.round(v * 100);
+    if (touchValReadout) touchValReadout.textContent = `${Math.round(v * 100)}%`;
+    if (touchBoxHueSlider) touchBoxHueSlider.value = h;
+    if (touchBoxHueReadout) touchBoxHueReadout.textContent = `${h}°`;
+
+    if (touchSliderR) touchSliderR.value = r;
+    if (touchSliderG) touchSliderG.value = g;
+    if (touchSliderB) touchSliderB.value = b;
+    if (touchNumR) touchNumR.value = r;
+    if (touchNumG) touchNumG.value = g;
+    if (touchNumB) touchNumB.value = b;
+
+    if (touchSliderH) touchSliderH.value = h;
+    if (touchSliderS) touchSliderS.value = Math.round(s * 100);
+    if (touchSliderV) touchSliderV.value = Math.round(v * 100);
+    if (touchValH) touchValH.textContent = `${h}°`;
+    if (touchValS) touchValS.textContent = `${Math.round(s * 100)}%`;
+    if (touchValV) touchValV.textContent = `${Math.round(v * 100)}%`;
+
+    if (studioActiveMode === 'wheel') drawTouchHsvWheel();
+    if (studioActiveMode === 'box') drawTouchSvBox();
+
+    renderTouchQuickSwatches();
+    if (typeof updateColorControlsFromHex === 'function') {
+      updateColorControlsFromHex(hex);
+    }
+    syncModularToolbars();
+  }
+
+  function switchStudioMode(mode) {
+    studioActiveMode = mode;
+    touchColorTabBtns.forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.touchmode === mode);
+    });
+    Object.entries(touchColorPanels).forEach(([k, el]) => {
+      if (el) el.style.display = (k === mode) ? 'flex' : 'none';
+    });
+
+    if (mode === 'wheel') drawTouchHsvWheel();
+    if (mode === 'box') drawTouchSvBox();
+    if (mode === 'palettes') renderTouchModalSwatches();
+  }
+
+  touchColorTabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchStudioMode(btn.dataset.touchmode);
+      triggerHaptic(10);
+    });
+  });
+
+  if (touchPaletteSelect) {
+    touchPaletteSelect.addEventListener('change', () => {
+      renderTouchModalSwatches();
+      triggerHaptic(10);
+    });
+  }
+
+  // Wheel interaction
+  if (touchColorCanvas) {
+    let wheelTracking = false;
+    const pickWheel = (clientX, clientY) => {
+      const rect = touchColorCanvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      const cx = rect.width / 2;
+      const cy = rect.height / 2;
+      const dx = x - cx, dy = y - cy;
+      const dist = Math.hypot(dx, dy);
+      const r = Math.min(cx, cy) - 4;
+      if (dist <= r) {
+        studioHue = (Math.atan2(dy, dx) * 180 / Math.PI + 360) % 360;
+        studioSat = Math.min(1.0, dist / r);
+        const [red, green, blue] = hsvToRgb(studioHue, studioSat, studioVal);
+        const hex = rgbToHex(red, green, blue);
+        applyColorFromStudio(hex);
+        triggerHaptic(8);
+      }
+    };
+    touchColorCanvas.addEventListener('pointerdown', (e) => {
+      wheelTracking = true;
+      pickWheel(e.clientX, e.clientY);
+    });
+    touchColorCanvas.addEventListener('pointermove', (e) => {
+      if (wheelTracking) pickWheel(e.clientX, e.clientY);
+    });
+    touchColorCanvas.addEventListener('pointerup', () => { wheelTracking = false; });
+    touchColorCanvas.addEventListener('pointercancel', () => { wheelTracking = false; });
+  }
+
+  if (touchWheelValSlider) {
+    touchWheelValSlider.addEventListener('input', () => {
+      studioVal = parseInt(touchWheelValSlider.value, 10) / 100;
+      if (touchValReadout) touchValReadout.textContent = `${Math.round(studioVal * 100)}%`;
+      drawTouchHsvWheel();
+      const [r, g, b] = hsvToRgb(studioHue, studioSat, studioVal);
+      applyColorFromStudio(rgbToHex(r, g, b));
+    });
+  }
+
+  // SV Box interaction
+  if (touchSvboxCanvas) {
+    let boxTracking = false;
+    const pickBox = (clientX, clientY) => {
+      const rect = touchSvboxCanvas.getBoundingClientRect();
+      const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+      const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+      studioSat = Math.max(0, Math.min(1, x / rect.width));
+      studioVal = Math.max(0, Math.min(1, 1 - (y / rect.height)));
+      const [r, g, b] = hsvToRgb(studioHue, studioSat, studioVal);
+      applyColorFromStudio(rgbToHex(r, g, b));
+      updateSvBoxCursor();
+      triggerHaptic(8);
+    };
+    touchSvboxCanvas.addEventListener('pointerdown', (e) => {
+      boxTracking = true;
+      pickBox(e.clientX, e.clientY);
+    });
+    touchSvboxCanvas.addEventListener('pointermove', (e) => {
+      if (boxTracking) pickBox(e.clientX, e.clientY);
+    });
+    touchSvboxCanvas.addEventListener('pointerup', () => { boxTracking = false; });
+    touchSvboxCanvas.addEventListener('pointercancel', () => { boxTracking = false; });
+  }
+
+  if (touchBoxHueSlider) {
+    touchBoxHueSlider.addEventListener('input', () => {
+      studioHue = parseInt(touchBoxHueSlider.value, 10);
+      if (touchBoxHueReadout) touchBoxHueReadout.textContent = `${studioHue}°`;
+      drawTouchSvBox();
+      const [r, g, b] = hsvToRgb(studioHue, studioSat, studioVal);
+      applyColorFromStudio(rgbToHex(r, g, b));
+    });
+  }
+
+  // Sliders interaction
+  function syncFromRgbSliders() {
+    const r = parseInt(touchSliderR?.value || 0, 10);
+    const g = parseInt(touchSliderG?.value || 0, 10);
+    const b = parseInt(touchSliderB?.value || 0, 10);
+    applyColorFromStudio(rgbToHex(r, g, b));
+  }
+
+  [touchSliderR, touchSliderG, touchSliderB].forEach(sl => {
+    if (sl) sl.addEventListener('input', syncFromRgbSliders);
+  });
+
+  [touchNumR, touchNumG, touchNumB].forEach((num, idx) => {
+    if (num) {
+      num.addEventListener('change', () => {
+        let val = Math.max(0, Math.min(255, parseInt(num.value, 10) || 0));
+        num.value = val;
+        if (idx === 0 && touchSliderR) touchSliderR.value = val;
+        if (idx === 1 && touchSliderG) touchSliderG.value = val;
+        if (idx === 2 && touchSliderB) touchSliderB.value = val;
+        syncFromRgbSliders();
+      });
+    }
+  });
+
+  function syncFromHsvSliders() {
+    const h = parseInt(touchSliderH?.value || 0, 10);
+    const s = (parseInt(touchSliderS?.value || 0, 10)) / 100;
+    const v = (parseInt(touchSliderV?.value || 0, 10)) / 100;
+    studioHue = h; studioSat = s; studioVal = v;
+    const [r, g, b] = hsvToRgb(h, s, v);
+    applyColorFromStudio(rgbToHex(r, g, b));
+  }
+
+  [touchSliderH, touchSliderS, touchSliderV].forEach(sl => {
+    if (sl) sl.addEventListener('input', syncFromHsvSliders);
+  });
+
+  // Direct Hex Input
+  if (touchColorHexInput) {
+    touchColorHexInput.addEventListener('input', () => {
+      let val = touchColorHexInput.value.trim();
+      if (!val.startsWith('#')) val = '#' + val;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        applyColorFromStudio(val);
+      }
+    });
+    touchColorHexInput.addEventListener('change', () => {
+      let val = touchColorHexInput.value.trim();
+      if (!val.startsWith('#')) val = '#' + val;
+      if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+        applyColorFromStudio(val);
+      } else {
+        if (host.currentColor !== undefined) {
+          const c = host.currentColor;
+          touchColorHexInput.value = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF).toUpperCase();
+        }
+      }
+    });
+  }
+
+  if (btnTouchCopyHex) {
+    btnTouchCopyHex.addEventListener('click', () => {
+      const hex = touchColorHexInput ? touchColorHexInput.value : '';
+      if (hex) {
+        navigator.clipboard.writeText(hex).then(() => {
+          log(`copied ${hex} to clipboard [ok]`);
+          triggerHaptic(10);
+        }).catch(() => {
+          window.prompt('Color Hex:', hex);
+        });
+      }
+    });
+  }
+
+  if (btnTouchAddSwatch) {
+    btnTouchAddSwatch.addEventListener('click', () => {
+      const hex = touchColorHexInput ? touchColorHexInput.value : '';
+      if (hex && /^#[0-9A-Fa-f]{6}$/.test(hex)) {
+        addCustomSwatch(hex.toUpperCase());
+        broadcastSwatchesChanged();
+        log(`saved color ${hex} to swatches [ok]`);
+        triggerHaptic(15);
+      }
+    });
+  }
+
+  if (btnTouchDelSwatch) {
+    btnTouchDelSwatch.addEventListener('click', () => {
+      studioDelMode = !studioDelMode;
+      btnTouchDelSwatch.style.background = studioDelMode ? '#fb4934' : '';
+      btnTouchDelSwatch.style.color = studioDelMode ? '#fff' : '#fb4934';
+      btnTouchDelSwatch.style.fontWeight = studioDelMode ? 'bold' : 'normal';
+      renderTouchModalSwatches();
+      triggerHaptic(10);
     });
   }
 
   function openTouchColorModal() {
     if (!touchColorModal) return;
     touchColorModal.classList.add('active');
-    drawTouchHsvWheel();
-    renderTouchModalSwatches();
-    if (host.currentColor !== undefined && touchColorHex) {
+
+    if (host.currentColor !== undefined) {
       const c = host.currentColor;
-      touchColorHex.textContent = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF).toUpperCase();
+      studioPrevHex = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF).toUpperCase();
+    } else {
+      studioPrevHex = '#EBDBB2';
     }
+
+    if (touchColorPrevChip) touchColorPrevChip.style.background = studioPrevHex;
+    applyColorFromStudio(studioPrevHex, true);
+    switchStudioMode(studioActiveMode || 'wheel');
+    renderTouchModalSwatches();
+    renderTouchQuickSwatches();
     triggerHaptic(10);
   }
+
   function closeTouchColorModal() {
     if (touchColorModal) touchColorModal.classList.remove('active');
   }
-  if (btnCloseTouchColor) btnCloseTouchColor.addEventListener('click', closeTouchColorModal);
 
-  if (touchColorCanvas) {
-    let wheelTracking = false;
-    touchColorCanvas.addEventListener('pointerdown', (e) => {
-      wheelTracking = true;
-      pickColorFromWheel(e.clientX, e.clientY);
+  if (btnCloseTouchColor) btnCloseTouchColor.addEventListener('click', closeTouchColorModal);
+  if (touchColorModal) {
+    touchColorModal.addEventListener('click', (e) => {
+      if (e.target === touchColorModal) closeTouchColorModal();
     });
-    touchColorCanvas.addEventListener('pointermove', (e) => {
-      if (wheelTracking) pickColorFromWheel(e.clientX, e.clientY);
-    });
-    touchColorCanvas.addEventListener('pointerup', () => { wheelTracking = false; });
-    touchColorCanvas.addEventListener('pointercancel', () => { wheelTracking = false; });
   }
 
   // Bottom dock script selector dropdown
@@ -3680,6 +4086,7 @@ function updateDockTabs() {}
     const strokeOffset = circumference * (1 - t);
 
     dialBtn.innerHTML = `
+      <span class="tb-dial-lbl">${cfg.name || paramKey}</span>
       <svg class="tb-dial-mini-ring" viewBox="0 0 16 16">
         <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-bg" />
         <circle cx="8" cy="8" r="4.5" class="tb-dial-ring-fill" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${strokeOffset.toFixed(1)}" />
@@ -3927,187 +4334,249 @@ function updateDockTabs() {}
     return { el: wrap, sync: syncFn };
   }
 
+  // ── Helper to build a Checkbox Switch widget ──
+  function createSwitchWidgetElement(paramKey) {
+    const cfg = TB_PARAM_CONFIGS[paramKey] || TB_PARAM_CONFIGS.subpixel;
+    const wrap = document.createElement('label');
+    wrap.className = 'tb-chk-label';
+    wrap.title = cfg.name || paramKey;
+
+    const chk = document.createElement('input');
+    chk.type = 'checkbox';
+    const bp = host.brushParams || {};
+    chk.checked = cfg.getter ? cfg.getter(bp) : false;
+
+    const txt = document.createElement('span');
+    txt.textContent = cfg.name ? `${cfg.name}: ${chk.checked ? 'ON' : 'OFF'}` : (chk.checked ? 'ON' : 'OFF');
+
+    chk.addEventListener('change', () => {
+      runCmd(`${cfg.cmd} ${chk.checked ? 1 : 0}`);
+      txt.textContent = cfg.name ? `${cfg.name}: ${chk.checked ? 'ON' : 'OFF'}` : (chk.checked ? 'ON' : 'OFF');
+      triggerHaptic(10);
+    });
+
+    wrap.appendChild(chk);
+    wrap.appendChild(txt);
+
+    const syncFn = () => {
+      const liveBp = host.brushParams || {};
+      const liveVal = cfg.getter ? cfg.getter(liveBp) : false;
+      if (document.activeElement !== chk) {
+        chk.checked = liveVal;
+        txt.textContent = cfg.name ? `${cfg.name}: ${liveVal ? 'ON' : 'OFF'}` : (liveVal ? 'ON' : 'OFF');
+      }
+    };
+    return { el: wrap, sync: syncFn };
+  }
+
+  // ── Helper to build a Button Toggle widget ──
+  function createBtnToggleWidgetElement(paramKey) {
+    const cfg = TB_PARAM_CONFIGS[paramKey] || TB_PARAM_CONFIGS.subpixel;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'dock-strip-btn';
+    btn.textContent = cfg.name || paramKey;
+    btn.title = `Toggle ${cfg.name || paramKey}`;
+
+    btn.addEventListener('click', () => {
+      const bp = host.brushParams || {};
+      const cur = cfg.getter ? cfg.getter(bp) : false;
+      const next = !cur;
+      runCmd(`${cfg.cmd} ${next ? 1 : 0}`);
+      btn.classList.toggle('active', next);
+      triggerHaptic(10);
+    });
+
+    const syncFn = () => {
+      const liveBp = host.brushParams || {};
+      const liveVal = cfg.getter ? cfg.getter(liveBp) : false;
+      btn.classList.toggle('active', liveVal);
+    };
+    return { el: btn, sync: syncFn };
+  }
+
+  // ── Helper to build a Live Swatch Strip widget ──
+  function createSwatchStripWidgetElement() {
+    const wrap = document.createElement('div');
+    wrap.className = 'tb-swatch-strip';
+    wrap.title = 'Color Palette Strip';
+
+    function renderStrip() {
+      wrap.innerHTML = '';
+      const custom = getCustomSwatches();
+      const list = custom.length > 0 ? custom : DEFAULT_SWATCHES.slice(0, 8);
+      const curHex = (host.currentColor !== undefined)
+        ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+        : '';
+
+      list.forEach(col => {
+        const item = document.createElement('div');
+        item.className = 'tb-swatch-item';
+        item.style.background = col;
+        item.title = `Select color ${col}`;
+        if (col.toUpperCase() === curHex) item.classList.add('active');
+        item.addEventListener('click', () => {
+          updateColorControlsFromHex(col);
+          runCmd(`set color ${col}`);
+          triggerHaptic(10);
+          renderStrip();
+        });
+        wrap.appendChild(item);
+      });
+
+      // Quick add current color button
+      const addBtn = document.createElement('button');
+      addBtn.type = 'button';
+      addBtn.className = 'dock-strip-btn';
+      addBtn.style.minWidth = '22px';
+      addBtn.style.padding = '0 4px';
+      addBtn.style.fontSize = '12px';
+      addBtn.textContent = '+';
+      addBtn.title = 'Save current color to palette';
+      addBtn.addEventListener('click', () => {
+        if (host.currentColor !== undefined) {
+          const hex = rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase();
+          addCustomSwatch(hex);
+          triggerHaptic(15);
+          renderStrip();
+        }
+      });
+      wrap.appendChild(addBtn);
+    }
+
+    renderStrip();
+
+    const syncFn = () => {
+      const curHex = (host.currentColor !== undefined)
+        ? rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase()
+        : '';
+      wrap.querySelectorAll('.tb-swatch-item').forEach(el => {
+        const bg = el.style.backgroundColor;
+        el.classList.toggle('active', !!curHex && (el.style.background.toUpperCase() === curHex || bg === curHex));
+      });
+    };
+
+    return { el: wrap, sync: syncFn };
+  }
+
   // ── Modular Widget Registry ──
   const MODULAR_WIDGET_REGISTRY = {
-    // 1. Compound Widgets
-    'category_switcher': {
-      category: 'Compound',
-      label: 'Tools & Modes Switcher ([ Tools ] [ Mode ] [ Action ])',
+    'tool_select': {
+      category: 'Compound & Layout',
+      label: 'Tools Dropdown',
       render: () => {
-        const wrap = document.createElement('div');
-        wrap.style.display = 'inline-flex';
-        wrap.style.alignItems = 'center';
-        wrap.style.gap = '4px';
-
-        const catSel = document.createElement('select');
-        catSel.id = 'dock-quick-category';
-        catSel.className = 'dock-category-select';
-        catSel.innerHTML = `
-          <option value="tool" selected>[ Tools ]</option>
-          <option value="mode">[ Mode ]</option>
-          <option value="action">[ Action ]</option>
+        const sel = document.createElement('select');
+        sel.className = 'dock-strip-select';
+        sel.title = 'Drawing Tool';
+        sel.innerHTML = `
+          <option value="brush">Tool: Brush</option>
+          <option value="blend">Tool: Blend</option>
+          <option value="fill">Tool: Fill</option>
+          <option value="lasso_fill">Tool: Lasso</option>
+          <option value="picker">Tool: Picker</option>
+          <option value="line">Tool: Line</option>
+          <option value="rect">Tool: Rect</option>
+          <option value="ellipse">Tool: Ellipse</option>
         `;
-
-        const sep = document.createElement('div');
-        sep.className = 'dock-strip-sep';
-
-        const groupTool = document.createElement('div');
-        groupTool.className = 'dock-group active';
-        groupTool.id = 'dock-group-tool';
-        groupTool.innerHTML = `
-          <select id="dock-select-brush-preset" class="dock-strip-select" style="max-width: 120px; font-weight: bold;" title="Brush Preset"></select>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="brush" title="Brush">Brush</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="blend" title="Blend / Wet Mix">Blend</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="fill" title="Flood Fill">Fill</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="lasso_fill" title="Lasso Fill">Lasso</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="picker" title="Eyedropper / Color Picker">Picker</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="line" title="Line Guide">Line</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="rect" title="Rectangle Guide">Rect</button>
-          <button type="button" class="dock-strip-btn dock-tool-btn" data-tool="ellipse" title="Ellipse Guide">Ellipse</button>
-        `;
-
-        const groupMode = document.createElement('div');
-        groupMode.className = 'dock-group';
-        groupMode.id = 'dock-group-mode';
-        groupMode.innerHTML = `
-          <button type="button" class="dock-strip-btn dock-mode-btn active" data-actionmode="draw" title="Draw Mode">Draw</button>
-          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="erase" title="Erase Mode">Erase</button>
-          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="smudge" title="Smudge Mode">Smudge</button>
-          <button type="button" class="dock-strip-btn dock-mode-btn" data-actionmode="select" title="Select Mode">Select</button>
-        `;
-
-        const groupAction = document.createElement('div');
-        groupAction.className = 'dock-group';
-        groupAction.id = 'dock-group-action';
-        groupAction.innerHTML = `
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="copy" title="Copy selection">Copy</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cut" title="Cut selection">Cut</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="deselect" title="Deselect">Desel</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="apply_xform" title="Apply transform">Apply</button>
-          <button type="button" class="dock-strip-btn dock-act-btn" data-dockaction="cancel_xform" title="Cancel transform">Cancel</button>
-          <select id="dock-script-select" class="dock-strip-btn dock-strip-select" title="Run Script">
-            <option value="" disabled selected>Script</option>
-          </select>
-        `;
-
-        catSel.addEventListener('change', () => {
-          groupTool.classList.toggle('active', catSel.value === 'tool');
-          groupMode.classList.toggle('active', catSel.value === 'mode');
-          groupAction.classList.toggle('active', catSel.value === 'action');
-          triggerHaptic(10);
-        });
-
-        // Event delegation for tool, mode, action buttons
-        groupTool.querySelectorAll('.dock-tool-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const tool = btn.getAttribute('data-tool');
-            if (tool) runCmd(`tool ${tool}`);
+        sel.addEventListener('change', () => {
+          if (sel.value) {
+            runCmd(`tool ${sel.value}`);
             triggerHaptic(12);
-          });
-        });
-
-        groupMode.querySelectorAll('.dock-mode-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const mode = btn.getAttribute('data-actionmode');
-            if (mode) runCmd(`mode ${mode}`);
-            triggerHaptic(12);
-          });
-        });
-
-        groupAction.querySelectorAll('.dock-act-btn').forEach(btn => {
-          btn.addEventListener('click', () => {
-            const act = btn.getAttribute('data-dockaction');
-            if (act === 'copy') runCmd('selection copy');
-            else if (act === 'cut') runCmd('selection cut');
-            else if (act === 'deselect') runCmd('selection clear');
-            else if (act === 'apply_xform') runCmd('transform apply');
-            else if (act === 'cancel_xform') runCmd('transform cancel');
-            triggerHaptic(12);
-          });
-        });
-
-        const scriptSelect = groupAction.querySelector('#dock-script-select');
-        if (scriptSelect) {
-          const populate = () => {
-            scriptSelect.innerHTML = '<option value="" disabled selected>Script</option>';
-            const list = getSavedScripts();
-            list.forEach((s, idx) => {
-              const opt = document.createElement('option');
-              opt.value = String(idx);
-              opt.textContent = s.name;
-              scriptSelect.appendChild(opt);
-            });
-          };
-          scriptSelect.addEventListener('focus', populate);
-          scriptSelect.addEventListener('pointerdown', populate);
-          scriptSelect.addEventListener('change', () => {
-            const list = getSavedScripts();
-            const idx = parseInt(scriptSelect.value, 10);
-            if (!isNaN(idx) && list[idx]) {
-              runScriptCode(list[idx].code);
-              triggerHaptic(15);
-            }
-            scriptSelect.selectedIndex = 0;
-          });
-        }
-
-        wrap.appendChild(catSel);
-        wrap.appendChild(sep);
-        wrap.appendChild(groupTool);
-        wrap.appendChild(groupMode);
-        wrap.appendChild(groupAction);
-
-        const syncFn = () => {
-          // Sync active preset dropdown
-          const presetSel = groupTool.querySelector('#dock-select-brush-preset');
-          if (presetSel && host.brushPresets) {
-            if (presetSel.options.length <= 1) {
-              presetSel.innerHTML = '';
-              const optGrpBuiltin = document.createElement('optgroup');
-              optGrpBuiltin.label = 'Built-in Presets';
-              for (const [k, p] of Object.entries(BRUSH_PRESETS)) {
-                if (!p.name) continue;
-                const opt = document.createElement('option');
-                opt.value = k;
-                opt.textContent = p.name;
-                optGrpBuiltin.appendChild(opt);
-              }
-              presetSel.appendChild(optGrpBuiltin);
-            }
-            if (host.activeBrush) presetSel.value = host.activeBrush;
           }
-
-          // Sync active tool buttons
-          groupTool.querySelectorAll('.dock-tool-btn').forEach(btn => {
-            const t = btn.getAttribute('data-tool');
-            btn.classList.toggle('active', host.currentTool === t);
-          });
-
-          // Sync active mode buttons
-          groupMode.querySelectorAll('.dock-mode-btn').forEach(btn => {
-            const m = btn.getAttribute('data-actionmode');
-            btn.classList.toggle('active', host.actionMode === m);
-          });
+        });
+        const syncFn = () => {
+          if (host.currentTool && sel.value !== host.currentTool) {
+            sel.value = host.currentTool;
+          }
         };
+        return { el: sel, sync: syncFn };
+      }
+    },
 
-        const presetSel = groupTool.querySelector('#dock-select-brush-preset');
-        if (presetSel) {
-          presetSel.addEventListener('change', () => {
-            if (presetSel.value) {
-              host.selectBrushPreset(presetSel.value);
-              syncUiFromHost();
-              triggerHaptic(15);
+    'mode_select': {
+      category: 'Compound & Layout',
+      label: 'Modes Dropdown',
+      render: () => {
+        const sel = document.createElement('select');
+        sel.className = 'dock-strip-select';
+        sel.title = 'Action Mode';
+        sel.innerHTML = `
+          <option value="draw">Mode: Draw</option>
+          <option value="erase">Mode: Erase</option>
+          <option value="smudge">Mode: Smudge</option>
+          <option value="select">Mode: Select</option>
+        `;
+        sel.addEventListener('change', () => {
+          if (sel.value) {
+            runCmd(`mode ${sel.value}`);
+            triggerHaptic(12);
+          }
+        });
+        const syncFn = () => {
+          if (host.actionMode && sel.value !== host.actionMode) {
+            sel.value = host.actionMode;
+          }
+        };
+        return { el: sel, sync: syncFn };
+      }
+    },
+
+    'action_select': {
+      category: 'Compound & Layout',
+      label: 'Actions Dropdown',
+      render: () => {
+        const sel = document.createElement('select');
+        sel.className = 'dock-strip-select';
+        sel.title = 'Quick Actions';
+        sel.innerHTML = `
+          <option value="" disabled selected>-- Action --</option>
+          <option value="undo">Undo</option>
+          <option value="redo">Redo</option>
+          <option value="copy">Copy</option>
+          <option value="cut">Cut</option>
+          <option value="deselect">Deselect</option>
+          <option value="apply_xform">Apply Transform</option>
+          <option value="cancel_xform">Cancel Transform</option>
+          <option value="flip_h">Flip Horizontal</option>
+          <option value="flip_v">Flip Vertical</option>
+          <option value="clear">Clear Canvas</option>
+          <option value="save_swatch">+ Save Swatch</option>
+          <option value="open_color_picker">🎨 Color Studio</option>
+          <option value="open_customizer">⚙ Toolbar Customizer</option>
+        `;
+        sel.addEventListener('change', () => {
+          const act = sel.value;
+          if (!act) return;
+          if (act === 'undo') runCmd('undo');
+          else if (act === 'redo') runCmd('redo');
+          else if (act === 'copy') runCmd('selection copy');
+          else if (act === 'cut') runCmd('selection cut');
+          else if (act === 'deselect') runCmd('selection clear');
+          else if (act === 'apply_xform') runCmd('transform apply');
+          else if (act === 'cancel_xform') runCmd('transform cancel');
+          else if (act === 'flip_h') runCmd('canvas flip h');
+          else if (act === 'flip_v') runCmd('canvas flip v');
+          else if (act === 'clear') runCmd('clear');
+          else if (act === 'save_swatch') {
+            if (host.currentColor !== undefined) {
+              const hex = rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase();
+              addCustomSwatch(hex);
             }
-          });
-        }
-
-        return { el: wrap, sync: syncFn };
+          } else if (act === 'open_color_picker') {
+            openTouchColorModal();
+          } else if (act === 'open_customizer') {
+            openToolbarManagerModal();
+          }
+          triggerHaptic(12);
+          sel.selectedIndex = 0;
+        });
+        return { el: sel, sync: () => {} };
       }
     },
 
     'param_picker': {
-      category: 'Compound',
-      label: 'Parameter Dropdown + Dynamic Arc Dial Slot',
+      category: 'Compound & Layout',
+      label: 'Dynamic Parameter Slot + Dropdown',
       render: () => {
         const wrap = document.createElement('div');
         wrap.style.display = 'inline-flex';
@@ -4248,13 +4717,13 @@ function updateDockTabs() {}
     },
 
     'swatch': {
-      category: 'Compound',
-      label: 'Live Color Swatch (HSV Modal Picker)',
+      category: 'Color & Swatches',
+      label: 'Color Swatch (Opens Studio)',
       render: () => {
         const swatch = document.createElement('div');
         swatch.id = 'tb-color-swatch';
         swatch.className = 'tb-color-swatch';
-        swatch.title = 'Touch Color Picker';
+        swatch.title = 'Touch Color Studio';
         if (host.currentColor !== undefined) {
           const c = host.currentColor;
           swatch.style.background = rgbToHex(c & 0xFF, (c >> 8) & 0xFF, (c >> 16) & 0xFF);
@@ -4270,8 +4739,14 @@ function updateDockTabs() {}
       }
     },
 
+    'swatch_strip': {
+      category: 'Color & Swatches',
+      label: 'Swatch Strip (Interactive Palette Bar)',
+      render: () => createSwatchStripWidgetElement()
+    },
+
     'preset_select': {
-      category: 'Compound',
+      category: 'Compound & Layout',
       label: 'Brush Presets Dropdown',
       render: () => {
         const sel = document.createElement('select');
@@ -4311,7 +4786,7 @@ function updateDockTabs() {}
     },
 
     'script_select': {
-      category: 'Compound',
+      category: 'Compound & Layout',
       label: 'Script Runner Dropdown',
       render: () => {
         const sel = document.createElement('select');
@@ -4344,28 +4819,42 @@ function updateDockTabs() {}
     }
   };
 
-  // Register all Parameter Widgets (Arc Dial, Direct Slider, Number Input)
+  // Register all Parameter Widgets (Arc Dial, Direct Slider, Number Input) and Switches
   Object.entries(TB_PARAM_CONFIGS).forEach(([paramKey, cfg]) => {
     if (cfg.type === 'dial') {
       // 1. Arc Dial
       MODULAR_WIDGET_REGISTRY[`dial:${paramKey}`] = {
-        category: 'Param: Arc Dials',
-        label: `Arc Dial: ${cfg.name || paramKey}`,
+        category: 'Parameters',
+        label: `[Arc Dial] ${cfg.name || paramKey}`,
         render: () => createDialWidgetElement(paramKey)
       };
 
       // 2. Touch Slider
       MODULAR_WIDGET_REGISTRY[`slider:${paramKey}`] = {
-        category: 'Param: Sliders',
-        label: `Slider: ${cfg.name || paramKey}`,
+        category: 'Parameters',
+        label: `[Slider] ${cfg.name || paramKey}`,
         render: () => createSliderWidgetElement(paramKey)
       };
 
       // 3. Number / Text Input
       MODULAR_WIDGET_REGISTRY[`input:${paramKey}`] = {
-        category: 'Param: Number Inputs',
-        label: `Input: ${cfg.name || paramKey}`,
+        category: 'Parameters',
+        label: `[Input] ${cfg.name || paramKey}`,
         render: () => createInputWidgetElement(paramKey)
+      };
+    } else if (cfg.type === 'switch') {
+      // 1. Toggle Switch
+      MODULAR_WIDGET_REGISTRY[`switch:${paramKey}`] = {
+        category: 'Switches',
+        label: `[Switch] ${cfg.name || paramKey}`,
+        render: () => createSwitchWidgetElement(paramKey)
+      };
+
+      // 2. Button Toggle
+      MODULAR_WIDGET_REGISTRY[`btn_toggle:${paramKey}`] = {
+        category: 'Switches',
+        label: `[Button Toggle] ${cfg.name || paramKey}`,
+        render: () => createBtnToggleWidgetElement(paramKey)
       };
     }
   });
@@ -4383,7 +4872,7 @@ function updateDockTabs() {}
   ];
   TOOL_NAMES.forEach(t => {
     MODULAR_WIDGET_REGISTRY[`tool:${t.id}`] = {
-      category: 'Tools',
+      category: 'Drawing Tools',
       label: `Tool: ${t.label}`,
       render: () => {
         const btn = document.createElement('button');
@@ -4412,7 +4901,7 @@ function updateDockTabs() {}
   ];
   MODE_NAMES.forEach(m => {
     MODULAR_WIDGET_REGISTRY[`mode:${m.id}`] = {
-      category: 'Modes',
+      category: 'Action Modes',
       label: `Mode: ${m.label}`,
       render: () => {
         const btn = document.createElement('button');
@@ -4436,6 +4925,14 @@ function updateDockTabs() {}
   const ACTION_ITEMS = [
     { id: 'undo', label: '↶ Undo', title: 'Undo (Ctrl+Z)', cmd: () => handleUndo() },
     { id: 'redo', label: '↷ Redo', title: 'Redo (Ctrl+Y)', cmd: () => handleRedo() },
+    { id: 'save_swatch', label: '+ Swatch', title: 'Save Current Color to Palette', cmd: () => {
+      if (host.currentColor !== undefined) {
+        const hex = rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF).toUpperCase();
+        addCustomSwatch(hex);
+        log(`Swatch ${hex} saved [ok]`);
+      }
+    }},
+    { id: 'open_color_picker', label: '🎨 Studio', title: 'Open Color Studio', cmd: () => openTouchColorModal() },
     { id: 'copy', label: 'Copy', title: 'Copy Selection', cmd: () => runCmd('selection copy') },
     { id: 'cut', label: 'Cut', title: 'Cut Selection', cmd: () => runCmd('selection cut') },
     { id: 'deselect', label: 'Desel', title: 'Deselect', cmd: () => runCmd('selection clear') },
@@ -4448,7 +4945,7 @@ function updateDockTabs() {}
   ];
   ACTION_ITEMS.forEach(act => {
     MODULAR_WIDGET_REGISTRY[`action:${act.id}`] = {
-      category: 'Actions',
+      category: 'Quick Actions',
       label: `Action: ${act.label}`,
       render: () => {
         const btn = document.createElement('button');
@@ -4467,7 +4964,7 @@ function updateDockTabs() {}
 
   // Register Layout Items
   MODULAR_WIDGET_REGISTRY['separator'] = {
-    category: 'Layout',
+    category: 'Compound & Layout',
     label: 'Separator (Line Divider)',
     render: () => {
       const sep = document.createElement('div');
@@ -4476,7 +4973,7 @@ function updateDockTabs() {}
     }
   };
   MODULAR_WIDGET_REGISTRY['spacer'] = {
-    category: 'Layout',
+    category: 'Compound & Layout',
     label: 'Spacer (Space)',
     render: () => {
       const sp = document.createElement('div');
@@ -4504,7 +5001,10 @@ function updateDockTabs() {}
       id: 'bar_tools',
       name: 'Tools & Modes',
       items: [
-        { type: 'category_switcher' }
+        { type: 'preset_select' },
+        { type: 'tool_select' },
+        { type: 'mode_select' },
+        { type: 'action_select' }
       ]
     }
   ];
@@ -4518,6 +5018,27 @@ function updateDockTabs() {}
       if (stored !== null) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
+          let migrated = false;
+          parsed.forEach(bar => {
+            if (Array.isArray(bar.items)) {
+              const newItems = [];
+              bar.items.forEach(item => {
+                if (item && item.type === 'category_switcher') {
+                  newItems.push({ type: 'preset_select' });
+                  newItems.push({ type: 'tool_select' });
+                  newItems.push({ type: 'mode_select' });
+                  newItems.push({ type: 'action_select' });
+                  migrated = true;
+                } else {
+                  newItems.push(item);
+                }
+              });
+              bar.items = newItems;
+            }
+          });
+          if (migrated) {
+            try { localStorage.setItem('esenho_custom_toolbars', JSON.stringify(parsed)); } catch (_) {}
+          }
           return parsed;
         }
       }
@@ -4605,6 +5126,7 @@ function updateDockTabs() {}
   const tbMgrBtnRenameBar = document.getElementById('tb-mgr-btn-rename-bar');
   const tbMgrBtnDelBar = document.getElementById('tb-mgr-btn-del-bar');
   const tbMgrSelectNewWidget = document.getElementById('tb-mgr-select-new-widget');
+  const tbMgrSelectInputType = document.getElementById('tb-mgr-select-input-type');
   const tbMgrBtnAddWidget = document.getElementById('tb-mgr-btn-add-widget');
   const tbMgrItemsList = document.getElementById('tb-mgr-items-list');
   const tbMgrBtnResetDefault = document.getElementById('tb-mgr-btn-reset-default');
@@ -4613,30 +5135,122 @@ function updateDockTabs() {}
 
   let selectedBarIndex = 0;
 
+  function updateInputTypeDropdown() {
+    if (!tbMgrSelectInputType || !tbMgrSelectNewWidget) return;
+    const val = tbMgrSelectNewWidget.value || '';
+    if (val.startsWith('param:')) {
+      tbMgrSelectInputType.style.display = 'inline-block';
+      tbMgrSelectInputType.disabled = false;
+      tbMgrSelectInputType.innerHTML = `
+        <option value="dial" selected>Arc Dial</option>
+        <option value="slider">Touch Slider</option>
+        <option value="input">Number Input</option>
+      `;
+    } else if (val.startsWith('switch_param:')) {
+      tbMgrSelectInputType.style.display = 'inline-block';
+      tbMgrSelectInputType.disabled = false;
+      tbMgrSelectInputType.innerHTML = `
+        <option value="switch" selected>Toggle Switch</option>
+        <option value="btn_toggle">Button Toggle</option>
+      `;
+    } else {
+      tbMgrSelectInputType.style.display = 'none';
+      tbMgrSelectInputType.disabled = true;
+      tbMgrSelectInputType.innerHTML = '<option value="">(Default)</option>';
+    }
+  }
+
   function populateNewWidgetDropdown() {
     if (!tbMgrSelectNewWidget) return;
     tbMgrSelectNewWidget.innerHTML = '';
 
-    const categories = {};
-    Object.entries(MODULAR_WIDGET_REGISTRY).forEach(([key, reg]) => {
-      const cat = reg.category || 'Other';
-      if (!categories[cat]) categories[cat] = [];
-      categories[cat].push({ key, label: reg.label });
-    });
-
-    Object.entries(categories).forEach(([catName, items]) => {
-      const optGroup = document.createElement('optgroup');
-      optGroup.label = catName;
-      items.forEach(item => {
+    // 1. Numerical Parameters Group
+    const paramGroup = document.createElement('optgroup');
+    paramGroup.label = 'Brush Parameters';
+    Object.entries(TB_PARAM_CONFIGS).forEach(([key, cfg]) => {
+      if (cfg.type === 'dial') {
         const opt = document.createElement('option');
-        opt.value = item.key;
-        opt.textContent = item.label;
-        optGroup.appendChild(opt);
-      });
-      tbMgrSelectNewWidget.appendChild(optGroup);
+        opt.value = `param:${key}`;
+        opt.textContent = cfg.name || key;
+        paramGroup.appendChild(opt);
+      }
     });
+    tbMgrSelectNewWidget.appendChild(paramGroup);
 
-    // Add saved scripts as custom 1-click button options
+    // 2. Switch Parameters Group
+    const switchGroup = document.createElement('optgroup');
+    switchGroup.label = 'Switches & Toggles';
+    Object.entries(TB_PARAM_CONFIGS).forEach(([key, cfg]) => {
+      if (cfg.type === 'switch') {
+        const opt = document.createElement('option');
+        opt.value = `switch_param:${key}`;
+        opt.textContent = cfg.name || key;
+        switchGroup.appendChild(opt);
+      }
+    });
+    tbMgrSelectNewWidget.appendChild(switchGroup);
+
+    // 3. Color & Swatches Group
+    const colorGroup = document.createElement('optgroup');
+    colorGroup.label = 'Color & Swatches';
+    colorGroup.innerHTML = `
+      <option value="swatch">Color Swatch (Opens Studio)</option>
+      <option value="swatch_strip">Swatch Strip (Interactive Palette Bar)</option>
+      <option value="action:save_swatch">Quick Action: + Save Swatch</option>
+      <option value="action:open_color_picker">Quick Action: 🎨 Color Studio</option>
+    `;
+    tbMgrSelectNewWidget.appendChild(colorGroup);
+
+    // 4. Drawing Tools Group
+    const toolsGroup = document.createElement('optgroup');
+    toolsGroup.label = 'Drawing Tools';
+    TOOL_NAMES.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = `tool:${t.id}`;
+      opt.textContent = `Tool: ${t.label}`;
+      toolsGroup.appendChild(opt);
+    });
+    tbMgrSelectNewWidget.appendChild(toolsGroup);
+
+    // 5. Action Modes Group
+    const modesGroup = document.createElement('optgroup');
+    modesGroup.label = 'Action Modes';
+    MODE_NAMES.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = `mode:${m.id}`;
+      opt.textContent = `Mode: ${m.label}`;
+      modesGroup.appendChild(opt);
+    });
+    tbMgrSelectNewWidget.appendChild(modesGroup);
+
+    // 6. Quick Actions Group
+    const actionsGroup = document.createElement('optgroup');
+    actionsGroup.label = 'Quick Actions';
+    ACTION_ITEMS.forEach(act => {
+      if (act.id === 'save_swatch' || act.id === 'open_color_picker') return;
+      const opt = document.createElement('option');
+      opt.value = `action:${act.id}`;
+      opt.textContent = `Action: ${act.label}`;
+      actionsGroup.appendChild(opt);
+    });
+    tbMgrSelectNewWidget.appendChild(actionsGroup);
+
+    // 7. Compound & Layout Group
+    const layoutGroup = document.createElement('optgroup');
+    layoutGroup.label = 'Compound & Layout';
+    layoutGroup.innerHTML = `
+      <option value="tool_select">Tools Dropdown</option>
+      <option value="mode_select">Modes Dropdown</option>
+      <option value="action_select">Actions Dropdown</option>
+      <option value="preset_select">Brush Presets Dropdown</option>
+      <option value="param_picker">Dynamic Dial Slot</option>
+      <option value="script_select">Script Runner Dropdown</option>
+      <option value="separator">Separator (Line Divider)</option>
+      <option value="spacer">Spacer (Empty Space)</option>
+    `;
+    tbMgrSelectNewWidget.appendChild(layoutGroup);
+
+    // 8. Custom Scripts
     const scripts = getSavedScripts();
     if (scripts.length > 0) {
       const scriptGroup = document.createElement('optgroup');
@@ -4649,6 +5263,8 @@ function updateDockTabs() {}
       });
       tbMgrSelectNewWidget.appendChild(scriptGroup);
     }
+
+    updateInputTypeDropdown();
   }
 
   function renderToolbarManagerUI() {
@@ -4666,6 +5282,7 @@ function updateDockTabs() {}
       if (tbMgrBtnDelBar) tbMgrBtnDelBar.disabled = true;
       if (tbMgrBtnAddWidget) tbMgrBtnAddWidget.disabled = true;
       if (tbMgrSelectNewWidget) tbMgrSelectNewWidget.disabled = true;
+      if (tbMgrSelectInputType) tbMgrSelectInputType.disabled = true;
       if (tbMgrItemsList) {
         tbMgrItemsList.innerHTML = '<div style="color: #928374; font-style: italic; padding: 12px; text-align: center;">No toolbars configured.<br>Click <strong>"+ New Bar"</strong> to create one.</div>';
       }
@@ -4692,6 +5309,7 @@ function updateDockTabs() {}
     if (tbMgrBtnDelBar) tbMgrBtnDelBar.disabled = false;
     if (tbMgrBtnAddWidget) tbMgrBtnAddWidget.disabled = false;
     if (tbMgrSelectNewWidget) tbMgrSelectNewWidget.disabled = false;
+    updateInputTypeDropdown();
 
     // Render items list for currently selected bar
     if (tbMgrItemsList) {
@@ -4706,9 +5324,24 @@ function updateDockTabs() {}
 
           let displayName = item.type;
           if (item.type === 'script_btn') {
-            displayName = `Script Button: ${item.scriptName}`;
+            displayName = `Script: ${item.scriptName}`;
           } else if (MODULAR_WIDGET_REGISTRY[item.type]) {
             displayName = MODULAR_WIDGET_REGISTRY[item.type].label;
+          } else if (item.type.startsWith('dial:')) {
+            const pk = item.type.replace('dial:', '');
+            displayName = `[Arc Dial] ${TB_PARAM_CONFIGS[pk]?.name || pk}`;
+          } else if (item.type.startsWith('slider:')) {
+            const pk = item.type.replace('slider:', '');
+            displayName = `[Slider] ${TB_PARAM_CONFIGS[pk]?.name || pk}`;
+          } else if (item.type.startsWith('input:')) {
+            const pk = item.type.replace('input:', '');
+            displayName = `[Input] ${TB_PARAM_CONFIGS[pk]?.name || pk}`;
+          } else if (item.type.startsWith('switch:')) {
+            const pk = item.type.replace('switch:', '');
+            displayName = `[Switch] ${TB_PARAM_CONFIGS[pk]?.name || pk}`;
+          } else if (item.type.startsWith('btn_toggle:')) {
+            const pk = item.type.replace('btn_toggle:', '');
+            displayName = `[Button Toggle] ${TB_PARAM_CONFIGS[pk]?.name || pk}`;
           }
 
           const titleSpan = document.createElement('span');
@@ -4832,6 +5465,10 @@ function updateDockTabs() {}
     });
   }
 
+  if (tbMgrSelectNewWidget) {
+    tbMgrSelectNewWidget.addEventListener('change', updateInputTypeDropdown);
+  }
+
   if (tbMgrBtnAddBar) {
     tbMgrBtnAddBar.addEventListener('click', () => {
       const name = window.prompt('New Toolbar Name:', `Custom Bar ${(currentModularToolbars ? currentModularToolbars.length : 0) + 1}`);
@@ -4890,10 +5527,18 @@ function updateDockTabs() {}
       if (!currentBar) return;
       if (!currentBar.items) currentBar.items = [];
 
-      const chosenVal = tbMgrSelectNewWidget.value;
+      const chosenVal = tbMgrSelectNewWidget ? tbMgrSelectNewWidget.value : '';
       if (!chosenVal) return;
 
-      if (chosenVal.startsWith('script_btn:')) {
+      if (chosenVal.startsWith('param:')) {
+        const paramKey = chosenVal.replace('param:', '');
+        const inputType = (tbMgrSelectInputType && tbMgrSelectInputType.value) || 'dial';
+        currentBar.items.push({ type: `${inputType}:${paramKey}` });
+      } else if (chosenVal.startsWith('switch_param:')) {
+        const paramKey = chosenVal.replace('switch_param:', '');
+        const inputType = (tbMgrSelectInputType && tbMgrSelectInputType.value) || 'switch';
+        currentBar.items.push({ type: `${inputType}:${paramKey}` });
+      } else if (chosenVal.startsWith('script_btn:')) {
         const scriptName = chosenVal.replace('script_btn:', '');
         currentBar.items.push({ type: 'script_btn', scriptName: scriptName });
       } else {
@@ -5189,105 +5834,6 @@ function updateDockTabs() {}
       }
     });
   }
-
-  // Swatches functions
-  const DEFAULT_SWATCHES = [
-    '#fb4934', '#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598',
-    '#d3869b', '#fbf1c7', '#ebdbb2', '#928374', '#282828', '#000000'
-  ];
-
-  function getCustomSwatches() {
-    try {
-      return JSON.parse(localStorage.getItem('esenho_custom_swatches') || '[]');
-    } catch (_) { return []; }
-  }
-
-  function addCustomSwatch(color) {
-    const swatches = getCustomSwatches();
-    if (!swatches.includes(color)) {
-      swatches.push(color);
-      localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
-      renderSwatches();
-    }
-  }
-
-  function removeCustomSwatch(index) {
-    const swatches = getCustomSwatches();
-    swatches.splice(index, 1);
-    localStorage.setItem('esenho_custom_swatches', JSON.stringify(swatches));
-    renderSwatches();
-  }
-
-    let swatchDeleteMode = false;
-
-    function renderSwatches() {
-      const grid = document.getElementById('ui-swatches-grid');
-      if (!grid) return;
-      grid.innerHTML = '';
-      grid.classList.toggle('delete-mode', swatchDeleteMode);
-
-      DEFAULT_SWATCHES.forEach(col => {
-        const el = document.createElement('div');
-        el.className = 'swatch-item';
-        el.style.background = col;
-        el.title = `${col} (built-in)`;
-        el.addEventListener('click', () => {
-          updateColorControlsFromHex(col);
-          runCmd(`set color ${col}`);
-        });
-        grid.appendChild(el);
-      });
-
-      const custom = getCustomSwatches();
-      custom.forEach((col, idx) => {
-        const el = document.createElement('div');
-        el.className = 'swatch-item';
-        el.style.background = col;
-        el.title = swatchDeleteMode
-          ? `Click to delete ${col}`
-          : `${col} (right-click, long-press, or toggle [- Del] to delete)`;
-
-        el.addEventListener('click', () => {
-          if (swatchDeleteMode) {
-            removeCustomSwatch(idx);
-            log(`Swatch ${col} removed [ok]`);
-          } else {
-            updateColorControlsFromHex(col);
-            runCmd(`set color ${col}`);
-          }
-        });
-
-        // Touch long-press to delete on mobile
-        let longPressTimer = null;
-        el.addEventListener('touchstart', () => {
-          longPressTimer = setTimeout(() => {
-            removeCustomSwatch(idx);
-            log(`Swatch ${col} removed [ok]`);
-          }, 450);
-        }, { passive: true });
-        el.addEventListener('touchend', () => { if (longPressTimer) clearTimeout(longPressTimer); });
-        el.addEventListener('touchmove', () => { if (longPressTimer) clearTimeout(longPressTimer); });
-
-        el.addEventListener('contextmenu', e => {
-          e.preventDefault();
-          removeCustomSwatch(idx);
-          log(`Swatch ${col} removed [ok]`);
-        });
-
-        const del = document.createElement('span');
-        del.className = 'swatch-del';
-        del.textContent = '✕';
-        del.title = 'Delete swatch';
-        del.addEventListener('click', e => {
-          e.stopPropagation();
-          removeCustomSwatch(idx);
-          log(`Swatch ${col} removed [ok]`);
-        });
-        el.appendChild(del);
-
-        grid.appendChild(el);
-      });
-    }
 
     const addSwatchBtn = document.getElementById('ui-btn-add-swatch');
     if (addSwatchBtn) {
@@ -6667,9 +7213,20 @@ function updateDockTabs() {}
 
 /* ── Helpers ── */
 function log(msg, cls = '') {
+  if (!termEl) return;
   const el = document.createElement('div');
-  if (cls) el.className = cls;
-  el.textContent = String(msg).replace(/\x1b\[[^m]*m/g, '');
+  el.className = 'wterm-line';
+  let effCls = cls;
+  const str = String(msg).replace(/\x1b\[[^m]*m/g, '');
+  if (!effCls) {
+    if (str.startsWith('> ')) effCls = 'cmd';
+    else if (str.includes('[ok]') || str.startsWith('ok:') || str.startsWith('Ready') || str.startsWith('SUCCESS') || str.includes('loaded successfully')) effCls = 'ok';
+    else if (str.startsWith('err') || str.startsWith('BOOT ERROR') || str.includes('failed') || str.includes('error')) effCls = 'err';
+    else if (str.startsWith('warn')) effCls = 'warn';
+    else if (str.startsWith('info:') || str.startsWith('---')) effCls = 'info';
+  }
+  if (effCls) el.classList.add(effCls);
+  el.textContent = str;
   termEl.appendChild(el);
   termEl.scrollTop = termEl.scrollHeight;
 }

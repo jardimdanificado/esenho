@@ -5006,8 +5006,8 @@ class EsenhoScreenHost {
       }
     }
 
-    // Instant direct execution when smoothing is 0 or when using fill/lasso modes
-    if (smooth === 0 || this.brushParams.mode === 3 || this.brushParams.mode === 4) {
+    // Instant direct execution when smoothing is 0 or when using fill/lasso/shape modes
+    if (smooth === 0 || this.brushParams.mode === 3 || this.brushParams.mode === 4 || this.brushParams.mode === 6 || this.brushParams.mode === 7 || this.brushParams.mode === 8) {
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = null;
