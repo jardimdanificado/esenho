@@ -53,11 +53,13 @@ void main() {
     // Offset relative to center
     vec2 offset = screen_px - doc_center_screen;
 
-    // Inverse rotation
-    float cos_r = cos(-u_rotation);
-    float sin_r = sin(-u_rotation);
-    mat2 rot = mat2(cos_r, -sin_r, sin_r, cos_r);
-    vec2 unrotated = rot * offset;
+    // Inverse rotation matching document space
+    float cos_r = cos(u_rotation);
+    float sin_r = sin(u_rotation);
+    vec2 unrotated = vec2(
+        offset.x * cos_r + offset.y * sin_r,
+       -offset.x * sin_r + offset.y * cos_r
+    );
 
     // Inverse flip
     unrotated *= u_flip;
