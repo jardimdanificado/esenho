@@ -8,7 +8,21 @@ if (typeof globalThis.process === 'undefined') {
 }
 
 const canvasEl   = document.getElementById('wcanvas');
-const ctx        = canvasEl.getContext('2d', { desynchronized: true });
+const uiCanvasEl = document.getElementById('uicanvas');
+const uiCtx      = uiCanvasEl ? uiCanvasEl.getContext('2d') : null;
+let gpuRenderer  = null;
+try {
+  if (typeof EsenhoGPURenderer !== 'undefined' && canvasEl) {
+    gpuRenderer = new EsenhoGPURenderer(canvasEl);
+    if (!gpuRenderer.init()) {
+      gpuRenderer = null;
+    }
+  }
+} catch (e) {
+  console.warn('[EsenhoGPU] Initialization failed, falling back to 2D canvas:', e);
+  gpuRenderer = null;
+}
+const ctx        = (gpuRenderer && uiCtx) ? uiCtx : (canvasEl ? canvasEl.getContext('2d', { desynchronized: true }) : null);
 const termEl      = document.getElementById('wterm');
 const inputEl     = document.getElementById('wcmd');
 const statusEl    = document.getElementById('wstatus');
@@ -219,6 +233,10 @@ async function main() {
     if (canvasEl.width !== parentW || canvasEl.height !== parentH) {
       canvasEl.width  = parentW;
       canvasEl.height = parentH;
+      if (uiCanvasEl) {
+        uiCanvasEl.width  = parentW;
+        uiCanvasEl.height = parentH;
+      }
       host.windowWidth  = parentW;
       host.windowHeight = parentH;
     }
@@ -940,48 +958,91 @@ async function main() {
     const ptr = host.canvasActor.exports.get_composite_pixels();
     const dashOff = (Date.now() / 60) % 8;
 
-    ctx.fillStyle = '#1d2021';
-    ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
-
-    if (ptr && cw > 0 && ch > 0) {
-      if (!imgData || imgData.width !== cw || imgData.height !== ch) {
-        imgData = ctx.createImageData(cw, ch);
-        offscreen = new OffscreenCanvas(cw, ch);
-        offscreenCtx = offscreen.getContext('2d');
-        new Uint32Array(imgData.data.buffer).set(new Uint32Array(host.canvasActor.memory.buffer, ptr, cw * ch));
-        offscreenCtx.putImageData(imgData, 0, 0);
-        if (host.canvasActor.exports.w_clear_dirty_bounds) host.canvasActor.exports.w_clear_dirty_bounds();
-      } else {
+    if (gpuRenderer && gpuRenderer.isSupported) {
+      if (uiCtx && uiCanvasEl) {
+        uiCtx.clearRect(0, 0, uiCanvasEl.width, uiCanvasEl.height);
+      }
+      if (ptr && cw > 0 && ch > 0) {
         const hasDirty = (typeof host.canvasActor.exports.w_has_dirty_rect === 'function')
           ? host.canvasActor.exports.w_has_dirty_rect()
           : 1;
-        if (hasDirty) {
-          const dx0 = host.canvasActor.exports.w_get_dirty_x0();
-          const dy0 = host.canvasActor.exports.w_get_dirty_y0();
-          const dx1 = host.canvasActor.exports.w_get_dirty_x1();
-          const dy1 = host.canvasActor.exports.w_get_dirty_y1();
-          const dw = dx1 - dx0 + 1;
-          const dh = dy1 - dy0 + 1;
-          if (dw > 0 && dh > 0 && dx0 >= 0 && dy0 >= 0 && dx0 + dw <= cw && dy0 + dh <= ch) {
-            const wasmU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, cw * ch);
-            const imgU32 = new Uint32Array(imgData.data.buffer);
-            if (dw === cw && dh === ch) {
-              imgU32.set(wasmU32);
-              offscreenCtx.putImageData(imgData, 0, 0);
-            } else {
-              for (let y = dy0; y <= dy1; y++) {
-                const rowOffset = y * cw + dx0;
-                imgU32.set(wasmU32.subarray(rowOffset, rowOffset + dw), rowOffset);
-              }
-              offscreenCtx.putImageData(imgData, 0, 0, dx0, dy0, dw, dh);
-            }
+        if (hasDirty || !imgData || imgData.width !== cw || imgData.height !== ch) {
+          const dx0 = (typeof host.canvasActor.exports.w_get_dirty_x0 === 'function') ? host.canvasActor.exports.w_get_dirty_x0() : 0;
+          const dy0 = (typeof host.canvasActor.exports.w_get_dirty_y0 === 'function') ? host.canvasActor.exports.w_get_dirty_y0() : 0;
+          const dx1 = (typeof host.canvasActor.exports.w_get_dirty_x1 === 'function') ? host.canvasActor.exports.w_get_dirty_x1() : cw - 1;
+          const dy1 = (typeof host.canvasActor.exports.w_get_dirty_y1 === 'function') ? host.canvasActor.exports.w_get_dirty_y1() : ch - 1;
+          const dw = (!imgData || imgData.width !== cw || imgData.height !== ch) ? cw : (dx1 - dx0 + 1);
+          const dh = (!imgData || imgData.width !== cw || imgData.height !== ch) ? ch : (dy1 - dy0 + 1);
+          const ux0 = (!imgData || imgData.width !== cw || imgData.height !== ch) ? 0 : dx0;
+          const uy0 = (!imgData || imgData.width !== cw || imgData.height !== ch) ? 0 : dy0;
+
+          if (!imgData || imgData.width !== cw || imgData.height !== ch) {
+            imgData = { width: cw, height: ch };
           }
+          const wasmU8 = new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4);
+          gpuRenderer.syncTexture(wasmU8, cw, ch, ux0, uy0, dw, dh);
           if (typeof host.canvasActor.exports.w_clear_dirty_bounds === 'function') {
             host.canvasActor.exports.w_clear_dirty_bounds();
           }
         }
+        gpuRenderer.render({
+          cw,
+          ch,
+          panX: host.panX,
+          panY: host.panY,
+          zoom: host.zoom,
+          canvasRotation: host.canvasRotation || 0,
+          flipH: host.flipH,
+          flipV: host.flipV,
+          symmetry: 0
+        });
       }
+    } else if (ctx) {
+      ctx.fillStyle = '#1d2021';
+      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
 
+      if (ptr && cw > 0 && ch > 0) {
+        if (!imgData || imgData.width !== cw || imgData.height !== ch) {
+          imgData = ctx.createImageData(cw, ch);
+          offscreen = new OffscreenCanvas(cw, ch);
+          offscreenCtx = offscreen.getContext('2d');
+          new Uint32Array(imgData.data.buffer).set(new Uint32Array(host.canvasActor.memory.buffer, ptr, cw * ch));
+          offscreenCtx.putImageData(imgData, 0, 0);
+          if (host.canvasActor.exports.w_clear_dirty_bounds) host.canvasActor.exports.w_clear_dirty_bounds();
+        } else {
+          const hasDirty = (typeof host.canvasActor.exports.w_has_dirty_rect === 'function')
+            ? host.canvasActor.exports.w_has_dirty_rect()
+            : 1;
+          if (hasDirty) {
+            const dx0 = host.canvasActor.exports.w_get_dirty_x0();
+            const dy0 = host.canvasActor.exports.w_get_dirty_y0();
+            const dx1 = host.canvasActor.exports.w_get_dirty_x1();
+            const dy1 = host.canvasActor.exports.w_get_dirty_y1();
+            const dw = dx1 - dx0 + 1;
+            const dh = dy1 - dy0 + 1;
+            if (dw > 0 && dh > 0 && dx0 >= 0 && dy0 >= 0 && dx0 + dw <= cw && dy0 + dh <= ch) {
+              const wasmU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, cw * ch);
+              const imgU32 = new Uint32Array(imgData.data.buffer);
+              if (dw === cw && dh === ch) {
+                imgU32.set(wasmU32);
+                offscreenCtx.putImageData(imgData, 0, 0);
+              } else {
+                for (let y = dy0; y <= dy1; y++) {
+                  const rowOffset = y * cw + dx0;
+                  imgU32.set(wasmU32.subarray(rowOffset, rowOffset + dw), rowOffset);
+                }
+                offscreenCtx.putImageData(imgData, 0, 0, dx0, dy0, dw, dh);
+              }
+            }
+            if (typeof host.canvasActor.exports.w_clear_dirty_bounds === 'function') {
+              host.canvasActor.exports.w_clear_dirty_bounds();
+            }
+          }
+        }
+      }
+    }
+
+    if (ctx && ptr && cw > 0 && ch > 0) {
       /* Draw with pan + zoom + rotation around doc center */
       const cx = host.panX + (cw * host.zoom) / 2;
       const cy = host.panY + (ch * host.zoom) / 2;
@@ -990,8 +1051,10 @@ async function main() {
       if (host.flipH) ctx.scale(-1, 1);
       if (host.flipV) ctx.scale(1, -1);
       ctx.rotate(host.canvasRotation);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+      if (!gpuRenderer && offscreen) {
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+      }
 
       /* Real-Time Symmetry Mirror Axis Guide Overlay */
       if (host.brushParams && host.brushParams.symmetry > 0) {
