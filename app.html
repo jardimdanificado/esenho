@@ -197,8 +197,27 @@
     }
 
     /* ── Canvas area ── */
-    #cvswrap { flex: 1 1 0%; position: relative; overflow: hidden; background: #1d2021; min-width: 0; min-height: 0; }
-    #wcanvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+    #cvswrap {
+      flex: 1 1 0%;
+      position: relative;
+      overflow: hidden;
+      background: #1d2021;
+      min-width: 0;
+      min-height: 0;
+      contain: strict;
+      will-change: transform;
+      transform: translateZ(0);
+    }
+    #wcanvas, #uicanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+      touch-action: none;
+      contain: strict;
+      will-change: transform;
+      transform: translateZ(0);
+    }
     .eyedropper-ring {
       position: fixed;
       width: 58px;
@@ -1352,13 +1371,11 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
+      background: rgba(0,0,0,0.85);
       z-index: 10003;
       align-items: center;
       justify-content: center;
       padding: 12px;
-      backdrop-filter: blur(5px);
-      -webkit-backdrop-filter: blur(5px);
       touch-action: auto;
       user-select: none;
       -webkit-user-select: none;
@@ -1615,13 +1632,11 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.55);
+      background: rgba(0,0,0,0.75);
       z-index: 10002;
       align-items: center;
       justify-content: center;
       padding: 16px;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
       touch-action: none;
       user-select: none;
       -webkit-user-select: none;
@@ -1631,14 +1646,8 @@
     }
     .arc-dial-box {
       background: #1d2021;
-      border: 1.5px solid #504945;
+      border: 2px solid #504945;
       padding: 14px 16px;
-      width: 240px;
-      max-width: 92vw;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: center;
       box-shadow: 0 8px 28px rgba(0,0,0,0.7);
     }
     .arc-dial-header {
@@ -2144,10 +2153,10 @@
       left: 0;
       right: 0;
       height: 44px;
-      background: rgba(29, 32, 33, 0.95);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
+      background: #1d2021;
       border-bottom: 1px solid rgba(80, 73, 69, 0.7);
+      contain: layout style paint;
+      will-change: transform;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -2266,10 +2275,10 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      background: rgba(29, 32, 33, 0.88);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      background: #1d2021;
       border: 1px solid rgba(80, 73, 69, 0.7);
+      contain: layout style paint;
+      will-change: transform;
       border-radius: 16px !important;
       box-shadow: 0 6px 22px rgba(0,0,0,0.65);
       user-select: none;
@@ -2423,12 +2432,10 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.35);
+      background: rgba(0, 0, 0, 0.55);
       z-index: 90;
       user-select: none;
       -webkit-user-select: none;
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
     }
     .ip-sheet-modal.active {
       display: block;

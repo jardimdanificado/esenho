@@ -2339,21 +2339,15 @@ async function main() {
         const curDist  = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
         const prevDist = Math.hypot(pa.clientX - pb.clientX, pa.clientY - pb.clientY);
 
-        // Rotation angle delta with deadzone & finger distance threshold
+        // Rotation angle delta with direct 1:1 tracking (zero deadzone delay)
         let dTheta = 0;
-        if (curDist > 40 && prevDist > 40) {
+        if (curDist > 15 && prevDist > 15) {
           const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
           const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
           let rawDelta = curAngle - prevAngle;
           while (rawDelta > Math.PI) rawDelta -= 2 * Math.PI;
           while (rawDelta < -Math.PI) rawDelta += 2 * Math.PI;
-
-          // Deadzone to suppress finger tremor / jitter
-          if (Math.abs(rawDelta) > 0.008) {
-            // Damping when zoomed in close to avoid hyper-sensitive spinning
-            const damping = host.zoom > 2 ? Math.max(0.35, 1.0 / (host.zoom * 0.45)) : 0.85;
-            dTheta = rawDelta * damping;
-          }
+          dTheta = rawDelta;
         }
 
         // Zoom scale factor
@@ -9815,13 +9809,24 @@ function log(msg, cls = '') {
   });
 }
 
-function updateStatus(host, docX, docY) {
+let _lastStatusUpdate = 0;
+let _cachedStatusText = '';
+
+function updateStatus(host, docX, docY, force = false) {
+  const now = performance.now();
+  if (!force && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
+  _lastStatusUpdate = now;
+
   const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 0;
   const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 0;
   const deg = ((host.canvasRotation * 180 / Math.PI) % 360).toFixed(1);
-  statusEl.textContent =
+  const newText =
     `${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
     `zoom ${(host.zoom * 100).toFixed(0)}%  rot ${deg}°`;
+  if (statusEl && _cachedStatusText !== newText) {
+    _cachedStatusText = newText;
+    statusEl.textContent = newText;
+  }
 }
 
 /* ── Color math helpers ── */
