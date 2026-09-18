@@ -962,27 +962,32 @@ async function main() {
       if (uiCtx && uiCanvasEl) {
         uiCtx.clearRect(0, 0, uiCanvasEl.width, uiCanvasEl.height);
       }
-      if (ptr && cw > 0 && ch > 0) {
-        const hasDirty = (typeof host.canvasActor.exports.w_has_dirty_rect === 'function')
-          ? host.canvasActor.exports.w_has_dirty_rect()
-          : 1;
-        if (hasDirty || !imgData || imgData.width !== cw || imgData.height !== ch) {
-          const dx0 = (typeof host.canvasActor.exports.w_get_dirty_x0 === 'function') ? host.canvasActor.exports.w_get_dirty_x0() : 0;
-          const dy0 = (typeof host.canvasActor.exports.w_get_dirty_y0 === 'function') ? host.canvasActor.exports.w_get_dirty_y0() : 0;
-          const dx1 = (typeof host.canvasActor.exports.w_get_dirty_x1 === 'function') ? host.canvasActor.exports.w_get_dirty_x1() : cw - 1;
-          const dy1 = (typeof host.canvasActor.exports.w_get_dirty_y1 === 'function') ? host.canvasActor.exports.w_get_dirty_y1() : ch - 1;
-          const dw = (!imgData || imgData.width !== cw || imgData.height !== ch) ? cw : (dx1 - dx0 + 1);
-          const dh = (!imgData || imgData.width !== cw || imgData.height !== ch) ? ch : (dy1 - dy0 + 1);
-          const ux0 = (!imgData || imgData.width !== cw || imgData.height !== ch) ? 0 : dx0;
-          const uy0 = (!imgData || imgData.width !== cw || imgData.height !== ch) ? 0 : dy0;
+      if (cw > 0 && ch > 0) {
+        let finalTex = null;
+        if (gpuRenderer.useLayerCompositor && gpuRenderer.compositeProgram) {
+          finalTex = gpuRenderer.compositeLayersGPU(host, cw, ch);
+        } else if (ptr) {
+          const hasDirty = (typeof host.canvasActor.exports.w_has_dirty_rect === 'function')
+            ? host.canvasActor.exports.w_has_dirty_rect()
+            : 1;
+          if (hasDirty || !imgData || imgData.width !== cw || imgData.height !== ch) {
+            const dx0 = (typeof host.canvasActor.exports.w_get_dirty_x0 === 'function') ? host.canvasActor.exports.w_get_dirty_x0() : 0;
+            const dy0 = (typeof host.canvasActor.exports.w_get_dirty_y0 === 'function') ? host.canvasActor.exports.w_get_dirty_y0() : 0;
+            const dx1 = (typeof host.canvasActor.exports.w_get_dirty_x1 === 'function') ? host.canvasActor.exports.w_get_dirty_x1() : cw - 1;
+            const dy1 = (typeof host.canvasActor.exports.w_get_dirty_y1 === 'function') ? host.canvasActor.exports.w_get_dirty_y1() : ch - 1;
+            const dw = (!imgData || imgData.width !== cw || imgData.height !== ch) ? cw : (dx1 - dx0 + 1);
+            const dh = (!imgData || imgData.width !== cw || imgData.height !== ch) ? ch : (dy1 - dy0 + 1);
+            const ux0 = (!imgData || imgData.width !== cw || imgData.height !== ch) ? 0 : dx0;
+            const uy0 = (!imgData || imgData.width !== cw || imgData.height !== ch) ? 0 : dy0;
 
-          if (!imgData || imgData.width !== cw || imgData.height !== ch) {
-            imgData = { width: cw, height: ch };
-          }
-          const wasmU8 = new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4);
-          gpuRenderer.syncTexture(wasmU8, cw, ch, ux0, uy0, dw, dh);
-          if (typeof host.canvasActor.exports.w_clear_dirty_bounds === 'function') {
-            host.canvasActor.exports.w_clear_dirty_bounds();
+            if (!imgData || imgData.width !== cw || imgData.height !== ch) {
+              imgData = { width: cw, height: ch };
+            }
+            const wasmU8 = new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4);
+            gpuRenderer.syncTexture(wasmU8, cw, ch, ux0, uy0, dw, dh);
+            if (typeof host.canvasActor.exports.w_clear_dirty_bounds === 'function') {
+              host.canvasActor.exports.w_clear_dirty_bounds();
+            }
           }
         }
         gpuRenderer.render({
@@ -995,7 +1000,7 @@ async function main() {
           flipH: host.flipH,
           flipV: host.flipV,
           symmetry: 0
-        });
+        }, finalTex);
       }
     } else if (ctx) {
       ctx.fillStyle = '#1d2021';

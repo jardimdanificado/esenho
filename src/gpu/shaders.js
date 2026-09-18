@@ -103,8 +103,104 @@ void main() {
 }
 `;
 
+const LAYER_COMPOSITE_VERT = `#version 300 es
+precision highp float;
+
+in vec2 a_position;
+out vec2 v_uv;
+
+void main() {
+    v_uv = a_position * 0.5 + 0.5;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+}
+`;
+
+const LAYER_COMPOSITE_FRAG = `#version 300 es
+precision highp float;
+
+in vec2 v_uv;
+out vec4 fragColor;
+
+uniform sampler2D u_accum_tex;    // Background accumulator
+uniform sampler2D u_layer_tex;    // Current layer
+uniform sampler2D u_clip_tex;     // Base clipping mask layer (if applicable)
+
+uniform vec2 u_doc_size;          // Total document resolution
+uniform vec2 u_layer_offset;      // Layer (x, y)
+uniform vec2 u_layer_size;        // Layer (w, h)
+uniform float u_opacity;          // 0.0 .. 1.0
+uniform int u_blend_mode;         // 0=normal, 1=multiply, 2=screen, 3=overlay, 4=dodge, 5=add
+uniform int u_has_clip;           // 1 if clipped to base layer
+uniform vec2 u_clip_offset;
+uniform vec2 u_clip_size;
+
+vec3 apply_blend_mode(int mode, vec3 src, vec3 dst) {
+    if (mode == 0) return src;
+    if (mode == 1) return src * dst; // Multiply
+    if (mode == 2) return 1.0 - (1.0 - src) * (1.0 - dst); // Screen
+    if (mode == 3) { // Overlay
+        vec3 less = 2.0 * src * dst;
+        vec3 more = 1.0 - 2.0 * (1.0 - src) * (1.0 - dst);
+        return mix(more, less, step(dst, vec3(0.5)));
+    }
+    if (mode == 4) { // Color Dodge
+        return min(vec3(1.0), dst / max(vec3(0.00392), 1.0 - src));
+    }
+    if (mode == 5) { // Add
+        return min(vec3(1.0), src + dst);
+    }
+    return src;
+}
+
+void main() {
+    vec4 dst = texture(u_accum_tex, v_uv);
+    vec2 doc_px = v_uv * u_doc_size;
+
+    // Check if doc_px is within layer bounds
+    vec2 rel_px = doc_px - u_layer_offset;
+    if (rel_px.x < 0.0 || rel_px.x >= u_layer_size.x || rel_px.y < 0.0 || rel_px.y >= u_layer_size.y) {
+        fragColor = dst;
+        return;
+    }
+
+    vec2 layer_uv = rel_px / u_layer_size;
+    vec4 src = texture(u_layer_tex, layer_uv);
+
+    float sa = src.a * u_opacity;
+    if (sa <= 0.0) {
+        fragColor = dst;
+        return;
+    }
+
+    // Clipping Mask calculation
+    if (u_has_clip == 1) {
+        vec2 clip_rel = doc_px - u_clip_offset;
+        if (clip_rel.x < 0.0 || clip_rel.x >= u_clip_size.x || clip_rel.y < 0.0 || clip_rel.y >= u_clip_size.y) {
+            fragColor = dst;
+            return;
+        }
+        vec2 clip_uv = clip_rel / u_clip_size;
+        vec4 clip_val = texture(u_clip_tex, clip_uv);
+        sa *= clip_val.a;
+        if (sa <= 0.0) {
+            fragColor = dst;
+            return;
+        }
+    }
+
+    // Blend calculations
+    vec3 blended_rgb = apply_blend_mode(u_blend_mode, src.rgb, dst.rgb);
+    
+    // Standard Over Operator
+    float out_a = sa + dst.a * (1.0 - sa);
+    vec3 out_rgb = (blended_rgb * sa + dst.rgb * dst.a * (1.0 - sa)) / max(out_a, 0.00001);
+
+    fragColor = vec4(out_rgb, out_a);
+}
+`;
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { VIEWPORT_VERT, VIEWPORT_FRAG };
+    module.exports = { VIEWPORT_VERT, VIEWPORT_FRAG, LAYER_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG };
 } else {
-    globalThis.EsenhoGPU_Shaders = { VIEWPORT_VERT, VIEWPORT_FRAG };
+    globalThis.EsenhoGPU_Shaders = { VIEWPORT_VERT, VIEWPORT_FRAG, LAYER_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG };
 }

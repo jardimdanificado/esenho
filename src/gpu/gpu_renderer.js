@@ -1,21 +1,37 @@
 /**
  * src/gpu/gpu_renderer.js
  * Hardware-accelerated WebGL 2 rendering engine for Esenho.
+ * Supports GPU Viewport transformation and Multi-Layer GPU Compositing.
  */
 
 class EsenhoGPURenderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.gl = null;
-    this.program = null;
+    this.viewportProgram = null;
+    this.compositeProgram = null;
     this.vao = null;
     this.vbo = null;
+
+    // Viewport composite texture
     this.compositeTex = null;
     this.texWidth = 0;
     this.texHeight = 0;
-    this.uniforms = {};
+
+    // Multi-Layer GPU Compositor structures
+    this.layerTextures = new Map(); // layerId -> { texture, width, height }
+    this.fboA = null;
+    this.fboB = null;
+    this.accumTexA = null;
+    this.accumTexB = null;
+    this.fboWidth = 0;
+    this.fboHeight = 0;
+
+    this.viewportUniforms = {};
+    this.compositeUniforms = {};
     this.filterMode = 0; // 0 = Nearest (Pixel Art), 1 = Linear
     this.isSupported = false;
+    this.useLayerCompositor = true;
   }
 
   init() {
@@ -46,37 +62,66 @@ class EsenhoGPURenderer {
       return false;
     }
 
-    // Compile shaders
-    const vs = this._createShader(gl.VERTEX_SHADER, shaders.VIEWPORT_VERT);
-    const fs = this._createShader(gl.FRAGMENT_SHADER, shaders.VIEWPORT_FRAG);
-    if (!vs || !fs) return false;
+    // 1. Compile Viewport Program
+    const vsView = this._createShader(gl.VERTEX_SHADER, shaders.VIEWPORT_VERT);
+    const fsView = this._createShader(gl.FRAGMENT_SHADER, shaders.VIEWPORT_FRAG);
+    if (!vsView || !fsView) return false;
 
-    this.program = gl.createProgram();
-    gl.attachShader(this.program, vs);
-    gl.attachShader(this.program, fs);
-    gl.linkProgram(this.program);
+    this.viewportProgram = gl.createProgram();
+    gl.attachShader(this.viewportProgram, vsView);
+    gl.attachShader(this.viewportProgram, fsView);
+    gl.linkProgram(this.viewportProgram);
 
-    if (!gl.getProgramParameter(this.program, gl.LINK_STATUS)) {
-      console.error('[EsenhoGPU] Program link error:', gl.getProgramInfoLog(this.program));
+    if (!gl.getProgramParameter(this.viewportProgram, gl.LINK_STATUS)) {
+      console.error('[EsenhoGPU] Viewport program link error:', gl.getProgramInfoLog(this.viewportProgram));
       return false;
     }
 
-    // Cache uniform locations
-    this.uniforms = {
-      u_texture: gl.getUniformLocation(this.program, 'u_texture'),
-      u_screen_size: gl.getUniformLocation(this.program, 'u_screen_size'),
-      u_doc_size: gl.getUniformLocation(this.program, 'u_doc_size'),
-      u_pan: gl.getUniformLocation(this.program, 'u_pan'),
-      u_zoom: gl.getUniformLocation(this.program, 'u_zoom'),
-      u_rotation: gl.getUniformLocation(this.program, 'u_rotation'),
-      u_flip: gl.getUniformLocation(this.program, 'u_flip'),
-      u_filter_mode: gl.getUniformLocation(this.program, 'u_filter_mode'),
-      u_symmetry_mode: gl.getUniformLocation(this.program, 'u_symmetry_mode'),
-      u_time: gl.getUniformLocation(this.program, 'u_time')
+    this.viewportUniforms = {
+      u_texture: gl.getUniformLocation(this.viewportProgram, 'u_texture'),
+      u_screen_size: gl.getUniformLocation(this.viewportProgram, 'u_screen_size'),
+      u_doc_size: gl.getUniformLocation(this.viewportProgram, 'u_doc_size'),
+      u_pan: gl.getUniformLocation(this.viewportProgram, 'u_pan'),
+      u_zoom: gl.getUniformLocation(this.viewportProgram, 'u_zoom'),
+      u_rotation: gl.getUniformLocation(this.viewportProgram, 'u_rotation'),
+      u_flip: gl.getUniformLocation(this.viewportProgram, 'u_flip'),
+      u_filter_mode: gl.getUniformLocation(this.viewportProgram, 'u_filter_mode'),
+      u_symmetry_mode: gl.getUniformLocation(this.viewportProgram, 'u_symmetry_mode'),
+      u_time: gl.getUniformLocation(this.viewportProgram, 'u_time')
     };
 
-    // Create Fullscreen Quad VAO
-    // 2 Triangles covering [-1, -1] to [1, 1]
+    // 2. Compile Multi-Layer Composite Program (Phase 2)
+    if (shaders.LAYER_COMPOSITE_VERT && shaders.LAYER_COMPOSITE_FRAG) {
+      const vsComp = this._createShader(gl.VERTEX_SHADER, shaders.LAYER_COMPOSITE_VERT);
+      const fsComp = this._createShader(gl.FRAGMENT_SHADER, shaders.LAYER_COMPOSITE_FRAG);
+      if (vsComp && fsComp) {
+        this.compositeProgram = gl.createProgram();
+        gl.attachShader(this.compositeProgram, vsComp);
+        gl.attachShader(this.compositeProgram, fsComp);
+        gl.linkProgram(this.compositeProgram);
+
+        if (gl.getProgramParameter(this.compositeProgram, gl.LINK_STATUS)) {
+          this.compositeUniforms = {
+            u_accum_tex: gl.getUniformLocation(this.compositeProgram, 'u_accum_tex'),
+            u_layer_tex: gl.getUniformLocation(this.compositeProgram, 'u_layer_tex'),
+            u_clip_tex: gl.getUniformLocation(this.compositeProgram, 'u_clip_tex'),
+            u_doc_size: gl.getUniformLocation(this.compositeProgram, 'u_doc_size'),
+            u_layer_offset: gl.getUniformLocation(this.compositeProgram, 'u_layer_offset'),
+            u_layer_size: gl.getUniformLocation(this.compositeProgram, 'u_layer_size'),
+            u_opacity: gl.getUniformLocation(this.compositeProgram, 'u_opacity'),
+            u_blend_mode: gl.getUniformLocation(this.compositeProgram, 'u_blend_mode'),
+            u_has_clip: gl.getUniformLocation(this.compositeProgram, 'u_has_clip'),
+            u_clip_offset: gl.getUniformLocation(this.compositeProgram, 'u_clip_offset'),
+            u_clip_size: gl.getUniformLocation(this.compositeProgram, 'u_clip_size')
+          };
+        } else {
+          console.warn('[EsenhoGPU] Multi-layer composite link error:', gl.getProgramInfoLog(this.compositeProgram));
+          this.compositeProgram = null;
+        }
+      }
+    }
+
+    // 3. Create Fullscreen Quad VAO
     const quadVertices = new Float32Array([
       -1.0, -1.0,
        1.0, -1.0,
@@ -93,13 +138,13 @@ class EsenhoGPURenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
 
-    const posLoc = gl.getAttribLocation(this.program, 'a_position');
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
+    // Attribute location 0 for position
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     gl.bindVertexArray(null);
 
-    // Create Composite Texture
+    // 4. Create Direct Composite Texture
     this.compositeTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -108,7 +153,7 @@ class EsenhoGPURenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     this.isSupported = true;
-    console.log('[EsenhoGPU] WebGL2 Hardware Acceleration initialized successfully.');
+    console.log('[EsenhoGPU] WebGL2 Hardware Acceleration & Multi-Layer GPU Compositor initialized.');
     return true;
   }
 
@@ -125,26 +170,93 @@ class EsenhoGPURenderer {
     return shader;
   }
 
-  setFilterMode(linear) {
-    if (!this.gl || !this.compositeTex) return;
-    this.filterMode = linear ? 1 : 0;
+  _ensureFBOs(width, height) {
+    if (!this.gl || (this.fboWidth === width && this.fboHeight === height && this.fboA && this.fboB)) {
+      return;
+    }
     const gl = this.gl;
-    gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
-    const filter = linear ? gl.LINEAR : gl.NEAREST;
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    this.fboWidth = width;
+    this.fboHeight = height;
+
+    const createFBOTexture = () => {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      return { fbo, tex };
+    };
+
+    if (this.fboA) gl.deleteFramebuffer(this.fboA);
+    if (this.fboB) gl.deleteFramebuffer(this.fboB);
+    if (this.accumTexA) gl.deleteTexture(this.accumTexA);
+    if (this.accumTexB) gl.deleteTexture(this.accumTexB);
+
+    const a = createFBOTexture();
+    this.fboA = a.fbo;
+    this.accumTexA = a.tex;
+
+    const b = createFBOTexture();
+    this.fboB = b.fbo;
+    this.accumTexB = b.tex;
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
-  syncTexture(pixelsU8, width, height, dx0, dy0, dw, dh) {
-    if (!this.gl || !this.compositeTex) return;
+  setFilterMode(linear) {
+    if (!this.gl) return;
+    this.filterMode = linear ? 1 : 0;
     const gl = this.gl;
+    const filter = linear ? gl.LINEAR : gl.NEAREST;
+    if (this.compositeTex) {
+      gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    }
+    if (this.accumTexA) {
+      gl.bindTexture(gl.TEXTURE_2D, this.accumTexA);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    }
+    if (this.accumTexB) {
+      gl.bindTexture(gl.TEXTURE_2D, this.accumTexB);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
+    }
+  }
 
-    gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
+  getLayerTexture(layerId, width, height) {
+    const gl = this.gl;
+    let entry = this.layerTextures.get(layerId);
+    if (!entry) {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      entry = { texture: tex, width: 0, height: 0 };
+      this.layerTextures.set(layerId, entry);
+    }
+    return entry;
+  }
 
-    if (this.texWidth !== width || this.texHeight !== height) {
-      this.texWidth = width;
-      this.texHeight = height;
-      // Reallocate texture memory
+  syncLayerTexture(layerId, pixelsU8, width, height, dx0, dy0, dw, dh) {
+    if (!this.gl) return;
+    const gl = this.gl;
+    const entry = this.getLayerTexture(layerId, width, height);
+
+    gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+
+    if (entry.width !== width || entry.height !== height) {
+      entry.width = width;
+      entry.height = height;
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
@@ -170,7 +282,6 @@ class EsenhoGPURenderer {
           pixelsU8
         );
       } else {
-        // PixelStore unpack row length for efficient sub-rectangle upload
         gl.pixelStorei(gl.UNPACK_ROW_LENGTH, width);
         gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, dx0);
         gl.pixelStorei(gl.UNPACK_SKIP_ROWS, dy0);
@@ -187,7 +298,6 @@ class EsenhoGPURenderer {
           pixelsU8
         );
 
-        // Reset pixel store
         gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
         gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
         gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
@@ -195,32 +305,221 @@ class EsenhoGPURenderer {
     }
   }
 
-  render(state) {
+  syncTexture(pixelsU8, width, height, dx0, dy0, dw, dh) {
+    if (!this.gl || !this.compositeTex) return;
+    const gl = this.gl;
+
+    gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
+
+    if (this.texWidth !== width || this.texHeight !== height) {
+      this.texWidth = width;
+      this.texHeight = height;
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        width,
+        height,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        pixelsU8
+      );
+    } else if (dw > 0 && dh > 0) {
+      if (dw === width && dh === height) {
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          0,
+          0,
+          width,
+          height,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          pixelsU8
+        );
+      } else {
+        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, width);
+        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, dx0);
+        gl.pixelStorei(gl.UNPACK_SKIP_ROWS, dy0);
+
+        gl.texSubImage2D(
+          gl.TEXTURE_2D,
+          0,
+          dx0,
+          dy0,
+          dw,
+          dh,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          pixelsU8
+        );
+
+        gl.pixelStorei(gl.UNPACK_ROW_LENGTH, 0);
+        gl.pixelStorei(gl.UNPACK_SKIP_PIXELS, 0);
+        gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
+      }
+    }
+  }
+
+  /**
+   * Evaluates entire layer stack compositing purely on GPU via Ping-Pong FBOs.
+   * Returns final composite texture.
+   */
+  compositeLayersGPU(host, docWidth, docHeight) {
+    if (!this.gl || !this.compositeProgram) return this.compositeTex;
+    const gl = this.gl;
+
+    this._ensureFBOs(docWidth, docHeight);
+
+    // Clear FBO A to transparent black
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.fboA);
+    gl.viewport(0, 0, docWidth, docHeight);
+    gl.clearColor(0.0, 0.0, 0.0, 0.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const exports = host.canvasActor.exports;
+    const orderCount = exports.w_layer_get_order_count ? exports.w_layer_get_order_count() : 0;
+    if (orderCount <= 0) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return this.accumTexA;
+    }
+
+    gl.useProgram(this.compositeProgram);
+    gl.bindVertexArray(this.vao);
+
+    gl.uniform2f(this.compositeUniforms.u_doc_size, docWidth, docHeight);
+
+    let curReadTex = this.accumTexA;
+    let curTargetFBO = this.fboB;
+    let curTargetTex = this.accumTexB;
+
+    // Track visible non-clipped base layers for clipping mask resolution
+    const renderedLayers = [];
+
+    for (let i = 0; i < orderCount; i++) {
+      const layerId = exports.w_layer_get_order(i);
+      if (layerId < 0) continue;
+
+      const visible = exports.w_layer_get_visible ? exports.w_layer_get_visible(layerId) : 1;
+      if (!visible) continue;
+
+      const opacity = exports.w_layer_get_opacity ? exports.w_layer_get_opacity(layerId) : 255;
+      if (opacity <= 0) continue;
+
+      const lw = exports.w_layer_get_width ? exports.w_layer_get_width(layerId) : docWidth;
+      const lh = exports.w_layer_get_height ? exports.w_layer_get_height(layerId) : docHeight;
+      const lx = exports.w_layer_get_x ? exports.w_layer_get_x(layerId) : 0;
+      const ly = exports.w_layer_get_y ? exports.w_layer_get_y(layerId) : 0;
+      const blendMode = exports.w_layer_get_blend_mode ? exports.w_layer_get_blend_mode(layerId) : 0;
+      const isClipping = exports.w_layer_get_clipping ? exports.w_layer_get_clipping(layerId) : 0;
+
+      const ptr = exports.w_layer_get_pixels(layerId);
+      if (!ptr || lw <= 0 || lh <= 0) continue;
+
+      // Sync layer texture
+      const pixelsU8 = new Uint8Array(host.canvasActor.memory.buffer, ptr, lw * lh * 4);
+      this.syncLayerTexture(layerId, pixelsU8, lw, lh, 0, 0, lw, lh);
+      const layerEntry = this.getLayerTexture(layerId, lw, lh);
+
+      // Resolve base layer if clipped
+      let clipEntry = null;
+      let clipX = 0, clipY = 0, clipW = docWidth, clipH = docHeight;
+      if (isClipping && renderedLayers.length > 0) {
+        for (let b = renderedLayers.length - 1; b >= 0; b--) {
+          const candId = renderedLayers[b];
+          const candClip = exports.w_layer_get_clipping ? exports.w_layer_get_clipping(candId) : 0;
+          if (!candClip) {
+            clipEntry = this.getLayerTexture(candId, docWidth, docHeight);
+            clipX = exports.w_layer_get_x ? exports.w_layer_get_x(candId) : 0;
+            clipY = exports.w_layer_get_y ? exports.w_layer_get_y(candId) : 0;
+            clipW = exports.w_layer_get_width ? exports.w_layer_get_width(candId) : docWidth;
+            clipH = exports.w_layer_get_height ? exports.w_layer_get_height(candId) : docHeight;
+            break;
+          }
+        }
+      }
+
+      // Render step to curTargetFBO
+      gl.bindFramebuffer(gl.FRAMEBUFFER, curTargetFBO);
+      gl.viewport(0, 0, docWidth, docHeight);
+
+      // Texture 0: Accumulator
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, curReadTex);
+      gl.uniform1i(this.compositeUniforms.u_accum_tex, 0);
+
+      // Texture 1: Layer
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, layerEntry.texture);
+      gl.uniform1i(this.compositeUniforms.u_layer_tex, 1);
+
+      // Texture 2: Clipping Mask (if active)
+      if (isClipping && clipEntry) {
+        gl.activeTexture(gl.TEXTURE2);
+        gl.bindTexture(gl.TEXTURE_2D, clipEntry.texture);
+        gl.uniform1i(this.compositeUniforms.u_clip_tex, 2);
+        gl.uniform1i(this.compositeUniforms.u_has_clip, 1);
+        gl.uniform2f(this.compositeUniforms.u_clip_offset, clipX, clipY);
+        gl.uniform2f(this.compositeUniforms.u_clip_size, clipW, clipH);
+      } else {
+        gl.uniform1i(this.compositeUniforms.u_has_clip, 0);
+      }
+
+      // Uniform parameters
+      gl.uniform2f(this.compositeUniforms.u_layer_offset, lx, ly);
+      gl.uniform2f(this.compositeUniforms.u_layer_size, lw, lh);
+      gl.uniform1f(this.compositeUniforms.u_opacity, opacity / 255.0);
+      gl.uniform1i(this.compositeUniforms.u_blend_mode, blendMode);
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+      // Swap ping-pong buffers
+      if (curReadTex === this.accumTexA) {
+        curReadTex = this.accumTexB;
+        curTargetFBO = this.fboA;
+        curTargetTex = this.accumTexA;
+      } else {
+        curReadTex = this.accumTexA;
+        curTargetFBO = this.fboB;
+        curTargetTex = this.accumTexB;
+      }
+
+      renderedLayers.push(layerId);
+    }
+
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+    return curReadTex;
+  }
+
+  render(state, sourceTex = null) {
     if (!this.gl || !this.isSupported) return;
     const gl = this.gl;
 
-    // Viewport setup
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(0.114, 0.125, 0.129, 1.0); // #1d2021
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.useProgram(this.program);
+    gl.useProgram(this.viewportProgram);
 
     // Active Texture
+    const texToRender = sourceTex || this.compositeTex;
     gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
-    gl.uniform1i(this.uniforms.u_texture, 0);
+    gl.bindTexture(gl.TEXTURE_2D, texToRender);
+    gl.uniform1i(this.viewportUniforms.u_texture, 0);
 
     // Set uniforms
-    gl.uniform2f(this.uniforms.u_screen_size, this.canvas.width, this.canvas.height);
-    gl.uniform2f(this.uniforms.u_doc_size, state.cw, state.ch);
-    gl.uniform2f(this.uniforms.u_pan, state.panX, state.panY);
-    gl.uniform1f(this.uniforms.u_zoom, state.zoom);
-    gl.uniform1f(this.uniforms.u_rotation, state.canvasRotation || 0);
-    gl.uniform2f(this.uniforms.u_flip, state.flipH ? -1.0 : 1.0, state.flipV ? -1.0 : 1.0);
-    gl.uniform1i(this.uniforms.u_filter_mode, this.filterMode);
-    gl.uniform1i(this.uniforms.u_symmetry_mode, state.symmetry || 0);
-    gl.uniform1f(this.uniforms.u_time, (Date.now() % 100000) / 1000.0);
+    gl.uniform2f(this.viewportUniforms.u_screen_size, this.canvas.width, this.canvas.height);
+    gl.uniform2f(this.viewportUniforms.u_doc_size, state.cw, state.ch);
+    gl.uniform2f(this.viewportUniforms.u_pan, state.panX, state.panY);
+    gl.uniform1f(this.viewportUniforms.u_zoom, state.zoom);
+    gl.uniform1f(this.viewportUniforms.u_rotation, state.canvasRotation || 0);
+    gl.uniform2f(this.viewportUniforms.u_flip, state.flipH ? -1.0 : 1.0, state.flipV ? -1.0 : 1.0);
+    gl.uniform1i(this.viewportUniforms.u_filter_mode, this.filterMode);
+    gl.uniform1i(this.viewportUniforms.u_symmetry_mode, state.symmetry || 0);
+    gl.uniform1f(this.viewportUniforms.u_time, (Date.now() % 100000) / 1000.0);
 
     // Draw
     gl.bindVertexArray(this.vao);
