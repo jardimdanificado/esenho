@@ -8688,7 +8688,25 @@ async function main() {
     const btnSelbarInv = document.getElementById('btn-ip-selbar-invert');
     if (btnSelbarInv) btnSelbarInv.addEventListener('click', () => { runCmd('select invert'); });
     const btnSelbarClr = document.getElementById('btn-ip-selbar-clear');
-    if (btnSelbarClr) btnSelbarClr.addEventListener('click', () => { runCmd('select clear'); });
+    if (btnSelbarClr) {
+      btnSelbarClr.addEventListener('click', () => {
+        runCmd('select clear');
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    }
+    const btnSelbarClose = document.getElementById('btn-ip-selbar-close');
+    if (btnSelbarClose) {
+      btnSelbarClose.addEventListener('click', () => {
+        if (typeof host.clearSelection === 'function') host.clearSelection();
+        host.actionMode = 'draw';
+        if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
+          host.currentTool = 'brush';
+        }
+        syncUiFromHost();
+        triggerHaptic(15);
+      });
+    }
 
     // Wand Sheet Controls
     const sliderSheetWand = document.getElementById('ip-sheet-slider-wand-tol');
