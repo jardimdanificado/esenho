@@ -6876,6 +6876,37 @@ async function main() {
     });
   }
 
+  // Max undo history limit
+  const sliderMaxUndo = document.getElementById('ui-slider-max-undo');
+  const valMaxUndo = document.getElementById('ui-val-max-undo');
+  const savedMaxUndo = parseInt(localStorage.getItem('esenho_max_undo_steps'), 10);
+  if (!isNaN(savedMaxUndo) && savedMaxUndo >= 0) {
+    host.maxUndoSteps = savedMaxUndo;
+  } else {
+    host.maxUndoSteps = (host.maxUndoSteps !== undefined) ? host.maxUndoSteps : 25;
+  }
+  if (sliderMaxUndo) {
+    sliderMaxUndo.value = host.maxUndoSteps;
+    if (valMaxUndo) {
+      valMaxUndo.textContent = host.maxUndoSteps === 0 ? 'Unlimited (∞)' : `${sliderMaxUndo.value} steps`;
+    }
+    sliderMaxUndo.addEventListener('input', () => {
+      const val = parseInt(sliderMaxUndo.value, 10);
+      if (val >= 0) {
+        host.maxUndoSteps = val;
+        if (host.undoStack && val > 0) {
+          while (host.undoStack.length > host.maxUndoSteps) {
+            host.undoStack.shift();
+          }
+        }
+        if (valMaxUndo) {
+          valMaxUndo.textContent = val === 0 ? 'Unlimited (∞)' : `${val} steps`;
+        }
+        localStorage.setItem('esenho_max_undo_steps', val.toString());
+      }
+    });
+  }
+
   // Floating toolbar visibility & scale
   const chkFloatingToolbar = document.getElementById('ui-chk-floating-toolbar');
   const selToolbarScale = document.getElementById('ui-select-toolbar-scale');

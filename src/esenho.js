@@ -2418,6 +2418,58 @@ const COMMAND_RULES = [
 
   // History Inspection and Clear
   {
+    pat: "history limit $limit$int",
+    run: (m, host) => {
+      const limit = parseInt(m.limit, 10);
+      if (limit < 0 || isNaN(limit)) {
+        host.sendConsoleLog("Invalid history limit (must be >= 0)", 0xFFFF5555);
+        return;
+      }
+      host.maxUndoSteps = limit;
+      if (limit > 0) {
+        while (host.undoStack.length > host.maxUndoSteps) {
+          host.undoStack.shift();
+        }
+        host.sendConsoleLog(`History limit set to ${limit} steps`);
+      } else {
+        host.sendConsoleLog(`History limit set to unlimited (infinite)`);
+      }
+    }
+  },
+  {
+    pat: "history limit unlimited",
+    run: (m, host) => {
+      host.maxUndoSteps = 0;
+      host.sendConsoleLog(`History limit set to unlimited (infinite)`);
+    }
+  },
+  {
+    pat: "history limit inf",
+    run: (m, host) => {
+      host.maxUndoSteps = 0;
+      host.sendConsoleLog(`History limit set to unlimited (infinite)`);
+    }
+  },
+  {
+    pat: "set max_undo unlimited",
+    run: (m, host) => {
+      host.maxUndoSteps = 0;
+      host.sendConsoleLog(`History limit set to unlimited (infinite)`);
+    }
+  },
+  {
+    pat: "set max_undo $limit$int",
+    run: (m, host) => {
+      COMMAND_RULES.find(r => r.pat === "history limit $limit$int").run(m, host);
+    }
+  },
+  {
+    pat: "set history_limit $limit$int",
+    run: (m, host) => {
+      COMMAND_RULES.find(r => r.pat === "history limit $limit$int").run(m, host);
+    }
+  },
+  {
     pat: "history clear",
     run: (m, host) => {
       host.undoStack = [];
@@ -3661,7 +3713,7 @@ class EsenhoScreenHost {
       pixels: pixelsCopy
     });
 
-    if (this.undoStack.length > this.maxUndoSteps) {
+    if (this.maxUndoSteps > 0 && this.undoStack.length > this.maxUndoSteps) {
       this.undoStack.shift();
     }
     this.redoStack = [];

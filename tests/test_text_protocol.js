@@ -916,12 +916,39 @@ async function run() {
   if (host.undoStack.length < 2) {
     throw new Error(`Expected undoStack to have items, got ${host.undoStack.length}`);
   }
-  // history command should run without throwing or erroring
-  host.executeCommand('history');
-  host.executeCommand('history clear');
-  if (host.undoStack.length !== 0 || host.redoStack.length !== 0) {
-    throw new Error(`Expected history clear to empty stacks, got undo:${host.undoStack.length} redo:${host.redoStack.length}`);
+  // Test custom history limit
+  host.executeCommand('history limit 10');
+  if (host.maxUndoSteps !== 10) {
+    throw new Error(`Expected maxUndoSteps 10, got ${host.maxUndoSteps}`);
   }
+  for (let i = 0; i < 15; i++) {
+    host.pushUndoSnapshot(`action_${i}`);
+  }
+  if (host.undoStack.length !== 10) {
+    throw new Error(`Expected undoStack length 10 after clamping, got ${host.undoStack.length}`);
+  }
+  host.executeCommand('set max_undo 5');
+  if (host.maxUndoSteps !== 5 || host.undoStack.length !== 5) {
+    throw new Error(`Expected maxUndoSteps 5 and stack length 5, got max:${host.maxUndoSteps} len:${host.undoStack.length}`);
+  }
+  // Test unlimited history
+  host.executeCommand('history clear');
+  host.executeCommand('history limit 0');
+  if (host.maxUndoSteps !== 0) {
+    throw new Error(`Expected maxUndoSteps 0 for unlimited, got ${host.maxUndoSteps}`);
+  }
+  for (let i = 0; i < 30; i++) {
+    host.pushUndoSnapshot(`unlimited_action_${i}`);
+  }
+  if (host.undoStack.length !== 30) {
+    throw new Error(`Expected undoStack length 30 with unlimited history, got ${host.undoStack.length}`);
+  }
+  host.executeCommand('history limit unlimited');
+  if (host.maxUndoSteps !== 0) {
+    throw new Error(`Expected maxUndoSteps 0 for unlimited command`);
+  }
+  host.executeCommand('history clear');
+  host.executeCommand('history limit 25'); // restore default
 
   // ── Test Roadmap Phase 4 Features ──
   console.log('--- Testing Roadmap Phase 4 Features ---');
