@@ -7,9 +7,11 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#1d2021">
+  <meta name="color-scheme" content="dark">
   <style>
     :root {
       --ui-scale: 1;
+      color-scheme: dark;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html, body { height: 100%; background: #1d2021; color: #ebdbb2;
@@ -1804,6 +1806,15 @@
     .touch-preview-chip {
       flex: 1;
       height: 100%;
+      forced-color-adjust: none;
+    }
+    .touch-swatch-slot,
+    .ip-color-chip,
+    .ip-color-chip-wrap,
+    .color-preview-box,
+    #touch-color-canvas,
+    #touch-svbox-canvas {
+      forced-color-adjust: none;
     }
     .touch-color-mode-tabs {
       display: flex;

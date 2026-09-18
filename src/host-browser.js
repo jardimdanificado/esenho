@@ -8248,8 +8248,6 @@ async function main() {
         ctrl.addEventListener('touchcancel', onUp);
       });
 
-      // Actions
-      let prevDrawBrush = 'pencil';
       (cfg.actions || []).forEach(aid => {
         const aDef = HUD_AVAILABLE_ACTIONS.find(a => a.id === aid);
         if (!aDef) return;
@@ -8286,11 +8284,7 @@ async function main() {
             if (isCurrentlyEraser) {
               host.actionMode = 'draw';
               runCmd(`set mode brush`);
-              if (prevDrawBrush) host.selectBrushPreset(prevDrawBrush);
             } else {
-              if (host.activeBrush && host.activeBrush !== 'hard_eraser' && host.activeBrush !== 'soft_eraser') {
-                prevDrawBrush = host.activeBrush;
-              }
               host.actionMode = 'erase';
               runCmd(`set mode erase`);
             }
