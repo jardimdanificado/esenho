@@ -3151,6 +3151,14 @@ async function main() {
   bindSlider('ui-slider-color-pickup', 'ui-val-color-pickup', 'set color_pickup', '%');
   bindSlider('ui-slider-dual-size', 'ui-val-dual-size', 'set dual_size', '%');
   bindSlider('ui-slider-dual-spacing', 'ui-val-dual-spacing', 'set dual_spacing', '%');
+  bindSlider('ui-slider-pressure-min', 'ui-val-pressure-min', 'set pressure_min', '%');
+  const pressCurveSelect = document.getElementById('ui-select-pressure-curve');
+  if (pressCurveSelect) {
+    pressCurveSelect.addEventListener('change', () => {
+      host.brushParams.pressure_curve = pressCurveSelect.value;
+      log(`Pressure curve set to: ${pressCurveSelect.value}`);
+    });
+  }
 
   // Mobile slider scroll protection: prevent accidental slider movement when scrolling vertically
   function initSliderTouchScrollProtection() {

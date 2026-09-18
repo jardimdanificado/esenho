@@ -5689,6 +5689,7 @@ class EsenhoScreenHost {
         flow_jitter: 'opacity_jitter', dab_blend_mode: 'dab_blend', blend_mode: 'dab_blend',
         dual_brush: 'dual_shape', paint_depletion: 'depletion', pickup: 'color_pickup',
         mirror: 'symmetry', stylus_size: 'pressure_size', stylus_flow: 'pressure_flow', stylus_tilt: 'tilt_angle',
+        pressure_curve: 'pressure_curve', pressure_min: 'pressure_min', pressure_max: 'pressure_max',
         accumulate: 'buildup', build_up: 'buildup'
       };
       const canonKey = canonMap[key] || key;
@@ -6032,7 +6033,27 @@ class EsenhoScreenHost {
     const eraser = (is_eraser !== undefined) ? (is_eraser ? 1 : 0) : (this.actionMode === 'erase' || this.currentTool === 1 ? 1 : 0);
     const smooth = Math.max(0, Math.min(100, this.brushParams.smoothing || 0));
 
-    const press = (pressure !== undefined && pressure !== null) ? Math.round(pressure * 1000) : 1000;
+    let mappedPressure = (pressure !== undefined && pressure !== null) ? pressure : 1.0;
+    if (this.brushParams && (this.brushParams.pressure_curve || this.brushParams.pressure_min)) {
+      const minP = (this.brushParams.pressure_min !== undefined) ? (this.brushParams.pressure_min / 100.0) : 0.0;
+      const maxP = (this.brushParams.pressure_max !== undefined) ? (this.brushParams.pressure_max / 100.0) : 1.0;
+      if (mappedPressure < minP) mappedPressure = 0;
+      else if (mappedPressure > maxP) mappedPressure = 1.0;
+      else mappedPressure = (mappedPressure - minP) / Math.max(0.01, maxP - minP);
+
+      const curve = this.brushParams.pressure_curve || 'linear';
+      if (curve === 'soft') {
+        mappedPressure = Math.pow(mappedPressure, 0.6);
+      } else if (curve === 'hard') {
+        mappedPressure = Math.pow(mappedPressure, 1.8);
+      } else if (curve === 's-curve' || curve === 'sigmoid') {
+        mappedPressure = mappedPressure * mappedPressure * (3 - 2 * mappedPressure);
+      } else if (typeof curve === 'number' || (!isNaN(parseFloat(curve)) && parseFloat(curve) > 0)) {
+        const g = typeof curve === 'number' ? curve : parseFloat(curve);
+        mappedPressure = Math.pow(mappedPressure, g);
+      }
+    }
+    const press = Math.max(0, Math.min(1000, Math.round(mappedPressure * 1000)));
     const tx = (tiltX !== undefined && tiltX !== null) ? Math.round(tiltX) : 0;
     const ty = (tiltY !== undefined && tiltY !== null) ? Math.round(tiltY) : 0;
 

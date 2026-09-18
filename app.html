@@ -3944,6 +3944,15 @@
               <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; margin-top: 3px;">
                 <input type="checkbox" id="ui-chk-tilt-angle" checked> Tilt &rarr; Angle
               </label>
+              <div class="ui-label-row" style="margin-top: 6px; margin-bottom: 2px;"><span>Pressure Curve</span></div>
+              <select id="ui-select-pressure-curve" class="ui-select" style="width: 100%; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; font-size: 11px; margin-bottom: 4px;">
+                <option value="linear">Linear (1:1)</option>
+                <option value="soft">Soft (Light Hand)</option>
+                <option value="hard">Hard (Firm Hand)</option>
+                <option value="s-curve">S-Curve (Expressive)</option>
+              </select>
+              <div class="ui-label-row" style="margin-top: 4px;"><span>Min Pressure Deadzone</span><span id="ui-val-pressure-min" class="ui-val">0%</span></div>
+              <input type="range" id="ui-slider-pressure-min" min="0" max="50" value="0">
             </div>
 
             <!-- Jitters -->
