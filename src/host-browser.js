@@ -8040,60 +8040,11 @@ async function main() {
       });
     });
 
-    // 1. Top Bar Buttons
+    // 1. Top Bar Fixed Buttons
     const btnIpMenu = document.getElementById('btn-ip-menu');
     if (btnIpMenu) btnIpMenu.addEventListener('click', () => toggleSheet('sheet-menu'));
 
-    const btnIpBrush = document.getElementById('btn-ip-brush');
-    if (btnIpBrush) {
-      btnIpBrush.addEventListener('click', () => {
-        if (host.actionMode === 'erase' || host.actionMode === 'smudge') {
-          host.actionMode = 'draw';
-          runCmd(`set mode brush`);
-          syncUiFromHost();
-        }
-        toggleSheet('sheet-brushes');
-      });
-    }
-
-    const btnIpTools = document.getElementById('btn-ip-tools');
-    if (btnIpTools) btnIpTools.addEventListener('click', () => toggleSheet('sheet-tools'));
-
-    const btnIpUndo = document.getElementById('btn-ip-undo');
-    if (btnIpUndo) btnIpUndo.addEventListener('click', () => { handleUndo(); triggerHaptic(15); });
-
-    const btnIpRedo = document.getElementById('btn-ip-redo');
-    if (btnIpRedo) btnIpRedo.addEventListener('click', () => { handleRedo(); triggerHaptic(15); });
-
-    const btnIpGrid = document.getElementById('btn-ip-grid');
-    if (btnIpGrid) {
-      btnIpGrid.addEventListener('click', () => {
-        host.showPixelGrid = !host.showPixelGrid;
-        if (chkPixelGrid) chkPixelGrid.checked = host.showPixelGrid;
-        btnIpGrid.classList.toggle('active', host.showPixelGrid);
-        host.render();
-        triggerHaptic(10);
-      });
-    }
-
-    const btnIpSym = document.getElementById('btn-ip-symmetry');
-    if (btnIpSym) {
-      btnIpSym.addEventListener('click', () => {
-        const curSym = (host.brushParams && host.brushParams.symmetry !== undefined) ? host.brushParams.symmetry : 0;
-        const nextSym = (curSym + 1) % 4;
-        runCmd(`set symmetry ${nextSym}`);
-        btnIpSym.classList.toggle('active', nextSym > 0);
-        triggerHaptic(10);
-      });
-    }
-
-    const btnIpLayers = document.getElementById('btn-ip-layers');
-    if (btnIpLayers) btnIpLayers.addEventListener('click', () => toggleSheet('sheet-layers'));
-
-    const btnIpLab = document.getElementById('btn-ip-lab');
-    if (btnIpLab) btnIpLab.addEventListener('click', () => toggleSheet('sheet-lab'));
-
-    // 2. Customizable Side Thumb HUD Controller
+    // 2. Customizable HUD Bars Controller (Top, Left, Right, Bottom)
     const HUD_AVAILABLE_SLIDERS = [
       { id: 'size', label: 'Size', key: 'size', min: 1, max: 300, isCurve: true, unit: '', defaultOn: true },
       { id: 'opacity', label: 'Opac', key: 'opacity', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: true },
@@ -8126,21 +8077,31 @@ async function main() {
     ];
 
     const HUD_AVAILABLE_ACTIONS = [
+      { id: 'brush', label: 'Brush Shelf', title: 'Brush Shelf & Presets', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg><span class="ip-hud-brush-name" style="font-size: 10px; font-weight: bold; max-width: 70px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Brush</span>', defaultOn: true },
+      { id: 'tools', label: 'Tools', title: 'Shapes, Fill & Selection Tools', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="6" cy="6" r="3"/><rect x="14" y="3" width="7" height="7" rx="1"/><polygon points="12 21 5 13 19 13"/></svg>', defaultOn: true },
+      { id: 'layers', label: 'Layers', title: 'Layers Stack', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>', defaultOn: true },
+      { id: 'brush_lab', label: 'Brush Lab', title: 'Brush Dynamics Lab', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false },
+      { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', defaultOn: false },
+      { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Y)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>', defaultOn: false },
+      { id: 'grid', label: 'Grid', title: 'Toggle Pixel Grid', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>', defaultOn: false },
+      { id: 'symmetry', label: 'Symmetry', title: 'Symmetry Mirror', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="3 3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/></svg>', defaultOn: false },
       { id: 'color', label: 'Color Studio', title: 'Color Studio (Wheel, Palettes, HSV)', icon: '<div class="ip-color-chip-wrap"><div class="ip-color-chip" style="width: 100%; height: 100%; border-radius: 50%; background: #ebdbb2;"></div></div>', defaultOn: true },
       { id: 'swap_mode', label: 'Brush/Eraser', title: 'Toggle Brush / Eraser', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13.5L8.5 22H3v-5.5l9.5-9.5L18 13.5z"/><path d="M14 5.5l3.5-3.5a2.12 2.12 0 0 1 3 3L17 8.5 14 5.5z"/></svg>', defaultOn: true },
       { id: 'pipette', label: 'Eyedropper', title: 'Pipette Eyedropper', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 2.5l7 7L18 13l-7-7 3.5-3.5z"/><path d="M11 6L3 14v7h7l8-8"/><circle cx="5.5" cy="18.5" r="1.5"/></svg>', defaultOn: false },
-      { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', defaultOn: false },
-      { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Y)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>', defaultOn: false },
-      { id: 'brush_lab', label: 'Brush Lab', title: 'Brush Dynamics Lab', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false },
-      { id: 'tools', label: 'Tools', title: 'Shapes, Fill & Selection Tools', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="6" cy="6" r="3"/><rect x="14" y="3" width="7" height="7" rx="1"/><polygon points="12 21 5 13 19 13"/></svg>', defaultOn: false },
-      { id: 'layers', label: 'Layers', title: 'Layers Stack', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>', defaultOn: false },
-      { id: 'grid', label: 'Grid', title: 'Toggle Pixel Grid', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>', defaultOn: false },
-      { id: 'symmetry', label: 'Symmetry', title: 'Symmetry Mirror', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="3 3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/></svg>', defaultOn: false },
       { id: 'clear_layer', label: 'Clear Layer', title: 'Clear Active Layer', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', defaultOn: false },
-      { id: 'hud_gear', label: '⚙ Settings', title: 'Customize HUD Bars', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false }
+      { id: 'hud_gear', label: '⚙ Settings', title: 'Customize HUD Bars', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false },
+      { id: 'sel_mode_cycle', label: 'Sel Mode', title: 'Cycle Selection Mode (New / Add / Sub / Intersect)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="15.5" y1="12" x2="15.5" y2="19"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>', defaultOn: false },
+      { id: 'select_rect', label: 'Marquee', title: 'Rectangle Marquee Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>', defaultOn: false },
+      { id: 'select_lasso', label: 'Lasso', title: 'Freehand Polygon Lasso Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>', defaultOn: false },
+      { id: 'select_wand', label: 'Wand', title: 'Magic Wand Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4l5 5L7 22H2v-5L15 4z"/><line x1="18.5" y1="2.5" x2="21.5" y2="5.5"/><line x1="12" y1="7" x2="17" y2="12"/></svg>', defaultOn: false },
+      { id: 'select_invert', label: 'Invert Sel', title: 'Invert Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>', defaultOn: false }
     ];
 
     let ipActiveHudConfig = {
+      top: {
+        sliders: [],
+        actions: ['brush', 'tools', 'layers', 'brush_lab']
+      },
       left: {
         sliders: ['size', 'opacity'],
         actions: ['color', 'swap_mode']
@@ -8159,20 +8120,12 @@ async function main() {
       const savedHud = localStorage.getItem('esenho_ip_hud_config');
       if (savedHud) {
         const parsed = JSON.parse(savedHud);
-        if (parsed.left && typeof parsed.left === 'object') {
+        if (parsed && typeof parsed === 'object') {
           ipActiveHudConfig = {
+            top: parsed.top || { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
             left: parsed.left || { sliders: [], actions: [] },
             right: parsed.right || { sliders: [], actions: [] },
             bottom: parsed.bottom || { sliders: [], actions: [] }
-          };
-        } else if (Array.isArray(parsed.sliders) && Array.isArray(parsed.actions)) {
-          ipActiveHudConfig = {
-            left: {
-              sliders: parsed.sliders,
-              actions: ['color', ...parsed.actions.filter(a => a !== 'color')]
-            },
-            right: { sliders: [], actions: ['hud_gear'] },
-            bottom: { sliders: [], actions: [] }
           };
         }
       }
@@ -8288,7 +8241,17 @@ async function main() {
         btn.title = aDef.title;
         btn.innerHTML = aDef.icon;
 
-        if (aDef.id === 'color') {
+        if (aDef.id === 'brush') {
+          btn.addEventListener('click', () => {
+            if (host.actionMode === 'erase' || host.actionMode === 'smudge') {
+              host.actionMode = 'draw';
+              runCmd(`set mode brush`);
+              syncUiFromHost();
+            }
+            toggleSheet('sheet-brushes');
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'color') {
           btn.addEventListener('click', () => {
             if (typeof openTouchColorModal === 'function') openTouchColorModal();
             else {
@@ -8356,6 +8319,42 @@ async function main() {
             openHudCustomizer();
             triggerHaptic(12);
           });
+        } else if (aDef.id === 'sel_mode_cycle') {
+          btn.addEventListener('click', () => {
+            const modes = ['replace', 'add', 'sub', 'intersect'];
+            const curIdx = modes.indexOf(host.selectionMode || 'replace');
+            const nextMode = modes[(curIdx + 1) % modes.length];
+            host.setSelectionMode(nextMode);
+            syncUiFromHost();
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'select_rect') {
+          btn.addEventListener('click', () => {
+            host.actionMode = 'select';
+            host.currentTool = 'select_rect';
+            syncUiFromHost();
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'select_lasso') {
+          btn.addEventListener('click', () => {
+            host.actionMode = 'select';
+            host.currentTool = 'lasso_select';
+            syncUiFromHost();
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'select_wand') {
+          btn.addEventListener('click', () => {
+            host.actionMode = 'select';
+            host.currentTool = 'magic_wand';
+            syncUiFromHost();
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'select_invert') {
+          btn.addEventListener('click', () => {
+            runCmd('select invert');
+            syncUiFromHost();
+            triggerHaptic(12);
+          });
         }
 
         hud.appendChild(btn);
@@ -8363,13 +8362,14 @@ async function main() {
     };
 
     const renderAllHuds = () => {
+      renderDock('top');
       renderDock('left');
       renderDock('right');
       renderDock('bottom');
       syncInfinitePainterUI();
     };
 
-    let currentCustomizingDock = 'left';
+    let currentCustomizingDock = 'top';
 
     const renderHudCustomizerOptions = () => {
       const sGrid = document.getElementById('ip-hud-sliders-toggle-grid');
@@ -8377,7 +8377,7 @@ async function main() {
       const dockLbl = document.getElementById('ip-hud-customizer-dock-label');
       if (dockLbl) {
         const dName = currentCustomizingDock.charAt(0).toUpperCase() + currentCustomizingDock.slice(1);
-        dockLbl.textContent = `Choose which sliders and quick action buttons appear on the ${dName} Dock:`;
+        dockLbl.textContent = `Choose which sliders and quick action buttons appear on the ${dName} Bar:`;
       }
 
       const cfg = ipActiveHudConfig[currentCustomizingDock] || { sliders: [], actions: [] };
@@ -8441,7 +8441,7 @@ async function main() {
       }
     };
 
-    const openHudCustomizer = (initialDock = 'left') => {
+    const openHudCustomizer = (initialDock = 'top') => {
       currentCustomizingDock = initialDock;
       const modal = document.getElementById('sheet-hud-customizer');
       if (!modal) return;
@@ -8460,7 +8460,7 @@ async function main() {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        currentCustomizingDock = btn.dataset.docktab || 'left';
+        currentCustomizingDock = btn.dataset.docktab || 'top';
         renderHudCustomizerOptions();
         triggerHaptic(8);
       });
@@ -8471,6 +8471,7 @@ async function main() {
     if (btnHudDefault) {
       btnHudDefault.addEventListener('click', () => {
         ipActiveHudConfig = {
+          top: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
           left: { sliders: ['size', 'opacity'], actions: ['color', 'swap_mode'] },
           right: { sliders: [], actions: ['hud_gear'] },
           bottom: { sliders: [], actions: [] }
@@ -8486,9 +8487,10 @@ async function main() {
     if (btnHudPro) {
       btnHudPro.addEventListener('click', () => {
         ipActiveHudConfig = {
+          top: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
           left: { sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing'], actions: ['color', 'swap_mode'] },
           right: { sliders: [], actions: ['pipette', 'undo', 'redo', 'hud_gear'] },
-          bottom: { sliders: [], actions: ['tools', 'layers', 'brush_lab'] }
+          bottom: { sliders: [], actions: ['grid', 'symmetry'] }
         };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
         renderAllHuds();
@@ -8501,6 +8503,7 @@ async function main() {
     if (btnHudFull) {
       btnHudFull.addEventListener('click', () => {
         ipActiveHudConfig = {
+          top: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
           left: {
             sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'spacing', 'pickup'],
             actions: ['color', 'swap_mode', 'pipette']
@@ -8511,7 +8514,7 @@ async function main() {
           },
           bottom: {
             sliders: [],
-            actions: ['tools', 'layers', 'brush_lab']
+            actions: ['grid', 'symmetry']
           }
         };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
@@ -8628,6 +8631,62 @@ async function main() {
       });
     });
 
+    // Selection Modes in Sheet
+    document.querySelectorAll('#sheet-tools .ip-selmode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#sheet-tools .ip-selmode-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const sm = card.dataset.selmode || 'replace';
+        host.setSelectionMode(sm);
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    // Floating Selection Bar
+    document.querySelectorAll('.ip-selbar-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sm = btn.dataset.selmode || 'replace';
+        host.setSelectionMode(sm);
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    document.querySelectorAll('.ip-selbar-tool').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const st = btn.dataset.seltool;
+        host.actionMode = 'select';
+        host.currentTool = st;
+        syncUiFromHost();
+        triggerHaptic(12);
+      });
+    });
+
+    const btnSelbarXform = document.getElementById('btn-ip-selbar-transform');
+    if (btnSelbarXform) btnSelbarXform.addEventListener('click', () => { runCmd('transform'); });
+    const btnSelbarInv = document.getElementById('btn-ip-selbar-invert');
+    if (btnSelbarInv) btnSelbarInv.addEventListener('click', () => { runCmd('select invert'); });
+    const btnSelbarClr = document.getElementById('btn-ip-selbar-clear');
+    if (btnSelbarClr) btnSelbarClr.addEventListener('click', () => { runCmd('select clear'); });
+
+    // Wand Sheet Controls
+    const sliderSheetWand = document.getElementById('ip-sheet-slider-wand-tol');
+    const lblSheetWand = document.getElementById('ip-sheet-wand-tol-val');
+    if (sliderSheetWand) {
+      sliderSheetWand.addEventListener('input', (e) => {
+        const v = parseInt(e.target.value, 10);
+        host.wandTolerance = v;
+        if (lblSheetWand) lblSheetWand.textContent = v;
+      });
+    }
+    const chkSheetWandAdj = document.getElementById('ip-sheet-wand-adj');
+    if (chkSheetWandAdj) {
+      chkSheetWandAdj.addEventListener('change', (e) => {
+        host.wandAdjacent = e.target.checked;
+      });
+    }
+
     // Tools Sheet Cards
     document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
       card.addEventListener('click', () => {
@@ -8636,8 +8695,17 @@ async function main() {
         const tool = card.dataset.tool;
         if (tool === 'transform') {
           host.startTransform();
-        } else if (tool === 'select') {
+        } else if (tool === 'select_rect' || tool === 'select') {
           host.currentTool = 'select_rect';
+          host.actionMode = 'select';
+        } else if (tool === 'lasso_select') {
+          host.currentTool = 'lasso_select';
+          host.actionMode = 'select';
+        } else if (tool === 'magic_wand') {
+          host.currentTool = 'magic_wand';
+          host.actionMode = 'select';
+        } else if (tool === 'brush_select') {
+          host.currentTool = 'brush';
           host.actionMode = 'select';
         } else {
           runCmd(`set mode ${tool}`);
@@ -8657,6 +8725,10 @@ async function main() {
     if (btnIpPaste) btnIpPaste.addEventListener('click', () => { runCmd('paste'); closeAllSheets(); });
     const btnIpDeselect = document.getElementById('btn-ip-deselect');
     if (btnIpDeselect) btnIpDeselect.addEventListener('click', () => { runCmd('deselect'); closeAllSheets(); });
+    const btnIpSelectAll = document.getElementById('btn-ip-select-all');
+    if (btnIpSelectAll) btnIpSelectAll.addEventListener('click', () => { runCmd('select all'); closeAllSheets(); });
+    const btnIpInvertSel = document.getElementById('btn-ip-invert-sel');
+    if (btnIpInvertSel) btnIpInvertSel.addEventListener('click', () => { runCmd('select invert'); closeAllSheets(); });
     const btnIpTransform = document.getElementById('btn-ip-transform');
     if (btnIpTransform) btnIpTransform.addEventListener('click', () => { runCmd('transform'); closeAllSheets(); });
     const btnIpXformApply = document.getElementById('btn-ip-xform-apply');
@@ -9244,12 +9316,12 @@ async function main() {
     });
 
     // 2. Active Brush Name
-    const brushNameLabel = document.getElementById('ip-active-brush-name');
-    if (brushNameLabel) {
-      const activeKey = host.activeBrush;
-      const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
-      brushNameLabel.textContent = p?.name || activeKey || 'Studio Inker';
-    }
+    const activeKey = host.activeBrush;
+    const p = BRUSH_PRESETS[activeKey] || (host.customBrushPresets && host.customBrushPresets[activeKey]);
+    const activeBrushDisplayName = p?.name || activeKey || 'Studio Inker';
+    document.querySelectorAll('.ip-hud-brush-name, #ip-active-brush-name').forEach(el => {
+      el.textContent = activeBrushDisplayName;
+    });
 
     // 3. Multi-Dock Dynamic Sliders & Actions
     if (host.brushParams) {
@@ -9285,7 +9357,7 @@ async function main() {
         { id: 'dual_spacing', key: 'dual_spacing', isCurve: false, unit: '%', min: 1, max: 100 }
       ];
 
-      ['left', 'right', 'bottom'].forEach(dockName => {
+      ['top', 'left', 'right', 'bottom'].forEach(dockName => {
         slidersDef.forEach(s => {
           const valEl = document.getElementById(`ip-hud-${dockName}-${s.id}-val`) || document.getElementById(`ip-hud-${s.id}-val`);
           const fillEl = document.getElementById(`ip-vfill-${dockName}-${s.id}`) || document.getElementById(`ip-vfill-${s.id}`);
@@ -9327,7 +9399,11 @@ async function main() {
 
     // Swap mode and action buttons across docks
     const symActive = (host.brushParams?.symmetry || 0) > 0;
-    ['left', 'right', 'bottom'].forEach(dockName => {
+    const isSelectMode = host.actionMode === 'select';
+    const curSelMode = host.selectionMode || 'replace';
+    ['top', 'left', 'right', 'bottom'].forEach(dockName => {
+      const btnBrushHud = document.getElementById(`btn-ip-hud-${dockName}-brush`);
+      if (btnBrushHud) btnBrushHud.classList.toggle('active', isDraw);
       const btnSwap = document.getElementById(`btn-ip-swap-mode-${dockName}`) || document.getElementById('btn-ip-swap-mode');
       if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
       const btnPip = document.getElementById(`btn-ip-hud-${dockName}-pipette`) || document.getElementById('btn-ip-hud-pipette');
@@ -9336,7 +9412,38 @@ async function main() {
       if (btnGridHud) btnGridHud.classList.toggle('active', !!host.showPixelGrid);
       const btnSymHud = document.getElementById(`btn-ip-hud-${dockName}-symmetry`);
       if (btnSymHud) btnSymHud.classList.toggle('active', symActive);
+      const btnSelRect = document.getElementById(`btn-ip-hud-${dockName}-select_rect`);
+      if (btnSelRect) btnSelRect.classList.toggle('active', isSelectMode && host.currentTool === 'select_rect');
+      const btnSelLasso = document.getElementById(`btn-ip-hud-${dockName}-select_lasso`);
+      if (btnSelLasso) btnSelLasso.classList.toggle('active', isSelectMode && host.currentTool === 'lasso_select');
+      const btnSelWand = document.getElementById(`btn-ip-hud-${dockName}-select_wand`);
+      if (btnSelWand) btnSelWand.classList.toggle('active', isSelectMode && host.currentTool === 'magic_wand');
     });
+
+    // Selection UI & Floating Bar Synchronization
+    const ipSelBar = document.getElementById('ip-selection-bar');
+    if (ipSelBar) {
+      const showSelBar = (isSelectMode || (host.selection && host.selection.active)) && !host.isTransforming;
+      ipSelBar.style.display = showSelBar ? 'flex' : 'none';
+      document.querySelectorAll('.ip-selmode-card, .ip-selbar-mode, .sel-mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
+      });
+      document.querySelectorAll('.ip-selbar-tool').forEach(btn => {
+        btn.classList.toggle('active', isSelectMode && btn.dataset.seltool === host.currentTool);
+      });
+    }
+
+    // Wand Controls in Sheet
+    const wandTolSheetSlider = document.getElementById('ip-sheet-slider-wand-tol');
+    const wandTolSheetVal = document.getElementById('ip-sheet-wand-tol-val');
+    if (wandTolSheetSlider && host.wandTolerance !== undefined) {
+      wandTolSheetSlider.value = host.wandTolerance;
+      if (wandTolSheetVal) wandTolSheetVal.textContent = host.wandTolerance;
+    }
+    const wandAdjSheetChk = document.getElementById('ip-sheet-wand-adj');
+    if (wandAdjSheetChk && host.wandAdjacent !== undefined) {
+      wandAdjSheetChk.checked = host.wandAdjacent;
+    }
 
     // 5. Grid & Symmetry buttons (legacy / header)
     const btnGrid = document.getElementById('btn-ip-grid');

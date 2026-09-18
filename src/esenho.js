@@ -3254,6 +3254,15 @@ const COMMAND_RULES = [
   { pat: "select clear", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select none").run(m, host) },
   { pat: "deselect", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select none").run(m, host) },
   {
+    pat: "select invert",
+    run: (m, host) => {
+      const sel = host.invertSelection();
+      host.sendConsoleLog(`selection inverted (${sel.w}x${sel.h})`);
+    }
+  },
+  { pat: "selection invert", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select invert").run(m, host) },
+  { pat: "set select_invert", run: (m, host) => COMMAND_RULES.find(r => r.pat === "select invert").run(m, host) },
+  {
     pat: "copy",
     run: (m, host) => {
       const cp = host.copySelection();
@@ -4425,6 +4434,56 @@ class EsenhoScreenHost {
     const w = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : DOC_WIDTH;
     const h = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : DOC_HEIGHT;
     return this.setSelection(0, 0, w, h);
+  }
+
+  /**
+   * Inverts active selection against document bounds.
+   */
+  invertSelection() {
+    const w = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : DOC_WIDTH;
+    const h = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : DOC_HEIGHT;
+    if (!this.selection || !this.selection.active) {
+      return this.selectAll();
+    }
+    const tempMask = new Uint8Array(w * h);
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    let count = 0;
+    const isInside = (sel, gx, gy) => {
+      if (gx < sel.x || gx >= sel.x + sel.w || gy < sel.y || gy >= sel.y + sel.h) return false;
+      if (!sel.mask) return true;
+      return sel.mask[(gy - sel.y) * sel.w + (gx - sel.x)] === 1;
+    };
+    for (let y = 0; y < h; y++) {
+      const row = y * w;
+      for (let x = 0; x < w; x++) {
+        if (!isInside(this.selection, x, y)) {
+          tempMask[row + x] = 1;
+          count++;
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (count === 0) return this.clearSelection();
+    const bw = maxX - minX + 1;
+    const bh = maxY - minY + 1;
+    if (count === bw * bh) {
+      this.selection = { active: true, type: 'rect', x: minX, y: minY, w: bw, h: bh, mask: null, points: null };
+    } else {
+      const finalMask = new Uint8Array(bw * bh);
+      for (let y = minY; y <= maxY; y++) {
+        const srcRow = y * w;
+        const dstRow = (y - minY) * bw;
+        for (let x = minX; x <= maxX; x++) {
+          if (tempMask[srcRow + x]) finalMask[dstRow + (x - minX)] = 1;
+        }
+      }
+      this.selection = { active: true, type: 'lasso', x: minX, y: minY, w: bw, h: bh, mask: finalMask, points: null };
+    }
+    this.syncSelectionClip();
+    return this.selection;
   }
 
   /**
