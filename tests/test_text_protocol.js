@@ -1114,10 +1114,11 @@ async function run() {
   if (!dumpedSym.includes('set symmetry vertical')) {
     throw new Error(`Expected dump brush to include symmetry, got:\n${dumpedSym}`);
   }
-  // Test Initial Folders: 'tips' and 'grains'
+  // Test Folder Creation
+  host.executeCommand('new group InkingFolders');
   const groupNames = Array.from(host.layerGroups.values()).map(g => g.name);
-  if (!groupNames.includes('tips') || !groupNames.includes('grains')) {
-    throw new Error(`Expected initial folders 'tips' and 'grains', got: ${JSON.stringify(groupNames)}`);
+  if (!groupNames.includes('InkingFolders')) {
+    throw new Error(`Expected folder 'InkingFolders', got: ${JSON.stringify(groupNames)}`);
   }
 
   // Test 'reset tool' Command
@@ -1173,7 +1174,7 @@ async function run() {
   if (!host.selection.active || host.selection.x !== 190 || host.selection.y !== 190 || host.selection.w !== 45 || host.selection.h !== 40) {
     throw new Error(`select rect failed, selection: ${JSON.stringify(host.selection)}`);
   }
-  // Cut selection: copies to clipboard and clears layer region; creates floating layer
+  // Cut selection: copies to clipboard and clears layer region
   host.executeCommand('cut');
   if (!host.clipboard || host.clipboard.w !== 45 || host.clipboard.h !== 40) {
     throw new Error(`cut selection failed, clipboard: ${JSON.stringify(host.clipboard)}`);
@@ -1182,14 +1183,21 @@ async function run() {
   if (curPix[200 * pWidth + 200] !== 0) {
     throw new Error('cut selection failed: pixel inside selection was not cleared');
   }
-  // Apply floating transform (commits it) and switch back to original layer for paste
-  host.executeCommand('transform apply');
-  host.executeCommand(`layer ${pAct}`);
   // Paste to new location (300, 300)
   host.executeCommand('paste 300 300');
   curPix = new Uint32Array(canvas.memory.buffer, canvas.exports.get_layer_pixels(pAct), pWidth * 480);
   if (curPix[310 * pWidth + 310] !== 0xFFFF00FF) {
     throw new Error('paste clipboard failed: expected pixel at (310, 310)');
+  }
+  // Test dedicated transform command on selection
+  host.executeCommand('select rect 300 300 30 30');
+  host.executeCommand('transform');
+  if (!host.floatingTransform) {
+    throw new Error('transform command failed to start floatingTransform');
+  }
+  host.executeCommand('transform apply');
+  if (host.floatingTransform) {
+    throw new Error('transform apply failed: floatingTransform still active');
   }
   // Select all & deselect
   host.executeCommand('select all');

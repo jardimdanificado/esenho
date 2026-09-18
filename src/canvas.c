@@ -210,7 +210,9 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
             layers[i].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
             for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[i].pixels[p] = 0x00000000;
             if (i >= layer_count) layer_count = i + 1;
-            layer_order_insert_after(active_layer, i);
+            if (visible) {
+                layer_order_insert_after(active_layer, i);
+            }
             return i;
         }
     }
@@ -229,7 +231,9 @@ static int layer_alloc_slot(int32_t w, int32_t h, uint8_t visible) {
     layers[idx].pixels = (uint32_t*)canvas_alloc(w * h * sizeof(uint32_t));
     for (uint32_t p = 0; p < (uint32_t)(w * h); p++) layers[idx].pixels[p] = 0x00000000;
     layer_count = idx + 1;
-    layer_order_insert_after(active_layer, idx);
+    if (visible) {
+        layer_order_insert_after(active_layer, idx);
+    }
     return idx;
 }
 
@@ -546,16 +550,21 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
 
     for (int l = 0; l < layer_count; l++) {
         if (!layers[l].in_use) continue;
-        if (layers[l].width == (int32_t)old_w && layers[l].height == (int32_t)old_h) {
+        if (l < 3) continue; // Built-in shape textures
+        if (layers[l].width != (int32_t)new_w || layers[l].height != (int32_t)new_h) {
+            uint32_t lw = layers[l].width;
+            uint32_t lh = layers[l].height;
+            uint32_t cur_copy_w = lw < new_w ? lw : new_w;
+            uint32_t cur_copy_h = lh < new_h ? lh : new_h;
             uint32_t *old_buf = layers[l].pixels;
             uint32_t *new_buf = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
 
             clear_layer_pixels(new_buf, new_pixels);
 
             if (old_buf) {
-                for (uint32_t y = 0; y < copy_h; y++) {
-                    for (uint32_t x = 0; x < copy_w; x++) {
-                        new_buf[y * new_w + x] = old_buf[y * old_w + x];
+                for (uint32_t y = 0; y < cur_copy_h; y++) {
+                    for (uint32_t x = 0; x < cur_copy_w; x++) {
+                        new_buf[y * new_w + x] = old_buf[y * lw + x];
                     }
                 }
             }
@@ -1378,7 +1387,7 @@ static void init_surface_if_needed(void) {
 
         layer_count = 4;
         active_layer = 3;
-        for (int i = 0; i < 4; i++) layer_order_add(i);
+        layer_order_add(3);
         ensure_stroke_buffers(doc_width * doc_height);
         force_composite();
     }

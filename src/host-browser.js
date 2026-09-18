@@ -243,6 +243,237 @@ async function main() {
     new ResizeObserver(() => resize()).observe(canvasEl.parentElement);
   }
 
+  host.zoomToFit = function() {
+    const cw = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
+    const ch = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 0;
+    if (cw <= 0 || ch <= 0) return;
+    const margin = 32;
+    const availW = Math.max(100, canvasEl.width - margin * 2);
+    const availH = Math.max(100, canvasEl.height - margin * 2);
+    const fitZoom = Math.min(availW / cw, availH / ch);
+    host.zoom = Math.max(0.02, Math.min(32, fitZoom));
+    host.panX = (canvasEl.width - cw * host.zoom) / 2;
+    host.panY = (canvasEl.height - ch * host.zoom) / 2;
+    if (typeof host.render === 'function') host.render();
+  };
+
+  host.zoomTo100 = function() {
+    const cw = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
+    const ch = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 0;
+    host.zoom = 1;
+    if (cw > 0 && ch > 0) {
+      host.panX = (canvasEl.width - cw) / 2;
+      host.panY = (canvasEl.height - ch) / 2;
+    }
+    if (typeof host.render === 'function') host.render();
+  };
+
+  host.centerCanvas = function() {
+    const cw = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 0;
+    const ch = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 0;
+    if (cw > 0 && ch > 0) {
+      host.panX = (canvasEl.width - cw * host.zoom) / 2;
+      host.panY = (canvasEl.height - ch * host.zoom) / 2;
+    }
+    if (typeof host.render === 'function') host.render();
+  };
+
+  host.resetRotation = function() {
+    host.canvasRotation = 0;
+    if (typeof host.render === 'function') host.render();
+  };
+
+  host.toggleFlipH = function() {
+    host.flipH = !host.flipH;
+    if (typeof host.render === 'function') host.render();
+  };
+
+  host.toggleFlipV = function() {
+    host.flipV = !host.flipV;
+    if (typeof host.render === 'function') host.render();
+  };
+
+  host.resizeCanvas = function(w, h) {
+    imgData = null;
+    offscreen = null;
+    offscreenCtx = null;
+    if (typeof host.zoomToFit === 'function') {
+      host.zoomToFit();
+    } else if (typeof host.render === 'function') {
+      host.render();
+    }
+  };
+
+  host.createTipFromLayer = function(name = 'Custom Tip') {
+    if (!host.canvasActor || !host.canvasActor.exports) return;
+    const cw = host.canvasActor.exports.get_canvas_width();
+    const ch = host.canvasActor.exports.get_canvas_height();
+    const pixPtr = host.canvasActor.exports.get_active_layer_pixels ? host.canvasActor.exports.get_active_layer_pixels() : 0;
+    if (!pixPtr || cw <= 0 || ch <= 0) return;
+
+    const tid = (typeof host.canvasActor.exports.w_texture_create === 'function')
+      ? host.canvasActor.exports.w_texture_create(cw, ch)
+      : -1;
+    if (tid < 0) return;
+
+    const byteLen = cw * ch * 4;
+    const src = new Uint8Array(host.canvasActor.memory.buffer, pixPtr, byteLen);
+    const dstPtr = host.canvasActor.exports.w_texture_get_pixels(tid);
+    if (dstPtr) {
+      new Uint8Array(host.canvasActor.memory.buffer, dstPtr, byteLen).set(src);
+    }
+
+    const texName = `tip_${Date.now()}`;
+    if (!host.textures) host.textures = new Map();
+    host.textures.set(texName, {
+      name: name,
+      width: cw,
+      height: ch,
+      wasmId: tid,
+      category: 'shape'
+    });
+
+    host.setBrushParam('shape', tid);
+    if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+    if (typeof host.sendConsoleLog === 'function') host.sendConsoleLog(`Created custom tip from layer [ID ${tid}]`);
+    return tid;
+  };
+
+  host.createTipFromSelection = function(name = 'Selection Tip') {
+    if (!host.canvasActor || !host.canvasActor.exports) return;
+    const cw = host.canvasActor.exports.get_canvas_width();
+    const ch = host.canvasActor.exports.get_canvas_height();
+    const pixPtr = host.canvasActor.exports.get_active_layer_pixels ? host.canvasActor.exports.get_active_layer_pixels() : 0;
+    if (!pixPtr || cw <= 0 || ch <= 0) return;
+
+    let sx = 0, sy = 0, sw = cw, sh = ch;
+    if (host.selection && host.selection.w > 0 && host.selection.h > 0) {
+      sx = Math.max(0, Math.min(cw - 1, host.selection.x));
+      sy = Math.max(0, Math.min(ch - 1, host.selection.y));
+      sw = Math.max(1, Math.min(cw - sx, host.selection.w));
+      sh = Math.max(1, Math.min(ch - sy, host.selection.h));
+    }
+
+    const tid = (typeof host.canvasActor.exports.w_texture_create === 'function')
+      ? host.canvasActor.exports.w_texture_create(sw, sh)
+      : -1;
+    if (tid < 0) return;
+
+    const srcU32 = new Uint32Array(host.canvasActor.memory.buffer, pixPtr, cw * ch);
+    const dstPtr = host.canvasActor.exports.w_texture_get_pixels(tid);
+    if (dstPtr) {
+      const dstU32 = new Uint32Array(host.canvasActor.memory.buffer, dstPtr, sw * sh);
+      for (let dy = 0; dy < sh; dy++) {
+        for (let dx = 0; dx < sw; dx++) {
+          dstU32[dy * sw + dx] = srcU32[(sy + dy) * cw + (sx + dx)];
+        }
+      }
+    }
+
+    const texName = `tip_sel_${Date.now()}`;
+    if (!host.textures) host.textures = new Map();
+    host.textures.set(texName, {
+      name: name,
+      width: sw,
+      height: sh,
+      wasmId: tid,
+      category: 'shape'
+    });
+
+    host.setBrushParam('shape', tid);
+    if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+    if (typeof host.sendConsoleLog === 'function') host.sendConsoleLog(`Created custom tip from selection [${sw}x${sh}, ID ${tid}]`);
+    return tid;
+  };
+
+  host.createGrainFromLayer = function(name = 'Custom Grain') {
+    if (!host.canvasActor || !host.canvasActor.exports) return;
+    const cw = host.canvasActor.exports.get_canvas_width();
+    const ch = host.canvasActor.exports.get_canvas_height();
+    const pixPtr = host.canvasActor.exports.get_active_layer_pixels ? host.canvasActor.exports.get_active_layer_pixels() : 0;
+    if (!pixPtr || cw <= 0 || ch <= 0) return;
+
+    const tid = (typeof host.canvasActor.exports.w_texture_create === 'function')
+      ? host.canvasActor.exports.w_texture_create(cw, ch)
+      : -1;
+    if (tid < 0) return;
+
+    const byteLen = cw * ch * 4;
+    const src = new Uint8Array(host.canvasActor.memory.buffer, pixPtr, byteLen);
+    const dstPtr = host.canvasActor.exports.w_texture_get_pixels(tid);
+    if (dstPtr) {
+      new Uint8Array(host.canvasActor.memory.buffer, dstPtr, byteLen).set(src);
+    }
+
+    const texName = `grain_${Date.now()}`;
+    if (!host.textures) host.textures = new Map();
+    host.textures.set(texName, {
+      name: name,
+      width: cw,
+      height: ch,
+      wasmId: tid,
+      category: 'texture'
+    });
+
+    if (typeof host.canvasActor.exports.w_brush_set_param === 'function') {
+      host.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, tid);
+    }
+    host.activeTexture = texName;
+    if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+    if (typeof host.sendConsoleLog === 'function') host.sendConsoleLog(`Created custom grain texture from layer [ID ${tid}]`);
+    return tid;
+  };
+
+  host.createGrainFromSelection = function(name = 'Selection Grain') {
+    if (!host.canvasActor || !host.canvasActor.exports) return;
+    const cw = host.canvasActor.exports.get_canvas_width();
+    const ch = host.canvasActor.exports.get_canvas_height();
+    const pixPtr = host.canvasActor.exports.get_active_layer_pixels ? host.canvasActor.exports.get_active_layer_pixels() : 0;
+    if (!pixPtr || cw <= 0 || ch <= 0) return;
+
+    let sx = 0, sy = 0, sw = cw, sh = ch;
+    if (host.selection && host.selection.w > 0 && host.selection.h > 0) {
+      sx = Math.max(0, Math.min(cw - 1, host.selection.x));
+      sy = Math.max(0, Math.min(ch - 1, host.selection.y));
+      sw = Math.max(1, Math.min(cw - sx, host.selection.w));
+      sh = Math.max(1, Math.min(ch - sy, host.selection.h));
+    }
+
+    const tid = (typeof host.canvasActor.exports.w_texture_create === 'function')
+      ? host.canvasActor.exports.w_texture_create(sw, sh)
+      : -1;
+    if (tid < 0) return;
+
+    const srcU32 = new Uint32Array(host.canvasActor.memory.buffer, pixPtr, cw * ch);
+    const dstPtr = host.canvasActor.exports.w_texture_get_pixels(tid);
+    if (dstPtr) {
+      const dstU32 = new Uint32Array(host.canvasActor.memory.buffer, dstPtr, sw * sh);
+      for (let dy = 0; dy < sh; dy++) {
+        for (let dx = 0; dx < sw; dx++) {
+          dstU32[dy * sw + dx] = srcU32[(sy + dy) * cw + (sx + dx)];
+        }
+      }
+    }
+
+    const texName = `grain_sel_${Date.now()}`;
+    if (!host.textures) host.textures = new Map();
+    host.textures.set(texName, {
+      name: name,
+      width: sw,
+      height: sh,
+      wasmId: tid,
+      category: 'texture'
+    });
+
+    if (typeof host.canvasActor.exports.w_brush_set_param === 'function') {
+      host.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, tid);
+    }
+    host.activeTexture = texName;
+    if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+    if (typeof host.sendConsoleLog === 'function') host.sendConsoleLog(`Created custom grain from selection [${sw}x${sh}, ID ${tid}]`);
+    return tid;
+  };
+
   
 
   
@@ -1105,34 +1336,32 @@ async function main() {
         ctx.lineTo(c[2].x * z, c[2].y * z);
         ctx.lineTo(c[3].x * z, c[3].y * z);
         ctx.closePath();
-        ctx.fillStyle = 'rgba(69, 133, 136, 0.12)';
+        ctx.fillStyle = 'rgba(250, 189, 47, 0.08)';
         ctx.fill();
-        ctx.strokeStyle = '#83a598';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([]);
+        ctx.strokeStyle = '#fabd2f';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
         ctx.stroke();
 
-        // Corner handles (white square) — perspective control, each moves independently
-        const hs = 7;
-        ctx.fillStyle = '#ebdbb2';
-        ctx.strokeStyle = '#458588';
-        ctx.lineWidth = 1.5;
-        for (let i = 0; i < 4; i++) {
-          const px = c[i].x * z, py = c[i].y * z;
-          ctx.fillRect(px - hs/2, py - hs/2, hs, hs);
-          ctx.strokeRect(px - hs/2, py - hs/2, hs, hs);
-        }
+        // Center move crosshair
+        const cx = (c[0].x + c[1].x + c[2].x + c[3].x) / 4 * z;
+        const cy = (c[0].y + c[1].y + c[2].y + c[3].y) / 4 * z;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = '#ebdbb2';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(cx - 8, cy); ctx.lineTo(cx + 8, cy);
+        ctx.moveTo(cx, cy - 8); ctx.lineTo(cx, cy + 8);
+        ctx.stroke();
 
-        // Edge midpoint handles (diamond) — skew: moves adjacent pair
+        // Edge midpoint handles (cyan diamond) — skew: moves adjacent pair
         const edgeMids = [
           [(c[0].x + c[1].x)/2 * z, (c[0].y + c[1].y)/2 * z],
           [(c[1].x + c[2].x)/2 * z, (c[1].y + c[2].y)/2 * z],
           [(c[2].x + c[3].x)/2 * z, (c[2].y + c[3].y)/2 * z],
           [(c[3].x + c[0].x)/2 * z, (c[3].y + c[0].y)/2 * z],
         ];
-        ctx.fillStyle = '#a89984';
-        ctx.strokeStyle = '#458588';
-        const ds = 5; // diamond half-size
+        const ds = 7; // diamond half-size
         for (const [mx, my] of edgeMids) {
           ctx.beginPath();
           ctx.moveTo(mx, my - ds);
@@ -1140,8 +1369,24 @@ async function main() {
           ctx.lineTo(mx, my + ds);
           ctx.lineTo(mx - ds, my);
           ctx.closePath();
+          ctx.fillStyle = '#83a598';
           ctx.fill();
+          ctx.strokeStyle = '#1d2021';
+          ctx.lineWidth = 2;
           ctx.stroke();
+        }
+
+        // Corner handles (gold boxes) — perspective control, each moves independently
+        const hs = 12;
+        for (let i = 0; i < 4; i++) {
+          const px = c[i].x * z, py = c[i].y * z;
+          ctx.fillStyle = '#fabd2f';
+          ctx.fillRect(px - hs/2, py - hs/2, hs, hs);
+          ctx.strokeStyle = '#1d2021';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(px - hs/2, py - hs/2, hs, hs);
+          ctx.fillStyle = '#1d2021';
+          ctx.fillRect(px - 2, py - 2, 4, 4);
         }
 
         ctx.restore();
@@ -1295,11 +1540,11 @@ async function main() {
 
   /* Helper: hit-test float transform handles. Returns handle id string or null. */
   /* Maps doc-space handle positions to screen-space, returns handle id or null */
-  function ftHitTest(x, y) {
+  function ftHitTest(x, y, isTouch = false) {
     const ft = host.floatingTransform;
     if (!ft || !ft.corners) return null;
     const z = host.zoom;
-    const hs = 10; // hit radius px in screen space
+    const hs = isTouch ? 30 : 16; // hit radius px in screen space
     // Corner handles: c0=tl, c1=tr, c2=br, c3=bl
     const c = ft.corners;
     const cornerHandles = [
@@ -1328,6 +1573,80 @@ async function main() {
     }
     if (inside) return 'move';
     return null;
+  }
+
+  function updateFtCorners(sx, sy) {
+    if (!ftDragging || !ftHandle || !ftDragStart || !ftDragOrigin) return;
+    const ft = host.floatingTransform;
+    if (!ft || !ftDragOrigin.corners) return;
+    const ddx = (sx - ftDragStart.sx) / host.zoom;
+    const ddy = (sy - ftDragStart.sy) / host.zoom;
+    const oc = ftDragOrigin.corners;
+    if (ftHandle === 'move') {
+      for (let i = 0; i < 4; i++) {
+        ft.corners[i].x = oc[i].x + ddx;
+        ft.corners[i].y = oc[i].y + ddy;
+      }
+    } else if (ftHandle === 'c0') {
+      ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
+    } else if (ftHandle === 'c1') {
+      ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
+    } else if (ftHandle === 'c2') {
+      ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
+    } else if (ftHandle === 'c3') {
+      ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
+    } else if (ftHandle === 'e01') {
+      ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
+      ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
+    } else if (ftHandle === 'e23') {
+      ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
+      ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
+    } else if (ftHandle === 'e30') {
+      ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
+      ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
+    } else if (ftHandle === 'e12') {
+      ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
+      ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
+    }
+    bakeFtPreview();
+  }
+
+  function bakeFtPreview() {
+    const ft = host.floatingTransform;
+    if (!ft || !host.canvasActor?.exports?.w_layer_get_pixels) return;
+    const ptr = host.canvasActor.exports.w_layer_get_pixels(ft.layerId);
+    if (!ptr) return;
+    const lw = host.canvasActor.exports.w_layer_get_width(ft.layerId);
+    const lh = host.canvasActor.exports.w_layer_get_height(ft.layerId);
+    const tgtU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh);
+    tgtU32.fill(0);
+    const srcPts = [
+      { x: 0, y: 0 }, { x: ft.width, y: 0 },
+      { x: ft.width, y: ft.height }, { x: 0, y: ft.height }
+    ];
+    const H_inv = host._computeHomography(ft.corners, srcPts);
+    if (H_inv) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of ft.corners) {
+        if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
+        if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
+      }
+      const x0 = Math.max(0, Math.floor(minX)), y0 = Math.max(0, Math.floor(minY));
+      const x1 = Math.min(lw - 1, Math.ceil(maxX)), y1 = Math.min(lh - 1, Math.ceil(maxY));
+      for (let oy = y0; oy <= y1; oy++) {
+        for (let ox = x0; ox <= x1; ox++) {
+          const W = H_inv[6] * (ox + 0.5) + H_inv[7] * (oy + 0.5) + H_inv[8];
+          const srcX = Math.round((H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5);
+          const srcY = Math.round((H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5);
+          if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
+          const sp = ft.pixels[srcY * ft.width + srcX];
+          if (((sp >> 24) & 0xFF) === 0) continue;
+          tgtU32[oy * lw + ox] = sp;
+        }
+      }
+    }
+    if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
+    markCanvasDirty();
   }
 
   let penActive = false;
@@ -1359,7 +1678,7 @@ async function main() {
 
       // Float transform takes priority
       if (host.floatingTransform) {
-        const handle = ftHitTest(x, y);
+        const handle = ftHitTest(x, y, false);
         if (handle) {
           ftDragging = true;
           ftHandle = handle;
@@ -1465,43 +1784,7 @@ async function main() {
       host.panX += sx - host.panStartX; host.panY += sy - host.panStartY;
       host.panStartX = sx; host.panStartY = sy;
     } else if (ftDragging && ftHandle && ftDragStart && ftDragOrigin) {
-      const ft = host.floatingTransform;
-      if (ft && ftDragOrigin.corners) {
-        const ddx = (sx - ftDragStart.sx) / host.zoom;
-        const ddy = (sy - ftDragStart.sy) / host.zoom;
-        const oc = ftDragOrigin.corners;
-        if (ftHandle === 'move') {
-          // Translate all 4 corners
-          for (let i = 0; i < 4; i++) {
-            ft.corners[i].x = oc[i].x + ddx;
-            ft.corners[i].y = oc[i].y + ddy;
-          }
-        } else if (ftHandle === 'c0') {
-          ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
-        } else if (ftHandle === 'c1') {
-          ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
-        } else if (ftHandle === 'c2') {
-          ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
-        } else if (ftHandle === 'c3') {
-          ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
-        } else if (ftHandle === 'e01') {
-          // Top edge: move c0 and c1 together (skew top)
-          ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
-          ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
-        } else if (ftHandle === 'e23') {
-          // Bottom edge: move c2 and c3 together (skew bottom)
-          ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
-          ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
-        } else if (ftHandle === 'e30') {
-          // Left edge: move c0 and c3 together (skew left)
-          ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
-          ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
-        } else if (ftHandle === 'e12') {
-          // Right edge: move c1 and c2 together (skew right)
-          ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
-          ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
-        }
-      }
+      updateFtCorners(sx, sy);
     } else if (isDraggingShape) {
       shapeCurDoc = { x, y };
     } else if (isSelecting && selStartDoc) {
@@ -1544,43 +1827,7 @@ async function main() {
       host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
       if (ftDragging) {
         ftDragging = false; ftHandle = null; ftDragStart = null; ftDragOrigin = null;
-        // Bake the homographic transform into the WASM layer pixels
-        const ft = host.floatingTransform;
-        if (ft) {
-          const ptr = host.canvasActor.exports.w_layer_get_pixels(ft.layerId);
-          if (ptr) {
-            const lw = host.canvasActor.exports.w_layer_get_width(ft.layerId);
-            const lh = host.canvasActor.exports.w_layer_get_height(ft.layerId);
-            const tgtU32 = new Uint32Array(host.canvasActor.memory.buffer, ptr, lw * lh);
-            tgtU32.fill(0);
-            const srcPts = [
-              { x: 0, y: 0 }, { x: ft.width, y: 0 },
-              { x: ft.width, y: ft.height }, { x: 0, y: ft.height }
-            ];
-            const H_inv = host._computeHomography(ft.corners, srcPts);
-            if (H_inv) {
-              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-              for (const c of ft.corners) {
-                if (c.x < minX) minX = c.x; if (c.x > maxX) maxX = c.x;
-                if (c.y < minY) minY = c.y; if (c.y > maxY) maxY = c.y;
-              }
-              const x0 = Math.max(0, Math.floor(minX)), y0 = Math.max(0, Math.floor(minY));
-              const x1 = Math.min(lw - 1, Math.ceil(maxX)), y1 = Math.min(lh - 1, Math.ceil(maxY));
-              for (let oy = y0; oy <= y1; oy++) {
-                for (let ox = x0; ox <= x1; ox++) {
-                  const W = H_inv[6] * (ox + 0.5) + H_inv[7] * (oy + 0.5) + H_inv[8];
-                  const srcX = Math.round((H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5);
-                  const srcY = Math.round((H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5);
-                  if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
-                  const sp = ft.pixels[srcY * ft.width + srcX];
-                  if (((sp >> 24) & 0xFF) === 0) continue;
-                  tgtU32[oy * lw + ox] = sp;
-                }
-              }
-            }
-            if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
-          }
-        }
+        bakeFtPreview();
         return;
       }
       if (host.brushParams && host.brushParams.mode === 5) {
@@ -1747,6 +1994,20 @@ async function main() {
       if (touch.timer) clearTimeout(touch.timer);
       if (touch.longPressTimer) clearTimeout(touch.longPressTimer);
 
+      if (host.floatingTransform) {
+        const handle = ftHitTest(x, y, true);
+        if (handle) {
+          ftDragging = true;
+          ftHandle = handle;
+          ftDragStart = { sx, sy, x, y };
+          const ft = host.floatingTransform;
+          ftDragOrigin = { corners: ft.corners.map(c => ({ x: c.x, y: c.y })) };
+          clearPendingTouch();
+          triggerHaptic(12);
+          return;
+        }
+      }
+
       if (host.brushParams && host.brushParams.mode === 5) {
         isTouchPicker = true;
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
@@ -1884,6 +2145,10 @@ async function main() {
         lastTouchTime = now;
       }
 
+      if (ftDragging && ftHandle && ftDragStart && ftDragOrigin) {
+        updateFtCorners(sx, sy);
+        return;
+      }
       if (isTouchPicker) {
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
         return;
@@ -2037,6 +2302,17 @@ async function main() {
 
   canvasEl.addEventListener('touchend', e => {
     e.preventDefault();
+
+    if (ftDragging) {
+      ftDragging = false;
+      ftHandle = null;
+      ftDragStart = null;
+      ftDragOrigin = null;
+      bakeFtPreview();
+      clearPendingTouch();
+      touch.prevTouches = e.touches;
+      return;
+    }
 
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
@@ -5209,6 +5485,17 @@ async function main() {
     { id: 'cancel_xform', label: 'Cancel', title: 'Cancel Transform', cmd: () => runCmd('transform cancel') },
     { id: 'flip_h', label: 'Flip H', title: 'Flip Canvas Horizontally', cmd: () => runCmd('canvas flip h') },
     { id: 'flip_v', label: 'Flip V', title: 'Flip Canvas Vertically', cmd: () => runCmd('canvas flip v') },
+    { id: 'grid_toggle', label: '▦ Grid', title: 'Toggle Pixel Grid', cmd: () => {
+      host.showPixelGrid = !host.showPixelGrid;
+      log(`pixel grid: ${host.showPixelGrid ? 'on' : 'off'}`);
+      syncUiFromHost();
+    }},
+    { id: 'symmetry_toggle', label: '◫ Symmetry', title: 'Toggle Symmetry Mirror (Off/Vertical/Quad)', cmd: () => {
+      const cur = host.symmetryMode || (host.brushParams && host.brushParams.symmetry !== undefined ? host.brushParams.symmetry : 0);
+      const next = (cur === 0 || cur === 'none' || cur === 'off') ? 1 : (cur === 1 || cur === 'v' || cur === 'vertical') ? 3 : 0;
+      runCmd(`set symmetry ${next}`);
+      syncUiFromHost();
+    }},
     { id: 'clear_layer', label: 'Clear', title: 'Clear Active Layer', cmd: () => runCmd('clear') },
     { id: 'open_customizer', label: '⚙ Bars', title: 'Customize Toolbars', cmd: () => openToolbarManagerModal() }
   ];
@@ -6667,42 +6954,39 @@ async function main() {
         const img = new Image();
         img.onload = () => {
           try {
-            const off = document.createElement('canvas');
-            off.width = img.width;
-            off.height = img.height;
-            const ctx = off.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const imgData = ctx.getImageData(0, 0, img.width, img.height);
-
-            const wasmId = host.canvasActor.exports.w_layer_create(img.width, img.height);
+            if (!host.canvasActor || !host.canvasActor.exports) return;
+            const cw = host.canvasActor.exports.get_canvas_width();
+            const ch = host.canvasActor.exports.get_canvas_height();
+            const wasmId = host.canvasActor.exports.w_layer_add ? host.canvasActor.exports.w_layer_add() : -1;
             if (wasmId < 0) {
               log('err: cannot add layer for image (max layers reached)');
               return;
             }
 
+            const off = document.createElement('canvas');
+            off.width = cw;
+            off.height = ch;
+            const ctx = off.getContext('2d');
+            const scale = Math.min(cw / img.width, ch / img.height, 1);
+            const dw = Math.round(img.width * scale);
+            const dh = Math.round(img.height * scale);
+            const dx = Math.round((cw - dw) / 2);
+            const dy = Math.round((ch - dh) / 2);
+            ctx.drawImage(img, dx, dy, dw, dh);
+            const imgData = ctx.getImageData(0, 0, cw, ch);
+
             const ptr = host.canvasActor.exports.w_layer_get_pixels(wasmId);
             if (ptr) {
-              new Uint8Array(host.canvasActor.memory.buffer, ptr, img.width * img.height * 4).set(imgData.data);
+              new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4).set(imgData.data);
             }
 
-            if (typeof host.canvasActor.exports.w_layer_add_texture === 'function') {
-              host.canvasActor.exports.w_layer_add_texture(wasmId);
-            }
-
-            const cleanName = file.name.replace(/\.[^/.]+$/, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-            const texName = cleanName || `image_${wasmId}`;
-            if (host.textures) {
-              host.textures.set(texName, {
-                width: img.width,
-                height: img.height,
-                data: imgData.data,
-                wasmId
-              });
-            }
+            const cleanName = file.name.replace(/\.[^/.]+$/, '').trim();
+            if (!host.layerNames) host.layerNames = new Map();
+            host.layerNames.set(wasmId, cleanName || `Image ${wasmId}`);
 
             host.canvasActor.exports.force_composite();
             syncUiFromHost();
-            log(`Imported image '${file.name}' as layer [${wasmId}] (${img.width}x${img.height}) [ok]`);
+            log(`Imported image '${file.name}' as layer [${wasmId}] (${cw}x${ch}) [ok]`);
           } catch (err) {
             log(`err: failed importing image: ${err.message}`);
           } finally {
@@ -6740,9 +7024,15 @@ async function main() {
 
     // 0. Action Mode
     const curActionMode = host.actionMode || (host.currentTool === 1 ? 'erase' : 'draw');
-    document.querySelectorAll('.mode-btn').forEach(btn => {
+    document.querySelectorAll('.mode-btn, .ip-actionmode-card').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.actionmode === curActionMode);
     });
+
+    // Transform Action Bar
+    const xbar = document.getElementById('ip-transform-bar');
+    if (xbar) {
+      xbar.style.display = (host.floatingTransform && host.floatingTransform.corners) ? 'flex' : 'none';
+    }
 
     // A. Tools
     const mode = host.brushParams ? host.brushParams.mode : 0;
@@ -7451,13 +7741,7 @@ async function main() {
           triggerHaptic(15);
         });
 
-        // Row Top: Visibility, Name/Info, Opacity, Actions
-        const rowTop = document.createElement('div');
-        rowTop.className = 'layer-row-top';
-
-        // Col 1: Visibility eye
-        const visCell = document.createElement('div');
-        visCell.className = 'layer-cell-vis';
+        // 1. Visibility toggle (compact eye button)
         const visBtn = document.createElement('button');
         visBtn.type = 'button';
         visBtn.className = 'layer-btn-vis' + (vis ? '' : ' hidden');
@@ -7467,17 +7751,23 @@ async function main() {
           e.stopPropagation();
           runCmd(`toggle layer ${i}`);
         });
-        visCell.appendChild(visBtn);
-        rowTop.appendChild(visCell);
+        row.appendChild(visBtn);
 
-        // Col 2: Info
+        // 2. Info Cell (flex: 1; min-width: 0; click selects layer, double-click renames)
         const infoCell = document.createElement('div');
         infoCell.className = 'layer-cell-info';
+        infoCell.style.flex = '1';
+        infoCell.style.minWidth = '0';
+        infoCell.style.cursor = 'pointer';
         infoCell.innerHTML = `
           <span class="layer-idx">#${i}</span>
           <span class="layer-name-text" title="${name}">${name}</span>
           <span class="layer-dims-text">${w}×${h}</span>
         `;
+        infoCell.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer select ${i}`);
+        });
         infoCell.addEventListener('dblclick', (e) => {
           e.stopPropagation();
           const newName = prompt(`Rename layer #${i}:`, name);
@@ -7487,171 +7777,11 @@ async function main() {
             syncUiFromHost();
           }
         });
-        rowTop.appendChild(infoCell);
+        row.appendChild(infoCell);
 
-        // Col 3: Opacity text
-        const opCell = document.createElement('div');
-        opCell.className = 'layer-cell-op';
-        opCell.id = `layer-op-text-${i}`;
-        opCell.textContent = `${opPct}%`;
-        rowTop.appendChild(opCell);
-
-        // Col 4: Actions
-        const actCell = document.createElement('div');
-        actCell.className = 'layer-cell-actions';
-
-        // Move Up
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button';
-        upBtn.className = 'layer-btn-action';
-        upBtn.textContent = '▲';
-        upBtn.title = 'Move layer up in stack';
-        upBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer move up ${i}`);
-        });
-        actCell.appendChild(upBtn);
-
-        // Move Down
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button';
-        downBtn.className = 'layer-btn-action';
-        downBtn.textContent = '▼';
-        downBtn.title = 'Move layer down in stack';
-        downBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer move down ${i}`);
-        });
-        actCell.appendChild(downBtn);
-
-        // Merge Down
-        const mergeBtn = document.createElement('button');
-        mergeBtn.type = 'button';
-        mergeBtn.className = 'layer-btn-action btn-merge';
-        mergeBtn.textContent = '⤓';
-        mergeBtn.title = 'Merge down into layer below';
-        mergeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (confirm(`Merge layer #${i} down into layer below? This action cannot be undone.`)) {
-            runCmd(`layer merge down ${i}`);
-          }
-        });
-        actCell.appendChild(mergeBtn);
-
-        // Group assign/remove button
-        if (parentGroup) {
-          const remGrpBtn = document.createElement('button');
-          remGrpBtn.type = 'button';
-          remGrpBtn.className = 'layer-btn-action';
-          remGrpBtn.textContent = '⊟';
-          remGrpBtn.title = 'Remove from folder (move to root)';
-          remGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            runCmd(`group remove ${i}`);
-          });
-          actCell.appendChild(remGrpBtn);
-        } else if (host.layerGroups && host.layerGroups.size > 0) {
-          const addGrpBtn = document.createElement('button');
-          addGrpBtn.type = 'button';
-          addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '◫';
-          addGrpBtn.title = 'Add to folder';
-          addGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const grpList = Array.from(host.layerGroups.values());
-            if (grpList.length === 1) {
-              runCmd(`group add ${grpList[0].id} ${i}`);
-            } else {
-              const names = grpList.map(g => g.name).join(', ');
-              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
-              if (target) runCmd(`group add ${target} ${i}`);
-            }
-          });
-          actCell.appendChild(addGrpBtn);
-        }
-
-        // Delete button
-        if (orderCount > 1) {
-          const delBtn = document.createElement('button');
-          delBtn.type = 'button';
-          delBtn.className = 'layer-btn-action btn-del';
-          delBtn.textContent = '✕';
-          delBtn.title = `Delete layer [${i}] ${name}`;
-          delBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm(`Delete layer [${i}] ${name}?`)) {
-              runCmd(`delete layer ${i}`);
-            }
-          });
-          actCell.appendChild(delBtn);
-        }
-
-        rowTop.appendChild(actCell);
-        row.appendChild(rowTop);
-
-        // Row Bottom: Toggles & modes
-        const rowBottom = document.createElement('div');
-        rowBottom.className = 'layer-row-bottom';
-
-        const togglesCell = document.createElement('div');
-        togglesCell.className = 'layer-cell-toggles';
-
-        const activeBtn = document.createElement('button');
-        activeBtn.type = 'button';
-        activeBtn.className = 'layer-pill' + (isDraw ? ' active-layer-pill' : '');
-        activeBtn.textContent = 'Active';
-        activeBtn.title = 'Set as active drawing layer';
-        activeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer select ${i}`);
-        });
-        togglesCell.appendChild(activeBtn);
-
-        const shapeBtn = document.createElement('button');
-        shapeBtn.type = 'button';
-        shapeBtn.className = 'layer-pill' + (isShape ? ' active-shape' : '');
-        shapeBtn.textContent = 'Tip';
-        shapeBtn.title = 'Use as brush tip (Shape)';
-        shapeBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`set shape ${name}`);
-        });
-        togglesCell.appendChild(shapeBtn);
-
-        const texBtn = document.createElement('button');
-        texBtn.type = 'button';
-        texBtn.className = 'layer-pill' + (isTex ? ' active-tex' : '');
-        texBtn.textContent = 'Grain';
-        texBtn.title = 'Use as grain texture';
-        texBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`set texture ${name}`);
-        });
-        togglesCell.appendChild(texBtn);
-
-        // Alpha Lock button
-        const lockBtn = document.createElement('button');
-        lockBtn.type = 'button';
-        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
-        lockBtn.textContent = '⚿';
-        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
-        lockBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
-        });
-        togglesCell.appendChild(lockBtn);
-
-        // Clipping Mask button
-        const clipBtn = document.createElement('button');
-        clipBtn.type = 'button';
-        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
-        clipBtn.textContent = '⮑';
-        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
-        clipBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
-        });
-        togglesCell.appendChild(clipBtn);
+        // 3. Controls Cell (flex-shrink: 0, compact horizontal buttons)
+        const controlsCell = document.createElement('div');
+        controlsCell.className = 'layer-cell-controls';
 
         // Blend Mode dropdown
         const blendSel = document.createElement('select');
@@ -7677,10 +7807,76 @@ async function main() {
           runCmd(`layer blend ${i} ${blendSel.value}`);
         });
         blendSel.addEventListener('click', (e) => e.stopPropagation());
-        togglesCell.appendChild(blendSel);
+        controlsCell.appendChild(blendSel);
 
-        rowBottom.appendChild(togglesCell);
-        row.appendChild(rowBottom);
+        // Alpha Lock button
+        const lockBtn = document.createElement('button');
+        lockBtn.type = 'button';
+        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
+        lockBtn.textContent = '⚿';
+        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
+        lockBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
+        });
+        controlsCell.appendChild(lockBtn);
+
+        // Clipping Mask button
+        const clipBtn = document.createElement('button');
+        clipBtn.type = 'button';
+        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
+        clipBtn.textContent = '⮑';
+        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
+        clipBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
+        });
+        controlsCell.appendChild(clipBtn);
+
+        // Opacity text
+        const opCell = document.createElement('div');
+        opCell.className = 'layer-cell-op';
+        opCell.id = `layer-op-text-${i}`;
+        opCell.textContent = `${opPct}%`;
+        controlsCell.appendChild(opCell);
+
+        // Group assign/remove button
+        if (parentGroup) {
+          const remGrpBtn = document.createElement('button');
+          remGrpBtn.type = 'button';
+          remGrpBtn.className = 'layer-btn-action';
+          remGrpBtn.textContent = '⊟';
+          remGrpBtn.title = 'Remove from folder (move to root)';
+          remGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            runCmd(`group remove ${i}`);
+          });
+          controlsCell.appendChild(remGrpBtn);
+        } else if (host.layerGroups && host.layerGroups.size > 0) {
+          const addGrpBtn = document.createElement('button');
+          addGrpBtn.type = 'button';
+          addGrpBtn.className = 'layer-btn-action';
+          addGrpBtn.textContent = '◫';
+          addGrpBtn.title = 'Add to folder';
+          addGrpBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const grpList = Array.from(host.layerGroups.values());
+            if (grpList.length === 1) {
+              runCmd(`group add ${grpList[0].id} ${i}`);
+            } else {
+              const names = grpList.map(g => g.name).join(', ');
+              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
+              if (target) runCmd(`group add ${target} ${i}`);
+            }
+          });
+          controlsCell.appendChild(addGrpBtn);
+        }
+
+        row.appendChild(controlsCell);
+
+        row.addEventListener('click', () => {
+          runCmd(`layer select ${i}`);
+        });
 
         /* ── Mobile: Swipe actions on layer row ── */
         if (isMobile()) {
@@ -7769,8 +7965,10 @@ async function main() {
       };
 
       // Recursive tree rendering
+      const texIds = host.getTextureWasmIds ? host.getTextureWasmIds() : new Set([0, 1, 2]);
       const renderTreeNode = (node, depth = 0, parentGroup = null) => {
         if (node.type === 'layer') {
+          if (texIds.has(node.id)) return;
           const layerEl = renderLayerRow(node.id, depth, parentGroup);
           if (layerEl) targetContainer.appendChild(layerEl);
         } else if (node.type === 'group') {
@@ -7816,8 +8014,7 @@ async function main() {
   /* ── Infinite Painter Ergonomic UI Controller ── */
   function initInfinitePainterUI() {
     const ipTopBar = document.getElementById('ip-top-bar');
-    const ipBottomRibbon = document.getElementById('ip-bottom-ribbon');
-    if (!ipTopBar || !ipBottomRibbon) return;
+    if (!ipTopBar) return;
 
     // Helper: Close all sheets
     const closeAllSheets = () => {
@@ -7846,6 +8043,21 @@ async function main() {
     // 1. Top Bar Buttons
     const btnIpMenu = document.getElementById('btn-ip-menu');
     if (btnIpMenu) btnIpMenu.addEventListener('click', () => toggleSheet('sheet-menu'));
+
+    const btnIpBrush = document.getElementById('btn-ip-brush');
+    if (btnIpBrush) {
+      btnIpBrush.addEventListener('click', () => {
+        if (host.actionMode === 'erase' || host.actionMode === 'smudge') {
+          host.actionMode = 'draw';
+          runCmd(`set mode brush`);
+          syncUiFromHost();
+        }
+        toggleSheet('sheet-brushes');
+      });
+    }
+
+    const btnIpTools = document.getElementById('btn-ip-tools');
+    if (btnIpTools) btnIpTools.addEventListener('click', () => toggleSheet('sheet-tools'));
 
     const btnIpUndo = document.getElementById('btn-ip-undo');
     if (btnIpUndo) btnIpUndo.addEventListener('click', () => { handleUndo(); triggerHaptic(15); });
@@ -7914,51 +8126,88 @@ async function main() {
     ];
 
     const HUD_AVAILABLE_ACTIONS = [
+      { id: 'color', label: 'Color Studio', title: 'Color Studio (Wheel, Palettes, HSV)', icon: '<div class="ip-color-chip-wrap"><div class="ip-color-chip" style="width: 100%; height: 100%; border-radius: 50%; background: #ebdbb2;"></div></div>', defaultOn: true },
       { id: 'swap_mode', label: 'Brush/Eraser', title: 'Toggle Brush / Eraser', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M18 13.5L8.5 22H3v-5.5l9.5-9.5L18 13.5z"/><path d="M14 5.5l3.5-3.5a2.12 2.12 0 0 1 3 3L17 8.5 14 5.5z"/></svg>', defaultOn: true },
       { id: 'pipette', label: 'Eyedropper', title: 'Pipette Eyedropper', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14.5 2.5l7 7L18 13l-7-7 3.5-3.5z"/><path d="M11 6L3 14v7h7l8-8"/><circle cx="5.5" cy="18.5" r="1.5"/></svg>', defaultOn: false },
       { id: 'undo', label: 'Undo', title: 'Undo (Ctrl+Z)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>', defaultOn: false },
       { id: 'redo', label: 'Redo', title: 'Redo (Ctrl+Y)', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>', defaultOn: false },
+      { id: 'brush_lab', label: 'Brush Lab', title: 'Brush Dynamics Lab', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false },
+      { id: 'tools', label: 'Tools', title: 'Shapes, Fill & Selection Tools', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="6" cy="6" r="3"/><rect x="14" y="3" width="7" height="7" rx="1"/><polygon points="12 21 5 13 19 13"/></svg>', defaultOn: false },
+      { id: 'layers', label: 'Layers', title: 'Layers Stack', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>', defaultOn: false },
+      { id: 'grid', label: 'Grid', title: 'Toggle Pixel Grid', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>', defaultOn: false },
+      { id: 'symmetry', label: 'Symmetry', title: 'Symmetry Mirror', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="2" x2="12" y2="22" stroke-dasharray="3 3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="12" r="3"/></svg>', defaultOn: false },
       { id: 'clear_layer', label: 'Clear Layer', title: 'Clear Active Layer', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>', defaultOn: false },
-      { id: 'hud_gear', label: '⚙ Settings', title: 'Customize Side HUD', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false }
+      { id: 'hud_gear', label: '⚙ Settings', title: 'Customize HUD Bars', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>', defaultOn: false }
     ];
 
     let ipActiveHudConfig = {
-      sliders: ['size', 'opacity'],
-      actions: ['swap_mode']
+      left: {
+        sliders: ['size', 'opacity'],
+        actions: ['color', 'swap_mode']
+      },
+      right: {
+        sliders: [],
+        actions: ['hud_gear']
+      },
+      bottom: {
+        sliders: [],
+        actions: []
+      }
     };
 
     try {
       const savedHud = localStorage.getItem('esenho_ip_hud_config');
       if (savedHud) {
         const parsed = JSON.parse(savedHud);
-        if (Array.isArray(parsed.sliders) && Array.isArray(parsed.actions)) {
-          ipActiveHudConfig = parsed;
+        if (parsed.left && typeof parsed.left === 'object') {
+          ipActiveHudConfig = {
+            left: parsed.left || { sliders: [], actions: [] },
+            right: parsed.right || { sliders: [], actions: [] },
+            bottom: parsed.bottom || { sliders: [], actions: [] }
+          };
+        } else if (Array.isArray(parsed.sliders) && Array.isArray(parsed.actions)) {
+          ipActiveHudConfig = {
+            left: {
+              sliders: parsed.sliders,
+              actions: ['color', ...parsed.actions.filter(a => a !== 'color')]
+            },
+            right: { sliders: [], actions: ['hud_gear'] },
+            bottom: { sliders: [], actions: [] }
+          };
         }
       }
     } catch (_) {}
 
-    const renderIpThumbHud = () => {
-      const hud = document.getElementById('ip-thumb-hud');
+    const renderDock = (dockName) => {
+      const hud = document.getElementById(`ip-${dockName}-hud`);
       if (!hud) return;
+      const cfg = ipActiveHudConfig[dockName] || { sliders: [], actions: [] };
       hud.innerHTML = '';
 
+      const totalItems = (cfg.sliders ? cfg.sliders.length : 0) + (cfg.actions ? cfg.actions.length : 0);
+      if (totalItems === 0) {
+        hud.style.display = 'none';
+        return;
+      }
+      hud.style.display = 'flex';
+
       // Sliders
-      ipActiveHudConfig.sliders.forEach(sid => {
+      (cfg.sliders || []).forEach(sid => {
         const sDef = HUD_AVAILABLE_SLIDERS.find(s => s.id === sid);
         if (!sDef) return;
 
         const ctrl = document.createElement('div');
         ctrl.className = 'ip-hud-control';
-        ctrl.id = `ip-hud-${sDef.id}-ctrl`;
+        ctrl.id = `ip-hud-${dockName}-${sDef.id}-ctrl`;
         ctrl.title = `${sDef.label} (drag up/down)`;
         ctrl.innerHTML = `
           <div class="ip-hud-pill">
             <span class="ip-hud-lbl">${sDef.label}</span>
-            <span id="ip-hud-${sDef.id}-val" class="ip-hud-val">--</span>
+            <span id="ip-hud-${dockName}-${sDef.id}-val" class="ip-hud-val">--</span>
           </div>
-          <div class="ip-vslider-track" id="ip-vtrack-${sDef.id}">
-            <div class="ip-vslider-fill" id="ip-vfill-${sDef.id}"></div>
-            <div class="ip-vslider-thumb" id="ip-vthumb-${sDef.id}"></div>
+          <div class="ip-vslider-track" id="ip-vtrack-${dockName}-${sDef.id}">
+            <div class="ip-vslider-fill" id="ip-vfill-${dockName}-${sDef.id}"></div>
+            <div class="ip-vslider-thumb" id="ip-vthumb-${dockName}-${sDef.id}"></div>
           </div>
         `;
         hud.appendChild(ctrl);
@@ -8028,18 +8277,27 @@ async function main() {
 
       // Actions
       let prevDrawBrush = 'pencil';
-      ipActiveHudConfig.actions.forEach(aid => {
+      (cfg.actions || []).forEach(aid => {
         const aDef = HUD_AVAILABLE_ACTIONS.find(a => a.id === aid);
         if (!aDef) return;
 
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'ip-hud-btn';
-        btn.id = aDef.id === 'swap_mode' ? 'btn-ip-swap-mode' : `btn-ip-hud-${aDef.id}`;
+        btn.id = aDef.id === 'swap_mode' ? `btn-ip-swap-mode-${dockName}` : `btn-ip-hud-${dockName}-${aDef.id}`;
         btn.title = aDef.title;
         btn.innerHTML = aDef.icon;
 
-        if (aDef.id === 'swap_mode') {
+        if (aDef.id === 'color') {
+          btn.addEventListener('click', () => {
+            if (typeof openTouchColorModal === 'function') openTouchColorModal();
+            else {
+              const tm = document.getElementById('touch-color-modal');
+              if (tm) tm.classList.add('active');
+            }
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'swap_mode') {
           btn.addEventListener('click', () => {
             const isCurrentlyEraser = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
             if (isCurrentlyEraser) {
@@ -8071,6 +8329,28 @@ async function main() {
             if (confirm('Clear current active layer?')) runCmd('clear');
             triggerHaptic(15);
           });
+        } else if (aDef.id === 'brush_lab') {
+          btn.addEventListener('click', () => { toggleSheet('sheet-lab'); triggerHaptic(12); });
+        } else if (aDef.id === 'tools') {
+          btn.addEventListener('click', () => { toggleSheet('sheet-tools'); triggerHaptic(12); });
+        } else if (aDef.id === 'layers') {
+          btn.addEventListener('click', () => { toggleSheet('sheet-layers'); triggerHaptic(12); });
+        } else if (aDef.id === 'grid') {
+          btn.addEventListener('click', () => {
+            host.showPixelGrid = !host.showPixelGrid;
+            if (chkPixelGrid) chkPixelGrid.checked = host.showPixelGrid;
+            btn.classList.toggle('active', !!host.showPixelGrid);
+            host.render();
+            triggerHaptic(10);
+          });
+        } else if (aDef.id === 'symmetry') {
+          btn.addEventListener('click', () => {
+            const curSym = (host.brushParams && host.brushParams.symmetry !== undefined) ? host.brushParams.symmetry : 0;
+            const nextSym = (curSym + 1) % 4;
+            runCmd(`set symmetry ${nextSym}`);
+            btn.classList.toggle('active', nextSym > 0);
+            triggerHaptic(10);
+          });
         } else if (aDef.id === 'hud_gear') {
           btn.addEventListener('click', () => {
             openHudCustomizer();
@@ -8080,15 +8360,27 @@ async function main() {
 
         hud.appendChild(btn);
       });
+    };
 
+    const renderAllHuds = () => {
+      renderDock('left');
+      renderDock('right');
+      renderDock('bottom');
       syncInfinitePainterUI();
     };
 
-    const openHudCustomizer = () => {
-      const modal = document.getElementById('sheet-hud-customizer');
-      if (!modal) return;
+    let currentCustomizingDock = 'left';
+
+    const renderHudCustomizerOptions = () => {
       const sGrid = document.getElementById('ip-hud-sliders-toggle-grid');
       const aGrid = document.getElementById('ip-hud-actions-toggle-grid');
+      const dockLbl = document.getElementById('ip-hud-customizer-dock-label');
+      if (dockLbl) {
+        const dName = currentCustomizingDock.charAt(0).toUpperCase() + currentCustomizingDock.slice(1);
+        dockLbl.textContent = `Choose which sliders and quick action buttons appear on the ${dName} Dock:`;
+      }
+
+      const cfg = ipActiveHudConfig[currentCustomizingDock] || { sliders: [], actions: [] };
 
       if (sGrid) {
         sGrid.innerHTML = '';
@@ -8099,16 +8391,21 @@ async function main() {
           item.style.alignItems = 'center';
           item.style.gap = '6px';
           item.style.cursor = 'pointer';
-          const isChecked = ipActiveHudConfig.sliders.includes(s.id);
+          const isChecked = (cfg.sliders || []).includes(s.id);
           item.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} data-hud-slider="${s.id}"> <span>${s.label} (${s.id})</span>`;
           item.querySelector('input').addEventListener('change', (e) => {
+            if (!ipActiveHudConfig[currentCustomizingDock]) {
+              ipActiveHudConfig[currentCustomizingDock] = { sliders: [], actions: [] };
+            }
             if (e.target.checked) {
-              if (!ipActiveHudConfig.sliders.includes(s.id)) ipActiveHudConfig.sliders.push(s.id);
+              if (!ipActiveHudConfig[currentCustomizingDock].sliders.includes(s.id)) {
+                ipActiveHudConfig[currentCustomizingDock].sliders.push(s.id);
+              }
             } else {
-              ipActiveHudConfig.sliders = ipActiveHudConfig.sliders.filter(x => x !== s.id);
+              ipActiveHudConfig[currentCustomizingDock].sliders = ipActiveHudConfig[currentCustomizingDock].sliders.filter(x => x !== s.id);
             }
             localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-            renderIpThumbHud();
+            renderAllHuds();
           });
           sGrid.appendChild(item);
         });
@@ -8123,32 +8420,64 @@ async function main() {
           item.style.alignItems = 'center';
           item.style.gap = '6px';
           item.style.cursor = 'pointer';
-          const isChecked = ipActiveHudConfig.actions.includes(a.id);
+          const isChecked = (cfg.actions || []).includes(a.id);
           item.innerHTML = `<input type="checkbox" ${isChecked ? 'checked' : ''} data-hud-action="${a.id}"> <span>${a.label}</span>`;
           item.querySelector('input').addEventListener('change', (e) => {
+            if (!ipActiveHudConfig[currentCustomizingDock]) {
+              ipActiveHudConfig[currentCustomizingDock] = { sliders: [], actions: [] };
+            }
             if (e.target.checked) {
-              if (!ipActiveHudConfig.actions.includes(a.id)) ipActiveHudConfig.actions.push(a.id);
+              if (!ipActiveHudConfig[currentCustomizingDock].actions.includes(a.id)) {
+                ipActiveHudConfig[currentCustomizingDock].actions.push(a.id);
+              }
             } else {
-              ipActiveHudConfig.actions = ipActiveHudConfig.actions.filter(x => x !== a.id);
+              ipActiveHudConfig[currentCustomizingDock].actions = ipActiveHudConfig[currentCustomizingDock].actions.filter(x => x !== a.id);
             }
             localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-            renderIpThumbHud();
+            renderAllHuds();
           });
           aGrid.appendChild(item);
         });
       }
+    };
 
+    const openHudCustomizer = (initialDock = 'left') => {
+      currentCustomizingDock = initialDock;
+      const modal = document.getElementById('sheet-hud-customizer');
+      if (!modal) return;
+
+      const tabs = document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn');
+      tabs.forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.docktab === currentCustomizingDock);
+      });
+
+      renderHudCustomizerOptions();
       modal.classList.add('active');
     };
+
+    // Dock switcher tabs inside Customizer
+    document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentCustomizingDock = btn.dataset.docktab || 'left';
+        renderHudCustomizerOptions();
+        triggerHaptic(8);
+      });
+    });
 
     // HUD Customizer Presets
     const btnHudDefault = document.getElementById('btn-ip-hud-preset-default');
     if (btnHudDefault) {
       btnHudDefault.addEventListener('click', () => {
-        ipActiveHudConfig = { sliders: ['size', 'opacity'], actions: ['swap_mode'] };
+        ipActiveHudConfig = {
+          left: { sliders: ['size', 'opacity'], actions: ['color', 'swap_mode'] },
+          right: { sliders: [], actions: ['hud_gear'] },
+          bottom: { sliders: [], actions: [] }
+        };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-        renderIpThumbHud();
-        openHudCustomizer();
+        renderAllHuds();
+        renderHudCustomizerOptions();
         triggerHaptic(12);
       });
     }
@@ -8156,10 +8485,14 @@ async function main() {
     const btnHudPro = document.getElementById('btn-ip-hud-preset-pro');
     if (btnHudPro) {
       btnHudPro.addEventListener('click', () => {
-        ipActiveHudConfig = { sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing'], actions: ['swap_mode', 'pipette', 'hud_gear'] };
+        ipActiveHudConfig = {
+          left: { sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing'], actions: ['color', 'swap_mode'] },
+          right: { sliders: [], actions: ['pipette', 'undo', 'redo', 'hud_gear'] },
+          bottom: { sliders: [], actions: ['tools', 'layers', 'brush_lab'] }
+        };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-        renderIpThumbHud();
-        openHudCustomizer();
+        renderAllHuds();
+        renderHudCustomizerOptions();
         triggerHaptic(12);
       });
     }
@@ -8168,12 +8501,22 @@ async function main() {
     if (btnHudFull) {
       btnHudFull.addEventListener('click', () => {
         ipActiveHudConfig = {
-          sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'spacing', 'pickup'],
-          actions: ['swap_mode', 'pipette', 'undo', 'redo', 'clear_layer', 'hud_gear']
+          left: {
+            sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'spacing', 'pickup'],
+            actions: ['color', 'swap_mode', 'pipette']
+          },
+          right: {
+            sliders: ['wetness', 'smudge', 'grain'],
+            actions: ['undo', 'redo', 'clear_layer', 'hud_gear']
+          },
+          bottom: {
+            sliders: [],
+            actions: ['tools', 'layers', 'brush_lab']
+          }
         };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
-        renderIpThumbHud();
-        openHudCustomizer();
+        renderAllHuds();
+        renderHudCustomizerOptions();
         triggerHaptic(12);
       });
     }
@@ -8186,58 +8529,7 @@ async function main() {
       document.getElementById('sheet-hud-customizer')?.classList.remove('active');
     });
 
-    renderIpThumbHud();
-
-    // 3. Bottom Ribbon Buttons
-    const btnIpColor = document.getElementById('btn-ip-color');
-    if (btnIpColor) {
-      btnIpColor.addEventListener('click', () => {
-        if (typeof openTouchColorModal === 'function') openTouchColorModal();
-        else {
-          const tm = document.getElementById('touch-color-modal');
-          if (tm) tm.classList.add('active');
-        }
-        triggerHaptic(12);
-      });
-    }
-
-    const btnIpBrush = document.getElementById('btn-ip-brush');
-    if (btnIpBrush) {
-      btnIpBrush.addEventListener('click', () => {
-        if (host.actionMode === 'erase' || host.actionMode === 'smudge') {
-          host.actionMode = 'draw';
-          runCmd(`set mode brush`);
-          syncUiFromHost();
-        }
-        toggleSheet('sheet-brushes');
-      });
-    }
-
-    const btnIpEraser = document.getElementById('btn-ip-eraser');
-    if (btnIpEraser) {
-      btnIpEraser.addEventListener('click', () => {
-        host.actionMode = 'erase';
-        runCmd(`set mode erase`);
-        syncUiFromHost();
-        triggerHaptic(12);
-      });
-    }
-
-    const btnIpBlend = document.getElementById('btn-ip-blend');
-    if (btnIpBlend) {
-      btnIpBlend.addEventListener('click', () => {
-        host.actionMode = 'smudge';
-        runCmd(`set mode blend`);
-        syncUiFromHost();
-        triggerHaptic(12);
-      });
-    }
-
-    const btnIpTools = document.getElementById('btn-ip-tools');
-    if (btnIpTools) btnIpTools.addEventListener('click', () => toggleSheet('sheet-tools'));
-
-    const btnIpPixel = document.getElementById('btn-ip-pixel');
-    if (btnIpPixel) btnIpPixel.addEventListener('click', () => toggleSheet('sheet-pixelart'));
+    renderAllHuds();
 
     // 4. Brush Shelf Grid Population
     const brushShelfGrid = document.getElementById('ip-brush-cards-grid');
@@ -8323,16 +8615,30 @@ async function main() {
       });
     }
 
-    // 5. Tools Sheet Cards
+    // 5. Action Modes Cards in Sheet
+    document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const actMode = card.dataset.actionmode || 'draw';
+        host.actionMode = actMode;
+        syncUiFromHost();
+        closeAllSheets();
+        triggerHaptic(12);
+      });
+    });
+
+    // Tools Sheet Cards
     document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
       card.addEventListener('click', () => {
         document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(c => c.classList.remove('active'));
         card.classList.add('active');
         const tool = card.dataset.tool;
-        const actMode = card.dataset.actionmode || 'draw';
-        host.actionMode = actMode;
-        if (tool === 'select') {
+        if (tool === 'transform') {
+          host.startTransform();
+        } else if (tool === 'select') {
           host.currentTool = 'select_rect';
+          host.actionMode = 'select';
         } else {
           runCmd(`set mode ${tool}`);
         }
@@ -8342,7 +8648,7 @@ async function main() {
       });
     });
 
-    // Selection buttons
+    // Selection & Transform buttons
     const btnIpCopy = document.getElementById('btn-ip-copy');
     if (btnIpCopy) btnIpCopy.addEventListener('click', () => { runCmd('copy'); closeAllSheets(); });
     const btnIpCut = document.getElementById('btn-ip-cut');
@@ -8351,10 +8657,22 @@ async function main() {
     if (btnIpPaste) btnIpPaste.addEventListener('click', () => { runCmd('paste'); closeAllSheets(); });
     const btnIpDeselect = document.getElementById('btn-ip-deselect');
     if (btnIpDeselect) btnIpDeselect.addEventListener('click', () => { runCmd('deselect'); closeAllSheets(); });
+    const btnIpTransform = document.getElementById('btn-ip-transform');
+    if (btnIpTransform) btnIpTransform.addEventListener('click', () => { runCmd('transform'); closeAllSheets(); });
     const btnIpXformApply = document.getElementById('btn-ip-xform-apply');
     if (btnIpXformApply) btnIpXformApply.addEventListener('click', () => { runCmd('transform apply'); closeAllSheets(); });
     const btnIpXformCancel = document.getElementById('btn-ip-xform-cancel');
     if (btnIpXformCancel) btnIpXformCancel.addEventListener('click', () => { runCmd('transform cancel'); closeAllSheets(); });
+
+    // Floating On-Canvas Transform Bar
+    const btnIpXbarApply = document.getElementById('btn-ip-xbar-apply');
+    if (btnIpXbarApply) btnIpXbarApply.addEventListener('click', () => { runCmd('transform apply'); });
+    const btnIpXbarCancel = document.getElementById('btn-ip-xbar-cancel');
+    if (btnIpXbarCancel) btnIpXbarCancel.addEventListener('click', () => { runCmd('transform cancel'); });
+
+    // Import Image button strictly from Layers Stack
+    const btnIpImportLayer = document.getElementById('btn-ip-import-layer-btn');
+    if (btnIpImportLayer) btnIpImportLayer.addEventListener('click', () => { fileInput?.click(); closeAllSheets(); });
 
     // 6. Pixel Art Suite
     const cardPixel1 = document.getElementById('card-ip-pixel-1px');
@@ -8845,6 +9163,43 @@ async function main() {
     bindSelect('ip-sel-dual-shape', 'dual_shape');
     bindSelect('ip-sel-tex-mode', 'texture_mode');
 
+    // Tip & Grain creation buttons
+    const btnTipFromLayer = document.getElementById('btn-ip-tip-from-layer');
+    if (btnTipFromLayer) {
+      btnTipFromLayer.addEventListener('click', () => {
+        const name = prompt('Custom Tip Name:', 'Layer Tip') || 'Layer Tip';
+        if (typeof host.createTipFromLayer === 'function') host.createTipFromLayer(name);
+        triggerHaptic(15);
+      });
+    }
+
+    const btnTipFromSel = document.getElementById('btn-ip-tip-from-selection');
+    if (btnTipFromSel) {
+      btnTipFromSel.addEventListener('click', () => {
+        const name = prompt('Custom Tip Name:', 'Selection Tip') || 'Selection Tip';
+        if (typeof host.createTipFromSelection === 'function') host.createTipFromSelection(name);
+        triggerHaptic(15);
+      });
+    }
+
+    const btnGrainFromLayer = document.getElementById('btn-ip-grain-from-layer');
+    if (btnGrainFromLayer) {
+      btnGrainFromLayer.addEventListener('click', () => {
+        const name = prompt('Custom Grain Name:', 'Layer Grain') || 'Layer Grain';
+        if (typeof host.createGrainFromLayer === 'function') host.createGrainFromLayer(name);
+        triggerHaptic(15);
+      });
+    }
+
+    const btnGrainFromSel = document.getElementById('btn-ip-grain-from-selection');
+    if (btnGrainFromSel) {
+      btnGrainFromSel.addEventListener('click', () => {
+        const name = prompt('Custom Grain Name:', 'Selection Grain') || 'Selection Grain';
+        if (typeof host.createGrainFromSelection === 'function') host.createGrainFromSelection(name);
+        triggerHaptic(15);
+      });
+    }
+
     // Reset & Save preset buttons
     const btnLabReset = document.getElementById('btn-ip-lab-reset');
     if (btnLabReset) {
@@ -8877,16 +9232,16 @@ async function main() {
   }
 
   function syncInfinitePainterUI() {
-    // 1. Color chip
-    const colorChip = document.getElementById('ip-color-chip');
-    if (colorChip) {
-      if (host.currentColor !== undefined) {
-        const hex = rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF);
-        colorChip.style.backgroundColor = hex;
-      } else if (host.brushParams && host.brushParams.color !== undefined) {
-        colorChip.style.backgroundColor = host.brushParams.color;
-      }
+    // 1. Color chips across all HUDs and ribbons
+    let hex = '#ebdbb2';
+    if (host.currentColor !== undefined) {
+      hex = rgbToHex(host.currentColor & 0xFF, (host.currentColor >> 8) & 0xFF, (host.currentColor >> 16) & 0xFF);
+    } else if (host.brushParams && host.brushParams.color !== undefined) {
+      hex = host.brushParams.color;
     }
+    document.querySelectorAll('.ip-color-chip, #ip-color-chip').forEach(el => {
+      el.style.backgroundColor = hex;
+    });
 
     // 2. Active Brush Name
     const brushNameLabel = document.getElementById('ip-active-brush-name');
@@ -8896,7 +9251,7 @@ async function main() {
       brushNameLabel.textContent = p?.name || activeKey || 'Studio Inker';
     }
 
-    // 3. Thumb HUD Dynamic Sliders & Actions (All 28 supported sliders)
+    // 3. Multi-Dock Dynamic Sliders & Actions
     if (host.brushParams) {
       const bp = host.brushParams;
       const slidersDef = [
@@ -8929,33 +9284,36 @@ async function main() {
         { id: 'dual_size', key: 'dual_size', isCurve: false, unit: '%', min: 10, max: 300 },
         { id: 'dual_spacing', key: 'dual_spacing', isCurve: false, unit: '%', min: 1, max: 100 }
       ];
-      slidersDef.forEach(s => {
-        const valEl = document.getElementById(`ip-hud-${s.id}-val`);
-        const fillEl = document.getElementById(`ip-vfill-${s.id}`);
-        const thumbEl = document.getElementById(`ip-vthumb-${s.id}`);
-        if (!valEl || !fillEl || !thumbEl) return;
-        let rawVal = bp[s.key];
-        if (rawVal === undefined) {
-          if (s.key === 'smoothing' && bp.stabilization !== undefined) rawVal = bp.stabilization;
-          else if (s.key === 'texture_scale' && bp.tex_scale !== undefined) rawVal = bp.tex_scale;
-          else if (s.key === 'texture_contrast' && bp.tex_contrast !== undefined) rawVal = bp.tex_contrast;
-          else if (s.key === 'texture_rotate' && bp.texture_angle !== undefined) rawVal = bp.texture_angle;
-          else if (s.key === 'color_pickup' && bp.pickup !== undefined) rawVal = bp.pickup;
-          else rawVal = s.min || 0;
-        }
-        valEl.textContent = `${rawVal}${s.unit || ''}`;
-        let ratio = 0;
-        if (s.isCurve) {
-          ratio = Math.max(0.01, Math.min(1, Math.sqrt(Math.max(0, rawVal - 1) / 299)));
-        } else {
-          ratio = Math.max(0.01, Math.min(1, ((rawVal || 0) - (s.min || 0)) / ((s.max || 100) - (s.min || 0))));
-        }
-        fillEl.style.height = `${ratio * 100}%`;
-        thumbEl.style.bottom = `${ratio * 100}%`;
+
+      ['left', 'right', 'bottom'].forEach(dockName => {
+        slidersDef.forEach(s => {
+          const valEl = document.getElementById(`ip-hud-${dockName}-${s.id}-val`) || document.getElementById(`ip-hud-${s.id}-val`);
+          const fillEl = document.getElementById(`ip-vfill-${dockName}-${s.id}`) || document.getElementById(`ip-vfill-${s.id}`);
+          const thumbEl = document.getElementById(`ip-vthumb-${dockName}-${s.id}`) || document.getElementById(`ip-vthumb-${s.id}`);
+          if (!valEl || !fillEl || !thumbEl) return;
+          let rawVal = bp[s.key];
+          if (rawVal === undefined) {
+            if (s.key === 'smoothing' && bp.stabilization !== undefined) rawVal = bp.stabilization;
+            else if (s.key === 'texture_scale' && bp.tex_scale !== undefined) rawVal = bp.tex_scale;
+            else if (s.key === 'texture_contrast' && bp.tex_contrast !== undefined) rawVal = bp.tex_contrast;
+            else if (s.key === 'texture_rotate' && bp.texture_angle !== undefined) rawVal = bp.texture_angle;
+            else if (s.key === 'color_pickup' && bp.pickup !== undefined) rawVal = bp.pickup;
+            else rawVal = s.min || 0;
+          }
+          valEl.textContent = `${rawVal}${s.unit || ''}`;
+          let ratio = 0;
+          if (s.isCurve) {
+            ratio = Math.max(0.01, Math.min(1, Math.sqrt(Math.max(0, rawVal - 1) / 299)));
+          } else {
+            ratio = Math.max(0.01, Math.min(1, ((rawVal || 0) - (s.min || 0)) / ((s.max || 100) - (s.min || 0))));
+          }
+          fillEl.style.height = `${ratio * 100}%`;
+          thumbEl.style.bottom = `${ratio * 100}%`;
+        });
       });
     }
 
-    // 4. Ribbon mode & HUD buttons
+    // 4. Mode & HUD buttons
     const isErase = host.actionMode === 'erase' || (host.brushParams && host.brushParams.eraser === 1);
     const isSmudge = host.actionMode === 'smudge' || (host.brushParams && host.brushParams.mode === 1);
     const isDraw = !isErase && !isSmudge;
@@ -8967,35 +9325,52 @@ async function main() {
     if (btnEraser) btnEraser.classList.toggle('active', isErase);
     if (btnBlend) btnBlend.classList.toggle('active', isSmudge);
 
-    // Swap mode button & Pipette HUD button
-    const btnSwap = document.getElementById('btn-ip-swap-mode');
-    if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
+    // Swap mode and action buttons across docks
+    const symActive = (host.brushParams?.symmetry || 0) > 0;
+    ['left', 'right', 'bottom'].forEach(dockName => {
+      const btnSwap = document.getElementById(`btn-ip-swap-mode-${dockName}`) || document.getElementById('btn-ip-swap-mode');
+      if (btnSwap) btnSwap.classList.toggle('is-eraser', isErase);
+      const btnPip = document.getElementById(`btn-ip-hud-${dockName}-pipette`) || document.getElementById('btn-ip-hud-pipette');
+      if (btnPip) btnPip.classList.toggle('active', host.actionMode === 'color_picker');
+      const btnGridHud = document.getElementById(`btn-ip-hud-${dockName}-grid`);
+      if (btnGridHud) btnGridHud.classList.toggle('active', !!host.showPixelGrid);
+      const btnSymHud = document.getElementById(`btn-ip-hud-${dockName}-symmetry`);
+      if (btnSymHud) btnSymHud.classList.toggle('active', symActive);
+    });
 
-    const btnPipette = document.getElementById('btn-ip-hud-pipette');
-    if (btnPipette) btnPipette.classList.toggle('active', host.actionMode === 'color_picker');
-
-    // 5. Grid & Symmetry buttons
+    // 5. Grid & Symmetry buttons (legacy / header)
     const btnGrid = document.getElementById('btn-ip-grid');
     if (btnGrid) btnGrid.classList.toggle('active', !!host.showPixelGrid);
 
     const btnSym = document.getElementById('btn-ip-symmetry');
     if (btnSym) {
-      const sym = host.brushParams?.symmetry || 0;
-      btnSym.classList.toggle('active', sym > 0);
+      btnSym.classList.toggle('active', symActive);
     }
 
     // 6. Brush Lab values & Layer pickers synchronization
     const layerCount = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_count)
       ? host.canvasActor.exports.w_layer_get_count()
       : 1;
+    const texIds = host.getTextureWasmIds ? host.getTextureWasmIds() : new Set([0, 1, 2]);
 
     const shapeOptgroup = document.getElementById('ip-optgroup-shape-layers');
     if (shapeOptgroup) {
       shapeOptgroup.innerHTML = '';
+      if (host.textures) {
+        for (const [key, tex] of host.textures.entries()) {
+          if (tex.category === 'shape' && tex.wasmId !== undefined && tex.wasmId >= 0) {
+            const opt = document.createElement('option');
+            opt.value = `layer:${tex.wasmId}`;
+            opt.textContent = `Custom Tip: ${tex.name || key} (ID: ${tex.wasmId})`;
+            shapeOptgroup.appendChild(opt);
+          }
+        }
+      }
       for (let i = 0; i < layerCount; i++) {
+        if (texIds.has(i)) continue;
         const opt = document.createElement('option');
         opt.value = `layer:${i}`;
-        const name = host.layerNames?.get(i) || `Layer ${i + 1}`;
+        const name = host.layerNames?.get(i) || (i === 3 ? 'Background' : `Layer ${i}`);
         opt.textContent = `Layer: ${name} (ID: ${i})`;
         shapeOptgroup.appendChild(opt);
       }
@@ -9004,10 +9379,21 @@ async function main() {
     const texOptgroup = document.getElementById('ip-optgroup-tex-layers');
     if (texOptgroup) {
       texOptgroup.innerHTML = '';
+      if (host.textures) {
+        for (const [key, tex] of host.textures.entries()) {
+          if (tex.category === 'texture' && tex.wasmId !== undefined && tex.wasmId >= 0) {
+            const opt = document.createElement('option');
+            opt.value = `layer:${tex.wasmId}`;
+            opt.textContent = `Custom Grain: ${tex.name || key} (ID: ${tex.wasmId})`;
+            texOptgroup.appendChild(opt);
+          }
+        }
+      }
       for (let i = 0; i < layerCount; i++) {
+        if (texIds.has(i)) continue;
         const opt = document.createElement('option');
         opt.value = `layer:${i}`;
-        const name = host.layerNames?.get(i) || `Layer ${i + 1}`;
+        const name = host.layerNames?.get(i) || (i === 3 ? 'Background' : `Layer ${i}`);
         opt.textContent = `Layer: ${name} (ID: ${i})`;
         texOptgroup.appendChild(opt);
       }

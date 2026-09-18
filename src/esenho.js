@@ -687,6 +687,150 @@ function createProceduralTextures() {
     map.set('cloud', { width: w, height: h, data: buf, category: 'shape' });
   }
 
+  // 11. Soft Round Airbrush (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = y - 32;
+      for (let x = 0; x < w; x++) {
+        const dx = x - 32;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const a = d <= 31 ? Math.floor(255 * Math.cos((d / 31) * (Math.PI / 2))) : 0;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('soft_round', { width: w, height: h, data: buf, category: 'shape' });
+    map.set('soft', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 12. Oval / Calligraphy 45° Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    const cos45 = Math.SQRT1_2, sin45 = Math.SQRT1_2;
+    for (let y = 0; y < h; y++) {
+      const dy = y - 32;
+      for (let x = 0; x < w; x++) {
+        const dx = x - 32;
+        const u = dx * cos45 + dy * sin45;
+        const v = -dx * sin45 + dy * cos45;
+        const inside = (u * u) / (28 * 28) + (v * v) / (9 * 9) <= 1;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = inside ? 0xFF : 0;
+      }
+    }
+    map.set('oval', { width: w, height: h, data: buf, category: 'shape' });
+    map.set('calligraphy', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 13. Sharp Triangle Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const halfW = ((y - 8) / 48) * 26;
+      for (let x = 0; x < w; x++) {
+        const inside = (y >= 8 && y <= 56 && Math.abs(x - 32) <= halfW);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = inside ? 0xFF : 0;
+      }
+    }
+    map.set('triangle', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 14. Diamond / Rhombus Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = Math.abs(y - 32);
+      for (let x = 0; x < w; x++) {
+        const dx = Math.abs(x - 32);
+        const inside = (dx + dy <= 28);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = inside ? 0xFF : 0;
+      }
+    }
+    map.set('diamond', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 15. Fan Brush Arc Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = y - 56;
+      for (let x = 0; x < w; x++) {
+        const dx = x - 32;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const ang = Math.atan2(-dy, dx);
+        const inArc = dist >= 22 && dist <= 48 && ang >= Math.PI * 0.25 && ang <= Math.PI * 0.75;
+        const bristle = ((x * 7 + y * 13) % 5 <= 2);
+        const a = (inArc && bristle) ? 0xFF : 0x00;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('fan', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 16. Dry Brush Streaks Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = Math.abs(y - 32);
+      const falloff = dy <= 24 ? (1 - dy / 24) : 0;
+      for (let x = 0; x < w; x++) {
+        const dx = Math.abs(x - 32);
+        const streak = ((x * 29 + (y >> 1) * 31) ^ (x * y)) & 0xFF;
+        const inside = dx <= 26 && falloff > 0 && streak > 80;
+        const a = inside ? Math.floor(falloff * 255) : 0;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = a;
+      }
+    }
+    map.set('dry_brush', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 17. Star Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      const dy = y - 32;
+      for (let x = 0; x < w; x++) {
+        const dx = x - 32;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        let ang = Math.atan2(dy, dx) + Math.PI / 2;
+        if (ang < 0) ang += Math.PI * 2;
+        const arm = Math.floor((ang / (Math.PI * 2)) * 5);
+        const relAng = ang - arm * (Math.PI * 2 / 5);
+        const maxR = 28 * (0.45 + 0.55 * Math.max(0, Math.cos(relAng * 2.5)));
+        const inside = r <= maxR;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = inside ? 0xFF : 0;
+      }
+    }
+    map.set('star', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
+  // 18. Pixel Block Tip (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const inside = (x >= 16 && x < 48 && y >= 16 && y < 48);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = 0xFF; buf[idx + 1] = 0xFF; buf[idx + 2] = 0xFF; buf[idx + 3] = inside ? 0xFF : 0;
+      }
+    }
+    map.set('pixel', { width: w, height: h, data: buf, category: 'shape' });
+  }
+
   // Procedural Textures
   // 1. Paper (256x256)
   {
@@ -869,6 +1013,100 @@ function createProceduralTextures() {
       }
     }
     map.set('linen', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 13. Marble Veins (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const turb = Math.sin(x * 0.04 + Math.sin(y * 0.06) * 4.0) * 128 + 128;
+        const v = Math.max(0, Math.min(255, Math.floor(turb)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('marble', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 14. Cloud / Perlin Noise Grain (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const c1 = Math.sin(x * 0.03) * Math.cos(y * 0.03) * 60;
+        const c2 = Math.sin(x * 0.08 + y * 0.06) * 35;
+        const c3 = Math.cos(x * 0.15 - y * 0.12) * 20;
+        const v = Math.max(0, Math.min(255, Math.floor(128 + c1 + c2 + c3)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('cloud_grain', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('perlin', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 15. Basket Weave (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const bx = Math.floor(x / 8) % 2, by = Math.floor(y / 8) % 2;
+        const stripe = (bx ^ by) ? ((x % 4 < 2) ? 230 : 60) : ((y % 4 < 2) ? 230 : 60);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = stripe; buf[idx + 1] = stripe; buf[idx + 2] = stripe; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('weave', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 16. Sandpaper Grit (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const g = ((x * 377 + y * 491) ^ (x * y * 13)) & 0xFF;
+        const tooth = g > 110 ? 255 : (g > 50 ? 110 : 25);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = tooth; buf[idx + 1] = tooth; buf[idx + 2] = tooth; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('sandpaper', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 17. Halftone Radial Screen (32x32)
+  {
+    const w = 32, h = 32;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = (x % 16) - 8, dy = (y % 16) - 8;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const v = Math.max(0, Math.min(255, Math.floor((1 - d / 8.5) * 255)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('halftone', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 18. Crackle Fissures (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const c = Math.abs(Math.sin(x * 0.08 + Math.cos(y * 0.06) * 3) * Math.sin(y * 0.08));
+        const v = c < 0.12 ? 30 : 235;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('crackle', { width: w, height: h, data: buf, category: 'texture' });
   }
 
   return map;
@@ -1327,7 +1565,15 @@ function handleResize(host, w, h) {
   w = parseInt(w, 10);
   h = parseInt(h, 10);
   if (w >= 1 && h >= 1) {
-    host.canvasActor.exports.w_resize(w, h);
+    if (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_resize) {
+      host.canvasActor.exports.w_resize(w, h);
+    }
+    if (typeof host.resizeCanvas === 'function') {
+      host.resizeCanvas(w, h);
+    }
+    if (typeof host.render === 'function') {
+      host.render();
+    }
     host.sendConsoleLog(`surface resized to ${w}x${h}`);
   } else {
     host.sendConsoleLog('err: invalid dimensions (must be >= 1x1)', 0xFFFF5555);
@@ -1698,6 +1944,9 @@ const COMMAND_RULES = [
   { pat: "get $cat", run: (m, host) => handleGet(host, m.cat, '') },
 
   // Resize & Surface Dimensions
+  { pat: "canvas resize $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
+  { pat: "canvas resize $w$int $h$int $mode", run: (m, host) => handleResize(host, m.w, m.h) },
+  { pat: "resize canvas $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
   { pat: "resize $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
   { pat: "set resolution $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
   { pat: "set canvas size $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
@@ -3110,7 +3359,25 @@ const COMMAND_RULES = [
     run: (m, host) => COMMAND_RULES.find(r => r.pat === "wand adjacent $val").run(m, host)
   },
 
-  // Transform Commands (floating selection)
+  // Transform Commands (in-place selection and layer transform)
+  {
+    pat: "transform",
+    run: (m, host) => {
+      host.startTransform();
+    }
+  },
+  {
+    pat: "transform selection",
+    run: (m, host) => {
+      host.startTransform();
+    }
+  },
+  {
+    pat: "transform layer",
+    run: (m, host) => {
+      host.startTransform();
+    }
+  },
   {
     pat: "transform apply",
     run: (m, host) => {
@@ -3323,8 +3590,6 @@ class EsenhoScreenHost {
     this.layerTree = [];          // root list: Array<{ type: 'layer' | 'group', id: number | string }>
     this.layerNames = new Map();  // layerId -> custom name
     this.groupCounter = 1;
-    this.createGroup('tips');
-    this.createGroup('grains');
 
     // Textures & Actors
     this.textures = createProceduralTextures();
@@ -4292,19 +4557,17 @@ class EsenhoScreenHost {
   }
 
   /**
-   * Copies selection → creates new floating layer above active layer with the pixels.
-   * Enters float transform mode so the layer can be moved/transformed.
+   * Copies selection pixels directly into internal clipboard without starting floating transform.
    */
   copySelection() {
     const ex = this._extractSelectionPixels();
     if (!ex) return null;
     this.clipboard = { width: ex.width, height: ex.height, w: ex.width, h: ex.height, pixels: ex.pixels };
-    this._createFloatingLayer(ex, false);
     return this.clipboard;
   }
 
   /**
-   * Cuts selection → creates new floating layer above active layer, clears source pixels.
+   * Cuts selection pixels into internal clipboard and clears source region on active layer.
    */
   cutSelection() {
     if (!this.canvasActor?.exports?.w_layer_get_pixels) return null;
@@ -4335,25 +4598,65 @@ class EsenhoScreenHost {
       }
     }
     if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
-
-    this._createFloatingLayer(ex, true);
     return this.clipboard;
   }
 
   /**
-   * Creates a new WASM layer above the active layer, fills it with extracted pixels,
-   * and enters float transform mode.
-   * @param {Object} ex - { pixels, width, height, originX, originY }
-   * @param {boolean} fromCut - true if this was a cut (source pixels were cleared)
+   * Starts in-place freeform/perspective transformation on selection (or entire active layer if no selection).
    */
-  _createFloatingLayer(ex, fromCut) {
+  startTransform() {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels) return false;
+    const act = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
+    const lw = this.canvasActor.exports.w_layer_get_width(act);
+    const lh = this.canvasActor.exports.w_layer_get_height(act);
+
+    const ex = this._extractSelectionPixels();
+    if (ex) {
+      this.pushUndoSnapshot('transform selection');
+      const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+      const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+      const sx = Math.max(0, this.selection.x);
+      const sy = Math.max(0, this.selection.y);
+      const sw = Math.min(lw - sx, this.selection.w);
+      const sh = Math.min(lh - sy, this.selection.h);
+      const mask = (this.selection && this.selection.mask) ? this.selection.mask : null;
+      for (let dy = 0; dy < sh; dy++) {
+        const rowStart = (sy + dy) * lw + sx;
+        if (mask) {
+          for (let dx = 0; dx < sw; dx++) {
+            if (mask[dy * sw + dx]) srcU32[rowStart + dx] = 0;
+          }
+        } else {
+          srcU32.fill(0, rowStart, rowStart + sw);
+        }
+      }
+      this.clearSelection();
+      this._createFloatingLayer(ex, true, true);
+      return true;
+    }
+
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(act);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+    this.pushUndoSnapshot('transform layer');
+    const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const pixCopy = new Uint32Array(srcU32);
+    srcU32.fill(0);
+    this._createFloatingLayer({ pixels: pixCopy, width: lw, height: lh, originX: 0, originY: 0 }, true, true);
+    return true;
+  }
+
+  /**
+   * Creates a temporary layer for handles/perspective preview.
+   * @param {Object} ex - { pixels, width, height, originX, originY }
+   * @param {boolean} fromCut - true if source was cleared
+   * @param {boolean} inPlace - true if transformation bakes back into originLayerId
+   */
+  _createFloatingLayer(ex, fromCut = false, inPlace = false) {
     if (!this.canvasActor?.exports?.w_layer_add) return;
     const sourceLayerId = this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 0;
     const newId = this.canvasActor.exports.w_layer_add();
     if (newId < 0) return;
 
-    // Move new layer up until it's directly above the source layer
-    // w_layer_add places it at position 0 (bottom of order); move up until above source
     if (this.canvasActor.exports.w_layer_move_up) {
       const orderCount = this.canvasActor.exports.w_layer_get_order_count
         ? this.canvasActor.exports.w_layer_get_order_count() : 64;
@@ -4362,7 +4665,6 @@ class EsenhoScreenHost {
       }
     }
 
-    // Write pixels into the new layer at originX/originY
     const ptr = this.canvasActor.exports.w_layer_get_pixels(newId);
     if (ptr) {
       const lw = this.canvasActor.exports.w_layer_get_width(newId);
@@ -4379,11 +4681,8 @@ class EsenhoScreenHost {
       }
     }
 
-    // Select the new layer
     if (this.canvasActor.exports.w_layer_select) this.canvasActor.exports.w_layer_select(newId);
 
-    // Enter float transform state — 4 free corners for full perspective control
-    // corners: [tl, tr, br, bl] in doc space
     const ox2 = ex.originX, oy2 = ex.originY, ew = ex.width, eh = ex.height;
     this.floatingTransform = {
       layerId: newId,
@@ -4399,11 +4698,12 @@ class EsenhoScreenHost {
         { x: ox2 + ew, y: oy2 + eh }, // br
         { x: ox2,      y: oy2 + eh }  // bl
       ],
-      fromCut
+      fromCut,
+      inPlace
     };
 
     if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
-    this.sendConsoleLog(`floating layer [${newId}] created — use transform handles or "transform apply"`);
+    this.sendConsoleLog(`transform started on layer [${sourceLayerId}]`);
   }
 
   /**
@@ -4465,7 +4765,7 @@ class EsenhoScreenHost {
   }
 
   /**
-   * Bakes the current floatingTransform into the floating layer's pixel buffer.
+   * Bakes the current floatingTransform into pixels.
    * Uses inverse perspective homography for correct per-pixel sampling.
    */
   applyFloatTransform() {
@@ -4528,6 +4828,27 @@ class EsenhoScreenHost {
       }
     }
 
+    if (ft.inPlace && ft.originLayerId !== undefined && ft.originLayerId !== ft.layerId) {
+      const origPtr = this.canvasActor.exports.w_layer_get_pixels(ft.originLayerId);
+      if (origPtr) {
+        const origLw = this.canvasActor.exports.w_layer_get_width(ft.originLayerId);
+        const origLh = this.canvasActor.exports.w_layer_get_height(ft.originLayerId);
+        const origU32 = new Uint32Array(this.canvasActor.memory.buffer, origPtr, origLw * origLh);
+        for (let idx = 0; idx < origLw * origLh; idx++) {
+          const sp = tgtU32[idx];
+          if (((sp >> 24) & 0xFF) !== 0) {
+            origU32[idx] = sp;
+          }
+        }
+      }
+      if (this.canvasActor.exports.w_layer_delete) {
+        this.canvasActor.exports.w_layer_delete(ft.layerId);
+      }
+      if (this.canvasActor.exports.w_layer_select) {
+        this.canvasActor.exports.w_layer_select(ft.originLayerId);
+      }
+    }
+
     this.floatingTransform = null;
     if (this.canvasActor.exports.force_composite) this.canvasActor.exports.force_composite();
     this.sendConsoleLog('transform applied');
@@ -4535,16 +4856,31 @@ class EsenhoScreenHost {
   }
 
   /**
-   * Cancels float transform — discards the floating layer.
+   * Cancels float transform — discards temporary floating layer and restores origin layer.
    */
   cancelFloatTransform() {
     const ft = this.floatingTransform;
     if (!ft) return;
-    // Delete the floating layer
+    if (ft.inPlace && ft.originLayerId !== undefined && ft.pixels) {
+      const origPtr = this.canvasActor?.exports?.w_layer_get_pixels ? this.canvasActor.exports.w_layer_get_pixels(ft.originLayerId) : 0;
+      if (origPtr) {
+        const origLw = this.canvasActor.exports.w_layer_get_width(ft.originLayerId);
+        const origLh = this.canvasActor.exports.w_layer_get_height(ft.originLayerId);
+        const origU32 = new Uint32Array(this.canvasActor.memory.buffer, origPtr, origLw * origLh);
+        for (let dy = 0; dy < ft.height; dy++) {
+          const ty = ft.originY + dy;
+          if (ty < 0 || ty >= origLh) continue;
+          for (let dx = 0; dx < ft.width; dx++) {
+            const tx = ft.originX + dx;
+            if (tx < 0 || tx >= origLw) continue;
+            origU32[ty * origLw + tx] = ft.pixels[dy * ft.width + dx];
+          }
+        }
+      }
+    }
     if (this.canvasActor?.exports?.w_layer_delete) {
       this.canvasActor.exports.w_layer_delete(ft.layerId);
     }
-    // Restore source layer as active
     if (this.canvasActor?.exports?.w_layer_select) {
       this.canvasActor.exports.w_layer_select(ft.originLayerId);
     }
@@ -4688,6 +5024,22 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Returns a Set of all WASM IDs that belong to internal/procedural brush textures and shapes,
+   * ensuring they are never swept into document layer trees or layer lists.
+   */
+  getTextureWasmIds() {
+    const ids = new Set([0, 1, 2]); // Builtin brush tip masks
+    if (this.textures) {
+      for (const tex of this.textures.values()) {
+        if (tex && typeof tex.wasmId === 'number' && tex.wasmId >= 0) {
+          ids.add(tex.wasmId);
+        }
+      }
+    }
+    return ids;
+  }
+
+  /**
    * Synchronizes the layer tree data structure with the current WASM layers.
    * Ensures every active WASM layer is present in the tree and stale layers are removed.
    */
@@ -4699,10 +5051,11 @@ class EsenhoScreenHost {
       ? this.canvasActor.exports.w_layer_get_order_count()
       : 0;
 
+    const texIds = this.getTextureWasmIds();
     const activeWasmLayers = new Set();
     for (let p = 0; p < orderCount; p++) {
       const lid = this.canvasActor.exports.w_layer_get_order(p);
-      if (lid >= 0) activeWasmLayers.add(lid);
+      if (lid >= 0 && !texIds.has(lid)) activeWasmLayers.add(lid);
     }
 
     const treeLayerIds = new Set();
@@ -4710,7 +5063,7 @@ class EsenhoScreenHost {
       const cleaned = [];
       for (const node of list) {
         if (node.type === 'layer') {
-          if (activeWasmLayers.size === 0 || activeWasmLayers.has(node.id)) {
+          if (!texIds.has(node.id) && (activeWasmLayers.size === 0 || activeWasmLayers.has(node.id))) {
             treeLayerIds.add(node.id);
             cleaned.push(node);
           }
@@ -4733,7 +5086,7 @@ class EsenhoScreenHost {
     if (this.layerTree.length === 0 && orderCount > 0) {
       for (let p = orderCount - 1; p >= 0; p--) {
         const lid = this.canvasActor.exports.w_layer_get_order(p);
-        if (lid >= 0) {
+        if (lid >= 0 && !texIds.has(lid)) {
           this.layerTree.push({ type: 'layer', id: lid });
           treeLayerIds.add(lid);
         }
@@ -4744,7 +5097,7 @@ class EsenhoScreenHost {
     // Insert any missing WASM layers at their relative stack position
     for (let p = 0; p < orderCount; p++) {
       const lid = this.canvasActor.exports.w_layer_get_order(p);
-      if (lid >= 0 && !treeLayerIds.has(lid)) {
+      if (lid >= 0 && !texIds.has(lid) && !treeLayerIds.has(lid)) {
         let inserted = false;
         if (p > 0) {
           const belowLid = this.canvasActor.exports.w_layer_get_order(p - 1);
@@ -5267,7 +5620,6 @@ class EsenhoScreenHost {
   /**
    * Ensures all JS-side textures have a WASM layer slot allocated and pixels uploaded.
    * Call once after canvasActor is initialized.
-   * Also auto-assigns textures to tips/grains layer groups by category.
    */
   registerAllTexturesAsLayers() {
     if (this._texturesRegistered) return;
@@ -5275,9 +5627,6 @@ class EsenhoScreenHost {
     this._texturesRegistered = true;
     for (const [name, tex] of this.textures.entries()) {
       if (tex.wasmId !== undefined && tex.wasmId >= 0) {
-        // Pre-assigned (builtin shapes: circle=0, square=1, chisel=2) — just ensure group membership
-        if (tex.category === 'shape') this.addLayerToGroup('tips', tex.wasmId, false);
-        else if (tex.category === 'texture') this.addLayerToGroup('grains', tex.wasmId, false);
         continue;
       }
       const id = this.canvasActor.exports.w_texture_create(tex.width, tex.height);
@@ -5287,9 +5636,129 @@ class EsenhoScreenHost {
       if (ptr && tex.data) {
         new Uint8Array(this.canvasActor.memory.buffer, ptr, tex.width * tex.height * 4).set(tex.data);
       }
-      if (tex.category === 'shape') this.addLayerToGroup('tips', id, false);
-      else if (tex.category === 'texture') this.addLayerToGroup('grains', id, false);
     }
+  }
+
+  /**
+   * Creates a custom brush tip shape directly from a layer's contents.
+   */
+  createTipFromLayer(layerIdOrName, customName) {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels) return false;
+    let lid = 0;
+    if (layerIdOrName !== undefined && layerIdOrName !== null) {
+      lid = typeof layerIdOrName === 'number' ? layerIdOrName : (this.getLayerId(layerIdOrName) ?? 0);
+    } else if (this.canvasActor.exports.get_active_layer) {
+      lid = this.canvasActor.exports.get_active_layer();
+    }
+    const lw = this.canvasActor.exports.w_layer_get_width(lid);
+    const lh = this.canvasActor.exports.w_layer_get_height(lid);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(lid);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+    const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const buf = Buf.alloc(lw * lh * 4);
+    new Uint8Array(buf.buffer, buf.byteOffset, lw * lh * 4).set(new Uint8Array(srcU32.buffer, srcU32.byteOffset, lw * lh * 4));
+    const texName = (customName || `tip_layer_${lid}`).toLowerCase().replace(/\s+/g, '_');
+    
+    let wasmId = -1;
+    if (this.canvasActor.exports.w_texture_create) {
+      wasmId = this.canvasActor.exports.w_texture_create(lw, lh);
+      if (wasmId >= 0) {
+        const tptr = this.canvasActor.exports.w_texture_get_pixels(wasmId);
+        if (tptr) new Uint8Array(this.canvasActor.memory.buffer, tptr, lw * lh * 4).set(buf);
+      }
+    }
+    this.textures.set(texName, { width: lw, height: lh, data: buf, wasmId, category: 'shape' });
+    if (wasmId >= 0) {
+      this.setBrushParam('shape', wasmId);
+    }
+    this.sendConsoleLog(`custom tip [${texName}] created from layer ${lid}`);
+    return true;
+  }
+
+  /**
+   * Creates a custom brush tip shape directly from the current selection.
+   */
+  createTipFromSelection(customName) {
+    const ex = this._extractSelectionPixels();
+    if (!ex) return false;
+    const buf = Buf.alloc(ex.width * ex.height * 4);
+    new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).set(new Uint8Array(ex.pixels.buffer, ex.pixels.byteOffset, ex.pixels.byteLength));
+    const texName = (customName || `tip_sel_${Date.now()}`).toLowerCase().replace(/\s+/g, '_');
+    let wasmId = -1;
+    if (this.canvasActor?.exports?.w_texture_create) {
+      wasmId = this.canvasActor.exports.w_texture_create(ex.width, ex.height);
+      if (wasmId >= 0) {
+        const tptr = this.canvasActor.exports.w_texture_get_pixels(wasmId);
+        if (tptr) new Uint8Array(this.canvasActor.memory.buffer, tptr, buf.byteLength).set(buf);
+      }
+    }
+    this.textures.set(texName, { width: ex.width, height: ex.height, data: buf, wasmId, category: 'shape' });
+    if (wasmId >= 0) {
+      this.setBrushParam('shape', wasmId);
+    }
+    this.sendConsoleLog(`custom tip [${texName}] created from selection (${ex.width}x${ex.height})`);
+    return true;
+  }
+
+  /**
+   * Creates a custom grain texture directly from a layer's contents.
+   */
+  createGrainFromLayer(layerIdOrName, customName) {
+    if (!this.canvasActor?.exports?.w_layer_get_pixels) return false;
+    let lid = 0;
+    if (layerIdOrName !== undefined && layerIdOrName !== null) {
+      lid = typeof layerIdOrName === 'number' ? layerIdOrName : (this.getLayerId(layerIdOrName) ?? 0);
+    } else if (this.canvasActor.exports.get_active_layer) {
+      lid = this.canvasActor.exports.get_active_layer();
+    }
+    const lw = this.canvasActor.exports.w_layer_get_width(lid);
+    const lh = this.canvasActor.exports.w_layer_get_height(lid);
+    const ptr = this.canvasActor.exports.w_layer_get_pixels(lid);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+    const srcU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+    const buf = Buf.alloc(lw * lh * 4);
+    new Uint8Array(buf.buffer, buf.byteOffset, lw * lh * 4).set(new Uint8Array(srcU32.buffer, srcU32.byteOffset, lw * lh * 4));
+    const texName = (customName || `grain_layer_${lid}`).toLowerCase().replace(/\s+/g, '_');
+    
+    let wasmId = -1;
+    if (this.canvasActor.exports.w_texture_create) {
+      wasmId = this.canvasActor.exports.w_texture_create(lw, lh);
+      if (wasmId >= 0) {
+        const tptr = this.canvasActor.exports.w_texture_get_pixels(wasmId);
+        if (tptr) new Uint8Array(this.canvasActor.memory.buffer, tptr, lw * lh * 4).set(buf);
+      }
+    }
+    this.textures.set(texName, { width: lw, height: lh, data: buf, wasmId, category: 'texture' });
+    if (wasmId >= 0) {
+      this.setTexture(texName);
+    }
+    this.sendConsoleLog(`custom grain [${texName}] created from layer ${lid}`);
+    return true;
+  }
+
+  /**
+   * Creates a custom grain texture directly from the current selection.
+   */
+  createGrainFromSelection(customName) {
+    const ex = this._extractSelectionPixels();
+    if (!ex) return false;
+    const buf = Buf.alloc(ex.width * ex.height * 4);
+    new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength).set(new Uint8Array(ex.pixels.buffer, ex.pixels.byteOffset, ex.pixels.byteLength));
+    const texName = (customName || `grain_sel_${Date.now()}`).toLowerCase().replace(/\s+/g, '_');
+    let wasmId = -1;
+    if (this.canvasActor?.exports?.w_texture_create) {
+      wasmId = this.canvasActor.exports.w_texture_create(ex.width, ex.height);
+      if (wasmId >= 0) {
+        const tptr = this.canvasActor.exports.w_texture_get_pixels(wasmId);
+        if (tptr) new Uint8Array(this.canvasActor.memory.buffer, tptr, buf.byteLength).set(buf);
+      }
+    }
+    this.textures.set(texName, { width: ex.width, height: ex.height, data: buf, wasmId, category: 'texture' });
+    if (wasmId >= 0) {
+      this.setTexture(texName);
+    }
+    this.sendConsoleLog(`custom grain [${texName}] created from selection (${ex.width}x${ex.height})`);
+    return true;
   }
 
   /**
@@ -5804,6 +6273,7 @@ class EsenhoScreenHost {
     const layerCount = this.canvasActor.exports.get_layer_count ? this.canvasActor.exports.get_layer_count() : 4;
     const orderCount = this.canvasActor.exports.w_layer_get_order_count ? this.canvasActor.exports.w_layer_get_order_count() : 0;
     
+    const texIds = this.getTextureWasmIds();
     // 1. Gather only document drawing layers (id >= 3, skipping system tips 0..2 and unused textures)
     const layerOrder = [];
     const exportedLayerIds = [];
@@ -5811,7 +6281,7 @@ class EsenhoScreenHost {
 
     for (let pos = 0; pos < orderCount; pos++) {
       const id = this.canvasActor.exports.w_layer_get_order(pos);
-      if (id >= 3 && !seen.has(id)) {
+      if (id >= 3 && !texIds.has(id) && !seen.has(id)) {
         layerOrder.push(id);
         exportedLayerIds.push(id);
         seen.add(id);
@@ -5820,7 +6290,7 @@ class EsenhoScreenHost {
 
     if (this.layerNames) {
       for (const id of this.layerNames.keys()) {
-        if (id >= 3 && !seen.has(id)) {
+        if (id >= 3 && !texIds.has(id) && !seen.has(id)) {
           layerOrder.push(id);
           exportedLayerIds.push(id);
           seen.add(id);
@@ -6051,7 +6521,7 @@ class EsenhoScreenHost {
         // Background layer (always slot 3 in wasm)
         targetId = 3;
       } else {
-        targetId = this.canvasActor.exports.w_layer_create(l.width || w, l.height || h);
+        targetId = this.canvasActor.exports.w_layer_create(w, h);
       }
       layerMap.set(l.id, targetId);
 
@@ -6059,29 +6529,54 @@ class EsenhoScreenHost {
         const ptr = this.canvasActor.exports.w_layer_get_pixels(targetId);
         const lw = l.width || w;
         const lh = l.height || h;
-        const totalPixels = lw * lh;
+        const srcPixels = lw * lh;
+        const docPixels = w * h;
 
         if (ptr) {
+          const dstU32 = new Uint32Array(this.canvasActor.memory.buffer, ptr, docPixels);
           if (l.encoding === 'empty') {
-            new Uint32Array(this.canvasActor.memory.buffer, ptr, totalPixels).fill(0);
+            dstU32.fill(0);
           } else if (l.encoding === 'solid') {
             const col = (l.color !== undefined) ? (l.color >>> 0) : 0;
-            new Uint32Array(this.canvasActor.memory.buffer, ptr, totalPixels).fill(col);
+            dstU32.fill(col);
           } else if (l.encoding === 'rle32') {
             const raw = l.pixels || l.pixelsBase64;
             if (raw) {
               const rleBytes = decodeB64(raw);
               const decodedU32 = (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.rleDecodeU32)
-                ? EsenhoStore.rleDecodeU32(rleBytes, totalPixels)
-                : rleDecodeU32Local(rleBytes, totalPixels);
-              new Uint32Array(this.canvasActor.memory.buffer, ptr, totalPixels).set(decodedU32);
+                ? EsenhoStore.rleDecodeU32(rleBytes, srcPixels)
+                : rleDecodeU32Local(rleBytes, srcPixels);
+              if (lw === w && lh === h) {
+                dstU32.set(decodedU32);
+              } else {
+                dstU32.fill(0);
+                const copyW = Math.min(lw, w);
+                const copyH = Math.min(lh, h);
+                for (let y = 0; y < copyH; y++) {
+                  for (let x = 0; x < copyW; x++) {
+                    dstU32[y * w + x] = decodedU32[y * lw + x];
+                  }
+                }
+              }
             }
           } else {
             // raw or legacy format
             const raw = l.pixels || l.pixelsBase64;
             if (raw) {
               const u8 = decodeB64(raw);
-              new Uint8Array(this.canvasActor.memory.buffer, ptr, Math.min(u8.byteLength, totalPixels * 4)).set(u8);
+              const decodedU32 = new Uint32Array(u8.buffer, u8.byteOffset, Math.min(srcPixels, Math.floor(u8.byteLength / 4)));
+              if (lw === w && lh === h) {
+                dstU32.set(decodedU32);
+              } else {
+                dstU32.fill(0);
+                const copyW = Math.min(lw, w);
+                const copyH = Math.min(lh, h);
+                for (let y = 0; y < copyH; y++) {
+                  for (let x = 0; x < copyW; x++) {
+                    dstU32[y * w + x] = decodedU32[y * lw + x];
+                  }
+                }
+              }
             }
           }
         }
