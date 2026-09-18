@@ -3837,7 +3837,14 @@
               <input type="range" id="ui-slider-spacing" min="1" max="200" value="5">
             </div>
             <div class="ui-control">
-              <div class="ui-label-row"><span>Stabilization</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
+              <div class="ui-label-row"><span>Stabilizer Mode</span></div>
+              <select id="ui-select-stabilizer-mode" class="ui-select" style="width: 100%; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; font-size: 11px; margin-bottom: 6px;">
+                <option value="ema">EMA Smoothing (Fluid)</option>
+                <option value="pulled">Pulled String (Lazy Nezumi)</option>
+              </select>
+            </div>
+            <div class="ui-control">
+              <div class="ui-label-row"><span>Stabilization / Length</span><span id="ui-val-smoothing" class="ui-val">0%</span></div>
               <input type="range" id="ui-slider-smoothing" min="0" max="100" value="0">
             </div>
             <div class="ui-control">

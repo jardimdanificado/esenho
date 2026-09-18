@@ -1525,6 +1525,8 @@ function handleGet(host, rawCat, rawProp) {
     tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
     grain_scale: 'texture_scale', grain_size: 'texture_scale',
     smooth: 'smoothing', stabilizer: 'smoothing', stabilize: 'smoothing', stabilization: 'smoothing',
+    stabilizer_mode: 'stabilizer_mode', smooth_mode: 'stabilizer_mode',
+    string_length: 'string_length', lazy_radius: 'string_length', pulled_string: 'string_length',
     bezier: 'midpoint', bezier_midpoint: 'midpoint',
     tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
     taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
@@ -5679,6 +5681,8 @@ class EsenhoScreenHost {
         tex_scale: 'texture_scale', texture_scale: 'texture_scale', tex_size: 'texture_scale', texture_size: 'texture_scale',
         grain_scale: 'texture_scale', grain_size: 'texture_scale',
         smooth: 'smoothing', stabilizer: 'smoothing', stabilize: 'smoothing', stabilization: 'smoothing',
+        stabilizer_mode: 'stabilizer_mode', smooth_mode: 'stabilizer_mode',
+        string_length: 'string_length', lazy_radius: 'string_length', pulled_string: 'string_length',
         bezier: 'midpoint', bezier_midpoint: 'midpoint',
         tex_contrast: 'texture_contrast', grain_contrast: 'texture_contrast',
         taper: 'taper_in', taper_start: 'taper_in', taper_end: 'taper_out',
@@ -6091,16 +6095,63 @@ class EsenhoScreenHost {
       }
     }
 
-    // Instant direct execution when smoothing is 0 or when using fill/lasso/shape modes
-    if (smooth === 0 || this.brushParams.mode === 3 || this.brushParams.mode === 4 || this.brushParams.mode === 6 || this.brushParams.mode === 7 || this.brushParams.mode === 8) {
+    const isPulledString = (this.brushParams.stabilizer_mode === 1 || this.brushParams.stabilizer_mode === 'pulled' || this.brushParams.stabilizer_mode === 'string');
+
+    // Instant direct execution when smoothing is 0 (and not pulled string) or when using fill/lasso/shape modes
+    if ((smooth === 0 && !isPulledString) || this.brushParams.mode === 3 || this.brushParams.mode === 4 || this.brushParams.mode === 6 || this.brushParams.mode === 7 || this.brushParams.mode === 8) {
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;
       this.strokeHistory = null;
+      this.pulledAnchor = null;
+      this.pulledCursor = null;
       invokeStroke(state, x, y, prev_x, prev_y);
       return;
     }
 
-    // Configurable stroke stabilizer / smoothing
+    if (isPulledString) {
+      const stringRadius = (this.brushParams.string_length !== undefined && this.brushParams.string_length > 0)
+        ? this.brushParams.string_length
+        : Math.max(5, (smooth || 20) * 1.5);
+
+      if (state === 0) { // STROKE_START
+        this.pulledAnchor = { x, y };
+        this.pulledCursor = { x, y };
+        this.strokeSmoothX = x;
+        this.strokeSmoothY = y;
+        invokeStroke(0, x, y, x, y);
+        return;
+      }
+
+      if (state === 1) { // STROKE_MOVE
+        if (!this.pulledAnchor) this.pulledAnchor = { x: prev_x, y: prev_y };
+        this.pulledCursor = { x, y };
+        const dx = x - this.pulledAnchor.x;
+        const dy = y - this.pulledAnchor.y;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > stringRadius) {
+          const targetX = x - (dx / dist) * stringRadius;
+          const targetY = y - (dy / dist) * stringRadius;
+          invokeStroke(1, targetX, targetY, this.pulledAnchor.x, this.pulledAnchor.y);
+          this.pulledAnchor.x = targetX;
+          this.pulledAnchor.y = targetY;
+          this.strokeSmoothX = targetX;
+          this.strokeSmoothY = targetY;
+        }
+        return;
+      }
+
+      if (state === 2) { // STROKE_END
+        this.pulledCursor = null;
+        this.pulledAnchor = null;
+        invokeStroke(2, this.strokeSmoothX ?? x, this.strokeSmoothY ?? y, this.strokeSmoothX ?? prev_x, this.strokeSmoothY ?? prev_y);
+        this.strokeSmoothX = null;
+        this.strokeSmoothY = null;
+        return;
+      }
+    }
+
+    // Configurable stroke stabilizer / smoothing (EMA + Bézier)
     if (state === 0) { // STROKE_START
       this.strokeSmoothX = x;
       this.strokeSmoothY = y;

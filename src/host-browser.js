@@ -1088,6 +1088,44 @@ async function main() {
         ctx.restore();
       }
 
+      /* Real-Time Pulled String (Lazy Nezumi) Visual Leash Guide */
+      if (host.isDrawingOnCanvas && host.pulledAnchor && host.pulledCursor) {
+        ctx.save();
+        ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+        const ax = host.pulledAnchor.x * host.zoom;
+        const ay = host.pulledAnchor.y * host.zoom;
+        const px = host.pulledCursor.x * host.zoom;
+        const py = host.pulledCursor.y * host.zoom;
+        const sRad = ((host.brushParams?.string_length !== undefined && host.brushParams.string_length > 0)
+          ? host.brushParams.string_length
+          : Math.max(5, (host.brushParams?.smoothing || 20) * 1.5)) * host.zoom;
+
+        // 1. Leash Line
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(px, py);
+        ctx.strokeStyle = '#fabd2f';
+        ctx.lineWidth = 1.5 / (window.devicePixelRatio || 1);
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+
+        // 2. Dab Anchor Point
+        ctx.beginPath();
+        ctx.arc(ax, ay, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fabd2f';
+        ctx.fill();
+
+        // 3. Radius Leash Ring
+        ctx.beginPath();
+        ctx.arc(ax, ay, sRad, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(254, 128, 25, 0.4)';
+        ctx.lineWidth = 1.0 / (window.devicePixelRatio || 1);
+        ctx.setLineDash([]);
+        ctx.stroke();
+
+        ctx.restore();
+      }
+
       /* Optional Pixel Grid Overlay (when zoomed) */
       if (host.showPixelGrid && host.zoom >= 4) {
         ctx.save();
@@ -3084,6 +3122,13 @@ async function main() {
   bindSlider('ui-slider-flow', 'ui-val-flow', 'brush flow', '%');
   bindSlider('ui-slider-spacing', 'ui-val-spacing', 'set spacing', '%');
   bindSlider('ui-slider-smoothing', 'ui-val-smoothing', 'brush stabilize', '%');
+  const stabModeSelect = document.getElementById('ui-select-stabilizer-mode');
+  if (stabModeSelect) {
+    stabModeSelect.addEventListener('change', () => {
+      host.brushParams.stabilizer_mode = stabModeSelect.value;
+      log(`Stabilizer mode: ${stabModeSelect.value === 'pulled' ? 'Pulled String (Lazy Nezumi)' : 'EMA Smoothing'}`);
+    });
+  }
   bindSlider('ui-slider-midpoint', 'ui-val-midpoint', 'set midpoint', '%');
   bindSlider('ui-slider-angle', 'ui-val-angle', 'set angle', '°');
   bindSlider('ui-slider-roundness', 'ui-val-roundness', 'set roundness', '%');
