@@ -2019,14 +2019,19 @@ const COMMAND_RULES = [
     run: (m, host) => {
       const id = parseInt(m.id, 10);
       host.canvasActor.exports.w_layer_delete(id);
+      if (host.layerNames) host.layerNames.delete(id);
+      if (typeof host.ensureTreeIntegrity === 'function') host.ensureTreeIntegrity();
       host.sendConsoleLog(`deleted layer [${id}]`);
     }
   },
   {
     pat: "delete layer",
     run: (m, host) => {
-      const id = host.canvasActor.exports.get_active_layer();
+      const getActive = host.canvasActor.exports.w_layer_get_active || host.canvasActor.exports.get_active_layer;
+      const id = getActive ? getActive() : 0;
       host.canvasActor.exports.w_layer_delete(id);
+      if (host.layerNames) host.layerNames.delete(id);
+      if (typeof host.ensureTreeIntegrity === 'function') host.ensureTreeIntegrity();
       host.sendConsoleLog(`deleted layer [${id}]`);
     }
   },
@@ -2040,7 +2045,13 @@ const COMMAND_RULES = [
     run: (m, host) => {
       const id = parseInt(m.id, 10);
       const newId = host.canvasActor.exports.w_layer_duplicate ? host.canvasActor.exports.w_layer_duplicate(id) : -1;
-      if (newId >= 0) host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
+      if (newId >= 0) {
+        if (!host.layerNames) host.layerNames = new Map();
+        const srcName = host.layerNames.get(id) || `Layer ${id}`;
+        host.layerNames.set(newId, `${srcName} (Copy)`);
+        host.ensureTreeIntegrity();
+        host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
+      }
       else host.sendConsoleLog(`err: failed to duplicate layer [${id}]`, 0xFFFF5555);
     }
   },
@@ -2049,7 +2060,13 @@ const COMMAND_RULES = [
     run: (m, host) => {
       const id = host.canvasActor.exports.get_active_layer();
       const newId = host.canvasActor.exports.w_layer_duplicate ? host.canvasActor.exports.w_layer_duplicate(id) : -1;
-      if (newId >= 0) host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
+      if (newId >= 0) {
+        if (!host.layerNames) host.layerNames = new Map();
+        const srcName = host.layerNames.get(id) || `Layer ${id}`;
+        host.layerNames.set(newId, `${srcName} (Copy)`);
+        host.ensureTreeIntegrity();
+        host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
+      }
       else host.sendConsoleLog(`err: failed to duplicate layer [${id}]`, 0xFFFF5555);
     }
   },
@@ -2095,6 +2112,7 @@ const COMMAND_RULES = [
   },
   { pat: "layer opacity $id$int $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "opacity layer $id$int $val$int").run(m, host) },
   { pat: "set layer $id$int opacity $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "opacity layer $id$int $val$int").run(m, host) },
+  { pat: "set layer_opacity $id$int $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "opacity layer $id$int $val$int").run(m, host) },
   {
     pat: "set layer opacity $val$int",
     run: (m, host) => {
@@ -2105,6 +2123,9 @@ const COMMAND_RULES = [
       host.sendConsoleLog(`set layer [${id}] opacity to ${val}%`);
     }
   },
+  { pat: "layer opacity $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set layer opacity $val$int").run(m, host) },
+  { pat: "set layer_opacity $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set layer opacity $val$int").run(m, host) },
+  { pat: "layer_opacity $val$int", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set layer opacity $val$int").run(m, host) },
 
   // Layer Alpha Lock
   {

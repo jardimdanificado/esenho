@@ -1501,6 +1501,11 @@ W_EXPORT void w_layer_set_pixels(int32_t layer_idx, uint32_t *pixels, int32_t wi
     }
 }
 
+W_EXPORT int32_t w_layer_get_active(void) {
+    init_surface_if_needed();
+    return active_layer;
+}
+
 W_EXPORT void w_layer_delete(int32_t idx) {
     init_surface_if_needed();
     if (idx >= 0 && idx < layer_count && layers[idx].in_use) {
@@ -1509,11 +1514,10 @@ W_EXPORT void w_layer_delete(int32_t idx) {
         layers[idx].visible = 0;
         layer_order_remove(idx);
         if (active_layer == idx) {
-            for (int l = layer_count - 1; l >= 0; l--) {
-                if (layers[l].in_use && layers[l].visible) {
-                    active_layer = l;
-                    break;
-                }
+            if (layer_order_count > 0) {
+                active_layer = layer_order[layer_order_count - 1];
+            } else {
+                active_layer = 3;
             }
         }
         force_composite();
@@ -1650,10 +1654,14 @@ W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx) {
 
     int w = layers[src_idx].width;
     int h = layers[src_idx].height;
-    int new_idx = layer_alloc_slot(w, h, layers[src_idx].visible);
+    int new_idx = layer_alloc_slot(w, h, 1);
     if (new_idx < 0) return -1;
 
+    layers[new_idx].visible = layers[src_idx].visible;
     layers[new_idx].opacity = layers[src_idx].opacity;
+    layers[new_idx].alpha_lock = layers[src_idx].alpha_lock;
+    layers[new_idx].clipping = layers[src_idx].clipping;
+    layers[new_idx].blend_mode = layers[src_idx].blend_mode;
     layers[new_idx].x = layers[src_idx].x;
     layers[new_idx].y = layers[src_idx].y;
 

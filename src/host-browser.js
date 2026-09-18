@@ -7424,7 +7424,13 @@ async function main() {
             if (e.cancelable) e.preventDefault();
             const touchX = e.touches[0].clientX;
             const touchY = e.touches[0].clientY;
+
+            // Temporarily ignore dragged element so document.elementFromPoint hits the layer/group below
+            const prevPE = el.style.pointerEvents;
+            el.style.pointerEvents = 'none';
             const targetEl = document.elementFromPoint(touchX, touchY);
+            el.style.pointerEvents = prevPE;
+
             const row = targetEl?.closest('.ui-layer-row, .ui-layer-group-header');
             clearDropIndicators();
             if (row && row !== el) {
@@ -7871,6 +7877,20 @@ async function main() {
           });
           controlsCell.appendChild(addGrpBtn);
         }
+
+        // Delete Layer button
+        const delLyrBtn = document.createElement('button');
+        delLyrBtn.type = 'button';
+        delLyrBtn.className = 'layer-btn-action btn-del';
+        delLyrBtn.textContent = '✕';
+        delLyrBtn.title = `Delete layer [${i}] ${name}`;
+        delLyrBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (confirm(`Delete layer [${i}] ${name}?`)) {
+            runCmd(`delete layer ${i}`);
+          }
+        });
+        controlsCell.appendChild(delLyrBtn);
 
         row.appendChild(controlsCell);
 
@@ -8851,10 +8871,12 @@ async function main() {
       ipLayerOpSlider.addEventListener('input', () => {
         const val = parseInt(ipLayerOpSlider.value, 10);
         if (ipLayerOpVal) ipLayerOpVal.textContent = `${val}%`;
-        const activeIdx = host.canvasActor?.exports?.w_layer_get_active ? host.canvasActor.exports.w_layer_get_active() : 0;
-        const alpha = Math.round((val / 100) * 255);
-        if (host.canvasActor?.exports?.set_layer_opacity) {
-          host.canvasActor.exports.set_layer_opacity(activeIdx, alpha);
+        const activeIdx = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_active)
+          ? host.canvasActor.exports.w_layer_get_active()
+          : (host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0);
+        const alpha = Math.min(255, Math.max(0, Math.round((val / 100) * 255)));
+        if (host.canvasActor?.exports?.w_layer_opacity) {
+          host.canvasActor.exports.w_layer_opacity(activeIdx, alpha);
           host.render();
         }
       });
@@ -8873,7 +8895,8 @@ async function main() {
     const btnIpDelLayer = document.getElementById('btn-ip-del-layer');
     if (btnIpDelLayer) {
       btnIpDelLayer.addEventListener('click', () => {
-        const activeIdx = host.canvasActor?.exports?.w_layer_get_active ? host.canvasActor.exports.w_layer_get_active() : 0;
+        const getActive = host.canvasActor?.exports?.w_layer_get_active || host.canvasActor?.exports?.get_active_layer;
+        const activeIdx = getActive ? getActive() : 0;
         if (confirm(`Delete active layer ${activeIdx}?`)) runCmd(`delete layer ${activeIdx}`);
       });
     }
@@ -9443,6 +9466,23 @@ async function main() {
     const wandAdjSheetChk = document.getElementById('ip-sheet-wand-adj');
     if (wandAdjSheetChk && host.wandAdjacent !== undefined) {
       wandAdjSheetChk.checked = host.wandAdjacent;
+    }
+
+    // Active Layer Opacity in Sheet
+    const activeLayerIdx = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_layer_get_active)
+      ? host.canvasActor.exports.w_layer_get_active()
+      : (host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0);
+    const activeLayerOp255 = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_layer_opacity)
+      ? host.canvasActor.exports.get_layer_opacity(activeLayerIdx)
+      : 255;
+    const activeLayerOpPct = Math.round((activeLayerOp255 / 255) * 100);
+    const ipLayerOpSliderEl = document.getElementById('ip-active-layer-op-slider');
+    const ipLayerOpValEl = document.getElementById('ip-active-layer-op-val');
+    if (ipLayerOpSliderEl && document.activeElement !== ipLayerOpSliderEl) {
+      ipLayerOpSliderEl.value = activeLayerOpPct;
+    }
+    if (ipLayerOpValEl) {
+      ipLayerOpValEl.textContent = `${activeLayerOpPct}%`;
     }
 
     // 5. Grid & Symmetry buttons (legacy / header)
