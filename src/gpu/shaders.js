@@ -199,8 +199,159 @@ void main() {
 }
 `;
 
+const BRUSH_DAB_VERT = `#version 300 es
+precision highp float;
+
+// Per-vertex quad corner attribute
+layout(location = 0) in vec2 a_corner; // [-1, 1]
+
+// Per-instance attributes
+layout(location = 1) in vec2 a_dab_pos;       // Center (x, y) in doc space
+layout(location = 2) in vec2 a_dab_radius;    // (rx, ry)
+layout(location = 3) in float a_dab_angle;    // Radians
+layout(location = 4) in vec4 a_dab_color;     // RGBA 0..1
+layout(location = 5) in float a_dab_hardness; // 0..1
+layout(location = 6) in float a_dab_flow;     // 0..1
+layout(location = 7) in float a_dab_grain;    // 0..1
+layout(location = 8) in float a_dab_tex_mode; // 0..7
+layout(location = 9) in float a_dab_shape;    // 0=circle, 1=square, 2=chisel
+
+uniform vec2 u_doc_size;
+
+out vec2 v_local_uv;
+out vec2 v_doc_pos;
+out vec4 v_color;
+out float v_hardness;
+out float v_flow;
+out float v_grain;
+out float v_tex_mode;
+out float v_shape;
+
+void main() {
+    v_local_uv = a_corner;
+    v_color = a_dab_color;
+    v_hardness = a_dab_hardness;
+    v_flow = a_dab_flow;
+    v_grain = a_dab_grain;
+    v_tex_mode = a_dab_tex_mode;
+    v_shape = a_dab_shape;
+
+    // Rotate quad
+    float c = cos(a_dab_angle);
+    float s = sin(a_dab_angle);
+    mat2 rot = mat2(c, -s, s, c);
+    vec2 offset = rot * (a_corner * a_dab_radius);
+
+    vec2 doc_px = a_dab_pos + offset;
+    v_doc_pos = doc_px;
+
+    // Convert doc_px (0..doc_size) to WebGL clip space (-1..1)
+    vec2 clip_pos = (doc_px / u_doc_size) * 2.0 - 1.0;
+    // Upload/render is top-down (0 at top), in WebGL -1 is bottom, so invert Y
+    clip_pos.y = -clip_pos.y;
+
+    gl_Position = vec4(clip_pos, 0.0, 1.0);
+}
+`;
+
+const BRUSH_DAB_FRAG = `#version 300 es
+precision highp float;
+
+in vec2 v_local_uv;
+in vec2 v_doc_pos;
+in vec4 v_color;
+in float v_hardness;
+in float v_flow;
+in float v_grain;
+in float v_tex_mode;
+in float v_shape;
+
+uniform int u_is_eraser;
+
+out vec4 fragColor;
+
+// Procedural hash & grain functions
+float hash(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
+}
+
+float get_procedural_texture(int mode, vec2 pos) {
+    if (mode == 0) return 1.0;
+    if (mode == 1) { // Paper
+        return mix(0.7, 1.0, hash(pos * 0.5));
+    }
+    if (mode == 2) { // Canvas weave
+        float wx = sin(pos.x * 0.8) * 0.5 + 0.5;
+        float wy = cos(pos.y * 0.8) * 0.5 + 0.5;
+        return mix(0.6, 1.0, wx * wy);
+    }
+    if (mode == 3) { // Noise
+        return hash(pos);
+    }
+    if (mode == 4) { // Dots
+        vec2 grid = fract(pos / 8.0) - 0.5;
+        return length(grid) < 0.3 ? 1.0 : 0.2;
+    }
+    if (mode == 5) { // Grid
+        vec2 grid = fract(pos / 10.0);
+        return (grid.x < 0.15 || grid.y < 0.15) ? 0.3 : 1.0;
+    }
+    if (mode == 6) { // Grunge
+        float h1 = hash(floor(pos / 4.0));
+        float h2 = hash(floor(pos / 16.0));
+        return mix(0.4, 1.0, h1 * h2);
+    }
+    if (mode == 7) { // Hatch
+        float d = sin((pos.x + pos.y) * 0.6) * 0.5 + 0.5;
+        return d > 0.4 ? 1.0 : 0.2;
+    }
+    return 1.0;
+}
+
+void main() {
+    float alpha = 1.0;
+
+    // Tip shape evaluation
+    if (v_shape < 0.5) {
+        // Circle shape
+        float dist = length(v_local_uv);
+        if (dist > 1.0) discard;
+        float edge = clamp(v_hardness, 0.001, 0.999);
+        alpha = 1.0 - smoothstep(edge, 1.0, dist);
+    } else if (v_shape < 1.5) {
+        // Square shape
+        vec2 d = abs(v_local_uv);
+        if (d.x > 1.0 || d.y > 1.0) discard;
+        alpha = 1.0;
+    } else {
+        // Chisel shape (horizontal ribbon)
+        vec2 d = abs(v_local_uv);
+        if (d.x > 1.0 || d.y > 0.3) discard;
+        alpha = 1.0;
+    }
+
+    // Apply procedural grain & texture
+    if (v_grain > 0.0) {
+        int tmode = int(v_tex_mode);
+        float texVal = get_procedural_texture(tmode, v_doc_pos);
+        alpha *= mix(1.0, texVal, v_grain);
+    }
+
+    alpha *= v_flow * v_color.a;
+    if (alpha <= 0.001) discard;
+
+    if (u_is_eraser == 1) {
+        fragColor = vec4(0.0, 0.0, 0.0, alpha);
+    } else {
+        fragColor = vec4(v_color.rgb, alpha);
+    }
+}
+`;
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { VIEWPORT_VERT, VIEWPORT_FRAG, LAYER_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG };
+    module.exports = { VIEWPORT_VERT, VIEWPORT_FRAG, LAYER_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG, BRUSH_DAB_VERT, BRUSH_DAB_FRAG };
 } else {
-    globalThis.EsenhoGPU_Shaders = { VIEWPORT_VERT, VIEWPORT_FRAG, LAYER_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG };
+    globalThis.EsenhoGPU_Shaders = { VIEWPORT_VERT, VIEWPORT_FRAG, LAYER_COMPOSITE_VERT, LAYER_COMPOSITE_FRAG, BRUSH_DAB_VERT, BRUSH_DAB_FRAG };
 }

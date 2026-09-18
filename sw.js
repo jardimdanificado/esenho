@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.5.1';
+const CACHE_NAME = 'esenho-v0.5.2';
 
 const PRECACHE_ASSETS = [
   './',
@@ -9,6 +9,8 @@ const PRECACHE_ASSETS = [
   './src/version.js',
   './src/papagaio.bundle.js',
   './src/project_store.js',
+  './src/gpu/shaders.js',
+  './src/gpu/gpu_renderer.js',
   './src/esenho.js',
   './src/host-browser.js',
   './src/image_io.js',

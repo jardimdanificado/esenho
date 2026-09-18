@@ -1,7 +1,7 @@
 /**
  * src/gpu/gpu_renderer.js
  * Hardware-accelerated WebGL 2 rendering engine for Esenho.
- * Supports GPU Viewport transformation and Multi-Layer GPU Compositing.
+ * Supports GPU Viewport transformation, Multi-Layer GPU Compositing, and Instanced GPU Brush Engine.
  */
 
 class EsenhoGPURenderer {
@@ -10,8 +10,13 @@ class EsenhoGPURenderer {
     this.gl = null;
     this.viewportProgram = null;
     this.compositeProgram = null;
+    this.brushProgram = null;
+
     this.vao = null;
     this.vbo = null;
+    this.brushVAO = null;
+    this.brushQuadVBO = null;
+    this.brushInstanceVBO = null;
 
     // Viewport composite texture
     this.compositeTex = null;
@@ -19,7 +24,7 @@ class EsenhoGPURenderer {
     this.texHeight = 0;
 
     // Multi-Layer GPU Compositor structures
-    this.layerTextures = new Map(); // layerId -> { texture, width, height }
+    this.layerTextures = new Map(); // layerId -> { texture, fbo, width, height }
     this.fboA = null;
     this.fboB = null;
     this.accumTexA = null;
@@ -29,6 +34,8 @@ class EsenhoGPURenderer {
 
     this.viewportUniforms = {};
     this.compositeUniforms = {};
+    this.brushUniforms = {};
+
     this.filterMode = 0; // 0 = Nearest (Pixel Art), 1 = Linear
     this.isSupported = false;
     this.useLayerCompositor = true;
@@ -114,14 +121,30 @@ class EsenhoGPURenderer {
             u_clip_offset: gl.getUniformLocation(this.compositeProgram, 'u_clip_offset'),
             u_clip_size: gl.getUniformLocation(this.compositeProgram, 'u_clip_size')
           };
-        } else {
-          console.warn('[EsenhoGPU] Multi-layer composite link error:', gl.getProgramInfoLog(this.compositeProgram));
-          this.compositeProgram = null;
         }
       }
     }
 
-    // 3. Create Fullscreen Quad VAO
+    // 3. Compile GPU Brush Dab Program (Phase 3)
+    if (shaders.BRUSH_DAB_VERT && shaders.BRUSH_DAB_FRAG) {
+      const vsBrush = this._createShader(gl.VERTEX_SHADER, shaders.BRUSH_DAB_VERT);
+      const fsBrush = this._createShader(gl.FRAGMENT_SHADER, shaders.BRUSH_DAB_FRAG);
+      if (vsBrush && fsBrush) {
+        this.brushProgram = gl.createProgram();
+        gl.attachShader(this.brushProgram, vsBrush);
+        gl.attachShader(this.brushProgram, fsBrush);
+        gl.linkProgram(this.brushProgram);
+
+        if (gl.getProgramParameter(this.brushProgram, gl.LINK_STATUS)) {
+          this.brushUniforms = {
+            u_doc_size: gl.getUniformLocation(this.brushProgram, 'u_doc_size'),
+            u_is_eraser: gl.getUniformLocation(this.brushProgram, 'u_is_eraser')
+          };
+        }
+      }
+    }
+
+    // 4. Create Fullscreen Quad VAO
     const quadVertices = new Float32Array([
       -1.0, -1.0,
        1.0, -1.0,
@@ -138,13 +161,78 @@ class EsenhoGPURenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.vbo);
     gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
 
-    // Attribute location 0 for position
     gl.enableVertexAttribArray(0);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
 
     gl.bindVertexArray(null);
 
-    // 4. Create Direct Composite Texture
+    // 5. Create Instanced Brush VAO & VBOs
+    if (this.brushProgram) {
+      this.brushVAO = gl.createVertexArray();
+      gl.bindVertexArray(this.brushVAO);
+
+      // Unit Quad for dab
+      this.brushQuadVBO = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.brushQuadVBO);
+      gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
+      gl.enableVertexAttribArray(0);
+      gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      gl.vertexAttribDivisor(0, 0); // Per-vertex
+
+      // Instance Buffer (14 floats per instance)
+      const STRIDE = 14 * 4;
+      this.brushInstanceVBO = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.brushInstanceVBO);
+
+      // 1: a_dab_pos (2 floats)
+      gl.enableVertexAttribArray(1);
+      gl.vertexAttribPointer(1, 2, gl.FLOAT, false, STRIDE, 0);
+      gl.vertexAttribDivisor(1, 1);
+
+      // 2: a_dab_radius (2 floats)
+      gl.enableVertexAttribArray(2);
+      gl.vertexAttribPointer(2, 2, gl.FLOAT, false, STRIDE, 2 * 4);
+      gl.vertexAttribDivisor(2, 1);
+
+      // 3: a_dab_angle (1 float)
+      gl.enableVertexAttribArray(3);
+      gl.vertexAttribPointer(3, 1, gl.FLOAT, false, STRIDE, 4 * 4);
+      gl.vertexAttribDivisor(3, 1);
+
+      // 4: a_dab_color (4 floats)
+      gl.enableVertexAttribArray(4);
+      gl.vertexAttribPointer(4, 4, gl.FLOAT, false, STRIDE, 5 * 4);
+      gl.vertexAttribDivisor(4, 1);
+
+      // 5: a_dab_hardness (1 float)
+      gl.enableVertexAttribArray(5);
+      gl.vertexAttribPointer(5, 1, gl.FLOAT, false, STRIDE, 9 * 4);
+      gl.vertexAttribDivisor(5, 1);
+
+      // 6: a_dab_flow (1 float)
+      gl.enableVertexAttribArray(6);
+      gl.vertexAttribPointer(6, 1, gl.FLOAT, false, STRIDE, 10 * 4);
+      gl.vertexAttribDivisor(6, 1);
+
+      // 7: a_dab_grain (1 float)
+      gl.enableVertexAttribArray(7);
+      gl.vertexAttribPointer(7, 1, gl.FLOAT, false, STRIDE, 11 * 4);
+      gl.vertexAttribDivisor(7, 1);
+
+      // 8: a_dab_tex_mode (1 float)
+      gl.enableVertexAttribArray(8);
+      gl.vertexAttribPointer(8, 1, gl.FLOAT, false, STRIDE, 12 * 4);
+      gl.vertexAttribDivisor(8, 1);
+
+      // 9: a_dab_shape (1 float)
+      gl.enableVertexAttribArray(9);
+      gl.vertexAttribPointer(9, 1, gl.FLOAT, false, STRIDE, 13 * 4);
+      gl.vertexAttribDivisor(9, 1);
+
+      gl.bindVertexArray(null);
+    }
+
+    // 6. Create Direct Composite Texture
     this.compositeTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -153,7 +241,7 @@ class EsenhoGPURenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
     this.isSupported = true;
-    console.log('[EsenhoGPU] WebGL2 Hardware Acceleration & Multi-Layer GPU Compositor initialized.');
+    console.log('[EsenhoGPU] WebGL2 Full GPU Pipeline (Viewport + Multi-Layer Compositor + Instanced Brush Engine) ready.');
     return true;
   }
 
@@ -241,7 +329,13 @@ class EsenhoGPURenderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      entry = { texture: tex, width: 0, height: 0 };
+
+      const fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+
+      entry = { texture: tex, fbo: fbo, width: 0, height: 0 };
       this.layerTextures.set(layerId, entry);
     }
     return entry;
@@ -360,6 +454,58 @@ class EsenhoGPURenderer {
         gl.pixelStorei(gl.UNPACK_SKIP_ROWS, 0);
       }
     }
+  }
+
+  /**
+   * Render instanced brush dabs directly onto the active layer's texture via GPU.
+   */
+  renderDabsGPU(layerId, dabsData, docWidth, docHeight, isEraser = false) {
+    if (!this.gl || !this.brushProgram || !this.brushVAO || !dabsData || dabsData.length === 0) return;
+    const gl = this.gl;
+    const entry = this.getLayerTexture(layerId, docWidth, docHeight);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, entry.fbo);
+    gl.viewport(0, 0, docWidth, docHeight);
+
+    gl.enable(gl.BLEND);
+    if (isEraser) {
+      // Erase alpha depleting Porter-Duff
+      gl.blendFuncSeparate(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
+      gl.blendEquation(gl.FUNC_ADD);
+    } else {
+      // Standard Premultiplied Additive Blending
+      gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.blendEquation(gl.FUNC_ADD);
+    }
+
+    gl.useProgram(this.brushProgram);
+    gl.uniform2f(this.brushUniforms.u_doc_size, docWidth, docHeight);
+    gl.uniform1i(this.brushUniforms.u_is_eraser, isEraser ? 1 : 0);
+
+    gl.bindVertexArray(this.brushVAO);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.brushInstanceVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, dabsData, gl.DYNAMIC_DRAW);
+
+    const instanceCount = Math.floor(dabsData.length / 14);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, instanceCount);
+
+    gl.bindVertexArray(null);
+    gl.disable(gl.BLEND);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  /**
+   * Read pixels back from a GPU layer texture into CPU memory (for undo/export).
+   */
+  readLayerPixels(layerId, outBufferU8, width, height) {
+    if (!this.gl) return;
+    const gl = this.gl;
+    const entry = this.getLayerTexture(layerId, width, height);
+
+    gl.bindFramebuffer(gl.FRAMEBUFFER, entry.fbo);
+    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, outBufferU8);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
   /**
