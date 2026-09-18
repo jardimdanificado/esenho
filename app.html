@@ -2310,7 +2310,6 @@
       transform: translateX(-50%);
       flex-direction: row;
       padding: 6px 10px;
-      margin-bottom: env(safe-area-inset-bottom, 0px);
     }
     .ip-hud-control {
       display: flex;
@@ -2888,7 +2887,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.5.11 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3347,6 +3346,15 @@
               <span id="ip-val-max-undo" style="color: #fabd2f; font-weight: bold;">25 steps</span>
             </div>
             <input type="range" id="ip-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25" style="width: 100%;">
+          </div>
+          <div style="margin-top: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ebdbb2; margin-bottom: 2px;">
+              <span>Renderer</span>
+            </div>
+            <select id="ip-select-renderer" class="ip-select" style="width: 100%; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 6px; padding: 4px 8px; font-size: 11px;">
+              <option value="gpu">GPU (WebGL 2)</option>
+              <option value="cpu">Software (2D Canvas CPU)</option>
+            </select>
           </div>
         </div>
 
@@ -4215,6 +4223,15 @@
               </div>
               <input type="range" id="ui-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25">
             </div>
+            <div class="ui-control" style="margin-top: 6px;">
+              <div class="ui-label-row">
+                <span>Renderer</span>
+              </div>
+              <select id="ui-select-renderer" class="ui-select">
+                <option value="gpu">GPU (WebGL 2)</option>
+                <option value="cpu">Software (2D Canvas CPU)</option>
+              </select>
+            </div>
             <div class="ui-control" style="margin-top: 4px;">
               <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
                 <input type="checkbox" id="ui-chk-floating-toolbar" checked> Show Floating Toolbar
@@ -4513,6 +4530,7 @@
   </div>
 </div>
 
+<script type="module" src="src/version.js"></script>
 <script src="src/papagaio.bundle.js"></script>
 <script src="src/project_store.js"></script>
 <script src="src/gpu/shaders.js"></script>

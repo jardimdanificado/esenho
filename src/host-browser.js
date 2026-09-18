@@ -34,6 +34,7 @@ async function main() {
   const host = new EsenhoScreenHost();
   /* canvasRotation: radians, stored on host */
   host.canvasRotation = 0;
+  host.renderMode = localStorage.getItem('esenho_render_mode') || 'gpu';
   host.render = () => {
     if (host.canvasActor && host.canvasActor.exports && typeof host.canvasActor.exports.w_render === 'function') {
       host.canvasActor.exports.w_render();
@@ -958,7 +959,9 @@ async function main() {
     const ptr = host.canvasActor.exports.get_composite_pixels();
     const dashOff = (Date.now() / 60) % 8;
 
-    if (gpuRenderer && gpuRenderer.isSupported) {
+    const useGPU = Boolean(gpuRenderer && gpuRenderer.isSupported && host.renderMode !== 'cpu' && host.renderMode !== 'software');
+
+    if (useGPU) {
       if (uiCtx && uiCanvasEl) {
         uiCtx.clearRect(0, 0, uiCanvasEl.width, uiCanvasEl.height);
       }
@@ -1003,8 +1006,14 @@ async function main() {
         }, finalTex);
       }
     } else if (ctx) {
+      if (gpuRenderer && gpuRenderer.gl) {
+        const gl = gpuRenderer.gl;
+        gl.viewport(0, 0, canvasEl.width, canvasEl.height);
+        gl.clearColor(29 / 255, 32 / 255, 33 / 255, 1.0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      }
       ctx.fillStyle = '#1d2021';
-      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+      ctx.fillRect(0, 0, (uiCanvasEl || canvasEl).width, (uiCanvasEl || canvasEl).height);
 
       if (ptr && cw > 0 && ch > 0) {
         if (!imgData || imgData.width !== cw || imgData.height !== ch) {
@@ -1056,7 +1065,7 @@ async function main() {
       if (host.flipH) ctx.scale(-1, 1);
       if (host.flipV) ctx.scale(1, -1);
       ctx.rotate(host.canvasRotation);
-      if (!gpuRenderer && offscreen) {
+      if (!useGPU && offscreen) {
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
       }
@@ -6954,6 +6963,38 @@ async function main() {
     ipSliderMaxUndo.addEventListener('input', () => syncMaxUndo(parseInt(ipSliderMaxUndo.value, 10)));
   }
 
+  // Renderer Selection (GPU vs Software/CPU)
+  const selRenderer = document.getElementById('ui-select-renderer');
+  const ipSelRenderer = document.getElementById('ip-select-renderer');
+  const initialRenderMode = (host.renderMode === 'cpu' || host.renderMode === 'software') ? 'cpu' : 'gpu';
+  host.renderMode = initialRenderMode;
+
+  const syncRenderer = (mode) => {
+    const cleanMode = (mode === 'cpu' || mode === 'software' || mode === 'canvas2d' || mode === '2d') ? 'cpu' : 'gpu';
+    host.renderMode = cleanMode;
+    if (selRenderer) selRenderer.value = cleanMode;
+    if (ipSelRenderer) ipSelRenderer.value = cleanMode;
+    try {
+      localStorage.setItem('esenho_render_mode', cleanMode);
+    } catch (_) {}
+    if (cleanMode === 'gpu' && uiCtx && uiCanvasEl) {
+      uiCtx.clearRect(0, 0, uiCanvasEl.width, uiCanvasEl.height);
+    }
+    imgData = null;
+    host.render();
+  };
+
+  host.setRenderMode = syncRenderer;
+
+  if (selRenderer) {
+    selRenderer.value = host.renderMode;
+    selRenderer.addEventListener('change', () => syncRenderer(selRenderer.value));
+  }
+  if (ipSelRenderer) {
+    ipSelRenderer.value = host.renderMode;
+    ipSelRenderer.addEventListener('change', () => syncRenderer(ipSelRenderer.value));
+  }
+
   // Floating toolbar visibility & scale
   const chkFloatingToolbar = document.getElementById('ui-chk-floating-toolbar');
   const selToolbarScale = document.getElementById('ui-select-toolbar-scale');
@@ -9872,7 +9913,8 @@ async function main() {
   initInfinitePainterUI();
   syncUiFromHost();
   log('Ready — left=draw  right=erase  mid/2-finger=pan  scroll/pinch=zoom  2-finger-twist=rotate');
-  statusEl.textContent = 'ready';
+  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.5.10';
+  if (statusEl) statusEl.textContent = `${ver} ready`;
 }
 
 /* ── Helpers ── */
@@ -9906,12 +9948,13 @@ function updateStatus(host, docX, docY, force = false) {
   if (!force && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
   _lastStatusUpdate = now;
 
+  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.5.10';
   const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 0;
   const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 0;
   const rawDeg = ((host.canvasRotation * 180 / Math.PI) % 360);
   const deg = rawDeg.toFixed(1);
   const newText =
-    `${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
+    `${ver}  ${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
     `zoom ${(host.zoom * 100).toFixed(0)}%  rot ${deg}°`;
   if (_cachedStatusText !== newText) {
     _cachedStatusText = newText;
@@ -10356,6 +10399,8 @@ function ensureUiPanel() {
   if (typeof setupDraggableTab === 'function') {
     setupDraggableTab('ui-panel', 'toggle-ui', 'right', 'esenho_ui_width');
   }
+
+  updateStatus(host, 0, 0, true);
 }
 
 main().catch(e => { console.error(e); log(`BOOT ERROR: ${e.message}`, 'err'); });

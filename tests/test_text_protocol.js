@@ -1702,7 +1702,17 @@ async function run() {
     throw new Error(`Preset parameter leak: inker inherited previous params (grain=${host.brushParams.grain}, scatter=${host.brushParams.scatter}, jitter=${host.brushParams.size_jitter}, texture=${host.activeTexture})`);
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, Reset Data Command, and Professional Brush Presets System verified 100%!');
+  // Test Renderer switching command
+  host.executeCommand('set renderer cpu');
+  if (host.renderMode !== 'cpu') {
+    throw new Error(`Expected host.renderMode === 'cpu', got ${host.renderMode}`);
+  }
+  host.executeCommand('renderer gpu');
+  if (host.renderMode !== 'gpu') {
+    throw new Error(`Expected host.renderMode === 'gpu', got ${host.renderMode}`);
+  }
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, Reset Data Command, GPU/Software Renderer Switching, and Professional Brush Presets System verified 100%!');
 }
 
 run().catch(err => {

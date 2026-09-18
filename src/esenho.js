@@ -2961,6 +2961,22 @@ const COMMAND_RULES = [
       host.sendConsoleLog(`ui_scale set to ${m.val}`);
     }
   },
+  // Renderer Selection (GPU vs Software/CPU)
+  {
+    pat: "set renderer $val",
+    run: (m, host) => {
+      const mode = (m.val === 'cpu' || m.val === 'software' || m.val === 'canvas2d' || m.val === '2d') ? 'cpu' : 'gpu';
+      host.renderMode = mode;
+      if (typeof host.setRenderMode === 'function') host.setRenderMode(mode);
+      host.sendConsoleLog(`renderer set to ${mode === 'cpu' ? 'software (2D CPU)' : 'gpu (WebGL 2)'}`);
+    }
+  },
+  {
+    pat: "renderer $val",
+    run: (m, host) => {
+      COMMAND_RULES.find(r => r.pat === "set renderer $val").run(m, host);
+    }
+  },
   {
     pat: "set $param $val",
     run: (m, host) => handleDirectParam(host, m.param, m.val)
