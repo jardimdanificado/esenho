@@ -4410,6 +4410,8 @@ async function main() {
     color_pickup: { type: 'dial', name: 'Color Pickup', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set color_pickup', getter: bp => bp.color_pickup || 0, chips: [0, 25, 50, 75, 100] },
     velocity: { type: 'dial', name: 'Velocity', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set velocity', getter: bp => bp.velocity || 0, chips: [0, 25, 50, 75, 100] },
     taper_in: { type: 'dial', name: 'Taper In', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_in', getter: bp => bp.taper_in || 0, chips: [0, 20, 50, 100, 200] },
+    taper_out: { type: 'dial', name: 'Taper Out', min: 0, max: 500, step: 5, suffix: 'px', cmd: 'set taper_out', getter: bp => bp.taper_out || 0, chips: [0, 20, 50, 100, 200] },
+    string_length: { type: 'dial', name: 'Pulled String', min: 0, max: 200, step: 2, suffix: 'px', cmd: 'set string_length', getter: bp => bp.string_length || 0, chips: [0, 15, 30, 60, 100] },
     fade: { type: 'dial', name: 'Fade', min: 0, max: 2000, step: 20, suffix: 'px', cmd: 'set fade', getter: bp => bp.fade || 0, chips: [0, 100, 300, 600, 1200] },
     tolerance: { type: 'dial', name: 'Tolerance', min: 0, max: 255, step: 1, suffix: '', cmd: 'set tolerance', getter: bp => (bp.tolerance !== undefined ? bp.tolerance : 32), chips: [0, 16, 32, 64, 128] },
     size_jitter: { type: 'dial', name: 'Size Jitter', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set size_jitter', getter: bp => bp.size_jitter || 0, chips: [0, 15, 30, 50, 80] },
@@ -5134,7 +5136,9 @@ async function main() {
             <option value="depletion">Deplete</option>
             <option value="color_pickup">Pickup</option>
             <option value="velocity">Velocity</option>
-            <option value="taper_in">Taper</option>
+            <option value="string_length">Pulled String</option>
+            <option value="taper_in">Taper In</option>
+            <option value="taper_out">Taper Out</option>
             <option value="fade">Fade</option>
             <option value="tolerance">Fill Tol</option>
           </optgroup>
@@ -8220,6 +8224,7 @@ async function main() {
       { id: 'angle', label: 'Angle', key: 'angle', min: 0, max: 360, isCurve: false, unit: '°', defaultOn: false },
       { id: 'spacing', label: 'Spac', key: 'spacing', min: 1, max: 200, isCurve: false, unit: '%', defaultOn: false },
       { id: 'smoothing', label: 'Smth', key: 'smoothing', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'string_length', label: 'String', key: 'string_length', min: 0, max: 200, isCurve: false, unit: 'px', defaultOn: false },
       { id: 'midpoint', label: 'MidPt', key: 'midpoint', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'velocity', label: 'Velo', key: 'velocity', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'taper_in', label: 'TapIn', key: 'taper_in', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
@@ -8264,10 +8269,6 @@ async function main() {
     ];
 
     let ipActiveHudConfig = {
-      top: {
-        sliders: [],
-        actions: ['brush', 'tools', 'layers', 'brush_lab']
-      },
       left: {
         sliders: ['size', 'opacity'],
         actions: ['color', 'swap_mode']
@@ -8278,7 +8279,7 @@ async function main() {
       },
       bottom: {
         sliders: [],
-        actions: []
+        actions: ['brush', 'tools', 'layers', 'brush_lab']
       }
     };
 
@@ -8288,10 +8289,9 @@ async function main() {
         const parsed = JSON.parse(savedHud);
         if (parsed && typeof parsed === 'object') {
           ipActiveHudConfig = {
-            top: parsed.top || { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
-            left: parsed.left || { sliders: [], actions: [] },
-            right: parsed.right || { sliders: [], actions: [] },
-            bottom: parsed.bottom || { sliders: [], actions: [] }
+            left: parsed.left || { sliders: ['size', 'opacity'], actions: ['color', 'swap_mode'] },
+            right: parsed.right || { sliders: [], actions: ['hud_gear'] },
+            bottom: parsed.bottom || (parsed.top ? { sliders: parsed.top.sliders || [], actions: parsed.top.actions || ['brush', 'tools', 'layers', 'brush_lab'] } : { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] })
           };
         }
       }
@@ -8394,9 +8394,9 @@ async function main() {
         ctrl.addEventListener('touchcancel', onUp);
       });
 
-      (cfg.actions || []).forEach(aid => {
+      const createActionBtn = (aid) => {
         const aDef = HUD_AVAILABLE_ACTIONS.find(a => a.id === aid);
-        if (!aDef) return;
+        if (!aDef) return null;
 
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -8517,19 +8517,37 @@ async function main() {
           });
         }
 
-        hud.appendChild(btn);
-      });
+        return btn;
+      };
+
+      if (dockName === 'bottom' && cfg.sliders && cfg.sliders.length > 0) {
+        // Bottom bar has sliders (expanded height): stack up to 3 action buttons vertically per column
+        const actionList = cfg.actions || [];
+        for (let i = 0; i < actionList.length; i += 3) {
+          const col = document.createElement('div');
+          col.className = 'ip-hud-btn-col';
+          for (let j = 0; j < 3 && (i + j) < actionList.length; j++) {
+            const btn = createActionBtn(actionList[i + j]);
+            if (btn) col.appendChild(btn);
+          }
+          hud.appendChild(col);
+        }
+      } else {
+        (cfg.actions || []).forEach(aid => {
+          const btn = createActionBtn(aid);
+          if (btn) hud.appendChild(btn);
+        });
+      }
     };
 
     const renderAllHuds = () => {
-      renderDock('top');
       renderDock('left');
       renderDock('right');
       renderDock('bottom');
       syncInfinitePainterUI();
     };
 
-    let currentCustomizingDock = 'top';
+    let currentCustomizingDock = 'left';
 
     const renderHudCustomizerOptions = () => {
       const sGrid = document.getElementById('ip-hud-sliders-toggle-grid');
@@ -8601,7 +8619,7 @@ async function main() {
       }
     };
 
-    const openHudCustomizer = (initialDock = 'top') => {
+    const openHudCustomizer = (initialDock = 'left') => {
       currentCustomizingDock = initialDock;
       const modal = document.getElementById('sheet-hud-customizer');
       if (!modal) return;
@@ -8620,7 +8638,7 @@ async function main() {
       btn.addEventListener('click', () => {
         document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        currentCustomizingDock = btn.dataset.docktab || 'top';
+        currentCustomizingDock = btn.dataset.docktab || 'left';
         renderHudCustomizerOptions();
         triggerHaptic(8);
       });
@@ -8631,10 +8649,9 @@ async function main() {
     if (btnHudDefault) {
       btnHudDefault.addEventListener('click', () => {
         ipActiveHudConfig = {
-          top: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
           left: { sliders: ['size', 'opacity'], actions: ['color', 'swap_mode'] },
           right: { sliders: [], actions: ['hud_gear'] },
-          bottom: { sliders: [], actions: [] }
+          bottom: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] }
         };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
         renderAllHuds();
@@ -8647,10 +8664,9 @@ async function main() {
     if (btnHudPro) {
       btnHudPro.addEventListener('click', () => {
         ipActiveHudConfig = {
-          top: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
-          left: { sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing'], actions: ['color', 'swap_mode'] },
+          left: { sliders: ['size', 'opacity', 'flow', 'hardness'], actions: ['color', 'swap_mode'] },
           right: { sliders: [], actions: ['pipette', 'undo', 'redo', 'hud_gear'] },
-          bottom: { sliders: [], actions: ['grid', 'symmetry'] }
+          bottom: { sliders: ['smoothing'], actions: ['brush', 'tools', 'layers', 'brush_lab', 'grid', 'symmetry'] }
         };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
         renderAllHuds();
@@ -8663,7 +8679,6 @@ async function main() {
     if (btnHudFull) {
       btnHudFull.addEventListener('click', () => {
         ipActiveHudConfig = {
-          top: { sliders: [], actions: ['brush', 'tools', 'layers', 'brush_lab'] },
           left: {
             sliders: ['size', 'opacity', 'flow', 'hardness', 'smoothing', 'spacing', 'pickup'],
             actions: ['color', 'swap_mode', 'pipette']
@@ -8673,8 +8688,8 @@ async function main() {
             actions: ['undo', 'redo', 'clear_layer', 'hud_gear']
           },
           bottom: {
-            sliders: [],
-            actions: ['grid', 'symmetry']
+            sliders: ['string_length'],
+            actions: ['brush', 'tools', 'layers', 'brush_lab', 'select_rect', 'select_lasso', 'grid', 'symmetry']
           }
         };
         localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
@@ -9850,13 +9865,14 @@ function updateStatus(host, docX, docY, force = false) {
 
   const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 0;
   const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 0;
-  const deg = ((host.canvasRotation * 180 / Math.PI) % 360).toFixed(1);
+  const rawDeg = ((host.canvasRotation * 180 / Math.PI) % 360);
+  const deg = rawDeg.toFixed(1);
   const newText =
     `${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
     `zoom ${(host.zoom * 100).toFixed(0)}%  rot ${deg}°`;
-  if (statusEl && _cachedStatusText !== newText) {
+  if (_cachedStatusText !== newText) {
     _cachedStatusText = newText;
-    statusEl.textContent = newText;
+    if (statusEl) statusEl.textContent = newText;
   }
 }
 

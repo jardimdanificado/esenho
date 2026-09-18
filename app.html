@@ -2160,36 +2160,41 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 4px;
+      padding: 0 8px;
       z-index: 60;
       user-select: none;
       -webkit-user-select: none;
       padding-top: env(safe-area-inset-top, 0px);
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
       box-sizing: border-box;
+      gap: 8px;
     }
     #ip-top-bar::-webkit-scrollbar { display: none; }
     .ip-bar-group {
       display: flex;
       align-items: center;
-      gap: 3px;
+      gap: 5px;
       flex-shrink: 0;
     }
-    .ip-dock-top-items {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex: 1;
-      justify-content: flex-end;
-      overflow-x: auto;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
-      padding-right: 2px;
+    .ip-top-status-text {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 11px;
+      color: #a89984;
+      white-space: nowrap;
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: none;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-right: 4px;
+      letter-spacing: 0.2px;
     }
-    .ip-dock-top-items::-webkit-scrollbar { display: none; }
+    .ip-hud-btn-col {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      justify-content: center;
+      align-items: center;
+    }
     @media (max-width: 600px) {
       #ip-top-bar {
         padding: 0 2px;
@@ -2882,8 +2887,8 @@
       </a>
     </div>
 
-    <!-- Customizable Top Dock container inside the top bar -->
-    <div id="ip-top-hud" class="ip-dock-top-items"></div>
+    <!-- Status Information on Top Bar (Loose raw format) -->
+    <span id="wstatus" class="ip-top-status-text">ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -2929,9 +2934,6 @@
     </div>
     <div id="eyedropper-ring" class="eyedropper-ring" style="display: none;">
       <div class="eyedropper-inner" id="eyedropper-inner"></div>
-    </div>
-    <div id="cvs-status-bar">
-      <span id="wstatus">ready</span>
     </div>
   </div>
 
@@ -3665,8 +3667,7 @@
         <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')">✕</button>
       </div>
       <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid #3c3836; background: #181a1b;">
-        <button type="button" class="ip-pill-btn active" data-docktab="top">Top Bar</button>
-        <button type="button" class="ip-pill-btn" data-docktab="left">Left Bar</button>
+        <button type="button" class="ip-pill-btn active" data-docktab="left">Left Bar</button>
         <button type="button" class="ip-pill-btn" data-docktab="right">Right Bar</button>
         <button type="button" class="ip-pill-btn" data-docktab="bottom">Bottom Bar</button>
       </div>
