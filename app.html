@@ -3326,6 +3326,30 @@
           <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: #fabd2f; color: #fabd2f;">⚙ Customize Side Thumb HUD</button>
         </div>
 
+        <!-- Preferences & Gestures -->
+        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Preferences &amp; Gestures</span>
+          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
+          </label>
+          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="ip-chk-brush-outline" checked> Brush Cursor Outline
+          </label>
+          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="ip-chk-touch-undo-redo" checked> Touch Gestures (2-finger tap undo / 3-finger redo)
+          </label>
+          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="ip-chk-touch-eyedropper" checked> Touch Long-Press Eyedropper
+          </label>
+          <div style="margin-top: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ebdbb2; margin-bottom: 2px;">
+              <span>Undo History Limit</span>
+              <span id="ip-val-max-undo" style="color: #fabd2f; font-weight: bold;">25 steps</span>
+            </div>
+            <input type="range" id="ip-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25" style="width: 100%;">
+          </div>
+        </div>
+
         <!-- Developer REPL Console & Scripts -->
         <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
           <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Console &amp; Scripts</span>

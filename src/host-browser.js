@@ -6841,74 +6841,117 @@ async function main() {
   });
 
   const chkPixelGrid = document.getElementById('ui-chk-pixel-grid');
+  const ipChkPixelGrid = document.getElementById('ip-chk-pixel-grid');
   host.showPixelGrid = localStorage.getItem('esenho_pixel_grid') === '1';
+  const syncPixelGrid = (val) => {
+    host.showPixelGrid = !!val;
+    if (chkPixelGrid) chkPixelGrid.checked = host.showPixelGrid;
+    if (ipChkPixelGrid) ipChkPixelGrid.checked = host.showPixelGrid;
+    localStorage.setItem('esenho_pixel_grid', host.showPixelGrid ? '1' : '0');
+    host.render();
+  };
   if (chkPixelGrid) {
     chkPixelGrid.checked = !!host.showPixelGrid;
-    chkPixelGrid.addEventListener('change', () => {
-      host.showPixelGrid = chkPixelGrid.checked;
-      localStorage.setItem('esenho_pixel_grid', host.showPixelGrid ? '1' : '0');
-    });
+    chkPixelGrid.addEventListener('change', () => syncPixelGrid(chkPixelGrid.checked));
+  }
+  if (ipChkPixelGrid) {
+    ipChkPixelGrid.checked = !!host.showPixelGrid;
+    ipChkPixelGrid.addEventListener('change', () => syncPixelGrid(ipChkPixelGrid.checked));
   }
 
   const chkBrushOutline = document.getElementById('ui-chk-brush-outline');
+  const ipChkBrushOutline = document.getElementById('ip-chk-brush-outline');
   host.showBrushOutline = localStorage.getItem('esenho_brush_outline') !== '0';
+  const syncBrushOutline = (val) => {
+    host.showBrushOutline = !!val;
+    if (chkBrushOutline) chkBrushOutline.checked = host.showBrushOutline;
+    if (ipChkBrushOutline) ipChkBrushOutline.checked = host.showBrushOutline;
+    localStorage.setItem('esenho_brush_outline', host.showBrushOutline ? '1' : '0');
+  };
   if (chkBrushOutline) {
     chkBrushOutline.checked = !!host.showBrushOutline;
-    chkBrushOutline.addEventListener('change', () => {
-      host.showBrushOutline = chkBrushOutline.checked;
-      localStorage.setItem('esenho_brush_outline', host.showBrushOutline ? '1' : '0');
-    });
+    chkBrushOutline.addEventListener('change', () => syncBrushOutline(chkBrushOutline.checked));
+  }
+  if (ipChkBrushOutline) {
+    ipChkBrushOutline.checked = !!host.showBrushOutline;
+    ipChkBrushOutline.addEventListener('change', () => syncBrushOutline(ipChkBrushOutline.checked));
   }
 
   const chkTouchUndoRedo = document.getElementById('ui-chk-touch-undo-redo');
+  const ipChkTouchUndoRedo = document.getElementById('ip-chk-touch-undo-redo');
   host.enableTouchUndoRedo = localStorage.getItem('esenho_touch_undo_redo') !== '0';
+  const syncTouchUndoRedo = (val) => {
+    host.enableTouchUndoRedo = !!val;
+    if (chkTouchUndoRedo) chkTouchUndoRedo.checked = host.enableTouchUndoRedo;
+    if (ipChkTouchUndoRedo) ipChkTouchUndoRedo.checked = host.enableTouchUndoRedo;
+    localStorage.setItem('esenho_touch_undo_redo', host.enableTouchUndoRedo ? '1' : '0');
+  };
   if (chkTouchUndoRedo) {
     chkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
-    chkTouchUndoRedo.addEventListener('change', () => {
-      host.enableTouchUndoRedo = chkTouchUndoRedo.checked;
-      localStorage.setItem('esenho_touch_undo_redo', host.enableTouchUndoRedo ? '1' : '0');
-    });
+    chkTouchUndoRedo.addEventListener('change', () => syncTouchUndoRedo(chkTouchUndoRedo.checked));
+  }
+  if (ipChkTouchUndoRedo) {
+    ipChkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
+    ipChkTouchUndoRedo.addEventListener('change', () => syncTouchUndoRedo(ipChkTouchUndoRedo.checked));
   }
 
   const chkTouchEyedropper = document.getElementById('ui-chk-touch-eyedropper');
+  const ipChkTouchEyedropper = document.getElementById('ip-chk-touch-eyedropper');
   host.enableTouchEyedropper = localStorage.getItem('esenho_touch_eyedropper') !== '0';
+  const syncTouchEyedropper = (val) => {
+    host.enableTouchEyedropper = !!val;
+    if (chkTouchEyedropper) chkTouchEyedropper.checked = host.enableTouchEyedropper;
+    if (ipChkTouchEyedropper) ipChkTouchEyedropper.checked = host.enableTouchEyedropper;
+    localStorage.setItem('esenho_touch_eyedropper', host.enableTouchEyedropper ? '1' : '0');
+  };
   if (chkTouchEyedropper) {
     chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
-    chkTouchEyedropper.addEventListener('change', () => {
-      host.enableTouchEyedropper = chkTouchEyedropper.checked;
-      localStorage.setItem('esenho_touch_eyedropper', host.enableTouchEyedropper ? '1' : '0');
-    });
+    chkTouchEyedropper.addEventListener('change', () => syncTouchEyedropper(chkTouchEyedropper.checked));
+  }
+  if (ipChkTouchEyedropper) {
+    ipChkTouchEyedropper.checked = !!host.enableTouchEyedropper;
+    ipChkTouchEyedropper.addEventListener('change', () => syncTouchEyedropper(ipChkTouchEyedropper.checked));
   }
 
   // Max undo history limit
   const sliderMaxUndo = document.getElementById('ui-slider-max-undo');
   const valMaxUndo = document.getElementById('ui-val-max-undo');
+  const ipSliderMaxUndo = document.getElementById('ip-slider-max-undo');
+  const ipValMaxUndo = document.getElementById('ip-val-max-undo');
   const savedMaxUndo = parseInt(localStorage.getItem('esenho_max_undo_steps'), 10);
   if (!isNaN(savedMaxUndo) && savedMaxUndo >= 0) {
     host.maxUndoSteps = savedMaxUndo;
   } else {
     host.maxUndoSteps = (host.maxUndoSteps !== undefined) ? host.maxUndoSteps : 25;
   }
+
+  const syncMaxUndo = (val) => {
+    if (val >= 0) {
+      host.maxUndoSteps = val;
+      if (host.undoStack && val > 0) {
+        while (host.undoStack.length > host.maxUndoSteps) {
+          host.undoStack.shift();
+        }
+      }
+      const labelText = val === 0 ? 'Unlimited (∞)' : `${val} steps`;
+      if (sliderMaxUndo) sliderMaxUndo.value = val;
+      if (valMaxUndo) valMaxUndo.textContent = labelText;
+      if (ipSliderMaxUndo) ipSliderMaxUndo.value = val;
+      if (ipValMaxUndo) ipValMaxUndo.textContent = labelText;
+      localStorage.setItem('esenho_max_undo_steps', val.toString());
+    }
+  };
+
+  const initialUndoLabel = host.maxUndoSteps === 0 ? 'Unlimited (∞)' : `${host.maxUndoSteps} steps`;
   if (sliderMaxUndo) {
     sliderMaxUndo.value = host.maxUndoSteps;
-    if (valMaxUndo) {
-      valMaxUndo.textContent = host.maxUndoSteps === 0 ? 'Unlimited (∞)' : `${sliderMaxUndo.value} steps`;
-    }
-    sliderMaxUndo.addEventListener('input', () => {
-      const val = parseInt(sliderMaxUndo.value, 10);
-      if (val >= 0) {
-        host.maxUndoSteps = val;
-        if (host.undoStack && val > 0) {
-          while (host.undoStack.length > host.maxUndoSteps) {
-            host.undoStack.shift();
-          }
-        }
-        if (valMaxUndo) {
-          valMaxUndo.textContent = val === 0 ? 'Unlimited (∞)' : `${val} steps`;
-        }
-        localStorage.setItem('esenho_max_undo_steps', val.toString());
-      }
-    });
+    if (valMaxUndo) valMaxUndo.textContent = initialUndoLabel;
+    sliderMaxUndo.addEventListener('input', () => syncMaxUndo(parseInt(sliderMaxUndo.value, 10)));
+  }
+  if (ipSliderMaxUndo) {
+    ipSliderMaxUndo.value = host.maxUndoSteps;
+    if (ipValMaxUndo) ipValMaxUndo.textContent = initialUndoLabel;
+    ipSliderMaxUndo.addEventListener('input', () => syncMaxUndo(parseInt(ipSliderMaxUndo.value, 10)));
   }
 
   // Floating toolbar visibility & scale
