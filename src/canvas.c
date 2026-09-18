@@ -1128,13 +1128,34 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             uint32_t shape_a = 255;
             if (!is_builtin_circle && !is_builtin_square) {
                 if (stex->pixels && stex->width > 0 && stex->height > 0) {
-                    int sx = ((u + r) * (stex->width - 1)) / (2 * r);
-                    int sy = ((v_scaled + r) * (stex->height - 1)) / (2 * r);
-                    if (sx >= 0 && sx < stex->width && sy >= 0 && sy < stex->height) {
-                        uint32_t sp = stex->pixels[sy * stex->width + sx];
-                        shape_a = (sp >> 24) & 0xFF;
+                    if (brush_config.subpixel && stex->width > 1 && stex->height > 1 && r > 0) {
+                        int fx_256 = ((u + r) * (stex->width - 1) * 256) / (2 * r);
+                        int fy_256 = ((v_scaled + r) * (stex->height - 1) * 256) / (2 * r);
+                        int x0 = fx_256 >> 8, y0 = fy_256 >> 8;
+                        int x1 = x0 + 1, y1 = y0 + 1;
+                        int wx = fx_256 & 0xFF, wy = fy_256 & 0xFF;
+                        if (x0 >= 0 && x1 < stex->width && y0 >= 0 && y1 < stex->height) {
+                            uint32_t a00 = (stex->pixels[y0 * stex->width + x0] >> 24) & 0xFF;
+                            uint32_t a10 = (stex->pixels[y0 * stex->width + x1] >> 24) & 0xFF;
+                            uint32_t a01 = (stex->pixels[y1 * stex->width + x0] >> 24) & 0xFF;
+                            uint32_t a11 = (stex->pixels[y1 * stex->width + x1] >> 24) & 0xFF;
+                            uint32_t a_top = a00 * (256 - wx) + a10 * wx;
+                            uint32_t a_bot = a01 * (256 - wx) + a11 * wx;
+                            shape_a = (a_top * (256 - wy) + a_bot * wy) >> 16;
+                        } else if (x0 >= 0 && x0 < stex->width && y0 >= 0 && y0 < stex->height) {
+                            shape_a = (stex->pixels[y0 * stex->width + x0] >> 24) & 0xFF;
+                        } else {
+                            shape_a = 0;
+                        }
                     } else {
-                        shape_a = 0;
+                        int sx = ((u + r) * (stex->width - 1)) / (2 * r);
+                        int sy = ((v_scaled + r) * (stex->height - 1)) / (2 * r);
+                        if (sx >= 0 && sx < stex->width && sy >= 0 && sy < stex->height) {
+                            uint32_t sp = stex->pixels[sy * stex->width + sx];
+                            shape_a = (sp >> 24) & 0xFF;
+                        } else {
+                            shape_a = 0;
+                        }
                     }
                 }
             }
@@ -1152,13 +1173,14 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (shape_a == 0) continue;
             }
 
-            if (brush_config.subpixel) {
-                int dist = w_isqrt(dist_sq);
-                if (dist >= r - 1) {
-                    int edge = (r * 255 - dist * 255);
-                    if (edge < 0) edge = 0;
-                    if (edge > 255) edge = 255;
-                    shape_a = (shape_a * (uint32_t)edge) / 255;
+            if (brush_config.subpixel && !is_builtin_square) {
+                int dist_256 = w_isqrt64((uint64_t)dist_sq << 16);
+                int r_256 = r << 8;
+                if (dist_256 >= r_256 - 256) {
+                    int coverage = r_256 - dist_256;
+                    if (coverage < 0) coverage = 0;
+                    if (coverage > 255) coverage = 255;
+                    shape_a = (shape_a * (uint32_t)coverage) / 255;
                     if (shape_a == 0) continue;
                 }
             }

@@ -172,6 +172,23 @@ static inline int w_isqrt(int val) {
     return c;
 }
 
+/** 64-bit integer square root for subpixel fixed-point precision */
+static inline int w_isqrt64(uint64_t val) {
+    if (val == 0) return 0;
+    uint64_t x = val, c = 0, d = (uint64_t)1 << 62;
+    while (d > x) d >>= 2;
+    while (d != 0) {
+        if (x >= c + d) {
+            x -= c + d;
+            c = (c >> 1) + d;
+        } else {
+            c >>= 1;
+        }
+        d >>= 2;
+    }
+    return (int)c;
+}
+
 /**
  * Fixed-point sine/cosine approximation (scaled by 1024)
  * Angle is in degrees (0..359)
