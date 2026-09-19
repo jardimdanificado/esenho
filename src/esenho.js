@@ -6270,8 +6270,10 @@ class EsenhoScreenHost {
         this.strokeHistory = [{ x: prev_x, y: prev_y }];
       }
 
-      // Responsive Exponential Moving Average: smooth 1..100 maps factor from 0.90 down to 0.08
-      const factor = 1.0 - (smooth / 100) * 0.92;
+      // Responsive Exponential Moving Average with progressive power curve:
+      // smooth 1..100 maps factor smoothly from 0.95 down to 0.015 (subtle jitter removal at 10-25%, solid stabilization at 35-60%, heavy streamline at 70-100%)
+      const s = smooth / 100;
+      const factor = Math.max(0.015, Math.pow(1.0 - s * 0.96, 2.2));
       const targetX = this.strokeSmoothX + (x - this.strokeSmoothX) * factor;
       const targetY = this.strokeSmoothY + (y - this.strokeSmoothY) * factor;
 
@@ -6315,13 +6317,10 @@ class EsenhoScreenHost {
     }
 
     if (state === 2) { // STROKE_END
-      // Catch up to final release coordinate
-      if (this.strokeSmoothX !== null && this.strokeSmoothX !== undefined) {
-        if (Math.hypot(x - this.strokeSmoothX, y - this.strokeSmoothY) >= 1) {
-          invokeStroke(1, x, y, this.strokeSmoothX, this.strokeSmoothY);
-        }
-      }
-      invokeStroke(2, x, y, x, y);
+      // Finalize cleanly at the smoothed position without airborne snap jitter
+      const finalX = (this.strokeSmoothX !== null && this.strokeSmoothX !== undefined) ? this.strokeSmoothX : x;
+      const finalY = (this.strokeSmoothY !== null && this.strokeSmoothY !== undefined) ? this.strokeSmoothY : y;
+      invokeStroke(2, finalX, finalY, finalX, finalY);
       this.strokeSmoothX = null;
       this.strokeSmoothY = null;
       this.strokeHistory = null;
