@@ -7415,8 +7415,9 @@ async function main() {
     const treeStructure = host.layerTree ? JSON.stringify(host.layerTree) : '';
     const currentTreeSig = `${count}|${orderCount}|${wasmOrderStr}|${layerProps.join(';')}|${groupProps.join(';')}|${treeStructure}`;
 
+    const isAnyContainerEmpty = layerContainers.some(c => c.children.length === 0);
     if (layerContainers.length > 0) {
-      if (currentTreeSig === lastLayerTreeSig) {
+      if (currentTreeSig === lastLayerTreeSig && !isAnyContainerEmpty) {
         // Fast update without DOM destruction
         layerContainers.forEach(container => {
           container.querySelectorAll('.ui-layer-row').forEach(row => {
@@ -8057,10 +8058,11 @@ async function main() {
       for (const rootNode of (host.layerTree || [])) {
         renderTreeNode(rootNode, 0, null);
       }
-        layerContainers.forEach(container => renderLayerTreeToContainer(container));
-      }
-    }
+    };
+
+    layerContainers.forEach(container => renderLayerTreeToContainer(container));
   }
+}
 
     if (chkPixelGrid) {
       chkPixelGrid.checked = !!host.showPixelGrid;
@@ -8095,7 +8097,13 @@ async function main() {
       if (!el) return;
       const wasActive = el.classList.contains('active');
       closeAllSheets();
-      if (!wasActive) el.classList.add('active');
+      if (!wasActive) {
+        el.classList.add('active');
+        if (id === 'sheet-layers') {
+          lastLayerTreeSig = '';
+        }
+        syncUiFromHost();
+      }
       triggerHaptic(12);
     };
 
