@@ -1469,6 +1469,17 @@ async function run() {
   host.executeCommand('set action_mode draw');
   if (host.actionMode !== 'draw') throw new Error(`set action_mode draw failed, got ${host.actionMode}`);
 
+  // Test Rect/Ellipse Erase
+  host.executeCommand('clear');
+  host.executeCommand('draw rect 0 0 100 100 #ff0000ff');
+  host.executeCommand('set action_mode erase');
+  host.executeCommand('set tool rect');
+  if (host.actionMode !== 'erase') throw new Error('set tool rect should not reset actionMode');
+  if (host.currentTool !== 'rect') throw new Error(`expected tool rect, got ${host.currentTool}`);
+  // Test host.isPixelClipped
+  if (host.isPixelClipped(50, 50)) throw new Error('isPixelClipped should return false when no active selection');
+
+
   // Test Filter Parameterization (all filters with custom p1 and p2)
   host.executeCommand('clear');
   host.executeCommand('draw rect 50 50 100 100 #ff0000ff');

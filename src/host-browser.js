@@ -921,10 +921,29 @@ async function main() {
 
       if (isSelect) {
         host.setSelection(rx, ry, rw, rh);
+      } else if (isErase) {
+        host.pushUndoSnapshot('erase rect');
+        const cw = host.canvasActor.exports.get_canvas_width();
+        const ch = host.canvasActor.exports.get_canvas_height();
+        const pixPtr = host.canvasActor.exports.get_active_layer_pixels ? host.canvasActor.exports.get_active_layer_pixels() : 0;
+        if (pixPtr && cw > 0 && ch > 0) {
+          const pixels = new Uint32Array(host.canvasActor.memory.buffer, pixPtr, cw * ch);
+          const x0 = Math.max(0, Math.min(cw, rx));
+          const y0 = Math.max(0, Math.min(ch, ry));
+          const x1 = Math.max(0, Math.min(cw, rx + rw));
+          const y1 = Math.max(0, Math.min(ch, ry + rh));
+          for (let y = y0; y < y1; y++) {
+            const rowOffset = y * cw;
+            for (let x = x0; x < x1; x++) {
+              if (typeof host.isPixelClipped === 'function' && host.isPixelClipped(x, y)) continue;
+              pixels[rowOffset + x] = 0;
+            }
+          }
+          if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
+        }
       } else {
-        host.pushUndoSnapshot(isErase ? 'erase rect' : 'shape rect');
-        const drawCol = isErase ? 0x00000000 : col;
-        host.canvasActor.exports.w_draw_rect(rx, ry, rw, rh, drawCol);
+        host.pushUndoSnapshot('shape rect');
+        host.canvasActor.exports.w_draw_rect(rx, ry, rw, rh, col);
         if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
       }
     } else if (mode === 8) { // Filled Ellipse
@@ -936,10 +955,37 @@ async function main() {
 
       if (isSelect) {
         host.setEllipseSelection(cx, cy, rx, ry);
+      } else if (isErase) {
+        host.pushUndoSnapshot('erase ellipse');
+        const cw = host.canvasActor.exports.get_canvas_width();
+        const ch = host.canvasActor.exports.get_canvas_height();
+        const pixPtr = host.canvasActor.exports.get_active_layer_pixels ? host.canvasActor.exports.get_active_layer_pixels() : 0;
+        if (pixPtr && cw > 0 && ch > 0) {
+          const pixels = new Uint32Array(host.canvasActor.memory.buffer, pixPtr, cw * ch);
+          const x0 = Math.max(0, Math.floor(cx - rx));
+          const y0 = Math.max(0, Math.floor(cy - ry));
+          const x1 = Math.min(cw, Math.ceil(cx + rx));
+          const y1 = Math.min(ch, Math.ceil(cy + ry));
+          const rx2 = rx * rx;
+          const ry2 = ry * ry;
+          const limit = rx2 * ry2;
+          for (let y = y0; y < y1; y++) {
+            const dy = y - cy;
+            const dy2_rx2 = dy * dy * rx2;
+            const rowOffset = y * cw;
+            for (let x = x0; x < x1; x++) {
+              const dx = x - cx;
+              if (dx * dx * ry2 + dy2_rx2 <= limit) {
+                if (typeof host.isPixelClipped === 'function' && host.isPixelClipped(x, y)) continue;
+                pixels[rowOffset + x] = 0;
+              }
+            }
+          }
+          if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
+        }
       } else {
-        host.pushUndoSnapshot(isErase ? 'erase ellipse' : 'shape ellipse');
-        const drawCol = isErase ? 0x00000000 : col;
-        host.canvasActor.exports.w_draw_ellipse(Math.round(cx), Math.round(cy), Math.round(rx), Math.round(ry), drawCol);
+        host.pushUndoSnapshot('shape ellipse');
+        host.canvasActor.exports.w_draw_ellipse(Math.round(cx), Math.round(cy), Math.round(rx), Math.round(ry), col);
         if (host.canvasActor.exports.force_composite) host.canvasActor.exports.force_composite();
       }
     }
@@ -7288,13 +7334,26 @@ async function main() {
       xbar.style.display = (host.floatingTransform && host.floatingTransform.corners) ? 'flex' : 'none';
     }
 
-    // A. Tools
+    // A. Tools & Selection Cards
     const mode = host.brushParams ? host.brushParams.mode : 0;
-    const modeNames = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker', 'line', 'rect', 'ellipse'];
-    const curToolName = modeNames[mode] || 'brush';
+    const modeNames = ['brush', 'smudge', 'blend', 'fill', 'lasso_fill', 'picker', 'line', 'rect', 'ellipse', 'select_rect', 'lasso_select', 'magic_wand'];
+    const curToolName = (host.actionMode === 'select' && typeof host.currentTool === 'string' && (host.currentTool.startsWith('select') || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand'))
+      ? host.currentTool
+      : (modeNames[mode] || 'brush');
 
     document.querySelectorAll('.tool-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tool === curToolName);
+    });
+
+    document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
+      const t = card.dataset.tool;
+      let active = false;
+      if (host.actionMode === 'select') {
+        active = (t === curToolName) || (t === 'brush_select' && curToolName === 'brush') || (t === 'select_rect' && curToolName === 'select');
+      } else {
+        active = (t === curToolName);
+      }
+      card.classList.toggle('active', active);
     });
 
     // Sync Bottom Dock Mode & Tool Buttons
@@ -7306,7 +7365,7 @@ async function main() {
     });
 
     const curSelMode = host.selectionMode || 'replace';
-    document.querySelectorAll('.sel-mode-btn').forEach(btn => {
+    document.querySelectorAll('.sel-mode-btn, #sheet-tools .ip-selmode-card, .ip-selbar-mode').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
     });
 
@@ -8900,12 +8959,15 @@ async function main() {
     // 5. Action Modes Cards in Sheet
     document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(card => {
       card.addEventListener('click', () => {
-        document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
         const actMode = card.dataset.actionmode || 'draw';
-        host.actionMode = actMode;
+        host.setActionMode(actMode);
+        if (actMode !== 'select') {
+          if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
+            host.currentTool = 'brush';
+            host.setBrushParam('mode', 0);
+          }
+        }
         syncUiFromHost();
-        closeAllSheets();
         triggerHaptic(12);
       });
     });
@@ -8913,8 +8975,6 @@ async function main() {
     // Selection Modes in Sheet
     document.querySelectorAll('#sheet-tools .ip-selmode-card').forEach(card => {
       card.addEventListener('click', () => {
-        document.querySelectorAll('#sheet-tools .ip-selmode-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
         const sm = card.dataset.selmode || 'replace';
         host.setSelectionMode(sm);
         syncUiFromHost();
@@ -8961,6 +9021,7 @@ async function main() {
         host.actionMode = 'draw';
         if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
           host.currentTool = 'brush';
+          host.setBrushParam('mode', 0);
         }
         syncUiFromHost();
         triggerHaptic(15);
@@ -8987,51 +9048,58 @@ async function main() {
     // Tools Sheet Cards
     document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
       card.addEventListener('click', () => {
-        document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(c => c.classList.remove('active'));
-        card.classList.add('active');
         const tool = card.dataset.tool;
         if (tool === 'transform') {
           host.startTransform();
         } else if (tool === 'select_rect' || tool === 'select') {
+          host.setActionMode('select');
           host.currentTool = 'select_rect';
-          host.actionMode = 'select';
+          host.setBrushParam('mode', 9);
         } else if (tool === 'lasso_select') {
+          host.setActionMode('select');
           host.currentTool = 'lasso_select';
-          host.actionMode = 'select';
+          host.setBrushParam('mode', 10);
         } else if (tool === 'magic_wand') {
+          host.setActionMode('select');
           host.currentTool = 'magic_wand';
-          host.actionMode = 'select';
+          host.setBrushParam('mode', 11);
         } else if (tool === 'brush_select') {
+          host.setActionMode('select');
           host.currentTool = 'brush';
-          host.actionMode = 'select';
+          host.setBrushParam('mode', 0);
         } else {
-          runCmd(`set mode ${tool}`);
+          if (host.actionMode === 'select') {
+            host.setActionMode('draw');
+          }
+          const modeMap = { brush: 0, smudge: 1, blend: 2, fill: 3, lasso_fill: 4, picker: 5, line: 6, rect: 7, ellipse: 8 };
+          const modeIdx = modeMap[tool] !== undefined ? modeMap[tool] : 0;
+          host.currentTool = tool;
+          host.setBrushParam('mode', modeIdx);
         }
         syncUiFromHost();
-        closeAllSheets();
         triggerHaptic(12);
       });
     });
 
     // Selection & Transform buttons
     const btnIpCopy = document.getElementById('btn-ip-copy');
-    if (btnIpCopy) btnIpCopy.addEventListener('click', () => { runCmd('copy'); closeAllSheets(); });
+    if (btnIpCopy) btnIpCopy.addEventListener('click', () => { runCmd('copy'); });
     const btnIpCut = document.getElementById('btn-ip-cut');
-    if (btnIpCut) btnIpCut.addEventListener('click', () => { runCmd('cut'); closeAllSheets(); });
+    if (btnIpCut) btnIpCut.addEventListener('click', () => { runCmd('cut'); });
     const btnIpPaste = document.getElementById('btn-ip-paste');
-    if (btnIpPaste) btnIpPaste.addEventListener('click', () => { runCmd('paste'); closeAllSheets(); });
+    if (btnIpPaste) btnIpPaste.addEventListener('click', () => { runCmd('paste'); });
     const btnIpDeselect = document.getElementById('btn-ip-deselect');
-    if (btnIpDeselect) btnIpDeselect.addEventListener('click', () => { runCmd('deselect'); closeAllSheets(); });
+    if (btnIpDeselect) btnIpDeselect.addEventListener('click', () => { runCmd('deselect'); });
     const btnIpSelectAll = document.getElementById('btn-ip-select-all');
-    if (btnIpSelectAll) btnIpSelectAll.addEventListener('click', () => { runCmd('select all'); closeAllSheets(); });
+    if (btnIpSelectAll) btnIpSelectAll.addEventListener('click', () => { runCmd('select all'); });
     const btnIpInvertSel = document.getElementById('btn-ip-invert-sel');
-    if (btnIpInvertSel) btnIpInvertSel.addEventListener('click', () => { runCmd('select invert'); closeAllSheets(); });
+    if (btnIpInvertSel) btnIpInvertSel.addEventListener('click', () => { runCmd('select invert'); });
     const btnIpTransform = document.getElementById('btn-ip-transform');
-    if (btnIpTransform) btnIpTransform.addEventListener('click', () => { runCmd('transform'); closeAllSheets(); });
+    if (btnIpTransform) btnIpTransform.addEventListener('click', () => { runCmd('transform'); });
     const btnIpXformApply = document.getElementById('btn-ip-xform-apply');
-    if (btnIpXformApply) btnIpXformApply.addEventListener('click', () => { runCmd('transform apply'); closeAllSheets(); });
+    if (btnIpXformApply) btnIpXformApply.addEventListener('click', () => { runCmd('transform apply'); });
     const btnIpXformCancel = document.getElementById('btn-ip-xform-cancel');
-    if (btnIpXformCancel) btnIpXformCancel.addEventListener('click', () => { runCmd('transform cancel'); closeAllSheets(); });
+    if (btnIpXformCancel) btnIpXformCancel.addEventListener('click', () => { runCmd('transform cancel'); });
 
     // Floating On-Canvas Transform Bar
     const btnIpXbarApply = document.getElementById('btn-ip-xbar-apply');
