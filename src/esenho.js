@@ -172,7 +172,12 @@ const PARAM_IDS = {
   stylus_tilt: 41,
   buildup: 42,
   accumulate: 42,
-  build_up: 42
+  build_up: 42,
+  stabilizer_mode: 43,
+  smooth_mode: 43,
+  string_length: 44,
+  lazy_radius: 44,
+  pulled_string: 44
 };
 
 /**
@@ -2750,6 +2755,11 @@ const COMMAND_RULES = [
   { pat: "dual_spacing $val", run: (m, host) => handleDirectParam(host, "dual_spacing", m.val) },
   { pat: "symmetry $val", run: (m, host) => handleDirectParam(host, "symmetry", m.val) },
   { pat: "mirror $val", run: (m, host) => handleDirectParam(host, "symmetry", m.val) },
+  { pat: "stabilizer_mode $val", run: (m, host) => handleDirectParam(host, "stabilizer_mode", m.val) },
+  { pat: "smooth_mode $val", run: (m, host) => handleDirectParam(host, "stabilizer_mode", m.val) },
+  { pat: "string_length $val", run: (m, host) => handleDirectParam(host, "string_length", m.val) },
+  { pat: "lazy_radius $val", run: (m, host) => handleDirectParam(host, "string_length", m.val) },
+  { pat: "pulled_string $val", run: (m, host) => handleDirectParam(host, "string_length", m.val) },
   {
     pat: "set grid $val",
     run: (m, host) => {
@@ -2786,6 +2796,25 @@ const COMMAND_RULES = [
       host.sendConsoleLog(`brush outline ${host.showBrushOutline ? 'enabled' : 'disabled'}`);
     }
   },
+  {
+    pat: "set viewport_filter $val",
+    run: (m, host) => {
+      const v = m.val.toLowerCase();
+      const on = (v === 'linear' || v === 'bilinear' || v === 'smooth' || v === 'on' || v === '1' || v === 'true');
+      host.setViewportFiltering(on);
+    }
+  },
+  { pat: "set viewport filter $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set viewport_filter $val").run(m, host) },
+  { pat: "set filter_mode $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set viewport_filter $val").run(m, host) },
+  { pat: "viewport_filter $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set viewport_filter $val").run(m, host) },
+  { pat: "viewport filter $val", run: (m, host) => COMMAND_RULES.find(r => r.pat === "set viewport_filter $val").run(m, host) },
+  {
+    pat: "toggle viewport_filter",
+    run: (m, host) => {
+      host.setViewportFiltering(!host.viewportFiltering);
+    }
+  },
+  { pat: "toggle viewport filter", run: (m, host) => COMMAND_RULES.find(r => r.pat === "toggle viewport_filter").run(m, host) },
   {
     pat: "set touch_undo $val",
     run: (m, host) => {
@@ -3489,6 +3518,50 @@ const COMMAND_RULES = [
       host.cancelFloatTransform();
     }
   },
+  {
+    pat: "transform rotate $angle",
+    run: (m, host) => {
+      const deg = parseFloat(m.angle);
+      if (isNaN(deg)) return;
+      if (host.rotateFloatTransform(deg * Math.PI / 180)) {
+        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
+        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+      }
+    }
+  },
+  {
+    pat: "transform flip h",
+    run: (m, host) => {
+      if (host.flipFloatTransformH()) {
+        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
+        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+      }
+    }
+  },
+  { pat: "transform flip horizontal", run: (m, host) => COMMAND_RULES.find(r => r.pat === "transform flip h").run(m, host) },
+  {
+    pat: "transform flip v",
+    run: (m, host) => {
+      if (host.flipFloatTransformV()) {
+        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
+        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+      }
+    }
+  },
+  { pat: "transform flip vertical", run: (m, host) => COMMAND_RULES.find(r => r.pat === "transform flip v").run(m, host) },
+  {
+    pat: "transform reset",
+    run: (m, host) => {
+      if (host.resetFloatTransform()) {
+        if (typeof bakeFtPreview === 'function') bakeFtPreview();
+        else if (host.canvasActor?.exports?.force_composite) host.canvasActor.exports.force_composite();
+        if (typeof markCanvasDirty === 'function') markCanvasDirty();
+      }
+    }
+  },
 
   // Cache Reset
   {
@@ -3658,7 +3731,9 @@ class EsenhoScreenHost {
       pressure_size: 1,
       pressure_flow: 1,
       tilt_angle: 1,
-      buildup: 0
+      buildup: 0,
+      stabilizer_mode: 0,
+      string_length: 30
     };
 
     // Canvas Viewport Flip
@@ -3673,6 +3748,7 @@ class EsenhoScreenHost {
     this.selectionMode = 'replace'; // 'replace' | 'add' | 'sub' | 'intersect'
     this.wandAdjacent = true; // default: contiguous / adjacent pixels enabled
     this.actionMode = 'draw'; // 'draw' | 'erase' | 'select' (global action mode)
+    this.viewportFiltering = false; // false = Nearest (Pixel Art / Crisp), true = Bilinear / Smooth
 
     // Undo / Redo History
     this.undoStack = [];
@@ -5052,6 +5128,92 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Rotates active float transform quad by angleRad around its centroid.
+   */
+  rotateFloatTransform(angleRad) {
+    const ft = this.floatingTransform;
+    if (!ft || !ft.corners) return false;
+    const c = ft.corners;
+    const cx = (c[0].x + c[1].x + c[2].x + c[3].x) / 4;
+    const cy = (c[0].y + c[1].y + c[2].y + c[3].y) / 4;
+    const cosA = Math.cos(angleRad);
+    const sinA = Math.sin(angleRad);
+    for (let i = 0; i < 4; i++) {
+      const dx = c[i].x - cx;
+      const dy = c[i].y - cy;
+      c[i].x = cx + dx * cosA - dy * sinA;
+      c[i].y = cy + dx * sinA + dy * cosA;
+    }
+    this.sendConsoleLog(`transform rotated ${(angleRad * 180 / Math.PI).toFixed(1)}°`);
+    return true;
+  }
+
+  /**
+   * Flips active float transform quad horizontally.
+   */
+  flipFloatTransformH() {
+    const ft = this.floatingTransform;
+    if (!ft || !ft.corners) return false;
+    const c = ft.corners;
+    const orig = c.map(pt => ({ x: pt.x, y: pt.y }));
+    c[0] = { x: orig[1].x, y: orig[1].y };
+    c[1] = { x: orig[0].x, y: orig[0].y };
+    c[2] = { x: orig[3].x, y: orig[3].y };
+    c[3] = { x: orig[2].x, y: orig[2].y };
+    this.sendConsoleLog('transform flipped horizontal');
+    return true;
+  }
+
+  /**
+   * Flips active float transform quad vertically.
+   */
+  flipFloatTransformV() {
+    const ft = this.floatingTransform;
+    if (!ft || !ft.corners) return false;
+    const c = ft.corners;
+    const orig = c.map(pt => ({ x: pt.x, y: pt.y }));
+    c[0] = { x: orig[3].x, y: orig[3].y };
+    c[1] = { x: orig[2].x, y: orig[2].y };
+    c[2] = { x: orig[1].x, y: orig[1].y };
+    c[3] = { x: orig[0].x, y: orig[0].y };
+    this.sendConsoleLog('transform flipped vertical');
+    return true;
+  }
+
+  /**
+   * Resets active float transform quad to original bounding box.
+   */
+  resetFloatTransform() {
+    const ft = this.floatingTransform;
+    if (!ft || !ft.corners) return false;
+    const ox = ft.originX, oy = ft.originY, w = ft.width, h = ft.height;
+    ft.corners = [
+      { x: ox,     y: oy     },
+      { x: ox + w, y: oy     },
+      { x: ox + w, y: oy + h },
+      { x: ox,     y: oy + h }
+    ];
+    this.sendConsoleLog('transform reset');
+    return true;
+  }
+
+  /**
+   * Configures optional bilinear (smooth) vs nearest-neighbor (crisp) viewport filtering.
+   */
+  setViewportFiltering(enabled) {
+    this.viewportFiltering = Boolean(enabled);
+    if (this.gpuRenderer && typeof this.gpuRenderer.setFilterMode === 'function') {
+      this.gpuRenderer.setFilterMode(this.viewportFiltering);
+    }
+    if (typeof localStorage !== 'undefined') {
+      try { localStorage.setItem('esenho_viewport_filter', this.viewportFiltering ? '1' : '0'); } catch (_) {}
+    }
+    this.sendConsoleLog(`viewport filtering: ${this.viewportFiltering ? 'bilinear (smooth)' : 'nearest (crisp)'}`);
+    if (typeof this.requestRender === 'function') this.requestRender();
+    else if (this.canvasActor?.exports?.force_composite) this.canvasActor.exports.force_composite();
+  }
+
+  /**
    * Pastes clipboard content onto active layer at (x, y).
    */
   pasteClipboard(dstX, dstY) {
@@ -5164,7 +5326,9 @@ class EsenhoScreenHost {
       pressure_size: 1,
       pressure_flow: 1,
       tilt_angle: 1,
-      buildup: 0
+      buildup: 0,
+      stabilizer_mode: 0,
+      string_length: 30
     };
     if (this.canvasActor && this.canvasActor.exports) {
       if (typeof this.canvasActor.exports.w_brush_reset === 'function') {
@@ -5773,7 +5937,13 @@ class EsenhoScreenHost {
         accumulate: 'buildup', build_up: 'buildup'
       };
       const canonKey = canonMap[key] || key;
-      this.brushParams[canonKey] = numericVal;
+      if (canonKey === 'stabilizer_mode') {
+        const strVal = String(val).toLowerCase().trim();
+        const modeNum = (strVal === '1' || strVal === 'pulled' || strVal === 'string' || strVal === 'leash') ? 1 : 0;
+        this.brushParams.stabilizer_mode = modeNum;
+      } else {
+        this.brushParams[canonKey] = numericVal;
+      }
       if (canonKey === 'texture_angle') this.brushParams.texture_rotate = numericVal;
     }
 
@@ -6210,9 +6380,11 @@ class EsenhoScreenHost {
     }
 
     if (isPulledString) {
-      const stringRadius = (this.brushParams.string_length !== undefined && this.brushParams.string_length > 0)
-        ? this.brushParams.string_length
-        : Math.max(5, (smooth || 20) * 1.5);
+      const stringRadius = (smooth > 0)
+        ? Math.max(5, smooth * 1.5)
+        : ((this.brushParams.string_length !== undefined && this.brushParams.string_length > 0)
+            ? this.brushParams.string_length
+            : 30);
 
       if (state === 0) { // STROKE_START
         this.pulledAnchor = { x, y };

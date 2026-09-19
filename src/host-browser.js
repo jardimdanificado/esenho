@@ -139,6 +139,9 @@ async function main() {
   const host = new EsenhoScreenHost();
   /* canvasRotation: radians, stored on host */
   host.canvasRotation = 0;
+  host.gpuRenderer = gpuRenderer;
+  host.viewportFiltering = localStorage.getItem('esenho_viewport_filter') === '1';
+  if (gpuRenderer) gpuRenderer.setFilterMode(host.viewportFiltering);
   host.renderMode = localStorage.getItem('esenho_render_mode') || 'gpu';
   host.render = () => {
     if (host.canvasActor && host.canvasActor.exports && typeof host.canvasActor.exports.w_render === 'function') {
@@ -991,7 +994,8 @@ async function main() {
       if (host.flipV) ctx.scale(1, -1);
       ctx.rotate(host.canvasRotation);
       if (!useGPU && offscreen) {
-        ctx.imageSmoothingEnabled = false;
+        ctx.imageSmoothingEnabled = !!host.viewportFiltering;
+        if (ctx.imageSmoothingEnabled) ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
       }
 
@@ -1029,10 +1033,12 @@ async function main() {
         const ax = host.pulledAnchor.x * host.zoom;
         const ay = host.pulledAnchor.y * host.zoom;
         const px = host.pulledCursor.x * host.zoom;
-        const py = host.pulledCursor.y * host.zoom;
-        const sRad = ((host.brushParams?.string_length !== undefined && host.brushParams.string_length > 0)
-          ? host.brushParams.string_length
-          : Math.max(5, (host.brushParams?.smoothing || 20) * 1.5)) * host.zoom;
+        const smoothVal = host.brushParams?.smoothing || 0;
+        const sRad = ((smoothVal > 0)
+          ? Math.max(5, smoothVal * 1.5)
+          : ((host.brushParams?.string_length !== undefined && host.brushParams.string_length > 0)
+              ? host.brushParams.string_length
+              : 30)) * host.zoom;
 
         // 1. Leash Line
         ctx.beginPath();
@@ -1384,8 +1390,10 @@ async function main() {
         ctx.stroke();
 
         // Center move crosshair
-        const cx = (c[0].x + c[1].x + c[2].x + c[3].x) / 4 * z;
-        const cy = (c[0].y + c[1].y + c[2].y + c[3].y) / 4 * z;
+        const cxDoc = (c[0].x + c[1].x + c[2].x + c[3].x) / 4;
+        const cyDoc = (c[0].y + c[1].y + c[2].y + c[3].y) / 4;
+        const cx = cxDoc * z;
+        const cy = cyDoc * z;
         ctx.setLineDash([]);
         ctx.strokeStyle = '#ebdbb2';
         ctx.lineWidth = 2;
@@ -1393,6 +1401,43 @@ async function main() {
         ctx.moveTo(cx - 8, cy); ctx.lineTo(cx + 8, cy);
         ctx.moveTo(cx, cy - 8); ctx.lineTo(cx, cy + 8);
         ctx.stroke();
+
+        // Rotation Stem & Knob above top edge midpoint
+        const topMid = { x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 };
+        let vx = topMid.x - cxDoc;
+        let vy = topMid.y - cyDoc;
+        let len = Math.hypot(vx, vy);
+        let nx = 0, ny = -1;
+        if (len > 1e-4) { nx = vx / len; ny = vy / len; }
+        const rotDistDoc = 24 / z;
+        const rxDoc = topMid.x + nx * rotDistDoc;
+        const ryDoc = topMid.y + ny * rotDistDoc;
+
+        // Stem line
+        ctx.beginPath();
+        ctx.moveTo(topMid.x * z, topMid.y * z);
+        ctx.lineTo(rxDoc * z, ryDoc * z);
+        ctx.strokeStyle = '#fabd2f';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Rotation handle circular knob
+        const rotPx = rxDoc * z;
+        const rotPy = ryDoc * z;
+        ctx.beginPath();
+        ctx.arc(rotPx, rotPy, 6.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fabd2f';
+        ctx.fill();
+        ctx.strokeStyle = '#1d2021';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(rotPx, rotPy, 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#1d2021';
+        ctx.fill();
 
         // Edge midpoint handles (cyan diamond) — skew: moves adjacent pair
         const edgeMids = [
@@ -1585,8 +1630,23 @@ async function main() {
     if (!ft || !ft.corners) return null;
     const z = host.zoom;
     const hs = isTouch ? 30 : 16; // hit radius px in screen space
-    // Corner handles: c0=tl, c1=tr, c2=br, c3=bl
     const c = ft.corners;
+
+    // Centroid
+    const cxDoc = (c[0].x + c[1].x + c[2].x + c[3].x) / 4;
+    const cyDoc = (c[0].y + c[1].y + c[2].y + c[3].y) / 4;
+
+    // Rotation handle above top edge midpoint
+    const topMid = { x: (c[0].x + c[1].x) / 2, y: (c[0].y + c[1].y) / 2 };
+    let vx = topMid.x - cxDoc;
+    let vy = topMid.y - cyDoc;
+    let len = Math.hypot(vx, vy);
+    let nx = 0, ny = -1;
+    if (len > 1e-4) { nx = vx / len; ny = vy / len; }
+    const rotDistDoc = 24 / z;
+    const rotHandle = { id: 'rot', x: topMid.x + nx * rotDistDoc, y: topMid.y + ny * rotDistDoc };
+
+    // Corner handles: c0=tl, c1=tr, c2=br, c3=bl
     const cornerHandles = [
       { id: 'c0', x: c[0].x, y: c[0].y },
       { id: 'c1', x: c[1].x, y: c[1].y },
@@ -1600,7 +1660,9 @@ async function main() {
       { id: 'e23', x: (c[2].x + c[3].x) / 2, y: (c[2].y + c[3].y) / 2 }, // bottom
       { id: 'e30', x: (c[3].x + c[0].x) / 2, y: (c[3].y + c[0].y) / 2 }, // left
     ];
-    for (const h of [...cornerHandles, ...edgeHandles]) {
+
+    // Priority: rot handle -> corner handles -> edge handles
+    for (const h of [rotHandle, ...cornerHandles, ...edgeHandles]) {
       const dx = (h.x - x) * z, dy = (h.y - y) * z;
       if (Math.abs(dx) < hs && Math.abs(dy) < hs) return h.id;
     }
@@ -1619,10 +1681,30 @@ async function main() {
     if (!ftDragging || !ftHandle || !ftDragStart || !ftDragOrigin) return;
     const ft = host.floatingTransform;
     if (!ft || !ftDragOrigin.corners) return;
-    const ddx = (sx - ftDragStart.sx) / host.zoom;
-    const ddy = (sy - ftDragStart.sy) / host.zoom;
+
+    // Use document coordinates: respects canvasRotation, zoom, pan, and flip!
+    const curDoc = screenToDoc(sx, sy);
+    const ddx = curDoc.x - ftDragStart.x;
+    const ddy = curDoc.y - ftDragStart.y;
     const oc = ftDragOrigin.corners;
-    if (ftHandle === 'move') {
+
+    if (ftHandle === 'rot') {
+      const cx = ftDragOrigin.cx;
+      const cy = ftDragOrigin.cy;
+      let angle = Math.atan2(curDoc.y - cy, curDoc.x - cx) - ftDragOrigin.startAngle;
+      if (host.shiftKey || (typeof window !== 'undefined' && window.event && window.event.shiftKey)) {
+        const step = Math.PI / 12; // 15-degree snap
+        angle = Math.round(angle / step) * step;
+      }
+      const cosA = Math.cos(angle);
+      const sinA = Math.sin(angle);
+      for (let i = 0; i < 4; i++) {
+        const dx = oc[i].x - cx;
+        const dy = oc[i].y - cy;
+        ft.corners[i].x = cx + dx * cosA - dy * sinA;
+        ft.corners[i].y = cy + dx * sinA + dy * cosA;
+      }
+    } else if (ftHandle === 'move') {
       for (let i = 0; i < 4; i++) {
         ft.corners[i].x = oc[i].x + ddx;
         ft.corners[i].y = oc[i].y + ddy;
@@ -1724,8 +1806,15 @@ async function main() {
           ftHandle = handle;
           ftDragStart = { sx, sy, x, y };
           const ft = host.floatingTransform;
-          // Deep copy corners for drag origin
-          ftDragOrigin = { corners: ft.corners.map(c => ({ x: c.x, y: c.y })) };
+          const oc = ft.corners.map(c => ({ x: c.x, y: c.y }));
+          const cx = (oc[0].x + oc[1].x + oc[2].x + oc[3].x) / 4;
+          const cy = (oc[0].y + oc[1].y + oc[2].y + oc[3].y) / 4;
+          ftDragOrigin = {
+            corners: oc,
+            cx,
+            cy,
+            startAngle: Math.atan2(y - cy, x - cx)
+          };
           e.preventDefault();
           return;
         }
@@ -2041,7 +2130,15 @@ async function main() {
           ftHandle = handle;
           ftDragStart = { sx, sy, x, y };
           const ft = host.floatingTransform;
-          ftDragOrigin = { corners: ft.corners.map(c => ({ x: c.x, y: c.y })) };
+          const oc = ft.corners.map(c => ({ x: c.x, y: c.y }));
+          const cx = (oc[0].x + oc[1].x + oc[2].x + oc[3].x) / 4;
+          const cy = (oc[0].y + oc[1].y + oc[2].y + oc[3].y) / 4;
+          ftDragOrigin = {
+            corners: oc,
+            cx,
+            cy,
+            startAngle: Math.atan2(y - cy, x - cx)
+          };
           clearPendingTouch();
           triggerHaptic(12);
           return;
@@ -4259,8 +4356,8 @@ async function main() {
     flow: { type: 'dial', name: 'Flow', min: 1, max: 100, step: 1, suffix: '%', cmd: 'brush flow', getter: bp => bp.flow, chips: [10, 25, 50, 75, 100] },
     hardness: { type: 'dial', name: 'Hardness', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush hardness', getter: bp => bp.hardness, chips: [0, 25, 50, 75, 100] },
     spacing: { type: 'dial', name: 'Spacing', min: 1, max: 200, step: 1, suffix: '%', cmd: 'set spacing', getter: bp => bp.spacing, chips: [1, 5, 10, 25, 50, 100] },
-    stabilization: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
-    smoothing: { type: 'dial', name: 'Stabilize', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
+    stabilization: { type: 'dial', name: 'Stabilization', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
+    smoothing: { type: 'dial', name: 'Stabilization', min: 0, max: 100, step: 1, suffix: '%', cmd: 'brush stabilize', getter: bp => (bp.stabilization !== undefined ? bp.stabilization : (bp.smoothing || 0)), chips: [0, 15, 30, 50, 80] },
     midpoint: { type: 'dial', name: 'Midpoint', min: 0, max: 100, step: 1, suffix: '%', cmd: 'set midpoint', getter: bp => (bp.midpoint !== undefined ? bp.midpoint : 50), chips: [10, 25, 50, 75, 90] },
     angle: { type: 'dial', name: 'Angle', min: 0, max: 359, step: 1, suffix: '°', cmd: 'set angle', getter: bp => bp.angle || 0, chips: [0, 45, 90, 135, 180, 270] },
     roundness: { type: 'dial', name: 'Roundness', min: 1, max: 100, step: 1, suffix: '%', cmd: 'set roundness', getter: bp => bp.roundness || 100, chips: [20, 35, 50, 75, 100] },
@@ -6720,6 +6817,25 @@ async function main() {
     ipChkPixelGrid.addEventListener('change', () => syncPixelGrid(ipChkPixelGrid.checked));
   }
 
+  const chkViewportFilter = document.getElementById('ui-chk-viewport-filter');
+  const ipChkViewportFilter = document.getElementById('ip-chk-viewport-filter');
+  host.viewportFiltering = localStorage.getItem('esenho_viewport_filter') === '1';
+  const syncViewportFilter = (val) => {
+    host.setViewportFiltering(val);
+    if (chkViewportFilter) chkViewportFilter.checked = host.viewportFiltering;
+    if (ipChkViewportFilter) ipChkViewportFilter.checked = host.viewportFiltering;
+    localStorage.setItem('esenho_viewport_filter', host.viewportFiltering ? '1' : '0');
+    markCanvasDirty();
+  };
+  if (chkViewportFilter) {
+    chkViewportFilter.checked = !!host.viewportFiltering;
+    chkViewportFilter.addEventListener('change', () => syncViewportFilter(chkViewportFilter.checked));
+  }
+  if (ipChkViewportFilter) {
+    ipChkViewportFilter.checked = !!host.viewportFiltering;
+    ipChkViewportFilter.addEventListener('change', () => syncViewportFilter(ipChkViewportFilter.checked));
+  }
+
   const chkBrushOutline = document.getElementById('ui-chk-brush-outline');
   const ipChkBrushOutline = document.getElementById('ip-chk-brush-outline');
   host.showBrushOutline = localStorage.getItem('esenho_brush_outline') !== '0';
@@ -8067,6 +8183,15 @@ async function main() {
     if (chkPixelGrid) {
       chkPixelGrid.checked = !!host.showPixelGrid;
     }
+    if (ipChkPixelGrid) {
+      ipChkPixelGrid.checked = !!host.showPixelGrid;
+    }
+    if (chkViewportFilter) {
+      chkViewportFilter.checked = !!host.viewportFiltering;
+    }
+    if (ipChkViewportFilter) {
+      ipChkViewportFilter.checked = !!host.viewportFiltering;
+    }
     if (chkBrushOutline) {
       chkBrushOutline.checked = !!host.showBrushOutline;
     }
@@ -8129,7 +8254,7 @@ async function main() {
       { id: 'roundness', label: 'Round', key: 'roundness', min: 1, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'angle', label: 'Angle', key: 'angle', min: 0, max: 360, isCurve: false, unit: '°', defaultOn: false },
       { id: 'spacing', label: 'Spac', key: 'spacing', min: 1, max: 200, isCurve: false, unit: '%', defaultOn: false },
-      { id: 'smoothing', label: 'Smth', key: 'smoothing', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
+      { id: 'smoothing', label: 'Stab', key: 'smoothing', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'string_length', label: 'String', key: 'string_length', min: 0, max: 200, isCurve: false, unit: 'px', defaultOn: false },
       { id: 'midpoint', label: 'MidPt', key: 'midpoint', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
       { id: 'velocity', label: 'Velo', key: 'velocity', min: 0, max: 100, isCurve: false, unit: '%', defaultOn: false },
@@ -8849,6 +8974,16 @@ async function main() {
     if (btnIpXbarApply) btnIpXbarApply.addEventListener('click', () => { runCmd('transform apply'); });
     const btnIpXbarCancel = document.getElementById('btn-ip-xbar-cancel');
     if (btnIpXbarCancel) btnIpXbarCancel.addEventListener('click', () => { runCmd('transform cancel'); });
+    const btnIpXbarRotCcw = document.getElementById('btn-ip-xbar-rot-ccw');
+    if (btnIpXbarRotCcw) btnIpXbarRotCcw.addEventListener('click', () => { runCmd('transform rotate -90'); triggerHaptic(10); });
+    const btnIpXbarRotCw = document.getElementById('btn-ip-xbar-rot-cw');
+    if (btnIpXbarRotCw) btnIpXbarRotCw.addEventListener('click', () => { runCmd('transform rotate 90'); triggerHaptic(10); });
+    const btnIpXbarFlipH = document.getElementById('btn-ip-xbar-fliph');
+    if (btnIpXbarFlipH) btnIpXbarFlipH.addEventListener('click', () => { runCmd('transform flip h'); triggerHaptic(10); });
+    const btnIpXbarFlipV = document.getElementById('btn-ip-xbar-flipv');
+    if (btnIpXbarFlipV) btnIpXbarFlipV.addEventListener('click', () => { runCmd('transform flip v'); triggerHaptic(10); });
+    const btnIpXbarReset = document.getElementById('btn-ip-xbar-reset');
+    if (btnIpXbarReset) btnIpXbarReset.addEventListener('click', () => { runCmd('transform reset'); triggerHaptic(10); });
 
     // Import Image button strictly from Layers Stack
     const btnIpImportLayer = document.getElementById('btn-ip-import-layer-btn');
@@ -9251,8 +9386,17 @@ async function main() {
     linkLabSlider('ip-slider-angle', 'ip-val-angle', 'angle', '°');
 
     // Dynamics
+    const selStabMode = document.getElementById('ip-select-stabilizer-mode');
+    if (selStabMode) {
+      selStabMode.addEventListener('change', () => {
+        runCmd(`brush stabilizer_mode ${selStabMode.value}`);
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    }
     linkLabSlider('ip-slider-spacing', 'ip-val-spacing', 'spacing', '%');
     linkLabSlider('ip-slider-smoothing', 'ip-val-smoothing', 'stabilization', '%');
+    linkLabSlider('ip-slider-string-length', 'ip-val-string-length', 'string_length', 'px');
     linkLabSlider('ip-slider-midpoint', 'ip-val-midpoint', 'midpoint', '%');
     linkLabSlider('ip-slider-velocity', 'ip-val-velocity', 'velocity', '%');
     linkLabSlider('ip-slider-taper-in', 'ip-val-taper-in', 'taper_in', '%');
@@ -9638,8 +9782,19 @@ async function main() {
       setLabSlider('ip-slider-angle', 'ip-val-angle', bp.angle ?? 0, '°');
 
       // Dynamics
+      const selStabMode = document.getElementById('ip-select-stabilizer-mode');
+      const isPulled = (bp.stabilizer_mode === 1 || bp.stabilizer_mode === 'pulled' || bp.stabilizer_mode === 'string');
+      if (selStabMode) {
+        selStabMode.value = isPulled ? '1' : '0';
+      }
+      const ctrlStringLen = document.getElementById('ip-ctrl-string-length');
+      const ctrlMidpoint = document.getElementById('ip-ctrl-midpoint');
+      if (ctrlStringLen) ctrlStringLen.style.display = isPulled ? 'flex' : 'none';
+      if (ctrlMidpoint) ctrlMidpoint.style.display = isPulled ? 'none' : 'flex';
+
       setLabSlider('ip-slider-spacing', 'ip-val-spacing', bp.spacing ?? 5, '%');
       setLabSlider('ip-slider-smoothing', 'ip-val-smoothing', bp.smoothing ?? 0, '%');
+      setLabSlider('ip-slider-string-length', 'ip-val-string-length', bp.string_length ?? 30, 'px');
       setLabSlider('ip-slider-midpoint', 'ip-val-midpoint', bp.midpoint ?? 50, '%');
       setLabSlider('ip-slider-velocity', 'ip-val-velocity', bp.velocity ?? 0, '%');
       setLabSlider('ip-slider-taper-in', 'ip-val-taper-in', bp.taper_in ?? 0, '%');

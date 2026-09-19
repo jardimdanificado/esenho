@@ -2529,7 +2529,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.5.18 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.5.21 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -2541,13 +2541,20 @@
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
     <canvas id="uicanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-    <div id="ip-transform-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1.5px solid #fabd2f; border-radius: 20px; padding: 4px 8px; align-items: center; gap: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); pointer-events: auto;">
-      <span style="font-weight: 800; font-size: 11px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 4px;">
+    <div id="ip-transform-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1.5px solid #fabd2f; border-radius: 20px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
+      <span style="font-weight: 800; font-size: 11px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 4px; white-space: nowrap;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14v4a2 2 0 0 0 2 2h4"/><path d="M20 10V6a2 2 0 0 0-2-2h-4"/><path d="M14 20h4a2 2 0 0 0 2-2v-4"/><path d="M10 4H6a2 2 0 0 0-2 2v4"/><circle cx="12" cy="12" r="2"/></svg>
         TRANSFORM
       </span>
-      <button type="button" id="btn-ip-xbar-apply" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 26px; padding: 0 12px; border-radius: 13px; font-size: 11px;">Apply ✓</button>
-      <button type="button" id="btn-ip-xbar-cancel" class="ip-btn ip-mini-btn" style="background: #3c3836; color: #fb4934; height: 26px; padding: 0 12px; border-radius: 13px; font-size: 11px;">Cancel ✕</button>
+      <div style="display: flex; gap: 3px; background: #1d2021; padding: 2px 4px; border-radius: 12px; border: 1px solid #3c3836;">
+        <button type="button" id="btn-ip-xbar-rot-ccw" class="ip-btn ip-mini-btn" title="Rotate 90° CCW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">↶ 90°</button>
+        <button type="button" id="btn-ip-xbar-rot-cw" class="ip-btn ip-mini-btn" title="Rotate 90° CW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">↷ 90°</button>
+        <button type="button" id="btn-ip-xbar-fliph" class="ip-btn ip-mini-btn" title="Flip Horizontal" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">⇄</button>
+        <button type="button" id="btn-ip-xbar-flipv" class="ip-btn ip-mini-btn" title="Flip Vertical" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">⇅</button>
+        <button type="button" id="btn-ip-xbar-reset" class="ip-btn ip-mini-btn" title="Reset Quad" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">↺</button>
+      </div>
+      <button type="button" id="btn-ip-xbar-apply" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 26px; padding: 0 12px; border-radius: 13px; font-size: 11px; white-space: nowrap;">Apply ✓</button>
+      <button type="button" id="btn-ip-xbar-cancel" class="ip-btn ip-mini-btn" style="background: #3c3836; color: #fb4934; height: 26px; padding: 0 12px; border-radius: 13px; font-size: 11px; white-space: nowrap;">Cancel ✕</button>
     </div>
     <div id="ip-selection-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1.5px solid #fabd2f; border-radius: 20px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
       <span style="font-weight: 800; font-size: 10px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 2px; white-space: nowrap;">
@@ -2974,6 +2981,9 @@
             <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
           </label>
           <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="ip-chk-viewport-filter"> Bilinear Viewport Filtering (Smooth)
+          </label>
+          <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
             <input type="checkbox" id="ip-chk-brush-outline" checked> Brush Cursor Outline
           </label>
           <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
@@ -3098,10 +3108,21 @@
             <input type="range" id="ip-slider-spacing" min="1" max="200" value="5" class="ip-touch-slider">
           </div>
           <div class="ip-touch-control">
-            <div class="ip-touch-label-row"><span>Stabilization (Smoothing)</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
-            <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
+            <div class="ip-touch-label-row"><span>Stabilizer Mode</span></div>
+            <select id="ip-select-stabilizer-mode" class="ip-select" style="width: 100%; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 6px; padding: 6px 8px; font-size: 11px;">
+              <option value="0">Streamline (Inércia EMA + Bézier)</option>
+              <option value="1">Pulled String / Leash (Corda Guia)</option>
+            </select>
           </div>
           <div class="ip-touch-control">
+            <div class="ip-touch-label-row"><span id="ip-lbl-stabilization">Stabilization</span><span id="ip-val-smoothing" class="ip-touch-val">0%</span></div>
+            <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control" id="ip-ctrl-string-length" style="display: none;">
+            <div class="ip-touch-label-row"><span>String Length (Corda)</span><span id="ip-val-string-length" class="ip-touch-val">30px</span></div>
+            <input type="range" id="ip-slider-string-length" min="5" max="250" value="30" class="ip-touch-slider">
+          </div>
+          <div class="ip-touch-control" id="ip-ctrl-midpoint">
             <div class="ip-touch-label-row"><span>Streamline Midpoint</span><span id="ip-val-midpoint" class="ip-touch-val">50%</span></div>
             <input type="range" id="ip-slider-midpoint" min="0" max="100" value="50" class="ip-touch-slider">
           </div>

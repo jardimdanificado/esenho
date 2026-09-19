@@ -1723,7 +1723,64 @@ async function run() {
     throw new Error(`Expected host.renderMode === 'gpu', got ${host.renderMode}`);
   }
 
-  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, Reset Data Command, GPU/Software Renderer Switching, and Professional Brush Presets System verified 100%!');
+  // --- Testing Viewport Bilinear Filtering & Transform Rotation Suite ---
+  console.log('--- Testing Viewport Filtering & Transform Rotation ---');
+  host.executeCommand('set viewport_filter linear');
+  if (!host.viewportFiltering) {
+    throw new Error(`Expected viewportFiltering === true, got ${host.viewportFiltering}`);
+  }
+  host.executeCommand('set viewport_filter nearest');
+  if (host.viewportFiltering) {
+    throw new Error(`Expected viewportFiltering === false, got ${host.viewportFiltering}`);
+  }
+  host.executeCommand('toggle viewport_filter');
+  if (!host.viewportFiltering) {
+    throw new Error(`Expected viewportFiltering === true after toggle, got ${host.viewportFiltering}`);
+  }
+
+  // Test Stabilizer Mode switching (0 = Streamline/EMA, 1 = Pulled String) & string_length
+  host.executeCommand('brush stabilizer_mode 1');
+  if (host.brushParams.stabilizer_mode !== 1) {
+    throw new Error(`Expected stabilizer_mode === 1, got ${host.brushParams.stabilizer_mode}`);
+  }
+  host.executeCommand('brush string_length 45');
+  if (host.brushParams.string_length !== 45) {
+    throw new Error(`Expected string_length === 45, got ${host.brushParams.string_length}`);
+  }
+  host.executeCommand('brush stabilizer_mode streamline');
+  if (host.brushParams.stabilizer_mode !== 0) {
+    throw new Error(`Expected stabilizer_mode === 0, got ${host.brushParams.stabilizer_mode}`);
+  }
+
+  // Test Transform Rotation & Flips
+  host.executeCommand('select rect 100 100 50 50');
+  host.executeCommand('transform');
+  if (!host.floatingTransform || !host.floatingTransform.corners) {
+    throw new Error('Expected floatingTransform to be active');
+  }
+  const cOrig = host.floatingTransform.corners.map(c => ({ ...c }));
+  host.executeCommand('transform rotate 90');
+  // Corners should have rotated 90 degrees around center (125, 125)
+  const cRot = host.floatingTransform.corners;
+  if (Math.abs(cRot[0].x - 150) > 0.01 || Math.abs(cRot[0].y - 100) > 0.01) {
+    throw new Error(`Expected corner 0 to be (150, 100) after 90 deg rot, got (${cRot[0].x}, ${cRot[0].y})`);
+  }
+
+  // Flip horizontal & vertical
+  host.executeCommand('transform flip h');
+  host.executeCommand('transform flip v');
+  // Reset
+  host.executeCommand('transform reset');
+  if (Math.abs(host.floatingTransform.corners[0].x - cOrig[0].x) > 0.01 ||
+      Math.abs(host.floatingTransform.corners[0].y - cOrig[0].y) > 0.01) {
+    throw new Error('Expected transform reset to restore initial corners');
+  }
+  host.executeCommand('transform cancel');
+  if (host.floatingTransform !== null) {
+    throw new Error('Expected floatingTransform to be null after cancel');
+  }
+
+  console.log('ALL TESTS PASSED: Unified Textures & Layers, Custom Shape Alpha Sampling, REPL, Stroke Smoothing, Filters (with Dynamic Params & Memory Safety), Undo/Redo, Auto-Rotate, Velocity, Taper/Fade, Jitters, Dab Blend Modes, UI Scaling, Layer Reordering, Merge Down, Layer Groups, Eyedropper, Subpixel, Wet Media Depletion/Pickup, Dual Brush, Dump Brush, History Fix, Alpha Lock, Clipping Mask, Layer Blend Modes, Flip Canvas, Real-Time Symmetry, Layer Order Insert, Default Folders, Reset Tool, Shape Guides, Marquee Selection/Clipboard, Layer HSV Adjustments, Lasso/Wand Selection, Selection-Clipped Drawing/Filters, Selection Modes (Add/Sub/Intersect), Adjacent Pixels Switch, 4-Mode Action System, Stylus/Wacom Pressure & Tilt Dynamics, Native .esen Project Savefile Engine, Reset Data Command, GPU/Software Renderer Switching, Professional Brush Presets System, Transform Rotation/Flips, and Viewport Bilinear Filtering verified 100%!');
 }
 
 run().catch(err => {

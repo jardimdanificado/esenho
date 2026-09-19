@@ -69,8 +69,8 @@ The studio workspace consists of four primary regions:
 - `Hardness` (0..100%): Sharpness of dab radial falloff.
 - `Flow` (1..100%): Deposition rate of paint per dab.
 - `Spacing` (1..200%): Distance between consecutive dabs along stroke path relative to brush size.
-- `Smoothing` (0..100%): Real-time stroke stabilization removing hand tremor.
-- `Bézier Midpoint` (0..100%): Interpolation tension between control points.
+- `Stabilization` (0..100%): Real-time stroke stabilization removing hand tremor. Supports Streamline and Pulled String modes.
+- `Streamline Midpoint` (0..100%): Interpolation tension between control points.
 - `Angle` (0..359°): Fixed rotation angle of tip shape.
 - `Roundness` (1..100%): Geometric squashing of tip aspect ratio.
 - `Scatter` (0..200%): Perpendicular random displacement from stroke centerline.
