@@ -1033,6 +1033,7 @@ async function main() {
         const ax = host.pulledAnchor.x * host.zoom;
         const ay = host.pulledAnchor.y * host.zoom;
         const px = host.pulledCursor.x * host.zoom;
+        const py = host.pulledCursor.y * host.zoom;
         const smoothVal = host.brushParams?.smoothing || 0;
         const sRad = ((smoothVal > 0)
           ? Math.max(5, smoothVal * 1.5)
