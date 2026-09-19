@@ -2338,70 +2338,80 @@ async function main() {
         }
       }
 
-      if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length === 2) {
-        const [a, b] = [e.touches[0], e.touches[1]];
-        const [pa, pb] = [touch.prevTouches[0], touch.prevTouches[1]];
+      if (e.touches.length === 2 && touch.prevTouches && touch.prevTouches.length >= 2) {
+        const t0 = e.touches[0];
+        const t1 = e.touches[1];
+        let pa = null, pb = null;
 
-        const mid  = touchMidpoint(a, b);
-        const pmid = touchMidpoint(pa, pb);
-
-        const curDist  = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-        const prevDist = Math.hypot(pa.clientX - pb.clientX, pa.clientY - pb.clientY);
-
-        // Rotation angle delta with direct 1:1 tracking (zero deadzone delay)
-        let dTheta = 0;
-        if (curDist > 15 && prevDist > 15) {
-          const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
-          const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
-          let rawDelta = curAngle - prevAngle;
-          while (rawDelta > Math.PI) rawDelta -= 2 * Math.PI;
-          while (rawDelta < -Math.PI) rawDelta += 2 * Math.PI;
-          dTheta = rawDelta;
+        // Match previous touches by identifier to prevent 180° rotation flips and jumpy deltas
+        for (let i = 0; i < touch.prevTouches.length; i++) {
+          const pt = touch.prevTouches[i];
+          if (pt.identifier === t0.identifier) pa = pt;
+          else if (pt.identifier === t1.identifier) pb = pt;
         }
 
-        // Zoom scale factor
-        const oldZoom = host.zoom;
-        let scaleFactor = 1;
-        if (prevDist > 1 && curDist > 1) {
-          scaleFactor = curDist / prevDist;
-        }
-        const newZoom = Math.max(0.05, Math.min(20, oldZoom * scaleFactor));
-        const effectiveScale = newZoom / oldZoom;
-        host.zoom = newZoom;
+        if (pa && pb) {
+          const [a, b] = [t0, t1];
 
-        // Anchor pan, zoom, and rotation around touch midpoint
-        const cw = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_canvas_width)
-          ? host.canvasActor.exports.get_canvas_width() : 640;
-        const ch = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_canvas_height)
-          ? host.canvasActor.exports.get_canvas_height() : 480;
+          const mid  = touchMidpoint(a, b);
+          const pmid = touchMidpoint(pa, pb);
 
-        let cx = host.panX + (cw * oldZoom) / 2;
-        let cy = host.panY + (ch * oldZoom) / 2;
+          const curDist  = Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+          const prevDist = Math.hypot(pa.clientX - pb.clientX, pa.clientY - pb.clientY);
 
-        // Midpoint translation
-        cx += (mid.sx - pmid.sx);
-        cy += (mid.sy - pmid.sy);
+          // Rotation angle delta with direct 1:1 tracking
+          let dTheta = 0;
+          if (curDist > 15 && prevDist > 15) {
+            const curAngle  = Math.atan2(b.clientY  - a.clientY,  b.clientX  - a.clientX);
+            const prevAngle = Math.atan2(pb.clientY - pa.clientY, pb.clientX - pa.clientX);
+            let rawDelta = curAngle - prevAngle;
+            while (rawDelta > Math.PI) rawDelta -= 2 * Math.PI;
+            while (rawDelta < -Math.PI) rawDelta += 2 * Math.PI;
+            dTheta = rawDelta;
+          }
 
-        // Rotate & scale vector from mid to center
-        if (dTheta !== 0 || effectiveScale !== 1) {
-          const cosT = Math.cos(dTheta);
-          const sinT = Math.sin(dTheta);
-          const vx = cx - mid.sx;
-          const vy = cy - mid.sy;
-          const nvx = (vx * cosT - vy * sinT) * effectiveScale;
-          const nvy = (vx * sinT + vy * cosT) * effectiveScale;
-          cx = mid.sx + nvx;
-          cy = mid.sy + nvy;
-        }
+          // Zoom scale factor
+          const oldZoom = host.zoom;
+          let scaleFactor = 1;
+          if (prevDist > 1 && curDist > 1) {
+            scaleFactor = curDist / prevDist;
+          }
+          const newZoom = Math.max(0.05, Math.min(20, oldZoom * scaleFactor));
+          const effectiveScale = newZoom / oldZoom;
+          host.zoom = newZoom;
 
-        host.panX = cx - (cw * host.zoom) / 2;
-        host.panY = cy - (ch * host.zoom) / 2;
-        host.canvasRotation += dTheta;
+          // Anchor pan, zoom, and rotation around touch midpoint
+          const cw = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_canvas_width)
+            ? host.canvasActor.exports.get_canvas_width() : 640;
+          const ch = (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.get_canvas_height)
+            ? host.canvasActor.exports.get_canvas_height() : 480;
 
-        // Snap rotation near 0° with subtle haptic
-        if (Math.abs(host.canvasRotation) < 0.03 && host.canvasRotation !== 0) {
-          host.canvasRotation = 0;
-          triggerHaptic(8);
+          let cx = host.panX + (cw * oldZoom) / 2;
+          let cy = host.panY + (ch * oldZoom) / 2;
+
+          // Midpoint translation
+          cx += (mid.sx - pmid.sx);
+          cy += (mid.sy - pmid.sy);
+
+          // Rotate & scale vector from mid to center
+          if (dTheta !== 0 || effectiveScale !== 1) {
+            const cosT = Math.cos(dTheta);
+            const sinT = Math.sin(dTheta);
+            const vx = cx - mid.sx;
+            const vy = cy - mid.sy;
+            const nvx = (vx * cosT - vy * sinT) * effectiveScale;
+            const nvy = (vx * sinT + vy * cosT) * effectiveScale;
+            cx = mid.sx + nvx;
+            cy = mid.sy + nvy;
+          }
+
+          host.panX = cx - (cw * host.zoom) / 2;
+          host.panY = cy - (ch * host.zoom) / 2;
+          host.canvasRotation += dTheta;
+
+          // Keep rotation normalized in (-PI, PI]
+          while (host.canvasRotation > Math.PI) host.canvasRotation -= 2 * Math.PI;
+          while (host.canvasRotation <= -Math.PI) host.canvasRotation += 2 * Math.PI;
         }
       }
     }
@@ -2505,6 +2515,16 @@ async function main() {
       }
     } else {
       touch.tapGesture = null;
+    }
+
+    if (touch.prevTouches && touch.prevTouches.length >= 2 && e.touches.length < 2) {
+      // Snap to upright 0° on gesture release if within alignment threshold (~2.3° / 0.04 rad)
+      if (Math.abs(host.canvasRotation) < 0.04 && host.canvasRotation !== 0) {
+        host.canvasRotation = 0;
+        triggerHaptic(8);
+        host.render();
+        updateStatus(host, 0, 0, true);
+      }
     }
 
     if (e.touches.length === 0 && host.mouseHover) {
