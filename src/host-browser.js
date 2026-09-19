@@ -28,6 +28,111 @@ const inputEl     = document.getElementById('wcmd');
 const statusEl    = document.getElementById('wstatus');
 const toggleBtn   = document.getElementById('toggle-panel');
 
+/* ── Helpers ── */
+function log(msg, cls = '') {
+  const str = String(msg).replace(/\x1b\[[^m]*m/g, '');
+  let effCls = cls;
+  if (!effCls) {
+    if (str.startsWith('> ')) effCls = 'cmd';
+    else if (str.includes('[ok]') || str.startsWith('ok:') || str.startsWith('Ready') || str.startsWith('SUCCESS') || str.includes('loaded successfully')) effCls = 'ok';
+    else if (str.startsWith('err') || str.startsWith('BOOT ERROR') || str.includes('failed') || str.includes('error')) effCls = 'err';
+    else if (str.startsWith('warn')) effCls = 'warn';
+    else if (str.startsWith('info:') || str.startsWith('---')) effCls = 'info';
+  }
+
+  [termEl, document.getElementById('wterm-ip')].forEach(tEl => {
+    if (!tEl) return;
+    const el = document.createElement('div');
+    el.className = 'wterm-line';
+    if (effCls) el.classList.add(effCls);
+    el.textContent = str;
+    tEl.appendChild(el);
+    tEl.scrollTop = tEl.scrollHeight;
+  });
+}
+
+let _lastStatusUpdate = 0;
+let _cachedStatusText = '';
+
+function updateStatus(host, docX, docY, force = false) {
+  const now = performance.now();
+  if (!force && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
+  _lastStatusUpdate = now;
+
+  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.5.10';
+  const cw = host?.canvasActor?.exports?.get_canvas_width?.() ?? 0;
+  const ch = host?.canvasActor?.exports?.get_canvas_height?.() ?? 0;
+  const rawDeg = host ? ((host.canvasRotation * 180 / Math.PI) % 360) : 0;
+  const deg = rawDeg.toFixed(1);
+  const zoom = host ? (host.zoom * 100).toFixed(0) : 100;
+  const newText =
+    `${ver}  ${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
+    `zoom ${zoom}%  rot ${deg}°`;
+  if (_cachedStatusText !== newText) {
+    _cachedStatusText = newText;
+    if (statusEl) statusEl.textContent = newText;
+  }
+}
+
+/* ── Color math helpers ── */
+function hexToRgb(hex) {
+  let clean = (hex || '').replace('#', '').trim();
+  if (clean.length === 3) {
+    clean = clean.split('').map(c => c + c).join('');
+  }
+  const m = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(clean);
+  const r = m ? parseInt(m[1], 16) : 0;
+  const g = m ? parseInt(m[2], 16) : 0;
+  const b = m ? parseInt(m[3], 16) : 0;
+  return {
+    r, g, b,
+    0: r, 1: g, 2: b,
+    length: 3,
+    [Symbol.iterator]: function* () { yield r; yield g; yield b; }
+  };
+}
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+function hslToRgb(h, s, l) {
+  h /= 360; s /= 100; l /= 100;
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const hue2rgb = (p, q, t) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
+}
+
 /* ── Boot ── */
 async function main() {
   log('Loading canvas.wasm…');
@@ -150,8 +255,7 @@ async function main() {
   }
   log(`${host.plugins.size} plugins loaded [ok]`);
 
-  /* ── Ensure UI Panel exists in DOM ── */
-  ensureUiPanel();
+
 
   /* ── Canvas sizing + pan management ── */
   const isMobile = () => window.innerWidth <= 768;
@@ -2439,23 +2543,25 @@ async function main() {
     cmdForm.addEventListener('submit', submitCommand);
   }
 
-  inputEl.addEventListener('keydown', e => {
-    if (e.key === 'Enter' || e.keyCode === 13 || e.which === 13) {
-      submitCommand(e);
-    } else if (e.key === 'ArrowUp') {
-      hl.i = Math.min(hl.i + 1, history.length - 1);
-      inputEl.value = history[history.length - 1 - hl.i] || ''; e.preventDefault();
-    } else if (e.key === 'ArrowDown') {
-      hl.i = Math.max(hl.i - 1, -1);
-      inputEl.value = hl.i < 0 ? '' : history[history.length - 1 - hl.i] || ''; e.preventDefault();
-    }
-  });
+  if (inputEl) {
+    inputEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.keyCode === 13 || e.which === 13) {
+        submitCommand(e);
+      } else if (e.key === 'ArrowUp') {
+        hl.i = Math.min(hl.i + 1, history.length - 1);
+        inputEl.value = history[history.length - 1 - hl.i] || ''; e.preventDefault();
+      } else if (e.key === 'ArrowDown') {
+        hl.i = Math.max(hl.i - 1, -1);
+        inputEl.value = hl.i < 0 ? '' : history[history.length - 1 - hl.i] || ''; e.preventDefault();
+      }
+    });
 
-  inputEl.addEventListener('keyup', e => {
-    if ((e.key === 'Enter' || e.keyCode === 13 || e.which === 13) && inputEl.value) {
-      submitCommand(e);
-    }
-  });
+    inputEl.addEventListener('keyup', e => {
+      if ((e.key === 'Enter' || e.keyCode === 13 || e.which === 13) && inputEl.value) {
+        submitCommand(e);
+      }
+    });
+  }
 
   const btnClearConsole = document.getElementById('ui-btn-clear-console');
   if (btnClearConsole) {
@@ -7954,6 +8060,7 @@ async function main() {
         layerContainers.forEach(container => renderLayerTreeToContainer(container));
       }
     }
+  }
 
     if (chkPixelGrid) {
       chkPixelGrid.checked = !!host.showPixelGrid;
@@ -7968,7 +8075,6 @@ async function main() {
       chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
     }
 
-    updateDockTabs();
     saveUserPreferences();
     syncInfinitePainterUI();
   }
@@ -9601,111 +9707,7 @@ async function main() {
   if (statusEl) statusEl.textContent = `${ver} ready`;
 }
 
-/* ── Helpers ── */
-function log(msg, cls = '') {
-  const str = String(msg).replace(/\x1b\[[^m]*m/g, '');
-  let effCls = cls;
-  if (!effCls) {
-    if (str.startsWith('> ')) effCls = 'cmd';
-    else if (str.includes('[ok]') || str.startsWith('ok:') || str.startsWith('Ready') || str.startsWith('SUCCESS') || str.includes('loaded successfully')) effCls = 'ok';
-    else if (str.startsWith('err') || str.startsWith('BOOT ERROR') || str.includes('failed') || str.includes('error')) effCls = 'err';
-    else if (str.startsWith('warn')) effCls = 'warn';
-    else if (str.startsWith('info:') || str.startsWith('---')) effCls = 'info';
-  }
-
-  [termEl, document.getElementById('wterm-ip')].forEach(tEl => {
-    if (!tEl) return;
-    const el = document.createElement('div');
-    el.className = 'wterm-line';
-    if (effCls) el.classList.add(effCls);
-    el.textContent = str;
-    tEl.appendChild(el);
-    tEl.scrollTop = tEl.scrollHeight;
-  });
-}
-
-let _lastStatusUpdate = 0;
-let _cachedStatusText = '';
-
-function updateStatus(host, docX, docY, force = false) {
-  const now = performance.now();
-  if (!force && now - _lastStatusUpdate < 80) return; // Max 12 updates/sec
-  _lastStatusUpdate = now;
-
-  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.5.10';
-  const cw = host.canvasActor?.exports?.get_canvas_width?.() ?? 0;
-  const ch = host.canvasActor?.exports?.get_canvas_height?.() ?? 0;
-  const rawDeg = ((host.canvasRotation * 180 / Math.PI) % 360);
-  const deg = rawDeg.toFixed(1);
-  const newText =
-    `${ver}  ${cw}x${ch}  ${Math.round(docX)},${Math.round(docY)}  ` +
-    `zoom ${(host.zoom * 100).toFixed(0)}%  rot ${deg}°`;
-  if (_cachedStatusText !== newText) {
-    _cachedStatusText = newText;
-    if (statusEl) statusEl.textContent = newText;
-  }
-}
-
-/* ── Color math helpers ── */
-function hexToRgb(hex) {
-  let clean = (hex || '').replace('#', '').trim();
-  if (clean.length === 3) {
-    clean = clean.split('').map(c => c + c).join('');
-  }
-  const m = /^([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(clean);
-  const r = m ? parseInt(m[1], 16) : 0;
-  const g = m ? parseInt(m[2], 16) : 0;
-  const b = m ? parseInt(m[3], 16) : 0;
-  return {
-    r, g, b,
-    0: r, 1: g, 2: b,
-    length: 3,
-    [Symbol.iterator]: function* () { yield r; yield g; yield b; }
-  };
-}
-function rgbToHex(r, g, b) {
-  return '#' + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
-}
-function rgbToHsl(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  let h = 0, s = 0, l = (max + min) / 2;
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
-}
-function hslToRgb(h, s, l) {
-  h /= 360; s /= 100; l /= 100;
-  let r, g, b;
-  if (s === 0) {
-    r = g = b = l;
-  } else {
-    const hue2rgb = (p, q, t) => {
-      if (t < 0) t += 1;
-      if (t > 1) t -= 1;
-      if (t < 1/6) return p + (q - p) * 6 * t;
-      if (t < 1/2) return q;
-      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
-      return p;
-    };
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-    const p = 2 * l - q;
-    r = hue2rgb(p, q, h + 1/3);
-    g = hue2rgb(p, q, h);
-    b = hue2rgb(p, q, h - 1/3);
-  }
-  return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
-}
-
-
-
 main().catch(e => { console.error(e); log(`BOOT ERROR: ${e.message}`, 'err'); });
+
+
 

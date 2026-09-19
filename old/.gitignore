@@ -1,4 +1,0 @@
-node_modules
-.vscode
-#roms/*.wasm
-#plugins/*.wasm
