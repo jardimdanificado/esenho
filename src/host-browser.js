@@ -8803,14 +8803,8 @@ async function main() {
       for (const [key, preset] of Object.entries(presetsMap)) {
         if (!preset.name) continue;
 
-        let cat = 'paint';
-        if (['pencil', 'soft_pencil', 'tech_pen'].includes(key)) cat = 'sketch';
-        else if (['inker', 'gpen', 'dry_ink', 'fountain', 'marker', 'brush_marker'].includes(key)) cat = 'ink';
-        else if (['pixel', 'halftone'].includes(key)) cat = 'pixel';
-        else if (['charcoal', 'pastel'].includes(key)) cat = 'charcoal';
-        else if (['airbrush', 'hard_airbrush'].includes(key)) cat = 'airbrush';
-        else if (['soft_eraser', 'hard_eraser', 'textured_eraser'].includes(key)) cat = 'eraser';
-        else if (host.customBrushPresets && host.customBrushPresets[key]) cat = 'custom';
+        let cat = preset.category || 'paint';
+        if (host.customBrushPresets && host.customBrushPresets[key]) cat = 'custom';
 
         if (activeBrushCat !== 'all' && activeBrushCat !== cat) continue;
 
@@ -8825,7 +8819,6 @@ async function main() {
         `;
         card.addEventListener('click', () => {
           host.selectBrushPreset(key);
-          host.actionMode = 'draw';
           syncUiFromHost();
           closeAllSheets();
           triggerHaptic(15);
