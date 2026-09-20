@@ -3058,6 +3058,14 @@ const COMMAND_RULES = [
   { pat: "save project", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run({ file: host.currentProjectName || "project.esen" }, host) },
   { pat: "export project $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run(m, host) },
   { pat: "export project", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run({ file: host.currentProjectName || "project.esen" }, host) },
+  { pat: "save esen $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run(m, host) },
+  { pat: "save esen", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run({ file: host.currentProjectName || "project.esen" }, host) },
+  { pat: "export esen $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run(m, host) },
+  { pat: "export esen", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save project $file").run({ file: host.currentProjectName || "project.esen" }, host) },
+  { pat: "save png $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save canvas $file").run(m, host) },
+  { pat: "save png", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save canvas $file").run({ file: host.currentProjectName ? `${host.currentProjectName}.png` : "drawing.png" }, host) },
+  { pat: "export png $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save canvas $file").run(m, host) },
+  { pat: "export png", run: (m, host) => COMMAND_RULES.find(r => r.pat === "save canvas $file").run({ file: host.currentProjectName ? `${host.currentProjectName}.png` : "drawing.png" }, host) },
   {
     pat: "load project $file",
     run: (m, host) => {
@@ -3076,6 +3084,32 @@ const COMMAND_RULES = [
     }
   },
   { pat: "open project $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load project $file").run(m, host) },
+  { pat: "import project $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load project $file").run(m, host) },
+  { pat: "import project", run: (m, host) => {
+    if (typeof document !== 'undefined') {
+      const fi = document.getElementById('ui-file-input');
+      if (fi) { fi.click(); return; }
+    }
+    host.sendConsoleLog("err: specify file or use file picker", 0xFFFF5555);
+  }},
+  { pat: "import esen $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load project $file").run(m, host) },
+  { pat: "import esen", run: (m, host) => COMMAND_RULES.find(r => r.pat === "import project").run(m, host) },
+  { pat: "import image $file $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load image $file $name").run(m, host) },
+  { pat: "import image $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load image $file").run(m, host) },
+  { pat: "import layer $file", run: (m, host) => COMMAND_RULES.find(r => r.pat === "load image $file").run(m, host) },
+  { pat: "import $file", run: (m, host) => {
+    if (m.file.toLowerCase().endsWith('.esen') || m.file.toLowerCase().endsWith('.json')) {
+      return COMMAND_RULES.find(r => r.pat === "load project $file").run(m, host);
+    }
+    return COMMAND_RULES.find(r => r.pat === "load image $file").run(m, host);
+  }},
+  { pat: "import", run: (m, host) => {
+    if (typeof document !== 'undefined') {
+      const fi = document.getElementById('ui-file-input');
+      if (fi) { fi.click(); return; }
+    }
+    host.sendConsoleLog("err: specify file or use file picker", 0xFFFF5555);
+  }},
 
   {
     pat: "save canvas $file",

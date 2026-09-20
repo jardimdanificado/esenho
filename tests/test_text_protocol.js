@@ -1634,11 +1634,24 @@ async function run() {
     throw new Error(`Saved .esen file has invalid contents: ${JSON.stringify(fileContent)}`);
   }
 
+  // Test export esen & export png REPL routing
+  const esenExportPath = '/tmp/test_export.esen';
+  host.executeCommand(`export esen ${esenExportPath}`);
+  if (!fs.existsSync(esenExportPath)) {
+    throw new Error(`REPL 'export esen' did not create file at ${esenExportPath}`);
+  }
+  try { fs.unlinkSync(esenExportPath); } catch (_) {}
+
   // Reset and load via REPL
   host.canvasActor.exports.w_init(100, 100);
-  host.executeCommand(`load project ${testSavePath}`);
+  host.executeCommand(`import project ${testSavePath}`);
   if (host.canvasActor.exports.get_canvas_width() !== 320) {
-    throw new Error('REPL load project failed to restore canvas width');
+    throw new Error('REPL import project failed to restore canvas width');
+  }
+  host.canvasActor.exports.w_init(100, 100);
+  host.executeCommand(`import ${testSavePath}`);
+  if (host.canvasActor.exports.get_canvas_width() !== 320) {
+    throw new Error('REPL import $file failed to restore canvas width');
   }
   try { fs.unlinkSync(testSavePath); } catch (_) {}
 

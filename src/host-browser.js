@@ -7096,20 +7096,45 @@ async function main() {
   host.uiScale = savedScale;
   applyUiScale(savedScale);
 
-  // Image Import via File Picker
-  const fileInput = document.getElementById('ui-file-input');
-  const importBtn = document.getElementById('ui-btn-import');
-  const importLayerBtn = document.getElementById('ui-btn-import-layer');
-  if (importBtn && fileInput) {
-    importBtn.addEventListener('click', () => fileInput.click());
+  // File & Project / Image Import via File Picker & Drag-and-Drop
+  let fileInput = document.getElementById('ui-file-input');
+  if (!fileInput) {
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.id = 'ui-file-input';
+    fileInput.accept = '.esen,.json,image/*';
+    fileInput.style.display = 'none';
+    document.body.appendChild(fileInput);
   }
-  if (importLayerBtn && fileInput) {
-    importLayerBtn.addEventListener('click', () => fileInput.click());
-  }
-  if (fileInput) {
-    fileInput.addEventListener('change', () => {
-      const file = fileInput.files && fileInput.files[0];
-      if (!file) return;
+
+  async function handleFileImport(file) {
+    if (!file) return;
+    const lowerName = (file.name || '').toLowerCase();
+
+    // 1. .esen / JSON project file
+    if (lowerName.endsWith('.esen') || lowerName.endsWith('.json')) {
+      try {
+        let projData;
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore && EsenhoStore.importEsenFile) {
+          projData = await EsenhoStore.importEsenFile(file);
+        } else {
+          const text = await file.text();
+          projData = JSON.parse(text);
+        }
+        if (projData && (projData.magic === 'ESENHO' || projData.magic === 'ESEN')) {
+          host.loadProject(projData);
+          syncUiFromHost();
+          log(`Loaded project '${projData.name || file.name}' [ok]`);
+          return;
+        }
+      } catch (err) {
+        log(`err: failed importing project: ${err.message}`);
+        return;
+      }
+    }
+
+    // 2. Image (PNG, JPG, WebP, etc.)
+    if (file.type?.startsWith('image/') || /\.(png|jpe?g|webp|bmp|gif|svg)$/i.test(lowerName)) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const img = new Image();
@@ -7150,13 +7175,40 @@ async function main() {
             log(`Imported image '${file.name}' as layer [${wasmId}] (${cw}x${ch}) [ok]`);
           } catch (err) {
             log(`err: failed importing image: ${err.message}`);
-          } finally {
-            fileInput.value = '';
           }
         };
         img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+      return;
+    }
+
+    // 3. WASM plugin
+    if (lowerName.endsWith('.wasm')) {
+      await registerPluginFile(file);
+      return;
+    }
+
+    log(`err: unsupported file type '${file.name}'`);
+  }
+
+  const importBtn = document.getElementById('ui-btn-import');
+  const importLayerBtn = document.getElementById('ui-btn-import-layer');
+  if (importBtn && fileInput) {
+    importBtn.addEventListener('click', () => fileInput.click());
+  }
+  if (importLayerBtn && fileInput) {
+    importLayerBtn.addEventListener('click', () => fileInput.click());
+  }
+  if (fileInput) {
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      try {
+        await handleFileImport(file);
+      } finally {
+        fileInput.value = '';
+      }
     });
   }
 
@@ -7170,10 +7222,7 @@ async function main() {
     const files = e.dataTransfer?.files;
     if (!files || files.length === 0) return;
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.name.toLowerCase().endsWith('.wasm')) {
-        await registerPluginFile(file);
-      }
+      await handleFileImport(files[i]);
     }
   });
 
@@ -9141,6 +9190,9 @@ async function main() {
 
     const btnIpExportEsen = document.getElementById('btn-ip-export-esen');
     if (btnIpExportEsen) btnIpExportEsen.addEventListener('click', () => { runCmd('export esen'); closeAllSheets(); });
+
+    const btnIpImportFile = document.getElementById('btn-ip-import-file');
+    if (btnIpImportFile) btnIpImportFile.addEventListener('click', () => { fileInput?.click(); closeAllSheets(); });
 
     const btnIpApplyResize = document.getElementById('btn-ip-apply-resize');
     const inpCw = document.getElementById('ip-inp-cw');
