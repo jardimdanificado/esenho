@@ -391,8 +391,21 @@ Apply a named preset with `brush <preset>` or `set brush <preset>`:
 - `vector replay [scale_pct]`: Re-rasterize all vector strokes using the exact original brush physics at specified percentage scale (e.g. `vector replay 200`).
 - `vector export svg [filename]`: Export recorded vector strokes as a standard resolution-independent SVG file.
 
+### Animation, Rigging & Multiplane Camera Commands
+- `anim init <frames> [fps]`: Initialize the animation timeline with total frames and frame rate.
+- `anim frame <f>` / `anim goto <f>`: Jump to specific frame on timeline with active interpolation.
+- `anim next` / `anim prev`: Step forward/backward one frame.
+- `anim play` / `anim stop`: Start or halt real-time playback loop.
+- `anim onion <on|off> [prev] [next]`: Configure multi-frame onion skinning buffer.
+- `anim track add <type> <layer>`: Add track (0=Raster, 1=Vector, 2=Bone, 3=Camera, 4=Symbol).
+- `anim kf add <track> <frame> <tween>`: Add keyframe with tween type (0=None, 1=Linear, 2=Ease-In-Out, 3=Shape).
+- `anim bone add <armature> <parent> <len> <angle>`: Create bone in 2D armature hierarchy.
+- `anim ik solve <armature> <effector> <x> <y>`: Solve 2D Inverse Kinematics using CCD towards target coordinates.
+- `anim camera set <x> <y> <z> <zoom> <rot>`: Set 2.5D multiplane camera position, depth, zoom percentage, and rotation.
+
 ### Cache & Maintenance
 - `reset cache` / `cache reset` / `clear cache`: Delete all service worker caches and reload the page (browser only).
 - `reset data` / `data reset` / `clear data`: Delete all persistent client storage (`IndexedDB` + `LocalStorage` + `SessionStorage`) and return to launcher.
+
 
 

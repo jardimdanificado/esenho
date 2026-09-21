@@ -731,6 +731,242 @@ class EsenhoModule {
     return false;
   }
 
+  /* ── Animation, Rigging, Mesh & Camera ABI ── */
+
+  animInit(totalFrames = 60, fps = 24) {
+    if (typeof this.exports.w_anim_init === 'function') {
+      this.exports.w_anim_init(totalFrames, fps);
+    }
+  }
+
+  animGetTotalFrames() {
+    if (typeof this.exports.w_anim_get_total_frames === 'function') {
+      return this.exports.w_anim_get_total_frames();
+    }
+    return 0;
+  }
+
+  animSetTotalFrames(totalFrames) {
+    if (typeof this.exports.w_anim_set_total_frames === 'function') {
+      this.exports.w_anim_set_total_frames(totalFrames);
+    }
+  }
+
+  animGetFps() {
+    if (typeof this.exports.w_anim_get_fps === 'function') {
+      return this.exports.w_anim_get_fps();
+    }
+    return 24;
+  }
+
+  animSetFps(fps) {
+    if (typeof this.exports.w_anim_set_fps === 'function') {
+      this.exports.w_anim_set_fps(fps);
+    }
+  }
+
+  animGetFrame() {
+    if (typeof this.exports.w_anim_get_frame === 'function') {
+      return this.exports.w_anim_get_frame();
+    }
+    return 0;
+  }
+
+  animSetFrame(frameIdx) {
+    if (typeof this.exports.w_anim_set_frame === 'function') {
+      this.exports.w_anim_set_frame(frameIdx);
+    }
+  }
+
+  animTrackCreate(trackType = 0, targetLayerIdx = 0) {
+    if (typeof this.exports.w_anim_track_create === 'function') {
+      return this.exports.w_anim_track_create(trackType, targetLayerIdx);
+    }
+    return -1;
+  }
+
+  animTrackGetCount() {
+    if (typeof this.exports.w_anim_track_get_count === 'function') {
+      return this.exports.w_anim_track_get_count();
+    }
+    return 0;
+  }
+
+  animAddKeyframe(trackIdx, frameIdx, tweenType = 1) {
+    if (typeof this.exports.w_anim_add_keyframe === 'function') {
+      return this.exports.w_anim_add_keyframe(trackIdx, frameIdx, tweenType);
+    }
+    return -1;
+  }
+
+  animSetKeyframeTransform(trackIdx, kfIdx, x = 0, y = 0, scaleXPct = 100, scaleYPct = 100, rotDeg = 0, opacity = 100, zDepth = 0) {
+    if (typeof this.exports.w_anim_set_keyframe_transform === 'function') {
+      return this.exports.w_anim_set_keyframe_transform(trackIdx, kfIdx, Math.round(x), Math.round(y), Math.round(scaleXPct), Math.round(scaleYPct), Math.round(rotDeg), Math.round(opacity), Math.round(zDepth));
+    }
+    return -1;
+  }
+
+  animGetKeyframeCount(trackIdx) {
+    if (typeof this.exports.w_anim_get_keyframe_count === 'function') {
+      return this.exports.w_anim_get_keyframe_count(trackIdx);
+    }
+    return 0;
+  }
+
+  animGetKeyframeInfo(trackIdx, kfIdx) {
+    if (!this.memory || typeof this.exports.w_anim_get_keyframe_info !== 'function') return null;
+    let scratchPtr = 0;
+    if (typeof this.exports.w_get_clip_mask_buffer === 'function') {
+      scratchPtr = this.exports.w_get_clip_mask_buffer(256);
+    }
+    if (!scratchPtr) return null;
+    if (this.exports.w_anim_get_keyframe_info(trackIdx, kfIdx, scratchPtr) === 1) {
+      const i32 = new Int32Array(this.memory.buffer);
+      const base = scratchPtr >> 2;
+      return {
+        frame: i32[base + 0],
+        duration: i32[base + 1],
+        tweenType: i32[base + 2],
+        x: i32[base + 3],
+        y: i32[base + 4],
+        scaleXPct: i32[base + 5],
+        scaleYPct: i32[base + 6],
+        rotDeg: i32[base + 7],
+        opacity: i32[base + 8],
+        zDepth: i32[base + 9]
+      };
+    }
+    return null;
+  }
+
+  animOnionSkin(enabled = true, prevFrames = 1, nextFrames = 1, tintAlpha = 64) {
+    if (typeof this.exports.w_anim_onion_skin === 'function') {
+      this.exports.w_anim_onion_skin(enabled ? 1 : 0, prevFrames, nextFrames, tintAlpha);
+    }
+  }
+
+  animArmatureCreate() {
+    if (typeof this.exports.w_anim_armature_create === 'function') {
+      return this.exports.w_anim_armature_create();
+    }
+    return -1;
+  }
+
+  animBoneCreate(armatureId, parentBoneId = -1, length = 50, angleDeg = 0) {
+    if (typeof this.exports.w_anim_bone_create === 'function') {
+      return this.exports.w_anim_bone_create(armatureId, parentBoneId, Math.round(length), Math.round(angleDeg));
+    }
+    return -1;
+  }
+
+  animBoneSetAngle(armatureId, boneId, angleDeg) {
+    if (typeof this.exports.w_anim_bone_set_angle === 'function') {
+      return this.exports.w_anim_bone_set_angle(armatureId, boneId, Math.round(angleDeg));
+    }
+    return -1;
+  }
+
+  animBoneGetInfo(armatureId, boneId) {
+    if (!this.memory || typeof this.exports.w_anim_bone_get_info !== 'function') return null;
+    let scratchPtr = 0;
+    if (typeof this.exports.w_get_clip_mask_buffer === 'function') {
+      scratchPtr = this.exports.w_get_clip_mask_buffer(256);
+    }
+    if (!scratchPtr) return null;
+    if (this.exports.w_anim_bone_get_info(armatureId, boneId, scratchPtr) === 1) {
+      const i32 = new Int32Array(this.memory.buffer);
+      const base = scratchPtr >> 2;
+      return {
+        id: i32[base + 0],
+        parentId: i32[base + 1],
+        length: i32[base + 2],
+        localAngleDeg: i32[base + 3],
+        worldX0: i32[base + 4],
+        worldY0: i32[base + 5],
+        worldX1: i32[base + 6],
+        worldY1: i32[base + 7],
+        worldX: i32[base + 6],
+        worldY: i32[base + 7],
+        worldAngleDeg: i32[base + 8]
+      };
+    }
+    return null;
+  }
+
+  animBoneIkSolve(armatureId, effectorBoneId, targetX, targetY, iterations = 10) {
+    if (typeof this.exports.w_anim_bone_ik_solve === 'function') {
+      return this.exports.w_anim_bone_ik_solve(armatureId, effectorBoneId, Math.round(targetX), Math.round(targetY), iterations);
+    }
+    return -1;
+  }
+
+  animMeshCreate(width, height, cols = 4, rows = 4) {
+    if (typeof this.exports.w_anim_mesh_create === 'function') {
+      return this.exports.w_anim_mesh_create(width, height, cols, rows);
+    }
+    return -1;
+  }
+
+  animMeshSetVertex(meshId, vIdx, x, y) {
+    if (typeof this.exports.w_anim_mesh_set_vertex === 'function') {
+      return this.exports.w_anim_mesh_set_vertex(meshId, vIdx, Math.round(x), Math.round(y));
+    }
+    return -1;
+  }
+
+  animMeshBindBone(meshId, vIdx, armatureId, boneId, weightPct = 100) {
+    if (typeof this.exports.w_anim_mesh_bind_bone === 'function') {
+      return this.exports.w_anim_mesh_bind_bone(meshId, vIdx, armatureId, boneId, Math.round(weightPct));
+    }
+    return -1;
+  }
+
+  animMeshRender(meshId, srcLayerIdx, dstLayerIdx) {
+    if (typeof this.exports.w_anim_mesh_render === 'function') {
+      return this.exports.w_anim_mesh_render(meshId, srcLayerIdx, dstLayerIdx);
+    }
+    return -1;
+  }
+
+  animCameraSet(x = 0, y = 0, z = 0, zoomPct = 100, rotDeg = 0) {
+    if (typeof this.exports.w_anim_camera_set === 'function') {
+      this.exports.w_anim_camera_set(Math.round(x), Math.round(y), Math.round(z), Math.round(zoomPct), Math.round(rotDeg));
+    }
+  }
+
+  animCameraGet() {
+    if (!this.memory || typeof this.exports.w_anim_camera_get !== 'function') return null;
+    let scratchPtr = 0;
+    if (typeof this.exports.w_get_clip_mask_buffer === 'function') {
+      scratchPtr = this.exports.w_get_clip_mask_buffer(256);
+    }
+    if (!scratchPtr) return null;
+    this.exports.w_anim_camera_get(scratchPtr);
+    const i32 = new Int32Array(this.memory.buffer);
+    const base = scratchPtr >> 2;
+    return {
+      x: i32[base + 0],
+      y: i32[base + 1],
+      z: i32[base + 2],
+      zoomPct: i32[base + 3],
+      rotDeg: i32[base + 4]
+    };
+  }
+
+  animSymbolCreate(totalFrames = 30, loopMode = 1) {
+    if (typeof this.exports.w_anim_symbol_create === 'function') {
+      return this.exports.w_anim_symbol_create(totalFrames, loopMode);
+    }
+    return -1;
+  }
+
+  animSymbolInstantiate(symbolId, parentTrackIdx, startFrame = 0) {
+    if (typeof this.exports.w_anim_symbol_instantiate === 'function') {
+      return this.exports.w_anim_symbol_instantiate(symbolId, parentTrackIdx, startFrame);
+    }
+    return -1;
+  }
+
 
   readCString(ptr) {
 
@@ -4130,6 +4366,140 @@ const COMMAND_RULES = [
       const svg = host.exportSVG();
       host.sendConsoleLog(`vector SVG generated (${svg.length} bytes)`);
     }
+  },
+  {
+    pat: "anim init $frames$int $fps$int",
+    run: (m, host) => {
+      const frames = parseInt(m.frames, 10);
+      const fps = parseInt(m.fps, 10);
+      host.animInit(frames, fps);
+      host.sendConsoleLog(`animation timeline initialized: ${frames} frames @ ${fps} fps`);
+    }
+  },
+  {
+    pat: "anim init $frames$int",
+    run: (m, host) => {
+      const frames = parseInt(m.frames, 10);
+      host.animInit(frames, 24);
+      host.sendConsoleLog(`animation timeline initialized: ${frames} frames @ 24 fps`);
+    }
+  },
+  {
+    pat: "anim frame $f$int",
+    run: (m, host) => {
+      const f = parseInt(m.f, 10);
+      host.animSetFrame(f);
+      host.sendConsoleLog(`animation current frame: ${f}`);
+    }
+  },
+  {
+    pat: "anim goto $f$int",
+    run: (m, host) => {
+      const f = parseInt(m.f, 10);
+      host.animSetFrame(f);
+      host.sendConsoleLog(`animation current frame: ${f}`);
+    }
+  },
+  {
+    pat: "anim play",
+    run: (m, host) => {
+      host.animPlay();
+      host.sendConsoleLog(`animation playing`);
+    }
+  },
+  {
+    pat: "anim stop",
+    run: (m, host) => {
+      host.animStop();
+      host.sendConsoleLog(`animation stopped at frame ${host.animCurrentFrame || 0}`);
+    }
+  },
+  {
+    pat: "anim next",
+    run: (m, host) => {
+      host.animNextFrame();
+      host.sendConsoleLog(`animation frame: ${host.animCurrentFrame || 0}`);
+    }
+  },
+  {
+    pat: "anim prev",
+    run: (m, host) => {
+      host.animPrevFrame();
+      host.sendConsoleLog(`animation frame: ${host.animCurrentFrame || 0}`);
+    }
+  },
+  {
+    pat: "anim onion $enabled$bool $prev$int $next$int",
+    run: (m, host) => {
+      const en = m.enabled === true || m.enabled === 'true' || m.enabled === 1;
+      const prev = parseInt(m.prev, 10);
+      const next = parseInt(m.next, 10);
+      host.animOnionSkin(en, prev, next, 64);
+      host.sendConsoleLog(`onion skin: ${en ? 'on' : 'off'} (prev: ${prev}, next: ${next})`);
+    }
+  },
+  {
+    pat: "anim onion $enabled$bool",
+    run: (m, host) => {
+      const en = m.enabled === true || m.enabled === 'true' || m.enabled === 1;
+      host.animOnionSkin(en, 1, 1, 64);
+      host.sendConsoleLog(`onion skin: ${en ? 'on' : 'off'}`);
+    }
+  },
+  {
+    pat: "anim track add $type$int $layer$int",
+    run: (m, host) => {
+      const type = parseInt(m.type, 10);
+      const layer = parseInt(m.layer, 10);
+      const trackIdx = host.canvasActor ? host.canvasActor.animTrackCreate(type, layer) : -1;
+      host.sendConsoleLog(`anim track created: index ${trackIdx} (type: ${type}, layer: ${layer})`);
+    }
+  },
+  {
+    pat: "anim kf add $track$int $frame$int $tween$int",
+    run: (m, host) => {
+      const track = parseInt(m.track, 10);
+      const frame = parseInt(m.frame, 10);
+      const tween = parseInt(m.tween, 10);
+      const kfIdx = host.canvasActor ? host.canvasActor.animAddKeyframe(track, frame, tween) : -1;
+      host.sendConsoleLog(`anim keyframe added: track ${track}, frame ${frame}, kfIdx ${kfIdx}`);
+    }
+  },
+  {
+    pat: "anim bone add $armature$int $parent$int $len$int $angle$int",
+    run: (m, host) => {
+      const arm = parseInt(m.armature, 10);
+      const parent = parseInt(m.parent, 10);
+      const len = parseInt(m.len, 10);
+      const angle = parseInt(m.angle, 10);
+      const boneId = host.canvasActor ? host.canvasActor.animBoneCreate(arm, parent, len, angle) : -1;
+      host.sendConsoleLog(`anim bone created: id ${boneId} in armature ${arm}`);
+    }
+  },
+  {
+    pat: "anim ik solve $armature$int $effector$int $x$int $y$int",
+    run: (m, host) => {
+      const arm = parseInt(m.armature, 10);
+      const eff = parseInt(m.effector, 10);
+      const x = parseInt(m.x, 10);
+      const y = parseInt(m.y, 10);
+      const ok = host.canvasActor ? host.canvasActor.animBoneIkSolve(arm, eff, x, y, 10) : -1;
+      host.sendConsoleLog(`anim IK solved: armature ${arm}, effector ${eff} -> (${x},${y}) res=${ok}`);
+    }
+  },
+  {
+    pat: "anim camera set $x$int $y$int $z$int $zoom$int $rot$int",
+    run: (m, host) => {
+      const x = parseInt(m.x, 10);
+      const y = parseInt(m.y, 10);
+      const z = parseInt(m.z, 10);
+      const zoom = parseInt(m.zoom, 10);
+      const rot = parseInt(m.rot, 10);
+      if (host.canvasActor) host.canvasActor.animCameraSet(x, y, z, zoom, rot);
+      if (typeof host.render === 'function') host.render();
+      else if (typeof host.renderFrame === 'function') host.renderFrame();
+      host.sendConsoleLog(`anim camera set: (${x},${y},${z}) zoom=${zoom}% rot=${rot}deg`);
+    }
   }
 ];
 
@@ -4249,6 +4619,14 @@ class EsenhoScreenHost {
 
     this.canvasActor = null;
     this.plugins = new Map(); // name -> { type, module }
+
+    // Animation & Timeline State
+    this.animPlaying = false;
+    this.animTimer = null;
+    this.animFps = 24;
+    this.animTotalFrames = 60;
+    this.animCurrentFrame = 0;
+    this.animOnionSkinEnabled = false;
 
     this.window = null;
     this.screenBuffer = Buf.alloc(this.windowWidth * this.windowHeight * 4);
@@ -5829,6 +6207,84 @@ class EsenhoScreenHost {
       strokes
     };
   }
+
+  /* ── Animation & Timeline Host Methods ── */
+
+  animInit(totalFrames = 60, fps = 24) {
+    this.animTotalFrames = totalFrames;
+    this.animFps = fps;
+    this.animCurrentFrame = 0;
+    if (this.canvasActor) {
+      this.canvasActor.animInit(totalFrames, fps);
+    }
+  }
+
+  animSetFrame(frameIdx) {
+    this.animCurrentFrame = frameIdx;
+    if (this.canvasActor) {
+      this.canvasActor.animSetFrame(frameIdx);
+    }
+    if (typeof this.render === 'function') this.render();
+    else if (typeof this.renderFrame === 'function') this.renderFrame();
+  }
+
+  animPlay() {
+    if (this.animPlaying) return;
+    this.animPlaying = true;
+    const intervalMs = Math.max(10, Math.floor(1000 / (this.animFps || 24)));
+    this.animTimer = setInterval(() => {
+      let nextFrame = (this.animCurrentFrame + 1) % (this.animTotalFrames || 60);
+      this.animSetFrame(nextFrame);
+    }, intervalMs);
+  }
+
+  animStop() {
+    this.animPlaying = false;
+    if (this.animTimer) {
+      clearInterval(this.animTimer);
+      this.animTimer = null;
+    }
+  }
+
+  animNextFrame() {
+    const next = (this.animCurrentFrame + 1) % (this.animTotalFrames || 60);
+    this.animSetFrame(next);
+  }
+
+  animPrevFrame() {
+    let prev = this.animCurrentFrame - 1;
+    if (prev < 0) prev = (this.animTotalFrames || 60) - 1;
+    this.animSetFrame(prev);
+  }
+
+  animAddKeyframe(trackIdx, frameIdx, tweenType = 1, transform = {}) {
+    if (!this.canvasActor) return -1;
+    const kfIdx = this.canvasActor.animAddKeyframe(trackIdx, frameIdx, tweenType);
+    if (kfIdx >= 0 && transform) {
+      this.canvasActor.animSetKeyframeTransform(
+        trackIdx,
+        kfIdx,
+        transform.x ?? 0,
+        transform.y ?? 0,
+        transform.scaleX ?? 100,
+        transform.scaleY ?? 100,
+        transform.rot ?? 0,
+        transform.opacity ?? 100,
+        transform.zDepth ?? 0
+      );
+    }
+    return kfIdx;
+  }
+
+  animOnionSkin(enabled = true, prevFrames = 1, nextFrames = 1, tintAlpha = 64) {
+    this.animOnionSkinEnabled = !!enabled;
+    if (this.canvasActor) {
+      this.canvasActor.animOnionSkin(enabled, prevFrames, nextFrames, tintAlpha);
+      if (typeof this.render === 'function') this.render();
+      else if (typeof this.renderFrame === 'function') this.renderFrame();
+    }
+  }
+
 
 
   /**
