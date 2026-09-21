@@ -482,4 +482,44 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
     return mod_a;
 }
 
+/* =========================================================================
+ * Vector Stroke & Path ABI definitions
+ * ========================================================================= */
+
+typedef struct {
+    int32_t x;
+    int32_t y;
+    int32_t pressure;   /* 0..1000 */
+    int16_t tilt_x;     /* -90..90 */
+    int16_t tilt_y;     /* -90..90 */
+} w_vpoint_t;
+
+typedef struct {
+    int32_t  id;
+    int32_t  layer_idx;
+    uint32_t color;
+    int32_t  eraser;
+    int32_t  closed;
+    w_vpoint_t *points;
+    int32_t  point_count;
+    int32_t  point_capacity;
+    int32_t  min_x, min_y, max_x, max_y;
+} w_vstroke_header_t;
+
+/* Vector ABI Prototypes */
+W_EXPORT void    w_vector_set_recording(int32_t enabled);
+W_EXPORT int32_t w_vector_get_recording(void);
+W_EXPORT int32_t w_vector_stroke_begin(uint32_t color, int32_t eraser);
+W_EXPORT void    w_vector_stroke_add_point(int32_t x, int32_t y, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
+W_EXPORT void    w_vector_stroke_end(int32_t closed);
+W_EXPORT int32_t w_vector_get_count(int32_t layer_idx);
+W_EXPORT void    w_vector_clear_layer(int32_t layer_idx);
+W_EXPORT void    w_vector_clear_all(void);
+W_EXPORT void    w_vector_replay_layer(int32_t layer_idx, int32_t scale_pct, int32_t off_x, int32_t off_y);
+W_EXPORT void    w_vector_replay_all(int32_t scale_pct, int32_t off_x, int32_t off_y);
+W_EXPORT int32_t w_vector_get_stroke_point_count(int32_t layer_idx, int32_t stroke_idx);
+W_EXPORT int32_t w_vector_get_stroke_info(int32_t layer_idx, int32_t stroke_idx, int32_t *out_info);
+W_EXPORT int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx, int32_t pt_idx, int32_t *out_pt);
+
 #endif /* ESENHO_H */
+

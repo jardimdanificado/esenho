@@ -201,7 +201,25 @@ uint32_t* w_render(void);
 uint32_t  w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 ```
 
+#### Vector Path & Spine Engine
+```c
+void    w_vector_set_recording(int32_t enabled);
+int32_t w_vector_get_recording(void);
+int32_t w_vector_stroke_begin(uint32_t color, int32_t eraser);
+void    w_vector_stroke_add_point(int32_t x, int32_t y, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
+void    w_vector_stroke_end(int32_t closed);
+int32_t w_vector_get_count(int32_t layer_idx);
+void    w_vector_clear_layer(int32_t layer_idx);
+void    w_vector_clear_all(void);
+void    w_vector_replay_layer(int32_t layer_idx, int32_t scale_pct, int32_t off_x, int32_t off_y);
+void    w_vector_replay_all(int32_t scale_pct, int32_t off_x, int32_t off_y);
+int32_t w_vector_get_stroke_point_count(int32_t layer_idx, int32_t stroke_idx);
+int32_t w_vector_get_stroke_info(int32_t layer_idx, int32_t stroke_idx, int32_t *out_info);
+int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx, int32_t pt_idx, int32_t *out_pt);
+```
+
 ---
+
 
 ## 3. Filter Plugin ABI
 
@@ -357,7 +375,15 @@ Apply a named preset with `brush <preset>` or `set brush <preset>`:
 - `save project [file]` / `export project [file]`: Serialize entire project (all layers, history, settings) to `.esen` JSON file.
 - `load project <file>` / `open project <file>`: Load a `.esen` project file (Node.js / CLI only; use file picker in browser).
 
+### Vector Path & Spine Commands
+- `vector status`: Print vector recording status, active layer stroke count, and total strokes.
+- `vector recording <on|off>`: Enable or disable real-time vector spine recording.
+- `vector clear [all]`: Clear vector strokes for the active layer or all layers.
+- `vector replay [scale_pct]`: Re-rasterize all vector strokes using the exact original brush physics at specified percentage scale (e.g. `vector replay 200`).
+- `vector export svg [filename]`: Export recorded vector strokes as a standard resolution-independent SVG file.
+
 ### Cache & Maintenance
 - `reset cache` / `cache reset` / `clear cache`: Delete all service worker caches and reload the page (browser only).
 - `reset data` / `data reset` / `clear data`: Delete all persistent client storage (`IndexedDB` + `LocalStorage` + `SessionStorage`) and return to launcher.
+
 

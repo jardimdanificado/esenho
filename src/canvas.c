@@ -2052,6 +2052,19 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
         stroke_pickup_color = color;
     }
 
+    if (w_vector_get_recording()) {
+        if (state == 0) {
+            w_vector_stroke_begin(color, eraser);
+            w_vector_stroke_add_point(x0, y0, pressure, tilt_x, tilt_y);
+        } else if (state == 1) {
+            w_vector_stroke_add_point(x0, y0, pressure, tilt_x, tilt_y);
+        } else if (state == 2) {
+            w_vector_stroke_add_point(x0, y0, pressure, tilt_x, tilt_y);
+            w_vector_stroke_end(0);
+        }
+    }
+
+
     // 1. FLOOD FILL MODE
     if (brush_config.type == W_MODE_FILL) {
         if (state == 0 && x1 >= 0 && x1 < w && y1 >= 0 && y1 < h && !is_pixel_clipped(x1, y1)) {
@@ -2420,4 +2433,279 @@ W_EXPORT int32_t w_layer_get_blend_mode(int32_t idx) {
         return layers[target].blend_mode;
     }
     return 0;
+}
+
+/* =========================================================================
+ * Vector Engine & Path Storage Implementation
+ * ========================================================================= */
+
+typedef struct {
+    int32_t  id;
+    int32_t  layer_idx;
+    uint32_t color;
+    int32_t  eraser;
+    int32_t  closed;
+    w_brush_config_t config;
+    w_vpoint_t *points;
+    int32_t  point_count;
+    int32_t  point_capacity;
+    int32_t  min_x, min_y, max_x, max_y;
+} w_vstroke_internal_t;
+
+typedef struct {
+    w_vstroke_internal_t *strokes;
+    int32_t count;
+    int32_t capacity;
+} w_vlayer_internal_t;
+
+static int32_t vector_recording = 1;
+static int32_t vector_next_stroke_id = 1;
+static w_vlayer_internal_t *vlayers = 0;
+static int32_t vlayer_capacity = 0;
+static w_vstroke_internal_t *curr_vstroke = 0;
+
+static void ensure_vlayer_capacity(int min_cap) {
+    if (vlayer_capacity >= min_cap) return;
+    int new_cap = vlayer_capacity ? vlayer_capacity * 2 : 64;
+    while (new_cap < min_cap) new_cap *= 2;
+    w_vlayer_internal_t *new_vlayers = (w_vlayer_internal_t*)canvas_alloc(new_cap * sizeof(w_vlayer_internal_t));
+    for (int i = 0; i < vlayer_capacity; i++) {
+        new_vlayers[i] = vlayers[i];
+    }
+    for (int i = vlayer_capacity; i < new_cap; i++) {
+        new_vlayers[i].strokes = 0;
+        new_vlayers[i].count = 0;
+        new_vlayers[i].capacity = 0;
+    }
+    vlayers = new_vlayers;
+    vlayer_capacity = new_cap;
+}
+
+static void ensure_vstroke_capacity(w_vlayer_internal_t *vl, int min_cap) {
+    if (vl->capacity >= min_cap) return;
+    int new_cap = vl->capacity ? vl->capacity * 2 : 16;
+    while (new_cap < min_cap) new_cap *= 2;
+    w_vstroke_internal_t *new_strokes = (w_vstroke_internal_t*)canvas_alloc(new_cap * sizeof(w_vstroke_internal_t));
+    for (int i = 0; i < vl->capacity; i++) {
+        new_strokes[i] = vl->strokes[i];
+    }
+    for (int i = vl->capacity; i < new_cap; i++) {
+        new_strokes[i].id = 0;
+        new_strokes[i].points = 0;
+        new_strokes[i].point_count = 0;
+        new_strokes[i].point_capacity = 0;
+    }
+    vl->strokes = new_strokes;
+    vl->capacity = new_cap;
+}
+
+static void ensure_vpoint_capacity(w_vstroke_internal_t *st, int min_cap) {
+    if (st->point_capacity >= min_cap) return;
+    int new_cap = st->point_capacity ? st->point_capacity * 2 : 32;
+    while (new_cap < min_cap) new_cap *= 2;
+    w_vpoint_t *new_pts = (w_vpoint_t*)canvas_alloc(new_cap * sizeof(w_vpoint_t));
+    for (int i = 0; i < st->point_capacity; i++) {
+        new_pts[i] = st->points[i];
+    }
+    st->points = new_pts;
+    st->point_capacity = new_cap;
+}
+
+W_EXPORT void w_vector_set_recording(int32_t enabled) {
+    vector_recording = enabled ? 1 : 0;
+}
+
+W_EXPORT int32_t w_vector_get_recording(void) {
+    return vector_recording;
+}
+
+W_EXPORT int32_t w_vector_stroke_begin(uint32_t color, int32_t eraser) {
+    init_surface_if_needed();
+    int lidx = (active_layer >= 0 && active_layer < layer_count) ? active_layer : 0;
+    ensure_vlayer_capacity(lidx + 1);
+    w_vlayer_internal_t *vl = &vlayers[lidx];
+    ensure_vstroke_capacity(vl, vl->count + 1);
+
+    w_vstroke_internal_t *st = &vl->strokes[vl->count++];
+    st->id = vector_next_stroke_id++;
+    st->layer_idx = lidx;
+    st->color = color;
+    st->eraser = eraser ? 1 : 0;
+    st->closed = 0;
+    st->config = brush_config;
+    st->point_count = 0;
+    st->min_x = 999999;
+    st->min_y = 999999;
+    st->max_x = -999999;
+    st->max_y = -999999;
+    curr_vstroke = st;
+    return st->id;
+}
+
+W_EXPORT void w_vector_stroke_add_point(int32_t x, int32_t y, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
+    if (!curr_vstroke) return;
+    ensure_vpoint_capacity(curr_vstroke, curr_vstroke->point_count + 1);
+    w_vpoint_t *pt = &curr_vstroke->points[curr_vstroke->point_count++];
+    pt->x = x;
+    pt->y = y;
+    pt->pressure = pressure;
+    pt->tilt_x = (int16_t)tilt_x;
+    pt->tilt_y = (int16_t)tilt_y;
+    if (x < curr_vstroke->min_x) curr_vstroke->min_x = x;
+    if (y < curr_vstroke->min_y) curr_vstroke->min_y = y;
+    if (x > curr_vstroke->max_x) curr_vstroke->max_x = x;
+    if (y > curr_vstroke->max_y) curr_vstroke->max_y = y;
+}
+
+W_EXPORT void w_vector_stroke_end(int32_t closed) {
+    if (curr_vstroke) {
+        curr_vstroke->closed = closed ? 1 : 0;
+        curr_vstroke = 0;
+    }
+}
+
+W_EXPORT int32_t w_vector_get_count(int32_t layer_idx) {
+    init_surface_if_needed();
+    int lidx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (lidx < 0 || lidx >= vlayer_capacity || !vlayers) return 0;
+    return vlayers[lidx].count;
+}
+
+W_EXPORT void w_vector_clear_layer(int32_t layer_idx) {
+    init_surface_if_needed();
+    int lidx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (lidx < 0 || lidx >= vlayer_capacity || !vlayers) return;
+    vlayers[lidx].count = 0;
+}
+
+W_EXPORT void w_vector_clear_all(void) {
+    init_surface_if_needed();
+    if (!vlayers) return;
+    for (int i = 0; i < vlayer_capacity; i++) {
+        vlayers[i].count = 0;
+    }
+}
+
+W_EXPORT void w_vector_replay_layer(int32_t layer_idx, int32_t scale_pct, int32_t off_x, int32_t off_y) {
+    init_surface_if_needed();
+    int lidx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (lidx < 0 || lidx >= vlayer_capacity || !vlayers) return;
+    w_vlayer_internal_t *vl = &vlayers[lidx];
+    if (vl->count <= 0 || !vl->strokes) return;
+
+    w_brush_config_t saved_config = brush_config;
+    int32_t saved_recording = vector_recording;
+    int32_t saved_active_layer = active_layer;
+    vector_recording = 0;
+    active_layer = lidx;
+
+    if (scale_pct <= 0) scale_pct = 100;
+
+    for (int s = 0; s < vl->count; s++) {
+        w_vstroke_internal_t *st = &vl->strokes[s];
+        if (st->point_count <= 0 || !st->points) continue;
+
+        brush_config = st->config;
+        int orig_size = st->config.size;
+        int scaled_size = (orig_size * scale_pct) / 100;
+        if (scaled_size < 1) scaled_size = 1;
+        brush_config.size = scaled_size;
+
+        int count = st->point_count;
+        if (count == 1) {
+            int sx = (st->points[0].x * scale_pct) / 100 + off_x;
+            int sy = (st->points[0].y * scale_pct) / 100 + off_y;
+            w_brush_stroke_ext(0, sx, sy, sx, sy, st->color, st->eraser, st->points[0].pressure, st->points[0].tilt_x, st->points[0].tilt_y);
+            w_brush_stroke_ext(2, sx, sy, sx, sy, st->color, st->eraser, st->points[0].pressure, st->points[0].tilt_x, st->points[0].tilt_y);
+        } else {
+            int sx0 = (st->points[0].x * scale_pct) / 100 + off_x;
+            int sy0 = (st->points[0].y * scale_pct) / 100 + off_y;
+            int sx1 = (st->points[1].x * scale_pct) / 100 + off_x;
+            int sy1 = (st->points[1].y * scale_pct) / 100 + off_y;
+            w_brush_stroke_ext(0, sx0, sy0, sx1, sy1, st->color, st->eraser, st->points[0].pressure, st->points[0].tilt_x, st->points[0].tilt_y);
+
+            for (int p = 2; p < count; p++) {
+                int px = (st->points[p - 1].x * scale_pct) / 100 + off_x;
+                int py = (st->points[p - 1].y * scale_pct) / 100 + off_y;
+                int cx = (st->points[p].x * scale_pct) / 100 + off_x;
+                int cy = (st->points[p].y * scale_pct) / 100 + off_y;
+                w_brush_stroke_ext(1, cx, cy, px, py, st->color, st->eraser, st->points[p].pressure, st->points[p].tilt_x, st->points[p].tilt_y);
+            }
+            int last_p = count - 1;
+            int prev_p = count > 1 ? count - 2 : 0;
+            int lpx = (st->points[prev_p].x * scale_pct) / 100 + off_x;
+            int lpy = (st->points[prev_p].y * scale_pct) / 100 + off_y;
+            int lcx = (st->points[last_p].x * scale_pct) / 100 + off_x;
+            int lcy = (st->points[last_p].y * scale_pct) / 100 + off_y;
+            w_brush_stroke_ext(2, lcx, lcy, lpx, lpy, st->color, st->eraser, st->points[last_p].pressure, st->points[last_p].tilt_x, st->points[last_p].tilt_y);
+        }
+    }
+
+    brush_config = saved_config;
+    vector_recording = saved_recording;
+    active_layer = saved_active_layer;
+    force_composite();
+}
+
+W_EXPORT void w_vector_replay_all(int32_t scale_pct, int32_t off_x, int32_t off_y) {
+    init_surface_if_needed();
+    for (int i = 0; i < layer_count; i++) {
+        if (layers[i].in_use && layers[i].visible) {
+            if (layers[i].pixels) {
+                int total = layers[i].width * layers[i].height;
+                for (int p = 0; p < total; p++) layers[i].pixels[p] = 0;
+            }
+            w_vector_replay_layer(i, scale_pct, off_x, off_y);
+        }
+    }
+}
+
+W_EXPORT int32_t w_vector_get_stroke_point_count(int32_t layer_idx, int32_t stroke_idx) {
+    init_surface_if_needed();
+    int lidx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (lidx < 0 || lidx >= vlayer_capacity || !vlayers) return 0;
+    if (stroke_idx < 0 || stroke_idx >= vlayers[lidx].count) return 0;
+    return vlayers[lidx].strokes[stroke_idx].point_count;
+}
+
+W_EXPORT int32_t w_vector_get_stroke_info(int32_t layer_idx, int32_t stroke_idx, int32_t *out_info) {
+    init_surface_if_needed();
+    if (!out_info) return 0;
+    int lidx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (lidx < 0 || lidx >= vlayer_capacity || !vlayers) return 0;
+    if (stroke_idx < 0 || stroke_idx >= vlayers[lidx].count) return 0;
+    w_vstroke_internal_t *st = &vlayers[lidx].strokes[stroke_idx];
+    out_info[0]  = st->id;
+    out_info[1]  = (int32_t)st->color;
+    out_info[2]  = st->eraser;
+    out_info[3]  = st->closed;
+    out_info[4]  = st->config.type;
+    out_info[5]  = st->config.size;
+    out_info[6]  = st->config.opacity;
+    out_info[7]  = st->config.hardness;
+    out_info[8]  = st->config.flow;
+    out_info[9]  = st->config.spacing;
+    out_info[10] = st->config.angle;
+    out_info[11] = st->config.roundness;
+    out_info[12] = st->config.scatter;
+    out_info[13] = st->config.grain;
+    out_info[14] = st->config.tex_mode;
+    out_info[15] = st->point_count;
+    return 1;
+}
+
+W_EXPORT int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx, int32_t pt_idx, int32_t *out_pt) {
+    init_surface_if_needed();
+    if (!out_pt) return 0;
+    int lidx = (layer_idx >= 0) ? layer_idx : active_layer;
+    if (lidx < 0 || lidx >= vlayer_capacity || !vlayers) return 0;
+    if (stroke_idx < 0 || stroke_idx >= vlayers[lidx].count) return 0;
+    w_vstroke_internal_t *st = &vlayers[lidx].strokes[stroke_idx];
+    if (pt_idx < 0 || pt_idx >= st->point_count) return 0;
+    out_pt[0] = st->points[pt_idx].x;
+    out_pt[1] = st->points[pt_idx].y;
+    out_pt[2] = st->points[pt_idx].pressure;
+    out_pt[3] = (int32_t)st->points[pt_idx].tilt_x;
+    out_pt[4] = (int32_t)st->points[pt_idx].tilt_y;
+    return 1;
 }

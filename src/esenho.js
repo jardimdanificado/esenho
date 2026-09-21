@@ -541,7 +541,122 @@ class EsenhoModule {
     }
   }
 
+  vectorSetRecording(enabled) {
+    if (typeof this.exports.w_vector_set_recording === 'function') {
+      this.exports.w_vector_set_recording(enabled ? 1 : 0);
+    }
+  }
+
+  vectorGetRecording() {
+    if (typeof this.exports.w_vector_get_recording === 'function') {
+      return this.exports.w_vector_get_recording() === 1;
+    }
+    return false;
+  }
+
+  vectorGetCount(layerIdx = -1) {
+    if (typeof this.exports.w_vector_get_count === 'function') {
+      return this.exports.w_vector_get_count(layerIdx);
+    }
+    return 0;
+  }
+
+  vectorClearLayer(layerIdx = -1) {
+    if (typeof this.exports.w_vector_clear_layer === 'function') {
+      this.exports.w_vector_clear_layer(layerIdx);
+    }
+  }
+
+  vectorClearAll() {
+    if (typeof this.exports.w_vector_clear_all === 'function') {
+      this.exports.w_vector_clear_all();
+    }
+  }
+
+  vectorReplayLayer(layerIdx = -1, scalePct = 100, offX = 0, offY = 0) {
+    if (typeof this.exports.w_vector_replay_layer === 'function') {
+      this.exports.w_vector_replay_layer(layerIdx, scalePct, offX, offY);
+    }
+  }
+
+  vectorReplayAll(scalePct = 100, offX = 0, offY = 0) {
+    if (typeof this.exports.w_vector_replay_all === 'function') {
+      this.exports.w_vector_replay_all(scalePct, offX, offY);
+    }
+  }
+
+  vectorGetStrokes(layerIdx = -1) {
+    if (!this.memory || typeof this.exports.w_vector_get_count !== 'function') return [];
+    const count = this.exports.w_vector_get_count(layerIdx);
+    if (count <= 0) return [];
+
+    let scratchPtr = 0;
+    if (typeof this.exports.w_get_clip_mask_buffer === 'function') {
+      scratchPtr = this.exports.w_get_clip_mask_buffer(256);
+    }
+    if (!scratchPtr) return [];
+
+    const strokes = [];
+    const i32 = new Int32Array(this.memory.buffer);
+    const scratchI32Idx = scratchPtr >> 2;
+
+    for (let s = 0; s < count; s++) {
+      if (this.exports.w_vector_get_stroke_info(layerIdx, s, scratchPtr) === 1) {
+        const id = i32[scratchI32Idx + 0];
+        const color = (i32[scratchI32Idx + 1] >>> 0);
+        const eraser = i32[scratchI32Idx + 2] === 1;
+        const closed = i32[scratchI32Idx + 3] === 1;
+        const type = i32[scratchI32Idx + 4];
+        const size = i32[scratchI32Idx + 5];
+        const opacity = i32[scratchI32Idx + 6];
+        const hardness = i32[scratchI32Idx + 7];
+        const flow = i32[scratchI32Idx + 8];
+        const spacing = i32[scratchI32Idx + 9];
+        const angle = i32[scratchI32Idx + 10];
+        const roundness = i32[scratchI32Idx + 11];
+        const scatter = i32[scratchI32Idx + 12];
+        const grain = i32[scratchI32Idx + 13];
+        const texMode = i32[scratchI32Idx + 14];
+        const ptCount = i32[scratchI32Idx + 15];
+
+        const points = [];
+        for (let p = 0; p < ptCount; p++) {
+          if (this.exports.w_vector_get_stroke_point(layerIdx, s, p, scratchPtr) === 1) {
+            points.push({
+              x: i32[scratchI32Idx + 0],
+              y: i32[scratchI32Idx + 1],
+              pressure: i32[scratchI32Idx + 2] / 1000,
+              tiltX: i32[scratchI32Idx + 3],
+              tiltY: i32[scratchI32Idx + 4]
+            });
+          }
+        }
+
+        strokes.push({
+          id,
+          color,
+          eraser,
+          closed,
+          type,
+          size,
+          opacity,
+          hardness,
+          flow,
+          spacing,
+          angle,
+          roundness,
+          scatter,
+          grain,
+          texMode,
+          points
+        });
+      }
+    }
+    return strokes;
+  }
+
   readCString(ptr) {
+
     if (!ptr || !this.memory) return '';
     const u8 = new Uint8Array(this.memory.buffer);
     let end = ptr;
@@ -3778,8 +3893,81 @@ const COMMAND_RULES = [
     }
   },
   { pat: "all reset", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset all").run(m, host) },
-  { pat: "clear all", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset all").run(m, host) }
+  { pat: "clear all", run: (m, host) => COMMAND_RULES.find(r => r.pat === "reset all").run(m, host) },
+
+  // Vector Engine & Path Commands
+  {
+    pat: "vector status",
+    run: (m, host) => {
+      const rec = host.canvasActor ? host.canvasActor.vectorGetRecording() : false;
+      const cnt = host.canvasActor ? host.canvasActor.vectorGetCount(-1) : 0;
+      const totalCnt = host.canvasActor ? host.canvasActor.vectorGetCount(-2) : 0;
+      host.sendConsoleLog(`vector recording: ${rec ? 'on' : 'off'}, active layer strokes: ${cnt}, total strokes: ${totalCnt}`);
+    }
+  },
+  {
+    pat: "vector recording $state$str",
+    run: (m, host) => {
+      const enable = m.state === 'on' || m.state === '1' || m.state === 'true';
+      if (host.canvasActor) host.canvasActor.vectorSetRecording(enable);
+      host.sendConsoleLog(`vector recording set to ${enable ? 'on' : 'off'}`);
+    }
+  },
+  {
+    pat: "vector clear",
+    run: (m, host) => {
+      if (host.canvasActor) host.canvasActor.vectorClearLayer(-1);
+      host.sendConsoleLog('active layer vector strokes cleared');
+    }
+  },
+  {
+    pat: "vector clear all",
+    run: (m, host) => {
+      if (host.canvasActor) host.canvasActor.vectorClearAll();
+      host.sendConsoleLog('all vector strokes cleared');
+    }
+  },
+  {
+    pat: "vector replay $scale$int",
+    run: (m, host) => {
+      const scale = parseInt(m.scale, 10) || 100;
+      if (host.canvasActor) host.canvasActor.vectorReplayAll(scale, 0, 0);
+      host.sendConsoleLog(`vector strokes replayed at ${scale}% scale`);
+    }
+  },
+  {
+    pat: "vector replay",
+    run: (m, host) => {
+      if (host.canvasActor) host.canvasActor.vectorReplayAll(100, 0, 0);
+      host.sendConsoleLog('vector strokes replayed at 100% scale');
+    }
+  },
+  {
+    pat: "vector export svg $filename$str",
+    run: (m, host) => {
+      const svg = host.exportSVG();
+      if (typeof require !== 'undefined') {
+        try {
+          const fs = require('fs');
+          fs.writeFileSync(m.filename, svg, 'utf-8');
+          host.sendConsoleLog(`vector exported to SVG: ${m.filename}`);
+          return;
+        } catch (e) {
+          host.sendConsoleLog(`err: failed to write SVG: ${e.message}`, 0xFFFF5555);
+        }
+      }
+      host.sendConsoleLog('vector SVG generated');
+    }
+  },
+  {
+    pat: "vector export svg",
+    run: (m, host) => {
+      const svg = host.exportSVG();
+      host.sendConsoleLog(`vector SVG generated (${svg.length} bytes)`);
+    }
+  }
 ];
+
 
 /**
  * EsenhoScreenHost - Main Application State & Screen Host Actor.
@@ -5400,6 +5588,58 @@ class EsenhoScreenHost {
       this.canvasActor.exports.w_layer_adjust_hsv(idx, Math.round(dHue), Math.round(dSat), Math.round(dVal));
     });
   }
+
+  /**
+   * Exports recorded vector strokes as a standard SVG string.
+   */
+  exportSVG(options = {}) {
+    const width = (this.canvasActor?.exports?.get_width) ? this.canvasActor.exports.get_width() : (this.windowWidth || 800);
+    const height = (this.canvasActor?.exports?.get_height) ? this.canvasActor.exports.get_height() : (this.windowHeight || 1000);
+    const strokes = this.canvasActor ? this.canvasActor.vectorGetStrokes(-2) : [];
+
+    let svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`;
+    svg += `  <rect width="${width}" height="${height}" fill="#181818" />\n`;
+
+    for (const st of strokes) {
+      if (!st.points || st.points.length === 0) continue;
+      if (st.eraser) continue;
+
+      const a = ((st.color >> 24) & 0xFF) / 255;
+      const b = (st.color >> 16) & 0xFF;
+      const g = (st.color >> 8) & 0xFF;
+      const r = st.color & 0xFF;
+      const hex = `rgb(${r},${g},${b})`;
+      const op = Math.max(0.01, ((st.opacity / 100) * a)).toFixed(3);
+      const strokeWidth = Math.max(1, st.size);
+
+      if (st.points.length === 1) {
+        svg += `  <circle cx="${st.points[0].x}" cy="${st.points[0].y}" r="${(strokeWidth / 2).toFixed(1)}" fill="${hex}" opacity="${op}" />\n`;
+      } else {
+        let d = `M ${st.points[0].x} ${st.points[0].y}`;
+        for (let i = 1; i < st.points.length; i++) {
+          d += ` L ${st.points[i].x} ${st.points[i].y}`;
+        }
+        if (st.closed) d += ' Z';
+        svg += `  <path d="${d}" fill="none" stroke="${hex}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />\n`;
+      }
+    }
+    svg += `</svg>\n`;
+    return svg;
+  }
+
+  /**
+   * Exports recorded vector strokes as a JSON data structure.
+   */
+  exportVectorJSON(layerIdx = -1) {
+    const strokes = this.canvasActor ? this.canvasActor.vectorGetStrokes(layerIdx) : [];
+    return {
+      version: 1,
+      width: (this.canvasActor?.exports?.get_width) ? this.canvasActor.exports.get_width() : 800,
+      height: (this.canvasActor?.exports?.get_height) ? this.canvasActor.exports.get_height() : 1000,
+      strokes
+    };
+  }
+
 
   /**
    * Resets all tool/brush parameters to factory defaults.
