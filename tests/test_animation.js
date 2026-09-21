@@ -116,7 +116,48 @@ async function runAnimationTests() {
   assert.strictEqual(symInst, 1, 'Symbol instantiation should succeed');
   console.log('[esenho] nested symbols verified');
 
-  // 8. Test EsenhoScreenHost Animation and REPL integration
+  // 8. Test Native Selection Engine in C
+  canvasActor.selectRect(50, 50, 100, 80, 0 /* W_SEL_REPLACE */);
+  let selInfo = canvasActor.selectGetInfo();
+  assert.strictEqual(selInfo.active, true, 'Selection should be active');
+  assert.strictEqual(selInfo.x, 50, 'Selection x should be 50');
+  assert.strictEqual(selInfo.w, 100, 'Selection width should be 100');
+
+  // Add rect (100, 80, 120, 100) -> union
+  canvasActor.selectRect(100, 80, 120, 100, 1 /* W_SEL_ADD */);
+  selInfo = canvasActor.selectGetInfo();
+  assert.strictEqual(selInfo.active, true, 'Selection should remain active after union');
+
+  // Test Magic Wand in C
+  const wandSelected = canvasActor.selectWand(0, 60, 60, 30, true, 0 /* W_SEL_REPLACE */);
+  console.log(`[esenho] Native C magic wand selected ${wandSelected} pixels`);
+
+  // Test Invert & Clear
+  canvasActor.selectInvert();
+  selInfo = canvasActor.selectGetInfo();
+  assert.strictEqual(selInfo.active, true, 'Inverted selection should be active');
+
+  canvasActor.selectClear();
+  selInfo = canvasActor.selectGetInfo();
+  assert.strictEqual(selInfo.active, false, 'Selection should be cleared');
+  console.log('[esenho] Native C selection engine verified');
+
+  // 9. Test Native Layer Transform & Flips in C
+  canvasActor.layerFlipH(0);
+  canvasActor.layerFlipV(0);
+  const tfOk = canvasActor.layerTransform(0, 0, 10, 10, 120, 120, 45, 0, 1 /* Bilinear */);
+  assert.strictEqual(tfOk, 1, 'Layer transform should succeed');
+  console.log('[esenho] Native C layer transforms & flips verified');
+
+  // 10. Test Native Procedural Brush Tip Generator in C
+  for (let shape = 0; shape <= 6; shape++) {
+    const tipBuf = canvasActor.generateBrushTip(shape, 64, 64);
+    assert(tipBuf !== null, `Tip buffer for shape ${shape} should not be null`);
+    assert.strictEqual(tipBuf.length, 64 * 64, 'Tip buffer size should be 4096 bytes');
+  }
+  console.log('[esenho] Native C procedural brush tip generator (all 7 shapes) verified');
+
+  // 11. Test EsenhoScreenHost Animation and REPL integration
   const host = new EsenhoScreenHost();
   host.canvasActor = canvasActor;
   let lastLog = '';
@@ -140,7 +181,7 @@ async function runAnimationTests() {
   host.executeCommand("anim camera set 20 30 5 120 0");
   assert(lastLog.includes('anim camera set'), 'anim camera set command should work');
 
-  console.log('--- ALL ANIMATION TESTS PASSED ---');
+  console.log('--- ALL ANIMATION & NATIVE CORE TESTS PASSED ---');
 }
 
 runAnimationTests().catch(err => {

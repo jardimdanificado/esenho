@@ -1,10 +1,10 @@
-#ifndef ESENHO_H
-#define ESENHO_H
+#ifndef QUADRO_H
+#define QUADRO_H
 
 /**
  * =========================================================================
- * Esenho WebAssembly Header (include/esenho.h)
- * Universal Brush Engine & Filter ABI definitions.
+ * Quadro WebAssembly Header (include/quadro.h)
+ * Universal Brush, Vector, Animation & Filter ABI definitions.
  * =========================================================================
  */
 
@@ -596,7 +596,46 @@ W_EXPORT void    w_anim_camera_get(int32_t *out_cam_5words);
 W_EXPORT int32_t w_anim_symbol_create(int32_t total_frames, int32_t loop_mode);
 W_EXPORT int32_t w_anim_symbol_instantiate(int32_t symbol_id, int32_t parent_track_idx, int32_t start_frame);
 
-#endif /* ESENHO_H */
+/* =========================================================================
+ * Selection, Masking, Layer Transform & Procedural Tip ABI
+ * ========================================================================= */
+
+enum {
+    W_SEL_REPLACE   = 0,
+    W_SEL_ADD       = 1,
+    W_SEL_SUB       = 2,
+    W_SEL_INTERSECT = 3
+};
+
+enum {
+    W_TIP_CIRCLE   = 0,
+    W_TIP_SQUARE   = 1,
+    W_TIP_CHISEL   = 2,
+    W_TIP_BRISTLE  = 3,
+    W_TIP_RAKE     = 4,
+    W_TIP_CHARCOAL = 5,
+    W_TIP_DAGGER   = 6
+};
+
+/* Native Selection Engine */
+W_EXPORT void    w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode);
+W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y, int32_t tolerance, int32_t contiguous, int32_t op_mode);
+W_EXPORT void    w_select_lasso(const int32_t *points_xy, int32_t point_count, int32_t op_mode);
+W_EXPORT void    w_select_all(int32_t op_mode);
+W_EXPORT void    w_select_clear(void);
+W_EXPORT void    w_select_invert(void);
+W_EXPORT void    w_select_feather(int32_t radius);
+W_EXPORT int32_t w_select_get_info(int32_t *out_5words);
+
+/* Native Layer Free Transform & Flip Engine */
+W_EXPORT int32_t w_layer_transform(int32_t src_layer_idx, int32_t dst_layer_idx, int32_t dx, int32_t dy, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t skew_x, int32_t bilinear);
+W_EXPORT void    w_layer_flip_h(int32_t layer_idx);
+W_EXPORT void    w_layer_flip_v(int32_t layer_idx);
+
+/* Native Procedural Brush Tip Generator */
+W_EXPORT int32_t w_generate_brush_tip(int32_t shape_type, int32_t width, int32_t height, uint8_t *out_alpha_buffer);
+
+#endif /* QUADRO_H */
 
 
 

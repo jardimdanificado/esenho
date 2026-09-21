@@ -4,7 +4,7 @@
 
 Esenho is an extensible digital painting engine built on WebAssembly and high-performance raster algorithms:
 - **Core WASM Engine (`roms/canvas.wasm`)**: Written in C99, compiled to WebAssembly without libc dependencies. Manages linear memory, unified multi-layer framebuffers, parametric dab rendering, procedural grain sampling, integer math, and dirty-rect composite generation.
-- **Header & ABI (`include/esenho.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, and filter ABI.
+- **Header & ABI (`include/quadro.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, and filter ABI.
 - **Host & Runtime Actor (`src/esenho.js`)**: Executes in Node.js and modern browsers. Implements `EsenhoScreenHost`, `EsenhoModule`, state management, undo/redo snapshot trees, clipboard, and the `papagaio` pattern-matching CLI compiler.
 - **Filter Plugins (`plugins/*.wasm`)**: Standalone WASM modules implementing image processing kernels (`blur`, `brightness`, `contrast`, `dither`, `edge`, `grayscale`, `invert`, `noise`, `pixelate`, `sepia`, `threshold`).
 - **Browser Host (`src/host-browser.js`)**: Glues the canvas element, multitouch gesture recognition, direct WebGL/2D blitting (`desynchronized: true`), and UI controls to the WASM core.
@@ -235,7 +235,7 @@ int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx, int32_t
 Every filter plugin (`plugins/*.wasm`) exports a standard interface invoked on the active layer:
 
 ```c
-#include "esenho.h"
+#include "quadro.h"
 
 W_EXPORT void w_filter_apply(int32_t p1, int32_t p2);
 ```

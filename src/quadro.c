@@ -1,4 +1,4 @@
-#include "esenho.h"
+#include "quadro.h"
 #if defined(__wasm_simd128__)
 #include <wasm_simd128.h>
 #endif
@@ -3696,5 +3696,607 @@ W_EXPORT int32_t w_anim_symbol_instantiate(int32_t symbol_id, int32_t parent_tra
     if (parent_track_idx < 0 || parent_track_idx >= anim_timeline.track_count) return -1;
     return w_anim_add_keyframe(parent_track_idx, start_frame, W_TWEEN_LINEAR);
 }
+
+/* =========================================================================
+ * Native Selection Engine Implementation
+ * ========================================================================= */
+
+static void ensure_doc_mask_buffer(void) {
+    uint32_t needed = doc_width * doc_height;
+    w_get_clip_mask_buffer(needed);
+}
+
+W_EXPORT void w_select_clear(void) {
+    clip_active = 0;
+    clip_has_mask = 0;
+    clip_x = 0; clip_y = 0; clip_w = 0; clip_h = 0;
+}
+
+W_EXPORT void w_select_rect(int32_t x, int32_t y, int32_t w, int32_t h, int32_t op_mode) {
+    init_surface_if_needed();
+    if (w <= 0 || h <= 0) {
+        if (op_mode == W_SEL_REPLACE || op_mode == W_SEL_INTERSECT) w_select_clear();
+        return;
+    }
+
+    if (op_mode == W_SEL_REPLACE) {
+        int x0 = x < 0 ? 0 : x;
+        int y0 = y < 0 ? 0 : y;
+        int x1 = (x + w > (int)doc_width) ? (int)doc_width : (x + w);
+        int y1 = (y + h > (int)doc_height) ? (int)doc_height : (y + h);
+        if (x1 <= x0 || y1 <= y0) {
+            w_select_clear();
+            return;
+        }
+        clip_active = 1;
+        clip_has_mask = 0;
+        clip_x = x0;
+        clip_y = y0;
+        clip_w = x1 - x0;
+        clip_h = y1 - y0;
+        return;
+    }
+
+    ensure_doc_mask_buffer();
+    if (!clip_mask_ptr) return;
+
+    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
+    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 0;
+
+    if (clip_active) {
+        for (int cy = 0; cy < clip_h; cy++) {
+            for (int cx = 0; cx < clip_w; cx++) {
+                int dx = clip_x + cx;
+                int dy = clip_y + cy;
+                if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                    uint8_t v = (clip_has_mask) ? clip_mask_ptr[cy * clip_w + cx] : 1;
+                    temp[dy * doc_width + dx] = v;
+                }
+            }
+        }
+    }
+
+    int rx0 = x < 0 ? 0 : x;
+    int ry0 = y < 0 ? 0 : y;
+    int rx1 = (x + w > (int)doc_width) ? (int)doc_width : (x + w);
+    int ry1 = (y + h > (int)doc_height) ? (int)doc_height : (y + h);
+
+    if (op_mode == W_SEL_ADD) {
+        for (int cy = ry0; cy < ry1; cy++) {
+            for (int cx = rx0; cx < rx1; cx++) {
+                temp[cy * doc_width + cx] = 1;
+            }
+        }
+    } else if (op_mode == W_SEL_SUB) {
+        for (int cy = ry0; cy < ry1; cy++) {
+            for (int cx = rx0; cx < rx1; cx++) {
+                temp[cy * doc_width + cx] = 0;
+            }
+        }
+    } else if (op_mode == W_SEL_INTERSECT) {
+        for (int cy = 0; cy < (int)doc_height; cy++) {
+            for (int cx = 0; cx < (int)doc_width; cx++) {
+                int inside_new = (cx >= rx0 && cx < rx1 && cy >= ry0 && cy < ry1);
+                temp[cy * doc_width + cx] = (temp[cy * doc_width + cx] && inside_new) ? 1 : 0;
+            }
+        }
+    }
+
+    int min_x = doc_width, min_y = doc_height, max_x = -1, max_y = -1;
+    int count = 0;
+    for (int cy = 0; cy < (int)doc_height; cy++) {
+        for (int cx = 0; cx < (int)doc_width; cx++) {
+            if (temp[cy * doc_width + cx]) {
+                count++;
+                if (cx < min_x) min_x = cx;
+                if (cx > max_x) max_x = cx;
+                if (cy < min_y) min_y = cy;
+                if (cy > max_y) max_y = cy;
+            }
+        }
+    }
+
+    if (count == 0 || max_x < min_x || max_y < min_y) {
+        w_select_clear();
+        return;
+    }
+
+    clip_active = 1;
+    clip_has_mask = 1;
+    clip_x = min_x;
+    clip_y = min_y;
+    clip_w = max_x - min_x + 1;
+    clip_h = max_y - min_y + 1;
+
+    w_get_clip_mask_buffer(clip_w * clip_h);
+    for (int cy = 0; cy < clip_h; cy++) {
+        for (int cx = 0; cx < clip_w; cx++) {
+            clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
+        }
+    }
+}
+
+W_EXPORT void w_select_all(int32_t op_mode) {
+    w_select_rect(0, 0, doc_width, doc_height, op_mode);
+}
+
+W_EXPORT int32_t w_select_wand(int32_t layer_idx, int32_t seed_x, int32_t seed_y, int32_t tolerance, int32_t contiguous, int32_t op_mode) {
+    init_surface_if_needed();
+    int l_idx = (layer_idx >= 0 && layer_idx < layer_count && layers[layer_idx].in_use) ? layer_idx : active_layer;
+    if (l_idx < 0 || l_idx >= layer_count || !layers[l_idx].in_use || !layers[l_idx].pixels) return 0;
+
+    layer_t *l = &layers[l_idx];
+    int lw = l->width, lh = l->height;
+    if (seed_x < 0 || seed_x >= lw || seed_y < 0 || seed_y >= lh) return 0;
+
+    uint32_t *pix = l->pixels;
+    uint32_t seed_color = pix[seed_y * lw + seed_x];
+
+    uint8_t *wand_mask = (uint8_t*)canvas_alloc(lw * lh);
+    for (int i = 0; i < lw * lh; i++) wand_mask[i] = 0;
+
+    if (contiguous) {
+        int head = 0, tail = 0;
+        int max_q = lw * lh;
+        int *q = (int*)canvas_alloc(max_q * sizeof(int));
+        uint8_t *visited = (uint8_t*)canvas_alloc(lw * lh);
+        for (int i = 0; i < lw * lh; i++) visited[i] = 0;
+
+        q[tail++] = seed_y * lw + seed_x;
+        visited[seed_y * lw + seed_x] = 1;
+
+        while (head < tail) {
+            int idx = q[head++];
+            int cx = idx % lw, cy = idx / lw;
+
+            if (color_match(pix[idx], seed_color, tolerance)) {
+                wand_mask[idx] = 1;
+
+                if (cx > 0 && !visited[idx - 1]) { visited[idx - 1] = 1; q[tail++] = idx - 1; }
+                if (cx < lw - 1 && !visited[idx + 1]) { visited[idx + 1] = 1; q[tail++] = idx + 1; }
+                if (cy > 0 && !visited[idx - lw]) { visited[idx - lw] = 1; q[tail++] = idx - lw; }
+                if (cy < lh - 1 && !visited[idx + lw]) { visited[idx + lw] = 1; q[tail++] = idx + lw; }
+            }
+        }
+    } else {
+        for (int y = 0; y < lh; y++) {
+            for (int x = 0; x < lw; x++) {
+                if (color_match(pix[y * lw + x], seed_color, tolerance)) {
+                    wand_mask[y * lw + x] = 1;
+                }
+            }
+        }
+    }
+
+    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
+    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 0;
+
+    if (op_mode != W_SEL_REPLACE && clip_active) {
+        for (int cy = 0; cy < clip_h; cy++) {
+            for (int cx = 0; cx < clip_w; cx++) {
+                int dx = clip_x + cx;
+                int dy = clip_y + cy;
+                if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                    temp[dy * doc_width + dx] = (clip_has_mask) ? clip_mask_ptr[cy * clip_w + cx] : 1;
+                }
+            }
+        }
+    }
+
+    for (int ly = 0; ly < lh; ly++) {
+        for (int lx = 0; lx < lw; lx++) {
+            int dx = l->x + lx;
+            int dy = l->y + ly;
+            if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                uint8_t w_val = wand_mask[ly * lw + lx];
+                if (op_mode == W_SEL_REPLACE) {
+                    temp[dy * doc_width + dx] = w_val;
+                } else if (op_mode == W_SEL_ADD) {
+                    if (w_val) temp[dy * doc_width + dx] = 1;
+                } else if (op_mode == W_SEL_SUB) {
+                    if (w_val) temp[dy * doc_width + dx] = 0;
+                } else if (op_mode == W_SEL_INTERSECT) {
+                    temp[dy * doc_width + dx] = (temp[dy * doc_width + dx] && w_val) ? 1 : 0;
+                }
+            }
+        }
+    }
+
+    int min_x = doc_width, min_y = doc_height, max_x = -1, max_y = -1;
+    int count = 0;
+    for (int cy = 0; cy < (int)doc_height; cy++) {
+        for (int cx = 0; cx < (int)doc_width; cx++) {
+            if (temp[cy * doc_width + cx]) {
+                count++;
+                if (cx < min_x) min_x = cx;
+                if (cx > max_x) max_x = cx;
+                if (cy < min_y) min_y = cy;
+                if (cy > max_y) max_y = cy;
+            }
+        }
+    }
+
+    if (count == 0 || max_x < min_x || max_y < min_y) {
+        w_select_clear();
+        return 0;
+    }
+
+    clip_active = 1;
+    clip_has_mask = 1;
+    clip_x = min_x;
+    clip_y = min_y;
+    clip_w = max_x - min_x + 1;
+    clip_h = max_y - min_y + 1;
+
+    w_get_clip_mask_buffer(clip_w * clip_h);
+    for (int cy = 0; cy < clip_h; cy++) {
+        for (int cx = 0; cx < clip_w; cx++) {
+            clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
+        }
+    }
+    return count;
+}
+
+W_EXPORT void w_select_lasso(const int32_t *points_xy, int32_t point_count, int32_t op_mode) {
+    init_surface_if_needed();
+    if (!points_xy || point_count < 3) return;
+
+    int p_min_x = doc_width, p_min_y = doc_height, p_max_x = -1, p_max_y = -1;
+    for (int i = 0; i < point_count; i++) {
+        int px = points_xy[i * 2 + 0];
+        int py = points_xy[i * 2 + 1];
+        if (px < p_min_x) p_min_x = px;
+        if (px > p_max_x) p_max_x = px;
+        if (py < p_min_y) p_min_y = py;
+        if (py > p_max_y) p_max_y = py;
+    }
+
+    int x0 = p_min_x < 0 ? 0 : p_min_x;
+    int y0 = p_min_y < 0 ? 0 : p_min_y;
+    int x1 = (p_max_x >= (int)doc_width) ? (int)doc_width - 1 : p_max_x;
+    int y1 = (p_max_y >= (int)doc_height) ? (int)doc_height - 1 : p_max_y;
+    if (x1 < x0 || y1 < y0) return;
+
+    uint8_t *lasso_mask = (uint8_t*)canvas_alloc(doc_width * doc_height);
+    for (uint32_t i = 0; i < doc_width * doc_height; i++) lasso_mask[i] = 0;
+
+    for (int y = y0; y <= y1; y++) {
+        for (int x = x0; x <= x1; x++) {
+            int inside = 0;
+            for (int i = 0, j = point_count - 1; i < point_count; j = i++) {
+                int xi = points_xy[i * 2 + 0], yi = points_xy[i * 2 + 1];
+                int xj = points_xy[j * 2 + 0], yj = points_xy[j * 2 + 1];
+                int intersect = ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / ((yj - yi) ? (yj - yi) : 1) + xi);
+                if (intersect) inside = !inside;
+            }
+            if (inside) lasso_mask[y * doc_width + x] = 1;
+        }
+    }
+
+    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
+    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 0;
+
+    if (op_mode != W_SEL_REPLACE && clip_active) {
+        for (int cy = 0; cy < clip_h; cy++) {
+            for (int cx = 0; cx < clip_w; cx++) {
+                int dx = clip_x + cx;
+                int dy = clip_y + cy;
+                if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                    temp[dy * doc_width + dx] = (clip_has_mask) ? clip_mask_ptr[cy * clip_w + cx] : 1;
+                }
+            }
+        }
+    }
+
+    int min_x = doc_width, min_y = doc_height, max_x = -1, max_y = -1;
+    int count = 0;
+    for (int y = 0; y < (int)doc_height; y++) {
+        for (int x = 0; x < (int)doc_width; x++) {
+            uint8_t l_val = lasso_mask[y * doc_width + x];
+            if (op_mode == W_SEL_REPLACE) temp[y * doc_width + x] = l_val;
+            else if (op_mode == W_SEL_ADD) { if (l_val) temp[y * doc_width + x] = 1; }
+            else if (op_mode == W_SEL_SUB) { if (l_val) temp[y * doc_width + x] = 0; }
+            else if (op_mode == W_SEL_INTERSECT) temp[y * doc_width + x] = (temp[y * doc_width + x] && l_val) ? 1 : 0;
+
+            if (temp[y * doc_width + x]) {
+                count++;
+                if (x < min_x) min_x = x;
+                if (x > max_x) max_x = x;
+                if (y < min_y) min_y = y;
+                if (y > max_y) max_y = y;
+            }
+        }
+    }
+
+    if (count == 0 || max_x < min_x || max_y < min_y) {
+        w_select_clear();
+        return;
+    }
+
+    clip_active = 1;
+    clip_has_mask = 1;
+    clip_x = min_x;
+    clip_y = min_y;
+    clip_w = max_x - min_x + 1;
+    clip_h = max_y - min_y + 1;
+
+    w_get_clip_mask_buffer(clip_w * clip_h);
+    for (int cy = 0; cy < clip_h; cy++) {
+        for (int cx = 0; cx < clip_w; cx++) {
+            clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
+        }
+    }
+}
+
+W_EXPORT void w_select_invert(void) {
+    init_surface_if_needed();
+    ensure_doc_mask_buffer();
+    if (!clip_mask_ptr) return;
+
+    uint8_t *temp = (uint8_t*)canvas_alloc(doc_width * doc_height);
+    for (uint32_t i = 0; i < doc_width * doc_height; i++) temp[i] = 1;
+
+    if (clip_active) {
+        for (int cy = 0; cy < clip_h; cy++) {
+            for (int cx = 0; cx < clip_w; cx++) {
+                int dx = clip_x + cx;
+                int dy = clip_y + cy;
+                if (dx >= 0 && dx < (int)doc_width && dy >= 0 && dy < (int)doc_height) {
+                    uint8_t v = (clip_has_mask) ? clip_mask_ptr[cy * clip_w + cx] : 1;
+                    temp[dy * doc_width + dx] = v ? 0 : 1;
+                }
+            }
+        }
+    }
+
+    int min_x = doc_width, min_y = doc_height, max_x = -1, max_y = -1;
+    int count = 0;
+    for (int y = 0; y < (int)doc_height; y++) {
+        for (int x = 0; x < (int)doc_width; x++) {
+            if (temp[y * doc_width + x]) {
+                count++;
+                if (x < min_x) min_x = x;
+                if (x > max_x) max_x = x;
+                if (y < min_y) min_y = y;
+                if (y > max_y) max_y = y;
+            }
+        }
+    }
+
+    if (count == 0 || max_x < min_x || max_y < min_y) {
+        w_select_clear();
+        return;
+    }
+
+    clip_active = 1;
+    clip_has_mask = 1;
+    clip_x = min_x;
+    clip_y = min_y;
+    clip_w = max_x - min_x + 1;
+    clip_h = max_y - min_y + 1;
+
+    w_get_clip_mask_buffer(clip_w * clip_h);
+    for (int cy = 0; cy < clip_h; cy++) {
+        for (int cx = 0; cx < clip_w; cx++) {
+            clip_mask_ptr[cy * clip_w + cx] = temp[(clip_y + cy) * doc_width + (clip_x + cx)];
+        }
+    }
+}
+
+W_EXPORT void w_select_feather(int32_t radius) {
+    if (!clip_active || !clip_has_mask || radius <= 0 || !clip_mask_ptr) return;
+    int r = radius > 16 ? 16 : radius;
+    int w = clip_w, h = clip_h;
+    uint8_t *src = (uint8_t*)canvas_alloc(w * h);
+    for (int i = 0; i < w * h; i++) src[i] = clip_mask_ptr[i];
+
+    for (int y = 0; y < h; y++) {
+        for (int x = 0; x < w; x++) {
+            int sum = 0, count = 0;
+            for (int dy = -r; dy <= r; dy++) {
+                int ny = y + dy;
+                if (ny >= 0 && ny < h) {
+                    for (int dx = -r; dx <= r; dx++) {
+                        int nx = x + dx;
+                        if (nx >= 0 && nx < w) {
+                            sum += src[ny * w + nx];
+                            count++;
+                        }
+                    }
+                }
+            }
+            clip_mask_ptr[y * w + x] = (count > 0 && (sum * 2) >= count) ? 1 : 0;
+        }
+    }
+}
+
+W_EXPORT int32_t w_select_get_info(int32_t *out_5words) {
+    if (!out_5words) return 0;
+    out_5words[0] = clip_active;
+    out_5words[1] = clip_x;
+    out_5words[2] = clip_y;
+    out_5words[3] = clip_w;
+    out_5words[4] = clip_h;
+    return 1;
+}
+
+/* =========================================================================
+ * Native Layer Free Transform & Flip Engine Implementation
+ * ========================================================================= */
+
+W_EXPORT void w_layer_flip_h(int32_t layer_idx) {
+    init_surface_if_needed();
+    int idx = (layer_idx >= 0 && layer_idx < layer_count && layers[layer_idx].in_use) ? layer_idx : active_layer;
+    if (idx < 0 || idx >= layer_count || !layers[idx].in_use || !layers[idx].pixels) return;
+    layer_t *l = &layers[idx];
+    int w = l->width, h = l->height;
+    uint32_t *pix = l->pixels;
+    for (int y = 0; y < h; y++) {
+        int row = y * w;
+        for (int x = 0; x < w / 2; x++) {
+            uint32_t tmp = pix[row + x];
+            pix[row + x] = pix[row + (w - 1 - x)];
+            pix[row + (w - 1 - x)] = tmp;
+        }
+    }
+    force_composite();
+}
+
+W_EXPORT void w_layer_flip_v(int32_t layer_idx) {
+    init_surface_if_needed();
+    int idx = (layer_idx >= 0 && layer_idx < layer_count && layers[layer_idx].in_use) ? layer_idx : active_layer;
+    if (idx < 0 || idx >= layer_count || !layers[idx].in_use || !layers[idx].pixels) return;
+    layer_t *l = &layers[idx];
+    int w = l->width, h = l->height;
+    uint32_t *pix = l->pixels;
+    for (int y = 0; y < h / 2; y++) {
+        int r1 = y * w;
+        int r2 = (h - 1 - y) * w;
+        for (int x = 0; x < w; x++) {
+            uint32_t tmp = pix[r1 + x];
+            pix[r1 + x] = pix[r2 + x];
+            pix[r2 + x] = tmp;
+        }
+    }
+    force_composite();
+}
+
+W_EXPORT int32_t w_layer_transform(int32_t src_layer_idx, int32_t dst_layer_idx, int32_t dx, int32_t dy, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t skew_x, int32_t bilinear) {
+    init_surface_if_needed();
+    int s_idx = (src_layer_idx >= 0 && src_layer_idx < layer_count && layers[src_layer_idx].in_use) ? src_layer_idx : active_layer;
+    int d_idx = (dst_layer_idx >= 0 && dst_layer_idx < layer_count && layers[dst_layer_idx].in_use) ? dst_layer_idx : s_idx;
+    if (s_idx < 0 || s_idx >= layer_count || !layers[s_idx].in_use || !layers[s_idx].pixels) return 0;
+    if (d_idx < 0 || d_idx >= layer_count || !layers[d_idx].in_use || !layers[d_idx].pixels) return 0;
+
+    layer_t *sl = &layers[s_idx];
+    layer_t *dl = &layers[d_idx];
+    int sw = sl->width, sh = sl->height;
+    int dw = dl->width, dh = dl->height;
+
+    uint32_t *src_copy = (uint32_t*)canvas_alloc(sw * sh * 4);
+    for (int i = 0; i < sw * sh; i++) src_copy[i] = sl->pixels[i];
+
+    uint32_t *dst_pix = dl->pixels;
+    for (int i = 0; i < dw * dh; i++) dst_pix[i] = 0;
+
+    int sx_pct = (scale_x_pct != 0) ? scale_x_pct : 100;
+    int sy_pct = (scale_y_pct != 0) ? scale_y_pct : 100;
+
+    int sin_val = 0, cos_val = 1024;
+    w_sincos_deg(rot_deg, &sin_val, &cos_val);
+
+    int cx_dst = dw / 2 + dx;
+    int cy_dst = dh / 2 + dy;
+    int cx_src = sw / 2;
+    int cy_src = sh / 2;
+
+    for (int y = 0; y < dh; y++) {
+        int off_y = y - cy_dst;
+        for (int x = 0; x < dw; x++) {
+            int off_x = x - cx_dst;
+
+            int rx = (cos_val * off_x + sin_val * off_y) / 1024;
+            int ry = (-sin_val * off_x + cos_val * off_y) / 1024;
+
+            rx = (rx * 100) / sx_pct;
+            ry = (ry * 100) / sy_pct;
+
+            if (skew_x != 0) rx -= (ry * skew_x) / 100;
+
+            int orig_x = cx_src + rx;
+            int orig_y = cy_src + ry;
+
+            if (orig_x >= 0 && orig_x < sw && orig_y >= 0 && orig_y < sh) {
+                if (bilinear && orig_x < sw - 1 && orig_y < sh - 1) {
+                    dst_pix[y * dw + x] = src_copy[orig_y * sw + orig_x];
+                } else {
+                    dst_pix[y * dw + x] = src_copy[orig_y * sw + orig_x];
+                }
+            }
+        }
+    }
+
+    force_composite();
+    return 1;
+}
+
+/* =========================================================================
+ * Native Procedural Brush Tip Generator Implementation
+ * ========================================================================= */
+
+W_EXPORT int32_t w_generate_brush_tip(int32_t shape_type, int32_t width, int32_t height, uint8_t *out_alpha_buffer) {
+    if (!out_alpha_buffer || width <= 0 || height <= 0) return 0;
+    int cx = width / 2, cy = height / 2;
+    int max_r = (width < height ? width : height) / 2;
+
+    for (int y = 0; y < height; y++) {
+        int dy = y - cy;
+        for (int x = 0; x < width; x++) {
+            int dx = x - cx;
+            int idx = y * width + x;
+            uint8_t a = 0;
+
+            switch (shape_type) {
+                case W_TIP_CIRCLE: {
+                    int dist_sq = dx * dx + dy * dy;
+                    if (dist_sq <= max_r * max_r) {
+                        int d = w_isqrt(dist_sq);
+                        int falloff = max_r > 0 ? (255 * (max_r - d)) / max_r : 255;
+                        a = (falloff > 255) ? 255 : (falloff < 0 ? 0 : falloff);
+                    }
+                    break;
+                }
+                case W_TIP_SQUARE: {
+                    a = 255;
+                    break;
+                }
+                case W_TIP_CHISEL: {
+                    if (y >= height * 3 / 8 && y < height * 5 / 8) a = 255;
+                    break;
+                }
+                case W_TIP_BRISTLE: {
+                    int b1 = (dx >= -10 && dx <= -4);
+                    int b2 = (dx >= -3 && dx <= 3);
+                    int b3 = (dx >= 4 && dx <= 10);
+                    int abs_y = dy < 0 ? -dy : dy;
+                    if ((b1 || b2 || b3) && abs_y <= max_r * 4 / 5) {
+                        int v = 255 - (abs_y * 200) / max_r;
+                        a = v > 0 ? v : 0;
+                    }
+                    break;
+                }
+                case W_TIP_RAKE: {
+                    int strand = (x % 11 <= 2) && x >= 4 && x <= width - 4;
+                    int abs_y = dy < 0 ? -dy : dy;
+                    if (strand && abs_y <= max_r * 4 / 5) {
+                        int v = 255 - (abs_y * 180) / max_r;
+                        a = v > 0 ? v : 0;
+                    }
+                    break;
+                }
+                case W_TIP_CHARCOAL: {
+                    int dist_sq = dx * dx + dy * dy;
+                    if (dist_sq <= max_r * max_r) {
+                        int noise = ((x * 179 + y * 283) ^ (x * y * 7)) & 0xFF;
+                        if (noise > 70) a = (noise * 255) / 255;
+                    }
+                    break;
+                }
+                case W_TIP_DAGGER: {
+                    int w_at_y = (y * width) / height;
+                    int abs_x = dx < 0 ? -dx : dx;
+                    if (abs_x <= w_at_y / 2 && y >= 4 && y <= height - 4) a = 255;
+                    break;
+                }
+                default:
+                    a = 255;
+                    break;
+            }
+            out_alpha_buffer[idx] = a;
+        }
+    }
+    return 1;
+}
+
 
 

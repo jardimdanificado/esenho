@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "esenho.h"
+#include "quadro.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Blur\",\"params\":[{\"name\":\"Radius\",\"min\":1,\"max\":40,\"default\":5,\"unit\":\"px\"},{\"name\":\"Passes\",\"min\":1,\"max\":5,\"default\":1}]}";

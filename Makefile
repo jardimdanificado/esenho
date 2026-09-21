@@ -8,11 +8,11 @@ PLUGINS = $(patsubst src/plugins/%.c,plugins/%.wasm,$(PLUGIN_SRCS))
 
 all: $(ROMS) $(PLUGINS) plugins/manifest.json
 
-roms/canvas.wasm: src/canvas.c include/esenho.h
+roms/canvas.wasm: src/quadro.c include/quadro.h
 	mkdir -p roms
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 
-plugins/%.wasm: src/plugins/%.c include/esenho.h
+plugins/%.wasm: src/plugins/%.c include/quadro.h
 	mkdir -p plugins
 	$(CLANG) $(CFLAGS) $(LDFLAGS) -o $@ $<
 

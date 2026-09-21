@@ -71,7 +71,7 @@ function getPapagaio() {
 }
 
 /**
- * Standard Parameter IDs matching include/esenho.h enum
+ * Standard Parameter IDs matching include/quadro.h enum
  */
 const PARAM_IDS = {
   size: 1,
@@ -965,6 +965,114 @@ class EsenhoModule {
       return this.exports.w_anim_symbol_instantiate(symbolId, parentTrackIdx, startFrame);
     }
     return -1;
+  }
+
+  /* ── Native Selection, Transform & Tip ABI ── */
+
+  selectRect(x, y, w, h, opMode = 0) {
+    if (typeof this.exports.w_select_rect === 'function') {
+      this.exports.w_select_rect(Math.round(x), Math.round(y), Math.round(w), Math.round(h), opMode);
+    }
+  }
+
+  selectWand(layerIdx, seedX, seedY, tolerance = 32, contiguous = true, opMode = 0) {
+    if (typeof this.exports.w_select_wand === 'function') {
+      return this.exports.w_select_wand(layerIdx, Math.round(seedX), Math.round(seedY), tolerance, contiguous ? 1 : 0, opMode);
+    }
+    return 0;
+  }
+
+  selectLasso(points, opMode = 0) {
+    if (!this.memory || typeof this.exports.w_select_lasso !== 'function' || !points || points.length < 3) return;
+    const ptCount = points.length;
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(ptCount * 2 * 4 + 256)
+      : 0;
+    if (!scratchPtr) return;
+    const i32 = new Int32Array(this.memory.buffer);
+    const base = scratchPtr >> 2;
+    for (let i = 0; i < ptCount; i++) {
+      i32[base + i * 2 + 0] = Math.round(points[i].x);
+      i32[base + i * 2 + 1] = Math.round(points[i].y);
+    }
+    this.exports.w_select_lasso(scratchPtr, ptCount, opMode);
+  }
+
+  selectAll(opMode = 0) {
+    if (typeof this.exports.w_select_all === 'function') {
+      this.exports.w_select_all(opMode);
+    }
+  }
+
+  selectClear() {
+    if (typeof this.exports.w_select_clear === 'function') {
+      this.exports.w_select_clear();
+    }
+  }
+
+  selectInvert() {
+    if (typeof this.exports.w_select_invert === 'function') {
+      this.exports.w_select_invert();
+    }
+  }
+
+  selectFeather(radius = 2) {
+    if (typeof this.exports.w_select_feather === 'function') {
+      this.exports.w_select_feather(radius);
+    }
+  }
+
+  selectGetInfo() {
+    if (!this.memory || typeof this.exports.w_select_get_info !== 'function') return null;
+    let scratchPtr = 0;
+    if (typeof this.exports.w_get_clip_mask_buffer === 'function') {
+      scratchPtr = this.exports.w_get_clip_mask_buffer(256);
+    }
+    if (!scratchPtr) return null;
+    if (this.exports.w_select_get_info(scratchPtr) === 1) {
+      const i32 = new Int32Array(this.memory.buffer);
+      const base = scratchPtr >> 2;
+      return {
+        active: i32[base + 0] === 1,
+        x: i32[base + 1],
+        y: i32[base + 2],
+        w: i32[base + 3],
+        h: i32[base + 4]
+      };
+    }
+    return null;
+  }
+
+  layerFlipH(layerIdx = -1) {
+    if (typeof this.exports.w_layer_flip_h === 'function') {
+      this.exports.w_layer_flip_h(layerIdx);
+    }
+  }
+
+  layerFlipV(layerIdx = -1) {
+    if (typeof this.exports.w_layer_flip_v === 'function') {
+      this.exports.w_layer_flip_v(layerIdx);
+    }
+  }
+
+  layerTransform(srcLayerIdx = -1, dstLayerIdx = -1, dx = 0, dy = 0, scaleXPct = 100, scaleYPct = 100, rotDeg = 0, skewX = 0, bilinear = 1) {
+    if (typeof this.exports.w_layer_transform === 'function') {
+      return this.exports.w_layer_transform(srcLayerIdx, dstLayerIdx, Math.round(dx), Math.round(dy), Math.round(scaleXPct), Math.round(scaleYPct), Math.round(rotDeg), Math.round(skewX), bilinear ? 1 : 0);
+    }
+    return 0;
+  }
+
+  generateBrushTip(shapeType = 0, width = 64, height = 64) {
+    if (!this.memory || typeof this.exports.w_generate_brush_tip !== 'function') return null;
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(width * height + 256)
+      : 0;
+    if (!scratchPtr) return null;
+    if (this.exports.w_generate_brush_tip(shapeType, width, height, scratchPtr) === 1) {
+      const u8 = new Uint8Array(this.memory.buffer, scratchPtr, width * height);
+      return new Uint8Array(u8);
+    }
+    return null;
   }
 
 

@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "esenho.h"
+#include "quadro.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Threshold\",\"params\":[{\"name\":\"Cutoff Level\",\"min\":1,\"max\":255,\"default\":128},{\"name\":\"Invert\",\"min\":0,\"max\":1,\"default\":0}]}";

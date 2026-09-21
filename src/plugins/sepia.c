@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "esenho.h"
+#include "quadro.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Sepia\",\"params\":[{\"name\":\"Intensity\",\"min\":0,\"max\":100,\"default\":100,\"unit\":\"%\"}]}";

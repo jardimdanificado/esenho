@@ -4,7 +4,7 @@
  * =========================================================================
  */
 
-#include "esenho.h"
+#include "quadro.h"
 
 W_EXPORT const char* w_plugin_get_info(void) {
     return "{\"title\":\"Dither\",\"params\":[{\"name\":\"Luma Bias\",\"min\":-64,\"max\":64,\"default\":0},{\"name\":\"Invert\",\"min\":0,\"max\":1,\"default\":0}]}";
