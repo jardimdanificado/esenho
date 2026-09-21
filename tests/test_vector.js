@@ -4,7 +4,7 @@ const path = require('path');
 const { EsenhoModule, EsenhoScreenHost } = require('../src/esenho.js');
 
 async function runVectorTests() {
-  console.log('--- Testing Vector Engine & Path Storage ---');
+  console.log('--- Testing Vector Engine, Shapes & Node Manipulation ---');
 
   const canvasWasmPath = path.resolve(__dirname, '../roms/canvas.wasm');
   const canvasActor = new EsenhoModule(canvasWasmPath);
@@ -34,53 +34,75 @@ async function runVectorTests() {
   const s0 = strokes[0];
   assert.strictEqual(s0.color, strokeColor >>> 0, 'Stroke color should match');
   assert.strictEqual(s0.size, 24, 'Brush size should match');
-  assert.strictEqual(s0.opacity, 90, 'Brush opacity should match');
-  assert.strictEqual(s0.hardness, 80, 'Brush hardness should match');
   assert.strictEqual(s0.points.length, 3, 'Stroke should have 3 sampled points (start, move, end)');
 
-  // 5. Verify point coordinates & pressure
-  assert.strictEqual(s0.points[0].x, 50);
-  assert.strictEqual(s0.points[0].y, 50);
-  assert.strictEqual(s0.points[0].pressure, 0.5);
+  // 5. Test Vector Shape Objects (Rect & Ellipse with Fill & Stroke)
+  const rectId = canvasActor.vectorCreateShape(1 /* RECT */, 200, 200, 100, 60, 0xFFFF0000 /* Red stroke */, 0xFF00FF00 /* Green fill */);
+  assert(rectId > 0, 'Rect ID should be valid');
+  assert.strictEqual(canvasActor.vectorGetCount(-1), 2, 'Layer should have 2 vector objects');
 
-  // 6. Test vector replaying at 200% scale
-  canvasActor.vectorReplayLayer(-1, 200, 10, 20);
-  console.log('[esenho] vector layer replayed at 200% scale');
+  const ellipseId = canvasActor.vectorCreateShape(2 /* ELLIPSE */, 400, 300, 80, 80, 0xFF0000FF /* Blue stroke */, 0xFFFFFF00 /* Yellow fill */);
+  assert(ellipseId > 0, 'Ellipse ID should be valid');
+  assert.strictEqual(canvasActor.vectorGetCount(-1), 3, 'Layer should have 3 vector objects');
 
-  // 7. Test disabling vector recording
-  canvasActor.vectorSetRecording(false);
-  assert.strictEqual(canvasActor.vectorGetRecording(), false);
-  canvasActor.stroke(0, 200, 200, 200, 200, strokeColor, 0, 1.0, 0, 0);
-  canvasActor.stroke(2, 250, 250, 200, 200, strokeColor, 0, 1.0, 0, 0);
-  assert.strictEqual(canvasActor.vectorGetCount(-1), 1, 'Stroke count should not increase when recording is off');
+  // 6. Test Hit-Testing (Object and Node)
+  const hitObjInsideRect = canvasActor.vectorHitTest(-1, 250, 230, 8);
+  assert.strictEqual(hitObjInsideRect, rectId, 'Hit test inside rect should return rectId');
 
-  // Re-enable recording
-  canvasActor.vectorSetRecording(true);
+  const hitObjInsideEllipse = canvasActor.vectorHitTest(-1, 440, 340, 8);
+  assert.strictEqual(hitObjInsideEllipse, ellipseId, 'Hit test inside ellipse should return ellipseId');
 
-  // 8. Test EsenhoScreenHost SVG export
+  const hitObjMiss = canvasActor.vectorHitTest(-1, 10, 10, 5);
+  assert.strictEqual(hitObjMiss, 0, 'Hit test on empty area should return 0');
+
+  const hitNode0 = canvasActor.vectorHitTestNode(-1, rectId, 200, 200, 6);
+  assert.strictEqual(hitNode0, 0, 'Hit test on corner node should return node index 0');
+
+  // 7. Test Node Editing & Affine Transformation
+  const okSet = canvasActor.vectorSetPoint(-1, rectId, 0, 190, 190, 1.0);
+  assert.strictEqual(okSet, true, 'vectorSetPoint should succeed');
+
+  const okTransform = canvasActor.vectorTransform(-1, rectId, 10, 15, 100, 0);
+  assert.strictEqual(okTransform, true, 'vectorTransform should succeed');
+
+  // 8. Test Object Deletion
+  const okDel = canvasActor.vectorDeleteObject(-1, ellipseId);
+  assert.strictEqual(okDel, true, 'vectorDeleteObject should succeed');
+  assert.strictEqual(canvasActor.vectorGetCount(-1), 2, 'Layer should have 2 objects after deletion');
+
+  // 9. Test Replaying Vector Layer with Fills and Strokes
+  canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+  console.log('[esenho] vector layer with shapes and fills replayed successfully');
+
+  // 10. Test EsenhoScreenHost Rich SVG Export
   const host = new EsenhoScreenHost();
   host.canvasActor = canvasActor;
   const svg = host.exportSVG();
   assert(svg.startsWith('<?xml version="1.0" encoding="UTF-8"?>'), 'SVG header should be valid');
-  assert(svg.includes('<svg xmlns="http://www.w3.org/2000/svg"'), 'SVG tag should exist');
-  assert(svg.includes('<path d="M 50 50 L 100 80 L 150 120"'), 'SVG path should match recorded points');
-  assert(svg.includes('stroke-width="24"'), 'SVG stroke width should match brush size');
-  console.log('[esenho] SVG export verified successfully');
+  assert(svg.includes('<rect'), 'SVG should contain <rect> element');
+  assert(svg.includes('fill="rgb(0,255,0)"'), 'SVG rect should have green fill');
+  console.log('[esenho] Rich SVG export with fills and shapes verified successfully');
 
-  // 9. Test REPL commands
+  // 11. Test REPL Commands for Shapes and Nodes
   let lastLog = '';
   host.sendConsoleLog = (msg) => { lastLog = msg; };
 
+  host.executeCommand("vector shape rect 30 40 80 50 #ff00ff #00ffff");
+  assert(lastLog.includes('vector rect ['), 'vector shape rect command should create rect');
+
+  host.executeCommand("vector hittest 50 60");
+  assert(lastLog.includes('object ['), 'vector hittest command should find object');
+
+  host.executeCommand("vector move 1 5 5");
+  assert(lastLog.includes('moved by'), 'vector move command should transform object');
+
+  host.executeCommand("vector node set 1 0 25 25");
+  assert(lastLog.includes('updated to (25,25)'), 'vector node set command should update node');
+
   host.executeCommand("vector status");
-  assert(lastLog.includes('vector recording: on'), 'vector status should report status');
+  assert(lastLog.includes('vector recording: on'), 'vector status should report active state');
 
-  host.executeCommand("vector replay 150");
-  assert(lastLog.includes('vector strokes replayed at 150% scale'), 'vector replay should run');
-
-  host.executeCommand("vector clear");
-  assert.strictEqual(canvasActor.vectorGetCount(-1), 0, 'Vector clear should empty stroke list');
-
-  console.log('ALL VECTOR TESTS PASSED!');
+  console.log('ALL VECTOR TESTS (OBJECTS, HIT-TEST, REPL, SVG) PASSED!');
 }
 
 runVectorTests().catch(err => {

@@ -618,6 +618,13 @@ class EsenhoModule {
         const grain = i32[scratchI32Idx + 13];
         const texMode = i32[scratchI32Idx + 14];
         const ptCount = i32[scratchI32Idx + 15];
+        const shapeType = i32[scratchI32Idx + 16];
+        const fillColor = (i32[scratchI32Idx + 17] >>> 0);
+        const strokeWidth = i32[scratchI32Idx + 18];
+        const minX = i32[scratchI32Idx + 19];
+        const minY = i32[scratchI32Idx + 20];
+        const maxX = i32[scratchI32Idx + 21];
+        const maxY = i32[scratchI32Idx + 22];
 
         const points = [];
         for (let p = 0; p < ptCount; p++) {
@@ -635,6 +642,9 @@ class EsenhoModule {
         strokes.push({
           id,
           color,
+          fillColor,
+          strokeWidth,
+          shapeType,
           eraser,
           closed,
           type,
@@ -648,12 +658,79 @@ class EsenhoModule {
           scatter,
           grain,
           texMode,
+          bbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
           points
         });
       }
     }
     return strokes;
   }
+
+  vectorCreateShape(type, x, y, w, h, strokeColor = 0xFF000000, fillColor = 0x00000000) {
+    if (typeof this.exports.w_vector_create_shape === 'function') {
+      return this.exports.w_vector_create_shape(type, Math.round(x), Math.round(y), Math.round(w), Math.round(h), strokeColor >>> 0, fillColor >>> 0);
+    }
+    return 0;
+  }
+
+  vectorHitTest(layerIdx = -1, x = 0, y = 0, tolerance = 8) {
+    if (typeof this.exports.w_vector_hit_test_object === 'function') {
+      return this.exports.w_vector_hit_test_object(layerIdx, Math.round(x), Math.round(y), Math.round(tolerance));
+    }
+    return 0;
+  }
+
+  vectorHitTestNode(layerIdx = -1, objId = 0, x = 0, y = 0, radius = 8) {
+    if (typeof this.exports.w_vector_hit_test_node === 'function') {
+      return this.exports.w_vector_hit_test_node(layerIdx, objId, Math.round(x), Math.round(y), Math.round(radius));
+    }
+    return -1;
+  }
+
+  vectorSetPoint(layerIdx = -1, objId = 0, ptIdx = 0, x = 0, y = 0, pressure = 1.0) {
+    if (typeof this.exports.w_vector_set_point === 'function') {
+      const p = Math.round(pressure * 1000);
+      return this.exports.w_vector_set_point(layerIdx, objId, ptIdx, Math.round(x), Math.round(y), p) === 1;
+    }
+    return false;
+  }
+
+  vectorInsertPoint(layerIdx = -1, objId = 0, ptIdx = 0, x = 0, y = 0, pressure = 1.0) {
+    if (typeof this.exports.w_vector_insert_point === 'function') {
+      const p = Math.round(pressure * 1000);
+      return this.exports.w_vector_insert_point(layerIdx, objId, ptIdx, Math.round(x), Math.round(y), p) === 1;
+    }
+    return false;
+  }
+
+  vectorDeletePoint(layerIdx = -1, objId = 0, ptIdx = 0) {
+    if (typeof this.exports.w_vector_delete_point === 'function') {
+      return this.exports.w_vector_delete_point(layerIdx, objId, ptIdx) === 1;
+    }
+    return false;
+  }
+
+  vectorTransform(layerIdx = -1, objId = 0, dx = 0, dy = 0, scalePct = 100, rotDeg = 0) {
+    if (typeof this.exports.w_vector_transform_object === 'function') {
+      return this.exports.w_vector_transform_object(layerIdx, objId, Math.round(dx), Math.round(dy), Math.round(scalePct), Math.round(rotDeg)) === 1;
+    }
+    return false;
+  }
+
+  vectorDeleteObject(layerIdx = -1, objId = 0) {
+    if (typeof this.exports.w_vector_delete_object === 'function') {
+      return this.exports.w_vector_delete_object(layerIdx, objId) === 1;
+    }
+    return false;
+  }
+
+  vectorSetObjectStyle(layerIdx = -1, objId = 0, strokeColor = 0xFF000000, fillColor = 0x00000000, strokeWidth = 2) {
+    if (typeof this.exports.w_vector_set_object_style === 'function') {
+      return this.exports.w_vector_set_object_style(layerIdx, objId, strokeColor >>> 0, fillColor >>> 0, strokeWidth) === 1;
+    }
+    return false;
+  }
+
 
   readCString(ptr) {
 
@@ -3943,6 +4020,94 @@ const COMMAND_RULES = [
     }
   },
   {
+    pat: "vector shape rect $x$int $y$int $w$int $h$int $stroke $fill",
+    run: (m, host) => {
+      const sCol = parseColorString(m.stroke, host.currentColor);
+      const fCol = parseColorString(m.fill, 0x00000000);
+      const id = host.canvasActor ? host.canvasActor.vectorCreateShape(1 /* RECT */, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), sCol, fCol) : 0;
+      if (host.canvasActor) host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+      host.sendConsoleLog(`vector rect [${id}] created at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "vector shape rect $x$int $y$int $w$int $h$int $stroke",
+    run: (m, host) => {
+      const sCol = parseColorString(m.stroke, host.currentColor);
+      const id = host.canvasActor ? host.canvasActor.vectorCreateShape(1 /* RECT */, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), sCol, 0x00000000) : 0;
+      if (host.canvasActor) host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+      host.sendConsoleLog(`vector rect [${id}] created at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "vector shape rect $x$int $y$int $w$int $h$int",
+    run: (m, host) => {
+      const id = host.canvasActor ? host.canvasActor.vectorCreateShape(1 /* RECT */, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), host.currentColor, 0x00000000) : 0;
+      if (host.canvasActor) host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+      host.sendConsoleLog(`vector rect [${id}] created at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "vector shape ellipse $x$int $y$int $w$int $h$int $stroke $fill",
+    run: (m, host) => {
+      const sCol = parseColorString(m.stroke, host.currentColor);
+      const fCol = parseColorString(m.fill, 0x00000000);
+      const id = host.canvasActor ? host.canvasActor.vectorCreateShape(2 /* ELLIPSE */, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), sCol, fCol) : 0;
+      if (host.canvasActor) host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+      host.sendConsoleLog(`vector ellipse [${id}] created at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "vector shape ellipse $x$int $y$int $w$int $h$int",
+    run: (m, host) => {
+      const id = host.canvasActor ? host.canvasActor.vectorCreateShape(2 /* ELLIPSE */, parseInt(m.x, 10), parseInt(m.y, 10), parseInt(m.w, 10), parseInt(m.h, 10), host.currentColor, 0x00000000) : 0;
+      if (host.canvasActor) host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+      host.sendConsoleLog(`vector ellipse [${id}] created at (${m.x},${m.y}) size ${m.w}x${m.h}`);
+    }
+  },
+  {
+    pat: "vector hittest $x$int $y$int",
+    run: (m, host) => {
+      const hitId = host.canvasActor ? host.canvasActor.vectorHitTest(-1, parseInt(m.x, 10), parseInt(m.y, 10)) : 0;
+      host.sendConsoleLog(`vector hit test at (${m.x},${m.y}): ${hitId ? `object [${hitId}]` : 'none'}`);
+    }
+  },
+  {
+    pat: "vector move $id$int $dx$int $dy$int",
+    run: (m, host) => {
+      const ok = host.canvasActor ? host.canvasActor.vectorTransform(-1, parseInt(m.id, 10), parseInt(m.dx, 10), parseInt(m.dy, 10), 100, 0) : false;
+      if (ok) {
+        host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+        host.sendConsoleLog(`vector object [${m.id}] moved by (${m.dx},${m.dy})`);
+      } else {
+        host.sendConsoleLog(`err: vector object [${m.id}] not found`, 0xFFFF5555);
+      }
+    }
+  },
+  {
+    pat: "vector delete $id$int",
+    run: (m, host) => {
+      const ok = host.canvasActor ? host.canvasActor.vectorDeleteObject(-1, parseInt(m.id, 10)) : false;
+      if (ok) {
+        host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+        host.sendConsoleLog(`vector object [${m.id}] deleted`);
+      } else {
+        host.sendConsoleLog(`err: vector object [${m.id}] not found`, 0xFFFF5555);
+      }
+    }
+  },
+  {
+    pat: "vector node set $id$int $idx$int $x$int $y$int",
+    run: (m, host) => {
+      const ok = host.canvasActor ? host.canvasActor.vectorSetPoint(-1, parseInt(m.id, 10), parseInt(m.idx, 10), parseInt(m.x, 10), parseInt(m.y, 10)) : false;
+      if (ok) {
+        host.canvasActor.vectorReplayLayer(-1, 100, 0, 0);
+        host.sendConsoleLog(`vector node [${m.idx}] of object [${m.id}] updated to (${m.x},${m.y})`);
+      } else {
+        host.sendConsoleLog(`err: failed to update node [${m.idx}] on object [${m.id}]`, 0xFFFF5555);
+      }
+    }
+  },
+  {
     pat: "vector export svg $filename$str",
     run: (m, host) => {
       const svg = host.exportSVG();
@@ -3967,6 +4132,7 @@ const COMMAND_RULES = [
     }
   }
 ];
+
 
 
 /**
@@ -5600,32 +5766,56 @@ class EsenhoScreenHost {
     let svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n`;
     svg += `  <rect width="${width}" height="${height}" fill="#181818" />\n`;
 
+    const colorToRgba = (col) => {
+      const a = ((col >> 24) & 0xFF) / 255;
+      const b = (col >> 16) & 0xFF;
+      const g = (col >> 8) & 0xFF;
+      const r = col & 0xFF;
+      return { r, g, b, a, hex: `rgb(${r},${g},${b})` };
+    };
+
     for (const st of strokes) {
       if (!st.points || st.points.length === 0) continue;
       if (st.eraser) continue;
 
-      const a = ((st.color >> 24) & 0xFF) / 255;
-      const b = (st.color >> 16) & 0xFF;
-      const g = (st.color >> 8) & 0xFF;
-      const r = st.color & 0xFF;
-      const hex = `rgb(${r},${g},${b})`;
-      const op = Math.max(0.01, ((st.opacity / 100) * a)).toFixed(3);
-      const strokeWidth = Math.max(1, st.size);
+      const strokeCol = colorToRgba(st.color);
+      const fillCol = (st.fillColor && (st.fillColor >>> 24) > 0) ? colorToRgba(st.fillColor) : null;
+      const strokeHex = ((st.color >>> 24) > 0) ? strokeCol.hex : 'none';
+      const fillHex = fillCol ? fillCol.hex : 'none';
+      const op = Math.max(0.01, ((st.opacity / 100) * (strokeCol.a || 1))).toFixed(3);
+      const strokeWidth = st.strokeWidth > 0 ? st.strokeWidth : Math.max(1, st.size);
 
-      if (st.points.length === 1) {
-        svg += `  <circle cx="${st.points[0].x}" cy="${st.points[0].y}" r="${(strokeWidth / 2).toFixed(1)}" fill="${hex}" opacity="${op}" />\n`;
+      if (st.shapeType === 1 && st.points.length >= 4) { // RECT
+        const minX = Math.min(...st.points.map(p => p.x));
+        const minY = Math.min(...st.points.map(p => p.y));
+        const maxX = Math.max(...st.points.map(p => p.x));
+        const maxY = Math.max(...st.points.map(p => p.y));
+        svg += `  <rect x="${minX}" y="${minY}" width="${maxX - minX}" height="${maxY - minY}" fill="${fillHex}" stroke="${strokeHex}" stroke-width="${strokeWidth}" opacity="${op}" />\n`;
+      } else if (st.shapeType === 2 && st.points.length >= 8) { // ELLIPSE
+        const minX = Math.min(...st.points.map(p => p.x));
+        const minY = Math.min(...st.points.map(p => p.y));
+        const maxX = Math.max(...st.points.map(p => p.x));
+        const maxY = Math.max(...st.points.map(p => p.y));
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const rx = (maxX - minX) / 2;
+        const ry = (maxY - minY) / 2;
+        svg += `  <ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${fillHex}" stroke="${strokeHex}" stroke-width="${strokeWidth}" opacity="${op}" />\n`;
+      } else if (st.points.length === 1) {
+        svg += `  <circle cx="${st.points[0].x}" cy="${st.points[0].y}" r="${(strokeWidth / 2).toFixed(1)}" fill="${strokeHex !== 'none' ? strokeHex : fillHex}" opacity="${op}" />\n`;
       } else {
         let d = `M ${st.points[0].x} ${st.points[0].y}`;
         for (let i = 1; i < st.points.length; i++) {
           d += ` L ${st.points[i].x} ${st.points[i].y}`;
         }
         if (st.closed) d += ' Z';
-        svg += `  <path d="${d}" fill="none" stroke="${hex}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />\n`;
+        svg += `  <path d="${d}" fill="${fillHex}" stroke="${strokeHex}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />\n`;
       }
     }
     svg += `</svg>\n`;
     return svg;
   }
+
 
   /**
    * Exports recorded vector strokes as a JSON data structure.

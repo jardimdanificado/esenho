@@ -201,13 +201,22 @@ uint32_t* w_render(void);
 uint32_t  w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 ```
 
-#### Vector Path & Spine Engine
+#### Vector Path, Shapes & Scene Graph Engine
 ```c
 void    w_vector_set_recording(int32_t enabled);
 int32_t w_vector_get_recording(void);
 int32_t w_vector_stroke_begin(uint32_t color, int32_t eraser);
 void    w_vector_stroke_add_point(int32_t x, int32_t y, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 void    w_vector_stroke_end(int32_t closed);
+int32_t w_vector_create_shape(int32_t type, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t stroke_color, uint32_t fill_color);
+int32_t w_vector_hit_test_object(int32_t layer_idx, int32_t x, int32_t y, int32_t tolerance);
+int32_t w_vector_hit_test_node(int32_t layer_idx, int32_t obj_id, int32_t x, int32_t y, int32_t radius);
+int32_t w_vector_set_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx, int32_t x, int32_t y, int32_t pressure);
+int32_t w_vector_insert_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx, int32_t x, int32_t y, int32_t pressure);
+int32_t w_vector_delete_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx);
+int32_t w_vector_transform_object(int32_t layer_idx, int32_t obj_id, int32_t dx, int32_t dy, int32_t scale_pct, int32_t rot_deg);
+int32_t w_vector_delete_object(int32_t layer_idx, int32_t obj_id);
+int32_t w_vector_set_object_style(int32_t layer_idx, int32_t obj_id, uint32_t stroke_color, uint32_t fill_color, int32_t stroke_width);
 int32_t w_vector_get_count(int32_t layer_idx);
 void    w_vector_clear_layer(int32_t layer_idx);
 void    w_vector_clear_all(void);

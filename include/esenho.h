@@ -486,6 +486,13 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
  * Vector Stroke & Path ABI definitions
  * ========================================================================= */
 
+enum {
+    W_VSHAPE_PATH    = 0,
+    W_VSHAPE_RECT    = 1,
+    W_VSHAPE_ELLIPSE = 2,
+    W_VSHAPE_POLY    = 3
+};
+
 typedef struct {
     int32_t x;
     int32_t y;
@@ -497,7 +504,10 @@ typedef struct {
 typedef struct {
     int32_t  id;
     int32_t  layer_idx;
+    int32_t  shape_type;
     uint32_t color;
+    uint32_t fill_color;
+    int32_t  stroke_width;
     int32_t  eraser;
     int32_t  closed;
     w_vpoint_t *points;
@@ -512,6 +522,15 @@ W_EXPORT int32_t w_vector_get_recording(void);
 W_EXPORT int32_t w_vector_stroke_begin(uint32_t color, int32_t eraser);
 W_EXPORT void    w_vector_stroke_add_point(int32_t x, int32_t y, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 W_EXPORT void    w_vector_stroke_end(int32_t closed);
+W_EXPORT int32_t w_vector_create_shape(int32_t type, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t stroke_color, uint32_t fill_color);
+W_EXPORT int32_t w_vector_hit_test_object(int32_t layer_idx, int32_t x, int32_t y, int32_t tolerance);
+W_EXPORT int32_t w_vector_hit_test_node(int32_t layer_idx, int32_t obj_id, int32_t x, int32_t y, int32_t radius);
+W_EXPORT int32_t w_vector_set_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx, int32_t x, int32_t y, int32_t pressure);
+W_EXPORT int32_t w_vector_insert_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx, int32_t x, int32_t y, int32_t pressure);
+W_EXPORT int32_t w_vector_delete_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx);
+W_EXPORT int32_t w_vector_transform_object(int32_t layer_idx, int32_t obj_id, int32_t dx, int32_t dy, int32_t scale_pct, int32_t rot_deg);
+W_EXPORT int32_t w_vector_delete_object(int32_t layer_idx, int32_t obj_id);
+W_EXPORT int32_t w_vector_set_object_style(int32_t layer_idx, int32_t obj_id, uint32_t stroke_color, uint32_t fill_color, int32_t stroke_width);
 W_EXPORT int32_t w_vector_get_count(int32_t layer_idx);
 W_EXPORT void    w_vector_clear_layer(int32_t layer_idx);
 W_EXPORT void    w_vector_clear_all(void);
@@ -522,4 +541,5 @@ W_EXPORT int32_t w_vector_get_stroke_info(int32_t layer_idx, int32_t stroke_idx,
 W_EXPORT int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx, int32_t pt_idx, int32_t *out_pt);
 
 #endif /* ESENHO_H */
+
 
