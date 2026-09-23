@@ -217,6 +217,16 @@
       pointer-events: none;
     }
 
+    #quadro-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      display: none;
+    }
+
     #overlay-canvas {
       position: absolute;
       top: 0;
@@ -511,9 +521,17 @@
       <button id="btn-undo" title="Undo (Ctrl+Z)">↺ Undo</button>
       <button id="btn-redo" title="Redo (Ctrl+Y)">↻ Redo</button>
       <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span style="font-size: 11px; color: var(--text-muted);">Viewport:</span>
+        <select id="select-render-mode" style="width: auto; padding: 2px 6px; font-size: 11px;">
+          <option value="quadro" selected>⚡ Quadro WASM Realtime</option>
+          <option value="svg">◈ SVG Vector Direct</option>
+        </select>
+      </div>
+      <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
       <button id="btn-import-svg">📂 Open SVG</button>
       <button id="btn-export-svg" class="btn-primary">💾 Save SVG</button>
-      <button id="btn-render-quadro" title="Render scene graph using Quadro C WASM engine">⚡ Quadro Render</button>
+      <button id="btn-render-quadro" title="Export PNG rasterized with Quadro C WASM engine">🖼 Export PNG</button>
       <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
       <button id="btn-back-app" onclick="window.location.href='index.html'">◀ Exit</button>
     </div>
@@ -555,6 +573,7 @@
     <!-- Center Interactive Viewport -->
     <div id="viewport-container">
       <div id="stage-wrapper">
+        <canvas id="quadro-canvas"></canvas>
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg"></svg>
         <canvas id="overlay-canvas"></canvas>
       </div>
@@ -606,7 +625,7 @@
 
       <!-- Tab 2: Style & Transform Inspector -->
       <div class="tab-content" id="tab-style">
-        <div class="section-title">Fill</div>
+        <div class="section-title">Fill Style</div>
         <div class="form-row">
           <label>Color</label>
           <div style="display: flex; gap: 6px; width: 100%;">
@@ -623,7 +642,43 @@
           <button id="btn-fill-none" style="flex: 1;">Set None</button>
         </div>
 
-        <div class="section-title" style="margin-top: 10px;">Stroke</div>
+        <div class="section-title" style="margin-top: 10px;">Fill Texture (Procedural)</div>
+        <div class="form-row">
+          <label>Mode</label>
+          <select id="prop-fill-tex-mode">
+            <option value="0">0: None / Solid</option>
+            <option value="1">1: Paper Grain</option>
+            <option value="2">2: Canvas Weave</option>
+            <option value="3">3: Noise Scatter</option>
+            <option value="4">4: Halftone Dots</option>
+            <option value="5">5: Grid Pattern</option>
+            <option value="6">6: Grunge / Distress</option>
+            <option value="7">7: Hatch Lines</option>
+            <option value="8">8: Watercolor Cold Press</option>
+            <option value="9">9: Charcoal Tooth</option>
+            <option value="10">10: Wood Grain</option>
+            <option value="11">11: Leather Pores</option>
+            <option value="12">12: Dense Linen</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale %</label>
+          <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Angle °</label>
+          <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Contrast %</label>
+          <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Grain / Grit</label>
+          <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
+        </div>
+
+        <div class="section-title" style="margin-top: 10px;">Stroke Style</div>
         <div class="form-row">
           <label>Color</label>
           <div style="display: flex; gap: 6px; width: 100%;">
@@ -654,6 +709,184 @@
         <div class="form-row">
           <label>No Stroke</label>
           <button id="btn-stroke-none" style="flex: 1;">Set None</button>
+        </div>
+
+        <div class="section-title" style="margin-top: 10px;">Brush Dynamics (Quadro / Esenho)</div>
+        <div class="form-row">
+          <label>Preset</label>
+          <select id="prop-brush-preset">
+            <option value="custom">-- Custom Settings --</option>
+            <option value="default">Solid Vector (Default)</option>
+            <optgroup label="Pencils & Sketching">
+              <option value="pencil">HB Graphite Pencil</option>
+              <option value="soft_pencil">6B Soft Graphite</option>
+              <option value="mech_pencil">0.5mm Mechanical</option>
+              <option value="blue_pencil">Blue Col-Erase</option>
+              <option value="tech_pen">Technical Drafting Pen</option>
+            </optgroup>
+            <optgroup label="Inkers & Line Art">
+              <option value="inker">Studio Inker</option>
+              <option value="gpen">Manga G-Pen</option>
+              <option value="dry_ink">Dry Ink Bristle</option>
+              <option value="fountain">Calligraphy Chisel</option>
+              <option value="brush_pen">Sumi-e Brush Pen</option>
+            </optgroup>
+            <optgroup label="Markers & Lettering">
+              <option value="marker">Art Chisel Marker</option>
+              <option value="brush_marker">Flexible Brush Marker</option>
+              <option value="highlighter">Highlighter</option>
+            </optgroup>
+            <optgroup label="Paint & Wet Media">
+              <option value="oil">Oil Impasto (Wet)</option>
+              <option value="acrylic">Wet Acrylic</option>
+              <option value="watercolor">Watercolor Wash</option>
+              <option value="gouache">Matte Gouache</option>
+              <option value="palette_knife">Palette Knife</option>
+            </optgroup>
+            <optgroup label="Charcoal & Pastels">
+              <option value="charcoal">Vine Dusty Charcoal</option>
+              <option value="hard_charcoal">Compressed Charcoal</option>
+              <option value="pastel">Chalk Pastel</option>
+              <option value="conte">Conté Crayon</option>
+            </optgroup>
+            <optgroup label="Airbrush & Sprays">
+              <option value="airbrush">Soft Airbrush</option>
+              <option value="hard_airbrush">Flow Airbrush</option>
+              <option value="spray">Aerosol Splatter Spray</option>
+            </optgroup>
+            <optgroup label="Blenders & Smudgers">
+              <option value="smudge">Finger Smudge</option>
+              <option value="blend">Paint Blender</option>
+              <option value="rake_blend">Bristle Smear</option>
+            </optgroup>
+            <optgroup label="Special FX">
+              <option value="pixel">Pixel 1px Pencil</option>
+              <option value="halftone">Manga Screentone</option>
+              <option value="crosshatch">Crosshatch Texture</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Flow %</label>
+          <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Hardness %</label>
+          <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Spacing %</label>
+          <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
+        </div>
+        <div class="form-row">
+          <label>Scatter</label>
+          <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Roundness %</label>
+          <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Angle °</label>
+          <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Dab Shape</label>
+          <select id="prop-brush-shape">
+            <option value="0">Round</option>
+            <option value="1">Square</option>
+            <option value="2">Ellipse</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Dab Blend</label>
+          <select id="prop-brush-dab-blend">
+            <option value="0">Normal (Direct)</option>
+            <option value="1">Smudge</option>
+            <option value="2">Wet / Glaze</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Auto-Rotate</label>
+          <select id="prop-brush-autorotate">
+            <option value="0">Fixed Angle</option>
+            <option value="1">Follow Stroke Direction</option>
+          </select>
+        </div>
+
+        <div class="section-title" style="margin-top: 10px;">Brush Taper & Jitters</div>
+        <div class="form-row">
+          <label>Taper In / Out</label>
+          <div class="grid-2" style="width: 100%;">
+            <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
+            <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Size Jitter %</label>
+          <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Angle Jitter %</label>
+          <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Opacity Jitter %</label>
+          <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
+        </div>
+
+        <div class="section-title" style="margin-top: 10px;">Wet Media & Smudge</div>
+        <div class="form-row">
+          <label>Wetness %</label>
+          <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Color Pickup %</label>
+          <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Depletion %</label>
+          <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Smudge %</label>
+          <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+        </div>
+
+        <div class="section-title" style="margin-top: 10px;">Stroke Texture (Procedural)</div>
+        <div class="form-row">
+          <label>Mode</label>
+          <select id="prop-stroke-tex-mode">
+            <option value="0">0: None / Solid</option>
+            <option value="1">1: Paper Grain</option>
+            <option value="2">2: Canvas Weave</option>
+            <option value="3">3: Noise Scatter</option>
+            <option value="4">4: Halftone Dots</option>
+            <option value="5">5: Grid Pattern</option>
+            <option value="6">6: Grunge / Distress</option>
+            <option value="7">7: Hatch Lines</option>
+            <option value="8">8: Watercolor Cold Press</option>
+            <option value="9">9: Charcoal Tooth</option>
+            <option value="10">10: Wood Grain</option>
+            <option value="11">11: Leather Pores</option>
+            <option value="12">12: Dense Linen</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale %</label>
+          <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Angle °</label>
+          <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
+        </div>
+        <div class="form-row">
+          <label>Contrast %</label>
+          <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
+        </div>
+        <div class="form-row">
+          <label>Grain / Grit</label>
+          <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
         </div>
 
         <div class="section-title" style="margin-top: 10px;">Transform & Canvas</div>
@@ -772,19 +1005,18 @@
           const res = await fetch('roms/canvas.wasm');
           if (res.ok) {
             const buf = await res.arrayBuffer();
-            const wasmModule = await WebAssembly.instantiate(buf, {
-              env: {
-                memory: new WebAssembly.Memory({ initial: 1024, maximum: 32768 })
-              }
-            });
-            const actor = new EsenhoModule(wasmModule.instance);
+            const actor = new EsenhoModule(new Uint8Array(buf));
             quadroRenderer = new QuadroSvgRenderer(actor);
             document.getElementById('wasm-badge').textContent = 'Quadro SIMD Ready';
+            render();
           }
         } catch (err) {
           console.warn('Quadro WASM could not be initialized from network, using direct preview:', err);
         }
       }
+
+      const quadroCanvas = document.getElementById('quadro-canvas');
+      let viewportRenderMode = 'quadro'; // 'quadro' | 'svg'
 
       // ── Stage & Viewport Updates ──
       function updateStageSize() {
@@ -793,6 +1025,11 @@
         svgStage.setAttribute('width', doc.width);
         svgStage.setAttribute('height', doc.height);
         svgStage.setAttribute('viewBox', `0 0 ${doc.width} ${doc.height}`);
+
+        quadroCanvas.width = doc.width;
+        quadroCanvas.height = doc.height;
+        quadroCanvas.style.width = `${doc.width}px`;
+        quadroCanvas.style.height = `${doc.height}px`;
 
         overlayCanvas.width = doc.width;
         overlayCanvas.height = doc.height;
@@ -830,16 +1067,23 @@
 
       // ── Render Loop ──
       function render() {
-        // 1. Update SVG DOM
-        let svgInner = '';
-        if (doc.backgroundColor && doc.backgroundColor !== 'none') {
-          svgInner += `<rect width="100%" height="100%" fill="${doc.backgroundColor}" />\n`;
+        // 1. Render Scene (Real-time Quadro WASM or Direct SVG)
+        if (viewportRenderMode === 'quadro' && quadroRenderer) {
+          svgStage.style.display = 'none';
+          quadroCanvas.style.display = 'block';
+          try {
+            quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: 1.0, background: true });
+          } catch (err) {
+            console.warn('Realtime Quadro render error, fallback to SVG:', err);
+            svgStage.style.display = 'block';
+            quadroCanvas.style.display = 'none';
+            renderSvgStage();
+          }
+        } else {
+          svgStage.style.display = 'block';
+          quadroCanvas.style.display = 'none';
+          renderSvgStage();
         }
-        for (const obj of doc.objects) {
-          if (!obj.visible) continue;
-          svgInner += `${obj.toSVGElement()}\n`;
-        }
-        svgStage.innerHTML = svgInner;
 
         // 2. Draw Interactive Overlay (Gizmos, Nodes, Handles)
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
@@ -851,6 +1095,18 @@
         statusObjects.textContent = doc.objects.length;
         objCountBadge.textContent = `${doc.objects.length} items`;
         svgCodeEditor.value = doc.toSVGString();
+      }
+
+      function renderSvgStage() {
+        let svgInner = '';
+        if (doc.backgroundColor && doc.backgroundColor !== 'none') {
+          svgInner += `<rect width="100%" height="100%" fill="${doc.backgroundColor}" />\n`;
+        }
+        for (const obj of doc.objects) {
+          if (!obj.visible) continue;
+          svgInner += `${obj.toSVGElement()}\n`;
+        }
+        svgStage.innerHTML = svgInner;
       }
 
       function renderOverlay() {
@@ -1014,6 +1270,48 @@
         }
       }
 
+      const BRUSH_PRESET_CONFIGS = {
+        default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        pencil: { hardness: 70, flow: 85, spacing: 5, scatter: 2, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 35, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        soft_pencil: { hardness: 45, flow: 80, spacing: 6, scatter: 4, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        mech_pencil: { hardness: 90, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        blue_pencil: { hardness: 60, flow: 65, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        tech_pen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        inker: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 20, taper_out: 30, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        gpen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 15, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        dry_ink: { hardness: 70, flow: 90, spacing: 7, scatter: 5, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 10, angle_jitter: 15, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        fountain: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 0, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        brush_pen: { hardness: 85, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 35, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        marker: { hardness: 90, flow: 85, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        brush_marker: { hardness: 80, flow: 85, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 10, taper_out: 15, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        highlighter: { hardness: 100, flow: 70, spacing: 5, scatter: 0, roundness: 20, angle: 90, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        oil: { hardness: 80, flow: 95, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 60, color_pickup: 65, depletion: 35, smudge: 0 },
+        acrylic: { hardness: 85, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 40, color_pickup: 40, depletion: 20, smudge: 0 },
+        watercolor: { hardness: 20, flow: 40, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 85, color_pickup: 30, depletion: 50, smudge: 0 },
+        gouache: { hardness: 85, flow: 90, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 35, color_pickup: 30, depletion: 25, smudge: 0 },
+        palette_knife: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 25, angle: 0, dabBlend: 2, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 70, color_pickup: 70, depletion: 15, smudge: 0 },
+
+        charcoal: { hardness: 45, flow: 75, spacing: 10, scatter: 18, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 12, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        hard_charcoal: { hardness: 75, flow: 90, spacing: 6, scatter: 6, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 45, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        pastel: { hardness: 60, flow: 85, spacing: 8, scatter: 8, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        conte: { hardness: 80, flow: 80, spacing: 6, scatter: 0, roundness: 100, angle: 30, dabBlend: 0, shape: 1, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        airbrush: { hardness: 0, flow: 25, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        hard_airbrush: { hardness: 20, flow: 40, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        spray: { hardness: 60, flow: 50, spacing: 20, scatter: 55, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 40, angle_jitter: 0, opacity_jitter: 30, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        smudge: { hardness: 35, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 80 },
+        blend: { hardness: 50, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 80, color_pickup: 60, depletion: 0, smudge: 0 },
+        rake_blend: { hardness: 60, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 0, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 75 },
+
+        pixel: { hardness: 100, flow: 100, spacing: 100, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        halftone: { hardness: 90, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        crosshatch: { hardness: 85, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 }
+      };
+
       // ── Inspector UI Sync ──
       function updateInspector() {
         const selected = doc.getSelectedObjects();
@@ -1052,6 +1350,43 @@
         strokeCap.value = obj.strokeLinecap || 'round';
         strokeJoin.value = obj.strokeLinejoin || 'round';
         objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
+
+        // Fill Texture
+        const ft = obj.fillTexture || {};
+        document.getElementById('prop-fill-tex-mode').value = ft.mode !== undefined ? ft.mode : 0;
+        document.getElementById('prop-fill-tex-scale').value = ft.scale !== undefined ? ft.scale : 100;
+        document.getElementById('prop-fill-tex-angle').value = ft.angle !== undefined ? ft.angle : 0;
+        document.getElementById('prop-fill-tex-contrast').value = ft.contrast !== undefined ? ft.contrast : 100;
+        document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
+
+        // Stroke Brush Dynamics
+        const bc = obj.brushConfig || {};
+        document.getElementById('prop-brush-flow').value = bc.flow !== undefined ? bc.flow : 100;
+        document.getElementById('prop-brush-hardness').value = bc.hardness !== undefined ? bc.hardness : 100;
+        document.getElementById('prop-brush-spacing').value = bc.spacing !== undefined ? bc.spacing : 5;
+        document.getElementById('prop-brush-scatter').value = bc.scatter !== undefined ? bc.scatter : 0;
+        document.getElementById('prop-brush-roundness').value = bc.roundness !== undefined ? bc.roundness : 100;
+        document.getElementById('prop-brush-angle').value = bc.angle !== undefined ? bc.angle : 0;
+        document.getElementById('prop-brush-shape').value = bc.shape !== undefined ? bc.shape : 0;
+        document.getElementById('prop-brush-dab-blend').value = bc.dabBlend !== undefined ? bc.dabBlend : 0;
+        document.getElementById('prop-brush-autorotate').value = bc.auto_rotate ? 1 : 0;
+        document.getElementById('prop-brush-taper-in').value = bc.taper_in !== undefined ? bc.taper_in : 0;
+        document.getElementById('prop-brush-taper-out').value = bc.taper_out !== undefined ? bc.taper_out : 0;
+        document.getElementById('prop-brush-size-jitter').value = bc.size_jitter !== undefined ? bc.size_jitter : 0;
+        document.getElementById('prop-brush-angle-jitter').value = bc.angle_jitter !== undefined ? bc.angle_jitter : 0;
+        document.getElementById('prop-brush-opacity-jitter').value = bc.opacity_jitter !== undefined ? bc.opacity_jitter : 0;
+        document.getElementById('prop-brush-wetness').value = bc.wetness !== undefined ? bc.wetness : 0;
+        document.getElementById('prop-brush-color-pickup').value = bc.color_pickup !== undefined ? bc.color_pickup : 0;
+        document.getElementById('prop-brush-depletion').value = bc.depletion !== undefined ? bc.depletion : 0;
+        document.getElementById('prop-brush-smudge').value = bc.smudge !== undefined ? bc.smudge : 0;
+
+        // Stroke Texture
+        const st = obj.strokeTexture || {};
+        document.getElementById('prop-stroke-tex-mode').value = st.mode !== undefined ? st.mode : 0;
+        document.getElementById('prop-stroke-tex-scale').value = st.scale !== undefined ? st.scale : 100;
+        document.getElementById('prop-stroke-tex-angle').value = st.angle !== undefined ? st.angle : 0;
+        document.getElementById('prop-stroke-tex-contrast').value = st.contrast !== undefined ? st.contrast : 100;
+        document.getElementById('prop-stroke-tex-grain').value = st.grain !== undefined ? st.grain : 0;
       }
 
       // ── Pointer & Tool Event Handlers ──
@@ -1456,6 +1791,120 @@
         document.getElementById('prop-stroke-text').value = 'none';
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.stroke = 'none';
+        render();
+      });
+
+      document.getElementById('prop-fill-opacity').addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.fillOpacity = Number(e.target.value);
+        render();
+      });
+
+      // Fill Texture bindings
+      ['mode', 'scale', 'angle', 'contrast', 'grain'].forEach(param => {
+        const el = document.getElementById(`prop-fill-tex-${param}`);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+            obj.fillTexture[param] = val;
+            if (param === 'mode') obj.fillTexture.enabled = val > 0;
+          }
+          render();
+        });
+      });
+
+      document.getElementById('prop-stroke-cap').addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.strokeLinecap = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-stroke-join').addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.strokeLinejoin = e.target.value;
+        render();
+      });
+
+      // Viewport Render Mode Switcher
+      document.getElementById('select-render-mode').addEventListener('change', (e) => {
+        viewportRenderMode = e.target.value;
+        render();
+      });
+
+      // Brush Preset Binding
+      document.getElementById('prop-brush-preset').addEventListener('change', (e) => {
+        const preset = BRUSH_PRESET_CONFIGS[e.target.value];
+        if (preset) {
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.brushConfig) obj.brushConfig = {};
+            Object.assign(obj.brushConfig, preset);
+          }
+          updateInspector();
+          render();
+        }
+      });
+
+      // Brush Dynamics Sliders & Controls
+      const brushParamMap = {
+        flow: 'flow',
+        hardness: 'hardness',
+        spacing: 'spacing',
+        scatter: 'scatter',
+        roundness: 'roundness',
+        angle: 'angle',
+        shape: 'shape',
+        'dab-blend': 'dabBlend',
+        autorotate: 'auto_rotate',
+        'taper-in': 'taper_in',
+        'taper-out': 'taper_out',
+        'size-jitter': 'size_jitter',
+        'angle-jitter': 'angle_jitter',
+        'opacity-jitter': 'opacity_jitter',
+        wetness: 'wetness',
+        'color-pickup': 'color_pickup',
+        depletion: 'depletion',
+        smudge: 'smudge'
+      };
+
+      Object.entries(brushParamMap).forEach(([elSuffix, configKey]) => {
+        const id = `prop-brush-${elSuffix}`;
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.brushConfig) obj.brushConfig = {};
+            obj.brushConfig[configKey] = val;
+          }
+          document.getElementById('prop-brush-preset').value = 'custom';
+          render();
+        });
+      });
+
+      // Stroke Texture bindings
+      ['mode', 'scale', 'angle', 'contrast', 'grain'].forEach(param => {
+        const el = document.getElementById(`prop-stroke-tex-${param}`);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.strokeTexture) obj.strokeTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+            obj.strokeTexture[param] = val;
+            if (param === 'mode') obj.strokeTexture.enabled = val > 0;
+          }
+          render();
+        });
+      });
+
+      document.getElementById('prop-obj-opacity').addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.opacity = Number(e.target.value);
         render();
       });
 

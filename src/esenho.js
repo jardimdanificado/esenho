@@ -485,10 +485,23 @@ class EsenhoModule {
    * @param {string|Uint8Array|ArrayBuffer} wasmPathOrBytes - File path (Node) or WASM bytes (browser/any)
    */
   constructor(wasmPathOrBytes, options = {}) {
+    if (wasmPathOrBytes && wasmPathOrBytes.exports) {
+      this.instance = wasmPathOrBytes;
+      this.exports = this.instance.exports;
+      this.memory = this.exports.memory;
+      this.name = options.name || 'instance';
+      this.wasmPath = options.name || 'instance';
+      this.layerPtr = 0;
+      this.layerByteLen = 0;
+      this.texPtr = 0;
+      this.texByteLen = 0;
+      return;
+    }
+
     const isBytes = wasmPathOrBytes instanceof Uint8Array
                  || wasmPathOrBytes instanceof ArrayBuffer;
     this.wasmPath = isBytes ? (options.name || 'module') : wasmPathOrBytes;
-    this.name = options.name || path.basename(String(this.wasmPath), '.wasm');
+    this.name = options.name || (typeof this.wasmPath === 'string' ? path.basename(String(this.wasmPath), '.wasm') : 'module');
     const wasmBytes = isBytes ? wasmPathOrBytes : fs.readFileSync(wasmPathOrBytes);
     this.wasmModule = new WebAssembly.Module(wasmBytes);
     this.instance = new WebAssembly.Instance(this.wasmModule, { env: {} });

@@ -211,6 +211,52 @@
       this.strokeLinejoin = attributes.strokeLinejoin || 'round';
       this.strokeDasharray = attributes.strokeDasharray || '';
 
+      // Brush & Dynamics Configuration
+      this.brushConfig = {
+        preset: 'round',
+        hardness: 95,
+        flow: 100,
+        spacing: 5,
+        scatter: 0,
+        roundness: 100,
+        angle: 0,
+        shape: 0,
+        dabBlend: 0,
+        grain: 0,
+        auto_rotate: 0,
+        taper_in: 0,
+        taper_out: 0,
+        size_jitter: 0,
+        angle_jitter: 0,
+        opacity_jitter: 0,
+        wetness: 0,
+        color_pickup: 0,
+        depletion: 0,
+        smudge: 0,
+        ...(attributes.brushConfig || {})
+      };
+
+      // Procedural Textures for Stroke and Fill (Modes 0..12)
+      this.strokeTexture = {
+        enabled: false,
+        mode: 0,
+        angle: 0,
+        scale: 100,
+        contrast: 100,
+        grain: 0,
+        ...(attributes.strokeTexture || {})
+      };
+
+      this.fillTexture = {
+        enabled: false,
+        mode: 0,
+        angle: 0,
+        scale: 100,
+        contrast: 100,
+        grain: 0,
+        ...(attributes.fillTexture || {})
+      };
+
       // Transform
       this.x = Number(attributes.x || 0);
       this.y = Number(attributes.y || 0);
@@ -218,6 +264,20 @@
       this.scaleX = Number(attributes.scaleX !== undefined ? attributes.scaleX : 1);
       this.scaleY = Number(attributes.scaleY !== undefined ? attributes.scaleY : 1);
       this.parent = null;
+    }
+
+    getExtraSVGAttributes() {
+      let attrs = '';
+      if (this.brushConfig) {
+        attrs += ` data-brush="${encodeURIComponent(JSON.stringify(this.brushConfig))}"`;
+      }
+      if (this.strokeTexture && (this.strokeTexture.mode > 0 || this.strokeTexture.enabled)) {
+        attrs += ` data-stroke-tex="${encodeURIComponent(JSON.stringify(this.strokeTexture))}"`;
+      }
+      if (this.fillTexture && (this.fillTexture.mode > 0 || this.fillTexture.enabled)) {
+        attrs += ` data-fill-tex="${encodeURIComponent(JSON.stringify(this.fillTexture))}"`;
+      }
+      return attrs;
     }
 
     clone() {
@@ -263,6 +323,9 @@
         strokeLinecap: this.strokeLinecap,
         strokeLinejoin: this.strokeLinejoin,
         strokeDasharray: this.strokeDasharray,
+        brushConfig: { ...this.brushConfig },
+        strokeTexture: { ...this.strokeTexture },
+        fillTexture: { ...this.fillTexture },
         x: this.x,
         y: this.y,
         rotation: this.rotation,
@@ -559,7 +622,7 @@
       const join = this.strokeLinejoin;
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash} />`;
+      return `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -625,7 +688,7 @@
       const ryAttr = this.ry > 0 ? ` ry="${this.ry}"` : '';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<rect id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${rxAttr}${ryAttr} fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash} />`;
+      return `<rect id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${rxAttr}${ryAttr} fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -696,7 +759,7 @@
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<ellipse id="${this.id}" cx="${this.cx}" cy="${this.cy}" rx="${this.rx}" ry="${this.ry}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash} />`;
+      return `<ellipse id="${this.id}" cx="${this.cx}" cy="${this.cy}" rx="${this.rx}" ry="${this.ry}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -725,7 +788,7 @@
       const fill = this.fill || 'none';
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<circle id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash} />`;
+      return `<circle id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -785,7 +848,7 @@
     toSVGElement() {
       const stroke = this.stroke || '#000';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<line id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" stroke-linecap="${this.strokeLinecap}" opacity="${this.opacity}"${dash} />`;
+      return `<line id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" stroke-linecap="${this.strokeLinecap}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -844,7 +907,7 @@
       const fill = this.fill || 'none';
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<polygon id="${this.id}" points="${pts}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash} />`;
+      return `<polygon id="${this.id}" points="${pts}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -876,7 +939,7 @@
       const fill = this.fill || 'none';
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<polyline id="${this.id}" points="${pts}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash} />`;
+      return `<polyline id="${this.id}" points="${pts}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
     }
 
     static fromJSON(data) {
@@ -1251,10 +1314,28 @@
           const opacity = parseFloat(getStyle('opacity') || getAttr('opacity', '1'));
           const fillOpacity = parseFloat(getStyle('fill-opacity') || getAttr('fill-opacity', '1'));
           const strokeOpacity = parseFloat(getStyle('stroke-opacity') || getAttr('stroke-opacity', '1'));
+          let brushConfig = undefined;
+          const brushAttr = getAttr('data-brush');
+          if (brushAttr) {
+            try { brushConfig = JSON.parse(decodeURIComponent(brushAttr)); } catch (e) {}
+          }
+
+          let strokeTexture = undefined;
+          const strokeTexAttr = getAttr('data-stroke-tex');
+          if (strokeTexAttr) {
+            try { strokeTexture = JSON.parse(decodeURIComponent(strokeTexAttr)); } catch (e) {}
+          }
+
+          let fillTexture = undefined;
+          const fillTexAttr = getAttr('data-fill-tex');
+          if (fillTexAttr) {
+            try { fillTexture = JSON.parse(decodeURIComponent(fillTexAttr)); } catch (e) {}
+          }
 
           const baseProps = {
             id: getAttr('id', generateId(tag)),
-            fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity
+            fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
+            brushConfig, strokeTexture, fillTexture
           };
 
           if (tag === 'rect') {
@@ -1321,12 +1402,110 @@
           if (parsed) this.addObject(parsed, false);
         }
       } else {
-        const pathMatches = svgString.matchAll(/<path([^>]+)\/?>/ig);
-        for (const match of pathMatches) {
-          const dMatch = match[1].match(/d="([^"]+)"/i);
-          if (dMatch) {
-            this.addObject(new SvgPath({ d: dMatch[1] }), false);
+        // Node.js Regex Fallback Parser
+        const parseAttrString = (attrStr) => {
+          const attrs = {};
+          const re = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
+          let m;
+          while ((m = re.exec(attrStr)) !== null) {
+            attrs[m[1]] = m[2];
           }
+          return attrs;
+        };
+
+        const createNodeFromAttrs = (tag, attrs) => {
+          const getAttr = (name, def = null) => attrs[name] !== undefined ? attrs[name] : def;
+          const fill = getAttr('fill', '#000000');
+          const stroke = getAttr('stroke', 'none');
+          const strokeWidth = parseFloat(getAttr('stroke-width', '1'));
+          const opacity = parseFloat(getAttr('opacity', '1'));
+          const fillOpacity = parseFloat(getAttr('fill-opacity', '1'));
+          const strokeOpacity = parseFloat(getAttr('stroke-opacity', '1'));
+
+          let brushConfig = undefined;
+          const brushAttr = getAttr('data-brush');
+          if (brushAttr) {
+            try { brushConfig = JSON.parse(decodeURIComponent(brushAttr)); } catch (e) {}
+          }
+
+          let strokeTexture = undefined;
+          const strokeTexAttr = getAttr('data-stroke-tex');
+          if (strokeTexAttr) {
+            try { strokeTexture = JSON.parse(decodeURIComponent(strokeTexAttr)); } catch (e) {}
+          }
+
+          let fillTexture = undefined;
+          const fillTexAttr = getAttr('data-fill-tex');
+          if (fillTexAttr) {
+            try { fillTexture = JSON.parse(decodeURIComponent(fillTexAttr)); } catch (e) {}
+          }
+
+          const baseProps = {
+            id: getAttr('id', generateId(tag)),
+            fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
+            brushConfig, strokeTexture, fillTexture
+          };
+
+          if (tag === 'rect') {
+            return new SvgRect({
+              ...baseProps,
+              x: parseFloat(getAttr('x', '0')),
+              y: parseFloat(getAttr('y', '0')),
+              width: parseFloat(getAttr('width', '100')),
+              height: parseFloat(getAttr('height', '60')),
+              rx: parseFloat(getAttr('rx', '0')),
+              ry: parseFloat(getAttr('ry', '0'))
+            });
+          } else if (tag === 'circle') {
+            return new SvgCircle({
+              ...baseProps,
+              cx: parseFloat(getAttr('cx', '0')),
+              cy: parseFloat(getAttr('cy', '0')),
+              r: parseFloat(getAttr('r', '50'))
+            });
+          } else if (tag === 'ellipse') {
+            return new SvgEllipse({
+              ...baseProps,
+              cx: parseFloat(getAttr('cx', '0')),
+              cy: parseFloat(getAttr('cy', '0')),
+              rx: parseFloat(getAttr('rx', '50')),
+              ry: parseFloat(getAttr('ry', '30'))
+            });
+          } else if (tag === 'line') {
+            return new SvgLine({
+              ...baseProps,
+              x1: parseFloat(getAttr('x1', '0')),
+              y1: parseFloat(getAttr('y1', '0')),
+              x2: parseFloat(getAttr('x2', '100')),
+              y2: parseFloat(getAttr('y2', '100'))
+            });
+          } else if (tag === 'path') {
+            return new SvgPath({
+              ...baseProps,
+              d: getAttr('d', '')
+            });
+          } else if (tag === 'polygon') {
+            return new SvgPolygon({
+              ...baseProps,
+              points: getAttr('points', '')
+            });
+          } else if (tag === 'polyline') {
+            return new SvgPolyline({
+              ...baseProps,
+              points: getAttr('points', '')
+            });
+          }
+          return null;
+        };
+
+        const tagRegex = /<(path|rect|circle|ellipse|line|polygon|polyline)\b([^>]*)\/?>/ig;
+        let match;
+        while ((match = tagRegex.exec(svgString)) !== null) {
+          const tagName = match[1].toLowerCase();
+          const attrStr = match[2];
+          const attrs = parseAttrString(attrStr);
+          const node = createNodeFromAttrs(tagName, attrs);
+          if (node) this.addObject(node, false);
         }
       }
     }

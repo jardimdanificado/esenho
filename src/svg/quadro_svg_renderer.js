@@ -67,6 +67,87 @@
     return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
   }
 
+  function sampleProceduralTexture(mode, x, y, texAngle = 0, texScale = 100, texContrast = 100, baseA = 255) {
+    if (mode <= 0 || baseA === 0) return baseA;
+    if (texScale <= 0) texScale = 100;
+
+    let tx = x;
+    let ty = y;
+
+    if (texAngle !== 0) {
+      const rad = (texAngle * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      tx = Math.round(x * cos + y * sin);
+      ty = Math.round(-x * sin + y * cos);
+    }
+
+    if (texScale !== 100) {
+      tx = Math.round((tx * 100) / texScale);
+      ty = Math.round((ty * 100) / texScale);
+    }
+
+    let modA = baseA;
+    if (mode === 1) { // Paper grain
+      const n = ((tx * 1234567 + ty * 7654321) ^ (tx * ty * 13)) & 0xFF;
+      const fiber = ((tx * 3 + ty * 5) % 17 < 3) ? 50 : 255;
+      modA = Math.round((baseA * n * fiber) / (255 * 255));
+    } else if (mode === 2) { // Canvas weave
+      const pat = ((Math.abs(tx) % 6 < 3) ^ (Math.abs(ty) % 6 < 3)) ? 255 : 40;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 3) { // Noise
+      const n = ((tx * 374761393 + ty * 668265263) ^ 0x5bf03635) & 0xFF;
+      modA = Math.round((baseA * n) / 255);
+    } else if (mode === 4) { // Halftone dots
+      const dx = (Math.abs(tx) % 8) - 4;
+      const dy = (Math.abs(ty) % 8) - 4;
+      const d2 = dx * dx + dy * dy;
+      const pat = (d2 <= 5) ? 255 : 20;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 5) { // Grid
+      const pat = (Math.abs(tx) % 8 === 0 || Math.abs(ty) % 8 === 0) ? 255 : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 6) { // Grunge
+      const n = ((Math.floor(tx / 4) * 101 + Math.floor(ty / 4) * 203) ^ (tx * 17 + ty * 31)) & 0xFF;
+      const pat = n > 120 ? 255 : Math.round(n * 255 / 120);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 7) { // Hatch
+      const pat = ((Math.abs(tx + ty)) % 6 <= 1) ? 255 : 0;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 8) { // Watercolor Cold Press
+      const n1 = ((tx * 239847 + ty * 983471) ^ (tx * 7)) & 0xFF;
+      const pit = (((Math.floor(tx / 3) * 11 + Math.floor(ty / 3) * 13)) % 23 < 4) ? 40 : 255;
+      modA = Math.round((baseA * n1 * pit) / (255 * 255));
+    } else if (mode === 9) { // Charcoal Tooth
+      const n = ((Math.floor(tx / 2) * 589237 + Math.floor(ty / 2) * 782391) ^ (tx * 31 + ty * 19)) & 0xFF;
+      const tooth = (n > 140) ? 255 : (n > 70 ? 120 : 20);
+      modA = Math.round((baseA * tooth) / 255);
+    } else if (mode === 10) { // Wood Grain
+      const wave = Math.floor(tx + (ty * ty / 120) % 24);
+      const ring = (Math.abs(wave) % 12 < 3) ? 255 : 70;
+      modA = Math.round((baseA * ring) / 255);
+    } else if (mode === 11) { // Leather Pores
+      const cx = Math.abs(tx) % 10 - 5;
+      const cy = Math.abs(ty) % 10 - 5;
+      const d = cx * cx + cy * cy;
+      const pore = (d <= 3) ? 40 : 240;
+      modA = Math.round((baseA * pore) / 255);
+    } else if (mode === 12) { // Dense Linen
+      const lx = (Math.abs(tx) % 4 < 2);
+      const ly = (Math.abs(ty) % 4 < 2);
+      const pat = (lx ^ ly) ? 245 : 65;
+      modA = Math.round((baseA * pat) / 255);
+    }
+
+    if (texContrast !== 100 && texContrast >= 0 && baseA > 0) {
+      let factor = (modA * 255) / baseA;
+      factor = 128 + ((factor - 128) * texContrast) / 100;
+      factor = Math.max(0, Math.min(255, factor));
+      modA = Math.round((baseA * factor) / 255);
+    }
+    return modA;
+  }
+
   class QuadroSvgRenderer {
     constructor(wasmModuleOrPath) {
       if (wasmModuleOrPath instanceof EsenhoModule) {
@@ -156,7 +237,7 @@
         pathObj = obj.toPath();
       }
 
-      // 1. Render Fill
+      // 1. Render Fill (with procedural fill texture support)
       if (obj.fill && obj.fill !== 'none') {
         const fillAlpha = (obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0) * totalOpacity;
         const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
@@ -164,13 +245,12 @@
         if ((fillArgb >>> 24) > 0) {
           const poly = pathObj.toPolyline ? pathObj.toPolyline(0.5) : [];
           if (poly.length >= 3) {
-            // Use Quadro vector shape fill or scanline rasterizer
-            this.fillPolygon(poly, fillArgb, scale);
+            this.fillPolygon(poly, fillArgb, scale, obj.fillTexture);
           }
         }
       }
 
-      // 2. Render Stroke
+      // 2. Render Stroke (with brush dynamics & stroke texture support)
       if (obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0) {
         const strokeAlpha = (obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1.0) * totalOpacity;
         const strokeArgb = parseCssColorToArgb(obj.stroke, strokeAlpha);
@@ -178,16 +258,23 @@
         if ((strokeArgb >>> 24) > 0) {
           const poly = pathObj.toPolyline ? pathObj.toPolyline(0.4) : [];
           if (poly.length >= 2) {
-            this.strokePolyline(poly, strokeArgb, Math.max(1, Math.round(obj.strokeWidth * scale)), pathObj.closed);
+            this.strokePolyline(
+              poly,
+              strokeArgb,
+              Math.max(1, Math.round(obj.strokeWidth * scale)),
+              pathObj.closed,
+              obj.brushConfig,
+              obj.strokeTexture
+            );
           }
         }
       }
     }
 
     /**
-     * Scanline polygon fill in Quadro layer
+     * Scanline polygon fill in Quadro layer with procedural texture masking
      */
-    fillPolygon(poly, argbColor, scale = 1.0) {
+    fillPolygon(poly, argbColor, scale = 1.0, fillTexture = null) {
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
@@ -209,6 +296,12 @@
 
       if (minY < 0) minY = 0;
       if (maxY >= lh) maxY = lh - 1;
+
+      const baseAlpha = (argbColor >>> 24) & 0xFF;
+      const texMode = fillTexture ? (fillTexture.mode || 0) : 0;
+      const texAngle = fillTexture ? (fillTexture.angle || 0) : 0;
+      const texScale = fillTexture ? (fillTexture.scale || 100) : 100;
+      const texContrast = fillTexture ? (fillTexture.contrast || 100) : 100;
 
       const nodeX = [];
       for (let y = minY; y <= maxY; y++) {
@@ -233,7 +326,12 @@
             let x1 = nodeX[i + 1] >= lw ? lw - 1 : nodeX[i + 1];
             const row = y * lw;
             for (let x = x0; x <= x1; x++) {
-              pixels[row + x] = this.blendFast(argbColor, pixels[row + x]);
+              let pixColor = argbColor;
+              if (texMode > 0) {
+                const sampledA = sampleProceduralTexture(texMode, x, y, texAngle, texScale, texContrast, baseAlpha);
+                pixColor = ((sampledA << 24) | (argbColor & 0x00FFFFFF)) >>> 0;
+              }
+              pixels[row + x] = this.blendFast(pixColor, pixels[row + x]);
             }
           }
         }
@@ -241,14 +339,36 @@
     }
 
     /**
-     * Anti-aliased stroke drawing via Quadro brush engine
+     * Anti-aliased stroke drawing via Quadro brush engine with dynamics and textures
      */
-    strokePolyline(poly, argbColor, strokeWidth = 2, closed = false) {
+    strokePolyline(poly, argbColor, strokeWidth = 2, closed = false, brushConfig = null, strokeTexture = null) {
       const exp = this.actor.exports;
       exp.w_brush_set_param(1 /* SIZE */, strokeWidth);
       exp.w_brush_set_param(2 /* OPACITY */, 100);
-      exp.w_brush_set_param(3 /* HARDNESS */, 95);
-      exp.w_brush_set_param(4 /* FLOW */, 100);
+      exp.w_brush_set_param(3 /* HARDNESS */, brushConfig?.hardness !== undefined ? brushConfig.hardness : 95);
+      exp.w_brush_set_param(4 /* FLOW */, brushConfig?.flow !== undefined ? brushConfig.flow : 100);
+      exp.w_brush_set_param(5 /* SPACING */, brushConfig?.spacing !== undefined ? brushConfig.spacing : 5);
+      exp.w_brush_set_param(6 /* ANGLE */, brushConfig?.angle !== undefined ? brushConfig.angle : 0);
+      exp.w_brush_set_param(7 /* ROUNDNESS */, brushConfig?.roundness !== undefined ? brushConfig.roundness : 100);
+      exp.w_brush_set_param(8 /* SCATTER */, brushConfig?.scatter !== undefined ? brushConfig.scatter : 0);
+      exp.w_brush_set_param(10 /* SMUDGE */, brushConfig?.smudge !== undefined ? brushConfig.smudge : 0);
+      exp.w_brush_set_param(11 /* WETNESS */, brushConfig?.wetness !== undefined ? brushConfig.wetness : 0);
+      exp.w_brush_set_param(12 /* GRAIN */, strokeTexture?.grain !== undefined ? strokeTexture.grain : (brushConfig?.grain !== undefined ? brushConfig.grain : 0));
+      exp.w_brush_set_param(13 /* TEX_MODE */, strokeTexture?.mode !== undefined ? strokeTexture.mode : (brushConfig?.texture_mode !== undefined ? brushConfig.texture_mode : 0));
+      exp.w_brush_set_param(14 /* SHAPE */, brushConfig?.shape !== undefined ? brushConfig.shape : 0);
+      exp.w_brush_set_param(16 /* TEX_ANGLE */, strokeTexture?.angle !== undefined ? strokeTexture.angle : 0);
+      exp.w_brush_set_param(17 /* TEX_SCALE */, strokeTexture?.scale !== undefined ? strokeTexture.scale : 100);
+      exp.w_brush_set_param(21 /* TEX_CONTRAST */, strokeTexture?.contrast !== undefined ? strokeTexture.contrast : 100);
+      exp.w_brush_set_param(22 /* AUTO_ROTATE */, brushConfig?.auto_rotate !== undefined ? brushConfig.auto_rotate : (brushConfig?.autoRotate ? 1 : 0));
+      exp.w_brush_set_param(23 /* VELOCITY */, brushConfig?.velocity !== undefined ? brushConfig.velocity : 0);
+      exp.w_brush_set_param(24 /* TAPER_IN */, brushConfig?.taper_in !== undefined ? brushConfig.taper_in : (brushConfig?.taperIn !== undefined ? brushConfig.taperIn : 0));
+      exp.w_brush_set_param(25 /* TAPER_OUT */, brushConfig?.taper_out !== undefined ? brushConfig.taper_out : (brushConfig?.taperOut !== undefined ? brushConfig.taperOut : 0));
+      exp.w_brush_set_param(27 /* SIZE_JITTER */, brushConfig?.size_jitter !== undefined ? brushConfig.size_jitter : (brushConfig?.sizeJitter !== undefined ? brushConfig.sizeJitter : 0));
+      exp.w_brush_set_param(28 /* ANGLE_JITTER */, brushConfig?.angle_jitter !== undefined ? brushConfig.angle_jitter : (brushConfig?.angleJitter !== undefined ? brushConfig.angleJitter : 0));
+      exp.w_brush_set_param(29 /* OPACITY_JITTER */, brushConfig?.opacity_jitter !== undefined ? brushConfig.opacity_jitter : (brushConfig?.opacityJitter !== undefined ? brushConfig.opacityJitter : 0));
+      exp.w_brush_set_param(31 /* DAB_BLEND */, brushConfig?.dabBlend !== undefined ? brushConfig.dabBlend : (brushConfig?.dab_blend !== undefined ? brushConfig.dab_blend : 0));
+      exp.w_brush_set_param(33 /* DEPLETION */, brushConfig?.depletion !== undefined ? brushConfig.depletion : 0);
+      exp.w_brush_set_param(34 /* COLOR_PICKUP */, brushConfig?.color_pickup !== undefined ? brushConfig.color_pickup : (brushConfig?.colorPickup !== undefined ? brushConfig.colorPickup : 0));
 
       const n = poly.length;
       if (n === 1) {
@@ -316,6 +436,25 @@
       }
 
       return { width: w, height: h, data: imgDataArray };
+    }
+
+    /**
+     * Direct rasterization blit to a Canvas element in real time
+     */
+    renderToCanvas(doc, canvas, options = {}) {
+      const res = this.renderDocument(doc, options);
+      if (!res) return false;
+      const imgData = this.getImageData();
+      if (!imgData) return false;
+      if (canvas.width !== imgData.width || canvas.height !== imgData.height) {
+        canvas.width = imgData.width;
+        canvas.height = imgData.height;
+      }
+      const ctx2d = canvas.getContext('2d');
+      const img = ctx2d.createImageData(imgData.width, imgData.height);
+      img.data.set(imgData.data);
+      ctx2d.putImageData(img, 0, 0);
+      return true;
     }
   }
 

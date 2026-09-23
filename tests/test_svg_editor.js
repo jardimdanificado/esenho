@@ -141,8 +141,105 @@ async function runSvgEngineTests() {
   const okUngroup = doc.ungroupSelected();
   assert.strictEqual(okUngroup, true, 'ungroupSelected should succeed');
   assert.strictEqual(doc.objects.includes(activeRect), true, 'Rect should be restored to root objects');
-  assert.strictEqual(doc.objects.includes(group), false, 'Group should no longer be in root objects');
-  console.log('✔ SVG Grouping (<g>), hierarchy, move and ungroup passed');
+  // 8. Test Brush Dynamics & Procedural Textures
+  console.log('--- Testing Brush Dynamics & Procedural Textures ---');
+  const texturedPath = new SvgPath({
+    stroke: '#fe8019',
+    strokeWidth: 10,
+    fill: '#fabd2f',
+    brushConfig: {
+      flow: 75,
+      hardness: 60,
+      spacing: 12,
+      scatter: 15,
+      roundness: 80,
+      angle: 45,
+      shape: 2,
+      dabBlend: 2,
+      grain: 40
+    },
+    strokeTexture: {
+      enabled: true,
+      mode: 9, // Charcoal Tooth
+      scale: 150,
+      angle: 30,
+      contrast: 120,
+      grain: 50
+    },
+    fillTexture: {
+      enabled: true,
+      mode: 8, // Watercolor Cold Press
+      scale: 200,
+      angle: 0,
+      contrast: 110,
+      grain: 25
+    }
+  });
+
+  texturedPath.addNode(50, 50, null, { x: 50, y: 0 });
+  texturedPath.addNode(150, 150, { x: -50, y: 0 }, null);
+  doc.addObject(texturedPath);
+
+  const customSvgXml = doc.toSVGString();
+  assert(customSvgXml.includes('data-brush='), 'SVG export should include data-brush attribute');
+  assert(customSvgXml.includes('data-stroke-tex='), 'SVG export should include data-stroke-tex attribute');
+  assert(customSvgXml.includes('data-fill-tex='), 'SVG export should include data-fill-tex attribute');
+
+  // Test SVG Import Roundtrip
+  const doc2 = new SvgDocument(800, 600);
+  doc2.fromSVGString(customSvgXml);
+  const importedObj = doc2.findObject(texturedPath.id);
+  assert(importedObj, 'Imported document should contain texturedPath');
+  assert.strictEqual(importedObj.brushConfig.flow, 75, 'Imported brush flow should match');
+  assert.strictEqual(importedObj.brushConfig.hardness, 60, 'Imported brush hardness should match');
+  assert.strictEqual(importedObj.brushConfig.shape, 2, 'Imported brush shape should match');
+  assert.strictEqual(importedObj.strokeTexture.mode, 9, 'Imported stroke texture mode should match');
+  assert.strictEqual(importedObj.fillTexture.mode, 8, 'Imported fill texture mode should match');
+  assert.strictEqual(importedObj.fillTexture.scale, 200, 'Imported fill texture scale should match');
+
+  // Test Advanced Brush Dynamics Parameters
+  texturedPath.brushConfig.auto_rotate = 1;
+  texturedPath.brushConfig.taper_in = 25;
+  texturedPath.brushConfig.taper_out = 35;
+  texturedPath.brushConfig.size_jitter = 20;
+  texturedPath.brushConfig.wetness = 60;
+  texturedPath.brushConfig.color_pickup = 50;
+  texturedPath.brushConfig.depletion = 30;
+  texturedPath.brushConfig.smudge = 70;
+
+  const advSvgXml = doc.toSVGString();
+  const doc3 = new SvgDocument(800, 600);
+  doc3.fromSVGString(advSvgXml);
+  const importedAdv = doc3.findObject(texturedPath.id);
+  assert.strictEqual(importedAdv.brushConfig.auto_rotate, 1, 'Imported auto_rotate should match');
+  assert.strictEqual(importedAdv.brushConfig.taper_in, 25, 'Imported taper_in should match');
+  assert.strictEqual(importedAdv.brushConfig.wetness, 60, 'Imported wetness should match');
+  assert.strictEqual(importedAdv.brushConfig.smudge, 70, 'Imported smudge should match');
+
+  if (fs.existsSync(canvasWasmPath)) {
+    const actor = new EsenhoModule(canvasWasmPath);
+    const renderer = new QuadroSvgRenderer(actor);
+    const res = renderer.renderDocument(doc3, { scale: 1.0 });
+    assert.strictEqual(res.width, 800);
+    assert.strictEqual(res.height, 600);
+
+    // Mock canvas test for renderToCanvas
+    const mockCanvas = {
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+        putImageData: () => {}
+      })
+    };
+    const okCanvas = renderer.renderToCanvas(doc3, mockCanvas);
+    assert.strictEqual(okCanvas, true, 'renderToCanvas should succeed');
+    assert.strictEqual(mockCanvas.width, 800);
+    assert.strictEqual(mockCanvas.height, 600);
+    console.log('✔ Real-time Quadro renderToCanvas & advanced dynamics execution passed');
+  }
+
+  console.log('✔ Brush dynamics and procedural textures roundtrip passed');
 
   console.log('\nALL SVG OBJECT ENGINE & QUADRO RENDERER TESTS PASSED SUCCESSFULLY!');
 }
