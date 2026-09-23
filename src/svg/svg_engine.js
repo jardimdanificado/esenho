@@ -1,22 +1,34 @@
 /**
  * =========================================================================
  * SVG Object Engine & Scene Graph (src/svg/svg_engine.js)
- * Standalone vector object model with Bézier curves & SVG parser/serializer.
+ * Standalone vector object model with Bézier curves, Booleans, Compound Paths,
+ * Gradients, Shadows, Typography, and SVG parser/serializer.
  * =========================================================================
  */
 
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
-    module.exports = factory();
+    const SvgBoolean = require('./svg_boolean.js');
+    module.exports = factory(SvgBoolean);
   } else {
-    root.SvgEngine = factory();
+    root.SvgEngine = factory(root.SvgBoolean);
   }
-}(typeof self !== 'undefined' ? self : this, function () {
+}(typeof self !== 'undefined' ? self : this, function (SvgBoolean) {
   'use strict';
 
   let nextId = 1;
   function generateId(prefix = 'obj') {
     return `${prefix}_${nextId++}_${Math.random().toString(36).substr(2, 5)}`;
+  }
+
+  function escapeXml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
   }
 
   /* =========================================================================
@@ -66,7 +78,6 @@
       const points = [p0];
 
       function recurse(p0, cp1, cp2, p1, depth) {
-        // Flatness test: distance from control points to baseline
         const dx = p1.x - p0.x;
         const dy = p1.y - p0.y;
         const lenSq = dx * dx + dy * dy;
@@ -88,7 +99,6 @@
           return;
         }
 
-        // Subdivide using de Casteljau at midpoint t=0.5
         const p01 = { x: (p0.x + cp1.x) * 0.5, y: (p0.y + cp1.y) * 0.5 };
         const p12 = { x: (cp1.x + cp2.x) * 0.5, y: (cp1.y + cp2.y) * 0.5 };
         const p23 = { x: (cp2.x + p1.x) * 0.5, y: (cp2.y + p1.y) * 0.5 };
@@ -106,15 +116,14 @@
       return points;
     },
 
-    /** Approximate cubic Bézier length */
-    cubicLength(p0, cp1, cp2, p1, steps = 16) {
+    /** Approximate arc length of cubic Bézier curve */
+    arcLengthCubic(p0, cp1, cp2, p1, steps = 16) {
       let len = 0;
       let prev = p0;
       for (let i = 1; i <= steps; i++) {
-        const pt = Bezier.evalCubic(p0, cp1, cp2, p1, i / steps);
-        const dx = pt.x - prev.x;
-        const dy = pt.y - prev.y;
-        len += Math.sqrt(dx * dx + dy * dy);
+        const t = i / steps;
+        const pt = Bezier.evalCubic(p0, cp1, cp2, p1, t);
+        len += Math.hypot(pt.x - prev.x, pt.y - prev.y);
         prev = pt;
       }
       return len;
@@ -201,15 +210,33 @@
       this.opacity = attributes.opacity !== undefined ? Number(attributes.opacity) : 1.0;
       this.blendMode = attributes.blendMode || 'normal';
 
-      // Style
+      // Style & Fill
       this.fill = attributes.fill !== undefined ? attributes.fill : '#fabd2f';
       this.fillOpacity = attributes.fillOpacity !== undefined ? Number(attributes.fillOpacity) : 1.0;
+      this.fillType = attributes.fillType || 'solid'; // 'solid', 'linear', 'radial'
+      this.fillGradient = attributes.fillGradient
+        ? (attributes.fillGradient instanceof SvgGradient
+            ? attributes.fillGradient
+            : { enabled: true, stops: [], type: attributes.fillType || 'linear', ...attributes.fillGradient })
+        : null;
+
       this.stroke = attributes.stroke !== undefined ? attributes.stroke : '#1d2021';
       this.strokeWidth = attributes.strokeWidth !== undefined ? Number(attributes.strokeWidth) : 2;
       this.strokeOpacity = attributes.strokeOpacity !== undefined ? Number(attributes.strokeOpacity) : 1.0;
       this.strokeLinecap = attributes.strokeLinecap || 'round';
       this.strokeLinejoin = attributes.strokeLinejoin || 'round';
       this.strokeDasharray = attributes.strokeDasharray || '';
+
+      // Drop Shadows & Glows
+      this.dropShadow = {
+        enabled: false,
+        color: '#000000',
+        blur: 4,
+        offsetX: 2,
+        offsetY: 2,
+        opacity: 0.6,
+        ...(attributes.dropShadow || {})
+      };
 
       // Brush & Dynamics Configuration
       this.brushConfig = {
@@ -277,7 +304,27 @@
       if (this.fillTexture && (this.fillTexture.mode > 0 || this.fillTexture.enabled)) {
         attrs += ` data-fill-tex="${encodeURIComponent(JSON.stringify(this.fillTexture))}"`;
       }
+      if (this.dropShadow && this.dropShadow.enabled) {
+        attrs += ` data-shadow="${encodeURIComponent(JSON.stringify(this.dropShadow))}"`;
+      }
+      if (this.fillGradient) {
+        attrs += ` data-gradient="${encodeURIComponent(JSON.stringify(this.fillGradient))}"`;
+      }
       return attrs;
+    }
+
+    getSvgFillAttribute() {
+      if (this.fillType && this.fillType !== 'solid' && this.fillGradient) {
+        return `url(#${this.fillGradient.id || 'grad_' + this.id})`;
+      }
+      return this.fill || 'none';
+    }
+
+    getSvgFilterAttribute() {
+      if (this.dropShadow && this.dropShadow.enabled) {
+        return ` filter="url(#shadow_${this.id})"`;
+      }
+      return '';
     }
 
     clone() {
@@ -317,12 +364,15 @@
         blendMode: this.blendMode,
         fill: this.fill,
         fillOpacity: this.fillOpacity,
+        fillType: this.fillType,
+        fillGradient: this.fillGradient ? { ...this.fillGradient } : null,
         stroke: this.stroke,
         strokeWidth: this.strokeWidth,
         strokeOpacity: this.strokeOpacity,
         strokeLinecap: this.strokeLinecap,
         strokeLinejoin: this.strokeLinejoin,
         strokeDasharray: this.strokeDasharray,
+        dropShadow: { ...this.dropShadow },
         brushConfig: { ...this.brushConfig },
         strokeTexture: { ...this.strokeTexture },
         fillTexture: { ...this.fillTexture },
@@ -337,6 +387,8 @@
     static fromJSON(data) {
       switch (data.type) {
         case 'path': return SvgPath.fromJSON(data);
+        case 'compoundPath': return SvgCompoundPath.fromJSON(data);
+        case 'text': return SvgText.fromJSON(data);
         case 'rect': return SvgRect.fromJSON(data);
         case 'circle': return SvgCircle.fromJSON(data);
         case 'ellipse': return SvgEllipse.fromJSON(data);
@@ -359,7 +411,7 @@
       this.y = Number(y);
       this.cpIn = cpIn ? { x: Number(cpIn.x), y: Number(cpIn.y) } : { x: 0, y: 0 };
       this.cpOut = cpOut ? { x: Number(cpOut.x), y: Number(cpOut.y) } : { x: 0, y: 0 };
-      this.type = type; // 'smooth', 'corner', 'symmetric'
+      this.type = type; // 'smooth', 'corner', 'symmetric', 'cusp'
     }
 
     getAbsCpIn() {
@@ -373,13 +425,14 @@
     setAbsCpIn(ax, ay, forceIndependent = false) {
       this.cpIn.x = ax - this.x;
       this.cpIn.y = ay - this.y;
-      if (forceIndependent || this.type === 'corner' || this.type === 'cusp') {
+      if (forceIndependent || this.type === 'cusp') {
         this.type = 'cusp';
         return;
       }
-      if (this.type === 'symmetric') {
+      if (this.type === 'symmetric' || this.type === 'corner' || Math.hypot(this.cpOut.x, this.cpOut.y) < 1e-4) {
         this.cpOut.x = -this.cpIn.x;
         this.cpOut.y = -this.cpIn.y;
+        this.type = 'symmetric';
       } else if (this.type === 'smooth') {
         const lenOut = Math.hypot(this.cpOut.x, this.cpOut.y);
         const lenIn = Math.hypot(this.cpIn.x, this.cpIn.y);
@@ -394,13 +447,14 @@
     setAbsCpOut(ax, ay, forceIndependent = false) {
       this.cpOut.x = ax - this.x;
       this.cpOut.y = ay - this.y;
-      if (forceIndependent || this.type === 'corner' || this.type === 'cusp') {
+      if (forceIndependent || this.type === 'cusp') {
         this.type = 'cusp';
         return;
       }
-      if (this.type === 'symmetric') {
+      if (this.type === 'symmetric' || this.type === 'corner' || Math.hypot(this.cpIn.x, this.cpIn.y) < 1e-4) {
         this.cpIn.x = -this.cpOut.x;
         this.cpIn.y = -this.cpOut.y;
+        this.type = 'symmetric';
       } else if (this.type === 'smooth') {
         const lenIn = Math.hypot(this.cpIn.x, this.cpIn.y);
         const lenOut = Math.hypot(this.cpOut.x, this.cpOut.y);
@@ -474,13 +528,15 @@
         const first = this.nodes[0];
         const cp1 = last.getAbsCpOut();
         const cp2 = first.getAbsCpIn();
+
         const hasCp1 = Math.hypot(last.cpOut.x, last.cpOut.y) > 0.1;
         const hasCp2 = Math.hypot(first.cpIn.x, first.cpIn.y) > 0.1;
 
         if (hasCp1 || hasCp2) {
-          d += ` C ${cp1.x.toFixed(2)} ${cp1.y.toFixed(2)}, ${cp2.x.toFixed(2)} ${cp2.y.toFixed(2)}, ${first.x.toFixed(2)} ${first.y.toFixed(2)}`;
+          d += ` C ${cp1.x.toFixed(2)} ${cp1.y.toFixed(2)}, ${cp2.x.toFixed(2)} ${cp2.y.toFixed(2)}, ${first.x.toFixed(2)} ${first.y.toFixed(2)} Z`;
+        } else {
+          d += ' Z';
         }
-        d += ' Z';
       }
 
       return d;
@@ -491,12 +547,13 @@
       this.closed = false;
       if (!d) return;
 
-      const commands = d.match(/[a-df-z][^a-df-z]*/ig) || [];
+      const cmdRegex = /([a-df-z])([^a-df-z]*)/ig;
+      let match;
       let curX = 0, curY = 0;
 
-      for (const cmdStr of commands) {
-        const type = cmdStr[0];
-        const args = cmdStr.slice(1).trim().split(/[\s,]+/).filter(Boolean).map(Number);
+      while ((match = cmdRegex.exec(d)) !== null) {
+        const type = match[1];
+        const args = (match[2].trim().match(/-?[\d.]+(?:e-?\d+)?/gi) || []).map(Number);
 
         if (type === 'M' || type === 'm') {
           for (let k = 0; k < args.length; k += 2) {
@@ -570,6 +627,10 @@
       return poly;
     }
 
+    toPath() {
+      return this;
+    }
+
     move(dx, dy) {
       this.x += dx;
       this.y += dy;
@@ -620,7 +681,8 @@
     toSVGElement() {
       const d = this.toPathData();
       if (!d) return '';
-      const fill = this.fill || 'none';
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
       const stroke = this.stroke || 'none';
       const sw = this.strokeWidth;
       const op = this.opacity;
@@ -630,7 +692,7 @@
       const join = this.strokeLinejoin;
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${this.getExtraSVGAttributes()} />`;
+      return `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -647,6 +709,381 @@
 
     static fromJSON(data) {
       return new SvgPath(data);
+    }
+  }
+
+  /* =========================================================================
+   * SvgCompoundPath (Multiple Sub-Paths / Holes with EvenOdd / NonZero fill)
+   * ========================================================================= */
+
+  class SvgCompoundPath extends SvgNode {
+    constructor(attributes = {}) {
+      super('compoundPath', attributes);
+      this.subPaths = [];
+      this.fillRule = attributes.fillRule || 'evenodd'; // 'evenodd' or 'nonzero'
+      if (attributes.subPaths && Array.isArray(attributes.subPaths)) {
+        this.subPaths = attributes.subPaths.map(sp => (sp instanceof SvgPath ? sp : SvgPath.fromJSON(sp)));
+      } else if (attributes.d) {
+        this.setPathData(attributes.d);
+      }
+    }
+
+    addSubPath(path) {
+      this.subPaths.push(path);
+      return path;
+    }
+
+    setPathData(d) {
+      this.subPaths = [];
+      if (!d) return;
+      const subDStrings = d.match(/[Mm][^Mm]*/g) || [];
+      for (const subD of subDStrings) {
+        const p = new SvgPath({ d: subD, closed: /[Zz]/.test(subD) });
+        if (p.nodes.length > 0) this.subPaths.push(p);
+      }
+    }
+
+    toPathData() {
+      return this.subPaths.map(p => p.toPathData()).filter(Boolean).join(' ');
+    }
+
+    toPolyline(tolerance = 0.5) {
+      const all = [];
+      for (const sp of this.subPaths) {
+        all.push(...sp.toPolyline(tolerance));
+      }
+      return all;
+    }
+
+    toPolylines(tolerance = 0.5) {
+      return this.subPaths.map(p => p.toPolyline(tolerance));
+    }
+
+    toPath() {
+      return this;
+    }
+
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+      for (const sp of this.subPaths) {
+        sp.move(dx, dy);
+      }
+    }
+
+    getBounds() {
+      if (this.subPaths.length === 0) return { minX: this.x, minY: this.y, maxX: this.x, maxY: this.y, width: 0, height: 0 };
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const sp of this.subPaths) {
+        const b = sp.getBounds();
+        minX = Math.min(minX, b.minX);
+        minY = Math.min(minY, b.minY);
+        maxX = Math.max(maxX, b.maxX);
+        maxY = Math.max(maxY, b.maxY);
+      }
+      return { minX, minY, maxX, maxY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+    }
+
+    toSVGElement() {
+      const d = this.toPathData();
+      if (!d) return '';
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
+      const stroke = this.stroke || 'none';
+      const sw = this.strokeWidth;
+      const op = this.opacity;
+      const fillOp = this.fillOpacity;
+      const strokeOp = this.strokeOpacity;
+      const cap = this.strokeLinecap;
+      const join = this.strokeLinejoin;
+      const rule = ` fill-rule="${this.fillRule}"`;
+      const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
+
+      return `<path id="${this.id}" d="${d}"${rule} fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+    }
+
+    toJSON() {
+      const data = super.toJSON();
+      data.fillRule = this.fillRule;
+      data.subPaths = this.subPaths.map(p => p.toJSON());
+      return data;
+    }
+
+    static fromJSON(data) {
+      return new SvgCompoundPath(data);
+    }
+  }
+
+  /* =========================================================================
+   * SvgText Object (Vector Typography)
+   * ========================================================================= */
+
+  class SvgText extends SvgNode {
+    constructor(attributes = {}) {
+      super('text', attributes);
+      this.text = attributes.text || 'Wesenho Text';
+      this.fontFamily = attributes.fontFamily || 'sans-serif';
+      this.fontSize = Number(attributes.fontSize || 36);
+      this.fontWeight = attributes.fontWeight || 'normal';
+      this.fontStyle = attributes.fontStyle || 'normal';
+      this.textAlign = attributes.textAlign || 'left'; // 'left', 'center', 'right'
+      this.letterSpacing = Number(attributes.letterSpacing || 0);
+      if (!this.fill || (this.fill === 'none' && (!this.stroke || this.stroke === 'none'))) {
+        this.fill = '#fabd2f';
+      }
+    }
+
+    getBounds() {
+      const approxCharWidth = this.fontSize * 0.55;
+      const w = Math.max(10, this.text.length * (approxCharWidth + this.letterSpacing));
+      const h = this.fontSize * 1.1;
+      let minX = this.x;
+      if (this.textAlign === 'center') minX = this.x - w / 2;
+      else if (this.textAlign === 'right') minX = this.x - w;
+      const minY = this.y - this.fontSize * 0.85;
+      return {
+        minX,
+        minY,
+        maxX: minX + w,
+        maxY: minY + h,
+        width: w,
+        height: h
+      };
+    }
+
+    toPath() {
+      const subPaths = [];
+      const baseAttributes = {
+        fill: this.fill,
+        stroke: this.stroke,
+        strokeWidth: this.strokeWidth,
+        opacity: this.opacity
+      };
+
+      if (typeof document !== 'undefined' && document.createElement) {
+        const off = document.createElement('canvas');
+        const pad = 10;
+        const sz = Math.max(12, Math.round(this.fontSize));
+        off.width = sz * 2 + pad * 2;
+        off.height = sz * 2 + pad * 2;
+        const ctx = off.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          const b = this.getBounds();
+          let curX = b.minX;
+
+          for (let i = 0; i < this.text.length; i++) {
+            const ch = this.text[i];
+            if (ch === ' ') {
+              curX += this.fontSize * 0.3 + this.letterSpacing;
+              continue;
+            }
+
+            ctx.clearRect(0, 0, off.width, off.height);
+            ctx.font = `${this.fontStyle} ${this.fontWeight} ${sz}px ${this.fontFamily}`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = '#000000';
+            const drawX = pad;
+            const drawY = sz + pad;
+            ctx.fillText(ch, drawX, drawY);
+
+            const metrics = ctx.measureText(ch);
+            const chW = Math.ceil(metrics.width || sz * 0.6);
+            const imgW = Math.min(off.width, chW + pad * 2);
+            const imgH = off.height;
+            const imgData = ctx.getImageData(0, 0, imgW, imgH);
+            const data = imgData.data;
+
+            const visited = new Uint8Array(imgW * imgH);
+            for (let y = 1; y < imgH - 1; y++) {
+              for (let x = 1; x < imgW - 1; x++) {
+                const idx = (y * imgW + x) * 4;
+                if (data[idx + 3] > 120 && !visited[y * imgW + x]) {
+                  const nUp = data[((y - 1) * imgW + x) * 4 + 3] <= 120;
+                  const nDown = data[((y + 1) * imgW + x) * 4 + 3] <= 120;
+                  const nLeft = data[(y * imgW + x - 1) * 4 + 3] <= 120;
+                  const nRight = data[(y * imgW + x + 1) * 4 + 3] <= 120;
+                  if (nUp || nDown || nLeft || nRight) {
+                    const contour = [];
+                    let cx = x, cy = y;
+                    let dir = 0;
+                    const dxs = [1, 0, -1, 0];
+                    const dys = [0, 1, 0, -1];
+                    let steps = 0;
+
+                    while (steps++ < 1500) {
+                      contour.push({ x: cx, y: cy });
+                      visited[cy * imgW + cx] = 1;
+
+                      let foundNext = false;
+                      for (let d = 0; d < 4; d++) {
+                        const nextDir = (dir + 3 + d) % 4;
+                        const nx = cx + dxs[nextDir];
+                        const ny = cy + dys[nextDir];
+                        if (nx >= 0 && nx < imgW && ny >= 0 && ny < imgH && data[(ny * imgW + nx) * 4 + 3] > 120) {
+                          cx = nx;
+                          cy = ny;
+                          dir = nextDir;
+                          foundNext = true;
+                          break;
+                        }
+                      }
+                      if (!foundNext || (cx === x && cy === y)) break;
+                    }
+
+                    if (contour.length >= 6) {
+                      const simplified = [];
+                      const stepSize = Math.max(1, Math.floor(contour.length / 32));
+                      for (let k = 0; k < contour.length; k += stepSize) {
+                        simplified.push(contour[k]);
+                      }
+                      const charPath = new SvgPath({
+                        ...baseAttributes,
+                        name: `Glyph '${ch}'`,
+                        closed: true
+                      });
+                      for (const pt of simplified) {
+                        const wx = curX + (pt.x - drawX);
+                        const wy = this.y + (pt.y - drawY);
+                        charPath.addNode(wx, wy, null, null, 'smooth');
+                      }
+                      subPaths.push(charPath);
+                    }
+                  }
+                }
+              }
+            }
+            curX += chW + this.letterSpacing;
+          }
+        }
+      }
+
+      // Fallback vector path
+      if (subPaths.length === 0) {
+        const b = this.getBounds();
+        let curX = b.minX;
+        for (let i = 0; i < this.text.length; i++) {
+          const char = this.text[i];
+          if (char === ' ') {
+            curX += this.fontSize * 0.3 + this.letterSpacing;
+            continue;
+          }
+          const cw = this.fontSize * 0.52;
+          const ch = this.fontSize * 0.75;
+          const cy = b.minY + this.fontSize * 0.1;
+          const charPath = new SvgPath({
+            ...baseAttributes,
+            name: `Glyph '${char}'`,
+            closed: true
+          });
+          charPath.addNode(curX + cw / 2, cy, null, null, 'smooth');
+          charPath.addNode(curX + cw, cy + ch / 2, null, null, 'smooth');
+          charPath.addNode(curX + cw / 2, cy + ch, null, null, 'smooth');
+          charPath.addNode(curX, cy + ch / 2, null, null, 'smooth');
+          subPaths.push(charPath);
+          curX += cw + this.fontSize * 0.08 + this.letterSpacing;
+        }
+      }
+
+      const path = new SvgCompoundPath({
+        name: `Path (${this.text})`,
+        ...baseAttributes
+      });
+      for (const sp of subPaths) {
+        path.addSubPath(sp);
+      }
+      return path;
+    }
+
+    toSVGElement() {
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
+      const stroke = this.stroke && this.stroke !== 'none' ? ` stroke="${this.stroke}" stroke-width="${this.strokeWidth}"` : '';
+      const anchor = this.textAlign === 'center' ? 'middle' : (this.textAlign === 'right' ? 'end' : 'start');
+      const letterSpace = this.letterSpacing ? ` letter-spacing="${this.letterSpacing}px"` : '';
+
+      return `<text id="${this.id}" x="${this.x}" y="${this.y}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes()}>${escapeXml(this.text)}</text>`;
+    }
+
+    toJSON() {
+      const data = super.toJSON();
+      data.text = this.text;
+      data.fontFamily = this.fontFamily;
+      data.fontSize = this.fontSize;
+      data.fontWeight = this.fontWeight;
+      data.fontStyle = this.fontStyle;
+      data.textAlign = this.textAlign;
+      data.letterSpacing = this.letterSpacing;
+      return data;
+    }
+
+    static fromJSON(data) {
+      return new SvgText(data);
+    }
+  }
+
+  /* =========================================================================
+   * SvgGradient (Linear & Radial Gradients)
+   * ========================================================================= */
+
+  class SvgGradient {
+    constructor(type, attributes = {}) {
+      this.id = attributes.id || generateId('grad');
+      this.type = type;
+      this.stops = attributes.stops && Array.isArray(attributes.stops)
+        ? attributes.stops.map(s => ({
+            offset: Number(s.offset !== undefined ? s.offset : 0),
+            color: s.color || '#fabd2f',
+            opacity: Number(s.opacity !== undefined ? s.opacity : 1.0)
+          }))
+        : [
+            { offset: 0, color: '#fe8019', opacity: 1.0 },
+            { offset: 1, color: '#fabd2f', opacity: 1.0 }
+          ];
+    }
+
+    addStop(offset, color, opacity = 1.0) {
+      this.stops.push({ offset: Number(offset), color, opacity: Number(opacity) });
+      this.stops.sort((a, b) => a.offset - b.offset);
+    }
+
+    toSVGElement() {
+      return '';
+    }
+  }
+
+  class SvgLinearGradient extends SvgGradient {
+    constructor(attributes = {}) {
+      super('linear', attributes);
+      this.x1 = attributes.x1 !== undefined ? attributes.x1 : '0%';
+      this.y1 = attributes.y1 !== undefined ? attributes.y1 : '0%';
+      this.x2 = attributes.x2 !== undefined ? attributes.x2 : '100%';
+      this.y2 = attributes.y2 !== undefined ? attributes.y2 : '0%';
+    }
+
+    toSVGElement() {
+      const stopsXml = this.stops.map(s =>
+        `<stop offset="${(s.offset * 100).toFixed(1)}%" stop-color="${s.color}" stop-opacity="${s.opacity}" />`
+      ).join('\n    ');
+      return `<linearGradient id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}">\n    ${stopsXml}\n  </linearGradient>`;
+    }
+  }
+
+  class SvgRadialGradient extends SvgGradient {
+    constructor(attributes = {}) {
+      super('radial', attributes);
+      this.cx = attributes.cx !== undefined ? attributes.cx : '50%';
+      this.cy = attributes.cy !== undefined ? attributes.cy : '50%';
+      this.r = attributes.r !== undefined ? attributes.r : '50%';
+      this.fx = attributes.fx !== undefined ? attributes.fx : this.cx;
+      this.fy = attributes.fy !== undefined ? attributes.fy : this.cy;
+    }
+
+    toSVGElement() {
+      const stopsXml = this.stops.map(s =>
+        `<stop offset="${(s.offset * 100).toFixed(1)}%" stop-color="${s.color}" stop-opacity="${s.opacity}" />`
+      ).join('\n    ');
+      return `<radialGradient id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fx="${this.fx}" fy="${this.fy}">\n    ${stopsXml}\n  </radialGradient>`;
     }
   }
 
@@ -675,6 +1112,10 @@
       };
     }
 
+    toPolyline(tolerance = 0.5) {
+      return this.toPath().toPolyline(tolerance);
+    }
+
     toPath() {
       const path = new SvgPath({
         ...this.toJSON(),
@@ -687,7 +1128,6 @@
 
       if (rx > 0 && ry > 0) {
         const k = 0.5522847498;
-        // 8-node rounded rect with smooth corners
         path.addNode(x + rx, y, null, null, 'corner');
         path.addNode(x + w - rx, y, null, { x: rx * k, y: 0 }, 'smooth');
         path.addNode(x + w, y + ry, { x: 0, y: -ry * k }, null, 'smooth');
@@ -706,13 +1146,14 @@
     }
 
     toSVGElement() {
-      const fill = this.fill || 'none';
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
       const stroke = this.stroke || 'none';
       const rxAttr = this.rx > 0 ? ` rx="${this.rx}"` : '';
       const ryAttr = this.ry > 0 ? ` ry="${this.ry}"` : '';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<rect id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${rxAttr}${ryAttr} fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
+      return `<rect id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${rxAttr}${ryAttr} fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -761,13 +1202,17 @@
       };
     }
 
+    toPolyline(tolerance = 0.5) {
+      return this.toPath().toPolyline(tolerance);
+    }
+
     toPath() {
       const path = new SvgPath({
         ...this.toJSON(),
         type: 'path'
       });
       path.closed = true;
-      const k = 0.5522847498; // Bézier circle constant
+      const k = 0.5522847498;
       const cx = this.cx, cy = this.cy, rx = this.rx, ry = this.ry;
       const ox = rx * k, oy = ry * k;
 
@@ -779,11 +1224,12 @@
     }
 
     toSVGElement() {
-      const fill = this.fill || 'none';
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<ellipse id="${this.id}" cx="${this.cx}" cy="${this.cy}" rx="${this.rx}" ry="${this.ry}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
+      return `<ellipse id="${this.id}" cx="${this.cx}" cy="${this.cy}" rx="${this.rx}" ry="${this.ry}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -809,10 +1255,11 @@
     }
 
     toSVGElement() {
-      const fill = this.fill || 'none';
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<circle id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
+      return `<circle id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
@@ -861,6 +1308,10 @@
       };
     }
 
+    toPolyline() {
+      return [{ x: this.x1, y: this.y1 }, { x: this.x2, y: this.y2 }];
+    }
+
     toPath() {
       const path = new SvgPath({ ...this.toJSON(), type: 'path' });
       path.closed = false;
@@ -871,14 +1322,17 @@
 
     toSVGElement() {
       const stroke = this.stroke || '#000';
+      const filter = this.getSvgFilterAttribute();
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<line id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" stroke-linecap="${this.strokeLinecap}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
+      return `<line id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
       const data = super.toJSON();
-      data.x1 = this.x1; data.y1 = this.y1;
-      data.x2 = this.x2; data.y2 = this.y2;
+      data.x1 = this.x1;
+      data.y1 = this.y1;
+      data.x2 = this.x2;
+      data.y2 = this.y2;
       return data;
     }
 
@@ -887,25 +1341,33 @@
     }
   }
 
-  class SvgPolygon extends SvgNode {
+  class SvgPolyline extends SvgNode {
     constructor(attributes = {}) {
-      super('polygon', attributes);
-      this.points = Array.isArray(attributes.points) ? attributes.points : [];
+      super('polyline', attributes);
+      this.points = [];
       if (typeof attributes.points === 'string') {
-        this.points = attributes.points.trim().split(/[\s,]+/).reduce((acc, val, i, arr) => {
-          if (i % 2 === 0 && arr[i + 1] !== undefined) acc.push({ x: Number(val), y: Number(arr[i + 1]) });
-          return acc;
-        }, []);
+        const coords = attributes.points.trim().split(/[\s,]+/).map(Number);
+        for (let i = 0; i < coords.length; i += 2) {
+          if (!isNaN(coords[i]) && !isNaN(coords[i + 1])) {
+            this.points.push({ x: coords[i], y: coords[i + 1] });
+          }
+        }
+      } else if (Array.isArray(attributes.points)) {
+        this.points = attributes.points.map(p => ({ x: Number(p.x), y: Number(p.y) }));
       }
     }
 
-    move(dx, dy) {
-      this.x += dx;
-      this.y += dy;
+    toPolyline() {
+      return this.points.map(p => ({ x: p.x, y: p.y }));
+    }
+
+    toPath() {
+      const path = new SvgPath({ ...this.toJSON(), type: 'path' });
+      path.closed = false;
       for (const p of this.points) {
-        p.x += dx;
-        p.y += dy;
+        path.addNode(p.x, p.y, null, null, 'corner');
       }
+      return path;
     }
 
     getBounds() {
@@ -919,55 +1381,45 @@
       return { minX: minX - sw, minY: minY - sw, maxX: maxX + sw, maxY: maxY + sw, width: maxX - minX + sw * 2, height: maxY - minY + sw * 2 };
     }
 
-    toPath() {
-      const path = new SvgPath({ ...this.toJSON(), type: 'path' });
-      path.closed = true;
-      for (const p of this.points) path.addNode(p.x, p.y, null, null, 'corner');
-      return path;
-    }
-
     toSVGElement() {
-      const pts = this.points.map(p => `${p.x},${p.y}`).join(' ');
-      const fill = this.fill || 'none';
-      const stroke = this.stroke || 'none';
-      const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<polygon id="${this.id}" points="${pts}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
+      const pts = this.points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
+      return `<polyline id="${this.id}" points="${pts}" fill="${fill}" stroke="${this.stroke}" stroke-width="${this.strokeWidth}" opacity="${this.opacity}"${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     toJSON() {
       const data = super.toJSON();
-      data.points = this.points.map(p => ({ x: p.x, y: p.y }));
+      data.points = this.points.map(p => ({ ...p }));
       return data;
     }
 
     static fromJSON(data) {
-      return new SvgPolygon(data);
+      return new SvgPolyline(data);
     }
   }
 
-  class SvgPolyline extends SvgPolygon {
+  class SvgPolygon extends SvgPolyline {
     constructor(attributes = {}) {
       super(attributes);
-      this.type = 'polyline';
-      this.fill = attributes.fill || 'none';
+      this.type = 'polygon';
     }
 
     toPath() {
       const path = super.toPath();
-      path.closed = false;
+      path.closed = true;
       return path;
     }
 
     toSVGElement() {
-      const pts = this.points.map(p => `${p.x},${p.y}`).join(' ');
-      const fill = this.fill || 'none';
-      const stroke = this.stroke || 'none';
-      const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<polyline id="${this.id}" points="${pts}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${this.getExtraSVGAttributes()} />`;
+      const pts = this.points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
+      const fill = this.getSvgFillAttribute();
+      const filter = this.getSvgFilterAttribute();
+      return `<polygon id="${this.id}" points="${pts}" fill="${fill}" stroke="${this.stroke}" stroke-width="${this.strokeWidth}" opacity="${this.opacity}"${filter}${this.getExtraSVGAttributes()} />`;
     }
 
     static fromJSON(data) {
-      return new SvgPolyline(data);
+      return new SvgPolygon(data);
     }
   }
 
@@ -994,6 +1446,10 @@
       child.parent = this;
       this.children.push(child);
       return child;
+    }
+
+    addChild(child) {
+      return this.add(child);
     }
 
     remove(child) {
@@ -1092,6 +1548,7 @@
       this.viewBox = viewBox || `0 0 ${this.width} ${this.height}`;
       this.backgroundColor = '#1d2021';
       this.objects = []; // In z-order: index 0 is background, index N is top
+      this.defs = new Map(); // Gradient & Filter definitions
       this.selectedIds = new Set();
       this.undoStack = [];
       this.redoStack = [];
@@ -1101,6 +1558,7 @@
     clear() {
       this.pushHistory('Clear Document');
       this.objects = [];
+      this.defs.clear();
       this.selectedIds.clear();
     }
 
@@ -1145,7 +1603,6 @@
       const selected = this.getSelectedObjects();
       if (selected.length === 0) return null;
 
-      // Find highest index among selected top-level items
       let insertIdx = 0;
       for (const item of selected) {
         const idx = this.objects.indexOf(item);
@@ -1295,6 +1752,96 @@
       return converted;
     }
 
+    /**
+     * Perform Boolean Operations on Selected Objects (Union, Subtract, Intersect, Exclude)
+     */
+    booleanOperation(op = 'union') {
+      const selected = this.getSelectedObjects();
+      if (selected.length < 2) return false;
+
+      // Extract polygon contours from selected shapes
+      const polylines = [];
+      for (const obj of selected) {
+        if (typeof obj.toPolylines === 'function') {
+          polylines.push(...obj.toPolylines(0.3));
+        } else if (typeof obj.toPolyline === 'function') {
+          polylines.push(obj.toPolyline(0.3));
+        } else if (typeof obj.toPath === 'function') {
+          polylines.push(obj.toPath().toPolyline(0.3));
+        }
+      }
+
+      if (polylines.length < 2) return false;
+
+      this.pushHistory(`Boolean ${op.toUpperCase()}`);
+
+      const resultPolys = SvgBoolean.clipMultiplePolygons
+        ? SvgBoolean.clipMultiplePolygons(polylines, op)
+        : SvgBoolean.clipPolygons(polylines[0], polylines[1], op);
+
+      if (!resultPolys || resultPolys.length === 0) return false;
+
+      const firstSelected = selected[0];
+      const baseAttributes = {
+        fill: firstSelected.fill,
+        fillOpacity: firstSelected.fillOpacity,
+        stroke: firstSelected.stroke,
+        strokeWidth: firstSelected.strokeWidth,
+        opacity: firstSelected.opacity,
+        brushConfig: { ...firstSelected.brushConfig },
+        strokeTexture: { ...firstSelected.strokeTexture },
+        fillTexture: { ...firstSelected.fillTexture },
+        dropShadow: { ...firstSelected.dropShadow }
+      };
+
+      const newResultObj = new SvgCompoundPath({
+        ...baseAttributes,
+        name: `${op.charAt(0).toUpperCase() + op.slice(1)} Result`,
+        fillRule: (op === 'exclude' || op === 'subtract') ? 'evenodd' : 'nonzero'
+      });
+      for (const poly of resultPolys) {
+        const sp = SvgBoolean.polygonToSvgPath(poly, SvgPath);
+        newResultObj.addSubPath(sp);
+      }
+
+      const insertIdx = this.objects.indexOf(selected[0]);
+      for (const sel of selected) {
+        this.removeObject(sel.id, false);
+      }
+
+      if (insertIdx !== -1 && insertIdx <= this.objects.length) {
+        this.objects.splice(insertIdx, 0, newResultObj);
+      } else {
+        this.objects.push(newResultObj);
+      }
+
+      this.selectedIds.clear();
+      this.selectedIds.add(newResultObj.id);
+      return newResultObj;
+    }
+
+    /**
+     * Create Outlines: Convert selected SvgText objects to Bézier curves
+     */
+    createOutlinesSelected() {
+      const selected = this.getSelectedObjects();
+      let count = 0;
+      for (const obj of selected) {
+        if (obj.type === 'text') {
+          if (count === 0) this.pushHistory('Create Outlines');
+          const outlineObj = obj.toPath();
+          const idx = this.objects.indexOf(obj);
+          if (idx !== -1) {
+            this.objects[idx] = outlineObj;
+            this.selectedIds.delete(obj.id);
+            this.selectedIds.add(outlineObj.id);
+            count++;
+          }
+        }
+      }
+      return count > 0;
+    }
+
     /** Hit Test topmost object */
     hitTest(px, py, tolerance = 6) {
       for (let i = this.objects.length - 1; i >= 0; i--) {
@@ -1335,8 +1882,50 @@
 
     /** Export to standard SVG XML string */
     toSVGString() {
+      const defsMap = new Map(this.defs);
+
+      const collectDefs = (list) => {
+        for (const obj of list) {
+          const hasGrad = (obj.fillType === 'linear' || obj.fillType === 'radial') && obj.fillGradient;
+          if (hasGrad || (obj.fillGradient && obj.fillGradient.enabled)) {
+            const gradId = (obj.fillGradient && obj.fillGradient.id) ? obj.fillGradient.id : `grad_${obj.id}`;
+            if (!defsMap.has(gradId)) {
+              if (obj.fillGradient instanceof SvgGradient) {
+                defsMap.set(gradId, obj.fillGradient);
+              } else if ((obj.fillGradient && obj.fillGradient.type === 'radial') || obj.fillType === 'radial') {
+                defsMap.set(gradId, new SvgRadialGradient({ id: gradId, stops: obj.fillGradient.stops, ...obj.fillGradient }));
+              } else {
+                defsMap.set(gradId, new SvgLinearGradient({ id: gradId, stops: obj.fillGradient.stops, ...obj.fillGradient }));
+              }
+            }
+          }
+          if (obj.dropShadow && obj.dropShadow.enabled) {
+            const shadowId = `shadow_${obj.id}`;
+            if (!defsMap.has(shadowId)) {
+              const dx = obj.dropShadow.offsetX !== undefined ? obj.dropShadow.offsetX : 4;
+              const dy = obj.dropShadow.offsetY !== undefined ? obj.dropShadow.offsetY : 4;
+              const blur = obj.dropShadow.blur !== undefined ? obj.dropShadow.blur : 8;
+              const color = obj.dropShadow.color || '#000000';
+              const op = obj.dropShadow.opacity !== undefined ? obj.dropShadow.opacity : 0.6;
+              defsMap.set(shadowId, {
+                toSVGElement: () => `<filter id="${shadowId}" x="-30%" y="-30%" width="160%" height="160%">\n      <feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${blur / 2}" flood-color="${color}" flood-opacity="${op}" />\n    </filter>`
+              });
+            }
+          }
+          if (obj.type === 'group' && obj.children) {
+            collectDefs(obj.children);
+          }
+        }
+      };
+      collectDefs(this.objects);
+
+      let defsXml = '';
+      if (defsMap.size > 0) {
+        const items = Array.from(defsMap.values()).map(d => d.toSVGElement()).join('\n    ');
+        defsXml = `\n  <defs>\n    ${items}\n  </defs>`;
+      }
       let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-      svg += `<svg xmlns="http://www.w3.org/2000/svg" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">\n`;
+      svg += `<svg xmlns="http://www.w3.org/2000/svg" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">${defsXml}\n`;
       if (this.backgroundColor && this.backgroundColor !== 'none') {
         svg += `  <rect width="100%" height="100%" fill="${this.backgroundColor}" />\n`;
       }
@@ -1351,37 +1940,32 @@
       return svg;
     }
 
-    /** Import / parse standard SVG XML string */
+    /** Parse SVG XML into Document */
     fromSVGString(svgString) {
-      this.pushHistory('Import SVG');
-      this.objects = [];
-      this.selectedIds.clear();
+      this.clear();
+      if (!svgString) return;
 
       if (typeof DOMParser !== 'undefined') {
         const parser = new DOMParser();
         const doc = parser.parseFromString(svgString, 'image/svg+xml');
         const svgEl = doc.querySelector('svg');
-        if (!svgEl) throw new Error('Invalid SVG markup: no <svg> root element');
+        if (!svgEl) return;
 
         if (svgEl.getAttribute('width')) this.width = parseFloat(svgEl.getAttribute('width'));
         if (svgEl.getAttribute('height')) this.height = parseFloat(svgEl.getAttribute('height'));
         if (svgEl.getAttribute('viewBox')) this.viewBox = svgEl.getAttribute('viewBox');
 
-        const parseEl = (el) => {
+        const parseNode = (el) => {
           const tag = el.tagName.toLowerCase();
           const getAttr = (name, def = null) => el.getAttribute(name) || def;
-          const style = el.getAttribute('style') || '';
-          const getStyle = (name) => {
-            const m = style.match(new RegExp(`${name}\\s*:\\s*([^;]+)`));
-            return m ? m[1].trim() : null;
-          };
 
-          const fill = getStyle('fill') || getAttr('fill', '#000000');
-          const stroke = getStyle('stroke') || getAttr('stroke', 'none');
-          const strokeWidth = parseFloat(getStyle('stroke-width') || getAttr('stroke-width', '1'));
-          const opacity = parseFloat(getStyle('opacity') || getAttr('opacity', '1'));
-          const fillOpacity = parseFloat(getStyle('fill-opacity') || getAttr('fill-opacity', '1'));
-          const strokeOpacity = parseFloat(getStyle('stroke-opacity') || getAttr('stroke-opacity', '1'));
+          const fill = getAttr('fill', '#fabd2f');
+          const stroke = getAttr('stroke', '#1d2021');
+          const strokeWidth = parseFloat(getAttr('stroke-width', '2'));
+          const opacity = parseFloat(getAttr('opacity', '1.0'));
+          const fillOpacity = parseFloat(getAttr('fill-opacity', '1.0'));
+          const strokeOpacity = parseFloat(getAttr('stroke-opacity', '1.0'));
+
           let brushConfig = undefined;
           const brushAttr = getAttr('data-brush');
           if (brushAttr) {
@@ -1400,10 +1984,22 @@
             try { fillTexture = JSON.parse(decodeURIComponent(fillTexAttr)); } catch (e) {}
           }
 
+          let dropShadow = undefined;
+          const shadowAttr = getAttr('data-shadow');
+          if (shadowAttr) {
+            try { dropShadow = JSON.parse(decodeURIComponent(shadowAttr)); } catch (e) {}
+          }
+
+          let fillGradient = undefined;
+          const gradAttr = getAttr('data-gradient');
+          if (gradAttr) {
+            try { fillGradient = JSON.parse(decodeURIComponent(gradAttr)); } catch (e) {}
+          }
+
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture
+            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient
           };
 
           if (tag === 'rect') {
@@ -1440,55 +2036,67 @@
               y2: parseFloat(getAttr('y2', '100'))
             });
           } else if (tag === 'path') {
+            const d = getAttr('d', '');
+            const fillRule = getAttr('fill-rule', 'nonzero');
+            const subDCount = (d.match(/[Mm]/g) || []).length;
+            if (subDCount > 1) {
+              return new SvgCompoundPath({
+                ...baseProps,
+                d,
+                fillRule
+              });
+            }
             return new SvgPath({
               ...baseProps,
-              d: getAttr('d', '')
+              d
             });
-          } else if (tag === 'polygon') {
-            return new SvgPolygon({
+          } else if (tag === 'text') {
+            return new SvgText({
               ...baseProps,
-              points: getAttr('points', '')
-            });
-          } else if (tag === 'polyline') {
-            return new SvgPolyline({
-              ...baseProps,
-              points: getAttr('points', '')
+              x: parseFloat(getAttr('x', '0')),
+              y: parseFloat(getAttr('y', '0')),
+              text: el.textContent || '',
+              fontFamily: getAttr('font-family', 'sans-serif'),
+              fontSize: parseFloat(getAttr('font-size', '36')),
+              fontWeight: getAttr('font-weight', 'normal'),
+              fontStyle: getAttr('font-style', 'normal'),
+              letterSpacing: parseFloat(getAttr('letter-spacing', '0'))
             });
           } else if (tag === 'g') {
-            const grp = new SvgGroup(baseProps);
-            for (const child of el.children) {
-              const parsedChild = parseEl(child);
-              if (parsedChild) grp.add(parsedChild);
+            const grp = new SvgGroup({ id: baseProps.id, opacity });
+            for (const childEl of el.children) {
+              const childNode = parseNode(childEl);
+              if (childNode) grp.add(childNode);
             }
             return grp;
           }
           return null;
         };
 
-        for (const child of svgEl.children) {
-          const parsed = parseEl(child);
-          if (parsed) this.addObject(parsed, false);
+        for (const childEl of svgEl.children) {
+          const node = parseNode(childEl);
+          if (node) this.addObject(node, false);
         }
       } else {
-        // Node.js Regex Fallback Parser
+        // Fallback RegEx Parser for Node.js
         const parseAttrString = (attrStr) => {
           const attrs = {};
-          const re = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
+          const regex = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
           let m;
-          while ((m = re.exec(attrStr)) !== null) {
+          while ((m = regex.exec(attrStr)) !== null) {
             attrs[m[1]] = m[2];
           }
           return attrs;
         };
 
         const createNodeFromAttrs = (tag, attrs) => {
-          const getAttr = (name, def = null) => attrs[name] !== undefined ? attrs[name] : def;
-          const fill = getAttr('fill', '#000000');
-          const stroke = getAttr('stroke', 'none');
-          const strokeWidth = parseFloat(getAttr('stroke-width', '1'));
-          const opacity = parseFloat(getAttr('opacity', '1'));
-          const fillOpacity = parseFloat(getAttr('fill-opacity', '1'));
-          const strokeOpacity = parseFloat(getAttr('stroke-opacity', '1'));
+          const getAttr = (name, def = null) => attrs[name] || def;
+          const fill = getAttr('fill', '#fabd2f');
+          const stroke = getAttr('stroke', '#1d2021');
+          const strokeWidth = parseFloat(getAttr('stroke-width', '2'));
+          const opacity = parseFloat(getAttr('opacity', '1.0'));
+          const fillOpacity = parseFloat(getAttr('fill-opacity', '1.0'));
+          const strokeOpacity = parseFloat(getAttr('stroke-opacity', '1.0'));
 
           let brushConfig = undefined;
           const brushAttr = getAttr('data-brush');
@@ -1508,10 +2116,22 @@
             try { fillTexture = JSON.parse(decodeURIComponent(fillTexAttr)); } catch (e) {}
           }
 
+          let dropShadow = undefined;
+          const shadowAttr = getAttr('data-shadow');
+          if (shadowAttr) {
+            try { dropShadow = JSON.parse(decodeURIComponent(shadowAttr)); } catch (e) {}
+          }
+
+          let fillGradient = undefined;
+          const gradAttr = getAttr('data-gradient');
+          if (gradAttr) {
+            try { fillGradient = JSON.parse(decodeURIComponent(gradAttr)); } catch (e) {}
+          }
+
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture
+            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient
           };
 
           if (tag === 'rect') {
@@ -1548,9 +2168,19 @@
               y2: parseFloat(getAttr('y2', '100'))
             });
           } else if (tag === 'path') {
+            const d = getAttr('d', '');
+            const fillRule = getAttr('fill-rule', 'nonzero');
+            const subDCount = (d.match(/[Mm]/g) || []).length;
+            if (subDCount > 1) {
+              return new SvgCompoundPath({
+                ...baseProps,
+                d,
+                fillRule
+              });
+            }
             return new SvgPath({
               ...baseProps,
-              d: getAttr('d', '')
+              d
             });
           } else if (tag === 'polygon') {
             return new SvgPolygon({
@@ -1603,6 +2233,11 @@
     PathNode,
     SvgNode,
     SvgPath,
+    SvgCompoundPath,
+    SvgText,
+    SvgGradient,
+    SvgLinearGradient,
+    SvgRadialGradient,
     SvgRect,
     SvgCircle,
     SvgEllipse,

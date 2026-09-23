@@ -283,8 +283,8 @@ async function runSvgEngineTests() {
 
   console.log('✔ Convert to Bézier Path for rect, circle, line passed');
 
-  // 10. Test Independent / Cusped Bézier Handles (Breaking handle lock)
-  console.log('--- Testing Independent Cusped Bézier Handles ---');
+  // 10. Test Independent / Cusped Bézier Handles & Anchor Point Removal
+  console.log('--- Testing Independent Cusped Bézier Handles & Anchor Deletion ---');
   const node = new PathNode(100, 100, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
   
   // In smooth mode, moving cpIn rotates cpOut
@@ -302,9 +302,144 @@ async function runSvgEngineTests() {
   assert.strictEqual(Math.round(node.cpOut.x), 0);
   assert.strictEqual(Math.round(node.cpOut.y), 30);
   assert.strictEqual(node.type, 'cusp');
-  console.log('✔ Independent / Cusped Bézier handle control passed');
 
-  console.log('\nALL SVG OBJECT ENGINE & QUADRO RENDERER TESTS PASSED SUCCESSFULLY!');
+  // Test single anchor removal
+  const multiNodePath = new SvgPath();
+  multiNodePath.addNode(0, 0);
+  multiNodePath.addNode(50, 50);
+  multiNodePath.addNode(100, 0);
+  assert.strictEqual(multiNodePath.nodes.length, 3);
+  const removed = multiNodePath.removeNode(1);
+  assert.strictEqual(removed.x, 50);
+  assert.strictEqual(multiNodePath.nodes.length, 2);
+  console.log('✔ Independent / Cusped Bézier handle control and single anchor point removal passed');
+
+  // 11. Test Phase 1: Pathfinder & Boolean Operations (Union, Subtract, Intersect, Exclude)
+  console.log('--- Testing Pathfinder & Boolean Operations ---');
+  const { SvgCompoundPath, SvgText, SvgLinearGradient, SvgRadialGradient } = SvgEngine;
+  
+  // Test Union
+  const unionDoc = new SvgDocument(800, 600);
+  const uA = new SvgRect({ x: 100, y: 100, width: 100, height: 100, fill: '#fabd2f' });
+  const uB = new SvgRect({ x: 150, y: 150, width: 100, height: 100, fill: '#fe8019' });
+  unionDoc.addObject(uA);
+  unionDoc.addObject(uB);
+  unionDoc.select(uA.id);
+  unionDoc.select(uB.id, true);
+  const unionResult = unionDoc.booleanOperation('union');
+  assert(unionResult && unionResult instanceof SvgCompoundPath, 'Union should return SvgCompoundPath');
+  assert(unionResult.subPaths.length >= 1, 'Union shape should have subpaths');
+  assert.strictEqual(unionDoc.objects.length, 1);
+  console.log('✔ Boolean Union operation passed');
+
+  // Test Intersect
+  const isectDoc = new SvgDocument(800, 600);
+  const iA = new SvgRect({ x: 100, y: 100, width: 100, height: 100 });
+  const iB = new SvgRect({ x: 150, y: 150, width: 100, height: 100 });
+  isectDoc.addObject(iA);
+  isectDoc.addObject(iB);
+  isectDoc.select(iA.id);
+  isectDoc.select(iB.id, true);
+  const isectResult = isectDoc.booleanOperation('intersect');
+  assert(isectResult && isectResult instanceof SvgCompoundPath, 'Intersect should return SvgCompoundPath');
+  assert(isectResult.subPaths.length >= 1, 'Intersect shape should have overlapping subpaths');
+  console.log('✔ Boolean Intersect operation passed');
+
+  // Test Subtract
+  const subDoc = new SvgDocument(800, 600);
+  const sA = new SvgRect({ x: 100, y: 100, width: 100, height: 100 });
+  const sB = new SvgRect({ x: 150, y: 150, width: 100, height: 100 });
+  subDoc.addObject(sA);
+  subDoc.addObject(sB);
+  subDoc.select(sA.id);
+  subDoc.select(sB.id, true);
+  const subResult = subDoc.booleanOperation('subtract');
+  assert(subResult && subResult instanceof SvgCompoundPath, 'Subtract should return SvgCompoundPath');
+  assert(subResult.subPaths.length >= 1, 'Subtracted shape should contain path nodes');
+  console.log('✔ Boolean Subtract operation passed');
+
+  // Test Exclude (XOR)
+  const excDoc = new SvgDocument(800, 600);
+  const eA = new SvgRect({ x: 100, y: 100, width: 100, height: 100 });
+  const eB = new SvgRect({ x: 150, y: 150, width: 100, height: 100 });
+  excDoc.addObject(eA);
+  excDoc.addObject(eB);
+  excDoc.select(eA.id);
+  excDoc.select(eB.id, true);
+  const excResult = excDoc.booleanOperation('exclude');
+  assert(excResult && excResult instanceof SvgCompoundPath, 'Exclude should return SvgCompoundPath');
+  assert(excResult.subPaths.length >= 1, 'Exclude shape should have subpaths');
+  console.log('✔ Boolean Exclude operation passed');
+
+  // 12. Test Phase 2: Gradients & Drop Shadows in Engine and Quadro WASM
+  console.log('--- Testing Linear/Radial Gradients & Drop Shadows ---');
+  const gradDoc = new SvgDocument(800, 600);
+  const linGrad = new SvgLinearGradient({ x1: '0%', y1: '0%', x2: '100%', y2: '100%' });
+  linGrad.stops = [
+    { offset: 0, color: '#fe8019', opacity: 1.0 },
+    { offset: 1, color: '#b8bb26', opacity: 1.0 }
+  ];
+  const gradRect = new SvgRect({
+    x: 50, y: 50, width: 300, height: 200,
+    fillType: 'linear',
+    fillGradient: linGrad,
+    dropShadow: {
+      enabled: true,
+      color: '#000000',
+      blur: 32, // Large blur test
+      offsetX: 8,
+      offsetY: 8,
+      opacity: 0.7
+    }
+  });
+  gradDoc.addObject(gradRect);
+
+  const gradSvgXml = gradDoc.toSVGString();
+  assert(gradSvgXml.includes('<linearGradient'), 'SVG export should contain <linearGradient>');
+  assert(gradSvgXml.includes('<filter id="shadow_'), 'SVG export should contain shadow filter');
+  assert(gradSvgXml.includes('filter="url(#shadow_'), 'Shape should reference shadow filter');
+
+  if (fs.existsSync(canvasWasmPath)) {
+    const actor = new EsenhoModule(canvasWasmPath);
+    const renderer = new QuadroSvgRenderer(actor);
+    const res = renderer.renderDocument(gradDoc, { scale: 1.0 });
+    assert.strictEqual(res.width, 800);
+    assert.strictEqual(res.height, 600);
+    const imgData = renderer.getImageData();
+    assert(imgData && imgData.data.length === 800 * 600 * 4);
+    console.log('✔ Quadro procedural linear gradient & Gaussian drop shadow rasterization passed');
+  }
+
+  // 13. Test Phase 3: Vector Typography & Create Outlines
+  console.log('--- Testing Vector Typography & Outlines Decomposition ---');
+  const textDoc = new SvgDocument(800, 600);
+  const textObj = new SvgText({
+    x: 100,
+    y: 200,
+    text: 'WESENHO',
+    fontFamily: 'sans-serif',
+    fontSize: 48,
+    fill: '#fabd2f'
+  });
+  textDoc.addObject(textObj);
+  assert.strictEqual(textDoc.objects.length, 1);
+
+  const textSvgXml = textDoc.toSVGString();
+  assert(textSvgXml.includes('<text'), 'SVG export should contain <text> tag');
+  assert(textSvgXml.includes('WESENHO'), 'SVG export should contain text string');
+  assert(textSvgXml.includes('font-size="48"'), 'SVG export should contain font size');
+
+  textDoc.select(textObj.id);
+  const okOutlines = textDoc.createOutlinesSelected();
+  assert.strictEqual(okOutlines, true, 'createOutlinesSelected should succeed');
+  assert.strictEqual(textDoc.objects.length, 1);
+  const outlinedCompound = textDoc.objects[0];
+  assert(outlinedCompound instanceof SvgCompoundPath, 'Outlined text should become SvgCompoundPath');
+  assert.strictEqual(outlinedCompound.subPaths.length, 7, '7 characters should yield 7 subpaths');
+
+  console.log('✔ Vector Typography & Create Outlines conversion passed');
+
+  console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & QUADRO TESTS PASSED SUCCESSFULLY!');
 }
 
 runSvgEngineTests().catch(err => {

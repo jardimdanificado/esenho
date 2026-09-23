@@ -362,26 +362,32 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      max-height: 240px;
+      min-height: 280px;
+      max-height: 480px;
       overflow-y: auto;
       border: 1px solid var(--border);
       background: var(--bg-input);
-      padding: 4px;
+      padding: 6px;
+      border-radius: 4px;
     }
 
     .object-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 6px 8px;
+      padding: 8px 10px;
       background: var(--bg-panel);
       border: 1px solid var(--border);
-      font-size: 11px;
+      font-size: 13px;
+      font-weight: 500;
       cursor: pointer;
+      border-radius: 4px;
+      transition: background 0.15s ease, border-color 0.15s ease;
     }
 
     .object-item:hover {
       border-color: var(--border-bright);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     .object-item.selected {
@@ -393,16 +399,17 @@
     .object-item .obj-info {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      font-size: 12px;
     }
 
     .object-item .obj-actions {
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
     }
 
     .object-item .btn-icon {
@@ -410,12 +417,14 @@
       border: none;
       color: var(--text-muted);
       cursor: pointer;
-      padding: 2px 4px;
-      font-size: 10px;
+      padding: 3px 6px;
+      font-size: 13px;
+      border-radius: 3px;
     }
 
     .object-item .btn-icon:hover {
       color: var(--primary);
+      background: rgba(255, 255, 255, 0.1);
     }
 
     /* ── SVG Code View ── */
@@ -564,6 +573,9 @@
       <button class="tool-btn" id="tool-line" data-tool="line" title="Line (L)">
         ╱<span class="hotkey">L</span>
       </button>
+      <button class="tool-btn" id="tool-text" data-tool="text" title="Vector Typography (T)">
+        T<span class="hotkey">T</span>
+      </button>
       <div class="toolbar-sep"></div>
       <button class="tool-btn" id="btn-zoom-fit" title="Zoom to Fit (0)">
         ⛶<span class="hotkey">0</span>
@@ -626,6 +638,18 @@
         </div>
         <button id="btn-path-close" style="width: 100%; margin-top: 4px;">⟳ Toggle Close Path</button>
         <button id="btn-node-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">☡ Convert Shape to Path</button>
+
+        <div class="section-title" style="margin-top: 14px;">
+          <span>Pathfinder & Booleans</span>
+        </div>
+        <div class="grid-2">
+          <button id="btn-path-union" title="Combine multiple selected paths into one union shape">∪ Union</button>
+          <button id="btn-path-subtract" title="Subtract top selected shape from bottom shape">− Subtract</button>
+        </div>
+        <div class="grid-2" style="margin-top: 4px;">
+          <button id="btn-path-intersect" title="Keep only overlapping area of selected shapes">∩ Intersect</button>
+          <button id="btn-path-exclude" title="Keep non-overlapping areas (XOR exclusion)">⨂ Exclude</button>
+        </div>
 
         <div class="section-title" style="margin-top: 14px;">
           <span>Canvas & Viewport</span>
@@ -782,6 +806,69 @@
               <label>Path Info</label>
               <input type="text" id="prop-path-info" readonly style="color: var(--fg-dim); font-size: 10px;">
             </div>
+
+            <!-- Anchor Point / Node Editor Section -->
+            <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
+              <div class="form-row" style="justify-content: space-between; align-items: center;">
+                <label style="font-weight: 600; color: var(--accent);">Selected Anchor</label>
+                <span id="node-editor-index" class="badge">#0</span>
+              </div>
+              <div class="form-row">
+                <label>Anchor (X, Y)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
+                  <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Anchor Type</label>
+                <select id="prop-node-type">
+                  <option value="smooth">Smooth (Curved)</option>
+                  <option value="corner">Corner (Sharp)</option>
+                  <option value="cusp">Cusp (Independent Handles)</option>
+                  <option value="symmetric">Symmetric</option>
+                </select>
+              </div>
+              <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--red); color: var(--red);" title="Remove this anchor point from the path (or press Delete/Backspace)">🗑 Remove Selected Anchor</button>
+            </div>
+          </div>
+
+          <!-- Text Fields -->
+          <div id="geom-text-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Text</label>
+              <input type="text" id="prop-text-content" value="Wesenho Text">
+            </div>
+            <div class="form-row">
+              <label>Font</label>
+              <select id="prop-text-font">
+                <option value="sans-serif">Sans-Serif</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="Impact, sans-serif">Impact</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Size (px)</label>
+              <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
+            </div>
+            <div class="form-row">
+              <label>Align</label>
+              <select id="prop-text-align">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Spacing</label>
+              <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+            </div>
+            <button id="btn-text-outlines" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert Text glyphs into editable Bézier vector paths">📐 Convert to Bézier Path</button>
           </div>
 
           <div class="form-row">
@@ -794,19 +881,74 @@
 
         <div class="section-title">Fill Style</div>
         <div class="form-row">
-          <label>Color</label>
-          <div style="display: flex; gap: 6px; width: 100%;">
-            <input type="color" id="prop-fill-color" value="#fabd2f">
-            <input type="text" id="prop-fill-text" value="#fabd2f">
+          <label>Type</label>
+          <select id="prop-fill-type">
+            <option value="solid" selected>Solid Color</option>
+            <option value="linear">Linear Gradient</option>
+            <option value="radial">Radial Gradient</option>
+          </select>
+        </div>
+        <div id="solid-fill-controls">
+          <div class="form-row">
+            <label>Color</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+              <input type="color" id="prop-fill-color" value="#fabd2f">
+              <input type="text" id="prop-fill-text" value="#fabd2f">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Fill Alpha</label>
+            <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
+          </div>
+          <div class="form-row">
+            <label>No Fill</label>
+            <button id="btn-fill-none" style="flex: 1;">Set None</button>
           </div>
         </div>
-        <div class="form-row">
-          <label>Fill Alpha</label>
-          <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
+        <div id="gradient-controls" style="display: none; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+          <div class="form-row">
+            <label>Stop 1</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+              <input type="color" id="prop-grad-c1" value="#fe8019">
+              <input type="text" id="prop-grad-c1-text" value="#fe8019">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Stop 2</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+              <input type="color" id="prop-grad-c2" value="#fabd2f">
+              <input type="text" id="prop-grad-c2-text" value="#fabd2f">
+            </div>
+          </div>
         </div>
-        <div class="form-row">
-          <label>No Fill</label>
-          <button id="btn-fill-none" style="flex: 1;">Set None</button>
+
+        <div class="section-title" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Drop Shadow & Glow</span>
+          <input type="checkbox" id="prop-shadow-enable" style="cursor: pointer;">
+        </div>
+        <div id="shadow-controls" style="display: none; flex-direction: column; gap: 4px;">
+          <div class="form-row">
+            <label>Color</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+              <input type="color" id="prop-shadow-color" value="#000000">
+              <input type="text" id="prop-shadow-text" value="#000000">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Blur (px)</label>
+            <input type="number" id="prop-shadow-blur" min="0" max="64" step="1" value="4">
+          </div>
+          <div class="form-row">
+            <label>Offset X/Y</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-shadow-ox" step="1" value="2" title="Offset X">
+              <input type="number" id="prop-shadow-oy" step="1" value="2" title="Offset Y">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Opacity</label>
+            <input type="number" id="prop-shadow-opacity" min="0" max="1" step="0.05" value="0.6">
+          </div>
         </div>
 
         <div class="section-title" style="margin-top: 10px;">Fill Texture (Procedural)</div>
@@ -1095,13 +1237,14 @@
 
   <!-- Scripts -->
   <script src="src/esenho.js"></script>
+  <script src="src/svg/svg_boolean.js"></script>
   <script src="src/svg/svg_engine.js"></script>
   <script src="src/svg/quadro_svg_renderer.js"></script>
   <script>
     (function () {
       'use strict';
 
-      const { SvgDocument, SvgPath, SvgRect, SvgCircle, SvgEllipse, SvgLine, PathNode, Bezier } = SvgEngine;
+      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient } = SvgEngine;
 
       // ── Document State ──
       const doc = new SvgDocument(800, 600);
@@ -1125,6 +1268,27 @@
       let initialBounds = null;
       let initialObjectState = null;
       let hoveredObj = null;
+
+      // Pen Tool State
+      let currentPenPath = null;
+      let penCursorPos = null;
+      let isPenDraggingAnchor = false;
+
+      function commitPenPath() {
+        if (currentPenPath) {
+          if (currentPenPath.nodes.length < 2) {
+            doc.removeObject(currentPenPath.id);
+          } else {
+            doc.pushHistory('Create Path');
+          }
+          currentPenPath = null;
+          isPenDraggingAnchor = false;
+          activeNodeIdx = -1;
+          render();
+          updateInspector();
+          updateObjectList();
+        }
+      }
 
       // ── DOM Elements ──
       const viewportContainer = document.getElementById('viewport-container');
@@ -1273,7 +1437,32 @@
         svgStage.innerHTML = svgInner;
       }
 
+      function getSelectedPaths() {
+        const selected = doc.getSelectedObjects();
+        const paths = [];
+        for (const obj of selected) {
+          if (obj.type === 'path') paths.push(obj);
+          else if (obj.type === 'compoundPath' && obj.subPaths) paths.push(...obj.subPaths);
+          else if (obj.type === 'group' && obj.children) {
+            for (const ch of obj.children) {
+              if (ch.type === 'path') paths.push(ch);
+              else if (ch.type === 'compoundPath' && ch.subPaths) paths.push(...ch.subPaths);
+            }
+          }
+        }
+        return paths;
+      }
+
+      function getActivePathAndNode() {
+        const paths = getSelectedPaths();
+        if (activeNodeIdx === -1) return { path: paths[0] || null, node: null };
+        const path = paths.find(p => p.nodes && p.nodes[activeNodeIdx]) || paths[0] || null;
+        const node = (path && path.nodes) ? path.nodes[activeNodeIdx] : null;
+        return { path, node };
+      }
+
       function renderOverlay() {
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         const selected = doc.getSelectedObjects();
 
         // Draw Selection Gizmo for Select Tool
@@ -1309,8 +1498,11 @@
 
         // Draw Bézier Anchors and Handles for Node Tool or Pen Tool
         if (activeTool === 'node' || activeTool === 'pen') {
-          for (const obj of selected) {
-            if (obj.type !== 'path') continue;
+          const targetPaths = (activeTool === 'pen' && currentPenPath) 
+            ? [currentPenPath] 
+            : getSelectedPaths();
+
+          for (const obj of targetPaths) {
             const nodes = obj.nodes;
 
             ctx.save();
@@ -1355,6 +1547,50 @@
               const as = 7 / zoom;
               ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
               ctx.strokeRect(node.x - as / 2, node.y - as / 2, as, as);
+            }
+            ctx.restore();
+          }
+
+          // Draw Pen rubberband preview line/curve and close-path ring indicator
+          if (activeTool === 'pen' && currentPenPath && currentPenPath.nodes.length > 0 && penCursorPos && !isDragging) {
+            const nodes = currentPenPath.nodes;
+            const lastNode = nodes[nodes.length - 1];
+            const firstNode = nodes[0];
+            const isNearFirst = (nodes.length > 1 && Math.hypot(penCursorPos.x - firstNode.x, penCursorPos.y - firstNode.y) <= 12 / zoom);
+
+            ctx.save();
+            ctx.strokeStyle = '#fabd2f';
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.setLineDash([4 / zoom, 4 / zoom]);
+            ctx.beginPath();
+            ctx.moveTo(lastNode.x, lastNode.y);
+
+            const cpOut = lastNode.getAbsCpOut();
+            const hasOut = Math.hypot(lastNode.cpOut.x, lastNode.cpOut.y) > 0.5;
+            const targetX = isNearFirst ? firstNode.x : penCursorPos.x;
+            const targetY = isNearFirst ? firstNode.y : penCursorPos.y;
+
+            if (hasOut) {
+              ctx.quadraticCurveTo(cpOut.x, cpOut.y, targetX, targetY);
+            } else {
+              ctx.lineTo(targetX, targetY);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (isNearFirst) {
+              // Draw close-path ring indicator
+              ctx.strokeStyle = '#b8bb26';
+              ctx.lineWidth = 2.5 / zoom;
+              ctx.beginPath();
+              ctx.arc(firstNode.x, firstNode.y, 8 / zoom, 0, Math.PI * 2);
+              ctx.stroke();
+            } else {
+              // Draw cursor tip point
+              ctx.fillStyle = '#fabd2f';
+              ctx.beginPath();
+              ctx.arc(penCursorPos.x, penCursorPos.y, 3 / zoom, 0, Math.PI * 2);
+              ctx.fill();
             }
             ctx.restore();
           }
@@ -1429,6 +1665,8 @@
           case 'ellipse': return '⬭';
           case 'line': return '╱';
           case 'path': return '∿';
+          case 'compoundPath': return '⨂';
+          case 'text': return 'T';
           case 'group': return '⊞';
           default: return '◈';
         }
@@ -1546,6 +1784,28 @@
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Line to Bézier Path';
           }
+        } else if (obj.type === 'text') {
+          const g = document.getElementById('geom-text-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-text-content').value = obj.text || '';
+          document.getElementById('prop-text-font').value = obj.fontFamily || 'sans-serif';
+          document.getElementById('prop-text-size').value = obj.fontSize || 36;
+          document.getElementById('prop-text-align').value = obj.textAlign || 'left';
+          document.getElementById('prop-text-spacing').value = obj.letterSpacing || 0;
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '📐 Convert Text to Bézier Path';
+          }
+        } else if (obj.type === 'compoundPath') {
+          const g = document.getElementById('geom-path-fields');
+          if (g) g.style.display = 'block';
+          const b = obj.getBounds();
+          document.getElementById('prop-path-x').value = Math.round(b.minX);
+          document.getElementById('prop-path-y').value = Math.round(b.minY);
+          document.getElementById('prop-path-w').value = Math.round(b.width);
+          document.getElementById('prop-path-h').value = Math.round(b.height);
+          document.getElementById('prop-path-info').value = `${obj.subPaths ? obj.subPaths.length : 0} sub-paths (${obj.fillRule || 'evenodd'})`;
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'path') {
           const g = document.getElementById('geom-path-fields');
           if (g) g.style.display = 'block';
@@ -1555,6 +1815,20 @@
           document.getElementById('prop-path-w').value = Math.round(b.width);
           document.getElementById('prop-path-h').value = Math.round(b.height);
           document.getElementById('prop-path-info').value = `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`;
+
+          const nodeSec = document.getElementById('node-editor-section');
+          if (nodeSec) {
+            const { path, node } = getActivePathAndNode();
+            if (activeTool === 'node' && activeNodeIdx >= 0 && node && path) {
+              nodeSec.style.display = 'block';
+              document.getElementById('node-editor-index').textContent = `#${activeNodeIdx + 1} of ${path.nodes.length}`;
+              document.getElementById('prop-node-x').value = Math.round(node.x);
+              document.getElementById('prop-node-y').value = Math.round(node.y);
+              document.getElementById('prop-node-type').value = node.type || 'smooth';
+            } else {
+              nodeSec.style.display = 'none';
+            }
+          }
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'group') {
           const g = document.getElementById('geom-path-fields');
@@ -1583,6 +1857,48 @@
         }
         fillText.value = obj.fill || 'none';
         fillOp.value = obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0;
+
+        // Gradients Sync
+        const propFillType = document.getElementById('prop-fill-type');
+        const solidControls = document.getElementById('solid-fill-controls');
+        const gradControls = document.getElementById('gradient-controls');
+        if (propFillType) {
+          propFillType.value = obj.fillType || 'solid';
+          if (solidControls) solidControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'none' : 'block';
+          if (gradControls) {
+            gradControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'flex' : 'none';
+            if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops.length >= 2) {
+              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || '#fe8019';
+              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || '#fe8019';
+              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || '#fabd2f';
+              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || '#fabd2f';
+            }
+          }
+        }
+
+        // Drop Shadow Sync
+        const shadowCb = document.getElementById('prop-shadow-enable');
+        const shadowControls = document.getElementById('shadow-controls');
+        const ds = obj.dropShadow || { enabled: false, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+        if (shadowCb) {
+          shadowCb.checked = !!ds.enabled;
+          if (shadowControls) shadowControls.style.display = ds.enabled ? 'flex' : 'none';
+          document.getElementById('prop-shadow-color').value = ds.color || '#000000';
+          document.getElementById('prop-shadow-text').value = ds.color || '#000000';
+          document.getElementById('prop-shadow-blur').value = ds.blur !== undefined ? ds.blur : 4;
+          document.getElementById('prop-shadow-ox').value = ds.offsetX !== undefined ? ds.offsetX : 2;
+          document.getElementById('prop-shadow-oy').value = ds.offsetY !== undefined ? ds.offsetY : 2;
+          document.getElementById('prop-shadow-opacity').value = ds.opacity !== undefined ? ds.opacity : 0.6;
+        }
+
+        if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
+          strokeColor.value = obj.stroke;
+        }
+        strokeText.value = obj.stroke || 'none';
+        strokeW.value = obj.strokeWidth || 1;
+        strokeCap.value = obj.strokeLinecap || 'round';
+        strokeJoin.value = obj.strokeLinejoin || 'round';
+        objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
 
         if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
           strokeColor.value = obj.stroke;
@@ -1706,8 +2022,8 @@
           activeNodeIdx = -1;
           activeHandleType = null;
 
-          for (const obj of selected) {
-            if (obj.type !== 'path') continue;
+          const paths = getSelectedPaths();
+          for (const obj of paths) {
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
               // Check anchor
@@ -1736,31 +2052,35 @@
           render();
           updateInspector();
         } else if (activeTool === 'pen') {
-          let selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-          if (!selectedPath) {
-            selectedPath = new SvgPath({
-              fill: 'none',
-              stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
-              strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
-            });
-            doc.addObject(selectedPath);
-            doc.select(selectedPath.id);
-          }
-
-          // Check if clicking start node to close path
-          if (selectedPath.nodes.length > 2) {
-            const first = selectedPath.nodes[0];
-            if (Math.hypot(pt.x - first.x, pt.y - first.y) <= 10 / zoom) {
-              selectedPath.closed = true;
-              render();
+          if (currentPenPath && currentPenPath.nodes.length > 1) {
+            const first = currentPenPath.nodes[0];
+            if (Math.hypot(pt.x - first.x, pt.y - first.y) <= 12 / zoom) {
+              currentPenPath.closed = true;
+              commitPenPath();
               return;
             }
           }
 
-          const node = selectedPath.addNode(pt.x, pt.y, null, null, 'smooth');
-          activeNodeIdx = selectedPath.nodes.length - 1;
+          if (!currentPenPath) {
+            currentPenPath = new SvgPath({
+              fill: 'none',
+              stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
+              strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
+            });
+            doc.addObject(currentPenPath);
+            doc.select(currentPenPath.id);
+          }
+
+          const node = currentPenPath.addNode(pt.x, pt.y, null, null, 'symmetric');
+          activeNodeIdx = currentPenPath.nodes.length - 1;
           activeHandleType = 'out';
+          isPenDraggingAnchor = true;
+          isDragging = true;
+          dragStartX = pt.x;
+          dragStartY = pt.y;
           render();
+          updateInspector();
+          updateObjectList();
         } else if (activeTool === 'rect') {
           currentDraftObj = new SvgRect({
             x: pt.x, y: pt.y, width: 1, height: 1,
@@ -1796,12 +2116,40 @@
           currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
+        } else if (activeTool === 'text') {
+          const textVal = prompt('Enter text for vector typography:', 'Wesenho Vector');
+          if (textVal) {
+            let fillVal = document.getElementById('prop-fill-text')?.value;
+            if (!fillVal || fillVal === 'none') {
+              fillVal = '#fabd2f';
+            }
+            const textObj = new SvgText({
+              x: pt.x,
+              y: pt.y,
+              text: textVal,
+              fontFamily: document.getElementById('prop-text-font')?.value || 'sans-serif',
+              fontSize: Number(document.getElementById('prop-text-size')?.value || 36),
+              fill: fillVal,
+              stroke: 'none'
+            });
+            doc.addObject(textObj);
+            doc.select(textObj.id);
+            const selectToolBtn = document.getElementById('tool-select');
+            if (selectToolBtn) selectToolBtn.click();
+            render();
+            updateInspector();
+            updateObjectList();
+          }
         }
       });
 
       window.addEventListener('pointermove', (e) => {
         const pt = screenToDoc(e.clientX, e.clientY);
         statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
+
+        if (activeTool === 'pen') {
+          penCursorPos = pt;
+        }
 
         if (isPanning) {
           panX = e.clientX - panStartX;
@@ -1810,7 +2158,12 @@
           return;
         }
 
-        if (!isDragging) return;
+        if (!isDragging) {
+          if (activeTool === 'pen') {
+            renderOverlay();
+          }
+          return;
+        }
 
         const dx = pt.x - dragStartX;
         const dy = pt.y - dragStartY;
@@ -1856,6 +2209,29 @@
                 obj.y1 = newMinY + (initialObjectState.y1 - initialBounds.minY) * sy;
                 obj.x2 = newMinX + (initialObjectState.x2 - initialBounds.minX) * sx;
                 obj.y2 = newMinY + (initialObjectState.y2 - initialBounds.minY) * sy;
+              } else if (obj.type === 'compoundPath') {
+                const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
+                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
+                if (obj.subPaths && initialObjectState.subPaths) {
+                  for (let s = 0; s < obj.subPaths.length; s++) {
+                    const sp = obj.subPaths[s];
+                    const origSp = initialObjectState.subPaths[s];
+                    if (sp && origSp && sp.nodes && origSp.nodes) {
+                      for (let i = 0; i < sp.nodes.length; i++) {
+                        const orig = origSp.nodes[i];
+                        sp.nodes[i].x = newMinX + (orig.x - initialBounds.minX) * sx;
+                        sp.nodes[i].y = newMinY + (orig.y - initialBounds.minY) * sy;
+                        if (orig.cpIn) sp.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
+                        if (orig.cpOut) sp.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
+                      }
+                    }
+                  }
+                }
+              } else if (obj.type === 'text') {
+                obj.x = newMinX;
+                obj.y = newMaxY;
+                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
+                obj.fontSize = Math.max(8, Math.round(initialObjectState.fontSize * sy));
               } else if (obj.type === 'path') {
                 const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
                 const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
@@ -1893,9 +2269,8 @@
             updateInspector();
           }
         } else if (activeTool === 'node' && activeNodeIdx !== -1) {
-          const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-          if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-            const node = selectedPath.nodes[activeNodeIdx];
+          const { node } = getActivePathAndNode();
+          if (node) {
             const forceIndep = e.altKey; // Holding Alt/Option unlocks handle independently
             if (activeHandleType === 'anchor') {
               node.x = pt.x;
@@ -1908,11 +2283,18 @@
             render();
             updateInspector();
           }
-        } else if (activeTool === 'pen' && activeNodeIdx !== -1) {
-          const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-          if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-            const node = selectedPath.nodes[activeNodeIdx];
-            node.setAbsCpOut(pt.x, pt.y);
+        } else if (activeTool === 'pen' && isPenDraggingAnchor && currentPenPath && activeNodeIdx !== -1) {
+          const node = currentPenPath.nodes[activeNodeIdx];
+          if (node) {
+            const forceIndep = e.altKey; // Holding Alt/Option unlocks handle independently into cusp mode
+            if (Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
+              if (forceIndep) {
+                node.type = 'cusp';
+              } else if (node.type !== 'cusp') {
+                node.type = 'symmetric';
+              }
+              node.setAbsCpOut(pt.x, pt.y, forceIndep);
+            }
             render();
           }
         } else if (activeTool === 'rect' && currentDraftObj) {
@@ -1947,6 +2329,17 @@
           isPanning = false;
           viewportContainer.classList.remove('panning');
         }
+        if (isPenDraggingAnchor) {
+          if (activeTool === 'pen' && currentPenPath && activeNodeIdx !== -1) {
+            const node = currentPenPath.nodes[activeNodeIdx];
+            if (node && Math.hypot(node.cpOut.x, node.cpOut.y) < 3) {
+              node.cpIn = { x: 0, y: 0 };
+              node.cpOut = { x: 0, y: 0 };
+              node.type = 'corner';
+            }
+          }
+          isPenDraggingAnchor = false;
+        }
         if (isDragging) {
           isDragging = false;
           const wasResizing = !!activeResizeHandle;
@@ -1955,7 +2348,9 @@
           initialBounds = null;
           initialObjectState = null;
           currentDraftObj = null;
-          doc.pushHistory(wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'));
+          if (activeTool !== 'pen') {
+            doc.pushHistory(wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'));
+          }
           render();
           updateInspector();
         }
@@ -1980,6 +2375,9 @@
       // ── Toolbar Switching ──
       document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         btn.addEventListener('click', () => {
+          if (activeTool === 'pen' && btn.dataset.tool !== 'pen') {
+            commitPenPath();
+          }
           document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
           activeTool = btn.dataset.tool;
@@ -1993,15 +2391,35 @@
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
         const key = e.key.toLowerCase();
-        if (key === 'v') document.getElementById('tool-select').click();
+        if (key === 'escape' || key === 'enter') {
+          if (activeTool === 'pen') commitPenPath();
+        }
+        else if (key === 'v') document.getElementById('tool-select').click();
         else if (key === 'a') document.getElementById('tool-node').click();
         else if (key === 'p') document.getElementById('tool-pen').click();
         else if (key === 'b') document.getElementById('tool-brush').click();
         else if (key === 'r') document.getElementById('tool-rect').click();
         else if (key === 'o') document.getElementById('tool-ellipse').click();
         else if (key === 'l') document.getElementById('tool-line').click();
+        else if (key === 't') document.getElementById('tool-text').click();
         else if (key === '0') zoomToFit();
         else if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (activeTool === 'node' && activeNodeIdx !== -1) {
+            const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+            if (selectedPath && selectedPath.nodes && selectedPath.nodes.length > 0) {
+              if (selectedPath.nodes.length > 2) {
+                selectedPath.removeNode(activeNodeIdx);
+                activeNodeIdx = Math.min(activeNodeIdx, selectedPath.nodes.length - 1);
+                doc.pushHistory('Remove Anchor Point');
+              } else {
+                doc.removeObject(selectedPath.id);
+                activeNodeIdx = -1;
+              }
+              render();
+              updateInspector();
+              return;
+            }
+          }
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             doc.removeObject(obj.id);
@@ -2180,6 +2598,50 @@
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.strokeLinejoin = e.target.value;
         render();
+      });
+
+      // Node / Anchor Point Editor Bindings
+      const btnDeleteNode = document.getElementById('btn-delete-node');
+      if (btnDeleteNode) {
+        btnDeleteNode.addEventListener('click', () => {
+          const { path, node } = getActivePathAndNode();
+          if (path && activeNodeIdx >= 0 && path.nodes && path.nodes[activeNodeIdx]) {
+            if (path.nodes.length > 2) {
+              path.removeNode(activeNodeIdx);
+              activeNodeIdx = Math.min(activeNodeIdx, path.nodes.length - 1);
+              doc.pushHistory('Remove Anchor Point');
+            } else {
+              doc.removeObject(path.id);
+              activeNodeIdx = -1;
+            }
+            render();
+            updateInspector();
+          }
+        });
+      }
+
+      document.getElementById('prop-node-x')?.addEventListener('input', (e) => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.x = Number(e.target.value);
+          render();
+        }
+      });
+
+      document.getElementById('prop-node-y')?.addEventListener('input', (e) => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.y = Number(e.target.value);
+          render();
+        }
+      });
+
+      document.getElementById('prop-node-type')?.addEventListener('change', (e) => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = e.target.value;
+          render();
+        }
       });
 
       // Viewport Render Mode Switcher
@@ -2460,46 +2922,201 @@
       if (btnNodeConvertPath) btnNodeConvertPath.addEventListener('click', handleConvertToPath);
 
       // Bézier Node Actions
-      document.getElementById('btn-node-smooth').addEventListener('click', () => {
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-          const node = selectedPath.nodes[activeNodeIdx];
+      document.getElementById('btn-node-smooth')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
           node.type = 'smooth';
           node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
           render();
         }
       });
-      document.getElementById('btn-node-symmetric').addEventListener('click', () => {
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-          const node = selectedPath.nodes[activeNodeIdx];
+      document.getElementById('btn-node-symmetric')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
           node.type = 'symmetric';
           node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
           render();
         }
       });
-      document.getElementById('btn-node-cusp').addEventListener('click', () => {
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-          selectedPath.nodes[activeNodeIdx].type = 'cusp';
+      document.getElementById('btn-node-cusp')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = 'cusp';
           render();
         }
       });
-      document.getElementById('btn-node-sharp').addEventListener('click', () => {
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-          selectedPath.nodes[activeNodeIdx].type = 'corner';
-          selectedPath.nodes[activeNodeIdx].cpIn = { x: 0, y: 0 };
-          selectedPath.nodes[activeNodeIdx].cpOut = { x: 0, y: 0 };
+      document.getElementById('btn-node-sharp')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = 'corner';
+          node.cpIn = { x: 0, y: 0 };
+          node.cpOut = { x: 0, y: 0 };
           render();
         }
       });
-      document.getElementById('btn-path-close').addEventListener('click', () => {
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (selectedPath) {
-          selectedPath.closed = !selectedPath.closed;
+      document.getElementById('btn-path-close')?.addEventListener('click', () => {
+        const { path } = getActivePathAndNode();
+        if (path) {
+          path.closed = !path.closed;
           render();
         }
+      });
+      // Pathfinder & Boolean Operations
+      document.getElementById('btn-path-union')?.addEventListener('click', () => {
+        doc.booleanOperation('union');
+        updateObjectList();
+        updateInspector();
+        render();
+      });
+      document.getElementById('btn-path-subtract')?.addEventListener('click', () => {
+        doc.booleanOperation('subtract');
+        updateObjectList();
+        updateInspector();
+        render();
+      });
+      document.getElementById('btn-path-intersect')?.addEventListener('click', () => {
+        doc.booleanOperation('intersect');
+        updateObjectList();
+        updateInspector();
+        render();
+      });
+      document.getElementById('btn-path-exclude')?.addEventListener('click', () => {
+        doc.booleanOperation('exclude');
+        updateObjectList();
+        updateInspector();
+        render();
+      });
+
+      // Text Properties Binding
+      document.getElementById('prop-text-content')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.text = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-text-font')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.fontFamily = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-text-size')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) || 36;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.fontSize = val;
+        }
+        render();
+      });
+      document.getElementById('prop-text-align')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.textAlign = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-text-spacing')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) || 0;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.letterSpacing = val;
+        }
+        render();
+      });
+      document.getElementById('btn-text-outlines')?.addEventListener('click', () => {
+        doc.createOutlinesSelected();
+        updateObjectList();
+        updateInspector();
+        render();
+      });
+
+      // Gradient Fill Binding
+      document.getElementById('prop-fill-type')?.addEventListener('change', (e) => {
+        const type = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          obj.fillType = type;
+          if (type === 'linear') {
+            if (!obj.fillGradient) obj.fillGradient = new SvgLinearGradient();
+            obj.fillGradient.type = 'linear';
+          } else if (type === 'radial') {
+            if (!obj.fillGradient) obj.fillGradient = new SvgRadialGradient();
+            obj.fillGradient.type = 'radial';
+          }
+        }
+        updateInspector();
+        render();
+      });
+
+      function updateGradientStop(stopIdx, color) {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops[stopIdx]) {
+            obj.fillGradient.stops[stopIdx].color = color;
+          }
+        }
+        render();
+      }
+
+      document.getElementById('prop-grad-c1')?.addEventListener('input', (e) => {
+        document.getElementById('prop-grad-c1-text').value = e.target.value;
+        updateGradientStop(0, e.target.value);
+      });
+      document.getElementById('prop-grad-c1-text')?.addEventListener('change', (e) => {
+        updateGradientStop(0, e.target.value);
+      });
+      document.getElementById('prop-grad-c2')?.addEventListener('input', (e) => {
+        document.getElementById('prop-grad-c2-text').value = e.target.value;
+        updateGradientStop(1, e.target.value);
+      });
+      document.getElementById('prop-grad-c2-text')?.addEventListener('change', (e) => {
+        updateGradientStop(1, e.target.value);
+      });
+
+      // Drop Shadow Binding
+      document.getElementById('prop-shadow-enable')?.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.dropShadow) obj.dropShadow = { enabled: false, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+          obj.dropShadow.enabled = enabled;
+        }
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-shadow-color')?.addEventListener('input', (e) => {
+        document.getElementById('prop-shadow-text').value = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+          obj.dropShadow.color = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-shadow-text')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+          obj.dropShadow.color = e.target.value;
+        }
+        render();
+      });
+      ['blur', 'ox', 'oy', 'opacity'].forEach(param => {
+        const el = document.getElementById(`prop-shadow-${param}`);
+        if (!el) return;
+        const key = param === 'ox' ? 'offsetX' : (param === 'oy' ? 'offsetY' : param);
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+            obj.dropShadow[key] = val;
+          }
+          render();
+        });
       });
 
       // Tab Switching

@@ -2,6 +2,7 @@
  * =========================================================================
  * Quadro SVG Renderer (src/svg/quadro_svg_renderer.js)
  * High-performance rasterizer of SVG Object Scene Graphs into Quadro WASM.
+ * Supports Compound Paths, Gradients, Drop Shadows & Brush Dynamics.
  * =========================================================================
  */
 
@@ -98,25 +99,29 @@
     } else if (mode === 3) { // Noise
       const n = ((tx * 374761393 + ty * 668265263) ^ 0x5bf03635) & 0xFF;
       modA = Math.round((baseA * n) / 255);
-    } else if (mode === 4) { // Halftone dots
-      const dx = (Math.abs(tx) % 8) - 4;
-      const dy = (Math.abs(ty) % 8) - 4;
-      const d2 = dx * dx + dy * dy;
-      const pat = (d2 <= 5) ? 255 : 20;
-      modA = Math.round((baseA * pat) / 255);
-    } else if (mode === 5) { // Grid
-      const pat = (Math.abs(tx) % 8 === 0 || Math.abs(ty) % 8 === 0) ? 255 : 30;
-      modA = Math.round((baseA * pat) / 255);
-    } else if (mode === 6) { // Grunge
-      const n = ((Math.floor(tx / 4) * 101 + Math.floor(ty / 4) * 203) ^ (tx * 17 + ty * 31)) & 0xFF;
-      const pat = n > 120 ? 255 : Math.round(n * 255 / 120);
-      modA = Math.round((baseA * pat) / 255);
-    } else if (mode === 7) { // Hatch
-      const pat = ((Math.abs(tx + ty)) % 6 <= 1) ? 255 : 0;
-      modA = Math.round((baseA * pat) / 255);
-    } else if (mode === 8) { // Watercolor Cold Press
-      const n1 = ((tx * 239847 + ty * 983471) ^ (tx * 7)) & 0xFF;
-      const pit = (((Math.floor(tx / 3) * 11 + Math.floor(ty / 3) * 13)) % 23 < 4) ? 40 : 255;
+    } else if (mode === 4) { // Perlin Clouds / Soft Smoke
+      const n1 = ((tx * 41 + ty * 59) ^ (tx * 17)) & 0xFF;
+      const n2 = (((tx >> 2) * 103 + (ty >> 2) * 149) ^ (ty * 11)) & 0xFF;
+      const smooth = (n1 + n2 * 3) >> 2;
+      modA = Math.round((baseA * smooth) / 255);
+    } else if (mode === 5) { // Crosshatch
+      const d1 = (Math.abs(tx + ty) % 10 < 2);
+      const d2 = (Math.abs(tx - ty) % 10 < 2);
+      const hatch = (d1 || d2) ? 255 : 30;
+      modA = Math.round((baseA * hatch) / 255);
+    } else if (mode === 6) { // Halftone Dots
+      const cx = Math.abs(tx) % 8 - 4;
+      const cy = Math.abs(ty) % 8 - 4;
+      const dist = cx * cx + cy * cy;
+      const dot = (dist <= 6) ? 255 : 20;
+      modA = Math.round((baseA * dot) / 255);
+    } else if (mode === 7) { // Watercolor Granulation
+      const n1 = ((tx * 2246822519 + ty * 3266489917) ^ ((tx >> 3) * 668265263)) & 0xFF;
+      const cluster = (((tx >> 1) ^ (ty >> 1)) % 11 < 4) ? 240 : 60;
+      modA = Math.round((baseA * n1 * cluster) / (255 * 255));
+    } else if (mode === 8) { // Rough Pastel
+      const n1 = ((tx * 1234567 + ty * 7654321) ^ 0xdeadbeef) & 0xFF;
+      const pit = (n1 > 90) ? 255 : 40;
       modA = Math.round((baseA * n1 * pit) / (255 * 255));
     } else if (mode === 9) { // Charcoal Tooth
       const n = ((Math.floor(tx / 2) * 589237 + Math.floor(ty / 2) * 782391) ^ (tx * 31 + ty * 19)) & 0xFF;
@@ -146,6 +151,89 @@
       modA = Math.round((baseA * factor) / 255);
     }
     return modA;
+  }
+
+  function sampleGradient(gradient, x, y, bounds, scale, totalOpacity = 1.0) {
+    if (!gradient || !gradient.stops || gradient.stops.length === 0) {
+      return 0xFF000000;
+    }
+
+    let t = 0;
+    const bx = bounds ? bounds.minX * scale : 0;
+    const by = bounds ? bounds.minY * scale : 0;
+    const bw = bounds ? Math.max(1, (bounds.maxX - bounds.minX) * scale) : 100;
+    const bh = bounds ? Math.max(1, (bounds.maxY - bounds.minY) * scale) : 100;
+
+    function parseCoord(val, size, base) {
+      if (typeof val === 'string' && val.endsWith('%')) {
+        return base + (parseFloat(val) / 100) * size;
+      }
+      return base + Number(val || 0) * scale;
+    }
+
+    if (gradient.type === 'linear') {
+      const x1 = parseCoord(gradient.x1 !== undefined ? gradient.x1 : '0%', bw, bx);
+      const y1 = parseCoord(gradient.y1 !== undefined ? gradient.y1 : '0%', bh, by);
+      const x2 = parseCoord(gradient.x2 !== undefined ? gradient.x2 : '100%', bw, bx);
+      const y2 = parseCoord(gradient.y2 !== undefined ? gradient.y2 : '0%', bh, by);
+
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const lenSq = dx * dx + dy * dy;
+      if (lenSq < 1e-6) {
+        t = 0;
+      } else {
+        t = ((x - x1) * dx + (y - y1) * dy) / lenSq;
+      }
+    } else if (gradient.type === 'radial') {
+      const cx = parseCoord(gradient.cx !== undefined ? gradient.cx : '50%', bw, bx);
+      const cy = parseCoord(gradient.cy !== undefined ? gradient.cy : '50%', bh, by);
+      const r = typeof gradient.r === 'string' && gradient.r.endsWith('%')
+        ? (parseFloat(gradient.r) / 100) * Math.max(bw, bh)
+        : Math.max(1, Number(gradient.r || 50) * scale);
+
+      const dx = x - cx;
+      const dy = y - cy;
+      t = Math.sqrt(dx * dx + dy * dy) / r;
+    }
+
+    t = Math.max(0, Math.min(1, t));
+
+    const stops = gradient.stops;
+    if (t <= stops[0].offset) {
+      const argb = parseCssColorToArgb(stops[0].color, (stops[0].opacity !== undefined ? stops[0].opacity : 1.0) * totalOpacity);
+      return argb;
+    }
+    if (t >= stops[stops.length - 1].offset) {
+      const last = stops[stops.length - 1];
+      const argb = parseCssColorToArgb(last.color, (last.opacity !== undefined ? last.opacity : 1.0) * totalOpacity);
+      return argb;
+    }
+
+    let s0 = stops[0], s1 = stops[stops.length - 1];
+    for (let i = 0; i < stops.length - 1; i++) {
+      if (t >= stops[i].offset && t <= stops[i + 1].offset) {
+        s0 = stops[i];
+        s1 = stops[i + 1];
+        break;
+      }
+    }
+
+    const range = s1.offset - s0.offset;
+    const ratio = range <= 0 ? 0 : (t - s0.offset) / range;
+
+    const c0 = parseCssColorToArgb(s0.color, s0.opacity !== undefined ? s0.opacity : 1.0);
+    const c1 = parseCssColorToArgb(s1.color, s1.opacity !== undefined ? s1.opacity : 1.0);
+
+    const a0 = (c0 >>> 24) & 0xFF, r0 = c0 & 0xFF, g0 = (c0 >> 8) & 0xFF, b0 = (c0 >> 16) & 0xFF;
+    const a1 = (c1 >>> 24) & 0xFF, r1 = c1 & 0xFF, g1 = (c1 >> 8) & 0xFF, b1 = (c1 >> 16) & 0xFF;
+
+    const a = Math.round((a0 + (a1 - a0) * ratio) * totalOpacity);
+    const r = Math.round(r0 + (r1 - r0) * ratio);
+    const g = Math.round(g0 + (g1 - g0) * ratio);
+    const b = Math.round(b0 + (b1 - b0) * ratio);
+
+    return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
   }
 
   class QuadroSvgRenderer {
@@ -231,21 +319,42 @@
         return;
       }
 
-      // Convert shape to polyline for fills and strokes
+      // Handle Text with dedicated high-res canvas rasterization
+      if (obj.type === 'text') {
+        this.renderText(obj, scale, totalOpacity);
+        return;
+      }
+
+      // Convert shape to polyline / compound paths
       let pathObj = obj;
       if (typeof obj.toPath === 'function') {
         pathObj = obj.toPath();
       }
 
-      // 1. Render Fill (with procedural fill texture support)
-      if (obj.fill && obj.fill !== 'none') {
+      const bounds = obj.getBounds ? obj.getBounds() : (pathObj.getBounds ? pathObj.getBounds() : null);
+
+      // 0. Render Drop Shadow & Glow
+      if (obj.dropShadow && obj.dropShadow.enabled) {
+        this.renderDropShadow(pathObj, obj.dropShadow, scale, totalOpacity);
+      }
+
+      // 1. Render Fill (Solid, Linear Gradient, Radial Gradient, Procedural Texture)
+      const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
+      if (hasFill) {
         const fillAlpha = (obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0) * totalOpacity;
         const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
 
-        if ((fillArgb >>> 24) > 0) {
-          const poly = pathObj.toPolyline ? pathObj.toPolyline(0.5) : [];
+        const gradient = (obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null;
+
+        if (pathObj.toPolylines) {
+          const polylines = pathObj.toPolylines(0.5);
+          if (polylines.length > 0) {
+            this.fillCompoundPolygons(polylines, pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
+          }
+        } else if (pathObj.toPolyline) {
+          const poly = pathObj.toPolyline(0.5);
           if (poly.length >= 3) {
-            this.fillPolygon(poly, fillArgb, scale, obj.fillTexture);
+            this.fillPolygon(poly, fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
           }
         }
       }
@@ -256,26 +365,47 @@
         const strokeArgb = parseCssColorToArgb(obj.stroke, strokeAlpha);
 
         if ((strokeArgb >>> 24) > 0) {
-          const poly = pathObj.toPolyline ? pathObj.toPolyline(0.4) : [];
-          if (poly.length >= 2) {
-            this.strokePolyline(
-              poly,
-              strokeArgb,
-              Math.max(1, Math.round(obj.strokeWidth * scale)),
-              pathObj.closed,
-              obj.brushConfig,
-              obj.strokeTexture,
-              scale
-            );
+          const strokeWidth = Math.max(1, Math.round(obj.strokeWidth * scale));
+          if (pathObj.toPolylines) {
+            const polylines = pathObj.toPolylines(0.4);
+            const subPaths = pathObj.subPaths || [];
+            for (let i = 0; i < polylines.length; i++) {
+              const poly = polylines[i];
+              if (poly.length >= 2) {
+                const closed = subPaths[i] ? subPaths[i].closed : true;
+                this.strokePolyline(
+                  poly,
+                  strokeArgb,
+                  strokeWidth,
+                  closed,
+                  obj.brushConfig,
+                  obj.strokeTexture,
+                  scale
+                );
+              }
+            }
+          } else if (pathObj.toPolyline) {
+            const poly = pathObj.toPolyline(0.4);
+            if (poly.length >= 2) {
+              this.strokePolyline(
+                poly,
+                strokeArgb,
+                strokeWidth,
+                pathObj.closed,
+                obj.brushConfig,
+                obj.strokeTexture,
+                scale
+              );
+            }
           }
         }
       }
     }
 
     /**
-     * Scanline polygon fill in Quadro layer with procedural texture masking
+     * Render Text into Quadro WASM using high-resolution typography rasterization
      */
-    fillPolygon(poly, argbColor, scale = 1.0, fillTexture = null) {
+    renderText(textObj, scale = 1.0, totalOpacity = 1.0) {
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
@@ -283,22 +413,311 @@
       if (!pixPtr || !this.actor.memory) return;
 
       const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
-      const n = poly.length;
-      if (n < 3) return;
+
+      if (typeof document !== 'undefined' && document.createElement) {
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = lw;
+        offCanvas.height = lh;
+        const octx = offCanvas.getContext('2d');
+        if (!octx) return;
+
+        const fontSize = Math.max(4, Math.round(textObj.fontSize * scale));
+        const fontStyle = textObj.fontStyle || 'normal';
+        const fontWeight = textObj.fontWeight || 'normal';
+        const fontFamily = textObj.fontFamily || 'sans-serif';
+        octx.font = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+        
+        const anchor = textObj.textAlign === 'center' ? 'center' : (textObj.textAlign === 'right' ? 'right' : 'left');
+        octx.textAlign = anchor;
+        octx.textBaseline = 'alphabetic';
+
+        const tx = textObj.x * scale;
+        const ty = textObj.y * scale;
+
+        // Render drop shadow if enabled
+        if (textObj.dropShadow && textObj.dropShadow.enabled) {
+          const s = textObj.dropShadow;
+          octx.save();
+          octx.shadowColor = s.color || '#000000';
+          octx.shadowBlur = (s.blur || 4) * scale;
+          octx.shadowOffsetX = (s.offsetX || 2) * scale;
+          octx.shadowOffsetY = (s.offsetY || 2) * scale;
+          octx.fillStyle = textObj.fill && textObj.fill !== 'none' ? textObj.fill : '#fabd2f';
+          octx.fillText(textObj.text, tx, ty);
+          octx.restore();
+        }
+
+        // Fill Text
+        if (textObj.fill && textObj.fill !== 'none') {
+          if ((textObj.fillType === 'linear' || textObj.fillType === 'radial') && textObj.fillGradient) {
+            const b = textObj.getBounds();
+            const grad = textObj.fillGradient;
+            let canvasGrad;
+            if (grad.type === 'radial') {
+              const cx = (b.minX + b.width / 2) * scale;
+              const cy = (b.minY + b.height / 2) * scale;
+              const r = Math.max(b.width, b.height) / 2 * scale;
+              canvasGrad = octx.createRadialGradient(cx, cy, 0, cx, cy, r);
+            } else {
+              canvasGrad = octx.createLinearGradient(b.minX * scale, b.minY * scale, b.maxX * scale, b.minY * scale);
+            }
+            for (const st of grad.stops) {
+              canvasGrad.addColorStop(Math.max(0, Math.min(1, st.offset)), st.color);
+            }
+            octx.fillStyle = canvasGrad;
+          } else {
+            octx.fillStyle = textObj.fill;
+          }
+          octx.fillText(textObj.text, tx, ty);
+        }
+
+        // Stroke Text
+        if (textObj.stroke && textObj.stroke !== 'none' && textObj.strokeWidth > 0) {
+          octx.strokeStyle = textObj.stroke;
+          octx.lineWidth = textObj.strokeWidth * scale;
+          octx.strokeText(textObj.text, tx, ty);
+        }
+
+        // Blit offscreen canvas ImageData to Quadro buffer
+        const imgData = octx.getImageData(0, 0, lw, lh);
+        const data32 = new Uint32Array(imgData.data.buffer);
+        for (let i = 0; i < lw * lh; i++) {
+          const col = data32[i];
+          if ((col & 0xFF000000) !== 0) {
+            // Convert ABGR from Canvas to ARGB for Quadro
+            const a = (col >>> 24) & 0xFF;
+            const b = (col >> 16) & 0xFF;
+            const g = (col >> 8) & 0xFF;
+            const r = col & 0xFF;
+            const finalAlpha = Math.round(a * totalOpacity);
+            if (finalAlpha > 0) {
+              const argb = ((finalAlpha << 24) | (b << 16) | (g << 8) | r) >>> 0;
+              pixels[i] = this.blendFast(argb, pixels[i]);
+            }
+          }
+        }
+      } else {
+        // Fallback for headless environments
+        const pathObj = textObj.toPath();
+        if (pathObj.toPolylines) {
+          const polylines = pathObj.toPolylines(0.5);
+          const fillAlpha = (textObj.fillOpacity !== undefined ? textObj.fillOpacity : 1.0) * totalOpacity;
+          const fillArgb = parseCssColorToArgb(textObj.fill || '#fabd2f', fillAlpha);
+          this.fillCompoundPolygons(polylines, 'nonzero', fillArgb, scale, textObj.fillTexture, null, textObj.getBounds(), totalOpacity);
+        }
+      }
+    }
+
+    /**
+     * Render Gaussian Drop Shadows & Glows (Optimized Local Bounding Box Blit)
+     */
+    renderDropShadow(pathObj, shadowConfig, scale = 1.0, parentOpacity = 1.0) {
+      const exp = this.actor.exports;
+      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
+      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
+      const pixPtr = exp.w_layer_get_pixels(3);
+      if (!pixPtr || !this.actor.memory) return;
+
+      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+      const polylines = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
+      if (!polylines.length) return;
+
+      const blur = Math.max(0, Math.round((shadowConfig.blur !== undefined ? shadowConfig.blur : 4) * scale));
+      const ox = Math.round((shadowConfig.offsetX !== undefined ? shadowConfig.offsetX : 2) * scale);
+      const oy = Math.round((shadowConfig.offsetY !== undefined ? shadowConfig.offsetY : 2) * scale);
+      const shadowAlpha = (shadowConfig.opacity !== undefined ? shadowConfig.opacity : 0.6) * parentOpacity;
+      const shadowColor = parseCssColorToArgb(shadowConfig.color || '#000000', 1.0);
+      const sR = shadowColor & 0xFF, sG = (shadowColor >> 8) & 0xFF, sB = (shadowColor >> 16) & 0xFF;
+
+      // Compute bounding box
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const poly of polylines) {
+        for (const p of poly) {
+          const sx = p.x * scale + ox;
+          const sy = p.y * scale + oy;
+          if (sx < minX) minX = sx;
+          if (sx > maxX) maxX = sx;
+          if (sy < minY) minY = sy;
+          if (sy > maxY) maxY = sy;
+        }
+      }
+      if (minX === Infinity) return;
+
+      const pad = Math.max(4, blur * 3);
+      const bx0 = Math.max(0, Math.floor(minX - pad));
+      const by0 = Math.max(0, Math.floor(minY - pad));
+      const bx1 = Math.min(lw - 1, Math.ceil(maxX + pad));
+      const by1 = Math.min(lh - 1, Math.ceil(maxY + pad));
+      const bw = bx1 - bx0 + 1;
+      const bh = by1 - by0 + 1;
+      if (bw <= 0 || bh <= 0) return;
+
+      // 1. Create local silhouette mask
+      const mask = new Uint8Array(bw * bh);
+
+      for (const poly of polylines) {
+        if (poly.length < 3) continue;
+        const localPts = poly.map(p => ({
+          x: Math.round(p.x * scale) + ox - bx0,
+          y: Math.round(p.y * scale) + oy - by0
+        }));
+
+        let pMinY = bh, pMaxY = 0;
+        for (const p of localPts) {
+          if (p.y < pMinY) pMinY = p.y;
+          if (p.y > pMaxY) pMaxY = p.y;
+        }
+        pMinY = Math.max(0, pMinY);
+        pMaxY = Math.min(bh - 1, pMaxY);
+
+        const nodeX = [];
+        for (let y = pMinY; y <= pMaxY; y++) {
+          nodeX.length = 0;
+          let j = localPts.length - 1;
+          for (let i = 0; i < localPts.length; i++) {
+            const pi = localPts[i];
+            const pj = localPts[j];
+            if ((pi.y < y && pj.y >= y) || (pj.y < y && pi.y >= y)) {
+              const x = Math.round(pi.x + (y - pi.y) / (pj.y - pi.y) * (pj.x - pi.x));
+              nodeX.push(x);
+            }
+            j = i;
+          }
+          nodeX.sort((a, b) => a - b);
+          for (let i = 0; i < nodeX.length; i += 2) {
+            if (nodeX[i] >= bw) break;
+            if (nodeX[i + 1] > 0) {
+              const x0 = Math.max(0, nodeX[i]);
+              const x1 = Math.min(bw - 1, nodeX[i + 1]);
+              const row = y * bw;
+              for (let x = x0; x <= x1; x++) {
+                mask[row + x] = 255;
+              }
+            }
+          }
+        }
+      }
+
+      // 2. Exact 3-Pass Local Gaussian Blur
+      let blurredMask = mask;
+      if (blur > 0) {
+        const radius = Math.min(100, blur);
+        const r = Math.max(1, Math.round(radius / 2));
+        let current = new Float32Array(mask);
+        let temp = new Float32Array(bw * bh);
+
+        for (let pass = 0; pass < 3; pass++) {
+          // Horizontal pass
+          const iarrH = 1 / (r + r + 1);
+          for (let y = 0; y < bh; y++) {
+            const row = y * bw;
+            const firstVal = current[row];
+            const lastVal = current[row + bw - 1];
+            let sum = (r + 1) * firstVal;
+            for (let j = 0; j < r; j++) {
+              sum += current[row + Math.min(bw - 1, j)];
+            }
+            for (let x = 0; x <= r; x++) {
+              sum += current[row + Math.min(bw - 1, x + r)] - firstVal;
+              temp[row + x] = sum * iarrH;
+            }
+            for (let x = r + 1; x < bw - r; x++) {
+              sum += current[row + x + r] - current[row + x - r - 1];
+              temp[row + x] = sum * iarrH;
+            }
+            for (let x = Math.max(r + 1, bw - r); x < bw; x++) {
+              sum += lastVal - current[row + x - r - 1];
+              temp[row + x] = sum * iarrH;
+            }
+          }
+
+          // Vertical pass
+          const iarrV = 1 / (r + r + 1);
+          for (let x = 0; x < bw; x++) {
+            const firstVal = temp[x];
+            const lastVal = temp[(bh - 1) * bw + x];
+            let sum = (r + 1) * firstVal;
+            for (let j = 0; j < r; j++) {
+              sum += temp[Math.min(bh - 1, j) * bw + x];
+            }
+            for (let y = 0; y <= r; y++) {
+              sum += temp[Math.min(bh - 1, y + r) * bw + x] - firstVal;
+              current[y * bw + x] = sum * iarrV;
+            }
+            for (let y = r + 1; y < bh - r; y++) {
+              sum += temp[(y + r) * bw + x] - temp[(y - r - 1) * bw + x];
+              current[y * bw + x] = sum * iarrV;
+            }
+            for (let y = Math.max(r + 1, bh - r); y < bh; y++) {
+              sum += lastVal - temp[(y - r - 1) * bw + x];
+              current[y * bw + x] = sum * iarrV;
+            }
+          }
+        }
+
+        blurredMask = new Uint8Array(bw * bh);
+        for (let i = 0; i < bw * bh; i++) {
+          blurredMask[i] = Math.max(0, Math.min(255, Math.round(current[i])));
+        }
+      }
+
+      // 3. Blit local shadow onto layer
+      for (let y = 0; y < bh; y++) {
+        const destY = by0 + y;
+        if (destY >= lh) break;
+        const destRow = destY * lw;
+        const srcRow = y * bw;
+        for (let x = 0; x < bw; x++) {
+          const destX = bx0 + x;
+          if (destX >= lw) break;
+          const alphaVal = Math.round(blurredMask[srcRow + x] * shadowAlpha);
+          if (alphaVal > 0) {
+            const argb = ((alphaVal << 24) | (sB << 16) | (sG << 8) | sR) >>> 0;
+            pixels[destRow + destX] = this.blendFast(argb, pixels[destRow + destX]);
+          }
+        }
+      }
+    }
+
+    /**
+     * Scanline polygon fill in Quadro layer with procedural texture and gradient masking
+     */
+    fillPolygon(poly, argbColor, scale = 1.0, fillTexture = null, gradient = null, bounds = null, totalOpacity = 1.0) {
+      this.fillCompoundPolygons([poly], 'nonzero', argbColor, scale, fillTexture, gradient, bounds, totalOpacity);
+    }
+
+    /**
+     * Scanline compound polygons fill in Quadro layer (supports EvenOdd parity for holes & NonZero)
+     */
+    fillCompoundPolygons(polylines, fillRule = 'evenodd', fillArgb = 0xFFfabd2f, scale = 1.0, fillTexture = null, gradient = null, bounds = null, totalOpacity = 1.0) {
+      const exp = this.actor.exports;
+      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
+      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
+      const pixPtr = exp.w_layer_get_pixels(3);
+      if (!pixPtr || !this.actor.memory) return;
+
+      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+      if (!polylines || polylines.length === 0) return;
 
       let minY = lh, maxY = 0;
-      const scaledPts = poly.map(p => {
-        const x = Math.round(p.x * scale);
-        const y = Math.round(p.y * scale);
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-        return { x, y };
-      });
+      const scaledPolys = [];
+      for (const poly of polylines) {
+        if (!poly || poly.length < 3) continue;
+        const sPts = poly.map(p => {
+          const x = Math.round(p.x * scale);
+          const y = Math.round(p.y * scale);
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+          return { x, y };
+        });
+        scaledPolys.push(sPts);
+      }
 
       if (minY < 0) minY = 0;
       if (maxY >= lh) maxY = lh - 1;
+      if (minY > maxY) return;
 
-      const baseAlpha = (argbColor >>> 24) & 0xFF;
+      const baseAlpha = (fillArgb >>> 24) & 0xFF;
       const texMode = fillTexture ? (fillTexture.mode || 0) : 0;
       const texAngle = fillTexture ? (fillTexture.angle || 0) : 0;
       const texScale = Math.round((fillTexture ? (fillTexture.scale || 100) : 100) * scale);
@@ -307,15 +726,18 @@
       const nodeX = [];
       for (let y = minY; y <= maxY; y++) {
         nodeX.length = 0;
-        let j = n - 1;
-        for (let i = 0; i < n; i++) {
-          const pi = scaledPts[i];
-          const pj = scaledPts[j];
-          if ((pi.y < y && pj.y >= y) || (pj.y < y && pi.y >= y)) {
-            const x = Math.round(pi.x + (y - pi.y) / (pj.y - pi.y) * (pj.x - pi.x));
-            nodeX.push(x);
+        for (const pts of scaledPolys) {
+          const n = pts.length;
+          let j = n - 1;
+          for (let i = 0; i < n; i++) {
+            const pi = pts[i];
+            const pj = pts[j];
+            if ((pi.y < y && pj.y >= y) || (pj.y < y && pi.y >= y)) {
+              const x = Math.round(pi.x + (y - pi.y) / (pj.y - pi.y) * (pj.x - pi.x));
+              nodeX.push(x);
+            }
+            j = i;
           }
-          j = i;
         }
 
         nodeX.sort((a, b) => a - b);
@@ -327,10 +749,14 @@
             let x1 = nodeX[i + 1] >= lw ? lw - 1 : nodeX[i + 1];
             const row = y * lw;
             for (let x = x0; x <= x1; x++) {
-              let pixColor = argbColor;
+              let pixColor = fillArgb;
+              if (gradient && bounds) {
+                pixColor = sampleGradient(gradient, x, y, bounds, scale, totalOpacity);
+              }
               if (texMode > 0) {
-                const sampledA = sampleProceduralTexture(texMode, x, y, texAngle, texScale, texContrast, baseAlpha);
-                pixColor = ((sampledA << 24) | (argbColor & 0x00FFFFFF)) >>> 0;
+                const pA = (pixColor >>> 24) & 0xFF;
+                const sampledA = sampleProceduralTexture(texMode, x, y, texAngle, texScale, texContrast, pA);
+                pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
               }
               pixels[row + x] = this.blendFast(pixColor, pixels[row + x]);
             }
