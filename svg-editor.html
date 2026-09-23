@@ -585,6 +585,11 @@
         </div>
 
         <div class="grid-2" style="margin-top: 6px;">
+          <button id="btn-group-obj" title="Group Selected (Ctrl+G)">⊞ Group</button>
+          <button id="btn-ungroup-obj" title="Ungroup Selected (Ctrl+Shift+G)">⊟ Ungroup</button>
+        </div>
+
+        <div class="grid-2" style="margin-top: 6px;">
           <button id="btn-duplicate-obj">📑 Duplicate</button>
           <button id="btn-delete-obj" style="color: var(--danger);">🗑 Delete</button>
         </div>
@@ -936,20 +941,25 @@
         }
       }
 
-      // ── Object Hierarchy UI List ──
+      // ── Object Hierarchy UI List (Hierarchical Tree) ──
       function updateObjectList() {
         objectList.innerHTML = '';
-        // Render from Top (end of array) to Bottom (start of array)
-        for (let i = doc.objects.length - 1; i >= 0; i--) {
-          const obj = doc.objects[i];
-          const isSelected = doc.selectedIds.has(obj.id);
 
+        function renderNodeItem(obj, depth = 0) {
+          const isSelected = doc.selectedIds.has(obj.id);
+          const isGroup = obj.type === 'group';
           const item = document.createElement('div');
           item.className = `object-item ${isSelected ? 'selected' : ''}`;
+          if (depth > 0) item.style.marginLeft = `${depth * 14}px`;
+
+          const collapseIcon = isGroup ? (obj.collapsed ? '▶' : '▼') : '';
+          const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px;">${collapseIcon}</button>` : '';
+
           item.innerHTML = `
             <div class="obj-info">
+              ${collapseBtn}
               <span>${getIconForType(obj.type)}</span>
-              <span>${obj.name}</span>
+              <span style="font-size: 10px;">${obj.name}</span>
             </div>
             <div class="obj-actions">
               <button class="btn-icon" data-action="toggle-vis" title="Visibility">${obj.visible ? '👁' : 'Ø'}</button>
@@ -958,6 +968,11 @@
           `;
 
           item.addEventListener('click', (e) => {
+            if (e.target.dataset.action === 'toggle-collapse') {
+              obj.collapsed = !obj.collapsed;
+              render();
+              return;
+            }
             if (e.target.dataset.action === 'toggle-vis') {
               obj.visible = !obj.visible;
               render();
@@ -973,6 +988,17 @@
           });
 
           objectList.appendChild(item);
+
+          if (isGroup && !obj.collapsed && obj.children) {
+            for (let c = obj.children.length - 1; c >= 0; c--) {
+              renderNodeItem(obj.children[c], depth + 1);
+            }
+          }
+        }
+
+        // Render from Top (end of array) to Bottom (start of array)
+        for (let i = doc.objects.length - 1; i >= 0; i--) {
+          renderNodeItem(doc.objects[i], 0);
         }
       }
 
@@ -1168,7 +1194,9 @@
         if (activeTool === 'select') {
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
-            if (obj.type === 'rect') {
+            if (typeof obj.move === 'function') {
+              obj.move(dx, dy);
+            } else if (obj.type === 'rect') {
               obj.x += dx; obj.y += dy;
             } else if (obj.type === 'ellipse' || obj.type === 'circle') {
               obj.cx += dx; obj.cy += dy;
@@ -1296,6 +1324,14 @@
           render();
         } else if ((e.ctrlKey || e.metaKey) && key === 'y') {
           doc.redo();
+          render();
+        } else if ((e.ctrlKey || e.metaKey) && key === 'g') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            doc.ungroupSelected();
+          } else {
+            doc.groupSelected();
+          }
           render();
         } else if ((e.ctrlKey || e.metaKey) && key === 'd') {
           e.preventDefault();
@@ -1456,6 +1492,16 @@
       document.getElementById('btn-send-bot').addEventListener('click', () => {
         const sel = doc.getSelectedObjects()[0];
         if (sel) { doc.sendToBack(sel.id); render(); }
+      });
+
+      document.getElementById('btn-group-obj').addEventListener('click', () => {
+        doc.groupSelected();
+        render();
+      });
+
+      document.getElementById('btn-ungroup-obj').addEventListener('click', () => {
+        doc.ungroupSelected();
+        render();
       });
 
       document.getElementById('btn-duplicate-obj').addEventListener('click', () => {

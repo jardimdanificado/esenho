@@ -103,6 +103,47 @@ async function runSvgEngineTests() {
     console.log('⚠ roms/canvas.wasm not found, skipping WASM execution step');
   }
 
+  // 7. Test SVG Grouping & Hierarchical Operations
+  console.log('--- Testing SVG Grouping (<g>) & Scene Tree ---');
+  const activeRect = doc.findObject(rect.id);
+  const activeCircle = doc.findObject(circle.id);
+  assert(activeRect && activeCircle, 'Active rect and circle should be present in doc');
+
+  doc.clearSelection();
+  doc.select(activeRect.id);
+  doc.select(activeCircle.id, true); // multi-select
+  assert.strictEqual(doc.getSelectedObjects().length, 2, 'Should have 2 selected objects');
+
+  const group = doc.groupSelected('TestGroup');
+  assert(group instanceof SvgGroup, 'groupSelected should return SvgGroup instance');
+  assert.strictEqual(group.children.length, 2, 'Group should have 2 children');
+  assert.strictEqual(doc.objects.includes(group), true, 'Group should be in document objects');
+  assert.strictEqual(doc.objects.includes(activeRect), false, 'Rect should now be child of group, not in root');
+
+  // Test Group Bounds & Hit Testing
+  const grpBounds = group.getBounds();
+  assert(grpBounds.width > 300, 'Group bounds should encompass rect and circle');
+  assert.strictEqual(group.hitTest(100, 80), true, 'Group hit test on rect coordinate should return true');
+
+  // Test Group Move Propagation
+  const origRectX = activeRect.x;
+  group.move(25, 30);
+  assert.strictEqual(activeRect.x, origRectX + 25, 'Group move should offset child rect.x');
+
+  // Test Group XML Serialization
+  const grpXml = doc.toSVGString();
+  assert(grpXml.includes('<g id="'), 'SVG export should contain <g> element');
+  assert(grpXml.includes('</g>'), 'SVG export should properly close </g>');
+
+  // Test Ungroup
+  doc.clearSelection();
+  doc.select(group.id);
+  const okUngroup = doc.ungroupSelected();
+  assert.strictEqual(okUngroup, true, 'ungroupSelected should succeed');
+  assert.strictEqual(doc.objects.includes(activeRect), true, 'Rect should be restored to root objects');
+  assert.strictEqual(doc.objects.includes(group), false, 'Group should no longer be in root objects');
+  console.log('✔ SVG Grouping (<g>), hierarchy, move and ungroup passed');
+
   console.log('\nALL SVG OBJECT ENGINE & QUADRO RENDERER TESTS PASSED SUCCESSFULLY!');
 }
 

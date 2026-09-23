@@ -227,6 +227,11 @@
       return SvgNode.fromJSON(json);
     }
 
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+    }
+
     getBounds() {
       return { minX: this.x, minY: this.y, maxX: this.x, maxY: this.y, width: 0, height: 0 };
     }
@@ -494,6 +499,15 @@
       return poly;
     }
 
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+      for (const n of this.nodes) {
+        n.x += dx;
+        n.y += dy;
+      }
+    }
+
     getBounds() {
       if (this.nodes.length === 0) {
         return { minX: this.x, minY: this.y, maxX: this.x, maxY: this.y, width: 0, height: 0 };
@@ -641,6 +655,13 @@
       this.ry = Number(attributes.ry || 30);
     }
 
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+      this.cx += dx;
+      this.cy += dy;
+    }
+
     getBounds() {
       const sw = this.stroke && this.stroke !== 'none' ? this.strokeWidth / 2 : 0;
       return {
@@ -732,6 +753,15 @@
       this.fill = 'none';
     }
 
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+      this.x1 += dx;
+      this.y1 += dy;
+      this.x2 += dx;
+      this.y2 += dy;
+    }
+
     getBounds() {
       const sw = this.strokeWidth / 2;
       return {
@@ -779,6 +809,15 @@
           if (i % 2 === 0 && arr[i + 1] !== undefined) acc.push({ x: Number(val), y: Number(arr[i + 1]) });
           return acc;
         }, []);
+      }
+    }
+
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+      for (const p of this.points) {
+        p.x += dx;
+        p.y += dy;
       }
     }
 
@@ -853,6 +892,8 @@
     constructor(attributes = {}) {
       super('group', attributes);
       this.children = [];
+      this.collapsed = attributes.collapsed !== undefined ? !!attributes.collapsed : false;
+
       if (attributes.children && Array.isArray(attributes.children)) {
         this.children = attributes.children.map(c => {
           const child = SvgNode.fromJSON(c);
@@ -877,8 +918,44 @@
       return null;
     }
 
+    move(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+      for (const child of this.children) {
+        if (typeof child.move === 'function') {
+          child.move(dx, dy);
+        } else if (child.type === 'rect') {
+          child.x += dx; child.y += dy;
+        } else if (child.type === 'ellipse' || child.type === 'circle') {
+          child.cx += dx; child.cy += dy;
+        } else if (child.type === 'line') {
+          child.x1 += dx; child.y1 += dy;
+          child.x2 += dx; child.y2 += dy;
+        } else if (child.type === 'path') {
+          for (const n of child.nodes) {
+            n.x += dx; n.y += dy;
+          }
+        } else if (child.type === 'polygon' || child.type === 'polyline') {
+          for (const p of child.points) {
+            p.x += dx; p.y += dy;
+          }
+        }
+      }
+    }
+
+    hitTest(px, py, tolerance = 6) {
+      if (!this.visible || this.locked) return false;
+      for (let i = this.children.length - 1; i >= 0; i--) {
+        const c = this.children[i];
+        if (c.visible && !c.locked && c.hitTest(px, py, tolerance)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     getBounds() {
-      if (this.children.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+      if (this.children.length === 0) return { minX: this.x, minY: this.y, maxX: this.x, maxY: this.y, width: 0, height: 0 };
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const c of this.children) {
         if (!c.visible) continue;
@@ -886,6 +963,7 @@
         minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
         maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
       }
+      if (minX === Infinity) return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
       return { minX, minY, maxX, maxY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
     }
 
@@ -896,6 +974,7 @@
 
     toJSON() {
       const data = super.toJSON();
+      data.collapsed = this.collapsed;
       data.children = this.children.map(c => c.toJSON());
       return data;
     }
@@ -951,7 +1030,75 @@
     }
 
     findObject(id) {
-      return this.objects.find(o => o.id === id) || null;
+      const findRecursive = (list) => {
+        for (const o of list) {
+          if (o.id === id) return o;
+          if (o.type === 'group' && o.children) {
+            const res = findRecursive(o.children);
+            if (res) return res;
+          }
+        }
+        return null;
+      };
+      return findRecursive(this.objects);
+    }
+
+    /** Group Selected Objects */
+    groupSelected(groupName = null) {
+      const selected = this.getSelectedObjects();
+      if (selected.length === 0) return null;
+
+      // Find highest index among selected top-level items
+      let insertIdx = 0;
+      for (const item of selected) {
+        const idx = this.objects.indexOf(item);
+        if (idx > insertIdx) insertIdx = idx;
+      }
+
+      const group = new SvgGroup({
+        name: groupName || `Group ${generateId('grp').split('_')[1]}`
+      });
+
+      for (const item of selected) {
+        const idx = this.objects.indexOf(item);
+        if (idx !== -1) {
+          this.objects.splice(idx, 1);
+        }
+        group.add(item);
+      }
+
+      insertIdx = Math.min(insertIdx, this.objects.length);
+      this.objects.splice(insertIdx, 0, group);
+
+      this.selectedIds.clear();
+      this.selectedIds.add(group.id);
+      this.pushHistory('Group Objects');
+      return group;
+    }
+
+    /** Ungroup Selected Groups */
+    ungroupSelected() {
+      const selected = this.getSelectedObjects();
+      const groups = selected.filter(o => o.type === 'group');
+      if (groups.length === 0) return false;
+
+      this.selectedIds.clear();
+
+      for (const grp of groups) {
+        const idx = this.objects.indexOf(grp);
+        if (idx !== -1) {
+          this.objects.splice(idx, 1);
+          const kids = [...grp.children];
+          for (let k = 0; k < kids.length; k++) {
+            kids[k].parent = null;
+            this.objects.splice(idx + k, 0, kids[k]);
+            this.selectedIds.add(kids[k].id);
+          }
+        }
+      }
+
+      this.pushHistory('Ungroup Objects');
+      return true;
     }
 
     /** Z-Index Ordering */

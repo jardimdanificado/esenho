@@ -137,12 +137,15 @@
     /**
      * Render a single SvgNode into Quadro
      */
-    renderObject(obj, scale = 1.0) {
+    renderObject(obj, scale = 1.0, parentOpacity = 1.0) {
       if (!obj.visible) return;
+
+      const totalOpacity = (obj.opacity !== undefined ? obj.opacity : 1.0) * parentOpacity;
+      if (totalOpacity <= 0.001) return;
 
       if (obj.type === 'group') {
         for (const child of obj.children) {
-          this.renderObject(child, scale);
+          this.renderObject(child, scale, totalOpacity);
         }
         return;
       }
@@ -152,8 +155,6 @@
       if (typeof obj.toPath === 'function') {
         pathObj = obj.toPath();
       }
-
-      const totalOpacity = (obj.opacity !== undefined ? obj.opacity : 1.0);
 
       // 1. Render Fill
       if (obj.fill && obj.fill !== 'none') {
