@@ -8,7 +8,7 @@ const { EsenhoModule } = require('../src/esenho.js');
 async function runSvgEngineTests() {
   console.log('--- Testing SVG Object Model & Scene Graph ---');
 
-  const { Bezier, SvgDocument, SvgPath, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup } = SvgEngine;
+  const { Bezier, SvgDocument, SvgPath, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, PathNode } = SvgEngine;
 
   // 1. Test Bézier math
   const p0 = { x: 0, y: 0 };
@@ -232,14 +232,77 @@ async function runSvgEngineTests() {
         putImageData: () => {}
       })
     };
-    const okCanvas = renderer.renderToCanvas(doc3, mockCanvas);
-    assert.strictEqual(okCanvas, true, 'renderToCanvas should succeed');
-    assert.strictEqual(mockCanvas.width, 800);
-    assert.strictEqual(mockCanvas.height, 600);
-    console.log('✔ Real-time Quadro renderToCanvas & advanced dynamics execution passed');
+    const res2x = renderer.renderDocument(doc3, { scale: 2.0 });
+    assert.strictEqual(res2x.width, 1600);
+    assert.strictEqual(res2x.height, 1200);
+
+    const imgData2x = renderer.getImageData();
+    assert.strictEqual(imgData2x.width, 1600);
+    assert.strictEqual(imgData2x.height, 1200);
+    assert.strictEqual(imgData2x.data.length, 1600 * 1200 * 4);
+
+    const okCanvas = renderer.renderToCanvas(doc3, mockCanvas, { scale: 2.0 });
+    assert.strictEqual(okCanvas, true, 'renderToCanvas at 2x should succeed');
+    assert.strictEqual(mockCanvas.width, 1600);
+    assert.strictEqual(mockCanvas.height, 1200);
+    console.log('✔ Real-time Quadro renderToCanvas & 2x/4x scaled stroke/fill execution passed');
   }
 
-  console.log('✔ Brush dynamics and procedural textures roundtrip passed');
+  // 9. Test Convert to Path (Primitives -> Bézier SvgPath)
+  console.log('--- Testing Convert to Path & Geometry Editing ---');
+  const convDoc = new SvgDocument(800, 600);
+  const testRect = new SvgRect({ x: 20, y: 30, width: 100, height: 50, rx: 10, ry: 10, fill: '#fabd2f' });
+  const testCircle = new SvgCircle({ cx: 200, cy: 150, r: 40, fill: '#b8bb26' });
+  const testLine = new SvgLine({ x1: 50, y1: 50, x2: 150, y2: 150, stroke: '#fe8019', strokeWidth: 4 });
+  convDoc.addObject(testRect);
+  convDoc.addObject(testCircle);
+  convDoc.addObject(testLine);
+
+  convDoc.select(testRect.id);
+  convDoc.select(testCircle.id, true);
+  convDoc.select(testLine.id, true);
+
+  const okConvert = convDoc.convertSelectedToPath();
+  assert.strictEqual(okConvert, true, 'convertSelectedToPath should return true');
+  assert.strictEqual(convDoc.objects.length, 3);
+  
+  const convertedRectPath = convDoc.objects[0];
+  assert.strictEqual(convertedRectPath instanceof SvgPath, true, 'Converted rect should be an SvgPath');
+  assert.strictEqual(convertedRectPath.nodes.length, 8, 'Rounded rect should convert to 8-node smooth Bézier path');
+  assert.strictEqual(convertedRectPath.closed, true, 'Converted rect path should be closed');
+
+  const convertedCirclePath = convDoc.objects[1];
+  assert.strictEqual(convertedCirclePath instanceof SvgPath, true, 'Converted circle should be an SvgPath');
+  assert.strictEqual(convertedCirclePath.nodes.length, 4, 'Converted circle should have 4 Bézier nodes');
+  assert.strictEqual(convertedCirclePath.closed, true, 'Converted circle path should be closed');
+
+  const convertedLinePath = convDoc.objects[2];
+  assert.strictEqual(convertedLinePath instanceof SvgPath, true, 'Converted line should be an SvgPath');
+  assert.strictEqual(convertedLinePath.nodes.length, 2, 'Converted line should have 2 nodes');
+  assert.strictEqual(convertedLinePath.closed, false, 'Converted line path should not be closed');
+
+  console.log('✔ Convert to Bézier Path for rect, circle, line passed');
+
+  // 10. Test Independent / Cusped Bézier Handles (Breaking handle lock)
+  console.log('--- Testing Independent Cusped Bézier Handles ---');
+  const node = new PathNode(100, 100, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
+  
+  // In smooth mode, moving cpIn rotates cpOut
+  node.setAbsCpIn(100, 70); // moved cpIn to (0, -30)
+  assert.strictEqual(node.cpIn.x, 0);
+  assert.strictEqual(node.cpIn.y, -30);
+  assert.strictEqual(Math.round(node.cpOut.x), 0);
+  assert.strictEqual(Math.round(node.cpOut.y), 30);
+
+  // With forceIndependent (Alt key) or 'cusp' mode, moving cpIn does NOT touch cpOut
+  node.setAbsCpIn(70, 100, true); // moved cpIn to (-30, 0)
+  assert.strictEqual(node.cpIn.x, -30);
+  assert.strictEqual(node.cpIn.y, 0);
+  // cpOut remains untouched at (0, 30)
+  assert.strictEqual(Math.round(node.cpOut.x), 0);
+  assert.strictEqual(Math.round(node.cpOut.y), 30);
+  assert.strictEqual(node.type, 'cusp');
+  console.log('✔ Independent / Cusped Bézier handle control passed');
 
   console.log('\nALL SVG OBJECT ENGINE & QUADRO RENDERER TESTS PASSED SUCCESSFULLY!');
 }

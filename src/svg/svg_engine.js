@@ -370,9 +370,13 @@
       return { x: this.x + this.cpOut.x, y: this.y + this.cpOut.y };
     }
 
-    setAbsCpIn(ax, ay) {
+    setAbsCpIn(ax, ay, forceIndependent = false) {
       this.cpIn.x = ax - this.x;
       this.cpIn.y = ay - this.y;
+      if (forceIndependent || this.type === 'corner' || this.type === 'cusp') {
+        this.type = 'cusp';
+        return;
+      }
       if (this.type === 'symmetric') {
         this.cpOut.x = -this.cpIn.x;
         this.cpOut.y = -this.cpIn.y;
@@ -387,9 +391,13 @@
       }
     }
 
-    setAbsCpOut(ax, ay) {
+    setAbsCpOut(ax, ay, forceIndependent = false) {
       this.cpOut.x = ax - this.x;
       this.cpOut.y = ay - this.y;
+      if (forceIndependent || this.type === 'corner' || this.type === 'cusp') {
+        this.type = 'cusp';
+        return;
+      }
       if (this.type === 'symmetric') {
         this.cpIn.x = -this.cpOut.x;
         this.cpIn.y = -this.cpOut.y;
@@ -674,10 +682,26 @@
       });
       path.closed = true;
       const x = this.x, y = this.y, w = this.width, h = this.height;
-      path.addNode(x, y, null, null, 'corner');
-      path.addNode(x + w, y, null, null, 'corner');
-      path.addNode(x + w, y + h, null, null, 'corner');
-      path.addNode(x, y + h, null, null, 'corner');
+      const rx = Math.max(0, Math.min(this.rx || 0, w / 2));
+      const ry = Math.max(0, Math.min(this.ry || rx, h / 2));
+
+      if (rx > 0 && ry > 0) {
+        const k = 0.5522847498;
+        // 8-node rounded rect with smooth corners
+        path.addNode(x + rx, y, null, null, 'corner');
+        path.addNode(x + w - rx, y, null, { x: rx * k, y: 0 }, 'smooth');
+        path.addNode(x + w, y + ry, { x: 0, y: -ry * k }, null, 'smooth');
+        path.addNode(x + w, y + h - ry, null, { x: 0, y: ry * k }, 'smooth');
+        path.addNode(x + w - rx, y + h, { x: rx * k, y: 0 }, null, 'smooth');
+        path.addNode(x + rx, y + h, null, { x: -rx * k, y: 0 }, 'smooth');
+        path.addNode(x, y + h - ry, { x: 0, y: ry * k }, null, 'smooth');
+        path.addNode(x, y + ry, null, { x: 0, y: -ry * k }, 'smooth');
+      } else {
+        path.addNode(x, y, null, null, 'corner');
+        path.addNode(x + w, y, null, null, 'corner');
+        path.addNode(x + w, y + h, null, null, 'corner');
+        path.addNode(x, y + h, null, null, 'corner');
+      }
       return path;
     }
 
@@ -981,6 +1005,16 @@
       return null;
     }
 
+    replaceChild(oldId, newChild) {
+      const idx = this.children.findIndex(c => c.id === oldId);
+      if (idx !== -1) {
+        newChild.parent = this;
+        this.children[idx] = newChild;
+        return true;
+      }
+      return false;
+    }
+
     move(dx, dy) {
       this.x += dx;
       this.y += dy;
@@ -1224,7 +1258,41 @@
     }
 
     getSelectedObjects() {
-      return this.objects.filter(o => this.selectedIds.has(o.id));
+      const res = [];
+      const collect = (list) => {
+        for (const o of list) {
+          if (this.selectedIds.has(o.id)) res.push(o);
+          if (o.type === 'group' && o.children) collect(o.children);
+        }
+      };
+      collect(this.objects);
+      return res;
+    }
+
+    /** Convert Selected Shapes (Rect, Circle, Ellipse, Line) to Editable Bézier Paths */
+    convertSelectedToPath() {
+      const selected = this.getSelectedObjects();
+      let converted = false;
+      for (const obj of selected) {
+        if (typeof obj.toPath === 'function' && obj.type !== 'path') {
+          if (!converted) {
+            this.pushHistory('Convert to Path');
+            converted = true;
+          }
+          const pathObj = obj.toPath();
+          if (obj.parent && typeof obj.parent.replaceChild === 'function') {
+            obj.parent.replaceChild(obj.id, pathObj);
+          } else {
+            const idx = this.objects.indexOf(obj);
+            if (idx !== -1) {
+              this.objects[idx] = pathObj;
+            }
+          }
+          this.selectedIds.delete(obj.id);
+          this.selectedIds.add(pathObj.id);
+        }
+      }
+      return converted;
     }
 
     /** Hit Test topmost object */

@@ -617,14 +617,181 @@
           <span>Bézier Node Actions</span>
         </div>
         <div class="grid-2">
-          <button id="btn-node-smooth">∿ Smooth Node</button>
-          <button id="btn-node-corner">∠ Corner Node</button>
+          <button id="btn-node-smooth" title="Smooth: Aligned tangent handles">∿ Smooth</button>
+          <button id="btn-node-symmetric" title="Symmetric: Mirrored handles">⋈ Symmetric</button>
+        </div>
+        <div class="grid-2" style="margin-top: 4px;">
+          <button id="btn-node-cusp" title="Cusp / Independent: Move handles independently without moving the opposite handle">∠ Cusp (Unlock)</button>
+          <button id="btn-node-sharp" title="Sharp Corner: Clear handles">■ Sharp Corner</button>
         </div>
         <button id="btn-path-close" style="width: 100%; margin-top: 4px;">⟳ Toggle Close Path</button>
+        <button id="btn-node-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">☡ Convert Shape to Path</button>
+
+        <div class="section-title" style="margin-top: 14px;">
+          <span>Canvas & Viewport</span>
+        </div>
+        <div class="form-row">
+          <label>Preset Size</label>
+          <select id="prop-canvas-preset">
+            <option value="custom">-- Custom Size --</option>
+            <option value="800x600" selected>800 × 600 (Standard)</option>
+            <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
+            <option value="1280x720">1280 × 720 (HD 720p)</option>
+            <option value="1920x1080">1920 × 1080 (Full HD)</option>
+            <option value="2560x1440">2560 × 1440 (2K QHD)</option>
+            <option value="3840x2160">3840 × 2160 (4K UHD)</option>
+            <option value="512x512">512 × 512 (Icon)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Dimensions</label>
+          <div class="grid-2" style="width: 100%;">
+            <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
+            <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>BG Color</label>
+          <input type="text" id="prop-doc-bg" value="#1d2021">
+        </div>
+        <div class="form-row">
+          <label>Zoom Level</label>
+          <div style="display: flex; gap: 4px; width: 100%;">
+            <input type="number" id="prop-zoom-val" value="100" min="10" max="1000" step="10">
+            <button id="btn-zoom-fit-panel" style="font-size: 9px; padding: 2px 6px;" title="Zoom to Fit">Fit</button>
+          </div>
+        </div>
+
+        <div class="section-title" style="margin-top: 14px;">
+          <span>Quadro Render Scale</span>
+        </div>
+        <div class="form-row">
+          <label>Scale Factor</label>
+          <select id="prop-quadro-scale">
+            <option value="0.5">0.5× (Fast Draft)</option>
+            <option value="1.0" selected>1.0× (Native 1:1)</option>
+            <option value="1.5">1.5× (150% Super-Sample)</option>
+            <option value="2.0">2.0× (2× Retina Hi-DPI)</option>
+            <option value="3.0">3.0× (3× Ultra-Sample)</option>
+            <option value="4.0">4.0× (4× High-Res Print)</option>
+          </select>
+        </div>
       </div>
 
       <!-- Tab 2: Style & Transform Inspector -->
       <div class="tab-content" id="tab-style">
+        <div class="section-title">
+          <span>Geometry & Dimensions</span>
+          <span id="prop-geom-type" class="badge">None</span>
+        </div>
+
+        <div id="geom-container" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+          <!-- Rect Fields -->
+          <div id="geom-rect-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Position (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
+                <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Size (W × H)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
+                <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Corner Radius</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
+                <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Circle Fields -->
+          <div id="geom-circle-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Center (CX, CY)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
+                <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Radius (R)</label>
+              <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+            </div>
+          </div>
+
+          <!-- Ellipse Fields -->
+          <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Center (CX, CY)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
+                <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Radii (RX × RY)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
+                <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Line Fields -->
+          <div id="geom-line-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Start (X1, Y1)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
+                <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>End (X2, Y2)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-line-x2" step="1" title="End X (px)">
+                <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
+              </div>
+            </div>
+          </div>
+
+          <!-- Path / Group Bounds -->
+          <div id="geom-path-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Bounds (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-path-x" step="1" title="Min X (px)">
+                <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Size (W × H)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
+                <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Path Info</label>
+              <input type="text" id="prop-path-info" readonly style="color: var(--fg-dim); font-size: 10px;">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label>Opacity</label>
+            <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
+          </div>
+
+          <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert to Bézier Path</button>
+        </div>
+
         <div class="section-title">Fill Style</div>
         <div class="form-row">
           <label>Color</label>
@@ -889,18 +1056,7 @@
           <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
         </div>
 
-        <div class="section-title" style="margin-top: 10px;">Transform & Canvas</div>
-        <div class="form-row">
-          <label>Document</label>
-          <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-doc-w" value="800" title="Document Width">
-            <input type="number" id="prop-doc-h" value="600" title="Document Height">
-          </div>
-        </div>
-        <div class="form-row">
-          <label>BG Color</label>
-          <input type="text" id="prop-doc-bg" value="#1d2021">
-        </div>
+        <div class="section-title" style="margin-top: 10px;">Object Blend & Opacity</div>
         <div class="form-row">
           <label>Opacity</label>
           <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
@@ -965,6 +1121,9 @@
       let currentDraftObj = null;
       let activeNodeIdx = -1;
       let activeHandleType = null; // 'in', 'out', 'anchor'
+      let activeResizeHandle = null; // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
+      let initialBounds = null;
+      let initialObjectState = null;
       let hoveredObj = null;
 
       // ── DOM Elements ──
@@ -1017,6 +1176,7 @@
 
       const quadroCanvas = document.getElementById('quadro-canvas');
       let viewportRenderMode = 'quadro'; // 'quadro' | 'svg'
+      let quadroRenderScale = 1.0;
 
       // ── Stage & Viewport Updates ──
       function updateStageSize() {
@@ -1026,8 +1186,8 @@
         svgStage.setAttribute('height', doc.height);
         svgStage.setAttribute('viewBox', `0 0 ${doc.width} ${doc.height}`);
 
-        quadroCanvas.width = doc.width;
-        quadroCanvas.height = doc.height;
+        quadroCanvas.width = Math.round(doc.width * quadroRenderScale);
+        quadroCanvas.height = Math.round(doc.height * quadroRenderScale);
         quadroCanvas.style.width = `${doc.width}px`;
         quadroCanvas.style.height = `${doc.height}px`;
 
@@ -1042,6 +1202,10 @@
       function applyViewportTransform() {
         stageWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
         statusZoom.textContent = `${Math.round(zoom * 100)}%`;
+        const zoomInput = document.getElementById('prop-zoom-val');
+        if (zoomInput && document.activeElement !== zoomInput) {
+          zoomInput.value = Math.round(zoom * 100);
+        }
       }
 
       function zoomToFit() {
@@ -1072,7 +1236,7 @@
           svgStage.style.display = 'none';
           quadroCanvas.style.display = 'block';
           try {
-            quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: 1.0, background: true });
+            quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: quadroRenderScale, background: true });
           } catch (err) {
             console.warn('Realtime Quadro render error, fallback to SVG:', err);
             svgStage.style.display = 'block';
@@ -1323,8 +1487,86 @@
         propDocH.value = doc.height;
         propDocBg.value = doc.backgroundColor || '#1d2021';
 
-        if (selected.length === 0) return;
+        const propGeomType = document.getElementById('prop-geom-type');
+        const btnConvertPath = document.getElementById('btn-convert-path');
+        const allGeomGroups = document.querySelectorAll('.geom-group');
+        allGeomGroups.forEach(g => g.style.display = 'none');
+
+        if (selected.length === 0) {
+          if (propGeomType) propGeomType.textContent = 'None';
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+          return;
+        }
         const obj = selected[0];
+        if (propGeomType) propGeomType.textContent = obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
+
+        // Geometry & Dimensions Sync
+        if (obj.type === 'rect') {
+          const g = document.getElementById('geom-rect-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-rect-x').value = Math.round(obj.x);
+          document.getElementById('prop-rect-y').value = Math.round(obj.y);
+          document.getElementById('prop-rect-w').value = Math.round(obj.width);
+          document.getElementById('prop-rect-h').value = Math.round(obj.height);
+          document.getElementById('prop-rect-rx').value = obj.rx || 0;
+          document.getElementById('prop-rect-ry').value = obj.ry || 0;
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Rect to Bézier Path';
+          }
+        } else if (obj.type === 'circle') {
+          const g = document.getElementById('geom-circle-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-circle-cx').value = Math.round(obj.cx);
+          document.getElementById('prop-circle-cy').value = Math.round(obj.cy);
+          document.getElementById('prop-circle-r').value = Math.round(obj.r || obj.rx);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Circle to Bézier Path';
+          }
+        } else if (obj.type === 'ellipse') {
+          const g = document.getElementById('geom-ellipse-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-ellipse-cx').value = Math.round(obj.cx);
+          document.getElementById('prop-ellipse-cy').value = Math.round(obj.cy);
+          document.getElementById('prop-ellipse-rx').value = Math.round(obj.rx);
+          document.getElementById('prop-ellipse-ry').value = Math.round(obj.ry);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Ellipse to Bézier Path';
+          }
+        } else if (obj.type === 'line') {
+          const g = document.getElementById('geom-line-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-line-x1').value = Math.round(obj.x1);
+          document.getElementById('prop-line-y1').value = Math.round(obj.y1);
+          document.getElementById('prop-line-x2').value = Math.round(obj.x2);
+          document.getElementById('prop-line-y2').value = Math.round(obj.y2);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Line to Bézier Path';
+          }
+        } else if (obj.type === 'path') {
+          const g = document.getElementById('geom-path-fields');
+          if (g) g.style.display = 'block';
+          const b = obj.getBounds();
+          document.getElementById('prop-path-x').value = Math.round(b.minX);
+          document.getElementById('prop-path-y').value = Math.round(b.minY);
+          document.getElementById('prop-path-w').value = Math.round(b.width);
+          document.getElementById('prop-path-h').value = Math.round(b.height);
+          document.getElementById('prop-path-info').value = `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`;
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+        } else if (obj.type === 'group') {
+          const g = document.getElementById('geom-path-fields');
+          if (g) g.style.display = 'block';
+          const b = obj.getBounds();
+          document.getElementById('prop-path-x').value = Math.round(b.minX);
+          document.getElementById('prop-path-y').value = Math.round(b.minY);
+          document.getElementById('prop-path-w').value = Math.round(b.width);
+          document.getElementById('prop-path-h').value = Math.round(b.height);
+          document.getElementById('prop-path-info').value = `${obj.children ? obj.children.length : 0} objects inside`;
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+        }
 
         const fillColor = document.getElementById('prop-fill-color');
         const fillText = document.getElementById('prop-fill-text');
@@ -1406,15 +1648,61 @@
         isDragging = true;
 
         if (activeTool === 'select') {
-          const hit = doc.hitTest(pt.x, pt.y);
-          if (hit) {
-            doc.select(hit.id, e.shiftKey);
-          } else if (!e.shiftKey) {
-            doc.clearSelection();
+          activeResizeHandle = null;
+          initialBounds = null;
+          initialObjectState = null;
+
+          const selected = doc.getSelectedObjects();
+          if (selected.length === 1) {
+            const obj = selected[0];
+            const b = obj.getBounds();
+            const handles = [
+              { name: 'nw', x: b.minX, y: b.minY },
+              { name: 'n',  x: b.minX + b.width / 2, y: b.minY },
+              { name: 'ne', x: b.maxX, y: b.minY },
+              { name: 'e',  x: b.maxX, y: b.minY + b.height / 2 },
+              { name: 'se', x: b.maxX, y: b.maxY },
+              { name: 's',  x: b.minX + b.width / 2, y: b.maxY },
+              { name: 'sw', x: b.minX, y: b.maxY },
+              { name: 'w',  x: b.minX, y: b.minY + b.height / 2 }
+            ];
+            for (const h of handles) {
+              if (Math.hypot(pt.x - h.x, pt.y - h.y) <= 9 / zoom) {
+                activeResizeHandle = h.name;
+                initialBounds = { ...b };
+                initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+                break;
+              }
+            }
+          }
+
+          if (!activeResizeHandle) {
+            const hit = doc.hitTest(pt.x, pt.y);
+            if (hit) {
+              doc.select(hit.id, e.shiftKey);
+            } else if (!e.shiftKey) {
+              doc.clearSelection();
+            }
           }
           render();
+          updateInspector();
         } else if (activeTool === 'node') {
-          const selected = doc.getSelectedObjects();
+          let selected = doc.getSelectedObjects();
+          if (selected.length === 0) {
+            const hit = doc.hitTest(pt.x, pt.y);
+            if (hit) {
+              doc.select(hit.id);
+              selected = doc.getSelectedObjects();
+            }
+          }
+
+          // Auto-convert clicked primitive shape to Bézier path if node tool is used on it
+          if (selected.length > 0 && selected[0].type !== 'path' && typeof selected[0].toPath === 'function') {
+            doc.convertSelectedToPath();
+            selected = doc.getSelectedObjects();
+            updateObjectList();
+          }
+
           activeNodeIdx = -1;
           activeHandleType = null;
 
@@ -1446,6 +1734,7 @@
             if (activeNodeIdx !== -1) break;
           }
           render();
+          updateInspector();
         } else if (activeTool === 'pen') {
           let selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
           if (!selectedPath) {
@@ -1527,38 +1816,97 @@
         const dy = pt.y - dragStartY;
 
         if (activeTool === 'select') {
-          const selected = doc.getSelectedObjects();
-          for (const obj of selected) {
-            if (typeof obj.move === 'function') {
-              obj.move(dx, dy);
-            } else if (obj.type === 'rect') {
-              obj.x += dx; obj.y += dy;
-            } else if (obj.type === 'ellipse' || obj.type === 'circle') {
-              obj.cx += dx; obj.cy += dy;
-            } else if (obj.type === 'line') {
-              obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy;
-            } else if (obj.type === 'path') {
-              for (const n of obj.nodes) {
-                n.x += dx; n.y += dy;
+          if (activeResizeHandle && initialBounds && initialObjectState) {
+            const obj = doc.getSelectedObjects()[0];
+            if (obj) {
+              let newMinX = initialBounds.minX;
+              let newMinY = initialBounds.minY;
+              let newMaxX = initialBounds.maxX;
+              let newMaxY = initialBounds.maxY;
+
+              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, pt.x);
+              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, pt.x);
+              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, pt.y);
+              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, pt.y);
+
+              const newW = Math.max(1, newMaxX - newMinX);
+              const newH = Math.max(1, newMaxY - newMinY);
+
+              if (obj.type === 'rect') {
+                obj.x = newMinX;
+                obj.y = newMinY;
+                obj.width = newW;
+                obj.height = newH;
+              } else if (obj.type === 'circle') {
+                const nr = Math.max(1, Math.round(Math.min(newW, newH) / 2));
+                obj.cx = newMinX + nr;
+                obj.cy = newMinY + nr;
+                obj.r = nr;
+                obj.rx = nr;
+                obj.ry = nr;
+              } else if (obj.type === 'ellipse') {
+                obj.rx = Math.max(1, Math.round(newW / 2));
+                obj.ry = Math.max(1, Math.round(newH / 2));
+                obj.cx = newMinX + obj.rx;
+                obj.cy = newMinY + obj.ry;
+              } else if (obj.type === 'line') {
+                const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
+                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
+                obj.x1 = newMinX + (initialObjectState.x1 - initialBounds.minX) * sx;
+                obj.y1 = newMinY + (initialObjectState.y1 - initialBounds.minY) * sy;
+                obj.x2 = newMinX + (initialObjectState.x2 - initialBounds.minX) * sx;
+                obj.y2 = newMinY + (initialObjectState.y2 - initialBounds.minY) * sy;
+              } else if (obj.type === 'path') {
+                const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
+                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
+                for (let i = 0; i < obj.nodes.length; i++) {
+                  const orig = initialObjectState.nodes[i];
+                  obj.nodes[i].x = newMinX + (orig.x - initialBounds.minX) * sx;
+                  obj.nodes[i].y = newMinY + (orig.y - initialBounds.minY) * sy;
+                  obj.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
+                  obj.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
+                }
+              }
+              render();
+              updateInspector();
+            }
+          } else {
+            const selected = doc.getSelectedObjects();
+            for (const obj of selected) {
+              if (typeof obj.move === 'function') {
+                obj.move(dx, dy);
+              } else if (obj.type === 'rect') {
+                obj.x += dx; obj.y += dy;
+              } else if (obj.type === 'ellipse' || obj.type === 'circle') {
+                obj.cx += dx; obj.cy += dy;
+              } else if (obj.type === 'line') {
+                obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy;
+              } else if (obj.type === 'path') {
+                for (const n of obj.nodes) {
+                  n.x += dx; n.y += dy;
+                }
               }
             }
+            dragStartX = pt.x;
+            dragStartY = pt.y;
+            render();
+            updateInspector();
           }
-          dragStartX = pt.x;
-          dragStartY = pt.y;
-          render();
         } else if (activeTool === 'node' && activeNodeIdx !== -1) {
           const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
           if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
             const node = selectedPath.nodes[activeNodeIdx];
+            const forceIndep = e.altKey; // Holding Alt/Option unlocks handle independently
             if (activeHandleType === 'anchor') {
               node.x = pt.x;
               node.y = pt.y;
             } else if (activeHandleType === 'in') {
-              node.setAbsCpIn(pt.x, pt.y);
+              node.setAbsCpIn(pt.x, pt.y, forceIndep);
             } else if (activeHandleType === 'out') {
-              node.setAbsCpOut(pt.x, pt.y);
+              node.setAbsCpOut(pt.x, pt.y, forceIndep);
             }
             render();
+            updateInspector();
           }
         } else if (activeTool === 'pen' && activeNodeIdx !== -1) {
           const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
@@ -1601,9 +1949,15 @@
         }
         if (isDragging) {
           isDragging = false;
+          const wasResizing = !!activeResizeHandle;
+          const wasDrafting = !!currentDraftObj;
+          activeResizeHandle = null;
+          initialBounds = null;
+          initialObjectState = null;
           currentDraftObj = null;
-          doc.pushHistory('Edit Scene Graph');
+          doc.pushHistory(wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'));
           render();
+          updateInspector();
         }
       });
 
@@ -1722,7 +2076,7 @@
           return;
         }
         try {
-          quadroRenderer.renderDocument(doc, { scale: 1.0 });
+          quadroRenderer.renderDocument(doc, { scale: quadroRenderScale });
           const imgData = quadroRenderer.getImageData();
           if (imgData) {
             const cvs = document.createElement('canvas');
@@ -1908,20 +2262,54 @@
         render();
       });
 
+      // Canvas & Viewport Presets and Scale
+      document.getElementById('prop-canvas-preset').addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'custom') return;
+        const [w, h] = val.split('x').map(Number);
+        if (w && h) {
+          doc.width = w;
+          doc.height = h;
+          document.getElementById('prop-doc-w').value = w;
+          document.getElementById('prop-doc-h').value = h;
+          updateStageSize();
+          zoomToFit();
+          render();
+        }
+      });
+
       document.getElementById('prop-doc-w').addEventListener('change', (e) => {
-        doc.width = Number(e.target.value);
+        doc.width = Math.max(16, Math.min(8192, Number(e.target.value) || 800));
+        document.getElementById('prop-canvas-preset').value = 'custom';
         updateStageSize();
         render();
       });
 
       document.getElementById('prop-doc-h').addEventListener('change', (e) => {
-        doc.height = Number(e.target.value);
+        doc.height = Math.max(16, Math.min(8192, Number(e.target.value) || 600));
+        document.getElementById('prop-canvas-preset').value = 'custom';
         updateStageSize();
         render();
       });
 
       document.getElementById('prop-doc-bg').addEventListener('change', (e) => {
         doc.backgroundColor = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-zoom-val').addEventListener('change', (e) => {
+        const zPct = Number(e.target.value) || 100;
+        zoom = Math.max(0.1, Math.min(10.0, zPct / 100));
+        applyViewportTransform();
+        render();
+      });
+
+      const btnFitPanel = document.getElementById('btn-zoom-fit-panel');
+      if (btnFitPanel) btnFitPanel.addEventListener('click', zoomToFit);
+
+      document.getElementById('prop-quadro-scale').addEventListener('change', (e) => {
+        quadroRenderScale = Number(e.target.value) || 1.0;
+        updateStageSize();
         render();
       });
 
@@ -1970,15 +2358,134 @@
         render();
       });
 
+      // Geometry & Dimensions Bindings
+      const rectParamMap = { 'rect-x': 'x', 'rect-y': 'y', 'rect-w': 'width', 'rect-h': 'height', 'rect-rx': 'rx', 'rect-ry': 'ry' };
+      Object.entries(rectParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'rect') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      const circleParamMap = { 'circle-cx': 'cx', 'circle-cy': 'cy', 'circle-r': 'r' };
+      Object.entries(circleParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'circle') {
+              obj[propKey] = val;
+              if (propKey === 'r') { obj.rx = val; obj.ry = val; }
+            }
+          }
+          render();
+        });
+      });
+
+      const ellipseParamMap = { 'ellipse-cx': 'cx', 'ellipse-cy': 'cy', 'ellipse-rx': 'rx', 'ellipse-ry': 'ry' };
+      Object.entries(ellipseParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'ellipse') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      const lineParamMap = { 'line-x1': 'x1', 'line-y1': 'y1', 'line-x2': 'x2', 'line-y2': 'y2' };
+      Object.entries(lineParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'line') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      ['path-x', 'path-y', 'path-w', 'path-h'].forEach(idSuffix => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('change', () => {
+          const newX = Number(document.getElementById('prop-path-x').value);
+          const newY = Number(document.getElementById('prop-path-y').value);
+          const newW = Number(document.getElementById('prop-path-w').value);
+          const newH = Number(document.getElementById('prop-path-h').value);
+
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            const b = obj.getBounds();
+            if (b.width <= 0 || b.height <= 0) continue;
+            const sx = (newW > 0) ? newW / b.width : 1;
+            const sy = (newH > 0) ? newH / b.height : 1;
+            if (obj.type === 'path') {
+              for (const n of obj.nodes) {
+                n.x = newX + (n.x - b.minX) * sx;
+                n.y = newY + (n.y - b.minY) * sy;
+                n.cpIn.x *= sx; n.cpIn.y *= sy;
+                n.cpOut.x *= sx; n.cpOut.y *= sy;
+              }
+            }
+          }
+          render();
+        });
+      });
+
+      function handleConvertToPath() {
+        if (doc.convertSelectedToPath()) {
+          updateObjectList();
+          updateInspector();
+          render();
+        }
+      }
+      const btnConvertPath = document.getElementById('btn-convert-path');
+      if (btnConvertPath) btnConvertPath.addEventListener('click', handleConvertToPath);
+
+      const btnNodeConvertPath = document.getElementById('btn-node-convert-path');
+      if (btnNodeConvertPath) btnNodeConvertPath.addEventListener('click', handleConvertToPath);
+
       // Bézier Node Actions
       document.getElementById('btn-node-smooth').addEventListener('click', () => {
         const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
         if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
-          selectedPath.nodes[activeNodeIdx].type = 'smooth';
+          const node = selectedPath.nodes[activeNodeIdx];
+          node.type = 'smooth';
+          node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
           render();
         }
       });
-      document.getElementById('btn-node-corner').addEventListener('click', () => {
+      document.getElementById('btn-node-symmetric').addEventListener('click', () => {
+        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+        if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
+          const node = selectedPath.nodes[activeNodeIdx];
+          node.type = 'symmetric';
+          node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+          render();
+        }
+      });
+      document.getElementById('btn-node-cusp').addEventListener('click', () => {
+        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+        if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
+          selectedPath.nodes[activeNodeIdx].type = 'cusp';
+          render();
+        }
+      });
+      document.getElementById('btn-node-sharp').addEventListener('click', () => {
         const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
         if (selectedPath && selectedPath.nodes[activeNodeIdx]) {
           selectedPath.nodes[activeNodeIdx].type = 'corner';

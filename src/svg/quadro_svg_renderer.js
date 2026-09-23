@@ -264,7 +264,8 @@
               Math.max(1, Math.round(obj.strokeWidth * scale)),
               pathObj.closed,
               obj.brushConfig,
-              obj.strokeTexture
+              obj.strokeTexture,
+              scale
             );
           }
         }
@@ -300,7 +301,7 @@
       const baseAlpha = (argbColor >>> 24) & 0xFF;
       const texMode = fillTexture ? (fillTexture.mode || 0) : 0;
       const texAngle = fillTexture ? (fillTexture.angle || 0) : 0;
-      const texScale = fillTexture ? (fillTexture.scale || 100) : 100;
+      const texScale = Math.round((fillTexture ? (fillTexture.scale || 100) : 100) * scale);
       const texContrast = fillTexture ? (fillTexture.contrast || 100) : 100;
 
       const nodeX = [];
@@ -341,7 +342,7 @@
     /**
      * Anti-aliased stroke drawing via Quadro brush engine with dynamics and textures
      */
-    strokePolyline(poly, argbColor, strokeWidth = 2, closed = false, brushConfig = null, strokeTexture = null) {
+    strokePolyline(poly, argbColor, strokeWidth = 2, closed = false, brushConfig = null, strokeTexture = null, scale = 1.0) {
       const exp = this.actor.exports;
       exp.w_brush_set_param(1 /* SIZE */, strokeWidth);
       exp.w_brush_set_param(2 /* OPACITY */, 100);
@@ -357,7 +358,8 @@
       exp.w_brush_set_param(13 /* TEX_MODE */, strokeTexture?.mode !== undefined ? strokeTexture.mode : (brushConfig?.texture_mode !== undefined ? brushConfig.texture_mode : 0));
       exp.w_brush_set_param(14 /* SHAPE */, brushConfig?.shape !== undefined ? brushConfig.shape : 0);
       exp.w_brush_set_param(16 /* TEX_ANGLE */, strokeTexture?.angle !== undefined ? strokeTexture.angle : 0);
-      exp.w_brush_set_param(17 /* TEX_SCALE */, strokeTexture?.scale !== undefined ? strokeTexture.scale : 100);
+      const texScale = Math.round((strokeTexture?.scale !== undefined ? strokeTexture.scale : (brushConfig?.texture_scale !== undefined ? brushConfig.texture_scale : 100)) * scale);
+      exp.w_brush_set_param(17 /* TEX_SCALE */, texScale);
       exp.w_brush_set_param(21 /* TEX_CONTRAST */, strokeTexture?.contrast !== undefined ? strokeTexture.contrast : 100);
       exp.w_brush_set_param(22 /* AUTO_ROTATE */, brushConfig?.auto_rotate !== undefined ? brushConfig.auto_rotate : (brushConfig?.autoRotate ? 1 : 0));
       exp.w_brush_set_param(23 /* VELOCITY */, brushConfig?.velocity !== undefined ? brushConfig.velocity : 0);
@@ -370,24 +372,25 @@
       exp.w_brush_set_param(33 /* DEPLETION */, brushConfig?.depletion !== undefined ? brushConfig.depletion : 0);
       exp.w_brush_set_param(34 /* COLOR_PICKUP */, brushConfig?.color_pickup !== undefined ? brushConfig.color_pickup : (brushConfig?.colorPickup !== undefined ? brushConfig.colorPickup : 0));
 
-      const n = poly.length;
+      const pts = scale === 1.0 ? poly : poly.map(p => ({ x: Math.round(p.x * scale), y: Math.round(p.y * scale) }));
+      const n = pts.length;
       if (n === 1) {
-        exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[0].x, poly[0].y, argbColor, 0, 1000, 0, 0);
-        exp.w_brush_stroke_ext(2, poly[0].x, poly[0].y, poly[0].x, poly[0].y, argbColor, 0, 1000, 0, 0);
+        exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, 1000, 0, 0);
+        exp.w_brush_stroke_ext(2, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, 1000, 0, 0);
         return;
       }
 
-      exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[1].x, poly[1].y, argbColor, 0, 1000, 0, 0);
+      exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[1].x, pts[1].y, argbColor, 0, 1000, 0, 0);
       for (let i = 2; i < n; i++) {
-        exp.w_brush_stroke_ext(1, poly[i].x, poly[i].y, poly[i - 1].x, poly[i - 1].y, argbColor, 0, 1000, 0, 0);
+        exp.w_brush_stroke_ext(1, pts[i].x, pts[i].y, pts[i - 1].x, pts[i - 1].y, argbColor, 0, 1000, 0, 0);
       }
 
       if (closed && n >= 3) {
-        exp.w_brush_stroke_ext(1, poly[0].x, poly[0].y, poly[n - 1].x, poly[n - 1].y, argbColor, 0, 1000, 0, 0);
+        exp.w_brush_stroke_ext(1, pts[0].x, pts[0].y, pts[n - 1].x, pts[n - 1].y, argbColor, 0, 1000, 0, 0);
       }
 
-      const last = closed ? poly[0] : poly[n - 1];
-      const prev = closed ? poly[n - 1] : poly[n - 2];
+      const last = closed ? pts[0] : pts[n - 1];
+      const prev = closed ? pts[n - 1] : pts[n - 2];
       exp.w_brush_stroke_ext(2, last.x, last.y, prev.x, prev.y, argbColor, 0, 1000, 0, 0);
     }
 
