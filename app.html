@@ -2529,7 +2529,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.8.6 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.8.7 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3549,6 +3549,85 @@
         console.warn('Service worker registration failed:', err);
       });
     });
+  }
+
+  // Embedded Mode for SVG Vector Editor
+  if (new URLSearchParams(window.location.search).get('embedded') === 'true') {
+    let editId = null;
+
+    window.addEventListener('message', (e) => {
+      if (e.data.type === 'INIT_EDIT') {
+        editId = e.data.id;
+        if (window.W) {
+          const img = new Image();
+          img.onload = () => {
+            // Resize canvas to match the image precisely
+            window.W.w_init(e.data.width || img.width, e.data.height || img.height);
+            // We need to blit the image into the background layer or layer 3
+            // Since this is UI, let's just use canvas drawImage temporarily 
+            // and trigger the WASM layer update if possible.
+            // For now, let's just trigger a host load action.
+            const cvs = document.createElement('canvas');
+            cvs.width = e.data.width || img.width;
+            cvs.height = e.data.height || img.height;
+            const ctx = cvs.getContext('2d');
+            ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
+            const idata = ctx.getImageData(0, 0, cvs.width, cvs.height);
+            if (window.W.exports.w_layer_get_pixels) {
+               const ptr = window.W.exports.w_layer_get_pixels(3);
+               if (ptr) {
+                 const u32 = new Uint32Array(window.W.memory.buffer, ptr, cvs.width * cvs.height);
+                 u32.set(new Uint32Array(idata.data.buffer));
+                 window.W.force_composite();
+               }
+            }
+          };
+          img.src = e.data.src;
+        }
+      }
+    });
+
+    // Create Save and Cancel buttons in top bar
+    const bar = document.getElementById('ip-top-fixed-group');
+    if (bar) {
+      // Hide home button
+      const homeBtn = document.getElementById('btn-ip-home');
+      if (homeBtn) homeBtn.style.display = 'none';
+
+      const saveBtn = document.createElement('button');
+      saveBtn.className = 'ip-btn-icon';
+      saveBtn.style.cssText = 'color: #fabd2f; font-weight: bold; font-size: 11px; width: auto; padding: 0 10px; border: 1px solid #fabd2f; border-radius: 4px; margin-left: 10px;';
+      saveBtn.textContent = '✓ SAVE TO VECTOR';
+      saveBtn.onclick = () => {
+         if (window.W && window.W.exports.w_layer_get_pixels) {
+            const w = window.W.exports.w_layer_get_width(0);
+            const h = window.W.exports.w_layer_get_height(0);
+            window.W.force_composite();
+            
+            const cvs = document.createElement('canvas');
+            cvs.width = w; cvs.height = h;
+            const ctx = cvs.getContext('2d');
+            const imgData = ctx.createImageData(w, h);
+            
+            const pPtr = window.W.exports.w_layer_get_pixels(0);
+            const u8 = new Uint8Array(window.W.memory.buffer, pPtr, w * h * 4);
+            imgData.data.set(u8);
+            ctx.putImageData(imgData, 0, 0);
+
+            const src = cvs.toDataURL('image/png');
+            window.parent.postMessage({ type: 'SAVE_EDIT', id: editId, src: src }, '*');
+         }
+      };
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.className = 'ip-btn-icon';
+      cancelBtn.style.cssText = 'color: #fb4934; font-weight: bold; font-size: 11px; width: auto; padding: 0 10px; margin-left: 4px; border: 1px solid #fb4934; border-radius: 4px;';
+      cancelBtn.textContent = '✕ CANCEL';
+      cancelBtn.onclick = () => window.parent.postMessage({ type: 'CANCEL_EDIT' }, '*');
+
+      bar.appendChild(saveBtn);
+      bar.appendChild(cancelBtn);
+    }
   }
 </script>
 </body>

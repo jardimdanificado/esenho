@@ -396,6 +396,7 @@
         case 'polygon': return SvgPolygon.fromJSON(data);
         case 'polyline': return SvgPolyline.fromJSON(data);
         case 'group': return SvgGroup.fromJSON(data);
+        case 'image': return SvgImage.fromJSON(data);
         default: return new SvgNode(data.type, data);
       }
     }
@@ -1538,6 +1539,64 @@
   }
 
   /* =========================================================================
+   * SvgImage Object
+   * ========================================================================= */
+
+  class SvgImage extends SvgNode {
+    constructor(attributes = {}) {
+      super('image', attributes);
+      this.width = Number(attributes.width || 100);
+      this.height = Number(attributes.height || 100);
+      this.src = attributes.src || '';
+      this._imgElement = attributes._imgElement || null;
+
+      if (!this._imgElement && this.src && typeof Image !== 'undefined') {
+        const img = new Image();
+        img.onload = () => { this._imgElement = img; };
+        img.src = this.src;
+      }
+    }
+
+    getBounds() {
+      return {
+        minX: this.x,
+        minY: this.y,
+        maxX: this.x + this.width,
+        maxY: this.y + this.height,
+        width: this.width,
+        height: this.height
+      };
+    }
+
+    toPath() {
+      const path = new SvgPath({ closed: true });
+      path.addNode(this.x, this.y, null, null, 'corner');
+      path.addNode(this.x + this.width, this.y, null, null, 'corner');
+      path.addNode(this.x + this.width, this.y + this.height, null, null, 'corner');
+      path.addNode(this.x, this.y + this.height, null, null, 'corner');
+      return path;
+    }
+
+    toSVGElement() {
+      const href = this.src ? ` href="${escapeXml(this.src)}"` : '';
+      const filter = this.getSvgFilterAttribute();
+      return `<image id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${href} opacity="${this.opacity}" preserveAspectRatio="none"${filter}${this.getExtraSVGAttributes()} />`;
+    }
+
+    toJSON() {
+      const data = super.toJSON();
+      data.width = this.width;
+      data.height = this.height;
+      data.src = this.src;
+      return data;
+    }
+
+    static fromJSON(data) {
+      return new SvgImage(data);
+    }
+  }
+
+  /* =========================================================================
    * SvgDocument (Root Scene Graph Container)
    * ========================================================================= */
 
@@ -2192,11 +2251,20 @@
               ...baseProps,
               points: getAttr('points', '')
             });
+          } else if (tag === 'image') {
+            return new SvgImage({
+              ...baseProps,
+              x: parseFloat(getAttr('x', '0')),
+              y: parseFloat(getAttr('y', '0')),
+              width: parseFloat(getAttr('width', '100')),
+              height: parseFloat(getAttr('height', '100')),
+              src: getAttr('href', '')
+            });
           }
           return null;
         };
 
-        const tagRegex = /<(path|rect|circle|ellipse|line|polygon|polyline)\b([^>]*)\/?>/ig;
+        const tagRegex = /<(path|rect|circle|ellipse|line|polygon|polyline|image)\b([^>]*)\/?>/ig;
         let match;
         while ((match = tagRegex.exec(svgString)) !== null) {
           const tagName = match[1].toLowerCase();
@@ -2245,6 +2313,7 @@
     SvgPolygon,
     SvgPolyline,
     SvgGroup,
+    SvgImage,
     SvgDocument,
     generateId
   };

@@ -539,6 +539,8 @@
       </div>
       <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
       <button id="btn-import-svg">📂 Open SVG</button>
+      <button id="btn-import-img" title="Import Raster Image">🖼 Import Image</button>
+      <input type="file" id="file-import-img" accept="image/*" style="display: none;">
       <button id="btn-export-svg" class="btn-primary">💾 Save SVG</button>
       <button id="btn-render-quadro" title="Export PNG rasterized with Quadro C WASM engine">🖼 Export PNG</button>
       <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
@@ -589,6 +591,8 @@
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg"></svg>
         <canvas id="overlay-canvas"></canvas>
       </div>
+      <!-- Embedded Raster Painter -->
+      <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
     </div>
 
     <!-- Right Sidebar (Scene Graph & Inspector) -->
@@ -624,6 +628,7 @@
           <button id="btn-duplicate-obj">📑 Duplicate</button>
           <button id="btn-delete-obj" style="color: var(--danger);">🗑 Delete</button>
         </div>
+        <button id="btn-rasterize" style="width: 100%; margin-top: 6px; border-color: var(--accent); color: var(--accent);" title="Rasterize selected vector objects into an Image">🖼 Rasterize to Image</button>
 
         <div class="section-title" style="margin-top: 14px;">
           <span>Bézier Node Actions</span>
@@ -831,6 +836,26 @@
               </div>
               <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--red); color: var(--red);" title="Remove this anchor point from the path (or press Delete/Backspace)">🗑 Remove Selected Anchor</button>
             </div>
+          </div>
+
+          <!-- Image Fields -->
+          <div id="geom-image-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Position (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-img-x" step="1" title="Position X (px)">
+                <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Size (W × H)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
+                <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
+              </div>
+            </div>
+            <button id="btn-edit-raster" style="width: 100%; margin-top: 8px; border-color: var(--accent); color: var(--accent);">🖌 Edit Raster in Painter</button>
+            <button id="btn-trace-vector" style="width: 100%; margin-top: 4px; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
           </div>
 
           <!-- Text Fields -->
@@ -1784,6 +1809,16 @@
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Line to Bézier Path';
           }
+        } else if (obj.type === 'image') {
+          const g = document.getElementById('geom-image-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-img-x').value = Math.round(obj.x);
+          document.getElementById('prop-img-y').value = Math.round(obj.y);
+          document.getElementById('prop-img-w').value = Math.round(obj.width);
+          document.getElementById('prop-img-h').value = Math.round(obj.height);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'none';
+          }
         } else if (obj.type === 'text') {
           const g = document.getElementById('geom-text-fields');
           if (g) g.style.display = 'block';
@@ -2487,6 +2522,32 @@
         }
       });
 
+      // Import Raster Image
+      const fileInputImg = document.getElementById('file-import-img');
+      document.getElementById('btn-import-img').addEventListener('click', () => fileInputImg.click());
+      fileInputImg.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const img = new Image();
+            img.onload = () => {
+              const svgImage = new SvgEngine.SvgImage({
+                x: 0,
+                y: 0,
+                width: img.width,
+                height: img.height,
+                src: evt.target.result
+              });
+              doc.addObject(svgImage);
+              render();
+            };
+            img.src = evt.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
       // Render with Quadro WASM
       document.getElementById('btn-render-quadro').addEventListener('click', () => {
         if (!quadroRenderer) {
@@ -2516,6 +2577,66 @@
           }
         } catch (err) {
           alert('Quadro render error: ' + err.message);
+        }
+      });
+
+      // Rasterize to Image Object
+      document.getElementById('btn-rasterize')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        if (selected.length === 0 || !quadroRenderer) return;
+
+        // Bounding box of selection
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const obj of selected) {
+          const b = obj.getBounds ? obj.getBounds() : { minX: obj.x, minY: obj.y, maxX: obj.x, maxY: obj.y };
+          minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
+          maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
+        }
+        if (minX === Infinity) return;
+
+        // Add padding
+        minX -= 4; minY -= 4; maxX += 4; maxY += 4;
+        const w = Math.ceil(maxX - minX);
+        const h = Math.ceil(maxY - minY);
+        if (w <= 0 || h <= 0) return;
+
+        // Temporary doc
+        const tempDoc = new SvgEngine.SvgDocument(w, h);
+        tempDoc.backgroundColor = 'transparent';
+        
+        for (const obj of selected) {
+          const clone = obj.clone();
+          clone.move(-minX, -minY);
+          tempDoc.addObject(clone);
+        }
+
+        try {
+          quadroRenderer.renderDocument(tempDoc, { scale: 1.0, background: false });
+          const imgData = quadroRenderer.getImageData();
+          if (imgData) {
+            const cvs = document.createElement('canvas');
+            cvs.width = w; cvs.height = h;
+            const ctx2d = cvs.getContext('2d');
+            const img = ctx2d.createImageData(w, h);
+            img.data.set(imgData.data);
+            ctx2d.putImageData(img, 0, 0);
+
+            const src = cvs.toDataURL('image/png');
+            const newImage = new Image();
+            newImage.onload = () => {
+              const svgImage = new SvgEngine.SvgImage({ x: minX, y: minY, width: w, height: h, src: src });
+              svgImage._imgElement = newImage;
+              selected.forEach(o => doc.removeObject(o.id));
+              doc.addObject(svgImage);
+              doc.clearSelection();
+              doc.select(svgImage.id);
+              updateObjectList();
+              render();
+            };
+            newImage.src = src;
+          }
+        } catch (e) {
+          console.error(e);
         }
       });
 
@@ -2880,6 +3001,20 @@
         });
       });
 
+      const imgParamMap = { 'img-x': 'x', 'img-y': 'y', 'img-w': 'width', 'img-h': 'height' };
+      Object.entries(imgParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'image') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
       ['path-x', 'path-y', 'path-w', 'path-h'].forEach(idSuffix => {
         const el = document.getElementById(`prop-${idSuffix}`);
         if (!el) return;
@@ -3117,6 +3252,115 @@
           }
           render();
         });
+      });
+
+      // Image Raster Editor
+      document.getElementById('btn-edit-raster')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj) return;
+
+        const iframe = document.getElementById('painter-iframe');
+        iframe.src = 'app.html?embedded=true';
+        iframe.style.display = 'block';
+
+        iframe.onload = () => {
+          iframe.contentWindow.postMessage({
+            type: 'INIT_EDIT',
+            src: imgObj.src,
+            width: imgObj.width,
+            height: imgObj.height,
+            id: imgObj.id
+          }, '*');
+        };
+      });
+
+      window.addEventListener('message', (e) => {
+        if (e.data.type === 'SAVE_EDIT') {
+          const iframe = document.getElementById('painter-iframe');
+          iframe.style.display = 'none';
+          iframe.src = 'about:blank'; // Free memory
+          
+          const obj = doc.objects.find(o => o.id === e.data.id);
+          if (obj && obj.type === 'image') {
+            obj.src = e.data.src;
+            const img = new Image();
+            img.onload = () => { obj._imgElement = img; render(); };
+            img.src = obj.src;
+          }
+        } else if (e.data.type === 'CANCEL_EDIT') {
+          const iframe = document.getElementById('painter-iframe');
+          iframe.style.display = 'none';
+          iframe.src = 'about:blank';
+        }
+      });
+      // Trace Image to Vector
+      document.getElementById('btn-trace-vector')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj || !imgObj._imgElement) return;
+
+        const cvs = document.createElement('canvas');
+        const w = Math.round(imgObj.width);
+        const h = Math.round(imgObj.height);
+        cvs.width = w; cvs.height = h;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(imgObj._imgElement, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h).data;
+
+        const path = new SvgEngine.SvgPath({ closed: true, fill: '#fabd2f' });
+        
+        let startX = -1, startY = -1;
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (imgData[(y * w + x) * 4 + 3] > 128) {
+              startX = x; startY = y; break;
+            }
+          }
+          if (startX !== -1) break;
+        }
+
+        if (startX !== -1) {
+          const dirs = [[1,0], [0,1], [-1,0], [0,-1]];
+          let dir = 0;
+          let curX = startX, curY = startY;
+          const visited = new Set();
+          
+          do {
+            if (visited.size === 0 || visited.size % 4 === 0) {
+              path.addNode(imgObj.x + curX, imgObj.y + curY, null, null, 'corner');
+            }
+            visited.add(`${curX},${curY}`);
+            
+            let nextDir = (dir + 3) % 4;
+            let found = false;
+            
+            for (let i = 0; i < 4; i++) {
+              const nx = curX + dirs[nextDir][0];
+              const ny = curY + dirs[nextDir][1];
+              if (nx >= 0 && nx < w && ny >= 0 && ny < h && imgData[(ny * w + nx) * 4 + 3] > 128) {
+                curX = nx; curY = ny;
+                dir = nextDir;
+                found = true;
+                break;
+              }
+              nextDir = (nextDir + 1) % 4;
+            }
+            if (!found || visited.size > w * h) break;
+          } while (curX !== startX || curY !== startY);
+        } else {
+          path.addNode(imgObj.x, imgObj.y, null, null, 'corner');
+          path.addNode(imgObj.x + w, imgObj.y, null, null, 'corner');
+          path.addNode(imgObj.x + w, imgObj.y + h, null, null, 'corner');
+          path.addNode(imgObj.x, imgObj.y + h, null, null, 'corner');
+        }
+
+        doc.addObject(path);
+        doc.removeObject(imgObj.id);
+        doc.clearSelection();
+        doc.select(path.id);
+        updateObjectList();
+        render();
       });
 
       // Tab Switching

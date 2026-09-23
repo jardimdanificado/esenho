@@ -325,6 +325,12 @@
         return;
       }
 
+      // Handle Raster Image
+      if (obj.type === 'image') {
+        this.renderImage(obj, scale, totalOpacity);
+        return;
+      }
+
       // Convert shape to polyline / compound paths
       let pathObj = obj;
       if (typeof obj.toPath === 'function') {
@@ -504,6 +510,54 @@
           const fillAlpha = (textObj.fillOpacity !== undefined ? textObj.fillOpacity : 1.0) * totalOpacity;
           const fillArgb = parseCssColorToArgb(textObj.fill || '#fabd2f', fillAlpha);
           this.fillCompoundPolygons(polylines, 'nonzero', fillArgb, scale, textObj.fillTexture, null, textObj.getBounds(), totalOpacity);
+        }
+      }
+    }
+
+    /**
+     * Render Image (Raster) into Quadro WASM
+     */
+    renderImage(imgObj, scale = 1.0, totalOpacity = 1.0) {
+      if (!imgObj._imgElement) return;
+
+      const exp = this.actor.exports;
+      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
+      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
+      const pixPtr = exp.w_layer_get_pixels(3);
+      if (!pixPtr || !this.actor.memory) return;
+
+      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+
+      if (typeof document !== 'undefined' && document.createElement) {
+        const sx = imgObj.x * scale;
+        const sy = imgObj.y * scale;
+        const sw = imgObj.width * scale;
+        const sh = imgObj.height * scale;
+
+        const offCanvas = document.createElement('canvas');
+        offCanvas.width = lw;
+        offCanvas.height = lh;
+        const octx = offCanvas.getContext('2d');
+        if (!octx) return;
+
+        // Apply clip/transform in the future if needed, for now just draw and blit
+        octx.drawImage(imgObj._imgElement, sx, sy, sw, sh);
+
+        const imgData = octx.getImageData(0, 0, lw, lh);
+        const data32 = new Uint32Array(imgData.data.buffer);
+        for (let i = 0; i < lw * lh; i++) {
+          const col = data32[i];
+          if ((col & 0xFF000000) !== 0) {
+            const a = (col >>> 24) & 0xFF;
+            const b = (col >> 16) & 0xFF;
+            const g = (col >> 8) & 0xFF;
+            const r = col & 0xFF;
+            const finalAlpha = Math.round(a * totalOpacity);
+            if (finalAlpha > 0) {
+              const argb = ((finalAlpha << 24) | (b << 16) | (g << 8) | r) >>> 0;
+              pixels[i] = this.blendFast(argb, pixels[i]);
+            }
+          }
         }
       }
     }
