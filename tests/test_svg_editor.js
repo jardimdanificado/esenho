@@ -591,7 +591,173 @@ async function runSvgEngineTests() {
 
   console.log('✔ Group reordering, z-ordering, and hierarchy tree operations passed');
 
-  console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & QUADRO TESTS PASSED SUCCESSFULLY!');
+  // 18. Test Alignment & Spacing Distribution
+  console.log('--- Testing Alignment & Spacing Distribution ---');
+  const alignDoc = new SvgDocument(800, 600);
+  const a1 = new SvgRect({ x: 10, y: 10, width: 20, height: 20 });
+  const a2 = new SvgRect({ x: 50, y: 30, width: 40, height: 40 });
+  const a3 = new SvgRect({ x: 100, y: 60, width: 30, height: 30 });
+  alignDoc.addObject(a1);
+  alignDoc.addObject(a2);
+  alignDoc.addObject(a3);
+  alignDoc.select(a1.id, false);
+  alignDoc.select(a2.id, true);
+  alignDoc.select(a3.id, true);
+
+  // Bounds: minX=10, maxX=130, minY=10, maxY=90
+  // Align Left
+  alignDoc.alignSelected('left');
+  assert.strictEqual(a1.x, 10);
+  assert.strictEqual(a2.x, 10);
+  assert.strictEqual(a3.x, 10);
+
+  // Align Right (reset x positions: a1.x=10, a2.x=50, a3.x=100 -> maxX=130)
+  a1.x = 10; a2.x = 50; a3.x = 100;
+  alignDoc.alignSelected('right');
+  assert.strictEqual(a1.x, 130 - 20); // 110
+  assert.strictEqual(a2.x, 130 - 40); // 90
+  assert.strictEqual(a3.x, 130 - 30); // 100
+
+  // Align Top (a1.y=10, a2.y=30, a3.y=60)
+  a1.y = 10; a2.y = 30; a3.y = 60;
+  alignDoc.alignSelected('top');
+  assert.strictEqual(a1.y, 10);
+  assert.strictEqual(a2.y, 10);
+  assert.strictEqual(a3.y, 10);
+
+  // Align Bottom (reset y positions: a1.y=10, a2.y=30, a3.y=60 -> maxY=90)
+  a1.y = 10; a2.y = 30; a3.y = 60;
+  alignDoc.alignSelected('bottom');
+  assert.strictEqual(a1.y, 90 - 20); // 70
+  assert.strictEqual(a2.y, 90 - 40); // 50
+  assert.strictEqual(a3.y, 90 - 30); // 60
+
+  // Distribute Horizontal
+  a1.x = 0; a2.x = 100; a3.x = 200;
+  alignDoc.distributeSelected('horizontal');
+  // Spans from 0 to 230 (width = 20+40+30=90, gap = (230-90)/2 = 70)
+  assert.strictEqual(a1.x, 0);
+  assert.strictEqual(a2.x, 20 + 70); // 90
+  assert.strictEqual(a3.x, 90 + 40 + 70); // 200
+  console.log('✔ Alignment & Distribution passed');
+
+  // 19. Test Clipboard Operations (Copy, Cut, Paste, Duplicate)
+  console.log('--- Testing Clipboard Operations ---');
+  const clipDoc = new SvgDocument(800, 600);
+  const origRect = new SvgRect({ x: 25, y: 35, width: 60, height: 40 });
+  clipDoc.addObject(origRect);
+  clipDoc.select(origRect.id);
+
+  clipDoc.copySelected();
+  assert(clipDoc.clipboard !== null && clipDoc.clipboard.length > 0, 'Clipboard data should be populated');
+
+  const pasted = clipDoc.paste(10);
+  assert.strictEqual(pasted.length, 1);
+  assert.strictEqual(clipDoc.objects.length, 2);
+  assert.strictEqual(pasted[0].x, 35);
+  assert.strictEqual(pasted[0].y, 45);
+
+  const duplicated = clipDoc.duplicateSelected(20);
+  assert.strictEqual(duplicated.length, 1);
+  assert.strictEqual(clipDoc.objects.length, 3);
+
+  clipDoc.select(origRect.id);
+  const cut = clipDoc.cutSelected();
+  assert.strictEqual(cut.length, 1);
+  assert.strictEqual(clipDoc.objects.includes(origRect), false, 'Cut object should be removed from doc');
+  console.log('✔ Clipboard operations passed');
+
+  // 20. Test Clipping Masks (<clipPath>)
+  console.log('--- Testing Clipping Masks (<clipPath>) ---');
+  const maskDoc = new SvgDocument(800, 600);
+  const imgTarget = new SvgImage({ x: 0, y: 0, width: 200, height: 200, src: 'test.png' });
+  const maskShape = new SvgCircle({ cx: 100, cy: 100, r: 50 });
+  maskDoc.addObject(imgTarget);
+  maskDoc.addObject(maskShape);
+
+  maskDoc.select(imgTarget.id, false);
+  maskDoc.select(maskShape.id, true);
+
+  const maskCreated = maskDoc.createClipMask();
+  assert.strictEqual(maskCreated, true, 'createClipMask should succeed');
+  assert.strictEqual(maskShape.visible, false, 'Mask shape should be set to visible: false');
+  assert(imgTarget.clipPathId !== null, 'Target should have clipPathId set');
+
+  const maskSvgStr = maskDoc.toSVGString();
+  assert(maskSvgStr.includes('<clipPath'), 'SVG string should contain <clipPath>');
+  assert(maskSvgStr.includes('clip-path="url(#'), 'SVG string should reference clipPathId');
+
+  // Release mask
+  maskDoc.select(imgTarget.id);
+  const maskReleased = maskDoc.releaseClipMask();
+  assert.strictEqual(maskReleased, true, 'releaseClipMask should succeed');
+  assert.strictEqual(imgTarget.clipPathId, null);
+  assert.strictEqual(maskDoc.objects.length, 2, 'Mask shape should be restored to document');
+  console.log('✔ Clipping Masks passed');
+
+  // 21. Test Outline Stroke (Expand Stroke)
+  console.log('--- Testing Outline Stroke ---');
+  const strokeDoc = new SvgDocument(800, 600);
+  const strokePathObj = new SvgPath({ stroke: '#ff0000', strokeWidth: 10, fill: 'none' });
+  strokePathObj.addNode(0, 0, null, null, 'corner');
+  strokePathObj.addNode(100, 0, null, null, 'corner');
+  strokeDoc.addObject(strokePathObj);
+  strokeDoc.select(strokePathObj.id);
+
+  const outlined = strokeDoc.outlineStrokeSelected();
+  assert.strictEqual(outlined, true, 'outlineStrokeSelected should succeed');
+  const newOutlineObj = strokeDoc.objects[0];
+  assert.strictEqual(newOutlineObj.fill, '#ff0000', 'Outline fill should match original stroke');
+  assert.strictEqual(newOutlineObj.stroke, 'none', 'Outline stroke should be none');
+  assert(newOutlineObj.nodes.length >= 4, 'Outline path should have polygon vertices');
+  console.log('✔ Outline Stroke passed');
+
+  // 22. Test Text on Path
+  console.log('--- Testing Text on Path ---');
+  const topDoc = new SvgDocument(800, 600);
+  const pGuide = new SvgPath({ stroke: '#333' });
+  pGuide.addNode(0, 50, null, null, 'corner');
+  pGuide.addNode(200, 50, null, null, 'corner');
+  const tObj = new SvgText({ text: 'Hello Vector World', x: 0, y: 0 });
+  topDoc.addObject(pGuide);
+  topDoc.addObject(tObj);
+
+  topDoc.select(pGuide.id, false);
+  topDoc.select(tObj.id, true);
+
+  const attached = topDoc.attachTextToPath();
+  assert.strictEqual(attached, true, 'attachTextToPath should succeed');
+  assert.strictEqual(tObj.pathId, pGuide.id);
+
+  const topSvg = topDoc.toSVGString();
+  assert(topSvg.includes('<textPath'), 'SVG string should contain <textPath>');
+  assert(topSvg.includes(`href="#${pGuide.id}"`), 'textPath should link to path id');
+
+  topDoc.select(tObj.id);
+  const detached = topDoc.detachTextFromPath();
+  assert.strictEqual(detached, true, 'detachTextFromPath should succeed');
+  assert.strictEqual(tObj.pathId, null);
+  console.log('✔ Text on Path passed');
+
+  // 23. Test Smart Snapping
+  console.log('--- Testing Smart Snapping ---');
+  const snapDoc = new SvgDocument(800, 600);
+  const otherRect = new SvgRect({ x: 100, y: 100, width: 50, height: 50, stroke: 'none' });
+  snapDoc.addObject(otherRect);
+
+  // Near otherRect minX (100) -> box at x=102 should snap dx = -2
+  const snapRes = snapDoc.snapToGeometry({ minX: 102, minY: 200, maxX: 152, maxY: 250, width: 50, height: 50 }, {
+    snapToGrid: false,
+    snapToCanvas: true,
+    snapToGuides: false,
+    snapToObjects: true,
+    threshold: 6
+  });
+  assert.strictEqual(snapRes.dx, -2, 'Should snap to otherRect left edge (100)');
+  assert(snapRes.snapLines.length > 0, 'Should return visual snap guideline');
+  console.log('✔ Smart Snapping passed');
+
+  console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }
 
 runSvgEngineTests().catch(err => {

@@ -1047,6 +1047,9 @@
           <span>💾 Save SVG</span>
           <span class="shortcut">Ctrl+S</span>
         </button>
+        <button id="btn-export-multiscale" class="menu-item" style="color: var(--primary);">
+          <span>🚀 Export Multi-Scale (@1x-@4x, WebP, JPG)</span>
+        </button>
         <button id="btn-render-quadro" class="menu-item">
           <span>🖼 Export PNG (Quadro)</span>
         </button>
@@ -1087,6 +1090,21 @@
     </div>
 
     <div class="top-actions">
+      <!-- Quick Alignment Bar -->
+      <div id="quick-align-bar" style="display: flex; gap: 2px; align-items: center; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 4px; padding: 2px 4px;">
+        <button class="btn-icon" id="quick-align-left" title="Align Left (⇤)">⇤</button>
+        <button class="btn-icon" id="quick-align-center" title="Align Horizontal Center (⇥⇤)">⇥⇤</button>
+        <button class="btn-icon" id="quick-align-right" title="Align Right (⇥)">⇥</button>
+        <div style="width: 1px; height: 12px; background: var(--border); margin: 0 2px;"></div>
+        <button class="btn-icon" id="quick-align-top" title="Align Top (⤒)">⤒</button>
+        <button class="btn-icon" id="quick-align-middle" title="Align Vertical Middle (⤓⤒)">⤓⤒</button>
+        <button class="btn-icon" id="quick-align-bottom" title="Align Bottom (⤓)">⤓</button>
+        <div style="width: 1px; height: 12px; background: var(--border); margin: 0 2px;"></div>
+        <button class="btn-icon" id="quick-distribute-h" title="Distribute Horizontal Spacing (|||)">|||</button>
+        <button class="btn-icon" id="quick-distribute-v" title="Distribute Vertical Spacing (≡)">≡</button>
+        <div style="width: 1px; height: 12px; background: var(--border); margin: 0 2px;"></div>
+        <button class="btn-icon" id="btn-toggle-snap" title="Toggle Smart Snapping (S)" style="font-size: 10px; color: var(--primary);">🧲 Snap: ON</button>
+      </div>
       <!-- Mobile Sidebar Toggle -->
       <button id="btn-toggle-sidebar" class="mobile-only" title="Toggle Inspector Sidebar">⚙ Panels</button>
     </div>
@@ -1137,6 +1155,11 @@
 
     <!-- Center Interactive Viewport -->
     <div id="viewport-container">
+      <!-- Rulers & Guides Overlay -->
+      <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: #12121a; border-right: 1px solid #282836; border-bottom: 1px solid #282836; z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
+      <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: #151520; border-bottom: 1px solid #282836; z-index: 40; cursor: row-resize;"></canvas>
+      <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: #151520; border-right: 1px solid #282836; z-index: 40; cursor: col-resize;"></canvas>
+
       <div id="stage-wrapper">
         <canvas id="quadro-canvas"></canvas>
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
@@ -1158,6 +1181,39 @@
 
       <!-- Embedded Raster Painter -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
+    </div>
+
+    <!-- Export Multi-Scale Modal -->
+    <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200; align-items: center; justify-content: center;">
+      <div style="background: #181824; border: 1px solid var(--border); border-radius: 8px; padding: 16px; width: 340px; box-shadow: 0 12px 36px rgba(0,0,0,0.7); display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+          <h3 style="margin: 0; font-size: 13px; color: var(--primary);">🚀 Export Multi-Scale</h3>
+          <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
+        </div>
+        <div class="form-row">
+          <label>Format</label>
+          <select id="export-format">
+            <option value="image/png" selected>PNG (Lossless)</option>
+            <option value="image/webp">WebP</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/svg+xml">SVG Vector</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale</label>
+          <select id="export-scale">
+            <option value="1">@1x (100% Standard)</option>
+            <option value="2" selected>@2x (200% Retina / High-DPI)</option>
+            <option value="3">@3x (300% Ultra)</option>
+            <option value="4">@4x (400% Print / 4K)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Dimensions</label>
+          <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
+        </div>
+        <button id="btn-do-export" style="width: 100%; margin-top: 6px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: 4px; border: none; cursor: pointer;">📥 Download File</button>
+      </div>
     </div>
 
     <!-- Mobile Sidebar Backdrop -->
@@ -1205,6 +1261,47 @@
 
       <!-- Tab 2: Style & Transform Inspector -->
       <div class="tab-content" id="tab-style">
+        <!-- Alignment & Distribution Card -->
+        <div class="section-card" id="card-align-distribute">
+          <div class="section-header">
+            <span><span class="section-icon">⇤⇥</span> Alignment & Distribution</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="display: flex; gap: 3px; justify-content: space-between;">
+              <button id="btn-align-left" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Left">⇤ Left</button>
+              <button id="btn-align-center" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Center">⇥⇤ Center</button>
+              <button id="btn-align-right" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Right">⇥ Right</button>
+            </div>
+            <div style="display: flex; gap: 3px; justify-content: space-between;">
+              <button id="btn-align-top" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Top">⤒ Top</button>
+              <button id="btn-align-middle" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Middle">⤓⤒ Mid</button>
+              <button id="btn-align-bottom" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Bottom">⤓ Bot</button>
+            </div>
+            <div style="display: flex; gap: 3px; margin-top: 2px;">
+              <button id="btn-distribute-h" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Horizontal Spacing">||| Distribute H</button>
+              <button id="btn-distribute-v" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Vertical Spacing">≡ Distribute V</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Vector Card (Clipping Mask, Outline Stroke, Text on Path) -->
+        <div class="section-card" id="card-advanced-vector">
+          <div class="section-header">
+            <span><span class="section-icon">✂</span> Masks & Advanced Tools</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div class="grid-2">
+              <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">🎭 Make Mask</button>
+              <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">🔓 Release</button>
+            </div>
+            <button id="btn-outline-stroke" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Convert Stroke to Filled Outline Path">✦ Outline Stroke (Expand)</button>
+            <div class="grid-2">
+              <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">⌒ Text on Path</button>
+              <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">━ Detach Text</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Geometry / Transform Card -->
         <div class="section-card">
           <div class="section-header">
@@ -2158,6 +2255,158 @@
         }
       }
 
+      function getCollectiveBounds(objects) {
+        if (!objects || objects.length === 0) return null;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const obj of objects) {
+          const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+          minX = Math.min(minX, b.minX);
+          minY = Math.min(minY, b.minY);
+          maxX = Math.max(maxX, b.maxX);
+          maxY = Math.max(maxY, b.maxY);
+        }
+        if (minX === Infinity) return null;
+        return {
+          minX,
+          minY,
+          maxX,
+          maxY,
+          width: Math.max(1, maxX - minX),
+          height: Math.max(1, maxY - minY)
+        };
+      }
+
+      // ── Snapping & Guides State ──
+      let snapEnabled = true;
+      let snapToGrid = false;
+      let gridSize = 20;
+      let userGuides = { horizontal: [], vertical: [] };
+      let activeGuideDrag = null;
+      let activeSnapLines = [];
+
+      // ── Rulers System ──
+      const rulerTopCanvas = document.getElementById('ruler-top');
+      const rulerLeftCanvas = document.getElementById('ruler-left');
+
+      function drawRulers() {
+        if (!rulerTopCanvas || !rulerLeftCanvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const topW = rulerTopCanvas.clientWidth || 800;
+        const topH = 18;
+        const leftW = 18;
+        const leftH = rulerLeftCanvas.clientHeight || 600;
+
+        if (rulerTopCanvas.width !== Math.round(topW * dpr) || rulerTopCanvas.height !== Math.round(topH * dpr)) {
+          rulerTopCanvas.width = Math.round(topW * dpr);
+          rulerTopCanvas.height = Math.round(topH * dpr);
+        }
+        if (rulerLeftCanvas.width !== Math.round(leftW * dpr) || rulerLeftCanvas.height !== Math.round(leftH * dpr)) {
+          rulerLeftCanvas.width = Math.round(leftW * dpr);
+          rulerLeftCanvas.height = Math.round(leftH * dpr);
+        }
+
+        const ctxTop = rulerTopCanvas.getContext('2d');
+        const ctxLeft = rulerLeftCanvas.getContext('2d');
+        ctxTop.save();
+        ctxLeft.save();
+        ctxTop.setTransform(1, 0, 0, 1, 0, 0);
+        ctxLeft.setTransform(1, 0, 0, 1, 0, 0);
+        ctxTop.scale(dpr, dpr);
+        ctxLeft.scale(dpr, dpr);
+
+        ctxTop.fillStyle = '#151520';
+        ctxTop.fillRect(0, 0, topW, topH);
+        ctxLeft.fillStyle = '#151520';
+        ctxLeft.fillRect(0, 0, leftW, leftH);
+
+        let step = 100;
+        if (zoom > 3) step = 10;
+        else if (zoom > 1.5) step = 20;
+        else if (zoom > 0.6) step = 50;
+        else if (zoom > 0.25) step = 100;
+        else step = 200;
+
+        ctxTop.strokeStyle = '#3a3a4c';
+        ctxTop.fillStyle = '#7a7a92';
+        ctxTop.font = '8px monospace';
+        ctxTop.lineWidth = 1;
+
+        const startDocX = Math.floor((-panX) / zoom / step) * step;
+        const endDocX = Math.ceil((topW - panX) / zoom / step) * step;
+
+        for (let x = startDocX; x <= endDocX; x += step) {
+          const screenX = x * zoom + panX;
+          if (screenX < 0 || screenX > topW) continue;
+          ctxTop.beginPath();
+          ctxTop.moveTo(screenX, topH - 8);
+          ctxTop.lineTo(screenX, topH);
+          ctxTop.stroke();
+          ctxTop.fillText(String(x), screenX + 2, topH - 9);
+
+          const sub = step / 5;
+          for (let s = 1; s < 5; s++) {
+            const sx = (x + s * sub) * zoom + panX;
+            if (sx >= 0 && sx <= topW) {
+              ctxTop.beginPath();
+              ctxTop.moveTo(sx, topH - 4);
+              ctxTop.lineTo(sx, topH);
+              ctxTop.stroke();
+            }
+          }
+        }
+
+        ctxLeft.strokeStyle = '#3a3a4c';
+        ctxLeft.fillStyle = '#7a7a92';
+        ctxLeft.font = '8px monospace';
+        ctxLeft.lineWidth = 1;
+
+        const startDocY = Math.floor((-panY) / zoom / step) * step;
+        const endDocY = Math.ceil((leftH - panY) / zoom / step) * step;
+
+        for (let y = startDocY; y <= endDocY; y += step) {
+          const screenY = y * zoom + panY;
+          if (screenY < 0 || screenY > leftH) continue;
+          ctxLeft.beginPath();
+          ctxLeft.moveTo(leftW - 8, screenY);
+          ctxLeft.lineTo(leftW, screenY);
+          ctxLeft.stroke();
+
+          ctxLeft.save();
+          ctxLeft.translate(leftW - 9, screenY - 2);
+          ctxLeft.rotate(-Math.PI / 2);
+          ctxLeft.fillText(String(y), 0, 0);
+          ctxLeft.restore();
+
+          const sub = step / 5;
+          for (let s = 1; s < 5; s++) {
+            const sy = (y + s * sub) * zoom + panY;
+            if (sy >= 0 && sy <= leftH) {
+              ctxLeft.beginPath();
+              ctxLeft.moveTo(leftW - 4, sy);
+              ctxLeft.lineTo(leftW, sy);
+              ctxLeft.stroke();
+            }
+          }
+        }
+
+        ctxTop.restore();
+        ctxLeft.restore();
+      }
+
+      rulerTopCanvas?.addEventListener('pointerdown', (e) => {
+        const pt = screenToDoc(e.clientX, e.clientY);
+        userGuides.horizontal.push(Math.round(pt.y));
+        activeGuideDrag = { type: 'horizontal', index: userGuides.horizontal.length - 1 };
+        drawOverlay();
+      });
+
+      rulerLeftCanvas?.addEventListener('pointerdown', (e) => {
+        const pt = screenToDoc(e.clientX, e.clientY);
+        userGuides.vertical.push(Math.round(pt.x));
+        activeGuideDrag = { type: 'vertical', index: userGuides.vertical.length - 1 };
+        drawOverlay();
+      });
+
       // Marquee / Box Selection State
       let isMarqueeSelecting = false;
       let marqueeBox = null;
@@ -2395,9 +2644,56 @@
         ctx.scale(zoom, zoom);
         renderOverlay();
         ctx.restore();
+
+        drawRulers();
       }
 
       function renderOverlay() {
+        // 1. Draw User Guidelines (from rulers)
+        if (userGuides) {
+          ctx.save();
+          ctx.strokeStyle = '#00e5ff';
+          ctx.lineWidth = 1 / zoom;
+          ctx.setLineDash([4 / zoom, 4 / zoom]);
+          if (userGuides.horizontal) {
+            for (const y of userGuides.horizontal) {
+              ctx.beginPath();
+              ctx.moveTo(-10000, y);
+              ctx.lineTo(10000, y);
+              ctx.stroke();
+            }
+          }
+          if (userGuides.vertical) {
+            for (const x of userGuides.vertical) {
+              ctx.beginPath();
+              ctx.moveTo(x, -10000);
+              ctx.lineTo(x, 10000);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+        }
+
+        // 2. Draw Active Smart Snap Magnetic Guide Lines
+        if (activeSnapLines && activeSnapLines.length > 0) {
+          ctx.save();
+          ctx.strokeStyle = '#ff007f';
+          ctx.lineWidth = 1.2 / zoom;
+          ctx.setLineDash([3 / zoom, 3 / zoom]);
+          for (const line of activeSnapLines) {
+            ctx.beginPath();
+            if (line.type === 'v') {
+              ctx.moveTo(line.pos, -10000);
+              ctx.lineTo(line.pos, 10000);
+            } else {
+              ctx.moveTo(-10000, line.pos);
+              ctx.lineTo(10000, line.pos);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
         // Draw Marquee Box Selection (Bulk Selection Box)
         if (isMarqueeSelecting && marqueeBox) {
           const bx = Math.min(marqueeBox.startX, marqueeBox.endX);
@@ -2419,7 +2715,9 @@
 
         // Draw Selection Gizmo for Select Tool
         if (activeTool === 'select' && selected.length > 0) {
-          for (const obj of selected) {
+          if (selected.length === 1) {
+            // Single Object Gizmo
+            const obj = selected[0];
             const b = obj.getBounds();
             const origin = (typeof obj.getOrigin === 'function')
               ? obj.getOrigin()
@@ -2495,6 +2793,77 @@
             ctx.stroke();
 
             ctx.restore();
+          } else {
+            // Multi-Selection Collective Gizmo
+            for (const obj of selected) {
+              const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+              ctx.save();
+              ctx.strokeStyle = 'rgba(69, 133, 136, 0.4)';
+              ctx.lineWidth = 1 / zoom;
+              ctx.setLineDash([3 / zoom, 2 / zoom]);
+              ctx.strokeRect(b.minX, b.minY, b.width, b.height);
+              ctx.restore();
+            }
+
+            const cb = getCollectiveBounds(selected);
+            if (cb) {
+              const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
+
+              ctx.save();
+              ctx.strokeStyle = '#ff7a18';
+              ctx.lineWidth = 1.5 / zoom;
+              ctx.setLineDash([4 / zoom, 3 / zoom]);
+              ctx.strokeRect(cb.minX, cb.minY, cb.width, cb.height);
+              ctx.setLineDash([]);
+
+              // 8 handles
+              const handles = [
+                { x: cb.minX, y: cb.minY }, { x: cb.minX + cb.width / 2, y: cb.minY }, { x: cb.maxX, y: cb.minY },
+                { x: cb.maxX, y: cb.minY + cb.height / 2 }, { x: cb.maxX, y: cb.maxY }, { x: cb.minX + cb.width / 2, y: cb.maxY },
+                { x: cb.minX, y: cb.maxY }, { x: cb.minX, y: cb.minY + cb.height / 2 }
+              ];
+
+              const hs = 6.5 / zoom;
+              ctx.fillStyle = '#fabd2f';
+              ctx.strokeStyle = '#1d2021';
+              ctx.lineWidth = 1 / zoom;
+
+              for (const h of handles) {
+                ctx.fillRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+                ctx.strokeRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+              }
+
+              // Top Rotation Stalk & Handle
+              const rotDist = 20 / zoom;
+              const rotX = cb.minX + cb.width / 2;
+              const rotY = cb.minY - rotDist;
+
+              ctx.strokeStyle = '#fe8019';
+              ctx.lineWidth = 1.2 / zoom;
+              ctx.beginPath();
+              ctx.moveTo(rotX, cb.minY);
+              ctx.lineTo(rotX, rotY);
+              ctx.stroke();
+
+              ctx.fillStyle = '#fe8019';
+              ctx.strokeStyle = '#1d2021';
+              ctx.lineWidth = 1.5 / zoom;
+              ctx.beginPath();
+              ctx.arc(rotX, rotY, 5 / zoom, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+
+              // Center Pivot Indicator
+              ctx.fillStyle = '#b8bb26';
+              ctx.strokeStyle = '#1d2021';
+              ctx.lineWidth = 1.2 / zoom;
+              ctx.beginPath();
+              ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.restore();
+            }
           }
         }
 
@@ -3212,7 +3581,53 @@
           marqueeBox = null;
 
           const selected = doc.getSelectedObjects();
-          if (selected.length === 1) {
+          if (selected.length > 1) {
+            const cb = getCollectiveBounds(selected);
+            if (cb) {
+              const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
+              const rotDist = 20 / zoom;
+              const rotHandle = { x: cb.minX + cb.width / 2, y: cb.minY - rotDist };
+
+              // 1. Check collective rotation handle
+              if (Math.hypot(pt.x - rotHandle.x, pt.y - rotHandle.y) <= 10 / zoom) {
+                activeTransformMode = 'rotate';
+                initialRotation = 0;
+                initialAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+                initialBounds = { ...cb };
+                initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+              }
+
+              // 2. Check collective anchor
+              if (!activeTransformMode && Math.hypot(pt.x - origin.x, pt.y - origin.y) <= 8 / zoom) {
+                activeTransformMode = 'anchor';
+                initialBounds = { ...cb };
+                initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+              }
+
+              // 3. Check collective 8 resize handles
+              if (!activeTransformMode) {
+                const handles = [
+                  { name: 'nw', x: cb.minX, y: cb.minY },
+                  { name: 'n',  x: cb.minX + cb.width / 2, y: cb.minY },
+                  { name: 'ne', x: cb.maxX, y: cb.minY },
+                  { name: 'e',  x: cb.maxX, y: cb.minY + cb.height / 2 },
+                  { name: 'se', x: cb.maxX, y: cb.maxY },
+                  { name: 's',  x: cb.minX + cb.width / 2, y: cb.maxY },
+                  { name: 'sw', x: cb.minX, y: cb.maxY },
+                  { name: 'w',  x: cb.minX, y: cb.minY + cb.height / 2 }
+                ];
+                for (const h of handles) {
+                  if (Math.hypot(pt.x - h.x, pt.y - h.y) <= 9 / zoom) {
+                    activeTransformMode = 'resize';
+                    activeResizeHandle = h.name;
+                    initialBounds = { ...cb };
+                    initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+                    break;
+                  }
+                }
+              }
+            }
+          } else if (selected.length === 1) {
             const obj = selected[0];
             const b = obj.getBounds();
             const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: b.minX + b.width / 2, y: b.minY + b.height / 2 };
@@ -3433,6 +3848,16 @@
         const pt = screenToDoc(e.clientX, e.clientY);
         statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
 
+        if (activeGuideDrag) {
+          if (activeGuideDrag.type === 'horizontal') {
+            userGuides.horizontal[activeGuideDrag.index] = Math.round(pt.y);
+          } else if (activeGuideDrag.type === 'vertical') {
+            userGuides.vertical[activeGuideDrag.index] = Math.round(pt.x);
+          }
+          drawOverlay();
+          return;
+        }
+
         if (activeTool === 'pen') {
           penCursorPos = pt;
         }
@@ -3469,20 +3894,83 @@
           }
 
           if (activeTransformMode === 'rotate') {
-            const obj = doc.getSelectedObjects()[0];
-            if (obj) {
-              const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+            const selected = doc.getSelectedObjects();
+            if (Array.isArray(initialObjectState)) {
+              const origin = { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
               const currentAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
-              let newRot = Math.round((initialRotation + (currentAngle - initialAngle)) % 360);
-              if (newRot < 0) newRot += 360;
-              if (e.shiftKey) {
-                newRot = Math.round(newRot / 15) * 15;
+              let angleDelta = currentAngle - initialAngle;
+              if (e.shiftKey) angleDelta = Math.round(angleDelta / 15) * 15;
+              const rad = angleDelta * Math.PI / 180;
+              const cos = Math.cos(rad);
+              const sin = Math.sin(rad);
+
+              for (const item of initialObjectState) {
+                const obj = selected.find(o => o.id === item.id);
+                if (obj) {
+                  const initState = item.state;
+                  let initCx = 0, initCy = 0;
+                  if (initState.x !== undefined && initState.width !== undefined) {
+                    initCx = initState.x + initState.width / 2;
+                    initCy = initState.y + initState.height / 2;
+                  } else if (initState.cx !== undefined) {
+                    initCx = initState.cx;
+                    initCy = initState.cy;
+                  } else if (initState.x1 !== undefined) {
+                    initCx = (initState.x1 + initState.x2) / 2;
+                    initCy = (initState.y1 + initState.y2) / 2;
+                  } else if (initState.nodes && initState.nodes.length > 0) {
+                    let sx = 0, sy = 0;
+                    for (const n of initState.nodes) { sx += n.x; sy += n.y; }
+                    initCx = sx / initState.nodes.length;
+                    initCy = sy / initState.nodes.length;
+                  }
+                  const relX = initCx - origin.x;
+                  const relY = initCy - origin.y;
+                  const rotCx = origin.x + (relX * cos - relY * sin);
+                  const rotCy = origin.y + (relX * sin + relY * cos);
+                  const shiftX = rotCx - initCx;
+                  const shiftY = rotCy - initCy;
+
+                  if (obj.type === 'rect' || obj.type === 'image') {
+                    obj.x = initState.x + shiftX;
+                    obj.y = initState.y + shiftY;
+                  } else if (obj.type === 'circle' || obj.type === 'ellipse') {
+                    obj.cx = initState.cx + shiftX;
+                    obj.cy = initState.cy + shiftY;
+                  } else if (obj.type === 'line') {
+                    obj.x1 = initState.x1 + shiftX; obj.y1 = initState.y1 + shiftY;
+                    obj.x2 = initState.x2 + shiftX; obj.y2 = initState.y2 + shiftY;
+                  } else if (obj.type === 'path') {
+                    for (let i = 0; i < obj.nodes.length; i++) {
+                      obj.nodes[i].x = initState.nodes[i].x + shiftX;
+                      obj.nodes[i].y = initState.nodes[i].y + shiftY;
+                    }
+                  } else if (obj.type === 'text') {
+                    obj.x = initState.x + shiftX;
+                    obj.y = initState.y + shiftY;
+                  }
+                  obj.rotation = ((initState.rotation || 0) + angleDelta) % 360;
+                  if (obj.rotation < 0) obj.rotation += 360;
+                }
               }
-              obj.rotation = newRot;
               render();
               updateInspector();
               drawOverlay();
               return;
+            } else {
+              const obj = selected[0];
+              if (obj) {
+                const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+                const currentAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+                let newRot = Math.round((initialRotation + (currentAngle - initialAngle)) % 360);
+                if (newRot < 0) newRot += 360;
+                if (e.shiftKey) newRot = Math.round(newRot / 15) * 15;
+                obj.rotation = newRot;
+                render();
+                updateInspector();
+                drawOverlay();
+                return;
+              }
             }
           }
 
@@ -3503,63 +3991,129 @@
           }
 
           if (activeResizeHandle && initialBounds && initialObjectState) {
-            const obj = doc.getSelectedObjects()[0];
-            if (obj) {
-              const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
-              const localPt = docToLocal(pt, origin, obj.rotation || 0);
-
+            const selected = doc.getSelectedObjects();
+            if (Array.isArray(initialObjectState)) {
               let newMinX = initialBounds.minX;
               let newMinY = initialBounds.minY;
               let newMaxX = initialBounds.maxX;
               let newMaxY = initialBounds.maxY;
 
-              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, localPt.x);
-              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, localPt.x);
-              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, localPt.y);
-              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, localPt.y);
+              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, pt.x);
+              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, pt.x);
+              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, pt.y);
+              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, pt.y);
 
               const newW = Math.max(1, newMaxX - newMinX);
               const newH = Math.max(1, newMaxY - newMinY);
 
-              scaleObjectToBox(obj, initialObjectState, initialBounds, newMinX, newMinY, newW, newH);
-
+              for (const item of initialObjectState) {
+                const obj = selected.find(o => o.id === item.id);
+                if (obj) {
+                  scaleObjectToBox(obj, item.state, initialBounds, newMinX, newMinY, newW, newH);
+                }
+              }
               render();
               updateInspector();
+              drawOverlay();
+              return;
+            } else {
+              const obj = selected[0];
+              if (obj) {
+                const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
+                const localPt = docToLocal(pt, origin, obj.rotation || 0);
+
+                let newMinX = initialBounds.minX;
+                let newMinY = initialBounds.minY;
+                let newMaxX = initialBounds.maxX;
+                let newMaxY = initialBounds.maxY;
+
+                if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, localPt.x);
+                if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, localPt.x);
+                if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, localPt.y);
+                if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, localPt.y);
+
+                const newW = Math.max(1, newMaxX - newMinX);
+                const newH = Math.max(1, newMaxY - newMinY);
+
+                scaleObjectToBox(obj, initialObjectState, initialBounds, newMinX, newMinY, newW, newH);
+
+                render();
+                updateInspector();
+                drawOverlay();
+                return;
+              }
             }
           } else {
             const selected = doc.getSelectedObjects();
-            for (const obj of selected) {
-              if (typeof obj.move === 'function') {
-                obj.move(dx, dy);
-              } else if (obj.type === 'rect' || obj.type === 'image') {
-                obj.x += dx; obj.y += dy;
-                if (obj.originX !== undefined) obj.originX += dx;
-                if (obj.originY !== undefined) obj.originY += dy;
-              } else if (obj.type === 'ellipse' || obj.type === 'circle') {
-                obj.cx += dx; obj.cy += dy;
-                if (obj.originX !== undefined) obj.originX += dx;
-                if (obj.originY !== undefined) obj.originY += dy;
-              } else if (obj.type === 'line') {
-                obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy;
-                if (obj.originX !== undefined) obj.originX += dx;
-                if (obj.originY !== undefined) obj.originY += dy;
-              } else if (obj.type === 'path') {
-                for (const n of obj.nodes) {
-                  n.x += dx; n.y += dy;
+            if (selected.length > 0) {
+              let moveDx = dx;
+              let moveDy = dy;
+              if (snapEnabled) {
+                const cb = getCollectiveBounds(selected);
+                if (cb) {
+                  const testBox = {
+                    minX: cb.minX + dx,
+                    minY: cb.minY + dy,
+                    maxX: cb.maxX + dx,
+                    maxY: cb.maxY + dy,
+                    width: cb.width,
+                    height: cb.height
+                  };
+                  const snapResult = doc.snapToGeometry(testBox, {
+                    snapToGrid: true,
+                    snapToCanvas: true,
+                    snapToGuides: true,
+                    snapToObjects: true,
+                    userGuides: userGuides,
+                    gridSize: 20,
+                    threshold: 8 / zoom
+                  });
+                  moveDx += snapResult.dx;
+                  moveDy += snapResult.dy;
+                  activeSnapLines = snapResult.snapLines || [];
                 }
-                if (obj.originX !== undefined) obj.originX += dx;
-                if (obj.originY !== undefined) obj.originY += dy;
+              } else {
+                activeSnapLines = [];
               }
+
+              for (const obj of selected) {
+                if (typeof obj.move === 'function') {
+                  obj.move(moveDx, moveDy);
+                } else if (obj.type === 'rect' || obj.type === 'image') {
+                  obj.x += moveDx; obj.y += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'ellipse' || obj.type === 'circle') {
+                  obj.cx += moveDx; obj.cy += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'line') {
+                  obj.x1 += moveDx; obj.y1 += moveDy; obj.x2 += moveDx; obj.y2 += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'path') {
+                  for (const n of obj.nodes) {
+                    n.x += moveDx; n.y += moveDy;
+                  }
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'text') {
+                  obj.x += moveDx; obj.y += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                }
+              }
+              dragStartX = pt.x;
+              dragStartY = pt.y;
+              render();
+              updateInspector();
+              drawOverlay();
             }
-            dragStartX = pt.x;
-            dragStartY = pt.y;
-            render();
-            updateInspector();
           }
         } else if (activeTool === 'node' && activeNodeIdx !== -1) {
           const { node } = getActivePathAndNode();
           if (node) {
-            const forceIndep = e.altKey; // Holding Alt/Option unlocks handle independently
+            const forceIndep = e.altKey;
             if (activeHandleType === 'anchor') {
               node.x = pt.x;
               node.y = pt.y;
@@ -3574,7 +4128,7 @@
         } else if (activeTool === 'pen' && isPenDraggingAnchor && currentPenPath && activeNodeIdx !== -1) {
           const node = currentPenPath.nodes[activeNodeIdx];
           if (node) {
-            const forceIndep = e.altKey; // Holding Alt/Option unlocks handle independently into cusp mode
+            const forceIndep = e.altKey;
             if (Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
               if (forceIndep) {
                 node.type = 'cusp';
@@ -3613,6 +4167,12 @@
       });
 
       window.addEventListener('pointerup', () => {
+        if (activeGuideDrag) {
+          activeGuideDrag = null;
+        }
+        activeSnapLines = [];
+        drawOverlay();
+
         if (isPanning) {
           isPanning = false;
           if (activeTool !== 'hand') {
@@ -3757,16 +4317,35 @@
             doc.groupSelected();
           }
           render();
+        } else if ((e.ctrlKey || e.metaKey) && key === 'c') {
+          e.preventDefault();
+          doc.copySelected();
+        } else if ((e.ctrlKey || e.metaKey) && key === 'x') {
+          e.preventDefault();
+          doc.cutSelected();
+          render();
+          updateInspector();
+          updateObjectList();
+        } else if ((e.ctrlKey || e.metaKey) && key === 'v') {
+          e.preventDefault();
+          doc.paste();
+          render();
+          updateInspector();
+          updateObjectList();
         } else if ((e.ctrlKey || e.metaKey) && key === 'd') {
           e.preventDefault();
-          const selected = doc.getSelectedObjects();
-          for (const obj of selected) {
-            const clone = obj.clone();
-            clone.x += 15; clone.y += 15;
-            doc.addObject(clone);
-            doc.select(clone.id);
-          }
+          doc.duplicateSelected();
           render();
+          updateInspector();
+          updateObjectList();
+        } else if (key === 's' && !e.ctrlKey && !e.metaKey) {
+          snapEnabled = !snapEnabled;
+          const snapBtn = document.getElementById('btn-toggle-snap');
+          if (snapBtn) {
+            snapBtn.textContent = snapEnabled ? '🧲 Snap: ON' : '🧲 Snap: OFF';
+            snapBtn.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+          }
+          drawOverlay();
         }
       });
 
@@ -4306,6 +4885,182 @@
         const selected = doc.getSelectedObjects();
         for (const obj of selected) doc.removeObject(obj.id);
         render();
+      });
+
+      // ── Alignment & Distribution Bindings ──
+      const alignActions = [
+        { ids: ['btn-align-left', 'quick-align-left'], action: 'left' },
+        { ids: ['btn-align-center', 'quick-align-center'], action: 'center-h' },
+        { ids: ['btn-align-right', 'quick-align-right'], action: 'right' },
+        { ids: ['btn-align-top', 'quick-align-top'], action: 'top' },
+        { ids: ['btn-align-middle', 'quick-align-middle'], action: 'center-v' },
+        { ids: ['btn-align-bottom', 'quick-align-bottom'], action: 'bottom' }
+      ];
+      alignActions.forEach(({ ids, action }) => {
+        ids.forEach(id => {
+          document.getElementById(id)?.addEventListener('click', () => {
+            doc.alignSelected(action);
+            render();
+            updateInspector();
+            drawOverlay();
+          });
+        });
+      });
+
+      const distActions = [
+        { ids: ['btn-distribute-h', 'quick-distribute-h'], axis: 'horizontal' },
+        { ids: ['btn-distribute-v', 'quick-distribute-v'], axis: 'vertical' }
+      ];
+      distActions.forEach(({ ids, axis }) => {
+        ids.forEach(id => {
+          document.getElementById(id)?.addEventListener('click', () => {
+            doc.distributeSelected(axis);
+            render();
+            updateInspector();
+            drawOverlay();
+          });
+        });
+      });
+
+      // ── Snapping Toggle ──
+      const btnToggleSnap = document.getElementById('btn-toggle-snap');
+      btnToggleSnap?.addEventListener('click', () => {
+        snapEnabled = !snapEnabled;
+        btnToggleSnap.textContent = snapEnabled ? '🧲 Snap: ON' : '🧲 Snap: OFF';
+        btnToggleSnap.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+        drawOverlay();
+      });
+
+      // ── Clipping Mask Bindings ──
+      document.getElementById('btn-mask-create')?.addEventListener('click', () => {
+        if (doc.createClipMask()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+      document.getElementById('btn-mask-release')?.addEventListener('click', () => {
+        if (doc.releaseClipMask()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+
+      // ── Outline Stroke Binding ──
+      document.getElementById('btn-outline-stroke')?.addEventListener('click', () => {
+        if (doc.outlineStrokeSelected()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+
+      // ── Text on Path Bindings ──
+      document.getElementById('btn-text-attach-path')?.addEventListener('click', () => {
+        if (doc.attachTextToPath()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+      document.getElementById('btn-text-detach-path')?.addEventListener('click', () => {
+        if (doc.detachTextFromPath()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+
+      // ── Multi-Scale Export Modal ──
+      const modalExport = document.getElementById('modal-export');
+      const exportFormatSelect = document.getElementById('export-format');
+      const exportScaleSelect = document.getElementById('export-scale');
+      const exportDimPreview = document.getElementById('export-dim-preview');
+
+      function updateExportDimPreview() {
+        if (!exportDimPreview) return;
+        const scale = Number(exportScaleSelect?.value || 1);
+        const w = Math.round(doc.width * scale);
+        const h = Math.round(doc.height * scale);
+        exportDimPreview.textContent = `${w} × ${h} px (@${scale}x)`;
+      }
+
+      document.getElementById('btn-export-multiscale')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        updateExportDimPreview();
+        if (modalExport) modalExport.style.display = 'flex';
+      });
+
+      document.getElementById('btn-close-export')?.addEventListener('click', () => {
+        if (modalExport) modalExport.style.display = 'none';
+      });
+
+      exportScaleSelect?.addEventListener('change', updateExportDimPreview);
+
+      document.getElementById('btn-do-export')?.addEventListener('click', async () => {
+        const format = exportFormatSelect?.value || 'image/png';
+        const scale = Number(exportScaleSelect?.value || 1);
+        const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : (format === 'image/svg+xml' ? 'svg' : 'png'));
+        const filename = `wesenho_export_${scale}x_${Date.now()}.${ext}`;
+
+        if (format === 'image/svg+xml') {
+          const svgData = doc.toSVGString();
+          const blob = new Blob([svgData], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          if (modalExport) modalExport.style.display = 'none';
+          return;
+        }
+
+        const outW = Math.round(doc.width * scale);
+        const outH = Math.round(doc.height * scale);
+        const cvs = document.createElement('canvas');
+        cvs.width = outW;
+        cvs.height = outH;
+        const ctx2d = cvs.getContext('2d');
+
+        if (doc.backgroundColor && doc.backgroundColor !== 'transparent') {
+          ctx2d.fillStyle = doc.backgroundColor;
+          ctx2d.fillRect(0, 0, outW, outH);
+        }
+
+        const svgXml = doc.toSVGString();
+        const img = new Image();
+        const svgBlob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+          ctx2d.drawImage(img, 0, 0, outW, outH);
+          URL.revokeObjectURL(blobUrl);
+          cvs.toBlob((blob) => {
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = filename;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
+            if (modalExport) modalExport.style.display = 'none';
+          }, format, 0.95);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          alert('Export failed: unable to rasterize SVG');
+          if (modalExport) modalExport.style.display = 'none';
+        };
+        img.src = blobUrl;
       });
 
       // Geometry & Dimensions Bindings

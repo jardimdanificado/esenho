@@ -553,6 +553,7 @@
       this.originY = attributes.originY !== undefined ? Number(attributes.originY) : undefined;
       this.scaleX = Number(attributes.scaleX !== undefined ? attributes.scaleX : 1);
       this.scaleY = Number(attributes.scaleY !== undefined ? attributes.scaleY : 1);
+      this.clipPathId = attributes.clipPathId || null;
       this.parent = null;
     }
 
@@ -580,6 +581,9 @@
 
     getExtraSVGAttributes() {
       let attrs = this.getTransformAttribute();
+      if (this.clipPathId) {
+        attrs += ` clip-path="url(#${this.clipPathId})"`;
+      }
       if (this.brushConfig) {
         attrs += ` data-brush="${encodeURIComponent(JSON.stringify(this.brushConfig))}"`;
       }
@@ -742,7 +746,8 @@
         originX: this.originX,
         originY: this.originY,
         scaleX: this.scaleX,
-        scaleY: this.scaleY
+        scaleY: this.scaleY,
+        clipPathId: this.clipPathId
       };
     }
 
@@ -1265,6 +1270,7 @@
       this.fontStyle = attributes.fontStyle || 'normal';
       this.textAlign = attributes.textAlign || 'left'; // 'left', 'center', 'right'
       this.letterSpacing = Number(attributes.letterSpacing || 0);
+      this.pathId = attributes.pathId || null;
       if (!this.fill || (this.fill === 'none' && (!this.stroke || this.stroke === 'none'))) {
         this.fill = '#fabd2f';
       }
@@ -1439,6 +1445,9 @@
       const anchor = this.textAlign === 'center' ? 'middle' : (this.textAlign === 'right' ? 'end' : 'start');
       const letterSpace = this.letterSpacing ? ` letter-spacing="${this.letterSpacing}px"` : '';
 
+      if (this.pathId) {
+        return `<text id="${this.id}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes()}><textPath href="#${this.pathId}">${escapeXml(this.text)}</textPath></text>`;
+      }
       return `<text id="${this.id}" x="${this.x}" y="${this.y}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes()}>${escapeXml(this.text)}</text>`;
     }
 
@@ -1451,6 +1460,7 @@
       data.fontStyle = this.fontStyle;
       data.textAlign = this.textAlign;
       data.letterSpacing = this.letterSpacing;
+      data.pathId = this.pathId;
       return data;
     }
 
@@ -2506,6 +2516,434 @@
       return results;
     }
 
+    /**
+     * Alignment (Left, Center, Right, Top, Middle, Bottom)
+     * @param {'left'|'center'|'right'|'top'|'middle'|'bottom'} alignment
+     */
+    alignSelected(alignment) {
+      const selected = this.getSelectedObjects();
+      if (selected.length === 0) return false;
+
+      this.pushHistory(`Align ${alignment.charAt(0).toUpperCase() + alignment.slice(1)}`);
+
+      let targetBounds;
+      if (selected.length === 1) {
+        targetBounds = { minX: 0, minY: 0, maxX: this.width, maxY: this.height, width: this.width, height: this.height };
+      } else {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const obj of selected) {
+          const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+          minX = Math.min(minX, b.minX);
+          minY = Math.min(minY, b.minY);
+          maxX = Math.max(maxX, b.maxX);
+          maxY = Math.max(maxY, b.maxY);
+        }
+        targetBounds = { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+      }
+
+      const cx = targetBounds.minX + targetBounds.width / 2;
+      const cy = targetBounds.minY + targetBounds.height / 2;
+
+      for (const obj of selected) {
+        const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+        let dx = 0, dy = 0;
+        switch (alignment) {
+          case 'left':
+            dx = targetBounds.minX - b.minX;
+            break;
+          case 'center':
+            dx = cx - (b.minX + b.width / 2);
+            break;
+          case 'right':
+            dx = targetBounds.maxX - b.maxX;
+            break;
+          case 'top':
+            dy = targetBounds.minY - b.minY;
+            break;
+          case 'middle':
+            dy = cy - (b.minY + b.height / 2);
+            break;
+          case 'bottom':
+            dy = targetBounds.maxY - b.maxY;
+            break;
+        }
+        if (dx !== 0 || dy !== 0) {
+          if (typeof obj.move === 'function') obj.move(dx, dy);
+          else if (obj.x !== undefined) { obj.x += dx; obj.y += dy; }
+        }
+      }
+      return true;
+    }
+
+    /**
+     * Distribute Even Spacing
+     * @param {'horizontal'|'vertical'} axis
+     */
+    distributeSelected(axis = 'horizontal') {
+      const selected = this.getSelectedObjects();
+      if (selected.length < 3) return false;
+
+      this.pushHistory(`Distribute ${axis.charAt(0).toUpperCase() + axis.slice(1)}`);
+
+      if (axis === 'horizontal') {
+        selected.sort((a, b) => {
+          const ba = typeof a.getTransformedBounds === 'function' ? a.getTransformedBounds() : a.getBounds();
+          const bb = typeof b.getTransformedBounds === 'function' ? b.getTransformedBounds() : b.getBounds();
+          return ba.minX - bb.minX;
+        });
+
+        const firstBounds = typeof selected[0].getTransformedBounds === 'function' ? selected[0].getTransformedBounds() : selected[0].getBounds();
+        const lastBounds = typeof selected[selected.length - 1].getTransformedBounds === 'function' ? selected[selected.length - 1].getTransformedBounds() : selected[selected.length - 1].getBounds();
+
+        let totalObjWidth = 0;
+        for (let i = 0; i < selected.length; i++) {
+          const b = typeof selected[i].getTransformedBounds === 'function' ? selected[i].getTransformedBounds() : selected[i].getBounds();
+          totalObjWidth += b.width;
+        }
+
+        const totalSpan = lastBounds.maxX - firstBounds.minX;
+        const totalGaps = totalSpan - totalObjWidth;
+        const gap = totalGaps / (selected.length - 1);
+
+        let curX = firstBounds.maxX + gap;
+        for (let i = 1; i < selected.length - 1; i++) {
+          const obj = selected[i];
+          const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+          const dx = curX - b.minX;
+          if (typeof obj.move === 'function') obj.move(dx, 0);
+          else if (obj.x !== undefined) obj.x += dx;
+          curX += b.width + gap;
+        }
+      } else {
+        selected.sort((a, b) => {
+          const ba = typeof a.getTransformedBounds === 'function' ? a.getTransformedBounds() : a.getBounds();
+          const bb = typeof b.getTransformedBounds === 'function' ? b.getTransformedBounds() : b.getBounds();
+          return ba.minY - bb.minY;
+        });
+
+        const firstBounds = typeof selected[0].getTransformedBounds === 'function' ? selected[0].getTransformedBounds() : selected[0].getBounds();
+        const lastBounds = typeof selected[selected.length - 1].getTransformedBounds === 'function' ? selected[selected.length - 1].getTransformedBounds() : selected[selected.length - 1].getBounds();
+
+        let totalObjHeight = 0;
+        for (let i = 0; i < selected.length; i++) {
+          const b = typeof selected[i].getTransformedBounds === 'function' ? selected[i].getTransformedBounds() : selected[i].getBounds();
+          totalObjHeight += b.height;
+        }
+
+        const totalSpan = lastBounds.maxY - firstBounds.minY;
+        const totalGaps = totalSpan - totalObjHeight;
+        const gap = totalGaps / (selected.length - 1);
+
+        let curY = firstBounds.maxY + gap;
+        for (let i = 1; i < selected.length - 1; i++) {
+          const obj = selected[i];
+          const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+          const dy = curY - b.minY;
+          if (typeof obj.move === 'function') obj.move(0, dy);
+          else if (obj.y !== undefined) obj.y += dy;
+          curY += b.height + gap;
+        }
+      }
+      return true;
+    }
+
+    /** Clipboard & Duplicate */
+    copySelected() {
+      const selected = this.getSelectedObjects();
+      if (selected.length === 0) return [];
+      this.clipboard = selected.map(obj => JSON.parse(JSON.stringify(obj.toJSON())));
+      return this.clipboard;
+    }
+
+    cutSelected() {
+      const copied = this.copySelected();
+      if (copied.length === 0) return [];
+      this.pushHistory('Cut');
+      const selected = this.getSelectedObjects();
+      for (const obj of selected) {
+        this.removeObject(obj.id, false);
+      }
+      this.selectedIds.clear();
+      return copied;
+    }
+
+    paste(offset = { x: 20, y: 20 }) {
+      if (!this.clipboard || this.clipboard.length === 0) return [];
+      this.pushHistory('Paste');
+      this.selectedIds.clear();
+      const pasted = [];
+      const offX = (typeof offset === 'number') ? offset : (offset?.x ?? 20);
+      const offY = (typeof offset === 'number') ? offset : (offset?.y ?? 20);
+
+      for (const itemData of this.clipboard) {
+        const cloned = SvgNode.fromJSON(itemData);
+        cloned.id = generateId(cloned.type);
+        if (typeof cloned.move === 'function') {
+          cloned.move(offX, offY);
+        } else if (cloned.x !== undefined) {
+          cloned.x += offX;
+          cloned.y += offY;
+        }
+        this.addObject(cloned, false);
+        this.selectedIds.add(cloned.id);
+        pasted.push(cloned);
+      }
+      return pasted;
+    }
+
+    duplicateSelected(offset = { x: 20, y: 20 }) {
+      const copied = this.copySelected();
+      if (copied.length === 0) return [];
+      return this.paste(offset);
+    }
+
+    /**
+     * Clipping Mask (<clipPath>)
+     */
+    createClipMask() {
+      const selected = this.getSelectedObjects();
+      if (selected.length < 2) return false;
+      this.pushHistory('Create Clipping Mask');
+
+      const maskObj = selected[selected.length - 1]; // topmost object is mask
+      for (let i = 0; i < selected.length - 1; i++) {
+        const targetObj = selected[i];
+        targetObj.clipPathId = maskObj.id;
+      }
+      maskObj.visible = false;
+      return true;
+    }
+
+    releaseClipMask() {
+      const selected = this.getSelectedObjects();
+      if (selected.length === 0) return false;
+      this.pushHistory('Release Clipping Mask');
+      let released = false;
+      for (const obj of selected) {
+        if (obj.clipPathId) {
+          const maskObj = this.findObject(obj.clipPathId);
+          if (maskObj) maskObj.visible = true;
+          obj.clipPathId = null;
+          released = true;
+        }
+      }
+      return released;
+    }
+
+    /**
+     * Outline Stroke (Expand Stroke to Filled Vector Path)
+     */
+    outlineStrokeSelected() {
+      const selected = this.getSelectedObjects();
+      let convertedCount = 0;
+      for (const obj of selected) {
+        if (!obj.stroke || obj.stroke === 'none' || !(obj.strokeWidth > 0)) continue;
+        const strokeColor = obj.stroke;
+        const strokeWidth = Number(obj.strokeWidth || 1);
+        const hw = strokeWidth / 2;
+
+        let pathObj = obj;
+        if (typeof obj.toPath === 'function') {
+          pathObj = obj.toPath();
+        }
+
+        const poly = typeof pathObj.toPolyline === 'function' ? pathObj.toPolyline(0.2) : null;
+        const pts = Array.isArray(poly) ? poly : (poly && poly.points ? poly.points : null);
+        if (!pts || pts.length < 2) continue;
+
+        const leftPts = [];
+        const rightPts = [];
+
+        for (let i = 0; i < pts.length; i++) {
+          const prev = pts[Math.max(0, i - 1)];
+          const next = pts[Math.min(pts.length - 1, i + 1)];
+          let dx = next.x - prev.x;
+          let dy = next.y - prev.y;
+          const len = Math.hypot(dx, dy) || 1;
+          dx /= len;
+          dy /= len;
+
+          const nx = -dy;
+          const ny = dx;
+
+          leftPts.push({ x: pts[i].x + nx * hw, y: pts[i].y + ny * hw });
+          rightPts.push({ x: pts[i].x - nx * hw, y: pts[i].y - ny * hw });
+        }
+
+        if (convertedCount === 0) this.pushHistory('Outline Stroke');
+
+        let newOutlineObj;
+        if (pathObj.closed) {
+          newOutlineObj = new SvgCompoundPath({
+            name: `${obj.name} (Outline)`,
+            fill: strokeColor,
+            fillOpacity: obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1,
+            stroke: 'none',
+            strokeWidth: 0,
+            fillRule: 'evenodd'
+          });
+          const outer = new SvgPath({ closed: true, fill: strokeColor, stroke: 'none' });
+          for (const p of leftPts) outer.addNode(p.x, p.y, null, null, 'smooth');
+          const inner = new SvgPath({ closed: true, fill: strokeColor, stroke: 'none' });
+          for (let k = rightPts.length - 1; k >= 0; k--) inner.addNode(rightPts[k].x, rightPts[k].y, null, null, 'smooth');
+          newOutlineObj.addSubPath(outer);
+          newOutlineObj.addSubPath(inner);
+        } else {
+          newOutlineObj = new SvgPath({
+            name: `${obj.name} (Outline)`,
+            fill: strokeColor,
+            fillOpacity: obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1,
+            stroke: 'none',
+            strokeWidth: 0,
+            closed: true
+          });
+          for (const p of leftPts) newOutlineObj.addNode(p.x, p.y, null, null, 'smooth');
+          for (let k = rightPts.length - 1; k >= 0; k--) newOutlineObj.addNode(rightPts[k].x, rightPts[k].y, null, null, 'smooth');
+        }
+
+        if (obj.parent && typeof obj.parent.replaceChild === 'function') {
+          obj.parent.replaceChild(obj.id, newOutlineObj);
+        } else {
+          const idx = this.objects.indexOf(obj);
+          if (idx !== -1) {
+            this.objects[idx] = newOutlineObj;
+          }
+        }
+        this.selectedIds.delete(obj.id);
+        this.selectedIds.add(newOutlineObj.id);
+        convertedCount++;
+      }
+      return convertedCount > 0;
+    }
+
+    /**
+    /**
+     * Text on Path (<textPath>)
+     */
+    attachTextToPath(textId, pathId) {
+      let textObj = textId ? this.findObject(textId) : null;
+      let pathObj = pathId ? this.findObject(pathId) : null;
+
+      if (!textObj || !pathObj) {
+        const selected = this.getSelectedObjects();
+        textObj = selected.find(o => o.type === 'text');
+        pathObj = selected.find(o => o.type === 'path' || o.type === 'line' || o.type === 'compoundPath');
+      }
+
+      if (!textObj || textObj.type !== 'text' || !pathObj) return false;
+      this.pushHistory('Attach Text to Path');
+      textObj.pathId = pathObj.id;
+      return true;
+    }
+
+    detachTextFromPath(textId) {
+      let textObj = textId ? this.findObject(textId) : null;
+      if (!textObj) {
+        const selected = this.getSelectedObjects();
+        textObj = selected.find(o => o.type === 'text');
+      }
+      if (!textObj || textObj.type !== 'text' || !textObj.pathId) return false;
+      this.pushHistory('Detach Text from Path');
+      textObj.pathId = null;
+      return true;
+    }
+
+    /**
+     * Smart Snapping against Canvas, Guides, Grid, and Objects
+     */
+    snapToGeometry(box, options = {}) {
+      const {
+        snapToGrid = false,
+        snapToCanvas = true,
+        snapToGuides = true,
+        snapToObjects = true,
+        gridSize = 20,
+        tolerance = options.threshold || 6,
+        userGuides = options.guides || { horizontal: [], vertical: [] },
+        ignoreIds = new Set()
+      } = options;
+
+      let dx = 0;
+      let dy = 0;
+      let bestDistX = tolerance;
+      let bestDistY = tolerance;
+      const snapLines = [];
+
+      const targetXs = [box.minX, box.minX + box.width / 2, box.maxX];
+      const targetYs = [box.minY, box.minY + box.height / 2, box.maxY];
+
+      // 1. Grid Snap
+      if (snapToGrid && gridSize > 0) {
+        const gridSnapX = Math.round(box.minX / gridSize) * gridSize;
+        const distGX = Math.abs(gridSnapX - box.minX);
+        if (distGX <= bestDistX) {
+          dx = gridSnapX - box.minX;
+          bestDistX = distGX;
+        }
+        const gridSnapY = Math.round(box.minY / gridSize) * gridSize;
+        const distGY = Math.abs(gridSnapY - box.minY);
+        if (distGY <= bestDistY) {
+          dy = gridSnapY - box.minY;
+          bestDistY = distGY;
+        }
+      }
+
+      // 2. Canvas bounds snap
+      const canvasXs = [];
+      const canvasYs = [];
+
+      if (snapToCanvas) {
+        canvasXs.push(0, this.width / 2, this.width);
+        canvasYs.push(0, this.height / 2, this.height);
+      }
+
+      // 3. User Guides snap
+      if (snapToGuides && userGuides) {
+        if (userGuides.vertical) canvasXs.push(...userGuides.vertical);
+        if (userGuides.horizontal) canvasYs.push(...userGuides.horizontal);
+      }
+
+      // 4. Other objects bounds snap
+      if (snapToObjects) {
+        for (const obj of this.objects) {
+          if (!obj.visible || ignoreIds.has(obj.id)) continue;
+          const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+          canvasXs.push(b.minX, b.minX + b.width / 2, b.maxX);
+          canvasYs.push(b.minY, b.minY + b.height / 2, b.maxY);
+        }
+      }
+
+      for (const tx of targetXs) {
+        for (const cx of canvasXs) {
+          const d = Math.abs(cx - tx);
+          if (d <= bestDistX) {
+            bestDistX = d;
+            dx = cx - tx;
+            snapLines.push({ type: 'v', pos: cx });
+          }
+        }
+      }
+
+      for (const ty of targetYs) {
+        for (const cy of canvasYs) {
+          const d = Math.abs(cy - ty);
+          if (d <= bestDistY) {
+            bestDistY = d;
+            dy = cy - ty;
+            snapLines.push({ type: 'h', pos: cy });
+          }
+        }
+      }
+
+      return {
+        dx,
+        dy,
+        snappedX: box.minX + dx,
+        snappedY: box.minY + dy,
+        snapLines
+      };
+    }
+
     /** History (Undo/Redo) */
     pushHistory(description = 'Edit') {
       const snapshot = JSON.stringify(this.toJSON());
@@ -2542,6 +2980,14 @@
 
       const collectDefs = (list) => {
         for (const obj of list) {
+          if (obj.clipPathId) {
+            const clipObj = this.findObject(obj.clipPathId);
+            if (clipObj && !defsMap.has(`clip_${obj.clipPathId}`)) {
+              defsMap.set(`clip_${obj.clipPathId}`, {
+                toSVGElement: () => `<clipPath id="${obj.clipPathId}">\n      ${clipObj.toSVGElement()}\n    </clipPath>`
+              });
+            }
+          }
           const hasGrad = (obj.fillType === 'linear' || obj.fillType === 'radial') && obj.fillGradient;
           if (hasGrad || (obj.fillGradient && obj.fillGradient.enabled)) {
             const gradId = (obj.fillGradient && obj.fillGradient.id) ? obj.fillGradient.id : `grad_${obj.id}`;
