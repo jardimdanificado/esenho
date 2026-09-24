@@ -279,13 +279,14 @@
       this.actor.exports.w_brush_set_param(14 /* SHAPE */, 0 /* CIRCLE */);
 
       // Set background color
-      if (options.background !== false && doc.backgroundColor && doc.backgroundColor !== 'none') {
-        const bgArgb = parseCssColorToArgb(doc.backgroundColor, 1.0);
-        // Fill layer 3 (active layer) with background
-        const pixPtr = this.actor.exports.w_layer_get_pixels(3);
-        if (pixPtr && this.actor.memory) {
-          const u32 = new Uint32Array(this.actor.memory.buffer, pixPtr, w * h);
+      const pixPtr = this.actor.exports.w_layer_get_pixels(3);
+      if (pixPtr && this.actor.memory) {
+        const u32 = new Uint32Array(this.actor.memory.buffer, pixPtr, w * h);
+        if (options.background !== false && doc.backgroundColor && doc.backgroundColor !== 'none') {
+          const bgArgb = parseCssColorToArgb(doc.backgroundColor, 1.0);
           u32.fill(bgArgb);
+        } else {
+          u32.fill(0); // clear to transparent
         }
       }
 
@@ -902,7 +903,7 @@
       const exp = this.actor.exports;
       const w = exp.get_width ? exp.get_width() : 800;
       const h = exp.get_height ? exp.get_height() : 600;
-      const outPtr = exp.get_out_pixels ? exp.get_out_pixels() : exp.w_layer_get_pixels(3);
+      const outPtr = exp.w_layer_get_pixels(3);
       if (!outPtr || !this.actor.memory) return null;
 
       const u32 = new Uint32Array(this.actor.memory.buffer, outPtr, w * h);

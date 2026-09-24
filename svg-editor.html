@@ -1439,7 +1439,11 @@
         }
 
         // 2. Draw Interactive Overlay (Gizmos, Nodes, Handles)
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        const dpr = window.devicePixelRatio || 1;
+        overlayCanvas.width = Math.round(doc.width * zoom * dpr);
+        overlayCanvas.height = Math.round(doc.height * zoom * dpr);
+        ctx.scale(zoom * dpr, zoom * dpr);
+        ctx.clearRect(0, 0, doc.width, doc.height);
         renderOverlay();
 
         // 3. Update Sidebar & UI
@@ -1487,7 +1491,6 @@
       }
 
       function renderOverlay() {
-        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         const selected = doc.getSelectedObjects();
 
         // Draw Selection Gizmo for Select Tool
@@ -2615,11 +2618,19 @@
           const imgData = quadroRenderer.getImageData();
           if (imgData) {
             const cvs = document.createElement('canvas');
+            // We MUST crop to w and h because Quadro's internal canvas might be larger than requested
             cvs.width = w; cvs.height = h;
             const ctx2d = cvs.getContext('2d');
-            const img = ctx2d.createImageData(w, h);
-            img.data.set(imgData.data);
-            ctx2d.putImageData(img, 0, 0);
+            
+            // Draw imgData into an offscreen canvas of imgData's size, then drawImage to crop
+            const rawCvs = document.createElement('canvas');
+            rawCvs.width = imgData.width; rawCvs.height = imgData.height;
+            const rawCtx = rawCvs.getContext('2d');
+            const rawImg = rawCtx.createImageData(imgData.width, imgData.height);
+            rawImg.data.set(imgData.data);
+            rawCtx.putImageData(rawImg, 0, 0);
+            
+            ctx2d.drawImage(rawCvs, 0, 0);
 
             const src = cvs.toDataURL('image/png');
             const newImage = new Image();
@@ -3324,13 +3335,14 @@
           const dirs = [[1,0], [0,1], [-1,0], [0,-1]];
           let dir = 0;
           let curX = startX, curY = startY;
-          const visited = new Set();
+          let lastDir = -1;
+          let maxSteps = w * h * 4;
           
           do {
-            if (visited.size === 0 || visited.size % 4 === 0) {
+            if (dir !== lastDir) {
               path.addNode(imgObj.x + curX, imgObj.y + curY, null, null, 'corner');
+              lastDir = dir;
             }
-            visited.add(`${curX},${curY}`);
             
             let nextDir = (dir + 3) % 4;
             let found = false;
@@ -3346,7 +3358,7 @@
               }
               nextDir = (nextDir + 1) % 4;
             }
-            if (!found || visited.size > w * h) break;
+            if (!found || --maxSteps <= 0) break;
           } while (curX !== startX || curY !== startY);
         } else {
           path.addNode(imgObj.x, imgObj.y, null, null, 'corner');
