@@ -1,6 +1,6 @@
 {
   "name": "esenho",
-  "version": "0.8.10",
+  "version": "0.8.11",
   "main": "index.js",
   "scripts": {
     "test": "node tests/test_text_protocol.js && node tests/test_vector.js && node tests/test_animation.js",

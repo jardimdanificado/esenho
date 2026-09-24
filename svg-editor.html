@@ -3,26 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Wesenho SVG Studio — Vector Object Editor & Quadro Renderer</title>
+  <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
   <style>
     :root {
-      --bg-dark: #1d2021;
-      --bg-panel: #282828;
-      --bg-input: #32302f;
-      --border: #504945;
-      --border-bright: #7c6f64;
-      --text: #ebdbb2;
-      --text-muted: #a89984;
+      --bg-dark: #121415;
+      --bg-canvas: #1a1c1e;
+      --bg-panel: #202224;
+      --bg-panel-sub: #272a2c;
+      --bg-input: #171819;
+      --bg-input-focus: #2c2f32;
+      --border: #383c40;
+      --border-bright: #525860;
+      --border-focus: #fabd2f;
+      --text: #fbf1c7;
+      --text-dim: #d5c4a1;
+      --text-muted: #928374;
       --primary: #fabd2f;
       --primary-hover: #fe8019;
-      --accent: #458588;
-      --accent-hover: #83a598;
+      --primary-dim: rgba(250, 189, 47, 0.12);
+      --accent: #83a598;
+      --accent-hover: #a89984;
+      --accent-dim: rgba(131, 165, 152, 0.15);
       --danger: #fb4934;
+      --danger-dim: rgba(251, 73, 52, 0.15);
       --success: #b8bb26;
-      --font-mono: "Lucida Console", "Liberation Mono", "DejaVu Sans Mono", monospace, sans-serif;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+      --radius-sm: 3px;
+      --radius-md: 5px;
+      --radius-lg: 8px;
     }
 
     * {
@@ -30,8 +42,8 @@
       margin: 0;
       padding: 0;
       user-select: none;
-      font-family: var(--font-mono);
-      border-radius: 0 !important;
+      -webkit-user-select: none;
+      font-family: var(--font-sans);
     }
 
     body {
@@ -42,62 +54,195 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    /* ── Custom Scrollbars ── */
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--border-bright);
     }
 
     /* ── Header / Top Bar ── */
     header {
       height: 42px;
       background: var(--bg-panel);
-      border-bottom: 2px solid var(--border);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 12px;
-      gap: 12px;
-      z-index: 20;
+      padding: 0 10px;
+      gap: 8px;
+      z-index: 30;
+      flex-shrink: 0;
     }
 
-    .brand {
+    .menu-container {
+      position: relative;
       display: flex;
       align-items: center;
-      gap: 10px;
     }
 
-    .brand h1 {
-      font-size: 14px;
-      font-weight: bold;
-      letter-spacing: 2px;
+    .brand-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: transparent;
+      border: 1px solid transparent;
+      padding: 4px 6px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--text);
+    }
+
+    .brand-btn:hover, .brand-btn.active {
+      background: var(--bg-panel-sub);
+      border-color: var(--border);
+    }
+
+    .brand-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary-dim);
+      border: 1.5px solid var(--primary);
+      border-radius: var(--radius-sm);
       color: var(--primary);
-      text-transform: uppercase;
+      font-weight: 900;
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    .brand h1, .brand-btn h1 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: var(--primary);
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+
+    /* ── App Main Menu Dropdown ── */
+    .dropdown-menu {
+      position: absolute;
+      top: calc(100% + 5px);
+      left: 0;
+      min-width: 230px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75);
+      padding: 4px;
+      display: none;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 200;
+      backdrop-filter: blur(10px);
+    }
+
+    .dropdown-menu.active {
+      display: flex;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+    }
+
+    .menu-item:hover {
+      background: var(--primary-dim);
+      color: var(--primary);
+    }
+
+    .menu-item span.shortcut {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-left: 14px;
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 3px 0;
     }
 
     .badge {
-      font-size: 10px;
-      padding: 2px 6px;
+      font-size: 9px;
+      font-weight: 600;
+      font-family: var(--font-mono);
+      padding: 2px 5px;
       background: var(--bg-input);
       border: 1px solid var(--border);
-      color: var(--accent-hover);
+      border-radius: var(--radius-sm);
+      color: var(--accent);
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .top-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
+      overflow-x: auto;
+    }
+
+    .top-action-group {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--bg-input);
+      padding: 2px 4px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+    }
+
+    .top-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border);
+      margin: 0 3px;
     }
 
     button {
-      background: var(--bg-input);
+      background: var(--bg-panel-sub);
       border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       color: var(--text);
       font-size: 11px;
-      font-weight: bold;
-      padding: 5px 9px;
+      font-weight: 600;
+      padding: 5px 8px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      transition: all 0.1s;
+      justify-content: center;
+      gap: 4px;
+      transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+      white-space: nowrap;
     }
 
     button:hover {
@@ -109,17 +254,25 @@
     button:active {
       background: var(--border-bright);
       color: var(--primary);
+      transform: translateY(1px);
     }
 
     button.btn-primary {
       background: var(--primary);
       color: #1d2021;
       border-color: #d79921;
+      font-weight: 700;
     }
 
     button.btn-primary:hover {
       background: var(--primary-hover);
-      color: #1d2021;
+      border-color: #fe8019;
+      color: #121415;
+    }
+
+    button.btn-sm {
+      padding: 3px 6px;
+      font-size: 10px;
     }
 
     /* ── App Workspace Layout ── */
@@ -132,67 +285,78 @@
 
     /* ── Left Toolbar ── */
     #toolbar {
-      width: 46px;
+      width: 48px;
       background: var(--bg-panel);
-      border-right: 2px solid var(--border);
+      border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      padding: 6px 4px;
-      gap: 6px;
+      align-items: center;
+      padding: 8px 0;
+      gap: 4px;
       z-index: 10;
+      flex-shrink: 0;
     }
 
     .tool-btn {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       padding: 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 11px;
-      background: var(--bg-input);
-      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 700;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-md);
       color: var(--text-muted);
       position: relative;
     }
 
     .tool-btn span.hotkey {
       font-size: 8px;
+      font-family: var(--font-mono);
       position: absolute;
       bottom: 2px;
       right: 3px;
-      color: var(--border-bright);
+      color: var(--text-muted);
+      opacity: 0.6;
     }
 
     .tool-btn:hover {
       color: var(--text);
-      border-color: var(--border-bright);
+      background: var(--bg-panel-sub);
+      border-color: var(--border);
     }
 
     .tool-btn.active {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent-hover);
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: var(--primary);
+      box-shadow: 0 0 8px rgba(250, 189, 47, 0.2);
     }
 
     .tool-btn.active span.hotkey {
-      color: #ebdbb2;
+      color: var(--primary);
+      opacity: 1;
     }
 
     .toolbar-sep {
+      width: 28px;
       height: 1px;
       background: var(--border);
-      margin: 4px 2px;
+      margin: 4px 0;
     }
 
     /* ── Center Viewport / Canvas ── */
     #viewport-container {
       flex: 1;
       position: relative;
-      background: #141617;
+      background: var(--bg-canvas);
       overflow: hidden;
       cursor: default;
+      touch-action: none;
     }
 
     #viewport-container.panning {
@@ -206,8 +370,9 @@
     #stage-wrapper {
       position: absolute;
       transform-origin: 0 0;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
       background-color: #1d2021;
+      border-radius: 2px;
     }
 
     #svg-stage {
@@ -237,71 +402,143 @@
       z-index: 5;
     }
 
-    /* ── Right Inspector & Scene Graph ── */
+    /* ── Right Inspector & Sidebar ── */
     #sidebar {
-      width: 310px;
+      width: 320px;
+      height: 100%;
+      max-height: 100%;
       background: var(--bg-panel);
-      border-left: 2px solid var(--border);
+      border-left: 1px solid var(--border);
       display: flex;
       flex-direction: column;
-      z-index: 10;
+      z-index: 20;
+      flex-shrink: 0;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .tab-bar {
       display: flex;
-      border-bottom: 2px solid var(--border);
-      background: var(--bg-input);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel-sub);
+      padding: 4px 4px 0 4px;
+      gap: 2px;
+      flex-shrink: 0;
     }
 
     .tab-btn {
       flex: 1;
-      padding: 8px;
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
+      padding: 7px 4px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+      letter-spacing: 0.3px;
       background: transparent;
-      border: none;
-      border-right: 1px solid var(--border);
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-top-left-radius: var(--radius-sm);
+      border-top-right-radius: var(--radius-sm);
       color: var(--text-muted);
       cursor: pointer;
       text-align: center;
+      transition: all 0.12s ease;
     }
 
-    .tab-btn:last-child {
-      border-right: none;
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
     }
 
     .tab-btn.active {
       background: var(--bg-panel);
       color: var(--primary);
-      font-weight: bold;
+      border-color: var(--border);
+      font-weight: 700;
     }
 
     .tab-content {
-      flex: 1;
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: 100%;
       overflow-y: auto;
+      overflow-x: hidden;
       display: none;
-      padding: 12px;
+      padding: 10px;
       flex-direction: column;
-      gap: 14px;
+      gap: 10px;
     }
 
     .tab-content.active {
       display: flex;
     }
 
-    .section-title {
+    /* ── Collapsible Card Sections ── */
+    .section-card {
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .section-header {
       font-size: 11px;
-      font-weight: bold;
-      color: var(--primary);
+      font-weight: 700;
+      color: var(--text-dim);
       text-transform: uppercase;
-      letter-spacing: 1.5px;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 4px;
-      margin-bottom: 8px;
+      letter-spacing: 0.8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      padding-bottom: 4px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 2px;
+    }
+
+    .section-header .section-icon {
+      color: var(--primary);
+      margin-right: 4px;
+    }
+
+    details.section-accordion {
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    details.section-accordion summary {
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.1);
+      user-select: none;
+    }
+
+    details.section-accordion summary:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    details.section-accordion .accordion-body {
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border-top: 1px solid var(--border);
     }
 
     .form-row {
@@ -309,22 +546,26 @@
       align-items: center;
       justify-content: space-between;
       gap: 8px;
-      margin-bottom: 8px;
     }
 
     .form-row label {
-      font-size: 10px;
+      font-size: 11px;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      font-weight: bold;
-      flex: 0 0 70px;
+      font-weight: 500;
+      flex: 0 0 85px;
+      white-space: nowrap;
     }
 
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 6px;
+      gap: 5px;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
     }
 
     .grid-4 {
@@ -336,81 +577,91 @@
     input[type="text"], input[type="number"], select {
       background: var(--bg-input);
       border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       color: var(--text);
-      padding: 4px 6px;
+      padding: 5px 7px;
       font-size: 11px;
-      font-weight: bold;
+      font-family: var(--font-mono);
+      font-weight: 500;
       width: 100%;
       outline: none;
+      transition: border-color 0.12s ease, background 0.12s ease;
     }
 
     input[type="text"]:focus, input[type="number"]:focus, select:focus {
-      border-color: var(--primary);
-      background: #3c3836;
+      border-color: var(--border-focus);
+      background: var(--bg-input-focus);
+    }
+
+    input[type="range"] {
+      accent-color: var(--primary);
+      cursor: pointer;
     }
 
     input[type="color"] {
-      width: 32px;
-      height: 24px;
+      width: 28px;
+      height: 26px;
       padding: 0;
       border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       background: none;
       cursor: pointer;
+      flex-shrink: 0;
     }
 
     /* ── Scene Graph Object List ── */
     #object-list {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      min-height: 280px;
-      max-height: 480px;
+      gap: 3px;
+      min-height: 180px;
+      max-height: 360px;
       overflow-y: auto;
       border: 1px solid var(--border);
       background: var(--bg-input);
-      padding: 6px;
-      border-radius: 4px;
+      padding: 4px;
+      border-radius: var(--radius-md);
     }
 
     .object-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 10px;
+      padding: 6px 8px;
       background: var(--bg-panel);
-      border: 1px solid var(--border);
-      font-size: 13px;
+      border: 1px solid transparent;
+      font-size: 11px;
       font-weight: 500;
       cursor: pointer;
-      border-radius: 4px;
-      transition: background 0.15s ease, border-color 0.15s ease;
+      border-radius: var(--radius-sm);
+      transition: background 0.12s ease, border-color 0.12s ease;
     }
 
     .object-item:hover {
       border-color: var(--border-bright);
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .object-item.selected {
-      background: var(--accent);
-      color: #ffffff;
-      border-color: var(--accent-hover);
+      background: var(--accent-dim);
+      color: var(--primary);
+      border-color: var(--accent);
+      font-weight: 600;
     }
 
     .object-item .obj-info {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
-      font-size: 12px;
     }
 
     .object-item .obj-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
     }
 
     .object-item .btn-icon {
@@ -418,9 +669,9 @@
       border: none;
       color: var(--text-muted);
       cursor: pointer;
-      padding: 3px 6px;
-      font-size: 13px;
-      border-radius: 3px;
+      padding: 2px 4px;
+      font-size: 11px;
+      border-radius: var(--radius-sm);
     }
 
     .object-item .btn-icon:hover {
@@ -432,8 +683,9 @@
     #svg-code-editor {
       width: 100%;
       height: 380px;
-      background: #141617;
+      background: var(--bg-input);
       border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       color: var(--text);
       font-size: 11px;
       padding: 8px;
@@ -456,32 +708,35 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 12px;
+      padding: 0 10px;
       font-size: 10px;
+      font-family: var(--font-mono);
       color: var(--text-muted);
-      z-index: 20;
+      z-index: 30;
+      flex-shrink: 0;
     }
 
     .status-group {
       display: flex;
       align-items: center;
-      gap: 14px;
+      gap: 12px;
     }
 
     .status-val {
       color: var(--primary);
-      font-weight: bold;
+      font-weight: 600;
     }
 
     /* ── Modal Dialog ── */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       display: none;
       align-items: center;
       justify-content: center;
       z-index: 100;
+      backdrop-filter: blur(3px);
     }
 
     .modal-overlay.active {
@@ -490,23 +745,24 @@
 
     .modal-card {
       background: var(--bg-panel);
-      border: 2px solid var(--border);
-      padding: 20px;
-      width: 480px;
-      max-width: 90vw;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      width: 440px;
+      max-width: 92vw;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85);
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
     }
 
     .modal-card h2 {
       font-size: 13px;
       color: var(--primary);
       text-transform: uppercase;
-      letter-spacing: 1.5px;
+      letter-spacing: 1px;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 6px;
+      padding-bottom: 8px;
     }
 
     .modal-actions {
@@ -515,37 +771,121 @@
       gap: 8px;
       margin-top: 6px;
     }
+
+    /* ── Mobile Backdrop & Toggles ── */
+    .mobile-only {
+      display: none;
+    }
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 15;
+    }
+
+    /* ── Responsive Media Queries ── */
+    @media (max-width: 860px) {
+      .mobile-only {
+        display: inline-flex;
+      }
+
+      .brand h1 {
+        display: none;
+      }
+
+      #sidebar {
+        position: fixed;
+        top: 44px;
+        right: 0;
+        bottom: 24px;
+        width: 320px;
+        max-width: 85vw;
+        transform: translateX(100%);
+        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.6);
+      }
+
+      #sidebar.mobile-open {
+        transform: translateX(0);
+      }
+
+      .sidebar-backdrop.active {
+        display: block;
+      }
+
+      .top-actions {
+        gap: 3px;
+      }
+
+      button {
+        padding: 4px 6px;
+        font-size: 10px;
+      }
+    }
   </style>
 </head>
 <body>
 
   <!-- Top Bar -->
   <header>
-    <div class="brand">
-      <h1>Wesenho SVG Studio</h1>
-      <span class="badge">Object Graph</span>
-      <span class="badge" id="wasm-badge" style="color: var(--success);">Quadro Ready</span>
+    <div class="menu-container">
+      <button id="btn-menu-logo" class="brand-btn" title="Main Menu">
+        <div class="brand-icon">E</div>
+        <h1>esenho</h1>
+        <span style="font-size: 8px; color: var(--text-muted); margin-left: -2px;">▼</span>
+      </button>
+
+      <!-- App Dropdown Menu -->
+      <div id="app-menu-dropdown" class="dropdown-menu">
+        <button id="btn-import-svg" class="menu-item">
+          <span>📂 Open SVG</span>
+          <span class="shortcut">Ctrl+O</span>
+        </button>
+        <button id="btn-import-img" class="menu-item">
+          <span>🖼 Import Image</span>
+        </button>
+        <input type="file" id="file-import-img" accept="image/*" style="display: none;">
+        <button id="btn-export-svg" class="menu-item">
+          <span>💾 Save SVG</span>
+          <span class="shortcut">Ctrl+S</span>
+        </button>
+        <button id="btn-render-quadro" class="menu-item">
+          <span>🖼 Export PNG (Quadro)</span>
+        </button>
+
+        <div class="menu-divider"></div>
+
+        <button id="btn-undo" class="menu-item">
+          <span>↺ Undo</span>
+          <span class="shortcut">Ctrl+Z</span>
+        </button>
+        <button id="btn-redo" class="menu-item">
+          <span>↻ Redo</span>
+          <span class="shortcut">Ctrl+Y</span>
+        </button>
+
+        <div class="menu-divider"></div>
+
+        <div style="padding: 4px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
+          <span>Renderer</span>
+          <select id="select-render-mode" style="width: auto; padding: 2px 4px; font-size: 10px;">
+            <option value="quadro" selected>⚡ Quadro WASM</option>
+            <option value="svg">◈ SVG Direct</option>
+          </select>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <button id="btn-back-app" class="menu-item" onclick="window.location.href='index.html'">
+          <span>◀ Exit to Main Menu</span>
+        </button>
+      </div>
     </div>
 
     <div class="top-actions">
-      <button id="btn-undo" title="Undo (Ctrl+Z)">↺ Undo</button>
-      <button id="btn-redo" title="Redo (Ctrl+Y)">↻ Redo</button>
-      <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <span style="font-size: 11px; color: var(--text-muted);">Viewport:</span>
-        <select id="select-render-mode" style="width: auto; padding: 2px 6px; font-size: 11px;">
-          <option value="quadro" selected>⚡ Quadro WASM Realtime</option>
-          <option value="svg">◈ SVG Vector Direct</option>
-        </select>
-      </div>
-      <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
-      <button id="btn-import-svg">📂 Open SVG</button>
-      <button id="btn-import-img" title="Import Raster Image">🖼 Import Image</button>
-      <input type="file" id="file-import-img" accept="image/*" style="display: none;">
-      <button id="btn-export-svg" class="btn-primary">💾 Save SVG</button>
-      <button id="btn-render-quadro" title="Export PNG rasterized with Quadro C WASM engine">🖼 Export PNG</button>
-      <div style="width: 1px; height: 18px; background: var(--border); margin: 0 4px;"></div>
-      <button id="btn-back-app" onclick="window.location.href='index.html'">◀ Exit</button>
+      <!-- Mobile Sidebar Toggle -->
+      <button id="btn-toggle-sidebar" class="mobile-only" title="Toggle Inspector Sidebar">⚙ Panels</button>
     </div>
   </header>
 
@@ -555,18 +895,20 @@
     <!-- Left Tool Palette -->
     <div id="toolbar">
       <button class="tool-btn active" id="tool-select" data-tool="select" title="Select / Transform (V)">
-        V<span class="hotkey">V</span>
+        ↖<span class="hotkey">V</span>
       </button>
       <button class="tool-btn" id="tool-node" data-tool="node" title="Bézier Node Editor (A)">
-        A<span class="hotkey">A</span>
+        ✦<span class="hotkey">A</span>
       </button>
       <button class="tool-btn" id="tool-pen" data-tool="pen" title="Bézier Pen (P)">
-        P<span class="hotkey">P</span>
+        ✒<span class="hotkey">P</span>
       </button>
       <button class="tool-btn" id="tool-brush" data-tool="brush" title="Freehand Vector Brush (B)">
-        B<span class="hotkey">B</span>
+        🖌<span class="hotkey">B</span>
       </button>
+      
       <div class="toolbar-sep"></div>
+      
       <button class="tool-btn" id="tool-rect" data-tool="rect" title="Rectangle (R)">
         ▭<span class="hotkey">R</span>
       </button>
@@ -579,7 +921,9 @@
       <button class="tool-btn" id="tool-text" data-tool="text" title="Vector Typography (T)">
         T<span class="hotkey">T</span>
       </button>
+      
       <div class="toolbar-sep"></div>
+      
       <button class="tool-btn" id="btn-zoom-fit" title="Zoom to Fit (0)">
         ⛶<span class="hotkey">0</span>
       </button>
@@ -596,668 +940,716 @@
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
     </div>
 
+    <!-- Mobile Sidebar Backdrop -->
+    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
+
     <!-- Right Sidebar (Scene Graph & Inspector) -->
     <div id="sidebar">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="tab-objects">Objects</button>
-        <button class="tab-btn" data-tab="tab-style">Style & Props</button>
-        <button class="tab-btn" data-tab="tab-code">SVG Code</button>
+        <button class="tab-btn active" data-tab="tab-objects">📑 Layers</button>
+        <button class="tab-btn" data-tab="tab-style">🎨 Design</button>
+        <button class="tab-btn" data-tab="tab-canvas">📐 Canvas</button>
+        <button class="tab-btn" data-tab="tab-code">⟨/⟩ SVG</button>
       </div>
 
       <!-- Tab 1: Object Tree / Hierarchy -->
       <div class="tab-content active" id="tab-objects">
-        <div class="section-title">
-          <span>SVG Object Hierarchy</span>
-          <span id="obj-count-badge" class="badge">0 items</span>
-        </div>
-
-        <div id="object-list"></div>
-
-        <div class="grid-4" style="margin-top: 4px;">
-          <button id="btn-bring-front" title="Bring to Front">▲▲ Top</button>
-          <button id="btn-bring-fwd" title="Bring Forward">▲ Up</button>
-          <button id="btn-send-back" title="Send Backward">▼ Down</button>
-          <button id="btn-send-bot" title="Send to Bottom">▼▼ Bot</button>
-        </div>
-
-        <div class="grid-2" style="margin-top: 6px;">
-          <button id="btn-group-obj" title="Group Selected (Ctrl+G)">⊞ Group</button>
-          <button id="btn-ungroup-obj" title="Ungroup Selected (Ctrl+Shift+G)">⊟ Ungroup</button>
-        </div>
-
-        <div class="grid-2" style="margin-top: 6px;">
-          <button id="btn-duplicate-obj">📑 Duplicate</button>
-          <button id="btn-delete-obj" style="color: var(--danger);">🗑 Delete</button>
-        </div>
-        <button id="btn-rasterize" style="width: 100%; margin-top: 6px; border-color: var(--accent); color: var(--accent);" title="Rasterize selected vector objects into an Image">🖼 Rasterize to Image</button>
-
-        <div class="section-title" style="margin-top: 14px;">
-          <span>Bézier Node Actions</span>
-        </div>
-        <div class="grid-2">
-          <button id="btn-node-smooth" title="Smooth: Aligned tangent handles">∿ Smooth</button>
-          <button id="btn-node-symmetric" title="Symmetric: Mirrored handles">⋈ Symmetric</button>
-        </div>
-        <div class="grid-2" style="margin-top: 4px;">
-          <button id="btn-node-cusp" title="Cusp / Independent: Move handles independently without moving the opposite handle">∠ Cusp (Unlock)</button>
-          <button id="btn-node-sharp" title="Sharp Corner: Clear handles">■ Sharp Corner</button>
-        </div>
-        <button id="btn-path-close" style="width: 100%; margin-top: 4px;">⟳ Toggle Close Path</button>
-        <button id="btn-node-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">☡ Convert Shape to Path</button>
-
-        <div class="section-title" style="margin-top: 14px;">
-          <span>Pathfinder & Booleans</span>
-        </div>
-        <div class="grid-2">
-          <button id="btn-path-union" title="Combine multiple selected paths into one union shape">∪ Union</button>
-          <button id="btn-path-subtract" title="Subtract top selected shape from bottom shape">− Subtract</button>
-        </div>
-        <div class="grid-2" style="margin-top: 4px;">
-          <button id="btn-path-intersect" title="Keep only overlapping area of selected shapes">∩ Intersect</button>
-          <button id="btn-path-exclude" title="Keep non-overlapping areas (XOR exclusion)">⨂ Exclude</button>
-        </div>
-
-        <div class="section-title" style="margin-top: 14px;">
-          <span>Canvas & Viewport</span>
-        </div>
-        <div class="form-row">
-          <label>Preset Size</label>
-          <select id="prop-canvas-preset">
-            <option value="custom">-- Custom Size --</option>
-            <option value="800x600" selected>800 × 600 (Standard)</option>
-            <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
-            <option value="1280x720">1280 × 720 (HD 720p)</option>
-            <option value="1920x1080">1920 × 1080 (Full HD)</option>
-            <option value="2560x1440">2560 × 1440 (2K QHD)</option>
-            <option value="3840x2160">3840 × 2160 (4K UHD)</option>
-            <option value="512x512">512 × 512 (Icon)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Dimensions</label>
-          <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
-            <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
+        <div class="section-card">
+          <div class="section-header">
+            <span><span class="section-icon">📑</span> Object Hierarchy</span>
+            <span id="obj-count-badge" class="badge">0 items</span>
           </div>
-        </div>
-        <div class="form-row">
-          <label>BG Color</label>
-          <input type="text" id="prop-doc-bg" value="#1d2021">
-        </div>
-        <div class="form-row">
-          <label>Zoom Level</label>
-          <div style="display: flex; gap: 4px; width: 100%;">
-            <input type="number" id="prop-zoom-val" value="100" min="10" max="1000" step="10">
-            <button id="btn-zoom-fit-panel" style="font-size: 9px; padding: 2px 6px;" title="Zoom to Fit">Fit</button>
-          </div>
-        </div>
 
-        <div class="section-title" style="margin-top: 14px;">
-          <span>Quadro Render Scale</span>
-        </div>
-        <div class="form-row">
-          <label>Scale Factor</label>
-          <select id="prop-quadro-scale">
-            <option value="0.5">0.5× (Fast Draft)</option>
-            <option value="1.0" selected>1.0× (Native 1:1)</option>
-            <option value="1.5">1.5× (150% Super-Sample)</option>
-            <option value="2.0">2.0× (2× Retina Hi-DPI)</option>
-            <option value="3.0">3.0× (3× Ultra-Sample)</option>
-            <option value="4.0">4.0× (4× High-Res Print)</option>
-          </select>
+          <div id="object-list"></div>
+
+          <div class="grid-4" style="margin-top: 2px;">
+            <button id="btn-bring-front" class="btn-sm" title="Bring to Front">▲▲ Top</button>
+            <button id="btn-bring-fwd" class="btn-sm" title="Bring Forward">▲ Up</button>
+            <button id="btn-send-back" class="btn-sm" title="Send Backward">▼ Down</button>
+            <button id="btn-send-bot" class="btn-sm" title="Send to Bottom">▼▼ Bot</button>
+          </div>
+
+          <div class="grid-2" style="margin-top: 4px;">
+            <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">⊞ Group</button>
+            <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">⊟ Ungroup</button>
+          </div>
+
+          <div class="grid-2" style="margin-top: 4px;">
+            <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object">📑 Duplicate</button>
+            <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object">🗑 Delete</button>
+          </div>
+
+          <button id="btn-rasterize" style="width: 100%; margin-top: 6px; border-color: var(--accent); color: var(--accent);" title="Rasterize selected vector objects into a Bitmap Image layer">🖼 Rasterize to Image</button>
         </div>
       </div>
 
       <!-- Tab 2: Style & Transform Inspector -->
       <div class="tab-content" id="tab-style">
-        <div class="section-title">
-          <span>Geometry & Dimensions</span>
-          <span id="prop-geom-type" class="badge">None</span>
-        </div>
-
-        <div id="geom-container" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
-          <!-- Rect Fields -->
-          <div id="geom-rect-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Position (X, Y)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
-                <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size (W × H)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
-                <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Corner Radius</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
-                <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
-              </div>
-            </div>
+        <!-- Geometry / Transform Card -->
+        <div class="section-card">
+          <div class="section-header">
+            <span><span class="section-icon">📐</span> Transform & Geometry</span>
+            <span id="prop-geom-type" class="badge">None</span>
           </div>
 
-          <!-- Circle Fields -->
-          <div id="geom-circle-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Center (CX, CY)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
-                <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Radius (R)</label>
-              <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
-            </div>
-          </div>
-
-          <!-- Ellipse Fields -->
-          <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Center (CX, CY)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
-                <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Radii (RX × RY)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
-                <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
-              </div>
-            </div>
-          </div>
-
-          <!-- Line Fields -->
-          <div id="geom-line-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Start (X1, Y1)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
-                <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>End (X2, Y2)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-line-x2" step="1" title="End X (px)">
-                <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
-              </div>
-            </div>
-          </div>
-
-          <!-- Path / Group Bounds -->
-          <div id="geom-path-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Bounds (X, Y)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-path-x" step="1" title="Min X (px)">
-                <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size (W × H)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
-                <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Path Info</label>
-              <input type="text" id="prop-path-info" readonly style="color: var(--fg-dim); font-size: 10px;">
-            </div>
-
-            <!-- Anchor Point / Node Editor Section -->
-            <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
-              <div class="form-row" style="justify-content: space-between; align-items: center;">
-                <label style="font-weight: 600; color: var(--accent);">Selected Anchor</label>
-                <span id="node-editor-index" class="badge">#0</span>
-              </div>
+          <div id="geom-container" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- Rect Fields -->
+            <div id="geom-rect-fields" class="geom-group" style="display: none;">
               <div class="form-row">
-                <label>Anchor (X, Y)</label>
+                <label>Position (X, Y)</label>
                 <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
-                  <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
+                  <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
+                  <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
                 </div>
               </div>
               <div class="form-row">
-                <label>Anchor Type</label>
-                <select id="prop-node-type">
-                  <option value="smooth">Smooth (Curved)</option>
-                  <option value="corner">Corner (Sharp)</option>
-                  <option value="cusp">Cusp (Independent Handles)</option>
-                  <option value="symmetric">Symmetric</option>
+                <label>Size (W × H)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
+                  <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Corner Radius</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
+                  <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
+                </div>
+              </div>
+            </div>
+
+            <!-- Circle Fields -->
+            <div id="geom-circle-fields" class="geom-group" style="display: none;">
+              <div class="form-row">
+                <label>Center (CX, CY)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
+                  <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Radius (R)</label>
+                <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+              </div>
+            </div>
+
+            <!-- Ellipse Fields -->
+            <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
+              <div class="form-row">
+                <label>Center (CX, CY)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
+                  <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Radii (RX × RY)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
+                  <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
+                </div>
+              </div>
+            </div>
+
+            <!-- Line Fields -->
+            <div id="geom-line-fields" class="geom-group" style="display: none;">
+              <div class="form-row">
+                <label>Start (X1, Y1)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
+                  <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>End (X2, Y2)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-line-x2" step="1" title="End X (px)">
+                  <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
+                </div>
+              </div>
+            </div>
+
+            <!-- Path / Group Bounds -->
+            <div id="geom-path-fields" class="geom-group" style="display: none;">
+              <div class="form-row">
+                <label>Bounds (X, Y)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-path-x" step="1" title="Min X (px)">
+                  <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Size (W × H)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
+                  <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Path Info</label>
+                <input type="text" id="prop-path-info" readonly style="color: var(--text-dim); font-size: 10px;">
+              </div>
+
+              <!-- Selected Anchor Point Inspector -->
+              <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
+                <div class="form-row" style="justify-content: space-between; align-items: center;">
+                  <label style="font-weight: 600; color: var(--accent);">Anchor Node</label>
+                  <span id="node-editor-index" class="badge">#0</span>
+                </div>
+                <div class="form-row">
+                  <label>Anchor (X, Y)</label>
+                  <div class="grid-2" style="width: 100%;">
+                    <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
+                    <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label>Node Type</label>
+                  <select id="prop-node-type">
+                    <option value="smooth">Smooth (Aligned Handles)</option>
+                    <option value="corner">Corner (Sharp)</option>
+                    <option value="cusp">Cusp (Independent Handles)</option>
+                    <option value="symmetric">Symmetric</option>
+                  </select>
+                </div>
+                <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">🗑 Remove Selected Anchor</button>
+              </div>
+
+              <!-- Simplify Path Section -->
+              <div id="path-simplify-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
+                <div class="form-row">
+                  <label>Simplify (RDP)</label>
+                  <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+                    <input type="range" id="prop-simplify-tol" min="0.2" max="10.0" step="0.2" value="2.0" style="flex: 1;">
+                    <span id="prop-simplify-val" style="font-size: 11px; width: 28px; text-align: right; font-family: var(--font-mono);">2.0</span>
+                  </div>
+                </div>
+                <div class="form-row">
+                  <label>Curve Fitting</label>
+                  <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer;">
+                    <input type="checkbox" id="prop-simplify-bezier" checked> Bézier Fit
+                  </label>
+                </div>
+                <button id="btn-simplify-path" style="width: 100%; margin-top: 4px; border-color: var(--primary); color: var(--primary);">〰 Simplify Path (RDP + Bézier)</button>
+              </div>
+            </div>
+
+            <!-- Image Fields & Actions -->
+            <div id="geom-image-fields" class="geom-group" style="display: none;">
+              <div class="form-row">
+                <label>Position (X, Y)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-img-x" step="1" title="Position X (px)">
+                  <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Size (W × H)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
+                  <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
+                </div>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
+                <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">🖌 Edit Raster in Painter</button>
+                <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
+              </div>
+            </div>
+
+            <!-- Text Fields -->
+            <div id="geom-text-fields" class="geom-group" style="display: none;">
+              <div class="form-row">
+                <label>Text</label>
+                <input type="text" id="prop-text-content" value="Wesenho Text">
+              </div>
+              <div class="form-row">
+                <label>Font</label>
+                <select id="prop-text-font">
+                  <option value="sans-serif">Sans-Serif</option>
+                  <option value="serif">Serif</option>
+                  <option value="monospace">Monospace</option>
+                  <option value="Arial, sans-serif">Arial</option>
+                  <option value="'Courier New', monospace">Courier New</option>
+                  <option value="'Times New Roman', serif">Times New Roman</option>
+                  <option value="Georgia, serif">Georgia</option>
+                  <option value="Impact, sans-serif">Impact</option>
                 </select>
               </div>
-              <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--red); color: var(--red);" title="Remove this anchor point from the path (or press Delete/Backspace)">🗑 Remove Selected Anchor</button>
+              <div class="form-row">
+                <label>Size (px)</label>
+                <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
+              </div>
+              <div class="form-row">
+                <label>Align</label>
+                <select id="prop-text-align">
+                  <option value="left">Left</option>
+                  <option value="center">Center</option>
+                  <option value="right">Right</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Spacing</label>
+                <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+              </div>
+              <button id="btn-text-outlines" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert Text glyphs into editable Bézier vector paths">📐 Convert to Bézier Path</button>
             </div>
 
-            <!-- Simplify Path Section -->
-            <div id="path-simplify-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
+            <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert to Bézier Path</button>
+          </div>
+        </div>
+
+        <!-- Node & Curve Operations -->
+        <details open class="section-accordion">
+          <summary><span><span class="section-icon">∿</span> Node & Curve Tools</span></summary>
+          <div class="accordion-body">
+            <div class="grid-2">
+              <button id="btn-node-smooth" class="btn-sm" title="Smooth: Aligned tangent handles">∿ Smooth</button>
+              <button id="btn-node-symmetric" class="btn-sm" title="Symmetric: Mirrored handles">⋈ Symmetric</button>
+            </div>
+            <div class="grid-2">
+              <button id="btn-node-cusp" class="btn-sm" title="Cusp / Independent: Move handles independently without moving the opposite handle">∠ Cusp (Unlock)</button>
+              <button id="btn-node-sharp" class="btn-sm" title="Sharp Corner: Clear handles">■ Sharp Corner</button>
+            </div>
+            <button id="btn-path-close" class="btn-sm" style="width: 100%;">⟳ Toggle Close Path</button>
+            <button id="btn-node-convert-path" class="btn-sm" style="width: 100%; border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">☡ Convert Shape to Path</button>
+          </div>
+        </details>
+
+        <!-- Pathfinder & Boolean Operations -->
+        <details open class="section-accordion">
+          <summary><span><span class="section-icon">∪</span> Pathfinder & Booleans</span></summary>
+          <div class="accordion-body">
+            <div class="grid-2">
+              <button id="btn-path-union" class="btn-sm" title="Combine multiple selected paths into one union shape">∪ Union</button>
+              <button id="btn-path-subtract" class="btn-sm" title="Subtract top selected shape from bottom shape">− Subtract</button>
+            </div>
+            <div class="grid-2">
+              <button id="btn-path-intersect" class="btn-sm" title="Keep only overlapping area of selected shapes">∩ Intersect</button>
+              <button id="btn-path-exclude" class="btn-sm" title="Keep non-overlapping areas (XOR exclusion)">⨂ Exclude</button>
+            </div>
+          </div>
+        </details>
+
+        <!-- Fill & Appearance -->
+        <details open class="section-accordion">
+          <summary><span><span class="section-icon">🎨</span> Fill & Texture</span></summary>
+          <div class="accordion-body">
+            <div class="form-row">
+              <label>Fill Type</label>
+              <select id="prop-fill-type">
+                <option value="solid" selected>Solid Color</option>
+                <option value="linear">Linear Gradient</option>
+                <option value="radial">Radial Gradient</option>
+              </select>
+            </div>
+            <div id="solid-fill-controls">
               <div class="form-row">
-                <label>Simplify (RDP)</label>
-                <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-                  <input type="range" id="prop-simplify-tol" min="0.2" max="10.0" step="0.2" value="2.0" style="flex: 1;">
-                  <span id="prop-simplify-val" style="font-size: 11px; width: 28px; text-align: right;">2.0</span>
+                <label>Color</label>
+                <div style="display: flex; gap: 6px; width: 100%;">
+                  <input type="color" id="prop-fill-color" value="#fabd2f">
+                  <input type="text" id="prop-fill-text" value="#fabd2f">
                 </div>
               </div>
               <div class="form-row">
-                <label>Curve Fitting</label>
-                <label style="display: flex; align-items: center; gap: 4px; text-transform: none; cursor: pointer;">
-                  <input type="checkbox" id="prop-simplify-bezier" checked> Bézier Fit
-                </label>
+                <label>Fill Alpha</label>
+                <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
               </div>
-              <button id="btn-simplify-path" style="width: 100%; margin-top: 4px; border-color: var(--primary); color: var(--primary);">〰 Simplify Path (RDP + Bézier)</button>
+              <div class="form-row">
+                <label>No Fill</label>
+                <button id="btn-fill-none" class="btn-sm" style="flex: 1;">Set None</button>
+              </div>
             </div>
-          </div>
+            <div id="gradient-controls" style="display: none; flex-direction: column; gap: 4px;">
+              <div class="form-row">
+                <label>Stop 1</label>
+                <div style="display: flex; gap: 6px; width: 100%;">
+                  <input type="color" id="prop-grad-c1" value="#fe8019">
+                  <input type="text" id="prop-grad-c1-text" value="#fe8019">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Stop 2</label>
+                <div style="display: flex; gap: 6px; width: 100%;">
+                  <input type="color" id="prop-grad-c2" value="#fabd2f">
+                  <input type="text" id="prop-grad-c2-text" value="#fabd2f">
+                </div>
+              </div>
+            </div>
 
-          <!-- Image Fields -->
-          <div id="geom-image-fields" class="geom-group" style="display: none;">
+            <div class="section-header" style="margin-top: 6px;">Fill Texture (Procedural)</div>
             <div class="form-row">
-              <label>Position (X, Y)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-img-x" step="1" title="Position X (px)">
-                <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size (W × H)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
-                <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
-              </div>
-            </div>
-            <button id="btn-edit-raster" style="width: 100%; margin-top: 8px; border-color: var(--accent); color: var(--accent);">🖌 Edit Raster in Painter</button>
-            <button id="btn-trace-vector" style="width: 100%; margin-top: 4px; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
-          </div>
-
-          <!-- Text Fields -->
-          <div id="geom-text-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Text</label>
-              <input type="text" id="prop-text-content" value="Wesenho Text">
-            </div>
-            <div class="form-row">
-              <label>Font</label>
-              <select id="prop-text-font">
-                <option value="sans-serif">Sans-Serif</option>
-                <option value="serif">Serif</option>
-                <option value="monospace">Monospace</option>
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="'Courier New', monospace">Courier New</option>
-                <option value="'Times New Roman', serif">Times New Roman</option>
-                <option value="Georgia, serif">Georgia</option>
-                <option value="Impact, sans-serif">Impact</option>
+              <label>Mode</label>
+              <select id="prop-fill-tex-mode">
+                <option value="0">0: None / Solid</option>
+                <option value="1">1: Paper Grain</option>
+                <option value="2">2: Canvas Weave</option>
+                <option value="3">3: Noise Scatter</option>
+                <option value="4">4: Halftone Dots</option>
+                <option value="5">5: Grid Pattern</option>
+                <option value="6">6: Grunge / Distress</option>
+                <option value="7">7: Hatch Lines</option>
+                <option value="8">8: Watercolor Cold Press</option>
+                <option value="9">9: Charcoal Tooth</option>
+                <option value="10">10: Wood Grain</option>
+                <option value="11">11: Leather Pores</option>
+                <option value="12">12: Dense Linen</option>
               </select>
             </div>
             <div class="form-row">
-              <label>Size (px)</label>
-              <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
+              <label>Scale %</label>
+              <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
             </div>
             <div class="form-row">
-              <label>Align</label>
-              <select id="prop-text-align">
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
+              <label>Angle °</label>
+              <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Contrast %</label>
+              <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
+            </div>
+            <div class="form-row">
+              <label>Grain / Grit</label>
+              <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
+            </div>
+
+            <div class="section-header" style="margin-top: 6px;">Blend & Opacity</div>
+            <div class="form-row">
+              <label>Opacity</label>
+              <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
+            </div>
+          </div>
+        </details>
+
+        <!-- Stroke & Line Style -->
+        <details open class="section-accordion">
+          <summary><span><span class="section-icon">✏</span> Stroke & Outline</span></summary>
+          <div class="accordion-body">
+            <div class="form-row">
+              <label>Color</label>
+              <div style="display: flex; gap: 6px; width: 100%;">
+                <input type="color" id="prop-stroke-color" value="#1d2021">
+                <input type="text" id="prop-stroke-text" value="#1d2021">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Width</label>
+              <input type="number" id="prop-stroke-width" min="0" max="100" step="1" value="2">
+            </div>
+            <div class="form-row">
+              <label>Linecap</label>
+              <select id="prop-stroke-cap">
+                <option value="round">Round</option>
+                <option value="butt">Butt</option>
+                <option value="square">Square</option>
               </select>
             </div>
             <div class="form-row">
-              <label>Spacing</label>
-              <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+              <label>Linejoin</label>
+              <select id="prop-stroke-join">
+                <option value="round">Round</option>
+                <option value="miter">Miter</option>
+                <option value="bevel">Bevel</option>
+              </select>
             </div>
-            <button id="btn-text-outlines" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert Text glyphs into editable Bézier vector paths">📐 Convert to Bézier Path</button>
-          </div>
+            <div class="form-row">
+              <label>No Stroke</label>
+              <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
+            </div>
 
-          <div class="form-row">
-            <label>Opacity</label>
-            <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
+            <div class="section-header" style="margin-top: 6px;">Stroke Texture</div>
+            <div class="form-row">
+              <label>Mode</label>
+              <select id="prop-stroke-tex-mode">
+                <option value="0">0: None / Solid</option>
+                <option value="1">1: Paper Grain</option>
+                <option value="2">2: Canvas Weave</option>
+                <option value="3">3: Noise Scatter</option>
+                <option value="4">4: Halftone Dots</option>
+                <option value="5">5: Grid Pattern</option>
+                <option value="6">6: Grunge / Distress</option>
+                <option value="7">7: Hatch Lines</option>
+                <option value="8">8: Watercolor Cold Press</option>
+                <option value="9">9: Charcoal Tooth</option>
+                <option value="10">10: Wood Grain</option>
+                <option value="11">11: Leather Pores</option>
+                <option value="12">12: Dense Linen</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Scale %</label>
+              <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
+            </div>
+            <div class="form-row">
+              <label>Angle °</label>
+              <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Contrast %</label>
+              <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
+            </div>
+            <div class="form-row">
+              <label>Grain / Grit</label>
+              <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
+            </div>
           </div>
+        </details>
 
-          <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert to Bézier Path</button>
-        </div>
+        <!-- Quadro Brush Dynamics Accordion -->
+        <details class="section-accordion">
+          <summary><span><span class="section-icon">🖌</span> Brush Dynamics (Quadro)</span></summary>
+          <div class="accordion-body">
+            <div class="form-row">
+              <label>Preset</label>
+              <select id="prop-brush-preset">
+                <option value="custom">-- Custom Settings --</option>
+                <option value="default">Solid Vector (Default)</option>
+                <optgroup label="Pencils & Sketching">
+                  <option value="pencil">HB Graphite Pencil</option>
+                  <option value="soft_pencil">6B Soft Graphite</option>
+                  <option value="mech_pencil">0.5mm Mechanical</option>
+                  <option value="blue_pencil">Blue Col-Erase</option>
+                  <option value="tech_pen">Technical Drafting Pen</option>
+                </optgroup>
+                <optgroup label="Inkers & Line Art">
+                  <option value="inker">Studio Inker</option>
+                  <option value="gpen">Manga G-Pen</option>
+                  <option value="dry_ink">Dry Ink Bristle</option>
+                  <option value="fountain">Calligraphy Chisel</option>
+                  <option value="brush_pen">Sumi-e Brush Pen</option>
+                </optgroup>
+                <optgroup label="Markers & Lettering">
+                  <option value="marker">Art Chisel Marker</option>
+                  <option value="brush_marker">Flexible Brush Marker</option>
+                  <option value="highlighter">Highlighter</option>
+                </optgroup>
+                <optgroup label="Paint & Wet Media">
+                  <option value="oil">Oil Impasto (Wet)</option>
+                  <option value="acrylic">Wet Acrylic</option>
+                  <option value="watercolor">Watercolor Wash</option>
+                  <option value="gouache">Matte Gouache</option>
+                  <option value="palette_knife">Palette Knife</option>
+                </optgroup>
+                <optgroup label="Charcoal & Pastels">
+                  <option value="charcoal">Vine Dusty Charcoal</option>
+                  <option value="hard_charcoal">Compressed Charcoal</option>
+                  <option value="pastel">Chalk Pastel</option>
+                  <option value="conte">Conté Crayon</option>
+                </optgroup>
+                <optgroup label="Airbrush & Sprays">
+                  <option value="airbrush">Soft Airbrush</option>
+                  <option value="hard_airbrush">Flow Airbrush</option>
+                  <option value="spray">Aerosol Splatter Spray</option>
+                </optgroup>
+                <optgroup label="Blenders & Smudgers">
+                  <option value="smudge">Finger Smudge</option>
+                  <option value="blend">Paint Blender</option>
+                  <option value="rake_blend">Bristle Smear</option>
+                </optgroup>
+                <optgroup label="Special FX">
+                  <option value="pixel">Pixel 1px Pencil</option>
+                  <option value="halftone">Manga Screentone</option>
+                  <option value="crosshatch">Crosshatch Texture</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Flow %</label>
+              <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
+            </div>
+            <div class="form-row">
+              <label>Hardness %</label>
+              <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
+            </div>
+            <div class="form-row">
+              <label>Spacing %</label>
+              <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
+            </div>
+            <div class="form-row">
+              <label>Scatter</label>
+              <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Roundness %</label>
+              <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
+            </div>
+            <div class="form-row">
+              <label>Angle °</label>
+              <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Dab Shape</label>
+              <select id="prop-brush-shape">
+                <option value="0">Round</option>
+                <option value="1">Square</option>
+                <option value="2">Ellipse</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Dab Blend</label>
+              <select id="prop-brush-dab-blend">
+                <option value="0">Normal (Direct)</option>
+                <option value="1">Smudge</option>
+                <option value="2">Wet / Glaze</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Auto-Rotate</label>
+              <select id="prop-brush-autorotate">
+                <option value="0">Fixed Angle</option>
+                <option value="1">Follow Stroke Direction</option>
+              </select>
+            </div>
 
-        <div class="section-title">Fill Style</div>
-        <div class="form-row">
-          <label>Type</label>
-          <select id="prop-fill-type">
-            <option value="solid" selected>Solid Color</option>
-            <option value="linear">Linear Gradient</option>
-            <option value="radial">Radial Gradient</option>
-          </select>
-        </div>
-        <div id="solid-fill-controls">
-          <div class="form-row">
-            <label>Color</label>
-            <div style="display: flex; gap: 6px; width: 100%;">
-              <input type="color" id="prop-fill-color" value="#fabd2f">
-              <input type="text" id="prop-fill-text" value="#fabd2f">
+            <div class="section-header" style="margin-top: 6px;">Taper & Jitters</div>
+            <div class="form-row">
+              <label>Taper In / Out</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
+                <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
+              </div>
             </div>
-          </div>
-          <div class="form-row">
-            <label>Fill Alpha</label>
-            <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
-          </div>
-          <div class="form-row">
-            <label>No Fill</label>
-            <button id="btn-fill-none" style="flex: 1;">Set None</button>
-          </div>
-        </div>
-        <div id="gradient-controls" style="display: none; flex-direction: column; gap: 4px; margin-bottom: 8px;">
-          <div class="form-row">
-            <label>Stop 1</label>
-            <div style="display: flex; gap: 6px; width: 100%;">
-              <input type="color" id="prop-grad-c1" value="#fe8019">
-              <input type="text" id="prop-grad-c1-text" value="#fe8019">
+            <div class="form-row">
+              <label>Size Jitter %</label>
+              <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
             </div>
-          </div>
-          <div class="form-row">
-            <label>Stop 2</label>
-            <div style="display: flex; gap: 6px; width: 100%;">
-              <input type="color" id="prop-grad-c2" value="#fabd2f">
-              <input type="text" id="prop-grad-c2-text" value="#fabd2f">
+            <div class="form-row">
+              <label>Angle Jitter %</label>
+              <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
             </div>
-          </div>
-        </div>
+            <div class="form-row">
+              <label>Opacity Jitter</label>
+              <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
+            </div>
 
-        <div class="section-title" style="margin-top: 10px; display: flex; justify-content: space-between; align-items: center;">
-          <span>Drop Shadow & Glow</span>
-          <input type="checkbox" id="prop-shadow-enable" style="cursor: pointer;">
-        </div>
-        <div id="shadow-controls" style="display: none; flex-direction: column; gap: 4px;">
-          <div class="form-row">
-            <label>Color</label>
-            <div style="display: flex; gap: 6px; width: 100%;">
-              <input type="color" id="prop-shadow-color" value="#000000">
-              <input type="text" id="prop-shadow-text" value="#000000">
+            <div class="section-header" style="margin-top: 6px;">Wet Media & Smudge</div>
+            <div class="form-row">
+              <label>Wetness %</label>
+              <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Color Pickup</label>
+              <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Depletion %</label>
+              <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
+            </div>
+            <div class="form-row">
+              <label>Smudge %</label>
+              <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
             </div>
           </div>
-          <div class="form-row">
-            <label>Blur (px)</label>
-            <input type="number" id="prop-shadow-blur" min="0" max="64" step="1" value="4">
+        </details>
+
+        <!-- Drop Shadow Accordion -->
+        <details class="section-accordion">
+          <summary>
+            <span><span class="section-icon">◐</span> Drop Shadow & Glow</span>
+            <input type="checkbox" id="prop-shadow-enable" style="cursor: pointer;" onclick="event.stopPropagation()">
+          </summary>
+          <div class="accordion-body">
+            <div id="shadow-controls" style="display: none; flex-direction: column; gap: 6px;">
+              <div class="form-row">
+                <label>Color</label>
+                <div style="display: flex; gap: 6px; width: 100%;">
+                  <input type="color" id="prop-shadow-color" value="#000000">
+                  <input type="text" id="prop-shadow-text" value="#000000">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Blur (px)</label>
+                <input type="number" id="prop-shadow-blur" min="0" max="64" step="1" value="4">
+              </div>
+              <div class="form-row">
+                <label>Offset X / Y</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-shadow-ox" step="1" value="2" title="Offset X">
+                  <input type="number" id="prop-shadow-oy" step="1" value="2" title="Offset Y">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Opacity</label>
+                <input type="number" id="prop-shadow-opacity" min="0" max="1" step="0.05" value="0.6">
+              </div>
+            </div>
+          </div>
+        </details>
+      </div>
+
+      <!-- Tab 3: Canvas Setup & Engine Settings -->
+      <div class="tab-content" id="tab-canvas">
+        <div class="section-card">
+          <div class="section-header">
+            <span><span class="section-icon">📐</span> Document & Canvas</span>
           </div>
           <div class="form-row">
-            <label>Offset X/Y</label>
+            <label>Preset Size</label>
+            <select id="prop-canvas-preset">
+              <option value="custom">-- Custom Size --</option>
+              <option value="800x600" selected>800 × 600 (Standard)</option>
+              <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
+              <option value="1280x720">1280 × 720 (HD 720p)</option>
+              <option value="1920x1080">1920 × 1080 (Full HD)</option>
+              <option value="2560x1440">2560 × 1440 (2K QHD)</option>
+              <option value="3840x2160">3840 × 2160 (4K UHD)</option>
+              <option value="512x512">512 × 512 (Icon)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Dimensions</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-shadow-ox" step="1" value="2" title="Offset X">
-              <input type="number" id="prop-shadow-oy" step="1" value="2" title="Offset Y">
+              <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
+              <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
             </div>
           </div>
           <div class="form-row">
-            <label>Opacity</label>
-            <input type="number" id="prop-shadow-opacity" min="0" max="1" step="0.05" value="0.6">
+            <label>Background</label>
+            <input type="text" id="prop-doc-bg" value="#1d2021">
           </div>
         </div>
 
-        <div class="section-title" style="margin-top: 10px;">Fill Texture (Procedural)</div>
-        <div class="form-row">
-          <label>Mode</label>
-          <select id="prop-fill-tex-mode">
-            <option value="0">0: None / Solid</option>
-            <option value="1">1: Paper Grain</option>
-            <option value="2">2: Canvas Weave</option>
-            <option value="3">3: Noise Scatter</option>
-            <option value="4">4: Halftone Dots</option>
-            <option value="5">5: Grid Pattern</option>
-            <option value="6">6: Grunge / Distress</option>
-            <option value="7">7: Hatch Lines</option>
-            <option value="8">8: Watercolor Cold Press</option>
-            <option value="9">9: Charcoal Tooth</option>
-            <option value="10">10: Wood Grain</option>
-            <option value="11">11: Leather Pores</option>
-            <option value="12">12: Dense Linen</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Scale %</label>
-          <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Angle °</label>
-          <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Contrast %</label>
-          <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Grain / Grit</label>
-          <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
-        </div>
-
-        <div class="section-title" style="margin-top: 10px;">Stroke Style</div>
-        <div class="form-row">
-          <label>Color</label>
-          <div style="display: flex; gap: 6px; width: 100%;">
-            <input type="color" id="prop-stroke-color" value="#1d2021">
-            <input type="text" id="prop-stroke-text" value="#1d2021">
+        <div class="section-card">
+          <div class="section-header">
+            <span><span class="section-icon">🔍</span> Viewport & Zoom</span>
+          </div>
+          <div class="form-row">
+            <label>Zoom Level</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-zoom-val" value="100" min="10" max="1000" step="10">
+              <button id="btn-zoom-fit-panel" class="btn-sm" title="Zoom to Fit Canvas">Fit (0)</button>
+            </div>
           </div>
         </div>
-        <div class="form-row">
-          <label>Width</label>
-          <input type="number" id="prop-stroke-width" min="0" max="100" step="1" value="2">
-        </div>
-        <div class="form-row">
-          <label>Linecap</label>
-          <select id="prop-stroke-cap">
-            <option value="round">Round</option>
-            <option value="butt">Butt</option>
-            <option value="square">Square</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Linejoin</label>
-          <select id="prop-stroke-join">
-            <option value="round">Round</option>
-            <option value="miter">Miter</option>
-            <option value="bevel">Bevel</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>No Stroke</label>
-          <button id="btn-stroke-none" style="flex: 1;">Set None</button>
-        </div>
 
-        <div class="section-title" style="margin-top: 10px;">Brush Dynamics (Quadro / Esenho)</div>
-        <div class="form-row">
-          <label>Preset</label>
-          <select id="prop-brush-preset">
-            <option value="custom">-- Custom Settings --</option>
-            <option value="default">Solid Vector (Default)</option>
-            <optgroup label="Pencils & Sketching">
-              <option value="pencil">HB Graphite Pencil</option>
-              <option value="soft_pencil">6B Soft Graphite</option>
-              <option value="mech_pencil">0.5mm Mechanical</option>
-              <option value="blue_pencil">Blue Col-Erase</option>
-              <option value="tech_pen">Technical Drafting Pen</option>
-            </optgroup>
-            <optgroup label="Inkers & Line Art">
-              <option value="inker">Studio Inker</option>
-              <option value="gpen">Manga G-Pen</option>
-              <option value="dry_ink">Dry Ink Bristle</option>
-              <option value="fountain">Calligraphy Chisel</option>
-              <option value="brush_pen">Sumi-e Brush Pen</option>
-            </optgroup>
-            <optgroup label="Markers & Lettering">
-              <option value="marker">Art Chisel Marker</option>
-              <option value="brush_marker">Flexible Brush Marker</option>
-              <option value="highlighter">Highlighter</option>
-            </optgroup>
-            <optgroup label="Paint & Wet Media">
-              <option value="oil">Oil Impasto (Wet)</option>
-              <option value="acrylic">Wet Acrylic</option>
-              <option value="watercolor">Watercolor Wash</option>
-              <option value="gouache">Matte Gouache</option>
-              <option value="palette_knife">Palette Knife</option>
-            </optgroup>
-            <optgroup label="Charcoal & Pastels">
-              <option value="charcoal">Vine Dusty Charcoal</option>
-              <option value="hard_charcoal">Compressed Charcoal</option>
-              <option value="pastel">Chalk Pastel</option>
-              <option value="conte">Conté Crayon</option>
-            </optgroup>
-            <optgroup label="Airbrush & Sprays">
-              <option value="airbrush">Soft Airbrush</option>
-              <option value="hard_airbrush">Flow Airbrush</option>
-              <option value="spray">Aerosol Splatter Spray</option>
-            </optgroup>
-            <optgroup label="Blenders & Smudgers">
-              <option value="smudge">Finger Smudge</option>
-              <option value="blend">Paint Blender</option>
-              <option value="rake_blend">Bristle Smear</option>
-            </optgroup>
-            <optgroup label="Special FX">
-              <option value="pixel">Pixel 1px Pencil</option>
-              <option value="halftone">Manga Screentone</option>
-              <option value="crosshatch">Crosshatch Texture</option>
-            </optgroup>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Flow %</label>
-          <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Hardness %</label>
-          <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Spacing %</label>
-          <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
-        </div>
-        <div class="form-row">
-          <label>Scatter</label>
-          <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Roundness %</label>
-          <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Angle °</label>
-          <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Dab Shape</label>
-          <select id="prop-brush-shape">
-            <option value="0">Round</option>
-            <option value="1">Square</option>
-            <option value="2">Ellipse</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Dab Blend</label>
-          <select id="prop-brush-dab-blend">
-            <option value="0">Normal (Direct)</option>
-            <option value="1">Smudge</option>
-            <option value="2">Wet / Glaze</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Auto-Rotate</label>
-          <select id="prop-brush-autorotate">
-            <option value="0">Fixed Angle</option>
-            <option value="1">Follow Stroke Direction</option>
-          </select>
-        </div>
-
-        <div class="section-title" style="margin-top: 10px;">Brush Taper & Jitters</div>
-        <div class="form-row">
-          <label>Taper In / Out</label>
-          <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
-            <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
+        <div class="section-card">
+          <div class="section-header">
+            <span><span class="section-icon">⚡</span> Quadro WASM Engine</span>
           </div>
-        </div>
-        <div class="form-row">
-          <label>Size Jitter %</label>
-          <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Angle Jitter %</label>
-          <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Opacity Jitter %</label>
-          <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
-        </div>
-
-        <div class="section-title" style="margin-top: 10px;">Wet Media & Smudge</div>
-        <div class="form-row">
-          <label>Wetness %</label>
-          <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Color Pickup %</label>
-          <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Depletion %</label>
-          <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Smudge %</label>
-          <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
-        </div>
-
-        <div class="section-title" style="margin-top: 10px;">Stroke Texture (Procedural)</div>
-        <div class="form-row">
-          <label>Mode</label>
-          <select id="prop-stroke-tex-mode">
-            <option value="0">0: None / Solid</option>
-            <option value="1">1: Paper Grain</option>
-            <option value="2">2: Canvas Weave</option>
-            <option value="3">3: Noise Scatter</option>
-            <option value="4">4: Halftone Dots</option>
-            <option value="5">5: Grid Pattern</option>
-            <option value="6">6: Grunge / Distress</option>
-            <option value="7">7: Hatch Lines</option>
-            <option value="8">8: Watercolor Cold Press</option>
-            <option value="9">9: Charcoal Tooth</option>
-            <option value="10">10: Wood Grain</option>
-            <option value="11">11: Leather Pores</option>
-            <option value="12">12: Dense Linen</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Scale %</label>
-          <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Angle °</label>
-          <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
-        </div>
-        <div class="form-row">
-          <label>Contrast %</label>
-          <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
-        </div>
-        <div class="form-row">
-          <label>Grain / Grit</label>
-          <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
-        </div>
-
-        <div class="section-title" style="margin-top: 10px;">Object Blend & Opacity</div>
-        <div class="form-row">
-          <label>Opacity</label>
-          <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
+          <div class="form-row">
+            <label>Render Scale</label>
+            <select id="prop-quadro-scale">
+              <option value="0.5">0.5× (Fast Draft)</option>
+              <option value="1.0" selected>1.0× (Native 1:1)</option>
+              <option value="1.5">1.5× (150% Super-Sample)</option>
+              <option value="2.0">2.0× (2× Retina Hi-DPI)</option>
+              <option value="3.0">3.0× (3× Ultra-Sample)</option>
+              <option value="4.0">4.0× (4× High-Res Print)</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      <!-- Tab 3: Raw SVG Code Inspector -->
+      <!-- Tab 4: Raw SVG Code Inspector -->
       <div class="tab-content" id="tab-code">
-        <div class="section-title">
-          <span>Live SVG XML Source</span>
-        </div>
-        <textarea id="svg-code-editor" spellcheck="false"></textarea>
-        <div class="grid-2">
-          <button id="btn-apply-svg-code" class="btn-primary">✔ Apply SVG Code</button>
-          <button id="btn-copy-svg-code">📋 Copy Code</button>
+        <div class="section-card">
+          <div class="section-header">
+            <span><span class="section-icon">⟨/⟩</span> Live SVG XML Source</span>
+          </div>
+          <textarea id="svg-code-editor" spellcheck="false"></textarea>
+          <div class="grid-2" style="margin-top: 6px;">
+            <button id="btn-apply-svg-code" class="btn-primary">✔ Apply SVG</button>
+            <button id="btn-copy-svg-code">📋 Copy Code</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1272,7 +1664,6 @@
     </div>
     <div class="status-group">
       <span>Objects: <span class="status-val" id="status-objects">0</span></span>
-      <span>Engine: <span class="status-val" style="color: var(--success);">Quadro C99 SIMD</span></span>
     </div>
   </footer>
 
@@ -1436,7 +1827,7 @@
             const buf = await res.arrayBuffer();
             const actor = new EsenhoModule(new Uint8Array(buf));
             quadroRenderer = new QuadroSvgRenderer(actor);
-            document.getElementById('wasm-badge').textContent = 'Quadro SIMD Ready';
+            document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
             render();
           }
         } catch (err) {
@@ -2635,8 +3026,32 @@
         updateObjectList();
       }
 
-      // ── Top Header Actions ──
+      // ── Top Header & Main Menu Actions ──
       window.addEventListener('resize', () => { drawOverlay(); });
+
+      // Main "E" Menu Dropdown Toggle
+      const btnMenuLogo = document.getElementById('btn-menu-logo');
+      const menuDropdown = document.getElementById('app-menu-dropdown');
+      btnMenuLogo?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.toggle('active');
+        btnMenuLogo?.classList.toggle('active');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!menuDropdown?.contains(e.target) && e.target !== btnMenuLogo) {
+          menuDropdown?.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
+        }
+      });
+
+      menuDropdown?.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+          menuDropdown.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
+        }
+      });
+
       document.getElementById('btn-undo').addEventListener('click', () => { handleUndo(); });
       document.getElementById('btn-redo').addEventListener('click', () => { doc.redo(); render(); });
       document.getElementById('btn-zoom-fit').addEventListener('click', zoomToFit);
@@ -2648,7 +3063,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `wesenho_vector_${Date.now()}.svg`;
+        a.download = `esenho_vector_${Date.now()}.svg`;
         a.click();
         URL.revokeObjectURL(url);
       });
@@ -3628,6 +4043,70 @@
         navigator.clipboard.writeText(svgCodeEditor.value).then(() => {
           alert('SVG XML copied to clipboard!');
         });
+      });
+
+      // Mobile Drawer Toggle
+      const sidebarEl = document.getElementById('sidebar');
+      const backdropEl = document.getElementById('sidebar-backdrop');
+      document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => {
+        sidebarEl?.classList.toggle('mobile-open');
+        backdropEl?.classList.toggle('active');
+      });
+      backdropEl?.addEventListener('click', () => {
+        sidebarEl?.classList.remove('mobile-open');
+        backdropEl?.classList.remove('active');
+      });
+
+      // Mobile Touch Pinch-to-Zoom & Two-Finger Pan
+      let touchStartDist = 0;
+      let touchStartZoom = 1.0;
+      let touchStartPanX = 0, touchStartPanY = 0;
+      let touchStartMidX = 0, touchStartMidY = 0;
+
+      viewportContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          touchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          touchStartZoom = zoom;
+          touchStartPanX = panX;
+          touchStartPanY = panY;
+          touchStartMidX = (t1.clientX + t2.clientX) / 2;
+          touchStartMidY = (t1.clientY + t2.clientY) / 2;
+        }
+      }, { passive: false });
+
+      viewportContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 2 && touchStartDist > 0) {
+          e.preventDefault();
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+          const currentMidX = (t1.clientX + t2.clientX) / 2;
+          const currentMidY = (t1.clientY + t2.clientY) / 2;
+          const scale = currentDist / touchStartDist;
+
+          const newZoom = Math.max(0.1, Math.min(10.0, touchStartZoom * scale));
+          const zoomFactor = newZoom / touchStartZoom;
+
+          const rect = viewportContainer.getBoundingClientRect();
+          const ox = touchStartMidX - rect.left;
+          const oy = touchStartMidY - rect.top;
+
+          panX = ox - (ox - touchStartPanX) * zoomFactor + (currentMidX - touchStartMidX);
+          panY = oy - (oy - touchStartPanY) * zoomFactor + (currentMidY - touchStartMidY);
+          zoom = newZoom;
+
+          updateTransform();
+          render();
+        }
+      }, { passive: false });
+
+      viewportContainer.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          touchStartDist = 0;
+        }
       });
 
       // ── Bootstrapping ──
