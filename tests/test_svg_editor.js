@@ -735,9 +735,11 @@ async function runSvgEngineTests() {
 
   // Test Text on Path getBounds and hitTest
   const tBounds = tObj.getBounds();
-  assert(tBounds.minX <= 0 && tBounds.maxX >= 200, 'Text on path bounds should follow the guide path');
+  assert(tBounds.minX < 0 && tBounds.maxX > 200, 'Text on path bounds should include padding for text height');
   const tHit = tObj._localHitTest(100, 50);
-  assert.strictEqual(tHit, true, 'Hit testing text on path should match points on guide path');
+  assert.strictEqual(tHit, false, 'Text on path must NOT intercept direct canvas hit-test (selectable only via layer manager)');
+  const hitCanvas = topDoc.hitTest(100, 50);
+  assert.strictEqual(hitCanvas.id, pGuide.id, 'Canvas hit on text-on-path should select guide path, not text');
 
   topDoc.select(tObj.id);
   const detached = topDoc.detachTextFromPath();
@@ -805,7 +807,31 @@ async function runSvgEngineTests() {
   });
   assert.strictEqual(snapRes.dx, -2, 'Should snap to otherRect left edge (100)');
   assert(snapRes.snapLines.length > 0, 'Should return visual snap guideline');
-  console.log('✔ Smart Snapping passed');
+  // 24. Test Path Bézier Handle Extrema Bounding Box
+  console.log('--- Testing Path Bézier Extrema Bounding Box ---');
+  const curvePath = new SvgPath({ stroke: 'none' });
+  // Start at (0, 100), end at (100, 100), with both handles pulling curve peak above y=0
+  curvePath.addNode(0, 100, null, { x: 30, y: -200 }, 'cusp');
+  curvePath.addNode(100, 100, { x: -30, y: -200 }, null, 'cusp');
+  const cBounds = curvePath.getBounds();
+  assert(cBounds.minY < 0, 'Bounding box minY must capture curve handle peak reaching above start/end points');
+  assert(cBounds.maxY >= 100, 'Bounding box maxY must capture start/end points');
+  console.log('✔ Path Bézier Extrema Bounding Box passed');
+
+  // 25. Test Object & Group Renaming
+  console.log('--- Testing Object & Group Renaming ---');
+  const renameDoc = new SvgDocument(800, 600);
+  const rShape = new SvgRect({ x: 10, y: 10, width: 50, height: 50 });
+  const gContainer = new SvgGroup();
+  gContainer.add(rShape);
+  renameDoc.addObject(gContainer);
+
+  assert(gContainer.name.startsWith('Group'));
+  gContainer.name = 'Hero Header Group';
+  rShape.name = 'Background Card';
+  assert.strictEqual(gContainer.name, 'Hero Header Group');
+  assert.strictEqual(rShape.name, 'Background Card');
+  console.log('✔ Object & Group Renaming passed');
 
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }

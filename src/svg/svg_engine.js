@@ -579,9 +579,9 @@
       return transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
     }
 
-    getExtraSVGAttributes() {
+    getExtraSVGAttributes(includeClipPath = false) {
       let attrs = this.getTransformAttribute();
-      if (this.clipPathId) {
+      if (includeClipPath && this.clipPathId) {
         const hasMask = (this.doc ? !!this.doc.findObject(this.clipPathId) : true);
         if (hasMask) {
           attrs += ` clip-path="url(#clip_${this.clipPathId})"`;
@@ -603,6 +603,16 @@
         attrs += ` data-gradient="${encodeURIComponent(JSON.stringify(this.fillGradient))}"`;
       }
       return attrs;
+    }
+
+    wrapClipPath(svgEl) {
+      if (this.clipPathId) {
+        const hasMask = (this.doc ? !!this.doc.findObject(this.clipPathId) : true);
+        if (hasMask) {
+          return `<g clip-path="url(#clip_${this.clipPathId})">\n    ${svgEl}\n  </g>`;
+        }
+      }
+      return svgEl;
     }
 
     getSvgFillAttribute() {
@@ -1040,6 +1050,26 @@
         maxY = Math.max(maxY, b.maxY);
       }
 
+      if (this.closed && this.nodes.length >= 2) {
+        const last = this.nodes[this.nodes.length - 1];
+        const first = this.nodes[0];
+        const b = Bezier.cubicBounds(
+          { x: last.x, y: last.y },
+          last.getAbsCpOut(),
+          first.getAbsCpIn(),
+          { x: first.x, y: first.y }
+        );
+        minX = Math.min(minX, b.minX);
+        minY = Math.min(minY, b.minY);
+        maxX = Math.max(maxX, b.maxX);
+        maxY = Math.max(maxY, b.maxY);
+      }
+
+      for (const n of this.nodes) {
+        minX = Math.min(minX, n.x); maxX = Math.max(maxX, n.x);
+        minY = Math.min(minY, n.y); maxY = Math.max(maxY, n.y);
+      }
+
       if (this.nodes.length === 1) {
         minX = this.nodes[0].x; maxX = this.nodes[0].x;
         minY = this.nodes[0].y; maxY = this.nodes[0].y;
@@ -1070,7 +1100,8 @@
       const join = this.strokeLinejoin;
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     simplify(tolerance = 2.0, fitCurves = true) {
@@ -1237,7 +1268,8 @@
       const rule = ` fill-rule="${this.fillRule}"`;
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<path id="${this.id}" d="${d}"${rule} fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<path id="${this.id}" d="${d}"${rule} fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     simplify(tolerance = 2.0, fitCurves = true) {
@@ -1281,17 +1313,25 @@
 
     getBounds() {
       if (this.pathId) {
-        const pathObj = (this.doc ? this.doc.findObject(this.pathId) : null) || (typeof window !== 'undefined' && window.doc ? window.doc.findObject(this.pathId) : null);
+        let pathObj = this.doc ? this.doc.findObject(this.pathId) : null;
+        if (!pathObj && this.parent) {
+          let root = this.parent;
+          while (root.parent) root = root.parent;
+          if (typeof root.findObject === 'function') pathObj = root.findObject(this.pathId);
+        }
+        if (!pathObj && typeof window !== 'undefined' && window.doc) {
+          pathObj = window.doc.findObject(this.pathId);
+        }
         if (pathObj && typeof pathObj.getBounds === 'function') {
           const pb = pathObj.getBounds();
-          const pad = this.fontSize * 0.6;
+          const pad = Math.max(12, (this.fontSize || 24) * 1.2);
           return {
             minX: pb.minX - pad,
             minY: pb.minY - pad,
             maxX: pb.maxX + pad,
             maxY: pb.maxY + pad,
-            width: pb.width + pad * 2,
-            height: pb.height + pad * 2
+            width: (pb.maxX - pb.minX) + pad * 2,
+            height: (pb.maxY - pb.minY) + pad * 2
           };
         }
       }
@@ -1314,14 +1354,18 @@
 
     _localHitTest(px, py, tolerance = 6) {
       if (!this.visible || this.locked) return false;
-      if (this.pathId) {
-        const pathObj = (this.doc ? this.doc.findObject(this.pathId) : null) || (typeof window !== 'undefined' && window.doc ? window.doc.findObject(this.pathId) : null);
-        if (pathObj && typeof pathObj.hitTest === 'function') {
-          return pathObj.hitTest(px, py, Math.max(tolerance, this.fontSize * 0.75));
-        }
-      }
+      // Text attached to path is selectable ONLY via layer manager
+      if (this.pathId) return false;
       const b = this.getBounds();
       return px >= b.minX - tolerance && px <= b.maxX + tolerance && py >= b.minY - tolerance && py <= b.maxY + tolerance;
+    }
+
+    getOrigin() {
+      const b = this.getBounds();
+      return {
+        x: this.originX !== undefined ? this.originX : (b.minX + b.width / 2),
+        y: this.originY !== undefined ? this.originY : (b.minY + b.height / 2)
+      };
     }
 
     toPath() {
@@ -1475,10 +1519,13 @@
       const anchor = this.textAlign === 'center' ? 'middle' : (this.textAlign === 'right' ? 'end' : 'start');
       const letterSpace = this.letterSpacing ? ` letter-spacing="${this.letterSpacing}px"` : '';
 
+      let textEl = '';
       if (this.pathId) {
-        return `<text id="${this.id}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes()}><textPath href="#${this.pathId}">${escapeXml(this.text)}</textPath></text>`;
+        textEl = `<text id="${this.id}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes(false)}><textPath href="#${this.pathId}" xlink:href="#${this.pathId}">${escapeXml(this.text)}</textPath></text>`;
+      } else {
+        textEl = `<text id="${this.id}" x="${this.x}" y="${this.y}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes(false)}>${escapeXml(this.text)}</text>`;
       }
-      return `<text id="${this.id}" x="${this.x}" y="${this.y}" font-family="${this.fontFamily}" font-size="${this.fontSize}" font-weight="${this.fontWeight}" font-style="${this.fontStyle}" text-anchor="${anchor}" fill="${fill}" opacity="${this.opacity}"${stroke}${letterSpace}${filter}${this.getExtraSVGAttributes()}>${escapeXml(this.text)}</text>`;
+      return this.wrapClipPath(textEl);
     }
 
     toJSON() {
@@ -1630,7 +1677,8 @@
       const ryAttr = this.ry > 0 ? ` ry="${this.ry}"` : '';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<rect id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${rxAttr}${ryAttr} fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<rect id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${rxAttr}${ryAttr} fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     toJSON() {
@@ -1723,7 +1771,8 @@
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
-      return `<ellipse id="${this.id}" cx="${this.cx}" cy="${this.cy}" rx="${this.rx}" ry="${this.ry}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<ellipse id="${this.id}" cx="${this.cx}" cy="${this.cy}" rx="${this.rx}" ry="${this.ry}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     toJSON() {
@@ -1753,7 +1802,8 @@
       const filter = this.getSvgFilterAttribute();
       const stroke = this.stroke || 'none';
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<circle id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<circle id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fill="${fill}" fill-opacity="${this.fillOpacity}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     toJSON() {
@@ -1825,7 +1875,8 @@
       const stroke = this.stroke || '#000';
       const filter = this.getSvgFilterAttribute();
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
-      return `<line id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<line id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}" stroke="${stroke}" stroke-width="${this.strokeWidth}" stroke-opacity="${this.strokeOpacity}" opacity="${this.opacity}"${dash}${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     toJSON() {
@@ -1918,7 +1969,8 @@
       const pts = this.points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
       const fill = this.getSvgFillAttribute();
       const filter = this.getSvgFilterAttribute();
-      return `<polyline id="${this.id}" points="${pts}" fill="${fill}" stroke="${this.stroke}" stroke-width="${this.strokeWidth}" opacity="${this.opacity}"${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<polyline id="${this.id}" points="${pts}" fill="${fill}" stroke="${this.stroke}" stroke-width="${this.strokeWidth}" opacity="${this.opacity}"${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     toJSON() {
@@ -1948,7 +2000,8 @@
       const pts = this.points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
       const fill = this.getSvgFillAttribute();
       const filter = this.getSvgFilterAttribute();
-      return `<polygon id="${this.id}" points="${pts}" fill="${fill}" stroke="${this.stroke}" stroke-width="${this.strokeWidth}" opacity="${this.opacity}"${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<polygon id="${this.id}" points="${pts}" fill="${fill}" stroke="${this.stroke}" stroke-width="${this.strokeWidth}" opacity="${this.opacity}"${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     static fromJSON(data) {
@@ -2081,7 +2134,8 @@
         .filter(c => c.visible !== false)
         .map(c => c.toSVGElement())
         .join('\n    ');
-      return `<g id="${this.id}" opacity="${this.opacity}"${this.getExtraSVGAttributes()}>\n    ${kids}\n  </g>`;
+      const groupEl = `<g id="${this.id}" opacity="${this.opacity}"${this.getExtraSVGAttributes(false)}>\n    ${kids}\n  </g>`;
+      return this.wrapClipPath(groupEl);
     }
 
     toJSON() {
@@ -2134,7 +2188,8 @@
     toSVGElement() {
       const href = this.src ? ` href="${escapeXml(this.src)}" xlink:href="${escapeXml(this.src)}"` : '';
       const filter = this.getSvgFilterAttribute();
-      return `<image id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${href} opacity="${this.opacity}" preserveAspectRatio="none"${filter}${this.getExtraSVGAttributes()} />`;
+      const el = `<image id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${href} opacity="${this.opacity}" preserveAspectRatio="none"${filter}${this.getExtraSVGAttributes(false)} />`;
+      return this.wrapClipPath(el);
     }
 
     toJSON() {
@@ -2616,6 +2671,7 @@
       for (let i = 0; i < this.objects.length; i++) {
         const obj = this.objects[i];
         if (!obj.visible || obj.locked) continue;
+        if (obj.type === 'text' && obj.pathId) continue; // Text on path selectable only via layer manager
         const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
         if (intersect) {
           const overlaps = !(b.maxX < boxMinX || b.minX > boxMaxX || b.maxY < boxMinY || b.minY > boxMaxY);
@@ -3153,11 +3209,24 @@
           if (obj.clipPathId) {
             const clipObj = this.findObject(obj.clipPathId);
             if (clipObj && !defsMap.has(`clip_${obj.clipPathId}`)) {
-              const innerEl = clipObj.toSVGElement()
+              let innerEl = clipObj.toSVGElement();
+              innerEl = innerEl
+                .replace(/^<g\s+clip-path="[^"]*">\s*([\s\S]*?)\s*<\/g>$/i, '$1')
                 .replace(/\s*id="[^"]*"/g, '')
-                .replace(/\s*clip-path="[^"]*"/g, '');
+                .replace(/\s*clip-path="[^"]*"/g, '')
+                .replace(/\s*filter="[^"]*"/g, '')
+                .replace(/\s*data-[a-z0-9_-]+="[^"]*"/gi, '');
               defsMap.set(`clip_${obj.clipPathId}`, {
-                toSVGElement: () => `<clipPath id="clip_${obj.clipPathId}">\n      ${innerEl}\n    </clipPath>`
+                toSVGElement: () => `<clipPath id="clip_${obj.clipPathId}" clipPathUnits="userSpaceOnUse">\n      ${innerEl.trim()}\n    </clipPath>`
+              });
+            }
+          }
+          if (obj.type === 'text' && obj.pathId) {
+            const pObj = this.findObject(obj.pathId);
+            if (pObj && pObj.type !== 'path' && typeof pObj.toPath === 'function' && !defsMap.has(`path_${obj.pathId}`)) {
+              const pData = pObj.toPath().toPathData();
+              defsMap.set(`path_${obj.pathId}`, {
+                toSVGElement: () => `<path id="${obj.pathId}" d="${pData}" fill="none" stroke="none" />`
               });
             }
           }
@@ -3581,7 +3650,20 @@
       this.height = data.height || 600;
       this.viewBox = data.viewBox || `0 0 ${this.width} ${this.height}`;
       this.backgroundColor = data.backgroundColor || '#1d2021';
-      this.objects = (data.objects || []).map(o => SvgNode.fromJSON(o));
+      this.objects = (data.objects || []).map(o => {
+        const node = SvgNode.fromJSON(o);
+        node.doc = this;
+        if (node.type === 'group' && node.children) {
+          const setDocRec = (kids) => {
+            for (const k of kids) {
+              k.doc = this;
+              if (k.type === 'group' && k.children) setDocRec(k.children);
+            }
+          };
+          setDocRec(node.children);
+        }
+        return node;
+      });
       this.selectedIds.clear();
     }
   }

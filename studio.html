@@ -1261,7 +1261,8 @@
               <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">⊟ Ungroup</button>
             </div>
 
-            <div class="grid-2">
+            <div class="grid-3">
+              <button id="btn-rename-obj" class="btn-sm" title="Rename Selected Object (F2)">✏ Rename</button>
               <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">📑 Duplicate</button>
               <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">🗑 Delete</button>
             </div>
@@ -1381,6 +1382,12 @@
             <span id="prop-geom-type" class="badge">None</span>
           </summary>
           <div class="accordion-body">
+            <!-- Object Name / Label Field -->
+            <div class="form-row" id="geom-name-row" style="margin-bottom: 6px;">
+              <label>Name / Label</label>
+              <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px;">
+            </div>
+
             <!-- Rect Fields -->
             <div id="geom-rect-fields" class="geom-group" style="display: none;">
               <div class="form-row">
@@ -2155,6 +2162,7 @@
 
       // ── Document State ──
       const doc = new SvgDocument(800, 600);
+      window.doc = doc;
       let quadroRenderer = null;
 
       // ── Viewport State ──
@@ -3050,8 +3058,12 @@
 
               const saveName = () => {
                 const val = input.value.trim();
-                if (val) obj.name = val;
+                if (val && val !== obj.name) {
+                  obj.name = val;
+                  doc.pushHistory(`Rename to ${val}`);
+                }
                 updateObjectList();
+                updateInspector();
               };
 
               input.addEventListener('blur', saveName);
@@ -3360,13 +3372,22 @@
           }
         }
 
+        const propObjName = document.getElementById('prop-obj-name');
         if (selected.length === 0) {
           if (propGeomType) propGeomType.textContent = 'None';
           if (btnConvertPath) btnConvertPath.style.display = 'none';
+          if (propObjName) {
+            propObjName.value = '';
+            propObjName.disabled = true;
+          }
           return;
         }
         const obj = selected[0];
         if (propGeomType) propGeomType.textContent = obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
+        if (propObjName) {
+          propObjName.value = obj.name || '';
+          propObjName.disabled = false;
+        }
 
         // Geometry & Dimensions Sync
         if (obj.type === 'rect') {
@@ -4423,6 +4444,9 @@
             snapBtn.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
           }
           drawOverlay();
+        } else if (e.key === 'F2') {
+          e.preventDefault();
+          triggerRenameSelected();
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
           if (activeTool === 'node' && activeNodeIdx !== -1) {
             const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
@@ -4982,6 +5006,47 @@
           doc.select(clone.id);
         }
         render();
+      });
+
+      function triggerRenameSelected() {
+        const selected = doc.getSelectedObjects();
+        if (selected.length === 0) return;
+        const obj = selected[0];
+
+        // Highlight/show inline rename in layer manager
+        const objItem = document.querySelector(`.obj-item[data-id="${obj.id}"]`);
+        if (objItem) {
+          const nameSpan = objItem.querySelector('.obj-name');
+          if (nameSpan) {
+            nameSpan.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+            return;
+          }
+        }
+
+        const nameInput = document.getElementById('prop-obj-name');
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.select();
+        }
+      }
+
+      document.getElementById('btn-rename-obj')?.addEventListener('click', () => {
+        triggerRenameSelected();
+      });
+
+      document.getElementById('prop-obj-name')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        if (selected.length > 0) {
+          selected[0].name = e.target.value;
+          updateObjectList();
+        }
+      });
+      document.getElementById('prop-obj-name')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        if (selected.length > 0) {
+          doc.pushHistory(`Rename to ${e.target.value}`);
+          updateObjectList();
+        }
       });
 
       document.getElementById('btn-delete-obj')?.addEventListener('click', () => {
