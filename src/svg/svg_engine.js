@@ -524,7 +524,7 @@
         }
       }
 
-      if (this.closed && this.nodes.length > 2) {
+      if (this.closed && this.nodes.length >= 2) {
         const last = this.nodes[this.nodes.length - 1];
         const first = this.nodes[0];
         const cp1 = last.getAbsCpOut();

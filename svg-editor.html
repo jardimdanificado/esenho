@@ -1298,6 +1298,7 @@
       let currentPenPath = null;
       let penCursorPos = null;
       let isPenDraggingAnchor = false;
+      let isPenClosingPath = false;
 
       function commitPenPath() {
         if (currentPenPath) {
@@ -1308,6 +1309,7 @@
           }
           currentPenPath = null;
           isPenDraggingAnchor = false;
+          isPenClosingPath = false;
           activeNodeIdx = -1;
           render();
           updateInspector();
@@ -1439,12 +1441,7 @@
         }
 
         // 2. Draw Interactive Overlay (Gizmos, Nodes, Handles)
-        const dpr = window.devicePixelRatio || 1;
-        overlayCanvas.width = Math.round(doc.width * zoom * dpr);
-        overlayCanvas.height = Math.round(doc.height * zoom * dpr);
-        ctx.scale(zoom * dpr, zoom * dpr);
-        ctx.clearRect(0, 0, doc.width, doc.height);
-        renderOverlay();
+        drawOverlay();
 
         // 3. Update Sidebar & UI
         updateObjectList();
@@ -1488,6 +1485,24 @@
         const path = paths.find(p => p.nodes && p.nodes[activeNodeIdx]) || paths[0] || null;
         const node = (path && path.nodes) ? path.nodes[activeNodeIdx] : null;
         return { path, node };
+      }
+
+      function drawOverlay() {
+        const dpr = window.devicePixelRatio || 1;
+        const targetW = Math.round(doc.width * dpr);
+        const targetH = Math.round(doc.height * dpr);
+        if (overlayCanvas.width !== targetW || overlayCanvas.height !== targetH) {
+          overlayCanvas.width = targetW;
+          overlayCanvas.height = targetH;
+          overlayCanvas.style.width = `${doc.width}px`;
+          overlayCanvas.style.height = `${doc.height}px`;
+        }
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        ctx.scale(dpr, dpr);
+        renderOverlay();
+        ctx.restore();
       }
 
       function renderOverlay() {
@@ -2094,7 +2109,15 @@
             const first = currentPenPath.nodes[0];
             if (Math.hypot(pt.x - first.x, pt.y - first.y) <= 12 / zoom) {
               currentPenPath.closed = true;
-              commitPenPath();
+              activeNodeIdx = 0;
+              activeHandleType = 'out';
+              isPenDraggingAnchor = true;
+              isPenClosingPath = true;
+              isDragging = true;
+              dragStartX = first.x;
+              dragStartY = first.y;
+              render();
+              updateInspector();
               return;
             }
           }
@@ -2113,6 +2136,7 @@
           activeNodeIdx = currentPenPath.nodes.length - 1;
           activeHandleType = 'out';
           isPenDraggingAnchor = true;
+          isPenClosingPath = false;
           isDragging = true;
           dragStartX = pt.x;
           dragStartY = pt.y;
@@ -2198,7 +2222,7 @@
 
         if (!isDragging) {
           if (activeTool === 'pen') {
-            renderOverlay();
+            drawOverlay();
           }
           return;
         }
@@ -2377,6 +2401,10 @@
             }
           }
           isPenDraggingAnchor = false;
+          if (isPenClosingPath) {
+            isPenClosingPath = false;
+            commitPenPath();
+          }
         }
         if (isDragging) {
           isDragging = false;
@@ -2464,10 +2492,12 @@
           }
           render();
         } else if ((e.ctrlKey || e.metaKey) && key === 'z') {
+          e.preventDefault();
           if (e.shiftKey) doc.redo();
-          else doc.undo();
+          else handleUndo();
           render();
         } else if ((e.ctrlKey || e.metaKey) && key === 'y') {
+          e.preventDefault();
           doc.redo();
           render();
         } else if ((e.ctrlKey || e.metaKey) && key === 'g') {
@@ -2491,8 +2521,37 @@
         }
       });
 
+      function handleUndo() {
+        if (activeTool === 'pen' && currentPenPath) {
+          if (currentPenPath.nodes.length > 1) {
+            currentPenPath.removeNode(currentPenPath.nodes.length - 1);
+            activeNodeIdx = currentPenPath.nodes.length - 1;
+          } else {
+            doc.removeObject(currentPenPath.id);
+            currentPenPath = null;
+            activeNodeIdx = -1;
+            isPenDraggingAnchor = false;
+            isPenClosingPath = false;
+          }
+          render();
+          updateInspector();
+          updateObjectList();
+          return;
+        }
+        doc.undo();
+        if (currentPenPath && !doc.objects.some(o => o.id === currentPenPath.id)) {
+          currentPenPath = null;
+          activeNodeIdx = -1;
+          isPenDraggingAnchor = false;
+          isPenClosingPath = false;
+        }
+        render();
+        updateInspector();
+        updateObjectList();
+      }
+
       // ── Top Header Actions ──
-      document.getElementById('btn-undo').addEventListener('click', () => { doc.undo(); render(); });
+      document.getElementById('btn-undo').addEventListener('click', () => { handleUndo(); });
       document.getElementById('btn-redo').addEventListener('click', () => { doc.redo(); render(); });
       document.getElementById('btn-zoom-fit').addEventListener('click', zoomToFit);
 
@@ -3266,43 +3325,77 @@
       });
 
       // Image Raster Editor
+      let editingRasterObj = null;
       document.getElementById('btn-edit-raster')?.addEventListener('click', () => {
         const selected = doc.getSelectedObjects();
         const imgObj = selected.find(o => o.type === 'image');
         if (!imgObj) return;
 
+        editingRasterObj = imgObj;
         const iframe = document.getElementById('painter-iframe');
         iframe.src = 'app.html?embedded=true';
         iframe.style.display = 'block';
 
-        iframe.onload = () => {
-          iframe.contentWindow.postMessage({
-            type: 'INIT_EDIT',
-            src: imgObj.src,
-            width: imgObj.width,
-            height: imgObj.height,
-            id: imgObj.id
-          }, '*');
+        const sendInit = () => {
+          try {
+            iframe.contentWindow.postMessage({
+              type: 'INIT_EDIT',
+              src: imgObj.src,
+              width: imgObj.width,
+              height: imgObj.height,
+              id: imgObj.id
+            }, '*');
+          } catch (_) {}
         };
+
+        iframe.onload = sendInit;
       });
 
       window.addEventListener('message', (e) => {
-        if (e.data.type === 'SAVE_EDIT') {
+        if (!e.data) return;
+        if (e.data.type === 'PAINTER_READY') {
+          if (editingRasterObj) {
+            const iframe = document.getElementById('painter-iframe');
+            if (iframe && iframe.contentWindow) {
+              try {
+                iframe.contentWindow.postMessage({
+                  type: 'INIT_EDIT',
+                  src: editingRasterObj.src,
+                  width: editingRasterObj.width,
+                  height: editingRasterObj.height,
+                  id: editingRasterObj.id
+                }, '*');
+              } catch (_) {}
+            }
+          }
+        } else if (e.data.type === 'SAVE_EDIT') {
           const iframe = document.getElementById('painter-iframe');
-          iframe.style.display = 'none';
-          iframe.src = 'about:blank'; // Free memory
+          if (iframe) {
+            iframe.style.display = 'none';
+            iframe.src = 'about:blank'; // Free memory
+          }
           
-          const obj = doc.objects.find(o => o.id === e.data.id);
+          const obj = doc.objects.find(o => o.id === e.data.id) || editingRasterObj;
           if (obj && obj.type === 'image') {
             obj.src = e.data.src;
             const img = new Image();
-            img.onload = () => { obj._imgElement = img; render(); };
+            img.onload = () => {
+              obj._imgElement = img;
+              doc.pushHistory('Edit Raster Image');
+              render();
+              updateInspector();
+              updateObjectList();
+            };
             img.src = obj.src;
           }
+          editingRasterObj = null;
         } else if (e.data.type === 'CANCEL_EDIT') {
           const iframe = document.getElementById('painter-iframe');
-          iframe.style.display = 'none';
-          iframe.src = 'about:blank';
+          if (iframe) {
+            iframe.style.display = 'none';
+            iframe.src = 'about:blank';
+          }
+          editingRasterObj = null;
         }
       });
       // Trace Image to Vector

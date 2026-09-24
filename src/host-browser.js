@@ -9911,12 +9911,18 @@ async function main() {
   renderSwatches();
   initInfinitePainterUI();
   syncUiFromHost();
-  log('Ready — left=draw  right=erase  mid/2-finger=pan  scroll/pinch=zoom  2-finger-twist=rotate');
-  const ver = (typeof globalThis.ESENHO_VERSION !== 'undefined' && globalThis.ESENHO_VERSION) ? `v${globalThis.ESENHO_VERSION}` : 'v0.5.10';
-  if (statusEl) statusEl.textContent = `${ver} ready`;
+  window.host = host;
+  window.W = host.canvasActor;
+  window.dispatchEvent(new CustomEvent('wesenho:ready', { detail: { host } }));
+  if (window.parent && window.parent !== window) {
+    try {
+      window.parent.postMessage({ type: 'PAINTER_READY' }, '*');
+    } catch (_) {}
+  }
 }
 
 main().catch(e => { console.error(e); log(`BOOT ERROR: ${e.message}`, 'err'); });
+
 
 
 
