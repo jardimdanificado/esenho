@@ -643,7 +643,35 @@ async function main() {
       host.cutSelection();
       log('cut selection [ok]');
       e.preventDefault();
-    } else if ((e.ctrlKey && (e.key === 'd' || e.key === 'D')) || e.key === 'Escape') {
+    } else if (e.key === 'Escape') {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) {
+        document.activeElement.blur();
+        e.preventDefault();
+        return;
+      }
+      let closedSomething = false;
+      const activeSheet = document.querySelector('.ip-sheet-modal.active');
+      if (activeSheet) {
+        activeSheet.classList.remove('active');
+        closedSomething = true;
+      }
+      const touchModal = document.getElementById('touch-color-modal');
+      if (touchModal && touchModal.classList.contains('active')) {
+        touchModal.classList.remove('active');
+        closedSomething = true;
+      }
+      const arcDial = document.getElementById('arc-dial-modal');
+      if (arcDial && arcDial.classList.contains('active')) {
+        arcDial.classList.remove('active');
+        closedSomething = true;
+      }
+      if (closedSomething) {
+        e.preventDefault();
+        return;
+      }
+      host.clearSelection();
+      e.preventDefault();
+    } else if (e.ctrlKey && (e.key === 'd' || e.key === 'D')) {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.clearSelection();
       e.preventDefault();
@@ -3373,7 +3401,7 @@ async function main() {
     if (!tooltipEl) {
       tooltipEl = document.createElement('div');
       tooltipEl.id = 'touch-tooltip-bubble';
-      tooltipEl.style.cssText = 'position:fixed;z-index:999999;pointer-events:none;background:#282828;color:#ebdbb2;border:1px solid #504945;border-radius:4px;padding:4px 8px;font-size:11px;font-family:sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.5);max-width:240px;line-height:1.3;display:none;opacity:0;transition:opacity 0.15s ease;';
+      tooltipEl.style.cssText = 'position:fixed;z-index:999999;pointer-events:none;background:#282828;color:#ebdbb2;border:1px solid #504945;border-radius:4px;padding:4px 8px;font-size:11px;font-family:\'JetBrains Mono\',monospace,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,0.4);max-width:240px;line-height:1.3;display:none;opacity:0;transition:opacity 0.15s ease;';
       document.body.appendChild(tooltipEl);
     }
 

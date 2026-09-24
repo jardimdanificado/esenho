@@ -14,6 +14,25 @@
       color-scheme: dark;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    ::selection {
+      background: rgba(250, 189, 47, 0.3);
+      color: #fbf1c7;
+    }
+
+    input, textarea, [contenteditable] {
+      caret-color: #fabd2f;
+    }
+
+    :focus-visible {
+      outline: 2px solid #fabd2f;
+      outline-offset: 1px;
+    }
+
+    .ui-val, .layer-idx, .layer-cell-op, .tb-val, .ip-top-status-text, #cvs-status-bar {
+      font-variant-numeric: tabular-nums;
+    }
+
     html, body { height: 100%; background: #1d2021; color: #ebdbb2;
       font: 12px/1.4 'JetBrains Mono', 'Fira Code', monospace; overflow: hidden; }
 
@@ -255,8 +274,7 @@
       text-transform: uppercase;
       padding: 4px 6px;
       background: #181a1b;
-      border-left: 3px solid #fabd2f;
-      border-bottom: 1px solid #3c3836;
+      border: 1px solid #3c3836;
       margin-top: 2px;
       user-select: none;
     }
@@ -362,13 +380,22 @@
       height: 4px;
       background: #282828;
       width: 100%;
+      border-radius: 2px;
     }
     input[type=range]::-webkit-slider-thumb {
-      transform: scale(0.65);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fe8019;
       cursor: pointer;
+      -webkit-appearance: none;
     }
     input[type=range]::-moz-range-thumb {
-      transform: scale(0.65);
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fe8019;
+      border: none;
       cursor: pointer;
     }
     .ui-select {
@@ -452,7 +479,6 @@
     }
     .swatch-item:hover {
       border-color: #fbf1c7;
-      transform: scale(1.05);
       z-index: 2;
     }
     .swatch-del {
@@ -525,7 +551,7 @@
       padding: 0 6px;
       gap: 6px;
       background: #232524;
-      border-left: 3px solid transparent;
+      border: 1px solid transparent;
       cursor: grab;
       user-select: none;
       -webkit-user-select: none;
@@ -544,11 +570,10 @@
     }
     .ui-layer-row.active-draw {
       background: #323530;
-      border-left-color: #fabd2f;
+      border-color: #504945;
     }
     .ui-layer-row.ui-layer-in-group {
       background: #1f2120;
-      border-left: 3px solid #83a598;
     }
     .ui-layer-row.is-dragging, .ui-layer-group-header.is-dragging {
       opacity: 0.4;
@@ -559,7 +584,6 @@
       background: #3c3836 !important;
       opacity: 0.9 !important;
       box-shadow: 0 4px 14px rgba(0,0,0,0.6);
-      transform: scale(1.02);
       z-index: 10;
       pointer-events: none !important;
     }
@@ -586,8 +610,7 @@
       min-height: 26px;
       padding: 2px 6px;
       background: #282828;
-      border-left: 3px solid #b8bb26;
-      border-bottom: 1px solid #3c3836;
+      border: 1px solid #3c3836;
       font-size: 11px;
       color: #b8bb26;
       font-weight: 600;
@@ -1316,7 +1339,7 @@
       background: #1d2021;
       border: 2px solid #504945;
       padding: 14px 16px;
-      box-shadow: 0 8px 28px rgba(0,0,0,0.7);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
     }
     .arc-dial-header {
       width: 100%;
@@ -1439,13 +1462,11 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.65);
+      background: rgba(0,0,0,0.75);
       z-index: 10001;
       align-items: center;
       justify-content: center;
       padding: 12px;
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
     }
     #touch-color-modal.active {
       display: flex;
@@ -1459,7 +1480,7 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
       max-height: 90vh;
       overflow-y: auto;
     }
@@ -1586,7 +1607,6 @@
     }
     .touch-swatch-slot:hover {
       border-color: #fabd2f;
-      transform: scale(1.05);
       z-index: 2;
     }
     .touch-swatch-slot.del-mode::after {
@@ -1621,11 +1641,9 @@
     }
     .tb-swatch-item:hover {
       border-color: #fabd2f;
-      transform: scale(1.08);
     }
     .tb-swatch-item.active-color {
       border: 2px solid #fabd2f;
-      box-shadow: 0 0 4px #fabd2f;
     }
 
     /* Panel Header Tabs (Console / Scripts) */
@@ -1918,7 +1936,6 @@
       color: #fbf1c7;
     }
     .ip-btn:active, .ip-btn-icon:active {
-      transform: scale(0.92);
       background: #3c3836;
       border-color: #fabd2f;
       color: #fabd2f;
@@ -1937,7 +1954,7 @@
       font-size: 9px;
       font-weight: 800;
       padding: 1px 4px;
-      border-radius: 6px !important;
+      border-radius: 4px !important;
       margin-left: 1px;
     }
 
@@ -1952,8 +1969,8 @@
       border: 1px solid rgba(80, 73, 69, 0.7);
       contain: layout style paint;
       will-change: transform;
-      border-radius: 16px !important;
-      box-shadow: 0 6px 22px rgba(0,0,0,0.65);
+      border-radius: 8px !important;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
       user-select: none;
       -webkit-user-select: none;
       touch-action: none;
@@ -1991,7 +2008,7 @@
     .ip-hud-pill {
       background: #181a1b;
       border: 1px solid #3c3836;
-      border-radius: 8px !important;
+      border-radius: 4px !important;
       padding: 2px 4px;
       display: flex;
       flex-direction: column;
@@ -2018,7 +2035,7 @@
       height: 90px;
       background: #181a1b;
       border: 1px solid #3c3836;
-      border-radius: 10px !important;
+      border-radius: 6px !important;
       position: relative;
       overflow: hidden;
       cursor: ns-resize;
@@ -2029,8 +2046,8 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: linear-gradient(to top, #d79921, #fabd2f);
-      border-radius: 8px !important;
+      background: #fabd2f;
+      border-radius: 4px !important;
       pointer-events: none;
     }
     .ip-vslider-thumb {
@@ -2039,15 +2056,15 @@
       right: 2px;
       height: 8px;
       background: #fbf1c7;
-      border-radius: 4px !important;
-      box-shadow: 0 0 5px rgba(0,0,0,0.9);
+      border-radius: 3px !important;
+      box-shadow: 0 0 4px rgba(0,0,0,0.8);
       pointer-events: none;
       transform: translateY(50%);
     }
     .ip-hud-btn {
       width: 32px;
       height: 32px;
-      border-radius: 16px !important;
+      border-radius: 6px !important;
       background: #282828;
       border: 1px solid #504945;
       color: #ebdbb2;
@@ -2065,7 +2082,6 @@
       border-color: #fabd2f;
     }
     .ip-hud-btn:active {
-      transform: scale(0.9);
       background: #fabd2f;
       color: #1d2021;
     }
@@ -2079,7 +2095,7 @@
       height: 22px;
       border-radius: 50% !important;
       border: 2px solid #ebdbb2;
-      box-shadow: 0 0 5px rgba(0,0,0,0.8);
+      box-shadow: 0 0 4px rgba(0,0,0,0.6);
       overflow: hidden;
       flex-shrink: 0;
       background: #ebdbb2;
@@ -2113,10 +2129,10 @@
       position: absolute;
       background: #1d2021;
       border: 1.5px solid #504945;
-      border-radius: 14px !important;
+      border-radius: 8px !important;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 10px 36px rgba(0,0,0,0.85);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
       overflow: hidden;
       z-index: 100;
     }
@@ -2130,8 +2146,8 @@
       animation: ipPopTopLeft 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes ipPopTopLeft {
-      from { transform: translateY(-8px) scale(0.97); opacity: 0; }
-      to { transform: translateY(0) scale(1); opacity: 1; }
+      from { transform: translateY(-8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
 
     /* Top-Right Popovers (Layers & Lab) */
@@ -2152,8 +2168,8 @@
       animation: ipPopTopRight 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes ipPopTopRight {
-      from { transform: translateY(-8px) scale(0.97); opacity: 0; }
-      to { transform: translateY(0) scale(1); opacity: 1; }
+      from { transform: translateY(-8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
     }
 
     .ip-shape-btn {
@@ -2197,8 +2213,8 @@
       animation: ipSlideUpBottom 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes ipSlideUpBottom {
-      from { transform: translate(-50%, 20px) scale(0.98); opacity: 0; }
-      to { transform: translate(-50%, 0) scale(1); opacity: 1; }
+      from { transform: translate(-50%, 14px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
     }
 
     /* Top Center Modals (Console, HUD Customizer) */
@@ -2221,8 +2237,8 @@
       animation: ipPopTopCenter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
     }
     @keyframes ipPopTopCenter {
-      from { transform: translate(-50%, -12px) scale(0.97); opacity: 0; }
-      to { transform: translate(-50%, 0) scale(1); opacity: 1; }
+      from { transform: translate(-50%, -10px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
     }
 
 
@@ -2253,7 +2269,7 @@
     .ip-sheet-close {
       width: 22px;
       height: 22px;
-      border-radius: 11px !important;
+      border-radius: 4px !important;
       background: #282828;
       border: 1px solid #3c3836;
       color: #a89984;
@@ -2292,8 +2308,8 @@
     }
     .ip-pills-row::-webkit-scrollbar { display: none; }
     .ip-pill-btn {
-      padding: 6px 12px;
-      border-radius: 14px !important;
+      padding: 5px 10px;
+      border-radius: 6px !important;
       background: #282828;
       border: 1px solid #3c3836;
       color: #a89984;
@@ -2329,7 +2345,7 @@
     .ip-brush-card {
       background: #232524;
       border: 1.5px solid #3c3836;
-      border-radius: 10px !important;
+      border-radius: 6px !important;
       padding: 10px 8px;
       display: flex;
       flex-direction: column;
@@ -2343,12 +2359,11 @@
       border-color: #504945;
     }
     .ip-brush-card:active {
-      transform: scale(0.96);
+      background: #323530;
     }
     .ip-brush-card.active {
       background: #2d302a;
       border-color: #fabd2f;
-      box-shadow: 0 0 10px rgba(250, 189, 47, 0.25);
     }
     .ip-brush-card-top {
       display: flex;
@@ -2382,7 +2397,7 @@
     .ip-tool-card {
       background: #232524;
       border: 1.5px solid #3c3836;
-      border-radius: 10px !important;
+      border-radius: 6px !important;
       padding: 12px 10px;
       display: flex;
       align-items: center;
@@ -2396,7 +2411,7 @@
       border-color: #504945;
     }
     .ip-tool-card:active {
-      transform: scale(0.95);
+      background: #323530;
     }
     .ip-tool-card.active {
       background: #2d302a;
@@ -2433,14 +2448,10 @@
       background: #32302f !important;
       border-color: #504945 !important;
     }
-    .ip-actionmode-card:active, .ip-selmode-card:active {
-      transform: scale(0.95);
-    }
     .ip-actionmode-card.active, .ip-selmode-card.active {
       background: #3c3836 !important;
       border-color: #fabd2f !important;
       color: #fabd2f !important;
-      box-shadow: 0 0 10px rgba(250, 189, 47, 0.3) !important;
     }
     .ip-actionmode-card.active svg, .ip-selmode-card.active svg {
       stroke: #fabd2f !important;
@@ -2459,7 +2470,7 @@
     .ip-pixel-card {
       background: #232524;
       border: 1.5px solid #3c3836;
-      border-radius: 10px !important;
+      border-radius: 6px !important;
       padding: 10px;
       display: flex;
       flex-direction: column;
@@ -2470,9 +2481,6 @@
     .ip-pixel-card:hover {
       border-color: #504945;
       background: #2b2e2d;
-    }
-    .ip-pixel-card:active {
-      transform: scale(0.96);
     }
     .ip-pixel-card.active {
       border-color: #fabd2f;
@@ -2498,7 +2506,7 @@
       gap: 4px;
       background: #232524;
       border: 1px solid #3c3836;
-      border-radius: 8px !important;
+      border-radius: 6px !important;
       padding: 8px 10px;
     }
     .ip-touch-label-row {
@@ -2536,7 +2544,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.8.32 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.8.34 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -2548,44 +2556,44 @@
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
     <canvas id="uicanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-    <div id="ip-transform-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1.5px solid #fabd2f; border-radius: 20px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
+    <div id="ip-transform-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1px solid #fabd2f; border-radius: 6px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.5); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
       <span style="font-weight: 800; font-size: 11px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 4px; white-space: nowrap;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14v4a2 2 0 0 0 2 2h4"/><path d="M20 10V6a2 2 0 0 0-2-2h-4"/><path d="M14 20h4a2 2 0 0 0 2-2v-4"/><path d="M10 4H6a2 2 0 0 0-2 2v4"/><circle cx="12" cy="12" r="2"/></svg>
         TRANSFORM
       </span>
-      <div style="display: flex; gap: 3px; background: #1d2021; padding: 2px 4px; border-radius: 12px; border: 1px solid #3c3836;">
-        <button type="button" id="btn-ip-xbar-rot-ccw" class="ip-btn ip-mini-btn" title="Rotate 90° CCW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">↶ 90°</button>
-        <button type="button" id="btn-ip-xbar-rot-cw" class="ip-btn ip-mini-btn" title="Rotate 90° CW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">↷ 90°</button>
-        <button type="button" id="btn-ip-xbar-fliph" class="ip-btn ip-mini-btn" title="Flip Horizontal" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">⇄</button>
-        <button type="button" id="btn-ip-xbar-flipv" class="ip-btn ip-mini-btn" title="Flip Vertical" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">⇅</button>
-        <button type="button" id="btn-ip-xbar-reset" class="ip-btn ip-mini-btn" title="Reset Quad" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 10px;">↺</button>
+      <div style="display: flex; gap: 3px; background: #1d2021; padding: 2px 4px; border-radius: 4px; border: 1px solid #3c3836;">
+        <button type="button" id="btn-ip-xbar-rot-ccw" class="ip-btn ip-mini-btn" title="Rotate 90° CCW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">↶ 90°</button>
+        <button type="button" id="btn-ip-xbar-rot-cw" class="ip-btn ip-mini-btn" title="Rotate 90° CW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">↷ 90°</button>
+        <button type="button" id="btn-ip-xbar-fliph" class="ip-btn ip-mini-btn" title="Flip Horizontal" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">⇄</button>
+        <button type="button" id="btn-ip-xbar-flipv" class="ip-btn ip-mini-btn" title="Flip Vertical" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">⇅</button>
+        <button type="button" id="btn-ip-xbar-reset" class="ip-btn ip-mini-btn" title="Reset Quad" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">↺</button>
       </div>
-      <button type="button" id="btn-ip-xbar-apply" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 26px; padding: 0 12px; border-radius: 13px; font-size: 11px; white-space: nowrap;">Apply ✓</button>
-      <button type="button" id="btn-ip-xbar-cancel" class="ip-btn ip-mini-btn" style="background: #3c3836; color: #fb4934; height: 26px; padding: 0 12px; border-radius: 13px; font-size: 11px; white-space: nowrap;">Cancel ✕</button>
+      <button type="button" id="btn-ip-xbar-apply" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 26px; padding: 0 12px; border-radius: 4px; font-size: 11px; white-space: nowrap;">Apply ✓</button>
+      <button type="button" id="btn-ip-xbar-cancel" class="ip-btn ip-mini-btn" style="background: #3c3836; color: #fb4934; height: 26px; padding: 0 12px; border-radius: 4px; font-size: 11px; white-space: nowrap;">Cancel ✕</button>
     </div>
-    <div id="ip-selection-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1.5px solid #fabd2f; border-radius: 20px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
+    <div id="ip-selection-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1px solid #fabd2f; border-radius: 6px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.5); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
       <span style="font-weight: 800; font-size: 10px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 2px; white-space: nowrap;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
         SELECT
       </span>
       <!-- Quick Mode Buttons -->
-      <div style="display: flex; gap: 2px; background: #1d2021; padding: 2px; border-radius: 12px; border: 1px solid #3c3836;">
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode active" data-selmode="replace" title="New Selection (Replace)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 10px;">New</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="add" title="Add to Selection (+)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 10px;">+</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="sub" title="Subtract from Selection (-)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 10px;">-</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="intersect" title="Intersect Selection (∩)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 10px;">∩</button>
+      <div style="display: flex; gap: 2px; background: #1d2021; padding: 2px; border-radius: 4px; border: 1px solid #3c3836;">
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode active" data-selmode="replace" title="New Selection (Replace)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">New</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="add" title="Add to Selection (+)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">+</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="sub" title="Subtract from Selection (-)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">-</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="intersect" title="Intersect Selection (∩)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">∩</button>
       </div>
       <!-- Quick Tools -->
-      <div style="display: flex; gap: 2px; background: #1d2021; padding: 2px; border-radius: 12px; border: 1px solid #3c3836;">
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="select_rect" title="Rectangle Box" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 10px;">Box</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="lasso_select" title="Lasso Polygon" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 10px;">Lasso</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="magic_wand" title="Magic Wand" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 10px;">Wand</button>
+      <div style="display: flex; gap: 2px; background: #1d2021; padding: 2px; border-radius: 4px; border: 1px solid #3c3836;">
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="select_rect" title="Rectangle Box" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 4px;">Box</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="lasso_select" title="Lasso Polygon" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 4px;">Lasso</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="magic_wand" title="Magic Wand" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 4px;">Wand</button>
       </div>
       <!-- Quick Actions -->
-      <button type="button" id="btn-ip-selbar-transform" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 10px; white-space: nowrap;">Transform</button>
-      <button type="button" id="btn-ip-selbar-invert" class="ip-btn ip-mini-btn" title="Invert Selection" style="height: 22px; padding: 0 6px; border-radius: 11px; font-size: 10px;">Inv</button>
-      <button type="button" id="btn-ip-selbar-clear" class="ip-btn ip-mini-btn" title="Deselect (Clear Selection Mask)" style="height: 22px; padding: 0 6px; border-radius: 11px; font-size: 10px;">Deselect</button>
-      <button type="button" id="btn-ip-selbar-close" class="ip-btn ip-mini-btn" title="Close Selection Bar & Exit Select Mode" style="background: #3c3836; color: #fb4934; height: 22px; padding: 0 8px; border-radius: 11px; font-size: 11px; font-weight: bold;">✕</button>
+      <button type="button" id="btn-ip-selbar-transform" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 22px; padding: 0 8px; border-radius: 4px; font-size: 10px; white-space: nowrap;">Transform</button>
+      <button type="button" id="btn-ip-selbar-invert" class="ip-btn ip-mini-btn" title="Invert Selection" style="height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px;">Inv</button>
+      <button type="button" id="btn-ip-selbar-clear" class="ip-btn ip-mini-btn" title="Deselect (Clear Selection Mask)" style="height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px;">Deselect</button>
+      <button type="button" id="btn-ip-selbar-close" class="ip-btn ip-mini-btn" title="Close Selection Bar & Exit Select Mode" style="background: #3c3836; color: #fb4934; height: 22px; padding: 0 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">✕</button>
     </div>
     <div id="eyedropper-ring" class="eyedropper-ring" style="display: none;">
       <div class="eyedropper-inner" id="eyedropper-inner"></div>

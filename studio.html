@@ -30,7 +30,7 @@
       --danger: #fb4934;
       --danger-dim: rgba(251, 73, 52, 0.15);
       --success: #b8bb26;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", sans-serif;
       --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
       --radius-sm: 3px;
       --radius-md: 5px;
@@ -44,6 +44,24 @@
       user-select: none;
       -webkit-user-select: none;
       font-family: var(--font-sans);
+    }
+
+    ::selection {
+      background: rgba(250, 189, 47, 0.3);
+      color: #fbf1c7;
+    }
+
+    input, textarea, [contenteditable] {
+      caret-color: var(--primary);
+    }
+
+    :focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 1px;
+    }
+
+    .status-val, .badge, .shortcut, #export-dim-preview {
+      font-variant-numeric: tabular-nums;
     }
 
     body {
@@ -150,13 +168,12 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-md);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
       padding: 4px;
       display: none;
       flex-direction: column;
       gap: 2px;
       z-index: 99999;
-      backdrop-filter: blur(10px);
     }
 
     .dropdown-menu.active {
@@ -260,7 +277,6 @@
     button:active {
       background: var(--border-bright);
       color: var(--primary);
-      transform: translateY(1px);
     }
 
     button.btn-primary {
@@ -340,7 +356,6 @@
       background: var(--primary-dim);
       color: var(--primary);
       border-color: var(--primary);
-      box-shadow: 0 0 8px rgba(250, 189, 47, 0.2);
     }
 
     .tool-btn.active span.hotkey {
@@ -381,13 +396,12 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-md);
-      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
       padding: 8px;
       z-index: 99999;
       flex-direction: column;
       gap: 6px;
       min-width: 150px;
-      backdrop-filter: blur(12px);
       white-space: nowrap;
     }
 
@@ -445,7 +459,7 @@
     #stage-wrapper {
       position: absolute;
       transform-origin: 0 0;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       background-color: #1d2021;
       border-radius: 2px;
     }
@@ -820,7 +834,7 @@
       left: 8px;
       right: 8px;
       height: 24px;
-      background: rgba(29, 32, 33, 0.85);
+      background: rgba(29, 32, 33, 0.95);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       display: flex;
@@ -833,7 +847,6 @@
       z-index: 20;
       pointer-events: none;
       user-select: none;
-      backdrop-filter: blur(6px);
     }
 
     .status-group {
@@ -856,7 +869,6 @@
       align-items: center;
       justify-content: center;
       z-index: 100;
-      backdrop-filter: blur(3px);
     }
 
     .modal-overlay.active {
@@ -870,7 +882,7 @@
       padding: 18px 20px;
       width: 440px;
       max-width: 92vw;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -968,7 +980,6 @@
       width: 100vw;
       height: 100vh;
       background: rgba(0, 0, 0, 0.75);
-      backdrop-filter: blur(4px);
       z-index: 10000;
       display: flex;
       align-items: center;
@@ -980,7 +991,7 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-lg);
-      box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
       width: 100%;
       max-width: 680px;
       max-height: 85vh;
@@ -1053,12 +1064,11 @@
       cursor: pointer;
       display: flex;
       flex-direction: column;
-      transition: border-color 0.15s, transform 0.15s;
+      transition: border-color 0.15s, background-color 0.15s;
     }
 
     .recent-item:hover {
       border-color: var(--primary);
-      transform: translateY(-2px);
     }
 
     .recent-thumb {
@@ -1188,34 +1198,43 @@
     <!-- Left Tool Palette -->
     <div id="toolbar">
       <button class="tool-btn active" id="tool-select" data-tool="select" title="Select / Transform (V)">
-        ↖<span class="hotkey">V</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7 18 2.5-7.5L20 11 3 3z"/></svg>
+        <span class="hotkey">V</span>
       </button>
       <button class="tool-btn" id="tool-hand" data-tool="hand" title="Hand / Pan (H)">
-        ✋<span class="hotkey">H</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v4m-4-2V4a2 2 0 0 0-4 0v6m-4-1.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-2a2 2 0 0 0-4 0"/></svg>
+        <span class="hotkey">H</span>
       </button>
       <button class="tool-btn" id="tool-node" data-tool="node" title="Bézier Node Editor (A)">
-        ✦<span class="hotkey">A</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
+        <span class="hotkey">A</span>
       </button>
       <button class="tool-btn" id="tool-pen" data-tool="pen" title="Bézier Pen (P)">
-        ✒<span class="hotkey">P</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+        <span class="hotkey">P</span>
       </button>
       <button class="tool-btn" id="tool-brush" data-tool="brush" title="Freehand Vector Brush (B)">
-        🖌<span class="hotkey">B</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 2 2 3.06 3 3.06s3-1.06 3-3.06c0-1.66-1.34-3-3-3z"/></svg>
+        <span class="hotkey">B</span>
       </button>
       
       <div class="toolbar-sep"></div>
       
       <button class="tool-btn" id="tool-rect" data-tool="rect" title="Rectangle (R)">
-        ▭<span class="hotkey">R</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
+        <span class="hotkey">R</span>
       </button>
       <button class="tool-btn" id="tool-ellipse" data-tool="ellipse" title="Ellipse / Circle (O)">
-        ○<span class="hotkey">O</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+        <span class="hotkey">O</span>
       </button>
       <button class="tool-btn" id="tool-line" data-tool="line" title="Line (L)">
-        ╱<span class="hotkey">L</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+        <span class="hotkey">L</span>
       </button>
       <button class="tool-btn" id="tool-text" data-tool="text" title="Vector Typography (T)">
-        T<span class="hotkey">T</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="9" y1="20" x2="15" y2="20"/></svg>
+        <span class="hotkey">T</span>
       </button>
       
       <div class="toolbar-sep"></div>
@@ -1223,24 +1242,25 @@
       <!-- Alignment & Distribution Flyout -->
       <div class="tool-popover-wrap">
         <button class="tool-btn" id="btn-popover-align" title="Align & Distribute">
-          ⇥⇤<span class="flyout-indicator">▸</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="4" x2="4" y2="20"/><rect x="8" y="7" width="12" height="4" rx="1"/><rect x="8" y="13" width="8" height="4" rx="1"/></svg>
+          <span class="flyout-indicator">▸</span>
         </button>
         <div id="flyout-align" class="tool-flyout">
           <div class="flyout-title">Align & Distribute</div>
           <div class="flyout-row">
-            <button class="btn-icon" id="quick-align-left" title="Align Left (⇤)">⇤</button>
-            <button class="btn-icon" id="quick-align-center" title="Align Center (⇥⇤)">⇥⇤</button>
-            <button class="btn-icon" id="quick-align-right" title="Align Right (⇥)">⇥</button>
+            <button class="btn-icon" id="quick-align-left" title="Align Left">⇤</button>
+            <button class="btn-icon" id="quick-align-center" title="Align Center">⇥⇤</button>
+            <button class="btn-icon" id="quick-align-right" title="Align Right">⇥</button>
           </div>
           <div class="flyout-row">
-            <button class="btn-icon" id="quick-align-top" title="Align Top (⤒)">⤒</button>
-            <button class="btn-icon" id="quick-align-middle" title="Align Middle (⤓⤒)">⤓⤒</button>
-            <button class="btn-icon" id="quick-align-bottom" title="Align Bottom (⤓)">⤓</button>
+            <button class="btn-icon" id="quick-align-top" title="Align Top">⤒</button>
+            <button class="btn-icon" id="quick-align-middle" title="Align Middle">⤓⤒</button>
+            <button class="btn-icon" id="quick-align-bottom" title="Align Bottom">⤓</button>
           </div>
           <div class="flyout-divider"></div>
           <div class="flyout-row">
-            <button class="btn-icon" id="quick-distribute-h" title="Distribute Horizontally (|||)" style="flex: 1; font-size: 10px; padding: 4px;">||| Dist H</button>
-            <button class="btn-icon" id="quick-distribute-v" title="Distribute Vertically (≡)" style="flex: 1; font-size: 10px; padding: 4px;">≡ Dist V</button>
+            <button class="btn-icon" id="quick-distribute-h" title="Distribute Horizontally" style="flex: 1; font-size: 10px; padding: 4px;">Dist H</button>
+            <button class="btn-icon" id="quick-distribute-v" title="Distribute Vertically" style="flex: 1; font-size: 10px; padding: 4px;">Dist V</button>
           </div>
         </div>
       </div>
@@ -1248,17 +1268,18 @@
       <!-- Pathfinder / Boolean Ops Flyout -->
       <div class="tool-popover-wrap">
         <button class="tool-btn" id="btn-popover-pathfinder" title="Pathfinder Operations">
-          ∪<span class="flyout-indicator">▸</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>
+          <span class="flyout-indicator">▸</span>
         </button>
         <div id="flyout-pathfinder" class="tool-flyout">
           <div class="flyout-title">Pathfinder (Boolean)</div>
           <div class="flyout-row">
-            <button class="btn-icon" id="quick-path-union" title="Union (∪)" style="flex: 1; font-size: 10px; padding: 4px;">∪ Union</button>
-            <button class="btn-icon" id="quick-path-subtract" title="Subtract (−)" style="flex: 1; font-size: 10px; padding: 4px;">− Subtract</button>
+            <button class="btn-icon" id="quick-path-union" title="Union" style="flex: 1; font-size: 10px; padding: 4px;">Union</button>
+            <button class="btn-icon" id="quick-path-subtract" title="Subtract" style="flex: 1; font-size: 10px; padding: 4px;">Subtract</button>
           </div>
           <div class="flyout-row">
-            <button class="btn-icon" id="quick-path-intersect" title="Intersect (∩)" style="flex: 1; font-size: 10px; padding: 4px;">∩ Intersect</button>
-            <button class="btn-icon" id="quick-path-exclude" title="Exclude (⨂)" style="flex: 1; font-size: 10px; padding: 4px;">⨂ Exclude</button>
+            <button class="btn-icon" id="quick-path-intersect" title="Intersect" style="flex: 1; font-size: 10px; padding: 4px;">Intersect</button>
+            <button class="btn-icon" id="quick-path-exclude" title="Exclude" style="flex: 1; font-size: 10px; padding: 4px;">Exclude</button>
           </div>
         </div>
       </div>
@@ -1266,7 +1287,8 @@
       <!-- Smart Snapping Flyout -->
       <div class="tool-popover-wrap">
         <button class="tool-btn" id="btn-popover-snap" title="Snapping Options">
-          🧲<span class="flyout-indicator">▸</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="6" y2="3"/><line x1="18" y1="7" x2="18" y2="3"/></svg>
+          <span class="flyout-indicator">▸</span>
         </button>
         <div id="flyout-snap" class="tool-flyout">
           <div class="flyout-title" style="display: flex; justify-content: space-between; align-items: center;">
@@ -1285,7 +1307,8 @@
       <div class="toolbar-sep"></div>
       
       <button class="tool-btn" id="btn-zoom-fit" title="Zoom to Fit (0)">
-        ⛶<span class="hotkey">0</span>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        <span class="hotkey">0</span>
       </button>
     </div>
 
@@ -1321,7 +1344,7 @@
 
     <!-- Export Modal -->
     <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center;">
-      <div style="background: #181824; border: 1px solid var(--border); border-radius: 8px; padding: 16px; width: 340px; box-shadow: 0 12px 36px rgba(0,0,0,0.7); display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: #181824; border: 1px solid var(--border); border-radius: 8px; padding: 16px; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
           <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Document</h3>
           <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
@@ -1358,17 +1381,17 @@
     <!-- Right Sidebar (Scene Graph & Inspector) -->
     <div id="sidebar">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="tab-objects">📑 Layers</button>
-        <button class="tab-btn" data-tab="tab-style">🎨 Design</button>
-        <button class="tab-btn" data-tab="tab-canvas">📐 Canvas</button>
-        <button class="tab-btn" data-tab="tab-code">⟨/⟩ SVG</button>
+        <button class="tab-btn active" data-tab="tab-objects">Layers</button>
+        <button class="tab-btn" data-tab="tab-style">Design</button>
+        <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
+        <button class="tab-btn" data-tab="tab-code">SVG</button>
       </div>
 
       <!-- Tab 1: Object Tree / Hierarchy -->
       <div class="tab-content active" id="tab-objects">
         <div class="section-card">
           <div class="section-header">
-            <span><span class="section-icon">📑</span> Object Hierarchy</span>
+            <span>Object Hierarchy</span>
             <span id="obj-count-badge" class="badge">0 items</span>
           </div>
 
@@ -1377,26 +1400,26 @@
           <!-- Unified Layer & Shape Operations -->
           <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
             <div class="grid-4">
-              <button id="btn-bring-front" class="btn-sm" title="Bring to Front">▲▲ Top</button>
-              <button id="btn-bring-fwd" class="btn-sm" title="Bring Forward">▲ Up</button>
-              <button id="btn-send-back" class="btn-sm" title="Send Backward">▼ Down</button>
-              <button id="btn-send-bot" class="btn-sm" title="Send to Bottom">▼▼ Bot</button>
+              <button id="btn-bring-front" class="btn-sm" title="Bring to Front">Top</button>
+              <button id="btn-bring-fwd" class="btn-sm" title="Bring Forward">Up</button>
+              <button id="btn-send-back" class="btn-sm" title="Send Backward">Down</button>
+              <button id="btn-send-bot" class="btn-sm" title="Send to Bottom">Bot</button>
             </div>
 
             <div class="grid-2">
-              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">⊞ Group</button>
-              <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">⊟ Ungroup</button>
+              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">Group</button>
+              <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">Ungroup</button>
             </div>
 
             <div class="grid-3">
-              <button id="btn-rename-obj" class="btn-sm" title="Rename Selected Object (F2)">✏ Rename</button>
-              <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">📑 Duplicate</button>
-              <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">🗑 Delete</button>
+              <button id="btn-rename-obj" class="btn-sm" title="Rename Selected Object (F2)">Rename</button>
+              <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">Duplicate</button>
+              <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">Delete</button>
             </div>
 
             <div class="grid-2" style="margin-top: 2px;">
-              <button id="btn-node-convert-path" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">☡ Shape to Path</button>
-              <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">🔤 Text Outlines</button>
+              <button id="btn-node-convert-path" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
+              <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Text Outlines</button>
             </div>
 
             <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">🖼 Rasterize to Image</button>
@@ -3139,6 +3162,17 @@
       function updateObjectList() {
         objectList.innerHTML = '';
 
+        if (doc.objects.length === 0) {
+          objectList.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 12px; color: var(--text-muted); font-size: 11px; text-align: center; gap: 6px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.6;"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              <span style="font-weight: 600; color: var(--text-dim);">No shapes yet</span>
+              <span style="font-size: 10px; opacity: 0.7;">Draw using Pen (P) or Shapes (R, O)</span>
+            </div>
+          `;
+          return;
+        }
+
         function renderNodeItem(obj, depth = 0) {
           const isSelected = doc.selectedIds.has(obj.id);
           const isGroup = obj.type === 'group';
@@ -4542,7 +4576,55 @@
         }
 
         // Single key shortcuts (no Ctrl / Meta)
-        if (key === 'escape' || key === 'enter') {
+        if (key === 'escape') {
+          let closedSomething = false;
+          if (modalRecents && modalRecents.style.display === 'flex') {
+            closeRecentsModal();
+            closedSomething = true;
+          }
+          if (modalNewProject && modalNewProject.style.display === 'flex') {
+            closeNewProjectModal();
+            closedSomething = true;
+          }
+          if (modalExport && modalExport.style.display === 'flex') {
+            modalExport.style.display = 'none';
+            closedSomething = true;
+          }
+          const modalTraceEl = document.getElementById('modal-trace');
+          if (modalTraceEl && (modalTraceEl.classList.contains('active') || modalTraceEl.style.display === 'flex')) {
+            modalTraceEl.classList.remove('active');
+            modalTraceEl.style.display = 'none';
+            closedSomething = true;
+          }
+          const activeDropdown = document.querySelector('.menu-dropdown.active');
+          if (activeDropdown) {
+            activeDropdown.classList.remove('active');
+            document.getElementById('btn-menu-logo')?.classList.remove('active');
+            closedSomething = true;
+          }
+          const openFlyout = document.querySelector('.tool-flyout.open');
+          if (openFlyout) {
+            openFlyout.classList.remove('open');
+            closedSomething = true;
+          }
+          if (activeTool === 'pen') {
+            commitPenPath();
+            closedSomething = true;
+          }
+          if (closedSomething) {
+            e.preventDefault();
+            return;
+          }
+          if (doc.getSelectedObjects().length > 0) {
+            doc.clearSelection();
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+            e.preventDefault();
+            return;
+          }
+        } else if (key === 'enter') {
           if (activeTool === 'pen') commitPenPath();
         } else if (key === 'v') {
           document.getElementById('tool-select')?.click();
@@ -6245,15 +6327,29 @@
       function closeNewProjectModal() {
         if (modalNewProject) modalNewProject.style.display = 'none';
       }
+      function closeRecentsModal() {
+        if (modalRecents) modalRecents.style.display = 'none';
+      }
 
       async function openRecentsModal() {
         if (!modalRecents || typeof EsenhoStore === 'undefined') return;
         modalRecents.style.display = 'flex';
-        recentsGrid.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
+        recentsGrid.innerHTML = '<div style="padding: 32px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
         try {
           const list = await EsenhoStore.listProjects();
           if (!list || list.length === 0) {
-            recentsGrid.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">No saved projects yet. Click "+ New Project" to start one!</div>';
+            recentsGrid.innerHTML = `
+              <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--border-focus)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-main);">No saved projects yet</div>
+                <div style="font-size: 12px; color: var(--text-muted); max-width: 280px; line-height: 1.4;">Projects saved locally in your browser will appear here.</div>
+                <button type="button" class="btn btn-primary" style="margin-top: 6px;" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
+              </div>
+            `;
             return;
           }
           recentsGrid.innerHTML = list.map(p => {
@@ -6354,13 +6450,22 @@
       });
 
       document.getElementById('btn-close-new-project')?.addEventListener('click', closeNewProjectModal);
-      document.getElementById('btn-close-recents')?.addEventListener('click', () => {
-        if (modalRecents) modalRecents.style.display = 'none';
-      });
+      document.getElementById('btn-close-recents')?.addEventListener('click', closeRecentsModal);
 
       document.getElementById('btn-modal-new-proj')?.addEventListener('click', () => {
-        if (modalRecents) modalRecents.style.display = 'none';
+        closeRecentsModal();
         openNewProjectModal();
+      });
+
+      // Close modals on backdrop click
+      [modalRecents, modalNewProject, modalExport, document.getElementById('modal-trace')].forEach(modal => {
+        if (!modal) return;
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+          }
+        });
       });
 
       async function handleClearStorage() {
