@@ -622,13 +622,88 @@
     move(dx, dy) {
       this.x += dx;
       this.y += dy;
+      if (this.originX !== undefined) this.originX += dx;
+      if (this.originY !== undefined) this.originY += dy;
     }
 
-    getBounds() {
-      return { minX: this.x, minY: this.y, maxX: this.x, maxY: this.y, width: 0, height: 0 };
+    _shiftGeometry(dx, dy) {
+      this.x += dx;
+      this.y += dy;
+    }
+
+    setOrigin(newOx, newOy, preserveVisualPosition = true) {
+      if (newOx === undefined || newOy === undefined) {
+        this.originX = undefined;
+        this.originY = undefined;
+        return;
+      }
+      const oldOrigin = this.getOrigin();
+      const dx = newOx - oldOrigin.x;
+      const dy = newOy - oldOrigin.y;
+
+      if (preserveVisualPosition && (this.rotation || 0) !== 0 && (dx !== 0 || dy !== 0)) {
+        const rad = (this.rotation || 0) * Math.PI / 180;
+        const cosA = Math.cos(rad);
+        const sinA = Math.sin(rad);
+        // delta in geom coords = d - R(-theta)*d
+        const rx = dx * cosA + dy * sinA;
+        const ry = -dx * sinA + dy * cosA;
+        const geomDx = dx - rx;
+        const geomDy = dy - ry;
+
+        // Shift base geometry to preserve visual position invariant under rotation
+        this._shiftGeometry(geomDx, geomDy);
+      }
+      this.originX = newOx;
+      this.originY = newOy;
+    }
+
+    getTransformedBounds() {
+      const b = this.getBounds();
+      if (!this.rotation || this.rotation === 0) return b;
+      const origin = this.getOrigin();
+      const rad = this.rotation * Math.PI / 180;
+      const cosA = Math.cos(rad);
+      const sinA = Math.sin(rad);
+
+      const corners = [
+        { x: b.minX, y: b.minY },
+        { x: b.maxX, y: b.minY },
+        { x: b.maxX, y: b.maxY },
+        { x: b.minX, y: b.maxY }
+      ];
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const c of corners) {
+        const dx = c.x - origin.x;
+        const dy = c.y - origin.y;
+        const rx = origin.x + dx * cosA - dy * sinA;
+        const ry = origin.y + dx * sinA + dy * cosA;
+        minX = Math.min(minX, rx);
+        minY = Math.min(minY, ry);
+        maxX = Math.max(maxX, rx);
+        maxY = Math.max(maxY, ry);
+      }
+      return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
     }
 
     hitTest(px, py, tolerance = 6) {
+      let testX = px;
+      let testY = py;
+      if (this.rotation && this.rotation !== 0) {
+        const origin = this.getOrigin();
+        const rad = - (this.rotation * Math.PI / 180);
+        const cosA = Math.cos(rad);
+        const sinA = Math.sin(rad);
+        const dx = px - origin.x;
+        const dy = py - origin.y;
+        testX = origin.x + dx * cosA - dy * sinA;
+        testY = origin.y + dx * sinA + dy * cosA;
+      }
+      return this._localHitTest(testX, testY, tolerance);
+    }
+
+    _localHitTest(px, py, tolerance = 6) {
       const b = this.getBounds();
       return px >= b.minX - tolerance && px <= b.maxX + tolerance &&
              py >= b.minY - tolerance && py <= b.maxY + tolerance;
@@ -919,9 +994,16 @@
       return this;
     }
 
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      for (const n of this.nodes) {
+        n.x += dx;
+        n.y += dy;
+      }
+    }
+
     move(dx, dy) {
-      this.x += dx;
-      this.y += dy;
+      super.move(dx, dy);
       for (const n of this.nodes) {
         n.x += dx;
         n.y += dy;
@@ -1101,9 +1183,19 @@
       return this;
     }
 
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      for (const sp of this.subPaths) {
+        if (typeof sp._shiftGeometry === 'function') {
+          sp._shiftGeometry(dx, dy);
+        } else if (typeof sp.move === 'function') {
+          sp.move(dx, dy);
+        }
+      }
+    }
+
     move(dx, dy) {
-      this.x += dx;
-      this.y += dy;
+      super.move(dx, dy);
       for (const sp of this.subPaths) {
         sp.move(dx, dy);
       }
@@ -1528,9 +1620,14 @@
       this.ry = Number(attributes.ry || 30);
     }
 
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      this.cx += dx;
+      this.cy += dy;
+    }
+
     move(dx, dy) {
-      this.x += dx;
-      this.y += dy;
+      super.move(dx, dy);
       this.cx += dx;
       this.cy += dy;
     }
@@ -1632,9 +1729,16 @@
       this.fill = 'none';
     }
 
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      this.x1 += dx;
+      this.y1 += dy;
+      this.x2 += dx;
+      this.y2 += dy;
+    }
+
     move(dx, dy) {
-      this.x += dx;
-      this.y += dy;
+      super.move(dx, dy);
       this.x1 += dx;
       this.y1 += dy;
       this.x2 += dx;
@@ -1713,6 +1817,22 @@
         path.addNode(p.x, p.y, null, null, 'corner');
       }
       return path;
+    }
+
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      for (const p of this.points) {
+        p.x += dx;
+        p.y += dy;
+      }
+    }
+
+    move(dx, dy) {
+      super.move(dx, dy);
+      for (const p of this.points) {
+        p.x += dx;
+        p.y += dy;
+      }
     }
 
     getBounds() {
@@ -1816,19 +1936,19 @@
       return false;
     }
 
-    move(dx, dy) {
-      this.x += dx;
-      this.y += dy;
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
       for (const child of this.children) {
-        if (typeof child.move === 'function') {
+        if (typeof child._shiftGeometry === 'function') {
+          child._shiftGeometry(dx, dy);
+        } else if (typeof child.move === 'function') {
           child.move(dx, dy);
-        } else if (child.type === 'rect') {
+        } else if (child.type === 'rect' || child.type === 'image' || child.type === 'text') {
           child.x += dx; child.y += dy;
         } else if (child.type === 'ellipse' || child.type === 'circle') {
           child.cx += dx; child.cy += dy;
         } else if (child.type === 'line') {
-          child.x1 += dx; child.y1 += dy;
-          child.x2 += dx; child.y2 += dy;
+          child.x1 += dx; child.y1 += dy; child.x2 += dx; child.y2 += dy;
         } else if (child.type === 'path') {
           for (const n of child.nodes) {
             n.x += dx; n.y += dy;
@@ -1841,7 +1961,30 @@
       }
     }
 
-    hitTest(px, py, tolerance = 6) {
+    move(dx, dy) {
+      super.move(dx, dy);
+      for (const child of this.children) {
+        if (typeof child.move === 'function') {
+          child.move(dx, dy);
+        } else if (child.type === 'rect' || child.type === 'image' || child.type === 'text') {
+          child.x += dx; child.y += dy;
+        } else if (child.type === 'ellipse' || child.type === 'circle') {
+          child.cx += dx; child.cy += dy;
+        } else if (child.type === 'line') {
+          child.x1 += dx; child.y1 += dy; child.x2 += dx; child.y2 += dy;
+        } else if (child.type === 'path') {
+          for (const n of child.nodes) {
+            n.x += dx; n.y += dy;
+          }
+        } else if (child.type === 'polygon' || child.type === 'polyline') {
+          for (const p of child.points) {
+            p.x += dx; p.y += dy;
+          }
+        }
+      }
+    }
+
+    _localHitTest(px, py, tolerance = 6) {
       if (!this.visible || this.locked) return false;
       for (let i = this.children.length - 1; i >= 0; i--) {
         const c = this.children[i];
@@ -2268,7 +2411,7 @@
       for (let i = 0; i < this.objects.length; i++) {
         const obj = this.objects[i];
         if (!obj.visible || obj.locked) continue;
-        const b = obj.getBounds();
+        const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
         if (intersect) {
           const overlaps = !(b.maxX < boxMinX || b.minX > boxMaxX || b.maxY < boxMinY || b.minY > boxMaxY);
           if (overlaps) results.push(obj);
@@ -2355,7 +2498,7 @@
         defsXml = `\n  <defs>\n    ${items}\n  </defs>`;
       }
       let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
-      svg += `<svg xmlns="http://www.w3.org/2000/svg" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">${defsXml}\n`;
+      svg += `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">${defsXml}\n`;
       if (this.backgroundColor && this.backgroundColor !== 'none') {
         svg += `  <rect width="100%" height="100%" fill="${this.backgroundColor}" />\n`;
       }
@@ -2377,7 +2520,27 @@
 
       if (typeof DOMParser !== 'undefined') {
         const parser = new DOMParser();
-        const doc = parser.parseFromString(svgString, 'image/svg+xml');
+        let doc = null;
+        try {
+          let safeSvgString = svgString;
+          if (!safeSvgString.includes('xmlns:xlink=')) {
+            safeSvgString = safeSvgString.replace(/<svg\b/i, '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+          }
+          if (!safeSvgString.includes('xmlns=')) {
+            safeSvgString = safeSvgString.replace(/<svg\b/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+          }
+          doc = parser.parseFromString(safeSvgString, 'image/svg+xml');
+          if (doc.querySelector('parsererror')) {
+            doc = parser.parseFromString(svgString, 'text/html');
+          }
+        } catch (e) {
+          try {
+            doc = parser.parseFromString(svgString, 'text/html');
+          } catch (e2) {
+            doc = null;
+          }
+        }
+        if (!doc) return;
         const svgEl = doc.querySelector('svg');
         if (!svgEl) return;
 
@@ -2426,10 +2589,25 @@
             try { fillGradient = JSON.parse(decodeURIComponent(gradAttr)); } catch (e) {}
           }
 
+          const transformAttr = getAttr('transform');
+          let rotation = 0;
+          let originX = undefined, originY = undefined;
+          if (transformAttr) {
+            const rotMatch = transformAttr.match(/rotate\(\s*([\d.-]+)(?:\s+([\d.-]+)\s+([\d.-]+))?\s*\)/);
+            if (rotMatch) {
+              rotation = parseFloat(rotMatch[1]) || 0;
+              if (rotMatch[2] !== undefined && rotMatch[3] !== undefined) {
+                originX = parseFloat(rotMatch[2]);
+                originY = parseFloat(rotMatch[3]);
+              }
+            }
+          }
+
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient
+            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient,
+            rotation, originX, originY
           };
 
           if (tag === 'rect') {
@@ -2492,6 +2670,26 @@
               fontStyle: getAttr('font-style', 'normal'),
               letterSpacing: parseFloat(getAttr('letter-spacing', '0'))
             });
+          } else if (tag === 'image') {
+            const src = getAttr('href') || getAttr('xlink:href') || getAttr('src') || '';
+            return new SvgImage({
+              ...baseProps,
+              x: parseFloat(getAttr('x', '0')),
+              y: parseFloat(getAttr('y', '0')),
+              width: parseFloat(getAttr('width', '100')),
+              height: parseFloat(getAttr('height', '100')),
+              src
+            });
+          } else if (tag === 'polyline') {
+            return new SvgPolyline({
+              ...baseProps,
+              points: getAttr('points', '')
+            });
+          } else if (tag === 'polygon') {
+            return new SvgPolygon({
+              ...baseProps,
+              points: getAttr('points', '')
+            });
           } else if (tag === 'g') {
             const grp = new SvgGroup({ id: baseProps.id, opacity });
             for (const childEl of el.children) {
@@ -2511,7 +2709,7 @@
         // Fallback RegEx Parser for Node.js
         const parseAttrString = (attrStr) => {
           const attrs = {};
-          const regex = /([a-zA-Z0-9_-]+)="([^"]*)"/g;
+          const regex = /([a-zA-Z0-9_:-]+)="([^"]*)"/g;
           let m;
           while ((m = regex.exec(attrStr)) !== null) {
             attrs[m[1]] = m[2];
@@ -2558,10 +2756,25 @@
             try { fillGradient = JSON.parse(decodeURIComponent(gradAttr)); } catch (e) {}
           }
 
+          const transformAttr = getAttr('transform');
+          let rotation = 0;
+          let originX = undefined, originY = undefined;
+          if (transformAttr) {
+            const rotMatch = transformAttr.match(/rotate\(\s*([\d.-]+)(?:\s+([\d.-]+)\s+([\d.-]+))?\s*\)/);
+            if (rotMatch) {
+              rotation = parseFloat(rotMatch[1]) || 0;
+              if (rotMatch[2] !== undefined && rotMatch[3] !== undefined) {
+                originX = parseFloat(rotMatch[2]);
+                originY = parseFloat(rotMatch[3]);
+              }
+            }
+          }
+
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient
+            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient,
+            rotation, originX, originY
           };
 
           if (tag === 'rect') {
@@ -2629,7 +2842,7 @@
               y: parseFloat(getAttr('y', '0')),
               width: parseFloat(getAttr('width', '100')),
               height: parseFloat(getAttr('height', '100')),
-              src: getAttr('href', '')
+              src: getAttr('href') || getAttr('xlink:href') || getAttr('src') || ''
             });
           }
           return null;

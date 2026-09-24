@@ -380,6 +380,7 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
+      overflow: visible !important;
     }
 
     #quadro-canvas {
@@ -1033,8 +1034,8 @@
         <div style="padding: 4px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
           <span>Renderer</span>
           <select id="select-render-mode" style="width: auto; padding: 2px 4px; font-size: 10px;">
-            <option value="quadro" selected>Quadro</option>
-            <option value="svg">SVG Direct</option>
+            <option value="svg" selected>SVG Direct</option>
+            <option value="quadro">Quadro</option>
           </select>
         </div>
 
@@ -1105,7 +1106,7 @@
     <div id="viewport-container">
       <div id="stage-wrapper">
         <canvas id="quadro-canvas"></canvas>
-        <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg"></svg>
+        <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
       </div>
       <canvas id="overlay-canvas"></canvas>
       
@@ -1115,6 +1116,7 @@
           <span>Tool: <span class="status-val" id="status-tool">Select</span></span>
           <span>Cursor: <span class="status-val" id="status-coords">0, 0</span></span>
           <span>Zoom: <span class="status-val" id="status-zoom">100%</span></span>
+          <span>Angle: <span class="status-val" id="status-rotation" style="pointer-events: auto; cursor: pointer;" title="Click to reset viewport rotation">0°</span></span>
         </div>
         <div class="status-group">
           <span>Objects: <span class="status-val" id="status-objects">0</span></span>
@@ -1812,13 +1814,20 @@
 
         <div class="section-card">
           <div class="section-header">
-            <span><span class="section-icon">🔍</span> Viewport & Zoom</span>
+            <span><span class="section-icon">🔍</span> Viewport & Navigation</span>
           </div>
           <div class="form-row">
             <label>Zoom Level</label>
             <div style="display: flex; gap: 4px; width: 100%;">
               <input type="number" id="prop-zoom-val" value="100" min="10" max="1000" step="10">
               <button id="btn-zoom-fit-panel" class="btn-sm" title="Zoom to Fit Canvas">Fit (0)</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Canvas Rotation</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-viewport-rot" value="0" min="-360" max="360" step="15" title="Canvas Viewport Angle (deg)">
+              <button id="btn-reset-viewport-rot" class="btn-sm" title="Reset Rotation to 0°">0°</button>
             </div>
           </div>
         </div>
@@ -1999,6 +2008,7 @@
       let zoom = 1.0;
       let panX = 40;
       let panY = 40;
+      let viewportRotation = 0; // in degrees
       let isPanning = false;
       let panStartX = 0, panStartY = 0;
 
@@ -2068,6 +2078,7 @@
       const statusTool = document.getElementById('status-tool');
       const statusCoords = document.getElementById('status-coords');
       const statusZoom = document.getElementById('status-zoom');
+      const statusRotation = document.getElementById('status-rotation');
       const statusObjects = document.getElementById('status-objects');
       const objCountBadge = document.getElementById('obj-count-badge');
       const objectList = document.getElementById('object-list');
@@ -2107,7 +2118,7 @@
       }
 
       const quadroCanvas = document.getElementById('quadro-canvas');
-      let viewportRenderMode = 'quadro'; // 'quadro' | 'svg'
+      let viewportRenderMode = 'svg'; // 'svg' | 'quadro'
       let quadroRenderScale = 1.0;
 
       // ── Stage & Viewport Updates ──
@@ -2117,6 +2128,8 @@
         svgStage.setAttribute('width', doc.width);
         svgStage.setAttribute('height', doc.height);
         svgStage.setAttribute('viewBox', `0 0 ${doc.width} ${doc.height}`);
+        svgStage.setAttribute('overflow', 'visible');
+        svgStage.style.overflow = 'visible';
 
         quadroCanvas.width = Math.round(doc.width * quadroRenderScale);
         quadroCanvas.height = Math.round(doc.height * quadroRenderScale);
@@ -2127,11 +2140,18 @@
       }
 
       function applyViewportTransform() {
-        stageWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+        stageWrapper.style.transform = `translate(${panX}px, ${panY}px) rotate(${viewportRotation}deg) scale(${zoom})`;
         statusZoom.textContent = `${Math.round(zoom * 100)}%`;
+        if (statusRotation) {
+          statusRotation.textContent = `${Math.round(viewportRotation)}°`;
+        }
         const zoomInput = document.getElementById('prop-zoom-val');
         if (zoomInput && document.activeElement !== zoomInput) {
           zoomInput.value = Math.round(zoom * 100);
+        }
+        const rotInput = document.getElementById('prop-viewport-rot');
+        if (rotInput && document.activeElement !== rotInput) {
+          rotInput.value = Math.round(viewportRotation);
         }
         drawOverlay();
       }
@@ -2150,10 +2170,19 @@
 
       function screenToDoc(clientX, clientY) {
         const rect = viewportContainer.getBoundingClientRect();
-        const sx = clientX - rect.left;
-        const sy = clientY - rect.top;
-        const x = (sx - panX) / zoom;
-        const y = (sy - panY) / zoom;
+        let sx = clientX - rect.left - panX;
+        let sy = clientY - rect.top - panY;
+        if (viewportRotation !== 0) {
+          const rad = -viewportRotation * Math.PI / 180;
+          const cosA = Math.cos(rad);
+          const sinA = Math.sin(rad);
+          const rx = sx * cosA - sy * sinA;
+          const ry = sx * sinA + sy * cosA;
+          sx = rx;
+          sy = ry;
+        }
+        const x = sx / zoom;
+        const y = sy / zoom;
         return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
       }
 
@@ -2242,6 +2271,9 @@
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         ctx.scale(dpr, dpr);
         ctx.translate(panX, panY);
+        if (viewportRotation !== 0) {
+          ctx.rotate(viewportRotation * Math.PI / 180);
+        }
         ctx.scale(zoom, zoom);
         renderOverlay();
         ctx.restore();
@@ -3130,8 +3162,12 @@
           if (activeTransformMode === 'anchor') {
             const obj = doc.getSelectedObjects()[0];
             if (obj) {
-              obj.originX = Math.round(pt.x);
-              obj.originY = Math.round(pt.y);
+              if (typeof obj.setOrigin === 'function') {
+                obj.setOrigin(Math.round(pt.x), Math.round(pt.y), true);
+              } else {
+                obj.originX = Math.round(pt.x);
+                obj.originY = Math.round(pt.y);
+              }
               render();
               updateInspector();
               drawOverlay();
@@ -3226,14 +3262,22 @@
                 obj.move(dx, dy);
               } else if (obj.type === 'rect' || obj.type === 'image') {
                 obj.x += dx; obj.y += dy;
+                if (obj.originX !== undefined) obj.originX += dx;
+                if (obj.originY !== undefined) obj.originY += dy;
               } else if (obj.type === 'ellipse' || obj.type === 'circle') {
                 obj.cx += dx; obj.cy += dy;
+                if (obj.originX !== undefined) obj.originX += dx;
+                if (obj.originY !== undefined) obj.originY += dy;
               } else if (obj.type === 'line') {
                 obj.x1 += dx; obj.y1 += dy; obj.x2 += dx; obj.y2 += dy;
+                if (obj.originX !== undefined) obj.originX += dx;
+                if (obj.originY !== undefined) obj.originY += dy;
               } else if (obj.type === 'path') {
                 for (const n of obj.nodes) {
                   n.x += dx; n.y += dy;
                 }
+                if (obj.originX !== undefined) obj.originX += dx;
+                if (obj.originY !== undefined) obj.originY += dy;
               }
             }
             dragStartX = pt.x;
@@ -3538,6 +3582,7 @@
             updateStageSize();
             zoomToFit();
             render();
+            fileInputSvg.value = '';
           };
           reader.readAsText(file);
         }
@@ -3926,6 +3971,21 @@
       const btnFitPanel = document.getElementById('btn-zoom-fit-panel');
       if (btnFitPanel) btnFitPanel.addEventListener('click', zoomToFit);
 
+      document.getElementById('prop-viewport-rot')?.addEventListener('input', (e) => {
+        viewportRotation = Number(e.target.value) || 0;
+        applyViewportTransform();
+      });
+
+      document.getElementById('btn-reset-viewport-rot')?.addEventListener('click', () => {
+        viewportRotation = 0;
+        applyViewportTransform();
+      });
+
+      statusRotation?.addEventListener('click', () => {
+        viewportRotation = 0;
+        applyViewportTransform();
+      });
+
       document.getElementById('prop-quadro-scale').addEventListener('change', (e) => {
         quadroRenderScale = Number(e.target.value) || 1.0;
         updateStageSize();
@@ -4079,24 +4139,48 @@
 
       document.getElementById('prop-obj-origin-x')?.addEventListener('input', (e) => {
         const val = Number(e.target.value);
+        if (isNaN(val)) return;
         const selected = doc.getSelectedObjects();
-        for (const obj of selected) obj.originX = val;
+        for (const obj of selected) {
+          const curOy = obj.getOrigin().y;
+          if (typeof obj.setOrigin === 'function') {
+            obj.setOrigin(val, curOy, true);
+          } else {
+            obj.originX = val;
+          }
+        }
         render();
+        drawOverlay();
       });
 
       document.getElementById('prop-obj-origin-y')?.addEventListener('input', (e) => {
         const val = Number(e.target.value);
+        if (isNaN(val)) return;
         const selected = doc.getSelectedObjects();
-        for (const obj of selected) obj.originY = val;
+        for (const obj of selected) {
+          const curOx = obj.getOrigin().x;
+          if (typeof obj.setOrigin === 'function') {
+            obj.setOrigin(curOx, val, true);
+          } else {
+            obj.originY = val;
+          }
+        }
         render();
+        drawOverlay();
       });
 
       document.getElementById('btn-anchor-center')?.addEventListener('click', () => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
           const b = obj.getBounds();
-          obj.originX = Math.round(b.minX + b.width / 2);
-          obj.originY = Math.round(b.minY + b.height / 2);
+          const cx = Math.round(b.minX + b.width / 2);
+          const cy = Math.round(b.minY + b.height / 2);
+          if (typeof obj.setOrigin === 'function') {
+            obj.setOrigin(cx, cy, true);
+          } else {
+            obj.originX = cx;
+            obj.originY = cy;
+          }
         }
         doc.pushHistory('Center Anchor');
         updateInspector();

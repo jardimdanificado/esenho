@@ -487,7 +487,48 @@ async function runSvgEngineTests() {
   assert.strictEqual(converted, false, 'convertSelectedToPath must not convert SvgImage');
   assert.strictEqual(imgDoc.objects[0] instanceof SvgImage, true, 'Object should remain SvgImage');
 
-  console.log('✔ SvgImage, rotation transforms & origin anchor protection passed');
+  // Test anchor translation when moving object
+  imgObj.move(20, 30);
+  assert.strictEqual(imgObj.x, 70);
+  assert.strictEqual(imgObj.y, 80);
+  assert.strictEqual(imgObj.originX, 70);
+  assert.strictEqual(imgObj.originY, 80);
+
+  // Test setOrigin visual invariant under 90° rotation
+  const rectRot = new SvgRect({ x: 0, y: 0, width: 100, height: 100, rotation: 90 });
+  const initialOrig = rectRot.getOrigin(); // { x: 50, y: 50 }
+  assert.strictEqual(initialOrig.x, 50);
+  assert.strictEqual(initialOrig.y, 50);
+
+  // Change anchor to (0, 0)
+  rectRot.setOrigin(0, 0, true);
+  assert.strictEqual(rectRot.originX, 0);
+  assert.strictEqual(rectRot.originY, 0);
+  // Geometry must shift by (0, -100) so that rotated visual position is exactly unchanged
+  assert.strictEqual(rectRot.x, 0);
+  assert.strictEqual(rectRot.y, -100);
+
+  // Test rotated hit-testing
+  const rBar = new SvgRect({ x: 100, y: 100, width: 200, height: 40, rotation: 90 });
+  // Center is (200, 120). Rotated 90°, the 200x40 bar extends vertically around center:
+  // Visual bounds: x in [180, 220], y in [20, 220]
+  assert.strictEqual(rBar.hitTest(200, 50), true, 'Clicking visual vertical bar should hit rotated rect');
+  assert.strictEqual(rBar.hitTest(200, 200), true, 'Clicking visual vertical bar bottom should hit rotated rect');
+  assert.strictEqual(rBar.hitTest(280, 120), false, 'Clicking unrotated horizontal zone should NOT hit');
+
+  // Test SVG import with xlink / XML namespaces
+  const svgWithNamespaces = `<svg width="500" height="400" viewBox="0 0 500 400">
+    <image x="10" y="20" width="100" height="80" xlink:href="data:image/png;base64,abc" transform="rotate(45 60 60)"/>
+    <polyline points="0,0 50,50 100,0" stroke="#ff0000"/>
+  </svg>`;
+  const nsDoc = new SvgDocument(500, 400);
+  nsDoc.fromSVGString(svgWithNamespaces);
+  assert.strictEqual(nsDoc.objects.length, 2, 'Should import image and polyline');
+  assert.strictEqual(nsDoc.objects[0].type, 'image');
+  assert.strictEqual(nsDoc.objects[0].rotation, 45);
+  assert.strictEqual(nsDoc.objects[1].type, 'polyline');
+
+  console.log('✔ SvgImage, rotation transforms, hit-testing & origin anchor protection passed');
 
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & QUADRO TESTS PASSED SUCCESSFULLY!');
 }
