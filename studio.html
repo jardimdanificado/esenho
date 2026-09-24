@@ -50,7 +50,9 @@
       background-color: var(--bg-dark);
       color: var(--text);
       width: 100vw;
+      max-width: 100vw;
       height: 100vh;
+      height: 100dvh;
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -86,6 +88,16 @@
       gap: 8px;
       z-index: 500;
       flex-shrink: 0;
+      max-width: 100vw;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    header::-webkit-scrollbar {
+      display: none;
     }
 
     .menu-container {
@@ -836,6 +848,12 @@
         display: none;
       }
 
+      header {
+        justify-content: flex-start;
+        padding: 0 6px;
+        gap: 6px;
+      }
+
       #sidebar {
         position: fixed;
         top: 42px;
@@ -855,8 +873,21 @@
         display: block;
       }
 
+      .menu-container {
+        flex-shrink: 0;
+      }
+
       .top-actions {
-        gap: 3px;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      #quick-align-bar {
+        flex-shrink: 0;
+      }
+
+      #btn-toggle-sidebar {
+        flex-shrink: 0;
       }
 
       button {
@@ -2172,6 +2203,7 @@
       let viewportRotation = 0; // in degrees
       let isPanning = false;
       let panStartX = 0, panStartY = 0;
+      let isTouchPinching = false;
 
       // ── Tool & Interaction State ──
       let activeTool = 'select'; // 'select', 'node', 'pen', 'brush', 'rect', 'ellipse', 'line'
@@ -3629,6 +3661,8 @@
 
       // ── Pointer & Tool Event Handlers ──
       viewportContainer.addEventListener('pointerdown', (e) => {
+        if (isTouchPinching) return;
+
         // Hand tool / Space / Middle Click Pan
         if (activeTool === 'hand' || e.button === 1 || e.spaceKey || isPanning) {
           isPanning = true;
@@ -3921,6 +3955,8 @@
       });
 
       window.addEventListener('pointermove', (e) => {
+        if (isTouchPinching || touchStartDist > 0) return;
+
         const pt = screenToDoc(e.clientX, e.clientY);
         statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
 
@@ -4237,6 +4273,8 @@
       });
 
       window.addEventListener('pointerup', () => {
+        if (isTouchPinching) return;
+
         if (activeGuideDrag) {
           activeGuideDrag = null;
         }
@@ -5920,8 +5958,23 @@
       let touchStartMidX = 0, touchStartMidY = 0;
 
       viewportContainer.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
+        if (e.touches.length >= 2) {
           e.preventDefault();
+          isTouchPinching = true;
+
+          // Abort any ongoing single-finger drawing, marquee or transform
+          isDragging = false;
+          isPanning = false;
+          isMarqueeSelecting = false;
+          marqueeBox = null;
+          activeTransformMode = null;
+          activeResizeHandle = null;
+          isPenDraggingAnchor = false;
+          if (currentDraftObj) {
+            doc.removeObject(currentDraftObj.id);
+            currentDraftObj = null;
+          }
+
           const t1 = e.touches[0];
           const t2 = e.touches[1];
           touchStartDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
@@ -5934,7 +5987,7 @@
       }, { passive: false });
 
       viewportContainer.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2 && touchStartDist > 0) {
+        if (e.touches.length >= 2 && touchStartDist > 0) {
           e.preventDefault();
           const t1 = e.touches[0];
           const t2 = e.touches[1];
@@ -5954,7 +6007,7 @@
           panY = oy - (oy - touchStartPanY) * zoomFactor + (currentMidY - touchStartMidY);
           zoom = newZoom;
 
-          updateTransform();
+          applyViewportTransform();
           render();
         }
       }, { passive: false });
@@ -5962,7 +6015,15 @@
       viewportContainer.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) {
           touchStartDist = 0;
+          setTimeout(() => {
+            isTouchPinching = false;
+          }, 80);
         }
+      });
+
+      viewportContainer.addEventListener('touchcancel', () => {
+        touchStartDist = 0;
+        isTouchPinching = false;
       });
 
       // ── Storage & Project Persistence ──
