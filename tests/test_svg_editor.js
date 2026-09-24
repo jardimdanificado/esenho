@@ -53,6 +53,14 @@ async function runSvgEngineTests() {
   const hitMiss = doc.hitTest(10, 10);
   assert.strictEqual(hitMiss, null, 'Hit test on empty space should return null');
 
+  // Test Marquee Box Selection (hitTestBox)
+  const boxHits = doc.hitTestBox(0, 0, 500, 350);
+  assert.strictEqual(boxHits.length, 2, `Marquee box should intersect 2 objects (rect and circle), got ${boxHits.length}`);
+  const boxHitsEnclosed = doc.hitTestBox(0, 0, 500, 400, false);
+  assert.strictEqual(boxHitsEnclosed.length, 2, `Enclosed marquee box should contain 2 objects, got ${boxHitsEnclosed.length}`);
+  const boxMiss = doc.hitTestBox(0, 0, 30, 30);
+  assert.strictEqual(boxMiss.length, 0, 'Marquee on empty corner should find 0 objects');
+
   // Test bringToFront
   doc.bringToFront(rect.id);
   assert.strictEqual(doc.objects[doc.objects.length - 1].id, rect.id, 'Rect should now be on top');
@@ -60,7 +68,7 @@ async function runSvgEngineTests() {
   // Test sendToBack
   doc.sendToBack(rect.id);
   assert.strictEqual(doc.objects[0].id, rect.id, 'Rect should now be at bottom');
-  console.log('✔ Hit testing & Z-order reordering passed');
+  console.log('✔ Hit testing, Marquee Box Selection & Z-order reordering passed');
 
   // 4. Test Undo / Redo
   const countBefore = doc.objects.length;

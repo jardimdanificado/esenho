@@ -1987,6 +1987,11 @@
       let initialObjectState = null;
       let hoveredObj = null;
 
+      // Marquee / Box Selection State
+      let isMarqueeSelecting = false;
+      let marqueeBox = null;
+      let marqueeBaseSelected = null;
+
       // Pen Tool State
       let currentPenPath = null;
       let penCursorPos = null;
@@ -2199,6 +2204,23 @@
       }
 
       function renderOverlay() {
+        // Draw Marquee Box Selection (Bulk Selection Box)
+        if (isMarqueeSelecting && marqueeBox) {
+          const bx = Math.min(marqueeBox.startX, marqueeBox.endX);
+          const by = Math.min(marqueeBox.startY, marqueeBox.endY);
+          const bw = Math.abs(marqueeBox.endX - marqueeBox.startX);
+          const bh = Math.abs(marqueeBox.endY - marqueeBox.startY);
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(250, 189, 47, 0.12)';
+          ctx.fillRect(bx, by, bw, bh);
+          ctx.strokeStyle = '#fabd2f';
+          ctx.lineWidth = 1.2 / zoom;
+          ctx.setLineDash([4 / zoom, 3 / zoom]);
+          ctx.strokeRect(bx, by, bw, bh);
+          ctx.restore();
+        }
+
         const selected = doc.getSelectedObjects();
 
         // Draw Selection Gizmo for Select Tool
@@ -2719,6 +2741,8 @@
           activeResizeHandle = null;
           initialBounds = null;
           initialObjectState = null;
+          isMarqueeSelecting = false;
+          marqueeBox = null;
 
           const selected = doc.getSelectedObjects();
           if (selected.length === 1) {
@@ -2747,13 +2771,24 @@
           if (!activeResizeHandle) {
             const hit = doc.hitTest(pt.x, pt.y);
             if (hit) {
-              doc.select(hit.id, e.shiftKey);
-            } else if (!e.shiftKey) {
-              doc.clearSelection();
+              if (e.shiftKey) {
+                doc.select(hit.id, true);
+              } else if (!doc.isSelected(hit.id)) {
+                doc.select(hit.id, false);
+              }
+            } else {
+              // Clicked empty canvas -> Start Marquee Box Selection
+              isMarqueeSelecting = true;
+              marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
+              marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
+              if (!e.shiftKey) {
+                doc.clearSelection();
+              }
             }
           }
           render();
           updateInspector();
+          drawOverlay();
         } else if (activeTool === 'node') {
           let selected = doc.getSelectedObjects();
           if (selected.length === 0) {
@@ -2930,6 +2965,19 @@
         const dy = pt.y - dragStartY;
 
         if (activeTool === 'select') {
+          if (isMarqueeSelecting && marqueeBox) {
+            marqueeBox.endX = pt.x;
+            marqueeBox.endY = pt.y;
+            const hits = doc.hitTestBox(marqueeBox.startX, marqueeBox.startY, marqueeBox.endX, marqueeBox.endY);
+            doc.selectedIds = new Set(marqueeBaseSelected);
+            for (const h of hits) {
+              doc.selectedIds.add(h.id);
+            }
+            drawOverlay();
+            updateInspector();
+            return;
+          }
+
           if (activeResizeHandle && initialBounds && initialObjectState) {
             const obj = doc.getSelectedObjects()[0];
             if (obj) {
@@ -3107,6 +3155,16 @@
             commitPenPath();
           }
         }
+        if (isMarqueeSelecting) {
+          isMarqueeSelecting = false;
+          marqueeBox = null;
+          marqueeBaseSelected = null;
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+
         if (isDragging) {
           isDragging = false;
           const wasResizing = !!activeResizeHandle;

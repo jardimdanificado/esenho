@@ -2219,6 +2219,10 @@
       return count > 0;
     }
 
+    isSelected(id) {
+      return this.selectedIds.has(id);
+    }
+
     /** Hit Test topmost object */
     hitTest(px, py, tolerance = 6) {
       for (let i = this.objects.length - 1; i >= 0; i--) {
@@ -2229,6 +2233,29 @@
         }
       }
       return null;
+    }
+
+    /** Box / Marquee selection test for bulk selection */
+    hitTestBox(minX, minY, maxX, maxY, intersect = true) {
+      const results = [];
+      const boxMinX = Math.min(minX, maxX);
+      const boxMinY = Math.min(minY, maxY);
+      const boxMaxX = Math.max(minX, maxX);
+      const boxMaxY = Math.max(minY, maxY);
+
+      for (let i = 0; i < this.objects.length; i++) {
+        const obj = this.objects[i];
+        if (!obj.visible || obj.locked) continue;
+        const b = obj.getBounds();
+        if (intersect) {
+          const overlaps = !(b.maxX < boxMinX || b.minX > boxMaxX || b.maxY < boxMinY || b.minY > boxMaxY);
+          if (overlaps) results.push(obj);
+        } else {
+          const enclosed = b.minX >= boxMinX && b.maxX <= boxMaxX && b.minY >= boxMinY && b.maxY <= boxMaxY;
+          if (enclosed) results.push(obj);
+        }
+      }
+      return results;
     }
 
     /** History (Undo/Redo) */
