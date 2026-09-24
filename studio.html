@@ -4135,15 +4135,9 @@
                     width: cb.width,
                     height: cb.height
                   };
-                  const snapResult = doc.snapToGeometry(testBox, {
-                    snapToGrid: true,
-                    snapToCanvas: true,
-                    snapToGuides: true,
-                    snapToObjects: true,
-                    userGuides: userGuides,
-                    gridSize: 20,
-                    threshold: 8 / zoom
-                  });
+                  const snapOpts = getSnapOptions();
+                  snapOpts.ignoreIds = new Set(selected.map(o => o.id));
+                  const snapResult = doc.snapToGeometry(testBox, snapOpts);
                   moveDx += snapResult.dx;
                   moveDy += snapResult.dy;
                   activeSnapLines = snapResult.snapLines || [];
@@ -5014,7 +5008,7 @@
         const obj = selected[0];
 
         // Highlight/show inline rename in layer manager
-        const objItem = document.querySelector(`.obj-item[data-id="${obj.id}"]`);
+        const objItem = document.querySelector(`.object-item[data-object-id="${obj.id}"]`) || document.querySelector(`[data-object-id="${obj.id}"]`);
         if (objItem) {
           const nameSpan = objItem.querySelector('.obj-name');
           if (nameSpan) {
@@ -5095,10 +5089,35 @@
       const btnSnapOptions = document.getElementById('btn-snap-options');
       const snapOptionsMenu = document.getElementById('snap-options-menu');
 
+      function getSnapOptions() {
+        const gridCb = document.getElementById('snap-opt-grid');
+        const canvasCb = document.getElementById('snap-opt-canvas');
+        const guidesCb = document.getElementById('snap-opt-guides');
+        const objectsCb = document.getElementById('snap-opt-objects');
+
+        return {
+          snapToGrid: gridCb ? gridCb.checked : false,
+          snapToCanvas: canvasCb ? canvasCb.checked : true,
+          snapToGuides: guidesCb ? guidesCb.checked : true,
+          snapToObjects: objectsCb ? objectsCb.checked : true,
+          userGuides: userGuides,
+          gridSize: 20,
+          threshold: 6 / zoom
+        };
+      }
+
+      ['snap-opt-grid', 'snap-opt-canvas', 'snap-opt-guides', 'snap-opt-objects'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+          activeSnapLines = [];
+          drawOverlay();
+        });
+      });
+
       btnToggleSnap?.addEventListener('click', () => {
         snapEnabled = !snapEnabled;
         btnToggleSnap.textContent = snapEnabled ? '🧲 Snap: ON' : '🧲 Snap: OFF';
         btnToggleSnap.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+        activeSnapLines = [];
         drawOverlay();
       });
 

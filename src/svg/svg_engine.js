@@ -1026,6 +1026,16 @@
         n.x += dx;
         n.y += dy;
       }
+      let attachedText = null;
+      if (this.doc && this.doc.objects) {
+        attachedText = this.doc.objects.find(o => o.type === 'text' && o.pathId === this.id);
+      } else if (typeof window !== 'undefined' && window.doc && window.doc.objects) {
+        attachedText = window.doc.objects.find(o => o.type === 'text' && o.pathId === this.id);
+      }
+      if (attachedText) {
+        attachedText.x += dx;
+        attachedText.y += dy;
+      }
     }
 
     getBounds() {
@@ -1238,6 +1248,16 @@
       for (const sp of this.subPaths) {
         sp.move(dx, dy);
       }
+      let attachedText = null;
+      if (this.doc && this.doc.objects) {
+        attachedText = this.doc.objects.find(o => o.type === 'text' && o.pathId === this.id);
+      } else if (typeof window !== 'undefined' && window.doc && window.doc.objects) {
+        attachedText = window.doc.objects.find(o => o.type === 'text' && o.pathId === this.id);
+      }
+      if (attachedText) {
+        attachedText.x += dx;
+        attachedText.y += dy;
+      }
     }
 
     getBounds() {
@@ -1323,16 +1343,7 @@
           pathObj = window.doc.findObject(this.pathId);
         }
         if (pathObj && typeof pathObj.getBounds === 'function') {
-          const pb = pathObj.getBounds();
-          const pad = Math.max(12, (this.fontSize || 24) * 1.2);
-          return {
-            minX: pb.minX - pad,
-            minY: pb.minY - pad,
-            maxX: pb.maxX + pad,
-            maxY: pb.maxY + pad,
-            width: (pb.maxX - pb.minX) + pad * 2,
-            height: (pb.maxY - pb.minY) + pad * 2
-          };
+          return pathObj.getBounds();
         }
       }
       const approxCharWidth = this.fontSize * 0.55;
@@ -1845,6 +1856,16 @@
       this.y1 += dy;
       this.x2 += dx;
       this.y2 += dy;
+      let attachedText = null;
+      if (this.doc && this.doc.objects) {
+        attachedText = this.doc.objects.find(o => o.type === 'text' && o.pathId === this.id);
+      } else if (typeof window !== 'undefined' && window.doc && window.doc.objects) {
+        attachedText = window.doc.objects.find(o => o.type === 'text' && o.pathId === this.id);
+      }
+      if (attachedText) {
+        attachedText.x += dx;
+        attachedText.y += dy;
+      }
     }
 
     getBounds() {
@@ -3085,7 +3106,7 @@
         snapToObjects = true,
         gridSize = 20,
         tolerance = options.threshold || 6,
-        userGuides = options.guides || { horizontal: [], vertical: [] },
+        userGuides = options.guides || options.userGuides || { horizontal: [], vertical: [] },
         ignoreIds = new Set()
       } = options;
 
@@ -3093,24 +3114,31 @@
       let dy = 0;
       let bestDistX = tolerance;
       let bestDistY = tolerance;
-      const snapLines = [];
+      let winningSnapX = null;
+      let winningSnapY = null;
 
       const targetXs = [box.minX, box.minX + box.width / 2, box.maxX];
       const targetYs = [box.minY, box.minY + box.height / 2, box.maxY];
 
-      // 1. Grid Snap
+      // 1. Grid Snap (explicitly opt-in only)
       if (snapToGrid && gridSize > 0) {
-        const gridSnapX = Math.round(box.minX / gridSize) * gridSize;
-        const distGX = Math.abs(gridSnapX - box.minX);
-        if (distGX <= bestDistX) {
-          dx = gridSnapX - box.minX;
-          bestDistX = distGX;
+        for (const tx of targetXs) {
+          const gridSnapX = Math.round(tx / gridSize) * gridSize;
+          const distGX = Math.abs(gridSnapX - tx);
+          if (distGX < bestDistX) {
+            bestDistX = distGX;
+            dx = gridSnapX - tx;
+            winningSnapX = gridSnapX;
+          }
         }
-        const gridSnapY = Math.round(box.minY / gridSize) * gridSize;
-        const distGY = Math.abs(gridSnapY - box.minY);
-        if (distGY <= bestDistY) {
-          dy = gridSnapY - box.minY;
-          bestDistY = distGY;
+        for (const ty of targetYs) {
+          const gridSnapY = Math.round(ty / gridSize) * gridSize;
+          const distGY = Math.abs(gridSnapY - ty);
+          if (distGY < bestDistY) {
+            bestDistY = distGY;
+            dy = gridSnapY - ty;
+            winningSnapY = gridSnapY;
+          }
         }
       }
 
@@ -3123,16 +3151,16 @@
         canvasYs.push(0, this.height / 2, this.height);
       }
 
-      // 3. User Guides snap
+      // 3. User Guides snap (Ruler Guides)
       if (snapToGuides && userGuides) {
-        if (userGuides.vertical) canvasXs.push(...userGuides.vertical);
-        if (userGuides.horizontal) canvasYs.push(...userGuides.horizontal);
+        if (userGuides.vertical && Array.isArray(userGuides.vertical)) canvasXs.push(...userGuides.vertical);
+        if (userGuides.horizontal && Array.isArray(userGuides.horizontal)) canvasYs.push(...userGuides.horizontal);
       }
 
       // 4. Other objects bounds snap
-      if (snapToObjects) {
+      if (snapToObjects && this.objects) {
         for (const obj of this.objects) {
-          if (!obj.visible || ignoreIds.has(obj.id)) continue;
+          if (!obj.visible || (ignoreIds && ignoreIds.has(obj.id))) continue;
           const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
           canvasXs.push(b.minX, b.minX + b.width / 2, b.maxX);
           canvasYs.push(b.minY, b.minY + b.height / 2, b.maxY);
@@ -3142,10 +3170,10 @@
       for (const tx of targetXs) {
         for (const cx of canvasXs) {
           const d = Math.abs(cx - tx);
-          if (d <= bestDistX) {
+          if (d < bestDistX) {
             bestDistX = d;
             dx = cx - tx;
-            snapLines.push({ type: 'v', pos: cx });
+            winningSnapX = cx;
           }
         }
       }
@@ -3153,13 +3181,17 @@
       for (const ty of targetYs) {
         for (const cy of canvasYs) {
           const d = Math.abs(cy - ty);
-          if (d <= bestDistY) {
+          if (d < bestDistY) {
             bestDistY = d;
             dy = cy - ty;
-            snapLines.push({ type: 'h', pos: cy });
+            winningSnapY = cy;
           }
         }
       }
+
+      const snapLines = [];
+      if (winningSnapX !== null) snapLines.push({ type: 'v', pos: winningSnapX });
+      if (winningSnapY !== null) snapLines.push({ type: 'h', pos: winningSnapY });
 
       return {
         dx,

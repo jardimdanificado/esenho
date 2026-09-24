@@ -735,7 +735,9 @@ async function runSvgEngineTests() {
 
   // Test Text on Path getBounds and hitTest
   const tBounds = tObj.getBounds();
-  assert(tBounds.minX < 0 && tBounds.maxX > 200, 'Text on path bounds should include padding for text height');
+  const pBounds = pGuide.getBounds();
+  assert.strictEqual(tBounds.minX, pBounds.minX, 'Text on path bounds must match exact guide path bounds');
+  assert.strictEqual(tBounds.maxX, pBounds.maxX, 'Text on path bounds must match exact guide path bounds');
   const tHit = tObj._localHitTest(100, 50);
   assert.strictEqual(tHit, false, 'Text on path must NOT intercept direct canvas hit-test (selectable only via layer manager)');
   const hitCanvas = topDoc.hitTest(100, 50);
