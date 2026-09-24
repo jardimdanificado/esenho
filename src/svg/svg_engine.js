@@ -193,6 +193,267 @@
       }
 
       return { minX, minY, maxX, maxY };
+    },
+
+    evalCubicDerivative(p0, cp1, cp2, p1, t) {
+      const it = 1 - t;
+      return {
+        x: 3 * it * it * (cp1.x - p0.x) + 6 * it * t * (cp2.x - cp1.x) + 3 * t * t * (p1.x - cp2.x),
+        y: 3 * it * it * (cp1.y - p0.y) + 6 * it * t * (cp2.y - cp1.y) + 3 * t * t * (p1.y - cp2.y)
+      };
+    },
+
+    evalCubicSecondDerivative(p0, cp1, cp2, p1, t) {
+      const it = 1 - t;
+      return {
+        x: 6 * it * (cp2.x - 2 * cp1.x + p0.x) + 6 * t * (p1.x - 2 * cp2.x + cp1.x),
+        y: 6 * it * (cp2.y - 2 * cp1.y + p0.y) + 6 * t * (p1.y - 2 * cp2.y + cp1.y)
+      };
+    },
+
+    /**
+     * Ramer-Douglas-Peucker (RDP) polyline simplification.
+     * Reduces the number of points in a curve approximated by a series of points.
+     */
+    simplifyRDP(points, tolerance = 1.0) {
+      if (!points || points.length <= 2) return (points || []).slice();
+      const sqTol = tolerance * tolerance;
+
+      function getSqDist(p, p1, p2) {
+        const dx = p2.x - p1.x;
+        const dy = p2.y - p1.y;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq === 0) {
+          return (p.x - p1.x) ** 2 + (p.y - p1.y) ** 2;
+        }
+        const t = Math.max(0, Math.min(1, ((p.x - p1.x) * dx + (p.y - p1.y) * dy) / lenSq));
+        const projX = p1.x + t * dx;
+        const projY = p1.y + t * dy;
+        return (p.x - projX) ** 2 + (p.y - projY) ** 2;
+      }
+
+      function rdpStep(firstIdx, lastIdx, result) {
+        let maxSqDist = 0;
+        let index = firstIdx;
+
+        for (let i = firstIdx + 1; i < lastIdx; i++) {
+          const sqDist = getSqDist(points[i], points[firstIdx], points[lastIdx]);
+          if (sqDist > maxSqDist) {
+            maxSqDist = sqDist;
+            index = i;
+          }
+        }
+
+        if (maxSqDist > sqTol) {
+          rdpStep(firstIdx, index, result);
+          result.pop();
+          rdpStep(index, lastIdx, result);
+        } else {
+          result.push(points[firstIdx]);
+          result.push(points[lastIdx]);
+        }
+      }
+
+      const res = [];
+      rdpStep(0, points.length - 1, res);
+      return res;
+    },
+
+    /**
+     * Schneider's Algorithm for Automatically Fitting Digitized Curves
+     * (Graphic Gems I, Philip J. Schneider).
+     * Fits a series of digitized points with smooth cubic Bézier curve segments.
+     * Returns an array of cubic segments: [{ p0, cp1, cp2, p1 }, ...]
+     */
+    fitCurve(points, maxError = 2.0) {
+      if (!points || points.length < 2) return [];
+      if (points.length === 2) {
+        const p0 = points[0];
+        const p1 = points[1];
+        const cp1 = { x: p0.x + (p1.x - p0.x) / 3, y: p0.y + (p1.y - p0.y) / 3 };
+        const cp2 = { x: p1.x - (p1.x - p0.x) / 3, y: p1.y - (p1.y - p0.y) / 3 };
+        return [{ p0, cp1, cp2, p1 }];
+      }
+
+      function normalize(v) {
+        const len = Math.hypot(v.x, v.y);
+        return len > 1e-9 ? { x: v.x / len, y: v.y / len } : { x: 1, y: 0 };
+      }
+
+      function computeLeftTangent(pts, end) {
+        return normalize({ x: pts[end + 1].x - pts[end].x, y: pts[end + 1].y - pts[end].y });
+      }
+
+      function computeRightTangent(pts, end) {
+        return normalize({ x: pts[end - 1].x - pts[end].x, y: pts[end - 1].y - pts[end].y });
+      }
+
+      function computeCenterTangent(pts, center) {
+        const v1 = { x: pts[center - 1].x - pts[center].x, y: pts[center - 1].y - pts[center].y };
+        const v2 = { x: pts[center].x - pts[center + 1].x, y: pts[center].y - pts[center + 1].y };
+        return normalize({ x: (v1.x + v2.x) / 2, y: (v1.y + v2.y) / 2 });
+      }
+
+      function chordLengthParameterize(pts, first, last) {
+        const u = [0];
+        for (let i = first + 1; i <= last; i++) {
+          u.push(u[u.length - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y));
+        }
+        const total = u[u.length - 1];
+        if (total > 0) {
+          for (let i = 0; i < u.length; i++) u[i] /= total;
+        }
+        return u;
+      }
+
+      function generateBezier(pts, first, last, uPrime, tHat1, tHat2) {
+        const p0 = pts[first];
+        const p3 = pts[last];
+        const nPts = last - first + 1;
+
+        let c00 = 0, c01 = 0, c11 = 0, x0 = 0, x1 = 0;
+
+        for (let i = 0; i < nPts; i++) {
+          const u = uPrime[i];
+          const it = 1 - u;
+          const b0 = it * it * it;
+          const b1 = 3 * u * it * it;
+          const b2 = 3 * u * u * it;
+          const b3 = u * u * u;
+
+          const a1 = { x: tHat1.x * b1, y: tHat1.y * b1 };
+          const a2 = { x: tHat2.x * b2, y: tHat2.y * b2 };
+
+          c00 += a1.x * a1.x + a1.y * a1.y;
+          c01 += a1.x * a2.x + a1.y * a2.y;
+          c11 += a2.x * a2.x + a2.y * a2.y;
+
+          const v = {
+            x: pts[first + i].x - (p0.x * (b0 + b1) + p3.x * (b2 + b3)),
+            y: pts[first + i].y - (p0.y * (b0 + b1) + p3.y * (b2 + b3))
+          };
+
+          x0 += a1.x * v.x + a1.y * v.y;
+          x1 += a2.x * v.x + a2.y * v.y;
+        }
+
+        const det = c00 * c11 - c01 * c01;
+        let alphaL, alphaR;
+
+        if (Math.abs(det) > 1e-9) {
+          alphaL = (x0 * c11 - x1 * c01) / det;
+          alphaR = (c00 * x1 - c01 * x0) / det;
+        } else {
+          alphaL = alphaR = 0;
+        }
+
+        const segLen = Math.hypot(p3.x - p0.x, p3.y - p0.y);
+        const epsilon = 1e-6 * segLen;
+
+        if (alphaL < epsilon || alphaR < epsilon) {
+          const dist = segLen / 3.0;
+          return {
+            p0,
+            cp1: { x: p0.x + tHat1.x * dist, y: p0.y + tHat1.y * dist },
+            cp2: { x: p3.x + tHat2.x * dist, y: p3.y + tHat2.y * dist },
+            p1: p3
+          };
+        }
+
+        return {
+          p0,
+          cp1: { x: p0.x + tHat1.x * alphaL, y: p0.y + tHat1.y * alphaL },
+          cp2: { x: p3.x + tHat2.x * alphaR, y: p3.y + tHat2.y * alphaR },
+          p1: p3
+        };
+      }
+
+      function computeMaxError(pts, first, last, curve, u) {
+        let maxDist = 0;
+        let splitPoint = Math.floor((last - first + 1) / 2);
+        const nPts = last - first + 1;
+
+        for (let i = 1; i < nPts - 1; i++) {
+          const pt = Bezier.evalCubic(curve.p0, curve.cp1, curve.cp2, curve.p1, u[i]);
+          const dist = Math.hypot(pt.x - pts[first + i].x, pt.y - pts[first + i].y);
+          if (dist >= maxDist) {
+            maxDist = dist;
+            splitPoint = first + i;
+          }
+        }
+        return { maxDist, splitPoint };
+      }
+
+      function reparameterize(curve, pts, first, last, u) {
+        const nPts = last - first + 1;
+        const uPrime = [];
+        for (let i = 0; i < nPts; i++) {
+          let ui = u[i];
+          const P = pts[first + i];
+          for (let iter = 0; iter < 4; iter++) {
+            const Q_u = Bezier.evalCubic(curve.p0, curve.cp1, curve.cp2, curve.p1, ui);
+            const Q_prime = Bezier.evalCubicDerivative(curve.p0, curve.cp1, curve.cp2, curve.p1, ui);
+            const Q_prime2 = Bezier.evalCubicSecondDerivative(curve.p0, curve.cp1, curve.cp2, curve.p1, ui);
+
+            const num = (Q_u.x - P.x) * Q_prime.x + (Q_u.y - P.y) * Q_prime.y;
+            const den = (Q_prime.x * Q_prime.x + Q_prime.y * Q_prime.y) +
+                        ((Q_u.x - P.x) * Q_prime2.x + (Q_u.y - P.y) * Q_prime2.y);
+
+            if (Math.abs(den) < 1e-9) break;
+            ui = Math.max(0, Math.min(1, ui - num / den));
+          }
+          uPrime.push(ui);
+        }
+        return uPrime;
+      }
+
+      const curves = [];
+
+      function fitCubic(pts, first, last, tHat1, tHat2, error) {
+        const nPts = last - first + 1;
+        if (nPts === 2) {
+          const dist = Math.hypot(pts[last].x - pts[first].x, pts[last].y - pts[first].y) / 3.0;
+          curves.push({
+            p0: pts[first],
+            cp1: { x: pts[first].x + tHat1.x * dist, y: pts[first].y + tHat1.y * dist },
+            cp2: { x: pts[last].x + tHat2.x * dist, y: pts[last].y + tHat2.y * dist },
+            p1: pts[last]
+          });
+          return;
+        }
+
+        let u = chordLengthParameterize(pts, first, last);
+        let curve = generateBezier(pts, first, last, u, tHat1, tHat2);
+        let { maxDist, splitPoint } = computeMaxError(pts, first, last, curve, u);
+
+        if (maxDist < error) {
+          curves.push(curve);
+          return;
+        }
+
+        if (maxDist < error * 4.0) {
+          for (let iter = 0; iter < 4; iter++) {
+            u = reparameterize(curve, pts, first, last, u);
+            curve = generateBezier(pts, first, last, u, tHat1, tHat2);
+            const err = computeMaxError(pts, first, last, curve, u);
+            maxDist = err.maxDist;
+            splitPoint = err.splitPoint;
+            if (maxDist < error) {
+              curves.push(curve);
+              return;
+            }
+          }
+        }
+
+        let tHatCenter = computeCenterTangent(pts, splitPoint);
+        fitCubic(pts, first, splitPoint, tHat1, tHatCenter, error);
+        fitCubic(pts, splitPoint, last, { x: -tHatCenter.x, y: -tHatCenter.y }, tHat2, error);
+      }
+
+      const tHat1 = computeLeftTangent(points, 0);
+      const tHat2 = computeRightTangent(points, points.length - 1);
+      fitCubic(points, 0, points.length - 1, tHat1, tHat2, maxError);
+      return curves;
     }
   };
 
@@ -696,6 +957,56 @@
       return `<path id="${this.id}" d="${d}" fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
     }
 
+    simplify(tolerance = 2.0, fitCurves = true) {
+      if (this.nodes.length <= 2) return this;
+      const poly = this.toPolyline(0.5);
+      if (poly.length < 3) return this;
+
+      if (!fitCurves) {
+        const reduced = Bezier.simplifyRDP(poly, tolerance);
+        this.nodes = reduced.map(p => new PathNode(p.x, p.y, null, null, 'corner'));
+        return this;
+      }
+
+      // Schneider curve fitting
+      const segments = Bezier.fitCurve(poly, tolerance);
+      if (segments.length === 0) return this;
+
+      const newNodes = [];
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        if (i === 0) {
+          newNodes.push(new PathNode(
+            seg.p0.x, seg.p0.y,
+            null,
+            { x: seg.cp1.x - seg.p0.x, y: seg.cp1.y - seg.p0.y },
+            'smooth'
+          ));
+        } else {
+          newNodes[newNodes.length - 1].cpOut = { x: seg.cp1.x - seg.p0.x, y: seg.cp1.y - seg.p0.y };
+        }
+
+        newNodes.push(new PathNode(
+          seg.p1.x, seg.p1.y,
+          { x: seg.cp2.x - seg.p1.x, y: seg.cp2.y - seg.p1.y },
+          null,
+          'smooth'
+        ));
+      }
+
+      if (this.closed && newNodes.length > 2) {
+        const first = newNodes[0];
+        const last = newNodes[newNodes.length - 1];
+        if (Math.hypot(first.x - last.x, first.y - last.y) < 5) {
+          first.cpIn = last.cpIn;
+          newNodes.pop();
+        }
+      }
+
+      this.nodes = newNodes;
+      return this;
+    }
+
     toJSON() {
       const data = super.toJSON();
       data.closed = this.closed;
@@ -801,6 +1112,13 @@
       const dash = this.strokeDasharray ? ` stroke-dasharray="${this.strokeDasharray}"` : '';
 
       return `<path id="${this.id}" d="${d}"${rule} fill="${fill}" fill-opacity="${fillOp}" stroke="${stroke}" stroke-width="${sw}" stroke-opacity="${strokeOp}" stroke-linecap="${cap}" stroke-linejoin="${join}" opacity="${op}"${dash}${filter}${this.getExtraSVGAttributes()} />`;
+    }
+
+    simplify(tolerance = 2.0, fitCurves = true) {
+      for (const sp of this.subPaths) {
+        sp.simplify(tolerance, fitCurves);
+      }
+      return this;
     }
 
     toJSON() {
@@ -2296,6 +2614,425 @@
     }
   }
 
+  /* =========================================================================
+   * SvgTracer: High-Performance Raster to Vector Tracing Engine
+   * Marching squares contour extraction, hole classification, color quantization,
+   * RDP polygon decimation, and Schneider Bézier curve fitting.
+   * ========================================================================= */
+
+  const SvgTracer = {
+    /**
+     * Main trace entry point.
+     */
+    trace(imgData, width, height, options = {}) {
+      const mode = options.mode || 'color'; // 'color', 'silhouette', 'threshold'
+      const smoothness = Number(options.smoothness || options.tolerance || 2.0);
+      const minArea = Number(options.minArea || 8);
+      const fitCurves = options.fitCurves !== undefined ? !!options.fitCurves : true;
+      const cornerThreshold = Number(options.cornerThreshold || 110); // degrees
+
+      const data = imgData.data || imgData;
+
+      if (mode === 'silhouette') {
+        return this.traceBinary(data, width, height, (r, g, b, a) => a > (options.threshold || 64), options.fill || '#fabd2f', smoothness, minArea, fitCurves, cornerThreshold);
+      } else if (mode === 'threshold') {
+        const thresh = options.threshold || 128;
+        return this.traceBinary(data, width, height, (r, g, b, a) => a > 32 && (0.299 * r + 0.587 * g + 0.114 * b < thresh), options.fill || '#1d2021', smoothness, minArea, fitCurves, cornerThreshold);
+      } else {
+        // Multi-Color Quantization Mode
+        return this.traceMultiColor(data, width, height, options.colors || 6, smoothness, minArea, fitCurves, cornerThreshold);
+      }
+    },
+
+    /**
+     * Trace a single binary mask into an SvgPath or SvgCompoundPath.
+     */
+    traceBinary(data, width, height, predicate, fill, smoothness, minArea, fitCurves, cornerThreshold) {
+      const mask = new Uint8Array(width * height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4;
+          if (predicate(data[idx], data[idx + 1], data[idx + 2], data[idx + 3])) {
+            mask[y * width + x] = 1;
+          }
+        }
+      }
+
+      const contours = this.extractContours(mask, width, height, minArea);
+      if (contours.length === 0) return null;
+
+      const subPaths = [];
+      for (const cont of contours) {
+        const path = this.contourToPath(cont.points, smoothness, fitCurves, cornerThreshold);
+        if (path && path.nodes.length >= 2) {
+          path.closed = true;
+          path.fill = fill;
+          path.stroke = 'none';
+          subPaths.push(path);
+        }
+      }
+
+      if (subPaths.length === 0) return null;
+      if (subPaths.length === 1) {
+        return subPaths[0];
+      }
+
+      const compound = new SvgCompoundPath({ fill: fill, stroke: 'none', fillRule: 'evenodd' });
+      for (const sp of subPaths) {
+        compound.addSubPath(sp);
+      }
+      return compound;
+    },
+
+    /**
+     * Trace an image with color quantization into layered vector paths.
+     */
+    traceMultiColor(data, width, height, numColors = 6, smoothness = 2.0, minArea = 8, fitCurves = true, cornerThreshold = 110) {
+      const samples = [];
+      const step = Math.max(1, Math.floor(Math.sqrt((width * height) / 4000)));
+      for (let y = 0; y < height; y += step) {
+        for (let x = 0; x < width; x += step) {
+          const idx = (y * width + x) * 4;
+          if (data[idx + 3] > 64) {
+            samples.push([data[idx], data[idx + 1], data[idx + 2]]);
+          }
+        }
+      }
+
+      if (samples.length === 0) return null;
+
+      const palette = this.quantizeKMeans(samples, numColors);
+      if (palette.length === 0) return null;
+
+      const colorMap = new Int16Array(width * height);
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const idx = (y * width + x) * 4;
+          if (data[idx + 3] <= 64) {
+            colorMap[y * width + x] = -1;
+            continue;
+          }
+          const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+          let bestDist = Infinity;
+          let bestCol = 0;
+          for (let k = 0; k < palette.length; k++) {
+            const p = palette[k];
+            const dist = (r - p.r) ** 2 + (g - p.g) ** 2 + (b - p.b) ** 2;
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestCol = k;
+            }
+          }
+          colorMap[y * width + x] = bestCol;
+        }
+      }
+
+      const group = new SvgGroup({ name: 'Traced Vector Group' });
+
+      // Sort palette by perceived brightness (background colors first)
+      const sortedColors = palette.map((col, idx) => ({ ...col, idx }))
+        .sort((a, b) => (0.299 * b.r + 0.587 * b.g + 0.114 * b.b) - (0.299 * a.r + 0.587 * a.g + 0.114 * a.b));
+
+      for (const col of sortedColors) {
+        const mask = new Uint8Array(width * height);
+        let count = 0;
+        for (let i = 0; i < colorMap.length; i++) {
+          if (colorMap[i] === col.idx) {
+            mask[i] = 1;
+            count++;
+          }
+        }
+        if (count < minArea) continue;
+
+        const contours = this.extractContours(mask, width, height, minArea);
+        if (contours.length === 0) continue;
+
+        const hex = this.rgbToHex(col.r, col.g, col.b);
+        const subPaths = [];
+        for (const cont of contours) {
+          const p = this.contourToPath(cont.points, smoothness, fitCurves, cornerThreshold);
+          if (p && p.nodes.length >= 2) {
+            p.closed = true;
+            p.fill = hex;
+            p.stroke = 'none';
+            subPaths.push(p);
+          }
+        }
+
+        if (subPaths.length === 1) {
+          group.addChild(subPaths[0]);
+        } else if (subPaths.length > 1) {
+          const comp = new SvgCompoundPath({ fill: hex, stroke: 'none', fillRule: 'evenodd' });
+          for (const sp of subPaths) comp.addSubPath(sp);
+          group.addChild(comp);
+        }
+      }
+
+      return group.children.length > 0 ? group : null;
+    },
+
+    /**
+     * Marching Squares grid contour extraction.
+     */
+    extractContours(mask, width, height, minArea = 8) {
+      const visitedH = new Uint8Array((width + 1) * (height + 1));
+      const visitedV = new Uint8Array((width + 1) * (height + 1));
+
+      function getVal(x, y) {
+        if (x < 0 || x >= width || y < 0 || y >= height) return 0;
+        return mask[y * width + x] ? 1 : 0;
+      }
+
+      const contours = [];
+
+      for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+          const v = getVal(x, y);
+          const vTop = getVal(x, y - 1);
+          // Detect top boundary of solid pixel
+          if (v === 1 && vTop === 0 && !visitedH[y * (width + 1) + x]) {
+            const loop = [];
+            let cx = x, cy = y;
+            let dir = 0; // 0=E, 1=S, 2=W, 3=N
+            const startX = cx, startY = cy;
+            const startDir = dir;
+            let maxSteps = (width + height) * 16;
+
+            do {
+              loop.push({ x: cx, y: cy });
+
+              // 4 neighbor pixels around corner (cx, cy)
+              const tl = getVal(cx - 1, cy - 1);
+              const tr = getVal(cx, cy - 1);
+              const br = getVal(cx, cy);
+              const bl = getVal(cx - 1, cy);
+              const state = (tl << 3) | (tr << 2) | (br << 1) | bl;
+
+              let nextDir = dir;
+              switch (state) {
+                case 1:  nextDir = 1; break; // bl -> S
+                case 2:  nextDir = 0; break; // br -> E
+                case 3:  nextDir = 0; break; // br, bl -> E
+                case 4:  nextDir = 3; break; // tr -> N
+                case 5:  nextDir = (dir === 0) ? 1 : (dir === 2 ? 3 : 1); break; // tr, bl (saddle)
+                case 6:  nextDir = 3; break; // tr, br -> N
+                case 7:  nextDir = 3; break; // tr, br, bl -> N
+                case 8:  nextDir = 2; break; // tl -> W
+                case 9:  nextDir = 1; break; // tl, bl -> S
+                case 10: nextDir = (dir === 1) ? 2 : (dir === 3 ? 0 : 2); break; // tl, br (saddle)
+                case 11: nextDir = 0; break; // tl, br, bl -> E
+                case 12: nextDir = 2; break; // tl, tr -> W
+                case 13: nextDir = 1; break; // tl, tr, bl -> S
+                case 14: nextDir = 2; break; // tl, tr, br -> W
+                default:
+                  nextDir = (dir + 1) % 4;
+                  break;
+              }
+
+              // Mark edge in movement direction and step
+              if (nextDir === 0) { visitedH[cy * (width + 1) + cx] = 1; cx += 1; }
+              else if (nextDir === 1) { visitedV[cy * (width + 1) + cx] = 1; cy += 1; }
+              else if (nextDir === 2) { visitedH[cy * (width + 1) + (cx - 1)] = 1; cx -= 1; }
+              else if (nextDir === 3) { visitedV[(cy - 1) * (width + 1) + cx] = 1; cy -= 1; }
+
+              dir = nextDir;
+              if (--maxSteps <= 0) break;
+            } while (cx !== startX || cy !== startY);
+
+            if (loop.length >= 3) {
+              let area = 0;
+              for (let i = 0; i < loop.length; i++) {
+                const j = (i + 1) % loop.length;
+                area += loop[i].x * loop[j].y - loop[j].x * loop[i].y;
+              }
+              area = area / 2.0;
+
+              if (Math.abs(area) >= minArea) {
+                contours.push({ points: loop, area });
+              }
+            }
+          }
+        }
+      }
+
+      return contours;
+    },
+
+    /**
+     * Converts a raw point loop into a smooth, simplified SvgPath.
+     */
+    contourToPath(pts, smoothness = 2.0, fitCurves = true, cornerThreshold = 110) {
+      if (!pts || pts.length < 3) return null;
+
+      // Close point loop for RDP reduction
+      const closedPts = [...pts, pts[0]];
+      let simplified = Bezier.simplifyRDP(closedPts, Math.max(0.5, smoothness * 0.5));
+      if (simplified.length > 2 && Math.hypot(simplified[0].x - simplified[simplified.length - 1].x, simplified[0].y - simplified[simplified.length - 1].y) < 1e-4) {
+        simplified.pop();
+      }
+      if (simplified.length < 3) return null;
+
+      if (!fitCurves) {
+        const path = new SvgPath({ closed: true });
+        for (const pt of simplified) {
+          path.addNode(pt.x, pt.y, null, null, 'corner');
+        }
+        return path;
+      }
+
+      const n = simplified.length;
+      const corners = [];
+      const cornerRad = (cornerThreshold * Math.PI) / 180;
+
+      for (let i = 0; i < n; i++) {
+        const prev = simplified[(i - 1 + n) % n];
+        const curr = simplified[i];
+        const next = simplified[(i + 1) % n];
+
+        const v1 = { x: prev.x - curr.x, y: prev.y - curr.y };
+        const v2 = { x: next.x - curr.x, y: next.y - curr.y };
+        const l1 = Math.hypot(v1.x, v1.y);
+        const l2 = Math.hypot(v2.x, v2.y);
+
+        if (l1 > 1e-4 && l2 > 1e-4) {
+          const dot = (v1.x * v2.x + v1.y * v2.y) / (l1 * l2);
+          const angle = Math.acos(Math.max(-1, Math.min(1, dot)));
+          if (angle < cornerRad) {
+            corners.push(i);
+          }
+        }
+      }
+
+      const path = new SvgPath({ closed: true });
+
+      if (corners.length === 0) {
+        // Continuous smooth closed loop
+        const closedSpan = [...simplified, simplified[0]];
+        const segments = Bezier.fitCurve(closedSpan, smoothness);
+        if (segments.length === 0) {
+          for (const pt of simplified) path.addNode(pt.x, pt.y, null, null, 'corner');
+          return path;
+        }
+        for (let i = 0; i < segments.length; i++) {
+          const s = segments[i];
+          if (i === 0) {
+            path.addNode(s.p0.x, s.p0.y, null, { x: s.cp1.x - s.p0.x, y: s.cp1.y - s.p0.y }, 'smooth');
+          } else {
+            path.nodes[path.nodes.length - 1].cpOut = { x: s.cp1.x - s.p0.x, y: s.cp1.y - s.p0.y };
+          }
+          path.addNode(s.p1.x, s.p1.y, { x: s.cp2.x - s.p1.x, y: s.cp2.y - s.p1.y }, null, 'smooth');
+        }
+        if (path.nodes.length > 2) {
+          const first = path.nodes[0];
+          const last = path.nodes[path.nodes.length - 1];
+          first.cpIn = last.cpIn;
+          path.nodes.pop();
+        }
+      } else {
+        for (let c = 0; c < corners.length; c++) {
+          const startIdx = corners[c];
+          const endIdx = corners[(c + 1) % corners.length];
+          const span = [];
+          let idx = startIdx;
+          while (true) {
+            span.push(simplified[idx]);
+            if (idx === endIdx) break;
+            idx = (idx + 1) % n;
+          }
+
+          const segments = Bezier.fitCurve(span, smoothness);
+          for (let i = 0; i < segments.length; i++) {
+            const s = segments[i];
+            if (i === 0 && path.nodes.length === 0) {
+              path.addNode(s.p0.x, s.p0.y, null, { x: s.cp1.x - s.p0.x, y: s.cp1.y - s.p0.y }, 'corner');
+            } else if (i === 0) {
+              path.nodes[path.nodes.length - 1].cpOut = { x: s.cp1.x - s.p0.x, y: s.cp1.y - s.p0.y };
+            } else {
+              path.nodes[path.nodes.length - 1].cpOut = { x: s.cp1.x - s.p0.x, y: s.cp1.y - s.p0.y };
+            }
+
+            const isCorner = (i === segments.length - 1);
+            path.addNode(
+              s.p1.x, s.p1.y,
+              { x: s.cp2.x - s.p1.x, y: s.cp2.y - s.p1.y },
+              null,
+              isCorner ? 'corner' : 'smooth'
+            );
+          }
+        }
+        if (path.nodes.length > 2) {
+          const first = path.nodes[0];
+          const last = path.nodes[path.nodes.length - 1];
+          if (Math.hypot(first.x - last.x, first.y - last.y) < 2) {
+            first.cpIn = last.cpIn;
+            path.nodes.pop();
+          }
+        }
+      }
+
+      return path;
+    },
+
+    /**
+     * K-Means color clustering for Multi-Color palette quantization.
+     */
+    quantizeKMeans(samples, k = 6, maxIter = 10) {
+      if (samples.length === 0) return [];
+      k = Math.min(k, samples.length);
+
+      const centroids = [];
+      const step = Math.floor(samples.length / k);
+      for (let i = 0; i < k; i++) {
+        const s = samples[i * step];
+        centroids.push({ r: s[0], g: s[1], b: s[2] });
+      }
+
+      for (let iter = 0; iter < maxIter; iter++) {
+        const sums = centroids.map(() => ({ r: 0, g: 0, b: 0, count: 0 }));
+        for (let i = 0; i < samples.length; i++) {
+          const s = samples[i];
+          let bestDist = Infinity;
+          let bestC = 0;
+          for (let c = 0; c < centroids.length; c++) {
+            const cent = centroids[c];
+            const dist = (s[0] - cent.r) ** 2 + (s[1] - cent.g) ** 2 + (s[2] - cent.b) ** 2;
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestC = c;
+            }
+          }
+          sums[bestC].r += s[0];
+          sums[bestC].g += s[1];
+          sums[bestC].b += s[2];
+          sums[bestC].count++;
+        }
+
+        let moved = false;
+        for (let c = 0; c < centroids.length; c++) {
+          if (sums[c].count > 0) {
+            const nr = Math.round(sums[c].r / sums[c].count);
+            const ng = Math.round(sums[c].g / sums[c].count);
+            const nb = Math.round(sums[c].b / sums[c].count);
+            if (nr !== centroids[c].r || ng !== centroids[c].g || nb !== centroids[c].b) {
+              centroids[c].r = nr;
+              centroids[c].g = ng;
+              centroids[c].b = nb;
+              moved = true;
+            }
+          }
+        }
+        if (!moved) break;
+      }
+
+      return centroids;
+    },
+
+    rgbToHex(r, g, b) {
+      const toHex = c => Math.max(0, Math.min(255, c)).toString(16).padStart(2, '0');
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+  };
+
   return {
     Bezier,
     PathNode,
@@ -2315,6 +3052,8 @@
     SvgGroup,
     SvgImage,
     SvgDocument,
+    SvgTracer,
     generateId
   };
 }));
+

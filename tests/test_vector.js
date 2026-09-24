@@ -102,7 +102,55 @@ async function runVectorTests() {
   host.executeCommand("vector status");
   assert(lastLog.includes('vector recording: on'), 'vector status should report active state');
 
-  console.log('ALL VECTOR TESTS (OBJECTS, HIT-TEST, REPL, SVG) PASSED!');
+  // 12. Test Shape Simplification & Curve Fitting Algorithms
+  const SvgEngine = require('../src/svg/svg_engine.js');
+  const densePts = [];
+  for (let i = 0; i <= 50; i++) {
+    const t = i / 50;
+    densePts.push({ x: t * 100, y: Math.sin(t * Math.PI) * 40 });
+  }
+  const rdpPts = SvgEngine.Bezier.simplifyRDP(densePts, 2.0);
+  assert(rdpPts.length < densePts.length, 'RDP should reduce point count');
+  assert(rdpPts.length >= 3, 'RDP should preserve wave structure');
+
+  const fittedSegments = SvgEngine.Bezier.fitCurve(densePts, 2.0);
+  assert(fittedSegments.length >= 1, 'Schneider curve fitting should return segments');
+  assert(fittedSegments[0].cp1 && fittedSegments[0].cp2, 'Fitted segment should have Bézier control points');
+
+  const rawPath = new SvgEngine.SvgPath();
+  for (const pt of densePts) rawPath.addNode(pt.x, pt.y, null, null, 'corner');
+  assert.strictEqual(rawPath.nodes.length, 51);
+  rawPath.simplify(2.0, true);
+  assert(rawPath.nodes.length < 15, `Simplified path should have far fewer nodes (got ${rawPath.nodes.length})`);
+  console.log(`[esenho] SvgPath.simplify reduced 51 points to ${rawPath.nodes.length} smooth Bézier nodes`);
+
+  // 13. Test SvgTracer (Marching Squares + Color Quantization)
+  const testW = 32;
+  const testH = 32;
+  const testBuf = new Uint8Array(testW * testH * 4);
+  for (let y = 0; y < testH; y++) {
+    for (let x = 0; x < testW; x++) {
+      const idx = (y * testW + x) * 4;
+      if (Math.hypot(x - 16, y - 16) < 10) {
+        testBuf[idx] = 250;     // R
+        testBuf[idx + 1] = 189; // G
+        testBuf[idx + 2] = 47;  // B
+        testBuf[idx + 3] = 255; // A
+      } else {
+        testBuf[idx + 3] = 0;   // Transparent
+      }
+    }
+  }
+
+  const tracedSil = SvgEngine.SvgTracer.trace(testBuf, testW, testH, { mode: 'silhouette', smoothness: 1.5 });
+  assert(tracedSil, 'Tracer should produce a vector path from circular raster');
+  assert(tracedSil.nodes.length >= 3, 'Traced path should have at least 3 nodes');
+  assert.strictEqual(tracedSil.closed, true, 'Traced path should be closed');
+
+  const tracedCol = SvgEngine.SvgTracer.trace(testBuf, testW, testH, { mode: 'color', colors: 4, smoothness: 1.5 });
+  assert(tracedCol, 'Multi-color tracer should produce a vector group');
+
+  console.log('ALL VECTOR TESTS (OBJECTS, HIT-TEST, REPL, SVG, SIMPLIFICATION, TRACER) PASSED!');
 }
 
 runVectorTests().catch(err => {

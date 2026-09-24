@@ -2536,7 +2536,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.8.9 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.8.10 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3645,21 +3645,70 @@
       saveBtn.onclick = () => {
         const host = window.host;
         if (host && host.canvasActor && host.canvasActor.exports) {
-          host.canvasActor.exports.force_composite();
-          const w = host.canvasActor.exports.get_canvas_width();
-          const h = host.canvasActor.exports.get_canvas_height();
+          const exp = host.canvasActor.exports;
+          const w = exp.get_canvas_width();
+          const h = exp.get_canvas_height();
           const cvs = document.createElement('canvas');
           cvs.width = w;
           cvs.height = h;
           const ctx = cvs.getContext('2d');
-          const imgData = ctx.createImageData(w, h);
-          const pPtr = host.canvasActor.exports.get_composite_pixels();
-          if (pPtr) {
-            imgData.data.set(new Uint8Array(host.canvasActor.memory.buffer, pPtr, w * h * 4));
-            ctx.putImageData(imgData, 0, 0);
-            const src = cvs.toDataURL('image/png');
-            window.parent.postMessage({ type: 'SAVE_EDIT', id: editId, src: src }, '*');
+
+          const orderCount = exp.w_layer_get_order_count ? exp.w_layer_get_order_count() : 0;
+          let renderedAny = false;
+
+          if (orderCount > 0) {
+            for (let p = 0; p < orderCount; p++) {
+              const layerId = exp.w_layer_get_order(p);
+              if (layerId < 0) continue;
+              const vis = exp.w_layer_get_visible ? exp.w_layer_get_visible(layerId) : 1;
+              const op = exp.w_layer_get_opacity ? exp.w_layer_get_opacity(layerId) : 255;
+              if (!vis || op === 0) continue;
+
+              const lw = exp.w_layer_get_width ? exp.w_layer_get_width(layerId) : w;
+              const lh = exp.w_layer_get_height ? exp.w_layer_get_height(layerId) : h;
+              const lx = exp.w_layer_get_x ? exp.w_layer_get_x(layerId) : 0;
+              const ly = exp.w_layer_get_y ? exp.w_layer_get_y(layerId) : 0;
+              const ptr = exp.w_layer_get_pixels(layerId);
+              if (!ptr || lw <= 0 || lh <= 0) continue;
+
+              const u8 = new Uint8Array(host.canvasActor.memory.buffer, ptr, lw * lh * 4);
+              let hasAlpha = false;
+              for (let i = 3; i < u8.length; i += 4) {
+                if (u8[i] > 0) {
+                  hasAlpha = true;
+                  break;
+                }
+              }
+              if (!hasAlpha) continue;
+
+              const layerCvs = document.createElement('canvas');
+              layerCvs.width = lw;
+              layerCvs.height = lh;
+              const lCtx = layerCvs.getContext('2d');
+              const imgData = lCtx.createImageData(lw, lh);
+              imgData.data.set(u8);
+              lCtx.putImageData(imgData, 0, 0);
+
+              ctx.save();
+              ctx.globalAlpha = op / 255;
+              ctx.drawImage(layerCvs, lx, ly);
+              ctx.restore();
+              renderedAny = true;
+            }
           }
+
+          if (!renderedAny) {
+            const activeId = exp.w_layer_get_active ? exp.w_layer_get_active() : 0;
+            const ptr = exp.w_layer_get_pixels(activeId);
+            if (ptr) {
+              const imgData = ctx.createImageData(w, h);
+              imgData.data.set(new Uint8Array(host.canvasActor.memory.buffer, ptr, w * h * 4));
+              ctx.putImageData(imgData, 0, 0);
+            }
+          }
+
+          const src = cvs.toDataURL('image/png');
+          window.parent.postMessage({ type: 'SAVE_EDIT', id: editId, src: src }, '*');
         }
       };
 

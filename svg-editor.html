@@ -233,7 +233,8 @@
       left: 0;
       width: 100%;
       height: 100%;
-      pointer-events: auto;
+      pointer-events: none;
+      z-index: 5;
     }
 
     /* ── Right Inspector & Scene Graph ── */
@@ -589,8 +590,8 @@
       <div id="stage-wrapper">
         <canvas id="quadro-canvas"></canvas>
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg"></svg>
-        <canvas id="overlay-canvas"></canvas>
       </div>
+      <canvas id="overlay-canvas"></canvas>
       <!-- Embedded Raster Painter -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
     </div>
@@ -835,6 +836,24 @@
                 </select>
               </div>
               <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--red); color: var(--red);" title="Remove this anchor point from the path (or press Delete/Backspace)">🗑 Remove Selected Anchor</button>
+            </div>
+
+            <!-- Simplify Path Section -->
+            <div id="path-simplify-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
+              <div class="form-row">
+                <label>Simplify (RDP)</label>
+                <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+                  <input type="range" id="prop-simplify-tol" min="0.2" max="10.0" step="0.2" value="2.0" style="flex: 1;">
+                  <span id="prop-simplify-val" style="font-size: 11px; width: 28px; text-align: right;">2.0</span>
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Curve Fitting</label>
+                <label style="display: flex; align-items: center; gap: 4px; text-transform: none; cursor: pointer;">
+                  <input type="checkbox" id="prop-simplify-bezier" checked> Bézier Fit
+                </label>
+              </div>
+              <button id="btn-simplify-path" style="width: 100%; margin-top: 4px; border-color: var(--primary); color: var(--primary);">〰 Simplify Path (RDP + Bézier)</button>
             </div>
           </div>
 
@@ -1260,6 +1279,66 @@
   <!-- Hidden File Input for SVG Import -->
   <input type="file" id="file-input-svg" accept=".svg" style="display: none;">
 
+  <!-- Trace Image Modal -->
+  <div id="modal-trace" class="modal-overlay">
+    <div class="modal-card">
+      <h2>Trace Image to Vector</h2>
+      
+      <div class="form-row">
+        <label>Mode</label>
+        <select id="trace-opt-mode">
+          <option value="color">Multi-Color (K-Means Palette)</option>
+          <option value="silhouette">Silhouette (Alpha Mask)</option>
+          <option value="threshold">Threshold (Luminance B&W)</option>
+        </select>
+      </div>
+
+      <div class="form-row" id="trace-group-colors">
+        <label>Colors</label>
+        <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+          <input type="range" id="trace-opt-colors" min="2" max="16" step="1" value="6" style="flex: 1;">
+          <span id="trace-val-colors" style="font-size: 11px; width: 24px; text-align: right;">6</span>
+        </div>
+      </div>
+
+      <div class="form-row" id="trace-group-thresh" style="display: none;">
+        <label>Threshold</label>
+        <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+          <input type="range" id="trace-opt-thresh" min="1" max="254" step="1" value="128" style="flex: 1;">
+          <span id="trace-val-thresh" style="font-size: 11px; width: 24px; text-align: right;">128</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Smoothness</label>
+        <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+          <input type="range" id="trace-opt-smoothness" min="0.5" max="8.0" step="0.5" value="2.0" style="flex: 1;">
+          <span id="trace-val-smoothness" style="font-size: 11px; width: 24px; text-align: right;">2.0</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Min Area (px)</label>
+        <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+          <input type="range" id="trace-opt-minarea" min="2" max="50" step="2" value="8" style="flex: 1;">
+          <span id="trace-val-minarea" style="font-size: 11px; width: 24px; text-align: right;">8</span>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label>Curve Fitting</label>
+        <label style="display: flex; align-items: center; gap: 4px; text-transform: none; cursor: pointer;">
+          <input type="checkbox" id="trace-opt-fitcurves" checked> Bézier Curves (Schneider)
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button id="btn-cancel-trace">Cancel</button>
+        <button id="btn-run-trace" class="btn-primary">⚡ Trace & Vectorize</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
@@ -1269,7 +1348,7 @@
     (function () {
       'use strict';
 
-      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient } = SvgEngine;
+      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
 
       // ── Document State ──
       const doc = new SvgDocument(800, 600);
@@ -1382,11 +1461,6 @@
         quadroCanvas.style.width = `${doc.width}px`;
         quadroCanvas.style.height = `${doc.height}px`;
 
-        overlayCanvas.width = doc.width;
-        overlayCanvas.height = doc.height;
-        overlayCanvas.style.width = `${doc.width}px`;
-        overlayCanvas.style.height = `${doc.height}px`;
-
         applyViewportTransform();
       }
 
@@ -1397,6 +1471,7 @@
         if (zoomInput && document.activeElement !== zoomInput) {
           zoomInput.value = Math.round(zoom * 100);
         }
+        drawOverlay();
       }
 
       function zoomToFit() {
@@ -1489,18 +1564,22 @@
 
       function drawOverlay() {
         const dpr = window.devicePixelRatio || 1;
-        const targetW = Math.round(doc.width * dpr);
-        const targetH = Math.round(doc.height * dpr);
+        const vw = viewportContainer.clientWidth || 800;
+        const vh = viewportContainer.clientHeight || 600;
+        const targetW = Math.round(vw * dpr);
+        const targetH = Math.round(vh * dpr);
         if (overlayCanvas.width !== targetW || overlayCanvas.height !== targetH) {
           overlayCanvas.width = targetW;
           overlayCanvas.height = targetH;
-          overlayCanvas.style.width = `${doc.width}px`;
-          overlayCanvas.style.height = `${doc.height}px`;
+          overlayCanvas.style.width = `${vw}px`;
+          overlayCanvas.style.height = `${vh}px`;
         }
         ctx.save();
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
         ctx.scale(dpr, dpr);
+        ctx.translate(panX, panY);
+        ctx.scale(zoom, zoom);
         renderOverlay();
         ctx.restore();
       }
@@ -1858,6 +1937,8 @@
           document.getElementById('prop-path-w').value = Math.round(b.width);
           document.getElementById('prop-path-h').value = Math.round(b.height);
           document.getElementById('prop-path-info').value = `${obj.subPaths ? obj.subPaths.length : 0} sub-paths (${obj.fillRule || 'evenodd'})`;
+          const simpSec = document.getElementById('path-simplify-section');
+          if (simpSec) simpSec.style.display = 'block';
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'path') {
           const g = document.getElementById('geom-path-fields');
@@ -1868,6 +1949,8 @@
           document.getElementById('prop-path-w').value = Math.round(b.width);
           document.getElementById('prop-path-h').value = Math.round(b.height);
           document.getElementById('prop-path-info').value = `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`;
+          const simpSec = document.getElementById('path-simplify-section');
+          if (simpSec) simpSec.style.display = 'block';
 
           const nodeSec = document.getElementById('node-editor-section');
           if (nodeSec) {
@@ -1892,6 +1975,8 @@
           document.getElementById('prop-path-w').value = Math.round(b.width);
           document.getElementById('prop-path-h').value = Math.round(b.height);
           document.getElementById('prop-path-info').value = `${obj.children ? obj.children.length : 0} objects inside`;
+          const simpSec = document.getElementById('path-simplify-section');
+          if (simpSec) simpSec.style.display = 'none';
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         }
 
@@ -2551,6 +2636,7 @@
       }
 
       // ── Top Header Actions ──
+      window.addEventListener('resize', () => { drawOverlay(); });
       document.getElementById('btn-undo').addEventListener('click', () => { handleUndo(); });
       document.getElementById('btn-redo').addEventListener('click', () => { doc.redo(); render(); });
       document.getElementById('btn-zoom-fit').addEventListener('click', zoomToFit);
@@ -3398,11 +3484,89 @@
           editingRasterObj = null;
         }
       });
-      // Trace Image to Vector
+      // Simplify Path (RDP + Schneider Bézier Fit)
+      const propSimpTol = document.getElementById('prop-simplify-tol');
+      const propSimpVal = document.getElementById('prop-simplify-val');
+      propSimpTol?.addEventListener('input', () => {
+        if (propSimpVal) propSimpVal.textContent = parseFloat(propSimpTol.value).toFixed(1);
+      });
+
+      document.getElementById('btn-simplify-path')?.addEventListener('click', () => {
+        const tol = parseFloat(propSimpTol?.value || '2.0');
+        const fitCurves = !!document.getElementById('prop-simplify-bezier')?.checked;
+        const selected = doc.getSelectedObjects().filter(o => o.type === 'path' || o.type === 'compoundPath');
+        if (selected.length === 0) return;
+
+        for (const obj of selected) {
+          obj.simplify(tol, fitCurves);
+        }
+        doc.pushHistory('Simplify Path');
+        updateInspector();
+        updateObjectList();
+        render();
+      });
+
+      // Trace Image to Vector Modal Controls
+      const modalTrace = document.getElementById('modal-trace');
+      const traceOptMode = document.getElementById('trace-opt-mode');
+      const traceGroupColors = document.getElementById('trace-group-colors');
+      const traceGroupThresh = document.getElementById('trace-group-thresh');
+      const traceOptColors = document.getElementById('trace-opt-colors');
+      const traceValColors = document.getElementById('trace-val-colors');
+      const traceOptThresh = document.getElementById('trace-opt-thresh');
+      const traceValThresh = document.getElementById('trace-val-thresh');
+      const traceOptSmoothness = document.getElementById('trace-opt-smoothness');
+      const traceValSmoothness = document.getElementById('trace-val-smoothness');
+      const traceOptMinArea = document.getElementById('trace-opt-minarea');
+      const traceValMinArea = document.getElementById('trace-val-minarea');
+
+      traceOptMode?.addEventListener('change', () => {
+        const mode = traceOptMode.value;
+        if (traceGroupColors) traceGroupColors.style.display = (mode === 'color') ? 'flex' : 'none';
+        if (traceGroupThresh) traceGroupThresh.style.display = (mode === 'threshold') ? 'flex' : 'none';
+      });
+
+      traceOptColors?.addEventListener('input', () => {
+        if (traceValColors) traceValColors.textContent = traceOptColors.value;
+      });
+      traceOptThresh?.addEventListener('input', () => {
+        if (traceValThresh) traceValThresh.textContent = traceOptThresh.value;
+      });
+      traceOptSmoothness?.addEventListener('input', () => {
+        if (traceValSmoothness) traceValSmoothness.textContent = parseFloat(traceOptSmoothness.value).toFixed(1);
+      });
+      traceOptMinArea?.addEventListener('input', () => {
+        if (traceValMinArea) traceValMinArea.textContent = traceOptMinArea.value;
+      });
+
       document.getElementById('btn-trace-vector')?.addEventListener('click', () => {
         const selected = doc.getSelectedObjects();
         const imgObj = selected.find(o => o.type === 'image');
-        if (!imgObj || !imgObj._imgElement) return;
+        if (!imgObj || !imgObj._imgElement) {
+          alert('Please select a raster image on canvas to trace.');
+          return;
+        }
+        if (modalTrace) modalTrace.classList.add('active');
+      });
+
+      document.getElementById('btn-cancel-trace')?.addEventListener('click', () => {
+        if (modalTrace) modalTrace.classList.remove('active');
+      });
+
+      document.getElementById('btn-run-trace')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj || !imgObj._imgElement) {
+          if (modalTrace) modalTrace.classList.remove('active');
+          return;
+        }
+
+        const mode = traceOptMode?.value || 'color';
+        const colors = parseInt(traceOptColors?.value || '6', 10);
+        const threshold = parseInt(traceOptThresh?.value || '128', 10);
+        const smoothness = parseFloat(traceOptSmoothness?.value || '2.0');
+        const minArea = parseInt(traceOptMinArea?.value || '8', 10);
+        const fitCurves = !!document.getElementById('trace-opt-fitcurves')?.checked;
 
         const cvs = document.createElement('canvas');
         const w = Math.round(imgObj.width);
@@ -3410,61 +3574,32 @@
         cvs.width = w; cvs.height = h;
         const ctx = cvs.getContext('2d');
         ctx.drawImage(imgObj._imgElement, 0, 0, w, h);
-        const imgData = ctx.getImageData(0, 0, w, h).data;
+        const imgData = ctx.getImageData(0, 0, w, h);
 
-        const path = new SvgEngine.SvgPath({ closed: true, fill: '#fabd2f' });
-        
-        let startX = -1, startY = -1;
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            if (imgData[(y * w + x) * 4 + 3] > 128) {
-              startX = x; startY = y; break;
-            }
-          }
-          if (startX !== -1) break;
+        const traced = SvgTracer.trace(imgData, w, h, {
+          mode,
+          colors,
+          threshold,
+          smoothness,
+          minArea,
+          fitCurves
+        });
+
+        if (!traced) {
+          alert('Could not trace any vector contours from this image with current settings.');
+          return;
         }
 
-        if (startX !== -1) {
-          const dirs = [[1,0], [0,1], [-1,0], [0,-1]];
-          let dir = 0;
-          let curX = startX, curY = startY;
-          let lastDir = -1;
-          let maxSteps = w * h * 4;
-          
-          do {
-            if (dir !== lastDir) {
-              path.addNode(imgObj.x + curX, imgObj.y + curY, null, null, 'corner');
-              lastDir = dir;
-            }
-            
-            let nextDir = (dir + 3) % 4;
-            let found = false;
-            
-            for (let i = 0; i < 4; i++) {
-              const nx = curX + dirs[nextDir][0];
-              const ny = curY + dirs[nextDir][1];
-              if (nx >= 0 && nx < w && ny >= 0 && ny < h && imgData[(ny * w + nx) * 4 + 3] > 128) {
-                curX = nx; curY = ny;
-                dir = nextDir;
-                found = true;
-                break;
-              }
-              nextDir = (nextDir + 1) % 4;
-            }
-            if (!found || --maxSteps <= 0) break;
-          } while (curX !== startX || curY !== startY);
-        } else {
-          path.addNode(imgObj.x, imgObj.y, null, null, 'corner');
-          path.addNode(imgObj.x + w, imgObj.y, null, null, 'corner');
-          path.addNode(imgObj.x + w, imgObj.y + h, null, null, 'corner');
-          path.addNode(imgObj.x, imgObj.y + h, null, null, 'corner');
-        }
-
-        doc.addObject(path);
+        traced.move(imgObj.x, imgObj.y);
+        doc.addObject(traced);
         doc.removeObject(imgObj.id);
         doc.clearSelection();
-        doc.select(path.id);
+        doc.select(traced.id);
+        doc.pushHistory('Trace Image to Vector');
+
+        if (modalTrace) modalTrace.classList.remove('active');
         updateObjectList();
+        updateInspector();
         render();
       });
 
