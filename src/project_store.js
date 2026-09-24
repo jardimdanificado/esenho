@@ -113,7 +113,15 @@
   }
 
   function rleDecodeU32(u8Array, totalPixels) {
-    const in32 = new Uint32Array(u8Array.buffer, u8Array.byteOffset, Math.floor(u8Array.byteLength / 4));
+    if (!u8Array || u8Array.length === 0) return new Uint32Array(totalPixels);
+    let in32;
+    if (u8Array.byteOffset % 4 === 0) {
+      in32 = new Uint32Array(u8Array.buffer, u8Array.byteOffset, Math.floor(u8Array.byteLength / 4));
+    } else {
+      const copy = new Uint8Array(u8Array.byteLength);
+      copy.set(u8Array);
+      in32 = new Uint32Array(copy.buffer, 0, Math.floor(copy.byteLength / 4));
+    }
     const out = new Uint32Array(totalPixels);
     let outIdx = 0;
     const inLen = in32.length;
@@ -142,7 +150,9 @@
       srcCanvas.height = height;
       const sctx = srcCanvas.getContext("2d");
       const imgData = sctx.createImageData(width, height);
-      const rawU8 = new Uint8Array(pixelsU32.buffer, pixelsU32.byteOffset, width * height * 4);
+      const rawU8 = (pixelsU32.byteOffset % 4 === 0)
+        ? new Uint8Array(pixelsU32.buffer, pixelsU32.byteOffset, Math.min(pixelsU32.byteLength, width * height * 4))
+        : new Uint8Array(pixelsU32.slice().buffer);
       imgData.data.set(rawU8);
       sctx.putImageData(imgData, 0, 0);
 
@@ -162,6 +172,114 @@
     }
   }
 
+  /* ── Full Composite Renderers ── */
+  function compositeRasterProjectToDataUrl(project) {
+    if (!project || !project.width || !project.height || typeof document === 'undefined') return '';
+    const canvas = document.createElement('canvas');
+    canvas.width = project.width;
+    canvas.height = project.height;
+    const ctx = canvas.getContext('2d');
+    const totalPixels = project.width * project.height;
+
+    for (const layer of (project.layers || [])) {
+      if (layer.visible === false || layer.visible === 0) continue;
+      const lw = layer.width || project.width;
+      const lh = layer.height || project.height;
+      const layerPixels = lw * lh;
+      let u32 = null;
+
+      if (layer.encoding === 'empty') {
+        continue;
+      } else if (layer.encoding === 'solid') {
+        const col = (layer.color !== undefined) ? (layer.color >>> 0) : 0;
+        if (col === 0) continue;
+        u32 = new Uint32Array(layerPixels);
+        u32.fill(col);
+      } else if (layer.encoding === 'rle32' || layer.encoding === 'rle32_b64') {
+        const raw = layer.pixels || layer.pixelsBase64 || layer.data;
+        if (raw && typeof raw === 'string') {
+          const rawBytes = base64ToBytes(raw);
+          u32 = rleDecodeU32(rawBytes, layerPixels);
+        } else if (raw instanceof Uint8Array) {
+          u32 = rleDecodeU32(raw, layerPixels);
+        }
+      } else if (layer.encoding === 'raw' || layer.pixels || layer.pixelsBase64 || layer.data) {
+        const raw = layer.pixels || layer.pixelsBase64 || layer.data;
+        if (typeof raw === 'string') {
+          const u8 = base64ToBytes(raw);
+          if (u8.byteOffset % 4 === 0) {
+            u32 = new Uint32Array(u8.buffer, u8.byteOffset, Math.min(layerPixels, Math.floor(u8.byteLength / 4)));
+          } else {
+            const copy = new Uint8Array(u8.byteLength);
+            copy.set(u8);
+            u32 = new Uint32Array(copy.buffer, 0, Math.min(layerPixels, Math.floor(copy.byteLength / 4)));
+          }
+        } else if (raw instanceof Uint32Array) {
+          u32 = raw;
+        } else if (Array.isArray(raw)) {
+          u32 = new Uint32Array(raw);
+        }
+      }
+
+      if (u32 && u32.length > 0) {
+        const lcvs = document.createElement('canvas');
+        lcvs.width = lw;
+        lcvs.height = lh;
+        const lctx = lcvs.getContext('2d');
+        const imgData = lctx.createImageData(lw, lh);
+        
+        const srcU8 = (u32.byteOffset % 4 === 0)
+          ? new Uint8Array(u32.buffer, u32.byteOffset, Math.min(u32.byteLength, lw * lh * 4))
+          : new Uint8Array(u32.slice().buffer);
+        imgData.data.set(srcU8);
+        lctx.putImageData(imgData, 0, 0);
+
+        ctx.save();
+        ctx.globalAlpha = (layer.opacity !== undefined ? layer.opacity : 255) / 255;
+        if (lw === project.width && lh === project.height) {
+          ctx.drawImage(lcvs, 0, 0);
+        } else {
+          ctx.drawImage(lcvs, 0, 0, project.width, project.height);
+        }
+        ctx.restore();
+      }
+    }
+    return canvas.toDataURL('image/png');
+  }
+
+  async function compositeVectorProjectToDataUrl(project) {
+    if (!project || typeof document === 'undefined') return '';
+    let svgStr = project.svgData || '';
+    if (!svgStr && project.jsonDoc && typeof SvgEngine !== 'undefined') {
+      try {
+        const docObj = new SvgEngine.SvgDocument(project.width || 800, project.height || 600);
+        docObj.loadJSON(project.jsonDoc);
+        svgStr = docObj.toSVGString();
+      } catch (_) {}
+    }
+    if (!svgStr) return project.thumbnail || '';
+    
+    return new Promise((resolve) => {
+      const img = new Image();
+      const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        canvas.width = project.width || img.width || 800;
+        canvas.height = project.height || img.height || 600;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(project.thumbnail || '');
+      };
+      img.src = url;
+    });
+  }
+
   /* ── Project Storage API ── */
   const EsenhoStore = {
     bytesToBase64,
@@ -169,6 +287,8 @@
     rleEncodeU32,
     rleDecodeU32,
     generateThumbnailDataUrl,
+    compositeRasterProjectToDataUrl,
+    compositeVectorProjectToDataUrl,
 
     async saveProject(project) {
       if (!project || !project.id) throw new Error("Invalid project structure");

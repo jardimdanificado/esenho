@@ -701,10 +701,15 @@
     }
 
     /* ── Status Bar ── */
-    footer {
+    #viewport-status-bar {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
       height: 24px;
-      background: var(--bg-panel);
-      border-top: 1px solid var(--border);
+      background: rgba(29, 32, 33, 0.85);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -712,8 +717,10 @@
       font-size: 10px;
       font-family: var(--font-mono);
       color: var(--text-muted);
-      z-index: 30;
-      flex-shrink: 0;
+      z-index: 20;
+      pointer-events: none;
+      user-select: none;
+      backdrop-filter: blur(6px);
     }
 
     .status-group {
@@ -797,9 +804,9 @@
 
       #sidebar {
         position: fixed;
-        top: 44px;
+        top: 42px;
         right: 0;
-        bottom: 24px;
+        bottom: 0;
         width: 320px;
         max-width: 85vw;
         transform: translateX(100%);
@@ -1026,8 +1033,8 @@
         <div style="padding: 4px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
           <span>Renderer</span>
           <select id="select-render-mode" style="width: auto; padding: 2px 4px; font-size: 10px;">
-            <option value="quadro" selected>⚡ Quadro WASM</option>
-            <option value="svg">◈ SVG Direct</option>
+            <option value="quadro" selected>Quadro</option>
+            <option value="svg">SVG Direct</option>
           </select>
         </div>
 
@@ -1101,6 +1108,19 @@
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg"></svg>
       </div>
       <canvas id="overlay-canvas"></canvas>
+      
+      <!-- Viewport Status Bar -->
+      <div id="viewport-status-bar">
+        <div class="status-group">
+          <span>Tool: <span class="status-val" id="status-tool">Select</span></span>
+          <span>Cursor: <span class="status-val" id="status-coords">0, 0</span></span>
+          <span>Zoom: <span class="status-val" id="status-zoom">100%</span></span>
+        </div>
+        <div class="status-group">
+          <span>Objects: <span class="status-val" id="status-objects">0</span></span>
+        </div>
+      </div>
+
       <!-- Embedded Raster Painter -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
     </div>
@@ -1356,7 +1376,24 @@
                 <label>Spacing</label>
                 <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
               </div>
-              <button id="btn-text-outlines" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert Text glyphs into editable Bézier vector paths">📐 Convert to Bézier Path</button>
+            <!-- Object Transform: Rotation & Anchor -->
+            <div id="geom-transform-fields" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: none;">
+              <div class="form-row">
+                <label>Rotation (°)</label>
+                <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+                  <input type="number" id="prop-obj-rotation" min="-360" max="360" step="1" value="0" style="flex: 1;" title="Rotation in degrees">
+                  <button type="button" id="btn-rot-90" class="btn-sm" style="padding: 0 6px;" title="Rotate +90°">+90°</button>
+                  <button type="button" id="btn-rot-reset" class="btn-sm" style="padding: 0 6px;" title="Reset Rotation to 0°">0°</button>
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Anchor (X, Y)</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-obj-origin-x" step="1" title="Anchor Origin X">
+                  <input type="number" id="prop-obj-origin-y" step="1" title="Anchor Origin Y">
+                </div>
+              </div>
+              <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
             </div>
 
             <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert to Bézier Path</button>
@@ -1820,17 +1857,7 @@
     </div>
   </div>
 
-  <!-- Status Bar -->
-  <footer>
-    <div class="status-group">
-      <span>Tool: <span class="status-val" id="status-tool">Select</span></span>
-      <span>Cursor: <span class="status-val" id="status-coords">0, 0</span></span>
-      <span>Zoom: <span class="status-val" id="status-zoom">100%</span></span>
-    </div>
-    <div class="status-group">
-      <span>Objects: <span class="status-val" id="status-objects">0</span></span>
-    </div>
-  </footer>
+
 
   <!-- Hidden File Input for SVG Import -->
   <input type="file" id="file-input-svg" accept=".svg" style="display: none;">
@@ -1962,7 +1989,7 @@
     (function () {
       'use strict';
 
-      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
+      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
 
       // ── Document State ──
       const doc = new SvgDocument(800, 600);
@@ -1983,9 +2010,25 @@
       let activeNodeIdx = -1;
       let activeHandleType = null; // 'in', 'out', 'anchor'
       let activeResizeHandle = null; // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
+      let activeTransformMode = null; // 'resize', 'rotate', 'anchor'
+      let initialRotation = 0;
+      let initialAngle = 0;
       let initialBounds = null;
       let initialObjectState = null;
       let hoveredObj = null;
+
+      function docToLocal(pt, origin, rotationDeg) {
+        if (!rotationDeg) return { x: pt.x, y: pt.y };
+        const rad = - (rotationDeg || 0) * Math.PI / 180;
+        const cosA = Math.cos(rad);
+        const sinA = Math.sin(rad);
+        const dx = pt.x - origin.x;
+        const dy = pt.y - origin.y;
+        return {
+          x: origin.x + dx * cosA - dy * sinA,
+          y: origin.y + dx * sinA + dy * cosA
+        };
+      }
 
       // Marquee / Box Selection State
       let isMarqueeSelecting = false;
@@ -2144,6 +2187,7 @@
         objCountBadge.textContent = `${doc.objects.length} items`;
         svgCodeEditor.value = doc.toSVGString();
       }
+      window.renderSvgEditor = render;
 
       function renderSvgStage() {
         let svgInner = '';
@@ -2227,7 +2271,18 @@
         if (activeTool === 'select' && selected.length > 0) {
           for (const obj of selected) {
             const b = obj.getBounds();
+            const origin = (typeof obj.getOrigin === 'function')
+              ? obj.getOrigin()
+              : { x: b.minX + b.width / 2, y: b.minY + b.height / 2 };
+
             ctx.save();
+            const rot = (obj.rotation || 0) * Math.PI / 180;
+            if (rot !== 0) {
+              ctx.translate(origin.x, origin.y);
+              ctx.rotate(rot);
+              ctx.translate(-origin.x, -origin.y);
+            }
+
             ctx.strokeStyle = '#458588';
             ctx.lineWidth = 1.5 / zoom;
             ctx.setLineDash([4 / zoom, 3 / zoom]);
@@ -2250,6 +2305,45 @@
               ctx.fillRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
               ctx.strokeRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
             }
+
+            // Top Rotation Stalk & Handle
+            const rotDist = 20 / zoom;
+            const rotX = b.minX + b.width / 2;
+            const rotY = b.minY - rotDist;
+
+            ctx.strokeStyle = '#83a598';
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(rotX, b.minY);
+            ctx.lineTo(rotX, rotY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#fe8019';
+            ctx.strokeStyle = '#1d2021';
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.beginPath();
+            ctx.arc(rotX, rotY, 4.5 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Center Anchor / Pivot Point Indicator
+            ctx.fillStyle = '#b8bb26';
+            ctx.strokeStyle = '#1d2021';
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.beginPath();
+            ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = '#1d2021';
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(origin.x - 6 / zoom, origin.y);
+            ctx.lineTo(origin.x + 6 / zoom, origin.y);
+            ctx.moveTo(origin.x, origin.y - 6 / zoom);
+            ctx.lineTo(origin.x, origin.y + 6 / zoom);
+            ctx.stroke();
+
             ctx.restore();
           }
         }
@@ -2616,6 +2710,19 @@
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         }
 
+        // Object Transform: Rotation & Anchor Sync
+        const geomTransform = document.getElementById('geom-transform-fields');
+        if (geomTransform) {
+          geomTransform.style.display = 'block';
+          const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+          const rotInput = document.getElementById('prop-obj-rotation');
+          const oxInput = document.getElementById('prop-obj-origin-x');
+          const oyInput = document.getElementById('prop-obj-origin-y');
+          if (rotInput) rotInput.value = Math.round(obj.rotation || 0);
+          if (oxInput) oxInput.value = Math.round(origin.x);
+          if (oyInput) oyInput.value = Math.round(origin.y);
+        }
+
         const fillColor = document.getElementById('prop-fill-color');
         const fillText = document.getElementById('prop-fill-text');
         const fillOp = document.getElementById('prop-fill-opacity');
@@ -2739,6 +2846,7 @@
 
         if (activeTool === 'select') {
           activeResizeHandle = null;
+          activeTransformMode = null;
           initialBounds = null;
           initialObjectState = null;
           isMarqueeSelecting = false;
@@ -2748,27 +2856,50 @@
           if (selected.length === 1) {
             const obj = selected[0];
             const b = obj.getBounds();
-            const handles = [
-              { name: 'nw', x: b.minX, y: b.minY },
-              { name: 'n',  x: b.minX + b.width / 2, y: b.minY },
-              { name: 'ne', x: b.maxX, y: b.minY },
-              { name: 'e',  x: b.maxX, y: b.minY + b.height / 2 },
-              { name: 'se', x: b.maxX, y: b.maxY },
-              { name: 's',  x: b.minX + b.width / 2, y: b.maxY },
-              { name: 'sw', x: b.minX, y: b.maxY },
-              { name: 'w',  x: b.minX, y: b.minY + b.height / 2 }
-            ];
-            for (const h of handles) {
-              if (Math.hypot(pt.x - h.x, pt.y - h.y) <= 9 / zoom) {
-                activeResizeHandle = h.name;
-                initialBounds = { ...b };
-                initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
-                break;
+            const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: b.minX + b.width / 2, y: b.minY + b.height / 2 };
+            const localPt = docToLocal(pt, origin, obj.rotation || 0);
+
+            // 1. Check Rotation handle (top stalk)
+            const rotDist = 20 / zoom;
+            const rotHandle = { x: b.minX + b.width / 2, y: b.minY - rotDist };
+            if (Math.hypot(localPt.x - rotHandle.x, localPt.y - rotHandle.y) <= 10 / zoom) {
+              activeTransformMode = 'rotate';
+              initialRotation = obj.rotation || 0;
+              initialAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+              initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+            }
+
+            // 2. Check Center Anchor handle
+            if (!activeTransformMode && Math.hypot(localPt.x - origin.x, localPt.y - origin.y) <= 8 / zoom) {
+              activeTransformMode = 'anchor';
+              initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+            }
+
+            // 3. Check 8 Resize handles
+            if (!activeTransformMode) {
+              const handles = [
+                { name: 'nw', x: b.minX, y: b.minY },
+                { name: 'n',  x: b.minX + b.width / 2, y: b.minY },
+                { name: 'ne', x: b.maxX, y: b.minY },
+                { name: 'e',  x: b.maxX, y: b.minY + b.height / 2 },
+                { name: 'se', x: b.maxX, y: b.maxY },
+                { name: 's',  x: b.minX + b.width / 2, y: b.maxY },
+                { name: 'sw', x: b.minX, y: b.maxY },
+                { name: 'w',  x: b.minX, y: b.minY + b.height / 2 }
+              ];
+              for (const h of handles) {
+                if (Math.hypot(localPt.x - h.x, localPt.y - h.y) <= 9 / zoom) {
+                  activeTransformMode = 'resize';
+                  activeResizeHandle = h.name;
+                  initialBounds = { ...b };
+                  initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+                  break;
+                }
               }
             }
           }
 
-          if (!activeResizeHandle) {
+          if (!activeTransformMode && !activeResizeHandle) {
             const hit = doc.hitTest(pt.x, pt.y);
             if (hit) {
               if (e.shiftKey) {
@@ -2799,8 +2930,8 @@
             }
           }
 
-          // Auto-convert clicked primitive shape to Bézier path if node tool is used on it
-          if (selected.length > 0 && selected[0].type !== 'path' && typeof selected[0].toPath === 'function') {
+          // Auto-convert clicked primitive shape to Bézier path if node tool is used on it (NEVER FOR IMAGE, TEXT, GROUP)
+          if (selected.length > 0 && selected[0].type !== 'path' && selected[0].type !== 'image' && selected[0].type !== 'text' && selected[0].type !== 'group' && typeof selected[0].toPath === 'function') {
             doc.convertSelectedToPath();
             selected = doc.getSelectedObjects();
             updateObjectList();
@@ -2978,23 +3109,56 @@
             return;
           }
 
+          if (activeTransformMode === 'rotate') {
+            const obj = doc.getSelectedObjects()[0];
+            if (obj) {
+              const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+              const currentAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+              let newRot = Math.round((initialRotation + (currentAngle - initialAngle)) % 360);
+              if (newRot < 0) newRot += 360;
+              if (e.shiftKey) {
+                newRot = Math.round(newRot / 15) * 15;
+              }
+              obj.rotation = newRot;
+              render();
+              updateInspector();
+              drawOverlay();
+              return;
+            }
+          }
+
+          if (activeTransformMode === 'anchor') {
+            const obj = doc.getSelectedObjects()[0];
+            if (obj) {
+              obj.originX = Math.round(pt.x);
+              obj.originY = Math.round(pt.y);
+              render();
+              updateInspector();
+              drawOverlay();
+              return;
+            }
+          }
+
           if (activeResizeHandle && initialBounds && initialObjectState) {
             const obj = doc.getSelectedObjects()[0];
             if (obj) {
+              const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
+              const localPt = docToLocal(pt, origin, obj.rotation || 0);
+
               let newMinX = initialBounds.minX;
               let newMinY = initialBounds.minY;
               let newMaxX = initialBounds.maxX;
               let newMaxY = initialBounds.maxY;
 
-              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, pt.x);
-              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, pt.x);
-              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, pt.y);
-              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, pt.y);
+              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, localPt.x);
+              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, localPt.x);
+              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, localPt.y);
+              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, localPt.y);
 
               const newW = Math.max(1, newMaxX - newMinX);
               const newH = Math.max(1, newMaxY - newMinY);
 
-              if (obj.type === 'rect') {
+              if (obj.type === 'rect' || obj.type === 'image') {
                 obj.x = newMinX;
                 obj.y = newMinY;
                 obj.width = newW;
@@ -3060,7 +3224,7 @@
             for (const obj of selected) {
               if (typeof obj.move === 'function') {
                 obj.move(dx, dy);
-              } else if (obj.type === 'rect') {
+              } else if (obj.type === 'rect' || obj.type === 'image') {
                 obj.x += dx; obj.y += dy;
               } else if (obj.type === 'ellipse' || obj.type === 'circle') {
                 obj.cx += dx; obj.cy += dy;
@@ -3168,13 +3332,17 @@
         if (isDragging) {
           isDragging = false;
           const wasResizing = !!activeResizeHandle;
+          const wasRotating = activeTransformMode === 'rotate';
+          const wasMovingAnchor = activeTransformMode === 'anchor';
           const wasDrafting = !!currentDraftObj;
           activeResizeHandle = null;
+          activeTransformMode = null;
           initialBounds = null;
           initialObjectState = null;
           currentDraftObj = null;
           if (activeTool !== 'pen') {
-            doc.pushHistory(wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'));
+            const actionLabel = wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object')));
+            doc.pushHistory(actionLabel);
           }
           render();
           updateInspector();
@@ -3390,10 +3558,17 @@
                 y: 0,
                 width: img.width,
                 height: img.height,
-                src: evt.target.result
+                src: evt.target.result,
+                _imgElement: img
               });
               doc.addObject(svgImage);
+              doc.select(svgImage.id);
+              doc.pushHistory('Import Image');
+              updateObjectList();
+              updateInspector();
               render();
+              drawOverlay();
+              scheduleAutosave();
             };
             img.src = evt.target.result;
           };
@@ -3874,6 +4049,58 @@
           }
           render();
         });
+      });
+
+      // Object Transform (Rotation & Anchor) Bindings
+      document.getElementById('prop-obj-rotation')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) || 0;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.rotation = val;
+        render();
+      });
+
+      document.getElementById('btn-rot-90')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          obj.rotation = ((obj.rotation || 0) + 90) % 360;
+        }
+        doc.pushHistory('Rotate 90°');
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('btn-rot-reset')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.rotation = 0;
+        doc.pushHistory('Reset Rotation');
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-obj-origin-x')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.originX = val;
+        render();
+      });
+
+      document.getElementById('prop-obj-origin-y')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.originY = val;
+        render();
+      });
+
+      document.getElementById('btn-anchor-center')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          const b = obj.getBounds();
+          obj.originX = Math.round(b.minX + b.width / 2);
+          obj.originY = Math.round(b.minY + b.height / 2);
+        }
+        doc.pushHistory('Center Anchor');
+        updateInspector();
+        render();
       });
 
       ['path-x', 'path-y', 'path-w', 'path-h'].forEach(idSuffix => {
@@ -4496,6 +4723,7 @@
                   <div class="recent-sub">${p.width} × ${p.height} px • ${dateStr}</div>
                   <div class="recent-actions" onclick="event.stopPropagation();">
                     <button type="button" class="btn-sm btn-primary" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
+                    ${!isVec ? `<button type="button" class="btn-sm" style="color: var(--accent); border-color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Insert</button>` : ''}
                     <button type="button" class="btn-sm" style="color: var(--danger); border-color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">Delete</button>
                   </div>
                 </div>
@@ -4506,6 +4734,46 @@
           recentsGrid.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading projects: ${e.message}</div>`;
         }
       }
+
+      window.handleInsertPainterImage = async function(id) {
+        try {
+          const proj = await EsenhoStore.getProject(id);
+          if (!proj) return alert('Project not found');
+          const pngUrl = EsenhoStore.compositeRasterProjectToDataUrl(proj) || proj.thumbnail;
+          if (!pngUrl) return alert('Could not render raster project');
+          const img = new Image();
+          img.onload = () => {
+            const w = Math.min(doc.width, proj.width || img.width || 400);
+            const h = Math.round(w * ((proj.height || img.height || 300) / (proj.width || img.width || 400)));
+            const x = Math.round((doc.width - w) / 2);
+            const y = Math.round((doc.height - h) / 2);
+            const imgNode = new SvgEngine.SvgImage({
+              x: x,
+              y: y,
+              width: w,
+              height: h,
+              src: pngUrl,
+              name: proj.name || 'Painter Image',
+              _imgElement: img
+            });
+            doc.addObject(imgNode);
+            doc.select(imgNode.id);
+            doc.pushHistory('Insert Painter Image');
+            updateObjectList();
+            updateInspector();
+            render();
+            drawOverlay();
+            scheduleAutosave();
+            if (modalRecents) modalRecents.style.display = 'none';
+          };
+          img.onerror = () => {
+            alert('Failed to decode painter project PNG');
+          };
+          img.src = pngUrl;
+        } catch (err) {
+          alert('Failed to insert painter image: ' + err.message);
+        }
+      };
 
       window.handleOpenRecent = async function(id, type) {
         if (type === 'raster') {

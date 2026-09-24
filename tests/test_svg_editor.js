@@ -445,7 +445,49 @@ async function runSvgEngineTests() {
   assert(outlinedCompound instanceof SvgCompoundPath, 'Outlined text should become SvgCompoundPath');
   assert.strictEqual(outlinedCompound.subPaths.length, 7, '7 characters should yield 7 subpaths');
 
-  console.log('✔ Vector Typography & Create Outlines conversion passed');
+  // 14. Test SvgImage, Rotation & Anchor Transform Support
+  console.log('--- Testing SvgImage, Rotation & Anchor Origin Transforms ---');
+  const { SvgImage } = SvgEngine;
+  const imgDoc = new SvgDocument(800, 600);
+  const imgObj = new SvgImage({
+    x: 50,
+    y: 50,
+    width: 200,
+    height: 150,
+    src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    rotation: 45
+  });
+  imgDoc.addObject(imgObj);
+  assert.strictEqual(imgDoc.objects.length, 1);
+
+  // Check bounds
+  const imgBounds = imgObj.getBounds();
+  assert.strictEqual(imgBounds.width, 200);
+  assert.strictEqual(imgBounds.height, 150);
+
+  // Check default center origin vs custom origin
+  const origCenter = imgObj.getOrigin();
+  assert.strictEqual(origCenter.x, 150); // 50 + 200/2
+  assert.strictEqual(origCenter.y, 125); // 50 + 150/2
+
+  imgObj.originX = 50;
+  imgObj.originY = 50;
+  const customOrigin = imgObj.getOrigin();
+  assert.strictEqual(customOrigin.x, 50);
+  assert.strictEqual(customOrigin.y, 50);
+
+  // Check SVG XML transform export
+  const imgSvgXml = imgDoc.toSVGString();
+  assert(imgSvgXml.includes('<image'), 'SVG export should contain <image> tag');
+  assert(imgSvgXml.includes('transform="rotate(45 50 50)"'), 'SVG export should contain rotate transform');
+
+  // Verify convertSelectedToPath does NOT destroy or convert SvgImage
+  imgDoc.select(imgObj.id);
+  const converted = imgDoc.convertSelectedToPath();
+  assert.strictEqual(converted, false, 'convertSelectedToPath must not convert SvgImage');
+  assert.strictEqual(imgDoc.objects[0] instanceof SvgImage, true, 'Object should remain SvgImage');
+
+  console.log('✔ SvgImage, rotation transforms & origin anchor protection passed');
 
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & QUADRO TESTS PASSED SUCCESSFULLY!');
 }

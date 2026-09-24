@@ -340,6 +340,26 @@
 
       const bounds = obj.getBounds ? obj.getBounds() : (pathObj.getBounds ? pathObj.getBounds() : null);
 
+      // Apply rotation if needed
+      const origin = (typeof obj.getOrigin === 'function')
+        ? obj.getOrigin()
+        : { x: (bounds?.minX || 0) + (bounds?.width || 0) / 2, y: (bounds?.minY || 0) + (bounds?.height || 0) / 2 };
+      const rad = (obj.rotation || 0) * Math.PI / 180;
+      const cosA = Math.cos(rad);
+      const sinA = Math.sin(rad);
+
+      const rotatePt = (p) => {
+        if (rad === 0) return p;
+        const dx = p.x - origin.x;
+        const dy = p.y - origin.y;
+        return {
+          x: origin.x + dx * cosA - dy * sinA,
+          y: origin.y + dx * sinA + dy * cosA
+        };
+      };
+      const rotatePoly = (poly) => (rad === 0 ? poly : poly.map(rotatePt));
+      const rotatePolys = (polys) => (rad === 0 ? polys : polys.map(rotatePoly));
+
       // 0. Render Drop Shadow & Glow
       if (obj.dropShadow && obj.dropShadow.enabled) {
         this.renderDropShadow(pathObj, obj.dropShadow, scale, totalOpacity);
@@ -356,12 +376,12 @@
         if (pathObj.toPolylines) {
           const polylines = pathObj.toPolylines(0.5);
           if (polylines.length > 0) {
-            this.fillCompoundPolygons(polylines, pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
+            this.fillCompoundPolygons(rotatePolys(polylines), pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
           }
         } else if (pathObj.toPolyline) {
           const poly = pathObj.toPolyline(0.5);
           if (poly.length >= 3) {
-            this.fillPolygon(poly, fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
+            this.fillPolygon(rotatePoly(poly), fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
           }
         }
       }
@@ -381,7 +401,7 @@
               if (poly.length >= 2) {
                 const closed = subPaths[i] ? subPaths[i].closed : true;
                 this.strokePolyline(
-                  poly,
+                  rotatePoly(poly),
                   strokeArgb,
                   strokeWidth,
                   closed,
@@ -395,7 +415,7 @@
             const poly = pathObj.toPolyline(0.4);
             if (poly.length >= 2) {
               this.strokePolyline(
-                poly,
+                rotatePoly(poly),
                 strokeArgb,
                 strokeWidth,
                 pathObj.closed,
@@ -519,7 +539,21 @@
      * Render Image (Raster) into Quadro WASM
      */
     renderImage(imgObj, scale = 1.0, totalOpacity = 1.0) {
-      if (!imgObj._imgElement) return;
+      if (!imgObj._imgElement) {
+        if (imgObj.src && typeof Image !== 'undefined' && !imgObj._loading) {
+          imgObj._loading = true;
+          const img = new Image();
+          img.onload = () => {
+            imgObj._imgElement = img;
+            imgObj._loading = false;
+            if (typeof window !== 'undefined' && typeof window.renderSvgEditor === 'function') {
+              window.renderSvgEditor();
+            }
+          };
+          img.src = imgObj.src;
+        }
+        return;
+      }
 
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
@@ -541,8 +575,17 @@
         const octx = offCanvas.getContext('2d');
         if (!octx) return;
 
-        // Apply clip/transform in the future if needed, for now just draw and blit
+        octx.save();
+        const origin = (typeof imgObj.getOrigin === 'function')
+          ? imgObj.getOrigin()
+          : { x: imgObj.x + imgObj.width / 2, y: imgObj.y + imgObj.height / 2 };
+        if (imgObj.rotation && imgObj.rotation !== 0) {
+          octx.translate(origin.x * scale, origin.y * scale);
+          octx.rotate(imgObj.rotation * Math.PI / 180);
+          octx.translate(-origin.x * scale, -origin.y * scale);
+        }
         octx.drawImage(imgObj._imgElement, sx, sy, sw, sh);
+        octx.restore();
 
         const imgData = octx.getImageData(0, 0, lw, lh);
         const data32 = new Uint32Array(imgData.data.buffer);

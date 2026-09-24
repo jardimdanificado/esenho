@@ -9218,8 +9218,9 @@ async function main() {
                   ${badge}
                 </div>
                 <span style="font-size: 9px; color: #a89984;">${p.width}×${p.height} • ${dateStr}</span>
-                <div style="display: flex; justify-content: space-between; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #3c3836;" onclick="event.stopPropagation();">
+                <div style="display: flex; justify-content: space-between; gap: 4px; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #3c3836;" onclick="event.stopPropagation();">
                   <button type="button" class="ip-btn ip-mini-btn" style="background:#fabd2f; color:#1d2021; font-weight:bold; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">Open</button>
+                  ${isVec ? `<button type="button" class="ip-btn ip-mini-btn" style="color:#fabd2f; border: 1px solid #fabd2f; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterInsertVectorLayer('${p.id}')">+ Layer</button>` : ''}
                   <button type="button" class="ip-btn ip-mini-btn" style="color:#fb4934; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterDeleteRecent('${p.id}')">Del</button>
                 </div>
               </div>
@@ -9230,6 +9231,55 @@ async function main() {
         ipRecentsList.innerHTML = `<div style="padding: 24px; text-align: center; color: #fb4934; grid-column: 1/-1;">Error loading recents: ${e.message}</div>`;
       }
     }
+
+    window.painterInsertVectorLayer = async function(id) {
+      if (!host.canvasActor || !host.canvasActor.exports) return;
+      try {
+        const proj = await EsenhoStore.getProject(id);
+        if (!proj) return alert('Vector project not found');
+        const pngUrl = await EsenhoStore.compositeVectorProjectToDataUrl(proj);
+        if (!pngUrl) return alert('Could not render vector project');
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const cw = host.canvasActor.exports.get_canvas_width();
+            const ch = host.canvasActor.exports.get_canvas_height();
+            const wasmId = host.canvasActor.exports.w_layer_add ? host.canvasActor.exports.w_layer_add() : -1;
+            if (wasmId < 0) {
+              alert('Max layers reached in Painter canvas');
+              return;
+            }
+            const off = document.createElement('canvas');
+            off.width = cw;
+            off.height = ch;
+            const ctx = off.getContext('2d');
+            const scale = Math.min(cw / img.width, ch / img.height, 1);
+            const dw = Math.round(img.width * scale);
+            const dh = Math.round(img.height * scale);
+            const dx = Math.round((cw - dw) / 2);
+            const dy = Math.round((ch - dh) / 2);
+            ctx.drawImage(img, dx, dy, dw, dh);
+            const imgData = ctx.getImageData(0, 0, cw, ch);
+            const ptr = host.canvasActor.exports.w_layer_get_pixels(wasmId);
+            if (ptr) {
+              new Uint8Array(host.canvasActor.memory.buffer, ptr, cw * ch * 4).set(imgData.data);
+            }
+            if (!host.layerNames) host.layerNames = new Map();
+            host.layerNames.set(wasmId, proj.name || `Vector Layer ${wasmId}`);
+            host.canvasActor.exports.force_composite();
+            syncUiFromHost();
+            closeAllSheets();
+            if (typeof markCanvasDirty === 'function') markCanvasDirty();
+            log(`Imported vector project '${proj.name}' as layer [${wasmId}]`);
+          } catch (err) {
+            alert('Error adding vector layer: ' + err.message);
+          }
+        };
+        img.src = pngUrl;
+      } catch (err) {
+        alert('Failed importing vector project: ' + err.message);
+      }
+    };
 
     window.painterOpenRecent = function(id, type) {
       if (type === 'vector') {

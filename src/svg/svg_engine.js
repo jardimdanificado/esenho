@@ -549,13 +549,37 @@
       this.x = Number(attributes.x || 0);
       this.y = Number(attributes.y || 0);
       this.rotation = Number(attributes.rotation || 0); // in degrees
+      this.originX = attributes.originX !== undefined ? Number(attributes.originX) : undefined;
+      this.originY = attributes.originY !== undefined ? Number(attributes.originY) : undefined;
       this.scaleX = Number(attributes.scaleX !== undefined ? attributes.scaleX : 1);
       this.scaleY = Number(attributes.scaleY !== undefined ? attributes.scaleY : 1);
       this.parent = null;
     }
 
+    getOrigin() {
+      const b = this.getBounds();
+      return {
+        x: this.originX !== undefined ? this.originX : (b.minX + b.width / 2),
+        y: this.originY !== undefined ? this.originY : (b.minY + b.height / 2)
+      };
+    }
+
+    getTransformAttribute() {
+      const transforms = [];
+      const origin = this.getOrigin();
+      if (this.rotation && this.rotation !== 0) {
+        transforms.push(`rotate(${this.rotation} ${origin.x} ${origin.y})`);
+      }
+      if ((this.scaleX !== undefined && this.scaleX !== 1) || (this.scaleY !== undefined && this.scaleY !== 1)) {
+        const sx = this.scaleX !== undefined ? this.scaleX : 1;
+        const sy = this.scaleY !== undefined ? this.scaleY : 1;
+        transforms.push(`translate(${origin.x} ${origin.y}) scale(${sx} ${sy}) translate(${-origin.x} ${-origin.y})`);
+      }
+      return transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
+    }
+
     getExtraSVGAttributes() {
-      let attrs = '';
+      let attrs = this.getTransformAttribute();
       if (this.brushConfig) {
         attrs += ` data-brush="${encodeURIComponent(JSON.stringify(this.brushConfig))}"`;
       }
@@ -640,6 +664,8 @@
         x: this.x,
         y: this.y,
         rotation: this.rotation,
+        originX: this.originX,
+        originY: this.originY,
         scaleX: this.scaleX,
         scaleY: this.scaleY
       };
@@ -1870,7 +1896,12 @@
 
       if (!this._imgElement && this.src && typeof Image !== 'undefined') {
         const img = new Image();
-        img.onload = () => { this._imgElement = img; };
+        img.onload = () => {
+          this._imgElement = img;
+          if (typeof window !== 'undefined' && typeof window.renderSvgEditor === 'function') {
+            window.renderSvgEditor();
+          }
+        };
         img.src = this.src;
       }
     }
@@ -1886,17 +1917,8 @@
       };
     }
 
-    toPath() {
-      const path = new SvgPath({ closed: true });
-      path.addNode(this.x, this.y, null, null, 'corner');
-      path.addNode(this.x + this.width, this.y, null, null, 'corner');
-      path.addNode(this.x + this.width, this.y + this.height, null, null, 'corner');
-      path.addNode(this.x, this.y + this.height, null, null, 'corner');
-      return path;
-    }
-
     toSVGElement() {
-      const href = this.src ? ` href="${escapeXml(this.src)}"` : '';
+      const href = this.src ? ` href="${escapeXml(this.src)}" xlink:href="${escapeXml(this.src)}"` : '';
       const filter = this.getSvgFilterAttribute();
       return `<image id="${this.id}" x="${this.x}" y="${this.y}" width="${this.width}" height="${this.height}"${href} opacity="${this.opacity}" preserveAspectRatio="none"${filter}${this.getExtraSVGAttributes()} />`;
     }
@@ -2108,7 +2130,7 @@
       const selected = this.getSelectedObjects();
       let converted = false;
       for (const obj of selected) {
-        if (typeof obj.toPath === 'function' && obj.type !== 'path') {
+        if (typeof obj.toPath === 'function' && obj.type !== 'path' && obj.type !== 'image' && obj.type !== 'text' && obj.type !== 'group') {
           if (!converted) {
             this.pushHistory('Convert to Path');
             converted = true;
