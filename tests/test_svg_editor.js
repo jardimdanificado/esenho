@@ -733,11 +733,61 @@ async function runSvgEngineTests() {
   assert(topSvg.includes('<textPath'), 'SVG string should contain <textPath>');
   assert(topSvg.includes(`href="#${pGuide.id}"`), 'textPath should link to path id');
 
+  // Test Text on Path getBounds and hitTest
+  const tBounds = tObj.getBounds();
+  assert(tBounds.minX <= 0 && tBounds.maxX >= 200, 'Text on path bounds should follow the guide path');
+  const tHit = tObj._localHitTest(100, 50);
+  assert.strictEqual(tHit, true, 'Hit testing text on path should match points on guide path');
+
   topDoc.select(tObj.id);
   const detached = topDoc.detachTextFromPath();
   assert.strictEqual(detached, true, 'detachTextFromPath should succeed');
   assert.strictEqual(tObj.pathId, null);
   console.log('✔ Text on Path passed');
+
+  // 23. Test Mask Source Release & Dangling Clean
+  console.log('--- Testing Mask Source Release & Clean ---');
+  const cleanMaskDoc = new SvgDocument(800, 600);
+  const targetR = new SvgRect({ x: 0, y: 0, width: 100, height: 100 });
+  const maskR = new SvgCircle({ cx: 50, cy: 50, r: 30 });
+  cleanMaskDoc.addObject(targetR);
+  cleanMaskDoc.addObject(maskR);
+  cleanMaskDoc.select(targetR.id, false);
+  cleanMaskDoc.select(maskR.id, true);
+  cleanMaskDoc.createClipMask();
+  assert.strictEqual(targetR.clipPathId, maskR.id);
+
+  // Release mask by selecting the mask shape itself
+  cleanMaskDoc.select(maskR.id, false);
+  const releasedViaMask = cleanMaskDoc.releaseClipMask();
+  assert.strictEqual(releasedViaMask, true, 'Should release mask when mask source is selected');
+  assert.strictEqual(targetR.clipPathId, null);
+
+  // Test removing mask removes dangling clipPathId
+  cleanMaskDoc.select(targetR.id, false);
+  cleanMaskDoc.select(maskR.id, true);
+  cleanMaskDoc.createClipMask();
+  cleanMaskDoc.removeObject(maskR.id);
+  assert.strictEqual(targetR.clipPathId, null, 'Removing mask object should clear target clipPathId');
+  console.log('✔ Mask Source Release & Clean passed');
+
+  // 24. Test Cloned Group and Paste
+  console.log('--- Testing Cloned Group & Clipboard ---');
+  const grpDoc = new SvgDocument(800, 600);
+  const grpClone = new SvgGroup();
+  const gc1 = new SvgRect({ x: 10, y: 10, width: 20, height: 20 });
+  const gc2 = new SvgCircle({ cx: 50, cy: 50, r: 15 });
+  grpClone.add(gc1);
+  grpClone.add(gc2);
+  grpDoc.addObject(grpClone);
+  grpDoc.select(grpClone.id);
+  const pastedList = grpDoc.duplicateSelected();
+  assert.strictEqual(pastedList.length, 1);
+  const pastedG = pastedList[0];
+  assert.notStrictEqual(pastedG.id, grpClone.id);
+  assert.notStrictEqual(pastedG.children[0].id, gc1.id);
+  assert.notStrictEqual(pastedG.children[1].id, gc2.id);
+  console.log('✔ Cloned Group & Clipboard passed');
 
   // 23. Test Smart Snapping
   console.log('--- Testing Smart Snapping ---');

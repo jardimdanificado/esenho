@@ -582,7 +582,10 @@
     getExtraSVGAttributes() {
       let attrs = this.getTransformAttribute();
       if (this.clipPathId) {
-        attrs += ` clip-path="url(#${this.clipPathId})"`;
+        const hasMask = (this.doc ? !!this.doc.findObject(this.clipPathId) : true);
+        if (hasMask) {
+          attrs += ` clip-path="url(#clip_${this.clipPathId})"`;
+        }
       }
       if (this.brushConfig) {
         attrs += ` data-brush="${encodeURIComponent(JSON.stringify(this.brushConfig))}"`;
@@ -1277,6 +1280,21 @@
     }
 
     getBounds() {
+      if (this.pathId) {
+        const pathObj = (this.doc ? this.doc.findObject(this.pathId) : null) || (typeof window !== 'undefined' && window.doc ? window.doc.findObject(this.pathId) : null);
+        if (pathObj && typeof pathObj.getBounds === 'function') {
+          const pb = pathObj.getBounds();
+          const pad = this.fontSize * 0.6;
+          return {
+            minX: pb.minX - pad,
+            minY: pb.minY - pad,
+            maxX: pb.maxX + pad,
+            maxY: pb.maxY + pad,
+            width: pb.width + pad * 2,
+            height: pb.height + pad * 2
+          };
+        }
+      }
       const approxCharWidth = this.fontSize * 0.55;
       const w = Math.max(10, this.text.length * (approxCharWidth + this.letterSpacing));
       const h = this.fontSize * 1.1;
@@ -1292,6 +1310,18 @@
         width: w,
         height: h
       };
+    }
+
+    _localHitTest(px, py, tolerance = 6) {
+      if (!this.visible || this.locked) return false;
+      if (this.pathId) {
+        const pathObj = (this.doc ? this.doc.findObject(this.pathId) : null) || (typeof window !== 'undefined' && window.doc ? window.doc.findObject(this.pathId) : null);
+        if (pathObj && typeof pathObj.hitTest === 'function') {
+          return pathObj.hitTest(px, py, Math.max(tolerance, this.fontSize * 0.75));
+        }
+      }
+      const b = this.getBounds();
+      return px >= b.minX - tolerance && px <= b.maxX + tolerance && py >= b.minY - tolerance && py <= b.maxY + tolerance;
     }
 
     toPath() {
@@ -1575,7 +1605,7 @@
 
       if (rx > 0 && ry > 0) {
         const k = 0.5522847498;
-        path.addNode(x + rx, y, null, null, 'corner');
+        path.addNode(x + rx, y, { x: -rx * k, y: 0 }, null, 'smooth');
         path.addNode(x + w - rx, y, null, { x: rx * k, y: 0 }, 'smooth');
         path.addNode(x + w, y + ry, { x: 0, y: -ry * k }, null, 'smooth');
         path.addNode(x + w, y + h - ry, null, { x: 0, y: ry * k }, 'smooth');
@@ -1673,6 +1703,18 @@
       path.addNode(cx, cy + ry, { x: ox, y: 0 }, { x: -ox, y: 0 }, 'smooth');
       path.addNode(cx - rx, cy, { x: 0, y: oy }, { x: 0, y: -oy }, 'smooth');
       return path;
+    }
+
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      this.cx += dx;
+      this.cy += dy;
+    }
+
+    move(dx, dy) {
+      super.move(dx, dy);
+      this.cx += dx;
+      this.cy += dy;
     }
 
     toSVGElement() {
@@ -1856,6 +1898,22 @@
       return { minX: minX - sw, minY: minY - sw, maxX: maxX + sw, maxY: maxY + sw, width: maxX - minX + sw * 2, height: maxY - minY + sw * 2 };
     }
 
+    _shiftGeometry(dx, dy) {
+      super._shiftGeometry(dx, dy);
+      for (const p of this.points) {
+        p.x += dx;
+        p.y += dy;
+      }
+    }
+
+    move(dx, dy) {
+      super.move(dx, dy);
+      for (const p of this.points) {
+        p.x += dx;
+        p.y += dy;
+      }
+    }
+
     toSVGElement() {
       const pts = this.points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(' ');
       const fill = this.getSvgFillAttribute();
@@ -2019,7 +2077,10 @@
     }
 
     toSVGElement() {
-      const kids = this.children.map(c => c.toSVGElement()).join('\n    ');
+      const kids = this.children
+        .filter(c => c.visible !== false)
+        .map(c => c.toSVGElement())
+        .join('\n    ');
       return `<g id="${this.id}" opacity="${this.opacity}"${this.getExtraSVGAttributes()}>\n    ${kids}\n  </g>`;
     }
 
@@ -2116,12 +2177,32 @@
 
     addObject(obj, pushHistory = true) {
       if (pushHistory) this.pushHistory(`Add ${obj.name}`);
+      obj.doc = this;
+      if (obj.type === 'group' && obj.children) {
+        const setDocRec = (kids) => {
+          for (const k of kids) {
+            k.doc = this;
+            if (k.type === 'group' && k.children) setDocRec(k.children);
+          }
+        };
+        setDocRec(obj.children);
+      }
       this.objects.push(obj);
       return obj;
     }
 
     insertObject(index, obj, pushHistory = true) {
       if (pushHistory) this.pushHistory(`Insert ${obj.name}`);
+      obj.doc = this;
+      if (obj.type === 'group' && obj.children) {
+        const setDocRec = (kids) => {
+          for (const k of kids) {
+            k.doc = this;
+            if (k.type === 'group' && k.children) setDocRec(k.children);
+          }
+        };
+        setDocRec(obj.children);
+      }
       this.objects.splice(index, 0, obj);
       return obj;
     }
@@ -2131,6 +2212,17 @@
       if (!obj) return null;
       if (pushHistory) this.pushHistory(`Remove ${obj.name}`);
       this.selectedIds.delete(id);
+
+      // Clean up dangling references across document
+      const cleanRefs = (list) => {
+        for (const o of list) {
+          if (o.clipPathId === id) o.clipPathId = null;
+          if (o.pathId === id) o.pathId = null;
+          if (o.type === 'group' && o.children) cleanRefs(o.children);
+        }
+      };
+      cleanRefs(this.objects);
+
       if (obj.parent && typeof obj.parent.remove === 'function') {
         return obj.parent.remove(obj);
       }
@@ -2493,6 +2585,26 @@
       return null;
     }
 
+    /** Hit Test deepest child inside groups (for direct child selection) */
+    hitTestDeep(px, py, tolerance = 6) {
+      for (let i = this.objects.length - 1; i >= 0; i--) {
+        const obj = this.objects[i];
+        if (!obj.visible || obj.locked) continue;
+        if (obj.type === 'group' && obj.children) {
+          for (let k = obj.children.length - 1; k >= 0; k--) {
+            const ch = obj.children[k];
+            if (ch.visible && !ch.locked && ch.hitTest(px, py, tolerance)) {
+              return ch;
+            }
+          }
+        }
+        if (obj.hitTest(px, py, tolerance)) {
+          return obj;
+        }
+      }
+      return null;
+    }
+
     /** Box / Marquee selection test for bulk selection */
     hitTestBox(minX, minY, maxX, maxY, intersect = true) {
       const results = [];
@@ -2675,15 +2787,53 @@
       const offX = (typeof offset === 'number') ? offset : (offset?.x ?? 20);
       const offY = (typeof offset === 'number') ? offset : (offset?.y ?? 20);
 
+      const oldToNewId = new Map();
+      const clonedList = [];
+
+      function assignNewIds(node) {
+        const oldId = node.id;
+        node.id = generateId(node.type);
+        if (oldId) oldToNewId.set(oldId, node.id);
+        if (node.type === 'group' && node.children) {
+          for (const ch of node.children) {
+            assignNewIds(ch);
+          }
+        }
+      }
+
       for (const itemData of this.clipboard) {
         const cloned = SvgNode.fromJSON(itemData);
-        cloned.id = generateId(cloned.type);
+        assignNewIds(cloned);
         if (typeof cloned.move === 'function') {
           cloned.move(offX, offY);
         } else if (cloned.x !== undefined) {
           cloned.x += offX;
           cloned.y += offY;
         }
+        clonedList.push(cloned);
+      }
+
+      // Re-map clipPathId and pathId references among newly cloned items
+      function fixRefs(node) {
+        if (node.clipPathId) {
+          if (oldToNewId.has(node.clipPathId)) {
+            node.clipPathId = oldToNewId.get(node.clipPathId);
+          } else {
+            node.clipPathId = null; // Don't point to external mask that wasn't cloned
+          }
+        }
+        if (node.pathId) {
+          if (oldToNewId.has(node.pathId)) {
+            node.pathId = oldToNewId.get(node.pathId);
+          }
+        }
+        if (node.type === 'group' && node.children) {
+          for (const ch of node.children) fixRefs(ch);
+        }
+      }
+
+      for (const cloned of clonedList) {
+        fixRefs(cloned);
         this.addObject(cloned, false);
         this.selectedIds.add(cloned.id);
         pasted.push(cloned);
@@ -2719,11 +2869,31 @@
       if (selected.length === 0) return false;
       this.pushHistory('Release Clipping Mask');
       let released = false;
+
+      const targetIds = new Set();
       for (const obj of selected) {
-        if (obj.clipPathId) {
-          const maskObj = this.findObject(obj.clipPathId);
+        if (obj.clipPathId) targetIds.add(obj.id);
+        // Also if obj is acting as a mask
+        const findDependents = (list) => {
+          for (const o of list) {
+            if (o.clipPathId === obj.id) targetIds.add(o.id);
+            if (o.type === 'group' && o.children) findDependents(o.children);
+          }
+        };
+        findDependents(this.objects);
+        if (obj.type === 'group' && obj.children) {
+          for (const ch of obj.children) {
+            if (ch.clipPathId) targetIds.add(ch.id);
+          }
+        }
+      }
+
+      for (const tid of targetIds) {
+        const targetObj = this.findObject(tid);
+        if (targetObj && targetObj.clipPathId) {
+          const maskObj = this.findObject(targetObj.clipPathId);
           if (maskObj) maskObj.visible = true;
-          obj.clipPathId = null;
+          targetObj.clipPathId = null;
           released = true;
         }
       }
@@ -2983,8 +3153,11 @@
           if (obj.clipPathId) {
             const clipObj = this.findObject(obj.clipPathId);
             if (clipObj && !defsMap.has(`clip_${obj.clipPathId}`)) {
+              const innerEl = clipObj.toSVGElement()
+                .replace(/\s*id="[^"]*"/g, '')
+                .replace(/\s*clip-path="[^"]*"/g, '');
               defsMap.set(`clip_${obj.clipPathId}`, {
-                toSVGElement: () => `<clipPath id="${obj.clipPathId}">\n      ${clipObj.toSVGElement()}\n    </clipPath>`
+                toSVGElement: () => `<clipPath id="clip_${obj.clipPathId}">\n      ${innerEl}\n    </clipPath>`
               });
             }
           }

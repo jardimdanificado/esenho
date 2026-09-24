@@ -263,6 +263,7 @@
         throw new Error('Quadro WASM actor not initialized');
       }
 
+      this.currentDoc = doc;
       const scale = options.scale || 1.0;
       const w = Math.round(doc.width * scale);
       const h = Math.round(doc.height * scale);
@@ -305,6 +306,99 @@
     }
 
     /**
+     * Generate an alpha mask buffer for a clipping mask object
+     */
+    generateMaskAlpha(maskObj, scale, lw, lh) {
+      const maskAlpha = new Uint8Array(lw * lh);
+      if (typeof document !== 'undefined' && document.createElement) {
+        const off = document.createElement('canvas');
+        off.width = lw;
+        off.height = lh;
+        const ctx = off.getContext('2d');
+        if (!ctx) return maskAlpha;
+
+        ctx.save();
+        const bounds = maskObj.getBounds ? maskObj.getBounds() : null;
+        const origin = (typeof maskObj.getOrigin === 'function')
+          ? maskObj.getOrigin()
+          : { x: (bounds?.minX || 0) + (bounds?.width || 0) / 2, y: (bounds?.minY || 0) + (bounds?.height || 0) / 2 };
+        if (maskObj.rotation && maskObj.rotation !== 0) {
+          ctx.translate(origin.x * scale, origin.y * scale);
+          ctx.rotate(maskObj.rotation * Math.PI / 180);
+          ctx.translate(-origin.x * scale, -origin.y * scale);
+        }
+
+        ctx.fillStyle = '#ffffff';
+        let pathObj = maskObj;
+        if (typeof maskObj.toPath === 'function') {
+          pathObj = maskObj.toPath();
+        }
+
+        if (pathObj.toPolylines) {
+          const polylines = pathObj.toPolylines(0.4);
+          ctx.beginPath();
+          for (const poly of polylines) {
+            if (!poly || poly.length < 2) continue;
+            ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
+            for (let i = 1; i < poly.length; i++) {
+              ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
+            }
+            ctx.closePath();
+          }
+          ctx.fill(pathObj.fillRule || 'evenodd');
+        } else if (pathObj.toPolyline) {
+          const poly = pathObj.toPolyline(0.4);
+          if (poly.length >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
+            for (let i = 1; i < poly.length; i++) {
+              ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
+            }
+            ctx.closePath();
+            ctx.fill();
+          }
+        } else if (maskObj.type === 'rect') {
+          ctx.fillRect(maskObj.x * scale, maskObj.y * scale, maskObj.width * scale, maskObj.height * scale);
+        } else if (maskObj.type === 'circle') {
+          ctx.beginPath();
+          ctx.arc(maskObj.cx * scale, maskObj.cy * scale, (maskObj.r || maskObj.rx) * scale, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (maskObj.type === 'ellipse') {
+          ctx.beginPath();
+          ctx.ellipse(maskObj.cx * scale, maskObj.cy * scale, maskObj.rx * scale, maskObj.ry * scale, 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        const imgData = ctx.getImageData(0, 0, lw, lh);
+        const d = imgData.data;
+        for (let i = 0; i < lw * lh; i++) {
+          maskAlpha[i] = d[i * 4 + 3];
+        }
+      } else {
+        let pathObj = maskObj;
+        if (typeof maskObj.toPath === 'function') pathObj = maskObj.toPath();
+        const polylines = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
+        for (const poly of polylines) {
+          if (!poly || poly.length < 3) continue;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const p of poly) {
+            minX = Math.min(minX, p.x * scale);
+            maxX = Math.max(maxX, p.x * scale);
+            minY = Math.min(minY, p.y * scale);
+            maxY = Math.max(maxY, p.y * scale);
+          }
+          for (let y = Math.max(0, Math.floor(minY)); y <= Math.min(lh - 1, Math.ceil(maxY)); y++) {
+            for (let x = Math.max(0, Math.floor(minX)); x <= Math.min(lw - 1, Math.ceil(maxX)); x++) {
+              maskAlpha[y * lw + x] = 255;
+            }
+          }
+        }
+      }
+      return maskAlpha;
+    }
+
+    /**
      * Render a single SvgNode into Quadro
      */
     renderObject(obj, scale = 1.0, parentOpacity = 1.0) {
@@ -319,6 +413,48 @@
         }
         return;
       }
+
+      // Check if this object is clipped by a clipping mask (<clipPath>)
+      const maskObj = obj.clipPathId && this.currentDoc ? this.currentDoc.findObject(obj.clipPathId) : null;
+      if (maskObj) {
+        const exp = this.actor.exports;
+        const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
+        const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
+        const pixPtr = exp.w_layer_get_pixels(3);
+        if (pixPtr && this.actor.memory) {
+          const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+          const savedBuffer = new Uint32Array(pixels.length);
+          savedBuffer.set(pixels);
+
+          const maskAlpha = this.generateMaskAlpha(maskObj, scale, lw, lh);
+          this.renderObjectDirect(obj, scale, totalOpacity);
+
+          for (let i = 0; i < lw * lh; i++) {
+            const m = maskAlpha[i];
+            if (m === 0) {
+              pixels[i] = savedBuffer[i];
+            } else if (m < 255) {
+              const alphaFactor = m / 255;
+              const colRendered = pixels[i];
+              const colSaved = savedBuffer[i];
+              const aR = (colRendered >>> 24) & 0xFF, rR = colRendered & 0xFF, gR = (colRendered >> 8) & 0xFF, bR = (colRendered >> 16) & 0xFF;
+              const aS = (colSaved >>> 24) & 0xFF, rS = colSaved & 0xFF, gS = (colSaved >> 8) & 0xFF, bS = (colSaved >> 16) & 0xFF;
+              const a = Math.round(aS + (aR - aS) * alphaFactor);
+              const r = Math.round(rS + (rR - rS) * alphaFactor);
+              const g = Math.round(gS + (gR - gS) * alphaFactor);
+              const b = Math.round(bS + (bR - bS) * alphaFactor);
+              pixels[i] = ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
+            }
+          }
+          return;
+        }
+      }
+
+      this.renderObjectDirect(obj, scale, totalOpacity);
+    }
+
+    renderObjectDirect(obj, scale = 1.0, totalOpacity = 1.0) {
+      if (!obj.visible) return;
 
       // Handle Text with dedicated high-res canvas rasterization
       if (obj.type === 'text') {
@@ -458,51 +594,147 @@
         octx.textAlign = anchor;
         octx.textBaseline = 'alphabetic';
 
-        const tx = textObj.x * scale;
-        const ty = textObj.y * scale;
+        // Check if text is attached to a path (<textPath>)
+        const pathObj = textObj.pathId ? (this.currentDoc ? this.currentDoc.findObject(textObj.pathId) : null) : null;
 
-        // Render drop shadow if enabled
-        if (textObj.dropShadow && textObj.dropShadow.enabled) {
-          const s = textObj.dropShadow;
-          octx.save();
-          octx.shadowColor = s.color || '#000000';
-          octx.shadowBlur = (s.blur || 4) * scale;
-          octx.shadowOffsetX = (s.offsetX || 2) * scale;
-          octx.shadowOffsetY = (s.offsetY || 2) * scale;
-          octx.fillStyle = textObj.fill && textObj.fill !== 'none' ? textObj.fill : '#fabd2f';
-          octx.fillText(textObj.text, tx, ty);
-          octx.restore();
-        }
-
-        // Fill Text
-        if (textObj.fill && textObj.fill !== 'none') {
-          if ((textObj.fillType === 'linear' || textObj.fillType === 'radial') && textObj.fillGradient) {
-            const b = textObj.getBounds();
-            const grad = textObj.fillGradient;
-            let canvasGrad;
-            if (grad.type === 'radial') {
-              const cx = (b.minX + b.width / 2) * scale;
-              const cy = (b.minY + b.height / 2) * scale;
-              const r = Math.max(b.width, b.height) / 2 * scale;
-              canvasGrad = octx.createRadialGradient(cx, cy, 0, cx, cy, r);
-            } else {
-              canvasGrad = octx.createLinearGradient(b.minX * scale, b.minY * scale, b.maxX * scale, b.minY * scale);
-            }
-            for (const st of grad.stops) {
-              canvasGrad.addColorStop(Math.max(0, Math.min(1, st.offset)), st.color);
-            }
-            octx.fillStyle = canvasGrad;
-          } else {
-            octx.fillStyle = textObj.fill;
+        if (pathObj) {
+          let pts = null;
+          if (typeof pathObj.toPolyline === 'function') {
+            pts = pathObj.toPolyline(0.2);
+          } else if (typeof pathObj.toPath === 'function') {
+            pts = pathObj.toPath().toPolyline(0.2);
           }
-          octx.fillText(textObj.text, tx, ty);
-        }
+          if (pts && pts.length >= 2) {
+            const cumLens = [0];
+            let totalLen = 0;
+            for (let i = 1; i < pts.length; i++) {
+              const segLen = Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+              totalLen += segLen;
+              cumLens.push(totalLen);
+            }
 
-        // Stroke Text
-        if (textObj.stroke && textObj.stroke !== 'none' && textObj.strokeWidth > 0) {
-          octx.strokeStyle = textObj.stroke;
-          octx.lineWidth = textObj.strokeWidth * scale;
-          octx.strokeText(textObj.text, tx, ty);
+            const getPointAndAngle = (dist) => {
+              if (dist <= 0) {
+                const dx = pts[1].x - pts[0].x;
+                const dy = pts[1].y - pts[0].y;
+                return { x: pts[0].x, y: pts[0].y, angle: Math.atan2(dy, dx) };
+              }
+              if (dist >= totalLen) {
+                const last = pts.length - 1;
+                const dx = pts[last].x - pts[last - 1].x;
+                const dy = pts[last].y - pts[last - 1].y;
+                return { x: pts[last].x, y: pts[last].y, angle: Math.atan2(dy, dx) };
+              }
+              for (let i = 1; i < cumLens.length; i++) {
+                if (cumLens[i] >= dist) {
+                  const segLen = cumLens[i] - cumLens[i - 1];
+                  const t = segLen > 0 ? (dist - cumLens[i - 1]) / segLen : 0;
+                  const p0 = pts[i - 1];
+                  const p1 = pts[i];
+                  return {
+                    x: p0.x + (p1.x - p0.x) * t,
+                    y: p0.y + (p1.y - p0.y) * t,
+                    angle: Math.atan2(p1.y - p0.y, p1.x - p0.x)
+                  };
+                }
+              }
+              return { x: pts[0].x, y: pts[0].y, angle: 0 };
+            };
+
+            const chars = Array.from(textObj.text || '');
+            let totalTextW = 0;
+            const charWidths = chars.map(ch => {
+              const w = (octx.measureText(ch).width / scale) + (Number(textObj.letterSpacing) || 0);
+              totalTextW += w;
+              return w;
+            });
+
+            let curDist = 0;
+            if (typeof textObj.startOffset === 'string' && textObj.startOffset.endsWith('%')) {
+              curDist = (parseFloat(textObj.startOffset) / 100) * totalLen;
+            } else {
+              curDist = (Number(textObj.startOffset) || 0);
+            }
+
+            if (anchor === 'center' || textObj.textAlign === 'center') {
+              curDist -= totalTextW / 2;
+            } else if (anchor === 'right' || textObj.textAlign === 'right') {
+              curDist -= totalTextW;
+            }
+
+            for (let i = 0; i < chars.length; i++) {
+              const ch = chars[i];
+              const charW = charWidths[i];
+              const midDist = curDist + charW / 2;
+              const ptAngle = getPointAndAngle(midDist);
+
+              octx.save();
+              octx.translate(ptAngle.x * scale, ptAngle.y * scale);
+              octx.rotate(ptAngle.angle);
+              octx.textAlign = 'center';
+              octx.textBaseline = 'alphabetic';
+
+              if (textObj.fill && textObj.fill !== 'none') {
+                octx.fillStyle = textObj.fill;
+                octx.fillText(ch, 0, 0);
+              }
+              if (textObj.stroke && textObj.stroke !== 'none' && textObj.strokeWidth > 0) {
+                octx.strokeStyle = textObj.stroke;
+                octx.lineWidth = textObj.strokeWidth * scale;
+                octx.strokeText(ch, 0, 0);
+              }
+              octx.restore();
+
+              curDist += charW;
+            }
+          }
+        } else {
+          const tx = textObj.x * scale;
+          const ty = textObj.y * scale;
+
+          // Render drop shadow if enabled
+          if (textObj.dropShadow && textObj.dropShadow.enabled) {
+            const s = textObj.dropShadow;
+            octx.save();
+            octx.shadowColor = s.color || '#000000';
+            octx.shadowBlur = (s.blur || 4) * scale;
+            octx.shadowOffsetX = (s.offsetX || 2) * scale;
+            octx.shadowOffsetY = (s.offsetY || 2) * scale;
+            octx.fillStyle = textObj.fill && textObj.fill !== 'none' ? textObj.fill : '#fabd2f';
+            octx.fillText(textObj.text, tx, ty);
+            octx.restore();
+          }
+
+          // Fill Text
+          if (textObj.fill && textObj.fill !== 'none') {
+            if ((textObj.fillType === 'linear' || textObj.fillType === 'radial') && textObj.fillGradient) {
+              const b = textObj.getBounds();
+              const grad = textObj.fillGradient;
+              let canvasGrad;
+              if (grad.type === 'radial') {
+                const cx = (b.minX + b.width / 2) * scale;
+                const cy = (b.minY + b.height / 2) * scale;
+                const r = Math.max(b.width, b.height) / 2 * scale;
+                canvasGrad = octx.createRadialGradient(cx, cy, 0, cx, cy, r);
+              } else {
+                canvasGrad = octx.createLinearGradient(b.minX * scale, b.minY * scale, b.maxX * scale, b.minY * scale);
+              }
+              for (const st of grad.stops) {
+                canvasGrad.addColorStop(Math.max(0, Math.min(1, st.offset)), st.color);
+              }
+              octx.fillStyle = canvasGrad;
+            } else {
+              octx.fillStyle = textObj.fill;
+            }
+            octx.fillText(textObj.text, tx, ty);
+          }
+
+          // Stroke Text
+          if (textObj.stroke && textObj.stroke !== 'none' && textObj.strokeWidth > 0) {
+            octx.strokeStyle = textObj.stroke;
+            octx.lineWidth = textObj.strokeWidth * scale;
+            octx.strokeText(textObj.text, tx, ty);
+          }
         }
 
         // Blit offscreen canvas ImageData to Quadro buffer
