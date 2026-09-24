@@ -254,13 +254,14 @@
             const p = cursor.value;
             list.push({
               id: p.id,
+              type: p.type || (p.layers ? "raster" : "vector"),
               name: p.name || "Untitled Project",
               width: p.width || 1280,
               height: p.height || 720,
               createdAt: p.createdAt || p.updatedAt,
               updatedAt: p.updatedAt || new Date().toISOString(),
               thumbnail: p.thumbnail || "",
-              layerCount: (p.layers && p.layers.length) || 0
+              layerCount: (p.layers && p.layers.length) || (p.objects && p.objects.length) || 0
             });
             cursor.continue();
           } else {
@@ -288,6 +289,31 @@
         const tx = db.transaction(STORE_PROJECTS, "readwrite");
         const store = tx.objectStore(STORE_PROJECTS);
         const req = store.delete(id);
+        req.onsuccess = () => resolve(true);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async clearAll() {
+      const db = await getDB();
+      if (typeof localStorage !== "undefined") {
+        try {
+          const meta = JSON.parse(localStorage.getItem("esenho_projects_meta") || "[]");
+          for (const p of meta) {
+            localStorage.removeItem("esenho_proj_" + p.id);
+          }
+          localStorage.removeItem("esenho_projects_meta");
+          localStorage.removeItem("esenho_vector_autosave");
+          localStorage.removeItem("esenho_current_vector_project_id");
+          localStorage.removeItem("esenho_current_raster_project_id");
+        } catch (_) {}
+      }
+      if (!db) return true;
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_PROJECTS, "readwrite");
+        const store = tx.objectStore(STORE_PROJECTS);
+        const req = store.clear();
         req.onsuccess = () => resolve(true);
         req.onerror = e => reject(e.target.error);
       });

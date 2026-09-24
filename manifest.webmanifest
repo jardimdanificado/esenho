@@ -2,7 +2,7 @@
   "name": "Esenho",
   "short_name": "Esenho",
   "description": "Minimalist pixel canvas and drawing editor",
-  "start_url": "./index.html",
+  "start_url": "./svg-editor.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",

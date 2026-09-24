@@ -9178,6 +9178,114 @@ async function main() {
       });
     }
 
+    // New Project & Recent Projects
+    const btnIpNewProj = document.getElementById('btn-ip-new-proj');
+    if (btnIpNewProj) {
+      btnIpNewProj.addEventListener('click', () => {
+        closeAllSheets();
+        document.getElementById('sheet-new-proj')?.classList.add('active');
+      });
+    }
+
+    const btnIpRecentProj = document.getElementById('btn-ip-recent-proj');
+    const sheetRecents = document.getElementById('sheet-recents');
+    const ipRecentsList = document.getElementById('ip-recents-list');
+
+    async function loadPainterRecents() {
+      if (!ipRecentsList || typeof EsenhoStore === 'undefined') return;
+      ipRecentsList.innerHTML = '<div style="padding: 24px; text-align: center; color: #a89984; grid-column: 1/-1;">Loading stored projects...</div>';
+      try {
+        const list = await EsenhoStore.listProjects();
+        if (!list || list.length === 0) {
+          ipRecentsList.innerHTML = '<div style="padding: 24px; text-align: center; color: #a89984; grid-column: 1/-1;">No stored projects yet.</div>';
+          return;
+        }
+        ipRecentsList.innerHTML = list.map(p => {
+          const dateStr = new Date(p.updatedAt).toLocaleDateString() + ' ' + new Date(p.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const isVec = p.type === 'vector';
+          const badge = isVec ? '<span style="font-size:9px; background:#1d2021; border:1px solid #3c3836; color:#fabd2f; padding:1px 4px; border-radius:2px;">Vector</span>' : '<span style="font-size:9px; background:#1d2021; border:1px solid #3c3836; color:#83a598; padding:1px 4px; border-radius:2px;">Painter</span>';
+          const thumbHtml = p.thumbnail 
+            ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4px;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="Thumb">`)
+            : `<span style="font-size: 20px; color: #504945;">🎨</span>`;
+          return `
+            <div style="background: #181a1b; border: 1px solid #3c3836; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; cursor: pointer;" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">
+              <div style="width: 100%; height: 90px; background: #121415; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #3c3836; overflow: hidden;">
+                ${thumbHtml}
+              </div>
+              <div style="padding: 6px; display: flex; flex-direction: column; gap: 2px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 11px; font-weight: bold; color: #ebdbb2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;">${p.name}</span>
+                  ${badge}
+                </div>
+                <span style="font-size: 9px; color: #a89984;">${p.width}×${p.height} • ${dateStr}</span>
+                <div style="display: flex; justify-content: space-between; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #3c3836;" onclick="event.stopPropagation();">
+                  <button type="button" class="ip-btn ip-mini-btn" style="background:#fabd2f; color:#1d2021; font-weight:bold; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterOpenRecent('${p.id}', '${p.type}')">Open</button>
+                  <button type="button" class="ip-btn ip-mini-btn" style="color:#fb4934; height:20px; padding:0 6px; font-size:10px;" onclick="window.painterDeleteRecent('${p.id}')">Del</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        ipRecentsList.innerHTML = `<div style="padding: 24px; text-align: center; color: #fb4934; grid-column: 1/-1;">Error loading recents: ${e.message}</div>`;
+      }
+    }
+
+    window.painterOpenRecent = function(id, type) {
+      if (type === 'vector') {
+        window.location.href = `svg-editor.html?project=${id}`;
+        return;
+      }
+      window.location.href = `app.html?project=${id}`;
+    };
+
+    window.painterDeleteRecent = async function(id) {
+      if (!confirm('Delete this project from memory?')) return;
+      await EsenhoStore.deleteProject(id);
+      loadPainterRecents();
+    };
+
+    if (btnIpRecentProj) {
+      btnIpRecentProj.addEventListener('click', () => {
+        closeAllSheets();
+        sheetRecents?.classList.add('active');
+        loadPainterRecents();
+      });
+    }
+
+    document.getElementById('btn-ip-recents-new')?.addEventListener('click', () => {
+      closeAllSheets();
+      document.getElementById('sheet-new-proj')?.classList.add('active');
+    });
+
+    async function handleClearAllStorage() {
+      if (!confirm('Clear ALL projects and stored data? This cannot be undone.')) return;
+      if (typeof EsenhoStore !== 'undefined') await EsenhoStore.clearAll();
+      alert('Storage cleared.');
+      window.location.href = 'svg-editor.html';
+    }
+
+    document.getElementById('btn-ip-clear-storage')?.addEventListener('click', handleClearAllStorage);
+    document.getElementById('btn-ip-recents-clear')?.addEventListener('click', handleClearAllStorage);
+
+    document.querySelectorAll('.ip-btn-new-res').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const inpW = document.getElementById('inp-ip-new-w');
+        const inpH = document.getElementById('inp-ip-new-h');
+        if (inpW && inpH) {
+          inpW.value = btn.dataset.w;
+          inpH.value = btn.dataset.h;
+        }
+      });
+    });
+
+    document.getElementById('btn-ip-confirm-new-proj')?.addEventListener('click', () => {
+      const title = encodeURIComponent(document.getElementById('inp-ip-new-title')?.value.trim() || 'Untitled Artwork');
+      const w = parseInt(document.getElementById('inp-ip-new-w')?.value, 10) || 1280;
+      const h = parseInt(document.getElementById('inp-ip-new-h')?.value, 10) || 720;
+      window.location.href = `app.html?new=1&name=${title}&w=${w}&h=${h}`;
+    });
+
     const btnIpExportPng = document.getElementById('btn-ip-export-png');
     if (btnIpExportPng) btnIpExportPng.addEventListener('click', () => { runCmd('export png'); closeAllSheets(); });
 

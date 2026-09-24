@@ -2258,6 +2258,10 @@
     }
 
     /** Export to standard SVG XML string */
+    toSvgXml() {
+      return this.toSVGString();
+    }
+
     toSVGString() {
       const defsMap = new Map(this.defs);
 
@@ -2602,6 +2606,10 @@
         backgroundColor: this.backgroundColor,
         objects: this.objects.map(o => o.toJSON())
       };
+    }
+
+    fromJSON(data) {
+      return this.loadJSON(data);
     }
 
     loadJSON(data) {
