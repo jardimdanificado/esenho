@@ -528,7 +528,68 @@ async function runSvgEngineTests() {
   assert.strictEqual(nsDoc.objects[0].rotation, 45);
   assert.strictEqual(nsDoc.objects[1].type, 'polyline');
 
-  console.log('✔ SvgImage, rotation transforms, hit-testing & origin anchor protection passed');
+  // 17. Test Group Reordering, Hierarchy, and Tree Items
+  console.log('--- Testing Group Reordering & Hierarchy Tree ---');
+  const treeDoc = new SvgDocument(800, 600);
+  const r1 = new SvgRect({ x: 10, y: 10, width: 50, height: 50 });
+  const r2 = new SvgRect({ x: 20, y: 20, width: 50, height: 50 });
+  const r3 = new SvgRect({ x: 30, y: 30, width: 50, height: 50 });
+  const g1 = new SvgGroup({ name: 'Group 1' });
+  const c1 = new SvgCircle({ cx: 100, cy: 100, r: 20 });
+  const c2 = new SvgCircle({ cx: 150, cy: 150, r: 20 });
+  const c3 = new SvgCircle({ cx: 200, cy: 200, r: 20 });
+  g1.add(c1);
+  g1.add(c2);
+  g1.add(c3);
+
+  treeDoc.addObject(r1);
+  treeDoc.addObject(g1);
+  treeDoc.addObject(r2);
+  treeDoc.addObject(r3);
+
+  // Test bringForward and sendBackward within group
+  treeDoc.select(c1.id);
+  treeDoc.bringForward();
+  assert.strictEqual(g1.children[0].id, c2.id, 'c1 should be swapped with c2');
+  assert.strictEqual(g1.children[1].id, c1.id, 'c1 should now be at index 1');
+
+  treeDoc.bringToFront();
+  assert.strictEqual(g1.children[2].id, c1.id, 'c1 should now be at top of group (index 2)');
+
+  treeDoc.sendToBack();
+  assert.strictEqual(g1.children[0].id, c1.id, 'c1 should now be back at index 0');
+
+  // Test reorderTreeItem inside group
+  // c1 is at 0, c2 at 1, c3 at 2. Move c3 below c1:
+  treeDoc.reorderTreeItem(c3.id, c1.id, 'below');
+  assert.strictEqual(g1.children[0].id, c3.id, 'c3 should now be at index 0');
+  assert.strictEqual(g1.children[1].id, c1.id, 'c1 should now be at index 1');
+  assert.strictEqual(g1.children[2].id, c2.id, 'c2 should now be at index 2');
+
+  // Test moving an item into a group
+  treeDoc.reorderTreeItem(r2.id, g1.id, 'inside');
+  assert.strictEqual(r2.parent, g1, 'r2 parent should now be g1');
+  assert.strictEqual(g1.children.includes(r2), true, 'g1 should contain r2');
+  assert.strictEqual(treeDoc.objects.includes(r2), false, 'root objects should no longer contain r2');
+
+  // Test moving an item out of a group
+  treeDoc.reorderTreeItem(r2.id, r3.id, 'above');
+  assert.strictEqual(r2.parent, null, 'r2 parent should now be null');
+  assert.strictEqual(treeDoc.objects[treeDoc.objects.length - 1].id, r2.id, 'r2 should be at the top of root objects');
+  assert.strictEqual(g1.children.includes(r2), false, 'g1 should no longer contain r2');
+
+  // Test cycle prevention (cannot move group into itself or its descendants)
+  const nestedGroup = new SvgGroup({ name: 'Nested Group' });
+  g1.add(nestedGroup);
+  const cycleResult = treeDoc.reorderTreeItem(g1.id, nestedGroup.id, 'inside');
+  assert.strictEqual(cycleResult, false, 'Moving group into its own descendant must fail');
+
+  // Test group rotation and bounds
+  g1.rotation = 45;
+  const g1Svg = g1.toSVGElement();
+  assert(g1Svg.includes('transform="rotate(45'), 'Group SVG export must include rotation transform');
+
+  console.log('✔ Group reordering, z-ordering, and hierarchy tree operations passed');
 
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & QUADRO TESTS PASSED SUCCESSFULLY!');
 }

@@ -2010,7 +2010,7 @@
 
     toSVGElement() {
       const kids = this.children.map(c => c.toSVGElement()).join('\n    ');
-      return `<g id="${this.id}" opacity="${this.opacity}">\n    ${kids}\n  </g>`;
+      return `<g id="${this.id}" opacity="${this.opacity}"${this.getExtraSVGAttributes()}>\n    ${kids}\n  </g>`;
     }
 
     toJSON() {
@@ -2117,10 +2117,15 @@
     }
 
     removeObject(id, pushHistory = true) {
-      const idx = this.objects.findIndex(o => o.id === id);
+      const obj = this.findObject(id);
+      if (!obj) return null;
+      if (pushHistory) this.pushHistory(`Remove ${obj.name}`);
+      this.selectedIds.delete(id);
+      if (obj.parent && typeof obj.parent.remove === 'function') {
+        return obj.parent.remove(obj);
+      }
+      const idx = this.objects.indexOf(obj);
       if (idx !== -1) {
-        if (pushHistory) this.pushHistory(`Remove ${this.objects[idx].name}`);
-        this.selectedIds.delete(id);
         return this.objects.splice(idx, 1)[0];
       }
       return null;
@@ -2156,9 +2161,13 @@
       });
 
       for (const item of selected) {
-        const idx = this.objects.indexOf(item);
-        if (idx !== -1) {
-          this.objects.splice(idx, 1);
+        if (item.parent && typeof item.parent.remove === 'function') {
+          item.parent.remove(item);
+        } else {
+          const idx = this.objects.indexOf(item);
+          if (idx !== -1) {
+            this.objects.splice(idx, 1);
+          }
         }
         group.add(item);
       }
@@ -2181,13 +2190,14 @@
       this.selectedIds.clear();
 
       for (const grp of groups) {
-        const idx = this.objects.indexOf(grp);
+        const parentList = grp.parent ? grp.parent.children : this.objects;
+        const idx = parentList.indexOf(grp);
         if (idx !== -1) {
-          this.objects.splice(idx, 1);
+          parentList.splice(idx, 1);
           const kids = [...grp.children];
           for (let k = 0; k < kids.length; k++) {
-            kids[k].parent = null;
-            this.objects.splice(idx + k, 0, kids[k]);
+            kids[k].parent = grp.parent || null;
+            parentList.splice(idx + k, 0, kids[k]);
             this.selectedIds.add(kids[k].id);
           }
         }
@@ -2197,49 +2207,122 @@
       return true;
     }
 
-    /** Z-Index Ordering */
+    /** Z-Index Ordering (Works on Root and Inside Groups) */
     bringForward(id) {
-      const idx = this.objects.findIndex(o => o.id === id);
-      if (idx !== -1 && idx < this.objects.length - 1) {
+      const targetId = id || (this.getSelectedObjects()[0]?.id);
+      const obj = this.findObject(targetId);
+      if (!obj) return false;
+      const list = obj.parent ? obj.parent.children : this.objects;
+      const idx = list.indexOf(obj);
+      if (idx !== -1 && idx < list.length - 1) {
         this.pushHistory('Bring Forward');
-        const [obj] = this.objects.splice(idx, 1);
-        this.objects.splice(idx + 1, 0, obj);
+        const [item] = list.splice(idx, 1);
+        list.splice(idx + 1, 0, item);
         return true;
       }
       return false;
     }
 
     sendBackward(id) {
-      const idx = this.objects.findIndex(o => o.id === id);
+      const targetId = id || (this.getSelectedObjects()[0]?.id);
+      const obj = this.findObject(targetId);
+      if (!obj) return false;
+      const list = obj.parent ? obj.parent.children : this.objects;
+      const idx = list.indexOf(obj);
       if (idx > 0) {
         this.pushHistory('Send Backward');
-        const [obj] = this.objects.splice(idx, 1);
-        this.objects.splice(idx - 1, 0, obj);
+        const [item] = list.splice(idx, 1);
+        list.splice(idx - 1, 0, item);
         return true;
       }
       return false;
     }
 
     bringToFront(id) {
-      const idx = this.objects.findIndex(o => o.id === id);
-      if (idx !== -1 && idx < this.objects.length - 1) {
+      const targetId = id || (this.getSelectedObjects()[0]?.id);
+      const obj = this.findObject(targetId);
+      if (!obj) return false;
+      const list = obj.parent ? obj.parent.children : this.objects;
+      const idx = list.indexOf(obj);
+      if (idx !== -1 && idx < list.length - 1) {
         this.pushHistory('Bring to Front');
-        const [obj] = this.objects.splice(idx, 1);
-        this.objects.push(obj);
+        const [item] = list.splice(idx, 1);
+        list.push(item);
         return true;
       }
       return false;
     }
 
     sendToBack(id) {
-      const idx = this.objects.findIndex(o => o.id === id);
+      const targetId = id || (this.getSelectedObjects()[0]?.id);
+      const obj = this.findObject(targetId);
+      if (!obj) return false;
+      const list = obj.parent ? obj.parent.children : this.objects;
+      const idx = list.indexOf(obj);
       if (idx > 0) {
         this.pushHistory('Send to Back');
-        const [obj] = this.objects.splice(idx, 1);
-        this.objects.unshift(obj);
+        const [item] = list.splice(idx, 1);
+        list.unshift(item);
         return true;
       }
       return false;
+    }
+
+    isDescendant(parent, target) {
+      if (!parent || parent.type !== 'group' || !parent.children) return false;
+      for (const c of parent.children) {
+        if (c === target) return true;
+        if (c.type === 'group' && this.isDescendant(c, target)) return true;
+      }
+      return false;
+    }
+
+    /**
+     * Tree Reordering (Drag & Drop in Layers Tree)
+     * @param {string} draggedId
+     * @param {string} targetId
+     * @param {'above'|'below'|'inside'} dropPos - 'above' (higher z-index), 'below' (lower z-index), 'inside' (into group)
+     */
+    reorderTreeItem(draggedId, targetId, dropPos = 'above', pushHistory = true) {
+      if (!draggedId || !targetId || String(draggedId) === String(targetId)) return false;
+      const draggedObj = this.findObject(draggedId);
+      const targetObj = this.findObject(targetId);
+      if (!draggedObj || !targetObj) return false;
+
+      // Prevent dragging a group into itself or its own descendants
+      if (draggedObj.type === 'group' && (this.isDescendant(draggedObj, targetObj) || draggedObj === targetObj)) {
+        return false;
+      }
+
+      if (pushHistory) this.pushHistory('Reorder Object');
+
+      // 1. Remove draggedObj from current parent list
+      if (draggedObj.parent && typeof draggedObj.parent.remove === 'function') {
+        draggedObj.parent.remove(draggedObj);
+      } else {
+        const srcIdx = this.objects.indexOf(draggedObj);
+        if (srcIdx !== -1) this.objects.splice(srcIdx, 1);
+      }
+
+      // 2. Insert into target position
+      if (dropPos === 'inside' && targetObj.type === 'group') {
+        targetObj.add(draggedObj);
+        return true;
+      }
+
+      const targetList = targetObj.parent ? targetObj.parent.children : this.objects;
+      const targetIdx = targetList.indexOf(targetObj);
+      draggedObj.parent = targetObj.parent || null;
+
+      if (dropPos === 'above') {
+        targetList.splice(targetIdx + 1, 0, draggedObj);
+      } else if (dropPos === 'below') {
+        targetList.splice(targetIdx, 0, draggedObj);
+      } else {
+        targetList.splice(targetIdx + 1, 0, draggedObj);
+      }
+
+      return true;
     }
 
     /** Selection */

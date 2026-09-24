@@ -635,7 +635,11 @@
       font-weight: 500;
       cursor: pointer;
       border-radius: var(--radius-sm);
-      transition: background 0.12s ease, border-color 0.12s ease;
+      transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: pan-y;
+      position: relative;
     }
 
     .object-item:hover {
@@ -650,6 +654,34 @@
       font-weight: 600;
     }
 
+    .object-item.is-dragging {
+      opacity: 0.35;
+      background: var(--bg-panel-sub) !important;
+    }
+
+    .object-item.touch-reordering {
+      outline: 2px solid var(--primary) !important;
+      background: var(--bg-panel-sub) !important;
+      opacity: 0.95 !important;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65);
+      transform: scale(1.03);
+      z-index: 100;
+      pointer-events: none !important;
+    }
+
+    .object-item.drop-indicator-top {
+      border-top: 2px solid var(--primary) !important;
+    }
+
+    .object-item.drop-indicator-bottom {
+      border-bottom: 2px solid var(--primary) !important;
+    }
+
+    .object-item.drop-target-group {
+      outline: 2px dashed #b8bb26 !important;
+      background: rgba(184, 187, 38, 0.18) !important;
+    }
+
     .object-item .obj-info {
       display: flex;
       align-items: center;
@@ -657,6 +689,7 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+      flex: 1;
     }
 
     .object-item .obj-actions {
@@ -2040,6 +2073,91 @@
         };
       }
 
+      function scaleObjectToBox(obj, origState, origBounds, newMinX, newMinY, newW, newH) {
+        if (!obj || !origState || !origBounds) return;
+        const sx = (origBounds.width > 0) ? newW / origBounds.width : 1;
+        const sy = (origBounds.height > 0) ? newH / origBounds.height : 1;
+
+        if (obj.type === 'rect' || obj.type === 'image') {
+          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * sx;
+          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.minY) - origBounds.minY) * sy;
+          obj.width = Math.max(1, (origState.width !== undefined ? origState.width : origBounds.width) * sx);
+          obj.height = Math.max(1, (origState.height !== undefined ? origState.height : origBounds.height) * sy);
+        } else if (obj.type === 'circle') {
+          const origR = origState.r !== undefined ? origState.r : (origState.rx || 10);
+          const nr = Math.max(1, Math.round(origR * Math.min(sx, sy)));
+          const origCx = origState.cx !== undefined ? origState.cx : (origBounds.minX + origBounds.width / 2);
+          const origCy = origState.cy !== undefined ? origState.cy : (origBounds.minY + origBounds.height / 2);
+          obj.cx = newMinX + (origCx - origBounds.minX) * sx;
+          obj.cy = newMinY + (origCy - origBounds.minY) * sy;
+          obj.r = nr;
+          obj.rx = nr;
+          obj.ry = nr;
+        } else if (obj.type === 'ellipse') {
+          const origRx = origState.rx !== undefined ? origState.rx : 10;
+          const origRy = origState.ry !== undefined ? origState.ry : 10;
+          const origCx = origState.cx !== undefined ? origState.cx : (origBounds.minX + origBounds.width / 2);
+          const origCy = origState.cy !== undefined ? origState.cy : (origBounds.minY + origBounds.height / 2);
+          obj.rx = Math.max(1, Math.round(origRx * sx));
+          obj.ry = Math.max(1, Math.round(origRy * sy));
+          obj.cx = newMinX + (origCx - origBounds.minX) * sx;
+          obj.cy = newMinY + (origCy - origBounds.minY) * sy;
+        } else if (obj.type === 'line') {
+          obj.x1 = newMinX + (origState.x1 - origBounds.minX) * sx;
+          obj.y1 = newMinY + (origState.y1 - origBounds.minY) * sy;
+          obj.x2 = newMinX + (origState.x2 - origBounds.minX) * sx;
+          obj.y2 = newMinY + (origState.y2 - origBounds.minY) * sy;
+        } else if (obj.type === 'compoundPath') {
+          if (obj.subPaths && origState.subPaths) {
+            for (let s = 0; s < obj.subPaths.length; s++) {
+              const sp = obj.subPaths[s];
+              const origSp = origState.subPaths[s];
+              if (sp && origSp && sp.nodes && origSp.nodes) {
+                for (let i = 0; i < sp.nodes.length; i++) {
+                  const orig = origSp.nodes[i];
+                  sp.nodes[i].x = newMinX + (orig.x - origBounds.minX) * sx;
+                  sp.nodes[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+                  if (orig.cpIn) sp.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
+                  if (orig.cpOut) sp.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
+                }
+              }
+            }
+          }
+        } else if (obj.type === 'polyline' || obj.type === 'polygon') {
+          if (obj.points && origState.points) {
+            for (let i = 0; i < obj.points.length; i++) {
+              const orig = origState.points[i];
+              obj.points[i].x = newMinX + (orig.x - origBounds.minX) * sx;
+              obj.points[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+            }
+          }
+        } else if (obj.type === 'text') {
+          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * sx;
+          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.maxY) - origBounds.minY) * sy;
+          obj.fontSize = Math.max(8, Math.round(origState.fontSize * sy));
+        } else if (obj.type === 'path') {
+          if (obj.nodes && origState.nodes) {
+            for (let i = 0; i < obj.nodes.length; i++) {
+              const orig = origState.nodes[i];
+              obj.nodes[i].x = newMinX + (orig.x - origBounds.minX) * sx;
+              obj.nodes[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+              if (orig.cpIn) obj.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
+              if (orig.cpOut) obj.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
+            }
+          }
+        } else if (obj.type === 'group') {
+          if (obj.children && origState.children) {
+            for (let i = 0; i < obj.children.length; i++) {
+              const child = obj.children[i];
+              const childOrigState = origState.children[i];
+              if (child && childOrigState) {
+                scaleObjectToBox(child, childOrigState, origBounds, newMinX, newMinY, newW, newH);
+              }
+            }
+          }
+        }
+      }
+
       // Marquee / Box Selection State
       let isMarqueeSelecting = false;
       let marqueeBox = null;
@@ -2481,7 +2599,17 @@
         }
       }
 
-      // ── Object Hierarchy UI List (Hierarchical Tree) ──
+      // ── Object Hierarchy UI List (Hierarchical Tree with Drag & Drop / Touch Reordering) ──
+      let objectDragSourceId = null;
+      let objectTouchReorderState = null;
+
+      function clearObjectDropIndicators() {
+        if (!objectList) return;
+        objectList.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group, .is-dragging, .touch-reordering').forEach(el => {
+          el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group', 'is-dragging', 'touch-reordering');
+        });
+      }
+
       function updateObjectList() {
         objectList.innerHTML = '';
 
@@ -2490,42 +2618,241 @@
           const isGroup = obj.type === 'group';
           const item = document.createElement('div');
           item.className = `object-item ${isSelected ? 'selected' : ''}`;
+          item.setAttribute('data-object-id', obj.id);
           if (depth > 0) item.style.marginLeft = `${depth * 14}px`;
 
           const collapseIcon = isGroup ? (obj.collapsed ? '▶' : '▼') : '';
-          const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px;">${collapseIcon}</button>` : '';
+          const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px; margin-right: 4px;">${collapseIcon}</button>` : '';
 
           item.innerHTML = `
-            <div class="obj-info">
+            <div class="obj-info" style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1; user-select: none;">
               ${collapseBtn}
-              <span>${getIconForType(obj.type)}</span>
-              <span style="font-size: 10px;">${obj.name}</span>
+              <span style="font-size: 11px; opacity: 0.8;">${getIconForType(obj.type)}</span>
+              <span class="obj-name" style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;">${obj.name}</span>
             </div>
-            <div class="obj-actions">
+            <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon" data-action="toggle-vis" title="Visibility">${obj.visible ? '👁' : 'Ø'}</button>
               <button class="btn-icon" data-action="toggle-lock" title="Lock">${obj.locked ? '🔒' : '🔓'}</button>
             </div>
           `;
 
+          // Double click name to rename
+          const nameSpan = item.querySelector('.obj-name');
+          if (nameSpan) {
+            nameSpan.addEventListener('dblclick', (e) => {
+              e.stopPropagation();
+              const input = document.createElement('input');
+              input.type = 'text';
+              input.value = obj.name;
+              input.style.fontSize = '10px';
+              input.style.width = '90px';
+              input.style.background = '#1a1a24';
+              input.style.color = '#fff';
+              input.style.border = '1px solid #ff7a18';
+              input.style.borderRadius = '2px';
+              input.style.padding = '0 2px';
+
+              const saveName = () => {
+                const val = input.value.trim();
+                if (val) obj.name = val;
+                updateObjectList();
+              };
+
+              input.addEventListener('blur', saveName);
+              input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') saveName();
+                if (ev.key === 'Escape') updateObjectList();
+              });
+
+              nameSpan.replaceWith(input);
+              input.focus();
+              input.select();
+            });
+          }
+
+          // Click handling for select, collapse, vis, lock
           item.addEventListener('click', (e) => {
             if (e.target.dataset.action === 'toggle-collapse') {
               obj.collapsed = !obj.collapsed;
               render();
+              updateObjectList();
               return;
             }
             if (e.target.dataset.action === 'toggle-vis') {
               obj.visible = !obj.visible;
               render();
+              updateObjectList();
               return;
             }
             if (e.target.dataset.action === 'toggle-lock') {
               obj.locked = !obj.locked;
               render();
+              updateObjectList();
               return;
             }
             doc.select(obj.id, e.shiftKey);
             render();
+            updateObjectList();
+            updateInspector();
           });
+
+          // HTML5 Drag & Drop
+          item.draggable = true;
+          item.addEventListener('dragstart', (e) => {
+            objectDragSourceId = obj.id;
+            item.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', obj.id);
+            e.stopPropagation();
+          });
+
+          item.addEventListener('dragend', () => {
+            objectDragSourceId = null;
+            clearObjectDropIndicators();
+          });
+
+          item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!objectDragSourceId || objectDragSourceId === obj.id) return;
+            const rect = item.getBoundingClientRect();
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            clearObjectDropIndicators();
+            if (isGroup) {
+              if (relY < 0.25) {
+                item.classList.add('drop-indicator-top');
+              } else if (relY > 0.75) {
+                item.classList.add('drop-indicator-bottom');
+              } else {
+                item.classList.add('drop-target-group');
+              }
+            } else {
+              if (relY < 0.5) {
+                item.classList.add('drop-indicator-top');
+              } else {
+                item.classList.add('drop-indicator-bottom');
+              }
+            }
+          });
+
+          item.addEventListener('dragleave', (e) => {
+            if (!item.contains(e.relatedTarget)) {
+              item.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+            }
+          });
+
+          item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!objectDragSourceId || objectDragSourceId === obj.id) return;
+            const rect = item.getBoundingClientRect();
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            let dropPos = 'above';
+            if (isGroup) {
+              if (relY < 0.25) dropPos = 'above';
+              else if (relY > 0.75) dropPos = 'below';
+              else dropPos = 'inside';
+            } else {
+              dropPos = relY < 0.5 ? 'above' : 'below';
+            }
+
+            const success = doc.reorderTreeItem(objectDragSourceId, obj.id, dropPos);
+            objectDragSourceId = null;
+            clearObjectDropIndicators();
+            if (success) {
+              render();
+              updateObjectList();
+            }
+          });
+
+          // Touch Reordering Support
+          let touchTimer = null;
+          let touchStartX = 0, touchStartY = 0;
+
+          item.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            if (e.target.closest('button, input')) return;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+
+            touchTimer = setTimeout(() => {
+              touchTimer = null;
+              objectTouchReorderState = { id: obj.id, lastTargetId: null, lastDropPos: null };
+              item.classList.add('touch-reordering');
+            }, 250);
+          }, { passive: true });
+
+          item.addEventListener('touchmove', (e) => {
+            if (touchTimer) {
+              const dx = e.touches[0].clientX - touchStartX;
+              const dy = e.touches[0].clientY - touchStartY;
+              if (Math.hypot(dx, dy) > 10) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+              }
+            }
+
+            if (objectTouchReorderState && objectTouchReorderState.id === obj.id) {
+              if (e.cancelable) e.preventDefault();
+              const touchX = e.touches[0].clientX;
+              const touchY = e.touches[0].clientY;
+
+              const prevPE = item.style.pointerEvents;
+              item.style.pointerEvents = 'none';
+              const targetEl = document.elementFromPoint(touchX, touchY);
+              item.style.pointerEvents = prevPE;
+
+              const targetItem = targetEl?.closest('.object-item');
+              clearObjectDropIndicators();
+              item.classList.add('touch-reordering');
+
+              if (targetItem && targetItem !== item) {
+                const targetId = targetItem.getAttribute('data-object-id');
+                const tgtObj = doc.findObject(targetId);
+                const rect = targetItem.getBoundingClientRect();
+                const relY = (touchY - rect.top) / rect.height;
+
+                let dropPos = 'above';
+                if (tgtObj && tgtObj.type === 'group') {
+                  if (relY < 0.25) { dropPos = 'above'; targetItem.classList.add('drop-indicator-top'); }
+                  else if (relY > 0.75) { dropPos = 'below'; targetItem.classList.add('drop-indicator-bottom'); }
+                  else { dropPos = 'inside'; targetItem.classList.add('drop-target-group'); }
+                } else {
+                  if (relY < 0.5) { dropPos = 'above'; targetItem.classList.add('drop-indicator-top'); }
+                  else { dropPos = 'below'; targetItem.classList.add('drop-indicator-bottom'); }
+                }
+
+                objectTouchReorderState.lastTargetId = targetId;
+                objectTouchReorderState.lastDropPos = dropPos;
+              } else {
+                objectTouchReorderState.lastTargetId = null;
+                objectTouchReorderState.lastDropPos = null;
+              }
+            }
+          }, { passive: false });
+
+          const finishTouch = () => {
+            if (touchTimer) {
+              clearTimeout(touchTimer);
+              touchTimer = null;
+            }
+            if (objectTouchReorderState && objectTouchReorderState.id === obj.id) {
+              clearObjectDropIndicators();
+              if (objectTouchReorderState.lastTargetId && objectTouchReorderState.lastDropPos) {
+                const success = doc.reorderTreeItem(objectTouchReorderState.id, objectTouchReorderState.lastTargetId, objectTouchReorderState.lastDropPos);
+                if (success) {
+                  render();
+                  updateObjectList();
+                }
+              }
+              objectTouchReorderState = null;
+            }
+          };
+
+          item.addEventListener('touchend', finishTouch);
+          item.addEventListener('touchcancel', finishTouch);
 
           objectList.appendChild(item);
 
@@ -3194,64 +3521,8 @@
               const newW = Math.max(1, newMaxX - newMinX);
               const newH = Math.max(1, newMaxY - newMinY);
 
-              if (obj.type === 'rect' || obj.type === 'image') {
-                obj.x = newMinX;
-                obj.y = newMinY;
-                obj.width = newW;
-                obj.height = newH;
-              } else if (obj.type === 'circle') {
-                const nr = Math.max(1, Math.round(Math.min(newW, newH) / 2));
-                obj.cx = newMinX + nr;
-                obj.cy = newMinY + nr;
-                obj.r = nr;
-                obj.rx = nr;
-                obj.ry = nr;
-              } else if (obj.type === 'ellipse') {
-                obj.rx = Math.max(1, Math.round(newW / 2));
-                obj.ry = Math.max(1, Math.round(newH / 2));
-                obj.cx = newMinX + obj.rx;
-                obj.cy = newMinY + obj.ry;
-              } else if (obj.type === 'line') {
-                const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
-                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
-                obj.x1 = newMinX + (initialObjectState.x1 - initialBounds.minX) * sx;
-                obj.y1 = newMinY + (initialObjectState.y1 - initialBounds.minY) * sy;
-                obj.x2 = newMinX + (initialObjectState.x2 - initialBounds.minX) * sx;
-                obj.y2 = newMinY + (initialObjectState.y2 - initialBounds.minY) * sy;
-              } else if (obj.type === 'compoundPath') {
-                const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
-                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
-                if (obj.subPaths && initialObjectState.subPaths) {
-                  for (let s = 0; s < obj.subPaths.length; s++) {
-                    const sp = obj.subPaths[s];
-                    const origSp = initialObjectState.subPaths[s];
-                    if (sp && origSp && sp.nodes && origSp.nodes) {
-                      for (let i = 0; i < sp.nodes.length; i++) {
-                        const orig = origSp.nodes[i];
-                        sp.nodes[i].x = newMinX + (orig.x - initialBounds.minX) * sx;
-                        sp.nodes[i].y = newMinY + (orig.y - initialBounds.minY) * sy;
-                        if (orig.cpIn) sp.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
-                        if (orig.cpOut) sp.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
-                      }
-                    }
-                  }
-                }
-              } else if (obj.type === 'text') {
-                obj.x = newMinX;
-                obj.y = newMaxY;
-                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
-                obj.fontSize = Math.max(8, Math.round(initialObjectState.fontSize * sy));
-              } else if (obj.type === 'path') {
-                const sx = (initialBounds.width > 0) ? newW / initialBounds.width : 1;
-                const sy = (initialBounds.height > 0) ? newH / initialBounds.height : 1;
-                for (let i = 0; i < obj.nodes.length; i++) {
-                  const orig = initialObjectState.nodes[i];
-                  obj.nodes[i].x = newMinX + (orig.x - initialBounds.minX) * sx;
-                  obj.nodes[i].y = newMinY + (orig.y - initialBounds.minY) * sy;
-                  obj.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
-                  obj.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
-                }
-              }
+              scaleObjectToBox(obj, initialObjectState, initialBounds, newMinX, newMinY, newW, newH);
+
               render();
               updateInspector();
             }
