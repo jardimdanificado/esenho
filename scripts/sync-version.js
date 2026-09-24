@@ -41,16 +41,16 @@ if (fs.existsSync(indexPath)) {
   console.log(`[sync-version] Updated index.html badge (-> v${version})`);
 }
 
-// 3. Update app.html status
-const appPath = path.join(rootDir, "app.html");
-if (fs.existsSync(appPath)) {
-  let appContent = fs.readFileSync(appPath, "utf8");
-  appContent = appContent.replace(
+// 3. Update painter.html status
+const painterPath = path.join(rootDir, "painter.html");
+if (fs.existsSync(painterPath)) {
+  let painterContent = fs.readFileSync(painterPath, "utf8");
+  painterContent = painterContent.replace(
     /<span id="wstatus" class="ip-top-status-text">v[0-9.]+ ready<\/span>/,
     `<span id="wstatus" class="ip-top-status-text">v${version} ready</span>`
   );
-  fs.writeFileSync(appPath, appContent, "utf8");
-  console.log(`[sync-version] Updated app.html status (-> v${version} ready)`);
+  fs.writeFileSync(painterPath, painterContent, "utf8");
+  console.log(`[sync-version] Updated painter.html status (-> v${version} ready)`);
 }
 
 // 4. Generate src/version.js

@@ -11,11 +11,11 @@ The entry launcher configures canvas dimensions before initializing the WebAssem
   - `1024x1024` (1:1 Square)
   - `720x1280` (Vertical Mobile / Portrait)
   - `640x480` (Pixel Art / Retro Standard)
-- **Create Canvas**: Submits configuration to `app.html?w=<width>&h=<height>`.
+- **Create Canvas**: Submits configuration to `painter.html?w=<width>&h=<height>`.
 
 ---
 
-## 2. Studio Layout Overview (`app.html`)
+## 2. Painter Layout Overview (`painter.html`) & Vector Studio (`studio.html`)
 
 The studio workspace consists of four primary regions:
 1. **Interactive Viewport (`#cvswrap`, `#wcanvas`)**: Hardware-accelerated canvas using `desynchronized: true` 2D context for ultra-low latency rendering. Displays background transparency checkerboard (`#222222` / `#2A2A2A`), shape guides, selection boundaries, floating transform cages, and the eyedropper loupe ring.

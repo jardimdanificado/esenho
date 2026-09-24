@@ -1033,7 +1033,7 @@
 
         <div class="menu-divider"></div>
 
-        <button id="btn-open-painter" class="menu-item" onclick="window.location.href='app.html'">
+        <button id="btn-open-painter" class="menu-item" onclick="window.location.href='painter.html'">
           <span>🎨 Open Esenho Painter</span>
         </button>
 
@@ -4066,7 +4066,7 @@
 
         editingRasterObj = imgObj;
         const iframe = document.getElementById('painter-iframe');
-        iframe.src = 'app.html?embedded=true';
+        iframe.src = 'painter.html?embedded=true';
         iframe.style.display = 'block';
 
         const sendInit = () => {
@@ -4451,7 +4451,7 @@
 
       window.handleOpenRecent = async function(id, type) {
         if (type === 'raster') {
-          window.location.href = `app.html?project=${id}`;
+          window.location.href = `painter.html?project=${id}`;
           return;
         }
         await loadProjectFromStorage(id);

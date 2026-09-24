@@ -1,9 +1,10 @@
-const CACHE_NAME = 'esenho-v0.8.12';
+const CACHE_NAME = 'esenho-v0.8.13';
 
 const PRECACHE_ASSETS = [
   './',
   './index.html',
-  './app.html',
+  './studio.html',
+  './painter.html',
   './manifest.webmanifest',
   './icon.svg',
   './src/version.js',
@@ -80,7 +81,7 @@ self.addEventListener('fetch', (event) => {
         return caches.match(req).then((cached) => {
           if (cached) return cached;
           if (req.mode === 'navigate') {
-            return caches.match('./app.html') || caches.match('./index.html');
+            return caches.match('./studio.html') || caches.match('./painter.html') || caches.match('./index.html');
           }
           return null;
         });

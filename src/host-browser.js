@@ -9233,10 +9233,10 @@ async function main() {
 
     window.painterOpenRecent = function(id, type) {
       if (type === 'vector') {
-        window.location.href = `svg-editor.html?project=${id}`;
+        window.location.href = `studio.html?project=${id}`;
         return;
       }
-      window.location.href = `app.html?project=${id}`;
+      window.location.href = `painter.html?project=${id}`;
     };
 
     window.painterDeleteRecent = async function(id) {
@@ -9262,7 +9262,7 @@ async function main() {
       if (!confirm('Clear ALL projects and stored data? This cannot be undone.')) return;
       if (typeof EsenhoStore !== 'undefined') await EsenhoStore.clearAll();
       alert('Storage cleared.');
-      window.location.href = 'svg-editor.html';
+      window.location.href = 'studio.html';
     }
 
     document.getElementById('btn-ip-clear-storage')?.addEventListener('click', handleClearAllStorage);
@@ -9283,7 +9283,7 @@ async function main() {
       const title = encodeURIComponent(document.getElementById('inp-ip-new-title')?.value.trim() || 'Untitled Artwork');
       const w = parseInt(document.getElementById('inp-ip-new-w')?.value, 10) || 1280;
       const h = parseInt(document.getElementById('inp-ip-new-h')?.value, 10) || 720;
-      window.location.href = `app.html?new=1&name=${title}&w=${w}&h=${h}`;
+      window.location.href = `painter.html?new=1&name=${title}&w=${w}&h=${h}`;
     });
 
     const btnIpExportPng = document.getElementById('btn-ip-export-png');
