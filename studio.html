@@ -3909,25 +3909,31 @@
           }
 
           if (!activeTransformMode && !activeResizeHandle) {
-            let hit = null;
-            if (e.altKey) {
-              hit = doc.hitTestDeep(pt.x, pt.y);
+            const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
+            if (clickedSelected && !e.shiftKey) {
+              // Clicked directly on already selected object (e.g. child inside group selected in Object Manager)
+              // Keep current selection intact so dragging/transforming affects only this object
             } else {
-              hit = doc.hitTest(pt.x, pt.y);
-            }
-            if (hit) {
-              if (e.shiftKey) {
-                doc.select(hit.id, true);
-              } else if (!doc.isSelected(hit.id)) {
-                doc.select(hit.id, false);
+              let hit = null;
+              if (e.altKey) {
+                hit = doc.hitTestDeep(pt.x, pt.y);
+              } else {
+                hit = doc.hitTest(pt.x, pt.y);
               }
-            } else {
-              // Clicked empty canvas -> Start Marquee Box Selection
-              isMarqueeSelecting = true;
-              marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
-              marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
-              if (!e.shiftKey) {
-                doc.clearSelection();
+              if (hit) {
+                if (e.shiftKey) {
+                  doc.select(hit.id, true);
+                } else if (!doc.isSelected(hit.id)) {
+                  doc.select(hit.id, false);
+                }
+              } else {
+                // Clicked empty canvas -> Start Marquee Box Selection
+                isMarqueeSelecting = true;
+                marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
+                marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
+                if (!e.shiftKey) {
+                  doc.clearSelection();
+                }
               }
             }
           }

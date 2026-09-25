@@ -2521,8 +2521,11 @@
       const res = [];
       const collect = (list) => {
         for (const o of list) {
-          if (this.selectedIds.has(o.id)) res.push(o);
-          if (o.type === 'group' && o.children) collect(o.children);
+          if (this.selectedIds.has(o.id)) {
+            res.push(o);
+          } else if (o.type === 'group' && o.children) {
+            collect(o.children);
+          }
         }
       };
       collect(this.objects);

@@ -833,7 +833,36 @@ async function runSvgEngineTests() {
   rShape.name = 'Background Card';
   assert.strictEqual(gContainer.name, 'Hero Header Group');
   assert.strictEqual(rShape.name, 'Background Card');
-  console.log('✔ Object & Group Renaming passed');
+  // 26. Test Individual Object Inside Group Selection & Isolated Transformation
+  console.log('--- Testing Child Object Selection & Isolated Transformation in Group ---');
+  const groupIsoDoc = new SvgDocument(800, 600);
+  const childRect = new SvgRect({ x: 50, y: 50, width: 40, height: 40 });
+  const childCircle = new SvgCircle({ cx: 200, cy: 200, r: 25 });
+  const parentGrp = new SvgGroup({ name: 'Compound Group' });
+  parentGrp.add(childRect);
+  parentGrp.add(childCircle);
+  groupIsoDoc.addObject(parentGrp);
+
+  // Select only childRect (as done via Object Manager)
+  groupIsoDoc.select(childRect.id, false);
+  const selObjs = groupIsoDoc.getSelectedObjects();
+  assert.strictEqual(selObjs.length, 1, 'getSelectedObjects should return only 1 selected child');
+  assert.strictEqual(selObjs[0].id, childRect.id, 'Selected object must be childRect');
+
+  // Move childRect
+  childRect.move(30, 40);
+  assert.strictEqual(childRect.x, 80, 'childRect x should have moved by +30');
+  assert.strictEqual(childRect.y, 90, 'childRect y should have moved by +40');
+  assert.strictEqual(childCircle.cx, 200, 'childCircle cx must remain unchanged');
+  assert.strictEqual(childCircle.cy, 200, 'childCircle cy must remain unchanged');
+
+  // Verify group selection returns group without duplicating children
+  groupIsoDoc.select(parentGrp.id, false);
+  const grpSelObjs = groupIsoDoc.getSelectedObjects();
+  assert.strictEqual(grpSelObjs.length, 1, 'Selecting group should return only group itself in getSelectedObjects');
+  assert.strictEqual(grpSelObjs[0].id, parentGrp.id);
+
+  console.log('✔ Child Object Selection & Isolated Transformation passed');
 
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }
