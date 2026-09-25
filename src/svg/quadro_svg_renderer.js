@@ -153,6 +153,46 @@
     return modA;
   }
 
+  function sampleCustomTexture(buffer, bufW, bufH, x, y, texAngle = 0, texScale = 100, texContrast = 100, baseA = 255) {
+    if (!buffer || bufW <= 0 || bufH <= 0 || baseA === 0) return baseA;
+    if (texScale <= 0) texScale = 100;
+
+    let tx = x;
+    let ty = y;
+
+    if (texAngle !== 0) {
+      const rad = (texAngle * Math.PI) / 180;
+      const cos = Math.cos(rad);
+      const sin = Math.sin(rad);
+      tx = Math.round(x * cos + y * sin);
+      ty = Math.round(-x * sin + y * cos);
+    }
+
+    if (texScale !== 100) {
+      tx = Math.round((tx * 100) / texScale);
+      ty = Math.round((ty * 100) / texScale);
+    }
+
+    const u = ((tx % bufW) + bufW) % bufW;
+    const v = ((ty % bufH) + bufH) % bufH;
+    const pix = buffer[v * bufW + u];
+    // ARGB:
+    const a = (pix >>> 24) & 0xFF;
+    const r = (pix >>> 16) & 0xFF;
+    const g = (pix >>> 8) & 0xFF;
+    const b = pix & 0xFF;
+    const lum = Math.round((r * 0.299 + g * 0.587 + b * 0.114) * (a / 255));
+    
+    let modA = Math.round((baseA * lum) / 255);
+    if (texContrast !== 100 && texContrast >= 0 && baseA > 0) {
+      let factor = (modA * 255) / baseA;
+      factor = 128 + ((factor - 128) * texContrast) / 100;
+      factor = Math.max(0, Math.min(255, factor));
+      modA = Math.round((baseA * factor) / 255);
+    }
+    return modA;
+  }
+
   function sampleGradient(gradient, x, y, bounds, scale, totalOpacity = 1.0) {
     if (!gradient || !gradient.stops || gradient.stops.length === 0) {
       return 0xFF000000;
@@ -335,10 +375,20 @@
         this.actor = null;
       }
       this.filterRunner = new WasmFilterRunner();
+      this.customTextureCache = new Map();
     }
 
     setActor(actor) {
       this.actor = actor;
+    }
+
+    registerCustomTexture(id, buffer, width, height) {
+      if (!id) return;
+      this.customTextureCache.set(id, { pixels: buffer, width: width || 256, height: height || 256 });
+    }
+
+    sampleCustomTexture(buffer, bufW, bufH, x, y, texAngle = 0, texScale = 100, texContrast = 100, baseA = 255) {
+      return sampleCustomTexture(buffer, bufW, bufH, x, y, texAngle, texScale, texContrast, baseA);
     }
 
     /**
@@ -1503,6 +1553,11 @@
       const texScale = Math.round((fillTexture ? (fillTexture.scale || 100) : 100) * scale);
       const texContrast = fillTexture ? (fillTexture.contrast || 100) : 100;
 
+      const customBuf = fillTexture ? (fillTexture.customBuffer || fillTexture.buffer || (this.customTextureCache && (this.customTextureCache.get(fillTexture.customId || fillTexture.textureId) || this.customTextureCache.get(fillTexture.id)))) : null;
+      const customW = fillTexture?.customWidth || customBuf?.width || 256;
+      const customH = fillTexture?.customHeight || customBuf?.height || 256;
+      const customPixels = customBuf ? (customBuf.pixels || customBuf) : null;
+
       const nodeX = [];
       for (let y = minY; y <= maxY; y++) {
         nodeX.length = 0;
@@ -1533,7 +1588,11 @@
               if (gradient && bounds) {
                 pixColor = sampleGradient(gradient, x, y, bounds, scale, totalOpacity);
               }
-              if (texMode > 0) {
+              if (customPixels) {
+                const pA = (pixColor >>> 24) & 0xFF;
+                const sampledA = sampleCustomTexture(customPixels, customW, customH, x, y, texAngle, texScale, texContrast, pA);
+                pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
+              } else if (texMode > 0) {
                 const pA = (pixColor >>> 24) & 0xFF;
                 const sampledA = sampleProceduralTexture(texMode, x, y, texAngle, texScale, texContrast, pA);
                 pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;

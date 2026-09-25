@@ -475,6 +475,26 @@ async function main() {
       category: 'shape'
     });
 
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomTipShape && typeof document !== 'undefined') {
+      try {
+        const off = document.createElement('canvas');
+        off.width = cw;
+        off.height = ch;
+        const ctx = off.getContext('2d');
+        const imgData = ctx.createImageData(cw, ch);
+        imgData.data.set(src);
+        ctx.putImageData(imgData, 0, 0);
+        const dataUrl = off.toDataURL('image/png');
+        EsenhoStore.saveCustomTipShape(texName, {
+          id: texName,
+          name: name,
+          width: cw,
+          height: ch,
+          dataUrl: dataUrl
+        });
+      } catch (_) {}
+    }
+
     host.setBrushParam('shape', tid);
     if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
     if (typeof host.sendConsoleLog === 'function') host.sendConsoleLog(`Created custom tip from layer [ID ${tid}]`);
@@ -522,6 +542,26 @@ async function main() {
       category: 'shape'
     });
 
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomTipShape && typeof document !== 'undefined' && dstPtr) {
+      try {
+        const off = document.createElement('canvas');
+        off.width = sw;
+        off.height = sh;
+        const ctx = off.getContext('2d');
+        const imgData = ctx.createImageData(sw, sh);
+        imgData.data.set(new Uint8Array(host.canvasActor.memory.buffer, dstPtr, sw * sh * 4));
+        ctx.putImageData(imgData, 0, 0);
+        const dataUrl = off.toDataURL('image/png');
+        EsenhoStore.saveCustomTipShape(texName, {
+          id: texName,
+          name: name,
+          width: sw,
+          height: sh,
+          dataUrl: dataUrl
+        });
+      } catch (_) {}
+    }
+
     host.setBrushParam('shape', tid);
     if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
     if (typeof host.sendConsoleLog === 'function') host.sendConsoleLog(`Created custom tip from selection [${sw}x${sh}, ID ${tid}]`);
@@ -556,6 +596,26 @@ async function main() {
       wasmId: tid,
       category: 'texture'
     });
+
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomTexture && typeof document !== 'undefined') {
+      try {
+        const off = document.createElement('canvas');
+        off.width = cw;
+        off.height = ch;
+        const ctx = off.getContext('2d');
+        const imgData = ctx.createImageData(cw, ch);
+        imgData.data.set(src);
+        ctx.putImageData(imgData, 0, 0);
+        const dataUrl = off.toDataURL('image/png');
+        EsenhoStore.saveCustomTexture(texName, {
+          id: texName,
+          name: name,
+          width: cw,
+          height: ch,
+          dataUrl: dataUrl
+        });
+      } catch (_) {}
+    }
 
     if (typeof host.canvasActor.exports.w_brush_set_param === 'function') {
       host.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, tid);
@@ -606,6 +666,26 @@ async function main() {
       wasmId: tid,
       category: 'texture'
     });
+
+    if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomTexture && typeof document !== 'undefined' && dstPtr) {
+      try {
+        const off = document.createElement('canvas');
+        off.width = sw;
+        off.height = sh;
+        const ctx = off.getContext('2d');
+        const imgData = ctx.createImageData(sw, sh);
+        imgData.data.set(new Uint8Array(host.canvasActor.memory.buffer, dstPtr, sw * sh * 4));
+        ctx.putImageData(imgData, 0, 0);
+        const dataUrl = off.toDataURL('image/png');
+        EsenhoStore.saveCustomTexture(texName, {
+          id: texName,
+          name: name,
+          width: sw,
+          height: sh,
+          dataUrl: dataUrl
+        });
+      } catch (_) {}
+    }
 
     if (typeof host.canvasActor.exports.w_brush_set_param === 'function') {
       host.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, tid);
@@ -7192,7 +7272,7 @@ async function main() {
               const res = await EsenhoBundle.importBundle(parsed);
               host.customBrushPresets = getCustomBrushPresets();
               populateBrushPresetsUI();
-              log(`Imported Asset Bundle '${parsed.title}': ${res.brushes} brushes, ${res.plugins} plugins, ${res.projects} projects [ok]`);
+              log(`Imported Asset Bundle '${parsed.title}': ${res.brushes} brushes, ${res.plugins} plugins, ${res.textures} textures, ${res.tipShapes} tips, ${res.projects} projects [ok]`);
               return;
             }
           }

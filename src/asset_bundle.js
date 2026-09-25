@@ -64,6 +64,8 @@
      * @param {Array<{name: string, bytes: Uint8Array}>} [options.plugins] - WASM plugins
      * @param {Array<Object>} [options.projects] - Array of full project objects
      * @param {Object} [options.palettes] - Map of palettes
+     * @param {Object} [options.textures] - Map of { [id]: { name, width, height, dataUrl } }
+     * @param {Object} [options.tipShapes] - Map of { [id]: { name, width, height, dataUrl } }
      * @returns {string} XML SVG string
      */
     createBundle(options = {}) {
@@ -74,11 +76,15 @@
       const plugins = options.plugins || [];
       const projects = options.projects || [];
       const palettes = options.palettes || {};
+      const textures = options.textures || {};
+      const tipShapes = options.tipShapes || {};
 
       const brushCount = Object.keys(brushes).length;
       const pluginCount = plugins.length;
       const projectCount = projects.length;
       const paletteCount = Object.keys(palettes).length;
+      const textureCount = Object.keys(textures).length;
+      const tipShapeCount = Object.keys(tipShapes).length;
 
       // Prepare metadata payload
       const manifest = {
@@ -91,11 +97,16 @@
           brushes: brushCount,
           plugins: pluginCount,
           projects: projectCount,
-          palettes: paletteCount
+          palettes: paletteCount,
+          textures: textureCount,
+          tipShapes: tipShapeCount
         },
         brushes,
+        plugins: plugins.map(p => ({ name: p.name })),
         projects,
-        palettes
+        palettes,
+        textures,
+        tipShapes
       };
 
       // Generate <defs> with embedded WASM binaries
@@ -110,9 +121,9 @@
         defsXml += "  </defs>\n";
       }
 
-      // Visual Card Layout (800x500)
+      // Visual Card Layout (800x520)
       const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="800" height="500" data-esenho-bundle="1.0">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520" data-esenho-bundle="1.0">
   <metadata>
     <esenho-manifest>
 <![CDATA[
@@ -122,7 +133,7 @@ ${JSON.stringify(manifest, null, 2)}
   </metadata>
 ${defsXml}
   <!-- Background Card -->
-  <rect width="800" height="500" rx="16" fill="#18191c" stroke="#2c2d30" stroke-width="2" />
+  <rect width="800" height="520" rx="16" fill="#18191c" stroke="#2c2d30" stroke-width="2" />
   
   <!-- Header Bar -->
   <rect x="0" y="0" width="800" height="90" rx="16" fill="#202124" />
@@ -131,46 +142,60 @@ ${defsXml}
   <text x="88" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="bold" fill="#fbf1c7">${escapeXml(title)}</text>
   <text x="88" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#928374">Wesenho Universal Asset Bundle • ${escapeXml(createdAt.slice(0, 10))}</text>
 
-  <!-- Statistics Badges -->
-  <g transform="translate(40, 120)">
+  <!-- Statistics Badges (Row 1: 4 boxes) -->
+  <g transform="translate(30, 110)">
     <!-- Brushes Box -->
     <g transform="translate(0, 0)">
-      <rect width="160" height="100" rx="10" fill="#282828" stroke="#3c3836" />
-      <text x="20" y="38" font-family="sans-serif" font-size="13" fill="#a89984">BRUSHES</text>
-      <text x="20" y="78" font-family="sans-serif" font-size="32" font-weight="bold" fill="#fabd2f">${brushCount}</text>
+      <rect width="115" height="85" rx="8" fill="#282828" stroke="#3c3836" />
+      <text x="12" y="30" font-family="sans-serif" font-size="11" fill="#a89984">BRUSHES</text>
+      <text x="12" y="65" font-family="sans-serif" font-size="24" font-weight="bold" fill="#fabd2f">${brushCount}</text>
     </g>
     <!-- Plugins Box -->
-    <g transform="translate(185, 0)">
-      <rect width="160" height="100" rx="10" fill="#282828" stroke="#3c3836" />
-      <text x="20" y="38" font-family="sans-serif" font-size="13" fill="#a89984">WASM PLUGINS</text>
-      <text x="20" y="78" font-family="sans-serif" font-size="32" font-weight="bold" fill="#8ec07c">${pluginCount}</text>
+    <g transform="translate(125, 0)">
+      <rect width="115" height="85" rx="8" fill="#282828" stroke="#3c3836" />
+      <text x="12" y="30" font-family="sans-serif" font-size="11" fill="#a89984">WASM</text>
+      <text x="12" y="65" font-family="sans-serif" font-size="24" font-weight="bold" fill="#8ec07c">${pluginCount}</text>
+    </g>
+    <!-- Textures Box -->
+    <g transform="translate(250, 0)">
+      <rect width="115" height="85" rx="8" fill="#282828" stroke="#3c3836" />
+      <text x="12" y="30" font-family="sans-serif" font-size="11" fill="#a89984">TEXTURES</text>
+      <text x="12" y="65" font-family="sans-serif" font-size="24" font-weight="bold" fill="#fe8019">${textureCount}</text>
+    </g>
+    <!-- Tip Shapes Box -->
+    <g transform="translate(375, 0)">
+      <rect width="115" height="85" rx="8" fill="#282828" stroke="#3c3836" />
+      <text x="12" y="30" font-family="sans-serif" font-size="11" fill="#a89984">TIP SHAPES</text>
+      <text x="12" y="65" font-family="sans-serif" font-size="24" font-weight="bold" fill="#b8bb26">${tipShapeCount}</text>
     </g>
     <!-- Projects Box -->
-    <g transform="translate(370, 0)">
-      <rect width="160" height="100" rx="10" fill="#282828" stroke="#3c3836" />
-      <text x="20" y="38" font-family="sans-serif" font-size="13" fill="#a89984">PROJECTS</text>
-      <text x="20" y="78" font-family="sans-serif" font-size="32" font-weight="bold" fill="#83a598">${projectCount}</text>
+    <g transform="translate(500, 0)">
+      <rect width="115" height="85" rx="8" fill="#282828" stroke="#3c3836" />
+      <text x="12" y="30" font-family="sans-serif" font-size="11" fill="#a89984">PROJECTS</text>
+      <text x="12" y="65" font-family="sans-serif" font-size="24" font-weight="bold" fill="#83a598">${projectCount}</text>
     </g>
     <!-- Palettes Box -->
-    <g transform="translate(555, 0)">
-      <rect width="160" height="100" rx="10" fill="#282828" stroke="#3c3836" />
-      <text x="20" y="38" font-family="sans-serif" font-size="13" fill="#a89984">PALETTES</text>
-      <text x="20" y="78" font-family="sans-serif" font-size="32" font-weight="bold" fill="#d3869b">${paletteCount}</text>
+    <g transform="translate(625, 0)">
+      <rect width="115" height="85" rx="8" fill="#282828" stroke="#3c3836" />
+      <text x="12" y="30" font-family="sans-serif" font-size="11" fill="#a89984">PALETTES</text>
+      <text x="12" y="65" font-family="sans-serif" font-size="24" font-weight="bold" fill="#d3869b">${paletteCount}</text>
     </g>
   </g>
 
   <!-- Item Summary Lists -->
-  <g transform="translate(40, 250)">
-    <rect width="720" height="180" rx="10" fill="#202124" stroke="#2c2d30" />
-    <text x="24" y="36" font-family="sans-serif" font-size="15" font-weight="bold" fill="#ebdbb2">Package Manifest</text>
-    <text x="24" y="66" font-family="monospace" font-size="12" fill="#a89984">Brushes: ${escapeXml(Object.keys(brushes).join(', ') || '(none)')}</text>
-    <text x="24" y="94" font-family="monospace" font-size="12" fill="#a89984">Plugins: ${escapeXml(plugins.map(p => p.name).join(', ') || '(none)')}</text>
-    <text x="24" y="122" font-family="monospace" font-size="12" fill="#a89984">Projects: ${escapeXml(projects.map(p => p.name || p.id).join(', ') || '(none)')}</text>
-    <text x="24" y="150" font-family="monospace" font-size="12" fill="#665c54">Drag &amp; drop this SVG into Wesenho Studio or Painter to unpack.</text>
+  <g transform="translate(30, 215)">
+    <rect width="740" height="240" rx="10" fill="#202124" stroke="#2c2d30" />
+    <text x="24" y="34" font-family="sans-serif" font-size="14" font-weight="bold" fill="#ebdbb2">Package Manifest</text>
+    <text x="24" y="62" font-family="monospace" font-size="11" fill="#a89984">Brushes: ${escapeXml(Object.keys(brushes).join(', ') || '(none)')}</text>
+    <text x="24" y="86" font-family="monospace" font-size="11" fill="#a89984">Plugins: ${escapeXml(plugins.map(p => p.name).join(', ') || '(none)')}</text>
+    <text x="24" y="110" font-family="monospace" font-size="11" fill="#a89984">Textures: ${escapeXml(Object.keys(textures).join(', ') || '(none)')}</text>
+    <text x="24" y="134" font-family="monospace" font-size="11" fill="#a89984">Tip Shapes: ${escapeXml(Object.keys(tipShapes).join(', ') || '(none)')}</text>
+    <text x="24" y="158" font-family="monospace" font-size="11" fill="#a89984">Projects: ${escapeXml(projects.map(p => p.name || p.id).join(', ') || '(none)')}</text>
+    <text x="24" y="195" font-family="monospace" font-size="11" fill="#665c54">Drag &amp; drop this SVG into Wesenho Studio or Painter to unpack.</text>
   </g>
 
   <!-- Footer -->
-  <text x="400" y="475" font-family="sans-serif" font-size="12" fill="#504945" text-anchor="middle">Wesenho Universal Vector &amp; Raster Graphics Environment</text>
+  <text x="400" y="495" font-family="sans-serif" font-size="11" fill="#504945" text-anchor="middle">Wesenho Universal Vector &amp; Raster Graphics Environment</text>
 </svg>`;
 
       return svg;
@@ -231,20 +256,22 @@ ${defsXml}
         brushes: manifest.brushes || {},
         plugins,
         projects: manifest.projects || [],
-        palettes: manifest.palettes || {}
+        palettes: manifest.palettes || {},
+        textures: manifest.textures || {},
+        tipShapes: manifest.tipShapes || {}
       };
     },
 
     /**
      * Imports selected items from a parsed bundle into local storage and IndexedDB.
      * @param {Object} bundleData - Parsed bundle object
-     * @param {Object} [selection] - { brushes: boolean|string[], plugins: boolean|string[], projects: boolean|string[], palettes: boolean|string[] }
-     * @returns {Promise<{brushes: number, plugins: number, projects: number, palettes: number}>}
+     * @param {Object} [selection] - { brushes, plugins, projects, palettes, textures, tipShapes }
+     * @returns {Promise<{brushes: number, plugins: number, projects: number, palettes: number, textures: number, tipShapes: number}>}
      */
     async importBundle(bundleData, selection = {}) {
       if (!bundleData) throw new Error("Invalid bundle data");
       const store = EsenhoStore || (typeof window !== "undefined" ? window.EsenhoStore : null);
-      const results = { brushes: 0, plugins: 0, projects: 0, palettes: 0 };
+      const results = { brushes: 0, plugins: 0, projects: 0, palettes: 0, textures: 0, tipShapes: 0 };
 
       // 1. Import Brushes
       if (bundleData.brushes && selection.brushes !== false) {
@@ -271,7 +298,31 @@ ${defsXml}
         }
       }
 
-      // 3. Import Projects
+      // 3. Import Custom Textures
+      if (bundleData.textures && selection.textures !== false) {
+        const allowed = Array.isArray(selection.textures) ? new Set(selection.textures) : null;
+        for (const [id, tex] of Object.entries(bundleData.textures)) {
+          if (allowed && !allowed.has(id)) continue;
+          if (store && store.saveCustomTexture) {
+            await store.saveCustomTexture(id, tex);
+            results.textures++;
+          }
+        }
+      }
+
+      // 4. Import Custom Tip Shapes
+      if (bundleData.tipShapes && selection.tipShapes !== false) {
+        const allowed = Array.isArray(selection.tipShapes) ? new Set(selection.tipShapes) : null;
+        for (const [id, shape] of Object.entries(bundleData.tipShapes)) {
+          if (allowed && !allowed.has(id)) continue;
+          if (store && store.saveCustomTipShape) {
+            await store.saveCustomTipShape(id, shape);
+            results.tipShapes++;
+          }
+        }
+      }
+
+      // 5. Import Projects
       if (bundleData.projects && selection.projects !== false) {
         const allowed = Array.isArray(selection.projects) ? new Set(selection.projects) : null;
         for (const proj of bundleData.projects) {
@@ -284,7 +335,7 @@ ${defsXml}
         }
       }
 
-      // 4. Import Palettes
+      // 6. Import Palettes
       if (bundleData.palettes && selection.palettes !== false) {
         const allowed = Array.isArray(selection.palettes) ? new Set(selection.palettes) : null;
         if (typeof localStorage !== "undefined") {

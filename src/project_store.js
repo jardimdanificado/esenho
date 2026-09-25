@@ -14,9 +14,11 @@
   "use strict";
 
   const DB_NAME = "EsenhoDB";
-  const DB_VERSION = 2;
+  const DB_VERSION = 3;
   const STORE_PROJECTS = "projects";
   const STORE_PLUGINS = "plugins";
+  const STORE_TEXTURES = "textures";
+  const STORE_TIP_SHAPES = "tip_shapes";
 
   let dbPromise = null;
 
@@ -35,6 +37,16 @@
           if (!db.objectStoreNames.contains(STORE_PLUGINS)) {
             const store = db.createObjectStore(STORE_PLUGINS, { keyPath: "name" });
             store.createIndex("updatedAt", "updatedAt", { unique: false });
+          }
+          if (!db.objectStoreNames.contains(STORE_TEXTURES)) {
+            const store = db.createObjectStore(STORE_TEXTURES, { keyPath: "id" });
+            store.createIndex("updatedAt", "updatedAt", { unique: false });
+            store.createIndex("name", "name", { unique: false });
+          }
+          if (!db.objectStoreNames.contains(STORE_TIP_SHAPES)) {
+            const store = db.createObjectStore(STORE_TIP_SHAPES, { keyPath: "id" });
+            store.createIndex("updatedAt", "updatedAt", { unique: false });
+            store.createIndex("name", "name", { unique: false });
           }
         };
         req.onsuccess = e => resolve(e.target.result);
@@ -398,6 +410,16 @@
       });
     },
 
+    async renameProject(id, newName) {
+      if (!id || !newName) return false;
+      const proj = await this.getProject(id);
+      if (!proj) return false;
+      proj.name = newName.trim();
+      proj.updatedAt = new Date().toISOString();
+      await this.saveProject(proj);
+      return true;
+    },
+
     async deleteProject(id) {
       if (!id) return false;
       const db = await getDB();
@@ -431,16 +453,25 @@
           localStorage.removeItem("esenho_vector_autosave");
           localStorage.removeItem("esenho_current_vector_project_id");
           localStorage.removeItem("esenho_current_raster_project_id");
+          localStorage.removeItem("esenho_custom_textures_meta");
+          localStorage.removeItem("esenho_custom_tip_shapes_meta");
+          localStorage.removeItem("esenho_custom_brush_presets_v1");
         } catch (_) {}
       }
+      if (this._nodeProjects) this._nodeProjects.clear();
+      if (this._nodePlugins) this._nodePlugins.clear();
+      if (this._nodeTextures) this._nodeTextures.clear();
+      if (this._nodeTipShapes) this._nodeTipShapes.clear();
+      if (this._nodeBrushPresets) this._nodeBrushPresets = {};
       if (!db) return true;
 
       return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_PROJECTS, "readwrite");
-        const store = tx.objectStore(STORE_PROJECTS);
-        const req = store.clear();
-        req.onsuccess = () => resolve(true);
-        req.onerror = e => reject(e.target.error);
+        const stores = [STORE_PROJECTS, STORE_PLUGINS, STORE_TEXTURES, STORE_TIP_SHAPES].filter(s => db.objectStoreNames.contains(s));
+        if (stores.length === 0) return resolve(true);
+        const tx = db.transaction(stores, "readwrite");
+        stores.forEach(s => tx.objectStore(s).clear());
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = e => reject(e.target.error);
       });
     },
 
@@ -634,6 +665,236 @@
         }
       }
       return false;
+    },
+
+    /* ── Custom Raster Textures ── */
+    async saveCustomTexture(id, textureData) {
+      if (!id || !textureData) return false;
+      const safeId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const record = {
+        id: safeId,
+        name: textureData.name || safeId,
+        width: textureData.width || 256,
+        height: textureData.height || 256,
+        dataUrl: textureData.dataUrl || "",
+        createdAt: textureData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem("esenho_texture_" + safeId, JSON.stringify(record));
+            const meta = JSON.parse(localStorage.getItem("esenho_custom_textures_meta") || "[]");
+            const idx = meta.findIndex(m => m.id === safeId);
+            const summary = { id: safeId, name: record.name, width: record.width, height: record.height, updatedAt: record.updatedAt };
+            if (idx >= 0) meta[idx] = summary; else meta.push(summary);
+            localStorage.setItem("esenho_custom_textures_meta", JSON.stringify(meta));
+          } catch (_) {}
+        } else {
+          if (!this._nodeTextures) this._nodeTextures = new Map();
+          this._nodeTextures.set(safeId, record);
+        }
+        return record;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TEXTURES, "readwrite");
+        const store = tx.objectStore(STORE_TEXTURES);
+        const req = store.put(record);
+        req.onsuccess = () => resolve(record);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async getCustomTexture(id) {
+      if (!id) return null;
+      const safeId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            const raw = localStorage.getItem("esenho_texture_" + safeId);
+            return raw ? JSON.parse(raw) : null;
+          } catch (_) { return null; }
+        }
+        return this._nodeTextures ? (this._nodeTextures.get(safeId) || null) : null;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TEXTURES, "readonly");
+        const store = tx.objectStore(STORE_TEXTURES);
+        const req = store.get(safeId);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async listCustomTextures() {
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            return JSON.parse(localStorage.getItem("esenho_custom_textures_meta") || "[]");
+          } catch (_) { return []; }
+        }
+        if (this._nodeTextures) {
+          return Array.from(this._nodeTextures.values()).map(t => ({
+            id: t.id, name: t.name, width: t.width, height: t.height, updatedAt: t.updatedAt
+          }));
+        }
+        return [];
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TEXTURES, "readonly");
+        const store = tx.objectStore(STORE_TEXTURES);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async deleteCustomTexture(id) {
+      if (!id) return false;
+      const safeId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.removeItem("esenho_texture_" + safeId);
+            const list = JSON.parse(localStorage.getItem("esenho_custom_textures_meta") || "[]").filter(m => m.id !== safeId);
+            localStorage.setItem("esenho_custom_textures_meta", JSON.stringify(list));
+          } catch (_) {}
+        } else if (this._nodeTextures) {
+          this._nodeTextures.delete(safeId);
+        }
+        return true;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TEXTURES, "readwrite");
+        const store = tx.objectStore(STORE_TEXTURES);
+        const req = store.delete(safeId);
+        req.onsuccess = () => resolve(true);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    /* ── Custom Brush Tip Shapes ── */
+    async saveCustomTipShape(id, tipShapeData) {
+      if (!id || !tipShapeData) return false;
+      const safeId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const record = {
+        id: safeId,
+        name: tipShapeData.name || safeId,
+        width: tipShapeData.width || 64,
+        height: tipShapeData.height || 64,
+        dataUrl: tipShapeData.dataUrl || "",
+        createdAt: tipShapeData.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem("esenho_tip_shape_" + safeId, JSON.stringify(record));
+            const meta = JSON.parse(localStorage.getItem("esenho_custom_tip_shapes_meta") || "[]");
+            const idx = meta.findIndex(m => m.id === safeId);
+            const summary = { id: safeId, name: record.name, width: record.width, height: record.height, updatedAt: record.updatedAt };
+            if (idx >= 0) meta[idx] = summary; else meta.push(summary);
+            localStorage.setItem("esenho_custom_tip_shapes_meta", JSON.stringify(meta));
+          } catch (_) {}
+        } else {
+          if (!this._nodeTipShapes) this._nodeTipShapes = new Map();
+          this._nodeTipShapes.set(safeId, record);
+        }
+        return record;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TIP_SHAPES, "readwrite");
+        const store = tx.objectStore(STORE_TIP_SHAPES);
+        const req = store.put(record);
+        req.onsuccess = () => resolve(record);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async getCustomTipShape(id) {
+      if (!id) return null;
+      const safeId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            const raw = localStorage.getItem("esenho_tip_shape_" + safeId);
+            return raw ? JSON.parse(raw) : null;
+          } catch (_) { return null; }
+        }
+        return this._nodeTipShapes ? (this._nodeTipShapes.get(safeId) || null) : null;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TIP_SHAPES, "readonly");
+        const store = tx.objectStore(STORE_TIP_SHAPES);
+        const req = store.get(safeId);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async listCustomTipShapes() {
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            return JSON.parse(localStorage.getItem("esenho_custom_tip_shapes_meta") || "[]");
+          } catch (_) { return []; }
+        }
+        if (this._nodeTipShapes) {
+          return Array.from(this._nodeTipShapes.values()).map(t => ({
+            id: t.id, name: t.name, width: t.width, height: t.height, updatedAt: t.updatedAt
+          }));
+        }
+        return [];
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TIP_SHAPES, "readonly");
+        const store = tx.objectStore(STORE_TIP_SHAPES);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async deleteCustomTipShape(id) {
+      if (!id) return false;
+      const safeId = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.removeItem("esenho_tip_shape_" + safeId);
+            const list = JSON.parse(localStorage.getItem("esenho_custom_tip_shapes_meta") || "[]").filter(m => m.id !== safeId);
+            localStorage.setItem("esenho_custom_tip_shapes_meta", JSON.stringify(list));
+          } catch (_) {}
+        } else if (this._nodeTipShapes) {
+          this._nodeTipShapes.delete(safeId);
+        }
+        return true;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_TIP_SHAPES, "readwrite");
+        const store = tx.objectStore(STORE_TIP_SHAPES);
+        const req = store.delete(safeId);
+        req.onsuccess = () => resolve(true);
+        req.onerror = e => reject(e.target.error);
+      });
     }
   };
 

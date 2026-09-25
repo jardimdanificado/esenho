@@ -183,6 +183,33 @@
       display: flex;
     }
 
+    .menu-item-submenu-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .menu-item-submenu-wrap:hover > .menu-submenu,
+    .menu-item-submenu-wrap:focus-within > .menu-submenu {
+      display: flex;
+    }
+
+    .menu-submenu {
+      display: none;
+      position: absolute;
+      left: calc(100% + 4px);
+      top: -4px;
+      min-width: 250px;
+      max-width: 320px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      padding: 4px;
+      flex-direction: column;
+      gap: 2px;
+      z-index: 100000;
+    }
+
     .menu-item {
       display: flex;
       align-items: center;
@@ -1050,69 +1077,84 @@
 
     .recents-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 12px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
     }
 
     .recent-item {
-      background: var(--bg-input);
+      background: var(--bg-panel-sub);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       overflow: hidden;
-      cursor: pointer;
       display: flex;
       flex-direction: column;
-      transition: border-color 0.15s, background-color 0.15s;
+      transition: border-color 0.15s ease, background 0.15s ease;
     }
 
     .recent-item:hover {
-      border-color: var(--primary);
+      border-color: var(--border-bright);
     }
 
     .recent-thumb {
       width: 100%;
-      height: 105px;
-      background: var(--bg-dark);
+      height: 120px;
+      background: #141617;
       display: flex;
       align-items: center;
       justify-content: center;
       border-bottom: 1px solid var(--border);
       overflow: hidden;
+      cursor: pointer;
     }
 
     .recent-thumb img, .recent-thumb svg {
-      max-width: 100%;
-      max-height: 100%;
+      max-width: 90%;
+      max-height: 90%;
       object-fit: contain;
     }
 
     .recent-meta {
-      padding: 8px;
+      padding: 10px 12px;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .recent-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .recent-title {
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--text);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    .recent-title:hover {
+      color: var(--primary);
     }
 
     .recent-sub {
-      font-size: 9px;
+      font-size: 10px;
       color: var(--text-muted);
+      font-family: var(--font-mono);
     }
 
     .recent-actions {
       display: flex;
-      justify-content: space-between;
-      margin-top: 4px;
-      padding-top: 4px;
-      border-top: 1px dashed var(--border);
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px solid var(--border);
     }
   </style>
 </head>
@@ -1132,9 +1174,21 @@
           <span>New Project</span>
           <span class="shortcut">Ctrl+N</span>
         </button>
-        <button id="btn-recent-projects" class="menu-item">
-          <span>Recent Projects</span>
-        </button>
+        <div class="menu-item-submenu-wrap">
+          <button id="btn-recent-projects" class="menu-item">
+            <span>Recent Projects</span>
+            <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+          </button>
+          <div id="menu-recent-projects-flyout" class="menu-submenu">
+            <div id="menu-recents-list" style="display: flex; flex-direction: column; gap: 2px;">
+              <div style="padding: 10px; font-size: 10px; color: var(--text-muted); text-align: center;">Loading...</div>
+            </div>
+            <div class="menu-divider"></div>
+            <button id="btn-open-recents-modal" class="menu-item" style="font-size: 10px; color: var(--primary);">
+              <span>All Projects &amp; Storage...</span>
+            </button>
+          </div>
+        </div>
 
         <div class="menu-divider"></div>
 
@@ -1167,12 +1221,50 @@
 
         <div class="menu-divider"></div>
 
-        <div style="padding: 4px 10px; display: flex; align-items: center; justify-content: space-between; font-size: 11px; color: var(--text-muted);">
-          <span>Renderer</span>
-          <select id="select-render-mode" style="width: auto; padding: 2px 4px; font-size: 10px;">
-            <option value="svg" selected>SVG Direct</option>
-            <option value="quadro">Quadro</option>
-          </select>
+        <div class="menu-item-submenu-wrap">
+          <button id="btn-renderer-menu" class="menu-item">
+            <span>Renderer</span>
+            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+              <span id="menu-current-renderer-label" style="font-size: 9px; color: var(--primary); font-family: var(--font-mono);">SVG Direct</span>
+              <span style="font-size: 8px; color: var(--text-muted);">▸</span>
+            </div>
+          </button>
+          <div id="menu-renderer-flyout" class="menu-submenu">
+            <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Engine</div>
+            <button type="button" class="menu-item render-opt-btn" data-renderer="svg">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="render-check" id="check-renderer-svg" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
+                <span>SVG Direct (Native DOM)</span>
+              </span>
+            </button>
+            <button type="button" class="menu-item render-opt-btn" data-renderer="quadro">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="render-check" id="check-renderer-quadro" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
+                <span>Quadro (Software Raster)</span>
+              </span>
+            </button>
+
+            <div class="menu-divider"></div>
+            <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Quadro Scale</div>
+            <button type="button" class="menu-item render-scale-btn" data-scale="0.5">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="scale-check" id="check-scale-05" style="width: 12px; font-size: 10px; color: var(--accent); opacity: 0;">✓</span>
+                <span>0.5× (Draft Half)</span>
+              </span>
+            </button>
+            <button type="button" class="menu-item render-scale-btn" data-scale="1.0">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="scale-check" id="check-scale-10" style="width: 12px; font-size: 10px; color: var(--accent);">✓</span>
+                <span>1.0× (Native 1:1)</span>
+              </span>
+            </button>
+            <button type="button" class="menu-item render-scale-btn" data-scale="2.0">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="scale-check" id="check-scale-20" style="width: 12px; font-size: 10px; color: var(--accent); opacity: 0;">✓</span>
+                <span>2.0× (Hi-DPI Retina)</span>
+              </span>
+            </button>
+          </div>
         </div>
 
         <div class="menu-divider"></div>
@@ -1221,24 +1313,77 @@
       
       <div class="toolbar-sep"></div>
       
-      <button class="tool-btn" id="tool-rect" data-tool="rect" title="Rectangle (R)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
-        <span class="hotkey">R</span>
-      </button>
-      <button class="tool-btn" id="tool-ellipse" data-tool="ellipse" title="Ellipse / Circle (O)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
-        <span class="hotkey">O</span>
-      </button>
-      <button class="tool-btn" id="tool-line" data-tool="line" title="Line (L)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
-        <span class="hotkey">L</span>
-      </button>
+      <!-- Unified Shape Tool Popover -->
+      <div class="tool-popover-wrap">
+        <button class="tool-btn" id="tool-shape-unified" data-tool="rect" title="Shapes (R, O, L)">
+          <span id="tool-shape-icon" style="display: flex; align-items: center; justify-content: center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
+          </span>
+          <span class="flyout-indicator">▸</span>
+        </button>
+        <div id="flyout-shapes" class="tool-flyout">
+          <div class="flyout-title">Shapes</div>
+          <div class="flyout-col">
+            <button type="button" class="btn-icon" id="shape-opt-rect" data-tool="rect" style="width: 100%; justify-content: flex-start; gap: 8px; padding: 5px 8px; font-size: 11px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
+              <span>Rectangle</span> <span style="margin-left: auto; color: var(--text-muted); font-size: 10px;">R</span>
+            </button>
+            <button type="button" class="btn-icon" id="shape-opt-ellipse" data-tool="ellipse" style="width: 100%; justify-content: flex-start; gap: 8px; padding: 5px 8px; font-size: 11px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+              <span>Ellipse / Circle</span> <span style="margin-left: auto; color: var(--text-muted); font-size: 10px;">O</span>
+            </button>
+            <button type="button" class="btn-icon" id="shape-opt-line" data-tool="line" style="width: 100%; justify-content: flex-start; gap: 8px; padding: 5px 8px; font-size: 11px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
+              <span>Line</span> <span style="margin-left: auto; color: var(--text-muted); font-size: 10px;">L</span>
+            </button>
+          </div>
+        </div>
+      </div>
       <button class="tool-btn" id="tool-text" data-tool="text" title="Vector Typography (T)">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="9" y1="20" x2="15" y2="20"/></svg>
         <span class="hotkey">T</span>
       </button>
       
       <div class="toolbar-sep"></div>
+
+      <!-- Node & Curves Flyout -->
+      <div class="tool-popover-wrap">
+        <button class="tool-btn" id="btn-popover-node-curves" title="Node &amp; Curves Tools">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-7 8-7 11 0s8 7 11 0"/><circle cx="3" cy="17" r="2"/><circle cx="14" cy="17" r="2"/><circle cx="21" cy="13" r="2"/></svg>
+          <span class="flyout-indicator">▸</span>
+        </button>
+        <div id="flyout-node-curves" class="tool-flyout" style="width: 190px;">
+          <div class="flyout-title">Node &amp; Curves</div>
+          <div class="flyout-row">
+            <button class="btn-icon" id="btn-node-smooth" title="Smooth: Aligned tangent handles" style="flex: 1; font-size: 10px; padding: 4px;">Smooth</button>
+            <button class="btn-icon" id="btn-node-symmetric" title="Symmetric: Mirrored handles" style="flex: 1; font-size: 10px; padding: 4px;">Symmetric</button>
+          </div>
+          <div class="flyout-row">
+            <button class="btn-icon" id="btn-node-cusp" title="Cusp / Independent handles" style="flex: 1; font-size: 10px; padding: 4px;">Cusp</button>
+            <button class="btn-icon" id="btn-node-sharp" title="Sharp Corner: Clear handles" style="flex: 1; font-size: 10px; padding: 4px;">Sharp</button>
+          </div>
+          <button class="btn-icon" id="btn-path-close" style="width: 100%; font-size: 10px; padding: 4px; margin-top: 2px;" title="Toggle Close / Open Path">Toggle Close Path</button>
+          
+          <div class="flyout-divider"></div>
+          <div class="flyout-row">
+            <button class="btn-icon" id="btn-quick-convert-path" style="flex: 1; font-size: 10px; padding: 4px; border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
+            <button class="btn-icon" id="btn-quick-create-outlines" style="flex: 1; font-size: 10px; padding: 4px; border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Outlines</button>
+          </div>
+
+          <div class="flyout-divider"></div>
+          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 3px;">Simplify Curves (RDP)</div>
+          <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+            <input type="range" id="prop-simplify-tol" min="0.2" max="10.0" step="0.2" value="2.0" style="flex: 1;">
+            <span id="prop-simplify-val" style="font-size: 10px; width: 22px; text-align: right; font-family: var(--font-mono);">2.0</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+            <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer; color: var(--text);">
+              <input type="checkbox" id="prop-simplify-bezier" checked> Bézier Fit
+            </label>
+            <button class="btn-sm" id="btn-simplify-path" style="font-size: 9px; padding: 2px 6px; border-color: var(--primary); color: var(--primary);">Simplify</button>
+          </div>
+        </div>
+      </div>
 
       <!-- Alignment & Distribution Flyout -->
       <div class="tool-popover-wrap">
@@ -1299,7 +1444,10 @@
           <div class="flyout-col">
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-grid"> Grid</label>
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-canvas" checked> Canvas Center &amp; Edges</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-guides" checked> Ruler Guides</label>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-guides" checked> Ruler Guides</label>
+              <button type="button" id="btn-clear-ruler-guides" class="btn-sm" style="font-size: 9px; padding: 1px 4px; border-color: var(--danger-dim); color: var(--danger);" title="Clear all ruler guide lines">Clear</button>
+            </div>
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-objects" checked> Object Geometry</label>
           </div>
           <div style="margin-top: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
@@ -1374,7 +1522,7 @@
     <!-- Right Sidebar (Scene Graph & Inspector) -->
     <div id="sidebar">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="tab-objects">Layers</button>
+        <button class="tab-btn active" data-tab="tab-objects">Scene</button>
         <button class="tab-btn" data-tab="tab-style">Inspect</button>
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
       </div>
@@ -1416,6 +1564,8 @@
 
             <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">Rasterize to Image</button>
 
+            <!-- Masking & Text Path Controls -->
+            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); margin-top: 4px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
             <div class="grid-2" style="margin-top: 2px;">
               <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
               <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">Release Mask</button>
@@ -1459,92 +1609,6 @@
             </div>
           </div>
         </div>
-
-        <!-- 1. Node & Curve Tools -->
-        <details open class="section-accordion" id="card-nodes">
-          <summary><span>Node &amp; Curve Tools</span></summary>
-          <div class="accordion-body">
-            <div class="grid-2">
-              <button id="btn-node-smooth" class="btn-sm" title="Smooth: Aligned tangent handles">Smooth</button>
-              <button id="btn-node-symmetric" class="btn-sm" title="Symmetric: Mirrored handles">Symmetric</button>
-            </div>
-            <div class="grid-2">
-              <button id="btn-node-cusp" class="btn-sm" title="Cusp / Independent: Move handles independently without moving the opposite handle">Cusp</button>
-              <button id="btn-node-sharp" class="btn-sm" title="Sharp Corner: Clear handles">Sharp Corner</button>
-            </div>
-            <button id="btn-path-close" class="btn-sm" style="width: 100%;">Toggle Close Path</button>
-
-            <!-- Simplify Path Section -->
-            <div id="path-simplify-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
-              <div class="form-row">
-                <label>Simplify (RDP)</label>
-                <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-                  <input type="range" id="prop-simplify-tol" min="0.2" max="10.0" step="0.2" value="2.0" style="flex: 1;">
-                  <span id="prop-simplify-val" style="font-size: 11px; width: 28px; text-align: right; font-family: var(--font-mono);">2.0</span>
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Curve Fitting</label>
-                <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; cursor: pointer;">
-                  <input type="checkbox" id="prop-simplify-bezier" checked> Bézier Fit
-                </label>
-              </div>
-              <button id="btn-simplify-path" style="width: 100%; margin-top: 4px; border-color: var(--primary); color: var(--primary);">〰 Simplify Path (RDP + Bézier)</button>
-            </div>
-          </div>
-        </details>
-
-        <!-- 2. Alignment & Distribution -->
-        <details open class="section-accordion" id="card-align-distribute">
-          <summary><span>Alignment &amp; Distribution</span></summary>
-          <div class="accordion-body">
-            <div style="display: flex; gap: 3px; justify-content: space-between;">
-              <button id="btn-align-left" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Left">Left</button>
-              <button id="btn-align-center" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Center">Center</button>
-              <button id="btn-align-right" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Right">Right</button>
-            </div>
-            <div style="display: flex; gap: 3px; justify-content: space-between;">
-              <button id="btn-align-top" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Top">Top</button>
-              <button id="btn-align-middle" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Middle">Mid</button>
-              <button id="btn-align-bottom" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Bottom">Bot</button>
-            </div>
-            <div style="display: flex; gap: 3px; margin-top: 2px;">
-              <button id="btn-distribute-h" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Horizontal Spacing">Distribute H</button>
-              <button id="btn-distribute-v" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Vertical Spacing">Distribute V</button>
-            </div>
-          </div>
-        </details>
-
-        <!-- 3. Pathfinder & Boolean Operations -->
-        <details open class="section-accordion" id="card-pathfinder">
-          <summary><span>Pathfinder &amp; Booleans</span></summary>
-          <div class="accordion-body">
-            <div class="grid-2">
-              <button id="btn-path-union" class="btn-sm" title="Combine multiple selected paths into one union shape">Union</button>
-              <button id="btn-path-subtract" class="btn-sm" title="Subtract top selected shape from bottom shape">Subtract</button>
-            </div>
-            <div class="grid-2">
-              <button id="btn-path-intersect" class="btn-sm" title="Keep only overlapping area of selected shapes">Intersect</button>
-              <button id="btn-path-exclude" class="btn-sm" title="Keep non-overlapping areas (XOR exclusion)">Exclude</button>
-            </div>
-          </div>
-        </details>
-
-        <!-- 4. Clipping Masks & Text on Path -->
-        <details open class="section-accordion" id="card-masks">
-          <summary><span>Clipping Masks &amp; Text Path</span></summary>
-          <div class="accordion-body">
-            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); margin-bottom: 6px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
-            <div class="grid-2">
-              <button id="btn-mask-create-sub" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
-              <button id="btn-mask-release-sub" class="btn-sm" title="Release Clipping Mask">Release</button>
-            </div>
-            <div class="grid-2" style="margin-top: 2px;">
-              <button id="btn-text-attach-path-sub" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
-              <button id="btn-text-detach-path-sub" class="btn-sm" title="Detach Text from Path">Detach Text</button>
-            </div>
-          </div>
-        </details>
 
         <!-- 5. Transform & Geometry -->
         <details open class="section-accordion" id="card-geometry">
@@ -1701,6 +1765,8 @@
               <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
                 <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">Edit Raster in Painter</button>
                 <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
+                <button id="btn-save-img-texture" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Texture Asset</button>
+                <button id="btn-save-img-tip" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Brush Tip Shape</button>
               </div>
             </div>
 
@@ -1828,6 +1894,7 @@
                 <option value="10">10: Wood Grain</option>
                 <option value="11">11: Leather Pores</option>
                 <option value="12">12: Dense Linen</option>
+                <optgroup id="grp-custom-fill-textures" label="Custom Textures"></optgroup>
               </select>
             </div>
             <div class="form-row">
@@ -1908,6 +1975,7 @@
                 <option value="10">10: Wood Grain</option>
                 <option value="11">11: Leather Pores</option>
                 <option value="12">12: Dense Linen</option>
+                <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
               </select>
             </div>
             <div class="form-row">
@@ -2021,6 +2089,7 @@
                 <option value="0">Round</option>
                 <option value="1">Square</option>
                 <option value="2">Ellipse</option>
+                <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
               </select>
             </div>
             <div class="form-row">
@@ -2172,7 +2241,11 @@
       <div class="tab-content" id="tab-canvas">
         <div class="section-card">
           <div class="section-header">
-            <span>Document & Canvas</span>
+            <span>Document &amp; Project</span>
+          </div>
+          <div class="form-row">
+            <label>Project Name</label>
+            <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector">
           </div>
           <div class="form-row">
             <label>Preset Size</label>
@@ -2324,19 +2397,24 @@
 
   <!-- Modal: Recent Projects -->
   <div id="modal-recents" class="modal-backdrop" style="display: none;">
-    <div class="modal-card">
+    <div class="modal-card" style="max-width: 820px; width: 92%;">
       <div class="modal-header">
-        <h3>Recent Projects</h3>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <h3>Projects &amp; Storage</h3>
+          <span id="recents-count-badge" class="badge">0 projects</span>
+        </div>
         <button class="modal-close" id="btn-close-recents">✕</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" style="padding: 16px; max-height: 70vh; overflow-y: auto;">
         <div id="recents-grid" class="recents-grid">
           <div class="empty-state" style="padding: 24px; text-align: center; color: var(--text-muted);">Loading stored projects...</div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button id="btn-modal-new-proj" class="btn-primary"><span>+</span> New Project</button>
-        <button id="btn-modal-clear-storage" style="color: var(--danger); border-color: var(--danger);">Clear Storage</button>
+      <div class="modal-footer" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+        <button id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);">Clear All Memory</button>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-modal-new-proj" class="btn btn-primary">+ New Project</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2416,6 +2494,12 @@
             <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">WASM Plugins</div>
             <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
 
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Textures</div>
+            <div id="bundle-export-textures-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
+
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Brush Tip Shapes</div>
+            <div id="bundle-export-tip-shapes-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
+
             <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Projects</div>
             <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
           </div>
@@ -2484,6 +2568,28 @@
       let resizeStartPoint = { x: 0, y: 0 };
       let resizeStartLocalPoint = { x: 0, y: 0 };
       let hoveredObj = null;
+
+      function showNotification(msg, duration = 2200) {
+        let toast = document.getElementById('studio-toast-bubble');
+        if (!toast) {
+          toast = document.createElement('div');
+          toast.id = 'studio-toast-bubble';
+          toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:var(--bg-panel,#282828);color:var(--text,#ebdbb2);border:1px solid var(--border-color,#504945);border-radius:6px;padding:8px 14px;font-size:12px;font-family:inherit;box-shadow:0 6px 18px rgba(0,0,0,0.4);pointer-events:none;opacity:0;transition:opacity 0.2s ease, transform 0.2s ease;transform:translateY(8px);';
+          document.body.appendChild(toast);
+        }
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+        clearTimeout(toast._timer);
+        toast._timer = setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(8px)';
+          setTimeout(() => {
+            if (toast.style.opacity === '0') toast.style.display = 'none';
+          }, 250);
+        }, duration);
+      }
 
       function docToLocal(pt, origin, rotationDeg) {
         if (!rotationDeg) return { x: pt.x, y: pt.y };
@@ -2617,7 +2723,27 @@
       let gridSize = 20;
       let userGuides = { horizontal: [], vertical: [] };
       let activeGuideDrag = null;
+      let selectedGuide = null;
       let activeSnapLines = [];
+
+      function findGuideAt(pt, thresholdPx = 6) {
+        const threshold = thresholdPx / zoom;
+        if (userGuides && userGuides.horizontal) {
+          for (let i = 0; i < userGuides.horizontal.length; i++) {
+            if (Math.abs(userGuides.horizontal[i] - pt.y) <= threshold) {
+              return { type: 'horizontal', index: i, val: userGuides.horizontal[i] };
+            }
+          }
+        }
+        if (userGuides && userGuides.vertical) {
+          for (let i = 0; i < userGuides.vertical.length; i++) {
+            if (Math.abs(userGuides.vertical[i] - pt.x) <= threshold) {
+              return { type: 'vertical', index: i, val: userGuides.vertical[i] };
+            }
+          }
+        }
+        return null;
+      }
 
       // ── Rulers System ──
       const rulerTopCanvas = document.getElementById('ruler-top');
@@ -2732,6 +2858,7 @@
         const pt = screenToDoc(e.clientX, e.clientY);
         userGuides.horizontal.push(Math.round(pt.y));
         activeGuideDrag = { type: 'horizontal', index: userGuides.horizontal.length - 1 };
+        selectedGuide = { type: 'horizontal', index: userGuides.horizontal.length - 1 };
         drawOverlay();
       });
 
@@ -2739,8 +2866,34 @@
         const pt = screenToDoc(e.clientX, e.clientY);
         userGuides.vertical.push(Math.round(pt.x));
         activeGuideDrag = { type: 'vertical', index: userGuides.vertical.length - 1 };
+        selectedGuide = { type: 'vertical', index: userGuides.vertical.length - 1 };
         drawOverlay();
       });
+
+      document.getElementById('btn-clear-ruler-guides')?.addEventListener('click', () => {
+        userGuides = { horizontal: [], vertical: [] };
+        selectedGuide = null;
+        drawOverlay();
+        showNotification('All ruler guides cleared');
+      });
+
+      const clearGuidesFromRuler = (e) => {
+        e.preventDefault();
+        if ((userGuides.horizontal && userGuides.horizontal.length > 0) || (userGuides.vertical && userGuides.vertical.length > 0)) {
+          if (confirm('Clear all ruler guides?')) {
+            userGuides = { horizontal: [], vertical: [] };
+            selectedGuide = null;
+            drawOverlay();
+            showNotification('All ruler guides cleared');
+          }
+        }
+      };
+
+      const rulerCorner = document.getElementById('ruler-corner');
+      rulerCorner?.addEventListener('dblclick', clearGuidesFromRuler);
+      rulerCorner?.addEventListener('contextmenu', clearGuidesFromRuler);
+      rulerTopCanvas?.addEventListener('contextmenu', clearGuidesFromRuler);
+      rulerLeftCanvas?.addEventListener('contextmenu', clearGuidesFromRuler);
 
       // Marquee / Box Selection State
       let isMarqueeSelecting = false;
@@ -3011,24 +3164,29 @@
         // 1. Draw User Guidelines (from rulers)
         if (userGuides) {
           ctx.save();
-          ctx.strokeStyle = '#00e5ff';
           ctx.lineWidth = 1 / zoom;
           ctx.setLineDash([4 / zoom, 4 / zoom]);
           if (userGuides.horizontal) {
-            for (const y of userGuides.horizontal) {
+            userGuides.horizontal.forEach((y, idx) => {
+              const isSel = selectedGuide && selectedGuide.type === 'horizontal' && selectedGuide.index === idx;
+              ctx.strokeStyle = isSel ? '#fabd2f' : '#00e5ff';
+              ctx.lineWidth = isSel ? (2 / zoom) : (1 / zoom);
               ctx.beginPath();
               ctx.moveTo(-10000, y);
               ctx.lineTo(10000, y);
               ctx.stroke();
-            }
+            });
           }
           if (userGuides.vertical) {
-            for (const x of userGuides.vertical) {
+            userGuides.vertical.forEach((x, idx) => {
+              const isSel = selectedGuide && selectedGuide.type === 'vertical' && selectedGuide.index === idx;
+              ctx.strokeStyle = isSel ? '#fabd2f' : '#00e5ff';
+              ctx.lineWidth = isSel ? (2 / zoom) : (1 / zoom);
               ctx.beginPath();
               ctx.moveTo(x, -10000);
               ctx.lineTo(x, 10000);
               ctx.stroke();
-            }
+            });
           }
           ctx.restore();
         }
@@ -3936,6 +4094,32 @@
         strokeJoin.value = obj.strokeLinejoin || 'round';
         objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
 
+        // Custom Textures
+        const grpCustomFillTex = document.getElementById('grp-custom-fill-textures');
+        const grpCustomStrokeTex = document.getElementById('grp-custom-stroke-textures');
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTextures) {
+          EsenhoStore.listCustomTextures().then(textures => {
+            if (grpCustomFillTex) {
+              grpCustomFillTex.innerHTML = '';
+              textures.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name || t.id;
+                grpCustomFillTex.appendChild(opt);
+              });
+            }
+            if (grpCustomStrokeTex) {
+              grpCustomStrokeTex.innerHTML = '';
+              textures.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t.id;
+                opt.textContent = t.name || t.id;
+                grpCustomStrokeTex.appendChild(opt);
+              });
+            }
+          });
+        }
+
         // Fill Texture
         const ft = obj.fillTexture || {};
         document.getElementById('prop-fill-tex-mode').value = ft.mode !== undefined ? ft.mode : 0;
@@ -3943,6 +4127,20 @@
         document.getElementById('prop-fill-tex-angle').value = ft.angle !== undefined ? ft.angle : 0;
         document.getElementById('prop-fill-tex-contrast').value = ft.contrast !== undefined ? ft.contrast : 100;
         document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
+
+        // Custom Tip Shapes
+        const grpCustomTipShapes = document.getElementById('grp-custom-tip-shapes');
+        if (grpCustomTipShapes && typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTipShapes) {
+          EsenhoStore.listCustomTipShapes().then(tips => {
+            grpCustomTipShapes.innerHTML = '';
+            tips.forEach(t => {
+              const opt = document.createElement('option');
+              opt.value = t.id;
+              opt.textContent = t.name || t.id;
+              grpCustomTipShapes.appendChild(opt);
+            });
+          });
+        }
 
         // Stroke Brush Dynamics
         const grpCustomBrushes = document.getElementById('grp-custom-brush-presets');
@@ -4196,12 +4394,21 @@
                   doc.select(hit.id, false);
                 }
               } else {
-                // Clicked empty canvas -> Start Marquee Box Selection
-                isMarqueeSelecting = true;
-                marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
-                marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
-                if (!e.shiftKey) {
-                  doc.clearSelection();
+                const hitGuide = findGuideAt(pt);
+                if (hitGuide) {
+                  activeGuideDrag = { type: hitGuide.type, index: hitGuide.index };
+                  selectedGuide = { type: hitGuide.type, index: hitGuide.index };
+                  drawOverlay();
+                  return;
+                } else {
+                  selectedGuide = null;
+                  // Clicked empty canvas -> Start Marquee Box Selection
+                  isMarqueeSelecting = true;
+                  marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
+                  marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
+                  if (!e.shiftKey) {
+                    doc.clearSelection();
+                  }
                 }
               }
             }
@@ -4389,6 +4596,13 @@
         if (!isDragging) {
           if (activeTool === 'pen') {
             drawOverlay();
+          } else if (activeTool === 'select') {
+            const hoverGuide = findGuideAt(pt);
+            if (hoverGuide) {
+              viewportContainer.style.cursor = hoverGuide.type === 'horizontal' ? 'row-resize' : 'col-resize';
+            } else if (!activeTransformMode) {
+              viewportContainer.style.cursor = '';
+            }
           }
           return;
         }
@@ -4682,10 +4896,34 @@
         }
       });
 
-      window.addEventListener('pointerup', () => {
+      window.addEventListener('pointerup', (e) => {
         if (isTouchPinching) return;
 
         if (activeGuideDrag) {
+          const pt = screenToDoc(e.clientX, e.clientY);
+          const rulerTopRect = rulerTopCanvas ? rulerTopCanvas.getBoundingClientRect() : null;
+          const rulerLeftRect = rulerLeftCanvas ? rulerLeftCanvas.getBoundingClientRect() : null;
+          let removeGuide = false;
+          if (activeGuideDrag.type === 'horizontal') {
+            if ((rulerTopRect && e.clientY <= rulerTopRect.bottom + 5) || pt.y < -50 || pt.y > doc.height + 50) {
+              removeGuide = true;
+            }
+          } else if (activeGuideDrag.type === 'vertical') {
+            if ((rulerLeftRect && e.clientX <= rulerLeftRect.right + 5) || pt.x < -50 || pt.x > doc.width + 50) {
+              removeGuide = true;
+            }
+          }
+          if (removeGuide) {
+            if (activeGuideDrag.type === 'horizontal') {
+              userGuides.horizontal.splice(activeGuideDrag.index, 1);
+            } else {
+              userGuides.vertical.splice(activeGuideDrag.index, 1);
+            }
+            if (selectedGuide && selectedGuide.type === activeGuideDrag.type && selectedGuide.index === activeGuideDrag.index) {
+              selectedGuide = null;
+            }
+            showNotification('Guide deleted');
+          }
           activeGuideDrag = null;
         }
         activeSnapLines = [];
@@ -4772,8 +5010,74 @@
         render();
       }, { passive: false });
 
-      // ── Toolbar Switching ──
+      // ── Toolbar Switching & Unified Shape Tool ──
+      function setShapeTool(type) {
+        if (activeTool === 'pen') {
+          commitPenPath();
+        }
+        activeTool = type;
+        const unifiedBtn = document.getElementById('tool-shape-unified');
+        const iconEl = document.getElementById('tool-shape-icon');
+        const iconMap = {
+          rect: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>',
+          ellipse: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>',
+          line: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>'
+        };
+        const titleMap = {
+          rect: 'Rectangle (R)',
+          ellipse: 'Ellipse / Circle (O)',
+          line: 'Line (L)'
+        };
+        if (unifiedBtn) {
+          unifiedBtn.dataset.tool = type;
+          unifiedBtn.title = titleMap[type] || 'Shapes';
+        }
+        if (iconEl && iconMap[type]) {
+          iconEl.innerHTML = iconMap[type];
+        }
+        ['rect', 'ellipse', 'line'].forEach(t => {
+          const optBtn = document.getElementById(`shape-opt-${t}`);
+          if (optBtn) {
+            optBtn.style.background = (t === type) ? 'var(--bg-panel-sub)' : 'transparent';
+            optBtn.style.color = (t === type) ? 'var(--primary)' : 'var(--text-main)';
+          }
+        });
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        unifiedBtn?.classList.add('active');
+        viewportContainer.classList.remove('panning');
+        if (statusTool) statusTool.textContent = titleMap[type]?.split('(')[0].trim() || type;
+        render();
+      }
+
+      ['rect', 'ellipse', 'line'].forEach(type => {
+        document.getElementById(`shape-opt-${type}`)?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          setShapeTool(type);
+          document.getElementById('flyout-shapes')?.classList.remove('active');
+        });
+      });
+
+      const shapeFlyout = document.getElementById('flyout-shapes');
+      const shapeBtn = document.getElementById('tool-shape-unified');
+      
+      const toggleShapeFlyout = (e) => {
+        e.stopPropagation();
+        setShapeTool(shapeBtn.dataset.tool || 'rect');
+        const isActive = shapeFlyout?.classList.contains('active');
+        document.querySelectorAll('.tool-flyout').forEach(f => f.classList.remove('active'));
+        if (!isActive) {
+          shapeFlyout?.classList.add('active');
+        }
+      };
+
+      shapeBtn?.addEventListener('click', toggleShapeFlyout);
+      shapeBtn?.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        toggleShapeFlyout(e);
+      });
+
       document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+        if (btn.id === 'tool-shape-unified') return;
         btn.addEventListener('click', () => {
           if (activeTool === 'pen' && btn.dataset.tool !== 'pen') {
             commitPenPath();
@@ -4917,11 +5221,11 @@
         } else if (key === 'b') {
           document.getElementById('tool-brush')?.click();
         } else if (key === 'r') {
-          document.getElementById('tool-rect')?.click();
+          setShapeTool('rect');
         } else if (key === 'o') {
-          document.getElementById('tool-ellipse')?.click();
+          setShapeTool('ellipse');
         } else if (key === 'l') {
-          document.getElementById('tool-line')?.click();
+          setShapeTool('line');
         } else if (key === 't') {
           document.getElementById('tool-text')?.click();
         } else if (key === '0') {
@@ -4938,6 +5242,17 @@
           e.preventDefault();
           triggerRenameSelected();
         } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (selectedGuide) {
+            if (selectedGuide.type === 'horizontal' && userGuides.horizontal && userGuides.horizontal[selectedGuide.index] !== undefined) {
+              userGuides.horizontal.splice(selectedGuide.index, 1);
+            } else if (selectedGuide.type === 'vertical' && userGuides.vertical && userGuides.vertical[selectedGuide.index] !== undefined) {
+              userGuides.vertical.splice(selectedGuide.index, 1);
+            }
+            selectedGuide = null;
+            drawOverlay();
+            showNotification('Guide deleted');
+            return;
+          }
           if (activeTool === 'node' && activeNodeIdx !== -1) {
             const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
             if (selectedPath && selectedPath.nodes && selectedPath.nodes.length > 0) {
@@ -4999,8 +5314,12 @@
       const menuDropdown = document.getElementById('app-menu-dropdown');
       btnMenuLogo?.addEventListener('click', (e) => {
         e.stopPropagation();
+        const willBeActive = !menuDropdown?.classList.contains('active');
         menuDropdown?.classList.toggle('active');
         btnMenuLogo?.classList.toggle('active');
+        if (willBeActive && typeof updateRecentProjectsMenu === 'function') {
+          updateRecentProjectsMenu();
+        }
       });
 
       document.addEventListener('click', (e) => {
@@ -5242,12 +5561,13 @@
         const el = document.getElementById(`prop-fill-tex-${param}`);
         if (!el) return;
         el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-          const val = Number(e.target.value);
+          const rawVal = e.target.value;
+          const val = (param === 'mode' && isNaN(Number(rawVal))) ? rawVal : Number(rawVal);
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
             obj.fillTexture[param] = val;
-            if (param === 'mode') obj.fillTexture.enabled = val > 0;
+            if (param === 'mode') obj.fillTexture.enabled = (val !== 0 && val !== '0' && val !== '');
           }
           render();
         });
@@ -5309,17 +5629,60 @@
         }
       });
 
-      // Viewport Render Mode Switcher
+      // Viewport Render Mode & Engine Switcher
+      function updateRendererMenuUi() {
+        const checkSvg = document.getElementById('check-renderer-svg');
+        const checkQuadro = document.getElementById('check-renderer-quadro');
+        const label = document.getElementById('menu-current-renderer-label');
+        if (checkSvg) checkSvg.style.opacity = (viewportRenderMode === 'svg') ? '1' : '0';
+        if (checkQuadro) checkQuadro.style.opacity = (viewportRenderMode === 'quadro') ? '1' : '0';
+        if (label) label.textContent = (viewportRenderMode === 'svg') ? 'SVG Direct' : 'Quadro';
+
+        const scaleMap = { '0.5': 'check-scale-05', '1.0': 'check-scale-10', '2.0': 'check-scale-20' };
+        Object.entries(scaleMap).forEach(([scStr, id]) => {
+          const el = document.getElementById(id);
+          if (el) el.style.opacity = (Math.abs(quadroRenderScale - parseFloat(scStr)) < 0.01) ? '1' : '0';
+        });
+      }
+
       const syncRenderMode = (val) => {
         viewportRenderMode = val;
         const sel1 = document.getElementById('select-render-mode');
         const sel2 = document.getElementById('prop-viewport-renderer');
         if (sel1 && sel1.value !== val) sel1.value = val;
         if (sel2 && sel2.value !== val) sel2.value = val;
+        updateRendererMenuUi();
         render();
       };
       document.getElementById('select-render-mode')?.addEventListener('change', (e) => syncRenderMode(e.target.value));
       document.getElementById('prop-viewport-renderer')?.addEventListener('change', (e) => syncRenderMode(e.target.value));
+
+      document.querySelectorAll('.render-opt-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const r = btn.dataset.renderer;
+          syncRenderMode(r);
+          menuDropdown?.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
+          showNotification(`Renderer: ${r === 'svg' ? 'SVG Direct' : 'Quadro Raster'}`);
+        });
+      });
+
+      document.querySelectorAll('.render-scale-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const s = parseFloat(btn.dataset.scale) || 1.0;
+          quadroRenderScale = s;
+          const propScale = document.getElementById('prop-quadro-scale');
+          if (propScale) propScale.value = String(s);
+          updateStageSize();
+          render();
+          updateRendererMenuUi();
+          menuDropdown?.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
+          showNotification(`Quadro Scale: ${s}×`);
+        });
+      });
 
       // Brush Preset Binding
       document.getElementById('prop-brush-preset')?.addEventListener('change', (e) => {
@@ -5403,7 +5766,8 @@
         const el = document.getElementById(id);
         if (!el) return;
         el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-          const val = Number(e.target.value);
+          const rawVal = e.target.value;
+          const val = (configKey === 'shape' && isNaN(Number(rawVal))) ? rawVal : Number(rawVal);
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (!obj.brushConfig) obj.brushConfig = {};
@@ -5419,12 +5783,13 @@
         const el = document.getElementById(`prop-stroke-tex-${param}`);
         if (!el) return;
         el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-          const val = Number(e.target.value);
+          const rawVal = e.target.value;
+          const val = (param === 'mode' && isNaN(Number(rawVal))) ? rawVal : Number(rawVal);
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (!obj.strokeTexture) obj.strokeTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
             obj.strokeTexture[param] = val;
-            if (param === 'mode') obj.strokeTexture.enabled = val > 0;
+            if (param === 'mode') obj.strokeTexture.enabled = (val !== 0 && val !== '0' && val !== '');
           }
           render();
         });
@@ -5505,6 +5870,7 @@
       document.getElementById('prop-quadro-scale')?.addEventListener('change', (e) => {
         quadroRenderScale = Number(e.target.value) || 1.0;
         updateStageSize();
+        updateRendererMenuUi();
         render();
       });
 
@@ -5696,8 +6062,9 @@
         drawOverlay();
       });
 
-      // ── Left Toolbar Popover Flyouts (Align, Pathfinder, Snap) ──
+      // ── Left Toolbar Popover Flyouts (Node & Curves, Align, Pathfinder, Snap) ──
       const popoverToggles = [
+        { btnId: 'btn-popover-node-curves', flyoutId: 'flyout-node-curves' },
         { btnId: 'btn-popover-align', flyoutId: 'flyout-align' },
         { btnId: 'btn-popover-pathfinder', flyoutId: 'flyout-pathfinder' },
         { btnId: 'btn-popover-snap', flyoutId: 'flyout-snap' }
@@ -6057,6 +6424,9 @@
       const btnNodeConvertPath = document.getElementById('btn-node-convert-path');
       if (btnNodeConvertPath) btnNodeConvertPath.addEventListener('click', handleConvertToPath);
 
+      const btnQuickConvertPath = document.getElementById('btn-quick-convert-path');
+      if (btnQuickConvertPath) btnQuickConvertPath.addEventListener('click', handleConvertToPath);
+
       // Bézier Node Actions
       document.getElementById('btn-node-smooth')?.addEventListener('click', () => {
         const { node } = getActivePathAndNode();
@@ -6162,6 +6532,7 @@
       };
       document.getElementById('btn-text-outlines')?.addEventListener('click', handleCreateOutlines);
       document.getElementById('btn-create-outlines')?.addEventListener('click', handleCreateOutlines);
+      document.getElementById('btn-quick-create-outlines')?.addEventListener('click', handleCreateOutlines);
 
       // Gradient Fill Binding
       document.getElementById('prop-fill-type')?.addEventListener('change', (e) => {
@@ -6436,6 +6807,78 @@
           editingRasterObj = null;
         }
       });
+
+      // Save Image as Texture Asset
+      document.getElementById('btn-save-img-texture')?.addEventListener('click', async () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj || !imgObj.src) return;
+        const name = window.prompt('Texture Asset Name:', imgObj.id || 'Custom Texture') || 'Custom Texture';
+        const texKey = `tex_${Date.now()}`;
+
+        const img = imgObj._imgElement || new Image();
+        if (!imgObj._imgElement) img.src = imgObj.src;
+        await new Promise(r => { if (img.complete) r(); else img.onload = r; });
+
+        const w = img.naturalWidth || imgObj.width || 256;
+        const h = img.naturalHeight || imgObj.height || 256;
+        const off = document.createElement('canvas');
+        off.width = w;
+        off.height = h;
+        const ctx = off.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = off.toDataURL('image/png');
+        const imgData = ctx.getImageData(0, 0, w, h);
+
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomTexture) {
+          await EsenhoStore.saveCustomTexture(texKey, {
+            id: texKey,
+            name: name,
+            width: w,
+            height: h,
+            dataUrl: dataUrl
+          });
+        }
+        if (quadroRenderer && quadroRenderer.registerCustomTexture) {
+          quadroRenderer.registerCustomTexture(texKey, imgData.data, w, h);
+        }
+        updateInspector();
+        showNotification(`Texture asset "${name}" saved!`);
+      });
+
+      // Save Image as Brush Tip Shape
+      document.getElementById('btn-save-img-tip')?.addEventListener('click', async () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj || !imgObj.src) return;
+        const name = window.prompt('Brush Tip Shape Name:', imgObj.id || 'Custom Tip') || 'Custom Tip';
+        const tipKey = `tip_${Date.now()}`;
+
+        const img = imgObj._imgElement || new Image();
+        if (!imgObj._imgElement) img.src = imgObj.src;
+        await new Promise(r => { if (img.complete) r(); else img.onload = r; });
+
+        const w = img.naturalWidth || imgObj.width || 256;
+        const h = img.naturalHeight || imgObj.height || 256;
+        const off = document.createElement('canvas');
+        off.width = w;
+        off.height = h;
+        const ctx = off.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = off.toDataURL('image/png');
+
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomTipShape) {
+          await EsenhoStore.saveCustomTipShape(tipKey, {
+            id: tipKey,
+            name: name,
+            width: w,
+            height: h,
+            dataUrl: dataUrl
+          });
+        }
+        updateInspector();
+        showNotification(`Brush tip shape "${name}" saved!`);
+      });
       // Simplify Path (RDP + Schneider Bézier Fit)
       const propSimpTol = document.getElementById('prop-simplify-tol');
       const propSimpVal = document.getElementById('prop-simplify-val');
@@ -6606,13 +7049,14 @@
         backdropEl?.classList.remove('active');
       });
 
-      // Mobile Touch Pinch-to-Zoom, Two-Finger Pan & Canvas Rotation
+      // Mobile Touch Pinch-to-Zoom, Two-Finger Pan, Rotation & Tap Gestures (2-finger Undo, 3-finger Redo)
       let touchStartDist = 0;
       let touchStartAngle = 0;
       let touchStartZoom = 1.0;
       let touchStartRotation = 0;
       let touchStartPanX = 0, touchStartPanY = 0;
       let touchStartMidX = 0, touchStartMidY = 0;
+      let touchTapGesture = null;
 
       viewportContainer.addEventListener('touchstart', (e) => {
         if (e.touches.length >= 2) {
@@ -6644,6 +7088,16 @@
           touchStartPanY = panY;
           touchStartMidX = (t1.clientX + t2.clientX) / 2;
           touchStartMidY = (t1.clientY + t2.clientY) / 2;
+
+          touchTapGesture = {
+            startTime: Date.now(),
+            maxFingers: e.touches.length,
+            moved: false,
+            startX: touchStartMidX,
+            startY: touchStartMidY
+          };
+        } else {
+          touchTapGesture = null;
         }
       }, { passive: false });
 
@@ -6658,6 +7112,15 @@
           const currentAngle = Math.atan2(dy, dx);
           const currentMidX = (t1.clientX + t2.clientX) / 2;
           const currentMidY = (t1.clientY + t2.clientY) / 2;
+
+          if (touchTapGesture) {
+            touchTapGesture.maxFingers = Math.max(touchTapGesture.maxFingers, e.touches.length);
+            const moveDelta = Math.hypot(currentMidX - touchTapGesture.startX, currentMidY - touchTapGesture.startY);
+            const distDelta = Math.abs(currentDist - touchStartDist);
+            if (moveDelta > 10 || distDelta > 15) {
+              touchTapGesture.moved = true;
+            }
+          }
 
           // Scale / Zoom
           const scale = currentDist / touchStartDist;
@@ -6702,6 +7165,27 @@
       }, { passive: false });
 
       viewportContainer.addEventListener('touchend', (e) => {
+        if (touchTapGesture && e.touches.length === 0) {
+          const elapsed = Date.now() - touchTapGesture.startTime;
+          if (!touchTapGesture.moved && elapsed < 400) {
+            if (touchTapGesture.maxFingers === 3) {
+              doc.redo();
+              render();
+              updateInspector();
+              updateObjectList();
+              drawOverlay();
+              showNotification('Redo (3-finger tap)');
+            } else if (touchTapGesture.maxFingers === 2) {
+              handleUndo();
+              render();
+              updateInspector();
+              updateObjectList();
+              drawOverlay();
+              showNotification('Undo (2-finger tap)');
+            }
+          }
+          touchTapGesture = null;
+        }
         if (e.touches.length < 2) {
           touchStartDist = 0;
           setTimeout(() => {
@@ -6713,6 +7197,7 @@
       viewportContainer.addEventListener('touchcancel', () => {
         touchStartDist = 0;
         isTouchPinching = false;
+        touchTapGesture = null;
       });
 
       // ── Storage & Project Persistence ──
@@ -6739,6 +7224,7 @@
                 thumbnail: thumb
               });
               localStorage.setItem('esenho_current_vector_project_id', currentProjectId);
+              updateRecentProjectsMenu();
             }
           } catch (e) {
             console.warn('Autosave error:', e);
@@ -6753,6 +7239,9 @@
           if (proj) {
             currentProjectId = proj.id;
             currentProjectTitle = proj.name || 'Untitled Vector';
+            const propProjName = document.getElementById('prop-project-name');
+            if (propProjName) propProjName.value = currentProjectTitle;
+            document.title = `${currentProjectTitle} — Wesenho Studio`;
             if (proj.jsonDoc) {
               if (typeof doc.loadJSON === 'function') doc.loadJSON(proj.jsonDoc);
               else if (typeof doc.fromJSON === 'function') doc.fromJSON(proj.jsonDoc);
@@ -6764,6 +7253,7 @@
             updateInspector();
             render();
             zoomToFit();
+            updateRecentProjectsMenu();
             return true;
           }
         } catch (e) {
@@ -6772,7 +7262,17 @@
         return false;
       }
 
-      // ── Recent Projects & New Project Modals ──
+      const propProjectName = document.getElementById('prop-project-name');
+      propProjectName?.addEventListener('input', (e) => {
+        currentProjectTitle = e.target.value.trim() || 'Untitled Vector';
+        document.title = `${currentProjectTitle} — Wesenho Studio`;
+        if (currentProjectId && typeof EsenhoStore !== 'undefined') {
+          EsenhoStore.renameProject(currentProjectId, currentProjectTitle).catch(() => {});
+        }
+        scheduleAutosave();
+      });
+
+      // ── Recent Projects & Menu Submenu ──
       const modalRecents = document.getElementById('modal-recents');
       const recentsGrid = document.getElementById('recents-grid');
       const modalNewProject = document.getElementById('modal-new-project');
@@ -6787,23 +7287,56 @@
         if (modalRecents) modalRecents.style.display = 'none';
       }
 
+      async function updateRecentProjectsMenu() {
+        const listEl = document.getElementById('menu-recents-list');
+        if (!listEl || typeof EsenhoStore === 'undefined') return;
+        try {
+          const list = await EsenhoStore.listProjects();
+          if (!list || list.length === 0) {
+            listEl.innerHTML = '<div style="padding: 10px; font-size: 11px; color: var(--text-muted); text-align: center;">No stored projects</div>';
+            return;
+          }
+          const top6 = list.slice(0, 6);
+          listEl.innerHTML = top6.map(p => {
+            const isVec = p.type === 'vector';
+            const badge = isVec ? '<span style="font-size: 8px; color: var(--primary); border: 1px solid var(--primary-dim); border-radius: 2px; padding: 1px 3px;">VEC</span>' : '<span style="font-size: 8px; color: var(--accent); border: 1px solid var(--accent-dim); border-radius: 2px; padding: 1px 3px;">RAST</span>';
+            const dateStr = new Date(p.updatedAt).toLocaleDateString();
+            return `
+              <button type="button" class="menu-item" style="padding: 5px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
+                <div style="display: flex; align-items: center; gap: 6px; overflow: hidden;">
+                  ${badge}
+                  <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; font-size: 11px;" title="${p.name}">${p.name}</span>
+                </div>
+                <span style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);">${dateStr}</span>
+              </button>
+            `;
+          }).join('');
+        } catch (e) {
+          listEl.innerHTML = `<div style="padding: 8px; font-size: 10px; color: var(--danger);">${e.message}</div>`;
+        }
+      }
+
       async function openRecentsModal() {
         if (!modalRecents || typeof EsenhoStore === 'undefined') return;
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
         modalRecents.style.display = 'flex';
         recentsGrid.innerHTML = '<div style="padding: 32px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
         try {
           const list = await EsenhoStore.listProjects();
+          const countBadge = document.getElementById('recents-count-badge');
+          if (countBadge) countBadge.textContent = `${list ? list.length : 0} projects`;
           if (!list || list.length === 0) {
             recentsGrid.innerHTML = `
-              <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fabd2f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;">
+              <div style="padding: 40px 20px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
                 </svg>
-                <div style="font-size: 14px; font-weight: 600; color: var(--text-main);">No saved projects yet</div>
-                <div style="font-size: 12px; color: var(--text-muted); max-width: 280px; line-height: 1.4;">Projects saved locally in your browser will appear here.</div>
-                <button type="button" class="btn btn-primary" style="margin-top: 6px;" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">No saved projects yet</div>
+                <div style="font-size: 11px; color: var(--text-muted); max-width: 260px; line-height: 1.4;">Projects saved in browser memory will appear here.</div>
+                <button type="button" class="btn btn-primary" style="margin-top: 4px;" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
               </div>
             `;
             return;
@@ -6811,23 +7344,24 @@
           recentsGrid.innerHTML = list.map(p => {
             const dateStr = new Date(p.updatedAt).toLocaleDateString() + ' ' + new Date(p.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
             const isVec = p.type === 'vector';
-            const badge = isVec ? '<span class="badge" style="color: var(--primary);">Vector</span>' : '<span class="badge" style="color: var(--accent);">Painter</span>';
+            const badge = isVec ? '<span class="badge" style="color: var(--primary); border-color: var(--primary-dim);">Vector</span>' : '<span class="badge" style="color: var(--accent); border-color: var(--accent-dim);">Painter</span>';
             const thumbHtml = p.thumbnail 
-              ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail">`)
+              ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail">`)
               : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted);">No Preview</div>`;
             return `
-              <div class="recent-item" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
-                <div class="recent-thumb">${thumbHtml}</div>
+              <div class="recent-item">
+                <div class="recent-thumb" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${thumbHtml}</div>
                 <div class="recent-meta">
-                  <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <div class="recent-title" title="${p.name}">${p.name}</div>
+                  <div class="recent-title-row">
+                    <div class="recent-title" title="${p.name}" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${p.name}</div>
                     ${badge}
                   </div>
                   <div class="recent-sub">${p.width} × ${p.height} px • ${dateStr}</div>
                   <div class="recent-actions" onclick="event.stopPropagation();">
-                    <button type="button" class="btn-sm btn-primary" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
-                    ${!isVec ? `<button type="button" class="btn-sm" style="color: var(--accent); border-color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Insert</button>` : ''}
-                    <button type="button" class="btn-sm" style="color: var(--danger); border-color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">Delete</button>
+                    <button type="button" class="btn-sm btn-primary" style="flex: 1; justify-content: center;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
+                    <button type="button" class="btn-sm" title="Rename" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">Rename</button>
+                    ${!isVec ? `<button type="button" class="btn-sm" title="Insert as layer" style="color: var(--accent); border-color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Layer</button>` : ''}
+                    <button type="button" class="btn-sm" title="Delete" style="color: var(--danger); border-color: var(--danger-dim);" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
                   </div>
                 </div>
               </div>
@@ -6837,6 +7371,25 @@
           recentsGrid.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading projects: ${e.message}</div>`;
         }
       }
+
+      window.handleRenameRecent = async function(id, currentName) {
+        const newName = prompt('Rename project:', currentName || '');
+        if (!newName || !newName.trim() || newName.trim() === currentName) return;
+        try {
+          await EsenhoStore.renameProject(id, newName.trim());
+          if (currentProjectId === id) {
+            currentProjectTitle = newName.trim();
+            const propProjName = document.getElementById('prop-project-name');
+            if (propProjName) propProjName.value = currentProjectTitle;
+            document.title = `${currentProjectTitle} — Wesenho Studio`;
+          }
+          await openRecentsModal();
+          updateRecentProjectsMenu();
+          showNotification('Project renamed');
+        } catch (err) {
+          alert('Failed to rename project: ' + err.message);
+        }
+      };
 
       window.handleInsertPainterImage = async function(id) {
         try {
@@ -6879,6 +7432,8 @@
       };
 
       window.handleOpenRecent = async function(id, type) {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
         if (type === 'raster') {
           window.location.href = `painter.html?project=${id}`;
           return;
@@ -6891,6 +7446,7 @@
         if (!confirm('Delete this project from local memory?')) return;
         await EsenhoStore.deleteProject(id);
         openRecentsModal();
+        updateRecentProjectsMenu();
       };
 
       document.getElementById('btn-new-project')?.addEventListener('click', () => {
@@ -6900,8 +7456,10 @@
       });
 
       document.getElementById('btn-recent-projects')?.addEventListener('click', () => {
-        menuDropdown?.classList.remove('active');
-        btnMenuLogo?.classList.remove('active');
+        openRecentsModal();
+      });
+
+      document.getElementById('btn-open-recents-modal')?.addEventListener('click', () => {
         openRecentsModal();
       });
 
@@ -6987,6 +7545,36 @@
           }
         }
 
+        const texturesListEl = document.getElementById('bundle-export-textures-list');
+        if (texturesListEl) {
+          const textures = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTextures) ? await EsenhoStore.listCustomTextures() : [];
+          if (textures.length === 0) {
+            texturesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom textures found)</div>';
+          } else {
+            texturesListEl.innerHTML = textures.map(t => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-texture" value="${t.id}" checked>
+                <span>${t.name || t.id} (${t.width || 256}×${t.height || 256})</span>
+              </label>
+            `).join('');
+          }
+        }
+
+        const tipShapesListEl = document.getElementById('bundle-export-tip-shapes-list');
+        if (tipShapesListEl) {
+          const tips = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTipShapes) ? await EsenhoStore.listCustomTipShapes() : [];
+          if (tips.length === 0) {
+            tipShapesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom tip shapes found)</div>';
+          } else {
+            tipShapesListEl.innerHTML = tips.map(t => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-tip" value="${t.id}" checked>
+                <span>${t.name || t.id} (${t.width || 256}×${t.height || 256})</span>
+              </label>
+            `).join('');
+          }
+        }
+
         const projectsListEl = document.getElementById('bundle-export-projects-list');
         if (projectsListEl) {
           const projects = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listProjects) ? await EsenhoStore.listProjects() : [];
@@ -7052,6 +7640,20 @@
               html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-plugin" value="${p.name}" checked><span>${p.name}.wasm</span></label>`;
             });
           }
+          const texKeys = Object.keys(parsed.textures || {});
+          if (texKeys.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Textures (${texKeys.length}):</div>`;
+            texKeys.forEach(k => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-texture" value="${k}" checked><span>${parsed.textures[k].name || k}</span></label>`;
+            });
+          }
+          const tipKeys = Object.keys(parsed.tipShapes || {});
+          if (tipKeys.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Tip Shapes (${tipKeys.length}):</div>`;
+            tipKeys.forEach(k => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-tip" value="${k}" checked><span>${parsed.tipShapes[k].name || k}</span></label>`;
+            });
+          }
           if (parsed.projects && parsed.projects.length > 0) {
             html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Projects (${parsed.projects.length}):</div>`;
             parsed.projects.forEach(p => {
@@ -7074,6 +7676,8 @@
           
           const selectedBrushKeys = Array.from(modalBundle.querySelectorAll('.chk-bundle-brush:checked')).map(c => c.value);
           const selectedPluginNames = Array.from(modalBundle.querySelectorAll('.chk-bundle-plugin:checked')).map(c => c.value);
+          const selectedTextureIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-texture:checked')).map(c => c.value);
+          const selectedTipIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-tip:checked')).map(c => c.value);
           const selectedProjectIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-project:checked')).map(c => c.value);
 
           const allCustomBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
@@ -7082,6 +7686,22 @@
 
           const allPlugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
           const pluginsToPack = allPlugins.filter(p => selectedPluginNames.includes(p.name));
+
+          const texturesToPack = {};
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTexture) {
+            for (const tid of selectedTextureIds) {
+              const tex = await EsenhoStore.getCustomTexture(tid);
+              if (tex) texturesToPack[tid] = tex;
+            }
+          }
+
+          const tipShapesToPack = {};
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTipShape) {
+            for (const tid of selectedTipIds) {
+              const tip = await EsenhoStore.getCustomTipShape(tid);
+              if (tip) tipShapesToPack[tid] = tip;
+            }
+          }
 
           const projectsToPack = [];
           if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getProject) {
@@ -7096,6 +7716,8 @@
             author,
             brushes: brushesToPack,
             plugins: pluginsToPack,
+            textures: texturesToPack,
+            tipShapes: tipShapesToPack,
             projects: projectsToPack
           });
 
@@ -7118,11 +7740,15 @@
           }
           const chosenBrushes = Array.from(modalBundle.querySelectorAll('.chk-import-brush:checked')).map(c => c.value);
           const chosenPlugins = Array.from(modalBundle.querySelectorAll('.chk-import-plugin:checked')).map(c => c.value);
+          const chosenTextures = Array.from(modalBundle.querySelectorAll('.chk-import-texture:checked')).map(c => c.value);
+          const chosenTips = Array.from(modalBundle.querySelectorAll('.chk-import-tip:checked')).map(c => c.value);
           const chosenProjects = Array.from(modalBundle.querySelectorAll('.chk-import-project:checked')).map(c => c.value);
 
           const res = await EsenhoBundle.importBundle(parsedImportBundle, {
             brushes: chosenBrushes,
             plugins: chosenPlugins,
+            textures: chosenTextures,
+            tipShapes: chosenTips,
             projects: chosenProjects,
             palettes: true
           });
@@ -7137,7 +7763,7 @@
           }
 
           updateInspector();
-          showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.projects} projects`);
+          showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.textures} textures, ${res.tipShapes} tips, ${res.projects} projects`);
           modalBundle.style.display = 'none';
         }
       });
@@ -7202,6 +7828,9 @@
         
         currentProjectId = 'vec_' + Date.now();
         currentProjectTitle = title;
+        const propProjName = document.getElementById('prop-project-name');
+        if (propProjName) propProjName.value = currentProjectTitle;
+        document.title = `${currentProjectTitle} — Wesenho Studio`;
         doc.clear();
         doc.width = w;
         doc.height = h;
@@ -7246,8 +7875,13 @@
           initSampleScene();
           updateStageSize();
           scheduleAutosave();
+          const propProjName = document.getElementById('prop-project-name');
+          if (propProjName) propProjName.value = currentProjectTitle;
+          document.title = `${currentProjectTitle} — Wesenho Studio`;
         }
 
+        updateRecentProjectsMenu();
+        updateRendererMenuUi();
         initQuadro();
         updateInspector();
         setTimeout(zoomToFit, 50);
