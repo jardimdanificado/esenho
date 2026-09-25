@@ -499,6 +499,68 @@
       margin: 2px 0;
     }
 
+    .tool-swatch-btn {
+      padding: 0 !important;
+    }
+
+    .tool-submenu-wrap {
+      position: relative;
+      width: 100%;
+    }
+
+    .tool-submenu-wrap:hover > .tool-submenu,
+    .tool-submenu-wrap:focus-within > .tool-submenu,
+    .tool-submenu-wrap.open > .tool-submenu {
+      display: flex;
+    }
+
+    .tool-submenu {
+      display: none;
+      position: fixed;
+      width: 215px;
+      min-width: 200px;
+      max-height: calc(100vh - 30px);
+      overflow-y: auto;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      padding: 6px 8px;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 100000;
+      white-space: nowrap;
+      box-sizing: border-box;
+    }
+
+    .tool-submenu .form-row label {
+      flex: 0 0 70px;
+      font-size: 10px;
+    }
+
+    .tool-submenu .form-row input,
+    .tool-submenu .form-row select {
+      font-size: 10.5px;
+      padding: 2px 4px;
+      height: 22px;
+    }
+
+    .tool-submenu .grid-2 {
+      gap: 3px;
+    }
+
+    /* Invisible hover bridge connecting trigger and side dropdown */
+    .tool-submenu::before {
+      content: '';
+      position: absolute;
+      top: -10px;
+      bottom: -10px;
+      left: -14px;
+      width: 16px;
+      background: transparent;
+      pointer-events: auto;
+    }
+
     /* ── Center Viewport / Canvas ── */
     #viewport-container {
       flex: 1;
@@ -1524,10 +1586,337 @@
 
       <div class="toolbar-sep"></div>
       
-      <button class="tool-btn" id="btn-zoom-fit" title="Zoom to Fit">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
-        <span class="hotkey">0</span>
-      </button>
+      <!-- Fill Tool & Popover -->
+      <div class="tool-popover-wrap">
+        <button class="tool-btn tool-swatch-btn" id="btn-popover-fill" title="Fill &amp; Texture" style="position: relative; display: flex; align-items: center; justify-content: center;">
+          <div id="swatch-fill-preview" style="width: 18px; height: 18px; background: #fabd2f; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
+          <span class="flyout-indicator">▸</span>
+        </button>
+        <div id="flyout-fill" class="tool-flyout" style="width: 250px; max-height: calc(100vh - 40px); overflow-y: auto;">
+          <div class="flyout-title">Fill &amp; Texture</div>
+          <div class="form-row">
+            <label>Fill Type</label>
+            <select id="prop-fill-type">
+              <option value="solid" selected>Solid Color</option>
+              <option value="linear">Linear Gradient</option>
+              <option value="radial">Radial Gradient</option>
+            </select>
+          </div>
+          <div id="solid-fill-controls">
+            <div class="form-row">
+              <label>Color</label>
+              <div style="display: flex; gap: 6px; width: 100%;">
+                <input type="color" id="prop-fill-color" value="#fabd2f">
+                <input type="text" id="prop-fill-text" value="#fabd2f">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Fill Alpha</label>
+              <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
+            </div>
+            <div class="form-row">
+              <label>No Fill</label>
+              <button id="btn-fill-none" class="btn-sm" style="flex: 1;">Set None</button>
+            </div>
+          </div>
+          <div id="gradient-controls" style="display: none; flex-direction: column; gap: 4px;">
+            <div class="form-row">
+              <label>Stop 1</label>
+              <div style="display: flex; gap: 6px; width: 100%;">
+                <input type="color" id="prop-grad-c1" value="#fe8019">
+                <input type="text" id="prop-grad-c1-text" value="#fe8019">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Stop 2</label>
+              <div style="display: flex; gap: 6px; width: 100%;">
+                <input type="color" id="prop-grad-c2" value="#fabd2f">
+                <input type="text" id="prop-grad-c2-text" value="#fabd2f">
+              </div>
+            </div>
+          </div>
+
+          <div class="section-header" style="margin-top: 6px;">Fill Texture</div>
+          <div class="form-row">
+            <label>Mode</label>
+            <select id="prop-fill-tex-mode">
+              <option value="0">0: None / Solid</option>
+              <option value="1">1: Paper Grain</option>
+              <option value="2">2: Canvas Weave</option>
+              <option value="3">3: Noise Scatter</option>
+              <option value="4">4: Halftone Dots</option>
+              <option value="5">5: Grid Pattern</option>
+              <option value="6">6: Grunge / Distress</option>
+              <option value="7">7: Hatch Lines</option>
+              <option value="8">8: Watercolor Cold Press</option>
+              <option value="9">9: Charcoal Tooth</option>
+              <option value="10">10: Wood Grain</option>
+              <option value="11">11: Leather Pores</option>
+              <option value="12">12: Dense Linen</option>
+              <optgroup id="grp-custom-fill-textures" label="Custom Textures"></optgroup>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Scale %</label>
+            <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Angle °</label>
+            <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Contrast %</label>
+            <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Grain / Grit</label>
+            <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
+          </div>
+
+          <div class="section-header" style="margin-top: 6px;">Blend &amp; Opacity</div>
+          <div class="form-row">
+            <label>Opacity</label>
+            <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
+          </div>
+        </div>
+      </div>
+
+      <!-- Stroke Tool & Popover -->
+      <div class="tool-popover-wrap">
+        <button class="tool-btn tool-swatch-btn" id="btn-popover-stroke" title="Stroke &amp; Outline" style="position: relative; display: flex; align-items: center; justify-content: center;">
+          <div id="swatch-stroke-preview" style="width: 18px; height: 18px; background: transparent; border: 3.5px solid #1d2021; border-radius: 3px; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
+          <span class="flyout-indicator">▸</span>
+        </button>
+        <div id="flyout-stroke" class="tool-flyout" style="width: 250px; overflow: visible;">
+          <div class="flyout-title">Stroke &amp; Outline</div>
+          <div class="form-row">
+            <label>Color</label>
+            <div style="display: flex; gap: 6px; width: 100%;">
+              <input type="color" id="prop-stroke-color" value="#1d2021">
+              <input type="text" id="prop-stroke-text" value="#1d2021">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Width</label>
+            <input type="number" id="prop-stroke-width" min="0" max="100" step="1" value="2">
+          </div>
+          <div class="form-row">
+            <label>Linecap</label>
+            <select id="prop-stroke-cap">
+              <option value="round">Round</option>
+              <option value="butt">Butt</option>
+              <option value="square">Square</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Linejoin</label>
+            <select id="prop-stroke-join">
+              <option value="round">Round</option>
+              <option value="miter">Miter</option>
+              <option value="bevel">Bevel</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>No Stroke</label>
+            <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
+          </div>
+
+          <div class="section-header" style="margin-top: 6px;">Stroke Texture</div>
+          <div class="form-row">
+            <label>Mode</label>
+            <select id="prop-stroke-tex-mode">
+              <option value="0">0: None / Solid</option>
+              <option value="1">1: Paper Grain</option>
+              <option value="2">2: Canvas Weave</option>
+              <option value="3">3: Noise Scatter</option>
+              <option value="4">4: Halftone Dots</option>
+              <option value="5">5: Grid Pattern</option>
+              <option value="6">6: Grunge / Distress</option>
+              <option value="7">7: Hatch Lines</option>
+              <option value="8">8: Watercolor Cold Press</option>
+              <option value="9">9: Charcoal Tooth</option>
+              <option value="10">10: Wood Grain</option>
+              <option value="11">11: Leather Pores</option>
+              <option value="12">12: Dense Linen</option>
+              <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Scale %</label>
+            <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Angle °</label>
+            <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Contrast %</label>
+            <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Grain / Grit</label>
+            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
+          </div>
+
+          <div class="flyout-divider" style="margin: 4px 0;"></div>
+
+          <!-- Brush Dynamics Side Submenu Trigger & Panel -->
+          <div class="tool-submenu-wrap" id="wrap-stroke-brush-dynamics">
+            <button type="button" id="btn-open-brush-dynamics" class="btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; font-size: 11px; font-weight: 600; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-bright);">
+              <span>Brush Dynamics</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div id="flyout-brush-dynamics" class="tool-submenu" style="max-height: calc(100vh - 40px); overflow-y: auto;">
+              <div class="flyout-title">Brush Dynamics</div>
+              <div class="form-row">
+                <label>Preset</label>
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <select id="prop-brush-preset" style="flex: 1;">
+                    <option value="custom">-- Custom Settings --</option>
+                    <option value="default">Solid Vector (Default)</option>
+                    <optgroup label="Pencils &amp; Sketching">
+                      <option value="pencil">HB Graphite Pencil</option>
+                      <option value="soft_pencil">6B Soft Graphite</option>
+                      <option value="mech_pencil">0.5mm Mechanical</option>
+                      <option value="blue_pencil">Blue Col-Erase</option>
+                      <option value="tech_pen">Technical Drafting Pen</option>
+                    </optgroup>
+                    <optgroup label="Inkers &amp; Line Art">
+                      <option value="inker">Studio Inker</option>
+                      <option value="gpen">Manga G-Pen</option>
+                      <option value="dry_ink">Dry Ink Bristle</option>
+                      <option value="fountain">Calligraphy Chisel</option>
+                      <option value="brush_pen">Sumi-e Brush Pen</option>
+                    </optgroup>
+                    <optgroup label="Markers &amp; Lettering">
+                      <option value="marker">Art Chisel Marker</option>
+                      <option value="brush_marker">Flexible Brush Marker</option>
+                      <option value="highlighter">Highlighter</option>
+                    </optgroup>
+                    <optgroup label="Paint &amp; Wet Media">
+                      <option value="oil">Oil Impasto (Wet)</option>
+                      <option value="acrylic">Wet Acrylic</option>
+                      <option value="watercolor">Watercolor Wash</option>
+                      <option value="gouache">Matte Gouache</option>
+                      <option value="palette_knife">Palette Knife</option>
+                    </optgroup>
+                    <optgroup label="Charcoal &amp; Pastels">
+                      <option value="charcoal">Vine Dusty Charcoal</option>
+                      <option value="hard_charcoal">Compressed Charcoal</option>
+                      <option value="pastel">Chalk Pastel</option>
+                      <option value="conte">Conté Crayon</option>
+                    </optgroup>
+                    <optgroup label="Airbrush &amp; Sprays">
+                      <option value="airbrush">Soft Airbrush</option>
+                      <option value="hard_airbrush">Flow Airbrush</option>
+                      <option value="spray">Aerosol Splatter Spray</option>
+                    </optgroup>
+                    <optgroup label="Blenders &amp; Smudgers">
+                      <option value="smudge">Finger Smudge</option>
+                      <option value="blend">Paint Blender</option>
+                      <option value="rake_blend">Bristle Smear</option>
+                    </optgroup>
+                    <optgroup label="Special FX">
+                      <option value="pixel">Pixel 1px Pencil</option>
+                      <option value="halftone">Manga Screentone</option>
+                      <option value="crosshatch">Crosshatch Texture</option>
+                    </optgroup>
+                    <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
+                  </select>
+                  <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Flow %</label>
+                <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
+              </div>
+              <div class="form-row">
+                <label>Hardness %</label>
+                <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
+              </div>
+              <div class="form-row">
+                <label>Spacing %</label>
+                <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
+              </div>
+              <div class="form-row">
+                <label>Scatter</label>
+                <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Roundness %</label>
+                <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
+              </div>
+              <div class="form-row">
+                <label>Angle °</label>
+                <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Dab Shape</label>
+                <select id="prop-brush-shape">
+                  <option value="0">Round</option>
+                  <option value="1">Square</option>
+                  <option value="2">Ellipse</option>
+                  <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Dab Blend</label>
+                <select id="prop-brush-dab-blend">
+                  <option value="0">Normal (Direct)</option>
+                  <option value="1">Smudge</option>
+                  <option value="2">Wet / Glaze</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Auto-Rotate</label>
+                <select id="prop-brush-autorotate">
+                  <option value="0">Fixed Angle</option>
+                  <option value="1">Follow Stroke Direction</option>
+                </select>
+              </div>
+
+              <div class="section-header" style="margin-top: 6px;">Taper &amp; Jitters</div>
+              <div class="form-row">
+                <label>Taper In / Out</label>
+                <div class="grid-2" style="width: 100%;">
+                  <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
+                  <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Size Jitter %</label>
+                <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Angle Jitter %</label>
+                <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Opacity Jitter</label>
+                <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
+              </div>
+
+              <div class="section-header" style="margin-top: 6px;">Wet Media &amp; Smudge</div>
+              <div class="form-row">
+                <label>Wetness %</label>
+                <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Color Pickup</label>
+                <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Depletion %</label>
+                <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Smudge %</label>
+                <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Center Interactive Viewport -->
@@ -1889,324 +2278,6 @@
             </div>
 
             <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
-          </div>
-        </details>
-
-        <!-- Fill & Appearance -->
-        <details open class="section-accordion">
-          <summary><span>Fill & Texture</span></summary>
-          <div class="accordion-body">
-            <div class="form-row">
-              <label>Fill Type</label>
-              <select id="prop-fill-type">
-                <option value="solid" selected>Solid Color</option>
-                <option value="linear">Linear Gradient</option>
-                <option value="radial">Radial Gradient</option>
-              </select>
-            </div>
-            <div id="solid-fill-controls">
-              <div class="form-row">
-                <label>Color</label>
-                <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-fill-color" value="#fabd2f">
-                  <input type="text" id="prop-fill-text" value="#fabd2f">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Fill Alpha</label>
-                <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
-              </div>
-              <div class="form-row">
-                <label>No Fill</label>
-                <button id="btn-fill-none" class="btn-sm" style="flex: 1;">Set None</button>
-              </div>
-            </div>
-            <div id="gradient-controls" style="display: none; flex-direction: column; gap: 4px;">
-              <div class="form-row">
-                <label>Stop 1</label>
-                <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-grad-c1" value="#fe8019">
-                  <input type="text" id="prop-grad-c1-text" value="#fe8019">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Stop 2</label>
-                <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-grad-c2" value="#fabd2f">
-                  <input type="text" id="prop-grad-c2-text" value="#fabd2f">
-                </div>
-              </div>
-            </div>
-
-            <div class="section-header" style="margin-top: 6px;">Fill Texture (Procedural)</div>
-            <div class="form-row">
-              <label>Mode</label>
-              <select id="prop-fill-tex-mode">
-                <option value="0">0: None / Solid</option>
-                <option value="1">1: Paper Grain</option>
-                <option value="2">2: Canvas Weave</option>
-                <option value="3">3: Noise Scatter</option>
-                <option value="4">4: Halftone Dots</option>
-                <option value="5">5: Grid Pattern</option>
-                <option value="6">6: Grunge / Distress</option>
-                <option value="7">7: Hatch Lines</option>
-                <option value="8">8: Watercolor Cold Press</option>
-                <option value="9">9: Charcoal Tooth</option>
-                <option value="10">10: Wood Grain</option>
-                <option value="11">11: Leather Pores</option>
-                <option value="12">12: Dense Linen</option>
-                <optgroup id="grp-custom-fill-textures" label="Custom Textures"></optgroup>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Scale %</label>
-              <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Angle °</label>
-              <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Contrast %</label>
-              <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Grain / Grit</label>
-              <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
-            </div>
-
-            <div class="section-header" style="margin-top: 6px;">Blend & Opacity</div>
-            <div class="form-row">
-              <label>Opacity</label>
-              <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
-            </div>
-          </div>
-        </details>
-
-        <!-- Stroke & Line Style -->
-        <details open class="section-accordion">
-          <summary><span>Stroke & Outline</span></summary>
-          <div class="accordion-body">
-            <div class="form-row">
-              <label>Color</label>
-              <div style="display: flex; gap: 6px; width: 100%;">
-                <input type="color" id="prop-stroke-color" value="#1d2021">
-                <input type="text" id="prop-stroke-text" value="#1d2021">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Width</label>
-              <input type="number" id="prop-stroke-width" min="0" max="100" step="1" value="2">
-            </div>
-            <div class="form-row">
-              <label>Linecap</label>
-              <select id="prop-stroke-cap">
-                <option value="round">Round</option>
-                <option value="butt">Butt</option>
-                <option value="square">Square</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Linejoin</label>
-              <select id="prop-stroke-join">
-                <option value="round">Round</option>
-                <option value="miter">Miter</option>
-                <option value="bevel">Bevel</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>No Stroke</label>
-              <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
-            </div>
-
-            <div class="section-header" style="margin-top: 6px;">Stroke Texture</div>
-            <div class="form-row">
-              <label>Mode</label>
-              <select id="prop-stroke-tex-mode">
-                <option value="0">0: None / Solid</option>
-                <option value="1">1: Paper Grain</option>
-                <option value="2">2: Canvas Weave</option>
-                <option value="3">3: Noise Scatter</option>
-                <option value="4">4: Halftone Dots</option>
-                <option value="5">5: Grid Pattern</option>
-                <option value="6">6: Grunge / Distress</option>
-                <option value="7">7: Hatch Lines</option>
-                <option value="8">8: Watercolor Cold Press</option>
-                <option value="9">9: Charcoal Tooth</option>
-                <option value="10">10: Wood Grain</option>
-                <option value="11">11: Leather Pores</option>
-                <option value="12">12: Dense Linen</option>
-                <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Scale %</label>
-              <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Angle °</label>
-              <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Contrast %</label>
-              <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Grain / Grit</label>
-              <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
-            </div>
-          </div>
-        </details>
-
-        <!-- Quadro Brush Dynamics Accordion -->
-        <details class="section-accordion">
-          <summary><span>Brush Dynamics (Quadro)</span></summary>
-          <div class="accordion-body">
-            <div class="form-row">
-              <label>Preset</label>
-              <div style="display: flex; gap: 4px; width: 100%;">
-                <select id="prop-brush-preset" style="flex: 1;">
-                  <option value="custom">-- Custom Settings --</option>
-                  <option value="default">Solid Vector (Default)</option>
-                  <optgroup label="Pencils & Sketching">
-                    <option value="pencil">HB Graphite Pencil</option>
-                    <option value="soft_pencil">6B Soft Graphite</option>
-                    <option value="mech_pencil">0.5mm Mechanical</option>
-                    <option value="blue_pencil">Blue Col-Erase</option>
-                    <option value="tech_pen">Technical Drafting Pen</option>
-                  </optgroup>
-                  <optgroup label="Inkers & Line Art">
-                    <option value="inker">Studio Inker</option>
-                    <option value="gpen">Manga G-Pen</option>
-                    <option value="dry_ink">Dry Ink Bristle</option>
-                    <option value="fountain">Calligraphy Chisel</option>
-                    <option value="brush_pen">Sumi-e Brush Pen</option>
-                  </optgroup>
-                  <optgroup label="Markers & Lettering">
-                    <option value="marker">Art Chisel Marker</option>
-                    <option value="brush_marker">Flexible Brush Marker</option>
-                    <option value="highlighter">Highlighter</option>
-                  </optgroup>
-                  <optgroup label="Paint & Wet Media">
-                    <option value="oil">Oil Impasto (Wet)</option>
-                    <option value="acrylic">Wet Acrylic</option>
-                    <option value="watercolor">Watercolor Wash</option>
-                    <option value="gouache">Matte Gouache</option>
-                    <option value="palette_knife">Palette Knife</option>
-                  </optgroup>
-                  <optgroup label="Charcoal & Pastels">
-                    <option value="charcoal">Vine Dusty Charcoal</option>
-                    <option value="hard_charcoal">Compressed Charcoal</option>
-                    <option value="pastel">Chalk Pastel</option>
-                    <option value="conte">Conté Crayon</option>
-                  </optgroup>
-                  <optgroup label="Airbrush & Sprays">
-                    <option value="airbrush">Soft Airbrush</option>
-                    <option value="hard_airbrush">Flow Airbrush</option>
-                    <option value="spray">Aerosol Splatter Spray</option>
-                  </optgroup>
-                  <optgroup label="Blenders & Smudgers">
-                    <option value="smudge">Finger Smudge</option>
-                    <option value="blend">Paint Blender</option>
-                    <option value="rake_blend">Bristle Smear</option>
-                  </optgroup>
-                  <optgroup label="Special FX">
-                    <option value="pixel">Pixel 1px Pencil</option>
-                    <option value="halftone">Manga Screentone</option>
-                    <option value="crosshatch">Crosshatch Texture</option>
-                  </optgroup>
-                  <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
-                </select>
-                <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-main); border-radius: 3px;">+ Save</button>
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Flow %</label>
-              <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Hardness %</label>
-              <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Spacing %</label>
-              <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
-            </div>
-            <div class="form-row">
-              <label>Scatter</label>
-              <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Roundness %</label>
-              <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
-            </div>
-            <div class="form-row">
-              <label>Angle °</label>
-              <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Dab Shape</label>
-              <select id="prop-brush-shape">
-                <option value="0">Round</option>
-                <option value="1">Square</option>
-                <option value="2">Ellipse</option>
-                <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Dab Blend</label>
-              <select id="prop-brush-dab-blend">
-                <option value="0">Normal (Direct)</option>
-                <option value="1">Smudge</option>
-                <option value="2">Wet / Glaze</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Auto-Rotate</label>
-              <select id="prop-brush-autorotate">
-                <option value="0">Fixed Angle</option>
-                <option value="1">Follow Stroke Direction</option>
-              </select>
-            </div>
-
-            <div class="section-header" style="margin-top: 6px;">Taper & Jitters</div>
-            <div class="form-row">
-              <label>Taper In / Out</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
-                <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size Jitter %</label>
-              <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Angle Jitter %</label>
-              <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Opacity Jitter</label>
-              <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
-            </div>
-
-            <div class="section-header" style="margin-top: 6px;">Wet Media & Smudge</div>
-            <div class="form-row">
-              <label>Wetness %</label>
-              <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Color Pickup</label>
-              <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Depletion %</label>
-              <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
-            </div>
-            <div class="form-row">
-              <label>Smudge %</label>
-              <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
-            </div>
           </div>
         </details>
 
@@ -4339,6 +4410,36 @@
             lblP2.textContent = 'Param 2';
           }
         }
+
+        updateSwatches();
+      }
+
+      function updateSwatches() {
+        const fillTextEl = document.getElementById('prop-fill-text');
+        const fillVal = fillTextEl ? fillTextEl.value : '#fabd2f';
+        const fillPreview = document.getElementById('swatch-fill-preview');
+        if (fillPreview) {
+          if (!fillVal || fillVal === 'none') {
+            fillPreview.style.backgroundColor = 'transparent';
+            fillPreview.style.backgroundImage = 'linear-gradient(135deg, transparent 40%, #ea6962 45%, #ea6962 55%, transparent 60%)';
+          } else {
+            fillPreview.style.backgroundColor = fillVal;
+            fillPreview.style.backgroundImage = 'none';
+          }
+        }
+
+        const strokeTextEl = document.getElementById('prop-stroke-text');
+        const strokeVal = strokeTextEl ? strokeTextEl.value : '#1d2021';
+        const strokePreview = document.getElementById('swatch-stroke-preview');
+        if (strokePreview) {
+          if (!strokeVal || strokeVal === 'none') {
+            strokePreview.style.borderColor = 'rgba(255,255,255,0.2)';
+            strokePreview.style.backgroundImage = 'linear-gradient(135deg, transparent 40%, #ea6962 45%, #ea6962 55%, transparent 60%)';
+          } else {
+            strokePreview.style.borderColor = strokeVal;
+            strokePreview.style.backgroundImage = 'none';
+          }
+        }
       }
 
       // ── Pointer & Tool Event Handlers ──
@@ -5151,6 +5252,7 @@
         if (!btn || !flyout) return;
         document.querySelectorAll('.tool-flyout').forEach(f => f.classList.remove('active'));
         document.querySelectorAll('.tool-popover-wrap .tool-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tool-submenu-wrap').forEach(w => w.classList.remove('open'));
         const rect = btn.getBoundingClientRect();
         flyout.classList.add('active');
         btn.classList.add('active');
@@ -5158,6 +5260,16 @@
         const top = Math.max(10, Math.min(rect.top, window.innerHeight - flyoutH - 16));
         flyout.style.top = `${top}px`;
         flyout.style.left = `${rect.right + 6}px`;
+
+        if (flyout.id === 'flyout-stroke') {
+          const sub = document.getElementById('flyout-brush-dynamics');
+          if (sub) {
+            const subH = 440;
+            const subTop = Math.max(10, Math.min(top, window.innerHeight - subH - 16));
+            sub.style.top = `${subTop}px`;
+            sub.style.left = `${rect.right + 6 + 250 + 4}px`;
+          }
+        }
       }
 
       const shapeFlyout = document.getElementById('flyout-shapes');
@@ -5648,12 +5760,14 @@
         if (textEl) textEl.value = e.target.value;
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.fill = e.target.value;
+        updateSwatches();
         render();
       });
 
       document.getElementById('prop-fill-text')?.addEventListener('change', (e) => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.fill = e.target.value;
+        updateSwatches();
         render();
       });
 
@@ -5662,6 +5776,7 @@
         if (textEl) textEl.value = 'none';
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.fill = 'none';
+        updateSwatches();
         render();
       });
 
@@ -5670,12 +5785,14 @@
         if (textEl) textEl.value = e.target.value;
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.stroke = e.target.value;
+        updateSwatches();
         render();
       });
 
       document.getElementById('prop-stroke-text')?.addEventListener('change', (e) => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.stroke = e.target.value;
+        updateSwatches();
         render();
       });
 
@@ -5690,6 +5807,7 @@
         if (textEl) textEl.value = 'none';
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.stroke = 'none';
+        updateSwatches();
         render();
       });
 
@@ -6205,12 +6323,14 @@
         drawOverlay();
       });
 
-      // ── Left Toolbar Popover Flyouts (Node & Curves, Align, Pathfinder, Snap) ──
+      // ── Left Toolbar Popover Flyouts (Node & Curves, Align, Pathfinder, Snap, Fill, Stroke) ──
       const popoverToggles = [
         { btnId: 'btn-popover-node-curves', flyoutId: 'flyout-node-curves' },
         { btnId: 'btn-popover-align', flyoutId: 'flyout-align' },
         { btnId: 'btn-popover-pathfinder', flyoutId: 'flyout-pathfinder' },
-        { btnId: 'btn-popover-snap', flyoutId: 'flyout-snap' }
+        { btnId: 'btn-popover-snap', flyoutId: 'flyout-snap' },
+        { btnId: 'btn-popover-fill', flyoutId: 'flyout-fill' },
+        { btnId: 'btn-popover-stroke', flyoutId: 'flyout-stroke' }
       ];
 
       popoverToggles.forEach(({ btnId, flyoutId }) => {
@@ -6228,10 +6348,29 @@
         });
       });
 
+      const positionBrushDyn = () => {
+        const flyoutStroke = document.getElementById('flyout-stroke');
+        const flyoutBrush = document.getElementById('flyout-brush-dynamics');
+        if (!flyoutStroke || !flyoutBrush) return;
+        const rect = flyoutStroke.getBoundingClientRect();
+        const subH = flyoutBrush.offsetHeight || 460;
+        const subTop = Math.max(10, Math.min(rect.top, window.innerHeight - subH - 16));
+        flyoutBrush.style.top = `${subTop}px`;
+        flyoutBrush.style.left = `${rect.right + 4}px`;
+      };
+
+      document.getElementById('wrap-stroke-brush-dynamics')?.addEventListener('mouseenter', positionBrushDyn);
+      document.getElementById('btn-open-brush-dynamics')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        positionBrushDyn();
+        document.getElementById('wrap-stroke-brush-dynamics')?.classList.toggle('open');
+      });
+
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.tool-popover-wrap')) {
           document.querySelectorAll('.tool-flyout').forEach(f => f.classList.remove('active'));
           document.querySelectorAll('.tool-popover-wrap .tool-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tool-submenu-wrap').forEach(w => w.classList.remove('open'));
         }
       });
 
