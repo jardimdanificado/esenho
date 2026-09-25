@@ -5,31 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <meta name="theme-color" content="var(--bg-dark)">
+  <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
   <style>
     :root {
-      --bg-dark: var(--bg-dark);
-      --bg-canvas: var(--bg-dark);
-      --bg-panel: var(--bg-panel);
+      --bg-dark: #1d2021;
+      --bg-canvas: #1d2021;
+      --bg-panel: #282828;
       --bg-panel-sub: #32302f;
-      --bg-input: var(--bg-input);
-      --bg-input-focus: var(--border);
-      --border: var(--border);
-      --border-bright: var(--border-bright);
-      --border-focus: var(--primary);
-      --text: var(--text-bright);
+      --bg-input: #181a1b;
+      --bg-input-focus: #3c3836;
+      --border: #3c3836;
+      --border-bright: #504945;
+      --border-focus: #fabd2f;
+      --text: #fbf1c7;
       --text-dim: #d5c4a1;
-      --text-muted: var(--text-dim);
-      --primary: var(--primary);
-      --primary-hover: var(--primary-hover);
+      --text-muted: #928374;
+      --primary: #fabd2f;
+      --primary-hover: #fe8019;
       --primary-dim: rgba(250, 189, 47, 0.12);
       --accent: #83a598;
-      --accent-hover: var(--text-muted);
+      --accent-hover: #a89984;
       --accent-dim: rgba(131, 165, 152, 0.15);
-      --danger: var(--danger);
+      --danger: #fb4934;
       --danger-dim: rgba(251, 73, 52, 0.15);
-      --success: var(--success);
+      --success: #b8bb26;
       --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", sans-serif;
       --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
       --radius-sm: 3px;
@@ -2788,8 +2788,8 @@
 
       // ── Init Sample Shapes ──
       function initSampleScene() {
-        const r1 = new SvgRect({ x: 80, y: 80, width: 220, height: 140, rx: 8, ry: 8, fill: 'var(--primary)', stroke: 'var(--primary-hover)', strokeWidth: 3 });
-        const c1 = new SvgCircle({ cx: 450, cy: 180, r: 70, fill: 'var(--success)', stroke: 'var(--bg-dark)', strokeWidth: 3 });
+        const r1 = new SvgRect({ x: 80, y: 80, width: 220, height: 140, rx: 8, ry: 8, fill: '#fabd2f', stroke: '#fe8019', strokeWidth: 3 });
+        const c1 = new SvgCircle({ cx: 450, cy: 180, r: 70, fill: '#b8bb26', stroke: '#1d2021', strokeWidth: 3 });
         
         const p1 = new SvgPath({ stroke: '#83a598', strokeWidth: 4, fill: '#458588', fillOpacity: 0.35, closed: true });
         p1.addNode(150, 420, { x: -30, y: 30 }, { x: 40, y: -40 }, 'smooth');
@@ -3105,7 +3105,7 @@
 
             const hs = 6 / zoom;
             ctx.fillStyle = '#fabd2f';
-            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.strokeStyle = '#1d2021';
             ctx.lineWidth = 1 / zoom;
 
             for (const h of handles) {
@@ -3125,8 +3125,8 @@
             ctx.lineTo(rotX, rotY);
             ctx.stroke();
 
-            ctx.fillStyle = 'var(--primary-hover)';
-            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.fillStyle = '#fe8019';
+            ctx.strokeStyle = '#1d2021';
             ctx.lineWidth = 1.5 / zoom;
             ctx.beginPath();
             ctx.arc(rotX, rotY, 4.5 / zoom, 0, Math.PI * 2);
@@ -3134,15 +3134,15 @@
             ctx.stroke();
 
             // Center Anchor / Pivot Point Indicator
-            ctx.fillStyle = 'var(--success)';
-            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.fillStyle = '#b8bb26';
+            ctx.strokeStyle = '#1d2021';
             ctx.lineWidth = 1.2 / zoom;
             ctx.beginPath();
             ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
-            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.strokeStyle = '#1d2021';
             ctx.lineWidth = 1 / zoom;
             ctx.beginPath();
             ctx.moveTo(origin.x - 6 / zoom, origin.y);
@@ -3169,7 +3169,7 @@
               const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
 
               ctx.save();
-              ctx.strokeStyle = 'var(--border-focus)';
+              ctx.strokeStyle = '#fabd2f';
               ctx.lineWidth = 1.5 / zoom;
               ctx.setLineDash([4 / zoom, 3 / zoom]);
               ctx.strokeRect(cb.minX, cb.minY, cb.width, cb.height);
@@ -3184,7 +3184,7 @@
 
               const hs = 6.5 / zoom;
               ctx.fillStyle = '#fabd2f';
-              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.strokeStyle = '#1d2021';
               ctx.lineWidth = 1 / zoom;
 
               for (const h of handles) {
@@ -3197,15 +3197,15 @@
               const rotX = cb.minX + cb.width / 2;
               const rotY = cb.minY - rotDist;
 
-              ctx.strokeStyle = 'var(--primary-hover)';
+              ctx.strokeStyle = '#fe8019';
               ctx.lineWidth = 1.2 / zoom;
               ctx.beginPath();
               ctx.moveTo(rotX, cb.minY);
               ctx.lineTo(rotX, rotY);
               ctx.stroke();
 
-              ctx.fillStyle = 'var(--primary-hover)';
-              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.fillStyle = '#fe8019';
+              ctx.strokeStyle = '#1d2021';
               ctx.lineWidth = 1.5 / zoom;
               ctx.beginPath();
               ctx.arc(rotX, rotY, 5 / zoom, 0, Math.PI * 2);
@@ -3213,8 +3213,8 @@
               ctx.stroke();
 
               // Center Pivot Indicator
-              ctx.fillStyle = 'var(--success)';
-              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.fillStyle = '#b8bb26';
+              ctx.strokeStyle = '#1d2021';
               ctx.lineWidth = 1.2 / zoom;
               ctx.beginPath();
               ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
@@ -3271,8 +3271,8 @@
               }
 
               // Anchor Point
-              ctx.fillStyle = (i === activeNodeIdx) ? 'var(--primary-hover)' : 'var(--primary)';
-              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.fillStyle = (i === activeNodeIdx) ? '#fe8019' : '#fabd2f';
+              ctx.strokeStyle = '#1d2021';
               ctx.lineWidth = 1.5 / zoom;
               const as = 7 / zoom;
               ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
@@ -3310,7 +3310,7 @@
 
             if (isNearFirst) {
               // Draw close-path ring indicator
-              ctx.strokeStyle = 'var(--success)';
+              ctx.strokeStyle = '#b8bb26';
               ctx.lineWidth = 2.5 / zoom;
               ctx.beginPath();
               ctx.arc(firstNode.x, firstNode.y, 8 / zoom, 0, Math.PI * 2);
@@ -3397,7 +3397,7 @@
               input.value = obj.name;
               input.style.fontSize = '10px';
               input.style.width = '90px';
-              input.style.background = 'var(--bg-input-focus)';
+              input.style.background = '#202223';
               input.style.color = '#fff';
               input.style.border = '1px solid var(--border-focus)';
               input.style.borderRadius = '2px';
@@ -3689,7 +3689,7 @@
 
         propDocW.value = doc.width;
         propDocH.value = doc.height;
-        propDocBg.value = doc.backgroundColor || 'var(--bg-dark)';
+        propDocBg.value = doc.backgroundColor || '#1d2021';
 
         const propGeomType = document.getElementById('prop-geom-type');
         const btnConvertPath = document.getElementById('btn-convert-path');
@@ -3895,10 +3895,10 @@
           if (gradControls) {
             gradControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'flex' : 'none';
             if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops.length >= 2) {
-              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || 'var(--primary-hover)';
-              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || 'var(--primary-hover)';
-              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || 'var(--primary)';
-              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || 'var(--primary)';
+              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || '#fe8019';
+              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || '#fe8019';
+              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || '#fabd2f';
+              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || '#fabd2f';
             }
           }
         }
@@ -4279,7 +4279,7 @@
           if (!currentPenPath) {
             currentPenPath = new SvgPath({
               fill: 'none',
-              stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
+              stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
               strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
             });
             doc.addObject(currentPenPath);
@@ -4300,8 +4300,8 @@
         } else if (activeTool === 'rect') {
           currentDraftObj = new SvgRect({
             x: pt.x, y: pt.y, width: 1, height: 1,
-            fill: document.getElementById('prop-fill-text').value || 'var(--primary)',
-            stroke: document.getElementById('prop-stroke-text').value || 'var(--bg-dark)',
+            fill: document.getElementById('prop-fill-text').value || '#fabd2f',
+            stroke: document.getElementById('prop-stroke-text').value || '#1d2021',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
           });
           doc.addObject(currentDraftObj);
@@ -4309,8 +4309,8 @@
         } else if (activeTool === 'ellipse') {
           currentDraftObj = new SvgEllipse({
             cx: pt.x, cy: pt.y, rx: 1, ry: 1,
-            fill: document.getElementById('prop-fill-text').value || 'var(--primary)',
-            stroke: document.getElementById('prop-stroke-text').value || 'var(--bg-dark)',
+            fill: document.getElementById('prop-fill-text').value || '#fabd2f',
+            stroke: document.getElementById('prop-stroke-text').value || '#1d2021',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
           });
           doc.addObject(currentDraftObj);
@@ -4318,7 +4318,7 @@
         } else if (activeTool === 'line') {
           currentDraftObj = new SvgLine({
             x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y,
-            stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
+            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
           });
           doc.addObject(currentDraftObj);
@@ -4326,7 +4326,7 @@
         } else if (activeTool === 'brush') {
           currentDraftObj = new SvgPath({
             fill: 'none',
-            stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
+            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 3
           });
           currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
@@ -4337,7 +4337,7 @@
           if (textVal) {
             let fillVal = document.getElementById('prop-fill-text')?.value;
             if (!fillVal || fillVal === 'none') {
-              fillVal = 'var(--primary)';
+              fillVal = '#fabd2f';
             }
             const textObj = new SvgText({
               x: pt.x,
@@ -4931,7 +4931,7 @@
           const snapBtn = document.getElementById('btn-toggle-snap');
           if (snapBtn) {
             snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
-            snapBtn.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+            snapBtn.style.color = snapEnabled ? '#fabd2f' : '#a89984';
           }
           drawOverlay();
         } else if (e.key === 'F2') {
@@ -5691,7 +5691,7 @@
         e.stopPropagation();
         snapEnabled = !snapEnabled;
         btnToggleSnap.textContent = snapEnabled ? 'ON' : 'OFF';
-        btnToggleSnap.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+        btnToggleSnap.style.color = snapEnabled ? '#fabd2f' : '#a89984';
         activeSnapLines = [];
         drawOverlay();
       });
@@ -6575,7 +6575,7 @@
               const cyEl = document.getElementById('prop-camera-y');
               if (wEl) wEl.value = doc.width;
               if (hEl) hEl.value = doc.height;
-              if (bgEl) bgEl.value = doc.backgroundColor || 'var(--bg-dark)';
+              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
               if (zEl) zEl.value = Math.round(zoom * 100);
               if (rEl) rEl.value = viewportRotation;
               if (cxEl) cxEl.value = Math.round(panX);
@@ -6796,7 +6796,7 @@
           if (!list || list.length === 0) {
             recentsGrid.innerHTML = `
               <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--border-focus)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fabd2f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                   <circle cx="8.5" cy="8.5" r="1.5"/>
                   <polyline points="21 15 16 10 5 21"/>
@@ -6930,7 +6930,7 @@
           tabBtnBundleExport.style.color = 'var(--text-main)';
           tabBtnBundleExport.style.fontWeight = 'bold';
           tabBtnBundleImport.style.borderBottom = 'none';
-          tabBtnBundleImport.style.color = 'var(--text-muted)';
+          tabBtnBundleImport.style.color = '#a89984';
           tabBtnBundleImport.style.fontWeight = 'normal';
           paneBundleExport.style.display = 'flex';
           paneBundleImport.style.display = 'none';
@@ -6941,7 +6941,7 @@
           tabBtnBundleImport.style.color = 'var(--text-main)';
           tabBtnBundleImport.style.fontWeight = 'bold';
           tabBtnBundleExport.style.borderBottom = 'none';
-          tabBtnBundleExport.style.color = 'var(--text-muted)';
+          tabBtnBundleExport.style.color = '#a89984';
           tabBtnBundleExport.style.fontWeight = 'normal';
           paneBundleExport.style.display = 'none';
           paneBundleImport.style.display = 'flex';
