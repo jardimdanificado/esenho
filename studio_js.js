@@ -1,0 +1,4804 @@
+    (function () {
+      'use strict';
+
+      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
+
+      // ── Document State ──
+      const doc = new SvgDocument(800, 600);
+      window.doc = doc;
+      let quadroRenderer = null;
+
+      // ── Viewport State ──
+      let zoom = 1.0;
+      let panX = 40;
+      let panY = 40;
+      let viewportRotation = 0; // in degrees
+      let isPanning = false;
+      let panStartX = 0, panStartY = 0;
+      let isTouchPinching = false;
+
+      // ── Tool & Interaction State ──
+      let activeTool = 'select'; // 'select', 'node', 'pen', 'brush', 'rect', 'ellipse', 'line'
+      let isDragging = false;
+      let dragStartX = 0, dragStartY = 0;
+      let currentDraftObj = null;
+      let activeNodeIdx = -1;
+      let activeHandleType = null; // 'in', 'out', 'anchor'
+      let activeResizeHandle = null; // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
+      let activeTransformMode = null; // 'resize', 'rotate', 'anchor'
+      let initialRotation = 0;
+      let initialAngle = 0;
+      let initialBounds = null;
+      let initialObjectState = null;
+      let resizeStartPoint = { x: 0, y: 0 };
+      let resizeStartLocalPoint = { x: 0, y: 0 };
+      let hoveredObj = null;
+
+      function docToLocal(pt, origin, rotationDeg) {
+        if (!rotationDeg) return { x: pt.x, y: pt.y };
+        const rad = - (rotationDeg || 0) * Math.PI / 180;
+        const cosA = Math.cos(rad);
+        const sinA = Math.sin(rad);
+        const dx = pt.x - origin.x;
+        const dy = pt.y - origin.y;
+        return {
+          x: origin.x + dx * cosA - dy * sinA,
+          y: origin.y + dx * sinA + dy * cosA
+        };
+      }
+
+      function scaleObjectToBox(obj, origState, origBounds, newMinX, newMinY, newW, newH) {
+        if (!obj || !origState || !origBounds) return;
+        const sx = (origBounds.width > 0) ? newW / origBounds.width : 1;
+        const sy = (origBounds.height > 0) ? newH / origBounds.height : 1;
+
+        if (obj.type === 'rect' || obj.type === 'image') {
+          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * sx;
+          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.minY) - origBounds.minY) * sy;
+          obj.width = Math.max(1, (origState.width !== undefined ? origState.width : origBounds.width) * sx);
+          obj.height = Math.max(1, (origState.height !== undefined ? origState.height : origBounds.height) * sy);
+        } else if (obj.type === 'circle') {
+          const origR = origState.r !== undefined ? origState.r : (origState.rx || 10);
+          const nr = Math.max(1, Math.round(origR * Math.min(sx, sy)));
+          const origCx = origState.cx !== undefined ? origState.cx : (origBounds.minX + origBounds.width / 2);
+          const origCy = origState.cy !== undefined ? origState.cy : (origBounds.minY + origBounds.height / 2);
+          obj.cx = newMinX + (origCx - origBounds.minX) * sx;
+          obj.cy = newMinY + (origCy - origBounds.minY) * sy;
+          obj.r = nr;
+          obj.rx = nr;
+          obj.ry = nr;
+        } else if (obj.type === 'ellipse') {
+          const origRx = origState.rx !== undefined ? origState.rx : 10;
+          const origRy = origState.ry !== undefined ? origState.ry : 10;
+          const origCx = origState.cx !== undefined ? origState.cx : (origBounds.minX + origBounds.width / 2);
+          const origCy = origState.cy !== undefined ? origState.cy : (origBounds.minY + origBounds.height / 2);
+          obj.rx = Math.max(1, Math.round(origRx * sx));
+          obj.ry = Math.max(1, Math.round(origRy * sy));
+          obj.cx = newMinX + (origCx - origBounds.minX) * sx;
+          obj.cy = newMinY + (origCy - origBounds.minY) * sy;
+        } else if (obj.type === 'line') {
+          obj.x1 = newMinX + (origState.x1 - origBounds.minX) * sx;
+          obj.y1 = newMinY + (origState.y1 - origBounds.minY) * sy;
+          obj.x2 = newMinX + (origState.x2 - origBounds.minX) * sx;
+          obj.y2 = newMinY + (origState.y2 - origBounds.minY) * sy;
+        } else if (obj.type === 'compoundPath') {
+          if (obj.subPaths && origState.subPaths) {
+            for (let s = 0; s < obj.subPaths.length; s++) {
+              const sp = obj.subPaths[s];
+              const origSp = origState.subPaths[s];
+              if (sp && origSp && sp.nodes && origSp.nodes) {
+                for (let i = 0; i < sp.nodes.length; i++) {
+                  const orig = origSp.nodes[i];
+                  sp.nodes[i].x = newMinX + (orig.x - origBounds.minX) * sx;
+                  sp.nodes[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+                  if (orig.cpIn) sp.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
+                  if (orig.cpOut) sp.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
+                }
+              }
+            }
+          }
+        } else if (obj.type === 'polyline' || obj.type === 'polygon') {
+          if (obj.points && origState.points) {
+            for (let i = 0; i < obj.points.length; i++) {
+              const orig = origState.points[i];
+              obj.points[i].x = newMinX + (orig.x - origBounds.minX) * sx;
+              obj.points[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+            }
+          }
+        } else if (obj.type === 'text') {
+          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * sx;
+          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.maxY) - origBounds.minY) * sy;
+          obj.fontSize = Math.max(8, Math.round(origState.fontSize * sy));
+        } else if (obj.type === 'path') {
+          if (obj.nodes && origState.nodes) {
+            for (let i = 0; i < obj.nodes.length; i++) {
+              const orig = origState.nodes[i];
+              obj.nodes[i].x = newMinX + (orig.x - origBounds.minX) * sx;
+              obj.nodes[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+              if (orig.cpIn) obj.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
+              if (orig.cpOut) obj.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
+            }
+          }
+        } else if (obj.type === 'group') {
+          if (obj.children && origState.children) {
+            for (let i = 0; i < obj.children.length; i++) {
+              const child = obj.children[i];
+              const childOrigState = origState.children[i];
+              if (child && childOrigState) {
+                scaleObjectToBox(child, childOrigState, origBounds, newMinX, newMinY, newW, newH);
+              }
+            }
+          }
+        }
+
+        if (origState.originX !== undefined) {
+          obj.originX = newMinX + (origState.originX - origBounds.minX) * sx;
+        }
+        if (origState.originY !== undefined) {
+          obj.originY = newMinY + (origState.originY - origBounds.minY) * sy;
+        }
+      }
+
+      function getCollectiveBounds(objects) {
+        if (!objects || objects.length === 0) return null;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const obj of objects) {
+          const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+          minX = Math.min(minX, b.minX);
+          minY = Math.min(minY, b.minY);
+          maxX = Math.max(maxX, b.maxX);
+          maxY = Math.max(maxY, b.maxY);
+        }
+        if (minX === Infinity) return null;
+        return {
+          minX,
+          minY,
+          maxX,
+          maxY,
+          width: Math.max(1, maxX - minX),
+          height: Math.max(1, maxY - minY)
+        };
+      }
+
+      // ── Snapping & Guides State ──
+      let snapEnabled = true;
+      let snapToGrid = false;
+      let gridSize = 20;
+      let userGuides = { horizontal: [], vertical: [] };
+      let activeGuideDrag = null;
+      let activeSnapLines = [];
+
+      // ── Rulers System ──
+      const rulerTopCanvas = document.getElementById('ruler-top');
+      const rulerLeftCanvas = document.getElementById('ruler-left');
+
+      function drawRulers() {
+        if (!rulerTopCanvas || !rulerLeftCanvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const topW = rulerTopCanvas.clientWidth || 800;
+        const topH = 18;
+        const leftW = 18;
+        const leftH = rulerLeftCanvas.clientHeight || 600;
+
+        if (rulerTopCanvas.width !== Math.round(topW * dpr) || rulerTopCanvas.height !== Math.round(topH * dpr)) {
+          rulerTopCanvas.width = Math.round(topW * dpr);
+          rulerTopCanvas.height = Math.round(topH * dpr);
+        }
+        if (rulerLeftCanvas.width !== Math.round(leftW * dpr) || rulerLeftCanvas.height !== Math.round(leftH * dpr)) {
+          rulerLeftCanvas.width = Math.round(leftW * dpr);
+          rulerLeftCanvas.height = Math.round(leftH * dpr);
+        }
+
+        const ctxTop = rulerTopCanvas.getContext('2d');
+        const ctxLeft = rulerLeftCanvas.getContext('2d');
+        ctxTop.save();
+        ctxLeft.save();
+        ctxTop.setTransform(1, 0, 0, 1, 0, 0);
+        ctxLeft.setTransform(1, 0, 0, 1, 0, 0);
+        ctxTop.scale(dpr, dpr);
+        ctxLeft.scale(dpr, dpr);
+
+        ctxTop.fillStyle = '#32302f';
+        ctxTop.fillRect(0, 0, topW, topH);
+        ctxLeft.fillStyle = '#32302f';
+        ctxLeft.fillRect(0, 0, leftW, leftH);
+
+        let step = 100;
+        if (zoom > 3) step = 10;
+        else if (zoom > 1.5) step = 20;
+        else if (zoom > 0.6) step = 50;
+        else if (zoom > 0.25) step = 100;
+        else step = 200;
+
+        ctxTop.strokeStyle = '#504945';
+        ctxTop.fillStyle = '#928374';
+        ctxTop.font = '8px monospace';
+        ctxTop.lineWidth = 1;
+
+        const startDocX = Math.floor((-panX) / zoom / step) * step;
+        const endDocX = Math.ceil((topW - panX) / zoom / step) * step;
+
+        for (let x = startDocX; x <= endDocX; x += step) {
+          const screenX = x * zoom + panX;
+          if (screenX < 0 || screenX > topW) continue;
+          ctxTop.beginPath();
+          ctxTop.moveTo(screenX, topH - 8);
+          ctxTop.lineTo(screenX, topH);
+          ctxTop.stroke();
+          ctxTop.fillText(String(x), screenX + 2, topH - 9);
+
+          const sub = step / 5;
+          for (let s = 1; s < 5; s++) {
+            const sx = (x + s * sub) * zoom + panX;
+            if (sx >= 0 && sx <= topW) {
+              ctxTop.beginPath();
+              ctxTop.moveTo(sx, topH - 4);
+              ctxTop.lineTo(sx, topH);
+              ctxTop.stroke();
+            }
+          }
+        }
+
+        ctxLeft.strokeStyle = '#504945';
+        ctxLeft.fillStyle = '#928374';
+        ctxLeft.font = '8px monospace';
+        ctxLeft.lineWidth = 1;
+
+        const startDocY = Math.floor((-panY) / zoom / step) * step;
+        const endDocY = Math.ceil((leftH - panY) / zoom / step) * step;
+
+        for (let y = startDocY; y <= endDocY; y += step) {
+          const screenY = y * zoom + panY;
+          if (screenY < 0 || screenY > leftH) continue;
+          ctxLeft.beginPath();
+          ctxLeft.moveTo(leftW - 8, screenY);
+          ctxLeft.lineTo(leftW, screenY);
+          ctxLeft.stroke();
+
+          ctxLeft.save();
+          ctxLeft.translate(leftW - 9, screenY - 2);
+          ctxLeft.rotate(-Math.PI / 2);
+          ctxLeft.fillText(String(y), 0, 0);
+          ctxLeft.restore();
+
+          const sub = step / 5;
+          for (let s = 1; s < 5; s++) {
+            const sy = (y + s * sub) * zoom + panY;
+            if (sy >= 0 && sy <= leftH) {
+              ctxLeft.beginPath();
+              ctxLeft.moveTo(leftW - 4, sy);
+              ctxLeft.lineTo(leftW, sy);
+              ctxLeft.stroke();
+            }
+          }
+        }
+
+        ctxTop.restore();
+        ctxLeft.restore();
+      }
+
+      rulerTopCanvas?.addEventListener('pointerdown', (e) => {
+        const pt = screenToDoc(e.clientX, e.clientY);
+        userGuides.horizontal.push(Math.round(pt.y));
+        activeGuideDrag = { type: 'horizontal', index: userGuides.horizontal.length - 1 };
+        drawOverlay();
+      });
+
+      rulerLeftCanvas?.addEventListener('pointerdown', (e) => {
+        const pt = screenToDoc(e.clientX, e.clientY);
+        userGuides.vertical.push(Math.round(pt.x));
+        activeGuideDrag = { type: 'vertical', index: userGuides.vertical.length - 1 };
+        drawOverlay();
+      });
+
+      // Marquee / Box Selection State
+      let isMarqueeSelecting = false;
+      let marqueeBox = null;
+      let marqueeBaseSelected = null;
+
+      // Pen Tool State
+      let currentPenPath = null;
+      let penCursorPos = null;
+      let isPenDraggingAnchor = false;
+      let isPenClosingPath = false;
+
+      function commitPenPath() {
+        if (currentPenPath) {
+          if (currentPenPath.nodes.length < 2) {
+            doc.removeObject(currentPenPath.id);
+          } else {
+            doc.pushHistory('Create Path');
+          }
+          currentPenPath = null;
+          isPenDraggingAnchor = false;
+          isPenClosingPath = false;
+          activeNodeIdx = -1;
+          render();
+          updateInspector();
+          updateObjectList();
+        }
+      }
+
+      // ── DOM Elements ──
+      const viewportContainer = document.getElementById('viewport-container');
+      const stageWrapper = document.getElementById('stage-wrapper');
+      const svgStage = document.getElementById('svg-stage');
+      const overlayCanvas = document.getElementById('overlay-canvas');
+      const ctx = overlayCanvas.getContext('2d');
+
+      const statusTool = document.getElementById('status-tool');
+      const statusCoords = document.getElementById('status-coords');
+      const statusZoom = document.getElementById('status-zoom');
+      const statusRotation = document.getElementById('status-rotation');
+      const statusObjects = document.getElementById('status-objects');
+      const objCountBadge = document.getElementById('obj-count-badge');
+      const objectList = document.getElementById('object-list');
+      const svgCodeEditor = document.getElementById('svg-code-editor');
+
+      // ── Init Sample Shapes ──
+      function initSampleScene() {
+        const r1 = new SvgRect({ x: 80, y: 80, width: 220, height: 140, rx: 8, ry: 8, fill: 'var(--primary)', stroke: 'var(--primary-hover)', strokeWidth: 3 });
+        const c1 = new SvgCircle({ cx: 450, cy: 180, r: 70, fill: 'var(--success)', stroke: 'var(--bg-dark)', strokeWidth: 3 });
+        
+        const p1 = new SvgPath({ stroke: '#83a598', strokeWidth: 4, fill: '#458588', fillOpacity: 0.35, closed: true });
+        p1.addNode(150, 420, { x: -30, y: 30 }, { x: 40, y: -40 }, 'smooth');
+        p1.addNode(340, 320, { x: -50, y: -20 }, { x: 50, y: 20 }, 'smooth');
+        p1.addNode(520, 440, { x: -40, y: -40 }, { x: 30, y: 30 }, 'smooth');
+        p1.addNode(300, 520, { x: 50, y: 10 }, { x: -50, y: -10 }, 'smooth');
+
+        doc.addObject(r1, false);
+        doc.addObject(c1, false);
+        doc.addObject(p1, false);
+        doc.select(p1.id);
+      }
+
+      // ── Init Quadro WASM Engine ──
+      async function preloadWasmPlugins() {
+        const pluginList = ['blur', 'brightness', 'contrast', 'dither', 'edge', 'grayscale', 'invert', 'noise', 'pixelate', 'sepia', 'threshold'];
+        for (const name of pluginList) {
+          try {
+            const res = await fetch(`plugins/${name}.wasm`);
+            if (res.ok) {
+              const buf = await res.arrayBuffer();
+              const u8 = new Uint8Array(buf);
+              if (window.SvgEngine && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(name, u8);
+              if (doc && doc.wasmPlugins) doc.wasmPlugins.set(name, u8);
+            }
+          } catch (e) {
+            console.warn(`Could not preload WASM plugin ${name}:`, e);
+          }
+        }
+      }
+
+      async function initQuadro() {
+        try {
+          const res = await fetch('roms/canvas.wasm');
+          if (res.ok) {
+            const buf = await res.arrayBuffer();
+            const actor = new EsenhoModule(new Uint8Array(buf));
+            quadroRenderer = new QuadroSvgRenderer(actor);
+            document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
+            await preloadWasmPlugins();
+            render();
+          }
+        } catch (err) {
+          console.warn('Quadro WASM could not be initialized from network, using direct preview:', err);
+        }
+      }
+
+      const quadroCanvas = document.getElementById('quadro-canvas');
+      let viewportRenderMode = 'svg'; // 'svg' | 'quadro'
+      let quadroRenderScale = 1.0;
+
+      // ── Stage & Viewport Updates ──
+      function updateStageSize() {
+        stageWrapper.style.width = `${doc.width}px`;
+        stageWrapper.style.height = `${doc.height}px`;
+        svgStage.setAttribute('width', doc.width);
+        svgStage.setAttribute('height', doc.height);
+        svgStage.setAttribute('viewBox', `0 0 ${doc.width} ${doc.height}`);
+        svgStage.setAttribute('overflow', 'visible');
+        svgStage.style.overflow = 'visible';
+
+        quadroCanvas.width = Math.round(doc.width * quadroRenderScale);
+        quadroCanvas.height = Math.round(doc.height * quadroRenderScale);
+        quadroCanvas.style.width = `${doc.width}px`;
+        quadroCanvas.style.height = `${doc.height}px`;
+
+        applyViewportTransform();
+      }
+
+      function applyViewportTransform() {
+        stageWrapper.style.transform = `translate(${panX}px, ${panY}px) rotate(${viewportRotation}deg) scale(${zoom})`;
+        statusZoom.textContent = `${Math.round(zoom * 100)}%`;
+        if (statusRotation) {
+          statusRotation.textContent = `${Math.round(viewportRotation)}°`;
+        }
+        const zoomInput = document.getElementById('prop-zoom-val');
+        if (zoomInput && document.activeElement !== zoomInput) {
+          zoomInput.value = Math.round(zoom * 100);
+        }
+        const rotInput = document.getElementById('prop-viewport-rot');
+        if (rotInput && document.activeElement !== rotInput) {
+          rotInput.value = Math.round(viewportRotation);
+        }
+        const camXInput = document.getElementById('prop-camera-x');
+        if (camXInput && document.activeElement !== camXInput) {
+          camXInput.value = Math.round(panX);
+        }
+        const camYInput = document.getElementById('prop-camera-y');
+        if (camYInput && document.activeElement !== camYInput) {
+          camYInput.value = Math.round(panY);
+        }
+        drawOverlay();
+      }
+
+      function zoomToFit() {
+        const vw = viewportContainer.clientWidth;
+        const vh = viewportContainer.clientHeight;
+        const scaleX = (vw - 80) / doc.width;
+        const scaleY = (vh - 80) / doc.height;
+        zoom = Math.max(0.2, Math.min(2.5, Math.min(scaleX, scaleY)));
+        panX = Math.round((vw - doc.width * zoom) / 2);
+        panY = Math.round((vh - doc.height * zoom) / 2);
+        applyViewportTransform();
+        render();
+      }
+
+      function screenToDoc(clientX, clientY) {
+        const rect = viewportContainer.getBoundingClientRect();
+        let sx = clientX - rect.left - panX;
+        let sy = clientY - rect.top - panY;
+        if (viewportRotation !== 0) {
+          const rad = -viewportRotation * Math.PI / 180;
+          const cosA = Math.cos(rad);
+          const sinA = Math.sin(rad);
+          const rx = sx * cosA - sy * sinA;
+          const ry = sx * sinA + sy * cosA;
+          sx = rx;
+          sy = ry;
+        }
+        const x = sx / zoom;
+        const y = sy / zoom;
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      }
+
+      // ── Render Loop ──
+      function render() {
+        // 1. Render Scene (Real-time Quadro WASM or Direct SVG)
+        if (viewportRenderMode === 'quadro' && quadroRenderer) {
+          svgStage.style.display = 'none';
+          quadroCanvas.style.display = 'block';
+          try {
+            quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: quadroRenderScale, background: true });
+          } catch (err) {
+            console.warn('Realtime Quadro render error, fallback to SVG:', err);
+            svgStage.style.display = 'block';
+            quadroCanvas.style.display = 'none';
+            renderSvgStage();
+          }
+        } else {
+          svgStage.style.display = 'block';
+          quadroCanvas.style.display = 'none';
+          renderSvgStage();
+        }
+
+        // 2. Draw Interactive Overlay (Gizmos, Nodes, Handles)
+        drawOverlay();
+
+        // 3. Update Sidebar & UI
+        updateObjectList();
+        updateInspector();
+        statusObjects.textContent = doc.objects.length;
+        objCountBadge.textContent = `${doc.objects.length} items`;
+        if (svgCodeEditor) svgCodeEditor.value = doc.toSVGString();
+      }
+      window.renderSvgEditor = render;
+
+      function renderSvgStage() {
+        const fullSvg = doc.toSVGString();
+        const match = fullSvg.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
+        if (match && match[1]) {
+          svgStage.innerHTML = match[1];
+        } else {
+          svgStage.innerHTML = '';
+        }
+      }
+
+      function getSelectedPaths() {
+        const selected = doc.getSelectedObjects();
+        const paths = [];
+        for (const obj of selected) {
+          if (obj.type === 'path') paths.push(obj);
+          else if (obj.type === 'compoundPath' && obj.subPaths) paths.push(...obj.subPaths);
+          else if (obj.type === 'group' && obj.children) {
+            for (const ch of obj.children) {
+              if (ch.type === 'path') paths.push(ch);
+              else if (ch.type === 'compoundPath' && ch.subPaths) paths.push(...ch.subPaths);
+            }
+          }
+        }
+        return paths;
+      }
+
+      function getActivePathAndNode() {
+        const paths = getSelectedPaths();
+        if (activeNodeIdx === -1) return { path: paths[0] || null, node: null };
+        const path = paths.find(p => p.nodes && p.nodes[activeNodeIdx]) || paths[0] || null;
+        const node = (path && path.nodes) ? path.nodes[activeNodeIdx] : null;
+        return { path, node };
+      }
+
+      function drawOverlay() {
+        const dpr = window.devicePixelRatio || 1;
+        const vw = viewportContainer.clientWidth || 800;
+        const vh = viewportContainer.clientHeight || 600;
+        const targetW = Math.round(vw * dpr);
+        const targetH = Math.round(vh * dpr);
+        if (overlayCanvas.width !== targetW || overlayCanvas.height !== targetH) {
+          overlayCanvas.width = targetW;
+          overlayCanvas.height = targetH;
+          overlayCanvas.style.width = `${vw}px`;
+          overlayCanvas.style.height = `${vh}px`;
+        }
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+        ctx.scale(dpr, dpr);
+        ctx.translate(panX, panY);
+        if (viewportRotation !== 0) {
+          ctx.rotate(viewportRotation * Math.PI / 180);
+        }
+        ctx.scale(zoom, zoom);
+        renderOverlay();
+        ctx.restore();
+
+        drawRulers();
+      }
+
+      function renderOverlay() {
+        // 1. Draw User Guidelines (from rulers)
+        if (userGuides) {
+          ctx.save();
+          ctx.strokeStyle = '#00e5ff';
+          ctx.lineWidth = 1 / zoom;
+          ctx.setLineDash([4 / zoom, 4 / zoom]);
+          if (userGuides.horizontal) {
+            for (const y of userGuides.horizontal) {
+              ctx.beginPath();
+              ctx.moveTo(-10000, y);
+              ctx.lineTo(10000, y);
+              ctx.stroke();
+            }
+          }
+          if (userGuides.vertical) {
+            for (const x of userGuides.vertical) {
+              ctx.beginPath();
+              ctx.moveTo(x, -10000);
+              ctx.lineTo(x, 10000);
+              ctx.stroke();
+            }
+          }
+          ctx.restore();
+        }
+
+        // 2. Draw Active Smart Snap Magnetic Guide Lines
+        if (activeSnapLines && activeSnapLines.length > 0) {
+          ctx.save();
+          ctx.strokeStyle = '#ff007f';
+          ctx.lineWidth = 1.2 / zoom;
+          ctx.setLineDash([3 / zoom, 3 / zoom]);
+          for (const line of activeSnapLines) {
+            ctx.beginPath();
+            if (line.type === 'v') {
+              ctx.moveTo(line.pos, -10000);
+              ctx.lineTo(line.pos, 10000);
+            } else {
+              ctx.moveTo(-10000, line.pos);
+              ctx.lineTo(10000, line.pos);
+            }
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // Draw Marquee Box Selection (Bulk Selection Box)
+        if (isMarqueeSelecting && marqueeBox) {
+          const bx = Math.min(marqueeBox.startX, marqueeBox.endX);
+          const by = Math.min(marqueeBox.startY, marqueeBox.endY);
+          const bw = Math.abs(marqueeBox.endX - marqueeBox.startX);
+          const bh = Math.abs(marqueeBox.endY - marqueeBox.startY);
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(250, 189, 47, 0.12)';
+          ctx.fillRect(bx, by, bw, bh);
+          ctx.strokeStyle = '#fabd2f';
+          ctx.lineWidth = 1.2 / zoom;
+          ctx.setLineDash([4 / zoom, 3 / zoom]);
+          ctx.strokeRect(bx, by, bw, bh);
+          ctx.restore();
+        }
+
+        const selected = doc.getSelectedObjects();
+
+        // Draw Selection Gizmo for Select Tool
+        if (activeTool === 'select' && selected.length > 0) {
+          if (selected.length === 1) {
+            // Single Object Gizmo
+            const obj = selected[0];
+            const b = obj.getBounds();
+            const origin = (typeof obj.getOrigin === 'function')
+              ? obj.getOrigin()
+              : { x: b.minX + b.width / 2, y: b.minY + b.height / 2 };
+
+            ctx.save();
+            const rot = (obj.rotation || 0) * Math.PI / 180;
+            if (rot !== 0) {
+              ctx.translate(origin.x, origin.y);
+              ctx.rotate(rot);
+              ctx.translate(-origin.x, -origin.y);
+            }
+
+            ctx.strokeStyle = '#458588';
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.setLineDash([4 / zoom, 3 / zoom]);
+            ctx.strokeRect(b.minX, b.minY, b.width, b.height);
+            ctx.setLineDash([]);
+
+            // 8 handles
+            const handles = [
+              { x: b.minX, y: b.minY }, { x: b.minX + b.width / 2, y: b.minY }, { x: b.maxX, y: b.minY },
+              { x: b.maxX, y: b.minY + b.height / 2 }, { x: b.maxX, y: b.maxY }, { x: b.minX + b.width / 2, y: b.maxY },
+              { x: b.minX, y: b.maxY }, { x: b.minX, y: b.minY + b.height / 2 }
+            ];
+
+            const hs = 6 / zoom;
+            ctx.fillStyle = '#fabd2f';
+            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.lineWidth = 1 / zoom;
+
+            for (const h of handles) {
+              ctx.fillRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+              ctx.strokeRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+            }
+
+            // Top Rotation Stalk & Handle
+            const rotDist = 20 / zoom;
+            const rotX = b.minX + b.width / 2;
+            const rotY = b.minY - rotDist;
+
+            ctx.strokeStyle = '#83a598';
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(rotX, b.minY);
+            ctx.lineTo(rotX, rotY);
+            ctx.stroke();
+
+            ctx.fillStyle = 'var(--primary-hover)';
+            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.beginPath();
+            ctx.arc(rotX, rotY, 4.5 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Center Anchor / Pivot Point Indicator
+            ctx.fillStyle = 'var(--success)';
+            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.beginPath();
+            ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.strokeStyle = 'var(--bg-dark)';
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            ctx.moveTo(origin.x - 6 / zoom, origin.y);
+            ctx.lineTo(origin.x + 6 / zoom, origin.y);
+            ctx.moveTo(origin.x, origin.y - 6 / zoom);
+            ctx.lineTo(origin.x, origin.y + 6 / zoom);
+            ctx.stroke();
+
+            ctx.restore();
+          } else {
+            // Multi-Selection Collective Gizmo
+            for (const obj of selected) {
+              const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+              ctx.save();
+              ctx.strokeStyle = 'rgba(69, 133, 136, 0.4)';
+              ctx.lineWidth = 1 / zoom;
+              ctx.setLineDash([3 / zoom, 2 / zoom]);
+              ctx.strokeRect(b.minX, b.minY, b.width, b.height);
+              ctx.restore();
+            }
+
+            const cb = getCollectiveBounds(selected);
+            if (cb) {
+              const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
+
+              ctx.save();
+              ctx.strokeStyle = 'var(--border-focus)';
+              ctx.lineWidth = 1.5 / zoom;
+              ctx.setLineDash([4 / zoom, 3 / zoom]);
+              ctx.strokeRect(cb.minX, cb.minY, cb.width, cb.height);
+              ctx.setLineDash([]);
+
+              // 8 handles
+              const handles = [
+                { x: cb.minX, y: cb.minY }, { x: cb.minX + cb.width / 2, y: cb.minY }, { x: cb.maxX, y: cb.minY },
+                { x: cb.maxX, y: cb.minY + cb.height / 2 }, { x: cb.maxX, y: cb.maxY }, { x: cb.minX + cb.width / 2, y: cb.maxY },
+                { x: cb.minX, y: cb.maxY }, { x: cb.minX, y: cb.minY + cb.height / 2 }
+              ];
+
+              const hs = 6.5 / zoom;
+              ctx.fillStyle = '#fabd2f';
+              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.lineWidth = 1 / zoom;
+
+              for (const h of handles) {
+                ctx.fillRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+                ctx.strokeRect(h.x - hs / 2, h.y - hs / 2, hs, hs);
+              }
+
+              // Top Rotation Stalk & Handle
+              const rotDist = 20 / zoom;
+              const rotX = cb.minX + cb.width / 2;
+              const rotY = cb.minY - rotDist;
+
+              ctx.strokeStyle = 'var(--primary-hover)';
+              ctx.lineWidth = 1.2 / zoom;
+              ctx.beginPath();
+              ctx.moveTo(rotX, cb.minY);
+              ctx.lineTo(rotX, rotY);
+              ctx.stroke();
+
+              ctx.fillStyle = 'var(--primary-hover)';
+              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.lineWidth = 1.5 / zoom;
+              ctx.beginPath();
+              ctx.arc(rotX, rotY, 5 / zoom, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+
+              // Center Pivot Indicator
+              ctx.fillStyle = 'var(--success)';
+              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.lineWidth = 1.2 / zoom;
+              ctx.beginPath();
+              ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.stroke();
+
+              ctx.restore();
+            }
+          }
+        }
+
+        // Draw Bézier Anchors and Handles for Node Tool or Pen Tool
+        if (activeTool === 'node' || activeTool === 'pen') {
+          const targetPaths = (activeTool === 'pen' && currentPenPath) 
+            ? [currentPenPath] 
+            : getSelectedPaths();
+
+          for (const obj of targetPaths) {
+            const nodes = obj.nodes;
+
+            ctx.save();
+            for (let i = 0; i < nodes.length; i++) {
+              const node = nodes[i];
+              const cpIn = node.getAbsCpIn();
+              const cpOut = node.getAbsCpOut();
+
+              const hasIn = Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5;
+              const hasOut = Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5;
+
+              // Handle Lines
+              ctx.strokeStyle = '#83a598';
+              ctx.lineWidth = 1 / zoom;
+              if (hasIn) {
+                ctx.beginPath();
+                ctx.moveTo(node.x, node.y);
+                ctx.lineTo(cpIn.x, cpIn.y);
+                ctx.stroke();
+
+                ctx.fillStyle = '#83a598';
+                ctx.beginPath();
+                ctx.arc(cpIn.x, cpIn.y, 4 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+              }
+              if (hasOut) {
+                ctx.beginPath();
+                ctx.moveTo(node.x, node.y);
+                ctx.lineTo(cpOut.x, cpOut.y);
+                ctx.stroke();
+
+                ctx.fillStyle = '#83a598';
+                ctx.beginPath();
+                ctx.arc(cpOut.x, cpOut.y, 4 / zoom, 0, Math.PI * 2);
+                ctx.fill();
+              }
+
+              // Anchor Point
+              ctx.fillStyle = (i === activeNodeIdx) ? 'var(--primary-hover)' : 'var(--primary)';
+              ctx.strokeStyle = 'var(--bg-dark)';
+              ctx.lineWidth = 1.5 / zoom;
+              const as = 7 / zoom;
+              ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
+              ctx.strokeRect(node.x - as / 2, node.y - as / 2, as, as);
+            }
+            ctx.restore();
+          }
+
+          // Draw Pen rubberband preview line/curve and close-path ring indicator
+          if (activeTool === 'pen' && currentPenPath && currentPenPath.nodes.length > 0 && penCursorPos && !isDragging) {
+            const nodes = currentPenPath.nodes;
+            const lastNode = nodes[nodes.length - 1];
+            const firstNode = nodes[0];
+            const isNearFirst = (nodes.length > 1 && Math.hypot(penCursorPos.x - firstNode.x, penCursorPos.y - firstNode.y) <= 12 / zoom);
+
+            ctx.save();
+            ctx.strokeStyle = '#fabd2f';
+            ctx.lineWidth = 1.5 / zoom;
+            ctx.setLineDash([4 / zoom, 4 / zoom]);
+            ctx.beginPath();
+            ctx.moveTo(lastNode.x, lastNode.y);
+
+            const cpOut = lastNode.getAbsCpOut();
+            const hasOut = Math.hypot(lastNode.cpOut.x, lastNode.cpOut.y) > 0.5;
+            const targetX = isNearFirst ? firstNode.x : penCursorPos.x;
+            const targetY = isNearFirst ? firstNode.y : penCursorPos.y;
+
+            if (hasOut) {
+              ctx.quadraticCurveTo(cpOut.x, cpOut.y, targetX, targetY);
+            } else {
+              ctx.lineTo(targetX, targetY);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            if (isNearFirst) {
+              // Draw close-path ring indicator
+              ctx.strokeStyle = 'var(--success)';
+              ctx.lineWidth = 2.5 / zoom;
+              ctx.beginPath();
+              ctx.arc(firstNode.x, firstNode.y, 8 / zoom, 0, Math.PI * 2);
+              ctx.stroke();
+            } else {
+              // Draw cursor tip point
+              ctx.fillStyle = '#fabd2f';
+              ctx.beginPath();
+              ctx.arc(penCursorPos.x, penCursorPos.y, 3 / zoom, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.restore();
+          }
+        }
+      }
+
+      // ── Object Hierarchy UI List (Hierarchical Tree with Drag & Drop / Touch Reordering) ──
+      let objectDragSourceId = null;
+      let objectTouchReorderState = null;
+
+      function clearObjectDropIndicators() {
+        if (!objectList) return;
+        objectList.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group, .is-dragging, .touch-reordering').forEach(el => {
+          el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group', 'is-dragging', 'touch-reordering');
+        });
+      }
+
+      function updateObjectList() {
+        objectList.innerHTML = '';
+
+        if (doc.objects.length === 0) {
+          objectList.innerHTML = `
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 12px; color: var(--text-muted); font-size: 11px; text-align: center; gap: 6px;">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.6;"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              <span style="font-weight: 600; color: var(--text-dim);">No shapes yet</span>
+              <span style="font-size: 10px; opacity: 0.7;">Draw using Pen (P) or Shapes (R, O)</span>
+            </div>
+          `;
+          return;
+        }
+
+        function renderNodeItem(obj, depth = 0) {
+          const isSelected = doc.selectedIds.has(obj.id);
+          const isGroup = obj.type === 'group';
+          const item = document.createElement('div');
+          item.className = `object-item ${isSelected ? 'selected' : ''}`;
+          item.setAttribute('data-object-id', obj.id);
+          if (depth > 0) item.style.marginLeft = `${depth * 14}px`;
+
+          const collapseIcon = isGroup ? (obj.collapsed ? '▶' : '▼') : '';
+          const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px; margin-right: 4px;">${collapseIcon}</button>` : '';
+
+          const isMaskedBadge = obj.clipPathId ? `<span title="Masked by #${obj.clipPathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(254,128,25,0.25); color: var(--primary-hover); border-radius: 2px; flex-shrink: 0;">MASKED</span>` : '';
+          const isMaskSource = doc.objects.some(o => o.clipPathId === obj.id) || (obj.parent && obj.parent.children && obj.parent.children.some(o => o.clipPathId === obj.id));
+          const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Acting as Clipping Mask" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(184,187,38,0.25); color: var(--success); border-radius: 2px; flex-shrink: 0;">MASK</span>` : '';
+          const isTextPathBadge = obj.pathId ? `<span title="Attached to path #${obj.pathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(131,165,152,0.25); color: #83a598; border-radius: 2px; flex-shrink: 0;">PATH</span>` : '';
+          const isWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
+          const filterBadge = isWasmFilter
+            ? (obj.wasmFilter.target === 'backdrop'
+                ? `<span title="Filter Lens: ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(142,192,124,0.25); color: #8ec07c; border-radius: 2px; flex-shrink: 0;">LENS (${obj.wasmFilter.plugin})</span>`
+                : `<span title="WASM Filter (${obj.wasmFilter.target}): ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(211,134,155,0.25); color: #d3869b; border-radius: 2px; flex-shrink: 0;">[FX: ${obj.wasmFilter.plugin.toUpperCase()}]</span>`)
+            : '';
+
+          item.innerHTML = `
+            <div class="obj-info" style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1; user-select: none;">
+              ${collapseBtn}
+              <span style="font-size: 11px; opacity: 0.8;">${getIconForType(obj.type)}</span>
+              <span class="obj-name" style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;">${obj.name}</span>
+              ${isMaskedBadge}${isMaskBadge}${isTextPathBadge}${filterBadge}
+            </div>
+            <div class="obj-actions" style="display: flex; gap: 2px;">
+              <button class="btn-icon" data-action="toggle-vis" title="Visibility">${obj.visible ? '👁' : 'Ø'}</button>
+              <button class="btn-icon" data-action="toggle-lock" title="Lock">${obj.locked ? '🔒' : '🔓'}</button>
+            </div>
+          `;
+
+          // Double click name to rename
+          const nameSpan = item.querySelector('.obj-name');
+          if (nameSpan) {
+            nameSpan.addEventListener('dblclick', (e) => {
+              e.stopPropagation();
+              const input = document.createElement('input');
+              input.type = 'text';
+              input.value = obj.name;
+              input.style.fontSize = '10px';
+              input.style.width = '90px';
+              input.style.background = 'var(--bg-input-focus)';
+              input.style.color = '#fff';
+              input.style.border = '1px solid var(--border-focus)';
+              input.style.borderRadius = '2px';
+              input.style.padding = '0 2px';
+
+              const saveName = () => {
+                const val = input.value.trim();
+                if (val && val !== obj.name) {
+                  obj.name = val;
+                  doc.pushHistory(`Rename to ${val}`);
+                }
+                updateObjectList();
+                updateInspector();
+              };
+
+              input.addEventListener('blur', saveName);
+              input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') saveName();
+                if (ev.key === 'Escape') updateObjectList();
+              });
+
+              nameSpan.replaceWith(input);
+              input.focus();
+              input.select();
+            });
+          }
+
+          // Click handling for select, collapse, vis, lock
+          item.addEventListener('click', (e) => {
+            if (e.target.dataset.action === 'toggle-collapse') {
+              obj.collapsed = !obj.collapsed;
+              render();
+              updateObjectList();
+              return;
+            }
+            if (e.target.dataset.action === 'toggle-vis') {
+              obj.visible = !obj.visible;
+              render();
+              updateObjectList();
+              return;
+            }
+            if (e.target.dataset.action === 'toggle-lock') {
+              obj.locked = !obj.locked;
+              render();
+              updateObjectList();
+              return;
+            }
+            doc.select(obj.id, e.shiftKey);
+            render();
+            updateObjectList();
+            updateInspector();
+          });
+
+          // HTML5 Drag & Drop
+          item.draggable = true;
+          item.addEventListener('dragstart', (e) => {
+            objectDragSourceId = obj.id;
+            item.classList.add('is-dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', obj.id);
+            e.stopPropagation();
+          });
+
+          item.addEventListener('dragend', () => {
+            objectDragSourceId = null;
+            clearObjectDropIndicators();
+          });
+
+          item.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!objectDragSourceId || objectDragSourceId === obj.id) return;
+            const rect = item.getBoundingClientRect();
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            clearObjectDropIndicators();
+            if (isGroup) {
+              if (relY < 0.25) {
+                item.classList.add('drop-indicator-top');
+              } else if (relY > 0.75) {
+                item.classList.add('drop-indicator-bottom');
+              } else {
+                item.classList.add('drop-target-group');
+              }
+            } else {
+              if (relY < 0.5) {
+                item.classList.add('drop-indicator-top');
+              } else {
+                item.classList.add('drop-indicator-bottom');
+              }
+            }
+          });
+
+          item.addEventListener('dragleave', (e) => {
+            if (!item.contains(e.relatedTarget)) {
+              item.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+            }
+          });
+
+          item.addEventListener('drop', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!objectDragSourceId || objectDragSourceId === obj.id) return;
+            const rect = item.getBoundingClientRect();
+            const relY = (e.clientY - rect.top) / rect.height;
+
+            let dropPos = 'above';
+            if (isGroup) {
+              if (relY < 0.25) dropPos = 'above';
+              else if (relY > 0.75) dropPos = 'below';
+              else dropPos = 'inside';
+            } else {
+              dropPos = relY < 0.5 ? 'above' : 'below';
+            }
+
+            const success = doc.reorderTreeItem(objectDragSourceId, obj.id, dropPos);
+            objectDragSourceId = null;
+            clearObjectDropIndicators();
+            if (success) {
+              render();
+              updateObjectList();
+            }
+          });
+
+          // Touch Reordering Support
+          let touchTimer = null;
+          let touchStartX = 0, touchStartY = 0;
+
+          item.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            if (e.target.closest('button, input')) return;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
+
+            touchTimer = setTimeout(() => {
+              touchTimer = null;
+              objectTouchReorderState = { id: obj.id, lastTargetId: null, lastDropPos: null };
+              item.classList.add('touch-reordering');
+            }, 250);
+          }, { passive: true });
+
+          item.addEventListener('touchmove', (e) => {
+            if (touchTimer) {
+              const dx = e.touches[0].clientX - touchStartX;
+              const dy = e.touches[0].clientY - touchStartY;
+              if (Math.hypot(dx, dy) > 10) {
+                clearTimeout(touchTimer);
+                touchTimer = null;
+              }
+            }
+
+            if (objectTouchReorderState && objectTouchReorderState.id === obj.id) {
+              if (e.cancelable) e.preventDefault();
+              const touchX = e.touches[0].clientX;
+              const touchY = e.touches[0].clientY;
+
+              const prevPE = item.style.pointerEvents;
+              item.style.pointerEvents = 'none';
+              const targetEl = document.elementFromPoint(touchX, touchY);
+              item.style.pointerEvents = prevPE;
+
+              const targetItem = targetEl?.closest('.object-item');
+              clearObjectDropIndicators();
+              item.classList.add('touch-reordering');
+
+              if (targetItem && targetItem !== item) {
+                const targetId = targetItem.getAttribute('data-object-id');
+                const tgtObj = doc.findObject(targetId);
+                const rect = targetItem.getBoundingClientRect();
+                const relY = (touchY - rect.top) / rect.height;
+
+                let dropPos = 'above';
+                if (tgtObj && tgtObj.type === 'group') {
+                  if (relY < 0.25) { dropPos = 'above'; targetItem.classList.add('drop-indicator-top'); }
+                  else if (relY > 0.75) { dropPos = 'below'; targetItem.classList.add('drop-indicator-bottom'); }
+                  else { dropPos = 'inside'; targetItem.classList.add('drop-target-group'); }
+                } else {
+                  if (relY < 0.5) { dropPos = 'above'; targetItem.classList.add('drop-indicator-top'); }
+                  else { dropPos = 'below'; targetItem.classList.add('drop-indicator-bottom'); }
+                }
+
+                objectTouchReorderState.lastTargetId = targetId;
+                objectTouchReorderState.lastDropPos = dropPos;
+              } else {
+                objectTouchReorderState.lastTargetId = null;
+                objectTouchReorderState.lastDropPos = null;
+              }
+            }
+          }, { passive: false });
+
+          const finishTouch = () => {
+            if (touchTimer) {
+              clearTimeout(touchTimer);
+              touchTimer = null;
+            }
+            if (objectTouchReorderState && objectTouchReorderState.id === obj.id) {
+              clearObjectDropIndicators();
+              if (objectTouchReorderState.lastTargetId && objectTouchReorderState.lastDropPos) {
+                const success = doc.reorderTreeItem(objectTouchReorderState.id, objectTouchReorderState.lastTargetId, objectTouchReorderState.lastDropPos);
+                if (success) {
+                  render();
+                  updateObjectList();
+                }
+              }
+              objectTouchReorderState = null;
+            }
+          };
+
+          item.addEventListener('touchend', finishTouch);
+          item.addEventListener('touchcancel', finishTouch);
+
+          objectList.appendChild(item);
+
+          if (isGroup && !obj.collapsed && obj.children) {
+            for (let c = obj.children.length - 1; c >= 0; c--) {
+              renderNodeItem(obj.children[c], depth + 1);
+            }
+          }
+        }
+
+        // Render from Top (end of array) to Bottom (start of array)
+        for (let i = doc.objects.length - 1; i >= 0; i--) {
+          renderNodeItem(doc.objects[i], 0);
+        }
+      }
+
+      function getIconForType(type) {
+        switch (type) {
+          case 'rect': return '▭';
+          case 'circle': return '○';
+          case 'ellipse': return '⬭';
+          case 'line': return '╱';
+          case 'path': return '∿';
+          case 'compoundPath': return '⨂';
+          case 'text': return 'T';
+          case 'group': return '⊞';
+          default: return '◈';
+        }
+      }
+
+      const BRUSH_PRESET_CONFIGS = {
+        default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        pencil: { hardness: 70, flow: 85, spacing: 5, scatter: 2, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 35, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        soft_pencil: { hardness: 45, flow: 80, spacing: 6, scatter: 4, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        mech_pencil: { hardness: 90, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        blue_pencil: { hardness: 60, flow: 65, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        tech_pen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        inker: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 20, taper_out: 30, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        gpen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 15, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        dry_ink: { hardness: 70, flow: 90, spacing: 7, scatter: 5, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 10, angle_jitter: 15, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        fountain: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 0, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        brush_pen: { hardness: 85, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 35, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        marker: { hardness: 90, flow: 85, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        brush_marker: { hardness: 80, flow: 85, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 10, taper_out: 15, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        highlighter: { hardness: 100, flow: 70, spacing: 5, scatter: 0, roundness: 20, angle: 90, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        oil: { hardness: 80, flow: 95, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 60, color_pickup: 65, depletion: 35, smudge: 0 },
+        acrylic: { hardness: 85, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 40, color_pickup: 40, depletion: 20, smudge: 0 },
+        watercolor: { hardness: 20, flow: 40, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 85, color_pickup: 30, depletion: 50, smudge: 0 },
+        gouache: { hardness: 85, flow: 90, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 35, color_pickup: 30, depletion: 25, smudge: 0 },
+        palette_knife: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 25, angle: 0, dabBlend: 2, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 70, color_pickup: 70, depletion: 15, smudge: 0 },
+
+        charcoal: { hardness: 45, flow: 75, spacing: 10, scatter: 18, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 12, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        hard_charcoal: { hardness: 75, flow: 90, spacing: 6, scatter: 6, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 45, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        pastel: { hardness: 60, flow: 85, spacing: 8, scatter: 8, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        conte: { hardness: 80, flow: 80, spacing: 6, scatter: 0, roundness: 100, angle: 30, dabBlend: 0, shape: 1, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        airbrush: { hardness: 0, flow: 25, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        hard_airbrush: { hardness: 20, flow: 40, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        spray: { hardness: 60, flow: 50, spacing: 20, scatter: 55, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 40, angle_jitter: 0, opacity_jitter: 30, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        smudge: { hardness: 35, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 80 },
+        blend: { hardness: 50, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 80, color_pickup: 60, depletion: 0, smudge: 0 },
+        rake_blend: { hardness: 60, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 0, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 75 },
+
+        pixel: { hardness: 100, flow: 100, spacing: 100, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        halftone: { hardness: 90, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        crosshatch: { hardness: 85, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 }
+      };
+
+      // ── Inspector UI Sync ──
+      function updateInspector() {
+        const selected = doc.getSelectedObjects();
+        const propDocW = document.getElementById('prop-doc-w');
+        const propDocH = document.getElementById('prop-doc-h');
+        const propDocBg = document.getElementById('prop-doc-bg');
+
+        propDocW.value = doc.width;
+        propDocH.value = doc.height;
+        propDocBg.value = doc.backgroundColor || 'var(--bg-dark)';
+
+        const propGeomType = document.getElementById('prop-geom-type');
+        const btnConvertPath = document.getElementById('btn-convert-path');
+        const allGeomGroups = document.querySelectorAll('.geom-group');
+        allGeomGroups.forEach(g => g.style.display = 'none');
+
+        const maskStatusBadge = document.getElementById('mask-status-badge');
+        if (maskStatusBadge) {
+          if (selected.length === 0) {
+            maskStatusBadge.innerHTML = 'Status: <span style="color: var(--text-muted);">No selection</span>';
+          } else if (selected.length > 1) {
+            maskStatusBadge.innerHTML = `Status: <span style="color: var(--primary);">${selected.length} objects selected</span> (Top object will be Mask)`;
+          } else {
+            const o = selected[0];
+            if (o.clipPathId) {
+              maskStatusBadge.innerHTML = `Status: <span style="color: var(--primary-hover);">Masked by #${o.clipPathId}</span>`;
+            } else {
+              const isMaskFor = doc.objects.filter(item => item.clipPathId === o.id);
+              if (isMaskFor.length > 0) {
+                maskStatusBadge.innerHTML = `Status: <span style="color: var(--success);">Mask for ${isMaskFor.length} object(s)</span>`;
+              } else if (o.pathId) {
+                maskStatusBadge.innerHTML = `Status: <span style="color: #83a598;">Attached to path #${o.pathId}</span>`;
+              } else {
+                maskStatusBadge.innerHTML = 'Status: <span style="color: var(--text-muted);">Not masked</span>';
+              }
+            }
+          }
+        }
+
+        const propObjName = document.getElementById('prop-obj-name');
+        if (selected.length === 0) {
+          if (propGeomType) propGeomType.textContent = 'None';
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+          if (propObjName) {
+            propObjName.value = '';
+            propObjName.disabled = true;
+          }
+          return;
+        }
+        const obj = selected[0];
+        if (propGeomType) propGeomType.textContent = obj.type.charAt(0).toUpperCase() + obj.type.slice(1);
+        if (propObjName) {
+          propObjName.value = obj.name || '';
+          propObjName.disabled = false;
+        }
+
+        // Geometry & Dimensions Sync
+        if (obj.type === 'rect') {
+          const g = document.getElementById('geom-rect-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-rect-x').value = Math.round(obj.x);
+          document.getElementById('prop-rect-y').value = Math.round(obj.y);
+          document.getElementById('prop-rect-w').value = Math.round(obj.width);
+          document.getElementById('prop-rect-h').value = Math.round(obj.height);
+          document.getElementById('prop-rect-rx').value = obj.rx || 0;
+          document.getElementById('prop-rect-ry').value = obj.ry || 0;
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Rect to Bézier Path';
+          }
+        } else if (obj.type === 'circle') {
+          const g = document.getElementById('geom-circle-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-circle-cx').value = Math.round(obj.cx);
+          document.getElementById('prop-circle-cy').value = Math.round(obj.cy);
+          document.getElementById('prop-circle-r').value = Math.round(obj.r || obj.rx);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Circle to Bézier Path';
+          }
+        } else if (obj.type === 'ellipse') {
+          const g = document.getElementById('geom-ellipse-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-ellipse-cx').value = Math.round(obj.cx);
+          document.getElementById('prop-ellipse-cy').value = Math.round(obj.cy);
+          document.getElementById('prop-ellipse-rx').value = Math.round(obj.rx);
+          document.getElementById('prop-ellipse-ry').value = Math.round(obj.ry);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Ellipse to Bézier Path';
+          }
+        } else if (obj.type === 'line') {
+          const g = document.getElementById('geom-line-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-line-x1').value = Math.round(obj.x1);
+          document.getElementById('prop-line-y1').value = Math.round(obj.y1);
+          document.getElementById('prop-line-x2').value = Math.round(obj.x2);
+          document.getElementById('prop-line-y2').value = Math.round(obj.y2);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '☡ Convert Line to Bézier Path';
+          }
+        } else if (obj.type === 'image') {
+          const g = document.getElementById('geom-image-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-img-x').value = Math.round(obj.x);
+          document.getElementById('prop-img-y').value = Math.round(obj.y);
+          document.getElementById('prop-img-w').value = Math.round(obj.width);
+          document.getElementById('prop-img-h').value = Math.round(obj.height);
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'none';
+          }
+        } else if (obj.type === 'text') {
+          const g = document.getElementById('geom-text-fields');
+          if (g) g.style.display = 'block';
+          document.getElementById('prop-text-content').value = obj.text || '';
+          document.getElementById('prop-text-font').value = obj.fontFamily || 'sans-serif';
+          document.getElementById('prop-text-size').value = obj.fontSize || 36;
+          document.getElementById('prop-text-align').value = obj.textAlign || 'left';
+          document.getElementById('prop-text-spacing').value = obj.letterSpacing || 0;
+          if (btnConvertPath) {
+            btnConvertPath.style.display = 'block';
+            btnConvertPath.textContent = '📐 Convert Text to Bézier Path';
+          }
+        } else if (obj.type === 'compoundPath') {
+          const g = document.getElementById('geom-path-fields');
+          if (g) g.style.display = 'block';
+          const b = obj.getBounds();
+          document.getElementById('prop-path-x').value = Math.round(b.minX);
+          document.getElementById('prop-path-y').value = Math.round(b.minY);
+          document.getElementById('prop-path-w').value = Math.round(b.width);
+          document.getElementById('prop-path-h').value = Math.round(b.height);
+          document.getElementById('prop-path-info').value = `${obj.subPaths ? obj.subPaths.length : 0} sub-paths (${obj.fillRule || 'evenodd'})`;
+          const simpSec = document.getElementById('path-simplify-section');
+          if (simpSec) simpSec.style.display = 'block';
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+        } else if (obj.type === 'path') {
+          const g = document.getElementById('geom-path-fields');
+          if (g) g.style.display = 'block';
+          const b = obj.getBounds();
+          document.getElementById('prop-path-x').value = Math.round(b.minX);
+          document.getElementById('prop-path-y').value = Math.round(b.minY);
+          document.getElementById('prop-path-w').value = Math.round(b.width);
+          document.getElementById('prop-path-h').value = Math.round(b.height);
+          document.getElementById('prop-path-info').value = `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`;
+          const simpSec = document.getElementById('path-simplify-section');
+          if (simpSec) simpSec.style.display = 'block';
+
+          const nodeSec = document.getElementById('node-editor-section');
+          if (nodeSec) {
+            const { path, node } = getActivePathAndNode();
+            if (activeTool === 'node' && activeNodeIdx >= 0 && node && path) {
+              nodeSec.style.display = 'block';
+              document.getElementById('node-editor-index').textContent = `#${activeNodeIdx + 1} of ${path.nodes.length}`;
+              document.getElementById('prop-node-x').value = Math.round(node.x);
+              document.getElementById('prop-node-y').value = Math.round(node.y);
+              document.getElementById('prop-node-type').value = node.type || 'smooth';
+            } else {
+              nodeSec.style.display = 'none';
+            }
+          }
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+        } else if (obj.type === 'group') {
+          const g = document.getElementById('geom-path-fields');
+          if (g) g.style.display = 'block';
+          const b = obj.getBounds();
+          document.getElementById('prop-path-x').value = Math.round(b.minX);
+          document.getElementById('prop-path-y').value = Math.round(b.minY);
+          document.getElementById('prop-path-w').value = Math.round(b.width);
+          document.getElementById('prop-path-h').value = Math.round(b.height);
+          document.getElementById('prop-path-info').value = `${obj.children ? obj.children.length : 0} objects inside`;
+          const simpSec = document.getElementById('path-simplify-section');
+          if (simpSec) simpSec.style.display = 'none';
+          if (btnConvertPath) btnConvertPath.style.display = 'none';
+        }
+
+        // Object Transform: Rotation & Anchor Sync
+        const geomTransform = document.getElementById('geom-transform-fields');
+        if (geomTransform) {
+          geomTransform.style.display = 'block';
+          const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+          const rotInput = document.getElementById('prop-obj-rotation');
+          const oxInput = document.getElementById('prop-obj-origin-x');
+          const oyInput = document.getElementById('prop-obj-origin-y');
+          if (rotInput) rotInput.value = Math.round(obj.rotation || 0);
+          if (oxInput) oxInput.value = Math.round(origin.x);
+          if (oyInput) oyInput.value = Math.round(origin.y);
+        }
+
+        const fillColor = document.getElementById('prop-fill-color');
+        const fillText = document.getElementById('prop-fill-text');
+        const fillOp = document.getElementById('prop-fill-opacity');
+        const strokeColor = document.getElementById('prop-stroke-color');
+        const strokeText = document.getElementById('prop-stroke-text');
+        const strokeW = document.getElementById('prop-stroke-width');
+        const strokeCap = document.getElementById('prop-stroke-cap');
+        const strokeJoin = document.getElementById('prop-stroke-join');
+        const objOp = document.getElementById('prop-obj-opacity');
+
+        if (obj.fill && obj.fill.startsWith('#') && obj.fill.length === 7) {
+          fillColor.value = obj.fill;
+        }
+        fillText.value = obj.fill || 'none';
+        fillOp.value = obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0;
+
+        // Gradients Sync
+        const propFillType = document.getElementById('prop-fill-type');
+        const solidControls = document.getElementById('solid-fill-controls');
+        const gradControls = document.getElementById('gradient-controls');
+        if (propFillType) {
+          propFillType.value = obj.fillType || 'solid';
+          if (solidControls) solidControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'none' : 'block';
+          if (gradControls) {
+            gradControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'flex' : 'none';
+            if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops.length >= 2) {
+              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || 'var(--primary-hover)';
+              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || 'var(--primary-hover)';
+              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || 'var(--primary)';
+              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || 'var(--primary)';
+            }
+          }
+        }
+
+        // Drop Shadow Sync
+        const shadowCb = document.getElementById('prop-shadow-enable');
+        const shadowControls = document.getElementById('shadow-controls');
+        const ds = obj.dropShadow || { enabled: false, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+        if (shadowCb) {
+          shadowCb.checked = !!ds.enabled;
+          if (shadowControls) shadowControls.style.display = ds.enabled ? 'flex' : 'none';
+          document.getElementById('prop-shadow-color').value = ds.color || '#000000';
+          document.getElementById('prop-shadow-text').value = ds.color || '#000000';
+          document.getElementById('prop-shadow-blur').value = ds.blur !== undefined ? ds.blur : 4;
+          document.getElementById('prop-shadow-ox').value = ds.offsetX !== undefined ? ds.offsetX : 2;
+          document.getElementById('prop-shadow-oy').value = ds.offsetY !== undefined ? ds.offsetY : 2;
+          document.getElementById('prop-shadow-opacity').value = ds.opacity !== undefined ? ds.opacity : 0.6;
+        }
+
+        if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
+          strokeColor.value = obj.stroke;
+        }
+        strokeText.value = obj.stroke || 'none';
+        strokeW.value = obj.strokeWidth || 1;
+        strokeCap.value = obj.strokeLinecap || 'round';
+        strokeJoin.value = obj.strokeLinejoin || 'round';
+        objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
+
+        if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
+          strokeColor.value = obj.stroke;
+        }
+        strokeText.value = obj.stroke || 'none';
+        strokeW.value = obj.strokeWidth || 1;
+        strokeCap.value = obj.strokeLinecap || 'round';
+        strokeJoin.value = obj.strokeLinejoin || 'round';
+        objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
+
+        // Fill Texture
+        const ft = obj.fillTexture || {};
+        document.getElementById('prop-fill-tex-mode').value = ft.mode !== undefined ? ft.mode : 0;
+        document.getElementById('prop-fill-tex-scale').value = ft.scale !== undefined ? ft.scale : 100;
+        document.getElementById('prop-fill-tex-angle').value = ft.angle !== undefined ? ft.angle : 0;
+        document.getElementById('prop-fill-tex-contrast').value = ft.contrast !== undefined ? ft.contrast : 100;
+        document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
+
+        // Stroke Brush Dynamics
+        const grpCustomBrushes = document.getElementById('grp-custom-brush-presets');
+        if (grpCustomBrushes && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
+          grpCustomBrushes.innerHTML = '';
+          const customPresets = EsenhoStore.getCustomBrushPresets();
+          for (const [k, p] of Object.entries(customPresets)) {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = p.name || k;
+            grpCustomBrushes.appendChild(opt);
+          }
+        }
+
+        const bc = obj.brushConfig || {};
+        document.getElementById('prop-brush-flow').value = bc.flow !== undefined ? bc.flow : 100;
+        document.getElementById('prop-brush-hardness').value = bc.hardness !== undefined ? bc.hardness : 100;
+        document.getElementById('prop-brush-spacing').value = bc.spacing !== undefined ? bc.spacing : 5;
+        document.getElementById('prop-brush-scatter').value = bc.scatter !== undefined ? bc.scatter : 0;
+        document.getElementById('prop-brush-roundness').value = bc.roundness !== undefined ? bc.roundness : 100;
+        document.getElementById('prop-brush-angle').value = bc.angle !== undefined ? bc.angle : 0;
+        document.getElementById('prop-brush-shape').value = bc.shape !== undefined ? bc.shape : 0;
+        document.getElementById('prop-brush-dab-blend').value = bc.dabBlend !== undefined ? bc.dabBlend : 0;
+        document.getElementById('prop-brush-autorotate').value = bc.auto_rotate ? 1 : 0;
+        document.getElementById('prop-brush-taper-in').value = bc.taper_in !== undefined ? bc.taper_in : 0;
+        document.getElementById('prop-brush-taper-out').value = bc.taper_out !== undefined ? bc.taper_out : 0;
+        document.getElementById('prop-brush-size-jitter').value = bc.size_jitter !== undefined ? bc.size_jitter : 0;
+        document.getElementById('prop-brush-angle-jitter').value = bc.angle_jitter !== undefined ? bc.angle_jitter : 0;
+        document.getElementById('prop-brush-opacity-jitter').value = bc.opacity_jitter !== undefined ? bc.opacity_jitter : 0;
+        document.getElementById('prop-brush-wetness').value = bc.wetness !== undefined ? bc.wetness : 0;
+        document.getElementById('prop-brush-color-pickup').value = bc.color_pickup !== undefined ? bc.color_pickup : 0;
+        document.getElementById('prop-brush-depletion').value = bc.depletion !== undefined ? bc.depletion : 0;
+        document.getElementById('prop-brush-smudge').value = bc.smudge !== undefined ? bc.smudge : 0;
+
+        // Stroke Texture
+        const st = obj.strokeTexture || {};
+        document.getElementById('prop-stroke-tex-mode').value = st.mode !== undefined ? st.mode : 0;
+        document.getElementById('prop-stroke-tex-scale').value = st.scale !== undefined ? st.scale : 100;
+        document.getElementById('prop-stroke-tex-angle').value = st.angle !== undefined ? st.angle : 0;
+        document.getElementById('prop-stroke-tex-contrast').value = st.contrast !== undefined ? st.contrast : 100;
+        document.getElementById('prop-stroke-tex-grain').value = st.grain !== undefined ? st.grain : 0;
+
+        // WASM Filter & Lens
+        const wf = obj.wasmFilter || {};
+        const filterEnabledCheckbox = document.getElementById('prop-filter-enabled');
+        const filterControls = document.getElementById('filter-controls');
+        const filterTargetSelect = document.getElementById('prop-filter-target');
+        const filterPluginSelect = document.getElementById('prop-filter-plugin');
+        const filterP1 = document.getElementById('prop-filter-p1');
+        const filterP2 = document.getElementById('prop-filter-p2');
+        const filterOpacity = document.getElementById('prop-filter-opacity');
+        const lblP1 = document.getElementById('lbl-filter-p1');
+        const lblP2 = document.getElementById('lbl-filter-p2');
+
+        const isFilterOn = !!wf.enabled;
+        if (filterEnabledCheckbox) filterEnabledCheckbox.checked = isFilterOn;
+        if (filterControls) filterControls.style.display = isFilterOn ? 'flex' : 'none';
+
+        if (filterPluginSelect) {
+          const allKnownPlugins = new Set();
+          if (doc && doc.wasmPlugins) {
+            for (const k of doc.wasmPlugins.keys()) allKnownPlugins.add(k);
+          }
+          if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
+            for (const k of SvgEngine.wasmPlugins.keys()) allKnownPlugins.add(k);
+          }
+          for (const k of allKnownPlugins) {
+            if (!Array.from(filterPluginSelect.options).some(o => o.value === k)) {
+              const opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = k;
+              filterPluginSelect.appendChild(opt);
+            }
+          }
+        }
+
+        if (filterTargetSelect) filterTargetSelect.value = wf.target || 'backdrop';
+        if (filterPluginSelect) filterPluginSelect.value = wf.plugin || 'dither';
+        if (filterP1) filterP1.value = wf.p1 !== undefined ? wf.p1 : 0;
+        if (filterP2) filterP2.value = wf.p2 !== undefined ? wf.p2 : 0;
+        if (filterOpacity) filterOpacity.value = wf.opacity !== undefined ? Math.round(wf.opacity * 100) : 100;
+
+        const pName = filterPluginSelect ? filterPluginSelect.value : 'dither';
+        if (lblP1 && lblP2) {
+          if (pName === 'blur') {
+            lblP1.textContent = 'Radius (px)';
+            lblP2.textContent = 'Unused';
+          } else if (pName === 'dither') {
+            lblP1.textContent = 'Luma Bias (-64..64)';
+            lblP2.textContent = 'Invert (0/1)';
+          } else if (pName === 'pixelate') {
+            lblP1.textContent = 'Block Size (px)';
+            lblP2.textContent = 'Unused';
+          } else if (pName === 'edge') {
+            lblP1.textContent = 'Threshold (0..255)';
+            lblP2.textContent = 'Mode (0/1)';
+          } else if (pName === 'noise') {
+            lblP1.textContent = 'Amount % (0..100)';
+            lblP2.textContent = 'Type (0/1)';
+          } else if (pName === 'brightness' || pName === 'contrast') {
+            lblP1.textContent = 'Amount (-100..100)';
+            lblP2.textContent = 'Unused';
+          } else if (pName === 'threshold') {
+            lblP1.textContent = 'Cutoff (0..255)';
+            lblP2.textContent = 'Invert (0/1)';
+          } else {
+            lblP1.textContent = 'Param 1';
+            lblP2.textContent = 'Param 2';
+          }
+        }
+      }
+
+      // ── Pointer & Tool Event Handlers ──
+      viewportContainer.addEventListener('pointerdown', (e) => {
+        if (isTouchPinching) return;
+
+        // Hand tool / Space / Middle Click Pan
+        if (activeTool === 'hand' || e.button === 1 || e.spaceKey || isPanning) {
+          isPanning = true;
+          panStartX = e.clientX - panX;
+          panStartY = e.clientY - panY;
+          viewportContainer.classList.add('panning');
+          return;
+        }
+
+        const pt = screenToDoc(e.clientX, e.clientY);
+        dragStartX = pt.x;
+        dragStartY = pt.y;
+        isDragging = true;
+
+        if (activeTool === 'select') {
+          activeResizeHandle = null;
+          activeTransformMode = null;
+          initialBounds = null;
+          initialObjectState = null;
+          isMarqueeSelecting = false;
+          marqueeBox = null;
+
+          const selected = doc.getSelectedObjects();
+          if (selected.length > 1) {
+            const cb = getCollectiveBounds(selected);
+            if (cb) {
+              const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
+              const rotDist = 20 / zoom;
+              const rotHandle = { x: cb.minX + cb.width / 2, y: cb.minY - rotDist };
+
+              // 1. Check collective rotation handle
+              if (Math.hypot(pt.x - rotHandle.x, pt.y - rotHandle.y) <= 10 / zoom) {
+                activeTransformMode = 'rotate';
+                initialRotation = 0;
+                initialAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+                initialBounds = { ...cb };
+                initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+              }
+
+              // 2. Check collective anchor
+              if (!activeTransformMode && Math.hypot(pt.x - origin.x, pt.y - origin.y) <= 8 / zoom) {
+                activeTransformMode = 'anchor';
+                initialBounds = { ...cb };
+                initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+              }
+
+              // 3. Check collective 8 resize handles
+              if (!activeTransformMode) {
+                const handles = [
+                  { name: 'nw', x: cb.minX, y: cb.minY },
+                  { name: 'n',  x: cb.minX + cb.width / 2, y: cb.minY },
+                  { name: 'ne', x: cb.maxX, y: cb.minY },
+                  { name: 'e',  x: cb.maxX, y: cb.minY + cb.height / 2 },
+                  { name: 'se', x: cb.maxX, y: cb.maxY },
+                  { name: 's',  x: cb.minX + cb.width / 2, y: cb.maxY },
+                  { name: 'sw', x: cb.minX, y: cb.maxY },
+                  { name: 'w',  x: cb.minX, y: cb.minY + cb.height / 2 }
+                ];
+                for (const h of handles) {
+                  if (Math.hypot(pt.x - h.x, pt.y - h.y) <= 9 / zoom) {
+                    activeTransformMode = 'resize';
+                    activeResizeHandle = h.name;
+                    initialBounds = { ...cb };
+                    initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+                    resizeStartPoint = { x: pt.x, y: pt.y };
+                    break;
+                  }
+                }
+              }
+            }
+          } else if (selected.length === 1) {
+            const obj = selected[0];
+            const b = obj.getBounds();
+            const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: b.minX + b.width / 2, y: b.minY + b.height / 2 };
+            const localPt = docToLocal(pt, origin, obj.rotation || 0);
+
+            // 1. Check Rotation handle (top stalk)
+            const rotDist = 20 / zoom;
+            const rotHandle = { x: b.minX + b.width / 2, y: b.minY - rotDist };
+            if (Math.hypot(localPt.x - rotHandle.x, localPt.y - rotHandle.y) <= 10 / zoom) {
+              activeTransformMode = 'rotate';
+              initialRotation = obj.rotation || 0;
+              initialAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+              initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+            }
+
+            // 2. Check Center Anchor handle
+            if (!activeTransformMode && Math.hypot(localPt.x - origin.x, localPt.y - origin.y) <= 8 / zoom) {
+              activeTransformMode = 'anchor';
+              initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+            }
+
+            // 3. Check 8 Resize handles
+            if (!activeTransformMode) {
+              const handles = [
+                { name: 'nw', x: b.minX, y: b.minY },
+                { name: 'n',  x: b.minX + b.width / 2, y: b.minY },
+                { name: 'ne', x: b.maxX, y: b.minY },
+                { name: 'e',  x: b.maxX, y: b.minY + b.height / 2 },
+                { name: 'se', x: b.maxX, y: b.maxY },
+                { name: 's',  x: b.minX + b.width / 2, y: b.maxY },
+                { name: 'sw', x: b.minX, y: b.maxY },
+                { name: 'w',  x: b.minX, y: b.minY + b.height / 2 }
+              ];
+              for (const h of handles) {
+                if (Math.hypot(localPt.x - h.x, localPt.y - h.y) <= 9 / zoom) {
+                  activeTransformMode = 'resize';
+                  activeResizeHandle = h.name;
+                  initialBounds = { ...b };
+                  initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+                  resizeStartPoint = { x: pt.x, y: pt.y };
+                  resizeStartLocalPoint = { x: localPt.x, y: localPt.y };
+                  break;
+                }
+              }
+            }
+          }
+
+          if (!activeTransformMode && !activeResizeHandle) {
+            const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
+            if (clickedSelected && !e.shiftKey) {
+              // Clicked directly on already selected object (e.g. child inside group selected in Object Manager)
+              // Keep current selection intact so dragging/transforming affects only this object
+            } else {
+              let hit = null;
+              if (e.altKey) {
+                hit = doc.hitTestDeep(pt.x, pt.y);
+              } else {
+                hit = doc.hitTest(pt.x, pt.y);
+              }
+              if (hit) {
+                if (e.shiftKey) {
+                  doc.select(hit.id, true);
+                } else if (!doc.isSelected(hit.id)) {
+                  doc.select(hit.id, false);
+                }
+              } else {
+                // Clicked empty canvas -> Start Marquee Box Selection
+                isMarqueeSelecting = true;
+                marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
+                marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
+                if (!e.shiftKey) {
+                  doc.clearSelection();
+                }
+              }
+            }
+          }
+          render();
+          updateInspector();
+          drawOverlay();
+        } else if (activeTool === 'node') {
+          let selected = doc.getSelectedObjects();
+          if (selected.length === 0) {
+            const hit = doc.hitTest(pt.x, pt.y);
+            if (hit) {
+              doc.select(hit.id);
+              selected = doc.getSelectedObjects();
+            }
+          }
+
+          // Auto-convert clicked primitive shape to Bézier path if node tool is used on it (NEVER FOR IMAGE, TEXT, GROUP)
+          if (selected.length > 0 && selected[0].type !== 'path' && selected[0].type !== 'image' && selected[0].type !== 'text' && selected[0].type !== 'group' && typeof selected[0].toPath === 'function') {
+            doc.convertSelectedToPath();
+            selected = doc.getSelectedObjects();
+            updateObjectList();
+          }
+
+          activeNodeIdx = -1;
+          activeHandleType = null;
+
+          const paths = getSelectedPaths();
+          for (const obj of paths) {
+            for (let i = 0; i < obj.nodes.length; i++) {
+              const node = obj.nodes[i];
+              // Check anchor
+              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 8 / zoom) {
+                activeNodeIdx = i;
+                activeHandleType = 'anchor';
+                break;
+              }
+              // Check cpIn
+              const cpIn = node.getAbsCpIn();
+              if (Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= 8 / zoom) {
+                activeNodeIdx = i;
+                activeHandleType = 'in';
+                break;
+              }
+              // Check cpOut
+              const cpOut = node.getAbsCpOut();
+              if (Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= 8 / zoom) {
+                activeNodeIdx = i;
+                activeHandleType = 'out';
+                break;
+              }
+            }
+            if (activeNodeIdx !== -1) break;
+          }
+          render();
+          updateInspector();
+        } else if (activeTool === 'pen') {
+          if (currentPenPath && currentPenPath.nodes.length > 1) {
+            const first = currentPenPath.nodes[0];
+            if (Math.hypot(pt.x - first.x, pt.y - first.y) <= 12 / zoom) {
+              currentPenPath.closed = true;
+              activeNodeIdx = 0;
+              activeHandleType = 'out';
+              isPenDraggingAnchor = true;
+              isPenClosingPath = true;
+              isDragging = true;
+              dragStartX = first.x;
+              dragStartY = first.y;
+              render();
+              updateInspector();
+              return;
+            }
+          }
+
+          if (!currentPenPath) {
+            currentPenPath = new SvgPath({
+              fill: 'none',
+              stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
+              strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
+            });
+            doc.addObject(currentPenPath);
+            doc.select(currentPenPath.id);
+          }
+
+          const node = currentPenPath.addNode(pt.x, pt.y, null, null, 'symmetric');
+          activeNodeIdx = currentPenPath.nodes.length - 1;
+          activeHandleType = 'out';
+          isPenDraggingAnchor = true;
+          isPenClosingPath = false;
+          isDragging = true;
+          dragStartX = pt.x;
+          dragStartY = pt.y;
+          render();
+          updateInspector();
+          updateObjectList();
+        } else if (activeTool === 'rect') {
+          currentDraftObj = new SvgRect({
+            x: pt.x, y: pt.y, width: 1, height: 1,
+            fill: document.getElementById('prop-fill-text').value || 'var(--primary)',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--bg-dark)',
+            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
+          });
+          doc.addObject(currentDraftObj);
+          doc.select(currentDraftObj.id);
+        } else if (activeTool === 'ellipse') {
+          currentDraftObj = new SvgEllipse({
+            cx: pt.x, cy: pt.y, rx: 1, ry: 1,
+            fill: document.getElementById('prop-fill-text').value || 'var(--primary)',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--bg-dark)',
+            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
+          });
+          doc.addObject(currentDraftObj);
+          doc.select(currentDraftObj.id);
+        } else if (activeTool === 'line') {
+          currentDraftObj = new SvgLine({
+            x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y,
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
+            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
+          });
+          doc.addObject(currentDraftObj);
+          doc.select(currentDraftObj.id);
+        } else if (activeTool === 'brush') {
+          currentDraftObj = new SvgPath({
+            fill: 'none',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
+            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 3
+          });
+          currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
+          doc.addObject(currentDraftObj);
+          doc.select(currentDraftObj.id);
+        } else if (activeTool === 'text') {
+          const textVal = prompt('Enter text for vector typography:', 'Wesenho Vector');
+          if (textVal) {
+            let fillVal = document.getElementById('prop-fill-text')?.value;
+            if (!fillVal || fillVal === 'none') {
+              fillVal = 'var(--primary)';
+            }
+            const textObj = new SvgText({
+              x: pt.x,
+              y: pt.y,
+              text: textVal,
+              fontFamily: document.getElementById('prop-text-font')?.value || 'sans-serif',
+              fontSize: Number(document.getElementById('prop-text-size')?.value || 36),
+              fill: fillVal,
+              stroke: 'none'
+            });
+            doc.addObject(textObj);
+            doc.select(textObj.id);
+            const selectToolBtn = document.getElementById('tool-select');
+            if (selectToolBtn) selectToolBtn.click();
+            render();
+            updateInspector();
+            updateObjectList();
+          }
+        }
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (isTouchPinching || touchStartDist > 0) return;
+
+        const pt = screenToDoc(e.clientX, e.clientY);
+        statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
+
+        if (activeGuideDrag) {
+          if (activeGuideDrag.type === 'horizontal') {
+            userGuides.horizontal[activeGuideDrag.index] = Math.round(pt.y);
+          } else if (activeGuideDrag.type === 'vertical') {
+            userGuides.vertical[activeGuideDrag.index] = Math.round(pt.x);
+          }
+          drawOverlay();
+          return;
+        }
+
+        if (activeTool === 'pen') {
+          penCursorPos = pt;
+        }
+
+        if (isPanning) {
+          panX = e.clientX - panStartX;
+          panY = e.clientY - panStartY;
+          applyViewportTransform();
+          return;
+        }
+
+        if (!isDragging) {
+          if (activeTool === 'pen') {
+            drawOverlay();
+          }
+          return;
+        }
+
+        const dx = pt.x - dragStartX;
+        const dy = pt.y - dragStartY;
+
+        if (activeTool === 'select') {
+          if (isMarqueeSelecting && marqueeBox) {
+            marqueeBox.endX = pt.x;
+            marqueeBox.endY = pt.y;
+            const hits = doc.hitTestBox(marqueeBox.startX, marqueeBox.startY, marqueeBox.endX, marqueeBox.endY);
+            doc.selectedIds = new Set(marqueeBaseSelected);
+            for (const h of hits) {
+              doc.selectedIds.add(h.id);
+            }
+            drawOverlay();
+            updateInspector();
+            return;
+          }
+
+          if (activeTransformMode === 'rotate') {
+            const selected = doc.getSelectedObjects();
+            if (Array.isArray(initialObjectState)) {
+              const origin = { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
+              const currentAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+              let angleDelta = currentAngle - initialAngle;
+              if (e.shiftKey) angleDelta = Math.round(angleDelta / 15) * 15;
+              const rad = angleDelta * Math.PI / 180;
+              const cos = Math.cos(rad);
+              const sin = Math.sin(rad);
+
+              for (const item of initialObjectState) {
+                const obj = selected.find(o => o.id === item.id);
+                if (obj) {
+                  const initState = item.state;
+                  let initCx = 0, initCy = 0;
+                  if (initState.x !== undefined && initState.width !== undefined) {
+                    initCx = initState.x + initState.width / 2;
+                    initCy = initState.y + initState.height / 2;
+                  } else if (initState.cx !== undefined) {
+                    initCx = initState.cx;
+                    initCy = initState.cy;
+                  } else if (initState.x1 !== undefined) {
+                    initCx = (initState.x1 + initState.x2) / 2;
+                    initCy = (initState.y1 + initState.y2) / 2;
+                  } else if (initState.nodes && initState.nodes.length > 0) {
+                    let sx = 0, sy = 0;
+                    for (const n of initState.nodes) { sx += n.x; sy += n.y; }
+                    initCx = sx / initState.nodes.length;
+                    initCy = sy / initState.nodes.length;
+                  }
+                  const relX = initCx - origin.x;
+                  const relY = initCy - origin.y;
+                  const rotCx = origin.x + (relX * cos - relY * sin);
+                  const rotCy = origin.y + (relX * sin + relY * cos);
+                  const shiftX = rotCx - initCx;
+                  const shiftY = rotCy - initCy;
+
+                  if (obj.type === 'rect' || obj.type === 'image') {
+                    obj.x = initState.x + shiftX;
+                    obj.y = initState.y + shiftY;
+                  } else if (obj.type === 'circle' || obj.type === 'ellipse') {
+                    obj.cx = initState.cx + shiftX;
+                    obj.cy = initState.cy + shiftY;
+                  } else if (obj.type === 'line') {
+                    obj.x1 = initState.x1 + shiftX; obj.y1 = initState.y1 + shiftY;
+                    obj.x2 = initState.x2 + shiftX; obj.y2 = initState.y2 + shiftY;
+                  } else if (obj.type === 'path') {
+                    for (let i = 0; i < obj.nodes.length; i++) {
+                      obj.nodes[i].x = initState.nodes[i].x + shiftX;
+                      obj.nodes[i].y = initState.nodes[i].y + shiftY;
+                    }
+                  } else if (obj.type === 'text') {
+                    obj.x = initState.x + shiftX;
+                    obj.y = initState.y + shiftY;
+                  }
+                  obj.rotation = ((initState.rotation || 0) + angleDelta) % 360;
+                  if (obj.rotation < 0) obj.rotation += 360;
+                }
+              }
+              render();
+              updateInspector();
+              drawOverlay();
+              return;
+            } else {
+              const obj = selected[0];
+              if (obj) {
+                const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
+                const currentAngle = Math.atan2(pt.y - origin.y, pt.x - origin.x) * 180 / Math.PI;
+                let newRot = Math.round((initialRotation + (currentAngle - initialAngle)) % 360);
+                if (newRot < 0) newRot += 360;
+                if (e.shiftKey) newRot = Math.round(newRot / 15) * 15;
+                obj.rotation = newRot;
+                render();
+                updateInspector();
+                drawOverlay();
+                return;
+              }
+            }
+          }
+
+          if (activeTransformMode === 'anchor') {
+            const obj = doc.getSelectedObjects()[0];
+            if (obj) {
+              if (typeof obj.setOrigin === 'function') {
+                obj.setOrigin(Math.round(pt.x), Math.round(pt.y), true);
+              } else {
+                obj.originX = Math.round(pt.x);
+                obj.originY = Math.round(pt.y);
+              }
+              render();
+              updateInspector();
+              drawOverlay();
+              return;
+            }
+          }
+
+          if (activeResizeHandle && initialBounds && initialObjectState) {
+            const selected = doc.getSelectedObjects();
+            if (Array.isArray(initialObjectState)) {
+              const dX = pt.x - resizeStartPoint.x;
+              const dY = pt.y - resizeStartPoint.y;
+
+              let newMinX = initialBounds.minX;
+              let newMinY = initialBounds.minY;
+              let newMaxX = initialBounds.maxX;
+              let newMaxY = initialBounds.maxY;
+
+              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dX);
+              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dX);
+              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dY);
+              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dY);
+
+              const newW = Math.max(1, newMaxX - newMinX);
+              const newH = Math.max(1, newMaxY - newMinY);
+
+              for (const item of initialObjectState) {
+                const obj = selected.find(o => o.id === item.id);
+                if (obj) {
+                  scaleObjectToBox(obj, item.state, initialBounds, newMinX, newMinY, newW, newH);
+                }
+              }
+              render();
+              updateInspector();
+              drawOverlay();
+              return;
+            } else {
+              const obj = selected[0];
+              if (obj) {
+                const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
+                const localPt = docToLocal(pt, origin, obj.rotation || 0);
+                const dLocalX = localPt.x - resizeStartLocalPoint.x;
+                const dLocalY = localPt.y - resizeStartLocalPoint.y;
+
+                let newMinX = initialBounds.minX;
+                let newMinY = initialBounds.minY;
+                let newMaxX = initialBounds.maxX;
+                let newMaxY = initialBounds.maxY;
+
+                if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dLocalX);
+                if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dLocalX);
+                if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dLocalY);
+                if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dLocalY);
+
+                const newW = Math.max(1, newMaxX - newMinX);
+                const newH = Math.max(1, newMaxY - newMinY);
+
+                scaleObjectToBox(obj, initialObjectState, initialBounds, newMinX, newMinY, newW, newH);
+
+                render();
+                updateInspector();
+                drawOverlay();
+                return;
+              }
+            }
+          } else {
+            const selected = doc.getSelectedObjects();
+            if (selected.length > 0) {
+              let moveDx = dx;
+              let moveDy = dy;
+              if (snapEnabled) {
+                const cb = getCollectiveBounds(selected);
+                if (cb) {
+                  const testBox = {
+                    minX: cb.minX + dx,
+                    minY: cb.minY + dy,
+                    maxX: cb.maxX + dx,
+                    maxY: cb.maxY + dy,
+                    width: cb.width,
+                    height: cb.height
+                  };
+                  const snapOpts = getSnapOptions();
+                  snapOpts.ignoreIds = new Set(selected.map(o => o.id));
+                  const snapResult = doc.snapToGeometry(testBox, snapOpts);
+                  moveDx += snapResult.dx;
+                  moveDy += snapResult.dy;
+                  activeSnapLines = snapResult.snapLines || [];
+                }
+              } else {
+                activeSnapLines = [];
+              }
+
+              for (const obj of selected) {
+                if (typeof obj.move === 'function') {
+                  obj.move(moveDx, moveDy);
+                } else if (obj.type === 'rect' || obj.type === 'image') {
+                  obj.x += moveDx; obj.y += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'ellipse' || obj.type === 'circle') {
+                  obj.cx += moveDx; obj.cy += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'line') {
+                  obj.x1 += moveDx; obj.y1 += moveDy; obj.x2 += moveDx; obj.y2 += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'path') {
+                  for (const n of obj.nodes) {
+                    n.x += moveDx; n.y += moveDy;
+                  }
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                } else if (obj.type === 'text') {
+                  obj.x += moveDx; obj.y += moveDy;
+                  if (obj.originX !== undefined) obj.originX += moveDx;
+                  if (obj.originY !== undefined) obj.originY += moveDy;
+                }
+              }
+              dragStartX = pt.x;
+              dragStartY = pt.y;
+              render();
+              updateInspector();
+              drawOverlay();
+            }
+          }
+        } else if (activeTool === 'node' && activeNodeIdx !== -1) {
+          const { node } = getActivePathAndNode();
+          if (node) {
+            const forceIndep = e.altKey;
+            if (activeHandleType === 'anchor') {
+              node.x = pt.x;
+              node.y = pt.y;
+            } else if (activeHandleType === 'in') {
+              node.setAbsCpIn(pt.x, pt.y, forceIndep);
+            } else if (activeHandleType === 'out') {
+              node.setAbsCpOut(pt.x, pt.y, forceIndep);
+            }
+            render();
+            updateInspector();
+          }
+        } else if (activeTool === 'pen' && isPenDraggingAnchor && currentPenPath && activeNodeIdx !== -1) {
+          const node = currentPenPath.nodes[activeNodeIdx];
+          if (node) {
+            const forceIndep = e.altKey;
+            if (Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
+              if (forceIndep) {
+                node.type = 'cusp';
+              } else if (node.type !== 'cusp') {
+                node.type = 'symmetric';
+              }
+              node.setAbsCpOut(pt.x, pt.y, forceIndep);
+            }
+            render();
+          }
+        } else if (activeTool === 'rect' && currentDraftObj) {
+          const minX = Math.min(dragStartX, pt.x);
+          const minY = Math.min(dragStartY, pt.y);
+          const w = Math.abs(pt.x - dragStartX);
+          const h = Math.abs(pt.y - dragStartY);
+          currentDraftObj.x = minX;
+          currentDraftObj.y = minY;
+          currentDraftObj.width = w;
+          currentDraftObj.height = h;
+          render();
+        } else if (activeTool === 'ellipse' && currentDraftObj) {
+          currentDraftObj.rx = Math.abs(pt.x - dragStartX);
+          currentDraftObj.ry = Math.abs(pt.y - dragStartY);
+          render();
+        } else if (activeTool === 'line' && currentDraftObj) {
+          currentDraftObj.x2 = pt.x;
+          currentDraftObj.y2 = pt.y;
+          render();
+        } else if (activeTool === 'brush' && currentDraftObj) {
+          const last = currentDraftObj.nodes[currentDraftObj.nodes.length - 1];
+          if (Math.hypot(pt.x - last.x, pt.y - last.y) > 6) {
+            currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
+            render();
+          }
+        }
+      });
+
+      window.addEventListener('pointerup', () => {
+        if (isTouchPinching) return;
+
+        if (activeGuideDrag) {
+          activeGuideDrag = null;
+        }
+        activeSnapLines = [];
+        drawOverlay();
+
+        if (isPanning) {
+          isPanning = false;
+          if (activeTool !== 'hand') {
+            viewportContainer.classList.remove('panning');
+          }
+        }
+        if (isPenDraggingAnchor) {
+          if (activeTool === 'pen' && currentPenPath && activeNodeIdx !== -1) {
+            const node = currentPenPath.nodes[activeNodeIdx];
+            if (node && Math.hypot(node.cpOut.x, node.cpOut.y) < 3) {
+              node.cpIn = { x: 0, y: 0 };
+              node.cpOut = { x: 0, y: 0 };
+              node.type = 'corner';
+            }
+          }
+          isPenDraggingAnchor = false;
+          if (isPenClosingPath) {
+            isPenClosingPath = false;
+            commitPenPath();
+          }
+        }
+        if (isMarqueeSelecting) {
+          isMarqueeSelecting = false;
+          marqueeBox = null;
+          marqueeBaseSelected = null;
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+
+        if (isDragging) {
+          isDragging = false;
+          const wasResizing = !!activeResizeHandle;
+          const wasRotating = activeTransformMode === 'rotate';
+          const wasMovingAnchor = activeTransformMode === 'anchor';
+          const wasDrafting = !!currentDraftObj;
+          activeResizeHandle = null;
+          activeTransformMode = null;
+          initialBounds = null;
+          initialObjectState = null;
+          currentDraftObj = null;
+          if (activeTool !== 'pen') {
+            const actionLabel = wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object')));
+            doc.pushHistory(actionLabel);
+          }
+          render();
+          updateInspector();
+          scheduleAutosave();
+        }
+      });
+
+      overlayCanvas.addEventListener('dblclick', (e) => {
+        if (activeTool !== 'select') return;
+        const pt = getDocCoords(e);
+        const deepHit = doc.hitTestDeep(pt.x, pt.y);
+        if (deepHit) {
+          doc.select(deepHit.id, false);
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+
+      // ── Zoom Controls (Wheel) ──
+      viewportContainer.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY < 0 ? 1.15 : 0.85;
+        const rect = viewportContainer.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const newZoom = Math.max(0.1, Math.min(10.0, zoom * delta));
+        panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+        panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+        zoom = newZoom;
+        applyViewportTransform();
+        render();
+      }, { passive: false });
+
+      // ── Toolbar Switching ──
+      document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (activeTool === 'pen' && btn.dataset.tool !== 'pen') {
+            commitPenPath();
+          }
+          document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeTool = btn.dataset.tool;
+          if (activeTool === 'hand') {
+            viewportContainer.classList.add('panning');
+          } else {
+            viewportContainer.classList.remove('panning');
+          }
+          statusTool.textContent = btn.title.split('(')[0].trim();
+          render();
+        });
+      });
+
+      // ── Keyboard Shortcuts ──
+      window.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
+        const isCtrl = e.ctrlKey || e.metaKey;
+        const key = e.key.toLowerCase();
+
+        if (isCtrl) {
+          if (key === 'z' || e.code === 'KeyZ') {
+            e.preventDefault();
+            if (e.shiftKey) doc.redo();
+            else handleUndo();
+            render();
+          } else if (key === 'y' || e.code === 'KeyY') {
+            e.preventDefault();
+            doc.redo();
+            render();
+          } else if (key === 'g' || e.code === 'KeyG') {
+            e.preventDefault();
+            if (e.shiftKey) {
+              doc.ungroupSelected();
+            } else {
+              doc.groupSelected();
+            }
+            render();
+          } else if (key === 'c' || e.code === 'KeyC') {
+            e.preventDefault();
+            doc.copySelected();
+          } else if (key === 'x' || e.code === 'KeyX') {
+            e.preventDefault();
+            doc.cutSelected();
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+          } else if (key === 'v' || e.code === 'KeyV') {
+            e.preventDefault();
+            doc.paste();
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+          } else if (key === 'd' || e.code === 'KeyD') {
+            e.preventDefault();
+            doc.duplicateSelected();
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+          } else if (key === 'a' || e.code === 'KeyA') {
+            e.preventDefault();
+            doc.selectAll();
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+          } else if (key === 'e' || e.code === 'KeyE') {
+            e.preventDefault();
+            updateExportDimPreview();
+            if (modalExport) modalExport.style.display = 'flex';
+          }
+          return;
+        }
+
+        // Single key shortcuts (no Ctrl / Meta)
+        if (key === 'escape') {
+          let closedSomething = false;
+          if (modalRecents && modalRecents.style.display === 'flex') {
+            closeRecentsModal();
+            closedSomething = true;
+          }
+          if (modalNewProject && modalNewProject.style.display === 'flex') {
+            closeNewProjectModal();
+            closedSomething = true;
+          }
+          if (modalExport && modalExport.style.display === 'flex') {
+            modalExport.style.display = 'none';
+            closedSomething = true;
+          }
+          const modalTraceEl = document.getElementById('modal-trace');
+          if (modalTraceEl && (modalTraceEl.classList.contains('active') || modalTraceEl.style.display === 'flex')) {
+            modalTraceEl.classList.remove('active');
+            modalTraceEl.style.display = 'none';
+            closedSomething = true;
+          }
+          const activeDropdown = document.querySelector('.menu-dropdown.active');
+          if (activeDropdown) {
+            activeDropdown.classList.remove('active');
+            document.getElementById('btn-menu-logo')?.classList.remove('active');
+            closedSomething = true;
+          }
+          const openFlyout = document.querySelector('.tool-flyout.open');
+          if (openFlyout) {
+            openFlyout.classList.remove('open');
+            closedSomething = true;
+          }
+          if (activeTool === 'pen') {
+            commitPenPath();
+            closedSomething = true;
+          }
+          if (closedSomething) {
+            e.preventDefault();
+            return;
+          }
+          if (doc.getSelectedObjects().length > 0) {
+            doc.clearSelection();
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+            e.preventDefault();
+            return;
+          }
+        } else if (key === 'enter') {
+          if (activeTool === 'pen') commitPenPath();
+        } else if (key === 'v') {
+          document.getElementById('tool-select')?.click();
+        } else if (key === 'h') {
+          document.getElementById('tool-hand')?.click();
+        } else if (key === 'a') {
+          document.getElementById('tool-node')?.click();
+        } else if (key === 'p') {
+          document.getElementById('tool-pen')?.click();
+        } else if (key === 'b') {
+          document.getElementById('tool-brush')?.click();
+        } else if (key === 'r') {
+          document.getElementById('tool-rect')?.click();
+        } else if (key === 'o') {
+          document.getElementById('tool-ellipse')?.click();
+        } else if (key === 'l') {
+          document.getElementById('tool-line')?.click();
+        } else if (key === 't') {
+          document.getElementById('tool-text')?.click();
+        } else if (key === '0') {
+          zoomToFit();
+        } else if (key === 's') {
+          snapEnabled = !snapEnabled;
+          const snapBtn = document.getElementById('btn-toggle-snap');
+          if (snapBtn) {
+            snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
+            snapBtn.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+          }
+          drawOverlay();
+        } else if (e.key === 'F2') {
+          e.preventDefault();
+          triggerRenameSelected();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          if (activeTool === 'node' && activeNodeIdx !== -1) {
+            const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+            if (selectedPath && selectedPath.nodes && selectedPath.nodes.length > 0) {
+              if (selectedPath.nodes.length > 2) {
+                selectedPath.removeNode(activeNodeIdx);
+                activeNodeIdx = Math.min(activeNodeIdx, selectedPath.nodes.length - 1);
+                doc.pushHistory('Remove Anchor Point');
+              } else {
+                doc.removeObject(selectedPath.id);
+                activeNodeIdx = -1;
+              }
+              render();
+              updateInspector();
+              return;
+            }
+          }
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            doc.removeObject(obj.id);
+          }
+          render();
+        }
+      });
+
+      function handleUndo() {
+        if (activeTool === 'pen' && currentPenPath) {
+          if (currentPenPath.nodes.length > 1) {
+            currentPenPath.removeNode(currentPenPath.nodes.length - 1);
+            activeNodeIdx = currentPenPath.nodes.length - 1;
+          } else {
+            doc.removeObject(currentPenPath.id);
+            currentPenPath = null;
+            activeNodeIdx = -1;
+            isPenDraggingAnchor = false;
+            isPenClosingPath = false;
+          }
+          render();
+          updateInspector();
+          updateObjectList();
+          return;
+        }
+        doc.undo();
+        if (currentPenPath && !doc.objects.some(o => o.id === currentPenPath.id)) {
+          currentPenPath = null;
+          activeNodeIdx = -1;
+          isPenDraggingAnchor = false;
+          isPenClosingPath = false;
+        }
+        render();
+        updateInspector();
+        updateObjectList();
+      }
+
+      // ── Top Header & Main Menu Actions ──
+      window.addEventListener('resize', () => { drawOverlay(); });
+
+      // Main "E" Menu Dropdown Toggle
+      const btnMenuLogo = document.getElementById('btn-menu-logo');
+      const menuDropdown = document.getElementById('app-menu-dropdown');
+      btnMenuLogo?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.toggle('active');
+        btnMenuLogo?.classList.toggle('active');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!menuDropdown?.contains(e.target) && e.target !== btnMenuLogo) {
+          menuDropdown?.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
+        }
+      });
+
+      menuDropdown?.addEventListener('click', (e) => {
+        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+          menuDropdown.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
+        }
+      });
+
+      document.getElementById('btn-undo')?.addEventListener('click', () => { handleUndo(); });
+      document.getElementById('btn-redo')?.addEventListener('click', () => { doc.redo(); render(); });
+      document.getElementById('btn-zoom-fit')?.addEventListener('click', zoomToFit);
+
+      // Export Multi-Scale & Multi-Format Modal
+      document.getElementById('btn-export-svg')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        updateExportDimPreview();
+        if (modalExport) modalExport.style.display = 'flex';
+      });
+
+      // Open SVG File
+      const fileInputSvg = document.getElementById('file-input-svg');
+      document.getElementById('btn-import-svg')?.addEventListener('click', () => fileInputSvg?.click());
+      fileInputSvg?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            doc.fromSVGString(evt.target.result);
+            updateStageSize();
+            zoomToFit();
+            render();
+            fileInputSvg.value = '';
+          };
+          reader.readAsText(file);
+        }
+      });
+
+      // Import Raster Image
+      const fileInputImg = document.getElementById('file-import-img');
+      document.getElementById('btn-import-img')?.addEventListener('click', () => fileInputImg?.click());
+      fileInputImg?.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (evt) => {
+            const img = new Image();
+            img.onload = () => {
+              const svgImage = new SvgEngine.SvgImage({
+                x: 0,
+                y: 0,
+                width: img.width,
+                height: img.height,
+                src: evt.target.result,
+                _imgElement: img
+              });
+              doc.addObject(svgImage);
+              doc.select(svgImage.id);
+              doc.pushHistory('Import Image');
+              updateObjectList();
+              updateInspector();
+              render();
+              drawOverlay();
+              scheduleAutosave();
+            };
+            img.src = evt.target.result;
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // Render with Quadro WASM
+      document.getElementById('btn-render-quadro')?.addEventListener('click', () => {
+        if (!quadroRenderer) {
+          alert('Quadro WASM module initializing or offline.');
+          return;
+        }
+        try {
+          quadroRenderer.renderDocument(doc, { scale: quadroRenderScale });
+          const imgData = quadroRenderer.getImageData();
+          if (imgData) {
+            const cvs = document.createElement('canvas');
+            cvs.width = imgData.width;
+            cvs.height = imgData.height;
+            const ctx2d = cvs.getContext('2d');
+            const img = ctx2d.createImageData(imgData.width, imgData.height);
+            img.data.set(imgData.data);
+            ctx2d.putImageData(img, 0, 0);
+
+            cvs.toBlob(blob => {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `quadro_raster_${Date.now()}.png`;
+              a.click();
+              URL.revokeObjectURL(url);
+            });
+          }
+        } catch (err) {
+          alert('Quadro render error: ' + err.message);
+        }
+      });
+
+      // Rasterize to Image Object
+      document.getElementById('btn-rasterize')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        if (selected.length === 0 || !quadroRenderer) return;
+
+        // Bounding box of selection
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const obj of selected) {
+          const b = obj.getBounds ? obj.getBounds() : { minX: obj.x, minY: obj.y, maxX: obj.x, maxY: obj.y };
+          minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
+          maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
+        }
+        if (minX === Infinity) return;
+
+        // Add padding
+        minX -= 4; minY -= 4; maxX += 4; maxY += 4;
+        const w = Math.ceil(maxX - minX);
+        const h = Math.ceil(maxY - minY);
+        if (w <= 0 || h <= 0) return;
+
+        // Temporary doc
+        const tempDoc = new SvgEngine.SvgDocument(w, h);
+        tempDoc.backgroundColor = 'transparent';
+        
+        for (const obj of selected) {
+          const clone = obj.clone();
+          clone.move(-minX, -minY);
+          tempDoc.addObject(clone);
+        }
+
+        try {
+          quadroRenderer.renderDocument(tempDoc, { scale: 1.0, background: false });
+          const imgData = quadroRenderer.getImageData();
+          if (imgData) {
+            const cvs = document.createElement('canvas');
+            // We MUST crop to w and h because Quadro's internal canvas might be larger than requested
+            cvs.width = w; cvs.height = h;
+            const ctx2d = cvs.getContext('2d');
+            
+            // Draw imgData into an offscreen canvas of imgData's size, then drawImage to crop
+            const rawCvs = document.createElement('canvas');
+            rawCvs.width = imgData.width; rawCvs.height = imgData.height;
+            const rawCtx = rawCvs.getContext('2d');
+            const rawImg = rawCtx.createImageData(imgData.width, imgData.height);
+            rawImg.data.set(imgData.data);
+            rawCtx.putImageData(rawImg, 0, 0);
+            
+            ctx2d.drawImage(rawCvs, 0, 0);
+
+            const src = cvs.toDataURL('image/png');
+            const newImage = new Image();
+            newImage.onload = () => {
+              const svgImage = new SvgEngine.SvgImage({ x: minX, y: minY, width: w, height: h, src: src });
+              svgImage._imgElement = newImage;
+              selected.forEach(o => doc.removeObject(o.id));
+              doc.addObject(svgImage);
+              doc.clearSelection();
+              doc.select(svgImage.id);
+              updateObjectList();
+              render();
+            };
+            newImage.src = src;
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      });
+
+      // ── Inspector & Property Binding ──
+      document.getElementById('prop-fill-color')?.addEventListener('input', (e) => {
+        const textEl = document.getElementById('prop-fill-text');
+        if (textEl) textEl.value = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.fill = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-fill-text')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.fill = e.target.value;
+        render();
+      });
+
+      document.getElementById('btn-fill-none')?.addEventListener('click', () => {
+        const textEl = document.getElementById('prop-fill-text');
+        if (textEl) textEl.value = 'none';
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.fill = 'none';
+        render();
+      });
+
+      document.getElementById('prop-stroke-color')?.addEventListener('input', (e) => {
+        const textEl = document.getElementById('prop-stroke-text');
+        if (textEl) textEl.value = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.stroke = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-stroke-text')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.stroke = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-stroke-width')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.strokeWidth = Number(e.target.value);
+        render();
+      });
+
+      document.getElementById('btn-stroke-none')?.addEventListener('click', () => {
+        const textEl = document.getElementById('prop-stroke-text');
+        if (textEl) textEl.value = 'none';
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.stroke = 'none';
+        render();
+      });
+
+      document.getElementById('prop-fill-opacity')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.fillOpacity = Number(e.target.value);
+        render();
+      });
+
+      // Fill Texture bindings
+      ['mode', 'scale', 'angle', 'contrast', 'grain'].forEach(param => {
+        const el = document.getElementById(`prop-fill-tex-${param}`);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+            obj.fillTexture[param] = val;
+            if (param === 'mode') obj.fillTexture.enabled = val > 0;
+          }
+          render();
+        });
+      });
+
+      document.getElementById('prop-stroke-cap')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.strokeLinecap = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-stroke-join')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.strokeLinejoin = e.target.value;
+        render();
+      });
+
+      // Node / Anchor Point Editor Bindings
+      const btnDeleteNode = document.getElementById('btn-delete-node');
+      if (btnDeleteNode) {
+        btnDeleteNode.addEventListener('click', () => {
+          const { path, node } = getActivePathAndNode();
+          if (path && activeNodeIdx >= 0 && path.nodes && path.nodes[activeNodeIdx]) {
+            if (path.nodes.length > 2) {
+              path.removeNode(activeNodeIdx);
+              activeNodeIdx = Math.min(activeNodeIdx, path.nodes.length - 1);
+              doc.pushHistory('Remove Anchor Point');
+            } else {
+              doc.removeObject(path.id);
+              activeNodeIdx = -1;
+            }
+            render();
+            updateInspector();
+          }
+        });
+      }
+
+      document.getElementById('prop-node-x')?.addEventListener('input', (e) => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.x = Number(e.target.value);
+          render();
+        }
+      });
+
+      document.getElementById('prop-node-y')?.addEventListener('input', (e) => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.y = Number(e.target.value);
+          render();
+        }
+      });
+
+      document.getElementById('prop-node-type')?.addEventListener('change', (e) => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = e.target.value;
+          render();
+        }
+      });
+
+      // Viewport Render Mode Switcher
+      const syncRenderMode = (val) => {
+        viewportRenderMode = val;
+        const sel1 = document.getElementById('select-render-mode');
+        const sel2 = document.getElementById('prop-viewport-renderer');
+        if (sel1 && sel1.value !== val) sel1.value = val;
+        if (sel2 && sel2.value !== val) sel2.value = val;
+        render();
+      };
+      document.getElementById('select-render-mode')?.addEventListener('change', (e) => syncRenderMode(e.target.value));
+      document.getElementById('prop-viewport-renderer')?.addEventListener('change', (e) => syncRenderMode(e.target.value));
+
+      // Brush Preset Binding
+      document.getElementById('prop-brush-preset')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        let preset = BRUSH_PRESET_CONFIGS[val];
+        if (!preset && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
+          const custom = EsenhoStore.getCustomBrushPresets();
+          preset = custom[val];
+        }
+        if (preset) {
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.brushConfig) obj.brushConfig = {};
+            Object.assign(obj.brushConfig, preset);
+          }
+          updateInspector();
+          render();
+        }
+      });
+
+      document.getElementById('btn-save-brush-preset')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const obj = selected[0];
+        const bc = obj ? (obj.brushConfig || {}) : {};
+        const name = window.prompt('Enter name for custom brush preset:');
+        if (name && name.trim()) {
+          const configToSave = {
+            name: name.trim(),
+            desc: 'Custom brush preset',
+            flow: bc.flow !== undefined ? bc.flow : Number(document.getElementById('prop-brush-flow')?.value || 100),
+            hardness: bc.hardness !== undefined ? bc.hardness : Number(document.getElementById('prop-brush-hardness')?.value || 100),
+            spacing: bc.spacing !== undefined ? bc.spacing : Number(document.getElementById('prop-brush-spacing')?.value || 5),
+            scatter: bc.scatter !== undefined ? bc.scatter : Number(document.getElementById('prop-brush-scatter')?.value || 0),
+            roundness: bc.roundness !== undefined ? bc.roundness : Number(document.getElementById('prop-brush-roundness')?.value || 100),
+            angle: bc.angle !== undefined ? bc.angle : Number(document.getElementById('prop-brush-angle')?.value || 0),
+            shape: bc.shape !== undefined ? bc.shape : Number(document.getElementById('prop-brush-shape')?.value || 0),
+            dabBlend: bc.dabBlend !== undefined ? bc.dabBlend : Number(document.getElementById('prop-brush-dab-blend')?.value || 0),
+            auto_rotate: bc.auto_rotate !== undefined ? bc.auto_rotate : Number(document.getElementById('prop-brush-autorotate')?.value || 0),
+            taper_in: bc.taper_in !== undefined ? bc.taper_in : Number(document.getElementById('prop-brush-taper-in')?.value || 0),
+            taper_out: bc.taper_out !== undefined ? bc.taper_out : Number(document.getElementById('prop-brush-taper-out')?.value || 0),
+            size_jitter: bc.size_jitter !== undefined ? bc.size_jitter : Number(document.getElementById('prop-brush-size-jitter')?.value || 0),
+            angle_jitter: bc.angle_jitter !== undefined ? bc.angle_jitter : Number(document.getElementById('prop-brush-angle-jitter')?.value || 0),
+            opacity_jitter: bc.opacity_jitter !== undefined ? bc.opacity_jitter : Number(document.getElementById('prop-brush-opacity-jitter')?.value || 0),
+            wetness: bc.wetness !== undefined ? bc.wetness : Number(document.getElementById('prop-brush-wetness')?.value || 0),
+            color_pickup: bc.color_pickup !== undefined ? bc.color_pickup : Number(document.getElementById('prop-brush-color-pickup')?.value || 0),
+            depletion: bc.depletion !== undefined ? bc.depletion : Number(document.getElementById('prop-brush-depletion')?.value || 0),
+            smudge: bc.smudge !== undefined ? bc.smudge : Number(document.getElementById('prop-brush-smudge')?.value || 0)
+          };
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
+            EsenhoStore.saveCustomBrushPreset(name, configToSave);
+            showNotification(`Brush preset "${name.trim()}" saved`);
+            updateInspector();
+          }
+        }
+      });
+
+      // Brush Dynamics Sliders & Controls
+      const brushParamMap = {
+        flow: 'flow',
+        hardness: 'hardness',
+        spacing: 'spacing',
+        scatter: 'scatter',
+        roundness: 'roundness',
+        angle: 'angle',
+        shape: 'shape',
+        'dab-blend': 'dabBlend',
+        autorotate: 'auto_rotate',
+        'taper-in': 'taper_in',
+        'taper-out': 'taper_out',
+        'size-jitter': 'size_jitter',
+        'angle-jitter': 'angle_jitter',
+        'opacity-jitter': 'opacity_jitter',
+        wetness: 'wetness',
+        'color-pickup': 'color_pickup',
+        depletion: 'depletion',
+        smudge: 'smudge'
+      };
+
+      Object.entries(brushParamMap).forEach(([elSuffix, configKey]) => {
+        const id = `prop-brush-${elSuffix}`;
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.brushConfig) obj.brushConfig = {};
+            obj.brushConfig[configKey] = val;
+          }
+          document.getElementById('prop-brush-preset').value = 'custom';
+          render();
+        });
+      });
+
+      // Stroke Texture bindings
+      ['mode', 'scale', 'angle', 'contrast', 'grain'].forEach(param => {
+        const el = document.getElementById(`prop-stroke-tex-${param}`);
+        if (!el) return;
+        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.strokeTexture) obj.strokeTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+            obj.strokeTexture[param] = val;
+            if (param === 'mode') obj.strokeTexture.enabled = val > 0;
+          }
+          render();
+        });
+      });
+
+      document.getElementById('prop-obj-opacity')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.opacity = Number(e.target.value);
+        render();
+      });
+
+      // Canvas & Viewport Presets and Scale
+      document.getElementById('prop-canvas-preset')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'custom') return;
+        const [w, h] = val.split('x').map(Number);
+        if (w && h) {
+          doc.width = w;
+          doc.height = h;
+          const wInput = document.getElementById('prop-doc-w');
+          const hInput = document.getElementById('prop-doc-h');
+          if (wInput) wInput.value = w;
+          if (hInput) hInput.value = h;
+          updateStageSize();
+          zoomToFit();
+          render();
+        }
+      });
+
+      document.getElementById('prop-doc-w')?.addEventListener('change', (e) => {
+        doc.width = Math.max(16, Math.min(8192, Number(e.target.value) || 800));
+        const presetEl = document.getElementById('prop-canvas-preset');
+        if (presetEl) presetEl.value = 'custom';
+        updateStageSize();
+        render();
+      });
+
+      document.getElementById('prop-doc-h')?.addEventListener('change', (e) => {
+        doc.height = Math.max(16, Math.min(8192, Number(e.target.value) || 600));
+        const presetEl = document.getElementById('prop-canvas-preset');
+        if (presetEl) presetEl.value = 'custom';
+        updateStageSize();
+        render();
+      });
+
+      document.getElementById('prop-doc-bg')?.addEventListener('change', (e) => {
+        doc.backgroundColor = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-zoom-val')?.addEventListener('change', (e) => {
+        const zPct = Number(e.target.value) || 100;
+        zoom = Math.max(0.1, Math.min(10.0, zPct / 100));
+        applyViewportTransform();
+        render();
+      });
+
+      const btnFitPanel = document.getElementById('btn-zoom-fit-panel');
+      if (btnFitPanel) btnFitPanel.addEventListener('click', zoomToFit);
+
+      document.getElementById('prop-viewport-rot')?.addEventListener('input', (e) => {
+        viewportRotation = Number(e.target.value) || 0;
+        applyViewportTransform();
+      });
+
+      document.getElementById('btn-reset-viewport-rot')?.addEventListener('click', () => {
+        viewportRotation = 0;
+        applyViewportTransform();
+        render();
+      });
+
+      statusRotation?.addEventListener('click', () => {
+        viewportRotation = 0;
+        applyViewportTransform();
+        render();
+      });
+
+      document.getElementById('prop-quadro-scale')?.addEventListener('change', (e) => {
+        quadroRenderScale = Number(e.target.value) || 1.0;
+        updateStageSize();
+        render();
+      });
+
+      document.getElementById('prop-viewport-bilinear')?.addEventListener('change', (e) => {
+        const bilinear = e.target.checked;
+        const mode = bilinear ? 'auto' : 'pixelated';
+        quadroCanvas.style.imageRendering = mode;
+        svgStage.style.imageRendering = mode;
+        stageWrapper.style.imageRendering = mode;
+      });
+
+      document.getElementById('prop-camera-x')?.addEventListener('input', (e) => {
+        panX = Number(e.target.value) || 0;
+        applyViewportTransform();
+      });
+
+      document.getElementById('prop-camera-y')?.addEventListener('input', (e) => {
+        panY = Number(e.target.value) || 0;
+        applyViewportTransform();
+      });
+
+      document.getElementById('btn-reset-camera')?.addEventListener('click', () => {
+        viewportRotation = 0;
+        zoomToFit();
+      });
+
+      // Z-Order Buttons
+      document.getElementById('btn-bring-front')?.addEventListener('click', () => {
+        const sel = doc.getSelectedObjects()[0];
+        if (sel) { doc.bringToFront(sel.id); render(); }
+      });
+      document.getElementById('btn-bring-fwd')?.addEventListener('click', () => {
+        const sel = doc.getSelectedObjects()[0];
+        if (sel) { doc.bringForward(sel.id); render(); }
+      });
+      document.getElementById('btn-send-back')?.addEventListener('click', () => {
+        const sel = doc.getSelectedObjects()[0];
+        if (sel) { doc.sendBackward(sel.id); render(); }
+      });
+      document.getElementById('btn-send-bot')?.addEventListener('click', () => {
+        const sel = doc.getSelectedObjects()[0];
+        if (sel) { doc.sendToBack(sel.id); render(); }
+      });
+
+      document.getElementById('btn-group-obj')?.addEventListener('click', () => {
+        doc.groupSelected();
+        render();
+      });
+
+      document.getElementById('btn-ungroup-obj')?.addEventListener('click', () => {
+        doc.ungroupSelected();
+        render();
+      });
+
+      document.getElementById('btn-duplicate-obj')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          const clone = obj.clone();
+          clone.x += 15; clone.y += 15;
+          doc.addObject(clone);
+          doc.select(clone.id);
+        }
+        render();
+      });
+
+      function triggerRenameSelected() {
+        const selected = doc.getSelectedObjects();
+        if (selected.length === 0) return;
+        const obj = selected[0];
+
+        // Highlight/show inline rename in layer manager
+        const objItem = document.querySelector(`.object-item[data-object-id="${obj.id}"]`) || document.querySelector(`[data-object-id="${obj.id}"]`);
+        if (objItem) {
+          const nameSpan = objItem.querySelector('.obj-name');
+          if (nameSpan) {
+            nameSpan.dispatchEvent(new MouseEvent('dblclick', { bubbles: true, cancelable: true }));
+            return;
+          }
+        }
+
+        const nameInput = document.getElementById('prop-obj-name');
+        if (nameInput) {
+          nameInput.focus();
+          nameInput.select();
+        }
+      }
+
+      document.getElementById('btn-rename-obj')?.addEventListener('click', () => {
+        triggerRenameSelected();
+      });
+
+      document.getElementById('prop-obj-name')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        if (selected.length > 0) {
+          selected[0].name = e.target.value;
+          updateObjectList();
+        }
+      });
+      document.getElementById('prop-obj-name')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        if (selected.length > 0) {
+          doc.pushHistory(`Rename to ${e.target.value}`);
+          updateObjectList();
+        }
+      });
+
+      document.getElementById('btn-delete-obj')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) doc.removeObject(obj.id);
+        render();
+      });
+
+      // ── Alignment & Distribution Bindings ──
+      const alignActions = [
+        { ids: ['btn-align-left', 'quick-align-left'], action: 'left' },
+        { ids: ['btn-align-center', 'quick-align-center'], action: 'center-h' },
+        { ids: ['btn-align-right', 'quick-align-right'], action: 'right' },
+        { ids: ['btn-align-top', 'quick-align-top'], action: 'top' },
+        { ids: ['btn-align-middle', 'quick-align-middle'], action: 'center-v' },
+        { ids: ['btn-align-bottom', 'quick-align-bottom'], action: 'bottom' }
+      ];
+      alignActions.forEach(({ ids, action }) => {
+        ids.forEach(id => {
+          document.getElementById(id)?.addEventListener('click', () => {
+            doc.alignSelected(action);
+            render();
+            updateInspector();
+            drawOverlay();
+          });
+        });
+      });
+
+      const distActions = [
+        { ids: ['btn-distribute-h', 'quick-distribute-h'], axis: 'horizontal' },
+        { ids: ['btn-distribute-v', 'quick-distribute-v'], axis: 'vertical' }
+      ];
+      distActions.forEach(({ ids, axis }) => {
+        ids.forEach(id => {
+          document.getElementById(id)?.addEventListener('click', () => {
+            doc.distributeSelected(axis);
+            render();
+            updateInspector();
+            drawOverlay();
+          });
+        });
+      });
+
+      // ── Snapping Toggle & Options ──
+      const btnToggleSnap = document.getElementById('btn-toggle-snap');
+
+      function getSnapOptions() {
+        const gridCb = document.getElementById('snap-opt-grid');
+        const canvasCb = document.getElementById('snap-opt-canvas');
+        const guidesCb = document.getElementById('snap-opt-guides');
+        const objectsCb = document.getElementById('snap-opt-objects');
+        const intensityInput = document.getElementById('snap-intensity');
+        const intensity = intensityInput ? (parseFloat(intensityInput.value) || 6) : 6;
+
+        return {
+          snapToGrid: gridCb ? gridCb.checked : false,
+          snapToCanvas: canvasCb ? canvasCb.checked : true,
+          snapToGuides: guidesCb ? guidesCb.checked : true,
+          snapToObjects: objectsCb ? objectsCb.checked : true,
+          userGuides: userGuides,
+          gridSize: 20,
+          threshold: intensity / zoom
+        };
+      }
+
+      const snapIntensityInput = document.getElementById('snap-intensity');
+      const lblSnapIntensity = document.getElementById('lbl-snap-intensity');
+      snapIntensityInput?.addEventListener('input', () => {
+        if (lblSnapIntensity) lblSnapIntensity.textContent = snapIntensityInput.value + 'px';
+      });
+
+      ['snap-opt-grid', 'snap-opt-canvas', 'snap-opt-guides', 'snap-opt-objects'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => {
+          activeSnapLines = [];
+          drawOverlay();
+        });
+      });
+
+      btnToggleSnap?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        snapEnabled = !snapEnabled;
+        btnToggleSnap.textContent = snapEnabled ? 'ON' : 'OFF';
+        btnToggleSnap.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
+        activeSnapLines = [];
+        drawOverlay();
+      });
+
+      // ── Left Toolbar Popover Flyouts (Align, Pathfinder, Snap) ──
+      const popoverToggles = [
+        { btnId: 'btn-popover-align', flyoutId: 'flyout-align' },
+        { btnId: 'btn-popover-pathfinder', flyoutId: 'flyout-pathfinder' },
+        { btnId: 'btn-popover-snap', flyoutId: 'flyout-snap' }
+      ];
+
+      popoverToggles.forEach(({ btnId, flyoutId }) => {
+        const btn = document.getElementById(btnId);
+        const flyout = document.getElementById(flyoutId);
+        btn?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isActive = flyout?.classList.contains('active');
+          document.querySelectorAll('.tool-flyout').forEach(f => f.classList.remove('active'));
+          document.querySelectorAll('.tool-popover-wrap .tool-btn').forEach(b => b.classList.remove('active'));
+          if (!isActive) {
+            flyout?.classList.add('active');
+            btn?.classList.add('active');
+          }
+        });
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.tool-popover-wrap')) {
+          document.querySelectorAll('.tool-flyout').forEach(f => f.classList.remove('active'));
+          document.querySelectorAll('.tool-popover-wrap .tool-btn').forEach(b => b.classList.remove('active'));
+        }
+      });
+
+      // ── Clipping Mask Bindings ──
+      const handleMaskCreate = () => {
+        if (doc.createClipMask()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      };
+      const handleMaskRelease = () => {
+        if (doc.releaseClipMask()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      };
+      document.getElementById('btn-mask-create')?.addEventListener('click', handleMaskCreate);
+      document.getElementById('btn-mask-create-sub')?.addEventListener('click', handleMaskCreate);
+      document.getElementById('btn-mask-release')?.addEventListener('click', handleMaskRelease);
+      document.getElementById('btn-mask-release-sub')?.addEventListener('click', handleMaskRelease);
+
+      // ── Outline Stroke Binding ──
+      document.getElementById('btn-outline-stroke')?.addEventListener('click', () => {
+        if (doc.outlineStrokeSelected()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      });
+
+      // ── Text on Path Bindings ──
+      const handleTextAttachPath = () => {
+        if (doc.attachTextToPath()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      };
+      const handleTextDetachPath = () => {
+        if (doc.detachTextFromPath()) {
+          render();
+          updateInspector();
+          updateObjectList();
+          drawOverlay();
+        }
+      };
+      document.getElementById('btn-text-attach-path')?.addEventListener('click', handleTextAttachPath);
+      document.getElementById('btn-text-attach-path-sub')?.addEventListener('click', handleTextAttachPath);
+      document.getElementById('btn-text-detach-path')?.addEventListener('click', handleTextDetachPath);
+      document.getElementById('btn-text-detach-path-sub')?.addEventListener('click', handleTextDetachPath);
+
+      // ── Multi-Scale Export Modal ──
+      const modalExport = document.getElementById('modal-export');
+      const exportFormatSelect = document.getElementById('export-format');
+      const exportScaleInput = document.getElementById('export-scale');
+      const exportDimPreview = document.getElementById('export-dim-preview');
+
+      function updateExportDimPreview() {
+        if (!exportDimPreview) return;
+        const scale = Math.max(0.01, Number(exportScaleInput?.value || 1));
+        const w = Math.round(doc.width * scale);
+        const h = Math.round(doc.height * scale);
+        exportDimPreview.textContent = `${w} × ${h} px (@${scale}×)`;
+      }
+
+      document.getElementById('btn-export-multiscale')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        updateExportDimPreview();
+        if (modalExport) modalExport.style.display = 'flex';
+      });
+
+      document.getElementById('btn-close-export')?.addEventListener('click', () => {
+        if (modalExport) modalExport.style.display = 'none';
+      });
+
+      exportScaleInput?.addEventListener('input', updateExportDimPreview);
+      exportScaleInput?.addEventListener('change', updateExportDimPreview);
+
+      document.getElementById('btn-do-export')?.addEventListener('click', async () => {
+        const format = exportFormatSelect?.value || 'image/png';
+        const scale = Math.max(0.01, Number(exportScaleInput?.value || 1));
+        const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : (format === 'image/svg+xml' ? 'svg' : 'png'));
+        const filename = `wesenho_export_${scale}x_${Date.now()}.${ext}`;
+
+        if (format === 'image/svg+xml') {
+          const svgData = doc.toSVGString();
+          const blob = new Blob([svgData], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          a.click();
+          URL.revokeObjectURL(url);
+          if (modalExport) modalExport.style.display = 'none';
+          return;
+        }
+
+        const outW = Math.round(doc.width * scale);
+        const outH = Math.round(doc.height * scale);
+        const cvs = document.createElement('canvas');
+        cvs.width = outW;
+        cvs.height = outH;
+        const ctx2d = cvs.getContext('2d');
+
+        if (doc.backgroundColor && doc.backgroundColor !== 'transparent') {
+          ctx2d.fillStyle = doc.backgroundColor;
+          ctx2d.fillRect(0, 0, outW, outH);
+        }
+
+        const svgXml = doc.toSVGString();
+        const img = new Image();
+        const svgBlob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(svgBlob);
+
+        img.onload = () => {
+          ctx2d.drawImage(img, 0, 0, outW, outH);
+          URL.revokeObjectURL(blobUrl);
+          cvs.toBlob((blob) => {
+            if (blob) {
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = filename;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
+            if (modalExport) modalExport.style.display = 'none';
+          }, format, 0.95);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          alert('Export failed: unable to rasterize SVG');
+          if (modalExport) modalExport.style.display = 'none';
+        };
+        img.src = blobUrl;
+      });
+
+      // Geometry & Dimensions Bindings
+      const rectParamMap = { 'rect-x': 'x', 'rect-y': 'y', 'rect-w': 'width', 'rect-h': 'height', 'rect-rx': 'rx', 'rect-ry': 'ry' };
+      Object.entries(rectParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'rect') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      const circleParamMap = { 'circle-cx': 'cx', 'circle-cy': 'cy', 'circle-r': 'r' };
+      Object.entries(circleParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'circle') {
+              obj[propKey] = val;
+              if (propKey === 'r') { obj.rx = val; obj.ry = val; }
+            }
+          }
+          render();
+        });
+      });
+
+      const ellipseParamMap = { 'ellipse-cx': 'cx', 'ellipse-cy': 'cy', 'ellipse-rx': 'rx', 'ellipse-ry': 'ry' };
+      Object.entries(ellipseParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'ellipse') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      const lineParamMap = { 'line-x1': 'x1', 'line-y1': 'y1', 'line-x2': 'x2', 'line-y2': 'y2' };
+      Object.entries(lineParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'line') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      const imgParamMap = { 'img-x': 'x', 'img-y': 'y', 'img-w': 'width', 'img-h': 'height' };
+      Object.entries(imgParamMap).forEach(([idSuffix, propKey]) => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.type === 'image') obj[propKey] = val;
+          }
+          render();
+        });
+      });
+
+      // Object Transform (Rotation & Anchor) Bindings
+      document.getElementById('prop-obj-rotation')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) || 0;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.rotation = val;
+        render();
+      });
+
+      document.getElementById('btn-rot-90')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          obj.rotation = ((obj.rotation || 0) + 90) % 360;
+        }
+        doc.pushHistory('Rotate 90°');
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('btn-rot-reset')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) obj.rotation = 0;
+        doc.pushHistory('Reset Rotation');
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-obj-origin-x')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        if (isNaN(val)) return;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          const curOy = obj.getOrigin().y;
+          if (typeof obj.setOrigin === 'function') {
+            obj.setOrigin(val, curOy, true);
+          } else {
+            obj.originX = val;
+          }
+        }
+        render();
+        drawOverlay();
+      });
+
+      document.getElementById('prop-obj-origin-y')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        if (isNaN(val)) return;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          const curOx = obj.getOrigin().x;
+          if (typeof obj.setOrigin === 'function') {
+            obj.setOrigin(curOx, val, true);
+          } else {
+            obj.originY = val;
+          }
+        }
+        render();
+        drawOverlay();
+      });
+
+      document.getElementById('btn-anchor-center')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          const b = obj.getBounds();
+          const cx = Math.round(b.minX + b.width / 2);
+          const cy = Math.round(b.minY + b.height / 2);
+          if (typeof obj.setOrigin === 'function') {
+            obj.setOrigin(cx, cy, true);
+          } else {
+            obj.originX = cx;
+            obj.originY = cy;
+          }
+        }
+        doc.pushHistory('Center Anchor');
+        updateInspector();
+        render();
+      });
+
+      ['path-x', 'path-y', 'path-w', 'path-h'].forEach(idSuffix => {
+        const el = document.getElementById(`prop-${idSuffix}`);
+        if (!el) return;
+        el.addEventListener('change', () => {
+          const newX = Number(document.getElementById('prop-path-x').value);
+          const newY = Number(document.getElementById('prop-path-y').value);
+          const newW = Number(document.getElementById('prop-path-w').value);
+          const newH = Number(document.getElementById('prop-path-h').value);
+
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            const b = obj.getBounds();
+            if (b.width <= 0 || b.height <= 0) continue;
+            const sx = (newW > 0) ? newW / b.width : 1;
+            const sy = (newH > 0) ? newH / b.height : 1;
+            if (obj.type === 'path') {
+              for (const n of obj.nodes) {
+                n.x = newX + (n.x - b.minX) * sx;
+                n.y = newY + (n.y - b.minY) * sy;
+                n.cpIn.x *= sx; n.cpIn.y *= sy;
+                n.cpOut.x *= sx; n.cpOut.y *= sy;
+              }
+            }
+          }
+          render();
+        });
+      });
+
+      function handleConvertToPath() {
+        if (doc.convertSelectedToPath()) {
+          updateObjectList();
+          updateInspector();
+          render();
+        }
+      }
+      const btnConvertPath = document.getElementById('btn-convert-path');
+      if (btnConvertPath) btnConvertPath.addEventListener('click', handleConvertToPath);
+
+      const btnNodeConvertPath = document.getElementById('btn-node-convert-path');
+      if (btnNodeConvertPath) btnNodeConvertPath.addEventListener('click', handleConvertToPath);
+
+      // Bézier Node Actions
+      document.getElementById('btn-node-smooth')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = 'smooth';
+          node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+          render();
+        }
+      });
+      document.getElementById('btn-node-symmetric')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = 'symmetric';
+          node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+          render();
+        }
+      });
+      document.getElementById('btn-node-cusp')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = 'cusp';
+          render();
+        }
+      });
+      document.getElementById('btn-node-sharp')?.addEventListener('click', () => {
+        const { node } = getActivePathAndNode();
+        if (node) {
+          node.type = 'corner';
+          node.cpIn = { x: 0, y: 0 };
+          node.cpOut = { x: 0, y: 0 };
+          render();
+        }
+      });
+      document.getElementById('btn-path-close')?.addEventListener('click', () => {
+        const { path } = getActivePathAndNode();
+        if (path) {
+          path.closed = !path.closed;
+          render();
+        }
+      });
+      // Pathfinder & Boolean Operations (Top quick bar & Inspector)
+      const pathOps = [
+        { ids: ['btn-path-union', 'quick-path-union'], op: 'union' },
+        { ids: ['btn-path-subtract', 'quick-path-subtract'], op: 'subtract' },
+        { ids: ['btn-path-intersect', 'quick-path-intersect'], op: 'intersect' },
+        { ids: ['btn-path-exclude', 'quick-path-exclude'], op: 'exclude' }
+      ];
+      pathOps.forEach(({ ids, op }) => {
+        ids.forEach(id => {
+          document.getElementById(id)?.addEventListener('click', () => {
+            doc.booleanOperation(op);
+            updateObjectList();
+            updateInspector();
+            render();
+            drawOverlay();
+          });
+        });
+      });
+
+      // Text Properties Binding
+      document.getElementById('prop-text-content')?.addEventListener('input', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.text = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-text-font')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.fontFamily = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-text-size')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) || 36;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.fontSize = val;
+        }
+        render();
+      });
+      document.getElementById('prop-text-align')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.textAlign = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-text-spacing')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) || 0;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.type === 'text') obj.letterSpacing = val;
+        }
+        render();
+      });
+      const handleCreateOutlines = () => {
+        doc.createOutlinesSelected();
+        updateObjectList();
+        updateInspector();
+        render();
+      };
+      document.getElementById('btn-text-outlines')?.addEventListener('click', handleCreateOutlines);
+      document.getElementById('btn-create-outlines')?.addEventListener('click', handleCreateOutlines);
+
+      // Gradient Fill Binding
+      document.getElementById('prop-fill-type')?.addEventListener('change', (e) => {
+        const type = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          obj.fillType = type;
+          if (type === 'linear') {
+            if (!obj.fillGradient) obj.fillGradient = new SvgLinearGradient();
+            obj.fillGradient.type = 'linear';
+          } else if (type === 'radial') {
+            if (!obj.fillGradient) obj.fillGradient = new SvgRadialGradient();
+            obj.fillGradient.type = 'radial';
+          }
+        }
+        updateInspector();
+        render();
+      });
+
+      function updateGradientStop(stopIdx, color) {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops[stopIdx]) {
+            obj.fillGradient.stops[stopIdx].color = color;
+          }
+        }
+        render();
+      }
+
+      document.getElementById('prop-grad-c1')?.addEventListener('input', (e) => {
+        document.getElementById('prop-grad-c1-text').value = e.target.value;
+        updateGradientStop(0, e.target.value);
+      });
+      document.getElementById('prop-grad-c1-text')?.addEventListener('change', (e) => {
+        updateGradientStop(0, e.target.value);
+      });
+      document.getElementById('prop-grad-c2')?.addEventListener('input', (e) => {
+        document.getElementById('prop-grad-c2-text').value = e.target.value;
+        updateGradientStop(1, e.target.value);
+      });
+      document.getElementById('prop-grad-c2-text')?.addEventListener('change', (e) => {
+        updateGradientStop(1, e.target.value);
+      });
+
+      // Drop Shadow Binding
+      document.getElementById('prop-shadow-enable')?.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.dropShadow) obj.dropShadow = { enabled: false, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+          obj.dropShadow.enabled = enabled;
+        }
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-shadow-color')?.addEventListener('input', (e) => {
+        document.getElementById('prop-shadow-text').value = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+          obj.dropShadow.color = e.target.value;
+        }
+        render();
+      });
+      document.getElementById('prop-shadow-text')?.addEventListener('change', (e) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+          obj.dropShadow.color = e.target.value;
+        }
+        render();
+      });
+      ['blur', 'ox', 'oy', 'opacity'].forEach(param => {
+        const el = document.getElementById(`prop-shadow-${param}`);
+        if (!el) return;
+        const key = param === 'ox' ? 'offsetX' : (param === 'oy' ? 'offsetY' : param);
+        el.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+            obj.dropShadow[key] = val;
+          }
+          render();
+        });
+      });
+
+      // WASM Filter & Lens Binding
+      document.getElementById('prop-filter-enabled')?.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: false, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.enabled = enabled;
+        }
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-filter-target')?.addEventListener('change', (e) => {
+        const target = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.target = target;
+        }
+        render();
+      });
+
+      document.getElementById('prop-filter-plugin')?.addEventListener('change', (e) => {
+        const plugin = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.plugin = plugin;
+        }
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('btn-import-wasm-plugin')?.addEventListener('click', () => {
+        document.getElementById('input-wasm-plugin')?.click();
+      });
+
+      document.getElementById('input-wasm-plugin')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const name = file.name.replace(/\.wasm$/i, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+
+          if (doc && doc.wasmPlugins) {
+            doc.wasmPlugins.set(name, bytes);
+          }
+          if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
+            SvgEngine.wasmPlugins.set(name, bytes);
+          }
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.savePlugin) {
+            await EsenhoStore.savePlugin(name, bytes);
+          }
+
+          const sel = document.getElementById('prop-filter-plugin');
+          if (sel) {
+            let opt = Array.from(sel.options).find(o => o.value === name);
+            if (!opt) {
+              opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              sel.appendChild(opt);
+            }
+            sel.value = name;
+          }
+
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: name, target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+            obj.wasmFilter.plugin = name;
+          }
+          updateInspector();
+          render();
+          showNotification(`Plugin "${name}" imported`);
+        } catch (err) {
+          console.error('Failed to import WASM plugin:', err);
+          showNotification('Error loading WASM plugin');
+        }
+        e.target.value = '';
+      });
+
+      document.getElementById('prop-filter-p1')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.p1 = val;
+        }
+        render();
+      });
+
+      document.getElementById('prop-filter-p2')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.p2 = val;
+        }
+        render();
+      });
+
+      document.getElementById('prop-filter-opacity')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) / 100;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.opacity = val;
+        }
+        render();
+      });
+
+      // Image Raster Editor
+      let editingRasterObj = null;
+      document.getElementById('btn-edit-raster')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj) return;
+
+        editingRasterObj = imgObj;
+        const iframe = document.getElementById('painter-iframe');
+        iframe.src = 'painter.html?embedded=true';
+        iframe.style.display = 'block';
+
+        const sendInit = () => {
+          try {
+            iframe.contentWindow.postMessage({
+              type: 'INIT_EDIT',
+              src: imgObj.src,
+              width: imgObj.width,
+              height: imgObj.height,
+              id: imgObj.id
+            }, '*');
+          } catch (_) {}
+        };
+
+        iframe.onload = sendInit;
+      });
+
+      window.addEventListener('message', (e) => {
+        if (!e.data) return;
+        if (e.data.type === 'PAINTER_READY') {
+          if (editingRasterObj) {
+            const iframe = document.getElementById('painter-iframe');
+            if (iframe && iframe.contentWindow) {
+              try {
+                iframe.contentWindow.postMessage({
+                  type: 'INIT_EDIT',
+                  src: editingRasterObj.src,
+                  width: editingRasterObj.width,
+                  height: editingRasterObj.height,
+                  id: editingRasterObj.id
+                }, '*');
+              } catch (_) {}
+            }
+          }
+        } else if (e.data.type === 'SAVE_EDIT') {
+          const iframe = document.getElementById('painter-iframe');
+          if (iframe) {
+            iframe.style.display = 'none';
+            iframe.src = 'about:blank'; // Free memory
+          }
+          
+          const obj = doc.objects.find(o => o.id === e.data.id) || editingRasterObj;
+          if (obj && obj.type === 'image') {
+            obj.src = e.data.src;
+            const img = new Image();
+            img.onload = () => {
+              obj._imgElement = img;
+              doc.pushHistory('Edit Raster Image');
+              render();
+              updateInspector();
+              updateObjectList();
+            };
+            img.src = obj.src;
+          }
+          editingRasterObj = null;
+        } else if (e.data.type === 'CANCEL_EDIT') {
+          const iframe = document.getElementById('painter-iframe');
+          if (iframe) {
+            iframe.style.display = 'none';
+            iframe.src = 'about:blank';
+          }
+          editingRasterObj = null;
+        }
+      });
+      // Simplify Path (RDP + Schneider Bézier Fit)
+      const propSimpTol = document.getElementById('prop-simplify-tol');
+      const propSimpVal = document.getElementById('prop-simplify-val');
+      propSimpTol?.addEventListener('input', () => {
+        if (propSimpVal) propSimpVal.textContent = parseFloat(propSimpTol.value).toFixed(1);
+      });
+
+      document.getElementById('btn-simplify-path')?.addEventListener('click', () => {
+        const tol = parseFloat(propSimpTol?.value || '2.0');
+        const fitCurves = !!document.getElementById('prop-simplify-bezier')?.checked;
+        const selected = doc.getSelectedObjects().filter(o => o.type === 'path' || o.type === 'compoundPath');
+        if (selected.length === 0) return;
+
+        for (const obj of selected) {
+          obj.simplify(tol, fitCurves);
+        }
+        doc.pushHistory('Simplify Path');
+        updateInspector();
+        updateObjectList();
+        render();
+      });
+
+      // Trace Image to Vector Modal Controls
+      const modalTrace = document.getElementById('modal-trace');
+      const traceOptMode = document.getElementById('trace-opt-mode');
+      const traceGroupColors = document.getElementById('trace-group-colors');
+      const traceGroupThresh = document.getElementById('trace-group-thresh');
+      const traceOptColors = document.getElementById('trace-opt-colors');
+      const traceValColors = document.getElementById('trace-val-colors');
+      const traceOptThresh = document.getElementById('trace-opt-thresh');
+      const traceValThresh = document.getElementById('trace-val-thresh');
+      const traceOptSmoothness = document.getElementById('trace-opt-smoothness');
+      const traceValSmoothness = document.getElementById('trace-val-smoothness');
+      const traceOptMinArea = document.getElementById('trace-opt-minarea');
+      const traceValMinArea = document.getElementById('trace-val-minarea');
+
+      traceOptMode?.addEventListener('change', () => {
+        const mode = traceOptMode.value;
+        if (traceGroupColors) traceGroupColors.style.display = (mode === 'color') ? 'flex' : 'none';
+        if (traceGroupThresh) traceGroupThresh.style.display = (mode === 'threshold') ? 'flex' : 'none';
+      });
+
+      traceOptColors?.addEventListener('input', () => {
+        if (traceValColors) traceValColors.textContent = traceOptColors.value;
+      });
+      traceOptThresh?.addEventListener('input', () => {
+        if (traceValThresh) traceValThresh.textContent = traceOptThresh.value;
+      });
+      traceOptSmoothness?.addEventListener('input', () => {
+        if (traceValSmoothness) traceValSmoothness.textContent = parseFloat(traceOptSmoothness.value).toFixed(1);
+      });
+      traceOptMinArea?.addEventListener('input', () => {
+        if (traceValMinArea) traceValMinArea.textContent = traceOptMinArea.value;
+      });
+
+      document.getElementById('btn-trace-vector')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj || !imgObj._imgElement) {
+          alert('Please select a raster image on canvas to trace.');
+          return;
+        }
+        if (modalTrace) modalTrace.classList.add('active');
+      });
+
+      document.getElementById('btn-cancel-trace')?.addEventListener('click', () => {
+        if (modalTrace) modalTrace.classList.remove('active');
+      });
+
+      document.getElementById('btn-run-trace')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (!imgObj || !imgObj._imgElement) {
+          if (modalTrace) modalTrace.classList.remove('active');
+          return;
+        }
+
+        const mode = traceOptMode?.value || 'color';
+        const colors = parseInt(traceOptColors?.value || '6', 10);
+        const threshold = parseInt(traceOptThresh?.value || '128', 10);
+        const smoothness = parseFloat(traceOptSmoothness?.value || '2.0');
+        const minArea = parseInt(traceOptMinArea?.value || '8', 10);
+        const fitCurves = !!document.getElementById('trace-opt-fitcurves')?.checked;
+
+        const cvs = document.createElement('canvas');
+        const w = Math.round(imgObj.width);
+        const h = Math.round(imgObj.height);
+        cvs.width = w; cvs.height = h;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(imgObj._imgElement, 0, 0, w, h);
+        const imgData = ctx.getImageData(0, 0, w, h);
+
+        const traced = SvgTracer.trace(imgData, w, h, {
+          mode,
+          colors,
+          threshold,
+          smoothness,
+          minArea,
+          fitCurves
+        });
+
+        if (!traced) {
+          alert('Could not trace any vector contours from this image with current settings.');
+          return;
+        }
+
+        traced.move(imgObj.x, imgObj.y);
+        doc.addObject(traced);
+        doc.removeObject(imgObj.id);
+        doc.clearSelection();
+        doc.select(traced.id);
+        doc.pushHistory('Trace Image to Vector');
+
+        if (modalTrace) modalTrace.classList.remove('active');
+        updateObjectList();
+        updateInspector();
+        render();
+      });
+
+      // Tab Switching
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          const targetId = btn.dataset.tab;
+          if (targetId) {
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) targetEl.classList.add('active');
+            if (targetId === 'tab-canvas') {
+              const wEl = document.getElementById('prop-doc-w');
+              const hEl = document.getElementById('prop-doc-h');
+              const bgEl = document.getElementById('prop-doc-bg');
+              const zEl = document.getElementById('prop-zoom-val');
+              const rEl = document.getElementById('prop-viewport-rot');
+              const cxEl = document.getElementById('prop-camera-x');
+              const cyEl = document.getElementById('prop-camera-y');
+              if (wEl) wEl.value = doc.width;
+              if (hEl) hEl.value = doc.height;
+              if (bgEl) bgEl.value = doc.backgroundColor || 'var(--bg-dark)';
+              if (zEl) zEl.value = Math.round(zoom * 100);
+              if (rEl) rEl.value = viewportRotation;
+              if (cxEl) cxEl.value = Math.round(panX);
+              if (cyEl) cyEl.value = Math.round(panY);
+            } else if (targetId === 'tab-style') {
+              updateInspector();
+            } else if (targetId === 'tab-objects') {
+              updateObjectList();
+            }
+          }
+        });
+      });
+
+      // Sidebar Toggle (Desktop Collapse & Mobile Drawer)
+      const sidebarEl = document.getElementById('sidebar');
+      const backdropEl = document.getElementById('sidebar-backdrop');
+      document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => {
+        if (window.innerWidth <= 860) {
+          sidebarEl?.classList.toggle('mobile-open');
+          backdropEl?.classList.toggle('active');
+        } else {
+          sidebarEl?.classList.toggle('desktop-hidden');
+          drawOverlay();
+        }
+      });
+      backdropEl?.addEventListener('click', () => {
+        sidebarEl?.classList.remove('mobile-open');
+        backdropEl?.classList.remove('active');
+      });
+
+      // Mobile Touch Pinch-to-Zoom, Two-Finger Pan & Canvas Rotation
+      let touchStartDist = 0;
+      let touchStartAngle = 0;
+      let touchStartZoom = 1.0;
+      let touchStartRotation = 0;
+      let touchStartPanX = 0, touchStartPanY = 0;
+      let touchStartMidX = 0, touchStartMidY = 0;
+
+      viewportContainer.addEventListener('touchstart', (e) => {
+        if (e.touches.length >= 2) {
+          e.preventDefault();
+          isTouchPinching = true;
+
+          // Abort any ongoing single-finger drawing, marquee or transform
+          isDragging = false;
+          isPanning = false;
+          isMarqueeSelecting = false;
+          marqueeBox = null;
+          activeTransformMode = null;
+          activeResizeHandle = null;
+          isPenDraggingAnchor = false;
+          if (currentDraftObj) {
+            doc.removeObject(currentDraftObj.id);
+            currentDraftObj = null;
+          }
+
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          const dx = t2.clientX - t1.clientX;
+          const dy = t2.clientY - t1.clientY;
+          touchStartDist = Math.hypot(dx, dy);
+          touchStartAngle = Math.atan2(dy, dx);
+          touchStartZoom = zoom;
+          touchStartRotation = viewportRotation;
+          touchStartPanX = panX;
+          touchStartPanY = panY;
+          touchStartMidX = (t1.clientX + t2.clientX) / 2;
+          touchStartMidY = (t1.clientY + t2.clientY) / 2;
+        }
+      }, { passive: false });
+
+      viewportContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length >= 2 && touchStartDist > 0) {
+          e.preventDefault();
+          const t1 = e.touches[0];
+          const t2 = e.touches[1];
+          const dx = t2.clientX - t1.clientX;
+          const dy = t2.clientY - t1.clientY;
+          const currentDist = Math.hypot(dx, dy);
+          const currentAngle = Math.atan2(dy, dx);
+          const currentMidX = (t1.clientX + t2.clientX) / 2;
+          const currentMidY = (t1.clientY + t2.clientY) / 2;
+
+          // Scale / Zoom
+          const scale = currentDist / touchStartDist;
+          const newZoom = Math.max(0.1, Math.min(10.0, touchStartZoom * scale));
+          const zoomRatio = newZoom / touchStartZoom;
+
+          // Canvas Viewport Rotation
+          let deltaAngleRad = currentAngle - touchStartAngle;
+          let deltaAngleDeg = (deltaAngleRad * 180) / Math.PI;
+          let newRotation = touchStartRotation + deltaAngleDeg;
+
+          // Snap to cardinal angles (0°, 90°, 180°, 270°, etc.) if within 3.5°
+          const nearestSnap = Math.round(newRotation / 90) * 90;
+          if (Math.abs(newRotation - nearestSnap) < 3.5) {
+            newRotation = nearestSnap;
+            deltaAngleRad = (newRotation - touchStartRotation) * Math.PI / 180;
+          }
+
+          const rect = viewportContainer.getBoundingClientRect();
+          const ox0 = touchStartMidX - rect.left;
+          const oy0 = touchStartMidY - rect.top;
+          const ox = currentMidX - rect.left;
+          const oy = currentMidY - rect.top;
+
+          const initDx = ox0 - touchStartPanX;
+          const initDy = oy0 - touchStartPanY;
+
+          // Combined rotation + zoom around finger midpoint
+          const cosDelta = Math.cos(deltaAngleRad);
+          const sinDelta = Math.sin(deltaAngleRad);
+          const rx = zoomRatio * (initDx * cosDelta - initDy * sinDelta);
+          const ry = zoomRatio * (initDx * sinDelta + initDy * cosDelta);
+
+          panX = ox - rx;
+          panY = oy - ry;
+          zoom = newZoom;
+          viewportRotation = newRotation;
+
+          applyViewportTransform();
+          render();
+        }
+      }, { passive: false });
+
+      viewportContainer.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) {
+          touchStartDist = 0;
+          setTimeout(() => {
+            isTouchPinching = false;
+          }, 80);
+        }
+      });
+
+      viewportContainer.addEventListener('touchcancel', () => {
+        touchStartDist = 0;
+        isTouchPinching = false;
+      });
+
+      // ── Storage & Project Persistence ──
+      let currentProjectId = 'vec_' + Date.now();
+      let currentProjectTitle = 'Untitled Vector';
+      let autosaveTimeout = null;
+
+      function scheduleAutosave() {
+        if (autosaveTimeout) clearTimeout(autosaveTimeout);
+        autosaveTimeout = setTimeout(async () => {
+          try {
+            if (typeof EsenhoStore !== 'undefined') {
+              const svgXml = doc.toSVGString();
+              const jsonDoc = doc.toJSON();
+              const thumb = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgXml);
+              await EsenhoStore.saveProject({
+                id: currentProjectId,
+                type: 'vector',
+                name: currentProjectTitle,
+                width: doc.width,
+                height: doc.height,
+                svgData: svgXml,
+                jsonDoc: jsonDoc,
+                thumbnail: thumb
+              });
+              localStorage.setItem('esenho_current_vector_project_id', currentProjectId);
+            }
+          } catch (e) {
+            console.warn('Autosave error:', e);
+          }
+        }, 600);
+      }
+
+      async function loadProjectFromStorage(projId) {
+        if (!projId || typeof EsenhoStore === 'undefined') return false;
+        try {
+          const proj = await EsenhoStore.getProject(projId);
+          if (proj) {
+            currentProjectId = proj.id;
+            currentProjectTitle = proj.name || 'Untitled Vector';
+            if (proj.jsonDoc) {
+              if (typeof doc.loadJSON === 'function') doc.loadJSON(proj.jsonDoc);
+              else if (typeof doc.fromJSON === 'function') doc.fromJSON(proj.jsonDoc);
+            } else if (proj.svgData) {
+              doc.fromSVGString(proj.svgData);
+            }
+            updateStageSize();
+            updateObjectList();
+            updateInspector();
+            render();
+            zoomToFit();
+            return true;
+          }
+        } catch (e) {
+          console.warn('Failed to load project:', e);
+        }
+        return false;
+      }
+
+      // ── Recent Projects & New Project Modals ──
+      const modalRecents = document.getElementById('modal-recents');
+      const recentsGrid = document.getElementById('recents-grid');
+      const modalNewProject = document.getElementById('modal-new-project');
+
+      function openNewProjectModal() {
+        if (modalNewProject) modalNewProject.style.display = 'flex';
+      }
+      function closeNewProjectModal() {
+        if (modalNewProject) modalNewProject.style.display = 'none';
+      }
+      function closeRecentsModal() {
+        if (modalRecents) modalRecents.style.display = 'none';
+      }
+
+      async function openRecentsModal() {
+        if (!modalRecents || typeof EsenhoStore === 'undefined') return;
+        modalRecents.style.display = 'flex';
+        recentsGrid.innerHTML = '<div style="padding: 32px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
+        try {
+          const list = await EsenhoStore.listProjects();
+          if (!list || list.length === 0) {
+            recentsGrid.innerHTML = `
+              <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--border-focus)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-main);">No saved projects yet</div>
+                <div style="font-size: 12px; color: var(--text-muted); max-width: 280px; line-height: 1.4;">Projects saved locally in your browser will appear here.</div>
+                <button type="button" class="btn btn-primary" style="margin-top: 6px;" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
+              </div>
+            `;
+            return;
+          }
+          recentsGrid.innerHTML = list.map(p => {
+            const dateStr = new Date(p.updatedAt).toLocaleDateString() + ' ' + new Date(p.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const isVec = p.type === 'vector';
+            const badge = isVec ? '<span class="badge" style="color: var(--primary);">Vector</span>' : '<span class="badge" style="color: var(--accent);">Painter</span>';
+            const thumbHtml = p.thumbnail 
+              ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail">`)
+              : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted);">No Preview</div>`;
+            return `
+              <div class="recent-item" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
+                <div class="recent-thumb">${thumbHtml}</div>
+                <div class="recent-meta">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="recent-title" title="${p.name}">${p.name}</div>
+                    ${badge}
+                  </div>
+                  <div class="recent-sub">${p.width} × ${p.height} px • ${dateStr}</div>
+                  <div class="recent-actions" onclick="event.stopPropagation();">
+                    <button type="button" class="btn-sm btn-primary" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
+                    ${!isVec ? `<button type="button" class="btn-sm" style="color: var(--accent); border-color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Insert</button>` : ''}
+                    <button type="button" class="btn-sm" style="color: var(--danger); border-color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">Delete</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        } catch (e) {
+          recentsGrid.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading projects: ${e.message}</div>`;
+        }
+      }
+
+      window.handleInsertPainterImage = async function(id) {
+        try {
+          const proj = await EsenhoStore.getProject(id);
+          if (!proj) return alert('Project not found');
+          const pngUrl = EsenhoStore.compositeRasterProjectToDataUrl(proj) || proj.thumbnail;
+          if (!pngUrl) return alert('Could not render raster project');
+          const img = new Image();
+          img.onload = () => {
+            const w = Math.min(doc.width, proj.width || img.width || 400);
+            const h = Math.round(w * ((proj.height || img.height || 300) / (proj.width || img.width || 400)));
+            const x = Math.round((doc.width - w) / 2);
+            const y = Math.round((doc.height - h) / 2);
+            const imgNode = new SvgEngine.SvgImage({
+              x: x,
+              y: y,
+              width: w,
+              height: h,
+              src: pngUrl,
+              name: proj.name || 'Painter Image',
+              _imgElement: img
+            });
+            doc.addObject(imgNode);
+            doc.select(imgNode.id);
+            doc.pushHistory('Insert Painter Image');
+            updateObjectList();
+            updateInspector();
+            render();
+            drawOverlay();
+            scheduleAutosave();
+            if (modalRecents) modalRecents.style.display = 'none';
+          };
+          img.onerror = () => {
+            alert('Failed to decode painter project PNG');
+          };
+          img.src = pngUrl;
+        } catch (err) {
+          alert('Failed to insert painter image: ' + err.message);
+        }
+      };
+
+      window.handleOpenRecent = async function(id, type) {
+        if (type === 'raster') {
+          window.location.href = `painter.html?project=${id}`;
+          return;
+        }
+        await loadProjectFromStorage(id);
+        if (modalRecents) modalRecents.style.display = 'none';
+      };
+
+      window.handleDeleteRecent = async function(id) {
+        if (!confirm('Delete this project from local memory?')) return;
+        await EsenhoStore.deleteProject(id);
+        openRecentsModal();
+      };
+
+      document.getElementById('btn-new-project')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        openNewProjectModal();
+      });
+
+      document.getElementById('btn-recent-projects')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        openRecentsModal();
+      });
+
+      document.getElementById('btn-close-new-project')?.addEventListener('click', closeNewProjectModal);
+      document.getElementById('btn-close-recents')?.addEventListener('click', closeRecentsModal);
+
+      document.getElementById('btn-modal-new-proj')?.addEventListener('click', () => {
+        closeRecentsModal();
+        openNewProjectModal();
+      });
+
+      // ── Asset Bundle Modal (Export & Import) ──
+      const modalBundle = document.getElementById('modal-asset-bundle');
+      const tabBtnBundleExport = document.getElementById('tab-btn-bundle-export');
+      const tabBtnBundleImport = document.getElementById('tab-btn-bundle-import');
+      const paneBundleExport = document.getElementById('pane-bundle-export');
+      const paneBundleImport = document.getElementById('pane-bundle-import');
+      const btnActionBundle = document.getElementById('btn-action-bundle');
+      let bundleMode = 'export';
+      let parsedImportBundle = null;
+
+      function switchBundleTab(mode) {
+        bundleMode = mode;
+        if (mode === 'export') {
+          tabBtnBundleExport.style.borderBottom = '2px solid var(--accent)';
+          tabBtnBundleExport.style.color = 'var(--text-main)';
+          tabBtnBundleExport.style.fontWeight = 'bold';
+          tabBtnBundleImport.style.borderBottom = 'none';
+          tabBtnBundleImport.style.color = 'var(--text-muted)';
+          tabBtnBundleImport.style.fontWeight = 'normal';
+          paneBundleExport.style.display = 'flex';
+          paneBundleImport.style.display = 'none';
+          btnActionBundle.textContent = 'Export Bundle (.svg)';
+          populateBundleExportList();
+        } else {
+          tabBtnBundleImport.style.borderBottom = '2px solid var(--accent)';
+          tabBtnBundleImport.style.color = 'var(--text-main)';
+          tabBtnBundleImport.style.fontWeight = 'bold';
+          tabBtnBundleExport.style.borderBottom = 'none';
+          tabBtnBundleExport.style.color = 'var(--text-muted)';
+          tabBtnBundleExport.style.fontWeight = 'normal';
+          paneBundleExport.style.display = 'none';
+          paneBundleImport.style.display = 'flex';
+          btnActionBundle.textContent = 'Import Selected Assets';
+        }
+      }
+
+      tabBtnBundleExport?.addEventListener('click', () => switchBundleTab('export'));
+      tabBtnBundleImport?.addEventListener('click', () => switchBundleTab('import'));
+      document.getElementById('btn-close-asset-bundle')?.addEventListener('click', () => {
+        if (modalBundle) modalBundle.style.display = 'none';
+      });
+
+      async function populateBundleExportList() {
+        const brushesListEl = document.getElementById('bundle-export-brushes-list');
+        if (brushesListEl) {
+          const customBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+          const keys = Object.keys(customBrushes);
+          if (keys.length === 0) {
+            brushesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom brush presets found)</div>';
+          } else {
+            brushesListEl.innerHTML = keys.map(k => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-brush" value="${k}" checked>
+                <span>${customBrushes[k].name || k}</span>
+              </label>
+            `).join('');
+          }
+        }
+
+        const pluginsListEl = document.getElementById('bundle-export-plugins-list');
+        if (pluginsListEl) {
+          const plugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
+          if (plugins.length === 0) {
+            pluginsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom WASM plugins in store)</div>';
+          } else {
+            pluginsListEl.innerHTML = plugins.map(p => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-plugin" value="${p.name}" checked>
+                <span>${p.name}.wasm</span>
+              </label>
+            `).join('');
+          }
+        }
+
+        const projectsListEl = document.getElementById('bundle-export-projects-list');
+        if (projectsListEl) {
+          const projects = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listProjects) ? await EsenhoStore.listProjects() : [];
+          if (projects.length === 0) {
+            projectsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No saved projects found)</div>';
+          } else {
+            projectsListEl.innerHTML = projects.map(p => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-project" value="${p.id}" checked>
+                <span>${p.name || p.id} (${p.type || 'vector'})</span>
+              </label>
+            `).join('');
+          }
+        }
+      }
+
+      document.getElementById('btn-bundle-select-all')?.addEventListener('click', () => {
+        modalBundle?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
+      });
+      document.getElementById('btn-bundle-deselect-all')?.addEventListener('click', () => {
+        modalBundle?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+      });
+
+      document.getElementById('btn-menu-asset-bundle')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        if (modalBundle) {
+          modalBundle.style.display = 'flex';
+          switchBundleTab('export');
+        }
+      });
+
+      const dropZoneBundle = document.getElementById('drop-zone-bundle');
+      const inpBundleFile = document.getElementById('inp-bundle-file');
+      dropZoneBundle?.addEventListener('click', () => inpBundleFile?.click());
+      
+      async function handleBundleFile(file) {
+        if (!file) return;
+        const text = await file.text();
+        const parsed = (typeof EsenhoBundle !== 'undefined') ? EsenhoBundle.parseBundle(text) : null;
+        if (!parsed) {
+          alert('Invalid Wesenho Asset Bundle SVG file.');
+          return;
+        }
+        parsedImportBundle = parsed;
+        const previewBox = document.getElementById('bundle-import-preview');
+        const headerEl = document.getElementById('bundle-preview-header');
+        const itemsEl = document.getElementById('bundle-preview-items');
+        if (previewBox && headerEl && itemsEl) {
+          previewBox.style.display = 'flex';
+          headerEl.textContent = `${parsed.title} (by ${parsed.author})`;
+          let html = '';
+          const brushKeys = Object.keys(parsed.brushes || {});
+          if (brushKeys.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes (${brushKeys.length}):</div>`;
+            brushKeys.forEach(k => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-brush" value="${k}" checked><span>${parsed.brushes[k].name || k}</span></label>`;
+            });
+          }
+          if (parsed.plugins && parsed.plugins.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Plugins (${parsed.plugins.length}):</div>`;
+            parsed.plugins.forEach(p => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-plugin" value="${p.name}" checked><span>${p.name}.wasm</span></label>`;
+            });
+          }
+          if (parsed.projects && parsed.projects.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Projects (${parsed.projects.length}):</div>`;
+            parsed.projects.forEach(p => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-project" value="${p.id}" checked><span>${p.name || p.id}</span></label>`;
+            });
+          }
+          itemsEl.innerHTML = html;
+        }
+      }
+
+      inpBundleFile?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) handleBundleFile(file);
+      });
+
+      btnActionBundle?.addEventListener('click', async () => {
+        if (bundleMode === 'export') {
+          const title = document.getElementById('inp-bundle-title')?.value || 'My Wesenho Assets';
+          const author = document.getElementById('inp-bundle-author')?.value || 'User';
+          
+          const selectedBrushKeys = Array.from(modalBundle.querySelectorAll('.chk-bundle-brush:checked')).map(c => c.value);
+          const selectedPluginNames = Array.from(modalBundle.querySelectorAll('.chk-bundle-plugin:checked')).map(c => c.value);
+          const selectedProjectIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-project:checked')).map(c => c.value);
+
+          const allCustomBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+          const brushesToPack = {};
+          selectedBrushKeys.forEach(k => { if (allCustomBrushes[k]) brushesToPack[k] = allCustomBrushes[k]; });
+
+          const allPlugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
+          const pluginsToPack = allPlugins.filter(p => selectedPluginNames.includes(p.name));
+
+          const projectsToPack = [];
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getProject) {
+            for (const pid of selectedProjectIds) {
+              const proj = await EsenhoStore.getProject(pid);
+              if (proj) projectsToPack.push(proj);
+            }
+          }
+
+          const bundleSvg = EsenhoBundle.createBundle({
+            title,
+            author,
+            brushes: brushesToPack,
+            plugins: pluginsToPack,
+            projects: projectsToPack
+          });
+
+          const blob = new Blob([bundleSvg], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const safeName = title.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+          a.download = `${safeName}.bundle.svg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showNotification('Asset Bundle exported successfully');
+          modalBundle.style.display = 'none';
+        } else {
+          if (!parsedImportBundle) {
+            alert('Please select or drop an asset bundle first.');
+            return;
+          }
+          const chosenBrushes = Array.from(modalBundle.querySelectorAll('.chk-import-brush:checked')).map(c => c.value);
+          const chosenPlugins = Array.from(modalBundle.querySelectorAll('.chk-import-plugin:checked')).map(c => c.value);
+          const chosenProjects = Array.from(modalBundle.querySelectorAll('.chk-import-project:checked')).map(c => c.value);
+
+          const res = await EsenhoBundle.importBundle(parsedImportBundle, {
+            brushes: chosenBrushes,
+            plugins: chosenPlugins,
+            projects: chosenProjects,
+            palettes: true
+          });
+
+          if (parsedImportBundle.plugins) {
+            for (const p of parsedImportBundle.plugins) {
+              if (chosenPlugins.includes(p.name)) {
+                if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(p.name, p.bytes);
+                if (doc && doc.wasmPlugins) doc.wasmPlugins.set(p.name, p.bytes);
+              }
+            }
+          }
+
+          updateInspector();
+          showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.projects} projects`);
+          modalBundle.style.display = 'none';
+        }
+      });
+
+      // Window Drag & Drop for Asset Bundle SVGs
+      window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      window.addEventListener('drop', async (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file && file.name.toLowerCase().endsWith('.svg')) {
+          const text = await file.text();
+          if (text.includes('data-esenho-bundle') || text.includes('<esenho-manifest>')) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (modalBundle) {
+              modalBundle.style.display = 'flex';
+              switchBundleTab('import');
+              handleBundleFile(file);
+            }
+          }
+        }
+      });
+
+      // Close modals on backdrop click
+      [modalRecents, modalNewProject, modalExport, modalBundle, document.getElementById('modal-trace')].forEach(modal => {
+        if (!modal) return;
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+          }
+        });
+      });
+
+      async function handleClearStorage() {
+        if (!confirm('Are you sure you want to clear ALL saved projects and local cache? This cannot be undone.')) return;
+        await EsenhoStore.clearAll();
+        alert('Local storage cleared successfully.');
+        if (modalRecents) modalRecents.style.display = 'none';
+        location.reload();
+      }
+
+      document.getElementById('btn-clear-storage')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        handleClearStorage();
+      });
+      document.getElementById('btn-modal-clear-storage')?.addEventListener('click', handleClearStorage);
+
+      document.querySelectorAll('.btn-new-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.getElementById('inp-new-w').value = btn.dataset.w;
+          document.getElementById('inp-new-h').value = btn.dataset.h;
+        });
+      });
+
+      document.getElementById('btn-confirm-new-project')?.addEventListener('click', () => {
+        const title = document.getElementById('inp-new-title').value.trim() || 'Untitled Vector';
+        const w = parseInt(document.getElementById('inp-new-w').value, 10) || 1280;
+        const h = parseInt(document.getElementById('inp-new-h').value, 10) || 720;
+        
+        currentProjectId = 'vec_' + Date.now();
+        currentProjectTitle = title;
+        doc.clear();
+        doc.width = w;
+        doc.height = h;
+        updateStageSize();
+        updateObjectList();
+        updateInspector();
+        render();
+        zoomToFit();
+        scheduleAutosave();
+        closeNewProjectModal();
+      });
+
+      // ── Bootstrapping ──
+      const urlParams = new URLSearchParams(window.location.search);
+      const paramProj = urlParams.get('project');
+      const lastVecProj = localStorage.getItem('esenho_current_vector_project_id');
+
+      (async () => {
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
+          try {
+            const customPlugins = await EsenhoStore.getAllPlugins();
+            for (const cp of customPlugins) {
+              if (!cp.name || !cp.bytes) continue;
+              if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
+                SvgEngine.wasmPlugins.set(cp.name, cp.bytes);
+              }
+              if (doc && doc.wasmPlugins) {
+                doc.wasmPlugins.set(cp.name, cp.bytes);
+              }
+            }
+          } catch (_) {}
+        }
+
+        let loaded = false;
+        if (paramProj) {
+          loaded = await loadProjectFromStorage(paramProj);
+        } else if (lastVecProj) {
+          loaded = await loadProjectFromStorage(lastVecProj);
+        }
+
+        if (!loaded) {
+          initSampleScene();
+          updateStageSize();
+          scheduleAutosave();
+        }
+
+        initQuadro();
+        updateInspector();
+        setTimeout(zoomToFit, 50);
+      })();
+    })();
