@@ -1152,6 +1152,10 @@
           <span>Export...</span>
           <span class="shortcut">Ctrl+E</span>
         </button>
+        <button id="btn-menu-asset-bundle" class="menu-item">
+          <span>Asset Bundle (Export/Import)</span>
+          <span class="shortcut">📦</span>
+        </button>
 
         <div class="menu-divider"></div>
 
@@ -2349,14 +2353,72 @@
           </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button id="btn-confirm-new-project" class="btn-primary" style="width: 100%;">Create Canvas</button>
+  <!-- Modal: Asset Bundle (Export & Import) -->
+  <div id="modal-asset-bundle" class="modal-backdrop" style="display: none;">
+    <div class="modal-card" style="max-width: 650px; width: 90%;">
+      <div class="modal-header">
+        <h3>📦 Asset Bundle (Universal SVG)</h3>
+        <button class="modal-close" id="btn-close-asset-bundle">✕</button>
+      </div>
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding: 0 16px;">
+        <button id="tab-btn-bundle-export" class="tab-btn active" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer; border-bottom: 2px solid var(--accent);">Export Bundle</button>
+        <button id="tab-btn-bundle-import" class="tab-btn" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-muted); cursor: pointer;">Import Bundle</button>
+      </div>
+      <div class="modal-body" style="padding: 16px; max-height: 60vh; overflow-y: auto;">
+        <!-- Export Pane -->
+        <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 12px;">
+          <div class="form-row">
+            <label>Bundle Title</label>
+            <input type="text" id="inp-bundle-title" value="My Wesenho Assets">
+          </div>
+          <div class="form-row">
+            <label>Author</label>
+            <input type="text" id="inp-bundle-author" value="User">
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+            <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);">SELECT ASSETS TO INCLUDE:</span>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" id="btn-bundle-select-all" class="btn-sm">Select All</button>
+              <button type="button" id="btn-bundle-deselect-all" class="btn-sm">Deselect All</button>
+            </div>
+          </div>
+          
+          <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent);">🖌 Brushes</div>
+            <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
+            
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">⚡ WASM Filter Plugins</div>
+            <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
+
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">📁 Saved Projects</div>
+            <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
+          </div>
+        </div>
+
+        <!-- Import Pane -->
+        <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 12px;">
+          <div id="drop-zone-bundle" style="border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; background: var(--bg-dark);">
+            <div style="font-size: 28px; margin-bottom: 6px;">📦</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main);">Click or drag & drop .svg asset bundle here</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Supports any valid Wesenho .svg bundle package</div>
+            <input type="file" id="inp-bundle-file" accept=".svg" style="display: none;">
+          </div>
+
+          <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 10px; background: var(--bg-dark); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+            <div id="bundle-preview-header" style="font-weight: bold; font-size: 13px; color: var(--accent);"></div>
+            <div id="bundle-preview-items" style="display: flex; flex-direction: column; gap: 6px; padding-left: 8px;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer" style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px;">
+        <button id="btn-action-bundle" class="btn-primary" style="padding: 6px 16px;">Export Bundle (.svg)</button>
       </div>
     </div>
   </div>
 
   <!-- Scripts -->
   <script src="src/project_store.js"></script>
+  <script src="src/asset_bundle.js"></script>
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
   <script src="src/svg/svg_engine.js"></script>
@@ -6801,8 +6863,257 @@
         openNewProjectModal();
       });
 
+      // ── Asset Bundle Modal (Export & Import) ──
+      const modalBundle = document.getElementById('modal-asset-bundle');
+      const tabBtnBundleExport = document.getElementById('tab-btn-bundle-export');
+      const tabBtnBundleImport = document.getElementById('tab-btn-bundle-import');
+      const paneBundleExport = document.getElementById('pane-bundle-export');
+      const paneBundleImport = document.getElementById('pane-bundle-import');
+      const btnActionBundle = document.getElementById('btn-action-bundle');
+      let bundleMode = 'export';
+      let parsedImportBundle = null;
+
+      function switchBundleTab(mode) {
+        bundleMode = mode;
+        if (mode === 'export') {
+          tabBtnBundleExport.style.borderBottom = '2px solid var(--accent)';
+          tabBtnBundleExport.style.color = 'var(--text-main)';
+          tabBtnBundleExport.style.fontWeight = 'bold';
+          tabBtnBundleImport.style.borderBottom = 'none';
+          tabBtnBundleImport.style.color = 'var(--text-muted)';
+          tabBtnBundleImport.style.fontWeight = 'normal';
+          paneBundleExport.style.display = 'flex';
+          paneBundleImport.style.display = 'none';
+          btnActionBundle.textContent = 'Export Bundle (.svg)';
+          populateBundleExportList();
+        } else {
+          tabBtnBundleImport.style.borderBottom = '2px solid var(--accent)';
+          tabBtnBundleImport.style.color = 'var(--text-main)';
+          tabBtnBundleImport.style.fontWeight = 'bold';
+          tabBtnBundleExport.style.borderBottom = 'none';
+          tabBtnBundleExport.style.color = 'var(--text-muted)';
+          tabBtnBundleExport.style.fontWeight = 'normal';
+          paneBundleExport.style.display = 'none';
+          paneBundleImport.style.display = 'flex';
+          btnActionBundle.textContent = 'Import Selected Assets';
+        }
+      }
+
+      tabBtnBundleExport?.addEventListener('click', () => switchBundleTab('export'));
+      tabBtnBundleImport?.addEventListener('click', () => switchBundleTab('import'));
+      document.getElementById('btn-close-asset-bundle')?.addEventListener('click', () => {
+        if (modalBundle) modalBundle.style.display = 'none';
+      });
+
+      async function populateBundleExportList() {
+        const brushesListEl = document.getElementById('bundle-export-brushes-list');
+        if (brushesListEl) {
+          const customBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+          const keys = Object.keys(customBrushes);
+          if (keys.length === 0) {
+            brushesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom brush presets found)</div>';
+          } else {
+            brushesListEl.innerHTML = keys.map(k => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-brush" value="${k}" checked>
+                <span>${customBrushes[k].name || k}</span>
+              </label>
+            `).join('');
+          }
+        }
+
+        const pluginsListEl = document.getElementById('bundle-export-plugins-list');
+        if (pluginsListEl) {
+          const plugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
+          if (plugins.length === 0) {
+            pluginsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom WASM plugins in store)</div>';
+          } else {
+            pluginsListEl.innerHTML = plugins.map(p => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-plugin" value="${p.name}" checked>
+                <span>${p.name}.wasm</span>
+              </label>
+            `).join('');
+          }
+        }
+
+        const projectsListEl = document.getElementById('bundle-export-projects-list');
+        if (projectsListEl) {
+          const projects = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listProjects) ? await EsenhoStore.listProjects() : [];
+          if (projects.length === 0) {
+            projectsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No saved projects found)</div>';
+          } else {
+            projectsListEl.innerHTML = projects.map(p => `
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
+                <input type="checkbox" class="chk-bundle-project" value="${p.id}" checked>
+                <span>${p.name || p.id} (${p.type || 'vector'})</span>
+              </label>
+            `).join('');
+          }
+        }
+      }
+
+      document.getElementById('btn-bundle-select-all')?.addEventListener('click', () => {
+        modalBundle?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
+      });
+      document.getElementById('btn-bundle-deselect-all')?.addEventListener('click', () => {
+        modalBundle?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+      });
+
+      document.getElementById('btn-menu-asset-bundle')?.addEventListener('click', () => {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        if (modalBundle) {
+          modalBundle.style.display = 'flex';
+          switchBundleTab('export');
+        }
+      });
+
+      const dropZoneBundle = document.getElementById('drop-zone-bundle');
+      const inpBundleFile = document.getElementById('inp-bundle-file');
+      dropZoneBundle?.addEventListener('click', () => inpBundleFile?.click());
+      
+      async function handleBundleFile(file) {
+        if (!file) return;
+        const text = await file.text();
+        const parsed = (typeof EsenhoBundle !== 'undefined') ? EsenhoBundle.parseBundle(text) : null;
+        if (!parsed) {
+          alert('Invalid Wesenho Asset Bundle SVG file.');
+          return;
+        }
+        parsedImportBundle = parsed;
+        const previewBox = document.getElementById('bundle-import-preview');
+        const headerEl = document.getElementById('bundle-preview-header');
+        const itemsEl = document.getElementById('bundle-preview-items');
+        if (previewBox && headerEl && itemsEl) {
+          previewBox.style.display = 'flex';
+          headerEl.textContent = `📦 ${parsed.title} (by ${parsed.author})`;
+          let html = '';
+          const brushKeys = Object.keys(parsed.brushes || {});
+          if (brushKeys.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes (${brushKeys.length}):</div>`;
+            brushKeys.forEach(k => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-brush" value="${k}" checked><span>${parsed.brushes[k].name || k}</span></label>`;
+            });
+          }
+          if (parsed.plugins && parsed.plugins.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Plugins (${parsed.plugins.length}):</div>`;
+            parsed.plugins.forEach(p => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-plugin" value="${p.name}" checked><span>${p.name}.wasm</span></label>`;
+            });
+          }
+          if (parsed.projects && parsed.projects.length > 0) {
+            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Projects (${parsed.projects.length}):</div>`;
+            parsed.projects.forEach(p => {
+              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-project" value="${p.id}" checked><span>${p.name || p.id}</span></label>`;
+            });
+          }
+          itemsEl.innerHTML = html;
+        }
+      }
+
+      inpBundleFile?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (file) handleBundleFile(file);
+      });
+
+      btnActionBundle?.addEventListener('click', async () => {
+        if (bundleMode === 'export') {
+          const title = document.getElementById('inp-bundle-title')?.value || 'My Wesenho Assets';
+          const author = document.getElementById('inp-bundle-author')?.value || 'User';
+          
+          const selectedBrushKeys = Array.from(modalBundle.querySelectorAll('.chk-bundle-brush:checked')).map(c => c.value);
+          const selectedPluginNames = Array.from(modalBundle.querySelectorAll('.chk-bundle-plugin:checked')).map(c => c.value);
+          const selectedProjectIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-project:checked')).map(c => c.value);
+
+          const allCustomBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+          const brushesToPack = {};
+          selectedBrushKeys.forEach(k => { if (allCustomBrushes[k]) brushesToPack[k] = allCustomBrushes[k]; });
+
+          const allPlugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
+          const pluginsToPack = allPlugins.filter(p => selectedPluginNames.includes(p.name));
+
+          const projectsToPack = [];
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getProject) {
+            for (const pid of selectedProjectIds) {
+              const proj = await EsenhoStore.getProject(pid);
+              if (proj) projectsToPack.push(proj);
+            }
+          }
+
+          const bundleSvg = EsenhoBundle.createBundle({
+            title,
+            author,
+            brushes: brushesToPack,
+            plugins: pluginsToPack,
+            projects: projectsToPack
+          });
+
+          const blob = new Blob([bundleSvg], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          const safeName = title.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+          a.download = `${safeName}.bundle.svg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          showNotification('Asset Bundle exported successfully');
+          modalBundle.style.display = 'none';
+        } else {
+          if (!parsedImportBundle) {
+            alert('Please select or drop an asset bundle first.');
+            return;
+          }
+          const chosenBrushes = Array.from(modalBundle.querySelectorAll('.chk-import-brush:checked')).map(c => c.value);
+          const chosenPlugins = Array.from(modalBundle.querySelectorAll('.chk-import-plugin:checked')).map(c => c.value);
+          const chosenProjects = Array.from(modalBundle.querySelectorAll('.chk-import-project:checked')).map(c => c.value);
+
+          const res = await EsenhoBundle.importBundle(parsedImportBundle, {
+            brushes: chosenBrushes,
+            plugins: chosenPlugins,
+            projects: chosenProjects,
+            palettes: true
+          });
+
+          if (parsedImportBundle.plugins) {
+            for (const p of parsedImportBundle.plugins) {
+              if (chosenPlugins.includes(p.name)) {
+                if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(p.name, p.bytes);
+                if (doc && doc.wasmPlugins) doc.wasmPlugins.set(p.name, p.bytes);
+              }
+            }
+          }
+
+          updateInspector();
+          showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.projects} projects`);
+          modalBundle.style.display = 'none';
+        }
+      });
+
+      // Window Drag & Drop for Asset Bundle SVGs
+      window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+      window.addEventListener('drop', async (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file && file.name.toLowerCase().endsWith('.svg')) {
+          const text = await file.text();
+          if (text.includes('data-esenho-bundle') || text.includes('<esenho-manifest>')) {
+            e.preventDefault();
+            e.stopPropagation();
+            if (modalBundle) {
+              modalBundle.style.display = 'flex';
+              switchBundleTab('import');
+              handleBundleFile(file);
+            }
+          }
+        }
+      });
+
       // Close modals on backdrop click
-      [modalRecents, modalNewProject, modalExport, document.getElementById('modal-trace')].forEach(modal => {
+      [modalRecents, modalNewProject, modalExport, modalBundle, document.getElementById('modal-trace')].forEach(modal => {
         if (!modal) return;
         modal.addEventListener('click', (e) => {
           if (e.target === modal) {

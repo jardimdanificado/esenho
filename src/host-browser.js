@@ -7181,7 +7181,28 @@ async function main() {
       }
     }
 
-    // 2. Image (PNG, JPG, WebP, etc.)
+    // 2. SVG Asset Bundle (.bundle.svg or any bundle SVG)
+    if (lowerName.endsWith('.svg')) {
+      try {
+        const text = await file.text();
+        if (text.includes('data-esenho-bundle') || text.includes('<esenho-manifest>')) {
+          if (typeof EsenhoBundle !== 'undefined') {
+            const parsed = EsenhoBundle.parseBundle(text);
+            if (parsed) {
+              const res = await EsenhoBundle.importBundle(parsed);
+              host.customBrushPresets = getCustomBrushPresets();
+              populateBrushPresetsUI();
+              log(`Imported Asset Bundle '${parsed.title}': ${res.brushes} brushes, ${res.plugins} plugins, ${res.projects} projects [ok]`);
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        log(`err: failed importing asset bundle: ${err.message}`);
+      }
+    }
+
+    // 3. Image (PNG, JPG, WebP, etc.)
     if (file.type?.startsWith('image/') || /\.(png|jpe?g|webp|bmp|gif|svg)$/i.test(lowerName)) {
       const reader = new FileReader();
       reader.onload = (e) => {
