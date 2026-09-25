@@ -1153,8 +1153,7 @@
           <span class="shortcut">Ctrl+E</span>
         </button>
         <button id="btn-menu-asset-bundle" class="menu-item">
-          <span>Asset Bundle (Export/Import)</span>
-          <span class="shortcut">📦</span>
+          <span>Asset Bundle...</span>
         </button>
 
         <div class="menu-divider"></div>
@@ -1300,17 +1299,24 @@
             <button class="btn-sm" id="btn-toggle-snap" style="font-size: 9px; padding: 2px 6px; color: var(--primary);">ON</button>
           </div>
           <div class="flyout-col">
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-grid"> Grid (Off by default)</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-canvas" checked> Canvas Center & Edges</label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-grid"> Grid</label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-canvas" checked> Canvas Center &amp; Edges</label>
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-guides" checked> Ruler Guides</label>
             <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-objects" checked> Object Geometry</label>
+          </div>
+          <div style="margin-top: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted);">
+              <span>Intensity</span>
+              <span id="lbl-snap-intensity" style="font-family: monospace;">6px</span>
+            </div>
+            <input type="range" id="snap-intensity" min="1" max="30" value="6" style="width: 100%; margin-top: 2px;">
           </div>
         </div>
       </div>
 
       <div class="toolbar-sep"></div>
       
-      <button class="tool-btn" id="btn-zoom-fit" title="Zoom to Fit (0)">
+      <button class="tool-btn" id="btn-zoom-fit" title="Zoom to Fit">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
         <span class="hotkey">0</span>
       </button>
@@ -1328,19 +1334,6 @@
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
       </div>
       <canvas id="overlay-canvas"></canvas>
-      
-      <!-- Viewport Status Bar -->
-      <div id="viewport-status-bar">
-        <div class="status-group">
-          <span>Tool: <span class="status-val" id="status-tool">Select</span></span>
-          <span>Cursor: <span class="status-val" id="status-coords">0, 0</span></span>
-          <span>Zoom: <span class="status-val" id="status-zoom">100%</span></span>
-          <span>Angle: <span class="status-val" id="status-rotation" style="pointer-events: auto; cursor: pointer;" title="Click to reset viewport rotation">0°</span></span>
-        </div>
-        <div class="status-group">
-          <span>Objects: <span class="status-val" id="status-objects">0</span></span>
-        </div>
-      </div>
 
       <!-- Embedded Raster Painter -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
@@ -1384,7 +1377,7 @@
     <div id="sidebar">
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="tab-objects">Layers</button>
-        <button class="tab-btn" data-tab="tab-style">Inspector</button>
+        <button class="tab-btn" data-tab="tab-style">Inspect</button>
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
       </div>
 
@@ -1423,16 +1416,16 @@
               <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Text Outlines</button>
             </div>
 
-            <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">🖼 Rasterize to Image</button>
+            <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">Rasterize to Image</button>
 
             <div class="grid-2" style="margin-top: 2px;">
-              <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">🎭 Make Mask</button>
-              <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">🔓 Release Mask</button>
+              <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
+              <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">Release Mask</button>
             </div>
 
             <div class="grid-2">
-              <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">⌒ Text on Path</button>
-              <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">━ Detach Text</button>
+              <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
+              <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">Detach Text</button>
             </div>
           </div>
         </div>
@@ -1440,19 +1433,48 @@
 
       <!-- Tab 2: Style & Transform Inspector -->
       <div class="tab-content" id="tab-style">
+        <!-- Inspect & Status Summary Card -->
+        <div class="section-card" id="card-inspect-status" style="margin-bottom: 8px;">
+          <div class="section-header">
+            <span>Inspect</span>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Active Tool</span>
+              <span class="status-val" id="status-tool" style="font-weight: bold; color: var(--text-main);">Select</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Cursor Position</span>
+              <span class="status-val" id="status-coords" style="font-family: monospace; color: var(--text-main);">0, 0</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Viewport Zoom</span>
+              <span class="status-val" id="status-zoom" style="font-family: monospace; color: var(--text-main);">100%</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Viewport Angle</span>
+              <span class="status-val" id="status-rotation" style="font-family: monospace; color: var(--text-main); cursor: pointer;" title="Reset rotation">0°</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span style="color: var(--text-muted);">Total Objects</span>
+              <span class="status-val" id="status-objects" style="font-weight: bold; color: var(--accent);">0</span>
+            </div>
+          </div>
+        </div>
+
         <!-- 1. Node & Curve Tools -->
         <details open class="section-accordion" id="card-nodes">
-          <summary><span><span class="section-icon">∿</span> Node & Curve Tools</span></summary>
+          <summary><span>Node &amp; Curve Tools</span></summary>
           <div class="accordion-body">
             <div class="grid-2">
-              <button id="btn-node-smooth" class="btn-sm" title="Smooth: Aligned tangent handles">∿ Smooth</button>
-              <button id="btn-node-symmetric" class="btn-sm" title="Symmetric: Mirrored handles">⋈ Symmetric</button>
+              <button id="btn-node-smooth" class="btn-sm" title="Smooth: Aligned tangent handles">Smooth</button>
+              <button id="btn-node-symmetric" class="btn-sm" title="Symmetric: Mirrored handles">Symmetric</button>
             </div>
             <div class="grid-2">
-              <button id="btn-node-cusp" class="btn-sm" title="Cusp / Independent: Move handles independently without moving the opposite handle">∠ Cusp (Unlock)</button>
-              <button id="btn-node-sharp" class="btn-sm" title="Sharp Corner: Clear handles">■ Sharp Corner</button>
+              <button id="btn-node-cusp" class="btn-sm" title="Cusp / Independent: Move handles independently without moving the opposite handle">Cusp</button>
+              <button id="btn-node-sharp" class="btn-sm" title="Sharp Corner: Clear handles">Sharp Corner</button>
             </div>
-            <button id="btn-path-close" class="btn-sm" style="width: 100%;">⟳ Toggle Close Path</button>
+            <button id="btn-path-close" class="btn-sm" style="width: 100%;">Toggle Close Path</button>
 
             <!-- Simplify Path Section -->
             <div id="path-simplify-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
@@ -1476,52 +1498,52 @@
 
         <!-- 2. Alignment & Distribution -->
         <details open class="section-accordion" id="card-align-distribute">
-          <summary><span><span class="section-icon">⇤⇥</span> Alignment & Distribution</span></summary>
+          <summary><span>Alignment &amp; Distribution</span></summary>
           <div class="accordion-body">
             <div style="display: flex; gap: 3px; justify-content: space-between;">
-              <button id="btn-align-left" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Left">⇤ Left</button>
-              <button id="btn-align-center" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Center">⇥⇤ Center</button>
-              <button id="btn-align-right" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Right">⇥ Right</button>
+              <button id="btn-align-left" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Left">Left</button>
+              <button id="btn-align-center" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Center">Center</button>
+              <button id="btn-align-right" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Right">Right</button>
             </div>
             <div style="display: flex; gap: 3px; justify-content: space-between;">
-              <button id="btn-align-top" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Top">⤒ Top</button>
-              <button id="btn-align-middle" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Middle">⤓⤒ Mid</button>
-              <button id="btn-align-bottom" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Bottom">⤓ Bot</button>
+              <button id="btn-align-top" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Top">Top</button>
+              <button id="btn-align-middle" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Middle">Mid</button>
+              <button id="btn-align-bottom" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Align Bottom">Bot</button>
             </div>
             <div style="display: flex; gap: 3px; margin-top: 2px;">
-              <button id="btn-distribute-h" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Horizontal Spacing">||| Distribute H</button>
-              <button id="btn-distribute-v" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Vertical Spacing">≡ Distribute V</button>
+              <button id="btn-distribute-h" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Horizontal Spacing">Distribute H</button>
+              <button id="btn-distribute-v" class="btn-sm" style="flex: 1; padding: 4px 0;" title="Distribute Vertical Spacing">Distribute V</button>
             </div>
           </div>
         </details>
 
         <!-- 3. Pathfinder & Boolean Operations -->
         <details open class="section-accordion" id="card-pathfinder">
-          <summary><span><span class="section-icon">∪</span> Pathfinder & Booleans</span></summary>
+          <summary><span>Pathfinder &amp; Booleans</span></summary>
           <div class="accordion-body">
             <div class="grid-2">
-              <button id="btn-path-union" class="btn-sm" title="Combine multiple selected paths into one union shape">∪ Union</button>
-              <button id="btn-path-subtract" class="btn-sm" title="Subtract top selected shape from bottom shape">− Subtract</button>
+              <button id="btn-path-union" class="btn-sm" title="Combine multiple selected paths into one union shape">Union</button>
+              <button id="btn-path-subtract" class="btn-sm" title="Subtract top selected shape from bottom shape">Subtract</button>
             </div>
             <div class="grid-2">
-              <button id="btn-path-intersect" class="btn-sm" title="Keep only overlapping area of selected shapes">∩ Intersect</button>
-              <button id="btn-path-exclude" class="btn-sm" title="Keep non-overlapping areas (XOR exclusion)">⨂ Exclude</button>
+              <button id="btn-path-intersect" class="btn-sm" title="Keep only overlapping area of selected shapes">Intersect</button>
+              <button id="btn-path-exclude" class="btn-sm" title="Keep non-overlapping areas (XOR exclusion)">Exclude</button>
             </div>
           </div>
         </details>
 
         <!-- 4. Clipping Masks & Text on Path -->
         <details open class="section-accordion" id="card-masks">
-          <summary><span><span class="section-icon">✂</span> Clipping Masks & Text Path</span></summary>
+          <summary><span>Clipping Masks &amp; Text Path</span></summary>
           <div class="accordion-body">
             <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: 4px; margin-bottom: 6px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
             <div class="grid-2">
-              <button id="btn-mask-create-sub" class="btn-sm" title="Create Clipping Mask using top shape">🎭 Make Mask</button>
-              <button id="btn-mask-release-sub" class="btn-sm" title="Release Clipping Mask">🔓 Release</button>
+              <button id="btn-mask-create-sub" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
+              <button id="btn-mask-release-sub" class="btn-sm" title="Release Clipping Mask">Release</button>
             </div>
             <div class="grid-2" style="margin-top: 2px;">
-              <button id="btn-text-attach-path-sub" class="btn-sm" title="Attach Selected Text to Selected Path">⌒ Text on Path</button>
-              <button id="btn-text-detach-path-sub" class="btn-sm" title="Detach Text from Path">━ Detach Text</button>
+              <button id="btn-text-attach-path-sub" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
+              <button id="btn-text-detach-path-sub" class="btn-sm" title="Detach Text from Path">Detach Text</button>
             </div>
           </div>
         </details>
@@ -1529,7 +1551,7 @@
         <!-- 5. Transform & Geometry -->
         <details open class="section-accordion" id="card-geometry">
           <summary>
-            <span><span class="section-icon">📐</span> Transform & Geometry</span>
+            <span>Transform &amp; Geometry</span>
             <span id="prop-geom-type" class="badge">None</span>
           </summary>
           <div class="accordion-body">
@@ -1658,7 +1680,7 @@
                     <option value="symmetric">Symmetric</option>
                   </select>
                 </div>
-                <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">🗑 Remove Selected Anchor</button>
+                <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Remove Selected Anchor</button>
               </div>
             </div>
 
@@ -1679,7 +1701,7 @@
                 </div>
               </div>
               <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
-                <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">🖌 Edit Raster in Painter</button>
+                <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">Edit Raster in Painter</button>
                 <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
               </div>
             </div>
@@ -1747,7 +1769,7 @@
 
         <!-- Fill & Appearance -->
         <details open class="section-accordion">
-          <summary><span><span class="section-icon">🎨</span> Fill & Texture</span></summary>
+          <summary><span>Fill & Texture</span></summary>
           <div class="accordion-body">
             <div class="form-row">
               <label>Fill Type</label>
@@ -1837,7 +1859,7 @@
 
         <!-- Stroke & Line Style -->
         <details open class="section-accordion">
-          <summary><span><span class="section-icon">✏</span> Stroke & Outline</span></summary>
+          <summary><span>Stroke & Outline</span></summary>
           <div class="accordion-body">
             <div class="form-row">
               <label>Color</label>
@@ -1911,7 +1933,7 @@
 
         <!-- Quadro Brush Dynamics Accordion -->
         <details class="section-accordion">
-          <summary><span><span class="section-icon">🖌</span> Brush Dynamics (Quadro)</span></summary>
+          <summary><span>Brush Dynamics (Quadro)</span></summary>
           <div class="accordion-body">
             <div class="form-row">
               <label>Preset</label>
@@ -2063,7 +2085,7 @@
         <!-- Drop Shadow Accordion -->
         <details class="section-accordion">
           <summary>
-            <span><span class="section-icon">◐</span> Drop Shadow & Glow</span>
+            <span>Drop Shadow & Glow</span>
             <input type="checkbox" id="prop-shadow-enable" style="cursor: pointer;" onclick="event.stopPropagation()">
           </summary>
           <div class="accordion-body">
@@ -2097,7 +2119,7 @@
         <!-- WASM Filter & Lens Accordion -->
         <details class="section-accordion" id="accordion-wasm-filter">
           <summary>
-            <span><span class="section-icon">◈</span> WASM Filter & Lens</span>
+            <span>WASM Filter & Lens</span>
             <input type="checkbox" id="prop-filter-enabled" style="cursor: pointer;" onclick="event.stopPropagation()">
           </summary>
           <div class="accordion-body">
@@ -2152,7 +2174,7 @@
       <div class="tab-content" id="tab-canvas">
         <div class="section-card">
           <div class="section-header">
-            <span><span class="section-icon">📐</span> Document & Canvas</span>
+            <span>Document & Canvas</span>
           </div>
           <div class="form-row">
             <label>Preset Size</label>
@@ -2182,7 +2204,7 @@
 
         <div class="section-card">
           <div class="section-header">
-            <span><span class="section-icon">🔍</span> Viewport</span>
+            <span>Viewport</span>
           </div>
           <div class="form-row">
             <label>Renderer</label>
@@ -2297,7 +2319,7 @@
 
       <div class="modal-actions">
         <button id="btn-cancel-trace">Cancel</button>
-        <button id="btn-run-trace" class="btn-primary">⚡ Trace & Vectorize</button>
+        <button id="btn-run-trace" class="btn-primary">Trace & Vectorize</button>
       </div>
     </div>
   </div>
@@ -2306,7 +2328,7 @@
   <div id="modal-recents" class="modal-backdrop" style="display: none;">
     <div class="modal-card">
       <div class="modal-header">
-        <h3>📁 Recent Projects</h3>
+        <h3>Recent Projects</h3>
         <button class="modal-close" id="btn-close-recents">✕</button>
       </div>
       <div class="modal-body">
@@ -2316,7 +2338,7 @@
       </div>
       <div class="modal-footer">
         <button id="btn-modal-new-proj" class="btn-primary"><span>+</span> New Project</button>
-        <button id="btn-modal-clear-storage" style="color: var(--danger); border-color: var(--danger);">🗑 Clear Storage</button>
+        <button id="btn-modal-clear-storage" style="color: var(--danger); border-color: var(--danger);">Clear Storage</button>
       </div>
     </div>
   </div>
@@ -2325,7 +2347,7 @@
   <div id="modal-new-project" class="modal-backdrop" style="display: none;">
     <div class="modal-card modal-sm">
       <div class="modal-header">
-        <h3>📄 New Canvas / Project</h3>
+        <h3>New Canvas / Project</h3>
         <button class="modal-close" id="btn-close-new-project">✕</button>
       </div>
       <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
@@ -2353,30 +2375,36 @@
           </div>
         </div>
       </div>
-  <!-- Modal: Asset Bundle (Export & Import) -->
+      <div class="modal-footer">
+        <button id="btn-confirm-new-project" class="btn-primary" style="width: 100%;">Create Canvas</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Asset Bundle -->
   <div id="modal-asset-bundle" class="modal-backdrop" style="display: none;">
     <div class="modal-card" style="max-width: 650px; width: 90%;">
       <div class="modal-header">
-        <h3>📦 Asset Bundle (Universal SVG)</h3>
+        <h3>Asset Bundle</h3>
         <button class="modal-close" id="btn-close-asset-bundle">✕</button>
       </div>
       <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding: 0 16px;">
-        <button id="tab-btn-bundle-export" class="tab-btn active" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer; border-bottom: 2px solid var(--accent);">Export Bundle</button>
-        <button id="tab-btn-bundle-import" class="tab-btn" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-muted); cursor: pointer;">Import Bundle</button>
+        <button id="tab-btn-bundle-export" class="tab-btn active" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer; border-bottom: 2px solid var(--accent);">Export</button>
+        <button id="tab-btn-bundle-import" class="tab-btn" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-muted); cursor: pointer;">Import</button>
       </div>
       <div class="modal-body" style="padding: 16px; max-height: 60vh; overflow-y: auto;">
         <!-- Export Pane -->
         <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 12px;">
           <div class="form-row">
-            <label>Bundle Title</label>
-            <input type="text" id="inp-bundle-title" value="My Wesenho Assets">
+            <label>Title</label>
+            <input type="text" id="inp-bundle-title" value="Wesenho Assets">
           </div>
           <div class="form-row">
             <label>Author</label>
             <input type="text" id="inp-bundle-author" value="User">
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);">SELECT ASSETS TO INCLUDE:</span>
+            <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Assets</span>
             <div style="display: flex; gap: 6px;">
               <button type="button" id="btn-bundle-select-all" class="btn-sm">Select All</button>
               <button type="button" id="btn-bundle-deselect-all" class="btn-sm">Deselect All</button>
@@ -2384,13 +2412,13 @@
           </div>
           
           <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent);">🖌 Brushes</div>
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent);">Brushes</div>
             <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
             
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">⚡ WASM Filter Plugins</div>
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">WASM Plugins</div>
             <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
 
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">📁 Saved Projects</div>
+            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Projects</div>
             <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
           </div>
         </div>
@@ -2398,9 +2426,8 @@
         <!-- Import Pane -->
         <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 12px;">
           <div id="drop-zone-bundle" style="border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; background: var(--bg-dark);">
-            <div style="font-size: 28px; margin-bottom: 6px;">📦</div>
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main);">Click or drag & drop .svg asset bundle here</div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Supports any valid Wesenho .svg bundle package</div>
+            <div style="font-size: 13px; font-weight: bold; color: var(--text-main);">Click or drag & drop SVG asset bundle here</div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Supports any valid Wesenho bundle SVG</div>
             <input type="file" id="inp-bundle-file" accept=".svg" style="display: none;">
           </div>
 
@@ -2411,7 +2438,7 @@
         </div>
       </div>
       <div class="modal-footer" style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px;">
-        <button id="btn-action-bundle" class="btn-primary" style="padding: 6px 16px;">Export Bundle (.svg)</button>
+        <button id="btn-action-bundle" class="btn-primary" style="padding: 6px 16px;">Export Bundle</button>
       </div>
     </div>
   </div>
@@ -2456,6 +2483,8 @@
       let initialAngle = 0;
       let initialBounds = null;
       let initialObjectState = null;
+      let resizeStartPoint = { x: 0, y: 0 };
+      let resizeStartLocalPoint = { x: 0, y: 0 };
       let hoveredObj = null;
 
       function docToLocal(pt, origin, rotationDeg) {
@@ -2553,6 +2582,13 @@
               }
             }
           }
+        }
+
+        if (origState.originX !== undefined) {
+          obj.originX = newMinX + (origState.originX - origBounds.minX) * sx;
+        }
+        if (origState.originY !== undefined) {
+          obj.originY = newMinY + (origState.originY - origBounds.minY) * sy;
         }
       }
 
@@ -3329,14 +3365,14 @@
           const collapseIcon = isGroup ? (obj.collapsed ? '▶' : '▼') : '';
           const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px; margin-right: 4px;">${collapseIcon}</button>` : '';
 
-          const isMaskedBadge = obj.clipPathId ? `<span title="Masked by #${obj.clipPathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(254,128,25,0.25); color: #fe8019; border-radius: 2px; flex-shrink: 0;">🎭 MASKED</span>` : '';
+          const isMaskedBadge = obj.clipPathId ? `<span title="Masked by #${obj.clipPathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(254,128,25,0.25); color: #fe8019; border-radius: 2px; flex-shrink: 0;">MASKED</span>` : '';
           const isMaskSource = doc.objects.some(o => o.clipPathId === obj.id) || (obj.parent && obj.parent.children && obj.parent.children.some(o => o.clipPathId === obj.id));
-          const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Acting as Clipping Mask" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(184,187,38,0.25); color: #b8bb26; border-radius: 2px; flex-shrink: 0;">🎭 MASK</span>` : '';
-          const isTextPathBadge = obj.pathId ? `<span title="Attached to path #${obj.pathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(131,165,152,0.25); color: #83a598; border-radius: 2px; flex-shrink: 0;">⌒ PATH</span>` : '';
+          const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Acting as Clipping Mask" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(184,187,38,0.25); color: #b8bb26; border-radius: 2px; flex-shrink: 0;">MASK</span>` : '';
+          const isTextPathBadge = obj.pathId ? `<span title="Attached to path #${obj.pathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(131,165,152,0.25); color: #83a598; border-radius: 2px; flex-shrink: 0;">PATH</span>` : '';
           const isWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
           const filterBadge = isWasmFilter
             ? (obj.wasmFilter.target === 'backdrop'
-                ? `<span title="Filter Lens: ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(142,192,124,0.25); color: #8ec07c; border-radius: 2px; flex-shrink: 0;">🔍 LENS (${obj.wasmFilter.plugin})</span>`
+                ? `<span title="Filter Lens: ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(142,192,124,0.25); color: #8ec07c; border-radius: 2px; flex-shrink: 0;">LENS (${obj.wasmFilter.plugin})</span>`
                 : `<span title="WASM Filter (${obj.wasmFilter.target}): ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(211,134,155,0.25); color: #d3869b; border-radius: 2px; flex-shrink: 0;">[FX: ${obj.wasmFilter.plugin.toUpperCase()}]</span>`)
             : '';
 
@@ -3671,13 +3707,13 @@
           } else {
             const o = selected[0];
             if (o.clipPathId) {
-              maskStatusBadge.innerHTML = `Status: <span style="color: #fe8019;">🎭 Masked by #${o.clipPathId}</span>`;
+              maskStatusBadge.innerHTML = `Status: <span style="color: #fe8019;">Masked by #${o.clipPathId}</span>`;
             } else {
               const isMaskFor = doc.objects.filter(item => item.clipPathId === o.id);
               if (isMaskFor.length > 0) {
-                maskStatusBadge.innerHTML = `Status: <span style="color: #b8bb26;">🎭 Mask for ${isMaskFor.length} object(s)</span>`;
+                maskStatusBadge.innerHTML = `Status: <span style="color: #b8bb26;">Mask for ${isMaskFor.length} object(s)</span>`;
               } else if (o.pathId) {
-                maskStatusBadge.innerHTML = `Status: <span style="color: #83a598;">⌒ Attached to path #${o.pathId}</span>`;
+                maskStatusBadge.innerHTML = `Status: <span style="color: #83a598;">Attached to path #${o.pathId}</span>`;
               } else {
                 maskStatusBadge.innerHTML = 'Status: <span style="color: var(--text-muted);">Not masked</span>';
               }
@@ -4089,6 +4125,7 @@
                     activeResizeHandle = h.name;
                     initialBounds = { ...cb };
                     initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
+                    resizeStartPoint = { x: pt.x, y: pt.y };
                     break;
                   }
                 }
@@ -4134,6 +4171,8 @@
                   activeResizeHandle = h.name;
                   initialBounds = { ...b };
                   initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
+                  resizeStartPoint = { x: pt.x, y: pt.y };
+                  resizeStartLocalPoint = { x: localPt.x, y: localPt.y };
                   break;
                 }
               }
@@ -4473,15 +4512,18 @@
           if (activeResizeHandle && initialBounds && initialObjectState) {
             const selected = doc.getSelectedObjects();
             if (Array.isArray(initialObjectState)) {
+              const dX = pt.x - resizeStartPoint.x;
+              const dY = pt.y - resizeStartPoint.y;
+
               let newMinX = initialBounds.minX;
               let newMinY = initialBounds.minY;
               let newMaxX = initialBounds.maxX;
               let newMaxY = initialBounds.maxY;
 
-              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, pt.x);
-              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, pt.x);
-              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, pt.y);
-              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, pt.y);
+              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dX);
+              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dX);
+              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dY);
+              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dY);
 
               const newW = Math.max(1, newMaxX - newMinX);
               const newH = Math.max(1, newMaxY - newMinY);
@@ -4501,16 +4543,18 @@
               if (obj) {
                 const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
                 const localPt = docToLocal(pt, origin, obj.rotation || 0);
+                const dLocalX = localPt.x - resizeStartLocalPoint.x;
+                const dLocalY = localPt.y - resizeStartLocalPoint.y;
 
                 let newMinX = initialBounds.minX;
                 let newMinY = initialBounds.minY;
                 let newMaxX = initialBounds.maxX;
                 let newMaxY = initialBounds.maxY;
 
-                if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, localPt.x);
-                if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, localPt.x);
-                if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, localPt.y);
-                if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, localPt.y);
+                if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dLocalX);
+                if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dLocalX);
+                if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dLocalY);
+                if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dLocalY);
 
                 const newW = Math.max(1, newMaxX - newMinX);
                 const newH = Math.max(1, newMaxY - newMinY);
@@ -4888,7 +4932,7 @@
           snapEnabled = !snapEnabled;
           const snapBtn = document.getElementById('btn-toggle-snap');
           if (snapBtn) {
-            snapBtn.textContent = snapEnabled ? '🧲 Snap: ON' : '🧲 Snap: OFF';
+            snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
             snapBtn.style.color = snapEnabled ? 'var(--primary)' : 'var(--text-muted)';
           }
           drawOverlay();
@@ -5618,6 +5662,8 @@
         const canvasCb = document.getElementById('snap-opt-canvas');
         const guidesCb = document.getElementById('snap-opt-guides');
         const objectsCb = document.getElementById('snap-opt-objects');
+        const intensityInput = document.getElementById('snap-intensity');
+        const intensity = intensityInput ? (parseFloat(intensityInput.value) || 6) : 6;
 
         return {
           snapToGrid: gridCb ? gridCb.checked : false,
@@ -5626,9 +5672,15 @@
           snapToObjects: objectsCb ? objectsCb.checked : true,
           userGuides: userGuides,
           gridSize: 20,
-          threshold: 6 / zoom
+          threshold: intensity / zoom
         };
       }
+
+      const snapIntensityInput = document.getElementById('snap-intensity');
+      const lblSnapIntensity = document.getElementById('lbl-snap-intensity');
+      snapIntensityInput?.addEventListener('input', () => {
+        if (lblSnapIntensity) lblSnapIntensity.textContent = snapIntensityInput.value + 'px';
+      });
 
       ['snap-opt-grid', 'snap-opt-canvas', 'snap-opt-guides', 'snap-opt-objects'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
@@ -6764,7 +6816,7 @@
             const badge = isVec ? '<span class="badge" style="color: var(--primary);">Vector</span>' : '<span class="badge" style="color: var(--accent);">Painter</span>';
             const thumbHtml = p.thumbnail 
               ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail">`)
-              : `<span style="font-size: 24px; color: var(--border);">🎨</span>`;
+              : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted);">No Preview</div>`;
             return `
               <div class="recent-item" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
                 <div class="recent-thumb">${thumbHtml}</div>
@@ -6987,7 +7039,7 @@
         const itemsEl = document.getElementById('bundle-preview-items');
         if (previewBox && headerEl && itemsEl) {
           previewBox.style.display = 'flex';
-          headerEl.textContent = `📦 ${parsed.title} (by ${parsed.author})`;
+          headerEl.textContent = `${parsed.title} (by ${parsed.author})`;
           let html = '';
           const brushKeys = Object.keys(parsed.brushes || {});
           if (brushKeys.length > 0) {
