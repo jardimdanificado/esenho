@@ -5,36 +5,39 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <meta name="theme-color" content="#1d2021">
+  <meta name="theme-color" content="var(--bg-dark)">
   <meta name="color-scheme" content="dark">
   <style>
     :root {
-      --bg-dark: #121415;
-      --bg-canvas: #1a1c1e;
-      --bg-panel: #202224;
-      --bg-panel-sub: #272a2c;
-      --bg-input: #171819;
-      --bg-input-focus: #2c2f32;
-      --border: #383c40;
-      --border-bright: #525860;
-      --border-focus: #fabd2f;
-      --text: #fbf1c7;
+      --bg-dark: var(--bg-dark);
+      --bg-canvas: var(--bg-dark);
+      --bg-panel: var(--bg-panel);
+      --bg-panel-sub: #32302f;
+      --bg-input: var(--bg-input);
+      --bg-input-focus: var(--border);
+      --border: var(--border);
+      --border-bright: var(--border-bright);
+      --border-focus: var(--primary);
+      --text: var(--text-bright);
       --text-dim: #d5c4a1;
-      --text-muted: #928374;
-      --primary: #fabd2f;
-      --primary-hover: #fe8019;
+      --text-muted: var(--text-dim);
+      --primary: var(--primary);
+      --primary-hover: var(--primary-hover);
       --primary-dim: rgba(250, 189, 47, 0.12);
       --accent: #83a598;
-      --accent-hover: #a89984;
+      --accent-hover: var(--text-muted);
       --accent-dim: rgba(131, 165, 152, 0.15);
-      --danger: #fb4934;
+      --danger: var(--danger);
       --danger-dim: rgba(251, 73, 52, 0.15);
-      --success: #b8bb26;
+      --success: var(--success);
       --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Inter", "SF Pro Text", sans-serif;
       --font-mono: "JetBrains Mono", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
       --radius-sm: 3px;
       --radius-md: 5px;
       --radius-lg: 8px;
+      --text-main: var(--text);
+      --border-color: var(--border);
+      --bg-secondary: var(--bg-panel-sub);
     }
 
     * {
@@ -48,7 +51,7 @@
 
     ::selection {
       background: rgba(250, 189, 47, 0.3);
-      color: #fbf1c7;
+      color: var(--text-bright);
     }
 
     input, textarea, [contenteditable] {
@@ -84,11 +87,11 @@
       height: 5px;
     }
     ::-webkit-scrollbar-track {
-      background: transparent;
+      background: var(--bg-canvas);
     }
     ::-webkit-scrollbar-thumb {
       background: var(--border);
-      border-radius: 4px;
+      border-radius: var(--radius-sm);
     }
     ::-webkit-scrollbar-thumb:hover {
       background: var(--border-bright);
@@ -168,7 +171,7 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-md);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
       padding: 4px;
       display: none;
       flex-direction: column;
@@ -223,8 +226,6 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--accent);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
     }
 
     .top-actions {
@@ -271,7 +272,7 @@
     button:hover {
       background: var(--border);
       border-color: var(--border-bright);
-      color: #fff;
+      color: var(--text);
     }
 
     button:active {
@@ -279,17 +280,23 @@
       color: var(--primary);
     }
 
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+
     button.btn-primary {
       background: var(--primary);
-      color: #1d2021;
+      color: var(--bg-dark);
       border-color: #d79921;
       font-weight: 700;
     }
 
     button.btn-primary:hover {
       background: var(--primary-hover);
-      border-color: #fe8019;
-      color: #121415;
+      border-color: var(--primary-hover);
+      color: var(--bg-dark);
     }
 
     button.btn-sm {
@@ -396,7 +403,7 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-md);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
       padding: 8px;
       z-index: 99999;
       flex-direction: column;
@@ -413,8 +420,6 @@
       font-size: 10px;
       font-weight: 700;
       color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
       padding-bottom: 4px;
       border-bottom: 1px solid var(--border);
     }
@@ -459,8 +464,8 @@
     #stage-wrapper {
       position: absolute;
       transform-origin: 0 0;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      background-color: #1d2021;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      background-color: var(--bg-dark);
       border-radius: 2px;
     }
 
@@ -494,7 +499,7 @@
 
     /* ── Right Inspector & Sidebar ── */
     #sidebar {
-      width: 320px;
+      width: 260px;
       height: 100%;
       max-height: 100%;
       background: var(--bg-panel);
@@ -584,8 +589,6 @@
       font-size: 11px;
       font-weight: 700;
       color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -612,8 +615,6 @@
       font-size: 11px;
       font-weight: 700;
       color: var(--text-dim);
-      text-transform: uppercase;
-      letter-spacing: 0.8px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -756,8 +757,7 @@
       outline: 2px solid var(--primary) !important;
       background: var(--bg-panel-sub) !important;
       opacity: 0.95 !important;
-      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.65);
-      transform: scale(1.03);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
       z-index: 100;
       pointer-events: none !important;
     }
@@ -771,7 +771,7 @@
     }
 
     .object-item.drop-target-group {
-      outline: 2px dashed #b8bb26 !important;
+      outline: 2px dashed var(--success) !important;
       background: rgba(184, 187, 38, 0.18) !important;
     }
 
@@ -882,7 +882,7 @@
       padding: 18px 20px;
       width: 440px;
       max-width: 92vw;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
       display: flex;
       flex-direction: column;
       gap: 12px;
@@ -891,8 +891,6 @@
     .modal-card h2 {
       font-size: 13px;
       color: var(--primary);
-      text-transform: uppercase;
-      letter-spacing: 1px;
       border-bottom: 1px solid var(--border);
       padding-bottom: 8px;
     }
@@ -939,10 +937,10 @@
         top: 42px;
         right: 0;
         bottom: 0;
-        width: 320px;
+        width: 260px;
         max-width: 85vw;
         transform: translateX(100%);
-        box-shadow: -4px 0 20px rgba(0, 0, 0, 0.6);
+        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
         z-index: 1001;
       }
 
@@ -979,7 +977,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.6);
       z-index: 10000;
       display: flex;
       align-items: center;
@@ -991,7 +989,7 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-lg);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
       width: 100%;
       max-width: 680px;
       max-height: 85vh;
@@ -1074,7 +1072,7 @@
     .recent-thumb {
       width: 100%;
       height: 105px;
-      background: #141617;
+      background: var(--bg-dark);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -1325,9 +1323,9 @@
     <!-- Center Interactive Viewport -->
     <div id="viewport-container">
       <!-- Rulers & Guides Overlay -->
-      <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: #12121a; border-right: 1px solid #282836; border-bottom: 1px solid #282836; z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
-      <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: #151520; border-bottom: 1px solid #282836; z-index: 40; cursor: row-resize;"></canvas>
-      <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: #151520; border-right: 1px solid #282836; z-index: 40; cursor: col-resize;"></canvas>
+      <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: var(--bg-panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
+      <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); z-index: 40; cursor: row-resize;"></canvas>
+      <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: var(--bg-panel-sub); border-right: 1px solid var(--border); z-index: 40; cursor: col-resize;"></canvas>
 
       <div id="stage-wrapper">
         <canvas id="quadro-canvas"></canvas>
@@ -1341,7 +1339,7 @@
 
     <!-- Export Modal -->
     <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center;">
-      <div style="background: #181824; border: 1px solid var(--border); border-radius: 8px; padding: 16px; width: 340px; box-shadow: 0 8px 24px rgba(0,0,0,0.55); display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; width: 340px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
           <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Document</h3>
           <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
@@ -1366,7 +1364,7 @@
           <label>Dimensions</label>
           <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
         </div>
-        <button id="btn-do-export" style="width: 100%; margin-top: 6px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: 4px; border: none; cursor: pointer;">Export File</button>
+        <button id="btn-do-export" style="width: 100%; margin-top: 6px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export File</button>
       </div>
     </div>
 
@@ -1536,7 +1534,7 @@
         <details open class="section-accordion" id="card-masks">
           <summary><span>Clipping Masks &amp; Text Path</span></summary>
           <div class="accordion-body">
-            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: 4px; margin-bottom: 6px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
+            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); margin-bottom: 6px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
             <div class="grid-2">
               <button id="btn-mask-create-sub" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
               <button id="btn-mask-release-sub" class="btn-sm" title="Release Clipping Mask">Release</button>
@@ -1783,8 +1781,8 @@
               <div class="form-row">
                 <label>Color</label>
                 <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-fill-color" value="#fabd2f">
-                  <input type="text" id="prop-fill-text" value="#fabd2f">
+                  <input type="color" id="prop-fill-color" value="var(--primary)">
+                  <input type="text" id="prop-fill-text" value="var(--primary)">
                 </div>
               </div>
               <div class="form-row">
@@ -1800,15 +1798,15 @@
               <div class="form-row">
                 <label>Stop 1</label>
                 <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-grad-c1" value="#fe8019">
-                  <input type="text" id="prop-grad-c1-text" value="#fe8019">
+                  <input type="color" id="prop-grad-c1" value="var(--primary-hover)">
+                  <input type="text" id="prop-grad-c1-text" value="var(--primary-hover)">
                 </div>
               </div>
               <div class="form-row">
                 <label>Stop 2</label>
                 <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-grad-c2" value="#fabd2f">
-                  <input type="text" id="prop-grad-c2-text" value="#fabd2f">
+                  <input type="color" id="prop-grad-c2" value="var(--primary)">
+                  <input type="text" id="prop-grad-c2-text" value="var(--primary)">
                 </div>
               </div>
             </div>
@@ -1864,8 +1862,8 @@
             <div class="form-row">
               <label>Color</label>
               <div style="display: flex; gap: 6px; width: 100%;">
-                <input type="color" id="prop-stroke-color" value="#1d2021">
-                <input type="text" id="prop-stroke-text" value="#1d2021">
+                <input type="color" id="prop-stroke-color" value="var(--bg-dark)">
+                <input type="text" id="prop-stroke-text" value="var(--bg-dark)">
               </div>
             </div>
             <div class="form-row">
@@ -2198,7 +2196,7 @@
           </div>
           <div class="form-row">
             <label>Background</label>
-            <input type="text" id="prop-doc-bg" value="#1d2021">
+            <input type="text" id="prop-doc-bg" value="var(--bg-dark)">
           </div>
         </div>
 
@@ -2411,7 +2409,7 @@
             </div>
           </div>
           
-          <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 10px; border-radius: 6px; border: 1px solid var(--border-color);">
+          <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
             <div style="font-weight: bold; font-size: 12px; color: var(--accent);">Brushes</div>
             <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
             
@@ -2425,13 +2423,13 @@
 
         <!-- Import Pane -->
         <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 12px;">
-          <div id="drop-zone-bundle" style="border: 2px dashed var(--border-color); border-radius: 8px; padding: 24px; text-align: center; cursor: pointer; background: var(--bg-dark);">
+          <div id="drop-zone-bundle" style="border: 2px dashed var(--border-color); border-radius: var(--radius-lg); padding: 24px; text-align: center; cursor: pointer; background: var(--bg-dark);">
             <div style="font-size: 13px; font-weight: bold; color: var(--text-main);">Click or drag & drop SVG asset bundle here</div>
             <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Supports any valid Wesenho bundle SVG</div>
             <input type="file" id="inp-bundle-file" accept=".svg" style="display: none;">
           </div>
 
-          <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 10px; background: var(--bg-dark); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+          <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 10px; background: var(--bg-dark); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
             <div id="bundle-preview-header" style="font-weight: bold; font-size: 13px; color: var(--accent);"></div>
             <div id="bundle-preview-items" style="display: flex; flex-direction: column; gap: 6px; padding-left: 8px;"></div>
           </div>
@@ -2651,9 +2649,9 @@
         ctxTop.scale(dpr, dpr);
         ctxLeft.scale(dpr, dpr);
 
-        ctxTop.fillStyle = '#151520';
+        ctxTop.fillStyle = '#32302f';
         ctxTop.fillRect(0, 0, topW, topH);
-        ctxLeft.fillStyle = '#151520';
+        ctxLeft.fillStyle = '#32302f';
         ctxLeft.fillRect(0, 0, leftW, leftH);
 
         let step = 100;
@@ -2663,8 +2661,8 @@
         else if (zoom > 0.25) step = 100;
         else step = 200;
 
-        ctxTop.strokeStyle = '#3a3a4c';
-        ctxTop.fillStyle = '#7a7a92';
+        ctxTop.strokeStyle = '#504945';
+        ctxTop.fillStyle = '#928374';
         ctxTop.font = '8px monospace';
         ctxTop.lineWidth = 1;
 
@@ -2692,8 +2690,8 @@
           }
         }
 
-        ctxLeft.strokeStyle = '#3a3a4c';
-        ctxLeft.fillStyle = '#7a7a92';
+        ctxLeft.strokeStyle = '#504945';
+        ctxLeft.fillStyle = '#928374';
         ctxLeft.font = '8px monospace';
         ctxLeft.lineWidth = 1;
 
@@ -2790,8 +2788,8 @@
 
       // ── Init Sample Shapes ──
       function initSampleScene() {
-        const r1 = new SvgRect({ x: 80, y: 80, width: 220, height: 140, rx: 8, ry: 8, fill: '#fabd2f', stroke: '#fe8019', strokeWidth: 3 });
-        const c1 = new SvgCircle({ cx: 450, cy: 180, r: 70, fill: '#b8bb26', stroke: '#1d2021', strokeWidth: 3 });
+        const r1 = new SvgRect({ x: 80, y: 80, width: 220, height: 140, rx: 8, ry: 8, fill: 'var(--primary)', stroke: 'var(--primary-hover)', strokeWidth: 3 });
+        const c1 = new SvgCircle({ cx: 450, cy: 180, r: 70, fill: 'var(--success)', stroke: 'var(--bg-dark)', strokeWidth: 3 });
         
         const p1 = new SvgPath({ stroke: '#83a598', strokeWidth: 4, fill: '#458588', fillOpacity: 0.35, closed: true });
         p1.addNode(150, 420, { x: -30, y: 30 }, { x: 40, y: -40 }, 'smooth');
@@ -3107,7 +3105,7 @@
 
             const hs = 6 / zoom;
             ctx.fillStyle = '#fabd2f';
-            ctx.strokeStyle = '#1d2021';
+            ctx.strokeStyle = 'var(--bg-dark)';
             ctx.lineWidth = 1 / zoom;
 
             for (const h of handles) {
@@ -3127,8 +3125,8 @@
             ctx.lineTo(rotX, rotY);
             ctx.stroke();
 
-            ctx.fillStyle = '#fe8019';
-            ctx.strokeStyle = '#1d2021';
+            ctx.fillStyle = 'var(--primary-hover)';
+            ctx.strokeStyle = 'var(--bg-dark)';
             ctx.lineWidth = 1.5 / zoom;
             ctx.beginPath();
             ctx.arc(rotX, rotY, 4.5 / zoom, 0, Math.PI * 2);
@@ -3136,15 +3134,15 @@
             ctx.stroke();
 
             // Center Anchor / Pivot Point Indicator
-            ctx.fillStyle = '#b8bb26';
-            ctx.strokeStyle = '#1d2021';
+            ctx.fillStyle = 'var(--success)';
+            ctx.strokeStyle = 'var(--bg-dark)';
             ctx.lineWidth = 1.2 / zoom;
             ctx.beginPath();
             ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
             ctx.fill();
             ctx.stroke();
 
-            ctx.strokeStyle = '#1d2021';
+            ctx.strokeStyle = 'var(--bg-dark)';
             ctx.lineWidth = 1 / zoom;
             ctx.beginPath();
             ctx.moveTo(origin.x - 6 / zoom, origin.y);
@@ -3171,7 +3169,7 @@
               const origin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
 
               ctx.save();
-              ctx.strokeStyle = '#ff7a18';
+              ctx.strokeStyle = 'var(--border-focus)';
               ctx.lineWidth = 1.5 / zoom;
               ctx.setLineDash([4 / zoom, 3 / zoom]);
               ctx.strokeRect(cb.minX, cb.minY, cb.width, cb.height);
@@ -3186,7 +3184,7 @@
 
               const hs = 6.5 / zoom;
               ctx.fillStyle = '#fabd2f';
-              ctx.strokeStyle = '#1d2021';
+              ctx.strokeStyle = 'var(--bg-dark)';
               ctx.lineWidth = 1 / zoom;
 
               for (const h of handles) {
@@ -3199,15 +3197,15 @@
               const rotX = cb.minX + cb.width / 2;
               const rotY = cb.minY - rotDist;
 
-              ctx.strokeStyle = '#fe8019';
+              ctx.strokeStyle = 'var(--primary-hover)';
               ctx.lineWidth = 1.2 / zoom;
               ctx.beginPath();
               ctx.moveTo(rotX, cb.minY);
               ctx.lineTo(rotX, rotY);
               ctx.stroke();
 
-              ctx.fillStyle = '#fe8019';
-              ctx.strokeStyle = '#1d2021';
+              ctx.fillStyle = 'var(--primary-hover)';
+              ctx.strokeStyle = 'var(--bg-dark)';
               ctx.lineWidth = 1.5 / zoom;
               ctx.beginPath();
               ctx.arc(rotX, rotY, 5 / zoom, 0, Math.PI * 2);
@@ -3215,8 +3213,8 @@
               ctx.stroke();
 
               // Center Pivot Indicator
-              ctx.fillStyle = '#b8bb26';
-              ctx.strokeStyle = '#1d2021';
+              ctx.fillStyle = 'var(--success)';
+              ctx.strokeStyle = 'var(--bg-dark)';
               ctx.lineWidth = 1.2 / zoom;
               ctx.beginPath();
               ctx.arc(origin.x, origin.y, 4 / zoom, 0, Math.PI * 2);
@@ -3273,8 +3271,8 @@
               }
 
               // Anchor Point
-              ctx.fillStyle = (i === activeNodeIdx) ? '#fe8019' : '#fabd2f';
-              ctx.strokeStyle = '#1d2021';
+              ctx.fillStyle = (i === activeNodeIdx) ? 'var(--primary-hover)' : 'var(--primary)';
+              ctx.strokeStyle = 'var(--bg-dark)';
               ctx.lineWidth = 1.5 / zoom;
               const as = 7 / zoom;
               ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
@@ -3312,7 +3310,7 @@
 
             if (isNearFirst) {
               // Draw close-path ring indicator
-              ctx.strokeStyle = '#b8bb26';
+              ctx.strokeStyle = 'var(--success)';
               ctx.lineWidth = 2.5 / zoom;
               ctx.beginPath();
               ctx.arc(firstNode.x, firstNode.y, 8 / zoom, 0, Math.PI * 2);
@@ -3365,9 +3363,9 @@
           const collapseIcon = isGroup ? (obj.collapsed ? '▶' : '▼') : '';
           const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px; margin-right: 4px;">${collapseIcon}</button>` : '';
 
-          const isMaskedBadge = obj.clipPathId ? `<span title="Masked by #${obj.clipPathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(254,128,25,0.25); color: #fe8019; border-radius: 2px; flex-shrink: 0;">MASKED</span>` : '';
+          const isMaskedBadge = obj.clipPathId ? `<span title="Masked by #${obj.clipPathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(254,128,25,0.25); color: var(--primary-hover); border-radius: 2px; flex-shrink: 0;">MASKED</span>` : '';
           const isMaskSource = doc.objects.some(o => o.clipPathId === obj.id) || (obj.parent && obj.parent.children && obj.parent.children.some(o => o.clipPathId === obj.id));
-          const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Acting as Clipping Mask" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(184,187,38,0.25); color: #b8bb26; border-radius: 2px; flex-shrink: 0;">MASK</span>` : '';
+          const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Acting as Clipping Mask" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(184,187,38,0.25); color: var(--success); border-radius: 2px; flex-shrink: 0;">MASK</span>` : '';
           const isTextPathBadge = obj.pathId ? `<span title="Attached to path #${obj.pathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(131,165,152,0.25); color: #83a598; border-radius: 2px; flex-shrink: 0;">PATH</span>` : '';
           const isWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
           const filterBadge = isWasmFilter
@@ -3399,9 +3397,9 @@
               input.value = obj.name;
               input.style.fontSize = '10px';
               input.style.width = '90px';
-              input.style.background = '#1a1a24';
+              input.style.background = 'var(--bg-input-focus)';
               input.style.color = '#fff';
-              input.style.border = '1px solid #ff7a18';
+              input.style.border = '1px solid var(--border-focus)';
               input.style.borderRadius = '2px';
               input.style.padding = '0 2px';
 
@@ -3691,7 +3689,7 @@
 
         propDocW.value = doc.width;
         propDocH.value = doc.height;
-        propDocBg.value = doc.backgroundColor || '#1d2021';
+        propDocBg.value = doc.backgroundColor || 'var(--bg-dark)';
 
         const propGeomType = document.getElementById('prop-geom-type');
         const btnConvertPath = document.getElementById('btn-convert-path');
@@ -3707,11 +3705,11 @@
           } else {
             const o = selected[0];
             if (o.clipPathId) {
-              maskStatusBadge.innerHTML = `Status: <span style="color: #fe8019;">Masked by #${o.clipPathId}</span>`;
+              maskStatusBadge.innerHTML = `Status: <span style="color: var(--primary-hover);">Masked by #${o.clipPathId}</span>`;
             } else {
               const isMaskFor = doc.objects.filter(item => item.clipPathId === o.id);
               if (isMaskFor.length > 0) {
-                maskStatusBadge.innerHTML = `Status: <span style="color: #b8bb26;">Mask for ${isMaskFor.length} object(s)</span>`;
+                maskStatusBadge.innerHTML = `Status: <span style="color: var(--success);">Mask for ${isMaskFor.length} object(s)</span>`;
               } else if (o.pathId) {
                 maskStatusBadge.innerHTML = `Status: <span style="color: #83a598;">Attached to path #${o.pathId}</span>`;
               } else {
@@ -3897,10 +3895,10 @@
           if (gradControls) {
             gradControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'flex' : 'none';
             if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops.length >= 2) {
-              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || '#fe8019';
-              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || '#fe8019';
-              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || '#fabd2f';
-              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || '#fabd2f';
+              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || 'var(--primary-hover)';
+              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || 'var(--primary-hover)';
+              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || 'var(--primary)';
+              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || 'var(--primary)';
             }
           }
         }
@@ -4281,7 +4279,7 @@
           if (!currentPenPath) {
             currentPenPath = new SvgPath({
               fill: 'none',
-              stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
+              stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
               strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
             });
             doc.addObject(currentPenPath);
@@ -4302,8 +4300,8 @@
         } else if (activeTool === 'rect') {
           currentDraftObj = new SvgRect({
             x: pt.x, y: pt.y, width: 1, height: 1,
-            fill: document.getElementById('prop-fill-text').value || '#fabd2f',
-            stroke: document.getElementById('prop-stroke-text').value || '#1d2021',
+            fill: document.getElementById('prop-fill-text').value || 'var(--primary)',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--bg-dark)',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
           });
           doc.addObject(currentDraftObj);
@@ -4311,8 +4309,8 @@
         } else if (activeTool === 'ellipse') {
           currentDraftObj = new SvgEllipse({
             cx: pt.x, cy: pt.y, rx: 1, ry: 1,
-            fill: document.getElementById('prop-fill-text').value || '#fabd2f',
-            stroke: document.getElementById('prop-stroke-text').value || '#1d2021',
+            fill: document.getElementById('prop-fill-text').value || 'var(--primary)',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--bg-dark)',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
           });
           doc.addObject(currentDraftObj);
@@ -4320,7 +4318,7 @@
         } else if (activeTool === 'line') {
           currentDraftObj = new SvgLine({
             x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y,
-            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
           });
           doc.addObject(currentDraftObj);
@@ -4328,7 +4326,7 @@
         } else if (activeTool === 'brush') {
           currentDraftObj = new SvgPath({
             fill: 'none',
-            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
+            stroke: document.getElementById('prop-stroke-text').value || 'var(--primary)',
             strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 3
           });
           currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
@@ -4339,7 +4337,7 @@
           if (textVal) {
             let fillVal = document.getElementById('prop-fill-text')?.value;
             if (!fillVal || fillVal === 'none') {
-              fillVal = '#fabd2f';
+              fillVal = 'var(--primary)';
             }
             const textObj = new SvgText({
               x: pt.x,
@@ -6577,7 +6575,7 @@
               const cyEl = document.getElementById('prop-camera-y');
               if (wEl) wEl.value = doc.width;
               if (hEl) hEl.value = doc.height;
-              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+              if (bgEl) bgEl.value = doc.backgroundColor || 'var(--bg-dark)';
               if (zEl) zEl.value = Math.round(zoom * 100);
               if (rEl) rEl.value = viewportRotation;
               if (cxEl) cxEl.value = Math.round(panX);

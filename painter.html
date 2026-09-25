@@ -6,26 +6,51 @@
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#1d2021">
+  <meta name="theme-color" content="var(--bg-dark)">
   <meta name="color-scheme" content="dark">
   <style>
     :root {
       --ui-scale: 1;
       color-scheme: dark;
+      --bg-dark: var(--bg-dark);
+      --bg-canvas: var(--bg-dark);
+      --bg-panel: var(--bg-panel);
+      --bg-panel-sub: #32302f;
+      --bg-input: var(--bg-input);
+      --bg-input-focus: var(--bg-input-focus);
+      --border: var(--border);
+      --border-bright: var(--border-bright);
+      --border-focus: var(--primary);
+      --text: var(--text);
+      --text-bright: var(--text-bright);
+      --text-muted: var(--text-muted);
+      --text-dim: var(--text-dim);
+      --primary: var(--primary);
+      --primary-hover: var(--primary-hover);
+      --primary-dim: rgba(250, 189, 47, 0.12);
+      --accent: #83a598;
+      --danger: var(--danger);
+      --danger-dark: #cc241d;
+      --success: var(--success);
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Inter', 'SF Pro Text', sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --radius-sm: 3px;
+      --radius-md: 5px;
+      --radius-lg: 8px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     ::selection {
       background: rgba(250, 189, 47, 0.3);
-      color: #fbf1c7;
+      color: var(--text-bright);
     }
 
     input, textarea, [contenteditable] {
-      caret-color: #fabd2f;
+      caret-color: var(--primary);
     }
 
     :focus-visible {
-      outline: 2px solid #fabd2f;
+      outline: 2px solid var(--primary);
       outline-offset: 1px;
     }
 
@@ -33,18 +58,17 @@
       font-variant-numeric: tabular-nums;
     }
 
-    html, body { height: 100%; background: #1d2021; color: #ebdbb2;
-      font: 12px/1.4 'JetBrains Mono', 'Fira Code', monospace; overflow: hidden; }
+    html, body { height: 100%; background: var(--bg-dark); color: var(--text);
+      font: 12px/1.4 var(--font-sans); overflow: hidden; }
 
     /* ── Global Gruvbox Form & Control Defaults (Never revert to white) ── */
     button, input, select, textarea {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace, sans-serif;
+      font-family: var(--font-sans);
       font-size: 11px;
-      color: #ebdbb2;
-      background-color: #282828;
-      border: 1px solid #3c3836;
-      border-radius: 0;
-      outline: none;
+      color: var(--text);
+      background-color: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       -webkit-appearance: none;
       -moz-appearance: none;
       appearance: none;
@@ -63,20 +87,20 @@
       padding: 4px 8px;
     }
     button:hover {
-      background-color: #32302f;
-      border-color: #504945;
-      color: #fbf1c7;
-    }
+  background-color: var(--bg-panel-sub);
+  border-color: var(--border-bright);
+  color: var(--text-bright);
+}
     button:active {
-      background-color: #3c3836;
-      border-color: #fabd2f;
-      color: #fabd2f;
+      background-color: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
     }
     button:disabled {
       opacity: 0.4;
       cursor: not-allowed;
-      border-color: #3c3836 !important;
-      background-color: #282828 !important;
+      border-color: var(--border) !important;
+      background-color: var(--bg-panel) !important;
       color: #7c6f64 !important;
     }
 
@@ -88,9 +112,9 @@
     input[type="email"],
     .ui-input-text,
     .ui-input-num {
-      background-color: #181a1b;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background-color: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 4px 6px;
       border-radius: 0;
       -webkit-appearance: none;
@@ -104,8 +128,8 @@
     input[type="email"]:focus,
     .ui-input-text:focus,
     .ui-input-num:focus {
-      border-color: #fabd2f;
-      background-color: #202223;
+      border-color: var(--primary);
+      background-color: var(--bg-input-focus);
     }
     input[type="number"]::-webkit-inner-spin-button,
     input[type="number"]::-webkit-outer-spin-button {
@@ -117,9 +141,9 @@
     }
 
     select, .ui-select {
-      background-color: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background-color: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 4px 20px 4px 6px;
       border-radius: 0;
       cursor: pointer;
@@ -131,30 +155,29 @@
       background-position: right 6px center;
     }
     select:focus, .ui-select:focus {
-      border-color: #fabd2f;
+      border-color: var(--primary);
     }
     select option, select optgroup {
-      background-color: #282828;
-      color: #ebdbb2;
+      background-color: var(--bg-panel);
+      color: var(--text);
     }
 
     textarea, #ui-script-editor {
-      background-color: #181a1b;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background-color: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 6px;
       font-family: 'JetBrains Mono', 'Fira Code', monospace;
       font-size: 11px;
       line-height: 1.4;
-      outline: none;
       resize: vertical;
       box-sizing: border-box;
       -webkit-appearance: none;
       appearance: none;
     }
     textarea:focus, #ui-script-editor:focus {
-      border-color: #fabd2f;
-      background-color: #202223;
+      border-color: var(--primary);
+      background-color: var(--bg-input-focus);
     }
 
     /* Checkbox & Radio Gruvbox Theme */
@@ -164,8 +187,8 @@
       appearance: none;
       width: 14px;
       height: 14px;
-      background-color: #181a1b;
-      border: 1px solid #504945;
+      background-color: var(--bg-input);
+      border: 1px solid var(--border-bright);
       border-radius: 2px;
       cursor: pointer;
       display: inline-block;
@@ -175,20 +198,20 @@
       flex-shrink: 0;
     }
     input[type="checkbox"]:checked {
-      background-color: #fabd2f;
-      border-color: #fabd2f;
+      background-color: var(--primary);
+      border-color: var(--primary);
     }
     input[type="checkbox"]:checked::after {
       content: '✓';
       display: block;
-      color: #1d2021;
+      color: var(--bg-dark);
       font-size: 10px;
       font-weight: bold;
       text-align: center;
       line-height: 12px;
     }
     input[type="checkbox"]:focus {
-      box-shadow: 0 0 0 1px #fabd2f;
+      box-shadow: 0 0 0 1px var(--primary);
     }
 
     #layout {
@@ -206,8 +229,8 @@
       bottom: 6px;
       left: 8px;
       background: rgba(29, 32, 33, 0.85);
-      border: 1px solid #3c3836;
-      color: #a89984;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
       font-size: 10px;
       padding: 3px 8px;
       pointer-events: none;
@@ -220,7 +243,7 @@
       flex: 1 1 0%;
       position: relative;
       overflow: hidden;
-      background: #1d2021;
+      background: var(--bg-dark);
       min-width: 0;
       min-height: 0;
       contain: strict;
@@ -242,8 +265,8 @@
       width: 58px;
       height: 58px;
       border-radius: 50%;
-      border: 3px solid #fbf1c7;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 4px rgba(0, 0, 0, 0.6);
+      border: 3px solid var(--text-bright);
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
       pointer-events: none;
       z-index: 10000;
       transform: translate(-50%, -50%);
@@ -255,8 +278,8 @@
       width: 100%;
       height: 100%;
       border-radius: 50%;
-      background: #ebdbb2;
-      border: 3px solid #282828;
+      background: var(--text);
+      border: 3px solid var(--bg-panel);
     }
 
 
@@ -269,38 +292,36 @@
     .ui-section-title {
       font-size: 10px;
       font-weight: bold;
-      letter-spacing: 1px;
-      color: #fabd2f;
-      text-transform: uppercase;
+      color: var(--primary);
       padding: 4px 6px;
-      background: #181a1b;
-      border: 1px solid #3c3836;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
       margin-top: 2px;
       user-select: none;
     }
 
     details.ui-group {
-      border: 1px solid #3c3836;
-      background: #232524;
+      border: 1px solid var(--border);
+      background: var(--bg-panel-sub);
       padding: 0;
     }
     details.ui-group summary {
-      background: #282828;
-      color: #ebdbb2;
+      background: var(--bg-panel);
+      color: var(--text);
       padding: 5px 8px;
       font-size: 10px;
       font-weight: bold;
-      letter-spacing: 0.6px;
+      
       cursor: pointer;
       user-select: none;
       list-style: none;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid #3c3836;
+      border-bottom: 1px solid var(--border);
     }
     details.ui-group summary::-webkit-details-marker { display: none; }
-    details.ui-group summary::after { content: '▾'; color: #a89984; font-size: 10px; }
+    details.ui-group summary::after { content: '▾'; color: var(--text-muted); font-size: 10px; }
     details.ui-group:not([open]) summary::after { content: '▸'; }
     details.ui-group:not([open]) summary { border-bottom: none; }
     .ui-group-content {
@@ -317,9 +338,9 @@
     .ui-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 
     .ui-btn {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 4px 6px;
       font: inherit;
       font-size: 11px;
@@ -329,33 +350,33 @@
       transition: background 0.1s, border-color 0.1s;
     }
     .ui-btn:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #504945;
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--border-bright);
     }
     .ui-btn.active {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #fabd2f;
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--primary);
       font-weight: bold;
     }
     .ui-mini-btn {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
       font: inherit;
       font-size: 10px;
       padding: 2px 6px;
       cursor: pointer;
     }
     .ui-mini-btn:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #fabd2f;
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--primary);
     }
     .ui-mini-btn.active {
-      background: #fabd2f;
-      color: #1d2021;
+      background: var(--primary);
+      color: var(--bg-dark);
       font-weight: bold;
     }
 
@@ -368,17 +389,17 @@
     .ui-label-row {
       display: flex;
       justify-content: space-between;
-      color: #a89984;
+      color: var(--text-muted);
     }
     .ui-val {
-      color: #fabd2f;
+      color: var(--primary);
       font-weight: bold;
     }
     input[type=range] {
-      accent-color: #fe8019;
+      accent-color: var(--primary-hover);
       cursor: pointer;
       height: 4px;
-      background: #282828;
+      background: var(--bg-panel);
       width: 100%;
       border-radius: 2px;
     }
@@ -386,7 +407,7 @@
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: #fe8019;
+      background: var(--primary-hover);
       cursor: pointer;
       -webkit-appearance: none;
     }
@@ -394,18 +415,17 @@
       width: 12px;
       height: 12px;
       border-radius: 50%;
-      background: #fe8019;
+      background: var(--primary-hover);
       border: none;
       cursor: pointer;
     }
     .ui-select {
-      background: #282828;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
       padding: 3px 5px;
       font: inherit;
       font-size: 11px;
-      outline: none;
       width: 100%;
     }
 
@@ -413,7 +433,7 @@
     .color-preview-box {
       width: 32px;
       height: 28px;
-      border: 1px solid #504945;
+      border: 1px solid var(--border-bright);
       flex-shrink: 0;
       position: relative;
     }
@@ -428,24 +448,23 @@
     }
     #ui-color-hex {
       flex: 1;
-      background: #282828;
-      border: 1px solid #3c3836;
-      color: #ebdbb2;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text);
       font: inherit;
       font-size: 11px;
       padding: 4px 6px;
-      outline: none;
     }
     .color-mode-tabs {
       display: flex;
-      border: 1px solid #3c3836;
-      background: #1d2021;
+      border: 1px solid var(--border);
+      background: var(--bg-dark);
     }
     .color-mode-tab {
       flex: 1;
       background: transparent;
       border: none;
-      color: #a89984;
+      color: var(--text-muted);
       padding: 3px;
       font: inherit;
       font-size: 10px;
@@ -453,8 +472,8 @@
       text-align: center;
     }
     .color-mode-tab.active {
-      background: #3c3836;
-      color: #fabd2f;
+      background: var(--border);
+      color: var(--primary);
       font-weight: bold;
     }
     .color-sliders-wrap {
@@ -473,12 +492,12 @@
     }
     .swatch-item {
       height: 20px;
-      border: 1px solid #3c3836;
+      border: 1px solid var(--border);
       cursor: pointer;
       position: relative;
     }
     .swatch-item:hover {
-      border-color: #fbf1c7;
+      border-color: var(--text-bright);
       z-index: 2;
     }
     .swatch-del {
@@ -486,7 +505,7 @@
       position: absolute;
       top: -3px;
       right: -3px;
-      background: #fb4934;
+      background: var(--danger);
       color: #fff;
       font-size: 8px;
       width: 12px;
@@ -499,7 +518,7 @@
     .swatch-item:hover .swatch-del { display: block; }
     .ui-swatches-grid.delete-mode .swatch-del { display: block; }
     .ui-mini-btn.del-active {
-      background: #fb4934 !important;
+      background: var(--danger) !important;
       color: #fff !important;
       border-color: #cc241d !important;
       font-weight: bold;
@@ -511,20 +530,20 @@
       align-items: center;
       gap: 6px;
       font-size: 10px;
-      color: #a89984;
+      color: var(--text-muted);
       padding: 2px 0 4px;
     }
     .layer-toolbar-top .layer-op-slider {
       flex: 1;
       height: 4px;
-      accent-color: #fe8019;
+      accent-color: var(--primary-hover);
       cursor: pointer;
     }
     .layer-toolbar-top .layer-op-val {
       width: 34px;
       text-align: right;
       font-size: 10px;
-      color: #fabd2f;
+      color: var(--primary);
       font-weight: bold;
       flex-shrink: 0;
     }
@@ -536,11 +555,11 @@
       margin-top: 4px;
       max-height: 280px;
       overflow-y: auto;
-      border: 1px solid #3c3836;
-      background: #181a1b;
+      border: 1px solid var(--border);
+      background: var(--bg-input);
       border-radius: 2px;
       scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
+      scrollbar-color: var(--border-bright) var(--bg-dark);
     }
     .ui-layer-row {
       display: flex;
@@ -550,14 +569,14 @@
       height: 32px;
       padding: 0 6px;
       gap: 6px;
-      background: #232524;
+      background: var(--bg-panel-sub);
       border: 1px solid transparent;
       cursor: grab;
       user-select: none;
       -webkit-user-select: none;
       font-size: 11px;
-      border-bottom: 1px solid #2d302e;
-      border-radius: 4px !important;
+      border-bottom: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       transition: all 0.08s ease;
       box-sizing: border-box;
       position: relative;
@@ -566,36 +585,36 @@
       cursor: grabbing;
     }
     .ui-layer-row:hover {
-      background: #2b2e2d;
+      background: var(--bg-panel-sub);
     }
     .ui-layer-row.active-draw {
-      background: #323530;
-      border-color: #504945;
+      background: var(--border-bright);
+      border-color: var(--border-bright);
     }
     .ui-layer-row.ui-layer-in-group {
-      background: #1f2120;
+      background: var(--bg-canvas);
     }
     .ui-layer-row.is-dragging, .ui-layer-group-header.is-dragging {
       opacity: 0.4;
-      background: #3c3836 !important;
+      background: var(--border) !important;
     }
     .ui-layer-row.touch-reordering, .ui-layer-group-header.touch-reordering {
-      outline: 2px solid #fabd2f !important;
-      background: #3c3836 !important;
+      outline: 2px solid var(--primary) !important;
+      background: var(--border) !important;
       opacity: 0.9 !important;
       box-shadow: 0 4px 14px rgba(0,0,0,0.6);
       z-index: 10;
       pointer-events: none !important;
     }
     .drop-indicator-top {
-      border-top: 2px solid #fabd2f !important;
+      border-top: 2px solid var(--primary) !important;
     }
     .drop-indicator-bottom {
-      border-bottom: 2px solid #fabd2f !important;
+      border-bottom: 2px solid var(--primary) !important;
     }
     .drop-target-group {
-      outline: 2px dashed #b8bb26 !important;
-      background: #323624 !important;
+      outline: 2px dashed var(--success) !important;
+      background: rgba(184, 187, 38, 0.15) !important;
     }
     .layer-cell-controls {
       display: flex;
@@ -609,10 +628,10 @@
       gap: 4px;
       min-height: 26px;
       padding: 2px 6px;
-      background: #282828;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
       font-size: 11px;
-      color: #b8bb26;
+      color: var(--success);
       font-weight: 600;
       user-select: none;
       -webkit-user-select: none;
@@ -633,7 +652,7 @@
     .group-btn-collapse {
       background: transparent;
       border: none;
-      color: #b8bb26;
+      color: var(--success);
       font-size: 10px;
       width: 16px;
       height: 16px;
@@ -651,7 +670,7 @@
     .layer-btn-vis {
       background: transparent;
       border: none;
-      color: #ebdbb2;
+      color: var(--text);
       width: 20px;
       height: 20px;
       font-size: 11px;
@@ -666,11 +685,11 @@
     }
     .layer-btn-vis:hover {
       opacity: 1;
-      color: #fabd2f;
+      color: var(--primary);
     }
     .layer-btn-vis.hidden {
       opacity: 0.25;
-      color: #928374;
+      color: var(--text-dim);
     }
     .layer-cell-info {
       display: flex;
@@ -682,7 +701,7 @@
     }
     .layer-idx {
       font-size: 10px;
-      color: #928374;
+      color: var(--text-dim);
       flex-shrink: 0;
     }
     .layer-name-text {
@@ -691,10 +710,10 @@
       white-space: nowrap;
       font-weight: 500;
       font-size: 11px;
-      color: #ebdbb2;
+      color: var(--text);
     }
     .ui-layer-row.active-draw .layer-name-text {
-      color: #fabd2f;
+      color: var(--primary);
       font-weight: bold;
     }
     .layer-dims-text {
@@ -709,9 +728,9 @@
       flex-shrink: 0;
     }
     .layer-pill {
-      background: #1d2021;
+      background: var(--bg-dark);
       color: #7c6f64;
-      border: 1px solid #3c3836;
+      border: 1px solid var(--border);
       border-radius: 2px;
       font: inherit;
       font-size: 8px;
@@ -729,53 +748,52 @@
       touch-action: manipulation;
     }
     .layer-pill:hover {
-      color: #ebdbb2;
-      border-color: #504945;
+      color: var(--text);
+      border-color: var(--border-bright);
     }
     .layer-pill.active-layer-pill {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
       font-weight: bold;
     }
     .layer-pill.active-shape {
       background: #d65d0e;
-      color: #fbf1c7;
-      border-color: #fe8019;
+      color: var(--text-bright);
+      border-color: var(--primary-hover);
       font-weight: bold;
     }
     .layer-pill.active-tex {
       background: #458588;
-      color: #fbf1c7;
+      color: var(--text-bright);
       border-color: #83a598;
       font-weight: bold;
     }
     .layer-pill.active-lock {
       background: #b16286;
-      color: #fbf1c7;
+      color: var(--text-bright);
       border-color: #d3869b;
       font-weight: bold;
     }
     .layer-pill.active-clip {
       background: #689d6a;
-      color: #fbf1c7;
+      color: var(--text-bright);
       border-color: #8ec07c;
       font-weight: bold;
     }
     .layer-select-blend {
-      background: #1d2021;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background: var(--bg-dark);
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: 2px;
       font: inherit;
       font-size: 8px;
       height: 16px;
       padding: 0 1px;
-      outline: none;
       cursor: pointer;
     }
     .layer-select-blend:focus {
-      border-color: #fabd2f;
+      border-color: var(--primary);
     }
     .ui-layer-row.clipped-layer {
       padding-left: 12px;
@@ -789,13 +807,13 @@
     }
     .layer-cell-op {
       font-size: 10px;
-      color: #a89984;
+      color: var(--text-muted);
       text-align: right;
       font-variant-numeric: tabular-nums;
       flex-shrink: 0;
     }
     .ui-layer-row.active-draw .layer-cell-op {
-      color: #fabd2f;
+      color: var(--primary);
       font-weight: bold;
     }
     .layer-cell-actions {
@@ -807,7 +825,7 @@
     .layer-btn-action {
       background: transparent;
       border: none;
-      color: #928374;
+      color: var(--text-dim);
       width: 16px;
       height: 18px;
       font-size: 10px;
@@ -820,8 +838,8 @@
       border-radius: 2px;
     }
     .layer-btn-action:hover {
-      background: #3c3836;
-      color: #ebdbb2;
+      background: var(--border);
+      color: var(--text);
     }
     .layer-btn-action:disabled {
       opacity: 0.2;
@@ -833,14 +851,14 @@
     }
     .layer-btn-action.btn-merge:hover {
       color: #8ec07c;
-      background: #2b3834;
+      background: rgba(131, 165, 152, 0.15);
     }
     .layer-btn-action.btn-del {
-      color: #928374;
+      color: var(--text-dim);
     }
     .layer-btn-action.btn-del:hover {
-      color: #fb4934;
-      background: #3c2020;
+      color: var(--danger);
+      background: rgba(251, 73, 52, 0.15);
     }
     .layer-cell-del {
       display: flex;
@@ -864,17 +882,17 @@
       border-radius: 2px;
     }
     .layer-btn-del:hover {
-      color: #fb4934;
-      background: #3c2020;
+      color: var(--danger);
+      background: rgba(251, 73, 52, 0.15);
     }
 
 
 
     /* ── Docked Quick Toolbar Elements ── */
       .tb-btn {
-        background: #282828;
-        color: #ebdbb2;
-        border: 1px solid #3c3836;
+        background: var(--bg-panel);
+        color: var(--text);
+        border: 1px solid var(--border);
         border-radius: 0;
         min-width: 28px;
         height: 28px;
@@ -888,19 +906,19 @@
         padding: 0 5px;
       }
       .tb-btn:hover {
-        background: #3c3836;
-        color: #fabd2f;
-        border-color: #504945;
+        background: var(--border);
+        color: var(--primary);
+        border-color: var(--border-bright);
       }
       .tb-btn:active {
-        background: #504945;
-        color: #fabd2f;
-        border-color: #fabd2f;
+        background: var(--border-bright);
+        color: var(--primary);
+        border-color: var(--primary);
       }
       .tb-sep {
         width: 1px;
         height: 20px;
-        background: #504945;
+        background: var(--border-bright);
         flex-shrink: 0;
         margin: 0 4px;
       }
@@ -915,12 +933,12 @@
         box-sizing: border-box;
       }
       .tb-color-swatch:hover {
-        border-color: #fabd2f;
+        border-color: var(--primary);
       }
       .tb-param-select {
-        background: #282828;
-        color: #fabd2f;
-        border: 1px solid #504945;
+        background: var(--bg-panel);
+        color: var(--primary);
+        border: 1px solid var(--border-bright);
         border-radius: 0;
         font-size: 11px;
         font-weight: bold;
@@ -928,14 +946,13 @@
         max-width: 80px;
         padding: 0 4px;
         cursor: pointer;
-        outline: none;
         flex-shrink: 0;
         touch-action: manipulation;
         pointer-events: auto;
         text-overflow: ellipsis;
       }
       .tb-param-select:hover {
-        border-color: #fabd2f;
+        border-color: var(--primary);
       }
       .tb-dynamic-slot {
         display: flex;
@@ -946,13 +963,13 @@
       .tb-mini-slider {
         width: 20px;
         height: 4px;
-        accent-color: #fe8019;
+        accent-color: var(--primary-hover);
         cursor: pointer;
         touch-action: pan-y;
         margin: 0;
       }
       .tb-val {
-        color: #ebdbb2;
+        color: var(--text);
         font-weight: bold;
         font-size: 10px;
         min-width: 14px;
@@ -965,28 +982,27 @@
         cursor: pointer;
         font-size: 11px;
         font-weight: bold;
-        color: #ebdbb2;
+        color: var(--text);
         touch-action: manipulation;
         height: 28px;
         padding: 0 4px;
       }
       .tb-chk-label input {
-        accent-color: #fabd2f;
+        accent-color: var(--primary);
         cursor: pointer;
         width: 14px;
         height: 14px;
         margin: 0;
       }
       .tb-select {
-        background: #282828;
-        color: #ebdbb2;
-        border: 1px solid #3c3836;
+        background: var(--bg-panel);
+        color: var(--text);
+        border: 1px solid var(--border);
         border-radius: 0;
         font-size: 11px;
         height: 28px;
         padding: 0 4px;
         max-width: 120px;
-        outline: none;
         cursor: pointer;
         touch-action: manipulation;
         pointer-events: auto;
@@ -1059,7 +1075,7 @@
         font: inherit;
         font-size: 11px;
         font-weight: bold;
-        color: #fbf1c7;
+        color: var(--text-bright);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -1078,9 +1094,9 @@
 
     /* ── Bottom Dock Script Dropdown ── */
     .dock-strip-select {
-      background: #282828;
-      color: #fabd2f;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      color: var(--primary);
+      border: 1px solid var(--border);
       border-radius: 0;
       font: inherit;
       font-size: 10px;
@@ -1088,7 +1104,6 @@
       height: 30px;
       max-width: 72px;
       padding: 0 4px;
-      outline: none;
       cursor: pointer;
       flex-shrink: 0;
       touch-action: manipulation;
@@ -1097,15 +1112,15 @@
       white-space: nowrap;
     }
     .dock-strip-select:hover {
-      border-color: #fabd2f;
+      border-color: var(--primary);
     }
 
     .toolbar-mgr-item-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #282828;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
       padding: 4px 8px;
       gap: 6px;
     }
@@ -1117,16 +1132,16 @@
       gap: 5px;
       padding: 0 6px;
       height: 28px;
-      background: #282828;
-      border: 1px solid #3c3836;
-      border-radius: 4px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       box-sizing: border-box;
       flex-shrink: 0;
       user-select: none;
     }
     .tb-slider-widget .dock-strip-slider {
       width: 70px;
-      accent-color: #fabd2f;
+      accent-color: var(--primary);
       cursor: pointer;
       height: 14px;
       touch-action: pan-x;
@@ -1137,9 +1152,9 @@
       gap: 3px;
       padding: 0 5px;
       height: 28px;
-      background: #282828;
-      border: 1px solid #3c3836;
-      border-radius: 4px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       box-sizing: border-box;
       flex-shrink: 0;
       user-select: none;
@@ -1147,9 +1162,9 @@
     .tb-input-widget input[type="number"] {
       width: 44px;
       height: 22px;
-      background: #1d2021;
-      border: 1px solid #504945;
-      color: #ebdbb2;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-bright);
+      color: var(--text);
       font-size: 11px;
       text-align: center;
       border-radius: 3px;
@@ -1162,7 +1177,7 @@
       margin: 0;
     }
     .toolbar-mgr-item-row:hover {
-      border-color: #504945;
+      border-color: var(--border-bright);
     }
     .toolbar-mgr-item-title {
       flex: 1;
@@ -1179,15 +1194,14 @@
 
     .dock-category-select {
       height: 28px;
-      background: #282828;
-      color: #fabd2f;
-      border: 1px solid #fabd2f;
+      background: var(--bg-panel);
+      color: var(--primary);
+      border: 1px solid var(--primary);
       font: inherit;
       font-size: 11px;
       font-weight: bold;
       padding: 0 6px;
       cursor: pointer;
-      outline: none;
       flex-shrink: 0;
       border-radius: 0;
     }
@@ -1205,9 +1219,9 @@
     .dock-strip-label {
       font-size: 9px;
       font-weight: bold;
-      color: #fabd2f;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      color: var(--primary);
+      
+      
       padding: 0 2px;
       flex-shrink: 0;
       user-select: none;
@@ -1215,7 +1229,7 @@
     .dock-strip-sep {
       width: 1px;
       height: 20px;
-      background: #504945;
+      background: var(--border-bright);
       flex-shrink: 0;
       margin: 0 4px;
     }
@@ -1224,10 +1238,10 @@
       min-width: 38px;
       height: 28px;
       padding: 0 8px;
-      background: #282828;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
       border-radius: 0;
-      color: #ebdbb2;
+      color: var(--text);
       font: inherit;
       font-size: 11px;
       display: flex;
@@ -1239,20 +1253,19 @@
       white-space: nowrap;
     }
     .dock-strip-btn:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #504945;
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--border-bright);
     }
     .dock-strip-btn.active {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
       font-weight: bold;
     }
     select.dock-strip-select {
       appearance: none;
       -webkit-appearance: none;
-      outline: none;
       padding-right: 14px;
       background-image: url('data:image/svg+xml;utf8,<svg fill="%23ebdbb2" height="10" viewBox="0 0 24 24" width="10" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
       background-repeat: no-repeat;
@@ -1265,11 +1278,11 @@
       display: inline-flex;
       align-items: center;
       gap: 3px;
-      background: #282828;
-      border: 1px solid #504945;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
       padding: 0 5px;
       height: 22px;
-      color: #ebdbb2;
+      color: var(--text);
       font-size: 10px;
       font-weight: bold;
       cursor: pointer;
@@ -1283,21 +1296,21 @@
       pointer-events: none;
     }
     .tb-dial-btn:hover {
-      border-color: #fabd2f;
+      border-color: var(--primary);
       background: #32302f;
     }
     .tb-dial-btn:active {
-      background: #3c3836;
-      border-color: #fabd2f;
-      color: #fabd2f;
+      background: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
     }
     .tb-dial-lbl {
-      color: #a89984;
+      color: var(--text-muted);
       font-size: 9px;
       font-weight: bold;
-      text-transform: uppercase;
+      
       margin-right: 2px;
-      letter-spacing: 0.3px;
+      
     }
     .tb-dial-mini-ring {
       width: 14px;
@@ -1306,12 +1319,12 @@
     }
     .tb-dial-ring-bg {
       fill: none;
-      stroke: #504945;
+      stroke: var(--border-bright);
       stroke-width: 3;
     }
     .tb-dial-ring-fill {
       fill: none;
-      stroke: #fabd2f;
+      stroke: var(--primary);
       stroke-width: 3;
       stroke-linecap: round;
       transform: rotate(-90deg);
@@ -1323,7 +1336,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
+      background: rgba(0,0,0,0.6);
       z-index: 10002;
       align-items: center;
       justify-content: center;
@@ -1336,10 +1349,10 @@
       display: flex;
     }
     .arc-dial-box {
-      background: #1d2021;
-      border: 2px solid #504945;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-bright);
       padding: 14px 16px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
     .arc-dial-header {
       width: 100%;
@@ -1348,10 +1361,10 @@
       align-items: center;
       font-size: 11px;
       font-weight: bold;
-      color: #fabd2f;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 1px solid #3c3836;
+      color: var(--primary);
+      
+      
+      border-bottom: 1px solid var(--border);
       padding-bottom: 6px;
     }
     .arc-dial-stage {
@@ -1373,22 +1386,22 @@
     }
     .arc-track-bg {
       fill: none;
-      stroke: #3c3836;
+      stroke: var(--border);
       stroke-width: 12;
       stroke-linecap: round;
     }
     .arc-track-fill {
       fill: none;
-      stroke: #fabd2f;
+      stroke: var(--primary);
       stroke-width: 12;
       stroke-linecap: round;
-      filter: drop-shadow(0 0 3px rgba(250, 189, 47, 0.4));
+      
     }
     .arc-dial-thumb {
-      fill: #fabd2f;
-      stroke: #1d2021;
+      fill: var(--primary);
+      stroke: var(--bg-dark);
       stroke-width: 3;
-      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
+      
       cursor: pointer;
     }
     .arc-dial-center {
@@ -1410,22 +1423,22 @@
     }
     .arc-dial-preview-circle {
       border-radius: 50%;
-      background: #fabd2f;
+      background: var(--primary);
       max-width: 42px;
       max-height: 42px;
     }
     .arc-dial-value-text {
       font-size: 20px;
       font-weight: bold;
-      color: #ebdbb2;
+      color: var(--text);
       line-height: 1.1;
       font-family: monospace, sans-serif;
     }
     .arc-dial-unit-text {
       font-size: 10px;
-      color: #a89984;
+      color: var(--text-muted);
       font-weight: bold;
-      text-transform: uppercase;
+      
     }
     .arc-dial-chips {
       display: flex;
@@ -1436,9 +1449,9 @@
       margin-top: 2px;
     }
     .arc-chip-btn {
-      background: #282828;
-      border: 1px solid #3c3836;
-      color: #ebdbb2;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text);
       font-size: 10px;
       font-weight: bold;
       padding: 3px 8px;
@@ -1447,14 +1460,14 @@
       transition: background 0.1s, border-color 0.1s, color 0.1s;
     }
     .arc-chip-btn:hover, .arc-chip-btn:active {
-      background: #3c3836;
-      border-color: #fabd2f;
-      color: #fabd2f;
+      background: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
     }
     .arc-chip-btn.active {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
     }
 
     /* ── Touch HSV Color Studio Modal ── */
@@ -1462,7 +1475,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
+      background: rgba(0,0,0,0.6);
       z-index: 10001;
       align-items: center;
       justify-content: center;
@@ -1474,13 +1487,13 @@
     .touch-color-box {
       width: 100%;
       max-width: 330px;
-      background: #1d2021;
-      border: 2px solid #504945;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-bright);
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
       max-height: 90vh;
       overflow-y: auto;
     }
@@ -1489,13 +1502,13 @@
       align-items: center;
       justify-content: space-between;
       font-weight: bold;
-      color: #fabd2f;
+      color: var(--primary);
       font-size: 12px;
     }
     .touch-color-preview-duo {
       display: flex;
       align-items: center;
-      border: 1px solid #504945;
+      border: 1px solid var(--border-bright);
       height: 20px;
       width: 44px;
       overflow: hidden;
@@ -1516,8 +1529,8 @@
     }
     .touch-color-mode-tabs {
       display: flex;
-      background: #181a1b;
-      border: 1px solid #3c3836;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
       border-radius: 0;
     }
     .touch-color-tab-btn {
@@ -1526,10 +1539,10 @@
       font: inherit;
       font-size: 10px;
       font-weight: bold;
-      background: #181a1b;
-      color: #a89984;
+      background: var(--bg-input);
+      color: var(--text-muted);
       border: none;
-      border-right: 1px solid #282828;
+      border-right: 1px solid var(--bg-panel);
       cursor: pointer;
       text-align: center;
       transition: background 0.1s, color 0.1s;
@@ -1538,12 +1551,12 @@
       border-right: none;
     }
     .touch-color-tab-btn:hover {
-      background: #282828;
-      color: #ebdbb2;
+      background: var(--bg-panel);
+      color: var(--text);
     }
     .touch-color-tab-btn.active {
-      background: #3c3836;
-      color: #fabd2f;
+      background: var(--border);
+      color: var(--primary);
       font-weight: bold;
     }
     .touch-color-panel {
@@ -1570,7 +1583,6 @@
       height: 12px !important;
       border-radius: 2px;
       background: linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%) !important;
-      outline: none;
       cursor: pointer;
     }
     .hue-rainbow-slider::-webkit-slider-thumb {
@@ -1578,8 +1590,8 @@
       -webkit-appearance: none;
       width: 14px;
       height: 18px;
-      background: #fbf1c7;
-      border: 2px solid #1d2021;
+      background: var(--text-bright);
+      border: 2px solid var(--bg-dark);
       border-radius: 2px;
       cursor: pointer;
       box-shadow: 0 0 3px rgba(0,0,0,0.8);
@@ -1587,8 +1599,8 @@
     .hue-rainbow-slider::-moz-range-thumb {
       width: 14px;
       height: 18px;
-      background: #fbf1c7;
-      border: 2px solid #1d2021;
+      background: var(--text-bright);
+      border: 2px solid var(--bg-dark);
       border-radius: 2px;
       cursor: pointer;
       box-shadow: 0 0 3px rgba(0,0,0,0.8);
@@ -1600,13 +1612,13 @@
     }
     .touch-swatch-slot {
       height: 26px;
-      border: 1px solid #504945;
+      border: 1px solid var(--border-bright);
       cursor: pointer;
       touch-action: manipulation;
       position: relative;
     }
     .touch-swatch-slot:hover {
-      border-color: #fabd2f;
+      border-color: var(--primary);
       z-index: 2;
     }
     .touch-swatch-slot.del-mode::after {
@@ -1634,23 +1646,23 @@
       width: 22px;
       height: 22px;
       flex-shrink: 0;
-      border: 1px solid #504945;
+      border: 1px solid var(--border-bright);
       cursor: pointer;
       touch-action: manipulation;
       box-sizing: border-box;
     }
     .tb-swatch-item:hover {
-      border-color: #fabd2f;
+      border-color: var(--primary);
     }
     .tb-swatch-item.active-color {
-      border: 2px solid #fabd2f;
+      border: 2px solid var(--primary);
     }
 
     /* Panel Header Tabs (Console / Scripts) */
     #panel-tabs {
       display: flex;
-      border-bottom: 1px solid #3c3836;
-      background: #1d2021;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-dark);
       flex-shrink: 0;
     }
     /* ── REPL Console & Studio ── */
@@ -1659,8 +1671,8 @@
       flex-direction: column;
       height: 220px;
       min-height: 140px;
-      background: #181a1b;
-      border: 1px solid #3c3836;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
       box-sizing: border-box;
       overflow: hidden;
     }
@@ -1671,10 +1683,10 @@
       font-family: 'JetBrains Mono', 'Fira Code', monospace;
       font-size: 11px;
       line-height: 1.45;
-      color: #ebdbb2;
-      background: #181a1b;
+      color: var(--text);
+      background: var(--bg-input);
       scrollbar-width: thin;
-      scrollbar-color: #504945 #181a1b;
+      scrollbar-color: var(--border-bright) var(--bg-input);
       -webkit-overflow-scrolling: touch;
       display: flex;
       flex-direction: column;
@@ -1686,25 +1698,25 @@
       font-family: inherit;
     }
     .wterm-line.cmd {
-      color: #fabd2f;
+      color: var(--primary);
       font-weight: bold;
       background: rgba(250, 189, 47, 0.08);
       padding: 2px 4px;
       margin: 1px 0;
-      border-left: 2px solid #fabd2f;
+      border-left: 2px solid var(--primary);
     }
     .wterm-line.ok {
-      color: #b8bb26;
+      color: var(--success);
     }
     .wterm-line.err {
-      color: #fb4934;
+      color: var(--danger);
       font-weight: 500;
       background: rgba(251, 73, 52, 0.08);
       padding: 1px 4px;
-      border-left: 2px solid #fb4934;
+      border-left: 2px solid var(--danger);
     }
     .wterm-line.warn {
-      color: #fe8019;
+      color: var(--primary-hover);
     }
     .wterm-line.info {
       color: #83a598;
@@ -1713,15 +1725,15 @@
     #inputrow {
       display: flex;
       align-items: center;
-      background: #1d2021;
-      border-top: 1px solid #3c3836;
+      background: var(--bg-dark);
+      border-top: 1px solid var(--border);
       padding: 4px 6px;
       gap: 6px;
       margin: 0;
       flex-shrink: 0;
     }
     .wcmd-prompt {
-      color: #fabd2f;
+      color: var(--primary);
       font-weight: bold;
       font-size: 11px;
       user-select: none;
@@ -1732,22 +1744,21 @@
       flex: 1;
       min-width: 0;
       height: 26px;
-      background: #181a1b;
-      color: #ebdbb2;
-      border: 1px solid #3c3836;
+      background: var(--bg-input);
+      color: var(--text);
+      border: 1px solid var(--border);
       border-radius: 2px;
       padding: 0 8px;
       font-family: inherit;
       font-size: 11px;
-      outline: none;
       transition: border-color 0.15s, background 0.15s;
       -webkit-appearance: none;
       appearance: none;
     }
     #wcmd:focus {
-      border-color: #fabd2f;
-      background: #202223;
-      box-shadow: 0 0 3px rgba(250, 189, 47, 0.25);
+      border-color: var(--primary);
+      background: var(--bg-input-focus);
+      
     }
     #wcmd::placeholder {
       color: #7c6f64;
@@ -1755,9 +1766,9 @@
     }
     .wcmd-send {
       height: 26px;
-      background: #282828;
-      color: #fabd2f;
-      border: 1px solid #3c3836;
+      background: var(--bg-panel);
+      color: var(--primary);
+      border: 1px solid var(--border);
       font-family: inherit;
       font-size: 10px;
       font-weight: bold;
@@ -1772,9 +1783,9 @@
       appearance: none;
     }
     .wcmd-send:hover {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
     }
 
     .panel-header-tab {
@@ -1783,8 +1794,8 @@
       font: inherit;
       font-size: 11px;
       font-weight: bold;
-      background: #282828;
-      color: #a89984;
+      background: var(--bg-panel);
+      color: var(--text-muted);
       border: none;
       border-bottom: 2px solid transparent;
       cursor: pointer;
@@ -1792,13 +1803,13 @@
       transition: background 0.1s, color 0.1s;
     }
     .panel-header-tab:hover {
-      color: #ebdbb2;
+      color: var(--text);
       background: #32302f;
     }
     .panel-header-tab.active {
-      color: #fabd2f;
-      background: #232524;
-      border-bottom-color: #fabd2f;
+      color: var(--primary);
+      background: var(--bg-panel-sub);
+      border-bottom-color: var(--primary);
     }
 
     /* Scripts Tab Panel */
@@ -1810,26 +1821,25 @@
       flex-direction: column;
       gap: 8px;
       scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
+      scrollbar-color: var(--border-bright) var(--bg-dark);
     }
     #ui-script-editor {
       width: 100%;
       height: 220px;
       min-height: 140px;
-      background: #181a1b;
-      border: 1px solid #3c3836;
-      color: #ebdbb2;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text);
       font-family: monospace;
       font-size: 11px;
       line-height: 1.4;
       padding: 6px;
-      outline: none;
       resize: vertical;
       box-sizing: border-box;
       tab-size: 2;
     }
     #ui-script-editor:focus {
-      border-color: #fabd2f;
+      border-color: var(--primary);
     }
 
     /* ── Infinite Painter Touch Ergonomic System ── */
@@ -1839,7 +1849,7 @@
       left: 0;
       right: 0;
       height: 44px;
-      background: #1d2021;
+      background: var(--bg-dark);
       border-bottom: 1px solid rgba(80, 73, 69, 0.7);
       contain: layout style paint;
       will-change: transform;
@@ -1864,7 +1874,7 @@
     .ip-top-status-text {
       font-family: 'SF Mono', Monaco, Consolas, monospace;
       font-size: 11px;
-      color: #a89984;
+      color: var(--text-muted);
       white-space: nowrap;
       user-select: none;
       -webkit-user-select: none;
@@ -1872,7 +1882,7 @@
       overflow: hidden;
       text-overflow: ellipsis;
       padding-right: 4px;
-      letter-spacing: 0.2px;
+      
     }
     .ip-hud-btn-col {
       display: flex;
@@ -1911,10 +1921,10 @@
       height: 32px;
       min-width: 32px;
       padding: 0 6px;
-      background: #282828;
-      border: 1px solid #3c3836;
-      border-radius: 6px !important;
-      color: #ebdbb2;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      color: var(--text);
       font-size: 11px;
       font-weight: bold;
       display: inline-flex;
@@ -1932,29 +1942,29 @@
     }
     .ip-btn:hover, .ip-btn-icon:hover {
       background: #32302f;
-      border-color: #504945;
-      color: #fbf1c7;
+      border-color: var(--border-bright);
+      color: var(--text-bright);
     }
     .ip-btn:active, .ip-btn-icon:active {
-      background: #3c3836;
-      border-color: #fabd2f;
-      color: #fabd2f;
+      background: var(--border);
+      border-color: var(--primary);
+      color: var(--primary);
     }
     .ip-btn.active, .ip-btn-icon.active {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
     }
     .ip-btn.active svg, .ip-btn-icon.active svg {
-      stroke: #1d2021;
+      stroke: var(--bg-dark);
     }
     .ip-badge {
-      background: #fabd2f;
-      color: #1d2021;
+      background: var(--primary);
+      color: var(--bg-dark);
       font-size: 9px;
       font-weight: 800;
       padding: 1px 4px;
-      border-radius: 4px !important;
+      border-radius: var(--radius-sm);
       margin-left: 1px;
     }
 
@@ -1965,11 +1975,11 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      background: #1d2021;
+      background: var(--bg-dark);
       border: 1px solid rgba(80, 73, 69, 0.7);
       contain: layout style paint;
       will-change: transform;
-      border-radius: 8px !important;
+      border-radius: var(--radius-lg);
       box-shadow: 0 4px 14px rgba(0,0,0,0.5);
       user-select: none;
       -webkit-user-select: none;
@@ -2006,9 +2016,9 @@
       cursor: ns-resize;
     }
     .ip-hud-pill {
-      background: #181a1b;
-      border: 1px solid #3c3836;
-      border-radius: 4px !important;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       padding: 2px 4px;
       display: flex;
       flex-direction: column;
@@ -2020,22 +2030,22 @@
     .ip-hud-lbl {
       font-size: 7px;
       font-weight: bold;
-      color: #a89984;
-      text-transform: uppercase;
+      color: var(--text-muted);
+      
       line-height: 1;
     }
     .ip-hud-val {
       font-size: 9px;
       font-weight: 800;
-      color: #fabd2f;
+      color: var(--primary);
       line-height: 1.2;
     }
     .ip-vslider-track {
       width: 20px;
       height: 90px;
-      background: #181a1b;
-      border: 1px solid #3c3836;
-      border-radius: 6px !important;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       position: relative;
       overflow: hidden;
       cursor: ns-resize;
@@ -2046,8 +2056,8 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: #fabd2f;
-      border-radius: 4px !important;
+      background: var(--primary);
+      border-radius: var(--radius-sm);
       pointer-events: none;
     }
     .ip-vslider-thumb {
@@ -2055,8 +2065,8 @@
       left: 2px;
       right: 2px;
       height: 8px;
-      background: #fbf1c7;
-      border-radius: 3px !important;
+      background: var(--text-bright);
+      border-radius: 3px;
       box-shadow: 0 0 4px rgba(0,0,0,0.8);
       pointer-events: none;
       transform: translateY(50%);
@@ -2064,10 +2074,10 @@
     .ip-hud-btn {
       width: 32px;
       height: 32px;
-      border-radius: 6px !important;
-      background: #282828;
-      border: 1px solid #504945;
-      color: #ebdbb2;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      color: var(--text);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2077,28 +2087,28 @@
       position: relative;
     }
     .ip-hud-btn:hover {
-      background: #3c3836;
-      color: #fabd2f;
-      border-color: #fabd2f;
+      background: var(--border);
+      color: var(--primary);
+      border-color: var(--primary);
     }
     .ip-hud-btn:active {
-      background: #fabd2f;
-      color: #1d2021;
+      background: var(--primary);
+      color: var(--bg-dark);
     }
     .ip-hud-btn.is-eraser {
       background: #cc241d;
-      border-color: #fb4934;
+      border-color: var(--danger);
       color: #fff;
     }
     .ip-color-chip-wrap {
       width: 22px;
       height: 22px;
-      border-radius: 50% !important;
-      border: 2px solid #ebdbb2;
+      border-radius: 50%;
+      border: 2px solid var(--text);
       box-shadow: 0 0 4px rgba(0,0,0,0.6);
       overflow: hidden;
       flex-shrink: 0;
-      background: #ebdbb2;
+      background: var(--text);
     }
 
     /* ── UI Scale support across Modern UI ── */
@@ -2117,7 +2127,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.55);
+      background: rgba(0, 0, 0, 0.6);
       z-index: 90;
       user-select: none;
       -webkit-user-select: none;
@@ -2127,12 +2137,12 @@
     }
     .ip-sheet {
       position: absolute;
-      background: #1d2021;
-      border: 1.5px solid #504945;
-      border-radius: 8px !important;
+      background: var(--bg-dark);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
       display: flex;
       flex-direction: column;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.55);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
       overflow: hidden;
       z-index: 100;
     }
@@ -2143,10 +2153,9 @@
       left: 8px;
       width: 250px;
       max-height: calc(100vh - 64px);
-      animation: ipPopTopLeft 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
-    @keyframes ipPopTopLeft {
-      from { transform: translateY(-8px); opacity: 0; }
+    
       to { transform: translateY(0); opacity: 1; }
     }
 
@@ -2157,18 +2166,28 @@
       width: calc(100% - 16px);
       max-width: 340px;
       max-height: calc(100vh - 70px);
-      animation: ipPopTopRight 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
+    #sheet-recents .ip-sheet,
+    #sheet-new-proj .ip-sheet {
+      top: 48px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: calc(100% - 16px);
+      max-width: 420px;
+      max-height: calc(100vh - 64px);
+      animation: ipFadeIn 0.12s ease;
+    }
+
     #sheet-lab .ip-sheet {
       top: 48px;
       right: 8px;
       width: calc(100% - 16px);
       max-width: 380px;
       max-height: calc(100vh - 64px);
-      animation: ipPopTopRight 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
-    @keyframes ipPopTopRight {
-      from { transform: translateY(-8px); opacity: 0; }
+    
       to { transform: translateY(0); opacity: 1; }
     }
 
@@ -2178,9 +2197,9 @@
       height: 28px;
     }
     .ip-shape-btn.active {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
       font-weight: bold;
     }
 
@@ -2192,7 +2211,7 @@
       width: calc(100% - 16px);
       max-width: 460px;
       max-height: calc(100vh - 84px);
-      animation: ipSlideUpBottom 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
     #sheet-tools .ip-sheet {
       bottom: 68px;
@@ -2201,7 +2220,7 @@
       width: calc(100% - 16px);
       max-width: 380px;
       max-height: calc(100vh - 84px);
-      animation: ipSlideUpBottom 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
     #sheet-pixelart .ip-sheet {
       bottom: 68px;
@@ -2210,10 +2229,9 @@
       width: calc(100% - 16px);
       max-width: 380px;
       max-height: calc(100vh - 84px);
-      animation: ipSlideUpBottom 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
-    @keyframes ipSlideUpBottom {
-      from { transform: translate(-50%, 14px); opacity: 0; }
+    
       to { transform: translate(-50%, 0); opacity: 1; }
     }
 
@@ -2225,7 +2243,7 @@
       width: calc(100% - 16px);
       max-width: 480px;
       max-height: calc(100vh - 64px);
-      animation: ipPopTopCenter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
     #sheet-hud-customizer .ip-sheet {
       top: 48px;
@@ -2234,10 +2252,12 @@
       width: calc(100% - 16px);
       max-width: 440px;
       max-height: calc(100vh - 64px);
-      animation: ipPopTopCenter 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: ipFadeIn 0.12s ease;
     }
-    @keyframes ipPopTopCenter {
-      from { transform: translate(-50%, -10px); opacity: 0; }
+    @keyframes ipFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
       to { transform: translate(-50%, 0); opacity: 1; }
     }
 
@@ -2258,21 +2278,21 @@
       align-items: center;
       justify-content: space-between;
       padding: 8px 12px 6px;
-      border-bottom: 1px solid #3c3836;
+      border-bottom: 1px solid var(--border);
       font-size: 11px;
       font-weight: bold;
-      color: #fabd2f;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
+      color: var(--primary);
+      
+      
       flex-shrink: 0;
     }
     .ip-sheet-close {
       width: 22px;
       height: 22px;
-      border-radius: 4px !important;
-      background: #282828;
-      border: 1px solid #3c3836;
-      color: #a89984;
+      border-radius: var(--radius-sm);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -2280,9 +2300,9 @@
       font-size: 11px;
     }
     .ip-sheet-close:hover {
-      background: #3c3836;
-      color: #ebdbb2;
-      border-color: #fabd2f;
+      background: var(--border);
+      color: var(--text);
+      border-color: var(--primary);
     }
     .ip-sheet-content {
       flex: 1;
@@ -2292,7 +2312,7 @@
       flex-direction: column;
       gap: 10px;
       scrollbar-width: thin;
-      scrollbar-color: #504945 #1d2021;
+      scrollbar-color: var(--border-bright) var(--bg-dark);
     }
 
     /* ── Category Pill Tabs ── */
@@ -2309,10 +2329,10 @@
     .ip-pills-row::-webkit-scrollbar { display: none; }
     .ip-pill-btn {
       padding: 5px 10px;
-      border-radius: 6px !important;
-      background: #282828;
-      border: 1px solid #3c3836;
-      color: #a89984;
+      border-radius: var(--radius-md);
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
       font-size: 11px;
       font-weight: 600;
       white-space: nowrap;
@@ -2321,13 +2341,13 @@
       flex-shrink: 0;
     }
     .ip-pill-btn:hover {
-      color: #ebdbb2;
-      border-color: #504945;
+      color: var(--text);
+      border-color: var(--border-bright);
     }
     .ip-pill-btn.active {
-      background: #fabd2f;
-      color: #1d2021;
-      border-color: #fabd2f;
+      background: var(--primary);
+      color: var(--bg-dark);
+      border-color: var(--primary);
       font-weight: 800;
     }
 
@@ -2343,9 +2363,9 @@
       }
     }
     .ip-brush-card {
-      background: #232524;
-      border: 1.5px solid #3c3836;
-      border-radius: 6px !important;
+      background: var(--bg-panel-sub);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 10px 8px;
       display: flex;
       flex-direction: column;
@@ -2355,15 +2375,15 @@
       transition: all 0.12s ease;
     }
     .ip-brush-card:hover {
-      background: #2b2e2d;
-      border-color: #504945;
+      background: var(--bg-panel-sub);
+      border-color: var(--border-bright);
     }
     .ip-brush-card:active {
-      background: #323530;
+      background: var(--border-bright);
     }
     .ip-brush-card.active {
-      background: #2d302a;
-      border-color: #fabd2f;
+      background: var(--bg-panel-sub);
+      border-color: var(--primary);
     }
     .ip-brush-card-top {
       display: flex;
@@ -2373,14 +2393,14 @@
     .ip-brush-card-title {
       font-size: 12px;
       font-weight: bold;
-      color: #ebdbb2;
+      color: var(--text);
     }
     .ip-brush-card.active .ip-brush-card-title {
-      color: #fabd2f;
+      color: var(--primary);
     }
     .ip-brush-card-desc {
       font-size: 10px;
-      color: #a89984;
+      color: var(--text-muted);
       line-height: 1.3;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -2395,9 +2415,9 @@
       gap: 8px;
     }
     .ip-tool-card {
-      background: #232524;
-      border: 1.5px solid #3c3836;
-      border-radius: 6px !important;
+      background: var(--bg-panel-sub);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 12px 10px;
       display: flex;
       align-items: center;
@@ -2407,18 +2427,18 @@
       transition: all 0.12s ease;
     }
     .ip-tool-card:hover {
-      background: #2b2e2d;
-      border-color: #504945;
+      background: var(--bg-panel-sub);
+      border-color: var(--border-bright);
     }
     .ip-tool-card:active {
-      background: #323530;
+      background: var(--border-bright);
     }
     .ip-tool-card.active {
-      background: #2d302a;
-      border-color: #fabd2f;
+      background: var(--bg-panel-sub);
+      border-color: var(--primary);
     }
     .ip-tool-card.active svg {
-      stroke: #fabd2f;
+      stroke: var(--primary);
     }
     .ip-tool-card-info {
       display: flex;
@@ -2428,14 +2448,14 @@
     .ip-tool-card-name {
       font-size: 12px;
       font-weight: bold;
-      color: #ebdbb2;
+      color: var(--text);
     }
     .ip-tool-card.active .ip-tool-card-name {
-      color: #fabd2f;
+      color: var(--primary);
     }
     .ip-tool-card-sub {
       font-size: 9px;
-      color: #a89984;
+      color: var(--text-muted);
     }
 
     /* ── Action Modes & Selection Modes Cards ── */
@@ -2446,18 +2466,18 @@
     }
     .ip-actionmode-card:hover, .ip-selmode-card:hover {
       background: #32302f !important;
-      border-color: #504945 !important;
+      border-color: var(--border-bright) !important;
     }
     .ip-actionmode-card.active, .ip-selmode-card.active {
-      background: #3c3836 !important;
-      border-color: #fabd2f !important;
-      color: #fabd2f !important;
+      background: var(--border) !important;
+      border-color: var(--primary) !important;
+      color: var(--primary) !important;
     }
     .ip-actionmode-card.active svg, .ip-selmode-card.active svg {
-      stroke: #fabd2f !important;
+      stroke: var(--primary) !important;
     }
     .ip-actionmode-card.active span, .ip-selmode-card.active span {
-      color: #fabd2f !important;
+      color: var(--primary) !important;
       font-weight: 800 !important;
     }
 
@@ -2468,9 +2488,9 @@
       gap: 8px;
     }
     .ip-pixel-card {
-      background: #232524;
-      border: 1.5px solid #3c3836;
-      border-radius: 6px !important;
+      background: var(--bg-panel-sub);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 10px;
       display: flex;
       flex-direction: column;
@@ -2479,24 +2499,24 @@
       touch-action: manipulation;
     }
     .ip-pixel-card:hover {
-      border-color: #504945;
-      background: #2b2e2d;
+      border-color: var(--border-bright);
+      background: var(--bg-panel-sub);
     }
     .ip-pixel-card.active {
-      border-color: #fabd2f;
-      background: #2d302a;
+      border-color: var(--primary);
+      background: var(--bg-panel-sub);
     }
     .ip-pixel-card-title {
       font-size: 12px;
       font-weight: bold;
-      color: #ebdbb2;
+      color: var(--text);
     }
     .ip-pixel-card.active .ip-pixel-card-title {
-      color: #fabd2f;
+      color: var(--primary);
     }
     .ip-pixel-card-sub {
       font-size: 10px;
-      color: #a89984;
+      color: var(--text-muted);
     }
 
     /* ── Clean Large Touch Slider Control ── */
@@ -2504,9 +2524,9 @@
       display: flex;
       flex-direction: column;
       gap: 4px;
-      background: #232524;
-      border: 1px solid #3c3836;
-      border-radius: 6px !important;
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
       padding: 8px 10px;
     }
     .ip-touch-label-row {
@@ -2515,17 +2535,17 @@
       justify-content: space-between;
       font-size: 11px;
       font-weight: bold;
-      color: #a89984;
+      color: var(--text-muted);
     }
     .ip-touch-val {
-      color: #fabd2f;
+      color: var(--primary);
       font-size: 12px;
       font-weight: 800;
     }
     .ip-touch-slider {
       width: 100%;
       height: 8px;
-      accent-color: #fabd2f;
+      accent-color: var(--primary);
       cursor: pointer;
     }
   </style>
@@ -2544,7 +2564,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.8.41 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.8.42 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -2556,44 +2576,44 @@
   <div id="cvswrap">
     <canvas id="wcanvas"></canvas>
     <canvas id="uicanvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-    <div id="ip-transform-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1px solid #fabd2f; border-radius: 6px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.5); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
-      <span style="font-weight: 800; font-size: 11px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 4px; white-space: nowrap;">
+    <div id="ip-transform-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: var(--bg-panel); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.5); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
+      <span style="font-weight: 800; font-size: 11px; color: var(--primary); display: flex; align-items: center; gap: 4px; padding-left: 4px; white-space: nowrap;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14v4a2 2 0 0 0 2 2h4"/><path d="M20 10V6a2 2 0 0 0-2-2h-4"/><path d="M14 20h4a2 2 0 0 0 2-2v-4"/><path d="M10 4H6a2 2 0 0 0-2 2v4"/><circle cx="12" cy="12" r="2"/></svg>
         TRANSFORM
       </span>
-      <div style="display: flex; gap: 3px; background: #1d2021; padding: 2px 4px; border-radius: 4px; border: 1px solid #3c3836;">
-        <button type="button" id="btn-ip-xbar-rot-ccw" class="ip-btn ip-mini-btn" title="Rotate 90° CCW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">↶ 90°</button>
-        <button type="button" id="btn-ip-xbar-rot-cw" class="ip-btn ip-mini-btn" title="Rotate 90° CW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">↷ 90°</button>
-        <button type="button" id="btn-ip-xbar-fliph" class="ip-btn ip-mini-btn" title="Flip Horizontal" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">⇄</button>
-        <button type="button" id="btn-ip-xbar-flipv" class="ip-btn ip-mini-btn" title="Flip Vertical" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">⇅</button>
-        <button type="button" id="btn-ip-xbar-reset" class="ip-btn ip-mini-btn" title="Reset Quad" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: 4px;">↺</button>
+      <div style="display: flex; gap: 3px; background: var(--bg-dark); padding: 2px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        <button type="button" id="btn-ip-xbar-rot-ccw" class="ip-btn ip-mini-btn" title="Rotate 90° CCW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: var(--radius-sm);">↶ 90°</button>
+        <button type="button" id="btn-ip-xbar-rot-cw" class="ip-btn ip-mini-btn" title="Rotate 90° CW" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: var(--radius-sm);">↷ 90°</button>
+        <button type="button" id="btn-ip-xbar-fliph" class="ip-btn ip-mini-btn" title="Flip Horizontal" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: var(--radius-sm);">⇄</button>
+        <button type="button" id="btn-ip-xbar-flipv" class="ip-btn ip-mini-btn" title="Flip Vertical" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: var(--radius-sm);">⇅</button>
+        <button type="button" id="btn-ip-xbar-reset" class="ip-btn ip-mini-btn" title="Reset Quad" style="height: 24px; padding: 0 8px; font-size: 11px; border-radius: var(--radius-sm);">↺</button>
       </div>
-      <button type="button" id="btn-ip-xbar-apply" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 26px; padding: 0 12px; border-radius: 4px; font-size: 11px; white-space: nowrap;">Apply ✓</button>
-      <button type="button" id="btn-ip-xbar-cancel" class="ip-btn ip-mini-btn" style="background: #3c3836; color: #fb4934; height: 26px; padding: 0 12px; border-radius: 4px; font-size: 11px; white-space: nowrap;">Cancel ✕</button>
+      <button type="button" id="btn-ip-xbar-apply" class="ip-btn ip-mini-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 26px; padding: 0 12px; border-radius: var(--radius-sm); font-size: 11px; white-space: nowrap;">Apply ✓</button>
+      <button type="button" id="btn-ip-xbar-cancel" class="ip-btn ip-mini-btn" style="background: var(--border); color: var(--danger); height: 26px; padding: 0 12px; border-radius: var(--radius-sm); font-size: 11px; white-space: nowrap;">Cancel ✕</button>
     </div>
-    <div id="ip-selection-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: #282828; border: 1px solid #fabd2f; border-radius: 6px; padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.5); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
-      <span style="font-weight: 800; font-size: 10px; color: #fabd2f; display: flex; align-items: center; gap: 4px; padding-left: 2px; white-space: nowrap;">
+    <div id="ip-selection-bar" style="display: none; position: absolute; top: calc(50px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 100; background: var(--bg-panel); border: 1px solid var(--primary); border-radius: var(--radius-md); padding: 4px 8px; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.5); pointer-events: auto; max-width: 96vw; overflow-x: auto;">
+      <span style="font-weight: 800; font-size: 10px; color: var(--primary); display: flex; align-items: center; gap: 4px; padding-left: 2px; white-space: nowrap;">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
         SELECT
       </span>
       <!-- Quick Mode Buttons -->
-      <div style="display: flex; gap: 2px; background: #1d2021; padding: 2px; border-radius: 4px; border: 1px solid #3c3836;">
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode active" data-selmode="replace" title="New Selection (Replace)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">New</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="add" title="Add to Selection (+)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">+</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="sub" title="Subtract from Selection (-)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">-</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="intersect" title="Intersect Selection (∩)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: 4px;">∩</button>
+      <div style="display: flex; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode active" data-selmode="replace" title="New Selection (Replace)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: var(--radius-sm);">New</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="add" title="Add to Selection (+)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: var(--radius-sm);">+</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="sub" title="Subtract from Selection (-)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: var(--radius-sm);">-</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-mode" data-selmode="intersect" title="Intersect Selection (∩)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: bold; border-radius: var(--radius-sm);">∩</button>
       </div>
       <!-- Quick Tools -->
-      <div style="display: flex; gap: 2px; background: #1d2021; padding: 2px; border-radius: 4px; border: 1px solid #3c3836;">
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="select_rect" title="Rectangle Box" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 4px;">Box</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="lasso_select" title="Lasso Polygon" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 4px;">Lasso</button>
-        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="magic_wand" title="Magic Wand" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: 4px;">Wand</button>
+      <div style="display: flex; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="select_rect" title="Rectangle Box" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: var(--radius-sm);">Box</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="lasso_select" title="Lasso Polygon" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: var(--radius-sm);">Lasso</button>
+        <button type="button" class="ip-btn ip-mini-btn ip-selbar-tool" data-seltool="magic_wand" title="Magic Wand" style="height: 22px; padding: 0 6px; font-size: 10px; border-radius: var(--radius-sm);">Wand</button>
       </div>
       <!-- Quick Actions -->
-      <button type="button" id="btn-ip-selbar-transform" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 22px; padding: 0 8px; border-radius: 4px; font-size: 10px; white-space: nowrap;">Transform</button>
-      <button type="button" id="btn-ip-selbar-invert" class="ip-btn ip-mini-btn" title="Invert Selection" style="height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px;">Inv</button>
-      <button type="button" id="btn-ip-selbar-clear" class="ip-btn ip-mini-btn" title="Deselect (Clear Selection Mask)" style="height: 22px; padding: 0 6px; border-radius: 4px; font-size: 10px;">Deselect</button>
-      <button type="button" id="btn-ip-selbar-close" class="ip-btn ip-mini-btn" title="Close Selection Bar & Exit Select Mode" style="background: #3c3836; color: #fb4934; height: 22px; padding: 0 8px; border-radius: 4px; font-size: 11px; font-weight: bold;">✕</button>
+      <button type="button" id="btn-ip-selbar-transform" class="ip-btn ip-mini-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 22px; padding: 0 8px; border-radius: var(--radius-sm); font-size: 10px; white-space: nowrap;">Transform</button>
+      <button type="button" id="btn-ip-selbar-invert" class="ip-btn ip-mini-btn" title="Invert Selection" style="height: 22px; padding: 0 6px; border-radius: var(--radius-sm); font-size: 10px;">Inv</button>
+      <button type="button" id="btn-ip-selbar-clear" class="ip-btn ip-mini-btn" title="Deselect (Clear Selection Mask)" style="height: 22px; padding: 0 6px; border-radius: var(--radius-sm); font-size: 10px;">Deselect</button>
+      <button type="button" id="btn-ip-selbar-close" class="ip-btn ip-mini-btn" title="Close Selection Bar & Exit Select Mode" style="background: var(--border); color: var(--danger); height: 22px; padding: 0 8px; border-radius: var(--radius-sm); font-size: 11px; font-weight: bold;">✕</button>
     </div>
     <div id="eyedropper-ring" class="eyedropper-ring" style="display: none;">
       <div class="eyedropper-inner" id="eyedropper-inner"></div>
@@ -2624,7 +2644,7 @@
         </div>
         <div id="ip-brush-cards-grid" class="ip-brush-grid"></div>
         <div style="display: flex; gap: 8px; margin-top: 6px;">
-          <button type="button" id="btn-ip-save-brush-preset" class="ip-btn" style="flex: 1; background: #fabd2f; color: #1d2021; font-weight: bold;">+ Save Current Brush</button>
+          <button type="button" id="btn-ip-save-brush-preset" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ Save Current Brush</button>
           <button type="button" id="btn-ip-open-lab-from-shelf" class="ip-btn" style="flex: 1;">Open Brush Lab</button>
         </div>
       </div>
@@ -2651,13 +2671,13 @@
 
         <!-- Compact Mini Layer Toolbar -->
         <div style="display: grid; grid-template-columns: 1.2fr 1.2fr 1.1fr 1fr 1fr 1fr 1fr; gap: 2px; padding: 2px 0;">
-          <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; background: #fabd2f; color: #1d2021; font-weight: bold; border-radius: 4px; padding: 0;" title="New Layer">+ Layer</button>
-          <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: 4px; padding: 0;" title="New Folder / Group">+ Group</button>
-          <button type="button" id="btn-ip-import-layer-btn" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: 4px; padding: 0;" title="Import Image as Layer">Import</button>
-          <button type="button" id="btn-ip-dup-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: 4px; padding: 0;" title="Duplicate Layer">Dup</button>
-          <button type="button" id="btn-ip-merge-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: 4px; padding: 0;" title="Merge Down">Merge</button>
-          <button type="button" id="btn-ip-clear-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: 4px; padding: 0;" title="Clear Layer Content">Clear</button>
-          <button type="button" id="btn-ip-del-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; color: #fb4934; border-radius: 4px; padding: 0;" title="Delete Layer">Del</button>
+          <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; background: var(--primary); color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Layer">+ Layer</button>
+          <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="New Folder / Group">+ Group</button>
+          <button type="button" id="btn-ip-import-layer-btn" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Import Image as Layer">Import</button>
+          <button type="button" id="btn-ip-dup-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Duplicate Layer">Dup</button>
+          <button type="button" id="btn-ip-merge-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Merge Down">Merge</button>
+          <button type="button" id="btn-ip-clear-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Clear Layer Content">Clear</button>
+          <button type="button" id="btn-ip-del-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; color: var(--danger); border-radius: var(--radius-sm); padding: 0;" title="Delete Layer">Del</button>
         </div>
 
         <!-- Layer List Host Container -->
@@ -2677,45 +2697,45 @@
       </div>
       <div class="ip-sheet-content">
         <!-- 1. ACTION MODES -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Action Modes</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Action Modes</span>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-            <div class="ip-actionmode-card active" data-actionmode="draw" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-actionmode-card active" data-actionmode="draw" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Draw</span>
             </div>
-            <div class="ip-actionmode-card" data-actionmode="erase" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-actionmode-card" data-actionmode="erase" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16C2 15 2 13 3 12L13 2L22 11L20 20Z"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Erase</span>
             </div>
-            <div class="ip-actionmode-card" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-actionmode-card" data-actionmode="smudge" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 0 0-5 5c0 3 5 9 5 9s5-6 5-9a5 5 0 0 0-5-5z"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Smudge</span>
             </div>
-            <div class="ip-actionmode-card" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-actionmode-card" data-actionmode="select" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="2 2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Select</span>
             </div>
           </div>
         </div>
 
-        <!-- 2. SELECTION MODES (Operações de Seleção) -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Selection Modes</span>
+        <!-- 2. SELECTION MODES (Selection Operations) -->
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Selection Modes</span>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;">
-            <div class="ip-selmode-card active" data-selmode="replace" title="New Selection: Replaces current selection" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-selmode-card active" data-selmode="replace" title="New Selection: Replaces current selection" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
               <span style="font-size: 10px; font-weight: 700;">New</span>
             </div>
-            <div class="ip-selmode-card" data-selmode="add" title="Add: Union with existing selection (+)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-selmode-card" data-selmode="add" title="Add: Union with existing selection (+)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="15.5" y1="12" x2="15.5" y2="19"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Add (+)</span>
             </div>
-            <div class="ip-selmode-card" data-selmode="sub" title="Subtract: Cut out from existing selection (-)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-selmode-card" data-selmode="sub" title="Subtract: Cut out from existing selection (-)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="11" height="11" rx="1.5"/><rect x="10" y="10" width="11" height="11" rx="1.5" stroke-dasharray="2 2"/><line x1="12" y1="15.5" x2="19" y2="15.5"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Subtract (-)</span>
             </div>
-            <div class="ip-selmode-card" data-selmode="intersect" title="Intersect: Keep overlapping area only (∩)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: #282828; border: 1px solid #3c3836; border-radius: 8px; cursor: pointer; text-align: center;">
+            <div class="ip-selmode-card" data-selmode="intersect" title="Intersect: Keep overlapping area only (∩)" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); cursor: pointer; text-align: center;">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="12" height="12" rx="1.5"/><rect x="9" y="9" width="6" height="6" fill="currentColor" fill-opacity="0.35"/></svg>
               <span style="font-size: 10px; font-weight: 700;">Intersect (∩)</span>
             </div>
@@ -2723,8 +2743,8 @@
         </div>
 
         <!-- 3. SELECTION TOOLS -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Selection Tools</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Selection Tools</span>
           <div class="ip-tools-grid">
             <div class="ip-tool-card" data-tool="select_rect">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
@@ -2760,10 +2780,10 @@
           </div>
 
           <!-- Wand Options Inline -->
-          <div style="background: #1d2021; border: 1px solid #3c3836; border-radius: 8px; padding: 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+          <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="font-size: 10px; font-weight: bold; color: #ebdbb2;">Wand Tolerance: <span id="ip-sheet-wand-tol-val" style="color: #fabd2f;">30</span></span>
-              <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: #a89984; cursor: pointer;">
+              <span style="font-size: 10px; font-weight: bold; color: var(--text);">Wand Tolerance: <span id="ip-sheet-wand-tol-val" style="color: var(--primary);">30</span></span>
+              <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text-muted); cursor: pointer;">
                 <input type="checkbox" id="ip-sheet-wand-adj" checked> Contiguous Only
               </label>
             </div>
@@ -2772,8 +2792,8 @@
         </div>
 
         <!-- 4. SHAPE & GUIDE TOOLS -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Shape &amp; Guide Tools</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 6px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Shape &amp; Guide Tools</span>
           <div class="ip-tools-grid">
             <div class="ip-tool-card active" data-tool="brush">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
@@ -2842,20 +2862,20 @@
         </div>
 
         <!-- 5. SELECTION ACTIONS & OPERATIONS -->
-        <div style="background: #232524; border: 1.5px solid #3c3836; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Selection Actions</span>
+        <div style="background: var(--bg-panel-sub); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 8px 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Selection Actions</span>
           <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px;">
             <button type="button" id="btn-ip-copy" class="ip-btn">Copy</button>
             <button type="button" id="btn-ip-cut" class="ip-btn">Cut</button>
             <button type="button" id="btn-ip-paste" class="ip-btn">Paste</button>
-            <button type="button" id="btn-ip-transform" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;">Transform</button>
+            <button type="button" id="btn-ip-transform" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">Transform</button>
             <button type="button" id="btn-ip-deselect" class="ip-btn">Clear</button>
           </div>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
             <button type="button" id="btn-ip-select-all" class="ip-btn">Select All</button>
             <button type="button" id="btn-ip-invert-sel" class="ip-btn">Invert</button>
-            <button type="button" id="btn-ip-xform-apply" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;">Apply</button>
-            <button type="button" id="btn-ip-xform-cancel" class="ip-btn" style="color: #fb4934;">Cancel</button>
+            <button type="button" id="btn-ip-xform-apply" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;">Apply</button>
+            <button type="button" id="btn-ip-xform-cancel" class="ip-btn" style="color: var(--danger);">Cancel</button>
           </div>
         </div>
       </div>
@@ -2893,8 +2913,8 @@
           </div>
         </div>
 
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Pixel Helpers</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Pixel Helpers</span>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <button type="button" id="btn-ip-pixel-grid-toggle" class="ip-btn">Pixel Grid (4x+)</button>
             <button type="button" id="btn-ip-pixel-zoom-100" class="ip-btn">100% 1:1 Pixel</button>
@@ -2906,8 +2926,8 @@
           </div>
         </div>
 
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Retro Color Palettes</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Retro Color Palettes</span>
           <div style="display: flex; gap: 6px;">
             <button type="button" id="btn-ip-pal-gameboy" class="ip-btn" style="flex: 1;">GameBoy 4-Color</button>
             <button type="button" id="btn-ip-pal-gruvbox" class="ip-btn" style="flex: 1;">Gruvbox Dark</button>
@@ -2928,32 +2948,32 @@
       </div>
       <div class="ip-sheet-content">
         <!-- Project storage -->
-        <div class="ip-hide-embedded" style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+        <div class="ip-hide-embedded" style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
           <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Project File</span>
-            <span id="ip-menu-autosave-badge" style="font-size: 10px; color: #b8bb26; font-weight: bold;">Autosaved</span>
+            <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Project File</span>
+            <span id="ip-menu-autosave-badge" style="font-size: 10px; color: var(--success); font-weight: bold;">Autosaved</span>
           </div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-            <button type="button" id="btn-ip-new-proj" class="ip-btn" style="background: #3c3836; color: #fabd2f; font-weight: bold;">+ New Project</button>
-            <button type="button" id="btn-ip-recent-proj" class="ip-btn" style="background: #3c3836; color: #83a598; font-weight: bold;">Recents</button>
+            <button type="button" id="btn-ip-new-proj" class="ip-btn" style="background: var(--border); color: var(--primary); font-weight: bold;">+ New Project</button>
+            <button type="button" id="btn-ip-recent-proj" class="ip-btn" style="background: var(--border); color: #83a598; font-weight: bold;">Recents</button>
           </div>
-          <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; width: 100%;">Save Project</button>
+          <button type="button" id="btn-ip-save-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; width: 100%;">Save Project</button>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
             <button type="button" id="btn-ip-export-png" class="ip-btn">Export PNG</button>
             <button type="button" id="btn-ip-export-esen" class="ip-btn">Export .esen</button>
           </div>
-          <button type="button" id="btn-ip-import-file" class="ip-btn" style="width: 100%; border-color: #504945;">Import (.esen / Image)</button>
-          <button type="button" id="btn-ip-clear-storage" class="ip-btn" style="width: 100%; border-color: #fb4934; color: #fb4934;">Clear Storage</button>
+          <button type="button" id="btn-ip-import-file" class="ip-btn" style="width: 100%; border-color: var(--border-bright);">Import (.esen / Image)</button>
+          <button type="button" id="btn-ip-clear-storage" class="ip-btn" style="width: 100%; border-color: var(--danger); color: var(--danger);">Clear Storage</button>
         </div>
 
         <!-- Canvas Dimensions -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Canvas Resolution</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Canvas Resolution</span>
           <div style="display: flex; gap: 6px; align-items: center;">
             <input type="number" id="ip-inp-cw" class="ui-input-num" value="1280" min="16" max="16384" style="width: 70px; height: 32px; font-size: 12px; text-align: center;">
-            <span style="color: #a89984; font-weight: bold;">×</span>
+            <span style="color: var(--text-muted); font-weight: bold;">×</span>
             <input type="number" id="ip-inp-ch" class="ui-input-num" value="720" min="16" max="16384" style="width: 70px; height: 32px; font-size: 12px; text-align: center;">
-            <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 32px; background: #fabd2f; color: #1d2021; font-weight: bold;">Resize</button>
+            <button type="button" id="btn-ip-apply-resize" class="ip-btn" style="flex: 1; height: 32px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Resize</button>
           </div>
           <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;">
             <button type="button" class="ip-btn ip-btn-quick-res" data-w="640" data-h="480">640×480</button>
@@ -2964,8 +2984,8 @@
         </div>
 
         <!-- View Controls -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Viewport Navigation</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Viewport Navigation</span>
           <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
             <button type="button" id="btn-ip-zoom-fit" class="ip-btn">Fit View</button>
             <button type="button" id="btn-ip-zoom-100" class="ip-btn">100% (1:1)</button>
@@ -2977,10 +2997,10 @@
         </div>
 
         <!-- UI & HUD Customization -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">UI &amp; Customization</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">UI &amp; Customization</span>
           <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-            <span style="font-size: 11px; color: #a89984;">UI Scale</span>
+            <span style="font-size: 11px; color: var(--text-muted);">UI Scale</span>
             <select id="ip-select-ui-scale" class="ui-select" style="height: 28px; width: 120px; font-size: 11px;">
               <option value="auto">Auto (Responsive)</option>
               <option value="0.75">75% (Small)</option>
@@ -2991,12 +3011,12 @@
               <option value="1.5">150% (Large)</option>
             </select>
           </div>
-          <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: #fabd2f; color: #fabd2f;">⚙ Customize Side Thumb HUD</button>
+          <button type="button" id="btn-ip-open-hud-customizer" class="ip-btn" style="border-color: var(--primary); color: var(--primary);">⚙ Customize Side Thumb HUD</button>
         </div>
 
         <!-- Preferences & Gestures -->
-        <div style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Preferences &amp; Gestures</span>
+        <div style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Preferences &amp; Gestures</span>
           <label class="ui-chk-label" style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
             <input type="checkbox" id="ip-chk-pixel-grid"> Pixel Grid (zoomed &ge; 4x)
           </label>
@@ -3013,17 +3033,17 @@
             <input type="checkbox" id="ip-chk-touch-eyedropper" checked> Touch Long-Press Eyedropper
           </label>
           <div style="margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ebdbb2; margin-bottom: 2px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
               <span>Undo History Limit</span>
-              <span id="ip-val-max-undo" style="color: #fabd2f; font-weight: bold;">25 steps</span>
+              <span id="ip-val-max-undo" style="color: var(--primary); font-weight: bold;">25 steps</span>
             </div>
             <input type="range" id="ip-slider-max-undo" class="ui-slider" min="0" max="100" step="5" value="25" style="width: 100%;">
           </div>
           <div style="margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 11px; color: #ebdbb2; margin-bottom: 2px;">
+            <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text); margin-bottom: 2px;">
               <span>Renderer</span>
             </div>
-            <select id="ip-select-renderer" class="ip-select" style="width: 100%; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 6px; padding: 4px 8px; font-size: 11px;">
+            <select id="ip-select-renderer" class="ip-select" style="width: 100%; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 4px 8px; font-size: 11px;">
               <option value="gpu">GPU (WebGL 2)</option>
               <option value="cpu">Software (2D Canvas CPU)</option>
             </select>
@@ -3031,8 +3051,8 @@
         </div>
 
         <!-- Developer REPL Console & Scripts -->
-        <div class="ip-hide-embedded" style="background: #232524; border: 1px solid #3c3836; border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 8px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Console &amp; Scripts</span>
+        <div class="ip-hide-embedded" style="background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary); ">Console &amp; Scripts</span>
           <button type="button" id="btn-ip-open-console" class="ip-btn" style="width: 100%;">Open REPL Terminal &amp; Scripts</button>
         </div>
       </div>
@@ -3049,11 +3069,11 @@
       </div>
       <div class="ip-sheet-content">
         <div id="ip-recents-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; max-height: 400px; overflow-y: auto;">
-          <div style="padding: 24px; text-align: center; color: #a89984; grid-column: 1/-1;">Loading stored projects...</div>
+          <div style="padding: 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
         </div>
         <div style="display: flex; gap: 6px; margin-top: 10px;">
-          <button type="button" id="btn-ip-recents-new" class="ip-btn" style="flex: 1; background: #fabd2f; color: #1d2021; font-weight: bold;">+ New Project</button>
-          <button type="button" id="btn-ip-recents-clear" class="ip-btn" style="border-color: #fb4934; color: #fb4934;">Clear Storage</button>
+          <button type="button" id="btn-ip-recents-new" class="ip-btn" style="flex: 1; background: var(--primary); color: var(--bg-dark); font-weight: bold;">+ New Project</button>
+          <button type="button" id="btn-ip-recents-clear" class="ip-btn" style="border-color: var(--danger); color: var(--danger);">Clear Storage</button>
         </div>
       </div>
     </div>
@@ -3069,17 +3089,17 @@
       </div>
       <div class="ip-sheet-content" style="display: flex; flex-direction: column; gap: 10px;">
         <div style="display: flex; flex-direction: column; gap: 4px;">
-          <span style="font-size: 10px; color: #a89984; text-transform: uppercase;">Title</span>
+          <span style="font-size: 10px; color: var(--text-muted); ">Title</span>
           <input type="text" id="inp-ip-new-title" class="ui-input-text" value="Untitled Artwork" style="width: 100%; height: 32px;">
         </div>
         <div style="display: flex; gap: 6px; align-items: center;">
           <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-size: 10px; color: #a89984; text-transform: uppercase;">Width (px)</span>
+            <span style="font-size: 10px; color: var(--text-muted); ">Width (px)</span>
             <input type="number" id="inp-ip-new-w" class="ui-input-num" value="1280" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
           </div>
-          <span style="color: #a89984; margin-top: 16px;">×</span>
+          <span style="color: var(--text-muted); margin-top: 16px;">×</span>
           <div style="flex: 1; display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-size: 10px; color: #a89984; text-transform: uppercase;">Height (px)</span>
+            <span style="font-size: 10px; color: var(--text-muted); ">Height (px)</span>
             <input type="number" id="inp-ip-new-h" class="ui-input-num" value="720" min="16" max="16384" style="width: 100%; height: 32px; text-align: center;">
           </div>
         </div>
@@ -3089,7 +3109,7 @@
           <button type="button" class="ip-btn ip-btn-new-res" data-w="1920" data-h="1080">1080p</button>
           <button type="button" class="ip-btn ip-btn-new-res" data-w="1080" data-h="1080">1:1 Square</button>
         </div>
-        <button type="button" id="btn-ip-confirm-new-proj" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 34px; margin-top: 6px;">Create Canvas</button>
+        <button type="button" id="btn-ip-confirm-new-proj" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 34px; margin-top: 6px;">Create Canvas</button>
       </div>
     </div>
   </div>
@@ -3101,17 +3121,17 @@
       <div class="ip-sheet-header">
         <div style="display: flex; align-items: center; gap: 6px;">
           <span>BRUSH LAB</span>
-          <span id="ip-lab-brush-name" style="font-size: 9px; color: #a89984; text-transform: none; font-weight: normal;">(Inker)</span>
+          <span id="ip-lab-brush-name" style="font-size: 9px; color: var(--text-muted); text-transform: none; font-weight: normal;">(Inker)</span>
         </div>
         <div style="display: flex; gap: 4px; align-items: center;">
           <button type="button" id="btn-ip-lab-reset" class="ip-btn ip-mini-btn" title="Reset Brush Parameters">Reset</button>
-          <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold;" title="Save Custom Preset">+ Save</button>
+          <button type="button" id="btn-ip-lab-save" class="ip-btn ip-mini-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold;" title="Save Custom Preset">+ Save</button>
           <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-lab').classList.remove('active')">✕</button>
         </div>
       </div>
 
       <!-- Sub-tabs for Brush Lab categories -->
-      <div class="ip-pills-row" id="ip-lab-tabs" style="padding: 8px 10px; border-bottom: 1px solid #3c3836; background: #181a1b; width: 100%; box-sizing: border-box;">
+      <div class="ip-pills-row" id="ip-lab-tabs" style="padding: 8px 10px; border-bottom: 1px solid var(--border); background: var(--bg-input); width: 100%; box-sizing: border-box;">
         <button type="button" class="ip-pill-btn active" data-labtab="tip">Tip &amp; Shape</button>
         <button type="button" class="ip-pill-btn" data-labtab="dynamics">Dynamics</button>
         <button type="button" class="ip-pill-btn" data-labtab="stylus">Stylus</button>
@@ -3151,8 +3171,8 @@
             </select>
           </div>
           <div style="display: flex; gap: 6px;">
-            <button type="button" id="btn-ip-tip-from-layer" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: #3c3836; color: #fabd2f; font-weight: bold;">+ Tip from Layer</button>
-            <button type="button" id="btn-ip-tip-from-selection" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: #3c3836; color: #fabd2f; font-weight: bold;">+ Tip from Selection</button>
+            <button type="button" id="btn-ip-tip-from-layer" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Tip from Layer</button>
+            <button type="button" id="btn-ip-tip-from-selection" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Tip from Selection</button>
           </div>
           <div class="ip-touch-control">
             <div class="ip-touch-label-row"><span>Hardness</span><span id="ip-val-hardness" class="ip-touch-val">100%</span></div>
@@ -3184,9 +3204,9 @@
           </div>
           <div class="ip-touch-control">
             <div class="ip-touch-label-row"><span>Stabilizer Mode</span></div>
-            <select id="ip-select-stabilizer-mode" class="ip-select" style="width: 100%; background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 6px; padding: 6px 8px; font-size: 11px;">
-              <option value="0">Streamline (Inércia EMA + Bézier)</option>
-              <option value="1">Pulled String / Leash (Corda Guia)</option>
+            <select id="ip-select-stabilizer-mode" class="ip-select" style="width: 100%; background: var(--bg-panel); color: var(--text); border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 6px 8px; font-size: 11px;">
+              <option value="0">Streamline (EMA Inertia + Bézier)</option>
+              <option value="1">Pulled String / Leash (Guide String)</option>
             </select>
           </div>
           <div class="ip-touch-control">
@@ -3194,7 +3214,7 @@
             <input type="range" id="ip-slider-smoothing" min="0" max="100" value="0" class="ip-touch-slider">
           </div>
           <div class="ip-touch-control" id="ip-ctrl-string-length" style="display: none;">
-            <div class="ip-touch-label-row"><span>String Length (Corda)</span><span id="ip-val-string-length" class="ip-touch-val">30px</span></div>
+            <div class="ip-touch-label-row"><span>String Length</span><span id="ip-val-string-length" class="ip-touch-val">30px</span></div>
             <input type="range" id="ip-slider-string-length" min="5" max="250" value="30" class="ip-touch-slider">
           </div>
           <div class="ip-touch-control" id="ip-ctrl-midpoint">
@@ -3349,8 +3369,8 @@
             </select>
           </div>
           <div style="display: flex; gap: 6px;">
-            <button type="button" id="btn-ip-grain-from-layer" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: #3c3836; color: #fabd2f; font-weight: bold;">+ Grain from Layer</button>
-            <button type="button" id="btn-ip-grain-from-selection" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: #3c3836; color: #fabd2f; font-weight: bold;">+ Grain from Selection</button>
+            <button type="button" id="btn-ip-grain-from-layer" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Grain from Layer</button>
+            <button type="button" id="btn-ip-grain-from-selection" class="ip-btn ip-mini-btn" style="flex: 1; font-size: 10px; height: 26px; background: var(--border); color: var(--primary); font-weight: bold;">+ Grain from Selection</button>
           </div>
           <div class="ip-touch-control">
             <div class="ip-touch-label-row"><span>Texture Mode</span></div>
@@ -3395,18 +3415,18 @@
           <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-console').classList.remove('active')">✕</button>
         </div>
       </div>
-      <div class="ip-pills-row" id="ip-console-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid #3c3836; background: #181a1b;">
+      <div class="ip-pills-row" id="ip-console-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
         <button type="button" class="ip-pill-btn active" data-contab="term">REPL Terminal</button>
         <button type="button" class="ip-pill-btn" data-contab="scripts">Script Editor</button>
       </div>
       <div class="ip-sheet-content" style="padding: 8px; gap: 8px; max-height: calc(100vh - 120px); overflow-y: auto;">
         <!-- Terminal Panel -->
         <div class="ip-console-panel active" data-conpanel="term" style="display: flex; flex-direction: column; gap: 6px; height: 320px;">
-          <div id="wterm-ip" style="flex: 1; background: #121415; border: 1px solid #3c3836; border-radius: 4px; padding: 8px; overflow-y: auto; font-family: monospace; font-size: 11px; color: #ebdbb2; display: flex; flex-direction: column; gap: 2px;"></div>
+          <div id="wterm-ip" style="flex: 1; background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; overflow-y: auto; font-family: monospace; font-size: 11px; color: var(--text); display: flex; flex-direction: column; gap: 2px;"></div>
           <form id="inputrow-ip" action="javascript:void(0);" style="display: flex; gap: 4px;">
             <input id="wcmd-ip" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                    enterkeyhint="send" placeholder="type a command (e.g. help, set size 30)..." style="flex: 1; height: 32px;">
-            <button type="submit" class="ip-btn" style="background: #fabd2f; color: #1d2021; font-weight: bold; padding: 0 12px;">Run</button>
+            <button type="submit" class="ip-btn" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 0 12px;">Run</button>
           </form>
         </div>
         <!-- Scripts Panel -->
@@ -3414,13 +3434,13 @@
           <div style="display: flex; gap: 4px; align-items: center;">
             <select id="ip-script-select" class="ui-select" style="flex: 1; height: 30px;"></select>
             <button type="button" id="ip-btn-new-script" class="ip-btn ip-mini-btn" style="height: 30px;">+ New</button>
-            <button type="button" id="ip-btn-save-script" class="ip-btn ip-mini-btn" style="height: 30px; background: #fabd2f; color: #1d2021; font-weight: bold;">Save</button>
-            <button type="button" id="ip-btn-del-script" class="ip-btn ip-mini-btn" style="height: 30px; color: #fb4934;">Del</button>
+            <button type="button" id="ip-btn-save-script" class="ip-btn ip-mini-btn" style="height: 30px; background: var(--primary); color: var(--bg-dark); font-weight: bold;">Save</button>
+            <button type="button" id="ip-btn-del-script" class="ip-btn ip-mini-btn" style="height: 30px; color: var(--danger);">Del</button>
           </div>
           <input type="text" id="ip-script-name" class="ui-input-text" value="my_script" placeholder="script_name" spellcheck="false" style="height: 28px;">
           <textarea id="ip-script-editor" style="width: 100%; height: 180px; font-family: monospace; font-size: 11px;"></textarea>
           <div style="display: flex; gap: 6px;">
-            <button type="button" id="ip-btn-run-script" class="ip-btn" style="flex: 1; height: 32px; background: #b8bb26; color: #1d2021; font-weight: bold;">▶ Run Script</button>
+            <button type="button" id="ip-btn-run-script" class="ip-btn" style="flex: 1; height: 32px; background: var(--success); color: var(--bg-dark); font-weight: bold;">▶ Run Script</button>
             <button type="button" id="ip-btn-run-selection" class="ip-btn" style="flex: 1; height: 32px;">Run Selected</button>
           </div>
         </div>
@@ -3436,30 +3456,30 @@
         <span>CUSTOMIZE HUD BARS</span>
         <button type="button" class="ip-sheet-close" onclick="document.getElementById('sheet-hud-customizer').classList.remove('active')">✕</button>
       </div>
-      <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid #3c3836; background: #181a1b;">
+      <div class="ip-pills-row" id="ip-hud-dock-tabs" style="padding: 6px 8px 0; border-bottom: 1px solid var(--border); background: var(--bg-input);">
         <button type="button" class="ip-pill-btn active" data-docktab="left">Left Bar</button>
         <button type="button" class="ip-pill-btn" data-docktab="right">Right Bar</button>
         <button type="button" class="ip-pill-btn" data-docktab="bottom">Bottom Bar</button>
       </div>
       <div class="ip-sheet-content" style="padding: 10px; display: flex; flex-direction: column; gap: 10px; max-height: calc(85vh - 100px); overflow-y: auto;">
-        <div id="ip-hud-customizer-dock-label" style="color: #a89984; font-size: 11px;">
+        <div id="ip-hud-customizer-dock-label" style="color: var(--text-muted); font-size: 11px;">
           Choose which sliders and quick action buttons appear on the Left Dock:
         </div>
 
-        <div style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">Vertical Sliders</div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--primary); ">Vertical Sliders</div>
         <div id="ip-hud-sliders-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
 
-        <div style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase; margin-top: 4px;">Quick Action Buttons</div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--primary);  margin-top: 4px;">Quick Action Buttons</div>
         <div id="ip-hud-actions-toggle-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;"></div>
 
-        <div style="font-size: 11px; font-weight: bold; color: #fabd2f; text-transform: uppercase; margin-top: 4px;">Presets</div>
+        <div style="font-size: 11px; font-weight: bold; color: var(--primary);  margin-top: 4px;">Presets</div>
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
           <button type="button" class="ip-btn" id="btn-ip-hud-preset-default">Default</button>
           <button type="button" class="ip-btn" id="btn-ip-hud-preset-pro">Painter Pro</button>
           <button type="button" class="ip-btn" id="btn-ip-hud-preset-full">Full Deck</button>
         </div>
 
-        <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: #fabd2f; color: #1d2021; font-weight: bold; padding: 9px; margin-top: 4px;">Apply &amp; Close</button>
+        <button type="button" class="ip-btn" id="btn-ip-hud-save-close" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; padding: 9px; margin-top: 4px;">Apply &amp; Close</button>
       </div>
     </div>
   </div>
@@ -3494,7 +3514,7 @@
         <canvas id="touch-color-canvas" width="200" height="200"></canvas>
       </div>
       <div style="width: 100%; display: flex; flex-direction: column; gap: 2px;">
-        <div class="ui-label-row"><span style="font-size: 10px; color: #a89984;">Brightness / Value:</span><span id="touch-val-readout" class="ui-val">100%</span></div>
+        <div class="ui-label-row"><span style="font-size: 10px; color: var(--text-muted);">Brightness / Value:</span><span id="touch-val-readout" class="ui-val">100%</span></div>
         <input type="range" id="touch-wheel-val-slider" min="0" max="100" value="100" class="ui-slider" style="width: 100%;">
       </div>
     </div>
@@ -3502,25 +3522,25 @@
     <!-- TAB 2: SV BOX -->
     <div id="touch-panel-box" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px; align-items: center;">
       <div class="touch-color-svbox-wrap" style="position: relative; width: 100%; max-width: 260px; height: 160px;">
-        <canvas id="touch-svbox-canvas" width="260" height="160" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; border: 1px solid #504945;"></canvas>
+        <canvas id="touch-svbox-canvas" width="260" height="160" style="width: 100%; height: 100%; touch-action: none; cursor: crosshair; border: 1px solid var(--border-bright);"></canvas>
         <div id="touch-svbox-cursor" style="position: absolute; width: 12px; height: 12px; border: 2px solid #fff; box-shadow: 0 0 2px #000; border-radius: 50%; pointer-events: none; transform: translate(-50%, -50%); left: 100%; top: 0;"></div>
       </div>
       <div style="width: 100%; display: flex; flex-direction: column; gap: 2px;">
-        <div class="ui-label-row"><span style="font-size: 10px; color: #a89984;">Hue Spectrum:</span><span id="touch-box-hue-readout" class="ui-val">0°</span></div>
+        <div class="ui-label-row"><span style="font-size: 10px; color: var(--text-muted);">Hue Spectrum:</span><span id="touch-box-hue-readout" class="ui-val">0°</span></div>
         <input type="range" id="touch-box-hue-slider" min="0" max="359" value="0" class="hue-rainbow-slider" style="width: 100%;">
       </div>
     </div>
 
     <!-- TAB 3: SLIDERS (RGB & HSL) -->
     <div id="touch-panel-sliders" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px;">
-      <div style="font-size: 10px; font-weight: bold; color: #fabd2f; text-transform: uppercase;">RGB Channels</div>
+      <div style="font-size: 10px; font-weight: bold; color: var(--primary); ">RGB Channels</div>
       <div class="ui-row-gap" style="gap: 4px;">
-        <span style="font-size: 10px; width: 14px; color: #fb4934; font-weight: bold;">R</span>
+        <span style="font-size: 10px; width: 14px; color: var(--danger); font-weight: bold;">R</span>
         <input type="range" id="touch-slider-r" min="0" max="255" value="235" class="ui-slider" style="flex: 1;">
         <input type="number" id="touch-num-r" min="0" max="255" value="235" class="ui-input-num" style="width: 44px; text-align: center;">
       </div>
       <div class="ui-row-gap" style="gap: 4px;">
-        <span style="font-size: 10px; width: 14px; color: #b8bb26; font-weight: bold;">G</span>
+        <span style="font-size: 10px; width: 14px; color: var(--success); font-weight: bold;">G</span>
         <input type="range" id="touch-slider-g" min="0" max="255" value="219" class="ui-slider" style="flex: 1;">
         <input type="number" id="touch-num-g" min="0" max="255" value="219" class="ui-input-num" style="width: 44px; text-align: center;">
       </div>
@@ -3530,28 +3550,28 @@
         <input type="number" id="touch-num-b" min="0" max="255" value="178" class="ui-input-num" style="width: 44px; text-align: center;">
       </div>
 
-      <div style="font-size: 10px; font-weight: bold; color: #8ec07c; text-transform: uppercase; margin-top: 4px;">HSV / HSL</div>
+      <div style="font-size: 10px; font-weight: bold; color: #8ec07c;  margin-top: 4px;">HSV / HSL</div>
       <div class="ui-row-gap" style="gap: 4px;">
         <span style="font-size: 10px; width: 14px; color: #d3869b; font-weight: bold;">H</span>
         <input type="range" id="touch-slider-h" min="0" max="359" value="43" class="ui-slider" style="flex: 1;">
-        <span id="touch-val-h" style="font-size: 10px; width: 44px; text-align: right; color: #ebdbb2;">43°</span>
+        <span id="touch-val-h" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">43°</span>
       </div>
       <div class="ui-row-gap" style="gap: 4px;">
-        <span style="font-size: 10px; width: 14px; color: #fe8019; font-weight: bold;">S</span>
+        <span style="font-size: 10px; width: 14px; color: var(--primary-hover); font-weight: bold;">S</span>
         <input type="range" id="touch-slider-s" min="0" max="100" value="60" class="ui-slider" style="flex: 1;">
-        <span id="touch-val-s" style="font-size: 10px; width: 44px; text-align: right; color: #ebdbb2;">60%</span>
+        <span id="touch-val-s" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">60%</span>
       </div>
       <div class="ui-row-gap" style="gap: 4px;">
-        <span style="font-size: 10px; width: 14px; color: #fabd2f; font-weight: bold;">V</span>
+        <span style="font-size: 10px; width: 14px; color: var(--primary); font-weight: bold;">V</span>
         <input type="range" id="touch-slider-v" min="0" max="100" value="92" class="ui-slider" style="flex: 1;">
-        <span id="touch-val-v" style="font-size: 10px; width: 44px; text-align: right; color: #ebdbb2;">92%</span>
+        <span id="touch-val-v" style="font-size: 10px; width: 44px; text-align: right; color: var(--text);">92%</span>
       </div>
     </div>
 
     <!-- TAB 4: PALETTES & SWATCHES -->
     <div id="touch-panel-palettes" class="touch-color-panel" style="display: none; flex-direction: column; gap: 6px;">
       <div class="ui-row-gap" style="align-items: center;">
-        <label style="font-size: 10px; font-weight: bold; color: #a89984;">Palette:</label>
+        <label style="font-size: 10px; font-weight: bold; color: var(--text-muted);">Palette:</label>
         <select id="touch-palette-select" class="ui-select" style="flex: 1; height: 26px;">
           <option value="custom">My Custom Swatches</option>
           <option value="gruvbox">Gruvbox Dark</option>
@@ -3566,16 +3586,16 @@
     </div>
 
     <!-- DIRECT HEX & ACTION BAR (Shown across all modes) -->
-    <div style="background: #181a1b; border: 1px solid #3c3836; padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 2px;">
+    <div style="background: var(--bg-input); border: 1px solid var(--border); padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; margin-top: 2px;">
       <div class="ui-row-between" style="align-items: center;">
         <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="font-size: 11px; font-weight: bold; color: #fabd2f;">HEX:</span>
-          <input type="text" id="touch-color-hex-input" value="#EBDBB2" maxlength="7" spellcheck="false" class="ui-input-text" style="width: 82px; font-weight: bold; text-transform: uppercase; padding: 2px 4px; font-size: 11px; text-align: center;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--primary);">HEX:</span>
+          <input type="text" id="touch-color-hex-input" value="var(--text)" maxlength="7" spellcheck="false" class="ui-input-text" style="width: 82px; font-weight: bold; text-transform: uppercase; padding: 2px 4px; font-size: 11px; text-align: center;">
           <button type="button" class="dock-strip-btn" id="btn-touch-copy-hex" title="Copy Hex Code" style="padding: 0 6px; height: 24px;">Copy</button>
         </div>
         <div style="display: flex; gap: 4px;">
-          <button type="button" class="dock-strip-btn" id="btn-touch-add-swatch" style="background: #fabd2f; color: #1d2021; font-weight: bold; height: 24px; padding: 0 8px;" title="Save current color to custom swatches">+ Swatch</button>
-          <button type="button" class="dock-strip-btn" id="btn-touch-del-swatch" style="height: 24px; padding: 0 6px; color: #fb4934;" title="Toggle Swatch Delete Mode">Del</button>
+          <button type="button" class="dock-strip-btn" id="btn-touch-add-swatch" style="background: var(--primary); color: var(--bg-dark); font-weight: bold; height: 24px; padding: 0 8px;" title="Save current color to custom swatches">+ Swatch</button>
+          <button type="button" class="dock-strip-btn" id="btn-touch-del-swatch" style="height: 24px; padding: 0 6px; color: var(--danger);" title="Toggle Swatch Delete Mode">Del</button>
         </div>
       </div>
     </div>
@@ -3709,7 +3729,7 @@
     if (bar) {
       const saveBtn = document.createElement('button');
       saveBtn.className = 'ip-btn-icon';
-      saveBtn.style.cssText = 'color: #fabd2f; font-weight: bold; font-size: 11px; width: auto; padding: 0 10px; border: 1px solid #fabd2f; border-radius: 4px; margin-left: 10px; cursor: pointer;';
+      saveBtn.style.cssText = 'color: var(--primary); font-weight: bold; font-size: 11px; width: auto; padding: 0 10px; border: 1px solid var(--primary); border-radius: var(--radius-sm); margin-left: 10px; cursor: pointer;';
       saveBtn.textContent = '✓ SAVE TO VECTOR';
       saveBtn.onclick = () => {
         const host = window.host;
@@ -3783,7 +3803,7 @@
 
       const cancelBtn = document.createElement('button');
       cancelBtn.className = 'ip-btn-icon';
-      cancelBtn.style.cssText = 'color: #fb4934; font-weight: bold; font-size: 11px; width: auto; padding: 0 10px; margin-left: 4px; border: 1px solid #fb4934; border-radius: 4px; cursor: pointer;';
+      cancelBtn.style.cssText = 'color: var(--danger); font-weight: bold; font-size: 11px; width: auto; padding: 0 10px; margin-left: 4px; border: 1px solid var(--danger); border-radius: var(--radius-sm); cursor: pointer;';
       cancelBtn.textContent = '✕ CANCEL';
       cancelBtn.onclick = () => window.parent.postMessage({ type: 'CANCEL_EDIT' }, '*');
 
