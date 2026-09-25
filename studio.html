@@ -1911,57 +1911,61 @@
           <div class="accordion-body">
             <div class="form-row">
               <label>Preset</label>
-              <select id="prop-brush-preset">
-                <option value="custom">-- Custom Settings --</option>
-                <option value="default">Solid Vector (Default)</option>
-                <optgroup label="Pencils & Sketching">
-                  <option value="pencil">HB Graphite Pencil</option>
-                  <option value="soft_pencil">6B Soft Graphite</option>
-                  <option value="mech_pencil">0.5mm Mechanical</option>
-                  <option value="blue_pencil">Blue Col-Erase</option>
-                  <option value="tech_pen">Technical Drafting Pen</option>
-                </optgroup>
-                <optgroup label="Inkers & Line Art">
-                  <option value="inker">Studio Inker</option>
-                  <option value="gpen">Manga G-Pen</option>
-                  <option value="dry_ink">Dry Ink Bristle</option>
-                  <option value="fountain">Calligraphy Chisel</option>
-                  <option value="brush_pen">Sumi-e Brush Pen</option>
-                </optgroup>
-                <optgroup label="Markers & Lettering">
-                  <option value="marker">Art Chisel Marker</option>
-                  <option value="brush_marker">Flexible Brush Marker</option>
-                  <option value="highlighter">Highlighter</option>
-                </optgroup>
-                <optgroup label="Paint & Wet Media">
-                  <option value="oil">Oil Impasto (Wet)</option>
-                  <option value="acrylic">Wet Acrylic</option>
-                  <option value="watercolor">Watercolor Wash</option>
-                  <option value="gouache">Matte Gouache</option>
-                  <option value="palette_knife">Palette Knife</option>
-                </optgroup>
-                <optgroup label="Charcoal & Pastels">
-                  <option value="charcoal">Vine Dusty Charcoal</option>
-                  <option value="hard_charcoal">Compressed Charcoal</option>
-                  <option value="pastel">Chalk Pastel</option>
-                  <option value="conte">Conté Crayon</option>
-                </optgroup>
-                <optgroup label="Airbrush & Sprays">
-                  <option value="airbrush">Soft Airbrush</option>
-                  <option value="hard_airbrush">Flow Airbrush</option>
-                  <option value="spray">Aerosol Splatter Spray</option>
-                </optgroup>
-                <optgroup label="Blenders & Smudgers">
-                  <option value="smudge">Finger Smudge</option>
-                  <option value="blend">Paint Blender</option>
-                  <option value="rake_blend">Bristle Smear</option>
-                </optgroup>
-                <optgroup label="Special FX">
-                  <option value="pixel">Pixel 1px Pencil</option>
-                  <option value="halftone">Manga Screentone</option>
-                  <option value="crosshatch">Crosshatch Texture</option>
-                </optgroup>
-              </select>
+              <div style="display: flex; gap: 4px; width: 100%;">
+                <select id="prop-brush-preset" style="flex: 1;">
+                  <option value="custom">-- Custom Settings --</option>
+                  <option value="default">Solid Vector (Default)</option>
+                  <optgroup label="Pencils & Sketching">
+                    <option value="pencil">HB Graphite Pencil</option>
+                    <option value="soft_pencil">6B Soft Graphite</option>
+                    <option value="mech_pencil">0.5mm Mechanical</option>
+                    <option value="blue_pencil">Blue Col-Erase</option>
+                    <option value="tech_pen">Technical Drafting Pen</option>
+                  </optgroup>
+                  <optgroup label="Inkers & Line Art">
+                    <option value="inker">Studio Inker</option>
+                    <option value="gpen">Manga G-Pen</option>
+                    <option value="dry_ink">Dry Ink Bristle</option>
+                    <option value="fountain">Calligraphy Chisel</option>
+                    <option value="brush_pen">Sumi-e Brush Pen</option>
+                  </optgroup>
+                  <optgroup label="Markers & Lettering">
+                    <option value="marker">Art Chisel Marker</option>
+                    <option value="brush_marker">Flexible Brush Marker</option>
+                    <option value="highlighter">Highlighter</option>
+                  </optgroup>
+                  <optgroup label="Paint & Wet Media">
+                    <option value="oil">Oil Impasto (Wet)</option>
+                    <option value="acrylic">Wet Acrylic</option>
+                    <option value="watercolor">Watercolor Wash</option>
+                    <option value="gouache">Matte Gouache</option>
+                    <option value="palette_knife">Palette Knife</option>
+                  </optgroup>
+                  <optgroup label="Charcoal & Pastels">
+                    <option value="charcoal">Vine Dusty Charcoal</option>
+                    <option value="hard_charcoal">Compressed Charcoal</option>
+                    <option value="pastel">Chalk Pastel</option>
+                    <option value="conte">Conté Crayon</option>
+                  </optgroup>
+                  <optgroup label="Airbrush & Sprays">
+                    <option value="airbrush">Soft Airbrush</option>
+                    <option value="hard_airbrush">Flow Airbrush</option>
+                    <option value="spray">Aerosol Splatter Spray</option>
+                  </optgroup>
+                  <optgroup label="Blenders & Smudgers">
+                    <option value="smudge">Finger Smudge</option>
+                    <option value="blend">Paint Blender</option>
+                    <option value="rake_blend">Bristle Smear</option>
+                  </optgroup>
+                  <optgroup label="Special FX">
+                    <option value="pixel">Pixel 1px Pencil</option>
+                    <option value="halftone">Manga Screentone</option>
+                    <option value="crosshatch">Crosshatch Texture</option>
+                  </optgroup>
+                  <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
+                </select>
+                <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-main); border-radius: 3px;">+ Save</button>
+              </div>
             </div>
             <div class="form-row">
               <label>Flow %</label>
@@ -2097,27 +2101,31 @@
               <div class="form-row">
                 <label>Target</label>
                 <select id="prop-filter-target">
-                  <option value="backdrop">🔍 Backdrop (Filter Lens)</option>
-                  <option value="object">✨ Whole Object (Fill+Stroke)</option>
-                  <option value="fill">🎨 Fill Only</option>
-                  <option value="stroke">✏ Stroke Only</option>
+                  <option value="backdrop">Lens</option>
+                  <option value="fill">Fill</option>
+                  <option value="stroke">Stroke</option>
+                  <option value="object">Fill + Stroke</option>
                 </select>
               </div>
               <div class="form-row">
                 <label>Plugin</label>
-                <select id="prop-filter-plugin">
-                  <option value="dither">Dither (Bayer Matrix)</option>
-                  <option value="blur">Blur (Gaussian)</option>
-                  <option value="pixelate">Pixelate / Mosaic</option>
-                  <option value="edge">Edge Detection (Sobel)</option>
-                  <option value="noise">Noise / Film Grain</option>
-                  <option value="invert">Invert Colors</option>
-                  <option value="grayscale">Grayscale</option>
-                  <option value="sepia">Sepia Tone</option>
-                  <option value="threshold">Threshold (B&W)</option>
-                  <option value="brightness">Brightness</option>
-                  <option value="contrast">Contrast</option>
-                </select>
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <select id="prop-filter-plugin" style="flex: 1;">
+                    <option value="dither">Dither</option>
+                    <option value="blur">Blur</option>
+                    <option value="pixelate">Pixelate</option>
+                    <option value="edge">Edge Detection</option>
+                    <option value="noise">Noise</option>
+                    <option value="invert">Invert</option>
+                    <option value="grayscale">Grayscale</option>
+                    <option value="sepia">Sepia</option>
+                    <option value="threshold">Threshold</option>
+                    <option value="brightness">Brightness</option>
+                    <option value="contrast">Contrast</option>
+                  </select>
+                  <button id="btn-import-wasm-plugin" title="Import .wasm plugin" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-main); border-radius: 3px;">+ Import</button>
+                  <input type="file" id="input-wasm-plugin" accept=".wasm" style="display: none;">
+                </div>
               </div>
               <div class="form-row" id="row-filter-p1">
                 <label id="lbl-filter-p1">Param 1</label>
@@ -2175,8 +2183,8 @@
           <div class="form-row">
             <label>Renderer</label>
             <select id="prop-viewport-renderer">
-              <option value="svg" selected>SVG (DOM/Native)</option>
-              <option value="quadro">Quadro WASM (Pixel/SIMD)</option>
+              <option value="svg" selected>SVG Direct</option>
+              <option value="quadro">Quadro</option>
             </select>
           </div>
           <div class="form-row">
@@ -3841,6 +3849,18 @@
         document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
 
         // Stroke Brush Dynamics
+        const grpCustomBrushes = document.getElementById('grp-custom-brush-presets');
+        if (grpCustomBrushes && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
+          grpCustomBrushes.innerHTML = '';
+          const customPresets = EsenhoStore.getCustomBrushPresets();
+          for (const [k, p] of Object.entries(customPresets)) {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = p.name || k;
+            grpCustomBrushes.appendChild(opt);
+          }
+        }
+
         const bc = obj.brushConfig || {};
         document.getElementById('prop-brush-flow').value = bc.flow !== undefined ? bc.flow : 100;
         document.getElementById('prop-brush-hardness').value = bc.hardness !== undefined ? bc.hardness : 100;
@@ -3884,6 +3904,25 @@
         const isFilterOn = !!wf.enabled;
         if (filterEnabledCheckbox) filterEnabledCheckbox.checked = isFilterOn;
         if (filterControls) filterControls.style.display = isFilterOn ? 'flex' : 'none';
+
+        if (filterPluginSelect) {
+          const allKnownPlugins = new Set();
+          if (doc && doc.wasmPlugins) {
+            for (const k of doc.wasmPlugins.keys()) allKnownPlugins.add(k);
+          }
+          if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
+            for (const k of SvgEngine.wasmPlugins.keys()) allKnownPlugins.add(k);
+          }
+          for (const k of allKnownPlugins) {
+            if (!Array.from(filterPluginSelect.options).some(o => o.value === k)) {
+              const opt = document.createElement('option');
+              opt.value = k;
+              opt.textContent = k;
+              filterPluginSelect.appendChild(opt);
+            }
+          }
+        }
+
         if (filterTargetSelect) filterTargetSelect.value = wf.target || 'backdrop';
         if (filterPluginSelect) filterPluginSelect.value = wf.plugin || 'dither';
         if (filterP1) filterP1.value = wf.p1 !== undefined ? wf.p1 : 0;
@@ -5180,7 +5219,12 @@
 
       // Brush Preset Binding
       document.getElementById('prop-brush-preset')?.addEventListener('change', (e) => {
-        const preset = BRUSH_PRESET_CONFIGS[e.target.value];
+        const val = e.target.value;
+        let preset = BRUSH_PRESET_CONFIGS[val];
+        if (!preset && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
+          const custom = EsenhoStore.getCustomBrushPresets();
+          preset = custom[val];
+        }
         if (preset) {
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
@@ -5189,6 +5233,42 @@
           }
           updateInspector();
           render();
+        }
+      });
+
+      document.getElementById('btn-save-brush-preset')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const obj = selected[0];
+        const bc = obj ? (obj.brushConfig || {}) : {};
+        const name = window.prompt('Enter name for custom brush preset:');
+        if (name && name.trim()) {
+          const configToSave = {
+            name: name.trim(),
+            desc: 'Custom brush preset',
+            flow: bc.flow !== undefined ? bc.flow : Number(document.getElementById('prop-brush-flow')?.value || 100),
+            hardness: bc.hardness !== undefined ? bc.hardness : Number(document.getElementById('prop-brush-hardness')?.value || 100),
+            spacing: bc.spacing !== undefined ? bc.spacing : Number(document.getElementById('prop-brush-spacing')?.value || 5),
+            scatter: bc.scatter !== undefined ? bc.scatter : Number(document.getElementById('prop-brush-scatter')?.value || 0),
+            roundness: bc.roundness !== undefined ? bc.roundness : Number(document.getElementById('prop-brush-roundness')?.value || 100),
+            angle: bc.angle !== undefined ? bc.angle : Number(document.getElementById('prop-brush-angle')?.value || 0),
+            shape: bc.shape !== undefined ? bc.shape : Number(document.getElementById('prop-brush-shape')?.value || 0),
+            dabBlend: bc.dabBlend !== undefined ? bc.dabBlend : Number(document.getElementById('prop-brush-dab-blend')?.value || 0),
+            auto_rotate: bc.auto_rotate !== undefined ? bc.auto_rotate : Number(document.getElementById('prop-brush-autorotate')?.value || 0),
+            taper_in: bc.taper_in !== undefined ? bc.taper_in : Number(document.getElementById('prop-brush-taper-in')?.value || 0),
+            taper_out: bc.taper_out !== undefined ? bc.taper_out : Number(document.getElementById('prop-brush-taper-out')?.value || 0),
+            size_jitter: bc.size_jitter !== undefined ? bc.size_jitter : Number(document.getElementById('prop-brush-size-jitter')?.value || 0),
+            angle_jitter: bc.angle_jitter !== undefined ? bc.angle_jitter : Number(document.getElementById('prop-brush-angle-jitter')?.value || 0),
+            opacity_jitter: bc.opacity_jitter !== undefined ? bc.opacity_jitter : Number(document.getElementById('prop-brush-opacity-jitter')?.value || 0),
+            wetness: bc.wetness !== undefined ? bc.wetness : Number(document.getElementById('prop-brush-wetness')?.value || 0),
+            color_pickup: bc.color_pickup !== undefined ? bc.color_pickup : Number(document.getElementById('prop-brush-color-pickup')?.value || 0),
+            depletion: bc.depletion !== undefined ? bc.depletion : Number(document.getElementById('prop-brush-depletion')?.value || 0),
+            smudge: bc.smudge !== undefined ? bc.smudge : Number(document.getElementById('prop-brush-smudge')?.value || 0)
+          };
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
+            EsenhoStore.saveCustomBrushPreset(name, configToSave);
+            showNotification(`Brush preset "${name.trim()}" saved`);
+            updateInspector();
+          }
         }
       });
 
@@ -6091,6 +6171,55 @@
         render();
       });
 
+      document.getElementById('btn-import-wasm-plugin')?.addEventListener('click', () => {
+        document.getElementById('input-wasm-plugin')?.click();
+      });
+
+      document.getElementById('input-wasm-plugin')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const name = file.name.replace(/\.wasm$/i, '').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(arrayBuffer);
+
+          if (doc && doc.wasmPlugins) {
+            doc.wasmPlugins.set(name, bytes);
+          }
+          if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
+            SvgEngine.wasmPlugins.set(name, bytes);
+          }
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.savePlugin) {
+            await EsenhoStore.savePlugin(name, bytes);
+          }
+
+          const sel = document.getElementById('prop-filter-plugin');
+          if (sel) {
+            let opt = Array.from(sel.options).find(o => o.value === name);
+            if (!opt) {
+              opt = document.createElement('option');
+              opt.value = name;
+              opt.textContent = name;
+              sel.appendChild(opt);
+            }
+            sel.value = name;
+          }
+
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: name, target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+            obj.wasmFilter.plugin = name;
+          }
+          updateInspector();
+          render();
+          showNotification(`Plugin "${name}" imported`);
+        } catch (err) {
+          console.error('Failed to import WASM plugin:', err);
+          showNotification('Error loading WASM plugin');
+        }
+        e.target.value = '';
+      });
+
       document.getElementById('prop-filter-p1')?.addEventListener('input', (e) => {
         const val = Number(e.target.value);
         const selected = doc.getSelectedObjects();
@@ -6730,6 +6859,21 @@
       const lastVecProj = localStorage.getItem('esenho_current_vector_project_id');
 
       (async () => {
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
+          try {
+            const customPlugins = await EsenhoStore.getAllPlugins();
+            for (const cp of customPlugins) {
+              if (!cp.name || !cp.bytes) continue;
+              if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
+                SvgEngine.wasmPlugins.set(cp.name, cp.bytes);
+              }
+              if (doc && doc.wasmPlugins) {
+                doc.wasmPlugins.set(cp.name, cp.bytes);
+              }
+            }
+          } catch (_) {}
+        }
+
         let loaded = false;
         if (paramProj) {
           loaded = await loadProjectFromStorage(paramProj);
@@ -6744,6 +6888,7 @@
         }
 
         initQuadro();
+        updateInspector();
         setTimeout(zoomToFit, 50);
       })();
     })();

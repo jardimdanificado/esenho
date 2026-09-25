@@ -256,6 +256,22 @@ async function main() {
   } catch (e) {
     log(`info: plugins dynamic discovery: ${e.message}`);
   }
+
+  // Load custom plugins stored in shared EsenhoStore (IndexedDB)
+  if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
+    try {
+      const customPlugins = await EsenhoStore.getAllPlugins();
+      for (const cp of customPlugins) {
+        if (!cp.name || !cp.bytes || host.plugins.has(cp.name)) continue;
+        try {
+          const mod = await EsenhoModule.fromBytes(cp.bytes, { name: cp.name });
+          host.plugins.set(cp.name, { type: 'filter', module: mod, actor: mod });
+        } catch (err) {
+          log(`warn: stored plugin ${cp.name} — ${err.message}`, 'err');
+        }
+      }
+    } catch (_) {}
+  }
   log(`${host.plugins.size} plugins loaded [ok]`);
 
 
@@ -6706,8 +6722,12 @@ async function main() {
     const pluginName = file.name.replace(/\.wasm$/i, '').toLowerCase();
     try {
       const bytes = await file.arrayBuffer();
-      const mod = await EsenhoModule.fromBytes(bytes, { name: pluginName });
+      const u8 = new Uint8Array(bytes);
+      const mod = await EsenhoModule.fromBytes(u8, { name: pluginName });
       host.plugins.set(pluginName, { type: 'filter', module: mod, actor: mod });
+      if (typeof EsenhoStore !== 'undefined' && EsenhoStore.savePlugin) {
+        await EsenhoStore.savePlugin(pluginName, u8);
+      }
       populateFilterSelect();
       if (filterSel) {
         filterSel.value = pluginName;

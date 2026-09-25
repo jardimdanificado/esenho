@@ -956,6 +956,36 @@ async function runSvgEngineTests() {
 
   console.log('✔ Non-Destructive WASM Filter Plugins, Filter Lens & SVG Embedding passed');
 
+  // --- 28. Test Shared EsenhoStore WASM Plugins & Brush Presets ---
+  console.log('--- Testing Shared EsenhoStore Plugins & Brush Presets ---');
+  const EsenhoStore = require('../src/project_store.js');
+  
+  // Test saving and reading custom WASM plugin
+  const dummyPluginBytes = new Uint8Array([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00]);
+  await EsenhoStore.savePlugin('test_shared_filter', dummyPluginBytes);
+  const allStoredPlugins = await EsenhoStore.getAllPlugins();
+  const foundPlugin = allStoredPlugins.find(p => p.name === 'test_shared_filter');
+  assert(foundPlugin, 'Stored plugin test_shared_filter must exist in EsenhoStore');
+  assert.strictEqual(foundPlugin.bytes.length, dummyPluginBytes.length, 'Stored plugin byte length must match');
+
+  await EsenhoStore.deletePlugin('test_shared_filter');
+  const pluginsAfterDelete = await EsenhoStore.getAllPlugins();
+  assert(!pluginsAfterDelete.some(p => p.name === 'test_shared_filter'), 'Plugin must be removed after delete');
+
+  // Test shared custom brush preset storage
+  const sampleBrush = { hardness: 77, flow: 88, spacing: 3, grain: 42, name: 'Custom Shared Inker' };
+  EsenhoStore.saveCustomBrushPreset('Shared Inker', sampleBrush);
+  const customBrushes = EsenhoStore.getCustomBrushPresets();
+  assert(customBrushes['shared_inker'], 'Custom brush preset shared_inker must exist');
+  assert.strictEqual(customBrushes['shared_inker'].hardness, 77);
+  assert.strictEqual(customBrushes['shared_inker'].flow, 88);
+
+  EsenhoStore.deleteCustomBrushPreset('Shared Inker');
+  const customBrushesAfterDel = EsenhoStore.getCustomBrushPresets();
+  assert(!customBrushesAfterDel['shared_inker'], 'Custom brush preset must be deleted');
+
+  console.log('✔ Shared EsenhoStore Plugins & Brush Presets passed');
+
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }
 

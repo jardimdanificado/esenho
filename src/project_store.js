@@ -14,8 +14,9 @@
   "use strict";
 
   const DB_NAME = "EsenhoDB";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   const STORE_PROJECTS = "projects";
+  const STORE_PLUGINS = "plugins";
 
   let dbPromise = null;
 
@@ -30,6 +31,10 @@
             const store = db.createObjectStore(STORE_PROJECTS, { keyPath: "id" });
             store.createIndex("updatedAt", "updatedAt", { unique: false });
             store.createIndex("name", "name", { unique: false });
+          }
+          if (!db.objectStoreNames.contains(STORE_PLUGINS)) {
+            const store = db.createObjectStore(STORE_PLUGINS, { keyPath: "name" });
+            store.createIndex("updatedAt", "updatedAt", { unique: false });
           }
         };
         req.onsuccess = e => resolve(e.target.result);
@@ -479,6 +484,156 @@
         throw new Error("Corrupted .esen savefile structure");
       }
       return parsed;
+    },
+
+    /* ── Custom WASM Plugin Storage ── */
+    async savePlugin(name, bytes) {
+      if (!name) throw new Error("Plugin name required");
+      const u8 = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+      const db = await getDB();
+      const record = {
+        name: name.toLowerCase(),
+        bytes: u8,
+        updatedAt: Date.now()
+      };
+
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            const b64 = bytesToBase64(u8);
+            localStorage.setItem("esenho_plugin_" + record.name, b64);
+            const list = JSON.parse(localStorage.getItem("esenho_plugins_meta") || "[]");
+            if (!list.includes(record.name)) {
+              list.push(record.name);
+              localStorage.setItem("esenho_plugins_meta", JSON.stringify(list));
+            }
+          } catch (_) {}
+        } else {
+          if (!this._nodePlugins) this._nodePlugins = new Map();
+          this._nodePlugins.set(record.name, record);
+        }
+        return record;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_PLUGINS, "readwrite");
+        const store = tx.objectStore(STORE_PLUGINS);
+        const req = store.put(record);
+        req.onsuccess = () => resolve(record);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async getAllPlugins() {
+      const db = await getDB();
+      if (!db) {
+        const list = [];
+        if (typeof localStorage !== "undefined") {
+          try {
+            const names = JSON.parse(localStorage.getItem("esenho_plugins_meta") || "[]");
+            for (const name of names) {
+              const b64 = localStorage.getItem("esenho_plugin_" + name);
+              if (b64) {
+                list.push({ name, bytes: base64ToBytes(b64), updatedAt: Date.now() });
+              }
+            }
+          } catch (_) {}
+        } else if (this._nodePlugins) {
+          for (const rec of this._nodePlugins.values()) {
+            list.push(rec);
+          }
+        }
+        return list;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_PLUGINS, "readonly");
+        const store = tx.objectStore(STORE_PLUGINS);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    async deletePlugin(name) {
+      const safeName = (name || "").toLowerCase();
+      const db = await getDB();
+      if (!db) {
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.removeItem("esenho_plugin_" + safeName);
+            const list = JSON.parse(localStorage.getItem("esenho_plugins_meta") || "[]").filter(n => n !== safeName);
+            localStorage.setItem("esenho_plugins_meta", JSON.stringify(list));
+          } catch (_) {}
+        } else if (this._nodePlugins) {
+          this._nodePlugins.delete(safeName);
+        }
+        return true;
+      }
+
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_PLUGINS, "readwrite");
+        const store = tx.objectStore(STORE_PLUGINS);
+        const req = store.delete(safeName);
+        req.onsuccess = () => resolve(true);
+        req.onerror = e => reject(e.target.error);
+      });
+    },
+
+    /* ── Shared Brush Presets ── */
+    getCustomBrushPresets() {
+      if (typeof localStorage === "undefined") {
+        return this._nodeBrushPresets || {};
+      }
+      try {
+        const stored = localStorage.getItem("esenho_custom_brush_presets_v1");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object") return parsed;
+        }
+      } catch (_) {}
+      return {};
+    },
+
+    saveCustomBrushPreset(name, presetData) {
+      if (!name) return false;
+      const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+      const current = this.getCustomBrushPresets();
+      current[key] = {
+        name: name.trim(),
+        desc: presetData.desc || "Custom brush preset",
+        ...JSON.parse(JSON.stringify(presetData))
+      };
+      if (typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem("esenho_custom_brush_presets_v1", JSON.stringify(current));
+          return true;
+        } catch (_) {}
+      } else {
+        if (!this._nodeBrushPresets) this._nodeBrushPresets = {};
+        this._nodeBrushPresets[key] = current[key];
+        return true;
+      }
+      return false;
+    },
+
+    deleteCustomBrushPreset(name) {
+      if (!name) return false;
+      const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+      const current = this.getCustomBrushPresets();
+      if (current[key]) {
+        delete current[key];
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem("esenho_custom_brush_presets_v1", JSON.stringify(current));
+            return true;
+          } catch (_) {}
+        } else if (this._nodeBrushPresets) {
+          delete this._nodeBrushPresets[key];
+          return true;
+        }
+      }
+      return false;
     }
   };
 
