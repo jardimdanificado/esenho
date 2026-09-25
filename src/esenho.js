@@ -7438,9 +7438,9 @@ class EsenhoScreenHost {
 
     const invokeStroke = (s, curX, curY, pX, pY) => {
       if (typeof this.canvasActor.exports.w_brush_stroke_ext === 'function') {
-        this.canvasActor.exports.w_brush_stroke_ext(s, Math.floor(curX), Math.floor(curY), Math.floor(pX), Math.floor(pY), col >>> 0, eraser, press, tx, ty);
+        this.canvasActor.exports.w_brush_stroke_ext(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser, press, tx, ty);
       } else if (typeof this.canvasActor.exports.w_brush_stroke === 'function') {
-        this.canvasActor.exports.w_brush_stroke(s, Math.floor(curX), Math.floor(curY), Math.floor(pX), Math.floor(pY), col >>> 0, eraser);
+        this.canvasActor.exports.w_brush_stroke(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser);
       }
     };
 

@@ -1932,8 +1932,8 @@
       </div>
       <canvas id="overlay-canvas"></canvas>
 
-      <!-- Embedded Raster Painter -->
-      <iframe id="painter-iframe" src="about:blank" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 100;"></iframe>
+      <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
+      <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
     </div>
 
     <!-- Export Modal -->
@@ -7050,6 +7050,8 @@
             iframe.contentWindow.postMessage({
               type: 'INIT_EDIT',
               src: imgObj.src,
+              naturalWidth: imgObj.naturalWidth || imgObj._imgElement?.naturalWidth || 0,
+              naturalHeight: imgObj.naturalHeight || imgObj._imgElement?.naturalHeight || 0,
               width: imgObj.width,
               height: imgObj.height,
               id: imgObj.id
@@ -7070,6 +7072,8 @@
                 iframe.contentWindow.postMessage({
                   type: 'INIT_EDIT',
                   src: editingRasterObj.src,
+                  naturalWidth: editingRasterObj.naturalWidth || editingRasterObj._imgElement?.naturalWidth || 0,
+                  naturalHeight: editingRasterObj.naturalHeight || editingRasterObj._imgElement?.naturalHeight || 0,
                   width: editingRasterObj.width,
                   height: editingRasterObj.height,
                   id: editingRasterObj.id

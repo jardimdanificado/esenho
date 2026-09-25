@@ -23,13 +23,16 @@
 
       const img = new Image();
       img.onload = () => {
-        const w = Math.max(1, Math.round(data.width || img.naturalWidth || img.width || 800));
-        const h = Math.max(1, Math.round(data.height || img.naturalHeight || img.height || 600));
+        const w = Math.max(1, Math.round(img.naturalWidth || data.naturalWidth || img.width || data.width || 800));
+        const h = Math.max(1, Math.round(img.naturalHeight || data.naturalHeight || img.height || data.height || 600));
 
         // Re-initialize surface to exact raster dimensions
         host.canvasActor.exports.w_init(w, h);
         host.currentProjectId = 'embedded_' + Date.now();
         host.currentProjectName = 'Raster Layer';
+        host.canvasRotation = 0;
+        host.flipH = false;
+        host.flipV = false;
 
         // Clear background layer slot 3 with transparent
         const bgPtr = host.canvasActor.exports.w_layer_get_pixels(3);
@@ -61,9 +64,18 @@
           new Uint8Array(host.canvasActor.memory.buffer, drawPtr, w * h * 4).set(idata.data);
         }
 
+        if (!host.layerNames) host.layerNames = new Map();
+        host.layerNames.set(3, 'Background');
+        if (drawId >= 0) host.layerNames.set(drawId, 'Layer 1');
+
         host.canvasActor.exports.force_composite();
+        if (typeof host.resize === 'function') host.resize();
         if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        if (host.zoomToFit) host.zoomToFit();
+        if (typeof host.resizeCanvas === 'function') {
+          host.resizeCanvas(w, h);
+        } else if (host.zoomToFit) {
+          host.zoomToFit();
+        }
         if (host.render) host.render();
       };
       img.src = data.src;

@@ -347,8 +347,9 @@ async function main() {
   function resize() {
     const parent = canvasEl.parentElement;
     if (!parent) return;
-    const parentW = parent.clientWidth;
-    const parentH = parent.clientHeight;
+    const r = canvasEl.getBoundingClientRect();
+    const parentW = Math.round(parent.clientWidth || r.width || window.innerWidth);
+    const parentH = Math.round(parent.clientHeight || r.height || window.innerHeight);
     if (parentW <= 0 || parentH <= 0) return;
 
     const prevW = canvasEl.width;
@@ -379,6 +380,7 @@ async function main() {
 
     
   }
+  host.resize = resize;
   resize();
   window.addEventListener('resize', resize);
   if (typeof ResizeObserver !== 'undefined' && canvasEl.parentElement) {

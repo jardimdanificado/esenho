@@ -3928,6 +3928,8 @@
             iframe.contentWindow.postMessage({
               type: 'INIT_EDIT',
               src: imgObj.src,
+              naturalWidth: imgObj.naturalWidth || imgObj._imgElement?.naturalWidth || 0,
+              naturalHeight: imgObj.naturalHeight || imgObj._imgElement?.naturalHeight || 0,
               width: imgObj.width,
               height: imgObj.height,
               id: imgObj.id
@@ -3948,6 +3950,8 @@
                 iframe.contentWindow.postMessage({
                   type: 'INIT_EDIT',
                   src: editingRasterObj.src,
+                  naturalWidth: editingRasterObj.naturalWidth || editingRasterObj._imgElement?.naturalWidth || 0,
+                  naturalHeight: editingRasterObj.naturalHeight || editingRasterObj._imgElement?.naturalHeight || 0,
                   width: editingRasterObj.width,
                   height: editingRasterObj.height,
                   id: editingRasterObj.id
