@@ -864,6 +864,98 @@ async function runSvgEngineTests() {
 
   console.log('✔ Child Object Selection & Isolated Transformation passed');
 
+  // 27. Test Non-Destructive WASM Filter Plugins, Filter Lens & Embedded WASM in SVG
+  console.log('--- Testing Non-Destructive WASM Filter Plugins, Filter Lens & SVG Embedding ---');
+  const wasmDoc = new SvgDocument(200, 200);
+  wasmDoc.backgroundColor = 'none';
+
+  // 1. Background Rect with red fill
+  const bgRect = new SvgRect({ x: 0, y: 0, width: 200, height: 200, fill: '#ff0000', stroke: 'none' });
+  wasmDoc.addObject(bgRect);
+
+  // 2. Filter Lens (Backdrop target with Dither)
+  const lensCircle = new SvgCircle({
+    cx: 50,
+    cy: 50,
+    r: 30,
+    fill: 'none',
+    stroke: '#00ff00',
+    strokeWidth: 2,
+    wasmFilter: {
+      enabled: true,
+      plugin: 'dither',
+      target: 'backdrop',
+      p1: 0,
+      p2: 0,
+      opacity: 1.0
+    }
+  });
+  wasmDoc.addObject(lensCircle);
+
+  // 3. Fill Filter (Invert)
+  const filtRect = new SvgRect({
+    x: 120,
+    y: 120,
+    width: 60,
+    height: 60,
+    fill: '#00ff00',
+    stroke: 'none',
+    wasmFilter: {
+      enabled: true,
+      plugin: 'invert',
+      target: 'fill',
+      p1: 100,
+      p2: 0,
+      opacity: 1.0
+    }
+  });
+  wasmDoc.addObject(filtRect);
+
+  // Test SVG Export with Embedded WASM Binaries
+  const exportedSvg = wasmDoc.toSVGString();
+  assert(exportedSvg.includes('data-wasm-filter='), 'Exported SVG must contain data-wasm-filter attribute');
+  assert(exportedSvg.includes('<script type="application/wasm" id="wasm-plugin-dither" data-plugin-name="dither">'), 'Used dither plugin must be embedded in SVG <defs>');
+  assert(exportedSvg.includes('<script type="application/wasm" id="wasm-plugin-invert" data-plugin-name="invert">'), 'Used invert plugin must be embedded in SVG <defs>');
+  assert(!exportedSvg.includes('data-plugin-name="blur"'), 'Unused blur plugin must NOT be embedded in SVG');
+
+  // Test SVG Import and Embedded WASM Extraction
+  const importedDoc = new SvgDocument();
+  importedDoc.fromSVGString(exportedSvg);
+  assert.strictEqual(importedDoc.objects.length, 3, 'Imported doc should have 3 objects');
+  assert.strictEqual(importedDoc.wasmPlugins.has('dither'), true, 'Imported doc must contain dither binary');
+  assert.strictEqual(importedDoc.wasmPlugins.has('invert'), true, 'Imported doc must contain invert binary');
+
+  const importedLens = importedDoc.objects[1];
+  assert(importedLens.wasmFilter && importedLens.wasmFilter.enabled, 'Imported lens must have wasmFilter enabled');
+  assert.strictEqual(importedLens.wasmFilter.plugin, 'dither');
+  assert.strictEqual(importedLens.wasmFilter.target, 'backdrop');
+
+  // Test Quadro WASM Rasterization with Filter Lens & Fill Filter
+  if (fs.existsSync(canvasWasmPath)) {
+    const actor = new EsenhoModule(canvasWasmPath);
+    const renderer = new QuadroSvgRenderer(actor);
+    renderer.renderDocument(wasmDoc, { scale: 1.0 });
+
+    const imgData = renderer.getImageData();
+    assert(imgData && imgData.data.length === 200 * 200 * 4);
+
+    // Pixel at (50, 50) is inside the dither lens over red (#ff0000)
+    // Dither turns luma into black or white (0 or 255)
+    const idxLens = (50 * 200 + 50) * 4;
+    const rLens = imgData.data[idxLens];
+    const gLens = imgData.data[idxLens + 1];
+    const bLens = imgData.data[idxLens + 2];
+    assert(rLens === 0 || rLens === 255, 'Dither lens should quantize color inside lens circle');
+
+    // Pixel at (10, 10) is outside lens, still pure red
+    const idxOut = (10 * 200 + 10) * 4;
+    assert.strictEqual(imgData.data[idxOut], 255, 'Outside lens pixel R should be 255');
+    assert.strictEqual(imgData.data[idxOut + 1], 0, 'Outside lens pixel G should be 0');
+    assert.strictEqual(imgData.data[idxOut + 2], 0, 'Outside lens pixel B should be 0');
+  }
+
+  console.log('✔ Non-Destructive WASM Filter Plugins, Filter Lens & SVG Embedding passed');
+
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }
 

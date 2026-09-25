@@ -31,6 +31,33 @@
       .replace(/'/g, '&apos;');
   }
 
+  function encodeBase64(bytes) {
+    if (typeof Buffer !== 'undefined') {
+      return Buffer.from(bytes).toString('base64');
+    }
+    let binary = '';
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  function decodeBase64(b64) {
+    b64 = b64.replace(/\s+/g, '');
+    if (typeof Buffer !== 'undefined') {
+      return new Uint8Array(Buffer.from(b64, 'base64'));
+    }
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  const globalWasmPlugins = new Map();
+
   /* =========================================================================
    * Bézier Math & Geometry Utilities
    * ========================================================================= */
@@ -545,6 +572,17 @@
         ...(attributes.fillTexture || {})
       };
 
+      // Non-destructive WASM Filter Plugin & Backdrop Filter Lens
+      this.wasmFilter = {
+        enabled: false,
+        plugin: 'dither',
+        target: 'backdrop', // 'backdrop', 'object', 'fill', 'stroke'
+        p1: 0,
+        p2: 0,
+        opacity: 1.0,
+        ...(attributes.wasmFilter || {})
+      };
+
       // Transform
       this.x = Number(attributes.x || 0);
       this.y = Number(attributes.y || 0);
@@ -601,6 +639,9 @@
       }
       if (this.fillGradient) {
         attrs += ` data-gradient="${encodeURIComponent(JSON.stringify(this.fillGradient))}"`;
+      }
+      if (this.wasmFilter && this.wasmFilter.enabled) {
+        attrs += ` data-wasm-filter="${encodeURIComponent(JSON.stringify(this.wasmFilter))}"`;
       }
       return attrs;
     }
@@ -753,6 +794,7 @@
         brushConfig: { ...this.brushConfig },
         strokeTexture: { ...this.strokeTexture },
         fillTexture: { ...this.fillTexture },
+        wasmFilter: { ...this.wasmFilter },
         x: this.x,
         y: this.y,
         rotation: this.rotation,
@@ -2238,6 +2280,7 @@
       this.backgroundColor = '#1d2021';
       this.objects = []; // In z-order: index 0 is background, index N is top
       this.defs = new Map(); // Gradient & Filter definitions
+      this.wasmPlugins = new Map(); // name -> Uint8Array
       this.selectedIds = new Set();
       this.undoStack = [];
       this.redoStack = [];
@@ -3291,6 +3334,30 @@
               });
             }
           }
+          if (obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin) {
+            const pName = obj.wasmFilter.plugin;
+            const scriptId = `wasm-plugin-${pName}`;
+            if (!defsMap.has(scriptId)) {
+              let bytes = this.wasmPlugins.get(pName) || globalWasmPlugins.get(pName);
+              if (!bytes && typeof require !== 'undefined') {
+                try {
+                  const fs = require('fs');
+                  const path = require('path');
+                  const pluginPath = path.resolve(__dirname, '../../plugins', `${pName}.wasm`);
+                  if (fs.existsSync(pluginPath)) {
+                    bytes = fs.readFileSync(pluginPath);
+                  }
+                } catch (e) {}
+              }
+              if (bytes) {
+                const u8 = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+                const b64 = encodeBase64(u8);
+                defsMap.set(scriptId, {
+                  toSVGElement: () => `<script type="application/wasm" id="${scriptId}" data-plugin-name="${pName}">${b64}</script>`
+                });
+              }
+            }
+          }
           if (obj.type === 'group' && obj.children) {
             collectDefs(obj.children);
           }
@@ -3354,6 +3421,18 @@
         if (svgEl.getAttribute('height')) this.height = parseFloat(svgEl.getAttribute('height'));
         if (svgEl.getAttribute('viewBox')) this.viewBox = svgEl.getAttribute('viewBox');
 
+        // Extract embedded WASM plugins
+        const wasmScripts = svgEl.querySelectorAll('script[type="application/wasm"]');
+        for (const sc of wasmScripts) {
+          const pName = sc.getAttribute('data-plugin-name') || (sc.id ? sc.id.replace(/^wasm-plugin-/, '') : null);
+          const b64 = sc.textContent.trim();
+          if (pName && b64) {
+            const bytes = decodeBase64(b64);
+            this.wasmPlugins.set(pName, bytes);
+            globalWasmPlugins.set(pName, bytes);
+          }
+        }
+
         const parseNode = (el) => {
           const tag = el.tagName.toLowerCase();
           const getAttr = (name, def = null) => el.getAttribute(name) || def;
@@ -3395,6 +3474,12 @@
             try { fillGradient = JSON.parse(decodeURIComponent(gradAttr)); } catch (e) {}
           }
 
+          let wasmFilter = undefined;
+          const wasmFilterAttr = getAttr('data-wasm-filter');
+          if (wasmFilterAttr) {
+            try { wasmFilter = JSON.parse(decodeURIComponent(wasmFilterAttr)); } catch (e) {}
+          }
+
           const transformAttr = getAttr('transform');
           let rotation = 0;
           let originX = undefined, originY = undefined;
@@ -3412,7 +3497,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient,
+            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
             rotation, originX, originY
           };
 
@@ -3513,6 +3598,20 @@
         }
       } else {
         // Fallback RegEx Parser for Node.js
+        const scriptRegex = /<script\b[^>]*type="application\/wasm"[^>]*>([\s\S]*?)<\/script>/gi;
+        let sm;
+        while ((sm = scriptRegex.exec(svgString)) !== null) {
+          const fullTag = sm[0];
+          const b64 = sm[1].trim();
+          const nameMatch = fullTag.match(/data-plugin-name="([^"]+)"/) || fullTag.match(/id="wasm-plugin-([^"]+)"/);
+          const pName = nameMatch ? nameMatch[1] : null;
+          if (pName && b64) {
+            const bytes = decodeBase64(b64);
+            this.wasmPlugins.set(pName, bytes);
+            globalWasmPlugins.set(pName, bytes);
+          }
+        }
+
         const parseAttrString = (attrStr) => {
           const attrs = {};
           const regex = /([a-zA-Z0-9_:-]+)="([^"]*)"/g;
@@ -3562,6 +3661,12 @@
             try { fillGradient = JSON.parse(decodeURIComponent(gradAttr)); } catch (e) {}
           }
 
+          let wasmFilter = undefined;
+          const wasmFilterAttr = getAttr('data-wasm-filter');
+          if (wasmFilterAttr) {
+            try { wasmFilter = JSON.parse(decodeURIComponent(wasmFilterAttr)); } catch (e) {}
+          }
+
           const transformAttr = getAttr('transform');
           let rotation = 0;
           let originX = undefined, originY = undefined;
@@ -3579,7 +3684,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient,
+            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
             rotation, originX, originY
           };
 
@@ -4142,7 +4247,10 @@
     SvgImage,
     SvgDocument,
     SvgTracer,
-    generateId
+    generateId,
+    wasmPlugins: globalWasmPlugins,
+    encodeBase64,
+    decodeBase64
   };
 }));
 

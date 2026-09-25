@@ -1359,13 +1359,11 @@
           </select>
         </div>
         <div class="form-row">
-          <label>Scale</label>
-          <select id="export-scale">
-            <option value="1">@1x (100% Standard)</option>
-            <option value="2" selected>@2x (200% Retina / High-DPI)</option>
-            <option value="3">@3x (300% Ultra)</option>
-            <option value="4">@4x (400% Print / 4K)</option>
-          </select>
+          <label>Scale Factor</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1;">
+            <span style="font-size: 11px; color: var(--text-dim);">×</span>
+          </div>
         </div>
         <div class="form-row">
           <label>Dimensions</label>
@@ -1382,9 +1380,8 @@
     <div id="sidebar">
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="tab-objects">Layers</button>
-        <button class="tab-btn" data-tab="tab-style">Design</button>
+        <button class="tab-btn" data-tab="tab-style">Inspector</button>
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
-        <button class="tab-btn" data-tab="tab-code">SVG</button>
       </div>
 
       <!-- Tab 1: Object Tree / Hierarchy -->
@@ -2088,6 +2085,55 @@
             </div>
           </div>
         </details>
+
+        <!-- WASM Filter & Lens Accordion -->
+        <details class="section-accordion" id="accordion-wasm-filter">
+          <summary>
+            <span><span class="section-icon">◈</span> WASM Filter & Lens</span>
+            <input type="checkbox" id="prop-filter-enabled" style="cursor: pointer;" onclick="event.stopPropagation()">
+          </summary>
+          <div class="accordion-body">
+            <div id="filter-controls" style="display: none; flex-direction: column; gap: 6px;">
+              <div class="form-row">
+                <label>Target</label>
+                <select id="prop-filter-target">
+                  <option value="backdrop">🔍 Backdrop (Filter Lens)</option>
+                  <option value="object">✨ Whole Object (Fill+Stroke)</option>
+                  <option value="fill">🎨 Fill Only</option>
+                  <option value="stroke">✏ Stroke Only</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Plugin</label>
+                <select id="prop-filter-plugin">
+                  <option value="dither">Dither (Bayer Matrix)</option>
+                  <option value="blur">Blur (Gaussian)</option>
+                  <option value="pixelate">Pixelate / Mosaic</option>
+                  <option value="edge">Edge Detection (Sobel)</option>
+                  <option value="noise">Noise / Film Grain</option>
+                  <option value="invert">Invert Colors</option>
+                  <option value="grayscale">Grayscale</option>
+                  <option value="sepia">Sepia Tone</option>
+                  <option value="threshold">Threshold (B&W)</option>
+                  <option value="brightness">Brightness</option>
+                  <option value="contrast">Contrast</option>
+                </select>
+              </div>
+              <div class="form-row" id="row-filter-p1">
+                <label id="lbl-filter-p1">Param 1</label>
+                <input type="number" id="prop-filter-p1" value="0">
+              </div>
+              <div class="form-row" id="row-filter-p2">
+                <label id="lbl-filter-p2">Param 2</label>
+                <input type="number" id="prop-filter-p2" value="0">
+              </div>
+              <div class="form-row">
+                <label>Opacity %</label>
+                <input type="number" id="prop-filter-opacity" min="0" max="100" step="5" value="100">
+              </div>
+            </div>
+          </div>
+        </details>
       </div>
 
       <!-- Tab 3: Canvas Setup & Engine Settings -->
@@ -2124,7 +2170,30 @@
 
         <div class="section-card">
           <div class="section-header">
-            <span><span class="section-icon">🔍</span> Viewport & Navigation</span>
+            <span><span class="section-icon">🔍</span> Viewport</span>
+          </div>
+          <div class="form-row">
+            <label>Renderer</label>
+            <select id="prop-viewport-renderer">
+              <option value="svg" selected>SVG (DOM/Native)</option>
+              <option value="quadro">Quadro WASM (Pixel/SIMD)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Render Scale</label>
+            <select id="prop-quadro-scale">
+              <option value="0.25">0.25× (Draft Quarter)</option>
+              <option value="0.5">0.5× (Draft Half)</option>
+              <option value="1.0" selected>1.0× (Native 1:1)</option>
+              <option value="1.5">1.5× (150% Super-Sample)</option>
+              <option value="2.0">2.0× (2× Retina Hi-DPI)</option>
+              <option value="3.0">3.0× (3× Ultra-Sample)</option>
+              <option value="4.0">4.0× (4× High-Res)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Bilinear Filter</label>
+            <input type="checkbox" id="prop-viewport-bilinear" checked style="cursor: pointer;">
           </div>
           <div class="form-row">
             <label>Zoom Level</label>
@@ -2134,42 +2203,22 @@
             </div>
           </div>
           <div class="form-row">
-            <label>Canvas Rotation</label>
+            <label>Rotation</label>
             <div style="display: flex; gap: 4px; width: 100%;">
               <input type="number" id="prop-viewport-rot" value="0" min="-360" max="360" step="15" title="Canvas Viewport Angle (deg)">
               <button id="btn-reset-viewport-rot" class="btn-sm" title="Reset Rotation to 0°">0°</button>
             </div>
           </div>
-        </div>
-
-        <div class="section-card">
-          <div class="section-header">
-            <span><span class="section-icon">⚡</span> Quadro WASM Engine</span>
+          <div class="form-row">
+            <label>Camera Position</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-camera-x" value="40" step="10" title="Camera Pan X">
+              <input type="number" id="prop-camera-y" value="40" step="10" title="Camera Pan Y">
+            </div>
           </div>
           <div class="form-row">
-            <label>Render Scale</label>
-            <select id="prop-quadro-scale">
-              <option value="0.5">0.5× (Fast Draft)</option>
-              <option value="1.0" selected>1.0× (Native 1:1)</option>
-              <option value="1.5">1.5× (150% Super-Sample)</option>
-              <option value="2.0">2.0× (2× Retina Hi-DPI)</option>
-              <option value="3.0">3.0× (3× Ultra-Sample)</option>
-              <option value="4.0">4.0× (4× High-Res Print)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 4: Raw SVG Code Inspector -->
-      <div class="tab-content" id="tab-code">
-        <div class="section-card">
-          <div class="section-header">
-            <span><span class="section-icon">⟨/⟩</span> Live SVG XML Source</span>
-          </div>
-          <textarea id="svg-code-editor" spellcheck="false"></textarea>
-          <div class="grid-2" style="margin-top: 6px;">
-            <button id="btn-apply-svg-code" class="btn-primary">✔ Apply SVG</button>
-            <button id="btn-copy-svg-code">📋 Copy Code</button>
+            <label>Reset View</label>
+            <button id="btn-reset-camera" class="btn-sm" style="flex: 1;">Center & Reset View</button>
           </div>
         </div>
       </div>
@@ -2651,6 +2700,23 @@
       }
 
       // ── Init Quadro WASM Engine ──
+      async function preloadWasmPlugins() {
+        const pluginList = ['blur', 'brightness', 'contrast', 'dither', 'edge', 'grayscale', 'invert', 'noise', 'pixelate', 'sepia', 'threshold'];
+        for (const name of pluginList) {
+          try {
+            const res = await fetch(`plugins/${name}.wasm`);
+            if (res.ok) {
+              const buf = await res.arrayBuffer();
+              const u8 = new Uint8Array(buf);
+              if (window.SvgEngine && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(name, u8);
+              if (doc && doc.wasmPlugins) doc.wasmPlugins.set(name, u8);
+            }
+          } catch (e) {
+            console.warn(`Could not preload WASM plugin ${name}:`, e);
+          }
+        }
+      }
+
       async function initQuadro() {
         try {
           const res = await fetch('roms/canvas.wasm');
@@ -2659,6 +2725,7 @@
             const actor = new EsenhoModule(new Uint8Array(buf));
             quadroRenderer = new QuadroSvgRenderer(actor);
             document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
+            await preloadWasmPlugins();
             render();
           }
         } catch (err) {
@@ -2701,6 +2768,14 @@
         const rotInput = document.getElementById('prop-viewport-rot');
         if (rotInput && document.activeElement !== rotInput) {
           rotInput.value = Math.round(viewportRotation);
+        }
+        const camXInput = document.getElementById('prop-camera-x');
+        if (camXInput && document.activeElement !== camXInput) {
+          camXInput.value = Math.round(panX);
+        }
+        const camYInput = document.getElementById('prop-camera-y');
+        if (camYInput && document.activeElement !== camYInput) {
+          camYInput.value = Math.round(panY);
         }
         drawOverlay();
       }
@@ -2763,7 +2838,7 @@
         updateInspector();
         statusObjects.textContent = doc.objects.length;
         objCountBadge.textContent = `${doc.objects.length} items`;
-        svgCodeEditor.value = doc.toSVGString();
+        if (svgCodeEditor) svgCodeEditor.value = doc.toSVGString();
       }
       window.renderSvgEditor = render;
 
@@ -3188,13 +3263,19 @@
           const isMaskSource = doc.objects.some(o => o.clipPathId === obj.id) || (obj.parent && obj.parent.children && obj.parent.children.some(o => o.clipPathId === obj.id));
           const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Acting as Clipping Mask" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(184,187,38,0.25); color: #b8bb26; border-radius: 2px; flex-shrink: 0;">🎭 MASK</span>` : '';
           const isTextPathBadge = obj.pathId ? `<span title="Attached to path #${obj.pathId}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(131,165,152,0.25); color: #83a598; border-radius: 2px; flex-shrink: 0;">⌒ PATH</span>` : '';
+          const isWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
+          const filterBadge = isWasmFilter
+            ? (obj.wasmFilter.target === 'backdrop'
+                ? `<span title="Filter Lens: ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(142,192,124,0.25); color: #8ec07c; border-radius: 2px; flex-shrink: 0;">🔍 LENS (${obj.wasmFilter.plugin})</span>`
+                : `<span title="WASM Filter (${obj.wasmFilter.target}): ${obj.wasmFilter.plugin}" style="font-size: 8px; font-weight: 700; padding: 1px 3px; background: rgba(211,134,155,0.25); color: #d3869b; border-radius: 2px; flex-shrink: 0;">[FX: ${obj.wasmFilter.plugin.toUpperCase()}]</span>`)
+            : '';
 
           item.innerHTML = `
             <div class="obj-info" style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1; user-select: none;">
               ${collapseBtn}
               <span style="font-size: 11px; opacity: 0.8;">${getIconForType(obj.type)}</span>
               <span class="obj-name" style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;">${obj.name}</span>
-              ${isMaskedBadge}${isMaskBadge}${isTextPathBadge}
+              ${isMaskedBadge}${isMaskBadge}${isTextPathBadge}${filterBadge}
             </div>
             <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon" data-action="toggle-vis" title="Visibility">${obj.visible ? '👁' : 'Ø'}</button>
@@ -3787,6 +3868,56 @@
         document.getElementById('prop-stroke-tex-angle').value = st.angle !== undefined ? st.angle : 0;
         document.getElementById('prop-stroke-tex-contrast').value = st.contrast !== undefined ? st.contrast : 100;
         document.getElementById('prop-stroke-tex-grain').value = st.grain !== undefined ? st.grain : 0;
+
+        // WASM Filter & Lens
+        const wf = obj.wasmFilter || {};
+        const filterEnabledCheckbox = document.getElementById('prop-filter-enabled');
+        const filterControls = document.getElementById('filter-controls');
+        const filterTargetSelect = document.getElementById('prop-filter-target');
+        const filterPluginSelect = document.getElementById('prop-filter-plugin');
+        const filterP1 = document.getElementById('prop-filter-p1');
+        const filterP2 = document.getElementById('prop-filter-p2');
+        const filterOpacity = document.getElementById('prop-filter-opacity');
+        const lblP1 = document.getElementById('lbl-filter-p1');
+        const lblP2 = document.getElementById('lbl-filter-p2');
+
+        const isFilterOn = !!wf.enabled;
+        if (filterEnabledCheckbox) filterEnabledCheckbox.checked = isFilterOn;
+        if (filterControls) filterControls.style.display = isFilterOn ? 'flex' : 'none';
+        if (filterTargetSelect) filterTargetSelect.value = wf.target || 'backdrop';
+        if (filterPluginSelect) filterPluginSelect.value = wf.plugin || 'dither';
+        if (filterP1) filterP1.value = wf.p1 !== undefined ? wf.p1 : 0;
+        if (filterP2) filterP2.value = wf.p2 !== undefined ? wf.p2 : 0;
+        if (filterOpacity) filterOpacity.value = wf.opacity !== undefined ? Math.round(wf.opacity * 100) : 100;
+
+        const pName = filterPluginSelect ? filterPluginSelect.value : 'dither';
+        if (lblP1 && lblP2) {
+          if (pName === 'blur') {
+            lblP1.textContent = 'Radius (px)';
+            lblP2.textContent = 'Unused';
+          } else if (pName === 'dither') {
+            lblP1.textContent = 'Luma Bias (-64..64)';
+            lblP2.textContent = 'Invert (0/1)';
+          } else if (pName === 'pixelate') {
+            lblP1.textContent = 'Block Size (px)';
+            lblP2.textContent = 'Unused';
+          } else if (pName === 'edge') {
+            lblP1.textContent = 'Threshold (0..255)';
+            lblP2.textContent = 'Mode (0/1)';
+          } else if (pName === 'noise') {
+            lblP1.textContent = 'Amount % (0..100)';
+            lblP2.textContent = 'Type (0/1)';
+          } else if (pName === 'brightness' || pName === 'contrast') {
+            lblP1.textContent = 'Amount (-100..100)';
+            lblP2.textContent = 'Unused';
+          } else if (pName === 'threshold') {
+            lblP1.textContent = 'Cutoff (0..255)';
+            lblP2.textContent = 'Invert (0/1)';
+          } else {
+            lblP1.textContent = 'Param 1';
+            lblP2.textContent = 'Param 2';
+          }
+        }
       }
 
       // ── Pointer & Tool Event Handlers ──
@@ -5036,10 +5167,16 @@
       });
 
       // Viewport Render Mode Switcher
-      document.getElementById('select-render-mode')?.addEventListener('change', (e) => {
-        viewportRenderMode = e.target.value;
+      const syncRenderMode = (val) => {
+        viewportRenderMode = val;
+        const sel1 = document.getElementById('select-render-mode');
+        const sel2 = document.getElementById('prop-viewport-renderer');
+        if (sel1 && sel1.value !== val) sel1.value = val;
+        if (sel2 && sel2.value !== val) sel2.value = val;
         render();
-      });
+      };
+      document.getElementById('select-render-mode')?.addEventListener('change', (e) => syncRenderMode(e.target.value));
+      document.getElementById('prop-viewport-renderer')?.addEventListener('change', (e) => syncRenderMode(e.target.value));
 
       // Brush Preset Binding
       document.getElementById('prop-brush-preset')?.addEventListener('change', (e) => {
@@ -5185,6 +5322,29 @@
         quadroRenderScale = Number(e.target.value) || 1.0;
         updateStageSize();
         render();
+      });
+
+      document.getElementById('prop-viewport-bilinear')?.addEventListener('change', (e) => {
+        const bilinear = e.target.checked;
+        const mode = bilinear ? 'auto' : 'pixelated';
+        quadroCanvas.style.imageRendering = mode;
+        svgStage.style.imageRendering = mode;
+        stageWrapper.style.imageRendering = mode;
+      });
+
+      document.getElementById('prop-camera-x')?.addEventListener('input', (e) => {
+        panX = Number(e.target.value) || 0;
+        applyViewportTransform();
+      });
+
+      document.getElementById('prop-camera-y')?.addEventListener('input', (e) => {
+        panY = Number(e.target.value) || 0;
+        applyViewportTransform();
+      });
+
+      document.getElementById('btn-reset-camera')?.addEventListener('click', () => {
+        viewportRotation = 0;
+        zoomToFit();
       });
 
       // Z-Order Buttons
@@ -5430,15 +5590,15 @@
       // ── Multi-Scale Export Modal ──
       const modalExport = document.getElementById('modal-export');
       const exportFormatSelect = document.getElementById('export-format');
-      const exportScaleSelect = document.getElementById('export-scale');
+      const exportScaleInput = document.getElementById('export-scale');
       const exportDimPreview = document.getElementById('export-dim-preview');
 
       function updateExportDimPreview() {
         if (!exportDimPreview) return;
-        const scale = Number(exportScaleSelect?.value || 1);
+        const scale = Math.max(0.01, Number(exportScaleInput?.value || 1));
         const w = Math.round(doc.width * scale);
         const h = Math.round(doc.height * scale);
-        exportDimPreview.textContent = `${w} × ${h} px (@${scale}x)`;
+        exportDimPreview.textContent = `${w} × ${h} px (@${scale}×)`;
       }
 
       document.getElementById('btn-export-multiscale')?.addEventListener('click', () => {
@@ -5452,11 +5612,12 @@
         if (modalExport) modalExport.style.display = 'none';
       });
 
-      exportScaleSelect?.addEventListener('change', updateExportDimPreview);
+      exportScaleInput?.addEventListener('input', updateExportDimPreview);
+      exportScaleInput?.addEventListener('change', updateExportDimPreview);
 
       document.getElementById('btn-do-export')?.addEventListener('click', async () => {
         const format = exportFormatSelect?.value || 'image/png';
-        const scale = Number(exportScaleSelect?.value || 1);
+        const scale = Math.max(0.01, Number(exportScaleInput?.value || 1));
         const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : (format === 'image/svg+xml' ? 'svg' : 'png'));
         const filename = `wesenho_export_${scale}x_${Date.now()}.${ext}`;
 
@@ -5897,6 +6058,69 @@
         });
       });
 
+      // WASM Filter & Lens Binding
+      document.getElementById('prop-filter-enabled')?.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: false, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.enabled = enabled;
+        }
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-filter-target')?.addEventListener('change', (e) => {
+        const target = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.target = target;
+        }
+        render();
+      });
+
+      document.getElementById('prop-filter-plugin')?.addEventListener('change', (e) => {
+        const plugin = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.plugin = plugin;
+        }
+        updateInspector();
+        render();
+      });
+
+      document.getElementById('prop-filter-p1')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.p1 = val;
+        }
+        render();
+      });
+
+      document.getElementById('prop-filter-p2')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.p2 = val;
+        }
+        render();
+      });
+
+      document.getElementById('prop-filter-opacity')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) / 100;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
+          obj.wasmFilter.opacity = val;
+        }
+        render();
+      });
+
       // Image Raster Editor
       let editingRasterObj = null;
       document.getElementById('btn-edit-raster')?.addEventListener('click', () => {
@@ -6100,42 +6324,27 @@
           if (targetId) {
             const targetEl = document.getElementById(targetId);
             if (targetEl) targetEl.classList.add('active');
-            if (targetId === 'tab-code') {
-              if (svgCodeEditor) svgCodeEditor.value = doc.toSVGString();
-            } else if (targetId === 'tab-canvas') {
+            if (targetId === 'tab-canvas') {
               const wEl = document.getElementById('prop-doc-w');
               const hEl = document.getElementById('prop-doc-h');
               const bgEl = document.getElementById('prop-doc-bg');
               const zEl = document.getElementById('prop-zoom-val');
               const rEl = document.getElementById('prop-viewport-rot');
+              const cxEl = document.getElementById('prop-camera-x');
+              const cyEl = document.getElementById('prop-camera-y');
               if (wEl) wEl.value = doc.width;
               if (hEl) hEl.value = doc.height;
               if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
               if (zEl) zEl.value = Math.round(zoom * 100);
               if (rEl) rEl.value = viewportRotation;
+              if (cxEl) cxEl.value = Math.round(panX);
+              if (cyEl) cyEl.value = Math.round(panY);
             } else if (targetId === 'tab-style') {
               updateInspector();
             } else if (targetId === 'tab-objects') {
               updateObjectList();
             }
           }
-        });
-      });
-
-      // SVG Code Tab Apply
-      document.getElementById('btn-apply-svg-code')?.addEventListener('click', () => {
-        try {
-          doc.fromSVGString(svgCodeEditor.value);
-          updateStageSize();
-          render();
-        } catch (err) {
-          alert('Failed to parse SVG code: ' + err.message);
-        }
-      });
-
-      document.getElementById('btn-copy-svg-code')?.addEventListener('click', () => {
-        navigator.clipboard.writeText(svgCodeEditor.value).then(() => {
-          alert('SVG XML copied to clipboard!');
         });
       });
 
