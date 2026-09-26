@@ -147,6 +147,7 @@ async function main() {
     if (host.canvasActor && host.canvasActor.exports && typeof host.canvasActor.exports.w_render === 'function') {
       host.canvasActor.exports.w_render();
     }
+  };
   host.sendConsoleLog = (text, color = 0xFF00FF88) =>
     log(text, color === 0xFFFF5555 ? 'err' : 'ok');
 
@@ -692,25 +693,101 @@ async function main() {
   
 
   
-  /* ── Mobile-First Unified Bottom Dock & Drawer ── */
-  function toggleUi() {
-    if (typeof toggleSheet === 'function') {
-      toggleSheet('sheet-menu');
-    }
+  /* ── Sheet Modal Helpers ── */
+  function closeAllSheets() {
+    document.querySelectorAll('.ip-sheet-modal').forEach(m => m.classList.remove('active'));
   }
 
-  function toggleConsole() {
-    if (typeof toggleSheet === 'function') {
-      toggleSheet('sheet-console');
+  function toggleSheet(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const wasActive = el.classList.contains('active');
+    closeAllSheets();
+    if (!wasActive) {
+      el.classList.add('active');
+      if (id === 'sheet-layers') {
+        if (typeof lastLayerTreeSig !== 'undefined') lastLayerTreeSig = '';
+      }
+      if (typeof syncUiFromHost === 'function') syncUiFromHost();
     }
+    if (typeof triggerHaptic === 'function') triggerHaptic(12);
+  }
+
+  /* ── Export Helpers (Browser PNG, JPEG, .ESEN) ── */
+  function exportImage(mimeType = 'image/png', quality = 0.92) {
+    if (!host.canvasActor || !host.canvasActor.exports) return;
+    if (typeof host.canvasActor.exports.force_composite === 'function') {
+      host.canvasActor.exports.force_composite();
+    }
+    const w = host.canvasActor.exports.get_canvas_width();
+    const h = host.canvasActor.exports.get_canvas_height();
+    const pixPtr = host.canvasActor.exports.get_composite_pixels();
+    if (!pixPtr || w <= 0 || h <= 0) return;
+
+    const rawBytes = new Uint8Array(host.canvasActor.memory.buffer, pixPtr, w * h * 4);
+    const off = document.createElement('canvas');
+    off.width = w;
+    off.height = h;
+    const octx = off.getContext('2d');
+    const idata = octx.createImageData(w, h);
+    idata.data.set(rawBytes);
+    octx.putImageData(idata, 0, 0);
+
+    const ext = mimeType === 'image/jpeg' ? 'jpg' : (mimeType === 'image/webp' ? 'webp' : 'png');
+    const projName = host.currentProjectName || 'drawing';
+    const safeName = projName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'drawing';
+    const filename = `${safeName}.${ext}`;
+
+    const dataUrl = off.toDataURL(mimeType, quality);
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    log(`Exported image as ${filename} [ok]`);
+  }
+
+  function exportEsenProject() {
+    if (typeof host.exportProject !== 'function') return;
+    const projName = host.currentProjectName || 'Untitled Artwork';
+    const proj = host.exportProject(projName);
+    if (!proj) {
+      log('err: failed exporting project', 'err');
+      return;
+    }
+    const safeName = projName.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'project';
+    const filename = `${safeName}.esen`;
+    if (typeof EsenhoStore !== 'undefined' && typeof EsenhoStore.exportEsenFile === 'function') {
+      const res = EsenhoStore.exportEsenFile(proj, filename);
+      if (res && res.ok) {
+        log(`Project exported to '${res.filename}' [ok]`);
+        return;
+      }
+    }
+    const blob = new Blob([JSON.stringify(proj, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    log(`Project exported to '${filename}' [ok]`);
+  }
+
+  /* ── Mobile-First Unified Bottom Dock & Drawer ── */
+  function toggleUi() {
+    toggleSheet('sheet-menu');
   }
 
   resize();
 
   window.addEventListener('keydown', e => {
-    if (e.key === '`' && e.ctrlKey) {
-      toggleConsole();
+    if (e.ctrlKey && (e.key === 's' || e.key === 'S')) {
       e.preventDefault();
+      exportEsenProject();
     } else if ((e.key === 'b' || e.key === 'B' || e.key === 'u' || e.key === 'U') && (e.ctrlKey || e.altKey)) {
       toggleUi();
       e.preventDefault();
@@ -6743,27 +6820,81 @@ async function main() {
   const btnLoadPlugin = document.getElementById('ui-btn-load-plugin');
 
   function populateFilterSelect() {
-    if (!filterSel) return;
-    const currentVal = filterSel.value;
-    filterSel.innerHTML = '';
+    if (filterSel) {
+      const currentVal = filterSel.value;
+      filterSel.innerHTML = '';
 
-    for (const [name, p] of host.plugins.entries()) {
-      if (p.type !== 'filter' && typeof p.module?.exports?.w_filter_apply !== 'function' && typeof p.module?.exports?.w_plugin_filter !== 'function') continue;
-      const opt = document.createElement('option');
-      opt.value = name;
-      let label = name.charAt(0).toUpperCase() + name.slice(1);
-      try {
-        const info = p.module.getInfo();
-        if (info && info.name) label = info.name;
-      } catch (_) {}
-      opt.textContent = label;
-      filterSel.appendChild(opt);
+      for (const [name, p] of host.plugins.entries()) {
+        if (p.type !== 'filter' && typeof p.module?.exports?.w_filter_apply !== 'function' && typeof p.module?.exports?.w_plugin_filter !== 'function') continue;
+        const opt = document.createElement('option');
+        opt.value = name;
+        let label = name.charAt(0).toUpperCase() + name.slice(1);
+        try {
+          const info = p.module.getInfo();
+          if (info && info.name) label = info.name;
+        } catch (_) {}
+        opt.textContent = label;
+        filterSel.appendChild(opt);
+      }
+
+      if (currentVal && filterSel.querySelector(`option[value="${currentVal}"]`)) {
+        filterSel.value = currentVal;
+      }
+      updateFilterControls();
     }
 
-    if (currentVal && filterSel.querySelector(`option[value="${currentVal}"]`)) {
-      filterSel.value = currentVal;
+    const menuFiltersSubmenu = document.getElementById('menu-filters-submenu');
+    if (menuFiltersSubmenu) {
+      menuFiltersSubmenu.innerHTML = '';
+      const filterEntries = [];
+      for (const [name, p] of host.plugins.entries()) {
+        if (p.type !== 'filter' && typeof p.module?.exports?.w_filter_apply !== 'function' && typeof p.module?.exports?.w_plugin_filter !== 'function') continue;
+        let label = name.charAt(0).toUpperCase() + name.slice(1);
+        try {
+          const info = p.module.getInfo();
+          if (info && info.name) label = info.name;
+        } catch (_) {}
+        filterEntries.push({ name, label });
+      }
+
+      filterEntries.sort((a, b) => a.label.localeCompare(b.label));
+
+      filterEntries.forEach(({ name, label }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'menu-item btn-filter-trigger';
+        btn.dataset.filter = name;
+        btn.innerHTML = `<span>${label}</span>`;
+        btn.addEventListener('click', () => {
+          runCmd(`filter ${name}`);
+        });
+        menuFiltersSubmenu.appendChild(btn);
+      });
+
+      const div = document.createElement('div');
+      div.className = 'menu-divider';
+      menuFiltersSubmenu.appendChild(div);
+
+      const btnImport = document.createElement('button');
+      btnImport.type = 'button';
+      btnImport.className = 'menu-item';
+      btnImport.innerHTML = `<span>+ Import Filter (.wasm)...</span>`;
+      btnImport.addEventListener('click', () => {
+        const pInput = document.getElementById('ui-plugin-input');
+        if (pInput) pInput.click();
+      });
+      menuFiltersSubmenu.appendChild(btnImport);
+
+      const btnConfig = document.createElement('button');
+      btnConfig.type = 'button';
+      btnConfig.className = 'menu-item';
+      btnConfig.innerHTML = `<span>Adjust Parameters...</span>`;
+      btnConfig.addEventListener('click', () => {
+        closeAllSheets();
+        document.getElementById('sheet-filters')?.classList.add('active');
+      });
+      menuFiltersSubmenu.appendChild(btnConfig);
     }
-    updateFilterControls();
   }
 
   function updateFilterControls() {
@@ -8454,27 +8585,6 @@ async function main() {
     const ipTopBar = document.getElementById('ip-top-bar');
     if (!ipTopBar) return;
 
-    // Helper: Close all sheets
-    const closeAllSheets = () => {
-      document.querySelectorAll('.ip-sheet-modal').forEach(m => m.classList.remove('active'));
-    };
-
-    // Helper: Toggle sheet
-    const toggleSheet = (id) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      const wasActive = el.classList.contains('active');
-      closeAllSheets();
-      if (!wasActive) {
-        el.classList.add('active');
-        if (id === 'sheet-layers') {
-          lastLayerTreeSig = '';
-        }
-        syncUiFromHost();
-      }
-      triggerHaptic(12);
-    };
-
     // Close on backdrop click
     document.querySelectorAll('.ip-sheet-modal').forEach(modal => {
       modal.addEventListener('click', (e) => {
@@ -8484,9 +8594,220 @@ async function main() {
       });
     });
 
-    // 1. Top Bar Fixed Buttons
-    const btnIpMenu = document.getElementById('btn-ip-menu');
-    if (btnIpMenu) btnIpMenu.addEventListener('click', () => toggleSheet('sheet-menu'));
+    // 1. Top Bar Main Menu Dropdown & Actions
+    const btnMenuLogo = document.getElementById('btn-menu-logo') || document.getElementById('btn-ip-menu');
+    const menuDropdown = document.getElementById('app-menu-dropdown');
+
+    async function updatePainterRecentsMenu() {
+      const listEl = document.getElementById('menu-recents-list');
+      if (!listEl || typeof EsenhoStore === 'undefined' || !EsenhoStore.listProjects) return;
+      try {
+        const projects = await EsenhoStore.listProjects();
+        if (!projects || projects.length === 0) {
+          listEl.innerHTML = '<div style="padding: 6px 10px; font-size: 10px; color: var(--text-muted); text-align: center;">No stored projects yet</div>';
+          return;
+        }
+        listEl.innerHTML = '';
+        projects.slice(0, 6).forEach(p => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'menu-item';
+          item.style.padding = '5px 8px';
+          const d = p.updatedAt ? new Date(p.updatedAt).toLocaleDateString() : '';
+          item.innerHTML = `
+            <div style="display: flex; flex-direction: column; overflow: hidden; text-align: left;">
+              <span style="font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.name || 'Untitled'}</span>
+              <span style="font-size: 9px; color: var(--text-muted);">${p.width}×${p.height} · ${d}</span>
+            </div>
+          `;
+          item.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            menuDropdown?.classList.remove('active');
+            btnMenuLogo?.classList.remove('active');
+            const fullProj = await EsenhoStore.getProject(p.id);
+            if (fullProj) {
+              host.loadProject(fullProj);
+              host.currentProjectId = fullProj.id;
+              host.currentProjectName = fullProj.name;
+              localStorage.setItem('esenho_last_project_id', fullProj.id);
+              log(`Loaded project '${fullProj.name}' [ok]`);
+            }
+          });
+          listEl.appendChild(item);
+        });
+      } catch (err) {
+        console.warn('Failed loading recents for menu:', err);
+      }
+    }
+
+    btnMenuLogo?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willBeActive = !menuDropdown?.classList.contains('active');
+      menuDropdown?.classList.toggle('active');
+      btnMenuLogo?.classList.toggle('active');
+      if (!willBeActive) {
+        document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
+      } else {
+        updatePainterRecentsMenu();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!menuDropdown?.contains(e.target) && !btnMenuLogo?.contains(e.target)) {
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
+      }
+    });
+
+    document.querySelectorAll('.menu-item-submenu-wrap > button').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const wrap = btn.closest('.menu-item-submenu-wrap');
+        const isAlreadyOpen = wrap?.classList.contains('open');
+        document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
+        if (!isAlreadyOpen) {
+          wrap?.classList.add('open');
+        }
+      });
+    });
+
+    menuDropdown?.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (btn && btn.parentElement?.classList.contains('menu-item-submenu-wrap')) {
+        return;
+      }
+      if (btn) {
+        menuDropdown.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
+      }
+    });
+
+    // Dropdown Action Bindings
+    document.getElementById('btn-menu-new-project')?.addEventListener('click', () => {
+      closeAllSheets();
+      document.getElementById('sheet-new-proj')?.classList.add('active');
+    });
+
+    document.getElementById('btn-open-recents-modal')?.addEventListener('click', () => {
+      closeAllSheets();
+      document.getElementById('sheet-recents')?.classList.add('active');
+      if (typeof loadPainterRecents === 'function') loadPainterRecents();
+    });
+
+    const menuFileInput = document.getElementById('menu-file-input');
+    document.getElementById('btn-menu-import-file')?.addEventListener('click', () => {
+      menuFileInput?.click();
+    });
+    menuFileInput?.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (file.name.toLowerCase().endsWith('.esen')) {
+        try {
+          const text = await file.text();
+          const proj = JSON.parse(text);
+          host.loadProject(proj);
+          log(`Imported project '${file.name}' [ok]`);
+        } catch (err) {
+          log(`err: failed to load .esen project (${err.message})`, 'err');
+        }
+      } else if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width;
+            canvas.height = img.naturalHeight || img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const layerId = host.addLayer(file.name.replace(/\.[^.]+$/, ''));
+            if (layerId >= 0 && host.canvasActor) {
+              const u8 = new Uint8Array(imgData.data.buffer);
+              const ptr = host.canvasActor.exports.w_get_layer_pixels(layerId);
+              if (ptr) {
+                new Uint8Array(host.canvasActor.memory.buffer, ptr, u8.length).set(u8);
+                host.render();
+                log(`Imported image '${file.name}' onto layer [${layerId}] [ok]`);
+              }
+            }
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      }
+      menuFileInput.value = '';
+    });
+
+    document.getElementById('btn-quick-export-png')?.addEventListener('click', () => {
+      exportImage('image/png');
+    });
+    document.getElementById('btn-quick-export-jpg')?.addEventListener('click', () => {
+      exportImage('image/jpeg');
+    });
+    document.getElementById('btn-quick-export-esen')?.addEventListener('click', () => {
+      exportEsenProject();
+    });
+
+    document.getElementById('btn-menu-undo')?.addEventListener('click', () => { runCmd('undo'); });
+    document.getElementById('btn-menu-redo')?.addEventListener('click', () => { runCmd('redo'); });
+    document.getElementById('btn-menu-zoom-fit')?.addEventListener('click', () => {
+      host.zoom = 1.0;
+      host.panX = 0;
+      host.panY = 0;
+      host.render();
+      log('Zoom reset to fit [ok]');
+    });
+
+    document.getElementById('btn-menu-resize-canvas')?.addEventListener('click', () => {
+      const w = prompt('New Width (px):', host.docWidth || 1280);
+      if (!w) return;
+      const h = prompt('New Height (px):', host.docHeight || 720);
+      if (!h) return;
+      runCmd(`resize ${parseInt(w, 10)} ${parseInt(h, 10)}`);
+    });
+    document.getElementById('btn-menu-crop-selection')?.addEventListener('click', () => { runCmd('crop'); });
+    document.getElementById('btn-menu-clear-layer')?.addEventListener('click', () => { runCmd('clear'); });
+    document.getElementById('btn-menu-invert-layer')?.addEventListener('click', () => { runCmd('layer invert'); });
+    document.getElementById('btn-menu-rot-cw')?.addEventListener('click', () => { runCmd('rotate 90'); });
+    document.getElementById('btn-menu-rot-ccw')?.addEventListener('click', () => { runCmd('rotate -90'); });
+    document.getElementById('btn-menu-flip-h')?.addEventListener('click', () => { runCmd('flip horizontal'); });
+    document.getElementById('btn-menu-flip-v')?.addEventListener('click', () => { runCmd('flip vertical'); });
+
+    document.querySelectorAll('.btn-filter-trigger').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filterName = btn.dataset.filter;
+        if (filterName) runCmd(`filter ${filterName}`);
+      });
+    });
+
+    document.querySelectorAll('.render-engine-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const eng = btn.dataset.engine;
+        if (eng) {
+          runCmd(`renderer ${eng}`);
+          document.querySelectorAll('.engine-check').forEach(c => c.style.opacity = '0');
+          const check = document.getElementById(`check-engine-${eng}`);
+          if (check) check.style.opacity = '1';
+          const label = document.getElementById('menu-current-renderer-label');
+          if (label) label.textContent = eng.toUpperCase();
+        }
+      });
+    });
+
+    document.querySelectorAll('.view-filter-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const vfilt = btn.dataset.vfilter;
+        if (vfilt) {
+          runCmd(`filter ${vfilt}`);
+          document.querySelectorAll('.vfilter-check').forEach(c => c.style.opacity = '0');
+          const check = document.getElementById(`check-vfilter-${vfilt}`);
+          if (check) check.style.opacity = '1';
+        }
+      });
+    });
 
     // 2. Customizable HUD Bars Controller (Top, Left, Right, Bottom)
     const HUD_AVAILABLE_SLIDERS = [
@@ -9530,10 +9851,10 @@ async function main() {
     });
 
     const btnIpExportPng = document.getElementById('btn-ip-export-png');
-    if (btnIpExportPng) btnIpExportPng.addEventListener('click', () => { runCmd('export png'); closeAllSheets(); });
+    if (btnIpExportPng) btnIpExportPng.addEventListener('click', () => { exportImage('image/png'); closeAllSheets(); });
 
     const btnIpExportEsen = document.getElementById('btn-ip-export-esen');
-    if (btnIpExportEsen) btnIpExportEsen.addEventListener('click', () => { runCmd('export esen'); closeAllSheets(); });
+    if (btnIpExportEsen) btnIpExportEsen.addEventListener('click', () => { exportEsenProject(); closeAllSheets(); });
 
     const btnIpImportFile = document.getElementById('btn-ip-import-file');
     if (btnIpImportFile) btnIpImportFile.addEventListener('click', () => { fileInput?.click(); closeAllSheets(); });
@@ -9576,146 +9897,6 @@ async function main() {
 
 
     // Terminal & Scripts Sheet
-    const btnIpOpenConsole = document.getElementById('btn-ip-open-console');
-    if (btnIpOpenConsole) {
-      btnIpOpenConsole.addEventListener('click', () => {
-        toggleSheet('sheet-console');
-      });
-    }
-
-    const conTabs = document.querySelectorAll('#ip-console-tabs .ip-pill-btn');
-    const conPanels = document.querySelectorAll('.ip-console-panel');
-    conTabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        conTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        const target = tab.dataset.contab;
-        conPanels.forEach(p => {
-          p.style.display = (p.dataset.conpanel === target) ? 'flex' : 'none';
-        });
-      });
-    });
-
-    const ipCmdForm = document.getElementById('inputrow-ip');
-    const ipCmdInp = document.getElementById('wcmd-ip');
-    if (ipCmdForm && ipCmdInp) {
-      ipCmdForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const cmd = ipCmdInp.value.trim();
-        if (cmd) {
-          log(`> ${cmd}`);
-          runCmd(cmd);
-          ipCmdInp.value = '';
-        }
-      });
-    }
-
-    const ipBtnClear = document.getElementById('ip-btn-console-clear');
-    if (ipBtnClear) {
-      ipBtnClear.addEventListener('click', () => {
-        const t = document.getElementById('wterm-ip');
-        if (t) t.innerHTML = '';
-        if (termEl) termEl.innerHTML = '';
-      });
-    }
-
-    const ipBtnHelp = document.getElementById('ip-btn-console-help');
-    if (ipBtnHelp) {
-      ipBtnHelp.addEventListener('click', () => {
-        runCmd('help');
-      });
-    }
-
-    const ipScriptSel = document.getElementById('ip-script-select');
-    const ipScriptName = document.getElementById('ip-script-name');
-    const ipScriptEditor = document.getElementById('ip-script-editor');
-    const ipBtnNewScript = document.getElementById('ip-btn-new-script');
-    const ipBtnSaveScript = document.getElementById('ip-btn-save-script');
-    const ipBtnDelScript = document.getElementById('ip-btn-del-script');
-    const ipBtnRunScript = document.getElementById('ip-btn-run-script');
-    const ipBtnRunSel = document.getElementById('ip-btn-run-selection');
-
-    const syncIpScripts = () => {
-      if (!ipScriptSel) return;
-      const scripts = getSavedScripts();
-      ipScriptSel.innerHTML = '';
-      scripts.forEach((s, idx) => {
-        const opt = document.createElement('option');
-        opt.value = idx;
-        opt.textContent = s.name;
-        ipScriptSel.appendChild(opt);
-      });
-      if (scripts.length > 0) {
-        if (ipScriptName && !ipScriptName.value) ipScriptName.value = scripts[0].name;
-        if (ipScriptEditor && !ipScriptEditor.value) ipScriptEditor.value = scripts[0].code;
-      }
-    };
-    syncIpScripts();
-
-    if (ipScriptSel) {
-      ipScriptSel.addEventListener('change', () => {
-        const scripts = getSavedScripts();
-        const s = scripts[parseInt(ipScriptSel.value, 10)];
-        if (s) {
-          if (ipScriptName) ipScriptName.value = s.name;
-          if (ipScriptEditor) ipScriptEditor.value = s.code;
-        }
-      });
-    }
-
-    if (ipBtnNewScript) {
-      ipBtnNewScript.addEventListener('click', () => {
-        if (ipScriptName) ipScriptName.value = 'new_script.js';
-        if (ipScriptEditor) ipScriptEditor.value = '// Wesenho JavaScript Script\nraster.brush.size = 30;\nraster.brush.color = 0xfffabd2f;\n';
-      });
-    }
-
-    if (ipBtnSaveScript) {
-      ipBtnSaveScript.addEventListener('click', () => {
-        const name = (ipScriptName?.value || 'script.js').trim();
-        const code = ipScriptEditor?.value || '';
-        let scripts = getSavedScripts();
-        const existingIdx = scripts.findIndex(s => s.name === name);
-        if (existingIdx >= 0) {
-          scripts[existingIdx].code = code;
-        } else {
-          scripts.push({ name, code });
-        }
-        localStorage.setItem('esenho_saved_scripts', JSON.stringify(scripts));
-        syncIpScripts();
-        populateScriptSelect();
-        alert(`Script "${name}" saved!`);
-      });
-    }
-
-    if (ipBtnDelScript) {
-      ipBtnDelScript.addEventListener('click', () => {
-        const name = (ipScriptName?.value || '').trim();
-        let scripts = getSavedScripts().filter(s => s.name !== name);
-        localStorage.setItem('esenho_saved_scripts', JSON.stringify(scripts));
-        syncIpScripts();
-        populateScriptSelect();
-      });
-    }
-
-    if (ipBtnRunScript) {
-      ipBtnRunScript.addEventListener('click', () => {
-        const code = ipScriptEditor?.value || '';
-        runScriptCode(code);
-      });
-    }
-
-    if (ipBtnRunSel) {
-      ipBtnRunSel.addEventListener('click', () => {
-        if (!ipScriptEditor) return;
-        const selStart = ipScriptEditor.selectionStart;
-        const selEnd = ipScriptEditor.selectionEnd;
-        const code = ipScriptEditor.value.substring(selStart, selEnd);
-        if (code.trim()) runScriptCode(code);
-        else runScriptCode(ipScriptEditor.value);
-      });
-    }
-
     // 9. Brush Lab Tabs & Controls
     const labTabs = document.querySelectorAll('#ip-lab-tabs .ip-pill-btn');
     const labPanels = document.querySelectorAll('.ip-lab-tab-panel');

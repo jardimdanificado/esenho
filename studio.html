@@ -1393,12 +1393,6 @@
 
         <div class="menu-divider"></div>
 
-        <button id="btn-open-painter" class="menu-item" onclick="window.location.href='painter.html'">
-          <span>Open Esenho Painter</span>
-        </button>
-
-        <div class="menu-divider"></div>
-
         <button id="btn-clear-storage" class="menu-item" style="color: var(--danger);">
           <span>Clear Storage / Memory</span>
         </button>
@@ -5728,7 +5722,7 @@
       });
 
       document.addEventListener('click', (e) => {
-        if (!menuDropdown?.contains(e.target) && e.target !== btnMenuLogo) {
+        if (!menuDropdown?.contains(e.target) && !btnMenuLogo?.contains(e.target)) {
           menuDropdown?.classList.remove('active');
           btnMenuLogo?.classList.remove('active');
           document.querySelectorAll('.menu-item-submenu-wrap').forEach(w => w.classList.remove('open'));
@@ -6645,7 +6639,8 @@
 
       async function performExport(format = 'image/png', scale = 1) {
         const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : (format === 'image/svg+xml' ? 'svg' : 'png'));
-        const filename = `${(currentProjectTitle || 'wesenho').toLowerCase().replace(/\s+/g, '_')}_${scale}x_${Date.now()}.${ext}`;
+        const safeTitle = (currentProjectTitle || 'wesenho').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'wesenho';
+        const filename = `${safeTitle}_${scale}x_${Date.now()}.${ext}`;
 
         if (format === 'image/svg+xml') {
           const svgData = doc.toSVGString();
@@ -6654,7 +6649,9 @@
           const a = document.createElement('a');
           a.href = url;
           a.download = filename;
+          document.body.appendChild(a);
           a.click();
+          document.body.removeChild(a);
           URL.revokeObjectURL(url);
           if (modalExport) modalExport.style.display = 'none';
           showNotification(`Exported ${filename}`);
@@ -6666,10 +6663,65 @@
         const cvs = document.createElement('canvas');
         cvs.width = outW;
         cvs.height = outH;
-        const ctx2d = cvs.getContext('2d');
 
+        const saveFromCanvas = () => {
+          const downloadUrl = (url) => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showNotification(`Exported ${filename}`);
+            if (modalExport) modalExport.style.display = 'none';
+          };
+
+          if (typeof cvs.toBlob === 'function') {
+            cvs.toBlob((blob) => {
+              if (blob) {
+                const url = URL.createObjectURL(blob);
+                downloadUrl(url);
+                URL.revokeObjectURL(url);
+              } else {
+                const dataUrl = cvs.toDataURL(format, 0.95);
+                downloadUrl(dataUrl);
+              }
+            }, format, 0.95);
+          } else {
+            const dataUrl = cvs.toDataURL(format, 0.95);
+            downloadUrl(dataUrl);
+          }
+        };
+
+        // 1. Try Native Quadro WASM rasterizer
+        if (quadroRenderer) {
+          try {
+            const needBg = format === 'image/jpeg' || (doc.backgroundColor && doc.backgroundColor !== 'transparent');
+            const ok = quadroRenderer.renderToCanvas(doc, cvs, { scale: scale, background: needBg });
+            if (ok) {
+              if (format === 'image/jpeg' && (!doc.backgroundColor || doc.backgroundColor === 'transparent')) {
+                // Flatten over white for JPEG
+                const ctx2d = cvs.getContext('2d');
+                const imgData = ctx2d.getImageData(0, 0, outW, outH);
+                ctx2d.fillStyle = '#ffffff';
+                ctx2d.fillRect(0, 0, outW, outH);
+                ctx2d.putImageData(imgData, 0, 0);
+              }
+              saveFromCanvas();
+              return;
+            }
+          } catch (err) {
+            console.warn('Quadro rasterizer export error, using browser fallback:', err);
+          }
+        }
+
+        // 2. Fallback: Browser SVG -> Image -> Canvas rasterizer
+        const ctx2d = cvs.getContext('2d');
         if (doc.backgroundColor && doc.backgroundColor !== 'transparent') {
           ctx2d.fillStyle = doc.backgroundColor;
+          ctx2d.fillRect(0, 0, outW, outH);
+        } else if (format === 'image/jpeg') {
+          ctx2d.fillStyle = '#ffffff';
           ctx2d.fillRect(0, 0, outW, outH);
         }
 
@@ -6681,18 +6733,7 @@
         img.onload = () => {
           ctx2d.drawImage(img, 0, 0, outW, outH);
           URL.revokeObjectURL(blobUrl);
-          cvs.toBlob((blob) => {
-            if (blob) {
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = filename;
-              a.click();
-              URL.revokeObjectURL(url);
-              showNotification(`Exported ${filename}`);
-            }
-            if (modalExport) modalExport.style.display = 'none';
-          }, format, 0.95);
+          saveFromCanvas();
         };
         img.onerror = () => {
           URL.revokeObjectURL(blobUrl);
