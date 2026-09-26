@@ -4972,10 +4972,45 @@
               let newMaxX = initialBounds.maxX;
               let newMaxY = initialBounds.maxY;
 
-              if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dX);
-              if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dX);
-              if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dY);
-              if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dY);
+              const isDiagonal = ['nw', 'ne', 'se', 'sw'].includes(activeResizeHandle);
+              if (isDiagonal) {
+                const origW = Math.max(1, initialBounds.width || (initialBounds.maxX - initialBounds.minX) || 1);
+                const origH = Math.max(1, initialBounds.height || (initialBounds.maxY - initialBounds.minY) || 1);
+                const denom = Math.max(1, origW * origW + origH * origH);
+                let s = 1;
+                if (activeResizeHandle === 'se') {
+                  s = 1 + (dX * origW + dY * origH) / denom;
+                } else if (activeResizeHandle === 'sw') {
+                  s = 1 + (-dX * origW + dY * origH) / denom;
+                } else if (activeResizeHandle === 'ne') {
+                  s = 1 + (dX * origW - dY * origH) / denom;
+                } else if (activeResizeHandle === 'nw') {
+                  s = 1 + (-dX * origW - dY * origH) / denom;
+                }
+                const minS = Math.max(2 / origW, 2 / origH);
+                s = Math.max(minS, s);
+                const newW = origW * s;
+                const newH = origH * s;
+
+                if (activeResizeHandle === 'se') {
+                  newMaxX = newMinX + newW;
+                  newMaxY = newMinY + newH;
+                } else if (activeResizeHandle === 'sw') {
+                  newMinX = newMaxX - newW;
+                  newMaxY = newMinY + newH;
+                } else if (activeResizeHandle === 'ne') {
+                  newMaxX = newMinX + newW;
+                  newMinY = newMaxY - newH;
+                } else if (activeResizeHandle === 'nw') {
+                  newMinX = newMaxX - newW;
+                  newMinY = newMaxY - newH;
+                }
+              } else {
+                if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dX);
+                if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dX);
+                if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dY);
+                if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dY);
+              }
 
               const newW = Math.max(1, newMaxX - newMinX);
               const newH = Math.max(1, newMaxY - newMinY);
@@ -5003,10 +5038,45 @@
                 let newMaxX = initialBounds.maxX;
                 let newMaxY = initialBounds.maxY;
 
-                if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dLocalX);
-                if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dLocalX);
-                if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dLocalY);
-                if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dLocalY);
+                const isDiagonal = ['nw', 'ne', 'se', 'sw'].includes(activeResizeHandle);
+                if (isDiagonal) {
+                  const origW = Math.max(1, initialBounds.width || (initialBounds.maxX - initialBounds.minX) || 1);
+                  const origH = Math.max(1, initialBounds.height || (initialBounds.maxY - initialBounds.minY) || 1);
+                  const denom = Math.max(1, origW * origW + origH * origH);
+                  let s = 1;
+                  if (activeResizeHandle === 'se') {
+                    s = 1 + (dLocalX * origW + dLocalY * origH) / denom;
+                  } else if (activeResizeHandle === 'sw') {
+                    s = 1 + (-dLocalX * origW + dLocalY * origH) / denom;
+                  } else if (activeResizeHandle === 'ne') {
+                    s = 1 + (dLocalX * origW - dLocalY * origH) / denom;
+                  } else if (activeResizeHandle === 'nw') {
+                    s = 1 + (-dLocalX * origW - dLocalY * origH) / denom;
+                  }
+                  const minS = Math.max(2 / origW, 2 / origH);
+                  s = Math.max(minS, s);
+                  const newW = origW * s;
+                  const newH = origH * s;
+
+                  if (activeResizeHandle === 'se') {
+                    newMaxX = newMinX + newW;
+                    newMaxY = newMinY + newH;
+                  } else if (activeResizeHandle === 'sw') {
+                    newMinX = newMaxX - newW;
+                    newMaxY = newMinY + newH;
+                  } else if (activeResizeHandle === 'ne') {
+                    newMaxX = newMinX + newW;
+                    newMinY = newMaxY - newH;
+                  } else if (activeResizeHandle === 'nw') {
+                    newMinX = newMaxX - newW;
+                    newMinY = newMaxY - newH;
+                  }
+                } else {
+                  if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dLocalX);
+                  if (activeResizeHandle.includes('w')) newMinX = Math.min(initialBounds.maxX - 2, initialBounds.minX + dLocalX);
+                  if (activeResizeHandle.includes('s')) newMaxY = Math.max(initialBounds.minY + 2, initialBounds.maxY + dLocalY);
+                  if (activeResizeHandle.includes('n')) newMinY = Math.min(initialBounds.maxY - 2, initialBounds.minY + dLocalY);
+                }
 
                 const newW = Math.max(1, newMaxX - newMinX);
                 const newH = Math.max(1, newMaxY - newMinY);
