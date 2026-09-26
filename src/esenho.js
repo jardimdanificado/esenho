@@ -8239,15 +8239,28 @@ class EsenhoScreenHost {
    * @returns {boolean} True if loaded successfully
    */
   loadProject(projectData) {
-    if (!projectData || !projectData.width || !projectData.height || !Array.isArray(projectData.layers)) {
-      throw new Error('Invalid project data format');
+    if (!projectData) {
+      throw new Error('Invalid project data: null or empty');
+    }
+    if (typeof projectData === 'string') {
+      try {
+        projectData = JSON.parse(projectData);
+      } catch (e) {
+        throw new Error('Invalid project data: failed to parse JSON string');
+      }
+    }
+    if (projectData.type === 'vector' || (!projectData.layers && (projectData.jsonDoc || projectData.svgData))) {
+      throw new Error('Vector project format detected. Open in Studio.');
+    }
+    const w = parseInt(projectData.width, 10) || 1280;
+    const h = parseInt(projectData.height, 10) || 720;
+    if (!Array.isArray(projectData.layers)) {
+      projectData.layers = [];
     }
     if (!this.canvasActor || !this.canvasActor.exports) {
       throw new Error('Canvas actor not initialized');
     }
 
-    const w = projectData.width;
-    const h = projectData.height;
     this.canvasActor.exports.w_init(w, h);
 
     const decodeB64 = (b64) => {

@@ -160,6 +160,10 @@ async function main() {
     try {
       const savedProj = await EsenhoStore.getProject(projectIdParam);
       if (savedProj) {
+        if (savedProj.type === 'vector' || (!savedProj.layers && (savedProj.jsonDoc || savedProj.svgData))) {
+          window.location.replace(`studio.html?project=${projectIdParam}`);
+          return;
+        }
         host.loadProject(savedProj);
         projectLoaded = true;
         host.currentProjectId = savedProj.id;
@@ -8624,13 +8628,26 @@ async function main() {
             e.stopPropagation();
             menuDropdown?.classList.remove('active');
             btnMenuLogo?.classList.remove('active');
+            if (p.type === 'vector') {
+              window.location.href = `studio.html?project=${p.id}`;
+              return;
+            }
             const fullProj = await EsenhoStore.getProject(p.id);
             if (fullProj) {
-              host.loadProject(fullProj);
-              host.currentProjectId = fullProj.id;
-              host.currentProjectName = fullProj.name;
-              localStorage.setItem('esenho_last_project_id', fullProj.id);
-              log(`Loaded project '${fullProj.name}' [ok]`);
+              if (fullProj.type === 'vector' || (!fullProj.layers && (fullProj.jsonDoc || fullProj.svgData))) {
+                window.location.href = `studio.html?project=${p.id}`;
+                return;
+              }
+              try {
+                host.loadProject(fullProj);
+                host.currentProjectId = fullProj.id;
+                host.currentProjectName = fullProj.name;
+                localStorage.setItem('esenho_last_project_id', fullProj.id);
+                if (typeof syncUiFromHost === 'function') syncUiFromHost();
+                log(`Loaded project '${fullProj.name}' [ok]`);
+              } catch (loadErr) {
+                log(`err: failed loading project: ${loadErr.message}`, 'err');
+              }
             }
           });
           listEl.appendChild(item);

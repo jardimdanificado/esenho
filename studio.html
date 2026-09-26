@@ -7746,6 +7746,10 @@
         try {
           const proj = await EsenhoStore.getProject(projId);
           if (proj) {
+            if (proj.type === 'raster' || (Array.isArray(proj.layers) && !proj.jsonDoc && !proj.svgData)) {
+              window.location.replace(`painter.html?project=${projId}`);
+              return true;
+            }
             currentProjectId = proj.id;
             currentProjectTitle = proj.name || 'Untitled Vector';
             const propProjName = document.getElementById('prop-project-name');
