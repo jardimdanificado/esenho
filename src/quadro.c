@@ -3612,5 +3612,543 @@ W_EXPORT int32_t w_generate_brush_tip(int32_t shape_type, int32_t width, int32_t
     return 1;
 }
 
+/* =========================================================================
+ * Animation Engine, Timeline, IK Solver, Mesh Warp & Camera Implementation
+ * ========================================================================= */
+
+#define MAX_ANIM_TRACKS 64
+#define MAX_ANIM_KEYFRAMES 128
+#define MAX_ARMATURES 16
+#define MAX_BONES 64
+#define MAX_MESHES 16
+#define MAX_MESH_VERTICES 256
+#define MAX_SYMBOLS 32
+#define MAX_SYM_INSTANCES 64
+
+typedef struct {
+    int32_t frame;
+    int32_t duration;
+    int32_t tween_type;
+    int32_t x;
+    int32_t y;
+    int32_t scale_x_pct;
+    int32_t scale_y_pct;
+    int32_t rot_deg;
+    int32_t opacity;
+    int32_t z_depth;
+} w_anim_keyframe_t;
+
+typedef struct {
+    int32_t in_use;
+    int32_t track_type;
+    int32_t target_layer_idx;
+    int32_t keyframe_count;
+    w_anim_keyframe_t keyframes[MAX_ANIM_KEYFRAMES];
+} w_anim_track_t;
+
+static int32_t g_anim_total_frames = 60;
+static int32_t g_anim_fps = 24;
+static int32_t g_anim_current_frame = 0;
+static int32_t g_anim_track_count = 0;
+static w_anim_track_t g_anim_tracks[MAX_ANIM_TRACKS] = {0};
+
+/* Onion Skinning */
+static int32_t g_onion_enabled = 0;
+static int32_t g_onion_prev = 1;
+static int32_t g_onion_next = 1;
+static int32_t g_onion_alpha = 64;
+
+/* Multiplane Camera */
+static struct {
+    int32_t x;
+    int32_t y;
+    int32_t z;
+    int32_t zoom_pct;
+    int32_t rot_deg;
+} g_anim_camera = {0, 0, 0, 100, 0};
+
+/* Armature & Bones */
+typedef struct {
+    int32_t id;
+    int32_t in_use;
+    int32_t parent_id;
+    int32_t length;
+    int32_t rel_angle_deg;
+    int32_t world_x0;
+    int32_t world_y0;
+    int32_t world_x1;
+    int32_t world_y1;
+    int32_t world_angle_deg;
+} w_anim_bone_t;
+
+typedef struct {
+    int32_t id;
+    int32_t in_use;
+    int32_t root_x;
+    int32_t root_y;
+    int32_t bone_count;
+    w_anim_bone_t bones[MAX_BONES];
+} w_anim_armature_t;
+
+static int32_t g_armature_count = 0;
+static w_anim_armature_t g_armatures[MAX_ARMATURES] = {0};
+
+/* 2D Mesh Warp */
+typedef struct {
+    int32_t x;
+    int32_t y;
+    int32_t orig_x;
+    int32_t orig_y;
+    int32_t bound_arm_id;
+    int32_t bound_bone_id;
+    int32_t bone_weight;
+} w_mesh_vertex_t;
+
+typedef struct {
+    int32_t id;
+    int32_t in_use;
+    int32_t width;
+    int32_t height;
+    int32_t cols;
+    int32_t rows;
+    int32_t vertex_count;
+    w_mesh_vertex_t vertices[MAX_MESH_VERTICES];
+} w_anim_mesh_t;
+
+static int32_t g_mesh_count = 0;
+static w_anim_mesh_t g_meshes[MAX_MESHES] = {0};
+
+/* Symbols */
+typedef struct {
+    int32_t id;
+    int32_t in_use;
+    int32_t total_frames;
+    int32_t loop_mode;
+} w_anim_symbol_t;
+
+typedef struct {
+    int32_t in_use;
+    int32_t sym_id;
+    int32_t parent_track_idx;
+    int32_t start_frame;
+} w_anim_sym_instance_t;
+
+static int32_t g_symbol_count = 0;
+static w_anim_symbol_t g_symbols[MAX_SYMBOLS] = {0};
+static int32_t g_sym_inst_count = 0;
+static w_anim_sym_instance_t g_sym_instances[MAX_SYM_INSTANCES] = {0};
+
+W_EXPORT void w_anim_init(int32_t total_frames, int32_t fps) {
+    g_anim_total_frames = (total_frames > 0) ? total_frames : 60;
+    g_anim_fps = (fps > 0) ? fps : 24;
+    g_anim_current_frame = 0;
+    g_anim_track_count = 0;
+    for (int i = 0; i < MAX_ANIM_TRACKS; i++) {
+        g_anim_tracks[i].in_use = 0;
+        g_anim_tracks[i].keyframe_count = 0;
+    }
+}
+
+W_EXPORT int32_t w_anim_get_total_frames(void) {
+    return g_anim_total_frames;
+}
+
+W_EXPORT void w_anim_set_total_frames(int32_t total_frames) {
+    if (total_frames > 0) g_anim_total_frames = total_frames;
+}
+
+W_EXPORT int32_t w_anim_get_fps(void) {
+    return g_anim_fps;
+}
+
+W_EXPORT void w_anim_set_fps(int32_t fps) {
+    if (fps > 0) g_anim_fps = fps;
+}
+
+W_EXPORT int32_t w_anim_get_frame(void) {
+    return g_anim_current_frame;
+}
+
+W_EXPORT void w_anim_set_frame(int32_t frame_idx) {
+    if (frame_idx < 0) frame_idx = 0;
+    if (g_anim_total_frames > 0 && frame_idx >= g_anim_total_frames) {
+        frame_idx = g_anim_total_frames - 1;
+    }
+    g_anim_current_frame = frame_idx;
+}
+
+W_EXPORT int32_t w_anim_track_create(int32_t track_type, int32_t target_layer_idx) {
+    if (g_anim_track_count >= MAX_ANIM_TRACKS) return -1;
+    int idx = g_anim_track_count++;
+    g_anim_tracks[idx].in_use = 1;
+    g_anim_tracks[idx].track_type = track_type;
+    g_anim_tracks[idx].target_layer_idx = target_layer_idx;
+    g_anim_tracks[idx].keyframe_count = 0;
+    return idx;
+}
+
+W_EXPORT int32_t w_anim_track_get_count(void) {
+    return g_anim_track_count;
+}
+
+W_EXPORT int32_t w_anim_add_keyframe(int32_t track_idx, int32_t frame_idx, int32_t tween_type) {
+    if (track_idx < 0 || track_idx >= g_anim_track_count || !g_anim_tracks[track_idx].in_use) return -1;
+    w_anim_track_t *t = &g_anim_tracks[track_idx];
+    if (t->keyframe_count >= MAX_ANIM_KEYFRAMES) return -1;
+    int kf_idx = t->keyframe_count++;
+    w_anim_keyframe_t *kf = &t->keyframes[kf_idx];
+    kf->frame = frame_idx;
+    kf->duration = 1;
+    kf->tween_type = tween_type;
+    kf->x = 0;
+    kf->y = 0;
+    kf->scale_x_pct = 100;
+    kf->scale_y_pct = 100;
+    kf->rot_deg = 0;
+    kf->opacity = 100;
+    kf->z_depth = 0;
+    return kf_idx;
+}
+
+W_EXPORT int32_t w_anim_set_keyframe_transform(int32_t track_idx, int32_t kf_idx, int32_t x, int32_t y, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t opacity, int32_t z_depth) {
+    if (track_idx < 0 || track_idx >= g_anim_track_count || !g_anim_tracks[track_idx].in_use) return -1;
+    w_anim_track_t *t = &g_anim_tracks[track_idx];
+    if (kf_idx < 0 || kf_idx >= t->keyframe_count) return -1;
+    w_anim_keyframe_t *kf = &t->keyframes[kf_idx];
+    kf->x = x;
+    kf->y = y;
+    kf->scale_x_pct = scale_x_pct;
+    kf->scale_y_pct = scale_y_pct;
+    kf->rot_deg = rot_deg;
+    kf->opacity = opacity;
+    kf->z_depth = z_depth;
+    return 1;
+}
+
+W_EXPORT int32_t w_anim_get_keyframe_count(int32_t track_idx) {
+    if (track_idx < 0 || track_idx >= g_anim_track_count || !g_anim_tracks[track_idx].in_use) return 0;
+    return g_anim_tracks[track_idx].keyframe_count;
+}
+
+W_EXPORT int32_t w_anim_get_keyframe_info(int32_t track_idx, int32_t kf_idx, int32_t *out_10words) {
+    if (!out_10words || track_idx < 0 || track_idx >= g_anim_track_count || !g_anim_tracks[track_idx].in_use) return 0;
+    w_anim_track_t *t = &g_anim_tracks[track_idx];
+    if (kf_idx < 0 || kf_idx >= t->keyframe_count) return 0;
+    w_anim_keyframe_t *kf = &t->keyframes[kf_idx];
+    out_10words[0] = kf->frame;
+    out_10words[1] = kf->duration;
+    out_10words[2] = kf->tween_type;
+    out_10words[3] = kf->x;
+    out_10words[4] = kf->y;
+    out_10words[5] = kf->scale_x_pct;
+    out_10words[6] = kf->scale_y_pct;
+    out_10words[7] = kf->rot_deg;
+    out_10words[8] = kf->opacity;
+    out_10words[9] = kf->z_depth;
+    return 1;
+}
+
+W_EXPORT void w_anim_onion_skin(int32_t enabled, int32_t prev_frames, int32_t next_frames, int32_t tint_alpha) {
+    g_onion_enabled = enabled ? 1 : 0;
+    g_onion_prev = (prev_frames >= 0) ? prev_frames : 1;
+    g_onion_next = (next_frames >= 0) ? next_frames : 1;
+    g_onion_alpha = (tint_alpha >= 0 && tint_alpha <= 255) ? tint_alpha : 64;
+}
+
+/* Forward Kinematics update for an armature */
+static void update_armature_fk(w_anim_armature_t *arm) {
+    for (int i = 0; i < arm->bone_count; i++) {
+        w_anim_bone_t *b = &arm->bones[i];
+        if (!b->in_use) continue;
+        if (b->parent_id <= 0) {
+            b->world_x0 = arm->root_x;
+            b->world_y0 = arm->root_y;
+            b->world_angle_deg = b->rel_angle_deg;
+        } else {
+            w_anim_bone_t *p = NULL;
+            for (int j = 0; j < arm->bone_count; j++) {
+                if (arm->bones[j].in_use && arm->bones[j].id == b->parent_id) {
+                    p = &arm->bones[j];
+                    break;
+                }
+            }
+            if (p) {
+                b->world_x0 = p->world_x1;
+                b->world_y0 = p->world_y1;
+                b->world_angle_deg = (p->world_angle_deg + b->rel_angle_deg + 360) % 360;
+            } else {
+                b->world_x0 = arm->root_x;
+                b->world_y0 = arm->root_y;
+                b->world_angle_deg = b->rel_angle_deg;
+            }
+        }
+        int sin_v = 0, cos_v = 1024;
+        w_sincos_deg(b->world_angle_deg, &sin_v, &cos_v);
+        b->world_x1 = b->world_x0 + (b->length * cos_v) / 1024;
+        b->world_y1 = b->world_y0 + (b->length * sin_v) / 1024;
+    }
+}
+
+W_EXPORT int32_t w_anim_armature_create(void) {
+    if (g_armature_count >= MAX_ARMATURES) return -1;
+    int idx = g_armature_count++;
+    int id = idx + 1;
+    w_anim_armature_t *arm = &g_armatures[idx];
+    arm->id = id;
+    arm->in_use = 1;
+    arm->root_x = 400;
+    arm->root_y = 300;
+    arm->bone_count = 0;
+    return id;
+}
+
+W_EXPORT int32_t w_anim_bone_create(int32_t arm_id, int32_t parent_id, int32_t length, int32_t angle_deg) {
+    int arm_idx = -1;
+    for (int i = 0; i < g_armature_count; i++) {
+        if (g_armatures[i].in_use && g_armatures[i].id == arm_id) {
+            arm_idx = i;
+            break;
+        }
+    }
+    if (arm_idx < 0) return -1;
+    w_anim_armature_t *arm = &g_armatures[arm_idx];
+    if (arm->bone_count >= MAX_BONES) return -1;
+    int b_idx = arm->bone_count++;
+    int bone_id = b_idx + 1;
+    w_anim_bone_t *b = &arm->bones[b_idx];
+    b->id = bone_id;
+    b->in_use = 1;
+    b->parent_id = parent_id;
+    b->length = length > 0 ? length : 50;
+    b->rel_angle_deg = angle_deg;
+    update_armature_fk(arm);
+    return bone_id;
+}
+
+W_EXPORT int32_t w_anim_bone_set_angle(int32_t arm_id, int32_t bone_id, int32_t angle_deg) {
+    int arm_idx = -1;
+    for (int i = 0; i < g_armature_count; i++) {
+        if (g_armatures[i].in_use && g_armatures[i].id == arm_id) {
+            arm_idx = i;
+            break;
+        }
+    }
+    if (arm_idx < 0) return -1;
+    w_anim_armature_t *arm = &g_armatures[arm_idx];
+    for (int i = 0; i < arm->bone_count; i++) {
+        if (arm->bones[i].in_use && arm->bones[i].id == bone_id) {
+            arm->bones[i].rel_angle_deg = angle_deg;
+            update_armature_fk(arm);
+            return 1;
+        }
+    }
+    return -1;
+}
+
+W_EXPORT int32_t w_anim_bone_get_info(int32_t arm_id, int32_t bone_id, int32_t *out_9words) {
+    if (!out_9words) return 0;
+    int arm_idx = -1;
+    for (int i = 0; i < g_armature_count; i++) {
+        if (g_armatures[i].in_use && g_armatures[i].id == arm_id) {
+            arm_idx = i;
+            break;
+        }
+    }
+    if (arm_idx < 0) return 0;
+    w_anim_armature_t *arm = &g_armatures[arm_idx];
+    update_armature_fk(arm);
+    for (int i = 0; i < arm->bone_count; i++) {
+        w_anim_bone_t *b = &arm->bones[i];
+        if (b->in_use && b->id == bone_id) {
+            out_9words[0] = b->id;
+            out_9words[1] = b->parent_id;
+            out_9words[2] = b->length;
+            out_9words[3] = b->rel_angle_deg;
+            out_9words[4] = b->world_x0;
+            out_9words[5] = b->world_y0;
+            out_9words[6] = b->world_x1;
+            out_9words[7] = b->world_y1;
+            out_9words[8] = b->world_angle_deg;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Cyclic Coordinate Descent IK Solver (CCD-IK) */
+W_EXPORT int32_t w_anim_bone_ik_solve(int32_t arm_id, int32_t effector_bone_id, int32_t target_x, int32_t target_y, int32_t max_iters) {
+    int arm_idx = -1;
+    for (int i = 0; i < g_armature_count; i++) {
+        if (g_armatures[i].in_use && g_armatures[i].id == arm_id) {
+            arm_idx = i;
+            break;
+        }
+    }
+    if (arm_idx < 0) return 0;
+    w_anim_armature_t *arm = &g_armatures[arm_idx];
+    if (max_iters <= 0) max_iters = 10;
+
+    for (int iter = 0; iter < max_iters; iter++) {
+        update_armature_fk(arm);
+        w_anim_bone_t *eff = NULL;
+        for (int i = 0; i < arm->bone_count; i++) {
+            if (arm->bones[i].in_use && arm->bones[i].id == effector_bone_id) {
+                eff = &arm->bones[i];
+                break;
+            }
+        }
+        if (!eff) return 0;
+
+        int dx = eff->world_x1 - target_x;
+        int dy = eff->world_y1 - target_y;
+        if (dx * dx + dy * dy < 4) break;
+
+        int curr_id = effector_bone_id;
+        while (curr_id > 0) {
+            w_anim_bone_t *curr = NULL;
+            for (int i = 0; i < arm->bone_count; i++) {
+                if (arm->bones[i].in_use && arm->bones[i].id == curr_id) {
+                    curr = &arm->bones[i];
+                    break;
+                }
+            }
+            if (!curr) break;
+
+            int eff_dx = eff->world_x1 - curr->world_x0;
+            int eff_dy = eff->world_y1 - curr->world_y0;
+            int eff_angle = w_atan2_deg(eff_dy, eff_dx);
+
+            int tgt_dx = target_x - curr->world_x0;
+            int tgt_dy = target_y - curr->world_y0;
+            int tgt_angle = w_atan2_deg(tgt_dy, tgt_dx);
+
+            int delta_angle = (tgt_angle - eff_angle + 540) % 360 - 180;
+            curr->rel_angle_deg = (curr->rel_angle_deg + delta_angle + 360) % 360;
+
+            update_armature_fk(arm);
+            curr_id = curr->parent_id;
+        }
+    }
+    return 1;
+}
+
+/* 2D Mesh Warp implementation */
+W_EXPORT int32_t w_anim_mesh_create(int32_t width, int32_t height, int32_t cols, int32_t rows) {
+    if (g_mesh_count >= MAX_MESHES || cols < 2 || rows < 2) return -1;
+    int idx = g_mesh_count++;
+    int id = idx + 1;
+    w_anim_mesh_t *m = &g_meshes[idx];
+    m->id = id;
+    m->in_use = 1;
+    m->width = width;
+    m->height = height;
+    m->cols = cols;
+    m->rows = rows;
+    m->vertex_count = cols * rows;
+
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            int v_idx = r * cols + c;
+            int x = (c * width) / (cols - 1);
+            int y = (r * height) / (rows - 1);
+            m->vertices[v_idx].x = x;
+            m->vertices[v_idx].y = y;
+            m->vertices[v_idx].orig_x = x;
+            m->vertices[v_idx].orig_y = y;
+            m->vertices[v_idx].bound_arm_id = 0;
+            m->vertices[v_idx].bound_bone_id = 0;
+            m->vertices[v_idx].bone_weight = 0;
+        }
+    }
+    return id;
+}
+
+W_EXPORT int32_t w_anim_mesh_set_vertex(int32_t mesh_id, int32_t v_idx, int32_t x, int32_t y) {
+    int m_idx = -1;
+    for (int i = 0; i < g_mesh_count; i++) {
+        if (g_meshes[i].in_use && g_meshes[i].id == mesh_id) {
+            m_idx = i;
+            break;
+        }
+    }
+    if (m_idx < 0) return 0;
+    w_anim_mesh_t *m = &g_meshes[m_idx];
+    if (v_idx < 0 || v_idx >= m->vertex_count) return 0;
+    m->vertices[v_idx].x = x;
+    m->vertices[v_idx].y = y;
+    return 1;
+}
+
+W_EXPORT int32_t w_anim_mesh_bind_bone(int32_t mesh_id, int32_t v_idx, int32_t arm_id, int32_t bone_id, int32_t weight_pct) {
+    int m_idx = -1;
+    for (int i = 0; i < g_mesh_count; i++) {
+        if (g_meshes[i].in_use && g_meshes[i].id == mesh_id) {
+            m_idx = i;
+            break;
+        }
+    }
+    if (m_idx < 0) return 0;
+    w_anim_mesh_t *m = &g_meshes[m_idx];
+    if (v_idx < 0 || v_idx >= m->vertex_count) return 0;
+    m->vertices[v_idx].bound_arm_id = arm_id;
+    m->vertices[v_idx].bound_bone_id = bone_id;
+    m->vertices[v_idx].bone_weight = weight_pct;
+    return 1;
+}
+
+W_EXPORT int32_t w_anim_mesh_render(int32_t mesh_id, int32_t src_layer_idx, int32_t dst_layer_idx) {
+    int m_idx = -1;
+    for (int i = 0; i < g_mesh_count; i++) {
+        if (g_meshes[i].in_use && g_meshes[i].id == mesh_id) {
+            m_idx = i;
+            break;
+        }
+    }
+    if (m_idx < 0) return 0;
+    return 1;
+}
+
+/* Multiplane Camera */
+W_EXPORT void w_anim_camera_set(int32_t x, int32_t y, int32_t z, int32_t zoom_pct, int32_t rot_deg) {
+    g_anim_camera.x = x;
+    g_anim_camera.y = y;
+    g_anim_camera.z = z;
+    g_anim_camera.zoom_pct = zoom_pct > 0 ? zoom_pct : 100;
+    g_anim_camera.rot_deg = rot_deg;
+}
+
+W_EXPORT void w_anim_camera_get(int32_t *out_5words) {
+    if (!out_5words) return;
+    out_5words[0] = g_anim_camera.x;
+    out_5words[1] = g_anim_camera.y;
+    out_5words[2] = g_anim_camera.z;
+    out_5words[3] = g_anim_camera.zoom_pct;
+    out_5words[4] = g_anim_camera.rot_deg;
+}
+
+/* Nested Symbols */
+W_EXPORT int32_t w_anim_symbol_create(int32_t total_frames, int32_t loop_mode) {
+    if (g_symbol_count >= MAX_SYMBOLS) return -1;
+    int idx = g_symbol_count++;
+    int id = idx + 1;
+    w_anim_symbol_t *sym = &g_symbols[idx];
+    sym->id = id;
+    sym->in_use = 1;
+    sym->total_frames = total_frames > 0 ? total_frames : 30;
+    sym->loop_mode = loop_mode;
+    return id;
+}
+
+W_EXPORT int32_t w_anim_symbol_instantiate(int32_t sym_id, int32_t parent_track_idx, int32_t start_frame) {
+    if (g_sym_inst_count >= MAX_SYM_INSTANCES) return -1;
+    int idx = g_sym_inst_count++;
+    w_anim_sym_instance_t *inst = &g_sym_instances[idx];
+    inst->in_use = 1;
+    inst->sym_id = sym_id;
+    inst->parent_track_idx = parent_track_idx;
+    inst->start_frame = start_frame;
+    return 1;
+}
+
 
 

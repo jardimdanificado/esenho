@@ -580,6 +580,46 @@ W_EXPORT void    w_layer_flip_v(int32_t layer_idx);
 /* Native Procedural Brush Tip Generator */
 W_EXPORT int32_t w_generate_brush_tip(int32_t shape_type, int32_t width, int32_t height, uint8_t *out_alpha_buffer);
 
+/* =========================================================================
+ * Animation, Timeline, Bones, IK, Mesh Warp & Camera ABI
+ * ========================================================================= */
+
+W_EXPORT void    w_anim_init(int32_t total_frames, int32_t fps);
+W_EXPORT int32_t w_anim_get_total_frames(void);
+W_EXPORT void    w_anim_set_total_frames(int32_t total_frames);
+W_EXPORT int32_t w_anim_get_fps(void);
+W_EXPORT void    w_anim_set_fps(int32_t fps);
+W_EXPORT int32_t w_anim_get_frame(void);
+W_EXPORT void    w_anim_set_frame(int32_t frame_idx);
+W_EXPORT int32_t w_anim_track_create(int32_t track_type, int32_t target_layer_idx);
+W_EXPORT int32_t w_anim_track_get_count(void);
+W_EXPORT int32_t w_anim_add_keyframe(int32_t track_idx, int32_t frame_idx, int32_t tween_type);
+W_EXPORT int32_t w_anim_set_keyframe_transform(int32_t track_idx, int32_t kf_idx, int32_t x, int32_t y, int32_t scale_x_pct, int32_t scale_y_pct, int32_t rot_deg, int32_t opacity, int32_t z_depth);
+W_EXPORT int32_t w_anim_get_keyframe_count(int32_t track_idx);
+W_EXPORT int32_t w_anim_get_keyframe_info(int32_t track_idx, int32_t kf_idx, int32_t *out_10words);
+W_EXPORT void    w_anim_onion_skin(int32_t enabled, int32_t prev_frames, int32_t next_frames, int32_t tint_alpha);
+
+/* Armature & IK solver */
+W_EXPORT int32_t w_anim_armature_create(void);
+W_EXPORT int32_t w_anim_bone_create(int32_t arm_id, int32_t parent_id, int32_t length, int32_t angle_deg);
+W_EXPORT int32_t w_anim_bone_set_angle(int32_t arm_id, int32_t bone_id, int32_t angle_deg);
+W_EXPORT int32_t w_anim_bone_get_info(int32_t arm_id, int32_t bone_id, int32_t *out_9words);
+W_EXPORT int32_t w_anim_bone_ik_solve(int32_t arm_id, int32_t effector_bone_id, int32_t target_x, int32_t target_y, int32_t max_iters);
+
+/* Mesh Warp & FFD */
+W_EXPORT int32_t w_anim_mesh_create(int32_t width, int32_t height, int32_t cols, int32_t rows);
+W_EXPORT int32_t w_anim_mesh_set_vertex(int32_t mesh_id, int32_t v_idx, int32_t x, int32_t y);
+W_EXPORT int32_t w_anim_mesh_bind_bone(int32_t mesh_id, int32_t v_idx, int32_t arm_id, int32_t bone_id, int32_t weight_pct);
+W_EXPORT int32_t w_anim_mesh_render(int32_t mesh_id, int32_t src_layer_idx, int32_t dst_layer_idx);
+
+/* Multiplane Camera */
+W_EXPORT void    w_anim_camera_set(int32_t x, int32_t y, int32_t z, int32_t zoom_pct, int32_t rot_deg);
+W_EXPORT void    w_anim_camera_get(int32_t *out_5words);
+
+/* Nested Symbols */
+W_EXPORT int32_t w_anim_symbol_create(int32_t total_frames, int32_t loop_mode);
+W_EXPORT int32_t w_anim_symbol_instantiate(int32_t sym_id, int32_t parent_track_idx, int32_t start_frame);
+
 #endif /* QUADRO_H */
 
 
