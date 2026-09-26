@@ -9,21 +9,22 @@
   <meta name="color-scheme" content="dark">
   <style>
     :root {
-      --bg-dark: #1d2021;
-      --bg-canvas: #1d2021;
-      --bg-panel: #282828;
-      --bg-panel-sub: #32302f;
-      --bg-input: #181a1b;
-      --bg-input-focus: #3c3836;
-      --border: #3c3836;
-      --border-bright: #504945;
+      --bg-dark: #161819;
+      --bg-canvas: #161819;
+      --bg-panel: #202223;
+      --bg-panel-sub: #27292a;
+      --bg-input: #131415;
+      --bg-input-focus: #1c1e1f;
+      --border: #303233;
+      --border-bright: #444748;
       --border-focus: #fabd2f;
-      --text: #fbf1c7;
+      --text: #ebdbb2;
+      --text-bright: #fbf1c7;
       --text-dim: #d5c4a1;
-      --text-muted: #928374;
+      --text-muted: #857d73;
       --primary: #fabd2f;
       --primary-hover: #fe8019;
-      --primary-dim: rgba(250, 189, 47, 0.12);
+      --primary-dim: rgba(250, 189, 47, 0.14);
       --accent: #83a598;
       --accent-hover: #a89984;
       --accent-dim: rgba(131, 165, 152, 0.15);
@@ -1413,7 +1414,7 @@
         <span class="hotkey">V</span>
       </button>
       <button class="tool-btn" id="tool-hand" data-tool="hand" title="Hand / Pan (H)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-4 0v4m-4-2V4a2 2 0 0 0-4 0v6m-4-1.5V6a2 2 0 0 0-4 0v8a8 8 0 0 0 16 0v-2a2 2 0 0 0-4 0"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v4"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v6"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
         <span class="hotkey">H</span>
       </button>
       <button class="tool-btn" id="tool-node" data-tool="node" title="Bézier Node Editor (A)">
@@ -6693,54 +6694,30 @@
           }
         };
 
-        // 1. Try Native Quadro WASM rasterizer
-        if (quadroRenderer) {
-          try {
-            const needBg = format === 'image/jpeg' || (doc.backgroundColor && doc.backgroundColor !== 'transparent');
-            const ok = quadroRenderer.renderToCanvas(doc, cvs, { scale: scale, background: needBg });
-            if (ok) {
-              if (format === 'image/jpeg' && (!doc.backgroundColor || doc.backgroundColor === 'transparent')) {
-                // Flatten over white for JPEG
-                const ctx2d = cvs.getContext('2d');
-                const imgData = ctx2d.getImageData(0, 0, outW, outH);
-                ctx2d.fillStyle = '#ffffff';
-                ctx2d.fillRect(0, 0, outW, outH);
-                ctx2d.putImageData(imgData, 0, 0);
-              }
-              saveFromCanvas();
-              return;
-            }
-          } catch (err) {
-            console.warn('Quadro rasterizer export error, using browser fallback:', err);
-          }
+        if (!quadroRenderer) {
+          showNotification('Export error: Native Quadro WASM engine not initialized');
+          if (modalExport) modalExport.style.display = 'none';
+          return;
         }
 
-        // 2. Fallback: Browser SVG -> Image -> Canvas rasterizer
-        const ctx2d = cvs.getContext('2d');
-        if (doc.backgroundColor && doc.backgroundColor !== 'transparent') {
-          ctx2d.fillStyle = doc.backgroundColor;
-          ctx2d.fillRect(0, 0, outW, outH);
-        } else if (format === 'image/jpeg') {
+        const needBg = format === 'image/jpeg' || (doc.backgroundColor && doc.backgroundColor !== 'transparent');
+        const ok = quadroRenderer.renderToCanvas(doc, cvs, { scale: scale, background: needBg });
+        if (!ok) {
+          showNotification('Export failed: native Quadro render failed');
+          if (modalExport) modalExport.style.display = 'none';
+          return;
+        }
+
+        if (format === 'image/jpeg' && (!doc.backgroundColor || doc.backgroundColor === 'transparent')) {
+          // Flatten over white for JPEG
+          const ctx2d = cvs.getContext('2d');
+          const imgData = ctx2d.getImageData(0, 0, outW, outH);
           ctx2d.fillStyle = '#ffffff';
           ctx2d.fillRect(0, 0, outW, outH);
+          ctx2d.putImageData(imgData, 0, 0);
         }
 
-        const svgXml = doc.toSVGString();
-        const img = new Image();
-        const svgBlob = new Blob([svgXml], { type: 'image/svg+xml;charset=utf-8' });
-        const blobUrl = URL.createObjectURL(svgBlob);
-
-        img.onload = () => {
-          ctx2d.drawImage(img, 0, 0, outW, outH);
-          URL.revokeObjectURL(blobUrl);
-          saveFromCanvas();
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(blobUrl);
-          showNotification('Export failed: unable to rasterize SVG');
-          if (modalExport) modalExport.style.display = 'none';
-        };
-        img.src = blobUrl;
+        saveFromCanvas();
       }
 
       document.getElementById('btn-do-export')?.addEventListener('click', async () => {
