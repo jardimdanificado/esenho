@@ -4150,5 +4150,1053 @@ W_EXPORT int32_t w_anim_symbol_instantiate(int32_t sym_id, int32_t parent_track_
     return 1;
 }
 
+/* =========================================================================
+ * Fast Native Math Helpers (No libc dependencies)
+ * ========================================================================= */
+
+#define AUDIO_PI 3.14159265358979323846f
+#define AUDIO_TWO_PI 6.28318530717958647692f
+
+static inline float f_abs(float x) { return x < 0.0f ? -x : x; }
+static inline float f_min(float a, float b) { return a < b ? a : b; }
+static inline float f_max(float a, float b) { return a > b ? a : b; }
+static inline float f_clamp(float x, float min_v, float max_v) {
+    if (x < min_v) return min_v;
+    if (x > max_v) return max_v;
+    return x;
+}
+
+/* Fast polynomial sin approximation [-PI, PI] */
+static inline float fast_sin(float x) {
+    while (x > AUDIO_PI) x -= AUDIO_TWO_PI;
+    while (x < -AUDIO_PI) x += AUDIO_TWO_PI;
+    float x2 = x * x;
+    return x * (1.0f - x2 * (1.0f / 6.0f - x2 * (1.0f / 120.0f - x2 * (1.0f / 5040.0f))));
+}
+
+static inline float fast_cos(float x) {
+    return fast_sin(x + (AUDIO_PI * 0.5f));
+}
+
+static inline float fast_tan(float x) {
+    float c = fast_cos(x);
+    if (f_abs(c) < 1e-6f) c = 1e-6f;
+    return fast_sin(x) / c;
+}
+
+static inline float midi_to_freq(uint32_t note) {
+    /* 440.0 * 2^((note - 69) / 12) using fast piecewise/exp approx */
+    float semi = (float)((int32_t)note - 69);
+    float octave = semi * (1.0f / 12.0f);
+    int oct_int = (int)octave;
+    if (octave < 0 && (float)oct_int != octave) oct_int--;
+    float frac = octave - (float)oct_int;
+    float ft = frac * 0.69314718f;
+    float exp_frac = 1.0f + ft * (1.0f + ft * (0.5f + ft * (0.16666667f + ft * 0.04166667f)));
+    float factor = 1.0f;
+    if (oct_int > 0) {
+        for (int i = 0; i < oct_int; i++) factor *= 2.0f;
+    } else if (oct_int < 0) {
+        for (int i = 0; i < -oct_int; i++) factor *= 0.5f;
+    }
+    return 440.0f * exp_frac * factor;
+}
+
+/* =========================================================================
+ * Audio DSP & Synthesizer Core Implementation
+ * ========================================================================= */
+
+#define AUDIO_MAX_TRACKS 16
+#define AUDIO_MAX_VOICES 8
+#define AUDIO_MAX_BLOCK_FRAMES 2048
+#define AUDIO_DELAY_MAX 48000
+
+typedef struct {
+    uint8_t  active;
+    uint32_t midi_note;
+    float    velocity;
+    float    freq_hz;
+    float    phase;
+    uint8_t  env_stage; /* 0=idle, 1=attack, 2=decay, 3=sustain, 4=release */
+    float    env_level;
+    uint32_t stage_samples;
+} audio_voice_t;
+
+typedef struct {
+    uint32_t wave_type;
+    float    attack_s;
+    float    decay_s;
+    float    sustain_lvl;
+    float    release_s;
+    float    pulse_width;
+    
+    /* Biquad Filter */
+    uint32_t filter_type;
+    float    cutoff_hz;
+    float    resonance;
+    float    gain_db;
+    float    b0, b1, b2, a1, a2;
+    float    fx_x1_l, fx_x2_l, fx_y1_l, fx_y2_l;
+    float    fx_x1_r, fx_x2_r, fx_y1_r, fx_y2_r;
+    
+    /* FX */
+    float    delay_s;
+    float    delay_fb;
+    float    delay_mix;
+    float    reverb_size;
+    float    reverb_mix;
+    float    crush_bits;
+    float    dist_drive;
+    
+    float    volume;
+    float    pan;
+    
+    float    delay_buf_l[AUDIO_DELAY_MAX];
+    float    delay_buf_r[AUDIO_DELAY_MAX];
+    uint32_t delay_write_pos;
+    
+    audio_voice_t voices[AUDIO_MAX_VOICES];
+} audio_track_t;
+
+typedef struct {
+    uint8_t  active;
+    uint32_t preset_type;
+    float    volume;
+    float    freq;
+    float    freq_limit;
+    float    freq_slide;
+    float    freq_dslide;
+    float    duty;
+    float    duty_slide;
+    float    vib_phase;
+    float    vib_speed;
+    float    vib_depth;
+    float    env_attack;
+    float    env_sustain;
+    float    env_decay;
+    float    env_punch;
+    float    env_total;
+    float    env_elapsed;
+    float    phase;
+    uint32_t noise_seed;
+} sfxr_state_t;
+
+static uint32_t      g_sample_rate = 44100;
+static float         g_bpm = 120.0f;
+static float         g_master_vol = 1.0f;
+static audio_track_t g_audio_tracks[AUDIO_MAX_TRACKS];
+static sfxr_state_t  g_sfxr;
+static float         g_audio_buf_l[AUDIO_MAX_BLOCK_FRAMES];
+static float         g_audio_buf_r[AUDIO_MAX_BLOCK_FRAMES];
+static uint32_t      g_rand_seed = 0x12345678;
+
+static inline float audio_randf(void) {
+    g_rand_seed = g_rand_seed * 1664525u + 1013904223u;
+    return (float)(g_rand_seed & 0xFFFF) / 65536.0f;
+}
+
+static void update_biquad_coeffs(audio_track_t *trk) {
+    if (trk->filter_type == W_FILTER_OFF || trk->cutoff_hz <= 0.0f) {
+        trk->b0 = 1.0f; trk->b1 = 0.0f; trk->b2 = 0.0f;
+        trk->a1 = 0.0f; trk->a2 = 0.0f;
+        return;
+    }
+    float nyquist = (float)g_sample_rate * 0.5f;
+    float fc = f_clamp(trk->cutoff_hz, 20.0f, nyquist - 100.0f);
+    float w0 = AUDIO_TWO_PI * fc / (float)g_sample_rate;
+    float cos_w0 = fast_cos(w0);
+    float sin_w0 = fast_sin(w0);
+    float q = trk->resonance > 0.1f ? trk->resonance : 0.707f;
+    float alpha = sin_w0 / (2.0f * q);
+    
+    float a0 = 1.0f;
+    if (trk->filter_type == W_FILTER_LOWPASS) {
+        trk->b0 = (1.0f - cos_w0) * 0.5f;
+        trk->b1 = 1.0f - cos_w0;
+        trk->b2 = (1.0f - cos_w0) * 0.5f;
+        a0      = 1.0f + alpha;
+        trk->a1 = -2.0f * cos_w0;
+        trk->a2 = 1.0f - alpha;
+    } else if (trk->filter_type == W_FILTER_HIGHPASS) {
+        trk->b0 = (1.0f + cos_w0) * 0.5f;
+        trk->b1 = -(1.0f + cos_w0);
+        trk->b2 = (1.0f + cos_w0) * 0.5f;
+        a0      = 1.0f + alpha;
+        trk->a1 = -2.0f * cos_w0;
+        trk->a2 = 1.0f - alpha;
+    } else if (trk->filter_type == W_FILTER_BANDPASS) {
+        trk->b0 = alpha;
+        trk->b1 = 0.0f;
+        trk->b2 = -alpha;
+        a0      = 1.0f + alpha;
+        trk->a1 = -2.0f * cos_w0;
+        trk->a2 = 1.0f - alpha;
+    } else if (trk->filter_type == W_FILTER_NOTCH) {
+        trk->b0 = 1.0f;
+        trk->b1 = -2.0f * cos_w0;
+        trk->b2 = 1.0f;
+        a0      = 1.0f + alpha;
+        trk->a1 = -2.0f * cos_w0;
+        trk->a2 = 1.0f - alpha;
+    } else {
+        trk->b0 = 1.0f; trk->b1 = 0.0f; trk->b2 = 0.0f;
+        trk->a1 = 0.0f; trk->a2 = 0.0f;
+        return;
+    }
+    float inv_a0 = 1.0f / a0;
+    trk->b0 *= inv_a0;
+    trk->b1 *= inv_a0;
+    trk->b2 *= inv_a0;
+    trk->a1 *= inv_a0;
+    trk->a2 *= inv_a0;
+}
+
+W_EXPORT void w_audio_init(uint32_t sample_rate) {
+    g_sample_rate = sample_rate > 0 ? sample_rate : 44100;
+    g_bpm = 120.0f;
+    g_master_vol = 1.0f;
+    g_sfxr.active = 0;
+    
+    for (int t = 0; t < AUDIO_MAX_TRACKS; t++) {
+        audio_track_t *trk = &g_audio_tracks[t];
+        trk->wave_type = W_WAVE_SAW;
+        trk->attack_s = 0.01f;
+        trk->decay_s = 0.1f;
+        trk->sustain_lvl = 0.7f;
+        trk->release_s = 0.2f;
+        trk->pulse_width = 0.5f;
+        
+        trk->filter_type = W_FILTER_OFF;
+        trk->cutoff_hz = 5000.0f;
+        trk->resonance = 0.707f;
+        trk->gain_db = 0.0f;
+        trk->fx_x1_l = trk->fx_x2_l = trk->fx_y1_l = trk->fx_y2_l = 0.0f;
+        trk->fx_x1_r = trk->fx_x2_r = trk->fx_y1_r = trk->fx_y2_r = 0.0f;
+        
+        trk->delay_s = 0.0f;
+        trk->delay_fb = 0.0f;
+        trk->delay_mix = 0.0f;
+        trk->reverb_size = 0.0f;
+        trk->reverb_mix = 0.0f;
+        trk->crush_bits = 0.0f;
+        trk->dist_drive = 0.0f;
+        trk->volume = 0.8f;
+        trk->pan = 0.0f;
+        trk->delay_write_pos = 0;
+        
+        for (int i = 0; i < AUDIO_DELAY_MAX; i++) {
+            trk->delay_buf_l[i] = 0.0f;
+            trk->delay_buf_r[i] = 0.0f;
+        }
+        for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
+            trk->voices[v].active = 0;
+            trk->voices[v].env_stage = 0;
+            trk->voices[v].env_level = 0.0f;
+            trk->voices[v].phase = 0.0f;
+        }
+    }
+}
+
+W_EXPORT void w_audio_set_bpm(float bpm) { g_bpm = bpm > 20.0f ? bpm : 120.0f; }
+W_EXPORT float w_audio_get_bpm(void) { return g_bpm; }
+W_EXPORT void w_audio_set_master_vol(float vol) { g_master_vol = f_clamp(vol, 0.0f, 2.0f); }
+W_EXPORT float w_audio_get_master_vol(void) { return g_master_vol; }
+
+W_EXPORT void w_audio_set_track_synth(uint32_t track_idx, uint32_t wave_type, float attack_s, float decay_s, float sustain_lvl, float release_s, float pulse_width) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    audio_track_t *trk = &g_audio_tracks[track_idx];
+    trk->wave_type = wave_type;
+    trk->attack_s = f_max(0.001f, attack_s);
+    trk->decay_s = f_max(0.001f, decay_s);
+    trk->sustain_lvl = f_clamp(sustain_lvl, 0.0f, 1.0f);
+    trk->release_s = f_max(0.001f, release_s);
+    trk->pulse_width = f_clamp(pulse_width, 0.01f, 0.99f);
+}
+
+W_EXPORT void w_audio_set_track_filter(uint32_t track_idx, uint32_t filter_type, float cutoff_hz, float resonance, float gain_db) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    audio_track_t *trk = &g_audio_tracks[track_idx];
+    trk->filter_type = filter_type;
+    trk->cutoff_hz = cutoff_hz;
+    trk->resonance = resonance;
+    trk->gain_db = gain_db;
+    update_biquad_coeffs(trk);
+}
+
+W_EXPORT void w_audio_set_track_fx(uint32_t track_idx, float delay_s, float delay_fb, float delay_mix, float reverb_size, float reverb_mix, float crush_bits, float dist_drive) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    audio_track_t *trk = &g_audio_tracks[track_idx];
+    trk->delay_s = f_clamp(delay_s, 0.0f, 1.0f);
+    trk->delay_fb = f_clamp(delay_fb, 0.0f, 0.95f);
+    trk->delay_mix = f_clamp(delay_mix, 0.0f, 1.0f);
+    trk->reverb_size = f_clamp(reverb_size, 0.0f, 1.0f);
+    trk->reverb_mix = f_clamp(reverb_mix, 0.0f, 1.0f);
+    trk->crush_bits = f_clamp(crush_bits, 0.0f, 16.0f);
+    trk->dist_drive = f_clamp(dist_drive, 0.0f, 10.0f);
+}
+
+W_EXPORT void w_audio_set_track_vol_pan(uint32_t track_idx, float volume, float pan) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    g_audio_tracks[track_idx].volume = f_clamp(volume, 0.0f, 2.0f);
+    g_audio_tracks[track_idx].pan = f_clamp(pan, -1.0f, 1.0f);
+}
+
+W_EXPORT void w_audio_note_on(uint32_t track_idx, uint32_t midi_note, float velocity) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    audio_track_t *trk = &g_audio_tracks[track_idx];
+    int free_v = -1;
+    for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
+        if (!trk->voices[v].active || trk->voices[v].env_stage == 0) {
+            free_v = v;
+            break;
+        }
+    }
+    if (free_v < 0) free_v = 0; /* steal oldest */
+    
+    audio_voice_t *vox = &trk->voices[free_v];
+    vox->active = 1;
+    vox->midi_note = midi_note;
+    vox->velocity = f_clamp(velocity, 0.0f, 1.0f);
+    vox->freq_hz = midi_to_freq(midi_note);
+    vox->env_stage = 1; /* attack */
+    vox->stage_samples = 0;
+}
+
+W_EXPORT void w_audio_note_off(uint32_t track_idx, uint32_t midi_note) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    audio_track_t *trk = &g_audio_tracks[track_idx];
+    for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
+        if (trk->voices[v].active && trk->voices[v].midi_note == midi_note) {
+            trk->voices[v].env_stage = 4; /* release */
+            trk->voices[v].stage_samples = 0;
+        }
+    }
+}
+
+W_EXPORT void w_audio_all_notes_off(uint32_t track_idx) {
+    if (track_idx >= AUDIO_MAX_TRACKS) return;
+    audio_track_t *trk = &g_audio_tracks[track_idx];
+    for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
+        trk->voices[v].active = 0;
+        trk->voices[v].env_stage = 0;
+        trk->voices[v].env_level = 0.0f;
+    }
+}
+
+W_EXPORT void w_audio_trigger_sfxr(uint32_t preset_type, float volume) {
+    g_sfxr.active = 1;
+    g_sfxr.preset_type = preset_type;
+    g_sfxr.volume = f_clamp(volume, 0.0f, 1.0f);
+    g_sfxr.phase = 0.0f;
+    g_sfxr.noise_seed = 0x54321;
+    g_sfxr.vib_phase = 0.0f;
+    g_sfxr.vib_speed = 0.0f;
+    g_sfxr.vib_depth = 0.0f;
+    g_sfxr.duty = 0.5f;
+    g_sfxr.duty_slide = 0.0f;
+    g_sfxr.freq_dslide = 0.0f;
+    
+    switch (preset_type) {
+        case W_SFXR_COIN:
+            g_sfxr.freq = 0.4f + audio_randf() * 0.1f;
+            g_sfxr.freq_limit = 0.0f;
+            g_sfxr.freq_slide = 0.0f;
+            g_sfxr.env_attack = 0.0f;
+            g_sfxr.env_sustain = 0.1f;
+            g_sfxr.env_decay = 0.15f;
+            g_sfxr.env_punch = 0.3f;
+            break;
+        case W_SFXR_LASER:
+            g_sfxr.freq = 0.5f + audio_randf() * 0.3f;
+            g_sfxr.freq_limit = 0.1f;
+            g_sfxr.freq_slide = -0.35f;
+            g_sfxr.env_attack = 0.0f;
+            g_sfxr.env_sustain = 0.05f;
+            g_sfxr.env_decay = 0.15f;
+            g_sfxr.env_punch = 0.0f;
+            break;
+        case W_SFXR_EXPLOSION:
+            g_sfxr.freq = 0.2f + audio_randf() * 0.2f;
+            g_sfxr.freq_limit = 0.0f;
+            g_sfxr.freq_slide = -0.1f;
+            g_sfxr.env_attack = 0.0f;
+            g_sfxr.env_sustain = 0.1f + audio_randf() * 0.2f;
+            g_sfxr.env_decay = 0.3f + audio_randf() * 0.3f;
+            g_sfxr.env_punch = 0.4f;
+            break;
+        case W_SFXR_POWERUP:
+            g_sfxr.freq = 0.2f + audio_randf() * 0.3f;
+            g_sfxr.freq_limit = 0.0f;
+            g_sfxr.freq_slide = 0.3f;
+            g_sfxr.env_attack = 0.0f;
+            g_sfxr.env_sustain = 0.2f;
+            g_sfxr.env_decay = 0.2f;
+            g_sfxr.env_punch = 0.0f;
+            break;
+        case W_SFXR_JUMP:
+            g_sfxr.freq = 0.3f + audio_randf() * 0.2f;
+            g_sfxr.freq_limit = 0.0f;
+            g_sfxr.freq_slide = 0.25f;
+            g_sfxr.env_attack = 0.0f;
+            g_sfxr.env_sustain = 0.05f;
+            g_sfxr.env_decay = 0.15f;
+            g_sfxr.env_punch = 0.2f;
+            break;
+        default: /* Hit/Select */
+            g_sfxr.freq = 0.5f;
+            g_sfxr.freq_limit = 0.0f;
+            g_sfxr.freq_slide = -0.15f;
+            g_sfxr.env_attack = 0.0f;
+            g_sfxr.env_sustain = 0.05f;
+            g_sfxr.env_decay = 0.08f;
+            g_sfxr.env_punch = 0.1f;
+            break;
+    }
+    g_sfxr.env_total = g_sfxr.env_attack + g_sfxr.env_sustain + g_sfxr.env_decay;
+    g_sfxr.env_elapsed = 0.0f;
+}
+
+W_EXPORT void w_audio_render_block(uint32_t num_frames) {
+    if (num_frames > AUDIO_MAX_BLOCK_FRAMES) num_frames = AUDIO_MAX_BLOCK_FRAMES;
+    float dt = 1.0f / (float)g_sample_rate;
+    
+    for (uint32_t i = 0; i < num_frames; i++) {
+        g_audio_buf_l[i] = 0.0f;
+        g_audio_buf_r[i] = 0.0f;
+    }
+    
+    /* 1. Render Tracks */
+    for (int t = 0; t < AUDIO_MAX_TRACKS; t++) {
+        audio_track_t *trk = &g_audio_tracks[t];
+        float pan_l = trk->pan <= 0.0f ? 1.0f : (1.0f - trk->pan);
+        float pan_r = trk->pan >= 0.0f ? 1.0f : (1.0f + trk->pan);
+        float trk_vol = trk->volume * g_master_vol;
+        
+        uint32_t delay_len = (uint32_t)(trk->delay_s * (float)g_sample_rate);
+        if (delay_len >= AUDIO_DELAY_MAX) delay_len = AUDIO_DELAY_MAX - 1;
+        
+        for (uint32_t i = 0; i < num_frames; i++) {
+            float trk_sample = 0.0f;
+            
+            for (int v = 0; v < AUDIO_MAX_VOICES; v++) {
+                audio_voice_t *vox = &trk->voices[v];
+                if (!vox->active || vox->env_stage == 0) continue;
+                
+                /* Envelope calculation */
+                vox->stage_samples++;
+                float stage_time = (float)vox->stage_samples * dt;
+                
+                if (vox->env_stage == 1) { /* Attack */
+                    vox->env_level = stage_time / trk->attack_s;
+                    if (stage_time >= trk->attack_s) {
+                        vox->env_level = 1.0f;
+                        vox->env_stage = 2; /* Decay */
+                        vox->stage_samples = 0;
+                    }
+                } else if (vox->env_stage == 2) { /* Decay */
+                    float ratio = stage_time / trk->decay_s;
+                    vox->env_level = 1.0f - ratio * (1.0f - trk->sustain_lvl);
+                    if (stage_time >= trk->decay_s) {
+                        vox->env_level = trk->sustain_lvl;
+                        vox->env_stage = 3; /* Sustain */
+                        vox->stage_samples = 0;
+                    }
+                } else if (vox->env_stage == 3) { /* Sustain */
+                    vox->env_level = trk->sustain_lvl;
+                } else if (vox->env_stage == 4) { /* Release */
+                    float ratio = stage_time / trk->release_s;
+                    vox->env_level = trk->sustain_lvl * (1.0f - ratio);
+                    if (stage_time >= trk->release_s) {
+                        vox->env_level = 0.0f;
+                        vox->env_stage = 0;
+                        vox->active = 0;
+                        continue;
+                    }
+                }
+                
+                /* Oscillator waveform */
+                vox->phase += vox->freq_hz * dt;
+                if (vox->phase >= 1.0f) vox->phase -= 1.0f;
+                
+                float raw_wave = 0.0f;
+                switch (trk->wave_type) {
+                    case W_WAVE_SINE:
+                        raw_wave = fast_sin(vox->phase * AUDIO_TWO_PI);
+                        break;
+                    case W_WAVE_SAW:
+                        raw_wave = 2.0f * (vox->phase - 0.5f);
+                        break;
+                    case W_WAVE_SQUARE:
+                        raw_wave = vox->phase < 0.5f ? 1.0f : -1.0f;
+                        break;
+                    case W_WAVE_PWM:
+                        raw_wave = vox->phase < trk->pulse_width ? 1.0f : -1.0f;
+                        break;
+                    case W_WAVE_TRIANGLE:
+                        raw_wave = vox->phase < 0.5f ? (4.0f * vox->phase - 1.0f) : (3.0f - 4.0f * vox->phase);
+                        break;
+                    case W_WAVE_NOISE:
+                        raw_wave = 2.0f * (audio_randf() - 0.5f);
+                        break;
+                    default:
+                        raw_wave = fast_sin(vox->phase * AUDIO_TWO_PI);
+                        break;
+                }
+                trk_sample += raw_wave * vox->env_level * vox->velocity;
+            }
+            
+            /* Distortion / Overdrive */
+            if (trk->dist_drive > 0.01f) {
+                float driven = trk_sample * (1.0f + trk->dist_drive * 3.0f);
+                trk_sample = f_clamp(driven, -1.0f, 1.0f);
+            }
+            
+            /* Bitcrusher */
+            if (trk->crush_bits > 0.0f) {
+                float steps = (float)(1 << (uint32_t)trk->crush_bits);
+                trk_sample = ((float)((int)(trk_sample * steps))) / steps;
+            }
+            
+            /* Filter processing (biquad Direct Form I) */
+            float fil_l = trk_sample;
+            float fil_r = trk_sample;
+            if (trk->filter_type != W_FILTER_OFF) {
+                float y_l = trk->b0 * fil_l + trk->b1 * trk->fx_x1_l + trk->b2 * trk->fx_x2_l - trk->a1 * trk->fx_y1_l - trk->a2 * trk->fx_y2_l;
+                trk->fx_x2_l = trk->fx_x1_l; trk->fx_x1_l = fil_l;
+                trk->fx_y2_l = trk->fx_y1_l; trk->fx_y1_l = y_l;
+                fil_l = y_l;
+                
+                float y_r = trk->b0 * fil_r + trk->b1 * trk->fx_x1_r + trk->b2 * trk->fx_x2_r - trk->a1 * trk->fx_y1_r - trk->a2 * trk->fx_y2_r;
+                trk->fx_x2_r = trk->fx_x1_r; trk->fx_x1_r = fil_r;
+                trk->fx_y2_r = trk->fx_y1_r; trk->fx_y1_r = y_r;
+                fil_r = y_r;
+            }
+            
+            /* Delay effect */
+            float out_l = fil_l;
+            float out_r = fil_r;
+            if (trk->delay_mix > 0.01f && delay_len > 0) {
+                uint32_t r_pos = (trk->delay_write_pos + AUDIO_DELAY_MAX - delay_len) % AUDIO_DELAY_MAX;
+                float d_l = trk->delay_buf_l[r_pos];
+                float d_r = trk->delay_buf_r[r_pos];
+                
+                trk->delay_buf_l[trk->delay_write_pos] = fil_l + d_l * trk->delay_fb;
+                trk->delay_buf_r[trk->delay_write_pos] = fil_r + d_r * trk->delay_fb;
+                trk->delay_write_pos = (trk->delay_write_pos + 1) % AUDIO_DELAY_MAX;
+                
+                out_l = fil_l * (1.0f - trk->delay_mix) + d_l * trk->delay_mix;
+                out_r = fil_r * (1.0f - trk->delay_mix) + d_r * trk->delay_mix;
+            }
+            
+            g_audio_buf_l[i] += out_l * trk_vol * pan_l;
+            g_audio_buf_r[i] += out_r * trk_vol * pan_r;
+        }
+    }
+    
+    /* 2. Render SFXR if active */
+    if (g_sfxr.active) {
+        for (uint32_t i = 0; i < num_frames; i++) {
+            g_sfxr.env_elapsed += dt;
+            if (g_sfxr.env_elapsed >= g_sfxr.env_total) {
+                g_sfxr.active = 0;
+                break;
+            }
+            float env = 1.0f;
+            if (g_sfxr.env_elapsed < g_sfxr.env_attack) {
+                env = g_sfxr.env_elapsed / (g_sfxr.env_attack + 1e-6f);
+            } else if (g_sfxr.env_elapsed < g_sfxr.env_attack + g_sfxr.env_sustain) {
+                env = 1.0f + g_sfxr.env_punch * (1.0f - (g_sfxr.env_elapsed - g_sfxr.env_attack) / (g_sfxr.env_sustain + 1e-6f));
+            } else {
+                float rel = (g_sfxr.env_elapsed - g_sfxr.env_attack - g_sfxr.env_sustain) / (g_sfxr.env_decay + 1e-6f);
+                env = 1.0f - rel;
+            }
+            g_sfxr.freq += g_sfxr.freq_slide * dt;
+            if (g_sfxr.freq < 0.01f) g_sfxr.freq = 0.01f;
+            
+            float hz = g_sfxr.freq * g_sfxr.freq * 2000.0f + 50.0f;
+            g_sfxr.phase += hz * dt;
+            if (g_sfxr.phase >= 1.0f) g_sfxr.phase -= 1.0f;
+            
+            float sfx_out = (g_sfxr.phase < 0.5f ? 1.0f : -1.0f) * env * g_sfxr.volume;
+            g_audio_buf_l[i] += sfx_out;
+            g_audio_buf_r[i] += sfx_out;
+        }
+    }
+    
+    /* Master soft clipper to prevent harsh digital wrap */
+    for (uint32_t i = 0; i < num_frames; i++) {
+        g_audio_buf_l[i] = f_clamp(g_audio_buf_l[i], -1.0f, 1.0f);
+        g_audio_buf_r[i] = f_clamp(g_audio_buf_r[i], -1.0f, 1.0f);
+    }
+}
+
+W_EXPORT float* w_audio_get_buffer_l(void) { return g_audio_buf_l; }
+W_EXPORT float* w_audio_get_buffer_r(void) { return g_audio_buf_r; }
+
+W_EXPORT uint32_t w_audio_export_wav(uint8_t *out_wav_buffer, uint32_t max_bytes, uint32_t total_frames) {
+    uint32_t pcm_data_bytes = total_frames * 2 * 2; /* 2 channels, 16-bit = 4 bytes per frame */
+    uint32_t total_file_size = 44 + pcm_data_bytes;
+    if (!out_wav_buffer || max_bytes < total_file_size) return total_file_size;
+    
+    /* Standard 44-byte WAV header */
+    uint8_t *p = out_wav_buffer;
+    p[0] = 'R'; p[1] = 'I'; p[2] = 'F'; p[3] = 'F';
+    uint32_t riff_chunk_size = total_file_size - 8;
+    p[4] = (uint8_t)(riff_chunk_size & 0xFF);
+    p[5] = (uint8_t)((riff_chunk_size >> 8) & 0xFF);
+    p[6] = (uint8_t)((riff_chunk_size >> 16) & 0xFF);
+    p[7] = (uint8_t)((riff_chunk_size >> 24) & 0xFF);
+    
+    p[8] = 'W'; p[9] = 'A'; p[10] = 'V'; p[11] = 'E';
+    p[12] = 'f'; p[13] = 'm'; p[14] = 't'; p[15] = ' ';
+    
+    p[16] = 16; p[17] = 0; p[18] = 0; p[19] = 0; /* subchunk 1 size (16 for PCM) */
+    p[20] = 1; p[21] = 0; /* audio format: 1 = PCM */
+    p[22] = 2; p[23] = 0; /* channels: 2 (Stereo) */
+    
+    /* Sample rate */
+    p[24] = (uint8_t)(g_sample_rate & 0xFF);
+    p[25] = (uint8_t)((g_sample_rate >> 8) & 0xFF);
+    p[26] = (uint8_t)((g_sample_rate >> 16) & 0xFF);
+    p[27] = (uint8_t)((g_sample_rate >> 24) & 0xFF);
+    
+    /* Byte rate: SampleRate * Channels * BitsPerSample / 8 */
+    uint32_t byte_rate = g_sample_rate * 2 * 2;
+    p[28] = (uint8_t)(byte_rate & 0xFF);
+    p[29] = (uint8_t)((byte_rate >> 8) & 0xFF);
+    p[30] = (uint8_t)((byte_rate >> 16) & 0xFF);
+    p[31] = (uint8_t)((byte_rate >> 24) & 0xFF);
+    
+    p[32] = 4; p[33] = 0; /* block align: 4 */
+    p[34] = 16; p[35] = 0; /* bits per sample: 16 */
+    
+    p[36] = 'd'; p[37] = 'a'; p[38] = 't'; p[39] = 'a';
+    p[40] = (uint8_t)(pcm_data_bytes & 0xFF);
+    p[41] = (uint8_t)((pcm_data_bytes >> 8) & 0xFF);
+    p[42] = (uint8_t)((pcm_data_bytes >> 16) & 0xFF);
+    p[43] = (uint8_t)((pcm_data_bytes >> 24) & 0xFF);
+    
+    /* Render audio blocks and write 16-bit signed PCM */
+    int16_t *pcm_out = (int16_t*)(out_wav_buffer + 44);
+    uint32_t frames_rendered = 0;
+    while (frames_rendered < total_frames) {
+        uint32_t blk = total_frames - frames_rendered;
+        if (blk > AUDIO_MAX_BLOCK_FRAMES) blk = AUDIO_MAX_BLOCK_FRAMES;
+        w_audio_render_block(blk);
+        for (uint32_t i = 0; i < blk; i++) {
+            float sl = g_audio_buf_l[i];
+            float sr = g_audio_buf_r[i];
+            *pcm_out++ = (int16_t)f_clamp(sl * 32767.0f, -32768.0f, 32767.0f);
+            *pcm_out++ = (int16_t)f_clamp(sr * 32767.0f, -32768.0f, 32767.0f);
+        }
+        frames_rendered += blk;
+    }
+    return total_file_size;
+}
+
+/* =========================================================================
+ * Native Vector Path & Bézier Scanline Rasterizer Implementation
+ * ========================================================================= */
+
+#define MAX_PATH_PTS 4096
+
+typedef struct {
+    float x;
+    float y;
+    uint8_t type; /* 1=move, 2=line, 3=close */
+} path_point_t;
+
+typedef struct {
+    path_point_t points[MAX_PATH_PTS];
+    uint32_t count;
+    float curr_x;
+    float curr_y;
+    float start_x;
+    float start_y;
+} vector_path_t;
+
+static vector_path_t g_path;
+
+W_EXPORT void w_path_begin(void) {
+    g_path.count = 0;
+    g_path.curr_x = 0.0f;
+    g_path.curr_y = 0.0f;
+    g_path.start_x = 0.0f;
+    g_path.start_y = 0.0f;
+}
+
+W_EXPORT void w_path_move_to(float x, float y) {
+    if (g_path.count >= MAX_PATH_PTS) return;
+    g_path.points[g_path.count++] = (path_point_t){ x, y, 1 };
+    g_path.curr_x = x;
+    g_path.curr_y = y;
+    g_path.start_x = x;
+    g_path.start_y = y;
+}
+
+W_EXPORT void w_path_line_to(float x, float y) {
+    if (g_path.count >= MAX_PATH_PTS) return;
+    g_path.points[g_path.count++] = (path_point_t){ x, y, 2 };
+    g_path.curr_x = x;
+    g_path.curr_y = y;
+}
+
+W_EXPORT void w_path_quad_to(float cx, float cy, float x, float y) {
+    /* Adaptive subdivision for quadratic Bézier */
+    float p0x = g_path.curr_x, p0y = g_path.curr_y;
+    int steps = 12;
+    for (int i = 1; i <= steps; i++) {
+        float t = (float)i / (float)steps;
+        float it = 1.0f - t;
+        float px = it * it * p0x + 2.0f * it * t * cx + t * t * x;
+        float py = it * it * p0y + 2.0f * it * t * cy + t * t * y;
+        w_path_line_to(px, py);
+    }
+}
+
+W_EXPORT void w_path_cubic_to(float c1x, float c1y, float c2x, float c2y, float x, float y) {
+    /* Adaptive subdivision for cubic Bézier */
+    float p0x = g_path.curr_x, p0y = g_path.curr_y;
+    int steps = 20;
+    for (int i = 1; i <= steps; i++) {
+        float t = (float)i / (float)steps;
+        float it = 1.0f - t;
+        float px = it * it * it * p0x + 3.0f * it * it * t * c1x + 3.0f * it * t * t * c2x + t * t * t * x;
+        float py = it * it * it * p0y + 3.0f * it * it * t * c1y + 3.0f * it * t * t * c2y + t * t * t * y;
+        w_path_line_to(px, py);
+    }
+}
+
+W_EXPORT void w_path_close(void) {
+    if (g_path.count >= MAX_PATH_PTS) return;
+    w_path_line_to(g_path.start_x, g_path.start_y);
+    g_path.points[g_path.count++] = (path_point_t){ g_path.start_x, g_path.start_y, 3 };
+}
+
+/* Scanline polygon fill with even-odd / non-zero winding */
+W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rule) {
+    if (layer_idx < 0 || layer_idx >= layer_count) return 0;
+    layer_t *lyr = &layers[layer_idx];
+    if (!lyr->pixels || g_path.count < 3) return 0;
+    
+    int lw = lyr->width;
+    int lh = lyr->height;
+    
+    /* Find bounding box */
+    float min_x = g_path.points[0].x, max_x = g_path.points[0].x;
+    float min_y = g_path.points[0].y, max_y = g_path.points[0].y;
+    for (uint32_t i = 1; i < g_path.count; i++) {
+        float px = g_path.points[i].x;
+        float py = g_path.points[i].y;
+        if (px < min_x) min_x = px;
+        if (px > max_x) max_x = px;
+        if (py < min_y) min_y = py;
+        if (py > max_y) max_y = py;
+    }
+    
+    int y_start = (int)min_y; if (y_start < 0) y_start = 0;
+    int y_end = (int)(max_y + 1.0f); if (y_end >= lh) y_end = lh - 1;
+    
+    float node_x[256];
+    
+    for (int y = y_start; y <= y_end; y++) {
+        float fy = (float)y + 0.5f;
+        int nodes = 0;
+        
+        uint32_t j = g_path.count - 1;
+        for (uint32_t i = 0; i < g_path.count; i++) {
+            if (g_path.points[i].type == 1) { /* move */
+                j = i;
+                continue;
+            }
+            float y0 = g_path.points[j].y;
+            float y1 = g_path.points[i].y;
+            float x0 = g_path.points[j].x;
+            float x1 = g_path.points[i].x;
+            
+            if ((y0 < fy && y1 >= fy) || (y1 < fy && y0 >= fy)) {
+                if (nodes < 256) {
+                    node_x[nodes++] = x0 + (fy - y0) / (y1 - y0) * (x1 - x0);
+                }
+            }
+            j = i;
+        }
+        
+        /* Sort node_x */
+        for (int a = 0; a < nodes - 1; a++) {
+            for (int b = a + 1; b < nodes; b++) {
+                if (node_x[a] > node_x[b]) {
+                    float tmp = node_x[a];
+                    node_x[a] = node_x[b];
+                    node_x[b] = tmp;
+                }
+            }
+        }
+        
+        /* Fill segments */
+        for (int a = 0; a < nodes; a += 2) {
+            if (a + 1 >= nodes) break;
+            int x0 = (int)(node_x[a] + 0.5f); if (x0 < 0) x0 = 0;
+            int x1 = (int)(node_x[a + 1] + 0.5f); if (x1 >= lw) x1 = lw - 1;
+            
+            for (int x = x0; x <= x1; x++) {
+                if (is_pixel_clipped(x, y)) continue;
+                int idx = y * lw + x;
+                uint32_t dst = lyr->pixels[idx];
+                lyr->pixels[idx] = blend_pixel(dst, color, (uint8_t)((color >> 24) & 0xFF));
+            }
+        }
+    }
+    force_composite();
+    return 1;
+}
+
+/* Anti-aliased line stroke */
+W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_width, int32_t cap_style, int32_t join_style) {
+    if (layer_idx < 0 || layer_idx >= layer_count) return 0;
+    layer_t *lyr = &layers[layer_idx];
+    if (!lyr->pixels || g_path.count < 2) return 0;
+    
+    int lw = lyr->width;
+    int lh = lyr->height;
+    float half_w = line_width * 0.5f;
+    float half_w_sq = half_w * half_w;
+    
+    for (uint32_t i = 1; i < g_path.count; i++) {
+        if (g_path.points[i].type == 1) continue; /* move */
+        float x0 = g_path.points[i - 1].x;
+        float y0 = g_path.points[i - 1].y;
+        float x1 = g_path.points[i].x;
+        float y1 = g_path.points[i].y;
+        
+        float min_x = f_min(x0, x1) - half_w - 1.0f;
+        float max_x = f_max(x0, x1) + half_w + 1.0f;
+        float min_y = f_min(y0, y1) - half_w - 1.0f;
+        float max_y = f_max(y0, y1) + half_w + 1.0f;
+        
+        int start_x = (int)min_x; if (start_x < 0) start_x = 0;
+        int end_x = (int)max_x; if (end_x >= lw) end_x = lw - 1;
+        int start_y = (int)min_y; if (start_y < 0) start_y = 0;
+        int end_y = (int)max_y; if (end_y >= lh) end_y = lh - 1;
+        
+        float dx = x1 - x0;
+        float dy = y1 - y0;
+        float len_sq = dx * dx + dy * dy;
+        if (len_sq < 1e-5f) continue;
+        
+        for (int y = start_y; y <= end_y; y++) {
+            for (int x = start_x; x <= end_x; x++) {
+                if (is_pixel_clipped(x, y)) continue;
+                float px = (float)x + 0.5f;
+                float py = (float)y + 0.5f;
+                
+                float t = ((px - x0) * dx + (py - y0) * dy) / len_sq;
+                t = f_clamp(t, 0.0f, 1.0f);
+                float nx = x0 + t * dx;
+                float ny = y0 + t * dy;
+                float dist_sq = (px - nx) * (px - nx) + (py - ny) * (py - ny);
+                
+                if (dist_sq <= half_w_sq) {
+                    float dist = __builtin_sqrtf(dist_sq);
+                    float edge = half_w - dist;
+                    float alpha_cov = f_clamp(edge + 0.5f, 0.0f, 1.0f);
+                    
+                    uint32_t a = (uint32_t)(((color >> 24) & 0xFF) * alpha_cov);
+                    uint32_t src = (color & 0x00FFFFFF) | (a << 24);
+                    int idx = y * lw + x;
+                    lyr->pixels[idx] = blend_pixel(lyr->pixels[idx], src, (uint8_t)((src >> 24) & 0xFF));
+                }
+            }
+        }
+    }
+    force_composite();
+    return 1;
+}
+
+/* =========================================================================
+ * Native Font & Glyph Engine Implementation
+ * ========================================================================= */
+
+/* Compact 5x7 aesthetic bitmap stroke glyph representation for ASCII 32..126 */
+static const uint8_t FONT_5X7[95][5] = {
+    {0x00, 0x00, 0x00, 0x00, 0x00}, /* ' ' */
+    {0x00, 0x00, 0x5F, 0x00, 0x00}, /* '!' */
+    {0x00, 0x07, 0x00, 0x07, 0x00}, /* '"' */
+    {0x14, 0x7F, 0x14, 0x7F, 0x14}, /* '#' */
+    {0x24, 0x2A, 0x7F, 0x2A, 0x12}, /* '$' */
+    {0x23, 0x13, 0x08, 0x64, 0x62}, /* '%' */
+    {0x36, 0x49, 0x55, 0x22, 0x50}, /* '&' */
+    {0x00, 0x05, 0x03, 0x00, 0x00}, /* ''' */
+    {0x00, 0x1C, 0x22, 0x41, 0x00}, /* '(' */
+    {0x00, 0x41, 0x22, 0x1C, 0x00}, /* ')' */
+    {0x08, 0x2A, 0x1C, 0x2A, 0x08}, /* '*' */
+    {0x08, 0x08, 0x3E, 0x08, 0x08}, /* '+' */
+    {0x00, 0x50, 0x30, 0x00, 0x00}, /* ',' */
+    {0x08, 0x08, 0x08, 0x08, 0x08}, /* '-' */
+    {0x00, 0x60, 0x60, 0x00, 0x00}, /* '.' */
+    {0x20, 0x10, 0x08, 0x04, 0x02}, /* '/' */
+    {0x3E, 0x51, 0x49, 0x45, 0x3E}, /* '0' */
+    {0x00, 0x42, 0x7F, 0x40, 0x00}, /* '1' */
+    {0x42, 0x61, 0x51, 0x49, 0x46}, /* '2' */
+    {0x21, 0x41, 0x45, 0x4B, 0x31}, /* '3' */
+    {0x18, 0x14, 0x12, 0x7F, 0x10}, /* '4' */
+    {0x27, 0x45, 0x45, 0x45, 0x39}, /* '5' */
+    {0x3C, 0x4A, 0x49, 0x49, 0x30}, /* '6' */
+    {0x01, 0x71, 0x09, 0x05, 0x03}, /* '7' */
+    {0x36, 0x49, 0x49, 0x49, 0x36}, /* '8' */
+    {0x06, 0x49, 0x49, 0x29, 0x1E}, /* '9' */
+    {0x00, 0x36, 0x36, 0x00, 0x00}, /* ':' */
+    {0x00, 0x56, 0x36, 0x00, 0x00}, /* ';' */
+    {0x00, 0x08, 0x14, 0x22, 0x41}, /* '<' */
+    {0x14, 0x14, 0x14, 0x14, 0x14}, /* '=' */
+    {0x41, 0x22, 0x14, 0x08, 0x00}, /* '>' */
+    {0x02, 0x01, 0x51, 0x09, 0x06}, /* '?' */
+    {0x32, 0x49, 0x79, 0x41, 0x3E}, /* '@' */
+    {0x7E, 0x11, 0x11, 0x11, 0x7E}, /* 'A' */
+    {0x7F, 0x49, 0x49, 0x49, 0x36}, /* 'B' */
+    {0x3E, 0x41, 0x41, 0x41, 0x22}, /* 'C' */
+    {0x7F, 0x41, 0x41, 0x22, 0x1C}, /* 'D' */
+    {0x7F, 0x49, 0x49, 0x49, 0x41}, /* 'E' */
+    {0x7F, 0x09, 0x09, 0x01, 0x01}, /* 'F' */
+    {0x3E, 0x41, 0x41, 0x51, 0x32}, /* 'G' */
+    {0x7F, 0x08, 0x08, 0x08, 0x7F}, /* 'H' */
+    {0x00, 0x41, 0x7F, 0x41, 0x00}, /* 'I' */
+    {0x20, 0x40, 0x41, 0x3F, 0x01}, /* 'J' */
+    {0x7F, 0x08, 0x14, 0x22, 0x41}, /* 'K' */
+    {0x7F, 0x40, 0x40, 0x40, 0x40}, /* 'L' */
+    {0x7F, 0x02, 0x04, 0x02, 0x7F}, /* 'M' */
+    {0x7F, 0x04, 0x08, 0x10, 0x7F}, /* 'N' */
+    {0x3E, 0x41, 0x41, 0x41, 0x3E}, /* 'O' */
+    {0x7F, 0x09, 0x09, 0x09, 0x06}, /* 'P' */
+    {0x3E, 0x41, 0x51, 0x21, 0x5E}, /* 'Q' */
+    {0x7F, 0x09, 0x19, 0x29, 0x46}, /* 'R' */
+    {0x46, 0x49, 0x49, 0x49, 0x31}, /* 'S' */
+    {0x01, 0x01, 0x7F, 0x01, 0x01}, /* 'T' */
+    {0x3F, 0x40, 0x40, 0x40, 0x3F}, /* 'U' */
+    {0x1F, 0x20, 0x40, 0x20, 0x1F}, /* 'V' */
+    {0x7F, 0x20, 0x18, 0x20, 0x7F}, /* 'W' */
+    {0x63, 0x14, 0x08, 0x14, 0x63}, /* 'X' */
+    {0x03, 0x04, 0x78, 0x04, 0x03}, /* 'Y' */
+    {0x61, 0x51, 0x49, 0x45, 0x43}, /* 'Z' */
+    {0x00, 0x7F, 0x41, 0x41, 0x00}, /* '[' */
+    {0x02, 0x04, 0x08, 0x10, 0x20}, /* '\' */
+    {0x00, 0x41, 0x41, 0x7F, 0x00}, /* ']' */
+    {0x04, 0x02, 0x01, 0x02, 0x04}, /* '^' */
+    {0x40, 0x40, 0x40, 0x40, 0x40}, /* '_' */
+    {0x00, 0x01, 0x02, 0x04, 0x00}, /* '`' */
+    {0x20, 0x54, 0x54, 0x54, 0x78}, /* 'a' */
+    {0x7F, 0x48, 0x44, 0x44, 0x38}, /* 'b' */
+    {0x38, 0x44, 0x44, 0x44, 0x20}, /* 'c' */
+    {0x38, 0x44, 0x44, 0x48, 0x7F}, /* 'd' */
+    {0x38, 0x54, 0x54, 0x54, 0x18}, /* 'e' */
+    {0x08, 0x7E, 0x09, 0x01, 0x02}, /* 'f' */
+    {0x08, 0x14, 0x54, 0x54, 0x3C}, /* 'g' */
+    {0x7F, 0x08, 0x04, 0x04, 0x78}, /* 'h' */
+    {0x00, 0x44, 0x7D, 0x40, 0x00}, /* 'i' */
+    {0x20, 0x40, 0x44, 0x3D, 0x00}, /* 'j' */
+    {0x00, 0x7F, 0x10, 0x28, 0x44}, /* 'k' */
+    {0x00, 0x41, 0x7F, 0x40, 0x00}, /* 'l' */
+    {0x7C, 0x04, 0x18, 0x04, 0x78}, /* 'm' */
+    {0x7C, 0x08, 0x04, 0x04, 0x78}, /* 'n' */
+    {0x38, 0x44, 0x44, 0x44, 0x38}, /* 'o' */
+    {0x7C, 0x14, 0x14, 0x14, 0x08}, /* 'p' */
+    {0x08, 0x14, 0x14, 0x18, 0x7C}, /* 'q' */
+    {0x7C, 0x08, 0x04, 0x04, 0x08}, /* 'r' */
+    {0x48, 0x54, 0x54, 0x54, 0x20}, /* 's' */
+    {0x04, 0x3F, 0x44, 0x40, 0x20}, /* 't' */
+    {0x3C, 0x40, 0x40, 0x20, 0x7C}, /* 'u' */
+    {0x1C, 0x20, 0x40, 0x20, 0x1C}, /* 'v' */
+    {0x3C, 0x40, 0x30, 0x40, 0x3C}, /* 'w' */
+    {0x44, 0x28, 0x10, 0x28, 0x44}, /* 'x' */
+    {0x0C, 0x50, 0x50, 0x50, 0x3C}, /* 'y' */
+    {0x44, 0x64, 0x54, 0x4C, 0x44}, /* 'z' */
+    {0x00, 0x08, 0x36, 0x41, 0x00}, /* '{' */
+    {0x00, 0x00, 0x7F, 0x00, 0x00}, /* '|' */
+    {0x00, 0x41, 0x36, 0x08, 0x00}, /* '}' */
+    {0x08, 0x08, 0x2A, 0x1C, 0x08}  /* '~' */
+};
+
+W_EXPORT void w_font_measure_text(const char *text, float size, float tracking, float *out_w_h) {
+    if (!out_w_h) return;
+    if (!text || size <= 0.0f) {
+        out_w_h[0] = 0.0f;
+        out_w_h[1] = 0.0f;
+        return;
+    }
+    float scale = size / 7.0f;
+    float char_w = (5.0f * scale) + tracking;
+    float max_line_w = 0.0f;
+    float curr_line_w = 0.0f;
+    int line_count = 1;
+    
+    while (*text) {
+        char c = *text++;
+        if (c == '\n') {
+            if (curr_line_w > max_line_w) max_line_w = curr_line_w;
+            curr_line_w = 0.0f;
+            line_count++;
+        } else {
+            curr_line_w += char_w;
+        }
+    }
+    if (curr_line_w > max_line_w) max_line_w = curr_line_w;
+    
+    out_w_h[0] = max_line_w;
+    out_w_h[1] = (float)line_count * size * 1.2f;
+}
+
+W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height) {
+    if (layer_idx < 0 || layer_idx >= layer_count) return 0;
+    layer_t *lyr = &layers[layer_idx];
+    if (!lyr->pixels || !text || size <= 0.0f) return 0;
+    
+    int lw = lyr->width;
+    int lh = lyr->height;
+    float scale = size / 7.0f;
+    float advance_x = (5.0f * scale) + tracking;
+    float line_step = line_height > 0.0f ? line_height : (size * 1.25f);
+    
+    float cursor_x = x;
+    float cursor_y = y;
+    
+    while (*text) {
+        char c = *text++;
+        if (c == '\n') {
+            cursor_x = x;
+            cursor_y += line_step;
+            continue;
+        }
+        if (c < 32 || c > 126) c = '?';
+        const uint8_t *glyph = FONT_5X7[c - 32];
+        
+        for (int col = 0; col < 5; col++) {
+            uint8_t bits = glyph[col];
+            for (int row = 0; row < 7; row++) {
+                if (bits & (1 << row)) {
+                    /* Scaled pixel block */
+                    int px_start = (int)(cursor_x + (float)col * scale);
+                    int px_end   = (int)(cursor_x + (float)(col + 1) * scale + 0.5f);
+                    int py_start = (int)(cursor_y + (float)row * scale);
+                    int py_end   = (int)(cursor_y + (float)(row + 1) * scale + 0.5f);
+                    
+                    for (int py = py_start; py <= py_end; py++) {
+                        if (py < 0 || py >= lh) continue;
+                        for (int px = px_start; px <= px_end; px++) {
+                            if (px < 0 || px >= lw) continue;
+                            if (is_pixel_clipped(px, py)) continue;
+                            int idx = py * lw + px;
+                            lyr->pixels[idx] = blend_pixel(lyr->pixels[idx], color, (uint8_t)((color >> 24) & 0xFF));
+                        }
+                    }
+                }
+            }
+        }
+        cursor_x += advance_x;
+    }
+    force_composite();
+    return 1;
+}
+
+
 
 

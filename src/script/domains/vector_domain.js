@@ -89,4 +89,24 @@ export class VectorDomain {
   fromSVG(svgString) {
     return this.sdk.commands.dispatch('vector.importSVG', { svg: svgString });
   }
+
+  /* ── Native WASM Path & Font Rasterizer ── */
+  bindWasm(actor) {
+    this.actor = actor;
+  }
+
+  drawTextNative(layerIdx = -1, text = '', x = 0, y = 0, size = 16, color = 0xFF000000, tracking = 0, lineHeight = 0) {
+    if (this.actor && typeof this.actor.fontDrawText === 'function') {
+      return this.actor.fontDrawText(layerIdx, x, y, text, size, color, tracking, lineHeight);
+    }
+    return 0;
+  }
+
+  measureTextNative(text = '', size = 16, tracking = 0) {
+    if (this.actor && typeof this.actor.fontMeasureText === 'function') {
+      return this.actor.fontMeasureText(text, size, tracking);
+    }
+    return { width: 0, height: 0 };
+  }
 }
+

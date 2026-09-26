@@ -147,19 +147,10 @@ async function main() {
     if (host.canvasActor && host.canvasActor.exports && typeof host.canvasActor.exports.w_render === 'function') {
       host.canvasActor.exports.w_render();
     }
-  };
-
-  if (!globalThis.papagaio) {
-    try {
-      const mod = await import('./papagaio/index.js');
-      globalThis.papagaio = mod.papagaio;
-    } catch (_) {}
-  }
-
   host.sendConsoleLog = (text, color = 0xFF00FF88) =>
     log(text, color === 0xFFFF5555 ? 'err' : 'ok');
 
-  host.canvasActor = await EsenhoModule.fromURL('roms/canvas.wasm', { name: 'canvas' });
+  host.canvasActor = await EsenhoModule.fromURL('plugins/canvas.wasm', { name: 'canvas' });
   const urlParams = new URLSearchParams(window.location.search);
   const projectIdParam = urlParams.get('project') || urlParams.get('p') || urlParams.get('id');
   let projectLoaded = false;
@@ -2725,6 +2716,41 @@ async function main() {
     if (!raw) return;
     history.push(raw); hl.i = -1;
     log(`> ${raw}`, 'cmd');
+
+    const isJS = window.wesenho && (
+      raw.startsWith('wesenho') ||
+      raw.startsWith('raster') ||
+      raw.startsWith('vector') ||
+      raw.startsWith('anim') ||
+      raw.startsWith('audio') ||
+      raw.startsWith('commands') ||
+      raw.startsWith('let ') ||
+      raw.startsWith('const ') ||
+      raw.startsWith('var ') ||
+      raw.startsWith('function') ||
+      raw.startsWith('console.') ||
+      raw.includes('=>') ||
+      (raw.includes('.') && !raw.startsWith('anim ') && !raw.startsWith('file ') && !raw.startsWith('layer ')) ||
+      raw.includes('(') ||
+      raw.includes(';')
+    );
+
+    if (isJS) {
+      try {
+        const result = window.wesenho.eval(raw);
+        if (result !== undefined) {
+          log(typeof result === 'object' ? JSON.stringify(result) : String(result), 'ok');
+        } else {
+          log('[ok]', 'ok');
+        }
+        markCanvasDirty();
+        syncUiFromHost();
+        return;
+      } catch (jsErr) {
+        console.warn('JS eval note:', jsErr.message);
+      }
+    }
+
     const lines = [];
     const origLog = console.log;
     console.log = (...a) => lines.push(a.map(String).join(' '));
@@ -3164,7 +3190,23 @@ async function main() {
   function runScriptCode(code) {
     code = code.trim();
     if (!code) return;
-    log('--- Running script ---', 'cmd');
+    log('--- Running Script ---', 'cmd');
+
+    if (window.wesenho) {
+      try {
+        const result = window.wesenho.eval(code);
+        if (result !== undefined) {
+          log(`Result: ${typeof result === 'object' ? JSON.stringify(result) : String(result)}`, 'ok');
+        }
+        log('Script finished [ok]', 'ok');
+        markCanvasDirty();
+        syncUiFromHost();
+        return;
+      } catch (jsErr) {
+        console.warn('JS script execution note:', jsErr.message);
+      }
+    }
+
     const lines = code.split('\n');
     let ran = 0;
     let errors = 0;
@@ -3212,9 +3254,9 @@ async function main() {
   if (btnNewScript) {
     btnNewScript.addEventListener('click', () => {
       if (scriptSel) scriptSel.value = '';
-      if (scriptNameInp) scriptNameInp.value = 'untitled';
+      if (scriptNameInp) scriptNameInp.value = 'untitled.js';
       if (scriptEditor) {
-        scriptEditor.value = `# New script\nset mode brush\nset size 20\nset color #fabd2f\n`;
+        scriptEditor.value = `// Wesenho JavaScript Script\nraster.brush.size = 25;\nraster.brush.color = 0xfffabd2f;\nraster.brush.hardness = 100;\n`;
         scriptEditor.focus();
       }
     });
@@ -9623,14 +9665,14 @@ async function main() {
 
     if (ipBtnNewScript) {
       ipBtnNewScript.addEventListener('click', () => {
-        if (ipScriptName) ipScriptName.value = 'new_script';
-        if (ipScriptEditor) ipScriptEditor.value = '# Write commands here\n';
+        if (ipScriptName) ipScriptName.value = 'new_script.js';
+        if (ipScriptEditor) ipScriptEditor.value = '// Wesenho JavaScript Script\nraster.brush.size = 30;\nraster.brush.color = 0xfffabd2f;\n';
       });
     }
 
     if (ipBtnSaveScript) {
       ipBtnSaveScript.addEventListener('click', () => {
-        const name = (ipScriptName?.value || 'script').trim();
+        const name = (ipScriptName?.value || 'script.js').trim();
         const code = ipScriptEditor?.value || '';
         let scripts = getSavedScripts();
         const existingIdx = scripts.findIndex(s => s.name === name);
@@ -9659,7 +9701,7 @@ async function main() {
     if (ipBtnRunScript) {
       ipBtnRunScript.addEventListener('click', () => {
         const code = ipScriptEditor?.value || '';
-        executeScriptCode(code);
+        runScriptCode(code);
       });
     }
 
@@ -9669,8 +9711,8 @@ async function main() {
         const selStart = ipScriptEditor.selectionStart;
         const selEnd = ipScriptEditor.selectionEnd;
         const code = ipScriptEditor.value.substring(selStart, selEnd);
-        if (code.trim()) executeScriptCode(code);
-        else executeScriptCode(ipScriptEditor.value);
+        if (code.trim()) runScriptCode(code);
+        else runScriptCode(ipScriptEditor.value);
       });
     }
 
@@ -10222,6 +10264,9 @@ async function main() {
   syncUiFromHost();
   window.host = host;
   window.W = host.canvasActor;
+  if (window.wesenho) {
+    window.wesenho.setContext({ host, actor: host.canvasActor });
+  }
   window.dispatchEvent(new CustomEvent('wesenho:ready', { detail: { host } }));
   if (window.parent && window.parent !== window) {
     try {

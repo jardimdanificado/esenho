@@ -4,7 +4,7 @@ const { EsenhoScreenHost, EsenhoModule, PARAM_IDS, parseColorString } = require(
 
 async function run() {
   console.log('--- Testing Canvas Native Exports ---');
-  const canvas = new EsenhoModule(path.resolve(__dirname, '../roms/canvas.wasm'));
+  const canvas = new EsenhoModule(path.resolve(__dirname, '../plugins/canvas.wasm'));
   canvas.exports.w_init(800, 1000);
 
   if (canvas.exports.get_canvas_width() !== 800 || canvas.exports.get_canvas_height() !== 1000) {

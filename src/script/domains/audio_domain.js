@@ -78,16 +78,54 @@ export class AudioDomain {
     return noteEntry;
   }
 
-  addEffect(trackId, fxName, params = {}) {
-    const target = trackId === 'master' ? this.master : this.tracks.find(t => t.id === trackId || t.name === trackId);
-    if (!target) return null;
-    const fx = {
-      name: fxName,
-      enabled: true,
-      params: { ...params }
-    };
-    target.effects.push(fx);
-    return fx;
+  bindWasm(actor) {
+    this.actor = actor;
+    if (this.actor && typeof this.actor.audioInit === 'function') {
+      this.actor.audioInit(44100);
+      this.actor.audioSetBpm(this.bpm);
+    }
+  }
+
+  /* ── Direct Native DSP Control ── */
+
+  noteOn(trackIdx = 0, pitch = 60, velocity = 0.8) {
+    const midi = typeof pitch === 'string' ? noteToMidi(pitch) : pitch;
+    if (this.actor && typeof this.actor.audioNoteOn === 'function') {
+      this.actor.audioNoteOn(trackIdx, midi, velocity);
+    }
+    this.sdk.hooks.trigger('onAudioNoteOn', { trackIdx, midi, velocity });
+  }
+
+  noteOff(trackIdx = 0, pitch = 60) {
+    const midi = typeof pitch === 'string' ? noteToMidi(pitch) : pitch;
+    if (this.actor && typeof this.actor.audioNoteOff === 'function') {
+      this.actor.audioNoteOff(trackIdx, midi);
+    }
+    this.sdk.hooks.trigger('onAudioNoteOff', { trackIdx, midi });
+  }
+
+  triggerSfxr(preset = 0, volume = 0.8) {
+    const presetMap = { coin: 0, laser: 1, explosion: 2, powerup: 3, hit: 4, jump: 5, select: 6, synth: 7 };
+    const pIdx = typeof preset === 'string' ? (presetMap[preset.toLowerCase()] || 0) : preset;
+    if (this.actor && typeof this.actor.audioTriggerSfxr === 'function') {
+      this.actor.audioTriggerSfxr(pIdx, volume);
+    }
+    this.sdk.hooks.trigger('onAudioSfxr', { preset: pIdx, volume });
+  }
+
+  renderBlock(numFrames = 128) {
+    if (this.actor && typeof this.actor.audioRenderBlock === 'function') {
+      this.actor.audioRenderBlock(numFrames);
+      return this.actor.audioGetBuffers(numFrames);
+    }
+    return null;
+  }
+
+  exportWav(totalFrames = 44100) {
+    if (this.actor && typeof this.actor.audioExportWav === 'function') {
+      return this.actor.audioExportWav(totalFrames);
+    }
+    return null;
   }
 }
 

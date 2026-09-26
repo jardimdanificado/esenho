@@ -3,7 +3,7 @@
  * Esenho - Extensible Painting & Drawing Platform (Native WebAssembly)
  * Architecture:
  * - Host / Screen: Viewport, SDL window, REPL, plugin coordination, command parsing.
- * - Canvas Module (roms/canvas.wasm): Native multi-layer composition, resizing, drawing primitives.
+ * - Canvas Module (plugins/canvas.wasm): Native multi-layer composition, resizing, drawing primitives.
  * - Brush Plugins (plugins/brushes/*.wasm): Pure C math & pixel dab shaders.
  * - Filter Plugins (plugins/filters/*.wasm): Pure C image processing kernels.
  * =========================================================================
@@ -17,11 +17,11 @@ const IS_BROWSER = typeof window !== 'undefined';
 let sdl, fs, path, readline, saveImage, loadImage, EsenhoStore;
 
 if (!IS_BROWSER) {
-  sdl      = require('@kmamal/sdl');
+  try { sdl = require('@kmamal/sdl'); } catch (_) { sdl = null; }
   fs       = require('fs');
   path     = require('path');
-  readline = require('readline');
-  ({ saveImage, loadImage } = require('./image_io'));
+  try { readline = require('readline'); } catch (_) { readline = null; }
+  try { ({ saveImage, loadImage } = require('./image_io')); } catch (_) {}
   try {
     EsenhoStore = require('./project_store.js');
   } catch (_) {}
@@ -46,27 +46,54 @@ const Buf = IS_BROWSER
   ? { alloc: (n) => new Uint8Array(n), from: (a, o, l) => new Uint8Array(a, o, l) }
   : Buffer;
 
-/* ── Papagaio Parser Loader ── */
-let papagaio = null;
+/* ── Built-in Native Command Matcher (Zero External Dependencies) ── */
+function builtinMatch(pattern, input) {
+  if (typeof pattern !== 'string' || typeof input !== 'string') return null;
+  const patTokens = pattern.trim().split(/\s+/);
+  const inTokens = input.trim().split(/\s+/);
+  if (patTokens.length === 0 || inTokens.length === 0) return null;
+
+  const result = {};
+  let inIdx = 0;
+
+  for (let pIdx = 0; pIdx < patTokens.length; pIdx++) {
+    const pTok = patTokens[pIdx];
+    if (pTok.startsWith('$')) {
+      if (inIdx >= inTokens.length) return null;
+      const parts = pTok.slice(1).split('$');
+      const varName = parts[0];
+      const varType = parts[1] || 'str';
+
+      if (pIdx === patTokens.length - 1 && inTokens.length > pIdx && (varType === 'str' || varType === 'text')) {
+        result[varName] = inTokens.slice(inIdx).join(' ');
+        inIdx = inTokens.length;
+      } else {
+        const valStr = inTokens[inIdx++];
+        if (varType === 'num' || varType === 'int' || varType === 'float') {
+          const num = Number(valStr);
+          if (isNaN(num)) return null;
+          result[varName] = num;
+        } else {
+          result[varName] = valStr;
+        }
+      }
+    } else {
+      if (inIdx >= inTokens.length) return null;
+      if (pTok.toLowerCase() !== inTokens[inIdx++].toLowerCase()) {
+        return null;
+      }
+    }
+  }
+
+  if (inIdx < inTokens.length) return null;
+  return result;
+}
+
+let papagaio = {
+  match: (pat, str) => builtinMatch(pat, str)
+};
+
 function getPapagaio() {
-  if (papagaio) return papagaio;
-  if (typeof globalThis !== 'undefined' && globalThis.papagaio) {
-    papagaio = globalThis.papagaio;
-    return papagaio;
-  }
-  if (typeof window !== 'undefined' && window.papagaio) {
-    papagaio = window.papagaio;
-    return papagaio;
-  }
-  if (!IS_BROWSER) {
-    try {
-      papagaio = require('./papagaio.bundle.js').papagaio;
-      if (papagaio) return papagaio;
-    } catch (_) {}
-    try {
-      papagaio = require('./papagaio/index.js').papagaio;
-    } catch (_) {}
-  }
   return papagaio;
 }
 
@@ -520,7 +547,16 @@ class EsenhoModule {
    * @returns {Promise<EsenhoModule>}
    */
   static async fromURL(url, options = {}) {
-    const resp = await fetch(url);
+    let fetchUrl = url;
+    if (typeof fetchUrl === 'string' && fetchUrl.startsWith('roms/')) {
+      fetchUrl = 'plugins/' + fetchUrl.slice(5);
+    } else if (typeof fetchUrl === 'string' && fetchUrl.startsWith('./roms/')) {
+      fetchUrl = './plugins/' + fetchUrl.slice(7);
+    }
+    const resp = await fetch(fetchUrl);
+    if (!resp.ok) {
+      throw new Error(`Failed to load WASM from ${fetchUrl}: HTTP ${resp.status} ${resp.statusText}`);
+    }
     const bytes = new Uint8Array(await resp.arrayBuffer());
     return new EsenhoModule(bytes, options);
   }
@@ -1088,6 +1124,205 @@ class EsenhoModule {
     return null;
   }
 
+
+  /* ── Native Audio DSP Engine ABI ── */
+
+  audioInit(sampleRate = 44100) {
+    if (typeof this.exports.w_audio_init === 'function') {
+      this.exports.w_audio_init(sampleRate);
+    }
+  }
+
+  audioSetBpm(bpm = 120) {
+    if (typeof this.exports.w_audio_set_bpm === 'function') {
+      this.exports.w_audio_set_bpm(bpm);
+    }
+  }
+
+  audioGetBpm() {
+    if (typeof this.exports.w_audio_get_bpm === 'function') {
+      return this.exports.w_audio_get_bpm();
+    }
+    return 120;
+  }
+
+  audioSetMasterVol(vol = 1.0) {
+    if (typeof this.exports.w_audio_set_master_vol === 'function') {
+      this.exports.w_audio_set_master_vol(vol);
+    }
+  }
+
+  audioGetMasterVol() {
+    if (typeof this.exports.w_audio_get_master_vol === 'function') {
+      return this.exports.w_audio_get_master_vol();
+    }
+    return 1.0;
+  }
+
+  audioNoteOn(trackIdx, midiNote, velocity = 0.8) {
+    if (typeof this.exports.w_audio_note_on === 'function') {
+      this.exports.w_audio_note_on(trackIdx, midiNote, velocity);
+    }
+  }
+
+  audioNoteOff(trackIdx, midiNote) {
+    if (typeof this.exports.w_audio_note_off === 'function') {
+      this.exports.w_audio_note_off(trackIdx, midiNote);
+    }
+  }
+
+  audioAllNotesOff(trackIdx) {
+    if (typeof this.exports.w_audio_all_notes_off === 'function') {
+      this.exports.w_audio_all_notes_off(trackIdx);
+    }
+  }
+
+  audioSetTrackSynth(trackIdx, waveType = 1, attack = 0.01, decay = 0.1, sustain = 0.7, release = 0.2, pulseWidth = 0.5) {
+    if (typeof this.exports.w_audio_set_track_synth === 'function') {
+      this.exports.w_audio_set_track_synth(trackIdx, waveType, attack, decay, sustain, release, pulseWidth);
+    }
+  }
+
+  audioSetTrackFilter(trackIdx, filterType = 0, cutoffHz = 5000, resonance = 0.707, gainDb = 0) {
+    if (typeof this.exports.w_audio_set_track_filter === 'function') {
+      this.exports.w_audio_set_track_filter(trackIdx, filterType, cutoffHz, resonance, gainDb);
+    }
+  }
+
+  audioSetTrackFx(trackIdx, delayS = 0, delayFb = 0, delayMix = 0, reverbSize = 0, reverbMix = 0, crushBits = 0, distDrive = 0) {
+    if (typeof this.exports.w_audio_set_track_fx === 'function') {
+      this.exports.w_audio_set_track_fx(trackIdx, delayS, delayFb, delayMix, reverbSize, reverbMix, crushBits, distDrive);
+    }
+  }
+
+  audioSetTrackVolPan(trackIdx, volume = 0.8, pan = 0.0) {
+    if (typeof this.exports.w_audio_set_track_vol_pan === 'function') {
+      this.exports.w_audio_set_track_vol_pan(trackIdx, volume, pan);
+    }
+  }
+
+  audioTriggerSfxr(presetType = 0, volume = 0.8) {
+    if (typeof this.exports.w_audio_trigger_sfxr === 'function') {
+      this.exports.w_audio_trigger_sfxr(presetType, volume);
+    }
+  }
+
+  audioRenderBlock(numFrames = 128) {
+    if (typeof this.exports.w_audio_render_block === 'function') {
+      this.exports.w_audio_render_block(numFrames);
+    }
+  }
+
+  audioGetBuffers(numFrames = 128) {
+    if (!this.memory || typeof this.exports.w_audio_get_buffer_l !== 'function') return null;
+    const ptrL = this.exports.w_audio_get_buffer_l();
+    const ptrR = this.exports.w_audio_get_buffer_r();
+    const f32 = new Float32Array(this.memory.buffer);
+    const offsetL = ptrL >> 2;
+    const offsetR = ptrR >> 2;
+    return {
+      left: f32.subarray(offsetL, offsetL + numFrames),
+      right: f32.subarray(offsetR, offsetR + numFrames)
+    };
+  }
+
+  audioExportWav(totalFrames = 44100) {
+    if (!this.memory || typeof this.exports.w_audio_export_wav !== 'function') return null;
+    const neededBytes = 44 + totalFrames * 4;
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(neededBytes + 1024)
+      : 0;
+    if (!scratchPtr) return null;
+    const written = this.exports.w_audio_export_wav(scratchPtr, neededBytes + 1024, totalFrames);
+    if (written > 0) {
+      const u8 = new Uint8Array(this.memory.buffer, scratchPtr, written);
+      return new Uint8Array(u8);
+    }
+    return null;
+  }
+
+  /* ── Native Vector Path & Bézier Scanline Rasterizer ABI ── */
+
+  pathBegin() {
+    if (typeof this.exports.w_path_begin === 'function') {
+      this.exports.w_path_begin();
+    }
+  }
+
+  pathMoveTo(x, y) {
+    if (typeof this.exports.w_path_move_to === 'function') {
+      this.exports.w_path_move_to(x, y);
+    }
+  }
+
+  pathLineTo(x, y) {
+    if (typeof this.exports.w_path_line_to === 'function') {
+      this.exports.w_path_line_to(x, y);
+    }
+  }
+
+  pathQuadTo(cx, cy, x, y) {
+    if (typeof this.exports.w_path_quad_to === 'function') {
+      this.exports.w_path_quad_to(cx, cy, x, y);
+    }
+  }
+
+  pathCubicTo(c1x, c1y, c2x, c2y, x, y) {
+    if (typeof this.exports.w_path_cubic_to === 'function') {
+      this.exports.w_path_cubic_to(c1x, c1y, c2x, c2y, x, y);
+    }
+  }
+
+  pathClose() {
+    if (typeof this.exports.w_path_close === 'function') {
+      this.exports.w_path_close();
+    }
+  }
+
+  pathFill(layerIdx = -1, color = 0xFF000000, fillRule = 0) {
+    if (typeof this.exports.w_path_fill === 'function') {
+      return this.exports.w_path_fill(layerIdx, color >>> 0, fillRule);
+    }
+    return 0;
+  }
+
+  pathStroke(layerIdx = -1, color = 0xFF000000, lineWidth = 2.0, capStyle = 0, joinStyle = 0) {
+    if (typeof this.exports.w_path_stroke === 'function') {
+      return this.exports.w_path_stroke(layerIdx, color >>> 0, lineWidth, capStyle, joinStyle);
+    }
+    return 0;
+  }
+
+  /* ── Native Font & Glyph Engine ABI ── */
+
+  fontDrawText(layerIdx = -1, x = 0, y = 0, text = '', size = 16, color = 0xFF000000, tracking = 0, lineHeight = 0) {
+    if (!this.memory || typeof this.exports.w_font_draw_text !== 'function' || !text) return 0;
+    const enc = new TextEncoder().encode(text + '\0');
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(enc.length + 256)
+      : 0;
+    if (!scratchPtr) return 0;
+    new Uint8Array(this.memory.buffer).set(enc, scratchPtr);
+    return this.exports.w_font_draw_text(layerIdx, x, y, scratchPtr, size, color >>> 0, tracking, lineHeight);
+  }
+
+  fontMeasureText(text = '', size = 16, tracking = 0) {
+    if (!this.memory || typeof this.exports.w_font_measure_text !== 'function' || !text) return { width: 0, height: 0 };
+    const enc = new TextEncoder().encode(text + '\0');
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(enc.length + 256)
+      : 0;
+    if (!scratchPtr) return { width: 0, height: 0 };
+    new Uint8Array(this.memory.buffer).set(enc, scratchPtr);
+    const outPtr = ((scratchPtr + enc.length + 15) & ~15) + 16;
+    this.exports.w_font_measure_text(scratchPtr, size, tracking, outPtr);
+    const f32 = new Float32Array(this.memory.buffer);
+    const idx = outPtr >> 2;
+    return {
+      width: f32[idx + 0],
+      height: f32[idx + 1]
+    };
+  }
 
   readCString(ptr) {
 
@@ -8354,6 +8589,9 @@ class EsenhoScreenHost {
    * middle-click panning, scroll wheel zooming, and resize.
    */
   initWindow() {
+    if (!sdl || !sdl.video) {
+      return;
+    }
     this.window = sdl.video.createWindow({
       title: 'esenho',
       width: this.windowWidth,
@@ -8550,7 +8788,7 @@ async function main() {
   const host = new EsenhoScreenHost();
 
   // Canvas WASM Module
-  const canvasWasmPath = path.resolve(__dirname, '../roms/canvas.wasm');
+  const canvasWasmPath = path.resolve(__dirname, '../plugins/canvas.wasm');
   host.canvasActor = new EsenhoModule(canvasWasmPath, { name: 'canvas' });
   if (host.canvasActor.exports.w_init) {
     host.canvasActor.exports.w_init(DOC_WIDTH, DOC_HEIGHT);

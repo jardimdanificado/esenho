@@ -620,6 +620,94 @@ W_EXPORT void    w_anim_camera_get(int32_t *out_5words);
 W_EXPORT int32_t w_anim_symbol_create(int32_t total_frames, int32_t loop_mode);
 W_EXPORT int32_t w_anim_symbol_instantiate(int32_t sym_id, int32_t parent_track_idx, int32_t start_frame);
 
+/* =========================================================================
+ * Audio DSP & Synthesizer Core ABI
+ * ========================================================================= */
+
+enum {
+    W_WAVE_SINE     = 0,
+    W_WAVE_SAW      = 1,
+    W_WAVE_SQUARE   = 2,
+    W_WAVE_TRIANGLE = 3,
+    W_WAVE_NOISE    = 4,
+    W_WAVE_PWM      = 5
+};
+
+enum {
+    W_FILTER_OFF       = 0,
+    W_FILTER_LOWPASS   = 1,
+    W_FILTER_HIGHPASS  = 2,
+    W_FILTER_BANDPASS  = 3,
+    W_FILTER_NOTCH     = 4,
+    W_FILTER_PEAKING   = 5
+};
+
+enum {
+    W_SFXR_COIN        = 0,
+    W_SFXR_LASER       = 1,
+    W_SFXR_EXPLOSION   = 2,
+    W_SFXR_POWERUP     = 3,
+    W_SFXR_HIT         = 4,
+    W_SFXR_JUMP        = 5,
+    W_SFXR_SELECT      = 6,
+    W_SFXR_SYNTH       = 7
+};
+
+W_EXPORT void     w_audio_init(uint32_t sample_rate);
+W_EXPORT void     w_audio_set_bpm(float bpm);
+W_EXPORT float    w_audio_get_bpm(void);
+W_EXPORT void     w_audio_set_master_vol(float vol);
+W_EXPORT float    w_audio_get_master_vol(void);
+W_EXPORT void     w_audio_note_on(uint32_t track_idx, uint32_t midi_note, float velocity);
+W_EXPORT void     w_audio_note_off(uint32_t track_idx, uint32_t midi_note);
+W_EXPORT void     w_audio_all_notes_off(uint32_t track_idx);
+W_EXPORT void     w_audio_set_track_synth(uint32_t track_idx, uint32_t wave_type, float attack_s, float decay_s, float sustain_lvl, float release_s, float pulse_width);
+W_EXPORT void     w_audio_set_track_filter(uint32_t track_idx, uint32_t filter_type, float cutoff_hz, float resonance, float gain_db);
+W_EXPORT void     w_audio_set_track_fx(uint32_t track_idx, float delay_s, float delay_fb, float delay_mix, float reverb_size, float reverb_mix, float crush_bits, float dist_drive);
+W_EXPORT void     w_audio_set_track_vol_pan(uint32_t track_idx, float volume, float pan);
+W_EXPORT void     w_audio_trigger_sfxr(uint32_t preset_type, float volume);
+W_EXPORT void     w_audio_render_block(uint32_t num_frames);
+W_EXPORT float*   w_audio_get_buffer_l(void);
+W_EXPORT float*   w_audio_get_buffer_r(void);
+W_EXPORT uint32_t w_audio_export_wav(uint8_t *out_wav_buffer, uint32_t max_bytes, uint32_t total_frames);
+
+/* =========================================================================
+ * Native Vector Path & Bézier Rasterizer ABI
+ * ========================================================================= */
+
+enum {
+    W_FILL_NONZERO  = 0,
+    W_FILL_EVENODD  = 1
+};
+
+enum {
+    W_CAP_BUTT   = 0,
+    W_CAP_ROUND  = 1,
+    W_CAP_SQUARE = 2
+};
+
+enum {
+    W_JOIN_MITER = 0,
+    W_JOIN_ROUND = 1,
+    W_JOIN_BEVEL = 2
+};
+
+W_EXPORT void    w_path_begin(void);
+W_EXPORT void    w_path_move_to(float x, float y);
+W_EXPORT void    w_path_line_to(float x, float y);
+W_EXPORT void    w_path_quad_to(float cx, float cy, float x, float y);
+W_EXPORT void    w_path_cubic_to(float c1x, float c1y, float c2x, float c2y, float x, float y);
+W_EXPORT void    w_path_close(void);
+W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rule);
+W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_width, int32_t cap_style, int32_t join_style);
+
+/* =========================================================================
+ * Native Font & Glyph Engine ABI
+ * ========================================================================= */
+
+W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height);
+W_EXPORT void    w_font_measure_text(const char *text, float size, float tracking, float *out_w_h);
+
 #endif /* QUADRO_H */
 
 

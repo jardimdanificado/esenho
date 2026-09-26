@@ -1,9 +1,9 @@
 {
   "name": "esenho",
-  "version": "0.9.1",
+  "version": "0.9.5",
   "main": "index.js",
   "scripts": {
-    "test": "node tests/test_text_protocol.js && node tests/test_vector.js && node tests/test_animation.js && node tests/test_animator_runtime.js && node tests/test_universal_scripting_api.js",
+    "test": "node tests/test_text_protocol.js && node tests/test_vector.js && node tests/test_animation.js && node tests/test_animator_runtime.js && node tests/test_universal_scripting_api.js && node tests/test_native_core.js",
     "version": "node scripts/sync-version.js",
     "sync": "node scripts/sync-version.js"
   },
@@ -11,7 +11,5 @@
   "author": "",
   "license": "ISC",
   "description": "",
-  "dependencies": {
-    "@kmamal/sdl": "^0.11.13"
-  }
+  "dependencies": {}
 }

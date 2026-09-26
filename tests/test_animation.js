@@ -5,7 +5,7 @@ const { EsenhoModule, EsenhoScreenHost } = require('../src/esenho.js');
 async function runAnimationTests() {
   console.log('--- Testing Animation Engine, Timeline, IK, Mesh Warp & Multiplane Camera ---');
 
-  const canvasWasmPath = path.resolve(__dirname, '../roms/canvas.wasm');
+  const canvasWasmPath = path.resolve(__dirname, '../plugins/canvas.wasm');
   const canvasActor = new EsenhoModule(canvasWasmPath);
   canvasActor.exports.w_init(800, 600);
 

@@ -95,7 +95,7 @@ async function runSvgEngineTests() {
 
   // 6. Test Quadro WASM Rasterization
   console.log('--- Testing Quadro WASM SVG Renderer ---');
-  const canvasWasmPath = path.resolve(__dirname, '../roms/canvas.wasm');
+  const canvasWasmPath = path.resolve(__dirname, '../plugins/canvas.wasm');
   if (fs.existsSync(canvasWasmPath)) {
     const actor = new EsenhoModule(canvasWasmPath);
     const renderer = new QuadroSvgRenderer(actor);
@@ -108,7 +108,7 @@ async function runSvgEngineTests() {
     assert(imgData && imgData.data.length === 800 * 600 * 4, 'Rendered image data should have correct RGBA buffer size');
     console.log('✔ Quadro WASM rasterization of SVG Scene Graph passed');
   } else {
-    console.log('⚠ roms/canvas.wasm not found, skipping WASM execution step');
+    console.log('⚠ plugins/canvas.wasm not found, skipping WASM execution step');
   }
 
   // 7. Test SVG Grouping & Hierarchical Operations

@@ -3130,7 +3130,7 @@
 
       async function initQuadro() {
         try {
-          const res = await fetch('roms/canvas.wasm');
+          const res = await fetch('plugins/canvas.wasm');
           if (res.ok) {
             const buf = await res.arrayBuffer();
             const actor = new EsenhoModule(new Uint8Array(buf));
