@@ -29,6 +29,8 @@
       let initialRotation = 0;
       let initialAngle = 0;
       let initialBounds = null;
+      let initialOrigin = null;
+      let initialFixWorld = null;
       let initialObjectState = null;
       let resizeStartPoint = { x: 0, y: 0 };
       let resizeStartLocalPoint = { x: 0, y: 0 };
@@ -49,38 +51,56 @@
 
       function scaleObjectToBox(obj, origState, origBounds, newMinX, newMinY, newW, newH) {
         if (!obj || !origState || !origBounds) return;
-        const sx = (origBounds.width > 0) ? newW / origBounds.width : 1;
-        const sy = (origBounds.height > 0) ? newH / origBounds.height : 1;
+
+        let sw = 0;
+        if (obj.type !== 'image' && obj.type !== 'text') {
+          if (origState.stroke && origState.stroke !== 'none' && origState.strokeWidth) {
+            sw = origState.strokeWidth / 2;
+          }
+        }
+
+        const geomMinX = origBounds.minX + sw;
+        const geomMinY = origBounds.minY + sw;
+        const geomW = Math.max(0.001, origBounds.width - sw * 2);
+        const geomH = Math.max(0.001, origBounds.height - sw * 2);
+
+        const newGeomMinX = newMinX + sw;
+        const newGeomMinY = newMinY + sw;
+        const newGeomW = Math.max(0.001, newW - sw * 2);
+        const newGeomH = Math.max(0.001, newH - sw * 2);
+
+        const sx = (geomW > 0) ? newGeomW / geomW : 1;
+        const sy = (geomH > 0) ? newGeomH / geomH : 1;
 
         if (obj.type === 'rect' || obj.type === 'image') {
-          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * sx;
-          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.minY) - origBounds.minY) * sy;
-          obj.width = Math.max(1, (origState.width !== undefined ? origState.width : origBounds.width) * sx);
-          obj.height = Math.max(1, (origState.height !== undefined ? origState.height : origBounds.height) * sy);
+          obj.x = newGeomMinX + ((origState.x !== undefined ? origState.x : geomMinX) - geomMinX) * sx;
+          obj.y = newGeomMinY + ((origState.y !== undefined ? origState.y : geomMinY) - geomMinY) * sy;
+          obj.width = Math.max(0.5, (origState.width !== undefined ? origState.width : geomW) * sx);
+          obj.height = Math.max(0.5, (origState.height !== undefined ? origState.height : geomH) * sy);
         } else if (obj.type === 'circle') {
-          const origR = origState.r !== undefined ? origState.r : (origState.rx || 10);
-          const nr = Math.max(1, Math.round(origR * Math.min(sx, sy)));
-          const origCx = origState.cx !== undefined ? origState.cx : (origBounds.minX + origBounds.width / 2);
-          const origCy = origState.cy !== undefined ? origState.cy : (origBounds.minY + origBounds.height / 2);
-          obj.cx = newMinX + (origCx - origBounds.minX) * sx;
-          obj.cy = newMinY + (origCy - origBounds.minY) * sy;
+          const origR = origState.r !== undefined ? origState.r : (origState.rx || geomW / 2);
+          const nr = Math.max(0.5, Math.min(newGeomW, newGeomH) / 2);
+          const origCx = origState.cx !== undefined ? origState.cx : (geomMinX + geomW / 2);
+          const origCy = origState.cy !== undefined ? origState.cy : (geomMinY + geomH / 2);
+          obj.cx = newGeomMinX + (origCx - geomMinX) * sx;
+          obj.cy = newGeomMinY + (origCy - geomMinY) * sy;
           obj.r = nr;
           obj.rx = nr;
           obj.ry = nr;
         } else if (obj.type === 'ellipse') {
-          const origRx = origState.rx !== undefined ? origState.rx : 10;
-          const origRy = origState.ry !== undefined ? origState.ry : 10;
-          const origCx = origState.cx !== undefined ? origState.cx : (origBounds.minX + origBounds.width / 2);
-          const origCy = origState.cy !== undefined ? origState.cy : (origBounds.minY + origBounds.height / 2);
-          obj.rx = Math.max(1, Math.round(origRx * sx));
-          obj.ry = Math.max(1, Math.round(origRy * sy));
-          obj.cx = newMinX + (origCx - origBounds.minX) * sx;
-          obj.cy = newMinY + (origCy - origBounds.minY) * sy;
+          const origRx = origState.rx !== undefined ? origState.rx : (geomW / 2);
+          const origRy = origState.ry !== undefined ? origState.ry : (geomH / 2);
+          const origCx = origState.cx !== undefined ? origState.cx : (geomMinX + geomW / 2);
+          const origCy = origState.cy !== undefined ? origState.cy : (geomMinY + geomH / 2);
+          obj.rx = Math.max(0.5, origRx * sx);
+          obj.ry = Math.max(0.5, origRy * sy);
+          obj.cx = newGeomMinX + (origCx - geomMinX) * sx;
+          obj.cy = newGeomMinY + (origCy - geomMinY) * sy;
         } else if (obj.type === 'line') {
-          obj.x1 = newMinX + (origState.x1 - origBounds.minX) * sx;
-          obj.y1 = newMinY + (origState.y1 - origBounds.minY) * sy;
-          obj.x2 = newMinX + (origState.x2 - origBounds.minX) * sx;
-          obj.y2 = newMinY + (origState.y2 - origBounds.minY) * sy;
+          obj.x1 = newGeomMinX + (origState.x1 - geomMinX) * sx;
+          obj.y1 = newGeomMinY + (origState.y1 - geomMinY) * sy;
+          obj.x2 = newGeomMinX + (origState.x2 - geomMinX) * sx;
+          obj.y2 = newGeomMinY + (origState.y2 - geomMinY) * sy;
         } else if (obj.type === 'compoundPath') {
           if (obj.subPaths && origState.subPaths) {
             for (let s = 0; s < obj.subPaths.length; s++) {
@@ -89,8 +109,8 @@
               if (sp && origSp && sp.nodes && origSp.nodes) {
                 for (let i = 0; i < sp.nodes.length; i++) {
                   const orig = origSp.nodes[i];
-                  sp.nodes[i].x = newMinX + (orig.x - origBounds.minX) * sx;
-                  sp.nodes[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+                  sp.nodes[i].x = newGeomMinX + (orig.x - geomMinX) * sx;
+                  sp.nodes[i].y = newGeomMinY + (orig.y - geomMinY) * sy;
                   if (orig.cpIn) sp.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
                   if (orig.cpOut) sp.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
                 }
@@ -101,20 +121,22 @@
           if (obj.points && origState.points) {
             for (let i = 0; i < obj.points.length; i++) {
               const orig = origState.points[i];
-              obj.points[i].x = newMinX + (orig.x - origBounds.minX) * sx;
-              obj.points[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+              obj.points[i].x = newGeomMinX + (orig.x - geomMinX) * sx;
+              obj.points[i].y = newGeomMinY + (orig.y - geomMinY) * sy;
             }
           }
         } else if (obj.type === 'text') {
-          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * sx;
-          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.maxY) - origBounds.minY) * sy;
-          obj.fontSize = Math.max(8, Math.round(origState.fontSize * sy));
+          const rawSx = (origBounds.width > 0) ? newW / origBounds.width : 1;
+          const rawSy = (origBounds.height > 0) ? newH / origBounds.height : 1;
+          obj.x = newMinX + ((origState.x !== undefined ? origState.x : origBounds.minX) - origBounds.minX) * rawSx;
+          obj.y = newMinY + ((origState.y !== undefined ? origState.y : origBounds.minY) - origBounds.minY) * rawSy;
+          obj.fontSize = Math.max(1, origState.fontSize * rawSy);
         } else if (obj.type === 'path') {
           if (obj.nodes && origState.nodes) {
             for (let i = 0; i < obj.nodes.length; i++) {
               const orig = origState.nodes[i];
-              obj.nodes[i].x = newMinX + (orig.x - origBounds.minX) * sx;
-              obj.nodes[i].y = newMinY + (orig.y - origBounds.minY) * sy;
+              obj.nodes[i].x = newGeomMinX + (orig.x - geomMinX) * sx;
+              obj.nodes[i].y = newGeomMinY + (orig.y - geomMinY) * sy;
               if (orig.cpIn) obj.nodes[i].cpIn = { x: orig.cpIn.x * sx, y: orig.cpIn.y * sy };
               if (orig.cpOut) obj.nodes[i].cpOut = { x: orig.cpOut.x * sx, y: orig.cpOut.y * sy };
             }
@@ -132,10 +154,10 @@
         }
 
         if (origState.originX !== undefined) {
-          obj.originX = newMinX + (origState.originX - origBounds.minX) * sx;
+          obj.originX = newGeomMinX + (origState.originX - geomMinX) * sx;
         }
         if (origState.originY !== undefined) {
-          obj.originY = newMinY + (origState.originY - origBounds.minY) * sy;
+          obj.originY = newGeomMinY + (origState.originY - geomMinY) * sy;
         }
       }
 
@@ -1671,8 +1693,18 @@
                     activeTransformMode = 'resize';
                     activeResizeHandle = h.name;
                     initialBounds = { ...cb };
+                    initialOrigin = { x: cb.minX + cb.width / 2, y: cb.minY + cb.height / 2 };
                     initialObjectState = selected.map(o => ({ id: o.id, state: JSON.parse(JSON.stringify(o.toJSON())) }));
                     resizeStartPoint = { x: pt.x, y: pt.y };
+                    resizeStartLocalPoint = { x: pt.x, y: pt.y };
+
+                    let fixX = cb.minX + cb.width / 2;
+                    let fixY = cb.minY + cb.height / 2;
+                    if (h.name.includes('w')) fixX = cb.maxX;
+                    else if (h.name.includes('e')) fixX = cb.minX;
+                    if (h.name.includes('n')) fixY = cb.maxY;
+                    else if (h.name.includes('s')) fixY = cb.minY;
+                    initialFixWorld = { x: fixX, y: fixY };
                     break;
                   }
                 }
@@ -1717,9 +1749,27 @@
                   activeTransformMode = 'resize';
                   activeResizeHandle = h.name;
                   initialBounds = { ...b };
+                  initialOrigin = { ...origin };
                   initialObjectState = JSON.parse(JSON.stringify(obj.toJSON()));
                   resizeStartPoint = { x: pt.x, y: pt.y };
                   resizeStartLocalPoint = { x: localPt.x, y: localPt.y };
+
+                  let fixX = b.minX + b.width / 2;
+                  let fixY = b.minY + b.height / 2;
+                  if (h.name.includes('w')) fixX = b.maxX;
+                  else if (h.name.includes('e')) fixX = b.minX;
+                  if (h.name.includes('n')) fixY = b.maxY;
+                  else if (h.name.includes('s')) fixY = b.minY;
+
+                  const rad = (obj.rotation || 0) * Math.PI / 180;
+                  const cosA = Math.cos(rad);
+                  const sinA = Math.sin(rad);
+                  const dxFix = fixX - origin.x;
+                  const dyFix = fixY - origin.y;
+                  initialFixWorld = {
+                    x: origin.x + dxFix * cosA - dyFix * sinA,
+                    y: origin.y + dxFix * sinA + dyFix * cosA
+                  };
                   break;
                 }
               }
@@ -2087,9 +2137,9 @@
               return;
             } else {
               const obj = selected[0];
-              if (obj) {
-                const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: initialBounds.minX + initialBounds.width / 2, y: initialBounds.minY + initialBounds.height / 2 };
-                const localPt = docToLocal(pt, origin, obj.rotation || 0);
+              if (obj && initialOrigin) {
+                const rot = (initialObjectState.rotation || 0);
+                const localPt = docToLocal(pt, initialOrigin, rot);
                 const dLocalX = localPt.x - resizeStartLocalPoint.x;
                 const dLocalY = localPt.y - resizeStartLocalPoint.y;
 
@@ -2107,6 +2157,71 @@
                 const newH = Math.max(1, newMaxY - newMinY);
 
                 scaleObjectToBox(obj, initialObjectState, initialBounds, newMinX, newMinY, newW, newH);
+
+                if (initialFixWorld) {
+                  let curFixX = newMinX + newW / 2;
+                  let curFixY = newMinY + newH / 2;
+                  if (activeResizeHandle.includes('w')) curFixX = newMaxX;
+                  else if (activeResizeHandle.includes('e')) curFixX = newMinX;
+                  if (activeResizeHandle.includes('n')) curFixY = newMaxY;
+                  else if (activeResizeHandle.includes('s')) curFixY = newMinY;
+
+                  const curOrigin = (typeof obj.getOrigin === 'function')
+                    ? obj.getOrigin()
+                    : { x: newMinX + newW / 2, y: newMinY + newH / 2 };
+
+                  const rad = rot * Math.PI / 180;
+                  const cosA = Math.cos(rad);
+                  const sinA = Math.sin(rad);
+                  const curDx = curFixX - curOrigin.x;
+                  const curDy = curFixY - curOrigin.y;
+                  const curFixWorldX = curOrigin.x + curDx * cosA - curDy * sinA;
+                  const curFixWorldY = curOrigin.y + curDx * sinA + curDy * cosA;
+
+                  const deltaWorldX = initialFixWorld.x - curFixWorldX;
+                  const deltaWorldY = initialFixWorld.y - curFixWorldY;
+
+                  if (Math.abs(deltaWorldX) > 1e-6 || Math.abs(deltaWorldY) > 1e-6) {
+                    if (typeof obj.move === 'function') {
+                      obj.move(deltaWorldX, deltaWorldY);
+                    } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'text') {
+                      obj.x += deltaWorldX; obj.y += deltaWorldY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
+                    } else if (obj.type === 'circle' || obj.type === 'ellipse') {
+                      obj.cx += deltaWorldX; obj.cy += deltaWorldY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
+                    } else if (obj.type === 'line') {
+                      obj.x1 += deltaWorldX; obj.y1 += deltaWorldY;
+                      obj.x2 += deltaWorldX; obj.y2 += deltaWorldY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
+                    } else if (obj.type === 'path' && obj.nodes) {
+                      for (const n of obj.nodes) {
+                        n.x += deltaWorldX; n.y += deltaWorldY;
+                      }
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
+                    } else if (obj.type === 'compoundPath' && obj.subPaths) {
+                      for (const sp of obj.subPaths) {
+                        if (sp.nodes) {
+                          for (const n of sp.nodes) {
+                            n.x += deltaWorldX; n.y += deltaWorldY;
+                          }
+                        }
+                      }
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
+                    } else if ((obj.type === 'polyline' || obj.type === 'polygon') && obj.points) {
+                      for (const p of obj.points) {
+                        p.x += deltaWorldX; p.y += deltaWorldY;
+                      }
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
+                    }
+                  }
+                }
 
                 render();
                 updateInspector();
@@ -2280,6 +2395,8 @@
           activeResizeHandle = null;
           activeTransformMode = null;
           initialBounds = null;
+          initialOrigin = null;
+          initialFixWorld = null;
           initialObjectState = null;
           currentDraftObj = null;
           if (activeTool !== 'pen') {
