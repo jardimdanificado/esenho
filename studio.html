@@ -641,23 +641,26 @@
       display: flex;
       border-bottom: 1px solid var(--border);
       background: var(--bg-panel-sub);
-      padding: 4px 4px 0 4px;
-      gap: 2px;
+      padding: 6px 8px;
+      gap: 6px;
       flex-shrink: 0;
+      align-items: center;
     }
 
     .tab-btn {
       flex: 1;
-      padding: 7px 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px 10px;
       font-size: 11px;
       font-weight: 600;
       text-transform: capitalize;
       letter-spacing: 0.3px;
+      line-height: 1.2;
       background: transparent;
       border: 1px solid transparent;
-      border-bottom: none;
-      border-top-left-radius: var(--radius-sm);
-      border-top-right-radius: var(--radius-sm);
+      border-radius: var(--radius-sm);
       color: var(--text-muted);
       cursor: pointer;
       text-align: center;
@@ -666,14 +669,15 @@
 
     .tab-btn:hover {
       color: var(--text);
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .tab-btn.active {
       background: var(--bg-panel);
       color: var(--primary);
-      border-color: var(--border);
+      border: 1px solid var(--border);
       font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     }
 
     .tab-content {
@@ -1387,6 +1391,21 @@
               <span style="display: flex; align-items: center; gap: 6px;">
                 <span class="scale-check" id="check-scale-20" style="width: 12px; font-size: 10px; color: var(--accent); opacity: 0;">✓</span>
                 <span>2.0× (Hi-DPI Retina)</span>
+              </span>
+            </button>
+
+            <div class="menu-divider"></div>
+            <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Viewport Filter</div>
+            <button type="button" class="menu-item view-filter-opt" data-vfilter="bilinear">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="vfilter-check" id="check-vfilter-bilinear" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
+                <span>Bilinear (Smooth)</span>
+              </span>
+            </button>
+            <button type="button" class="menu-item view-filter-opt" data-vfilter="nearest">
+              <span style="display: flex; align-items: center; gap: 6px;">
+                <span class="vfilter-check" id="check-vfilter-nearest" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
+                <span>Nearest (Crisp / Pixel Art)</span>
               </span>
             </button>
           </div>
@@ -6073,6 +6092,23 @@
       });
 
       // Viewport Render Mode & Engine Switcher
+      let viewportBilinear = true;
+      function setViewportBilinear(enable, notify = false) {
+        viewportBilinear = Boolean(enable);
+        const mode = viewportBilinear ? 'auto' : 'pixelated';
+        if (quadroCanvas) quadroCanvas.style.imageRendering = mode;
+        if (svgStage) svgStage.style.imageRendering = mode;
+        if (stageWrapper) stageWrapper.style.imageRendering = mode;
+        const chk = document.getElementById('prop-viewport-bilinear');
+        if (chk && chk.checked !== viewportBilinear) {
+          chk.checked = viewportBilinear;
+        }
+        updateRendererMenuUi();
+        if (notify) {
+          showNotification(`Viewport Filter: ${viewportBilinear ? 'Bilinear (Smooth)' : 'Nearest (Crisp)'}`);
+        }
+      }
+
       function updateRendererMenuUi() {
         const checkSvg = document.getElementById('check-renderer-svg');
         const checkQuadro = document.getElementById('check-renderer-quadro');
@@ -6086,6 +6122,11 @@
           const el = document.getElementById(id);
           if (el) el.style.opacity = (Math.abs(quadroRenderScale - parseFloat(scStr)) < 0.01) ? '1' : '0';
         });
+
+        const checkBilinear = document.getElementById('check-vfilter-bilinear');
+        const checkNearest = document.getElementById('check-vfilter-nearest');
+        if (checkBilinear) checkBilinear.style.opacity = viewportBilinear ? '1' : '0';
+        if (checkNearest) checkNearest.style.opacity = viewportBilinear ? '0' : '1';
       }
 
       const syncRenderMode = (val) => {
@@ -6124,6 +6165,16 @@
           menuDropdown?.classList.remove('active');
           btnMenuLogo?.classList.remove('active');
           showNotification(`Quadro Scale: ${s}×`);
+        });
+      });
+
+      document.querySelectorAll('.view-filter-opt').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const isBilinear = btn.dataset.vfilter === 'bilinear';
+          setViewportBilinear(isBilinear, true);
+          menuDropdown?.classList.remove('active');
+          btnMenuLogo?.classList.remove('active');
         });
       });
 
@@ -6318,11 +6369,7 @@
       });
 
       document.getElementById('prop-viewport-bilinear')?.addEventListener('change', (e) => {
-        const bilinear = e.target.checked;
-        const mode = bilinear ? 'auto' : 'pixelated';
-        quadroCanvas.style.imageRendering = mode;
-        svgStage.style.imageRendering = mode;
-        stageWrapper.style.imageRendering = mode;
+        setViewportBilinear(e.target.checked);
       });
 
       document.getElementById('prop-camera-x')?.addEventListener('input', (e) => {
