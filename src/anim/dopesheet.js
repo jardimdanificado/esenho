@@ -6,7 +6,7 @@
  * =========================================================================
  */
 
-import { Easing } from './animator_engine.js';
+import { Easing, getEasingFunction } from './animator_engine.js';
 
 /** Color helper: parses Hex (#RRGGBB / #RRGGBBAA / #RGB), rgba(), or integer 0xAABBGGRR into {r,g,b,a} */
 export function parseColor(c) {
@@ -677,14 +677,17 @@ export class DopeSheetChannel {
     this.visible = true;
   }
 
-  addKeyframe(frame, value, tweenType = 'linear') {
+  addKeyframe(frame, value, tweenType = null) {
     const existing = this.getKeyframeAt(frame);
     if (existing) {
       existing.value = value;
-      existing.tweenType = tweenType;
+      if (tweenType !== null && tweenType !== undefined) {
+        existing.tweenType = tweenType;
+      }
       return existing;
     }
-    const kf = new DopeSheetKeyframe(frame, value, tweenType);
+    const finalTween = (tweenType !== null && tweenType !== undefined) ? tweenType : 'linear';
+    const kf = new DopeSheetKeyframe(frame, value, finalTween);
     this.keyframes.push(kf);
     this.keyframes.sort((a, b) => a.frame - b.frame);
     return kf;
@@ -738,7 +741,7 @@ export class DopeSheetChannel {
 
     const totalSpan = next.frame - prev.frame;
     let t = Math.max(0, Math.min(1, (frame - prev.frame) / totalSpan));
-    const easeFn = Easing[prev.tweenType] || Easing.linear;
+    const easeFn = getEasingFunction(prev.tweenType);
     t = easeFn(t);
 
     if (this.type === 'color') {
@@ -794,7 +797,7 @@ export class DopeSheetObject {
     return this.channels.get(paramKey);
   }
 
-  setKeyframe(paramKey, frame, value, tweenType = 'linear') {
+  setKeyframe(paramKey, frame, value, tweenType = null) {
     const ch = this.getOrCreateChannel(paramKey, value);
     return ch.addKeyframe(frame, value, tweenType);
   }
@@ -907,10 +910,10 @@ export class DopeSheet {
     }
   }
 
-  setKeyframe(objectId, paramKey, frame, value, tweenType = 'linear') {
+  setKeyframe(objectId, paramKey, frame, value, tweenType = null) {
     const obj = this.getOrCreateObject(objectId);
     const kf = obj.setKeyframe(paramKey, frame, value, tweenType);
-    this.notify('keyframeSet', { objectId, paramKey, frame, value, tweenType });
+    this.notify('keyframeSet', { objectId, paramKey, frame, value, tweenType: kf.tweenType });
     return kf;
   }
 

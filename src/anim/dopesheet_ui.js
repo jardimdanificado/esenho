@@ -7,6 +7,7 @@
  */
 
 import * as DopeSheetModule from './dopesheet.js';
+import { solveCubicBezier, getEasingFunction } from './animator_engine.js';
 
 const PARAMETER_REGISTRY = DopeSheetModule.PARAMETER_REGISTRY || {};
 const extractLiveObjectProperties = typeof DopeSheetModule.extractLiveObjectProperties === 'function'
@@ -92,7 +93,12 @@ export class DopeSheetUI {
               <option value="easeOutElastic">Elastic Out</option>
               <option value="easeOutBounce">Bounce Out</option>
               <option value="step">Step (Hold)</option>
+              <option value="custom">✎ Custom Bézier...</option>
             </select>
+            <button id="ds-btn-custom-curve" class="ds-btn" title="Open Bézier Curve Visual Graph Editor" style="background: #3c3836; color: #fabd2f; border: 1px solid #504945; border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px;">
+              <span>📈</span>
+              <span>Edit</span>
+            </button>
           </div>
 
           <div style="height: 16px; width: 1px; background: #504945; margin: 0 4px;"></div>
@@ -299,17 +305,18 @@ export class DopeSheetUI {
         fpsInput.value = val;
       };
     }
+    const customCurveBtn = this.container.querySelector('#ds-btn-custom-curve');
+    if (customCurveBtn) {
+      customCurveBtn.onclick = () => this.openCurveEditorModal();
+    }
     if (easingSelect) {
       easingSelect.onchange = (e) => {
         const curve = e.target.value;
-        this.activeEasing = curve;
-        const selectedKfs = this.ds.getSelectedKeyframes();
-        if (selectedKfs.length > 0) {
-          for (const item of selectedKfs) {
-            item.keyframe.tweenType = curve;
-          }
-          this.updateGrid();
+        if (curve === 'custom') {
+          this.openCurveEditorModal();
+          return;
         }
+        this.applyCurve(curve);
       };
     }
 
@@ -333,17 +340,34 @@ export class DopeSheetUI {
         }
 
         const curve = this.activeEasing || 'linear';
-        if (liveObj) {
-          const props = extractLiveObjectProperties(liveObj);
-          for (const [key, val] of Object.entries(props)) {
-            if (val !== undefined && val !== null) {
-              obj.setKeyframe(key, this.ds.currentFrame, val, curve);
-            }
+        if (this.selectedParamKey) {
+          // Add keyframe ONLY to the actively selected track
+          let val = undefined;
+          if (liveObj) {
+            const props = extractLiveObjectProperties(liveObj);
+            val = props[this.selectedParamKey];
           }
+          if (val === undefined) {
+            const ch = obj.getOrCreateChannel(this.selectedParamKey);
+            val = ch.sample(this.ds.currentFrame);
+          }
+          const kf = obj.setKeyframe(this.selectedParamKey, this.ds.currentFrame, val, curve);
+          this.ds.deselectAllKeyframes();
+          kf.selected = true;
         } else {
-          for (const [key, ch] of obj.channels.entries()) {
-            const val = ch.sample(this.ds.currentFrame);
-            ch.addKeyframe(this.ds.currentFrame, val, curve);
+          // Object root selected: set keyframes on all object properties
+          if (liveObj) {
+            const props = extractLiveObjectProperties(liveObj);
+            for (const [key, val] of Object.entries(props)) {
+              if (val !== undefined && val !== null) {
+                obj.setKeyframe(key, this.ds.currentFrame, val, curve);
+              }
+            }
+          } else {
+            for (const [key, ch] of obj.channels.entries()) {
+              const val = ch.sample(this.ds.currentFrame);
+              ch.addKeyframe(this.ds.currentFrame, val, curve);
+            }
           }
         }
         this.selectedObjectId = targetId;
@@ -360,8 +384,12 @@ export class DopeSheetUI {
       if (targetId) {
         const obj = this.ds.objects.get(targetId);
         if (obj) {
-          for (const ch of obj.channels.values()) {
-            ch.removeKeyframe(this.ds.currentFrame);
+          if (this.selectedParamKey && obj.channels.has(this.selectedParamKey)) {
+            obj.channels.get(this.selectedParamKey).removeKeyframe(this.ds.currentFrame);
+          } else {
+            for (const ch of obj.channels.values()) {
+              ch.removeKeyframe(this.ds.currentFrame);
+            }
           }
           this.updateGrid();
         }
@@ -429,6 +457,7 @@ export class DopeSheetUI {
               }
               hitKf.selected = true;
               this.selectedObjectId = row.object.id;
+              this.selectedParamKey = row.paramKey;
               this.activeEasing = hitKf.tweenType || 'linear';
               const easingSelect = this.container.querySelector('#ds-select-easing');
               if (easingSelect) easingSelect.value = this.activeEasing;
@@ -485,6 +514,425 @@ export class DopeSheetUI {
     }
   }
 
+  applyCurve(curve) {
+    this.activeEasing = curve;
+    const selectedKfs = this.ds.getSelectedKeyframes();
+    if (selectedKfs.length > 0) {
+      for (const item of selectedKfs) {
+        item.keyframe.tweenType = curve;
+      }
+    } else {
+      let targetId = this.selectedObjectId;
+      if (!targetId && typeof window !== 'undefined' && window.doc) {
+        const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects() : [];
+        if (sel && sel.length > 0) targetId = sel[0].id;
+      }
+
+      if (targetId) {
+        const obj = this.ds.getOrCreateObject(targetId);
+        if (this.selectedParamKey) {
+          const ch = obj.channels.get(this.selectedParamKey);
+          if (ch) {
+            let kf = ch.getKeyframeAt(this.ds.currentFrame);
+            if (!kf) {
+              const span = ch.getSpan(this.ds.currentFrame);
+              if (span && span.prev) {
+                span.prev.tweenType = curve;
+              } else if (ch.keyframes.length > 0) {
+                ch.keyframes[0].tweenType = curve;
+              }
+            } else {
+              kf.tweenType = curve;
+            }
+          }
+        } else {
+          for (const ch of obj.channels.values()) {
+            let kf = ch.getKeyframeAt(this.ds.currentFrame);
+            if (!kf) {
+              const span = ch.getSpan(this.ds.currentFrame);
+              if (span && span.prev) {
+                span.prev.tweenType = curve;
+              } else if (ch.keyframes.length > 0) {
+                ch.keyframes[0].tweenType = curve;
+              }
+            } else {
+              kf.tweenType = curve;
+            }
+          }
+        }
+      }
+    }
+
+    this.updateGrid();
+    this.ds.setFrame(this.ds.currentFrame);
+    if (typeof window !== 'undefined') {
+      if (window.renderDoc) window.renderDoc();
+      if (window.render) window.render();
+    }
+  }
+
+  openCurveEditorModal() {
+    this.closeActiveMenu();
+
+    let p1 = { x: 0.42, y: 0.0 };
+    let p2 = { x: 0.58, y: 1.0 };
+
+    if (typeof this.activeEasing === 'string') {
+      if (this.activeEasing.startsWith('cubic-bezier') || this.activeEasing.startsWith('custom:')) {
+        const m = this.activeEasing.match(/-?[\d.]+/g);
+        if (m && m.length >= 4) {
+          p1 = { x: Math.max(0, Math.min(1, parseFloat(m[0]))), y: parseFloat(m[1]) };
+          p2 = { x: Math.max(0, Math.min(1, parseFloat(m[2]))), y: parseFloat(m[3]) };
+        }
+      } else if (this.activeEasing === 'linear') {
+        p1 = { x: 0.0, y: 0.0 }; p2 = { x: 1.0, y: 1.0 };
+      } else if (this.activeEasing === 'easeInQuad' || this.activeEasing === 'easeIn' || this.activeEasing === 'easeInCubic') {
+        p1 = { x: 0.55, y: 0.0 }; p2 = { x: 1.0, y: 0.45 };
+      } else if (this.activeEasing === 'easeOutQuad' || this.activeEasing === 'easeOut' || this.activeEasing === 'easeOutCubic') {
+        p1 = { x: 0.0, y: 0.55 }; p2 = { x: 0.45, y: 1.0 };
+      } else if (this.activeEasing === 'easeInOutQuad' || this.activeEasing === 'easeInOut') {
+        p1 = { x: 0.42, y: 0.0 }; p2 = { x: 0.58, y: 1.0 };
+      } else if (this.activeEasing === 'easeInElastic') {
+        p1 = { x: 0.36, y: 0.0 }; p2 = { x: 0.66, y: -0.56 };
+      } else if (this.activeEasing === 'easeOutElastic' || this.activeEasing === 'easeOutBounce') {
+        p1 = { x: 0.34, y: 1.56 }; p2 = { x: 0.64, y: 1.0 };
+      }
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'ds-curve-editor-backdrop';
+    overlay.style.position = 'fixed';
+    overlay.style.top = '0';
+    overlay.style.left = '0';
+    overlay.style.width = '100vw';
+    overlay.style.height = '100vh';
+    overlay.style.background = 'rgba(0,0,0,0.65)';
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+    overlay.style.zIndex = '99999';
+    overlay.style.backdropFilter = 'blur(4px)';
+
+    const modal = document.createElement('div');
+    modal.className = 'ds-curve-editor-modal';
+    modal.style.background = '#282828';
+    modal.style.border = '1px solid #504945';
+    modal.style.borderRadius = '8px';
+    modal.style.boxShadow = '0 16px 40px rgba(0,0,0,0.85)';
+    modal.style.padding = '14px';
+    modal.style.width = '340px';
+    modal.style.color = '#ebdbb2';
+    modal.style.fontFamily = 'monospace, sans-serif';
+    modal.style.userSelect = 'none';
+
+    modal.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #3c3836; padding-bottom: 6px;">
+        <div style="font-weight: bold; color: #fabd2f; font-size: 13px; display: flex; align-items: center; gap: 6px;">
+          <span>📈</span> Visual Bézier Curve Editor
+        </div>
+        <button id="ds-ce-close" style="background: none; border: none; color: #a89984; font-size: 16px; cursor: pointer; padding: 0 4px;">✕</button>
+      </div>
+
+      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px;">
+        <button class="ds-ce-preset" data-vals="0,0,1,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Linear</button>
+        <button class="ds-ce-preset" data-vals="0.42,0,1,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Ease In</button>
+        <button class="ds-ce-preset" data-vals="0,0,0.58,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Ease Out</button>
+        <button class="ds-ce-preset" data-vals="0.42,0,0.58,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Ease In-Out</button>
+        <button class="ds-ce-preset" data-vals="0.1,0.9,0.2,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Fast-Slow</button>
+        <button class="ds-ce-preset" data-vals="0.34,1.56,0.64,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Spring</button>
+        <button class="ds-ce-preset" data-vals="0.36,0,0.66,-0.56" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Anticipate</button>
+      </div>
+
+      <div style="background: #1d2021; border: 1px solid #3c3836; border-radius: 6px; padding: 4px; display: flex; justify-content: center; position: relative;">
+        <canvas id="ds-ce-canvas" width="300" height="240" style="cursor: crosshair; touch-action: none; border-radius: 4px;"></canvas>
+      </div>
+
+      <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 10px; font-size: 11px;">
+        <div style="display: flex; align-items: center; gap: 3px;">
+          <span style="color: #83a598; font-weight: bold;">P1:</span>
+          <input id="ds-ce-x1" type="number" step="0.01" min="0" max="1" style="width: 52px; background: #1d2021; color: #83a598; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
+          <input id="ds-ce-y1" type="number" step="0.01" style="width: 52px; background: #1d2021; color: #83a598; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
+        </div>
+        <div style="display: flex; align-items: center; gap: 3px;">
+          <span style="color: #fe8019; font-weight: bold;">P2:</span>
+          <input id="ds-ce-x2" type="number" step="0.01" min="0" max="1" style="width: 52px; background: #1d2021; color: #fe8019; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
+          <input id="ds-ce-y2" type="number" step="0.01" style="width: 52px; background: #1d2021; color: #fe8019; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding: 6px 8px; background: #1d2021; border-radius: 4px; border: 1px solid #3c3836;">
+        <div style="font-size: 10px; color: #a89984; display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <span>Motion Preview:</span>
+          <span id="ds-ce-curve-str" style="color: #fabd2f; font-family: monospace;">cubic-bezier(...)</span>
+        </div>
+        <div style="height: 12px; background: #282828; border-radius: 6px; position: relative; overflow: hidden; border: 1px solid #504945;">
+          <div id="ds-ce-preview-dot" style="position: absolute; top: 1px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: #b8bb26; box-shadow: 0 0 6px #b8bb26;"></div>
+        </div>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
+        <button id="ds-ce-cancel" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-size: 11px;">Cancel</button>
+        <button id="ds-ce-apply" style="background: #fabd2f; color: #282828; font-weight: bold; border: 1px solid #fabd2f; border-radius: 4px; padding: 4px 14px; cursor: pointer; font-size: 11px;">Apply Curve</button>
+      </div>
+    `;
+
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const canvas = modal.querySelector('#ds-ce-canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const padX = 35, padY = 40;
+    const yMin = -0.4, yMax = 1.4;
+
+    const toPixelX = (x) => padX + x * (W - 2 * padX);
+    const toPixelY = (y) => H - padY - ((y - yMin) / (yMax - yMin)) * (H - 2 * padY);
+    const fromPixelX = (px) => Math.max(0, Math.min(1, (px - padX) / (W - 2 * padX)));
+    const fromPixelY = (py) => Math.max(-0.6, Math.min(1.6, yMin + (H - padY - py) / (H - 2 * padY) * (yMax - yMin)));
+
+    const inpX1 = modal.querySelector('#ds-ce-x1');
+    const inpY1 = modal.querySelector('#ds-ce-y1');
+    const inpX2 = modal.querySelector('#ds-ce-x2');
+    const inpY2 = modal.querySelector('#ds-ce-y2');
+    const strLabel = modal.querySelector('#ds-ce-curve-str');
+    const previewDot = modal.querySelector('#ds-ce-preview-dot');
+
+    let draggingHandle = null;
+    let currentBezierFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
+
+    const syncInputsAndCurve = () => {
+      inpX1.value = Math.round(p1.x * 100) / 100;
+      inpY1.value = Math.round(p1.y * 100) / 100;
+      inpX2.value = Math.round(p2.x * 100) / 100;
+      inpY2.value = Math.round(p2.y * 100) / 100;
+      const str = `cubic-bezier(${inpX1.value}, ${inpY1.value}, ${inpX2.value}, ${inpY2.value})`;
+      strLabel.textContent = str;
+      currentBezierFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
+      drawGraph();
+    };
+
+    const drawGraph = () => {
+      ctx.fillStyle = '#1d2021';
+      ctx.fillRect(0, 0, W, H);
+
+      const x0 = toPixelX(0), y0 = toPixelY(0);
+      const x1 = toPixelX(1), y1 = toPixelY(1);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillRect(x0, y1, x1 - x0, y0 - y1);
+      ctx.strokeStyle = '#3c3836';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x0, y1, x1 - x0, y0 - y1);
+
+      ctx.strokeStyle = '#282828';
+      [0.25, 0.5, 0.75].forEach(v => {
+        const gx = toPixelX(v), gy = toPixelY(v);
+        ctx.beginPath(); ctx.moveTo(gx, y1); ctx.lineTo(gx, y0); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x1, gy); ctx.stroke();
+      });
+
+      ctx.strokeStyle = '#504945';
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+      ctx.setLineDash([]);
+
+      const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
+      const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
+
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#83a598';
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(px1, py1); ctx.stroke();
+
+      ctx.strokeStyle = '#fe8019';
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(px2, py2); ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.bezierCurveTo(px1, py1, px2, py2, x1, y1);
+      ctx.strokeStyle = '#b8bb26';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ebdbb2';
+      ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x1, y1, 3.5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#83a598';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px1, py1, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+      ctx.fillStyle = '#fe8019';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(px2, py2, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    };
+
+    const onPointerDown = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
+      const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
+
+      const d1 = Math.hypot(mx - px1, my - py1);
+      const d2 = Math.hypot(mx - px2, my - py2);
+
+      if (d1 <= 14) {
+        draggingHandle = 1;
+      } else if (d2 <= 14) {
+        draggingHandle = 2;
+      } else if (d1 < d2 && d1 < 30) {
+        draggingHandle = 1;
+      } else if (d2 <= d1 && d2 < 30) {
+        draggingHandle = 2;
+      }
+
+      if (draggingHandle) {
+        e.preventDefault();
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+      }
+    };
+
+    const onPointerMove = (e) => {
+      if (!draggingHandle) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const nx = fromPixelX(mx);
+      const ny = fromPixelY(my);
+
+      if (draggingHandle === 1) {
+        p1.x = nx; p1.y = ny;
+      } else if (draggingHandle === 2) {
+        p2.x = nx; p2.y = ny;
+      }
+      syncInputsAndCurve();
+    };
+
+    const onPointerUp = () => {
+      draggingHandle = null;
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    canvas.addEventListener('pointerdown', onPointerDown);
+
+    inpX1.oninput = () => { p1.x = Math.max(0, Math.min(1, parseFloat(inpX1.value) || 0)); syncInputsAndCurve(); };
+    inpY1.oninput = () => { p1.y = parseFloat(inpY1.value) || 0; syncInputsAndCurve(); };
+    inpX2.oninput = () => { p2.x = Math.max(0, Math.min(1, parseFloat(inpX2.value) || 0)); syncInputsAndCurve(); };
+    inpY2.oninput = () => { p2.y = parseFloat(inpY2.value) || 0; syncInputsAndCurve(); };
+
+    modal.querySelectorAll('.ds-ce-preset').forEach(btn => {
+      btn.onclick = () => {
+        const [x1, y1, x2, y2] = btn.getAttribute('data-vals').split(',').map(Number);
+        p1 = { x: x1, y: y1 };
+        p2 = { x: x2, y: y2 };
+        syncInputsAndCurve();
+      };
+    });
+
+    let animRunning = true;
+    let startTime = performance.now();
+    const animLoop = (now) => {
+      if (!animRunning) return;
+      const elapsed = (now - startTime) % 1500;
+      const progress = elapsed / 1500;
+      const eased = currentBezierFn(progress);
+      if (previewDot) {
+        previewDot.style.left = `${Math.max(0, Math.min(272, eased * 272))}px`;
+      }
+      requestAnimationFrame(animLoop);
+    };
+    requestAnimationFrame(animLoop);
+
+    const closeModal = () => {
+      animRunning = false;
+      overlay.remove();
+    };
+
+    modal.querySelector('#ds-ce-close').onclick = closeModal;
+    modal.querySelector('#ds-ce-cancel').onclick = closeModal;
+    overlay.onpointerdown = (e) => {
+      if (e.target === overlay) closeModal();
+    };
+
+    modal.querySelector('#ds-ce-apply').onclick = () => {
+      const curveStr = `cubic-bezier(${Math.round(p1.x * 100) / 100}, ${Math.round(p1.y * 100) / 100}, ${Math.round(p2.x * 100) / 100}, ${Math.round(p2.y * 100) / 100})`;
+      closeModal();
+      this.applyCurve(curveStr);
+    };
+
+    syncInputsAndCurve();
+  }
+
+  syncEasingUI() {
+    const easingSelect = this.container.querySelector('#ds-select-easing');
+    if (!easingSelect) return;
+
+    const setSelectValue = (val) => {
+      this.activeEasing = val;
+      if (typeof val === 'string' && (val.startsWith('cubic-bezier') || val.startsWith('custom:'))) {
+        easingSelect.value = 'custom';
+      } else {
+        easingSelect.value = val || 'linear';
+      }
+    };
+
+    // 1. If keyframe(s) are selected in timeline, reflect first selected keyframe's tweenType
+    const selectedKfs = this.ds.getSelectedKeyframes();
+    if (selectedKfs.length > 0) {
+      setSelectValue(selectedKfs[0].keyframe.tweenType || 'linear');
+      return;
+    }
+
+    // 2. Target object & track
+    let targetId = this.selectedObjectId;
+    if (!targetId && typeof window !== 'undefined' && window.doc) {
+      const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects() : [];
+      if (sel && sel.length > 0) targetId = sel[0].id;
+    }
+
+    if (targetId && this.ds.objects.has(targetId)) {
+      const obj = this.ds.objects.get(targetId);
+      if (this.selectedParamKey && obj.channels.has(this.selectedParamKey)) {
+        const ch = obj.channels.get(this.selectedParamKey);
+        const kf = ch.getKeyframeAt(this.ds.currentFrame);
+        if (kf) {
+          setSelectValue(kf.tweenType || 'linear');
+          return;
+        }
+        const span = ch.getSpan(this.ds.currentFrame);
+        if (span && span.prev) {
+          setSelectValue(span.prev.tweenType || 'linear');
+          return;
+        }
+      } else {
+        for (const ch of obj.channels.values()) {
+          const kf = ch.getKeyframeAt(this.ds.currentFrame);
+          if (kf) {
+            setSelectValue(kf.tweenType || 'linear');
+            return;
+          }
+        }
+        for (const ch of obj.channels.values()) {
+          const span = ch.getSpan(this.ds.currentFrame);
+          if (span && span.prev) {
+            setSelectValue(span.prev.tweenType || 'linear');
+            return;
+          }
+        }
+      }
+    }
+
+    if (this.activeEasing) {
+      setSelectValue(this.activeEasing);
+    }
+  }
+
   updatePlayhead() {
     const frameInput = this.container.querySelector('#ds-input-frame');
     if (frameInput) frameInput.value = this.ds.currentFrame;
@@ -494,6 +942,7 @@ export class DopeSheetUI {
       const pos = (this.ds.currentFrame - 1) * this.frameWidth + this.frameWidth / 2;
       playheadEl.style.left = `${pos}px`;
     }
+    this.syncEasingUI();
   }
 
   closeActiveMenu() {
@@ -608,11 +1057,36 @@ export class DopeSheetUI {
       rowEl.style.alignItems = 'center';
       rowEl.style.padding = '0 6px';
       rowEl.style.borderBottom = '1px solid #32302f';
-      rowEl.style.background = (r.object.id === this.selectedObjectId) ? '#3c3836' : (idx % 2 === 0 ? '#282828' : '#242424');
-      rowEl.style.cursor = 'pointer';
       rowEl.style.boxSizing = 'border-box';
+      rowEl.style.cursor = 'pointer';
+
+      const isObjSelected = (r.type === 'object' && r.object.id === this.selectedObjectId && !this.selectedParamKey);
+      const isChSelected = (r.type === 'channel' && r.object.id === this.selectedObjectId && r.paramKey === this.selectedParamKey);
+
+      if (isObjSelected) {
+        rowEl.style.background = '#3c3836';
+        rowEl.style.borderLeft = '3px solid #fabd2f';
+      } else if (isChSelected) {
+        rowEl.style.background = '#3c3836';
+        rowEl.style.borderLeft = '3px solid #83a598';
+      } else {
+        rowEl.style.background = (r.object.id === this.selectedObjectId) ? '#32302f' : (idx % 2 === 0 ? '#282828' : '#242424');
+        rowEl.style.borderLeft = '3px solid transparent';
+      }
+
       rowEl.onclick = () => {
         this.selectedObjectId = r.object.id;
+        if (r.type === 'channel') {
+          this.selectedParamKey = r.paramKey;
+          const kf = r.channel.getKeyframeAt(this.ds.currentFrame);
+          if (kf) {
+            this.activeEasing = kf.tweenType || 'linear';
+            const easingSelect = this.container.querySelector('#ds-select-easing');
+            if (easingSelect) easingSelect.value = this.activeEasing;
+          }
+        } else {
+          this.selectedParamKey = null;
+        }
         this.updateGrid();
       };
 
@@ -645,6 +1119,7 @@ export class DopeSheetUI {
         delBtn.onclick = (e) => {
           e.stopPropagation();
           r.object.removeChannel(r.paramKey);
+          if (this.selectedParamKey === r.paramKey) this.selectedParamKey = null;
           this.updateGrid();
         };
       }
@@ -680,6 +1155,38 @@ export class DopeSheetUI {
     gctx.fillStyle = '#1d2021';
     gctx.fillRect(0, 0, totalW, totalH);
 
+    // Helper for easing curve diamond colors
+    const getEasingColor = (tweenType) => {
+      if (!tweenType || tweenType === 'linear') return '#83a598'; // teal
+      if (typeof tweenType === 'string' && (tweenType.startsWith('cubic-bezier') || tweenType.startsWith('custom:'))) {
+        return '#fabd2f'; // custom curve gold
+      }
+      switch (tweenType) {
+        case 'easeIn':
+        case 'easeInQuad':
+        case 'easeInCubic':
+        case 'easeInSine': return '#fabd2f'; // yellow
+        case 'easeOut':
+        case 'easeOutQuad':
+        case 'easeOutCubic':
+        case 'easeOutSine': return '#b8bb26'; // bright green
+        case 'easeInOut':
+        case 'easeInOutQuad':
+        case 'easeInOutCubic':
+        case 'easeInOutSine': return '#fe8019'; // vivid orange
+        case 'bounce':
+        case 'easeOutBounce':
+        case 'easeInOutBounce':
+        case 'elastic':
+        case 'easeInElastic':
+        case 'easeOutElastic': return '#d3869b'; // magenta
+        case 'step':
+        case 'none': return '#8ec07c'; // aqua
+        default:
+          return '#83a598'; // teal
+      }
+    };
+
     // Grid vertical frame dividers
     gctx.strokeStyle = '#282828';
     gctx.lineWidth = 1;
@@ -694,7 +1201,8 @@ export class DopeSheetUI {
     // Draw row backgrounds & keyframes
     flatRows.forEach((r, idx) => {
       const y = idx * rowHeight;
-      gctx.fillStyle = idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)';
+      const isSelectedTrack = (r.type === 'channel' && r.object.id === this.selectedObjectId && r.paramKey === this.selectedParamKey);
+      gctx.fillStyle = isSelectedTrack ? 'rgba(131,165,152,0.12)' : (idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)');
       gctx.fillRect(0, y, totalW, rowHeight);
       gctx.strokeStyle = '#32302f';
       gctx.strokeRect(0, y, totalW, rowHeight);
@@ -718,9 +1226,9 @@ export class DopeSheetUI {
           const ky = y + rowHeight / 2;
           const size = 5;
 
-          gctx.fillStyle = kf.selected ? '#fb4934' : '#83a598';
-          gctx.strokeStyle = '#1d2021';
-          gctx.lineWidth = 1.2;
+          gctx.fillStyle = kf.selected ? '#fb4934' : getEasingColor(kf.tweenType);
+          gctx.strokeStyle = kf.selected ? '#ffffff' : '#1d2021';
+          gctx.lineWidth = kf.selected ? 1.5 : 1.2;
 
           gctx.beginPath();
           gctx.moveTo(kx, ky - size);

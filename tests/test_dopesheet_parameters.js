@@ -280,7 +280,21 @@ chLinear.addKeyframe(11, 100, 'linear');
 assert.strictEqual(chLinear.sample(6), 50);
 assert.strictEqual(chEaseIn.sample(6), 25);
 assert.strictEqual(chEaseOut.sample(6), 75);
-console.log('✔ Easing curves interpolation passed');
+
+// Test Custom Bézier Curves
+const chCustom = new DopeSheetChannel('x', 0);
+chCustom.addKeyframe(1, 0, 'cubic-bezier(0.42, 0.0, 0.58, 1.0)');
+chCustom.addKeyframe(11, 100, 'cubic-bezier(0.42, 0.0, 0.58, 1.0)');
+const customSample = chCustom.sample(6);
+assert(Math.abs(customSample - 50) < 0.1, `Symmetric cubic-bezier at midpoint should be 50, got ${customSample}`);
+
+const chOvershoot = new DopeSheetChannel('y', 0);
+chOvershoot.addKeyframe(1, 0, 'cubic-bezier(0.34, 1.56, 0.64, 1.0)');
+chOvershoot.addKeyframe(11, 100, 'cubic-bezier(0.34, 1.56, 0.64, 1.0)');
+const springSample = chOvershoot.sample(6);
+assert(springSample > 50, `Spring overshoot at midpoint should be > 50, got ${springSample}`);
+
+console.log('✔ Easing curves & Custom Bézier curves interpolation passed');
 
 // 13. Test Multi-Stop Gradient Manipulation & SvgGradient
 console.log('13. Testing SvgGradient Multi-Stop Engine...');

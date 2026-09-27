@@ -27,8 +27,78 @@ export const Easing = {
     if (t < 2.5 / d1) return n1 * (t -= 2.25 / d1) * t + 0.9375;
     return n1 * (t -= 2.625 / d1) * t + 0.984375;
   },
-  easeInOutBounce: t => (t < 0.5 ? (1 - Easing.easeOutBounce(1 - 2 * t)) / 2 : (1 + Easing.easeOutBounce(2 * t - 1)) / 2)
+  easeInOutBounce: t => (t < 0.5 ? (1 - Easing.easeOutBounce(1 - 2 * t)) / 2 : (1 + Easing.easeOutBounce(2 * t - 1)) / 2),
+  step: t => (t >= 1 ? 1 : 0),
+  none: t => (t >= 1 ? 1 : 0)
 };
+
+const _cubicBezierCache = new Map();
+
+/**
+ * Solves cubic Bézier easing curve given control points (x1, y1) and (x2, y2).
+ */
+export function solveCubicBezier(x1, y1, x2, y2) {
+  const cx = 3.0 * x1;
+  const bx = 3.0 * (x2 - x1) - cx;
+  const ax = 1.0 - cx - bx;
+
+  const cy = 3.0 * y1;
+  const by = 3.0 * (y2 - y1) - cy;
+  const ay = 1.0 - cy - by;
+
+  function sampleCurveX(t) {
+    return ((ax * t + bx) * t + cx) * t;
+  }
+  function sampleCurveY(t) {
+    return ((ay * t + by) * t + cy) * t;
+  }
+  function sampleCurveDerivativeX(t) {
+    return (3.0 * ax * t + 2.0 * bx) * t + cx;
+  }
+
+  function solveCurveX(x, epsilon = 1e-6) {
+    let t = x;
+    for (let i = 0; i < 8; i++) {
+      const xEst = sampleCurveX(t) - x;
+      if (Math.abs(xEst) < epsilon) return t;
+      const dX = sampleCurveDerivativeX(t);
+      if (Math.abs(dX) < 1e-6) break;
+      t -= xEst / dX;
+    }
+    let t0 = 0.0, t1 = 1.0;
+    t = x;
+    while (t0 < t1) {
+      const xEst = sampleCurveX(t);
+      if (Math.abs(xEst - x) < epsilon) return t;
+      if (x > xEst) t0 = t;
+      else t1 = t;
+      t = (t1 + t0) * 0.5;
+    }
+    return t;
+  }
+
+  return function (t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    return sampleCurveY(solveCurveX(t));
+  };
+}
+
+export function getEasingFunction(tweenType) {
+  if (!tweenType || tweenType === 'linear') return Easing.linear;
+  if (Easing[tweenType]) return Easing[tweenType];
+  if (typeof tweenType === 'string' && (tweenType.startsWith('cubic-bezier') || tweenType.startsWith('custom:'))) {
+    if (_cubicBezierCache.has(tweenType)) return _cubicBezierCache.get(tweenType);
+    const m = tweenType.match(/-?[\d.]+/g);
+    if (m && m.length >= 4) {
+      const [x1, y1, x2, y2] = m.map(Number);
+      const fn = solveCubicBezier(x1, y1, x2, y2);
+      _cubicBezierCache.set(tweenType, fn);
+      return fn;
+    }
+  }
+  return Easing.linear;
+}
 
 /* ── 2D Transform Matrix Helper ── */
 export class Matrix2D {
