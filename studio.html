@@ -427,10 +427,11 @@
 
     /* ── App Workspace Layout ── */
     #workspace {
-      flex: 1;
+      flex: 1 1 0px;
       display: flex;
       position: relative;
       overflow: hidden;
+      min-height: 0;
     }
 
     /* ── Left Toolbar ── */
@@ -761,15 +762,36 @@
     }
 
     .tab-content {
-      flex: 1 1 auto;
+      flex: 1 1 0px;
       min-height: 0;
-      max-height: 100%;
+      height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
       display: none;
       padding: 10px;
+      padding-bottom: 28px;
       flex-direction: column;
       gap: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      overscroll-behavior: contain;
+    }
+
+    .tab-content::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .tab-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .tab-content::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .tab-content::-webkit-scrollbar-thumb:hover {
+      background: var(--border-bright);
     }
 
     .tab-content.active {
@@ -912,13 +934,15 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
-      min-height: 180px;
-      max-height: 380px;
+      min-height: 120px;
+      max-height: 250px;
       overflow-y: auto;
       border: 1px solid var(--border);
       background: var(--bg-input);
       padding: 3px;
       border-radius: var(--radius-md);
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
 
     .object-item {
