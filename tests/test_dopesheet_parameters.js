@@ -323,7 +323,7 @@ console.log('✔ Easing curves, Custom Bézier, Physics Bounce, Spring & Spline 
 // 13. Test Multi-Stop Gradient Manipulation & SvgGradient
 console.log('13. Testing SvgGradient Multi-Stop Engine...');
 import svgPkg from '../src/svg/svg_engine.js';
-const { SvgDocument, SvgLinearGradient, SvgRadialGradient } = svgPkg;
+const { SvgDocument, SvgLinearGradient, SvgRadialGradient, SvgText } = svgPkg;
 
 const grad = new SvgLinearGradient();
 assert.strictEqual(grad.stops.length, 2);
@@ -373,7 +373,28 @@ fromSvgDoc.fromSVGString(svgXml);
 assert(fromSvgDoc.animation, 'fromSVGString should parse embedded wesenho-animation script');
 assert.strictEqual(fromSvgDoc.animation.objects[0].id, 'obj_hero');
 assert.strictEqual(fromSvgDoc.animation.fps, 60);
-console.log('✔ Animation persistence in SvgDocument passed');
+// 15. Test SvgText Texture & Brush Dynamics Forwarding to Path
+console.log('15. Testing SvgText Texture & Brush Dynamics Forwarding to Path...');
+const testTxt = new SvgText({
+  text: 'Wesenho Vector',
+  fillTexture: { enabled: true, mode: 3, contrast: 150, scale: 200 },
+  strokeTexture: { enabled: true, mode: 5, angle: 45 },
+  brushType: 'rake',
+  brushConfig: { preset: 'rake', scatter: 25, grain: 40, dabBlend: 1 },
+  wasmFilter: { enabled: true, plugin: 'dither', target: 'backdrop' }
+});
+
+const txtPath = testTxt.toPath();
+assert(txtPath, 'toPath should return compound path');
+assert.strictEqual(txtPath.fillTexture.enabled, true);
+assert.strictEqual(txtPath.fillTexture.mode, 3);
+assert.strictEqual(txtPath.strokeTexture.enabled, true);
+assert.strictEqual(txtPath.strokeTexture.mode, 5);
+assert.strictEqual(txtPath.brushType, 'rake');
+assert.strictEqual(txtPath.brushConfig.scatter, 25);
+assert.strictEqual(txtPath.brushConfig.grain, 40);
+assert.strictEqual(txtPath.wasmFilter.plugin, 'dither');
+console.log('✔ SvgText Texture & Brush Dynamics forwarding passed');
 
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
 

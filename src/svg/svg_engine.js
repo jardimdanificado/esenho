@@ -527,6 +527,7 @@
       };
 
       // Brush & Dynamics Configuration
+      this.brushType = attributes.brushType || 'pencil';
       this.brushConfig = {
         preset: 'round',
         hardness: 95,
@@ -1425,9 +1426,27 @@
       const subPaths = [];
       const baseAttributes = {
         fill: this.fill,
+        fillOpacity: this.fillOpacity,
+        fillType: this.fillType,
+        fillGradient: this.fillGradient,
+        fillTexture: this.fillTexture ? { ...this.fillTexture } : undefined,
         stroke: this.stroke,
         strokeWidth: this.strokeWidth,
-        opacity: this.opacity
+        strokeOpacity: this.strokeOpacity,
+        strokeLinecap: this.strokeLinecap,
+        strokeLinejoin: this.strokeLinejoin,
+        strokeDasharray: this.strokeDasharray,
+        strokeTexture: this.strokeTexture ? { ...this.strokeTexture } : undefined,
+        brushType: this.brushType,
+        brushConfig: this.brushConfig ? { ...this.brushConfig } : undefined,
+        wasmFilter: this.wasmFilter ? { ...this.wasmFilter } : undefined,
+        dropShadow: this.dropShadow ? { ...this.dropShadow } : undefined,
+        opacity: this.opacity,
+        rotation: this.rotation,
+        scaleX: this.scaleX,
+        scaleY: this.scaleY,
+        originX: this.originX,
+        originY: this.originY
       };
 
       if (typeof document !== 'undefined' && document.createElement) {

@@ -594,10 +594,28 @@
     renderObjectDirect(obj, scale = 1.0, totalOpacity = 1.0) {
       if (!obj.visible) return;
 
-      // Handle Text with dedicated high-res canvas rasterization
+      // Handle Text with dedicated canvas rasterization unless custom brush dynamics/textures/WASM filters are applied
       if (obj.type === 'text') {
-        this.renderText(obj, scale, totalOpacity);
-        return;
+        const hasCustomBrush = (obj.brushType && obj.brushType !== 'pencil') ||
+          (obj.brushConfig && (
+            (obj.brushConfig.preset && obj.brushConfig.preset !== 'round') ||
+            (obj.brushConfig.scatter && obj.brushConfig.scatter > 0) ||
+            (obj.brushConfig.grain && obj.brushConfig.grain > 0) ||
+            (obj.brushConfig.smudge && obj.brushConfig.smudge > 0) ||
+            (obj.brushConfig.dabBlend && obj.brushConfig.dabBlend > 0) ||
+            (obj.brushConfig.texture_mode && obj.brushConfig.texture_mode > 0) ||
+            (obj.brushConfig.size_jitter && obj.brushConfig.size_jitter > 0) ||
+            (obj.brushConfig.angle_jitter && obj.brushConfig.angle_jitter > 0) ||
+            (obj.brushConfig.opacity_jitter && obj.brushConfig.opacity_jitter > 0)
+          ));
+        const hasTexture = (obj.fillTexture && obj.fillTexture.enabled) ||
+          (obj.strokeTexture && obj.strokeTexture.enabled);
+        const hasWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
+
+        if (!hasCustomBrush && !hasTexture && !hasWasmFilter) {
+          this.renderText(obj, scale, totalOpacity);
+          return;
+        }
       }
 
       // Handle Raster Image

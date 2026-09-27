@@ -93,10 +93,9 @@ export class DopeSheetUI {
               <option value="easeOutElastic">Elastic Out</option>
               <option value="easeOutBounce">Bounce Out</option>
               <option value="step">Step (Hold)</option>
-              <option value="custom">✎ Custom Bézier...</option>
+              <option value="custom">Custom Bézier...</option>
             </select>
             <button id="ds-btn-custom-curve" class="ds-btn" title="Open Bézier Curve Visual Graph Editor" style="background: #3c3836; color: #fabd2f; border: 1px solid #504945; border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px;">
-              <span>📈</span>
               <span>Edit</span>
             </button>
           </div>
@@ -656,7 +655,7 @@ export class DopeSheetUI {
     modal.innerHTML = `
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #3c3836; padding-bottom: 6px;">
         <div style="font-weight: bold; color: #fabd2f; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-          <span>📈</span> Visual Curve & Physics Graph Editor
+          Visual Curve & Physics Graph Editor
         </div>
         <button id="ds-ce-close" style="background: none; border: none; color: #a89984; font-size: 16px; cursor: pointer; padding: 0 4px;">✕</button>
       </div>
@@ -664,9 +663,9 @@ export class DopeSheetUI {
       <!-- Mode Switcher Tabs -->
       <div style="display: flex; gap: 4px; margin-bottom: 8px; background: #1d2021; padding: 3px; border-radius: 5px; border: 1px solid #3c3836;">
         <button id="tab-mode-bezier" class="ds-ce-tab" style="flex: 1; background: #3c3836; color: #fabd2f; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Bézier</button>
-        <button id="tab-mode-bounce" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">🏀 Bounce</button>
-        <button id="tab-mode-spring" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">🌀 Spring</button>
-        <button id="tab-mode-spline" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">〰 Spline</button>
+        <button id="tab-mode-bounce" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Bounce</button>
+        <button id="tab-mode-spring" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Spring</button>
+        <button id="tab-mode-spline" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Spline</button>
       </div>
 
       <!-- Sub-controls container -->
