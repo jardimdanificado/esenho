@@ -6,7 +6,7 @@ CORE_WASM = plugins/canvas.wasm
 PLUGIN_SRCS = $(wildcard src/plugins/*.c)
 PLUGINS = $(patsubst src/plugins/%.c,plugins/%.wasm,$(PLUGIN_SRCS))
 
-all: $(CORE_WASM) $(PLUGINS) plugins/manifest.json
+all: $(CORE_WASM) $(PLUGINS) plugins/manifest.json bin/quadro-svg
 
 plugins/canvas.wasm: src/quadro.c include/quadro.h
 	mkdir -p plugins
@@ -20,7 +20,26 @@ plugins/manifest.json: $(PLUGINS)
 	@mkdir -p plugins
 	@node -e "const fs=require('fs'); const files=fs.readdirSync('plugins').filter(f=>f.endsWith('.wasm') && f !== 'canvas.wasm').sort(); fs.writeFileSync('plugins/manifest.json', JSON.stringify(files, null, 2));"
 
-clean:
-	rm -rf plugins/*.wasm plugins/manifest.json roms
+# =========================================================================
+# Native C Standalone Targets (Zero Browser Dependency)
+# =========================================================================
+NATIVE_CC ?= gcc
+NATIVE_CFLAGS ?= -O3 -Wall -Wextra -Wno-missing-field-initializers -Wno-unused-parameter -Iinclude -lm
 
-.PHONY: all run clean
+bin/quadro-svg: src/quadro_svg_cli.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c include/quadro.h include/quadro_svg.h include/stb_image_write.h
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ src/quadro_svg_cli.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c -lm
+
+bin/test_native_svg: tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c include/quadro.h include/quadro_svg.h include/stb_image_write.h
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c -lm
+
+native: bin/quadro-svg bin/test_native_svg
+
+test-native: bin/test_native_svg
+	./bin/test_native_svg
+
+clean:
+	rm -rf plugins/*.wasm plugins/manifest.json roms bin
+
+.PHONY: all run clean native test-native

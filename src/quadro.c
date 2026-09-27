@@ -47,6 +47,7 @@ static void ensure_stroke_buffers(uint32_t required_pixels);
  * Memory Management
  * Simple bump allocator over WebAssembly linear heap.
  * ========================================================================= */
+#if defined(__wasm__) || defined(__wasm32__)
 static uint8_t *heap_top = 0;
 
 static void *canvas_alloc(uint32_t size) {
@@ -64,6 +65,15 @@ static void *canvas_alloc(uint32_t size) {
     }
     return (void*)cur;
 }
+#else
+#include <stdlib.h>
+#include <string.h>
+static void *canvas_alloc(uint32_t size) {
+    void *ptr = malloc(size);
+    if (ptr) memset(ptr, 0, size);
+    return ptr;
+}
+#endif
 
 /* =========================================================================
  * Selection Clipping
@@ -4799,7 +4809,7 @@ W_EXPORT uint32_t w_audio_export_wav(uint8_t *out_wav_buffer, uint32_t max_bytes
  * Native Vector Path & Bézier Scanline Rasterizer Implementation
  * ========================================================================= */
 
-#define MAX_PATH_PTS 4096
+#define INIT_PATH_PTS 16384
 
 typedef struct {
     float x;
@@ -4808,15 +4818,30 @@ typedef struct {
 } path_point_t;
 
 typedef struct {
-    path_point_t points[MAX_PATH_PTS];
+    path_point_t *points;
     uint32_t count;
+    uint32_t capacity;
     float curr_x;
     float curr_y;
     float start_x;
     float start_y;
 } vector_path_t;
 
-static vector_path_t g_path;
+static vector_path_t g_path = {0};
+
+static void ensure_path_capacity(uint32_t needed) {
+    if (g_path.capacity >= needed) return;
+    uint32_t new_cap = g_path.capacity ? g_path.capacity * 2 : INIT_PATH_PTS;
+    while (new_cap < needed) new_cap *= 2;
+    path_point_t *new_pts = (path_point_t*)canvas_alloc(new_cap * sizeof(path_point_t));
+    if (g_path.points && g_path.count > 0) {
+        for (uint32_t i = 0; i < g_path.count; i++) {
+            new_pts[i] = g_path.points[i];
+        }
+    }
+    g_path.points = new_pts;
+    g_path.capacity = new_cap;
+}
 
 W_EXPORT void w_path_begin(void) {
     g_path.count = 0;
@@ -4827,7 +4852,7 @@ W_EXPORT void w_path_begin(void) {
 }
 
 W_EXPORT void w_path_move_to(float x, float y) {
-    if (g_path.count >= MAX_PATH_PTS) return;
+    ensure_path_capacity(g_path.count + 1);
     g_path.points[g_path.count++] = (path_point_t){ x, y, 1 };
     g_path.curr_x = x;
     g_path.curr_y = y;
@@ -4836,7 +4861,7 @@ W_EXPORT void w_path_move_to(float x, float y) {
 }
 
 W_EXPORT void w_path_line_to(float x, float y) {
-    if (g_path.count >= MAX_PATH_PTS) return;
+    ensure_path_capacity(g_path.count + 1);
     g_path.points[g_path.count++] = (path_point_t){ x, y, 2 };
     g_path.curr_x = x;
     g_path.curr_y = y;
@@ -4869,7 +4894,7 @@ W_EXPORT void w_path_cubic_to(float c1x, float c1y, float c2x, float c2y, float 
 }
 
 W_EXPORT void w_path_close(void) {
-    if (g_path.count >= MAX_PATH_PTS) return;
+    ensure_path_capacity(g_path.count + 2);
     w_path_line_to(g_path.start_x, g_path.start_y);
     g_path.points[g_path.count++] = (path_point_t){ g_path.start_x, g_path.start_y, 3 };
 }
@@ -4898,7 +4923,7 @@ W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rul
     int y_start = (int)min_y; if (y_start < 0) y_start = 0;
     int y_end = (int)(max_y + 1.0f); if (y_end >= lh) y_end = lh - 1;
     
-    float node_x[256];
+    float node_x[2048];
     
     for (int y = y_start; y <= y_end; y++) {
         float fy = (float)y + 0.5f;
@@ -4916,7 +4941,7 @@ W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rul
             float x1 = g_path.points[i].x;
             
             if ((y0 < fy && y1 >= fy) || (y1 < fy && y0 >= fy)) {
-                if (nodes < 256) {
+                if (nodes < 2048) {
                     node_x[nodes++] = x0 + (fy - y0) / (y1 - y0) * (x1 - x0);
                 }
             }

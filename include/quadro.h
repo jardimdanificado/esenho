@@ -136,13 +136,13 @@ static inline wframebuffer_t *w_get_texture(void) {
     return &g_texture;
 }
 
-W_EXPORT void w_set_layer(uint32_t *pixels, int32_t width, int32_t height) {
+static inline void w_set_layer(uint32_t *pixels, int32_t width, int32_t height) {
     g_layer.pixels = pixels;
     g_layer.width = width;
     g_layer.height = height;
 }
 
-W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
+static inline void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
     g_texture.pixels = pixels;
     g_texture.width = width;
     g_texture.height = height;
@@ -711,6 +711,20 @@ W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_wid
 W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height);
 W_EXPORT int32_t w_font_draw_text_transform(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height, float rotation_deg, float scale_x, float scale_y, float pivot_x, float pivot_y, int32_t alignment);
 W_EXPORT void    w_font_measure_text(const char *text, float size, float tracking, float *out_w_h);
+
+/* =========================================================================
+ * Surface Lifecycle & Buffer Queries
+ * ========================================================================= */
+
+W_EXPORT void      w_init(uint32_t width, uint32_t height);
+W_EXPORT void      w_resize(uint32_t width, uint32_t height);
+W_EXPORT void      w_force_composite(void);
+W_EXPORT uint32_t* w_render(void);
+W_EXPORT void      w_brush_set_param(int32_t param, int32_t val);
+W_EXPORT uint32_t* get_layer_pixels(int32_t idx);
+W_EXPORT uint32_t* get_composite_pixels(void);
+W_EXPORT int32_t   get_width(void);
+W_EXPORT int32_t   get_height(void);
 
 #endif /* QUADRO_H */
 
