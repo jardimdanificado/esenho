@@ -3254,6 +3254,12 @@
       this.undoStack.push({ description, snapshot });
       if (this.undoStack.length > this.maxHistory) this.undoStack.shift();
       this.redoStack = [];
+      if (typeof window !== 'undefined' && typeof window.recordAutoKeyframe === 'function') {
+        const sel = this.getSelectedObjects ? this.getSelectedObjects() : [];
+        for (const o of sel) {
+          window.recordAutoKeyframe(o);
+        }
+      }
     }
 
     undo() {

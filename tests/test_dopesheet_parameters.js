@@ -11,19 +11,44 @@ import { DopeSheet, DopeSheetObject, DopeSheetChannel, parseColor, formatColor, 
 console.log('--- Testing DopeSheet & Universal Parameter Interpolation Engine ---');
 
 // 1. Test Parameter Registry Completeness
-console.log('1. Testing Parameter Registry...');
+console.log('1. Testing Parameter Registry & Groups...');
+import { getParameterGroups } from '../src/anim/dopesheet.js';
+
 const requiredParams = [
-  'x', 'y', 'scaleX', 'scaleY', 'rotation', 'opacity',
-  'brushSize', 'brushOpacity', 'brushHardness', 'brushFlow', 'brushSpacing', 'brushAngle', 'brushGrain', 'brushSmudge', 'brushColor',
-  'fillColor', 'strokeColor', 'strokeWidth', 'fillOpacity', 'strokeOpacity',
+  'x', 'y', 'zDepth', 'scaleX', 'scaleY', 'rotation', 'skewX', 'skewY', 'opacity', 'originX', 'originY',
+  'width', 'height', 'radius', 'rx', 'ry', 'cornerRadius', 'polygonSides', 'starPoints', 'innerRadius',
+  'text', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'textAlign', 'letterSpacing', 'lineHeight', 'textPathOffset',
+  'shadowEnable', 'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowOpacity',
+  'strokeColor', 'strokeWidth', 'strokeOpacity', 'strokeDashOffset', 'strokeMiterLimit', 'strokeCap', 'strokeJoin',
+  'fillColor', 'fillOpacity', 'gradientAngle', 'gradientScale', 'gradientCenterX', 'gradientCenterY', 'texMode', 'texScale', 'texContrast', 'texAngle',
+  'brushSize', 'brushOpacity', 'brushHardness', 'brushFlow', 'brushSpacing', 'brushAngle', 'brushRoundness', 'brushScatter',
+  'brushTolerance', 'brushSmudge', 'brushWetness', 'brushGrain', 'brushColor', 'brushSmooth', 'brushMidpoint', 'brushVelocity',
+  'brushTaperIn', 'brushTaperOut', 'brushFade', 'brushSizeJitter', 'brushAngleJitter', 'brushOpacityJitter', 'brushColorJitter',
+  'brushDabBlend', 'brushDepletion', 'brushColorPickup', 'brushDualSize', 'brushDualSpacing', 'brushSymmetry',
+  'fxBlur', 'fxBrightness', 'fxContrast', 'fxHue', 'fxSat', 'fxGrayscale', 'fxSepia', 'fxInvert', 'fxNoise', 'fxPixelate', 'fxThreshold', 'fxDither', 'fxEdge', 'layerBlendMode',
   'camX', 'camY', 'camZ', 'camZoom', 'camRot',
-  'fxBlur', 'fxBrightness', 'fxContrast', 'fxHue'
+  'boneAngle', 'boneLength', 'meshWarpWeight',
+  'bpm', 'masterVol', 'trackVol', 'trackPan', 'filterCutoff', 'filterResonance', 'fxDelay', 'fxReverb', 'fxDistortion'
 ];
 
 for (const param of requiredParams) {
   assert(PARAMETER_REGISTRY[param] !== undefined, `Parameter '${param}' must exist in PARAMETER_REGISTRY`);
 }
-console.log('✔ Parameter Registry verified');
+
+const groups = getParameterGroups();
+assert(groups['Transform'] && groups['Transform'].length >= 9);
+assert(groups['Typography'] && groups['Typography'].length >= 8);
+assert(groups['Drop Shadow'] && groups['Drop Shadow'].length >= 6);
+assert(groups['Brush Dynamics'] && groups['Brush Dynamics'].length >= 20);
+assert(groups['Layer FX'] && groups['Layer FX'].length >= 10);
+assert(groups['Fill & Material'] && groups['Fill & Material'].length >= 8);
+assert(groups['Audio DSP'] && groups['Audio DSP'].length >= 8);
+
+// Verify default collapsed is true
+const testObj = new DopeSheetObject('test_node', 'Node');
+assert.strictEqual(testObj.collapsed, true, 'DopeSheetObject must start collapsed by default');
+
+console.log(`✔ Parameter Registry verified (${Object.keys(PARAMETER_REGISTRY).length} Quadro parameters across ${Object.keys(groups).length} groups)`);
 
 // 2. Test Color & Angle Interpolation Math
 console.log('2. Testing Color & Angle Math...');
@@ -112,4 +137,83 @@ assert.strictEqual(Math.round(restoredSamples.layer_1.opacity * 10) / 10, 0.5);
 assert.strictEqual(Math.round(restoredSamples.layer_2.x), 150);
 console.log('✔ Serialization / Deserialization passed');
 
+// 8. Test Auto-Keyframing Simulation
+console.log('8. Testing Auto-Keyframe Mode...');
+const autoDs = new DopeSheet(60, 24);
+autoDs.autoKeyframe = true;
+const hero = autoDs.getOrCreateObject('hero', 'Hero Character', 'vector');
+hero.getOrCreateChannel('x', 100);
+hero.getOrCreateChannel('y', 200);
+
+autoDs.setFrame(10);
+hero.setKeyframe('x', 10, 350);
+hero.setKeyframe('y', 10, 500);
+
+const kfSample = hero.sample(10);
+assert.strictEqual(kfSample.x, 350);
+assert.strictEqual(kfSample.y, 500);
+console.log('✔ Auto-Keyframing passed');
+
+// 9. Test extractLiveObjectProperties
+console.log('9. Testing extractLiveObjectProperties comprehensive extraction...');
+import { extractLiveObjectProperties } from '../src/anim/dopesheet.js';
+
+const mockLiveNode = {
+  id: 'node_complex',
+  x: 50,
+  y: 75,
+  cx: 120,
+  cy: 140,
+  rotation: 45,
+  scaleX: 2.0,
+  scaleY: 1.5,
+  opacity: 0.8,
+  fill: '#ff5500',
+  stroke: '#0033aa',
+  strokeWidth: 4,
+  strokeDashoffset: 12,
+  strokeLinecap: 'square',
+  strokeLinejoin: 'miter',
+  sides: 6,
+  text: 'Quadro Animation',
+  fontSize: 48,
+  fontFamily: 'Inter',
+  shadow: { enabled: true, color: '#111111', blur: 10, offsetX: 5, offsetY: 8, opacity: 0.5 },
+  filterBlur: 3,
+  filterHue: 90,
+  brushSize: 35,
+  brushOpacity: 80
+};
+
+const extracted = extractLiveObjectProperties(mockLiveNode);
+assert.strictEqual(extracted.x, 120, 'cx should map to x');
+assert.strictEqual(extracted.y, 140, 'cy should map to y');
+assert.strictEqual(extracted.rotation, 45);
+assert.strictEqual(extracted.scaleX, 2.0);
+assert.strictEqual(extracted.scaleY, 1.5);
+assert.strictEqual(extracted.opacity, 0.8);
+assert.strictEqual(extracted.fillColor, '#ff5500');
+assert.strictEqual(extracted.strokeColor, '#0033aa');
+assert.strictEqual(extracted.strokeWidth, 4);
+assert.strictEqual(extracted.strokeDashOffset, 12);
+assert.strictEqual(extracted.strokeCap, 'square');
+assert.strictEqual(extracted.strokeJoin, 'miter');
+assert.strictEqual(extracted.polygonSides, 6);
+assert.strictEqual(extracted.text, 'Quadro Animation');
+assert.strictEqual(extracted.fontSize, 48);
+assert.strictEqual(extracted.fontFamily, 'Inter');
+assert.strictEqual(extracted.shadowEnable, 1);
+assert.strictEqual(extracted.shadowColor, '#111111');
+assert.strictEqual(extracted.shadowBlur, 10);
+assert.strictEqual(extracted.shadowOffsetX, 5);
+assert.strictEqual(extracted.shadowOffsetY, 8);
+assert.strictEqual(extracted.shadowOpacity, 0.5);
+assert.strictEqual(extracted.fxBlur, 3);
+assert.strictEqual(extracted.fxHue, 90);
+assert.strictEqual(extracted.brushSize, 35);
+assert.strictEqual(extracted.brushOpacity, 80);
+
+console.log('✔ extractLiveObjectProperties passed');
+
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
+

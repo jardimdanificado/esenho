@@ -4484,6 +4484,7 @@
 
       // ── Pointer & Tool Event Handlers ──
       viewportContainer.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('#dopesheet-dock')) return;
         if (isTouchPinching) return;
 
         // Hand tool / Space / Middle Click Pan
@@ -5370,6 +5371,12 @@
           if (activeTool !== 'pen') {
             const actionLabel = wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object')));
             doc.pushHistory(actionLabel);
+            if (typeof window.recordAutoKeyframe === 'function') {
+              const selectedObjs = doc.getSelectedObjects();
+              for (const selObj of selectedObjs) {
+                window.recordAutoKeyframe(selObj);
+              }
+            }
           }
           render();
           updateInspector();
@@ -5392,6 +5399,7 @@
 
       // ── Zoom Controls (Wheel) ──
       viewportContainer.addEventListener('wheel', (e) => {
+        if (e.target.closest('#dopesheet-dock')) return;
         e.preventDefault();
         const delta = e.deltaY < 0 ? 1.15 : 0.85;
         const rect = viewportContainer.getBoundingClientRect();
@@ -7618,10 +7626,49 @@
       let dopeSheet = null;
       let dopeSheetUI = null;
 
+      window.recordAutoKeyframe = function(targetObj, changedProps = null) {
+        if (!window.dopeSheet || !window.dopeSheet.autoKeyframe) return;
+        const currentFrame = window.dopeSheet.currentFrame;
+        if (!targetObj) {
+          const sel = (window.doc && window.doc.getSelectedObjects) ? window.doc.getSelectedObjects() : [];
+          if (sel.length > 0) targetObj = sel[0];
+        }
+        if (!targetObj) return;
+
+        const dObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
+        
+        const liveProps = (typeof window.extractLiveObjectProperties === 'function')
+          ? window.extractLiveObjectProperties(targetObj)
+          : {
+            x: targetObj.cx !== undefined ? targetObj.cx : (targetObj.x !== undefined ? targetObj.x : 0),
+            y: targetObj.cy !== undefined ? targetObj.cy : (targetObj.y !== undefined ? targetObj.y : 0),
+            rotation: targetObj.rotation || 0,
+            scaleX: targetObj.scaleX !== undefined ? targetObj.scaleX : 1.0,
+            scaleY: targetObj.scaleY !== undefined ? targetObj.scaleY : 1.0,
+            opacity: targetObj.opacity !== undefined ? targetObj.opacity : 1.0,
+            fillColor: (targetObj.fill && targetObj.fill !== 'none') ? targetObj.fill : undefined,
+            strokeColor: (targetObj.stroke && targetObj.stroke !== 'none') ? targetObj.stroke : undefined,
+            strokeWidth: targetObj.strokeWidth !== undefined ? targetObj.strokeWidth : undefined
+          };
+
+        const toRecord = changedProps ? { ...changedProps } : liveProps;
+        for (const [key, val] of Object.entries(toRecord)) {
+          if (val !== undefined && val !== null) {
+            dObj.setKeyframe(key, currentFrame, val);
+          }
+        }
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.updateGrid();
+        }
+      };
+
       async function initStudioDopeSheet() {
         if (dopeSheet) return dopeSheet;
         try {
-          const { DopeSheet } = await import('./src/anim/dopesheet.js');
+          const { DopeSheet, extractLiveObjectProperties } = await import('./src/anim/dopesheet.js');
+          if (extractLiveObjectProperties) {
+            window.extractLiveObjectProperties = extractLiveObjectProperties;
+          }
           const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
           const dock = document.getElementById('dopesheet-dock');
           if (!dock) return null;
@@ -7633,6 +7680,7 @@
             if (!doc || !dopeSheet) return;
             for (const obj of doc.objects) {
               const dObj = dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, 'vector');
+              dObj.collapsed = true;
               if (dObj.channels.size === 0) {
                 if (obj.x !== undefined) dObj.getOrCreateChannel('x', obj.x);
                 if (obj.y !== undefined) dObj.getOrCreateChannel('y', obj.y);
@@ -7645,6 +7693,11 @@
                 if (obj.fill && obj.fill !== 'none') dObj.getOrCreateChannel('fillColor', obj.fill);
                 if (obj.stroke && obj.stroke !== 'none') dObj.getOrCreateChannel('strokeColor', obj.stroke);
                 if (obj.strokeWidth !== undefined) dObj.getOrCreateChannel('strokeWidth', obj.strokeWidth);
+                if (obj.type === 'text' || obj.text !== undefined) {
+                  if (obj.text !== undefined) dObj.getOrCreateChannel('text', obj.text);
+                  if (obj.fontSize !== undefined) dObj.getOrCreateChannel('fontSize', obj.fontSize);
+                  if (obj.letterSpacing !== undefined) dObj.getOrCreateChannel('letterSpacing', obj.letterSpacing);
+                }
               }
             }
           }
@@ -7652,6 +7705,14 @@
 
           dopeSheetUI = new DopeSheetUI(dock, dopeSheet, (frame, samples) => {
             for (const [objId, state] of Object.entries(samples)) {
+              if (objId === 'camera') {
+                if (state.camX !== undefined) panX = state.camX;
+                if (state.camY !== undefined) panY = state.camY;
+                if (state.camZoom !== undefined) zoom = state.camZoom / 100;
+                if (state.camRot !== undefined) viewportRotation = state.camRot;
+                applyViewportTransform();
+                continue;
+              }
               const obj = doc.findObject ? doc.findObject(objId) : (doc.objects ? doc.objects.find(o => o.id === objId) : null);
               if (obj) {
                 if (state.x !== undefined) {
@@ -7665,10 +7726,52 @@
                 if (state.rotation !== undefined) obj.rotation = state.rotation;
                 if (state.scaleX !== undefined) obj.scaleX = state.scaleX;
                 if (state.scaleY !== undefined) obj.scaleY = state.scaleY;
+                if (state.skewX !== undefined) obj.skewX = state.skewX;
+                if (state.skewY !== undefined) obj.skewY = state.skewY;
                 if (state.opacity !== undefined) obj.opacity = state.opacity;
                 if (state.fillColor !== undefined) obj.fill = state.fillColor;
+                if (state.fillOpacity !== undefined) obj.fillOpacity = state.fillOpacity;
                 if (state.strokeColor !== undefined) obj.stroke = state.strokeColor;
                 if (state.strokeWidth !== undefined) obj.strokeWidth = state.strokeWidth;
+                if (state.strokeOpacity !== undefined) obj.strokeOpacity = state.strokeOpacity;
+                if (state.strokeDashOffset !== undefined) obj.strokeDashoffset = state.strokeDashOffset;
+                if (state.strokeCap !== undefined) obj.strokeLinecap = state.strokeCap;
+                if (state.strokeJoin !== undefined) obj.strokeLinejoin = state.strokeJoin;
+                if (state.width !== undefined) obj.width = state.width;
+                if (state.height !== undefined) obj.height = state.height;
+                if (state.radius !== undefined) obj.r = state.radius;
+                if (state.rx !== undefined) obj.rx = state.rx;
+                if (state.ry !== undefined) obj.ry = state.ry;
+                if (state.cornerRadius !== undefined) obj.cornerRadius = state.cornerRadius;
+                if (state.polygonSides !== undefined) obj.sides = state.polygonSides;
+                if (state.starPoints !== undefined) obj.points = state.starPoints;
+                if (state.innerRadius !== undefined) obj.innerRadius = state.innerRadius;
+                if (state.originX !== undefined) obj.originX = state.originX;
+                if (state.originY !== undefined) obj.originY = state.originY;
+                if (state.zDepth !== undefined) obj.zDepth = state.zDepth;
+                if (state.text !== undefined) obj.text = state.text;
+                if (state.fontSize !== undefined) obj.fontSize = state.fontSize;
+                if (state.fontFamily !== undefined) obj.fontFamily = state.fontFamily;
+                if (state.fontWeight !== undefined) obj.fontWeight = state.fontWeight;
+                if (state.fontStyle !== undefined) obj.fontStyle = state.fontStyle;
+                if (state.textAlign !== undefined) obj.textAlign = state.textAlign;
+                if (state.letterSpacing !== undefined) obj.letterSpacing = state.letterSpacing;
+                if (state.lineHeight !== undefined) obj.lineHeight = state.lineHeight;
+                if (state.textPathOffset !== undefined) obj.textPathOffset = state.textPathOffset;
+                if (state.shadowEnable !== undefined || state.shadowColor !== undefined || state.shadowBlur !== undefined || state.shadowOffsetX !== undefined || state.shadowOffsetY !== undefined || state.shadowOpacity !== undefined) {
+                  if (!obj.shadow) obj.shadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+                  if (state.shadowEnable !== undefined) obj.shadow.enabled = !!state.shadowEnable;
+                  if (state.shadowColor !== undefined) obj.shadow.color = state.shadowColor;
+                  if (state.shadowBlur !== undefined) obj.shadow.blur = state.shadowBlur;
+                  if (state.shadowOffsetX !== undefined) obj.shadow.offsetX = state.shadowOffsetX;
+                  if (state.shadowOffsetY !== undefined) obj.shadow.offsetY = state.shadowOffsetY;
+                  if (state.shadowOpacity !== undefined) obj.shadow.opacity = state.shadowOpacity;
+                }
+                if (state.fxBlur !== undefined) obj.filterBlur = state.fxBlur;
+                if (state.fxBrightness !== undefined) obj.filterBrightness = state.fxBrightness;
+                if (state.fxContrast !== undefined) obj.filterContrast = state.fxContrast;
+                if (state.fxHue !== undefined) obj.filterHue = state.fxHue;
+                if (state.fxSat !== undefined) obj.filterSat = state.fxSat;
               }
             }
             render();
@@ -7713,6 +7816,7 @@
       let touchTapGesture = null;
 
       viewportContainer.addEventListener('touchstart', (e) => {
+        if (e.target.closest('#dopesheet-dock')) return;
         if (e.touches.length >= 2) {
           e.preventDefault();
           isTouchPinching = true;
