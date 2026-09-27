@@ -7,7 +7,7 @@
  */
 
 import * as DopeSheetModule from './dopesheet.js';
-import { solveCubicBezier, getEasingFunction } from './animator_engine.js';
+import { solveCubicBezier, createBounceEasing, createSpringEasing, createSplineEasing, getEasingFunction } from './animator_engine.js';
 
 const PARAMETER_REGISTRY = DopeSheetModule.PARAMETER_REGISTRY || {};
 const extractLiveObjectProperties = typeof DopeSheetModule.extractLiveObjectProperties === 'function'
@@ -574,28 +574,56 @@ export class DopeSheetUI {
   openCurveEditorModal() {
     this.closeActiveMenu();
 
+    let currentMode = 'bezier'; // 'bezier', 'bounce', 'spring', 'spline'
     let p1 = { x: 0.42, y: 0.0 };
     let p2 = { x: 0.58, y: 1.0 };
+    let bounceCount = 3;
+    let bounceDecay = 0.45;
+    let springOsc = 3;
+    let springDamp = 0.5;
+    let splineNodes = [
+      { x: 0.0, y: 0.0, cpOut: { x: 0.15, y: 0.0 } },
+      { x: 0.4, y: 1.0, cpIn: { x: -0.1, y: 0.0 }, cpOut: { x: 0.1, y: 0.0 } },
+      { x: 0.7, y: 0.6, cpIn: { x: -0.08, y: 0.0 }, cpOut: { x: 0.08, y: 0.0 } },
+      { x: 1.0, y: 1.0, cpIn: { x: -0.1, y: 0.0 } }
+    ];
 
     if (typeof this.activeEasing === 'string') {
-      if (this.activeEasing.startsWith('cubic-bezier') || this.activeEasing.startsWith('custom:')) {
+      if (this.activeEasing.startsWith('bounce(') || this.activeEasing.startsWith('custom-bounce:')) {
+        currentMode = 'bounce';
+        const m = this.activeEasing.match(/-?[\d.]+/g);
+        if (m) {
+          if (m[0]) bounceCount = Number(m[0]);
+          if (m[1]) bounceDecay = Number(m[1]);
+        }
+      } else if (this.activeEasing === 'easeOutBounce' || this.activeEasing === 'bounce') {
+        currentMode = 'bounce';
+        bounceCount = 3;
+        bounceDecay = 0.45;
+      } else if (this.activeEasing.startsWith('spring(') || this.activeEasing.startsWith('custom-spring:')) {
+        currentMode = 'spring';
+        const m = this.activeEasing.match(/-?[\d.]+/g);
+        if (m) {
+          if (m[0]) springOsc = Number(m[0]);
+          if (m[1]) springDamp = Number(m[1]);
+        }
+      } else if (this.activeEasing === 'easeOutElastic' || this.activeEasing === 'elastic') {
+        currentMode = 'spring';
+        springOsc = 3;
+        springDamp = 0.4;
+      } else if (this.activeEasing.startsWith('spline:')) {
+        currentMode = 'spline';
+        try {
+          const parsed = JSON.parse(this.activeEasing.slice(7));
+          if (Array.isArray(parsed) && parsed.length >= 2) splineNodes = parsed;
+        } catch (_) {}
+      } else if (this.activeEasing.startsWith('cubic-bezier') || this.activeEasing.startsWith('custom:')) {
+        currentMode = 'bezier';
         const m = this.activeEasing.match(/-?[\d.]+/g);
         if (m && m.length >= 4) {
           p1 = { x: Math.max(0, Math.min(1, parseFloat(m[0]))), y: parseFloat(m[1]) };
           p2 = { x: Math.max(0, Math.min(1, parseFloat(m[2]))), y: parseFloat(m[3]) };
         }
-      } else if (this.activeEasing === 'linear') {
-        p1 = { x: 0.0, y: 0.0 }; p2 = { x: 1.0, y: 1.0 };
-      } else if (this.activeEasing === 'easeInQuad' || this.activeEasing === 'easeIn' || this.activeEasing === 'easeInCubic') {
-        p1 = { x: 0.55, y: 0.0 }; p2 = { x: 1.0, y: 0.45 };
-      } else if (this.activeEasing === 'easeOutQuad' || this.activeEasing === 'easeOut' || this.activeEasing === 'easeOutCubic') {
-        p1 = { x: 0.0, y: 0.55 }; p2 = { x: 0.45, y: 1.0 };
-      } else if (this.activeEasing === 'easeInOutQuad' || this.activeEasing === 'easeInOut') {
-        p1 = { x: 0.42, y: 0.0 }; p2 = { x: 0.58, y: 1.0 };
-      } else if (this.activeEasing === 'easeInElastic') {
-        p1 = { x: 0.36, y: 0.0 }; p2 = { x: 0.66, y: -0.56 };
-      } else if (this.activeEasing === 'easeOutElastic' || this.activeEasing === 'easeOutBounce') {
-        p1 = { x: 0.34, y: 1.56 }; p2 = { x: 0.64, y: 1.0 };
       }
     }
 
@@ -620,59 +648,53 @@ export class DopeSheetUI {
     modal.style.borderRadius = '8px';
     modal.style.boxShadow = '0 16px 40px rgba(0,0,0,0.85)';
     modal.style.padding = '14px';
-    modal.style.width = '340px';
+    modal.style.width = '370px';
     modal.style.color = '#ebdbb2';
     modal.style.fontFamily = 'monospace, sans-serif';
     modal.style.userSelect = 'none';
 
     modal.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #3c3836; padding-bottom: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; border-bottom: 1px solid #3c3836; padding-bottom: 6px;">
         <div style="font-weight: bold; color: #fabd2f; font-size: 13px; display: flex; align-items: center; gap: 6px;">
-          <span>📈</span> Visual Bézier Curve Editor
+          <span>📈</span> Visual Curve & Physics Graph Editor
         </div>
         <button id="ds-ce-close" style="background: none; border: none; color: #a89984; font-size: 16px; cursor: pointer; padding: 0 4px;">✕</button>
       </div>
 
-      <div style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px;">
-        <button class="ds-ce-preset" data-vals="0,0,1,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Linear</button>
-        <button class="ds-ce-preset" data-vals="0.42,0,1,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Ease In</button>
-        <button class="ds-ce-preset" data-vals="0,0,0.58,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Ease Out</button>
-        <button class="ds-ce-preset" data-vals="0.42,0,0.58,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Ease In-Out</button>
-        <button class="ds-ce-preset" data-vals="0.1,0.9,0.2,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Fast-Slow</button>
-        <button class="ds-ce-preset" data-vals="0.34,1.56,0.64,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Spring</button>
-        <button class="ds-ce-preset" data-vals="0.36,0,0.66,-0.56" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 10px; padding: 2px 5px; cursor: pointer;">Anticipate</button>
+      <!-- Mode Switcher Tabs -->
+      <div style="display: flex; gap: 4px; margin-bottom: 8px; background: #1d2021; padding: 3px; border-radius: 5px; border: 1px solid #3c3836;">
+        <button id="tab-mode-bezier" class="ds-ce-tab" style="flex: 1; background: #3c3836; color: #fabd2f; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Bézier</button>
+        <button id="tab-mode-bounce" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">🏀 Bounce</button>
+        <button id="tab-mode-spring" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">🌀 Spring</button>
+        <button id="tab-mode-spline" class="ds-ce-tab" style="flex: 1; background: transparent; color: #a89984; border: none; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">〰 Spline</button>
       </div>
 
+      <!-- Sub-controls container -->
+      <div id="ds-ce-controls-container" style="margin-bottom: 8px;"></div>
+
+      <!-- Canvas Graph Area -->
       <div style="background: #1d2021; border: 1px solid #3c3836; border-radius: 6px; padding: 4px; display: flex; justify-content: center; position: relative;">
-        <canvas id="ds-ce-canvas" width="300" height="240" style="cursor: crosshair; touch-action: none; border-radius: 4px;"></canvas>
+        <canvas id="ds-ce-canvas" width="340" height="230" style="cursor: crosshair; touch-action: none; border-radius: 4px;"></canvas>
       </div>
 
-      <div style="display: flex; gap: 8px; justify-content: space-between; margin-top: 10px; font-size: 11px;">
-        <div style="display: flex; align-items: center; gap: 3px;">
-          <span style="color: #83a598; font-weight: bold;">P1:</span>
-          <input id="ds-ce-x1" type="number" step="0.01" min="0" max="1" style="width: 52px; background: #1d2021; color: #83a598; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
-          <input id="ds-ce-y1" type="number" step="0.01" style="width: 52px; background: #1d2021; color: #83a598; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
-        </div>
-        <div style="display: flex; align-items: center; gap: 3px;">
-          <span style="color: #fe8019; font-weight: bold;">P2:</span>
-          <input id="ds-ce-x2" type="number" step="0.01" min="0" max="1" style="width: 52px; background: #1d2021; color: #fe8019; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
-          <input id="ds-ce-y2" type="number" step="0.01" style="width: 52px; background: #1d2021; color: #fe8019; border: 1px solid #504945; border-radius: 3px; padding: 2px; text-align: center;">
-        </div>
-      </div>
-
-      <div style="margin-top: 10px; padding: 6px 8px; background: #1d2021; border-radius: 4px; border: 1px solid #3c3836;">
-        <div style="font-size: 10px; color: #a89984; display: flex; justify-content: space-between; margin-bottom: 4px;">
+      <!-- Motion Preview Indicator -->
+      <div style="margin-top: 8px; padding: 5px 8px; background: #1d2021; border-radius: 4px; border: 1px solid #3c3836;">
+        <div style="font-size: 10px; color: #a89984; display: flex; justify-content: space-between; margin-bottom: 3px;">
           <span>Motion Preview:</span>
-          <span id="ds-ce-curve-str" style="color: #fabd2f; font-family: monospace;">cubic-bezier(...)</span>
+          <span id="ds-ce-curve-str" style="color: #fabd2f; font-family: monospace; font-size: 10px; overflow: hidden; text-overflow: ellipsis; max-width: 220px; white-space: nowrap;">...</span>
         </div>
         <div style="height: 12px; background: #282828; border-radius: 6px; position: relative; overflow: hidden; border: 1px solid #504945;">
           <div id="ds-ce-preview-dot" style="position: absolute; top: 1px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: #b8bb26; box-shadow: 0 0 6px #b8bb26;"></div>
         </div>
       </div>
 
-      <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px;">
-        <button id="ds-ce-cancel" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 4px 12px; cursor: pointer; font-size: 11px;">Cancel</button>
-        <button id="ds-ce-apply" style="background: #fabd2f; color: #282828; font-weight: bold; border: 1px solid #fabd2f; border-radius: 4px; padding: 4px 14px; cursor: pointer; font-size: 11px;">Apply Curve</button>
+      <!-- Actions -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <div id="ds-ce-sub-actions"></div>
+        <div style="display: flex; gap: 6px;">
+          <button id="ds-ce-cancel" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 4px 10px; cursor: pointer; font-size: 11px;">Cancel</button>
+          <button id="ds-ce-apply" style="background: #fabd2f; color: #282828; font-weight: bold; border: 1px solid #fabd2f; border-radius: 4px; padding: 4px 14px; cursor: pointer; font-size: 11px;">Apply Curve</button>
+        </div>
       </div>
     `;
 
@@ -682,48 +704,197 @@ export class DopeSheetUI {
     const canvas = modal.querySelector('#ds-ce-canvas');
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    const padX = 35, padY = 40;
-    const yMin = -0.4, yMax = 1.4;
+    const padX = 35, padY = 35;
+    let yMin = -0.3, yMax = 1.3;
 
     const toPixelX = (x) => padX + x * (W - 2 * padX);
     const toPixelY = (y) => H - padY - ((y - yMin) / (yMax - yMin)) * (H - 2 * padY);
     const fromPixelX = (px) => Math.max(0, Math.min(1, (px - padX) / (W - 2 * padX)));
-    const fromPixelY = (py) => Math.max(-0.6, Math.min(1.6, yMin + (H - padY - py) / (H - 2 * padY) * (yMax - yMin)));
+    const fromPixelY = (py) => Math.max(yMin, Math.min(yMax, yMin + (H - padY - py) / (H - 2 * padY) * (yMax - yMin)));
 
-    const inpX1 = modal.querySelector('#ds-ce-x1');
-    const inpY1 = modal.querySelector('#ds-ce-y1');
-    const inpX2 = modal.querySelector('#ds-ce-x2');
-    const inpY2 = modal.querySelector('#ds-ce-y2');
+    const controlsContainer = modal.querySelector('#ds-ce-controls-container');
+    const subActionsContainer = modal.querySelector('#ds-ce-sub-actions');
     const strLabel = modal.querySelector('#ds-ce-curve-str');
     const previewDot = modal.querySelector('#ds-ce-preview-dot');
 
-    let draggingHandle = null;
-    let currentBezierFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
+    let draggingTarget = null; // 'p1', 'p2', node index, etc.
+    let currentCurveFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
 
-    const syncInputsAndCurve = () => {
-      inpX1.value = Math.round(p1.x * 100) / 100;
-      inpY1.value = Math.round(p1.y * 100) / 100;
-      inpX2.value = Math.round(p2.x * 100) / 100;
-      inpY2.value = Math.round(p2.y * 100) / 100;
-      const str = `cubic-bezier(${inpX1.value}, ${inpY1.value}, ${inpX2.value}, ${inpY2.value})`;
-      strLabel.textContent = str;
-      currentBezierFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
-      drawGraph();
+    const updateControlsUI = () => {
+      // Tab highlights
+      ['bezier', 'bounce', 'spring', 'spline'].forEach(m => {
+        const tab = modal.querySelector(`#tab-mode-${m}`);
+        if (tab) {
+          const active = currentMode === m;
+          tab.style.background = active ? '#3c3836' : 'transparent';
+          tab.style.color = active ? '#fabd2f' : '#a89984';
+          tab.style.fontWeight = active ? 'bold' : 'normal';
+        }
+      });
+
+      subActionsContainer.innerHTML = '';
+
+      if (currentMode === 'bezier') {
+        yMin = -0.3; yMax = 1.3;
+        controlsContainer.innerHTML = `
+          <div style="display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px;">
+            <button class="ds-ce-preset" data-vals="0,0,1,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Linear</button>
+            <button class="ds-ce-preset" data-vals="0.42,0,1,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Ease In</button>
+            <button class="ds-ce-preset" data-vals="0,0,0.58,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Ease Out</button>
+            <button class="ds-ce-preset" data-vals="0.42,0,0.58,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Ease In-Out</button>
+            <button class="ds-ce-preset" data-vals="0.1,0.9,0.2,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Fast-Slow</button>
+            <button class="ds-ce-preset" data-vals="0.34,1.56,0.64,1" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Spring Overshoot</button>
+            <button class="ds-ce-preset" data-vals="0.36,0,0.66,-0.56" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Anticipate</button>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: space-between; font-size: 11px;">
+            <div style="display: flex; align-items: center; gap: 3px;">
+              <span style="color: #83a598; font-weight: bold;">P1:</span>
+              <input id="ds-ce-x1" type="number" step="0.01" value="${Math.round(p1.x * 100) / 100}" style="width: 48px; background: #1d2021; color: #83a598; border: 1px solid #504945; border-radius: 3px; padding: 1px; text-align: center;">
+              <input id="ds-ce-y1" type="number" step="0.01" value="${Math.round(p1.y * 100) / 100}" style="width: 48px; background: #1d2021; color: #83a598; border: 1px solid #504945; border-radius: 3px; padding: 1px; text-align: center;">
+            </div>
+            <div style="display: flex; align-items: center; gap: 3px;">
+              <span style="color: #fe8019; font-weight: bold;">P2:</span>
+              <input id="ds-ce-x2" type="number" step="0.01" value="${Math.round(p2.x * 100) / 100}" style="width: 48px; background: #1d2021; color: #fe8019; border: 1px solid #504945; border-radius: 3px; padding: 1px; text-align: center;">
+              <input id="ds-ce-y2" type="number" step="0.01" value="${Math.round(p2.y * 100) / 100}" style="width: 48px; background: #1d2021; color: #fe8019; border: 1px solid #504945; border-radius: 3px; padding: 1px; text-align: center;">
+            </div>
+          </div>
+        `;
+        controlsContainer.querySelectorAll('.ds-ce-preset').forEach(btn => {
+          btn.onclick = () => {
+            const [x1, y1, x2, y2] = btn.getAttribute('data-vals').split(',').map(Number);
+            p1 = { x: x1, y: y1 }; p2 = { x: x2, y: y2 };
+            syncGraph();
+          };
+        });
+        const ix1 = controlsContainer.querySelector('#ds-ce-x1');
+        const iy1 = controlsContainer.querySelector('#ds-ce-y1');
+        const ix2 = controlsContainer.querySelector('#ds-ce-x2');
+        const iy2 = controlsContainer.querySelector('#ds-ce-y2');
+        if (ix1) ix1.oninput = () => { p1.x = Math.max(0, Math.min(1, parseFloat(ix1.value) || 0)); syncGraph(); };
+        if (iy1) iy1.oninput = () => { p1.y = parseFloat(iy1.value) || 0; syncGraph(); };
+        if (ix2) ix2.oninput = () => { p2.x = Math.max(0, Math.min(1, parseFloat(ix2.value) || 0)); syncGraph(); };
+        if (iy2) iy2.oninput = () => { p2.y = parseFloat(iy2.value) || 0; syncGraph(); };
+      } else if (currentMode === 'bounce') {
+        yMin = -0.1; yMax = 1.1;
+        controlsContainer.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span>Bounces: <b id="lbl-bounce-cnt" style="color: #fabd2f;">${bounceCount}</b></span>
+              <input id="slider-bounce-cnt" type="range" min="1" max="6" step="1" value="${bounceCount}" style="width: 170px;">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span>Decay / Restitution: <b id="lbl-bounce-dec" style="color: #fabd2f;">${Math.round(bounceDecay * 100)}%</b></span>
+              <input id="slider-bounce-dec" type="range" min="0.15" max="0.80" step="0.05" value="${bounceDecay}" style="width: 170px;">
+            </div>
+            <div style="display: flex; gap: 4px; margin-top: 2px;">
+              <button class="ds-ce-b-preset" data-b="2" data-d="0.4" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">2 Soft</button>
+              <button class="ds-ce-b-preset" data-b="3" data-d="0.45" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">3 Standard</button>
+              <button class="ds-ce-b-preset" data-b="4" data-d="0.55" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">4 Active</button>
+              <button class="ds-ce-b-preset" data-b="5" data-d="0.65" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">5 Rubbery</button>
+            </div>
+          </div>
+        `;
+        const sb = controlsContainer.querySelector('#slider-bounce-cnt');
+        const sd = controlsContainer.querySelector('#slider-bounce-dec');
+        const lb = controlsContainer.querySelector('#lbl-bounce-cnt');
+        const ld = controlsContainer.querySelector('#lbl-bounce-dec');
+        sb.oninput = (e) => { bounceCount = Number(e.target.value); lb.textContent = bounceCount; syncGraph(); };
+        sd.oninput = (e) => { bounceDecay = Number(e.target.value); ld.textContent = `${Math.round(bounceDecay * 100)}%`; syncGraph(); };
+        controlsContainer.querySelectorAll('.ds-ce-b-preset').forEach(btn => {
+          btn.onclick = () => {
+            bounceCount = Number(btn.getAttribute('data-b'));
+            bounceDecay = Number(btn.getAttribute('data-d'));
+            sb.value = bounceCount; sd.value = bounceDecay;
+            lb.textContent = bounceCount; ld.textContent = `${Math.round(bounceDecay * 100)}%`;
+            syncGraph();
+          };
+        });
+      } else if (currentMode === 'spring') {
+        yMin = -0.4; yMax = 1.6;
+        controlsContainer.innerHTML = `
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span>Oscillations: <b id="lbl-spring-osc" style="color: #fabd2f;">${springOsc}</b></span>
+              <input id="slider-spring-osc" type="range" min="1" max="8" step="1" value="${springOsc}" style="width: 170px;">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span>Damping: <b id="lbl-spring-damp" style="color: #fabd2f;">${Math.round(springDamp * 100)}%</b></span>
+              <input id="slider-spring-damp" type="range" min="0.10" max="0.90" step="0.05" value="${springDamp}" style="width: 170px;">
+            </div>
+            <div style="display: flex; gap: 4px; margin-top: 2px;">
+              <button class="ds-ce-s-preset" data-o="2" data-d="0.7" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">Subtle</button>
+              <button class="ds-ce-s-preset" data-o="3" data-d="0.5" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">Standard</button>
+              <button class="ds-ce-s-preset" data-o="5" data-d="0.3" style="background: #1d2021; color: #a89984; border: 1px solid #3c3836; border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">Wild Jiggle</button>
+            </div>
+          </div>
+        `;
+        const so = controlsContainer.querySelector('#slider-spring-osc');
+        const sd = controlsContainer.querySelector('#slider-spring-damp');
+        const lo = controlsContainer.querySelector('#lbl-spring-osc');
+        const ld = controlsContainer.querySelector('#lbl-spring-damp');
+        so.oninput = (e) => { springOsc = Number(e.target.value); lo.textContent = springOsc; syncGraph(); };
+        sd.oninput = (e) => { springDamp = Number(e.target.value); ld.textContent = `${Math.round(springDamp * 100)}%`; syncGraph(); };
+        controlsContainer.querySelectorAll('.ds-ce-s-preset').forEach(btn => {
+          btn.onclick = () => {
+            springOsc = Number(btn.getAttribute('data-o'));
+            springDamp = Number(btn.getAttribute('data-d'));
+            so.value = springOsc; sd.value = springDamp;
+            lo.textContent = springOsc; ld.textContent = `${Math.round(springDamp * 100)}%`;
+            syncGraph();
+          };
+        });
+      } else if (currentMode === 'spline') {
+        yMin = -0.3; yMax = 1.3;
+        controlsContainer.innerHTML = `
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <span>Freeform Nodes: <b>${splineNodes.length} points</b></span>
+            <button id="btn-add-spline-node" style="background: #b8bb26; color: #282828; font-weight: bold; border: none; border-radius: 3px; font-size: 10px; padding: 2px 6px; cursor: pointer;">+ Add Node</button>
+          </div>
+          <div style="font-size: 9px; color: #7c6f64; margin-top: 2px;">Click & drag nodes on graph. Double-click on canvas to insert point.</div>
+        `;
+        controlsContainer.querySelector('#btn-add-spline-node').onclick = () => {
+          const midX = 0.5;
+          const newY = currentCurveFn(midX);
+          splineNodes.push({ x: midX, y: newY, cpIn: { x: -0.08, y: 0 }, cpOut: { x: 0.08, y: 0 } });
+          splineNodes.sort((a, b) => a.x - b.x);
+          syncGraph();
+          updateControlsUI();
+        };
+      }
     };
 
-    const drawGraph = () => {
+    const syncGraph = () => {
+      if (currentMode === 'bezier') {
+        currentCurveFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
+        strLabel.textContent = `cubic-bezier(${Math.round(p1.x * 100) / 100}, ${Math.round(p1.y * 100) / 100}, ${Math.round(p2.x * 100) / 100}, ${Math.round(p2.y * 100) / 100})`;
+      } else if (currentMode === 'bounce') {
+        currentCurveFn = createBounceEasing(bounceCount, bounceDecay);
+        strLabel.textContent = `bounce(${bounceCount}, ${bounceDecay})`;
+      } else if (currentMode === 'spring') {
+        currentCurveFn = createSpringEasing(springOsc, springDamp);
+        strLabel.textContent = `spring(${springOsc}, ${springDamp})`;
+      } else if (currentMode === 'spline') {
+        currentCurveFn = createSplineEasing(splineNodes);
+        strLabel.textContent = `spline (${splineNodes.length} nodes)`;
+      }
+      drawCanvas();
+    };
+
+    const drawCanvas = () => {
       ctx.fillStyle = '#1d2021';
       ctx.fillRect(0, 0, W, H);
 
       const x0 = toPixelX(0), y0 = toPixelY(0);
       const x1 = toPixelX(1), y1 = toPixelY(1);
 
+      // Box 0..1
       ctx.fillStyle = 'rgba(255,255,255,0.02)';
       ctx.fillRect(x0, y1, x1 - x0, y0 - y1);
       ctx.strokeStyle = '#3c3836';
       ctx.lineWidth = 1;
       ctx.strokeRect(x0, y1, x1 - x0, y0 - y1);
 
+      // Grid dividers
       ctx.strokeStyle = '#282828';
       [0.25, 0.5, 0.75].forEach(v => {
         const gx = toPixelX(v), gy = toPixelY(v);
@@ -731,65 +902,131 @@ export class DopeSheetUI {
         ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x1, gy); ctx.stroke();
       });
 
+      // Linear reference line
       ctx.strokeStyle = '#504945';
       ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
       ctx.setLineDash([]);
 
-      const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
-      const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
+      if (currentMode === 'bezier') {
+        const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
+        const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
 
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = '#83a598';
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(px1, py1); ctx.stroke();
+        ctx.lineWidth = 1.5;
+        ctx.strokeStyle = '#83a598';
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(px1, py1); ctx.stroke();
 
-      ctx.strokeStyle = '#fe8019';
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(px2, py2); ctx.stroke();
+        ctx.strokeStyle = '#fe8019';
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(px2, py2); ctx.stroke();
 
-      ctx.beginPath();
-      ctx.moveTo(x0, y0);
-      ctx.bezierCurveTo(px1, py1, px2, py2, x1, y1);
-      ctx.strokeStyle = '#b8bb26';
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x0, y0);
+        ctx.bezierCurveTo(px1, py1, px2, py2, x1, y1);
+        ctx.strokeStyle = '#b8bb26';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
 
-      ctx.fillStyle = '#ebdbb2';
-      ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(x1, y1, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ebdbb2';
+        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x1, y1, 3.5, 0, Math.PI * 2); ctx.fill();
 
-      ctx.fillStyle = '#83a598';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(px1, py1, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#83a598';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(px1, py1, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
-      ctx.fillStyle = '#fe8019';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.arc(px2, py2, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fe8019';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(px2, py2, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      } else if (currentMode === 'bounce' || currentMode === 'spring') {
+        // High-res sampled curve
+        ctx.beginPath();
+        const steps = 150;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const y = currentCurveFn(t);
+          const px = toPixelX(t);
+          const py = toPixelY(y);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = currentMode === 'bounce' ? '#fabd2f' : '#d3869b';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Start / end dots
+        ctx.fillStyle = '#ebdbb2';
+        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x1, y1, 3.5, 0, Math.PI * 2); ctx.fill();
+      } else if (currentMode === 'spline') {
+        // Render piecewise spline
+        ctx.beginPath();
+        const steps = 150;
+        for (let i = 0; i <= steps; i++) {
+          const t = i / steps;
+          const y = currentCurveFn(t);
+          const px = toPixelX(t);
+          const py = toPixelY(y);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        }
+        ctx.strokeStyle = '#8ec07c';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Render spline nodes
+        splineNodes.forEach((node, idx) => {
+          const nx = toPixelX(node.x), ny = toPixelY(node.y);
+          ctx.fillStyle = (idx === 0 || idx === splineNodes.length - 1) ? '#ebdbb2' : '#fabd2f';
+          ctx.strokeStyle = '#1d2021';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(nx, ny, 5.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        });
+      }
     };
 
+    // Mode Tab Buttons Click
+    ['bezier', 'bounce', 'spring', 'spline'].forEach(m => {
+      modal.querySelector(`#tab-mode-${m}`).onclick = () => {
+        currentMode = m;
+        updateControlsUI();
+        syncGraph();
+      };
+    });
+
+    // Pointer Dragging on Graph Canvas
     const onPointerDown = (e) => {
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
 
-      const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
-      const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
+      if (currentMode === 'bezier') {
+        const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
+        const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
+        const d1 = Math.hypot(mx - px1, my - py1);
+        const d2 = Math.hypot(mx - px2, my - py2);
 
-      const d1 = Math.hypot(mx - px1, my - py1);
-      const d2 = Math.hypot(mx - px2, my - py2);
-
-      if (d1 <= 14) {
-        draggingHandle = 1;
-      } else if (d2 <= 14) {
-        draggingHandle = 2;
-      } else if (d1 < d2 && d1 < 30) {
-        draggingHandle = 1;
-      } else if (d2 <= d1 && d2 < 30) {
-        draggingHandle = 2;
+        if (d1 <= 14) draggingTarget = 'p1';
+        else if (d2 <= 14) draggingTarget = 'p2';
+        else if (d1 < d2 && d1 < 30) draggingTarget = 'p1';
+        else if (d2 <= d1 && d2 < 30) draggingTarget = 'p2';
+      } else if (currentMode === 'spline') {
+        // Find nearest spline node
+        for (let i = 0; i < splineNodes.length; i++) {
+          const nx = toPixelX(splineNodes[i].x);
+          const ny = toPixelY(splineNodes[i].y);
+          if (Math.hypot(mx - nx, my - ny) <= 12) {
+            draggingTarget = i;
+            break;
+          }
+        }
       }
 
-      if (draggingHandle) {
+      if (draggingTarget !== null) {
         e.preventDefault();
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
@@ -797,53 +1034,69 @@ export class DopeSheetUI {
     };
 
     const onPointerMove = (e) => {
-      if (!draggingHandle) return;
+      if (draggingTarget === null) return;
       const rect = canvas.getBoundingClientRect();
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
-
       const nx = fromPixelX(mx);
       const ny = fromPixelY(my);
 
-      if (draggingHandle === 1) {
-        p1.x = nx; p1.y = ny;
-      } else if (draggingHandle === 2) {
-        p2.x = nx; p2.y = ny;
+      if (currentMode === 'bezier') {
+        if (draggingTarget === 'p1') { p1.x = nx; p1.y = ny; }
+        else if (draggingTarget === 'p2') { p2.x = nx; p2.y = ny; }
+        const ix1 = controlsContainer.querySelector('#ds-ce-x1');
+        const iy1 = controlsContainer.querySelector('#ds-ce-y1');
+        const ix2 = controlsContainer.querySelector('#ds-ce-x2');
+        const iy2 = controlsContainer.querySelector('#ds-ce-y2');
+        if (ix1) ix1.value = Math.round(p1.x * 100) / 100;
+        if (iy1) iy1.value = Math.round(p1.y * 100) / 100;
+        if (ix2) ix2.value = Math.round(p2.x * 100) / 100;
+        if (iy2) iy2.value = Math.round(p2.y * 100) / 100;
+      } else if (currentMode === 'spline') {
+        const idx = draggingTarget;
+        if (idx === 0) {
+          splineNodes[0].y = ny;
+        } else if (idx === splineNodes.length - 1) {
+          splineNodes[splineNodes.length - 1].y = ny;
+        } else {
+          splineNodes[idx].x = nx;
+          splineNodes[idx].y = ny;
+          splineNodes.sort((a, b) => a.x - b.x);
+        }
       }
-      syncInputsAndCurve();
+      syncGraph();
     };
 
     const onPointerUp = () => {
-      draggingHandle = null;
+      draggingTarget = null;
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', onPointerUp);
     };
 
     canvas.addEventListener('pointerdown', onPointerDown);
 
-    inpX1.oninput = () => { p1.x = Math.max(0, Math.min(1, parseFloat(inpX1.value) || 0)); syncInputsAndCurve(); };
-    inpY1.oninput = () => { p1.y = parseFloat(inpY1.value) || 0; syncInputsAndCurve(); };
-    inpX2.oninput = () => { p2.x = Math.max(0, Math.min(1, parseFloat(inpX2.value) || 0)); syncInputsAndCurve(); };
-    inpY2.oninput = () => { p2.y = parseFloat(inpY2.value) || 0; syncInputsAndCurve(); };
-
-    modal.querySelectorAll('.ds-ce-preset').forEach(btn => {
-      btn.onclick = () => {
-        const [x1, y1, x2, y2] = btn.getAttribute('data-vals').split(',').map(Number);
-        p1 = { x: x1, y: y1 };
-        p2 = { x: x2, y: y2 };
-        syncInputsAndCurve();
-      };
+    canvas.addEventListener('dblclick', (e) => {
+      if (currentMode === 'spline') {
+        const rect = canvas.getBoundingClientRect();
+        const nx = fromPixelX(e.clientX - rect.left);
+        const ny = fromPixelY(e.clientY - rect.top);
+        splineNodes.push({ x: nx, y: ny, cpIn: { x: -0.06, y: 0 }, cpOut: { x: 0.06, y: 0 } });
+        splineNodes.sort((a, b) => a.x - b.x);
+        syncGraph();
+        updateControlsUI();
+      }
     });
 
+    // Animation preview simulation loop
     let animRunning = true;
     let startTime = performance.now();
     const animLoop = (now) => {
       if (!animRunning) return;
       const elapsed = (now - startTime) % 1500;
       const progress = elapsed / 1500;
-      const eased = currentBezierFn(progress);
+      const eased = currentCurveFn(progress);
       if (previewDot) {
-        previewDot.style.left = `${Math.max(0, Math.min(272, eased * 272))}px`;
+        previewDot.style.left = `${Math.max(0, Math.min(300, eased * 300))}px`;
       }
       requestAnimationFrame(animLoop);
     };
@@ -861,12 +1114,22 @@ export class DopeSheetUI {
     };
 
     modal.querySelector('#ds-ce-apply').onclick = () => {
-      const curveStr = `cubic-bezier(${Math.round(p1.x * 100) / 100}, ${Math.round(p1.y * 100) / 100}, ${Math.round(p2.x * 100) / 100}, ${Math.round(p2.y * 100) / 100})`;
+      let resultCurve = 'linear';
+      if (currentMode === 'bezier') {
+        resultCurve = `cubic-bezier(${Math.round(p1.x * 100) / 100}, ${Math.round(p1.y * 100) / 100}, ${Math.round(p2.x * 100) / 100}, ${Math.round(p2.y * 100) / 100})`;
+      } else if (currentMode === 'bounce') {
+        resultCurve = `bounce(${bounceCount}, ${bounceDecay})`;
+      } else if (currentMode === 'spring') {
+        resultCurve = `spring(${springOsc}, ${springDamp})`;
+      } else if (currentMode === 'spline') {
+        resultCurve = `spline:${JSON.stringify(splineNodes)}`;
+      }
       closeModal();
-      this.applyCurve(curveStr);
+      this.applyCurve(resultCurve);
     };
 
-    syncInputsAndCurve();
+    updateControlsUI();
+    syncGraph();
   }
 
   syncEasingUI() {

@@ -84,19 +84,148 @@ export function solveCubicBezier(x1, y1, x2, y2) {
   };
 }
 
+/**
+ * Creates a physics-accurate decaying bounce easing function.
+ * @param {number} bounces Number of rebound bounces (1 to 8, default 3)
+ * @param {number} decay Elasticity/restitution factor (0.1 to 0.9, default 0.45)
+ */
+export function createBounceEasing(bounces = 3, decay = 0.45) {
+  const count = Math.max(1, Math.min(8, Math.round(bounces)));
+  const dec = Math.max(0.1, Math.min(0.85, decay));
+
+  let sum = 1.0;
+  for (let i = 1; i <= count; i++) {
+    sum += 2.0 * Math.pow(dec, i);
+  }
+  const d0 = 1.0 / sum;
+  const segments = [];
+  // Initial fall
+  segments.push({ tStart: 0, tEnd: d0, height: 1.0, isInitial: true, dur: d0 });
+  let curr = d0;
+  for (let i = 1; i <= count; i++) {
+    const dur = 2.0 * d0 * Math.pow(dec, i);
+    const h = Math.pow(dec, 2 * i);
+    segments.push({ tStart: curr, tEnd: curr + dur, height: h, dur, isInitial: false });
+    curr += dur;
+  }
+
+  return function (t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    for (const seg of segments) {
+      if (t >= seg.tStart && t <= seg.tEnd) {
+        if (seg.isInitial) {
+          const u = t / seg.dur;
+          return u * u;
+        } else {
+          const mid = seg.tStart + seg.dur / 2;
+          const u = (t - mid) / (seg.dur / 2);
+          return 1.0 - seg.height * (1.0 - u * u);
+        }
+      }
+    }
+    return 1;
+  };
+}
+
+/**
+ * Creates an elastic / damped harmonic spring easing function.
+ * @param {number} oscillations Number of oscillation cycles (1 to 10, default 3)
+ * @param {number} damping Damping factor (0.1 to 1.0, default 0.5)
+ */
+export function createSpringEasing(oscillations = 3, damping = 0.5) {
+  const osc = Math.max(1, Math.min(10, oscillations));
+  const damp = Math.max(0.1, Math.min(1.0, damping));
+  return function (t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    const decay = Math.exp(-damp * 9 * t);
+    const wave = Math.cos(osc * 2 * Math.PI * t);
+    return 1.0 - decay * wave;
+  };
+}
+
+/**
+ * Creates a piecewise cubic Bézier multi-node spline easing function.
+ * @param {Array<{x: number, y: number, cpOut?: {x: number, y: number}, cpIn?: {x: number, y: number}}>} nodes
+ */
+export function createSplineEasing(nodes) {
+  if (!Array.isArray(nodes) || nodes.length < 2) return Easing.linear;
+  const sorted = [...nodes].sort((a, b) => a.x - b.x);
+
+  return function (t) {
+    if (t <= sorted[0].x) return sorted[0].y;
+    if (t >= sorted[sorted.length - 1].x) return sorted[sorted.length - 1].y;
+
+    for (let i = 0; i < sorted.length - 1; i++) {
+      const n0 = sorted[i];
+      const n1 = sorted[i + 1];
+      if (t >= n0.x && t <= n1.x) {
+        const dx = n1.x - n0.x;
+        if (dx <= 1e-6) return n1.y;
+        const u = (t - n0.x) / dx;
+        const cpOut = n0.cpOut || { x: dx / 3, y: 0 };
+        const cpIn = n1.cpIn || { x: -dx / 3, y: 0 };
+
+        const p1x = Math.max(0, Math.min(1, cpOut.x / dx));
+        const p2x = Math.max(0, Math.min(1, 1 + cpIn.x / dx));
+        const p1y = n0.y + cpOut.y;
+        const p2y = n1.y + cpIn.y;
+
+        const solver = solveCubicBezier(p1x, (p1y - n0.y) / (n1.y - n0.y || 1), p2x, (p2y - n0.y) / (n1.y - n0.y || 1));
+        const normY = solver(u);
+        return n0.y + normY * (n1.y - n0.y);
+      }
+    }
+    return sorted[sorted.length - 1].y;
+  };
+}
+
 export function getEasingFunction(tweenType) {
   if (!tweenType || tweenType === 'linear') return Easing.linear;
   if (Easing[tweenType]) return Easing[tweenType];
-  if (typeof tweenType === 'string' && (tweenType.startsWith('cubic-bezier') || tweenType.startsWith('custom:'))) {
+
+  if (typeof tweenType === 'string') {
     if (_cubicBezierCache.has(tweenType)) return _cubicBezierCache.get(tweenType);
-    const m = tweenType.match(/-?[\d.]+/g);
-    if (m && m.length >= 4) {
-      const [x1, y1, x2, y2] = m.map(Number);
-      const fn = solveCubicBezier(x1, y1, x2, y2);
+
+    if (tweenType.startsWith('cubic-bezier') || tweenType.startsWith('custom:')) {
+      const m = tweenType.match(/-?[\d.]+/g);
+      if (m && m.length >= 4) {
+        const [x1, y1, x2, y2] = m.map(Number);
+        const fn = solveCubicBezier(x1, y1, x2, y2);
+        _cubicBezierCache.set(tweenType, fn);
+        return fn;
+      }
+    }
+
+    if (tweenType.startsWith('bounce(') || tweenType.startsWith('custom-bounce:')) {
+      const m = tweenType.match(/-?[\d.]+/g);
+      const bounces = m && m[0] ? Number(m[0]) : 3;
+      const decay = m && m[1] ? Number(m[1]) : 0.45;
+      const fn = createBounceEasing(bounces, decay);
       _cubicBezierCache.set(tweenType, fn);
       return fn;
     }
+
+    if (tweenType.startsWith('spring(') || tweenType.startsWith('custom-spring:')) {
+      const m = tweenType.match(/-?[\d.]+/g);
+      const osc = m && m[0] ? Number(m[0]) : 3;
+      const damp = m && m[1] ? Number(m[1]) : 0.5;
+      const fn = createSpringEasing(osc, damp);
+      _cubicBezierCache.set(tweenType, fn);
+      return fn;
+    }
+
+    if (tweenType.startsWith('spline:')) {
+      try {
+        const json = JSON.parse(tweenType.slice(7));
+        const fn = createSplineEasing(json);
+        _cubicBezierCache.set(tweenType, fn);
+        return fn;
+      } catch (_) {}
+    }
   }
+
   return Easing.linear;
 }
 

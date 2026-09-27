@@ -294,7 +294,31 @@ chOvershoot.addKeyframe(11, 100, 'cubic-bezier(0.34, 1.56, 0.64, 1.0)');
 const springSample = chOvershoot.sample(6);
 assert(springSample > 50, `Spring overshoot at midpoint should be > 50, got ${springSample}`);
 
-console.log('✔ Easing curves & Custom Bézier curves interpolation passed');
+// Test Physics Bounce Curves
+const chPhysicsBounce = new DopeSheetChannel('x', 0);
+chPhysicsBounce.addKeyframe(1, 0, 'bounce(3, 0.45)');
+chPhysicsBounce.addKeyframe(11, 100, 'bounce(3, 0.45)');
+assert(chPhysicsBounce.sample(1) === 0, 'Bounce at frame 1 should be 0');
+assert(chPhysicsBounce.sample(11) === 100, 'Bounce at frame 11 should be 100');
+const bounceSample = chPhysicsBounce.sample(6);
+assert(typeof bounceSample === 'number' && !isNaN(bounceSample), 'Bounce sample should be valid number');
+
+// Test Harmonic Spring Curves
+const chHarmonicSpring = new DopeSheetChannel('x', 0);
+chHarmonicSpring.addKeyframe(1, 0, 'spring(3, 0.5)');
+chHarmonicSpring.addKeyframe(11, 100, 'spring(3, 0.5)');
+assert(chHarmonicSpring.sample(1) === 0, 'Spring at frame 1 should be 0');
+assert(chHarmonicSpring.sample(11) === 100, 'Spring at frame 11 should be 100');
+
+// Test Freeform Multi-Node Spline Curves
+const chSpline = new DopeSheetChannel('x', 0);
+const nodes = [{ x: 0, y: 0 }, { x: 0.5, y: 1.2 }, { x: 1, y: 1 }];
+chSpline.addKeyframe(1, 0, `spline:${JSON.stringify(nodes)}`);
+chSpline.addKeyframe(11, 100, `spline:${JSON.stringify(nodes)}`);
+const splineMid = chSpline.sample(6);
+assert(splineMid > 50, `Spline at midpoint with peak 1.2 should be > 50, got ${splineMid}`);
+
+console.log('✔ Easing curves, Custom Bézier, Physics Bounce, Spring & Spline interpolation passed');
 
 // 13. Test Multi-Stop Gradient Manipulation & SvgGradient
 console.log('13. Testing SvgGradient Multi-Stop Engine...');
