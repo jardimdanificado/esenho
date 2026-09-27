@@ -3762,6 +3762,12 @@
                 if (val && val !== obj.name) {
                   obj.name = val;
                   doc.pushHistory(`Rename to ${val}`);
+                  if (window.dopeSheet && typeof window.dopeSheet.renameObject === 'function') {
+                    window.dopeSheet.renameObject(obj.id, val);
+                  }
+                  if (window.dopeSheetUI) {
+                    window.dopeSheetUI.updateGrid();
+                  }
                 }
                 updateObjectList();
                 updateInspector();
@@ -4720,7 +4726,12 @@
                 break;
               }
             }
-            if (activeNodeIdx !== -1) break;
+            if (activeNodeIdx !== -1) {
+              isDragging = true;
+              dragStartX = pt.x;
+              dragStartY = pt.y;
+              break;
+            }
           }
           render();
           updateInspector();
@@ -5369,12 +5380,17 @@
           initialObjectState = null;
           currentDraftObj = null;
           if (activeTool !== 'pen') {
-            const actionLabel = wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object')));
+            const wasEditingNode = activeTool === 'node';
+            const actionLabel = wasEditingNode ? 'Edit Path Nodes' : (wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'))));
             doc.pushHistory(actionLabel);
             if (typeof window.recordAutoKeyframe === 'function') {
               const selectedObjs = doc.getSelectedObjects();
               for (const selObj of selectedObjs) {
                 window.recordAutoKeyframe(selObj);
+              }
+              if (wasEditingNode) {
+                const { path } = getActivePathAndNode();
+                if (path) window.recordAutoKeyframe(path);
               }
             }
           }
@@ -6473,6 +6489,12 @@
         const selected = doc.getSelectedObjects();
         if (selected.length > 0) {
           selected[0].name = e.target.value;
+          if (window.dopeSheet && typeof window.dopeSheet.renameObject === 'function') {
+            window.dopeSheet.renameObject(selected[0].id, e.target.value);
+          }
+          if (window.dopeSheetUI) {
+            window.dopeSheetUI.updateGrid();
+          }
           updateObjectList();
         }
       });
@@ -6480,6 +6502,12 @@
         const selected = doc.getSelectedObjects();
         if (selected.length > 0) {
           doc.pushHistory(`Rename to ${e.target.value}`);
+          if (window.dopeSheet && typeof window.dopeSheet.renameObject === 'function') {
+            window.dopeSheet.renameObject(selected[0].id, e.target.value);
+          }
+          if (window.dopeSheetUI) {
+            window.dopeSheetUI.updateGrid();
+          }
           updateObjectList();
         }
       });
@@ -7737,6 +7765,13 @@
                 if (state.strokeDashOffset !== undefined) obj.strokeDashoffset = state.strokeDashOffset;
                 if (state.strokeCap !== undefined) obj.strokeLinecap = state.strokeCap;
                 if (state.strokeJoin !== undefined) obj.strokeLinejoin = state.strokeJoin;
+                if (state.d !== undefined) {
+                  if (typeof obj.setPathData === 'function') obj.setPathData(state.d);
+                  else obj.d = state.d;
+                }
+                if (state.points !== undefined) {
+                  obj.points = state.points;
+                }
                 if (state.width !== undefined) obj.width = state.width;
                 if (state.height !== undefined) obj.height = state.height;
                 if (state.radius !== undefined) obj.r = state.radius;

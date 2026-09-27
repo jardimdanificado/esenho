@@ -215,5 +215,40 @@ assert.strictEqual(extracted.brushOpacity, 80);
 
 console.log('✔ extractLiveObjectProperties passed');
 
+// 10. Test Path Morphing & Polyline Interpolation
+console.log('10. Testing Path Morphing & lerpPath...');
+import { lerpPath } from '../src/anim/dopesheet.js';
+
+const pathStart = 'M 10.00 20.00 C 15.00 25.00, 30.00 40.00, 50.00 60.00';
+const pathEnd   = 'M 30.00 40.00 C 35.00 45.00, 50.00 60.00, 70.00 80.00';
+const pathMid   = lerpPath(pathStart, pathEnd, 0.5);
+
+assert.strictEqual(pathMid, 'M 20 30 C 25 35, 40 50, 60 70', 'Path midpoint should be exactly interpolated coordinates');
+
+const pathChannel = new DopeSheetChannel('d', pathStart);
+pathChannel.type = 'path';
+pathChannel.addKeyframe(1, pathStart, 'linear');
+pathChannel.addKeyframe(11, pathEnd, 'linear');
+
+assert.strictEqual(pathChannel.sample(6), 'M 20 30 C 25 35, 40 50, 60 70');
+console.log('✔ Path morphing & lerpPath passed');
+
+// 11. Test Object Renaming
+console.log('11. Testing Object Renaming on DopeSheet...');
+const renameDs = new DopeSheet(60, 24);
+const rObj = renameDs.getOrCreateObject('layer_star', 'Original Star');
+assert.strictEqual(rObj.name, 'Original Star');
+
+let notifiedRename = null;
+renameDs.subscribe((ev, payload) => {
+  if (ev === 'objectRenamed') notifiedRename = payload;
+});
+
+renameDs.renameObject('layer_star', 'Golden Glowing Star');
+assert.strictEqual(rObj.name, 'Golden Glowing Star');
+assert.deepStrictEqual(notifiedRename, { id: 'layer_star', name: 'Golden Glowing Star' });
+console.log('✔ Object renaming and notification passed');
+
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
+
 

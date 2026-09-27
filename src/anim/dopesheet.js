@@ -92,6 +92,26 @@ export function lerpAngle(a1, a2, t) {
   return a1 + diff * t;
 }
 
+/** Smooth SVG path and polyline points morphing interpolation */
+export function lerpPath(d1, d2, t) {
+  if (typeof d1 !== 'string' || typeof d2 !== 'string') return t >= 1 ? d2 : d1;
+  if (d1 === d2) return d1;
+  const numRegex = /[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/g;
+  const nums1 = d1.match(numRegex);
+  const nums2 = d2.match(numRegex);
+  if (!nums1 || !nums2 || nums1.length !== nums2.length) {
+    return t >= 1 ? d2 : d1;
+  }
+  let idx = 0;
+  return d1.replace(numRegex, () => {
+    const n1 = parseFloat(nums1[idx]);
+    const n2 = parseFloat(nums2[idx]);
+    idx++;
+    const v = n1 + (n2 - n1) * t;
+    return Number(v.toFixed(3));
+  });
+}
+
 /**
  * Parameter Definitions Registry
  * Exhaustive coverage of all Quadro Engine parameters:
@@ -113,6 +133,8 @@ export const PARAMETER_REGISTRY = {
   originY: { label: 'Pivot Y', group: 'Transform', type: 'number', default: 0, unit: 'px', step: 1 },
 
   // ── Geometry & Dimensions Group ──
+  d: { label: 'Path Morph (d)', group: 'Geometry', type: 'path', default: '' },
+  points: { label: 'Points Data', group: 'Geometry', type: 'path', default: '' },
   width: { label: 'Width', group: 'Geometry', type: 'number', default: 100, min: 1, max: 10000, unit: 'px', step: 1 },
   height: { label: 'Height', group: 'Geometry', type: 'number', default: 100, min: 1, max: 10000, unit: 'px', step: 1 },
   radius: { label: 'Radius', group: 'Geometry', type: 'number', default: 50, min: 1, max: 5000, unit: 'px', step: 1 },
@@ -269,6 +291,9 @@ export function extractLiveObjectProperties(liveObj) {
   if (liveObj.originY !== undefined) props.originY = liveObj.originY;
 
   // Geometry
+  if (typeof liveObj.toPathData === 'function') props.d = liveObj.toPathData();
+  else if (liveObj.d !== undefined) props.d = liveObj.d;
+  if (liveObj.points !== undefined && typeof liveObj.points === 'string') props.points = liveObj.points;
   if (liveObj.width !== undefined) props.width = liveObj.width;
   if (liveObj.height !== undefined) props.height = liveObj.height;
   if (liveObj.radius !== undefined) props.radius = liveObj.radius;
@@ -496,6 +521,9 @@ export class DopeSheetChannel {
     if (this.type === 'angle') {
       return lerpAngle(Number(prev.value), Number(next.value), t);
     }
+    if (this.type === 'path') {
+      return lerpPath(prev.value, next.value, t);
+    }
     if (this.type === 'step') {
       return t >= 1 ? next.value : prev.value;
     }
@@ -642,6 +670,14 @@ export class DopeSheet {
   removeObject(id) {
     if (this.objects.delete(id)) {
       this.notify('objectRemoved', { id });
+    }
+  }
+
+  renameObject(id, newName) {
+    const obj = this.objects.get(id);
+    if (obj) {
+      obj.name = newName;
+      this.notify('objectRenamed', { id, name: newName });
     }
   }
 

@@ -5146,7 +5146,7 @@ W_EXPORT void w_font_measure_text(const char *text, float size, float tracking, 
     out_w_h[1] = (float)line_count * size * 1.2f;
 }
 
-W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height) {
+W_EXPORT int32_t w_font_draw_text_transform(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height, float rotation_deg, float scale_x, float scale_y, float pivot_x, float pivot_y, int32_t alignment) {
     if (layer_idx < 0 || layer_idx >= layer_count) return 0;
     layer_t *lyr = &layers[layer_idx];
     if (!lyr->pixels || !text || size <= 0.0f) return 0;
@@ -5157,45 +5157,135 @@ W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const cha
     float advance_x = (5.0f * scale) + tracking;
     float line_step = line_height > 0.0f ? line_height : (size * 1.25f);
     
-    float cursor_x = x;
+    int sin_v = 0, cos_v = 1024;
+    w_sincos_deg((int)rotation_deg, &sin_v, &cos_v);
+    float cos_a = (float)cos_v / 1024.0f;
+    float sin_a = (float)sin_v / 1024.0f;
+    float sx = scale_x != 0.0f ? scale_x : 1.0f;
+    float sy = scale_y != 0.0f ? scale_y : 1.0f;
+    
+    const char *line_start = text;
     float cursor_y = y;
     
-    while (*text) {
-        char c = *text++;
-        if (c == '\n') {
-            cursor_x = x;
-            cursor_y += line_step;
-            continue;
+    while (*line_start) {
+        const char *p = line_start;
+        int line_char_count = 0;
+        while (*p && *p != '\n') {
+            line_char_count++;
+            p++;
         }
-        if (c < 32 || c > 126) c = '?';
-        const uint8_t *glyph = FONT_5X7[c - 32];
         
-        for (int col = 0; col < 5; col++) {
-            uint8_t bits = glyph[col];
-            for (int row = 0; row < 7; row++) {
-                if (bits & (1 << row)) {
-                    /* Scaled pixel block */
-                    int px_start = (int)(cursor_x + (float)col * scale);
-                    int px_end   = (int)(cursor_x + (float)(col + 1) * scale + 0.5f);
-                    int py_start = (int)(cursor_y + (float)row * scale);
-                    int py_end   = (int)(cursor_y + (float)(row + 1) * scale + 0.5f);
-                    
-                    for (int py = py_start; py <= py_end; py++) {
-                        if (py < 0 || py >= lh) continue;
-                        for (int px = px_start; px <= px_end; px++) {
-                            if (px < 0 || px >= lw) continue;
-                            if (is_pixel_clipped(px, py)) continue;
-                            int idx = py * lw + px;
-                            lyr->pixels[idx] = blend_pixel(lyr->pixels[idx], color, (uint8_t)((color >> 24) & 0xFF));
+        float line_w = (float)line_char_count * advance_x;
+        float align_offset_x = 0.0f;
+        if (alignment == 1) { /* Center */
+            align_offset_x = -line_w * 0.5f;
+        } else if (alignment == 2) { /* Right */
+            align_offset_x = -line_w;
+        }
+        
+        float cursor_x = x + align_offset_x;
+        for (int i = 0; i < line_char_count; i++) {
+            char c = line_start[i];
+            if (c < 32 || c > 126) c = '?';
+            const uint8_t *glyph = FONT_5X7[c - 32];
+            
+            for (int col = 0; col < 5; col++) {
+                uint8_t bits = glyph[col];
+                for (int row = 0; row < 7; row++) {
+                    if (bits & (1 << row)) {
+                        if (rotation_deg == 0.0f && sx == 1.0f && sy == 1.0f) {
+                            /* Fast Axis-Aligned Path */
+                            int px_start = (int)(cursor_x + (float)col * scale);
+                            int px_end   = (int)(cursor_x + (float)(col + 1) * scale + 0.5f);
+                            int py_start = (int)(cursor_y + (float)row * scale);
+                            int py_end   = (int)(cursor_y + (float)(row + 1) * scale + 0.5f);
+                            
+                            for (int py = py_start; py <= py_end; py++) {
+                                if (py < 0 || py >= lh) continue;
+                                for (int px = px_start; px <= px_end; px++) {
+                                    if (px < 0 || px >= lw) continue;
+                                    if (is_pixel_clipped(px, py)) continue;
+                                    int idx = py * lw + px;
+                                    lyr->pixels[idx] = blend_pixel(lyr->pixels[idx], color, (uint8_t)((color >> 24) & 0xFF));
+                                }
+                            }
+                        } else {
+                            /* Transformed Path (Rotation, Scaling, Pivot) */
+                            float lx0 = (cursor_x + (float)col * scale) - pivot_x;
+                            float lx1 = (cursor_x + (float)(col + 1) * scale) - pivot_x;
+                            float ly0 = (cursor_y + (float)row * scale) - pivot_y;
+                            float ly1 = (cursor_y + (float)(row + 1) * scale) - pivot_y;
+                            
+                            lx0 *= sx; lx1 *= sx;
+                            ly0 *= sy; ly1 *= sy;
+                            
+                            float cx0 = pivot_x + lx0 * cos_a - ly0 * sin_a;
+                            float cy0 = pivot_y + lx0 * sin_a + ly0 * cos_a;
+                            
+                            float cx1 = pivot_x + lx1 * cos_a - ly0 * sin_a;
+                            float cy1 = pivot_y + lx1 * sin_a + ly0 * cos_a;
+                            
+                            float cx2 = pivot_x + lx1 * cos_a - ly1 * sin_a;
+                            float cy2 = pivot_y + lx1 * sin_a + ly1 * cos_a;
+                            
+                            float cx3 = pivot_x + lx0 * cos_a - ly1 * sin_a;
+                            float cy3 = pivot_y + lx0 * sin_a + ly1 * cos_a;
+                            
+                            float min_x = cx0;
+                            if (cx1 < min_x) min_x = cx1;
+                            if (cx2 < min_x) min_x = cx2;
+                            if (cx3 < min_x) min_x = cx3;
+                            
+                            float max_x = cx0;
+                            if (cx1 > max_x) max_x = cx1;
+                            if (cx2 > max_x) max_x = cx2;
+                            if (cx3 > max_x) max_x = cx3;
+                            
+                            float min_y = cy0;
+                            if (cy1 < min_y) min_y = cy1;
+                            if (cy2 < min_y) min_y = cy2;
+                            if (cy3 < min_y) min_y = cy3;
+                            
+                            float max_y = cy0;
+                            if (cy1 > max_y) max_y = cy1;
+                            if (cy2 > max_y) max_y = cy2;
+                            if (cy3 > max_y) max_y = cy3;
+                            
+                            int ix0 = (int)min_x;
+                            int ix1 = (int)(max_x + 0.999f);
+                            int iy0 = (int)min_y;
+                            int iy1 = (int)(max_y + 0.999f);
+                            
+                            if (ix0 < 0) ix0 = 0;
+                            if (ix1 >= lw) ix1 = lw - 1;
+                            if (iy0 < 0) iy0 = 0;
+                            if (iy1 >= lh) iy1 = lh - 1;
+                            
+                            for (int py = iy0; py <= iy1; py++) {
+                                for (int px = ix0; px <= ix1; px++) {
+                                    if (is_pixel_clipped(px, py)) continue;
+                                    int idx = py * lw + px;
+                                    lyr->pixels[idx] = blend_pixel(lyr->pixels[idx], color, (uint8_t)((color >> 24) & 0xFF));
+                                }
+                            }
                         }
                     }
                 }
             }
+            cursor_x += advance_x;
         }
-        cursor_x += advance_x;
+        
+        if (*p == '\n') p++;
+        line_start = p;
+        cursor_y += line_step;
     }
+    
     force_composite();
     return 1;
+}
+
+W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height) {
+    return w_font_draw_text_transform(layer_idx, x, y, text, size, color, tracking, line_height, 0.0f, 1.0f, 1.0f, x, y, 0);
 }
 
 

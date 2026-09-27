@@ -509,7 +509,15 @@ export class DopeSheetUI {
     // 1. Build Flat List of Visible Channel Rows
     const flatRows = [];
     for (const obj of this.ds.objects.values()) {
-      flatRows.push({ type: 'object', object: obj, id: obj.id, label: obj.name });
+      let label = obj.name;
+      if (typeof window !== 'undefined' && window.doc) {
+        const live = window.doc.findObject ? window.doc.findObject(obj.id) : (window.doc.objects ? window.doc.objects.find(o => o.id === obj.id) : null);
+        if (live && live.name) {
+          obj.name = live.name;
+          label = live.name;
+        }
+      }
+      flatRows.push({ type: 'object', object: obj, id: obj.id, label });
       if (!obj.collapsed) {
         for (const [paramKey, ch] of obj.channels.entries()) {
           flatRows.push({ type: 'channel', object: obj, channel: ch, paramKey, label: ch.label });

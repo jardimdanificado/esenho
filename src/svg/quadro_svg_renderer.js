@@ -1189,8 +1189,33 @@
             }
           }
         } else {
+          octx.save();
+          const origin = (typeof textObj.getOrigin === 'function')
+            ? textObj.getOrigin()
+            : { x: textObj.x, y: textObj.y };
+          
+          octx.translate(origin.x * scale, origin.y * scale);
+          if (textObj.rotation) {
+            octx.rotate((textObj.rotation || 0) * Math.PI / 180);
+          }
+          if (textObj.scaleX !== undefined || textObj.scaleY !== undefined) {
+            octx.scale(textObj.scaleX !== undefined ? textObj.scaleX : 1.0, textObj.scaleY !== undefined ? textObj.scaleY : 1.0);
+          }
+          if (textObj.skewX || textObj.skewY) {
+            const tanX = Math.tan((textObj.skewX || 0) * Math.PI / 180);
+            const tanY = Math.tan((textObj.skewY || 0) * Math.PI / 180);
+            octx.transform(1, tanY, tanX, 1, 0, 0);
+          }
+          octx.translate(-origin.x * scale, -origin.y * scale);
+
+          if (textObj.opacity !== undefined) {
+            octx.globalAlpha = Math.max(0, Math.min(1, textObj.opacity));
+          }
+
           const tx = textObj.x * scale;
           const ty = textObj.y * scale;
+          const lines = String(textObj.text || '').split('\n');
+          const lineStep = (textObj.fontSize * (textObj.lineHeight || 1.2)) * scale;
 
           // Render drop shadow if enabled
           if (textObj.dropShadow && textObj.dropShadow.enabled) {
@@ -1201,12 +1226,17 @@
             octx.shadowOffsetX = (s.offsetX || 2) * scale;
             octx.shadowOffsetY = (s.offsetY || 2) * scale;
             octx.fillStyle = textObj.fill && textObj.fill !== 'none' ? textObj.fill : '#fabd2f';
-            octx.fillText(textObj.text, tx, ty);
+            lines.forEach((line, idx) => {
+              octx.fillText(line, tx, ty + idx * lineStep);
+            });
             octx.restore();
           }
 
           // Fill Text
           if (textObj.fill && textObj.fill !== 'none') {
+            const fillAlpha = textObj.fillOpacity !== undefined ? textObj.fillOpacity : 1.0;
+            octx.save();
+            octx.globalAlpha *= fillAlpha;
             if ((textObj.fillType === 'linear' || textObj.fillType === 'radial') && textObj.fillGradient) {
               const b = textObj.getBounds();
               const grad = textObj.fillGradient;
@@ -1226,15 +1256,29 @@
             } else {
               octx.fillStyle = textObj.fill;
             }
-            octx.fillText(textObj.text, tx, ty);
+            lines.forEach((line, idx) => {
+              octx.fillText(line, tx, ty + idx * lineStep);
+            });
+            octx.restore();
           }
 
           // Stroke Text
           if (textObj.stroke && textObj.stroke !== 'none' && textObj.strokeWidth > 0) {
+            const strokeAlpha = textObj.strokeOpacity !== undefined ? textObj.strokeOpacity : 1.0;
+            octx.save();
+            octx.globalAlpha *= strokeAlpha;
             octx.strokeStyle = textObj.stroke;
             octx.lineWidth = textObj.strokeWidth * scale;
-            octx.strokeText(textObj.text, tx, ty);
+            if (textObj.strokeDashoffset !== undefined) octx.lineDashOffset = textObj.strokeDashoffset;
+            if (textObj.strokeLinecap) octx.lineCap = textObj.strokeLinecap;
+            if (textObj.strokeLinejoin) octx.lineJoin = textObj.strokeLinejoin;
+            lines.forEach((line, idx) => {
+              octx.strokeText(line, tx, ty + idx * lineStep);
+            });
+            octx.restore();
           }
+
+          octx.restore();
         }
 
         // Blit offscreen canvas ImageData to Quadro buffer

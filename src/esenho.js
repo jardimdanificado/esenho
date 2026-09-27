@@ -1306,6 +1306,17 @@ class EsenhoModule {
     return this.exports.w_font_draw_text(layerIdx, x, y, scratchPtr, size, color >>> 0, tracking, lineHeight);
   }
 
+  fontDrawTextTransform(layerIdx = -1, x = 0, y = 0, text = '', size = 16, color = 0xFF000000, tracking = 0, lineHeight = 0, rotationDeg = 0, scaleX = 1.0, scaleY = 1.0, pivotX = x, pivotY = y, alignment = 0) {
+    if (!this.memory || typeof this.exports.w_font_draw_text_transform !== 'function' || !text) return 0;
+    const enc = new TextEncoder().encode(text + '\0');
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(enc.length + 256)
+      : 0;
+    if (!scratchPtr) return 0;
+    new Uint8Array(this.memory.buffer).set(enc, scratchPtr);
+    return this.exports.w_font_draw_text_transform(layerIdx, x, y, scratchPtr, size, color >>> 0, tracking, lineHeight, rotationDeg, scaleX, scaleY, pivotX, pivotY, alignment);
+  }
+
   fontMeasureText(text = '', size = 16, tracking = 0) {
     if (!this.memory || typeof this.exports.w_font_measure_text !== 'function' || !text) return { width: 0, height: 0 };
     const enc = new TextEncoder().encode(text + '\0');
