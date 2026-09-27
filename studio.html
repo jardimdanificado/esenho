@@ -116,6 +116,86 @@
       position: relative;
     }
 
+    .top-control-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1 1 auto;
+      justify-content: flex-start;
+      min-width: 0;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      padding: 2px 4px;
+    }
+    .top-control-bar::-webkit-scrollbar {
+      height: 3px;
+    }
+    .top-control-bar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .top-control-bar::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+    .top-control-bar::-webkit-scrollbar-thumb:hover {
+      background: var(--border-bright);
+    }
+    .top-tool-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 2px 4px;
+      flex-shrink: 0;
+    }
+    .top-tool-group-label {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-right: 4px;
+      padding-left: 2px;
+      user-select: none;
+      opacity: 0.75;
+    }
+    .top-tool-btn {
+      width: 24px;
+      height: 24px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .top-tool-btn:hover {
+      background: var(--bg-canvas);
+      color: var(--text-bright);
+      border-color: var(--border-bright);
+    }
+    .top-tool-btn:active {
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: var(--primary);
+    }
+    .top-tool-subsep {
+      width: 1px;
+      height: 14px;
+      background: var(--border);
+      margin: 0 3px;
+      flex-shrink: 0;
+    }
+
     .menu-container {
       position: relative;
       display: flex;
@@ -1474,6 +1554,86 @@
 
         <button id="btn-clear-storage" class="menu-item" style="color: var(--danger);">
           <span>Clear Storage / Memory</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Top Control Bar: Node & Curves, Pathfinder, Alignment (Inkscape-style) -->
+    <div id="top-control-bar" class="top-control-bar">
+      <!-- Node & Curves Group -->
+      <div class="top-tool-group" title="Node &amp; Curves Controls">
+        <span class="top-tool-group-label">Node</span>
+        <button type="button" class="top-tool-btn" id="top-node-smooth" title="Smooth: Aligned tangent handles">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 C 6 4, 10 4, 14 12"/><circle cx="8" cy="5.5" r="1.5" fill="currentColor"/><line x1="4.5" y1="5.5" x2="11.5" y2="5.5" stroke-width="1"/><circle cx="4.5" cy="5.5" r="1"/><circle cx="11.5" cy="5.5" r="1"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-node-symmetric" title="Symmetric: Mirrored handles">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13 C 6 6, 10 6, 14 13"/><circle cx="8" cy="6" r="1.5" fill="currentColor"/><line x1="3.5" y1="6" x2="12.5" y2="6" stroke-width="1"/><rect x="3" y="5" width="2" height="2" fill="currentColor"/><rect x="11" y="5" width="2" height="2" fill="currentColor"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-node-cusp" title="Cusp / Independent handles">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 L 8 4 L 14 12"/><circle cx="8" cy="4" r="1.5" fill="currentColor"/><line x1="8" y1="4" x2="5" y2="8" stroke-width="1"/><line x1="8" y1="4" x2="11" y2="8" stroke-width="1"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-node-sharp" title="Sharp / Corner: Clear handles">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2 13 8 3 14 13"/><rect x="6.5" y="2" width="3" height="3" fill="currentColor"/></svg>
+        </button>
+        <div class="top-tool-subsep"></div>
+        <button type="button" class="top-tool-btn" id="top-path-close" title="Toggle Close / Open Path">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><polygon points="3,4 13,4 13,12 3,12"/><line x1="13" y1="4" x2="3" y2="12" stroke-dasharray="2 2"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-node-convert-path" title="Convert selected shape to editable Bézier path">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><circle cx="3.5" cy="3.5" r="1.5" fill="var(--accent)"/><circle cx="12.5" cy="3.5" r="1.5" fill="var(--accent)"/><circle cx="12.5" cy="12.5" r="1.5" fill="var(--accent)"/><circle cx="3.5" cy="12.5" r="1.5" fill="var(--accent)"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-create-outlines" title="Convert text to vector outlines">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><text x="8" y="12.5" text-anchor="middle" font-size="11" font-weight="900" fill="none" stroke="currentColor" font-family="sans-serif">A</text></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-simplify-path" title="Simplify Path (RDP curve simplification)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 11 Q 5 2, 8 8 T 14 5"/><polyline points="10 13 14 13 14 9"/></svg>
+        </button>
+      </div>
+
+      <!-- Pathfinder / Boolean Ops Group -->
+      <div class="top-tool-group" title="Pathfinder (Boolean Operations)">
+        <span class="top-tool-group-label">Pathfinder</span>
+        <button type="button" class="top-tool-btn" id="top-path-union" title="Union (Ctrl++)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 5a3 3 0 0 1 3-3h3v3h3a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3h-3v-3H5a3 3 0 0 1-3-3z" fill="currentColor" fill-opacity="0.25"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-path-subtract" title="Subtract / Difference (Ctrl+-)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 5a3 3 0 0 1 3-3h4v4H5v4H2z" fill="currentColor" fill-opacity="0.4"/><rect x="6" y="6" width="8" height="8" rx="2" stroke-dasharray="2 1"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-path-intersect" title="Intersect (Ctrl+*)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="8" height="8" rx="2"/><rect x="6" y="6" width="8" height="8" rx="2"/><rect x="6" y="6" width="4" height="4" fill="currentColor" fill-opacity="0.5"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-path-exclude" title="Exclude / XOR (Ctrl+^)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 2h8v4H6v4H2z M10 6h4v8H6v-4h4z" fill="currentColor" fill-opacity="0.35"/><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="6" y="6" width="8" height="8" rx="1"/></svg>
+        </button>
+      </div>
+
+      <!-- Alignment & Distribution Group -->
+      <div class="top-tool-group" title="Align &amp; Distribute">
+        <span class="top-tool-group-label">Align</span>
+        <button type="button" class="top-tool-btn" id="top-align-left" title="Align Left">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="2" y2="14" stroke-width="2"/><rect x="4" y="4" width="9" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="4" y="9" width="6" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-align-center" title="Align Center Horizontally">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="8" y1="2" x2="8" y2="14" stroke-dasharray="1 1"/><rect x="3" y="4" width="10" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="5" y="9" width="6" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-align-right" title="Align Right">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="14" y1="2" x2="14" y2="14" stroke-width="2"/><rect x="3" y="4" width="9" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="6" y="9" width="6" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-align-top" title="Align Top">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="14" y2="2" stroke-width="2"/><rect x="4" y="4" width="3" height="9" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9" y="4" width="3" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-align-middle" title="Align Middle Vertically">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="8" x2="14" y2="8" stroke-dasharray="1 1"/><rect x="4" y="3" width="3" height="10" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9" y="5" width="3" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-align-bottom" title="Align Bottom">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="14" x2="14" y2="14" stroke-width="2"/><rect x="4" y="3" width="3" height="9" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9" y="6" width="3" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <div class="top-tool-subsep"></div>
+        <button type="button" class="top-tool-btn" id="top-distribute-h" title="Distribute Horizontally">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="2" y2="14"/><line x1="14" y1="2" x2="14" y2="14"/><rect x="4" y="5" width="2.5" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9.5" y="5" width="2.5" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
+        </button>
+        <button type="button" class="top-tool-btn" id="top-distribute-v" title="Distribute Vertically">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="14" y2="2"/><line x1="2" y1="14" x2="14" y2="14"/><rect x="5" y="4" width="6" height="2.5" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="5" y="9.5" width="6" height="2.5" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
         </button>
       </div>
     </div>
@@ -3454,6 +3614,50 @@
         return { path, node };
       }
 
+      function ensureNodeDefaultHandles(path, node, idx) {
+        if (!node) return;
+        const nodes = path ? path.nodes : null;
+        let dx = 25, dy = 0;
+        if (nodes && nodes.length > 1) {
+          const i = (idx !== undefined && idx >= 0) ? idx : nodes.indexOf(node);
+          if (i !== -1) {
+            const isClosed = path.closed;
+            const prev = (i > 0) ? nodes[i - 1] : (isClosed ? nodes[nodes.length - 1] : null);
+            const next = (i < nodes.length - 1) ? nodes[i + 1] : (isClosed ? nodes[0] : null);
+            if (prev && next) {
+              const vx = next.x - prev.x;
+              const vy = next.y - prev.y;
+              const len = Math.hypot(vx, vy);
+              if (len > 1e-3) {
+                const hlen = Math.max(10, Math.min(len * 0.25, 60));
+                dx = (vx / len) * hlen;
+                dy = (vy / len) * hlen;
+              }
+            } else if (prev) {
+              const vx = node.x - prev.x;
+              const vy = node.y - prev.y;
+              const len = Math.hypot(vx, vy);
+              if (len > 1e-3) {
+                const hlen = Math.max(10, Math.min(len * 0.3, 60));
+                dx = (vx / len) * hlen;
+                dy = (vy / len) * hlen;
+              }
+            } else if (next) {
+              const vx = next.x - node.x;
+              const vy = next.y - node.y;
+              const len = Math.hypot(vx, vy);
+              if (len > 1e-3) {
+                const hlen = Math.max(10, Math.min(len * 0.3, 60));
+                dx = (vx / len) * hlen;
+                dy = (vy / len) * hlen;
+              }
+            }
+          }
+        }
+        node.cpOut = { x: dx, y: dy };
+        node.cpIn = { x: -dx, y: -dy };
+      }
+
       function drawOverlay() {
         const dpr = window.devicePixelRatio || 1;
         const vw = viewportContainer.clientWidth || 800;
@@ -5004,35 +5208,49 @@
 
           const paths = getSelectedPaths();
           for (const obj of paths) {
+            // First check existing control handles
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
-              // Check anchor
-              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 8 / zoom) {
-                activeNodeIdx = i;
-                activeHandleType = 'anchor';
-                break;
-              }
-              // Check cpIn
               const cpIn = node.getAbsCpIn();
-              if (Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= 8 / zoom) {
                 activeNodeIdx = i;
                 activeHandleType = 'in';
                 break;
               }
-              // Check cpOut
               const cpOut = node.getAbsCpOut();
-              if (Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= 8 / zoom) {
                 activeNodeIdx = i;
                 activeHandleType = 'out';
                 break;
               }
             }
-            if (activeNodeIdx !== -1) {
+            if (activeHandleType) {
               isDragging = true;
               dragStartX = pt.x;
               dragStartY = pt.y;
               break;
             }
+
+            // Then check anchor point
+            for (let i = 0; i < obj.nodes.length; i++) {
+              const node = obj.nodes[i];
+              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 8 / zoom) {
+                activeNodeIdx = i;
+                if (e.altKey) {
+                  activeHandleType = 'out';
+                  node.type = e.shiftKey ? 'cusp' : 'smooth';
+                  node.cpOut = { x: 0, y: 0 };
+                  node.cpIn = { x: 0, y: 0 };
+                } else {
+                  activeHandleType = 'anchor';
+                }
+                isDragging = true;
+                dragStartX = pt.x;
+                dragStartY = pt.y;
+                break;
+              }
+            }
+            if (activeNodeIdx !== -1) break;
           }
           render();
           updateInspector();
@@ -5555,19 +5773,27 @@
             }
           }
         } else if (activeTool === 'node' && activeNodeIdx !== -1) {
-          const { node } = getActivePathAndNode();
+          const { path, node } = getActivePathAndNode();
           if (node) {
-            const forceIndep = e.altKey;
+            const forceIndep = e.altKey || node.type === 'cusp';
             if (activeHandleType === 'anchor') {
-              node.x = pt.x;
-              node.y = pt.y;
+              if (e.altKey && Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
+                activeHandleType = 'out';
+                node.type = e.shiftKey ? 'cusp' : 'smooth';
+                node.setAbsCpOut(pt.x, pt.y, forceIndep);
+              } else {
+                node.x = pt.x;
+                node.y = pt.y;
+              }
             } else if (activeHandleType === 'in') {
               node.setAbsCpIn(pt.x, pt.y, forceIndep);
             } else if (activeHandleType === 'out') {
               node.setAbsCpOut(pt.x, pt.y, forceIndep);
             }
+            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
             render();
             updateInspector();
+            drawOverlay();
           }
         } else if (activeTool === 'pen' && isPenDraggingAnchor && currentPenPath && activeNodeIdx !== -1) {
           const node = currentPenPath.nodes[activeNodeIdx];
@@ -5709,15 +5935,41 @@
       });
 
       overlayCanvas.addEventListener('dblclick', (e) => {
-        if (activeTool !== 'select') return;
-        const pt = getDocCoords(e);
-        const deepHit = doc.hitTestDeep(pt.x, pt.y);
-        if (deepHit) {
-          doc.select(deepHit.id, false);
-          render();
-          updateInspector();
-          updateObjectList();
-          drawOverlay();
+        if (activeTool === 'select') {
+          const pt = getDocCoords(e);
+          const deepHit = doc.hitTestDeep(pt.x, pt.y);
+          if (deepHit) {
+            doc.select(deepHit.id, false);
+            render();
+            updateInspector();
+            updateObjectList();
+            drawOverlay();
+          }
+        } else if (activeTool === 'node') {
+          const pt = getDocCoords(e);
+          const paths = getSelectedPaths();
+          for (const path of paths) {
+            for (let i = 0; i < path.nodes.length; i++) {
+              const node = path.nodes[i];
+              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 10 / zoom) {
+                activeNodeIdx = i;
+                const hasHandles = Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 || Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5;
+                if (hasHandles) {
+                  node.type = 'corner';
+                  node.cpIn = { x: 0, y: 0 };
+                  node.cpOut = { x: 0, y: 0 };
+                } else {
+                  node.type = 'smooth';
+                  ensureNodeDefaultHandles(path, node, i);
+                }
+                if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+                render();
+                updateInspector();
+                drawOverlay();
+                return;
+              }
+            }
+          }
         }
       });
 
@@ -6430,8 +6682,16 @@
         const { path, node } = getActivePathAndNode();
         if (node) {
           node.type = e.target.value;
+          if (node.type !== 'corner' && Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
+            ensureNodeDefaultHandles(path, node, activeNodeIdx);
+          } else if (node.type === 'corner') {
+            node.cpIn = { x: 0, y: 0 };
+            node.cpOut = { x: 0, y: 0 };
+          }
           if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
+          updateInspector();
+          drawOverlay();
         }
       });
 
@@ -6831,12 +7091,12 @@
 
       // ── Alignment & Distribution Bindings ──
       const alignActions = [
-        { ids: ['btn-align-left', 'quick-align-left'], action: 'left' },
-        { ids: ['btn-align-center', 'quick-align-center'], action: 'center-h' },
-        { ids: ['btn-align-right', 'quick-align-right'], action: 'right' },
-        { ids: ['btn-align-top', 'quick-align-top'], action: 'top' },
-        { ids: ['btn-align-middle', 'quick-align-middle'], action: 'center-v' },
-        { ids: ['btn-align-bottom', 'quick-align-bottom'], action: 'bottom' }
+        { ids: ['btn-align-left', 'quick-align-left', 'top-align-left'], action: 'left' },
+        { ids: ['btn-align-center', 'quick-align-center', 'top-align-center'], action: 'center-h' },
+        { ids: ['btn-align-right', 'quick-align-right', 'top-align-right'], action: 'right' },
+        { ids: ['btn-align-top', 'quick-align-top', 'top-align-top'], action: 'top' },
+        { ids: ['btn-align-middle', 'quick-align-middle', 'top-align-middle'], action: 'center-v' },
+        { ids: ['btn-align-bottom', 'quick-align-bottom', 'top-align-bottom'], action: 'bottom' }
       ];
       alignActions.forEach(({ ids, action }) => {
         ids.forEach(id => {
@@ -6850,8 +7110,8 @@
       });
 
       const distActions = [
-        { ids: ['btn-distribute-h', 'quick-distribute-h'], axis: 'horizontal' },
-        { ids: ['btn-distribute-v', 'quick-distribute-v'], axis: 'vertical' }
+        { ids: ['btn-distribute-h', 'quick-distribute-h', 'top-distribute-h'], axis: 'horizontal' },
+        { ids: ['btn-distribute-v', 'quick-distribute-v', 'top-distribute-v'], axis: 'vertical' }
       ];
       distActions.forEach(({ ids, axis }) => {
         ids.forEach(id => {
@@ -7326,66 +7586,90 @@
           render();
         }
       }
-      const btnConvertPath = document.getElementById('btn-convert-path');
-      if (btnConvertPath) btnConvertPath.addEventListener('click', handleConvertToPath);
-
-      const btnNodeConvertPath = document.getElementById('btn-node-convert-path');
-      if (btnNodeConvertPath) btnNodeConvertPath.addEventListener('click', handleConvertToPath);
-
-      const btnQuickConvertPath = document.getElementById('btn-quick-convert-path');
-      if (btnQuickConvertPath) btnQuickConvertPath.addEventListener('click', handleConvertToPath);
+      ['btn-convert-path', 'btn-node-convert-path', 'btn-quick-convert-path', 'top-node-convert-path'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', handleConvertToPath);
+      });
 
       // Bézier Node Actions
-      document.getElementById('btn-node-smooth')?.addEventListener('click', () => {
-        const { path, node } = getActivePathAndNode();
-        if (node) {
-          node.type = 'smooth';
-          node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
-          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-          render();
-        }
+      ['btn-node-smooth', 'top-node-smooth'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          const { path, node } = getActivePathAndNode();
+          if (node) {
+            node.type = 'smooth';
+            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
+              ensureNodeDefaultHandles(path, node, activeNodeIdx);
+            } else {
+              node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+            }
+            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+            render();
+            updateInspector();
+            drawOverlay();
+          }
+        });
       });
-      document.getElementById('btn-node-symmetric')?.addEventListener('click', () => {
-        const { path, node } = getActivePathAndNode();
-        if (node) {
-          node.type = 'symmetric';
-          node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
-          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-          render();
-        }
+      ['btn-node-symmetric', 'top-node-symmetric'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          const { path, node } = getActivePathAndNode();
+          if (node) {
+            node.type = 'symmetric';
+            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
+              ensureNodeDefaultHandles(path, node, activeNodeIdx);
+            } else {
+              node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+            }
+            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+            render();
+            updateInspector();
+            drawOverlay();
+          }
+        });
       });
-      document.getElementById('btn-node-cusp')?.addEventListener('click', () => {
-        const { path, node } = getActivePathAndNode();
-        if (node) {
-          node.type = 'cusp';
-          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-          render();
-        }
+      ['btn-node-cusp', 'top-node-cusp'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          const { path, node } = getActivePathAndNode();
+          if (node) {
+            node.type = 'cusp';
+            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
+              ensureNodeDefaultHandles(path, node, activeNodeIdx);
+            }
+            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+            render();
+            updateInspector();
+            drawOverlay();
+          }
+        });
       });
-      document.getElementById('btn-node-sharp')?.addEventListener('click', () => {
-        const { path, node } = getActivePathAndNode();
-        if (node) {
-          node.type = 'corner';
-          node.cpIn = { x: 0, y: 0 };
-          node.cpOut = { x: 0, y: 0 };
-          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-          render();
-        }
+      ['btn-node-sharp', 'top-node-sharp'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          const { path, node } = getActivePathAndNode();
+          if (node) {
+            node.type = 'corner';
+            node.cpIn = { x: 0, y: 0 };
+            node.cpOut = { x: 0, y: 0 };
+            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+            render();
+            updateInspector();
+            drawOverlay();
+          }
+        });
       });
-      document.getElementById('btn-path-close')?.addEventListener('click', () => {
-        const { path } = getActivePathAndNode();
-        if (path) {
-          path.closed = !path.closed;
-          if (typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-          render();
-        }
+      ['btn-path-close', 'top-path-close'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          const { path } = getActivePathAndNode();
+          if (path) {
+            path.closed = !path.closed;
+            if (typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+            render();
+          }
+        });
       });
       // Pathfinder & Boolean Operations (Top quick bar & Inspector)
       const pathOps = [
-        { ids: ['btn-path-union', 'quick-path-union'], op: 'union' },
-        { ids: ['btn-path-subtract', 'quick-path-subtract'], op: 'subtract' },
-        { ids: ['btn-path-intersect', 'quick-path-intersect'], op: 'intersect' },
-        { ids: ['btn-path-exclude', 'quick-path-exclude'], op: 'exclude' }
+        { ids: ['btn-path-union', 'quick-path-union', 'top-path-union'], op: 'union' },
+        { ids: ['btn-path-subtract', 'quick-path-subtract', 'top-path-subtract'], op: 'subtract' },
+        { ids: ['btn-path-intersect', 'quick-path-intersect', 'top-path-intersect'], op: 'intersect' },
+        { ids: ['btn-path-exclude', 'quick-path-exclude', 'top-path-exclude'], op: 'exclude' }
       ];
       pathOps.forEach(({ ids, op }) => {
         ids.forEach(id => {
@@ -7443,9 +7727,9 @@
         updateInspector();
         render();
       };
-      document.getElementById('btn-text-outlines')?.addEventListener('click', handleCreateOutlines);
-      document.getElementById('btn-create-outlines')?.addEventListener('click', handleCreateOutlines);
-      document.getElementById('btn-quick-create-outlines')?.addEventListener('click', handleCreateOutlines);
+      ['btn-text-outlines', 'btn-create-outlines', 'btn-quick-create-outlines', 'top-create-outlines'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', handleCreateOutlines);
+      });
 
       // ── Advanced Multi-Stop Gradient Fill Engine ──
       let activeGradientStopIdx = 0;
@@ -7992,20 +8276,33 @@
         if (propSimpVal) propSimpVal.textContent = parseFloat(propSimpTol.value).toFixed(1);
       });
 
-      document.getElementById('btn-simplify-path')?.addEventListener('click', () => {
-        const tol = parseFloat(propSimpTol?.value || '2.0');
-        const fitCurves = !!document.getElementById('prop-simplify-bezier')?.checked;
-        const selected = doc.getSelectedObjects().filter(o => o.type === 'path' || o.type === 'compoundPath');
-        if (selected.length === 0) return;
+      ['btn-simplify-path', 'top-simplify-path'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => {
+          const tol = parseFloat(propSimpTol?.value || '2.0');
+          const fitCurves = !!document.getElementById('prop-simplify-bezier')?.checked;
+          const selected = doc.getSelectedObjects().filter(o => o.type === 'path' || o.type === 'compoundPath');
+          if (selected.length === 0) return;
 
-        for (const obj of selected) {
-          obj.simplify(tol, fitCurves);
-        }
-        doc.pushHistory('Simplify Path');
-        updateInspector();
-        updateObjectList();
-        render();
+          for (const obj of selected) {
+            obj.simplify(tol, fitCurves);
+          }
+          doc.pushHistory('Simplify Path');
+          updateInspector();
+          updateObjectList();
+          render();
+        });
       });
+
+      // Top Control Bar Horizontal Wheel Scrolling
+      const topControlBar = document.getElementById('top-control-bar');
+      if (topControlBar) {
+        topControlBar.addEventListener('wheel', (e) => {
+          if (e.deltaY !== 0 && topControlBar.scrollWidth > topControlBar.clientWidth) {
+            e.preventDefault();
+            topControlBar.scrollLeft += e.deltaY;
+          }
+        }, { passive: false });
+      }
 
       // Trace Image to Vector Modal Controls
       const modalTrace = document.getElementById('modal-trace');
