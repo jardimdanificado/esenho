@@ -13,6 +13,9 @@
 
 #define W_EXPORT __attribute__((visibility("default")))
 
+/** Exact bitwise division by 255 for all v in [0, 65025] */
+#define DIV255(v) (((uint32_t)(v) + 1 + (((uint32_t)(v) + 1) >> 8)) >> 8)
+
 /* =========================================================================
  * Tool & Brush Enums
  * ========================================================================= */
@@ -354,13 +357,13 @@ static inline uint32_t w_apply_dab_blend(int mode, uint32_t src, uint32_t dst) {
 static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, uint32_t max_alpha) {
     if (alpha == 0) return dst;
     uint32_t sa = (src >> 24) & 0xFF;
-    uint32_t eff_sa = (sa * alpha) / 255;
+    uint32_t eff_sa = (alpha == 255) ? sa : DIV255(sa * alpha);
     if (eff_sa == 0) return dst;
 
     uint32_t da = (dst >> 24) & 0xFF;
     uint32_t inv_sa = 255 - eff_sa;
 
-    uint32_t out_a = eff_sa + (da * inv_sa) / 255;
+    uint32_t out_a = eff_sa + DIV255(da * inv_sa);
     if (max_alpha > 0 && out_a > max_alpha) {
         out_a = max_alpha;
     }
@@ -374,7 +377,7 @@ static inline uint32_t w_blend_fast(uint32_t src, uint32_t dst, uint32_t alpha, 
     }
 
     uint32_t dr = dst & 0xFF, dg = (dst >> 8) & 0xFF, db = (dst >> 16) & 0xFF;
-    uint32_t dst_factor = (da * inv_sa) / 255;
+    uint32_t dst_factor = DIV255(da * inv_sa);
     uint32_t norm_a = eff_sa + dst_factor;
     if (norm_a == 0) norm_a = 1;
 

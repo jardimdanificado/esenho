@@ -18,6 +18,8 @@ const PRECACHE_ASSETS = [
   './src/script/domains/audio_domain.js',
   './src/script/domains/ui_domain.js',
   './src/anim/animator_engine.js',
+  './src/anim/dopesheet.js',
+  './src/anim/dopesheet_ui.js',
   './src/project_store.js',
   './src/gpu/shaders.js',
   './src/gpu/gpu_renderer.js',

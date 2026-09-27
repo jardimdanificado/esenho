@@ -284,7 +284,8 @@ static void init_builtin_shapes(void) {
  * ========================================================================= */
 
 static inline uint32_t blend_pixel_mode(uint32_t dst, uint32_t src, uint8_t alpha_mod, uint8_t blend_mode) {
-    uint32_t sa = ((src >> 24) & 0xFF) * alpha_mod / 255;
+    uint32_t raw_sa = (src >> 24) & 0xFF;
+    uint32_t sa = (alpha_mod == 255) ? raw_sa : DIV255(raw_sa * alpha_mod);
     if (sa == 0) return dst;
     if (blend_mode == 0 && sa == 255) return src;
 
@@ -299,10 +300,10 @@ static inline uint32_t blend_pixel_mode(uint32_t dst, uint32_t src, uint8_t alph
     uint32_t da = (dst >> 24) & 0xFF;
 
     uint32_t inv_sa = 255 - sa;
-    uint32_t out_r = (sr * sa + dr * inv_sa) / 255;
-    uint32_t out_g = (sg * sa + dg * inv_sa) / 255;
-    uint32_t out_b = (sb * sa + db * inv_sa) / 255;
-    uint32_t out_a = sa + (da * inv_sa) / 255;
+    uint32_t out_r = DIV255(sr * sa + dr * inv_sa);
+    uint32_t out_g = DIV255(sg * sa + dg * inv_sa);
+    uint32_t out_b = DIV255(sb * sa + db * inv_sa);
+    uint32_t out_a = sa + DIV255(da * inv_sa);
 
     return (out_a << 24) | (out_b << 16) | (out_g << 8) | out_r;
 }
@@ -513,7 +514,7 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
                     uint32_t bpix = base_pix[by * base_w + bx];
                     uint32_t ba = (bpix >> 24) & 0xFF;
                     if (ba == 0) continue;
-                    eff_op = (uint8_t)((op * ba) / 255);
+                    eff_op = (uint8_t)DIV255(op * ba);
                     if (eff_op == 0) continue;
                 }
 
@@ -972,7 +973,7 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                     if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
                 }
 
-                uint32_t a = (dab_flow_a * max_stroke_a) / 255;
+                uint32_t a = DIV255(dab_flow_a * max_stroke_a);
                 if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
                     a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
                 }
@@ -992,10 +993,10 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                                 stroke_mask[idx] = 0;
                             }
                             uint32_t cur_m = stroke_mask[idx];
-                            uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                            uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
                             if (new_m > 255) new_m = 255;
                             stroke_mask[idx] = (uint8_t)new_m;
-                            uint32_t eff_erase_a = (new_m * max_stroke_a) / 255;
+                            uint32_t eff_erase_a = DIV255(new_m * max_stroke_a);
                             uint32_t init_da = (stroke_orig[idx] >> 24) & 0xFF;
                             uint32_t na = (eff_erase_a >= init_da) ? 0 : (init_da - eff_erase_a);
                             pixels[idx] = (na == 0) ? 0 : ((na << 24) | (stroke_orig[idx] & 0x00FFFFFF));
@@ -1013,10 +1014,10 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
                             stroke_mask[idx] = 0;
                         }
                         uint32_t cur_m = stroke_mask[idx];
-                        uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                        uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
                         if (new_m > 255) new_m = 255;
                         stroke_mask[idx] = (uint8_t)new_m;
-                        uint32_t eff_a = (new_m * max_stroke_a) / 255;
+                        uint32_t eff_a = DIV255(new_m * max_stroke_a);
                         uint32_t res = w_blend_fast(fill_color, stroke_orig[idx], eff_a, 255);
                         pixels[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                     } else {
@@ -1169,7 +1170,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (dsx >= 0 && dsx < dtex->width && dsy >= 0 && dsy < dtex->height) {
                     dual_a = (dtex->pixels[dsy * dtex->width + dsx] >> 24) & 0xFF;
                 }
-                shape_a = (shape_a * dual_a) / 255;
+                shape_a = DIV255(shape_a * dual_a);
                 if (shape_a == 0) continue;
             }
 
@@ -1180,7 +1181,7 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                     int coverage = r_256 - dist_256;
                     if (coverage < 0) coverage = 0;
                     if (coverage > 255) coverage = 255;
-                    shape_a = (shape_a * (uint32_t)coverage) / 255;
+                    shape_a = DIV255(shape_a * (uint32_t)coverage);
                     if (shape_a == 0) continue;
                 }
             }
@@ -1191,13 +1192,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             }
 
             // Hardness / Softness falloff & Flow alpha calculation via LUT
-            uint32_t a = (dab_flow_a * shape_a) / 255;
+            uint32_t a = DIV255(dab_flow_a * shape_a);
             if (brush_config.hardness < 100 && r > 0 && !is_builtin_square) {
                 if (dist_sq > inner_r_sq) {
                     int lut_idx = (dist_sq * 1023) / (r_sq > 0 ? r_sq : 1);
                     if (lut_idx > 1023) lut_idx = 1023;
                     uint32_t hard_factor = g_hardness_lut[lut_idx];
-                    a = (a * hard_factor) / 255;
+                    a = DIV255(a * hard_factor);
                 }
             }
 
@@ -1220,15 +1221,15 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                             stroke_mask[idx] = 0;
                         }
                         uint32_t cur_m = stroke_mask[idx];
-                        uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                        uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
                         if (new_m > 255) new_m = 255;
                         stroke_mask[idx] = (uint8_t)new_m;
-                        uint32_t eff_erase_a = (new_m * max_stroke_a) / 255;
+                        uint32_t eff_erase_a = DIV255(new_m * max_stroke_a);
                         uint32_t init_da = (stroke_orig[idx] >> 24) & 0xFF;
                         uint32_t na = (eff_erase_a >= init_da) ? 0 : (init_da - eff_erase_a);
                         pix[idx] = (na == 0) ? 0 : ((na << 24) | (stroke_orig[idx] & 0x00FFFFFF));
                     } else {
-                        uint32_t eff_erase_a = (a * max_stroke_a) / 255;
+                        uint32_t eff_erase_a = DIV255(a * max_stroke_a);
                         uint32_t da = orig_a;
                         uint32_t na = (eff_erase_a >= da) ? 0 : (da - eff_erase_a);
                         pix[idx] = (na == 0) ? 0 : ((na << 24) | (dst_p & 0x00FFFFFF));
@@ -1246,8 +1247,8 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (src_a == 0 && orig_a == 0) continue;
 
                 int strength = (brush_config.smudge_strength > 0) ? brush_config.smudge_strength : 70;
-                uint32_t eff_a = (a * max_stroke_a) / 255;
-                int eff_t = (strength * eff_a) / 255;
+                uint32_t eff_a = DIV255(a * max_stroke_a);
+                int eff_t = DIV255(strength * eff_a);
                 if (eff_t <= 0) continue;
                 if (eff_t > 100) eff_t = 100;
 
@@ -1333,14 +1334,14 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                         stroke_mask[idx] = 0;
                     }
                     uint32_t cur_m = stroke_mask[idx];
-                    uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                    uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
                     if (new_m > 255) new_m = 255;
                     stroke_mask[idx] = (uint8_t)new_m;
-                    uint32_t eff_stroke_a = (new_m * max_stroke_a) / 255;
+                    uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);
                     uint32_t res = w_blend_fast(target_c, stroke_orig[idx], eff_stroke_a, 255);
                     pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                 } else {
-                    uint32_t eff_dab_a = (a * max_stroke_a) / 255;
+                    uint32_t eff_dab_a = DIV255(a * max_stroke_a);
                     uint32_t res = w_blend_fast(target_c, dst_p, eff_dab_a, 255);
                     pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                 }
@@ -1368,14 +1369,14 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                         stroke_mask[idx] = 0;
                     }
                     uint32_t cur_m = stroke_mask[idx];
-                    uint32_t new_m = cur_m + (a * (255 - cur_m)) / 255;
+                    uint32_t new_m = cur_m + DIV255(a * (255 - cur_m));
                     if (new_m > 255) new_m = 255;
                     stroke_mask[idx] = (uint8_t)new_m;
-                    uint32_t eff_stroke_a = (new_m * max_stroke_a) / 255;
+                    uint32_t eff_stroke_a = DIV255(new_m * max_stroke_a);
                     uint32_t res = w_blend_fast(target_color, stroke_orig[idx], eff_stroke_a, 255);
                     pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                 } else {
-                    uint32_t eff_dab_a = (a * max_stroke_a) / 255;
+                    uint32_t eff_dab_a = DIV255(a * max_stroke_a);
                     uint32_t res = w_blend_fast(target_color, dst_p, eff_dab_a, 255);
                     pix[idx] = is_alpha_locked ? ((res & 0x00FFFFFF) | (orig_a << 24)) : res;
                 }
@@ -3592,7 +3593,7 @@ W_EXPORT int32_t w_generate_brush_tip(int32_t shape_type, int32_t width, int32_t
                     int dist_sq = dx * dx + dy * dy;
                     if (dist_sq <= max_r * max_r) {
                         int noise = ((x * 179 + y * 283) ^ (x * y * 7)) & 0xFF;
-                        if (noise > 70) a = (noise * 255) / 255;
+                        if (noise > 70) a = noise;
                     }
                     break;
                 }

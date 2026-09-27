@@ -1,5 +1,5 @@
 CLANG ?= clang
-CFLAGS = --target=wasm32 -nostdlib -fno-builtin -fno-delete-null-pointer-checks -O3 -msimd128 -flto -w -Iinclude
+CFLAGS = --target=wasm32 -nostdlib -fno-builtin -fno-delete-null-pointer-checks -O3 -msimd128 -mbulk-memory -mnontrapping-fptoint -msign-ext -flto -w -Iinclude
 LDFLAGS = -Wl,--no-entry -Wl,--export-all -Wl,--allow-undefined -Wl,--stack-first -Wl,-z,stack-size=65536 -Wl,--initial-memory=67108864 -Wl,--max-memory=2147483648 -Wl,--lto-O3
 
 CORE_WASM = plugins/canvas.wasm

@@ -1419,7 +1419,8 @@
       </div>
     </div>
 
-    <!-- Sidebar Toggle (Desktop & Mobile) -->
+    <!-- Timeline / DopeSheet & Sidebar Toggles -->
+    <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (T)">🎬 Timeline</button>
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
 
@@ -1945,6 +1946,9 @@
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
       </div>
       <canvas id="overlay-canvas"></canvas>
+
+      <!-- DopeSheet / Animation Timeline Dock -->
+      <div id="dopesheet-dock" style="display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 230px; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.5);"></div>
 
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
@@ -5644,7 +5648,12 @@
         } else if (key === 'l') {
           setShapeTool('line');
         } else if (key === 't') {
-          document.getElementById('tool-text')?.click();
+          if (e.shiftKey) {
+            e.preventDefault();
+            toggleTimelineDock();
+          } else {
+            document.getElementById('tool-text')?.click();
+          }
         } else if (key === '0') {
           zoomToFit();
         } else if (key === 's') {
@@ -7604,6 +7613,95 @@
         sidebarEl?.classList.remove('mobile-open');
         backdropEl?.classList.remove('active');
       });
+
+      // ── DopeSheet & Universal Animation Timeline ──
+      let dopeSheet = null;
+      let dopeSheetUI = null;
+
+      async function initStudioDopeSheet() {
+        if (dopeSheet) return dopeSheet;
+        try {
+          const { DopeSheet } = await import('./src/anim/dopesheet.js');
+          const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
+          const dock = document.getElementById('dopesheet-dock');
+          if (!dock) return null;
+
+          dopeSheet = new DopeSheet(60, 24);
+          window.dopeSheet = dopeSheet;
+
+          function syncObjectsToDopeSheet() {
+            if (!doc || !dopeSheet) return;
+            for (const obj of doc.objects) {
+              const dObj = dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, 'vector');
+              if (dObj.channels.size === 0) {
+                if (obj.x !== undefined) dObj.getOrCreateChannel('x', obj.x);
+                if (obj.y !== undefined) dObj.getOrCreateChannel('y', obj.y);
+                if (obj.cx !== undefined) dObj.getOrCreateChannel('x', obj.cx);
+                if (obj.cy !== undefined) dObj.getOrCreateChannel('y', obj.cy);
+                if (obj.rotation !== undefined) dObj.getOrCreateChannel('rotation', obj.rotation);
+                if (obj.scaleX !== undefined) dObj.getOrCreateChannel('scaleX', obj.scaleX);
+                if (obj.scaleY !== undefined) dObj.getOrCreateChannel('scaleY', obj.scaleY);
+                if (obj.opacity !== undefined) dObj.getOrCreateChannel('opacity', obj.opacity);
+                if (obj.fill && obj.fill !== 'none') dObj.getOrCreateChannel('fillColor', obj.fill);
+                if (obj.stroke && obj.stroke !== 'none') dObj.getOrCreateChannel('strokeColor', obj.stroke);
+                if (obj.strokeWidth !== undefined) dObj.getOrCreateChannel('strokeWidth', obj.strokeWidth);
+              }
+            }
+          }
+          syncObjectsToDopeSheet();
+
+          dopeSheetUI = new DopeSheetUI(dock, dopeSheet, (frame, samples) => {
+            for (const [objId, state] of Object.entries(samples)) {
+              const obj = doc.findObject ? doc.findObject(objId) : (doc.objects ? doc.objects.find(o => o.id === objId) : null);
+              if (obj) {
+                if (state.x !== undefined) {
+                  if (obj.cx !== undefined) obj.cx = state.x;
+                  else if (obj.x !== undefined) obj.x = state.x;
+                }
+                if (state.y !== undefined) {
+                  if (obj.cy !== undefined) obj.cy = state.y;
+                  else if (obj.y !== undefined) obj.y = state.y;
+                }
+                if (state.rotation !== undefined) obj.rotation = state.rotation;
+                if (state.scaleX !== undefined) obj.scaleX = state.scaleX;
+                if (state.scaleY !== undefined) obj.scaleY = state.scaleY;
+                if (state.opacity !== undefined) obj.opacity = state.opacity;
+                if (state.fillColor !== undefined) obj.fill = state.fillColor;
+                if (state.strokeColor !== undefined) obj.stroke = state.strokeColor;
+                if (state.strokeWidth !== undefined) obj.strokeWidth = state.strokeWidth;
+              }
+            }
+            render();
+            drawOverlay();
+            updateInspector();
+          });
+          window.dopeSheetUI = dopeSheetUI;
+          return dopeSheet;
+        } catch (err) {
+          console.error('Failed to initialize DopeSheet:', err);
+          return null;
+        }
+      }
+
+      const btnToggleTimeline = document.getElementById('btn-toggle-timeline');
+      const dopesheetDock = document.getElementById('dopesheet-dock');
+
+      async function toggleTimelineDock() {
+        if (!dopeSheet) await initStudioDopeSheet();
+        if (dopesheetDock) {
+          const isHidden = dopesheetDock.style.display === 'none';
+          dopesheetDock.style.display = isHidden ? 'block' : 'none';
+          if (btnToggleTimeline) {
+            btnToggleTimeline.style.background = isHidden ? '#d79921' : '';
+            btnToggleTimeline.style.color = isHidden ? '#1d2021' : '';
+          }
+          if (isHidden && dopeSheetUI) {
+            dopeSheetUI.updateGrid();
+          }
+        }
+      }
+
+      btnToggleTimeline?.addEventListener('click', toggleTimelineDock);
 
       // Mobile Touch Pinch-to-Zoom, Two-Finger Pan, Rotation & Tap Gestures (2-finger Undo, 3-finger Redo)
       let touchStartDist = 0;
