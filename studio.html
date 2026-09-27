@@ -1478,8 +1478,7 @@
       </div>
     </div>
 
-    <!-- Timeline / DopeSheet & Sidebar Toggles -->
-    <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (T)">🎬 Timeline</button>
+    <!-- Sidebar Toggle -->
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
 
@@ -2041,9 +2040,6 @@
       </div>
       <canvas id="overlay-canvas"></canvas>
 
-      <!-- DopeSheet / Animation Timeline Dock -->
-      <div id="dopesheet-dock" style="display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 230px; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.5);"></div>
-
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
     </div>
@@ -2090,64 +2086,10 @@
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
       </div>
 
-      <!-- Tab 1: Object Tree / Hierarchy -->
+      <!-- Tab 1: Object Tree / Hierarchy & Animation -->
       <div class="tab-content active" id="tab-objects">
-        <!-- Scene Animation & Playback Bar -->
-        <div class="section-card" id="card-scene-anim" style="margin-bottom: 8px;">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="display: flex; align-items: center; gap: 4px; font-weight: bold; color: var(--primary);">
-              <span>🎬 Animation &amp; Playback</span>
-            </span>
-            <div style="display: flex; gap: 3px;">
-              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Frame" style="font-size: 9px; padding: 2px 4px;">⏮</button>
-              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-              <button id="scene-anim-btn-next" class="btn-icon" title="Next Frame" style="font-size: 9px; padding: 2px 4px;">⏭</button>
-              <button id="scene-anim-btn-loop" class="btn-icon" title="Toggle Loop" style="font-size: 9px; padding: 2px 4px; color: var(--accent);">🔁</button>
-            </div>
-          </div>
-
-          <!-- Scrubbing & Frame Control -->
-          <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
-              <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <span>Frame:</span>
-                <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-                <span>/</span>
-                <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-              </div>
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <span>FPS:</span>
-                <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 4px; margin-top: 2px;">
-              <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
-              <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Selected Object Animation Events Card -->
-        <div class="section-card" id="card-selected-events" style="margin-bottom: 8px;">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
-            <span id="selected-events-badge" style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">No selection</span>
-          </div>
-          <div id="selected-events-container" style="margin-top: 4px;">
-            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
-              Select an object to inspect or record keyframe states
-            </div>
-          </div>
-        </div>
-
         <!-- Objects Hierarchy Tree -->
-        <div class="section-card">
+        <div class="section-card" style="margin-bottom: 8px;">
           <div class="section-header">
             <span>Objects &amp; Layers</span>
           </div>
@@ -2191,6 +2133,60 @@
             <div class="grid-2">
               <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
               <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">Detach Text</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scene Animation Bar -->
+        <div class="section-card" id="card-scene-anim" style="margin-bottom: 8px;">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; color: var(--primary);">
+              <span>Animation</span>
+            </span>
+            <div style="display: flex; gap: 3px;">
+              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Frame" style="font-size: 9px; padding: 2px 4px;">⏮</button>
+              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
+              <button id="scene-anim-btn-next" class="btn-icon" title="Next Frame" style="font-size: 9px; padding: 2px 4px;">⏭</button>
+              <button id="scene-anim-btn-loop" class="btn-icon" title="Toggle Loop" style="font-size: 9px; padding: 2px 4px; color: var(--accent);">🔁</button>
+            </div>
+          </div>
+
+          <!-- Scrubbing & Frame Control -->
+          <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
+              <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span>Frame:</span>
+                <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+                <span>/</span>
+                <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span>FPS:</span>
+                <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 4px; margin-top: 2px;">
+              <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
+              <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected Object Animation Events Card -->
+        <div class="section-card" id="card-selected-events">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
+            <span id="selected-events-badge" style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">No selection</span>
+          </div>
+          <div id="selected-events-container" style="margin-top: 4px;">
+            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
+              Select an object to inspect or record keyframe states
             </div>
           </div>
         </div>
@@ -3229,6 +3225,16 @@
 
       function commitPenPath() {
         if (currentPenPath) {
+          if (currentPenPath.closed && currentPenPath.nodes.length > 2) {
+            const first = currentPenPath.nodes[0];
+            const last = currentPenPath.nodes[currentPenPath.nodes.length - 1];
+            if (Math.hypot(last.x - first.x, last.y - first.y) < 1.0) {
+              if (last.cpIn && (last.cpIn.x !== 0 || last.cpIn.y !== 0)) {
+                first.cpIn = { x: last.cpIn.x, y: last.cpIn.y };
+              }
+              currentPenPath.removeNode(currentPenPath.nodes.length - 1);
+            }
+          }
           if (currentPenPath.nodes.length < 2) {
             doc.removeObject(currentPenPath.id);
           } else {
@@ -3436,12 +3442,6 @@
         for (const obj of selected) {
           if (obj.type === 'path') paths.push(obj);
           else if (obj.type === 'compoundPath' && obj.subPaths) paths.push(...obj.subPaths);
-          else if (obj.type === 'group' && obj.children) {
-            for (const ch of obj.children) {
-              if (ch.type === 'path') paths.push(ch);
-              else if (ch.type === 'compoundPath' && ch.subPaths) paths.push(...ch.subPaths);
-            }
-          }
         }
         return paths;
       }
@@ -5041,6 +5041,13 @@
             const first = currentPenPath.nodes[0];
             if (Math.hypot(pt.x - first.x, pt.y - first.y) <= 12 / zoom) {
               currentPenPath.closed = true;
+              const last = currentPenPath.nodes[currentPenPath.nodes.length - 1];
+              if (currentPenPath.nodes.length > 2 && Math.hypot(last.x - first.x, last.y - first.y) < 1.0) {
+                if (last.cpIn && (last.cpIn.x !== 0 || last.cpIn.y !== 0)) {
+                  first.cpIn = { x: last.cpIn.x, y: last.cpIn.y };
+                }
+                currentPenPath.removeNode(currentPenPath.nodes.length - 1);
+              }
               activeNodeIdx = 0;
               activeHandleType = 'out';
               isPenDraggingAnchor = true;

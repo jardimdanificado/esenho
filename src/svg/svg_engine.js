@@ -1010,6 +1010,16 @@
             this.addNode(x, y, { x: cp2x - x, y: cp2y - y }, null, 'smooth');
           }
         } else if (type === 'Z' || type === 'z') {
+          if (this.nodes.length > 1) {
+            const first = this.nodes[0];
+            const last = this.nodes[this.nodes.length - 1];
+            if (Math.hypot(last.x - first.x, last.y - first.y) < 1e-2) {
+              if (last.cpIn && (last.cpIn.x !== 0 || last.cpIn.y !== 0)) {
+                first.cpIn = { x: last.cpIn.x, y: last.cpIn.y };
+              }
+              this.nodes.pop();
+            }
+          }
           this.closed = true;
         }
       }
