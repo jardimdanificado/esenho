@@ -899,6 +899,65 @@
       background: rgba(184, 187, 38, 0.18) !important;
     }
 
+    .object-node {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      margin-bottom: 2px;
+      transition: background 0.12s ease, border-color 0.12s ease;
+    }
+
+    .object-node.selected {
+      border-color: var(--accent);
+      background: rgba(131, 165, 152, 0.08);
+    }
+
+    .object-events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 4px 6px 6px 14px;
+      background: rgba(0, 0, 0, 0.25);
+      border-top: 1px dashed var(--border);
+      border-bottom-left-radius: var(--radius-sm);
+      border-bottom-right-radius: var(--radius-sm);
+    }
+
+    .event-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      padding: 2px 4px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 10px;
+    }
+
+    .event-row.active {
+      border-color: var(--primary);
+      background: rgba(250, 189, 47, 0.12);
+    }
+
+    .event-frame-btn {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: bold;
+      color: var(--primary);
+      background: rgba(250, 189, 47, 0.15);
+      border: 1px solid rgba(250, 189, 47, 0.3);
+      border-radius: 2px;
+      padding: 1px 4px;
+      cursor: pointer;
+    }
+
+    .event-frame-btn:hover {
+      background: var(--primary);
+      color: #000;
+    }
+
     .object-item .obj-info {
       display: flex;
       align-items: center;
@@ -2033,9 +2092,64 @@
 
       <!-- Tab 1: Object Tree / Hierarchy -->
       <div class="tab-content active" id="tab-objects">
+        <!-- Scene Animation & Playback Bar -->
+        <div class="section-card" id="card-scene-anim" style="margin-bottom: 8px;">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="display: flex; align-items: center; gap: 4px; font-weight: bold; color: var(--primary);">
+              <span>🎬 Animation &amp; Playback</span>
+            </span>
+            <div style="display: flex; gap: 3px;">
+              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Frame" style="font-size: 9px; padding: 2px 4px;">⏮</button>
+              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
+              <button id="scene-anim-btn-next" class="btn-icon" title="Next Frame" style="font-size: 9px; padding: 2px 4px;">⏭</button>
+              <button id="scene-anim-btn-loop" class="btn-icon" title="Toggle Loop" style="font-size: 9px; padding: 2px 4px; color: var(--accent);">🔁</button>
+            </div>
+          </div>
+
+          <!-- Scrubbing & Frame Control -->
+          <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
+              <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span>Frame:</span>
+                <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+                <span>/</span>
+                <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              </div>
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <span>FPS:</span>
+                <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 4px; margin-top: 2px;">
+              <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
+              <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selected Object Animation Events Card -->
+        <div class="section-card" id="card-selected-events" style="margin-bottom: 8px;">
+          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
+            <span id="selected-events-badge" style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">No selection</span>
+          </div>
+          <div id="selected-events-container" style="margin-top: 4px;">
+            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
+              Select an object to inspect or record keyframe states
+            </div>
+          </div>
+        </div>
+
+        <!-- Objects Hierarchy Tree -->
         <div class="section-card">
           <div class="section-header">
-            <span>Objects</span>
+            <span>Objects &amp; Layers</span>
           </div>
 
           <div id="object-list"></div>
@@ -3727,6 +3841,141 @@
         });
       }
 
+      function updateSelectedObjectEventsUI() {
+        const container = document.getElementById('selected-events-container');
+        const titleEl = document.getElementById('selected-events-title');
+        const badgeEl = document.getElementById('selected-events-badge');
+        if (!container) return;
+
+        const selected = doc.getSelectedObjects();
+        if (selected.length === 0) {
+          if (titleEl) titleEl.textContent = 'Object Events';
+          if (badgeEl) badgeEl.textContent = 'No selection';
+          container.innerHTML = `
+            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
+              Select an object to inspect or record keyframe states
+            </div>
+          `;
+          return;
+        }
+
+        const mainTarget = selected[0];
+        if (titleEl) titleEl.textContent = `Events: ${mainTarget.name || mainTarget.id}`;
+
+        const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
+          ? window.dopeSheet.getObject(mainTarget.id)
+          : (window.dopeSheet?.objects?.get(mainTarget.id));
+        const events = dObj ? dObj.getEventList() : [];
+        if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
+
+        const currentFrame = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
+
+        if (events.length === 0) {
+          container.innerHTML = `
+            <div style="font-size: 10px; color: var(--text-muted); padding: 6px 4px; text-align: center; font-style: italic;">
+              No keyframe states recorded for this object
+            </div>
+            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 10px;">
+              + Record State at F${currentFrame}
+            </button>
+          `;
+        } else {
+          const easings = ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'spring', 'bounce', 'elastic'];
+          let rowsHtml = '';
+          for (const ev of events) {
+            const easingOptions = easings.map(e => `<option value="${e}" ${ev.tweenType === e ? 'selected' : ''}>${e}</option>`).join('');
+            rowsHtml += `
+              <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 3px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <button class="event-frame-btn" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to frame ${ev.frame}">◆ F${ev.frame}</button>
+                  <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 9px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px;">
+                    ${easingOptions}
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <button class="btn-icon" data-action="update-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Update keyframe with current live properties" style="font-size: 10px; color: var(--text-muted); padding: 1px 3px;">⟳</button>
+                  <button class="btn-icon" data-action="delete-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Delete keyframe state" style="font-size: 9px; color: var(--danger); padding: 1px 3px;">✕</button>
+                </div>
+              </div>
+            `;
+          }
+
+          rowsHtml += `
+            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 6px; font-size: 10px;">
+              + Record State at F${currentFrame}
+            </button>
+          `;
+          container.innerHTML = rowsHtml;
+        }
+
+        container.onclick = (e) => {
+          const actionBtn = e.target.closest('[data-action]');
+          if (!actionBtn) return;
+          const action = actionBtn.dataset.action;
+          const frame = parseInt(actionBtn.dataset.frame, 10);
+          const objId = actionBtn.dataset.objectId;
+
+          if (action === 'seek-frame' && !isNaN(frame)) {
+            if (typeof window.seekSceneFrame === 'function') {
+              window.seekSceneFrame(frame);
+            }
+          } else if (action === 'update-event') {
+            const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
+            if (targetObj && window.dopeSheet) {
+              const targetDObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
+              const props = (typeof window.extractLiveObjectProperties === 'function')
+                ? window.extractLiveObjectProperties(targetObj)
+                : { x: targetObj.x, y: targetObj.y, rotation: targetObj.rotation, opacity: targetObj.opacity };
+              targetDObj.setEventState(frame, props);
+              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+              doc.pushHistory(`Update Event F${frame}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+            }
+          } else if (action === 'delete-event') {
+            if (window.dopeSheet) {
+              const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
+              if (targetDObj) {
+                targetDObj.removeKeyframesAtFrame(frame);
+                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                doc.pushHistory(`Delete Event F${frame}`);
+                updateSelectedObjectEventsUI();
+                updateObjectList();
+              }
+            }
+          } else if (action === 'add-event') {
+            const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
+            if (targetObj && window.dopeSheet) {
+              const curF = window.dopeSheet.currentFrame || 1;
+              const targetDObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
+              const props = (typeof window.extractLiveObjectProperties === 'function')
+                ? window.extractLiveObjectProperties(targetObj)
+                : { x: targetObj.x, y: targetObj.y, rotation: targetObj.rotation, opacity: targetObj.opacity };
+              targetDObj.setEventState(curF, props);
+              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+              doc.pushHistory(`Record Event F${curF}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+            }
+          }
+        };
+
+        container.onchange = (e) => {
+          if (e.target.dataset.action === 'change-easing') {
+            const frame = parseInt(e.target.dataset.frame, 10);
+            const objId = e.target.dataset.objectId;
+            if (window.dopeSheet) {
+              const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
+              if (targetDObj) {
+                targetDObj.setKeyframeTweenAt(frame, e.target.value);
+                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                doc.pushHistory(`Change Easing on F${frame}`);
+              }
+            }
+          }
+        };
+      }
+
       function updateObjectList() {
         objectList.innerHTML = '';
 
@@ -3738,12 +3987,14 @@
               <span style="font-size: 10px; opacity: 0.7;">Draw using Pen (P) or Shapes (R, O)</span>
             </div>
           `;
+          updateSelectedObjectEventsUI();
           return;
         }
 
         function renderNodeItem(obj, depth = 0) {
           const isSelected = doc.selectedIds.has(obj.id);
           const isGroup = obj.type === 'group';
+
           const item = document.createElement('div');
           item.className = `object-item ${isSelected ? 'selected' : ''}`;
           item.setAttribute('data-object-id', obj.id);
@@ -3763,12 +4014,19 @@
                 : `<span title="FX Filter (${obj.wasmFilter.target}): ${obj.wasmFilter.plugin}" style="display: inline-flex; align-items: center; color: #d3869b; flex-shrink: 0;" class="obj-meta-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>`)
             : '';
 
+          const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
+            ? window.dopeSheet.getObject(obj.id)
+            : (window.dopeSheet?.objects?.get(obj.id));
+          const eventCount = dObj ? dObj.getKeyframeFrames().length : 0;
+          const animBadge = eventCount > 0 ? `<span title="${eventCount} keyframe states" style="font-size: 8px; color: var(--primary); margin-left: auto; margin-right: 4px; padding: 1px 3px; background: rgba(250, 189, 47, 0.15); border-radius: 2px; font-weight: bold;">🎬 ${eventCount}</span>` : '';
+
           item.innerHTML = `
             <div class="obj-info" style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1; user-select: none;">
               ${collapseBtn}
               <span style="font-size: 11px; opacity: 0.8;">${getIconForType(obj.type)}</span>
               <span class="obj-name" style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;">${obj.name}</span>
               ${isMaskedBadge}${isMaskBadge}${isTextPathBadge}${filterBadge}
+              ${animBadge}
             </div>
             <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon" data-action="toggle-vis" title="Visibility">${obj.visible ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.35;"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'}</button>
@@ -3820,7 +4078,7 @@
             });
           }
 
-          // Click handling for select, collapse, vis, lock
+          // Click handling
           item.addEventListener('click', (e) => {
             const actionBtn = e.target.closest('[data-action]');
             const action = actionBtn ? actionBtn.dataset.action : null;
@@ -3925,7 +4183,7 @@
 
           item.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1) return;
-            if (e.target.closest('button, input')) return;
+            if (e.target.closest('button, input, select')) return;
             touchStartX = e.touches[0].clientX;
             touchStartY = e.touches[0].clientY;
 
@@ -4019,6 +4277,8 @@
         for (let i = doc.objects.length - 1; i >= 0; i--) {
           renderNodeItem(doc.objects[i], 0);
         }
+
+        updateSelectedObjectEventsUI();
       }
 
       function getIconForType(type) {
@@ -4497,6 +4757,7 @@
           window.dopeSheetUI.updateGrid();
         }
 
+        updateSelectedObjectEventsUI();
         updateSwatches();
       }
 
@@ -7887,9 +8148,222 @@
         backdropEl?.classList.remove('active');
       });
 
-      // ── DopeSheet & Universal Animation Timeline ──
+      // ── DopeSheet & Scene Animation / Events System ──
       let dopeSheet = null;
       let dopeSheetUI = null;
+      let isScenePlaying = false;
+      let isSceneLooping = true;
+      let scenePlayInterval = null;
+
+      function applyAnimationSamples(samples) {
+        for (const [objId, state] of Object.entries(samples)) {
+          if (objId === 'camera') {
+            if (state.camX !== undefined) panX = state.camX;
+            if (state.camY !== undefined) panY = state.camY;
+            if (state.camZoom !== undefined) zoom = state.camZoom / 100;
+            if (state.camRot !== undefined) viewportRotation = state.camRot;
+            applyViewportTransform();
+            continue;
+          }
+          const obj = doc.findObject ? doc.findObject(objId) : (doc.objects ? doc.objects.find(o => o.id === objId) : null);
+          if (obj) {
+            if (state.x !== undefined) {
+              if (obj.cx !== undefined) obj.cx = state.x;
+              else if (obj.x !== undefined) obj.x = state.x;
+            }
+            if (state.y !== undefined) {
+              if (obj.cy !== undefined) obj.cy = state.y;
+              else if (obj.y !== undefined) obj.y = state.y;
+            }
+            if (state.rotation !== undefined) obj.rotation = state.rotation;
+            if (state.scaleX !== undefined) obj.scaleX = state.scaleX;
+            if (state.scaleY !== undefined) obj.scaleY = state.scaleY;
+            if (state.skewX !== undefined) obj.skewX = state.skewX;
+            if (state.skewY !== undefined) obj.skewY = state.skewY;
+            if (state.opacity !== undefined) obj.opacity = state.opacity;
+            if (state.fillColor !== undefined) obj.fill = state.fillColor;
+            if (state.fillOpacity !== undefined) obj.fillOpacity = state.fillOpacity;
+            if (state.strokeColor !== undefined) obj.stroke = state.strokeColor;
+            if (state.strokeWidth !== undefined) obj.strokeWidth = state.strokeWidth;
+            if (state.strokeOpacity !== undefined) obj.strokeOpacity = state.strokeOpacity;
+            if (state.strokeDashOffset !== undefined) obj.strokeDashoffset = state.strokeDashOffset;
+            if (state.strokeCap !== undefined) obj.strokeLinecap = state.strokeCap;
+            if (state.strokeJoin !== undefined) obj.strokeLinejoin = state.strokeJoin;
+            if (state.d !== undefined) {
+              if (typeof obj.setPathData === 'function') obj.setPathData(state.d);
+              else obj.d = state.d;
+            }
+            if (state.points !== undefined) {
+              if (Array.isArray(obj.points) || obj.type === 'polyline' || obj.type === 'polygon') {
+                if (typeof state.points === 'string') {
+                  const coords = state.points.trim().split(/[\s,]+/).map(Number);
+                  const newPts = [];
+                  for (let i = 0; i < coords.length; i += 2) {
+                    if (!isNaN(coords[i]) && !isNaN(coords[i + 1])) {
+                      newPts.push({ x: coords[i], y: coords[i + 1] });
+                    }
+                  }
+                  obj.points = newPts;
+                } else if (Array.isArray(state.points)) {
+                  obj.points = state.points;
+                }
+              } else {
+                obj.points = state.points;
+              }
+            }
+            if (state.width !== undefined) obj.width = state.width;
+            if (state.height !== undefined) obj.height = state.height;
+            if (state.radius !== undefined) obj.r = state.radius;
+            if (state.rx !== undefined) obj.rx = state.rx;
+            if (state.ry !== undefined) obj.ry = state.ry;
+            if (state.cornerRadius !== undefined) obj.cornerRadius = state.cornerRadius;
+            if (state.polygonSides !== undefined) obj.sides = state.polygonSides;
+            if (state.starPoints !== undefined) obj.points = state.starPoints;
+            if (state.innerRadius !== undefined) obj.innerRadius = state.innerRadius;
+            if (state.originX !== undefined) obj.originX = state.originX;
+            if (state.originY !== undefined) obj.originY = state.originY;
+            if (state.zDepth !== undefined) obj.zDepth = state.zDepth;
+            if (state.text !== undefined) obj.text = state.text;
+            if (state.fontSize !== undefined) obj.fontSize = state.fontSize;
+            if (state.fontFamily !== undefined) obj.fontFamily = state.fontFamily;
+            if (state.fontWeight !== undefined) obj.fontWeight = state.fontWeight;
+            if (state.fontStyle !== undefined) obj.fontStyle = state.fontStyle;
+            if (state.textAlign !== undefined) obj.textAlign = state.textAlign;
+            if (state.letterSpacing !== undefined) obj.letterSpacing = state.letterSpacing;
+            if (state.lineHeight !== undefined) obj.lineHeight = state.lineHeight;
+            if (state.textPathOffset !== undefined) obj.textPathOffset = state.textPathOffset;
+            if (state.shadowEnable !== undefined || state.shadowColor !== undefined || state.shadowBlur !== undefined || state.shadowOffsetX !== undefined || state.shadowOffsetY !== undefined || state.shadowOpacity !== undefined) {
+              if (!obj.shadow) obj.shadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
+              if (state.shadowEnable !== undefined) obj.shadow.enabled = !!state.shadowEnable;
+              if (state.shadowColor !== undefined) obj.shadow.color = state.shadowColor;
+              if (state.shadowBlur !== undefined) obj.shadow.blur = state.shadowBlur;
+              if (state.shadowOffsetX !== undefined) obj.shadow.offsetX = state.shadowOffsetX;
+              if (state.shadowOffsetY !== undefined) obj.shadow.offsetY = state.shadowOffsetY;
+              if (state.shadowOpacity !== undefined) obj.shadow.opacity = state.shadowOpacity;
+            }
+            if (state.fxBlur !== undefined) obj.filterBlur = state.fxBlur;
+            if (state.fxBrightness !== undefined) obj.filterBrightness = state.fxBrightness;
+            if (state.fxContrast !== undefined) obj.filterContrast = state.fxContrast;
+            if (state.fxHue !== undefined) obj.filterHue = state.fxHue;
+            if (state.fxSat !== undefined) obj.filterSat = state.fxSat;
+          }
+        }
+        render();
+        drawOverlay();
+        updateInspector();
+      }
+
+      window.seekSceneFrame = function(frame) {
+        if (!window.dopeSheet) return;
+        const total = window.dopeSheet.totalFrames || 60;
+        frame = Math.max(1, Math.min(total, frame));
+        window.dopeSheet.currentFrame = frame;
+
+        const samples = typeof window.dopeSheet.evaluate === 'function'
+          ? window.dopeSheet.evaluate(frame)
+          : (typeof window.dopeSheet.sampleAll === 'function' ? window.dopeSheet.sampleAll(frame) : {});
+        applyAnimationSamples(samples);
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.currentFrame = frame;
+          window.dopeSheetUI.updateGrid();
+        }
+        updateSceneAnimUI();
+        updateSelectedObjectEventsUI();
+      };
+
+      window.updateSceneAnimUI = function() {
+        if (!window.dopeSheet) return;
+        const ds = window.dopeSheet;
+        const cur = ds.currentFrame || 1;
+        const total = ds.totalFrames || 60;
+        const fps = ds.fps || 24;
+
+        const scrubber = document.getElementById('scene-anim-scrubber');
+        if (scrubber) {
+          scrubber.min = '1';
+          scrubber.max = String(total);
+          scrubber.value = String(cur);
+        }
+        const badge = document.getElementById('scene-anim-time-badge');
+        if (badge) badge.textContent = `F ${cur}/${total}`;
+
+        const inpFrame = document.getElementById('scene-anim-input-frame');
+        if (inpFrame) {
+          inpFrame.max = String(total);
+          inpFrame.value = String(cur);
+        }
+        const inpTotal = document.getElementById('scene-anim-input-total');
+        if (inpTotal) inpTotal.value = String(total);
+
+        const inpFps = document.getElementById('scene-anim-input-fps');
+        if (inpFps) inpFps.value = String(fps);
+
+        const btnPlay = document.getElementById('scene-anim-btn-play');
+        if (btnPlay) {
+          btnPlay.textContent = isScenePlaying ? '⏸' : '▶';
+          btnPlay.style.background = isScenePlaying ? 'var(--accent)' : 'var(--primary)';
+        }
+
+        const btnAutoKf = document.getElementById('scene-btn-autokf');
+        if (btnAutoKf) {
+          if (ds.autoKeyframe) {
+            btnAutoKf.style.background = 'var(--danger)';
+            btnAutoKf.style.color = '#fff';
+            btnAutoKf.style.borderColor = 'var(--danger)';
+          } else {
+            btnAutoKf.style.background = '';
+            btnAutoKf.style.color = '';
+            btnAutoKf.style.borderColor = '';
+          }
+        }
+
+        const btnLoop = document.getElementById('scene-anim-btn-loop');
+        if (btnLoop) {
+          btnLoop.style.opacity = isSceneLooping ? '1.0' : '0.4';
+        }
+
+        document.querySelectorAll('.event-row').forEach(row => {
+          const f = parseInt(row.querySelector('[data-frame]')?.dataset.frame, 10);
+          if (f === cur) row.classList.add('active');
+          else row.classList.remove('active');
+        });
+      };
+
+      function toggleScenePlay() {
+        if (isScenePlaying) pauseScenePlay();
+        else startScenePlay();
+      }
+
+      function startScenePlay() {
+        if (!window.dopeSheet) return;
+        isScenePlaying = true;
+        const fps = window.dopeSheet.fps || 24;
+        const intervalMs = 1000 / fps;
+
+        clearInterval(scenePlayInterval);
+        scenePlayInterval = setInterval(() => {
+          let nextFrame = (window.dopeSheet.currentFrame || 1) + 1;
+          const total = window.dopeSheet.totalFrames || 60;
+          if (nextFrame > total) {
+            if (isSceneLooping) {
+              nextFrame = 1;
+            } else {
+              pauseScenePlay();
+              return;
+            }
+          }
+          window.seekSceneFrame(nextFrame);
+        }, intervalMs);
+
+        updateSceneAnimUI();
+      }
+
+      function pauseScenePlay() {
+        isScenePlaying = false;
+        clearInterval(scenePlayInterval);
+        scenePlayInterval = null;
+        updateSceneAnimUI();
+      }
 
       window.recordAutoKeyframe = function(targetObj, changedProps = null) {
         if (!window.dopeSheet || !window.dopeSheet.autoKeyframe) return;
@@ -7925,6 +8399,7 @@
         if (window.dopeSheetUI) {
           window.dopeSheetUI.updateGrid();
         }
+        updateObjectList();
       };
 
       async function initStudioDopeSheet() {
@@ -7937,7 +8412,6 @@
           window.DopeSheet = DopeSheet;
           const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
           const dock = document.getElementById('dopesheet-dock');
-          if (!dock) return null;
 
           if (doc && doc.animation) {
             dopeSheet = DopeSheet.fromJSON(doc.animation);
@@ -7973,104 +8447,72 @@
           }
           syncObjectsToDopeSheet();
 
-          dopeSheetUI = new DopeSheetUI(dock, dopeSheet, (frame, samples) => {
-            for (const [objId, state] of Object.entries(samples)) {
-              if (objId === 'camera') {
-                if (state.camX !== undefined) panX = state.camX;
-                if (state.camY !== undefined) panY = state.camY;
-                if (state.camZoom !== undefined) zoom = state.camZoom / 100;
-                if (state.camRot !== undefined) viewportRotation = state.camRot;
-                applyViewportTransform();
-                continue;
-              }
-              const obj = doc.findObject ? doc.findObject(objId) : (doc.objects ? doc.objects.find(o => o.id === objId) : null);
-              if (obj) {
-                if (state.x !== undefined) {
-                  if (obj.cx !== undefined) obj.cx = state.x;
-                  else if (obj.x !== undefined) obj.x = state.x;
-                }
-                if (state.y !== undefined) {
-                  if (obj.cy !== undefined) obj.cy = state.y;
-                  else if (obj.y !== undefined) obj.y = state.y;
-                }
-                if (state.rotation !== undefined) obj.rotation = state.rotation;
-                if (state.scaleX !== undefined) obj.scaleX = state.scaleX;
-                if (state.scaleY !== undefined) obj.scaleY = state.scaleY;
-                if (state.skewX !== undefined) obj.skewX = state.skewX;
-                if (state.skewY !== undefined) obj.skewY = state.skewY;
-                if (state.opacity !== undefined) obj.opacity = state.opacity;
-                if (state.fillColor !== undefined) obj.fill = state.fillColor;
-                if (state.fillOpacity !== undefined) obj.fillOpacity = state.fillOpacity;
-                if (state.strokeColor !== undefined) obj.stroke = state.strokeColor;
-                if (state.strokeWidth !== undefined) obj.strokeWidth = state.strokeWidth;
-                if (state.strokeOpacity !== undefined) obj.strokeOpacity = state.strokeOpacity;
-                if (state.strokeDashOffset !== undefined) obj.strokeDashoffset = state.strokeDashOffset;
-                if (state.strokeCap !== undefined) obj.strokeLinecap = state.strokeCap;
-                if (state.strokeJoin !== undefined) obj.strokeLinejoin = state.strokeJoin;
-                if (state.d !== undefined) {
-                  if (typeof obj.setPathData === 'function') obj.setPathData(state.d);
-                  else obj.d = state.d;
-                }
-                if (state.points !== undefined) {
-                  if (Array.isArray(obj.points) || obj.type === 'polyline' || obj.type === 'polygon') {
-                    if (typeof state.points === 'string') {
-                      const coords = state.points.trim().split(/[\s,]+/).map(Number);
-                      const newPts = [];
-                      for (let i = 0; i < coords.length; i += 2) {
-                        if (!isNaN(coords[i]) && !isNaN(coords[i + 1])) {
-                          newPts.push({ x: coords[i], y: coords[i + 1] });
-                        }
-                      }
-                      obj.points = newPts;
-                    } else if (Array.isArray(state.points)) {
-                      obj.points = state.points;
-                    }
-                  } else {
-                    obj.points = state.points;
-                  }
-                }
-                if (state.width !== undefined) obj.width = state.width;
-                if (state.height !== undefined) obj.height = state.height;
-                if (state.radius !== undefined) obj.r = state.radius;
-                if (state.rx !== undefined) obj.rx = state.rx;
-                if (state.ry !== undefined) obj.ry = state.ry;
-                if (state.cornerRadius !== undefined) obj.cornerRadius = state.cornerRadius;
-                if (state.polygonSides !== undefined) obj.sides = state.polygonSides;
-                if (state.starPoints !== undefined) obj.points = state.starPoints;
-                if (state.innerRadius !== undefined) obj.innerRadius = state.innerRadius;
-                if (state.originX !== undefined) obj.originX = state.originX;
-                if (state.originY !== undefined) obj.originY = state.originY;
-                if (state.zDepth !== undefined) obj.zDepth = state.zDepth;
-                if (state.text !== undefined) obj.text = state.text;
-                if (state.fontSize !== undefined) obj.fontSize = state.fontSize;
-                if (state.fontFamily !== undefined) obj.fontFamily = state.fontFamily;
-                if (state.fontWeight !== undefined) obj.fontWeight = state.fontWeight;
-                if (state.fontStyle !== undefined) obj.fontStyle = state.fontStyle;
-                if (state.textAlign !== undefined) obj.textAlign = state.textAlign;
-                if (state.letterSpacing !== undefined) obj.letterSpacing = state.letterSpacing;
-                if (state.lineHeight !== undefined) obj.lineHeight = state.lineHeight;
-                if (state.textPathOffset !== undefined) obj.textPathOffset = state.textPathOffset;
-                if (state.shadowEnable !== undefined || state.shadowColor !== undefined || state.shadowBlur !== undefined || state.shadowOffsetX !== undefined || state.shadowOffsetY !== undefined || state.shadowOpacity !== undefined) {
-                  if (!obj.shadow) obj.shadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-                  if (state.shadowEnable !== undefined) obj.shadow.enabled = !!state.shadowEnable;
-                  if (state.shadowColor !== undefined) obj.shadow.color = state.shadowColor;
-                  if (state.shadowBlur !== undefined) obj.shadow.blur = state.shadowBlur;
-                  if (state.shadowOffsetX !== undefined) obj.shadow.offsetX = state.shadowOffsetX;
-                  if (state.shadowOffsetY !== undefined) obj.shadow.offsetY = state.shadowOffsetY;
-                  if (state.shadowOpacity !== undefined) obj.shadow.opacity = state.shadowOpacity;
-                }
-                if (state.fxBlur !== undefined) obj.filterBlur = state.fxBlur;
-                if (state.fxBrightness !== undefined) obj.filterBrightness = state.fxBrightness;
-                if (state.fxContrast !== undefined) obj.filterContrast = state.fxContrast;
-                if (state.fxHue !== undefined) obj.filterHue = state.fxHue;
-                if (state.fxSat !== undefined) obj.filterSat = state.fxSat;
-              }
-            }
-            render();
-            drawOverlay();
-            updateInspector();
+          if (dock) {
+            dopeSheetUI = new DopeSheetUI(dock, dopeSheet, (frame, samples) => {
+              applyAnimationSamples(samples);
+              updateSceneAnimUI();
+            });
+            window.dopeSheetUI = dopeSheetUI;
+          }
+
+          // Wire Scene Tab Animation Controls
+          document.getElementById('scene-anim-btn-play')?.addEventListener('click', toggleScenePlay);
+          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', () => {
+            seekSceneFrame(Math.max(1, (window.dopeSheet?.currentFrame || 1) - 1));
           });
-          window.dopeSheetUI = dopeSheetUI;
+          document.getElementById('scene-anim-btn-next')?.addEventListener('click', () => {
+            const total = window.dopeSheet?.totalFrames || 60;
+            seekSceneFrame(Math.min(total, (window.dopeSheet?.currentFrame || 1) + 1));
+          });
+          document.getElementById('scene-anim-btn-loop')?.addEventListener('click', () => {
+            isSceneLooping = !isSceneLooping;
+            updateSceneAnimUI();
+          });
+          document.getElementById('scene-anim-scrubber')?.addEventListener('input', (e) => {
+            seekSceneFrame(parseInt(e.target.value, 10));
+          });
+          document.getElementById('scene-anim-input-frame')?.addEventListener('change', (e) => {
+            seekSceneFrame(parseInt(e.target.value, 10));
+          });
+          document.getElementById('scene-anim-input-total')?.addEventListener('change', (e) => {
+            const val = Math.max(1, parseInt(e.target.value, 10) || 60);
+            if (window.dopeSheet) window.dopeSheet.totalFrames = val;
+            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+            updateSceneAnimUI();
+          });
+          document.getElementById('scene-anim-input-fps')?.addEventListener('change', (e) => {
+            const val = Math.max(1, parseInt(e.target.value, 10) || 24);
+            if (window.dopeSheet) window.dopeSheet.fps = val;
+            if (isScenePlaying) {
+              clearInterval(scenePlayInterval);
+              startScenePlay();
+            }
+            updateSceneAnimUI();
+          });
+          document.getElementById('scene-btn-add-event')?.addEventListener('click', () => {
+            if (!window.dopeSheet) return;
+            const currentFrame = window.dopeSheet.currentFrame || 1;
+            const selectedObjs = (doc.getSelectedObjects && doc.getSelectedObjects().length > 0) ? doc.getSelectedObjects() : doc.objects;
+            for (const t of selectedObjs) {
+              const dObj = window.dopeSheet.getOrCreateObject(t.id, t.name || `${t.type} ${t.id}`, 'vector');
+              const props = (typeof window.extractLiveObjectProperties === 'function')
+                ? window.extractLiveObjectProperties(t)
+                : { x: t.x, y: t.y, rotation: t.rotation, opacity: t.opacity };
+              dObj.setEventState(currentFrame, props);
+            }
+            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+            doc.pushHistory(`Record Event on Frame ${currentFrame}`);
+            updateObjectList();
+          });
+          document.getElementById('scene-btn-autokf')?.addEventListener('click', () => {
+            if (window.dopeSheet) {
+              window.dopeSheet.autoKeyframe = !window.dopeSheet.autoKeyframe;
+              updateSceneAnimUI();
+            }
+          });
+
+          updateSceneAnimUI();
+          updateObjectList();
           return dopeSheet;
         } catch (err) {
           console.error('Failed to initialize DopeSheet:', err);
@@ -8953,6 +9395,7 @@
         updateRecentProjectsMenu();
         updateRendererMenuUi();
         initQuadro();
+        await initStudioDopeSheet();
         updateInspector();
         setTimeout(zoomToFit, 50);
       })();

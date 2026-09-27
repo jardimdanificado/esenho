@@ -797,6 +797,10 @@ export class DopeSheetObject {
     return this.channels.get(paramKey);
   }
 
+  removeChannel(paramKey) {
+    return this.channels.delete(paramKey);
+  }
+
   setKeyframe(paramKey, frame, value, tweenType = null) {
     const ch = this.getOrCreateChannel(paramKey, value);
     return ch.addKeyframe(frame, value, tweenType);
@@ -807,6 +811,88 @@ export class DopeSheetObject {
       if (ch.hasKeyframeAt(frame)) return true;
     }
     return false;
+  }
+
+  getKeyframeFrames() {
+    const framesSet = new Set();
+    for (const ch of this.channels.values()) {
+      for (const kf of ch.keyframes) {
+        framesSet.add(kf.frame);
+      }
+    }
+    return Array.from(framesSet).sort((a, b) => a - b);
+  }
+
+  removeKeyframesAtFrame(frame) {
+    let anyRemoved = false;
+    for (const ch of this.channels.values()) {
+      const removed = ch.removeKeyframe(frame);
+      if (removed) anyRemoved = true;
+    }
+    return anyRemoved;
+  }
+
+  getKeyframeTweenAt(frame) {
+    for (const ch of this.channels.values()) {
+      const kf = ch.getKeyframeAt(frame);
+      if (kf && kf.tweenType) return kf.tweenType;
+    }
+    return 'linear';
+  }
+
+  setKeyframeTweenAt(frame, tweenType) {
+    for (const ch of this.channels.values()) {
+      const kf = ch.getKeyframeAt(frame);
+      if (kf) {
+        kf.tweenType = tweenType;
+      }
+    }
+  }
+
+  isKeyframeSelectedAt(frame) {
+    for (const ch of this.channels.values()) {
+      const kf = ch.getKeyframeAt(frame);
+      if (kf && kf.selected) return true;
+    }
+    return false;
+  }
+
+  setKeyframeSelectedAt(frame, selected = true) {
+    for (const ch of this.channels.values()) {
+      const kf = ch.getKeyframeAt(frame);
+      if (kf) {
+        kf.selected = selected;
+      }
+    }
+  }
+
+  getEventList() {
+    const frames = this.getKeyframeFrames();
+    return frames.map(frame => {
+      const tweenType = this.getKeyframeTweenAt(frame);
+      const props = {};
+      for (const [key, ch] of this.channels.entries()) {
+        const kf = ch.getKeyframeAt(frame);
+        if (kf) {
+          props[key] = kf.value;
+        }
+      }
+      return {
+        frame,
+        tweenType,
+        props,
+        selected: this.isKeyframeSelectedAt(frame)
+      };
+    });
+  }
+
+  setEventState(frame, props = {}, tweenType = null) {
+    const curve = (tweenType !== null && tweenType !== undefined) ? tweenType : this.getKeyframeTweenAt(frame);
+    for (const [key, val] of Object.entries(props)) {
+      if (val !== undefined && val !== null) {
+        this.setKeyframe(key, frame, val, curve);
+      }
+    }
   }
 
   sample(frame) {
@@ -887,6 +973,10 @@ export class DopeSheet {
     }
   }
 
+  getObject(id) {
+    return this.objects.get(id) || null;
+  }
+
   getOrCreateObject(id, name = `Object ${id}`, targetType = 'vector') {
     if (!this.objects.has(id)) {
       const obj = new DopeSheetObject(id, name, targetType);
@@ -917,16 +1007,28 @@ export class DopeSheet {
     return kf;
   }
 
-  removeKeyframe(objectId, paramKey, frame) {
+  removeKeyframe(objectId, paramKeyOrFrame, maybeFrame) {
     const obj = this.objects.get(objectId);
-    if (obj && obj.channels.has(paramKey)) {
-      const removed = obj.channels.get(paramKey).removeKeyframe(frame);
+    if (!obj) return null;
+    if (maybeFrame !== undefined) {
+      const paramKey = paramKeyOrFrame;
+      const frame = maybeFrame;
+      if (obj.channels.has(paramKey)) {
+        const removed = obj.channels.get(paramKey).removeKeyframe(frame);
+        if (removed) {
+          this.notify('keyframeRemoved', { objectId, paramKey, frame });
+        }
+        return removed;
+      }
+      return null;
+    } else {
+      const frame = paramKeyOrFrame;
+      const removed = obj.removeKeyframesAtFrame(frame);
       if (removed) {
-        this.notify('keyframeRemoved', { objectId, paramKey, frame });
+        this.notify('keyframeRemoved', { objectId, frame });
       }
       return removed;
     }
-    return null;
   }
 
   setFrame(frame) {
@@ -964,6 +1066,10 @@ export class DopeSheet {
   togglePlay() {
     if (this.isPlaying) this.pause();
     else this.play();
+  }
+
+  evaluate(frame = this.currentFrame) {
+    return this.sampleAll(frame);
   }
 
   sampleAll(frame = this.currentFrame) {

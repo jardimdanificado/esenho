@@ -111,15 +111,15 @@ export class DopeSheetUI {
           </button>
         </div>
 
-        <!-- Main Body: Split View (Channel Tree on Left, Timeline Grid on Right) -->
+        <!-- Main Body: Split View (Object Tracks List on Left, Timeline Grid on Right) -->
         <div id="ds-body" style="display: flex; flex: 1; min-height: 0; position: relative; overflow: hidden;">
           
-          <!-- Left: Channels Tree Sidebar -->
+          <!-- Left: Objects / Layers Sidebar -->
           <div id="ds-tree-sidebar" style="width: 250px; min-width: 200px; max-width: 340px; background: #282828; border-right: 1px solid #3c3836; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;">
             <!-- Tree Header (Matches 24px ruler height exactly) -->
             <div style="height: 24px; min-height: 24px; padding: 0 8px; background: #32302f; border-bottom: 1px solid #3c3836; font-weight: bold; color: #a89984; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
-              <span>Layers & Property Tracks</span>
-              <span style="font-size: 9px; color: #7c6f64;">Quadro ABI</span>
+              <span>Layers & Objects</span>
+              <span style="font-size: 9px; color: #7c6f64;">1 Track / Object</span>
             </div>
             <!-- Scrollable Track Labels Container -->
             <div id="ds-tree-scroll" style="flex: 1; overflow-y: hidden; overflow-x: hidden; position: relative;">
@@ -331,6 +331,9 @@ export class DopeSheetUI {
         if (sel && sel.length > 0) targetId = sel[0].id;
         else if (window.doc.objects && window.doc.objects.length > 0) targetId = window.doc.objects[0].id;
       }
+      if (!targetId && this.ds.objects.size > 0) {
+        targetId = Array.from(this.ds.objects.keys())[0];
+      }
       if (targetId) {
         const obj = this.ds.getOrCreateObject(targetId);
         let liveObj = null;
@@ -339,38 +342,24 @@ export class DopeSheetUI {
         }
 
         const curve = this.activeEasing || 'linear';
-        if (this.selectedParamKey) {
-          // Add keyframe ONLY to the actively selected track
-          let val = undefined;
-          if (liveObj) {
-            const props = extractLiveObjectProperties(liveObj);
-            val = props[this.selectedParamKey];
+        if (liveObj) {
+          const props = extractLiveObjectProperties(liveObj);
+          for (const [key, val] of Object.entries(props)) {
+            if (val !== undefined && val !== null) {
+              obj.setKeyframe(key, this.ds.currentFrame, val, curve);
+            }
           }
-          if (val === undefined) {
-            const ch = obj.getOrCreateChannel(this.selectedParamKey);
-            val = ch.sample(this.ds.currentFrame);
-          }
-          const kf = obj.setKeyframe(this.selectedParamKey, this.ds.currentFrame, val, curve);
-          this.ds.deselectAllKeyframes();
-          kf.selected = true;
         } else {
-          // Object root selected: set keyframes on all object properties
-          if (liveObj) {
-            const props = extractLiveObjectProperties(liveObj);
-            for (const [key, val] of Object.entries(props)) {
-              if (val !== undefined && val !== null) {
-                obj.setKeyframe(key, this.ds.currentFrame, val, curve);
-              }
-            }
-          } else {
-            for (const [key, ch] of obj.channels.entries()) {
-              const val = ch.sample(this.ds.currentFrame);
-              ch.addKeyframe(this.ds.currentFrame, val, curve);
-            }
+          for (const [key, ch] of obj.channels.entries()) {
+            const val = ch.sample(this.ds.currentFrame);
+            ch.addKeyframe(this.ds.currentFrame, val, curve);
           }
         }
+        this.ds.deselectAllKeyframes();
+        obj.setKeyframeSelectedAt(this.ds.currentFrame, true);
         this.selectedObjectId = targetId;
         this.updateGrid();
+        if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
       }
     };
 
@@ -383,19 +372,14 @@ export class DopeSheetUI {
       if (targetId) {
         const obj = this.ds.objects.get(targetId);
         if (obj) {
-          if (this.selectedParamKey && obj.channels.has(this.selectedParamKey)) {
-            obj.channels.get(this.selectedParamKey).removeKeyframe(this.ds.currentFrame);
-          } else {
-            for (const ch of obj.channels.values()) {
-              ch.removeKeyframe(this.ds.currentFrame);
-            }
-          }
+          obj.removeKeyframesAtFrame(this.ds.currentFrame);
           this.updateGrid();
+          if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
         }
       }
     };
 
-    // ── Scrubbing and Keyframe Selection on Timeline Grid & Ruler ──
+    // ── Scrubbing and Keyframe Selection / Dragging on Timeline Grid & Ruler ──
     const rulerEl = this.container.querySelector('#ds-ruler-container');
     const gridEl = this.container.querySelector('#ds-grid-rows');
     const onScrub = (e) => {
@@ -434,41 +418,107 @@ export class DopeSheetUI {
 
     if (rulerEl) rulerEl.onpointerdown = startScrub;
 
+    let dragKeyframe = null; // { object, initialFrame, currentFrame }
     if (gridEl) {
       gridEl.onpointerdown = (e) => {
         const gridRect = gridEl.getBoundingClientRect();
         const clickX = e.clientX - gridRect.left;
         const clickY = e.clientY - gridRect.top;
-        const rowIdx = Math.floor(clickY / 22);
+        const rowHeight = 26;
+        const rowIdx = Math.floor(clickY / rowHeight);
 
-        if (this._flatRows && this._flatRows[rowIdx]) {
-          const row = this._flatRows[rowIdx];
-          if (row.type === 'channel') {
-            const hitKf = row.channel.keyframes.find(k => {
-              const kx = (k.frame - 1) * this.frameWidth + this.frameWidth / 2;
-              return Math.abs(kx - clickX) <= 8;
-            });
-            if (hitKf) {
-              e.stopPropagation();
-              e.preventDefault();
-              if (!e.shiftKey) {
-                this.ds.deselectAllKeyframes();
-              }
-              hitKf.selected = true;
-              this.selectedObjectId = row.object.id;
-              this.selectedParamKey = row.paramKey;
-              this.activeEasing = hitKf.tweenType || 'linear';
-              const easingSelect = this.container.querySelector('#ds-select-easing');
-              if (easingSelect) easingSelect.value = this.activeEasing;
-              this.ds.setFrame(hitKf.frame);
-              this.updateGrid();
-              return;
+        if (this._objectRows && this._objectRows[rowIdx]) {
+          const row = this._objectRows[rowIdx];
+          const kfFrames = row.object.getKeyframeFrames();
+
+          // Check if user clicked directly on a keyframe diamond
+          const hitFrame = kfFrames.find(f => {
+            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
+            return Math.abs(kx - clickX) <= 8;
+          });
+
+          if (hitFrame !== undefined) {
+            e.stopPropagation();
+            e.preventDefault();
+            if (!e.shiftKey) {
+              this.ds.deselectAllKeyframes();
             }
+            row.object.setKeyframeSelectedAt(hitFrame, true);
+            this.selectedObjectId = row.object.id;
+            this.activeEasing = row.object.getKeyframeTweenAt(hitFrame);
+            this.syncEasingUI();
+            this.ds.setFrame(hitFrame);
+            if (typeof window !== 'undefined' && window.doc) {
+              if (window.doc.select) window.doc.select(row.object.id);
+              if (window.render) window.render();
+              if (window.updateInspector) window.updateInspector();
+            }
+            this.updateGrid();
+
+            // Start keyframe dragging
+            dragKeyframe = {
+              object: row.object,
+              initialFrame: hitFrame,
+              currentFrame: hitFrame
+            };
+
+            const onDragMove = (me) => {
+              if (!dragKeyframe) return;
+              me.stopPropagation();
+              me.preventDefault();
+              const curRect = gridEl.getBoundingClientRect();
+              const curClickX = me.clientX - curRect.left;
+              const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curClickX / this.frameWidth) + 1));
+              if (targetF !== dragKeyframe.currentFrame) {
+                dragKeyframe.object.moveKeyframe(dragKeyframe.currentFrame, targetF);
+                dragKeyframe.currentFrame = targetF;
+                this.ds.setFrame(targetF);
+                this.updateGrid();
+                if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
+              }
+            };
+
+            const onDragUp = (ue) => {
+              dragKeyframe = null;
+              window.removeEventListener('pointermove', onDragMove, { capture: true });
+              window.removeEventListener('pointerup', onDragUp, { capture: true });
+            };
+
+            window.addEventListener('pointermove', onDragMove, { capture: true });
+            window.addEventListener('pointerup', onDragUp, { capture: true });
+            return;
           }
+
+          // Clicked on object track empty space
+          this.selectedObjectId = row.object.id;
+          this.ds.deselectAllKeyframes();
+          if (typeof window !== 'undefined' && window.doc) {
+            if (window.doc.select) window.doc.select(row.object.id);
+            if (window.render) window.render();
+            if (window.updateInspector) window.updateInspector();
+          }
+          this.updateGrid();
+        } else {
+          this.ds.deselectAllKeyframes();
+          this.updateGrid();
         }
-        this.ds.deselectAllKeyframes();
-        this.updateGrid();
         startScrub(e);
+      };
+
+      gridEl.ondblclick = (e) => {
+        const gridRect = gridEl.getBoundingClientRect();
+        const clickX = e.clientX - gridRect.left;
+        const clickY = e.clientY - gridRect.top;
+        const rowHeight = 26;
+        const rowIdx = Math.floor(clickY / rowHeight);
+        if (this._objectRows && this._objectRows[rowIdx]) {
+          const row = this._objectRows[rowIdx];
+          const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(clickX / this.frameWidth) + 1));
+          this.selectedObjectId = row.object.id;
+          this.ds.setFrame(targetFrame);
+          const addKfBtn = this.container.querySelector('#ds-btn-add-kf');
+          if (addKfBtn) addKfBtn.click();
+        }
       };
     }
 
@@ -529,36 +579,7 @@ export class DopeSheetUI {
 
       if (targetId) {
         const obj = this.ds.getOrCreateObject(targetId);
-        if (this.selectedParamKey) {
-          const ch = obj.channels.get(this.selectedParamKey);
-          if (ch) {
-            let kf = ch.getKeyframeAt(this.ds.currentFrame);
-            if (!kf) {
-              const span = ch.getSpan(this.ds.currentFrame);
-              if (span && span.prev) {
-                span.prev.tweenType = curve;
-              } else if (ch.keyframes.length > 0) {
-                ch.keyframes[0].tweenType = curve;
-              }
-            } else {
-              kf.tweenType = curve;
-            }
-          }
-        } else {
-          for (const ch of obj.channels.values()) {
-            let kf = ch.getKeyframeAt(this.ds.currentFrame);
-            if (!kf) {
-              const span = ch.getSpan(this.ds.currentFrame);
-              if (span && span.prev) {
-                span.prev.tweenType = curve;
-              } else if (ch.keyframes.length > 0) {
-                ch.keyframes[0].tweenType = curve;
-              }
-            } else {
-              kf.tweenType = curve;
-            }
-          }
-        }
+        obj.setKeyframeTweenAt(this.ds.currentFrame, curve);
       }
     }
 
@@ -1144,14 +1165,6 @@ export class DopeSheetUI {
       }
     };
 
-    // 1. If keyframe(s) are selected in timeline, reflect first selected keyframe's tweenType
-    const selectedKfs = this.ds.getSelectedKeyframes();
-    if (selectedKfs.length > 0) {
-      setSelectValue(selectedKfs[0].keyframe.tweenType || 'linear');
-      return;
-    }
-
-    // 2. Target object & track
     let targetId = this.selectedObjectId;
     if (!targetId && typeof window !== 'undefined' && window.doc) {
       const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects() : [];
@@ -1160,34 +1173,16 @@ export class DopeSheetUI {
 
     if (targetId && this.ds.objects.has(targetId)) {
       const obj = this.ds.objects.get(targetId);
-      if (this.selectedParamKey && obj.channels.has(this.selectedParamKey)) {
-        const ch = obj.channels.get(this.selectedParamKey);
-        const kf = ch.getKeyframeAt(this.ds.currentFrame);
-        if (kf) {
-          setSelectValue(kf.tweenType || 'linear');
-          return;
-        }
-        const span = ch.getSpan(this.ds.currentFrame);
-        if (span && span.prev) {
-          setSelectValue(span.prev.tweenType || 'linear');
-          return;
-        }
-      } else {
-        for (const ch of obj.channels.values()) {
-          const kf = ch.getKeyframeAt(this.ds.currentFrame);
-          if (kf) {
-            setSelectValue(kf.tweenType || 'linear');
-            return;
-          }
-        }
-        for (const ch of obj.channels.values()) {
-          const span = ch.getSpan(this.ds.currentFrame);
-          if (span && span.prev) {
-            setSelectValue(span.prev.tweenType || 'linear');
-            return;
-          }
-        }
+      if (obj.hasAnyKeyframeAt(this.ds.currentFrame)) {
+        setSelectValue(obj.getKeyframeTweenAt(this.ds.currentFrame));
+        return;
       }
+    }
+
+    const selectedKfs = this.ds.getSelectedKeyframes();
+    if (selectedKfs.length > 0) {
+      setSelectValue(selectedKfs[0].keyframe.tweenType || 'linear');
+      return;
     }
 
     if (this.activeEasing) {
@@ -1214,72 +1209,6 @@ export class DopeSheetUI {
     }
   }
 
-  showAddPropertyMenu(obj, targetBtn) {
-    this.closeActiveMenu();
-
-    const menu = document.createElement('div');
-    menu.className = 'ds-prop-menu';
-    menu.style.position = 'absolute';
-    menu.style.background = '#282828';
-    menu.style.border = '1px solid #504945';
-    menu.style.borderRadius = '6px';
-    menu.style.boxShadow = '0 6px 20px rgba(0,0,0,0.6)';
-    menu.style.zIndex = '1000';
-    menu.style.padding = '6px';
-    menu.style.width = '240px';
-    menu.style.maxHeight = '280px';
-    menu.style.overflowY = 'auto';
-    menu.style.fontSize = '11px';
-    menu.style.color = '#ebdbb2';
-
-    const rect = targetBtn.getBoundingClientRect();
-    const panelRect = this.container.getBoundingClientRect();
-    menu.style.left = `${Math.min(panelRect.width - 250, Math.max(10, rect.left - panelRect.left))}px`;
-    menu.style.top = `${Math.max(10, rect.bottom - panelRect.top + 4)}px`;
-
-    menu.onpointerdown = (e) => e.stopPropagation();
-
-    const groups = getParameterGroups();
-    let html = `<div style="font-weight: bold; color: #fabd2f; padding: 2px 6px; margin-bottom: 4px; border-bottom: 1px solid #3c3836;">+ Add Quadro Property Track</div>`;
-
-    for (const [groupName, params] of Object.entries(groups)) {
-      html += `<div style="font-size: 10px; font-weight: bold; color: #a89984; padding: 4px 6px 2px 6px; text-transform: uppercase;">${groupName}</div>`;
-      for (const p of params) {
-        const alreadyHas = obj.channels.has(p.key);
-        html += `
-          <div class="ds-prop-item" data-key="${p.key}" style="padding: 3px 8px; margin: 1px 0; border-radius: 3px; cursor: ${alreadyHas ? 'default' : 'pointer'}; opacity: ${alreadyHas ? 0.4 : 1.0}; display: flex; justify-content: space-between; align-items: center; background: ${alreadyHas ? 'transparent' : '#1d2021'};">
-            <span>${p.label}</span>
-            <span style="font-size: 9px; color: #7c6f64;">${p.unit || p.type}</span>
-          </div>
-        `;
-      }
-    }
-
-    menu.innerHTML = html;
-
-    menu.querySelectorAll('.ds-prop-item').forEach(item => {
-      const key = item.getAttribute('data-key');
-      if (!obj.channels.has(key)) {
-        item.onmouseenter = () => item.style.background = '#3c3836';
-        item.onmouseleave = () => item.style.background = '#1d2021';
-        item.onclick = (e) => {
-          e.stopPropagation();
-          obj.getOrCreateChannel(key);
-          // Sample current frame value or initial
-          const ch = obj.channels.get(key);
-          if (ch.keyframes.length === 0) {
-            ch.addKeyframe(this.ds.currentFrame, ch.defaultValue);
-          }
-          this.closeActiveMenu();
-          this.updateGrid();
-        };
-      }
-    });
-
-    this.container.querySelector('.dopesheet-panel').appendChild(menu);
-    this._activeMenu = menu;
-  }
-
   updateGrid() {
     const totalW = Math.max(800, this.ds.totalFrames * this.frameWidth + 40);
     const treeRowsEl = this.container.querySelector('#ds-tree-rows');
@@ -1287,104 +1216,105 @@ export class DopeSheetUI {
     const gridCanvas = this.container.querySelector('#ds-grid-canvas');
     if (!treeRowsEl || !rulerCanvas || !gridCanvas) return;
 
-    // 1. Build Flat List of Visible Channel Rows
-    const flatRows = [];
+    // 1. Build List of Objects (1 track per object)
+    const objectRows = [];
     for (const obj of this.ds.objects.values()) {
       let label = obj.name;
+      let objType = obj.targetType || 'vector';
       if (typeof window !== 'undefined' && window.doc) {
         const live = window.doc.findObject ? window.doc.findObject(obj.id) : (window.doc.objects ? window.doc.objects.find(o => o.id === obj.id) : null);
-        if (live && live.name) {
-          obj.name = live.name;
-          label = live.name;
+        if (live) {
+          if (live.name) {
+            obj.name = live.name;
+            label = live.name;
+          }
+          if (live.type) {
+            objType = live.type;
+          }
         }
       }
-      flatRows.push({ type: 'object', object: obj, id: obj.id, label });
-      if (!obj.collapsed) {
-        for (const [paramKey, ch] of obj.channels.entries()) {
-          flatRows.push({ type: 'channel', object: obj, channel: ch, paramKey, label: ch.label });
-        }
-      }
+      objectRows.push({ object: obj, id: obj.id, label, type: objType });
     }
-    this._flatRows = flatRows;
+    this._objectRows = objectRows;
 
-    const rowHeight = 22;
-    const totalH = Math.max(120, flatRows.length * rowHeight);
+    const rowHeight = 26;
+    const totalH = Math.max(120, objectRows.length * rowHeight);
 
     // 2. Render Left Sidebar DOM Rows
     treeRowsEl.innerHTML = '';
-    flatRows.forEach((r, idx) => {
+    objectRows.forEach((r, idx) => {
       const rowEl = document.createElement('div');
       rowEl.style.height = `${rowHeight}px`;
       rowEl.style.display = 'flex';
       rowEl.style.alignItems = 'center';
-      rowEl.style.padding = '0 6px';
+      rowEl.style.padding = '0 8px';
       rowEl.style.borderBottom = '1px solid #32302f';
       rowEl.style.boxSizing = 'border-box';
       rowEl.style.cursor = 'pointer';
 
-      const isObjSelected = (r.type === 'object' && r.object.id === this.selectedObjectId && !this.selectedParamKey);
-      const isChSelected = (r.type === 'channel' && r.object.id === this.selectedObjectId && r.paramKey === this.selectedParamKey);
-
-      if (isObjSelected) {
+      const isSelected = (r.object.id === this.selectedObjectId);
+      if (isSelected) {
         rowEl.style.background = '#3c3836';
         rowEl.style.borderLeft = '3px solid #fabd2f';
-      } else if (isChSelected) {
-        rowEl.style.background = '#3c3836';
-        rowEl.style.borderLeft = '3px solid #83a598';
       } else {
-        rowEl.style.background = (r.object.id === this.selectedObjectId) ? '#32302f' : (idx % 2 === 0 ? '#282828' : '#242424');
+        rowEl.style.background = (idx % 2 === 0 ? '#282828' : '#242424');
         rowEl.style.borderLeft = '3px solid transparent';
       }
 
+      const kfFrames = r.object.getKeyframeFrames();
+      const kfCount = kfFrames.length;
+
+      const getIcon = (type) => {
+        switch (type) {
+          case 'rect': return '▭';
+          case 'circle': return '○';
+          case 'ellipse': return '⬭';
+          case 'star': return '★';
+          case 'polygon': return '⬡';
+          case 'path': return '∿';
+          case 'text': return 'T';
+          case 'image': return '🖼';
+          case 'camera': return '📷';
+          case 'brush_preset': return '🖌';
+          case 'group': return '📁';
+          default: return '◈';
+        }
+      };
+
+      const icon = getIcon(r.type);
+
+      rowEl.innerHTML = `
+        <span style="font-size: 11px; margin-right: 6px; color: #83a598; width: 14px; text-align: center;">${icon}</span>
+        <span style="font-weight: bold; color: ${isSelected ? '#fabd2f' : '#ebdbb2'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label}">${r.label}</span>
+        <span style="font-size: 9px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes">${kfCount > 0 ? `${kfCount} kf` : ''}</span>
+        <span class="ds-del-track-btn" title="Remove object from timeline" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
+      `;
+
       rowEl.onclick = () => {
         this.selectedObjectId = r.object.id;
-        if (r.type === 'channel') {
-          this.selectedParamKey = r.paramKey;
-          const kf = r.channel.getKeyframeAt(this.ds.currentFrame);
-          if (kf) {
-            this.activeEasing = kf.tweenType || 'linear';
-            const easingSelect = this.container.querySelector('#ds-select-easing');
-            if (easingSelect) easingSelect.value = this.activeEasing;
-          }
-        } else {
-          this.selectedParamKey = null;
+        if (typeof window !== 'undefined' && window.doc) {
+          if (window.doc.select) window.doc.select(r.object.id);
+          if (window.render) window.render();
+          if (window.updateInspector) window.updateInspector();
         }
+        this.syncEasingUI();
         this.updateGrid();
       };
 
-      if (r.type === 'object') {
-        const trackCount = r.object.channels.size;
-        rowEl.innerHTML = `
-          <span class="ds-toggle-collapse" style="margin-right: 4px; color: #d79921; cursor: pointer; font-size: 9px; width: 12px;">${r.object.collapsed ? '▶' : '▼'}</span>
-          <span style="font-weight: bold; color: #fabd2f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;" title="${r.label}">${r.label}</span>
-          <span style="font-size: 9px; color: #7c6f64; margin-left: 4px;" title="${trackCount} animated tracks">${trackCount > 0 ? `${trackCount} tr` : ''}</span>
-        `;
-        rowEl.querySelector('.ds-toggle-collapse').onclick = (e) => {
-          e.stopPropagation();
-          r.object.collapsed = !r.object.collapsed;
-          this.updateGrid();
-        };
-      } else {
-        const val = r.channel.sample(this.ds.currentFrame);
-        let valDisplay = typeof val === 'number' ? Math.round(val * 100) / 100 : String(val);
-        const def = PARAMETER_REGISTRY[r.paramKey];
-        if (def && def.unit) valDisplay += def.unit;
-
-        rowEl.innerHTML = `
-          <span style="margin-left: 14px; color: #ebdbb2; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;" title="${r.label}">${r.label}</span>
-          <span style="font-size: 9px; color: #83a598; margin-right: 4px; background: #1d2021; padding: 1px 4px; border-radius: 2px;">${valDisplay}</span>
-          <span class="ds-del-ch-btn" title="Remove track" style="color: #7c6f64; font-size: 10px; cursor: pointer; padding: 0 3px;">✕</span>
-        `;
-        const delBtn = rowEl.querySelector('.ds-del-ch-btn');
+      const delBtn = rowEl.querySelector('.ds-del-track-btn');
+      if (delBtn) {
         delBtn.onmouseenter = () => delBtn.style.color = '#ea6962';
         delBtn.onmouseleave = () => delBtn.style.color = '#7c6f64';
         delBtn.onclick = (e) => {
           e.stopPropagation();
-          r.object.removeChannel(r.paramKey);
-          if (this.selectedParamKey === r.paramKey) this.selectedParamKey = null;
+          this.ds.removeObject(r.object.id);
+          if (this.selectedObjectId === r.object.id) {
+            this.selectedObjectId = null;
+          }
           this.updateGrid();
         };
       }
+
       treeRowsEl.appendChild(rowEl);
     });
 
@@ -1460,37 +1390,43 @@ export class DopeSheetUI {
       gctx.stroke();
     }
 
-    // Draw row backgrounds & keyframes
-    flatRows.forEach((r, idx) => {
+    // Draw row backgrounds, span lines & keyframe diamonds
+    objectRows.forEach((r, idx) => {
       const y = idx * rowHeight;
-      const isSelectedTrack = (r.type === 'channel' && r.object.id === this.selectedObjectId && r.paramKey === this.selectedParamKey);
-      gctx.fillStyle = isSelectedTrack ? 'rgba(131,165,152,0.12)' : (idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)');
+      const isSelectedObj = (r.object.id === this.selectedObjectId);
+      gctx.fillStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.08)' : (idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)');
       gctx.fillRect(0, y, totalW, rowHeight);
       gctx.strokeStyle = '#32302f';
       gctx.strokeRect(0, y, totalW, rowHeight);
 
-      if (r.type === 'object') {
-        // Draw summarized keyframe dots
-        for (let f = 1; f <= this.ds.totalFrames; f++) {
-          if (r.object.hasAnyKeyframeAt(f)) {
-            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-            const ky = y + rowHeight / 2;
-            gctx.fillStyle = '#fabd2f';
-            gctx.beginPath();
-            gctx.arc(kx, ky, 3.5, 0, Math.PI * 2);
-            gctx.fill();
-          }
+      const kfFrames = r.object.getKeyframeFrames();
+      if (kfFrames.length > 0) {
+        const firstF = kfFrames[0];
+        const lastF = kfFrames[kfFrames.length - 1];
+        if (firstF < lastF) {
+          // Draw active animation span bar between first and last keyframe
+          const x1 = (firstF - 1) * this.frameWidth + this.frameWidth / 2;
+          const x2 = (lastF - 1) * this.frameWidth + this.frameWidth / 2;
+          const cy = y + rowHeight / 2;
+          gctx.strokeStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.45)' : 'rgba(131, 165, 152, 0.3)';
+          gctx.lineWidth = 3;
+          gctx.beginPath();
+          gctx.moveTo(x1, cy);
+          gctx.lineTo(x2, cy);
+          gctx.stroke();
         }
-      } else if (r.type === 'channel') {
-        // Draw Keyframe Diamonds
-        for (const kf of r.channel.keyframes) {
-          const kx = (kf.frame - 1) * this.frameWidth + this.frameWidth / 2;
-          const ky = y + rowHeight / 2;
-          const size = 5;
 
-          gctx.fillStyle = kf.selected ? '#fb4934' : getEasingColor(kf.tweenType);
-          gctx.strokeStyle = kf.selected ? '#ffffff' : '#1d2021';
-          gctx.lineWidth = kf.selected ? 1.5 : 1.2;
+        // Draw Keyframe Diamonds
+        for (const f of kfFrames) {
+          const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
+          const ky = y + rowHeight / 2;
+          const size = 5.5;
+          const tween = r.object.getKeyframeTweenAt(f);
+          const isSelectedKf = r.object.isKeyframeSelectedAt(f);
+
+          gctx.fillStyle = isSelectedKf ? '#fb4934' : getEasingColor(tween);
+          gctx.strokeStyle = isSelectedKf ? '#ffffff' : '#1d2021';
+          gctx.lineWidth = isSelectedKf ? 1.8 : 1.2;
 
           gctx.beginPath();
           gctx.moveTo(kx, ky - size);

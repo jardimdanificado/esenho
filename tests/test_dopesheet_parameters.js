@@ -396,6 +396,38 @@ assert.strictEqual(txtPath.brushConfig.grain, 40);
 assert.strictEqual(txtPath.wasmFilter.plugin, 'dither');
 console.log('✔ SvgText Texture & Brush Dynamics forwarding passed');
 
+// 16. Test Single-Track per Object Keyframe Operations
+console.log('16. Testing Single-Track per Object Keyframe Operations...');
+const singleTrackObj = new DopeSheetObject('hero_sprite', 'Hero Sprite', 'vector');
+singleTrackObj.setKeyframe('x', 1, 10, 'linear');
+singleTrackObj.setKeyframe('y', 1, 20, 'linear');
+singleTrackObj.setKeyframe('opacity', 1, 1.0, 'linear');
+
+singleTrackObj.setKeyframe('x', 15, 100, 'easeOutQuad');
+singleTrackObj.setKeyframe('y', 15, 200, 'easeOutQuad');
+singleTrackObj.setKeyframe('opacity', 15, 0.5, 'easeOutQuad');
+
+singleTrackObj.setKeyframe('x', 30, 300, 'bounce(3, 0.45)');
+singleTrackObj.setKeyframe('y', 30, 400, 'bounce(3, 0.45)');
+
+const kfFrames = singleTrackObj.getKeyframeFrames();
+assert.deepStrictEqual(kfFrames, [1, 15, 30], 'Object should report [1, 15, 30] keyframe frames');
+assert.strictEqual(singleTrackObj.getKeyframeTweenAt(15), 'easeOutQuad');
+assert.strictEqual(singleTrackObj.getKeyframeTweenAt(30), 'bounce(3, 0.45)');
+
+// Test changing tween at frame across all channels
+singleTrackObj.setKeyframeTweenAt(15, 'easeInOutCubic');
+assert.strictEqual(singleTrackObj.getKeyframeTweenAt(15), 'easeInOutCubic');
+assert.strictEqual(singleTrackObj.channels.get('x').getKeyframeAt(15).tweenType, 'easeInOutCubic');
+assert.strictEqual(singleTrackObj.channels.get('y').getKeyframeAt(15).tweenType, 'easeInOutCubic');
+
+// Test removing keyframe at frame across all channels
+singleTrackObj.removeKeyframesAtFrame(15);
+assert.deepStrictEqual(singleTrackObj.getKeyframeFrames(), [1, 30]);
+assert.strictEqual(singleTrackObj.hasAnyKeyframeAt(15), false);
+
+console.log('✔ Single-track per object operations passed');
+
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
 
 
