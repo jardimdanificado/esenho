@@ -961,6 +961,119 @@
       border-color: var(--primary);
     }
 
+    /* ── Programmable Dope Sheet & Timeline Dock ── */
+    #timeline-dock {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 195px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 50;
+      box-shadow: 0 -4px 18px rgba(0,0,0,0.5);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #timeline-dock.collapsed {
+      transform: translateY(100%);
+      pointer-events: none;
+    }
+
+    #timeline-transport {
+      height: 32px;
+      background: var(--bg-panel-sub);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    #timeline-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      background: var(--bg-dark);
+      position: relative;
+    }
+
+    #dope-channels {
+      width: 190px;
+      min-width: 190px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      overflow-y: hidden;
+      overflow-x: hidden;
+      font-size: 10.5px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .dope-channel-row {
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      color: var(--text-dim);
+      gap: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .dope-channel-row:hover {
+      background: rgba(255,255,255,0.02);
+    }
+
+    .dope-channel-row.header {
+      font-weight: 700;
+      color: var(--text-bright);
+      background: rgba(0,0,0,0.25);
+    }
+
+    .dope-channel-row.active {
+      background: rgba(250, 189, 47, 0.08);
+      color: var(--primary);
+      font-weight: 600;
+    }
+
+    .dope-del-track-btn {
+      opacity: 0.3;
+      cursor: pointer;
+      background: none;
+      border: none;
+      color: var(--text);
+      font-size: 10px;
+      padding: 0 2px;
+      line-height: 1;
+    }
+
+    .dope-del-track-btn:hover {
+      opacity: 1;
+      color: var(--danger);
+    }
+
+    #dope-tracks-wrap {
+      flex: 1;
+      position: relative;
+      background: var(--bg-dark);
+      overflow-x: auto;
+      overflow-y: auto;
+    }
+
+    #dope-canvas {
+      display: block;
+      cursor: crosshair;
+    }
+
     /* ── Status Bar ── */
     #viewport-status-bar {
       position: absolute;
@@ -1419,8 +1532,10 @@
       </div>
     </div>
 
-    <!-- Sidebar Toggle (Desktop & Mobile) -->
-    <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
+    <div style="display: flex; gap: 6px; align-items: center;">
+      <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Minimalist Timeline & Dope Sheet (Space / Alt+T)" style="font-weight: 600;">🎬 Timeline</button>
+      <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
+    </div>
   </header>
 
   <!-- Main Workspace -->
@@ -1933,7 +2048,7 @@
       </div>
     </div>
 
-    <!-- Center Interactive Viewport -->
+      <!-- Center Interactive Viewport -->
     <div id="viewport-container">
       <!-- Rulers & Guides Overlay -->
       <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: var(--bg-panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
@@ -1945,6 +2060,75 @@
         <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
       </div>
       <canvas id="overlay-canvas"></canvas>
+
+      <!-- W3C SMIL Dope Sheet & Timeline Dock -->
+      <div id="timeline-dock" class="collapsed">
+        <div id="timeline-transport">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button id="btn-tl-play" class="btn-sm" style="font-weight: 700; background: var(--primary); color: #000; border: none; padding: 3px 8px; border-radius: var(--radius-sm); cursor: pointer;" title="Play / Pause (Space)">▶ Play</button>
+            <button id="btn-tl-prev-key" class="btn-sm" style="font-family: var(--font-mono); font-weight: 700;" title="Jump to Previous Keyframe ([ or J])">|◀</button>
+            <button id="btn-tl-step-back" class="btn-sm" style="font-family: var(--font-mono); font-weight: 700;" title="Step 1 Frame Back (Left Arrow)">◀</button>
+            <button id="btn-tl-step-fwd" class="btn-sm" style="font-family: var(--font-mono); font-weight: 700;" title="Step 1 Frame Forward (Right Arrow)">▶</button>
+            <button id="btn-tl-next-key" class="btn-sm" style="font-family: var(--font-mono); font-weight: 700;" title="Jump to Next Keyframe (] or L)">▶|</button>
+            <button id="btn-tl-rest" class="btn-sm" title="Rest Pose (t=0, restore base geometry & canvas)">⟲ Rest</button>
+            <button id="btn-tl-loop" class="btn-sm" title="Toggle Loop Mode">Loop</button>
+            <div style="width: 1px; height: 16px; background: var(--border); margin: 0 1px;"></div>
+            <span id="tl-time-disp" style="font-size: 10.5px; font-family: var(--font-mono); color: var(--primary); min-width: 65px;" title="Current time and frame">0.00s (0f)</span>
+            <span style="font-size: 10px; font-family: var(--font-mono); color: var(--text-muted);">/</span>
+            <input type="number" id="tl-duration-input" min="0.2" max="60" step="0.5" value="3.0" style="width: 38px; height: 20px; font-size: 10px; font-family: var(--font-mono); padding: 1px 2px;" title="Duration in seconds">
+            <span style="font-size: 9.5px; color: var(--text-muted);">s</span>
+
+            <div style="width: 1px; height: 16px; background: var(--border); margin: 0 2px;"></div>
+            <span style="font-size: 9.5px; color: var(--text-muted);">FPS:</span>
+            <select id="tl-fps-select" style="font-size: 9.5px; height: 20px; padding: 1px 2px;" title="Timeline Frame Rate">
+              <option value="12">12</option>
+              <option value="24" selected>24</option>
+              <option value="30">30</option>
+              <option value="60">60</option>
+            </select>
+            <label style="display: flex; align-items: center; gap: 2px; font-size: 9.5px; color: var(--text-dim); cursor: pointer; user-select: none;" title="Snap scrubbing and keyframes to frame grid">
+              <input type="checkbox" id="tl-snap-frames" checked style="accent-color: var(--primary); transform: scale(0.85);">
+              <span>Snap</span>
+            </label>
+
+            <div style="width: 1px; height: 16px; background: var(--border); margin: 0 2px;"></div>
+            <select id="tl-target-select" style="font-size: 10px; height: 20px; max-width: 140px; padding: 1px 3px; background: var(--bg-dark); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm);" title="Select object or canvas/stage target">
+              <option value="selected">[Target] Selected Object</option>
+              <option value="__stage__">[Stage] Canvas & Stage</option>
+              <optgroup label="Scene Objects" id="tl-target-objects-group"></optgroup>
+            </select>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <button id="btn-tl-add-key" class="btn-sm" style="border-color: var(--primary); color: var(--primary); font-weight: 600; font-size: 10px; padding: 2px 6px;" title="Insert Keyframe at Current Time (K)">+ Key (K)</button>
+            <label style="display: flex; align-items: center; gap: 3px; font-size: 10px; color: var(--text); cursor: pointer; user-select: none;" title="Auto-record keyframes when transforming objects or properties">
+              <input type="checkbox" id="tl-auto-key-check" checked style="accent-color: var(--primary); transform: scale(0.9);">
+              <span>Auto-Key</span>
+            </label>
+            <div style="width: 1px; height: 16px; background: var(--border); margin: 0 1px;"></div>
+            <select id="tl-easing-select" style="font-size: 9.5px; height: 20px; padding: 1px 2px;" title="SMIL Spline Easing">
+              <option value="ease-in-out" selected>Ease In-Out (Spline)</option>
+              <option value="linear">Linear</option>
+              <option value="ease-in">Ease In (Spline)</option>
+              <option value="ease-out">Ease Out (Spline)</option>
+              <option value="discrete">Discrete (Step)</option>
+            </select>
+            <button id="btn-tl-close" class="btn-icon" style="font-size: 11px; margin-left: 2px;" title="Hide Timeline">✕</button>
+          </div>
+        </div>
+
+        <div id="timeline-body">
+          <div id="dope-channels">
+            <div class="dope-channel-row header">
+              <span id="dope-target-name">[Target] Selected Object</span>
+            </div>
+            <div id="dope-channels-list" style="display: flex; flex-direction: column;"></div>
+          </div>
+          <div id="dope-tracks-wrap">
+            <canvas id="dope-canvas"></canvas>
+          </div>
+        </div>
+      </div>
 
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
@@ -1963,7 +2147,8 @@
             <option value="image/png" selected>PNG (Lossless)</option>
             <option value="image/webp">WebP</option>
             <option value="image/jpeg">JPEG</option>
-            <option value="image/svg+xml">SVG Vector</option>
+            <option value="image/svg+xml">SVG Vector (Static)</option>
+            <option value="image/svg+xml+smil">SVG Vector (SMIL Animated)</option>
           </select>
         </div>
         <div class="form-row">
@@ -3724,12 +3909,15 @@
                 : `<span title="FX Filter (${obj.wasmFilter.target}): ${obj.wasmFilter.plugin}" style="display: inline-flex; align-items: center; color: #d3869b; flex-shrink: 0;" class="obj-meta-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>`)
             : '';
 
+          const hasKeyframes = obj.keyframes && Object.keys(obj.keyframes).length > 0;
+          const isAnimTrackBadge = hasKeyframes ? `<span title="SMIL Animated" style="display: inline-flex; align-items: center; color: #8ec07c; flex-shrink: 0; font-size: 8.5px; font-weight: 700; font-family: var(--font-mono); padding: 0 3px; background: rgba(142,192,124,0.15); border-radius: 3px;" class="obj-meta-icon">[SMIL]</span>` : '';
+
           item.innerHTML = `
             <div class="obj-info" style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1; user-select: none;">
               ${collapseBtn}
               <span style="font-size: 11px; opacity: 0.8;">${getIconForType(obj.type)}</span>
               <span class="obj-name" style="font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: default;">${obj.name}</span>
-              ${isMaskedBadge}${isMaskBadge}${isTextPathBadge}${filterBadge}
+              ${isMaskedBadge}${isMaskBadge}${isTextPathBadge}${filterBadge}${isAnimTrackBadge}
             </div>
             <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon" data-action="toggle-vis" title="Visibility">${obj.visible ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.35;"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'}</button>
@@ -4448,6 +4636,7 @@
         }
 
         updateSwatches();
+        if (typeof updateAnimationTab === 'function') updateAnimationTab();
       }
 
       function updateSwatches() {
@@ -4480,6 +4669,7 @@
 
       // ── Pointer & Tool Event Handlers ──
       viewportContainer.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('#timeline-dock') || e.target.closest('#ruler-top') || e.target.closest('#ruler-left') || e.target.closest('#ruler-corner')) return;
         if (isTouchPinching) return;
 
         // Hand tool / Space / Middle Click Pan
@@ -5370,6 +5560,9 @@
           render();
           updateInspector();
           scheduleAutosave();
+          if (typeof notifyObjectTransformed === 'function') {
+            notifyObjectTransformed(doc.getSelectedObjects()[0]);
+          }
         }
       });
 
@@ -5388,6 +5581,7 @@
 
       // ── Zoom Controls (Wheel) ──
       viewportContainer.addEventListener('wheel', (e) => {
+        if (e.target.closest('#timeline-dock')) return;
         e.preventDefault();
         const delta = e.deltaY < 0 ? 1.15 : 0.85;
         const rect = viewportContainer.getBoundingClientRect();
@@ -6690,6 +6884,22 @@
         const safeTitle = (currentProjectTitle || 'wesenho').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'wesenho';
         const filename = `${safeTitle}_${scale}x_${Date.now()}.${ext}`;
 
+        if (format === 'image/svg+xml+smil') {
+          const svgData = typeof doc.toSMILSvgString === 'function' ? doc.toSMILSvgString(animDuration, animFps) : doc.toSVGString();
+          const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${safeTitle}_smil_${Date.now()}.svg`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          if (modalExport) modalExport.style.display = 'none';
+          showNotification(`Exported ${safeTitle}_smil.svg`);
+          return;
+        }
+
         if (format === 'image/svg+xml') {
           const svgData = doc.toSVGString();
           const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
@@ -7615,6 +7825,7 @@
       let touchTapGesture = null;
 
       viewportContainer.addEventListener('touchstart', (e) => {
+        if (e.target.closest('#timeline-dock')) return;
         if (e.touches.length >= 2) {
           e.preventDefault();
           isTouchPinching = true;
@@ -8402,6 +8613,1130 @@
         scheduleAutosave();
         closeNewProjectModal();
       });
+
+      // ── Programmable Timeline & Driver Engine ──
+      let animTargetMode = 'selected'; // 'selected' | '__stage__' | string (objId)
+      let animTargetObjId = null;
+      let animIsPlaying = false;
+      let animCurrentTime = 0; // in seconds, [0, animDuration]
+      let animDuration = 3.0;  // in seconds
+      let animFps = 24;
+      let animSnapToFrames = true;
+      let animLoopMode = 'loop'; // 'loop' | 'pingpong' | 'once'
+      let animPingPongDir = 1;
+      let animDefaultEasing = 'ease-in-out';
+      let animAutoKey = true;
+      let animLastRafTime = null;
+      let animRafId = null;
+      let dopeSelectedKey = null; // { targetType: 'obj'|'stage', id, channel, index }
+      let dopeIsDraggingPlayhead = false;
+      let dopeIsDraggingKey = false;
+
+      // Global Stage Keyframes Container
+      doc.stageKeyframes = doc.stageKeyframes || {};
+
+      // ── Math & Motion Helper Suite ──
+      const AnimMath = {
+        lerp(a, b, t) {
+          return a + (b - a) * Math.max(0, Math.min(1, t));
+        },
+        clamp(v, min = 0, max = 1) {
+          return Math.max(min, Math.min(max, v));
+        },
+        wave(t, freq = 1, amp = 1, phase = 0) {
+          return Math.sin(t * freq * Math.PI * 2 + phase) * amp;
+        },
+        cosWave(t, freq = 1, amp = 1, phase = 0) {
+          return Math.cos(t * freq * Math.PI * 2 + phase) * amp;
+        },
+        saw(t, freq = 1, amp = 1) {
+          const p = (t * freq) % 1;
+          return (p < 0 ? p + 1 : p) * amp;
+        },
+        tri(t, freq = 1, amp = 1) {
+          const p = (t * freq) % 1;
+          const norm = p < 0 ? p + 1 : p;
+          return (norm < 0.5 ? norm * 2 : 2 - norm * 2) * amp;
+        },
+        wiggle(t, freq = 2, amp = 10, octaves = 3) {
+          let sum = 0, f = freq, a = amp;
+          for (let i = 0; i < octaves; i++) {
+            sum += Math.sin(t * f * 6.28318 + (i * 133.7)) * a;
+            f *= 2.1;
+            a *= 0.5;
+          }
+          return sum;
+        },
+        spring(from, to, t, tension = 120, friction = 14) {
+          if (t <= 0) return from;
+          const omega = Math.sqrt(tension);
+          const zeta = friction / (2 * omega);
+          const factor = Math.sqrt(Math.max(0, 1 - zeta * zeta));
+          const progress = 1 - Math.exp(-zeta * omega * t) * Math.cos(omega * factor * t);
+          return from + (to - from) * progress;
+        },
+        noise(t) {
+          return (Math.sin(t * 12.9898) * 43758.5453) % 1;
+        },
+        ease(t, type = 'ease-in-out') {
+          t = Math.max(0, Math.min(1, t));
+          switch (type) {
+            case 'linear': return t;
+            case 'ease-in': return t * t * t;
+            case 'ease-out': return 1 - Math.pow(1 - t, 3);
+            case 'ease-in-out': return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+            case 'bounce': {
+              let n1 = 7.5625, d1 = 2.75, x = t;
+              if (x < 1 / d1) return n1 * x * x;
+              else if (x < 2 / d1) return n1 * (x -= 1.5 / d1) * x + 0.75;
+              else if (x < 2.5 / d1) return n1 * (x -= 2.25 / d1) * x + 0.9375;
+              else return n1 * (x -= 2.625 / d1) * x + 0.984375;
+            }
+            case 'elastic': {
+              if (t === 0) return 0;
+              if (t === 1) return 1;
+              return -Math.pow(2, 10 * (t - 1)) * Math.sin((t - 1.1) * 5 * Math.PI);
+            }
+            default: return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          }
+        },
+        hsl(h, s = 80, l = 60) {
+          return `hsl(${Math.round(h % 360)}, ${s}%, ${l}%)`;
+        }
+      };
+
+      if (typeof window !== 'undefined') {
+        window.wesenho = window.wesenho || {};
+        window.wesenho.anim = AnimMath;
+      }
+
+      function snapTime(t) {
+        if (!animSnapToFrames) return Math.max(0, Math.min(animDuration, t));
+        const frame = Math.round(t * animFps);
+        return Math.max(0, Math.min(animDuration, frame / animFps));
+      }
+
+      // ── DOM References ──
+      const timelineDock = document.getElementById('timeline-dock');
+      const btnToggleTimeline = document.getElementById('btn-toggle-timeline');
+      const btnTlClose = document.getElementById('btn-tl-close');
+
+      const btnTlPlay = document.getElementById('btn-tl-play');
+      const btnTlPrevKey = document.getElementById('btn-tl-prev-key');
+      const btnTlStepBack = document.getElementById('btn-tl-step-back');
+      const btnTlStepFwd = document.getElementById('btn-tl-step-fwd');
+      const btnTlNextKey = document.getElementById('btn-tl-next-key');
+      const btnTlRest = document.getElementById('btn-tl-rest');
+      const btnTlLoop = document.getElementById('btn-tl-loop');
+      const tlTimeDisp = document.getElementById('tl-time-disp');
+      const tlDurationInput = document.getElementById('tl-duration-input');
+      const tlFpsSelect = document.getElementById('tl-fps-select');
+      const tlSnapFrames = document.getElementById('tl-snap-frames');
+      const tlTargetSelect = document.getElementById('tl-target-select');
+      const tlTargetObjectsGroup = document.getElementById('tl-target-objects-group');
+      const btnTlAddKey = document.getElementById('btn-tl-add-key');
+      const tlAutoKeyCheck = document.getElementById('tl-auto-key-check');
+      const tlEasingSelect = document.getElementById('tl-easing-select');
+
+      const dopeChannels = document.getElementById('dope-channels');
+      const dopeTargetName = document.getElementById('dope-target-name');
+      const dopeChannelsList = document.getElementById('dope-channels-list');
+      const dopeTracksWrap = document.getElementById('dope-tracks-wrap');
+      const dopeCanvas = document.getElementById('dope-canvas');
+      const dopeCtx = dopeCanvas ? dopeCanvas.getContext('2d') : null;
+
+      // ── Base State Management ──
+      let stageBaseState = null;
+
+      function captureObjectState(obj) {
+        if (!obj) return null;
+        const state = {
+          id: obj.id,
+          type: obj.type,
+          name: obj.name || obj.id,
+          opacity: obj.opacity !== undefined ? obj.opacity : 1,
+          rotation: obj.rotation || 0,
+          scaleX: obj.scaleX !== undefined ? obj.scaleX : 1,
+          scaleY: obj.scaleY !== undefined ? obj.scaleY : 1,
+          fill: typeof obj.fill === 'string' ? obj.fill : '#ebdbb2',
+          stroke: typeof obj.stroke === 'string' ? obj.stroke : 'none',
+          strokeWidth: obj.strokeWidth !== undefined ? obj.strokeWidth : 1,
+          custom: obj.custom ? JSON.parse(JSON.stringify(obj.custom)) : {}
+        };
+        ['x', 'y', 'width', 'height', 'cx', 'cy', 'r', 'rx', 'ry', 'x1', 'y1', 'x2', 'y2', 'fontSize', 'sides', 'strokeDasharray'].forEach(k => {
+          if (obj[k] !== undefined) state[k] = obj[k];
+        });
+        return state;
+      }
+
+      function ensureBaseState(obj) {
+        if (!obj) return;
+        if (!obj._baseState) {
+          obj._baseState = captureObjectState(obj);
+        }
+      }
+
+      function ensureStageBaseState() {
+        if (!stageBaseState) {
+          stageBaseState = {
+            backgroundColor: doc.backgroundColor || '#1d2021',
+            zoom: typeof zoom !== 'undefined' ? zoom : 1.0,
+            panX: typeof panX !== 'undefined' ? panX : 40,
+            panY: typeof panY !== 'undefined' ? panY : 40,
+            viewportRotation: typeof viewportRotation !== 'undefined' ? viewportRotation : 0,
+            filterBlur: doc.filterBlur || 0,
+            filterHue: doc.filterHue || 0,
+            filterBrightness: doc.filterBrightness !== undefined ? doc.filterBrightness : 100,
+            vars: JSON.parse(JSON.stringify(doc.vars || {}))
+          };
+        }
+      }
+
+      function ensureAllBaseStates() {
+        if (doc && doc.objects) doc.objects.forEach(obj => ensureBaseState(obj));
+        ensureStageBaseState();
+      }
+
+      function applyObjectState(obj, state) {
+        if (!obj || !state) return;
+        Object.keys(state).forEach(k => {
+          if (k !== 'id' && k !== 'type' && k !== 'name' && k !== '_baseState' && k !== 'keyframes' && k !== 'expressions' && k !== 'script' && k !== '_scriptFn') {
+            if (k === 'custom' && state[k]) {
+              obj.custom = JSON.parse(JSON.stringify(state[k]));
+            } else {
+              obj[k] = state[k];
+            }
+          }
+        });
+      }
+
+      function restoreAllBaseStates() {
+        if (doc && doc.objects) {
+          doc.objects.forEach(obj => {
+            if (obj._baseState) applyObjectState(obj, obj._baseState);
+          });
+        }
+        if (stageBaseState) {
+          doc.backgroundColor = stageBaseState.backgroundColor;
+          if (typeof zoom !== 'undefined') zoom = stageBaseState.zoom;
+          if (typeof panX !== 'undefined') panX = stageBaseState.panX;
+          if (typeof panY !== 'undefined') panY = stageBaseState.panY;
+          if (typeof viewportRotation !== 'undefined') viewportRotation = stageBaseState.viewportRotation || 0;
+          doc.filterBlur = stageBaseState.filterBlur;
+          doc.filterHue = stageBaseState.filterHue;
+          doc.filterBrightness = stageBaseState.filterBrightness;
+          doc.vars = JSON.parse(JSON.stringify(stageBaseState.vars || {}));
+          if (stageWrapper) {
+            stageWrapper.style.filter = 'none';
+            stageWrapper.style.backgroundColor = doc.backgroundColor;
+          }
+          if (svgStage) {
+            svgStage.style.filter = 'none';
+            svgStage.style.backgroundColor = doc.backgroundColor;
+          }
+          if (quadroCanvas) quadroCanvas.style.filter = 'none';
+          applyViewportTransform();
+        }
+        render();
+      }
+
+      // ── Target Resolution ──
+      function getActiveTarget() {
+        if (animTargetMode === '__stage__') {
+          return { isStage: true, id: '__stage__', name: 'Canvas & Stage' };
+        }
+        if (animTargetMode === 'selected') {
+          const sel = doc.getSelectedObjects();
+          const target = sel[0] || (animTargetObjId ? doc.findObject(animTargetObjId) : null);
+          return target || { isStage: true, id: '__stage__', name: 'Canvas & Stage' };
+        }
+        return doc.findObject(animTargetMode) || { isStage: true, id: '__stage__', name: 'Canvas & Stage' };
+      }
+
+      function syncTargetDropdown() {
+        if (!tlTargetSelect || !tlTargetObjectsGroup) return;
+        tlTargetObjectsGroup.innerHTML = '';
+        if (doc && doc.objects) {
+          doc.objects.forEach(o => {
+            const opt = document.createElement('option');
+            opt.value = o.id;
+            opt.textContent = `${o.name || o.type} (#${o.id})`;
+            tlTargetObjectsGroup.appendChild(opt);
+          });
+        }
+        tlTargetSelect.value = animTargetMode;
+      }
+
+      // ── Dynamic Channel & Track Model (Pure SMIL) ──
+      function getTargetChannels(target) {
+        if (!target) target = getActiveTarget();
+        if (target.isStage) {
+          const channels = ['canvas:background', 'canvas:zoom', 'canvas:panX', 'canvas:panY', 'canvas:rotation', 'canvas:filter.blur', 'canvas:filter.hue', 'canvas:filter.brightness'];
+          if (doc.stageKeyframes) {
+            Object.keys(doc.stageKeyframes).forEach(k => {
+              if (!channels.includes(k)) channels.push(k);
+            });
+          }
+          return channels;
+        }
+
+        // Object channels (All standard SMIL attributes visible by default)
+        const channels = ['position', 'rotation', 'scale', 'skewX', 'skewY', 'opacity', 'fill', 'stroke', 'strokeWidth', 'd', 'visibility'];
+        if (target.keyframes) {
+          Object.keys(target.keyframes).forEach(k => {
+            if (!channels.includes(k)) channels.push(k);
+          });
+        }
+        return channels;
+      }
+
+      function getChannelLabel(target, ch) {
+        if (ch === 'position' || ch === 'translate') return '[tr] Position (X, Y)';
+        if (ch === 'rotation' || ch === 'rotate') return '[rot] Rotation (deg)';
+        if (ch === 'scale') return '[scl] Scale (X, Y)';
+        if (ch === 'skewX') return '[skX] Skew X (deg)';
+        if (ch === 'skewY') return '[skY] Skew Y (deg)';
+        if (ch === 'opacity') return '[op] Opacity (0..1)';
+        if (ch === 'fill') return '[fill] Fill Color';
+        if (ch === 'stroke') return '[strk] Stroke Color';
+        if (ch === 'strokeWidth' || ch === 'stroke-width') return '[w] Stroke Width';
+        if (ch === 'd') return '[d] Path Morph (d)';
+        if (ch === 'visibility') return '[vis] Visibility';
+        if (ch === 'canvas:background' || ch === 'background') return '[cam:bg] Canvas Background';
+        if (ch === 'canvas:zoom' || ch === 'zoom') return '[cam:zoom] Camera Zoom';
+        if (ch === 'canvas:panX' || ch === 'panX') return '[cam:panX] Camera Pan X';
+        if (ch === 'canvas:panY' || ch === 'panY') return '[cam:panY] Camera Pan Y';
+        if (ch === 'canvas:rotation' || ch === 'rotation') return '[cam:rot] Camera Rotation (deg)';
+        if (ch === 'canvas:filter.blur' || ch === 'filter.blur') return '[fx:blur] Stage Blur (px)';
+        if (ch === 'canvas:filter.hue' || ch === 'filter.hue') return '[fx:hue] Stage Hue (deg)';
+        if (ch === 'canvas:filter.brightness' || ch === 'filter.brightness') return '[fx:brt] Stage Brightness (%)';
+        return `[attr] ${ch}`;
+      }
+
+      // ── Property Access & Interpolation ──
+      function getPropValue(target, path) {
+        if (!target) return null;
+        if (target.isStage) {
+          if (path === 'background' || path === 'canvas:background') return doc.backgroundColor || '#1d2021';
+          if (path === 'zoom' || path === 'canvas:zoom') return typeof zoom !== 'undefined' ? zoom : 1.0;
+          if (path === 'panX' || path === 'canvas:panX') return typeof panX !== 'undefined' ? panX : 40;
+          if (path === 'panY' || path === 'canvas:panY') return typeof panY !== 'undefined' ? panY : 40;
+          if (path === 'rotation' || path === 'canvas:rotation') return typeof viewportRotation !== 'undefined' ? viewportRotation : 0;
+          if (path === 'filter.blur' || path === 'canvas:filter.blur') return doc.filterBlur || 0;
+          if (path === 'filter.hue' || path === 'canvas:filter.hue') return doc.filterHue || 0;
+          if (path === 'filter.brightness' || path === 'canvas:filter.brightness') return doc.filterBrightness !== undefined ? doc.filterBrightness : 100;
+          return doc[path] !== undefined ? doc[path] : 0;
+        }
+
+        // Standard object channels
+        if (path === 'position' || path === 'translate') return { x: target.cx !== undefined ? target.cx : (target.x || 0), y: target.cy !== undefined ? target.cy : (target.y || 0) };
+        if (path === 'rotation' || path === 'rotate') return target.rotation || 0;
+        if (path === 'scale') return { scaleX: target.scaleX !== undefined ? target.scaleX : 1, scaleY: target.scaleY !== undefined ? target.scaleY : 1 };
+        if (path === 'skewX') return target.skewX !== undefined ? target.skewX : 0;
+        if (path === 'skewY') return target.skewY !== undefined ? target.skewY : 0;
+        if (path === 'opacity') return target.opacity !== undefined ? target.opacity : 1;
+        if (path === 'fill') return typeof target.fill === 'string' ? target.fill : '#ebdbb2';
+        if (path === 'stroke') return typeof target.stroke === 'string' ? target.stroke : 'none';
+        if (path === 'strokeWidth' || path === 'stroke-width') return target.strokeWidth !== undefined ? target.strokeWidth : 1;
+        if (path === 'd') return target.d || '';
+        if (path === 'visibility') return target.visibility !== undefined ? target.visibility : (target.visible === false ? 'hidden' : 'visible');
+
+        const prop = path.replace('custom:', '');
+        return target[prop] !== undefined ? target[prop] : 0;
+      }
+
+      function setPropValue(target, path, val) {
+        if (!target || val === null || val === undefined) return;
+        if (target.isStage) {
+          if (path === 'background' || path === 'canvas:background') {
+            doc.backgroundColor = val;
+            if (stageWrapper) stageWrapper.style.backgroundColor = val;
+            if (svgStage) svgStage.style.backgroundColor = val;
+          } else if (path === 'zoom' || path === 'canvas:zoom') {
+            if (typeof zoom !== 'undefined') {
+              zoom = Number(val);
+              applyViewportTransform();
+            }
+          } else if (path === 'panX' || path === 'canvas:panX') {
+            if (typeof panX !== 'undefined') {
+              panX = Number(val);
+              applyViewportTransform();
+            }
+          } else if (path === 'panY' || path === 'canvas:panY') {
+            if (typeof panY !== 'undefined') {
+              panY = Number(val);
+              applyViewportTransform();
+            }
+          } else if (path === 'rotation' || path === 'canvas:rotation') {
+            if (typeof viewportRotation !== 'undefined') {
+              viewportRotation = Number(val);
+              applyViewportTransform();
+            }
+          } else if (path === 'filter.blur' || path === 'canvas:filter.blur') {
+            doc.filterBlur = Number(val);
+          } else if (path === 'filter.hue' || path === 'canvas:filter.hue') {
+            doc.filterHue = Number(val);
+          } else if (path === 'filter.brightness' || path === 'canvas:filter.brightness') {
+            doc.filterBrightness = Number(val);
+          } else {
+            doc[path] = val;
+          }
+          return;
+        }
+
+        // Object channels
+        if (path === 'position' || path === 'translate') {
+          if (target.cx !== undefined) target.cx = val.x !== undefined ? val.x : val;
+          else target.x = val.x !== undefined ? val.x : val;
+          if (target.cy !== undefined) target.cy = val.y !== undefined ? val.y : val;
+          else target.y = val.y !== undefined ? val.y : val;
+        } else if (path === 'rotation' || path === 'rotate') {
+          target.rotation = typeof val === 'object' ? (val.angle || 0) : Number(val);
+        } else if (path === 'scale') {
+          target.scaleX = val.scaleX !== undefined ? val.scaleX : (typeof val === 'number' ? val : 1);
+          target.scaleY = val.scaleY !== undefined ? val.scaleY : (typeof val === 'number' ? val : 1);
+        } else if (path === 'skewX') {
+          target.skewX = Number(val);
+        } else if (path === 'skewY') {
+          target.skewY = Number(val);
+        } else if (path === 'opacity') {
+          target.opacity = Math.max(0, Math.min(1, Number(val)));
+        } else if (path === 'fill') {
+          target.fill = typeof val === 'string' ? val : (val.fill || '#ebdbb2');
+        } else if (path === 'stroke') {
+          target.stroke = typeof val === 'string' ? val : (val.stroke || 'none');
+        } else if (path === 'strokeWidth' || path === 'stroke-width') {
+          target.strokeWidth = Number(val);
+        } else if (path === 'd') {
+          target.d = String(val);
+        } else if (path === 'visibility') {
+          target.visibility = String(val);
+          target.visible = (val !== 'hidden' && val !== 'collapse' && val !== false);
+        } else {
+          const prop = path.replace('custom:', '');
+          target[prop] = val;
+        }
+      }
+
+      function parseColor(c) {
+        if (!c || c === 'none') return null;
+        if (c.startsWith('#')) {
+          let hex = c.slice(1);
+          if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+          const num = parseInt(hex, 16);
+          return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+        }
+        const m = c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (m) return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+        return null;
+      }
+
+      function interpolateColor(c1, c2, p) {
+        const rgb1 = parseColor(c1);
+        const rgb2 = parseColor(c2);
+        if (!rgb1 || !rgb2) return p < 0.5 ? c1 : c2;
+        const r = Math.round(rgb1[0] + (rgb2[0] - rgb1[0]) * p);
+        const g = Math.round(rgb1[1] + (rgb2[1] - rgb1[1]) * p);
+        const b = Math.round(rgb1[2] + (rgb2[2] - rgb1[2]) * p);
+        return `rgb(${r}, ${g}, ${b})`;
+      }
+
+      function interpolateTrackValue(ch, v0, v1, progress) {
+        if (ch === 'position' || ch === 'translate') {
+          const x0 = v0.x !== undefined ? v0.x : Number(v0);
+          const y0 = v0.y !== undefined ? v0.y : Number(v0);
+          const x1 = v1.x !== undefined ? v1.x : Number(v1);
+          const y1 = v1.y !== undefined ? v1.y : Number(v1);
+          return { x: x0 + (x1 - x0) * progress, y: y0 + (y1 - y0) * progress };
+        }
+        if (ch === 'scale') {
+          const sx0 = v0.scaleX !== undefined ? v0.scaleX : (typeof v0 === 'number' ? v0 : 1);
+          const sy0 = v0.scaleY !== undefined ? v0.scaleY : (typeof v0 === 'number' ? v0 : 1);
+          const sx1 = v1.scaleX !== undefined ? v1.scaleX : (typeof v1 === 'number' ? v1 : 1);
+          const sy1 = v1.scaleY !== undefined ? v1.scaleY : (typeof v1 === 'number' ? v1 : 1);
+          return { scaleX: sx0 + (sx1 - sx0) * progress, scaleY: sy0 + (sy1 - sy0) * progress };
+        }
+        if (ch === 'fill' || ch === 'stroke') {
+          if (typeof v0 === 'string' && typeof v1 === 'string') return interpolateColor(v0, v1, progress);
+        }
+        if (typeof v0 === 'number' && typeof v1 === 'number') {
+          return v0 + (v1 - v0) * progress;
+        }
+        if (typeof v0 === 'string' && typeof v1 === 'string' && (v0.startsWith('#') || v0.startsWith('rgb'))) {
+          return interpolateColor(v0, v1, progress);
+        }
+        return progress < 0.5 ? v0 : v1;
+      }
+
+      // ── Keyframe Insertion & Track Evaluation ──
+      function insertKeyframe(target, channel, time, customEase) {
+        if (!target) target = getActiveTarget();
+        if (!target) return;
+        ensureAllBaseStates();
+        const ease = customEase || tlEasingSelect?.value || animDefaultEasing;
+        const val = getPropValue(target, channel);
+
+        if (target.isStage) {
+          doc.stageKeyframes = doc.stageKeyframes || {};
+          doc.stageKeyframes[channel] = doc.stageKeyframes[channel] || [];
+          const track = doc.stageKeyframes[channel];
+          const existing = track.findIndex(k => Math.abs(k.t - time) < 0.02);
+          if (existing >= 0) {
+            track[existing].val = val;
+            track[existing].ease = ease;
+          } else {
+            track.push({ t: Number(time.toFixed(3)), val, ease });
+            track.sort((a, b) => a.t - b.t);
+          }
+        } else {
+          ensureBaseState(target);
+          target.keyframes = target.keyframes || {};
+          target.keyframes[channel] = target.keyframes[channel] || [];
+          const track = target.keyframes[channel];
+          const existing = track.findIndex(k => Math.abs(k.t - time) < 0.02);
+          if (existing >= 0) {
+            track[existing].val = val;
+            track[existing].ease = ease;
+          } else {
+            track.push({ t: Number(time.toFixed(3)), val, ease });
+            track.sort((a, b) => a.t - b.t);
+          }
+        }
+      }
+
+      function insertAllKeyframesAtCurrentTime() {
+        const target = getActiveTarget();
+        if (!target) {
+          showNotification('No active object or canvas selected');
+          return;
+        }
+        const channels = getTargetChannels(target);
+        channels.forEach(ch => insertKeyframe(target, ch, animCurrentTime));
+        renderDopeSheet();
+        showNotification(`Keyframes added for ${target.name || target.type || '#' + target.id} at ${animCurrentTime.toFixed(2)}s`);
+      }
+
+      function evaluateKeyframeTrack(target, channel, track, time) {
+        if (!track || track.length === 0) return;
+        track.sort((a, b) => a.t - b.t);
+        if (time <= track[0].t) {
+          setPropValue(target, channel, track[0].val);
+          return;
+        }
+        if (time >= track[track.length - 1].t) {
+          setPropValue(target, channel, track[track.length - 1].val);
+          return;
+        }
+        for (let i = 0; i < track.length - 1; i++) {
+          const k0 = track[i];
+          const k1 = track[i + 1];
+          if (time >= k0.t && time <= k1.t) {
+            const span = k1.t - k0.t;
+            const localT = span > 0 ? (time - k0.t) / span : 0;
+            const progress = AnimMath.ease(localT, k0.ease || 'ease-in-out');
+            const interpolated = interpolateTrackValue(channel, k0.val, k1.val, progress);
+            setPropValue(target, channel, interpolated);
+            break;
+          }
+        }
+      }
+
+      // ── Main Non-Destructive Animation Evaluation Loop ──
+      function applyAnimationAtTime(t) {
+        ensureAllBaseStates();
+
+        // 1. Evaluate Canvas & Stage Keyframes
+        if (doc.stageKeyframes) {
+          Object.keys(doc.stageKeyframes).forEach(ch => {
+            evaluateKeyframeTrack({ isStage: true }, ch, doc.stageKeyframes[ch], t);
+          });
+        }
+
+        // Apply CSS Filters and Background to Canvas / Stage
+        const filterParts = [];
+        if (doc.filterBlur) filterParts.push(`blur(${doc.filterBlur}px)`);
+        if (doc.filterHue) filterParts.push(`hue-rotate(${doc.filterHue}deg)`);
+        if (doc.filterBrightness !== undefined && doc.filterBrightness !== 100) filterParts.push(`brightness(${doc.filterBrightness}%)`);
+        const filterCss = filterParts.join(' ') || 'none';
+        if (stageWrapper) {
+          stageWrapper.style.filter = filterCss;
+          if (doc.backgroundColor) stageWrapper.style.backgroundColor = doc.backgroundColor;
+        }
+        if (svgStage) {
+          svgStage.style.filter = filterCss;
+          if (doc.backgroundColor) svgStage.style.backgroundColor = doc.backgroundColor;
+        }
+        if (quadroCanvas) quadroCanvas.style.filter = filterCss;
+        applyViewportTransform();
+
+        // 2. Evaluate All Objects in Scene (SMIL Tracks)
+        if (doc.objects) {
+          doc.objects.forEach(obj => {
+            if (obj.keyframes) {
+              Object.keys(obj.keyframes).forEach(ch => {
+                evaluateKeyframeTrack(obj, ch, obj.keyframes[ch], t);
+              });
+            }
+          });
+        }
+
+        render();
+        renderDopeSheet();
+      }
+
+      function animTick(now) {
+        if (!animIsPlaying) return;
+        if (animLastRafTime === null) animLastRafTime = now;
+        const dt = (now - animLastRafTime) / 1000;
+        animLastRafTime = now;
+        const dur = Math.max(0.1, animDuration);
+
+        if (animLoopMode === 'pingpong') {
+          animCurrentTime += dt * animPingPongDir;
+          if (animCurrentTime >= dur) { animCurrentTime = dur; animPingPongDir = -1; }
+          else if (animCurrentTime <= 0) { animCurrentTime = 0; animPingPongDir = 1; }
+        } else if (animLoopMode === 'loop') {
+          animCurrentTime += dt;
+          if (animCurrentTime > dur) animCurrentTime = animCurrentTime % dur;
+        } else {
+          animCurrentTime += dt;
+          if (animCurrentTime >= dur) { animCurrentTime = dur; animStop(); }
+        }
+
+        updateTimeDisplays();
+        applyAnimationAtTime(animCurrentTime);
+
+        if (animIsPlaying) animRafId = requestAnimationFrame(animTick);
+      }
+
+      function updateTimeDisplays() {
+        if (tlTimeDisp) {
+          const curFrame = Math.round(animCurrentTime * animFps);
+          tlTimeDisp.textContent = `${animCurrentTime.toFixed(2)}s (${curFrame}f)`;
+        }
+      }
+
+      function getAllTargetKeyTimes() {
+        const times = new Set();
+        const target = getActiveTarget();
+        if (target) {
+          const keyframes = target.isStage ? doc.stageKeyframes : target.keyframes;
+          if (keyframes) {
+            Object.values(keyframes).forEach(track => {
+              (track || []).forEach(k => times.add(Number(k.t.toFixed(4))));
+            });
+          }
+        }
+        return Array.from(times).sort((a, b) => a - b);
+      }
+
+      function jumpPrevKey() {
+        const times = getAllTargetKeyTimes();
+        const prev = times.filter(t => t < animCurrentTime - 0.005);
+        if (prev.length > 0) {
+          animCurrentTime = prev[prev.length - 1];
+        } else {
+          animCurrentTime = 0;
+        }
+        updateTimeDisplays();
+        applyAnimationAtTime(animCurrentTime);
+        renderDopeSheet();
+      }
+
+      function jumpNextKey() {
+        const times = getAllTargetKeyTimes();
+        const next = times.find(t => t > animCurrentTime + 0.005);
+        if (next !== undefined) {
+          animCurrentTime = next;
+        } else {
+          animCurrentTime = animDuration;
+        }
+        updateTimeDisplays();
+        applyAnimationAtTime(animCurrentTime);
+        renderDopeSheet();
+      }
+
+      function stepFrame(delta) {
+        const curFrame = Math.round(animCurrentTime * animFps);
+        const maxFrames = Math.round(animDuration * animFps);
+        const newFrame = Math.max(0, Math.min(maxFrames, curFrame + delta));
+        animCurrentTime = newFrame / animFps;
+        updateTimeDisplays();
+        applyAnimationAtTime(animCurrentTime);
+        renderDopeSheet();
+      }
+
+      function animPlay() {
+        if (animIsPlaying) return;
+        ensureAllBaseStates();
+        animIsPlaying = true;
+        animLastRafTime = null;
+        if (btnTlPlay) {
+          btnTlPlay.textContent = '⏸ Pause';
+          btnTlPlay.style.background = 'var(--warning)';
+        }
+        animRafId = requestAnimationFrame(animTick);
+      }
+
+      function animStop() {
+        animIsPlaying = false;
+        animLastRafTime = null;
+        if (animRafId) cancelAnimationFrame(animRafId);
+        if (btnTlPlay) {
+          btnTlPlay.textContent = '▶ Play';
+          btnTlPlay.style.background = 'var(--primary)';
+        }
+      }
+
+      function animTogglePlay() {
+        if (animIsPlaying) animStop(); else animPlay();
+      }
+
+      // ── Dope Sheet Canvas & Channels UI ──
+      const DOPE_ROW_HEIGHT = 22;
+
+      function renderDopeChannels() {
+        if (!dopeChannelsList) return;
+        const target = getActiveTarget();
+        if (!target) {
+          if (dopeTargetName) dopeTargetName.textContent = 'No Selection';
+          dopeChannelsList.innerHTML = '<div style="padding: 8px; color: var(--text-muted); font-style: italic;">Select object or canvas.</div>';
+          return;
+        }
+
+        if (dopeTargetName) {
+          if (target.isStage) dopeTargetName.textContent = '[Stage] Canvas & Stage';
+          else dopeTargetName.textContent = `[Target] ${target.name || target.type} (#${target.id})`;
+        }
+
+        const channels = getTargetChannels(target);
+        dopeChannelsList.innerHTML = '';
+
+        channels.forEach(ch => {
+          const row = document.createElement('div');
+          row.className = 'dope-channel-row';
+          row.dataset.channel = ch;
+
+          const label = document.createElement('span');
+          label.textContent = getChannelLabel(target, ch);
+          label.style.overflow = 'hidden';
+          label.style.textOverflow = 'ellipsis';
+          label.style.flex = '1';
+
+          row.appendChild(label);
+
+          // Allow deleting custom channels
+          const isStandardObj = ['position', 'rotation', 'scale', 'opacity', 'fill', 'stroke', 'strokeWidth'].includes(ch);
+          const isStandardCanvas = ['canvas:background', 'canvas:zoom', 'canvas:panX', 'canvas:panY', 'canvas:filter.blur', 'canvas:filter.hue'].includes(ch);
+          const isRemovable = target.isStage ? !isStandardCanvas : !isStandardObj;
+
+          if (isRemovable) {
+            const delBtn = document.createElement('button');
+            delBtn.className = 'dope-del-track-btn';
+            delBtn.textContent = '✕';
+            delBtn.title = 'Remove parameter track';
+            delBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (target.isStage) {
+                if (doc.stageKeyframes) delete doc.stageKeyframes[ch];
+              } else {
+                if (target.keyframes) delete target.keyframes[ch];
+              }
+              renderDopeChannels();
+              renderDopeSheet();
+              showNotification(`Removed track ${ch}`);
+            });
+            row.appendChild(delBtn);
+          }
+
+          dopeChannelsList.appendChild(row);
+        });
+      }
+
+      function resizeDopeCanvas(channelCount) {
+        if (!dopeCanvas || !dopeTracksWrap) return;
+        const w = Math.max(dopeTracksWrap.clientWidth || 600, 600);
+        const count = Math.max(1, (channelCount || 6) + 1); // +1 for header row
+        const h = count * DOPE_ROW_HEIGHT;
+        if (dopeCanvas.width !== w || dopeCanvas.height !== h) {
+          dopeCanvas.width = w;
+          dopeCanvas.height = h;
+          dopeCanvas.style.width = `${w}px`;
+          dopeCanvas.style.height = `${h}px`;
+        }
+      }
+
+      function renderDopeSheet() {
+        if (!dopeCanvas || !dopeCtx) return;
+        const target = getActiveTarget();
+        const channels = target ? getTargetChannels(target) : [];
+        resizeDopeCanvas(channels.length);
+
+        const w = dopeCanvas.width;
+        const h = dopeCanvas.height;
+
+        // Clear background
+        dopeCtx.fillStyle = '#161819';
+        dopeCtx.fillRect(0, 0, w, h);
+
+        const dur = Math.max(0.1, animDuration);
+        const timeToX = (t) => Math.max(0, Math.min(w, (t / dur) * w));
+        const totalFrames = Math.round(dur * animFps);
+
+        // 1. Frame sub-ticks (fine grid)
+        dopeCtx.strokeStyle = 'rgba(255,255,255,0.035)';
+        dopeCtx.lineWidth = 1;
+        const frameStep = animFps >= 60 ? (dur > 5 ? 5 : 2) : (animFps >= 30 && dur > 10 ? 2 : 1);
+        for (let f = 0; f <= totalFrames; f += frameStep) {
+          const t = f / animFps;
+          const x = timeToX(t);
+          dopeCtx.beginPath();
+          dopeCtx.moveTo(x, 14);
+          dopeCtx.lineTo(x, h);
+          dopeCtx.stroke();
+        }
+
+        // Major second & frame ticks & labels
+        dopeCtx.font = '9px JetBrains Mono, monospace';
+        const secStep = dur <= 4 ? 0.5 : (dur <= 12 ? 1.0 : 2.0);
+        for (let t = 0; t <= dur + 0.001; t += secStep) {
+          const x = timeToX(t);
+          dopeCtx.strokeStyle = 'rgba(255,255,255,0.12)';
+          dopeCtx.beginPath();
+          dopeCtx.moveTo(x, 0);
+          dopeCtx.lineTo(x, h);
+          dopeCtx.stroke();
+          const frameNum = Math.round(t * animFps);
+          dopeCtx.fillStyle = '#ebdbb2';
+          dopeCtx.fillText(`${t.toFixed(1)}s (${frameNum}f)`, x + 3, 11);
+        }
+
+        // 2. Channel Row Lines
+        const totalRows = channels.length + 1;
+        for (let idx = 0; idx <= totalRows; idx++) {
+          const y = idx * DOPE_ROW_HEIGHT;
+          dopeCtx.strokeStyle = 'rgba(255,255,255,0.03)';
+          dopeCtx.beginPath();
+          dopeCtx.moveTo(0, y);
+          dopeCtx.lineTo(w, y);
+          dopeCtx.stroke();
+        }
+
+        // 3. Render Diamonds (SMIL Keyframes)
+        if (target) {
+          const isStage = target.isStage;
+          const keyframes = isStage ? doc.stageKeyframes : target.keyframes;
+
+          // Header summary diamond row (row 0)
+          const allTimes = new Set();
+          if (keyframes) {
+            Object.values(keyframes).forEach(track => (track || []).forEach(k => allTimes.add(k.t)));
+          }
+          allTimes.forEach(t => {
+            drawDiamond(timeToX(t), DOPE_ROW_HEIGHT / 2, '#fabd2f', false);
+          });
+
+          // Individual channel rows
+          channels.forEach((ch, idx) => {
+            const rowIdx = idx + 1;
+            const rowY = rowIdx * DOPE_ROW_HEIGHT + DOPE_ROW_HEIGHT / 2;
+
+            if (keyframes && keyframes[ch]) {
+              keyframes[ch].forEach((k, kIdx) => {
+                const kx = timeToX(k.t);
+                const isSelected = dopeSelectedKey && dopeSelectedKey.id === target.id && dopeSelectedKey.channel === ch && dopeSelectedKey.index === kIdx;
+                drawDiamond(kx, rowY, isSelected ? '#ffffff' : '#8ec07c', isSelected);
+              });
+            }
+          });
+        }
+
+        // 4. Playhead Needle
+        const playheadX = timeToX(animCurrentTime);
+        dopeCtx.strokeStyle = '#fb4934';
+        dopeCtx.lineWidth = 1.5;
+        dopeCtx.beginPath();
+        dopeCtx.moveTo(playheadX, 0);
+        dopeCtx.lineTo(playheadX, h);
+        dopeCtx.stroke();
+
+        dopeCtx.fillStyle = '#fb4934';
+        dopeCtx.beginPath();
+        dopeCtx.moveTo(playheadX - 5, 0);
+        dopeCtx.lineTo(playheadX + 5, 0);
+        dopeCtx.lineTo(playheadX, 8);
+        dopeCtx.closePath();
+        dopeCtx.fill();
+      }
+
+      function drawDiamond(cx, cy, color, isSelected) {
+        dopeCtx.save();
+        dopeCtx.fillStyle = color;
+        dopeCtx.strokeStyle = isSelected ? '#fabd2f' : '#1d2021';
+        dopeCtx.lineWidth = isSelected ? 2 : 1;
+        dopeCtx.beginPath();
+        dopeCtx.moveTo(cx, cy - 5);
+        dopeCtx.lineTo(cx + 5, cy);
+        dopeCtx.lineTo(cx, cy + 5);
+        dopeCtx.lineTo(cx - 5, cy);
+        dopeCtx.closePath();
+        dopeCtx.fill();
+        dopeCtx.stroke();
+        dopeCtx.restore();
+      }
+
+      // ── Dope Canvas Mouse Events ──
+      dopeCanvas?.addEventListener('mousedown', (e) => {
+        const rect = dopeCanvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const w = dopeCanvas.width;
+        const dur = Math.max(0.1, animDuration);
+        const clickTime = Math.max(0, Math.min(dur, (mx / w) * dur));
+
+        const target = getActiveTarget();
+        const channels = target ? getTargetChannels(target) : [];
+        const rowIdx = Math.floor(my / DOPE_ROW_HEIGHT);
+
+        let hitKey = null;
+        if (target && rowIdx > 0 && rowIdx <= channels.length) {
+          const ch = channels[rowIdx - 1];
+          const keyframes = target.isStage ? doc.stageKeyframes : target.keyframes;
+          if (keyframes && keyframes[ch]) {
+            keyframes[ch].forEach((k, idx) => {
+              const kx = (k.t / dur) * w;
+              const ky = rowIdx * DOPE_ROW_HEIGHT + DOPE_ROW_HEIGHT / 2;
+              if (Math.hypot(mx - kx, my - ky) < 8) {
+                hitKey = { id: target.id, channel: ch, index: idx };
+              }
+            });
+          }
+        }
+
+        if (hitKey) {
+          dopeSelectedKey = hitKey;
+          dopeIsDraggingKey = true;
+          const keyframes = target.isStage ? doc.stageKeyframes : target.keyframes;
+          animCurrentTime = keyframes[hitKey.channel][hitKey.index].t;
+          updateTimeDisplays();
+          applyAnimationAtTime(animCurrentTime);
+        } else {
+          dopeSelectedKey = null;
+          dopeIsDraggingPlayhead = true;
+          animCurrentTime = snapTime(clickTime);
+          updateTimeDisplays();
+          applyAnimationAtTime(animCurrentTime);
+        }
+        renderDopeSheet();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!dopeIsDraggingPlayhead && !dopeIsDraggingKey) return;
+        if (!dopeCanvas) return;
+        const rect = dopeCanvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const w = dopeCanvas.width;
+        const dur = Math.max(0.1, animDuration);
+        const rawTime = Math.max(0, Math.min(dur, (mx / w) * dur));
+        const newTime = snapTime(rawTime);
+
+        if (dopeIsDraggingPlayhead) {
+          animCurrentTime = newTime;
+          updateTimeDisplays();
+          applyAnimationAtTime(animCurrentTime);
+        } else if (dopeIsDraggingKey && dopeSelectedKey) {
+          const target = getActiveTarget();
+          const keyframes = target && target.isStage ? doc.stageKeyframes : (target ? target.keyframes : null);
+          if (keyframes && keyframes[dopeSelectedKey.channel]) {
+            const key = keyframes[dopeSelectedKey.channel][dopeSelectedKey.index];
+            if (key) {
+              key.t = Number(newTime.toFixed(3));
+              keyframes[dopeSelectedKey.channel].sort((a, b) => a.t - b.t);
+              dopeSelectedKey.index = keyframes[dopeSelectedKey.channel].indexOf(key);
+              animCurrentTime = newTime;
+              updateTimeDisplays();
+              applyAnimationAtTime(animCurrentTime);
+            }
+          }
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        dopeIsDraggingPlayhead = false;
+        dopeIsDraggingKey = false;
+      });
+
+      // ── Hotkeys ──
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+
+        if (e.key === ' ' && !e.ctrlKey && !e.metaKey) {
+          e.preventDefault();
+          animTogglePlay();
+        } else if ((e.key === 'k' || e.key === 'K') && !e.ctrlKey && !e.metaKey) {
+          insertAllKeyframesAtCurrentTime();
+        } else if ((e.key === '[' || e.key === 'j' || e.key === 'J') && !e.ctrlKey && !e.metaKey) {
+          jumpPrevKey();
+        } else if ((e.key === ']' || e.key === 'l' || e.key === 'L') && !e.ctrlKey && !e.metaKey) {
+          jumpNextKey();
+        } else if (e.key === 'ArrowLeft' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault();
+          stepFrame(-1);
+        } else if (e.key === 'ArrowRight' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+          e.preventDefault();
+          stepFrame(1);
+        } else if ((e.key === 'Delete' || e.key === 'Backspace') && dopeSelectedKey) {
+          const target = getActiveTarget();
+          const keyframes = target && target.isStage ? doc.stageKeyframes : (target ? target.keyframes : null);
+          if (keyframes && keyframes[dopeSelectedKey.channel]) {
+            keyframes[dopeSelectedKey.channel].splice(dopeSelectedKey.index, 1);
+            if (keyframes[dopeSelectedKey.channel].length === 0) {
+              delete keyframes[dopeSelectedKey.channel];
+            }
+            dopeSelectedKey = null;
+            renderDopeSheet();
+            render();
+            showNotification('Keyframe removed');
+          }
+        } else if (e.altKey && (e.key === 't' || e.key === 'T')) {
+          e.preventDefault();
+          toggleTimelineDock();
+        }
+      });
+
+      // ── Auto-Key Hook ──
+      function notifyObjectTransformed(obj) {
+        if (!obj) return;
+        ensureBaseState(obj);
+        if (animAutoKey && !animIsPlaying) {
+          const t = snapTime(animCurrentTime);
+          insertKeyframe(obj, 'position', t);
+          insertKeyframe(obj, 'rotation', t);
+          insertKeyframe(obj, 'scale', t);
+          insertKeyframe(obj, 'opacity', t);
+          insertKeyframe(obj, 'fill', t);
+          if (t <= 0.001) {
+            obj._baseState = captureObjectState(obj);
+          }
+          renderDopeSheet();
+        }
+      }
+
+      // ── Timeline UI Toggle & Controls ──
+      function toggleTimelineDock() {
+        if (!timelineDock) return;
+        timelineDock.classList.toggle('collapsed');
+        const isCollapsed = timelineDock.classList.contains('collapsed');
+        if (btnToggleTimeline) btnToggleTimeline.classList.toggle('active', !isCollapsed);
+        if (!isCollapsed) {
+          syncTargetDropdown();
+          renderDopeChannels();
+          setTimeout(renderDopeSheet, 50);
+        }
+      }
+
+      // ── Event Isolation to prevent canvas tool activation ──
+      ['pointerdown', 'mousedown', 'touchstart', 'dblclick', 'contextmenu'].forEach(evt => {
+        timelineDock?.addEventListener(evt, (e) => e.stopPropagation());
+      });
+
+      // ── Synchronized Vertical Scrolling between Channels and Tracks ──
+      dopeTracksWrap?.addEventListener('scroll', () => {
+        if (dopeChannels) dopeChannels.scrollTop = dopeTracksWrap.scrollTop;
+      });
+      dopeChannels?.addEventListener('wheel', (e) => {
+        if (dopeTracksWrap) {
+          dopeTracksWrap.scrollTop += e.deltaY;
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      btnToggleTimeline?.addEventListener('click', toggleTimelineDock);
+      btnTlClose?.addEventListener('click', () => {
+        if (timelineDock) timelineDock.classList.add('collapsed');
+        if (btnToggleTimeline) btnToggleTimeline.classList.remove('active');
+      });
+
+      btnTlPlay?.addEventListener('click', animTogglePlay);
+      btnTlPrevKey?.addEventListener('click', jumpPrevKey);
+      btnTlStepBack?.addEventListener('click', () => stepFrame(-1));
+      btnTlStepFwd?.addEventListener('click', () => stepFrame(1));
+      btnTlNextKey?.addEventListener('click', jumpNextKey);
+
+      btnTlRest?.addEventListener('click', () => {
+        animStop();
+        animCurrentTime = 0;
+        updateTimeDisplays();
+        restoreAllBaseStates();
+        renderDopeSheet();
+        showNotification('Returned to Rest Pose (Base Design & Canvas)');
+      });
+
+      btnTlLoop?.addEventListener('click', () => {
+        const modes = ['loop', 'pingpong', 'once'];
+        animLoopMode = modes[(modes.indexOf(animLoopMode) + 1) % modes.length];
+        btnTlLoop.textContent = animLoopMode === 'loop' ? '🔁 Loop' : (animLoopMode === 'pingpong' ? '🔀 PingPong' : '⏹ Once');
+      });
+
+      tlDurationInput?.addEventListener('input', (e) => {
+        animDuration = Math.max(0.2, parseFloat(e.target.value) || 3.0);
+        updateTimeDisplays();
+        renderDopeSheet();
+      });
+
+      tlFpsSelect?.addEventListener('change', (e) => {
+        animFps = parseInt(e.target.value, 10) || 24;
+        updateTimeDisplays();
+        renderDopeSheet();
+      });
+
+      tlSnapFrames?.addEventListener('change', (e) => {
+        animSnapToFrames = e.target.checked;
+      });
+
+      tlAutoKeyCheck?.addEventListener('change', (e) => {
+        animAutoKey = e.target.checked;
+      });
+
+      btnTlAddKey?.addEventListener('click', insertAllKeyframesAtCurrentTime);
+
+      tlTargetSelect?.addEventListener('change', (e) => {
+        animTargetMode = e.target.value;
+        if (animTargetMode !== '__stage__' && animTargetMode !== 'selected') {
+          animTargetObjId = animTargetMode;
+          doc.clearSelection();
+          doc.select(animTargetMode);
+          render();
+        }
+        renderDopeChannels();
+        renderDopeSheet();
+      });
+
+      // ── Public Update Function for Inspector / Scene Graph ──
+      function updateAnimationTab() {
+        syncTargetDropdown();
+        renderDopeChannels();
+        renderDopeSheet();
+      }
+
+      // Public API on studio
+      window.studio = window.studio || {};
+      window.studio.play = animPlay;
+      window.studio.stop = animStop;
+      window.studio.restPose = function() {
+        animStop();
+        animCurrentTime = 0;
+        updateTimeDisplays();
+        restoreAllBaseStates();
+        renderDopeSheet();
+      };
+      window.studio.setAnimTime = function (t) {
+        animCurrentTime = t;
+        updateTimeDisplays();
+        applyAnimationAtTime(t);
+      };
+      window.studio.addKeyframe = insertAllKeyframesAtCurrentTime;
+      window.studio.math = AnimMath;
 
       // ── Bootstrapping ──
       const urlParams = new URLSearchParams(window.location.search);

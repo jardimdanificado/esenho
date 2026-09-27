@@ -2366,6 +2366,10 @@
       return findRecursive(this.objects);
     }
 
+    getObjectById(id) {
+      return this.findObject(id);
+    }
+
     /** Group Selected Objects */
     groupSelected(groupName = null) {
       const selected = this.getSelectedObjects();
@@ -3386,6 +3390,267 @@
       return svg;
     }
 
+    /** Export to 100% W3C SMIL Animated SVG XML string */
+    toSMILSvgString(duration = 3.0, fps = 24) {
+      const defsMap = new Map(this.defs);
+
+      const collectDefs = (list) => {
+        for (const obj of list) {
+          if (obj.clipPathId) {
+            const clipObj = this.findObject(obj.clipPathId);
+            if (clipObj && !defsMap.has(`clip_${obj.clipPathId}`)) {
+              let innerEl = clipObj.toSVGElement();
+              innerEl = innerEl
+                .replace(/^<g\s+clip-path="[^"]*">\s*([\s\S]*?)\s*<\/g>$/i, '$1')
+                .replace(/\s*id="[^"]*"/g, '')
+                .replace(/\s*clip-path="[^"]*"/g, '')
+                .replace(/\s*filter="[^"]*"/g, '')
+                .replace(/\s*data-[a-z0-9_-]+="[^"]*"/gi, '');
+              defsMap.set(`clip_${obj.clipPathId}`, {
+                toSVGElement: () => `<clipPath id="clip_${obj.clipPathId}" clipPathUnits="userSpaceOnUse">\n      ${innerEl.trim()}\n    </clipPath>`
+              });
+            }
+          }
+          if (obj.type === 'text' && obj.pathId) {
+            const pObj = this.findObject(obj.pathId);
+            if (pObj && pObj.type !== 'path' && typeof pObj.toPath === 'function' && !defsMap.has(`path_${obj.pathId}`)) {
+              const pData = pObj.toPath().toPathData();
+              defsMap.set(`path_${obj.pathId}`, {
+                toSVGElement: () => `<path id="${obj.pathId}" d="${pData}" fill="none" stroke="none" />`
+              });
+            }
+          }
+          const hasGrad = (obj.fillType === 'linear' || obj.fillType === 'radial') && obj.fillGradient;
+          if (hasGrad || (obj.fillGradient && obj.fillGradient.enabled)) {
+            const gradId = (obj.fillGradient && obj.fillGradient.id) ? obj.fillGradient.id : `grad_${obj.id}`;
+            if (!defsMap.has(gradId)) {
+              if (obj.fillGradient instanceof SvgGradient) {
+                defsMap.set(gradId, obj.fillGradient);
+              } else if ((obj.fillGradient && obj.fillGradient.type === 'radial') || obj.fillType === 'radial') {
+                defsMap.set(gradId, new SvgRadialGradient({ id: gradId, stops: obj.fillGradient.stops, ...obj.fillGradient }));
+              } else {
+                defsMap.set(gradId, new SvgLinearGradient({ id: gradId, stops: obj.fillGradient.stops, ...obj.fillGradient }));
+              }
+            }
+          }
+          if (obj.dropShadow && obj.dropShadow.enabled) {
+            const shadowId = `shadow_${obj.id}`;
+            if (!defsMap.has(shadowId)) {
+              const dx = obj.dropShadow.offsetX !== undefined ? obj.dropShadow.offsetX : 4;
+              const dy = obj.dropShadow.offsetY !== undefined ? obj.dropShadow.offsetY : 4;
+              const blur = obj.dropShadow.blur !== undefined ? obj.dropShadow.blur : 8;
+              const color = obj.dropShadow.color || '#000000';
+              const op = obj.dropShadow.opacity !== undefined ? obj.dropShadow.opacity : 0.6;
+              defsMap.set(shadowId, {
+                toSVGElement: () => `<filter id="${shadowId}" x="-30%" y="-30%" width="160%" height="160%">\n      <feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${blur / 2}" flood-color="${color}" flood-opacity="${op}" />\n    </filter>`
+              });
+            }
+          }
+          if (obj.type === 'group' && obj.children) {
+            collectDefs(obj.children);
+          }
+        }
+      };
+      collectDefs(this.objects);
+
+      let defsXml = '';
+      if (defsMap.size > 0) {
+        const items = Array.from(defsMap.values()).map(d => d.toSVGElement()).join('\n    ');
+        defsXml = `\n  <defs>\n    ${items}\n  </defs>`;
+      }
+      let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
+      svg += `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">${defsXml}\n`;
+      if (this.backgroundColor && this.backgroundColor !== 'none') {
+        svg += `  <rect width="100%" height="100%" fill="${this.backgroundColor}" />\n`;
+      }
+
+      const durSec = Math.max(0.1, duration);
+
+      const generateSmilTags = (obj) => {
+        if (!obj.keyframes && !obj.motionTrack && !obj.setTracks) return '';
+        const tags = [];
+        const keys = obj.keyframes || {};
+
+        // Helper to format track attributes
+        const formatAnimAttrs = (track, defCalc = 'spline') => {
+          const calcMode = track.calcMode || defCalc;
+          const additive = track.additive ? ` additive="${track.additive}"` : '';
+          const accumulate = track.accumulate ? ` accumulate="${track.accumulate}"` : '';
+          const repeat = track.repeatCount ? ` repeatCount="${track.repeatCount}"` : ' repeatCount="indefinite"';
+          const fill = track.fill ? ` fill="${track.fill}"` : ' fill="freeze"';
+          const dur = track.dur ? `${track.dur}s` : `${durSec}s`;
+          const begin = track.begin ? ` begin="${track.begin}"` : '';
+          return { calcMode, additive, accumulate, repeat, fill, dur, begin };
+        };
+
+        // 1. Translation / Position
+        const trTrack = keys.translate || keys.position;
+        if (trTrack && trTrack.length > 0) {
+          const sorted = [...trTrack].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(trTrack);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => {
+            const vx = k.val.x !== undefined ? k.val.x : (k.val || 0);
+            const vy = k.val.y !== undefined ? k.val.y : (k.val || 0);
+            return `${vx},${vy}`;
+          }).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          const keyTimesAttr = meta.calcMode === 'paced' ? '' : ` keyTimes="${keyTimes}"`;
+          tags.push(`    <animateTransform attributeName="transform" type="translate" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill}${keyTimesAttr} values="${values}" calcMode="${meta.calcMode}"${splines}${meta.additive}${meta.accumulate} />`);
+        }
+
+        // 2. Rotation
+        const rotTrack = keys.rotate || keys.rotation;
+        if (rotTrack && rotTrack.length > 0) {
+          const sorted = [...rotTrack].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(rotTrack);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const originX = obj.originX !== undefined ? obj.originX : (obj.cx !== undefined ? obj.cx : (obj.x || 0));
+          const originY = obj.originY !== undefined ? obj.originY : (obj.cy !== undefined ? obj.cy : (obj.y || 0));
+          const values = sorted.map(k => {
+            const deg = typeof k.val === 'number' ? k.val : (k.val.angle !== undefined ? k.val.angle : 0);
+            return `${deg} ${originX} ${originY}`;
+          }).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          const keyTimesAttr = meta.calcMode === 'paced' ? '' : ` keyTimes="${keyTimes}"`;
+          tags.push(`    <animateTransform attributeName="transform" type="rotate" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill}${keyTimesAttr} values="${values}" calcMode="${meta.calcMode}"${splines} additive="sum"${meta.accumulate} />`);
+        }
+
+        // 3. Scale
+        const sclTrack = keys.scale;
+        if (sclTrack && sclTrack.length > 0) {
+          const sorted = [...sclTrack].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(sclTrack);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => {
+            const sx = k.val.scaleX !== undefined ? k.val.scaleX : (k.val.x !== undefined ? k.val.x : k.val || 1);
+            const sy = k.val.scaleY !== undefined ? k.val.scaleY : (k.val.y !== undefined ? k.val.y : k.val || 1);
+            return `${sx} ${sy}`;
+          }).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          const keyTimesAttr = meta.calcMode === 'paced' ? '' : ` keyTimes="${keyTimes}"`;
+          tags.push(`    <animateTransform attributeName="transform" type="scale" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill}${keyTimesAttr} values="${values}" calcMode="${meta.calcMode}"${splines} additive="sum"${meta.accumulate} />`);
+        }
+
+        // 4. SkewX
+        const skewXTrack = keys.skewX || keys.skew_x;
+        if (skewXTrack && skewXTrack.length > 0) {
+          const sorted = [...skewXTrack].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(skewXTrack);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (k.val !== undefined ? k.val : 0)).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animateTransform attributeName="transform" type="skewX" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines} additive="sum"${meta.accumulate} />`);
+        }
+
+        // 5. SkewY
+        const skewYTrack = keys.skewY || keys.skew_y;
+        if (skewYTrack && skewYTrack.length > 0) {
+          const sorted = [...skewYTrack].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(skewYTrack);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (k.val !== undefined ? k.val : 0)).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animateTransform attributeName="transform" type="skewY" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines} additive="sum"${meta.accumulate} />`);
+        }
+
+        // 6. <animateMotion>
+        const motion = keys.motion || obj.motionTrack;
+        if (motion && (motion.path || (motion.coords && motion.coords.length >= 4))) {
+          const pathD = motion.path || (motion.coords ? `M ${motion.coords.join(' ')}` : '');
+          const rotate = motion.rotate ? ` rotate="${motion.rotate}"` : ' rotate="auto"';
+          const meta = formatAnimAttrs(motion, 'paced');
+          tags.push(`    <animateMotion path="${pathD}" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill}${rotate} calcMode="${meta.calcMode}"${meta.additive}${meta.accumulate} />`);
+        }
+
+        // 7. Opacity
+        if (keys.opacity && keys.opacity.length > 0) {
+          const sorted = [...keys.opacity].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(keys.opacity);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (k.val !== undefined ? k.val : 1)).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animate attributeName="opacity" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines}${meta.additive} />`);
+        }
+
+        // 8. Fill
+        if (keys.fill && keys.fill.length > 0) {
+          const sorted = [...keys.fill].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(keys.fill);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (typeof k.val === 'string' ? k.val : (k.val.fill || '#ebdbb2'))).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animate attributeName="fill" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines} />`);
+        }
+
+        // 9. Stroke
+        if (keys.stroke && keys.stroke.length > 0) {
+          const sorted = [...keys.stroke].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(keys.stroke);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (typeof k.val === 'string' ? k.val : (k.val.stroke || '#000000'))).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animate attributeName="stroke" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines} />`);
+        }
+
+        // 10. Stroke Width
+        if (keys.strokeWidth && keys.strokeWidth.length > 0) {
+          const sorted = [...keys.strokeWidth].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(keys.strokeWidth);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (k.val !== undefined ? k.val : 1)).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animate attributeName="stroke-width" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines}${meta.additive} />`);
+        }
+
+        // 11. Path Morphing (d)
+        if (keys.d && keys.d.length > 0) {
+          const sorted = [...keys.d].sort((a, b) => a.t - b.t);
+          const meta = formatAnimAttrs(keys.d);
+          const keyTimes = sorted.map(k => (Math.min(1.0, k.t / durSec)).toFixed(4)).join(';');
+          const values = sorted.map(k => (typeof k.val === 'string' ? k.val : '')).join(';');
+          const splines = meta.calcMode === 'spline' ? ` keySplines="${sorted.slice(0, -1).map(k => k.spline || '0.42 0.0 0.58 1.0').join(';')}"` : '';
+          tags.push(`    <animate attributeName="d" dur="${meta.dur}"${meta.begin}${meta.repeat}${meta.fill} keyTimes="${keyTimes}" values="${values}" calcMode="${meta.calcMode}"${splines} />`);
+        }
+
+        // 12. <set> Discrete State Jumps
+        const sets = obj.setTracks || keys.sets;
+        if (Array.isArray(sets)) {
+          sets.forEach(st => {
+            const attr = st.attributeName || 'visibility';
+            const toVal = st.to !== undefined ? st.to : 'visible';
+            const begin = st.begin || '0s';
+            const dur = st.dur ? ` dur="${st.dur}"` : '';
+            const fill = st.fill ? ` fill="${st.fill}"` : ' fill="freeze"';
+            tags.push(`    <set attributeName="${attr}" to="${toVal}" begin="${begin}"${dur}${fill} />`);
+          });
+        }
+
+        return tags.join('\n');
+      };
+
+      for (const obj of this.objects) {
+        if (!obj.visible) continue;
+        let el = obj.toSVGElement();
+        if (!el) continue;
+
+        const smilTags = generateSmilTags(obj);
+        if (smilTags) {
+          if (el.endsWith('/>')) {
+            const openTag = el.slice(0, -2);
+            const closeTag = obj.type === 'rect' ? '</rect>' : (obj.type === 'circle' ? '</circle>' : (obj.type === 'ellipse' ? '</ellipse>' : (obj.type === 'line' ? '</line>' : (obj.type === 'path' ? '</path>' : (obj.type === 'image' ? '</image>' : '</g>')))));
+            el = `${openTag}>\n${smilTags}\n  ${closeTag}`;
+          } else if (el.includes('</')) {
+            el = el.replace(/(<\/[a-zA-Z0-9]+>)$/, `\n${smilTags}\n  $1`);
+          }
+        }
+        svg += `  ${el}\n`;
+      }
+
+      svg += `</svg>\n`;
+      return svg;
+    }
+
     /** Parse SVG XML into Document */
     fromSVGString(svgString) {
       this.clear();
@@ -3502,6 +3767,12 @@
           };
 
           if (tag === 'rect') {
+            const wAttr = getAttr('width', '');
+            const hAttr = getAttr('height', '');
+            if (wAttr === '100%' && hAttr === '100%') {
+              this.backgroundColor = fill;
+              return null;
+            }
             return new SvgRect({
               ...baseProps,
               x: parseFloat(getAttr('x', '0')),
@@ -3577,24 +3848,46 @@
               points: getAttr('points', '')
             });
           } else if (tag === 'polygon') {
-            return new SvgPolygon({
+            const poly = new SvgPolygon({
               ...baseProps,
               points: getAttr('points', '')
             });
+            attachSmilFromDOM(poly, el);
+            return poly;
           } else if (tag === 'g') {
             const grp = new SvgGroup({ id: baseProps.id, opacity });
             for (const childEl of el.children) {
               const childNode = parseNode(childEl);
               if (childNode) grp.add(childNode);
             }
+            attachSmilFromDOM(grp, el);
             return grp;
           }
           return null;
         };
 
+        const attachSmilFromDOM = (node, el) => {
+          if (!node || !el) return;
+          const animEls = el.querySelectorAll ? el.querySelectorAll(':scope > animate, :scope > animateTransform, :scope > animateMotion, :scope > set') : [];
+          const smilList = [];
+          for (const a of animEls) {
+            const aTag = a.tagName.toLowerCase();
+            const aAttrs = {};
+            for (let i = 0; i < a.attributes.length; i++) {
+              const attr = a.attributes[i];
+              aAttrs[attr.name] = attr.value;
+            }
+            smilList.push({ tag: aTag, attrs: aAttrs });
+          }
+          this._attachSmilAnimationsToNode(node, smilList);
+        };
+
         for (const childEl of svgEl.children) {
           const node = parseNode(childEl);
-          if (node) this.addObject(node, false);
+          if (node) {
+            attachSmilFromDOM(node, childEl);
+            this.addObject(node, false);
+          }
         }
       } else {
         // Fallback RegEx Parser for Node.js
@@ -3689,6 +3982,12 @@
           };
 
           if (tag === 'rect') {
+            const wAttr = getAttr('width', '');
+            const hAttr = getAttr('height', '');
+            if (wAttr === '100%' && hAttr === '100%') {
+              this.backgroundColor = fill;
+              return null;
+            }
             return new SvgRect({
               ...baseProps,
               x: parseFloat(getAttr('x', '0')),
@@ -3759,14 +4058,170 @@
           return null;
         };
 
-        const tagRegex = /<(path|rect|circle|ellipse|line|polygon|polyline|image)\b([^>]*)\/?>/ig;
+        const tagRegex = /<(path|rect|circle|ellipse|line|polygon|polyline|image)\b([^>]*?)(\/>|>([\s\S]*?)<\/\1>)/ig;
         let match;
         while ((match = tagRegex.exec(svgString)) !== null) {
           const tagName = match[1].toLowerCase();
           const attrStr = match[2];
+          const innerXml = match[4] || '';
           const attrs = parseAttrString(attrStr);
           const node = createNodeFromAttrs(tagName, attrs);
-          if (node) this.addObject(node, false);
+          if (node) {
+            if (innerXml) {
+              const animRegex = /<(animateTransform|animateMotion|animate|set)\b([^>]*)\/?>/ig;
+              let am;
+              const smilList = [];
+              while ((am = animRegex.exec(innerXml)) !== null) {
+                smilList.push({ tag: am[1].toLowerCase(), attrs: parseAttrString(am[2]) });
+              }
+              this._attachSmilAnimationsToNode(node, smilList);
+            }
+            this.addObject(node, false);
+          }
+        }
+      }
+
+      this.resolveSMILTimingGraph();
+    }
+
+    /** Attach SMIL animation tracks to an SVG node */
+    _attachSmilAnimationsToNode(node, smilList) {
+      if (!node || !smilList || smilList.length === 0) return;
+      smilList.forEach(item => {
+        const { tag, attrs } = item;
+        const dur = parseFloat(attrs.dur || '3.0') || 3.0;
+        const begin = attrs.begin || '0s';
+        const calcMode = attrs.calcMode || 'spline';
+        const additive = attrs.additive || 'replace';
+        const accumulate = attrs.accumulate || 'none';
+        const repeatCount = attrs.repeatCount || 'indefinite';
+        const fill = attrs.fill || 'freeze';
+
+        if (tag === 'animatemotion') {
+          node.motionTrack = {
+            path: attrs.path || '',
+            rotate: attrs.rotate || 'auto',
+            calcMode,
+            additive,
+            accumulate,
+            dur,
+            begin,
+            repeatCount,
+            fill
+          };
+        } else if (tag === 'set') {
+          node.setTracks = node.setTracks || [];
+          node.setTracks.push({
+            attributeName: attrs.attributeName || 'visibility',
+            to: attrs.to !== undefined ? attrs.to : '',
+            begin,
+            dur: attrs.dur ? parseFloat(attrs.dur) : undefined,
+            fill
+          });
+        } else if (tag === 'animatetransform' || tag === 'animate') {
+          const type = (tag === 'animatetransform') ? (attrs.type || 'translate') : (attrs.attributeName || 'opacity');
+          const normType = type === 'stroke-width' ? 'strokeWidth' : type;
+          node.keyframes = node.keyframes || {};
+          const keyTimes = (attrs.keyTimes || '').split(';').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+          const keySplines = (attrs.keySplines || '').split(';').map(s => s.trim());
+          const rawValues = (attrs.values || '').split(';').map(s => s.trim()).filter(Boolean);
+
+          const track = [];
+          track.calcMode = calcMode;
+          track.additive = additive;
+          track.accumulate = accumulate;
+          track.repeatCount = repeatCount;
+          track.fill = fill;
+          track.dur = dur;
+          track.begin = begin;
+
+          if (rawValues.length > 0) {
+            rawValues.forEach((valStr, idx) => {
+              const t = keyTimes[idx] !== undefined ? (keyTimes[idx] * dur) : ((idx / Math.max(1, rawValues.length - 1)) * dur);
+              const spline = keySplines[idx] || '0.42 0.0 0.58 1.0';
+              let val = valStr;
+              if (normType === 'translate' || normType === 'position') {
+                const parts = valStr.split(/[\s,]+/).map(parseFloat);
+                val = { x: parts[0] || 0, y: parts[1] || 0 };
+              } else if (normType === 'scale') {
+                const parts = valStr.split(/[\s,]+/).map(parseFloat);
+                val = { scaleX: parts[0] !== undefined ? parts[0] : 1, scaleY: parts[1] !== undefined ? parts[1] : (parts[0] || 1) };
+              } else if (normType === 'rotate' || normType === 'rotation') {
+                const parts = valStr.split(/[\s,]+/).map(parseFloat);
+                val = { angle: parts[0] || 0, cx: parts[1] || 0, cy: parts[2] || 0 };
+              } else if (normType === 'opacity' || normType === 'strokeWidth' || normType === 'skewX' || normType === 'skewY') {
+                val = parseFloat(valStr) || 0;
+              }
+              track.push({ t, val, spline });
+            });
+          }
+          node.keyframes[normType] = track;
+        }
+      });
+    }
+
+    /** Resolve syncbase dependencies and event timing graph across all animation tracks */
+    resolveSMILTimingGraph(timelineDuration = 3.0) {
+      const elements = this.objects;
+      const animElements = [];
+
+      elements.forEach(obj => {
+        if (obj.motionTrack) animElements.push({ obj, type: 'motion', track: obj.motionTrack });
+        if (obj.setTracks) obj.setTracks.forEach(st => animElements.push({ obj, type: 'set', track: st }));
+        if (obj.keyframes) {
+          Object.entries(obj.keyframes).forEach(([k, tr]) => {
+            animElements.push({ obj, type: k, track: tr });
+          });
+        }
+      });
+
+      let changed = true;
+      let iterations = 0;
+      while (changed && iterations < 10) {
+        changed = false;
+        iterations++;
+        for (const item of animElements) {
+          const beginStr = String(item.track.begin || '');
+          const match = beginStr.match(/^([a-zA-Z0-9_-]+)\.(begin|end)\s*([+-]\s*[\d.]+(?:s|ms)?)?$/);
+          if (match) {
+            const refId = match[1];
+            const eventType = match[2];
+            const offsetStr = match[3] || '+0s';
+            let offset = parseFloat(offsetStr.replace(/[^\d.-]/g, '')) || 0;
+            if (offsetStr.includes('ms')) offset /= 1000;
+
+            const refObj = this.findObject(refId);
+            if (refObj) {
+              let refTime = 0;
+              if (eventType === 'begin') {
+                refTime = 0;
+              } else if (eventType === 'end') {
+                let maxDur = 0;
+                if (refObj.keyframes) {
+                  Object.values(refObj.keyframes).forEach(tr => {
+                    if (tr && tr.dur) {
+                      maxDur = Math.max(maxDur, (tr._resolvedBegin || 0) + tr.dur);
+                    } else if (Array.isArray(tr) && tr.length > 0) {
+                      const maxT = tr[tr.length - 1].t || 0;
+                      maxDur = Math.max(maxDur, (tr._resolvedBegin || 0) + (tr.dur || maxT));
+                    }
+                  });
+                }
+                if (refObj.motionTrack && refObj.motionTrack.dur) {
+                  maxDur = Math.max(maxDur, (refObj.motionTrack._resolvedBegin || 0) + refObj.motionTrack.dur);
+                }
+                refTime = maxDur > 0 ? maxDur : timelineDuration;
+              }
+              const computedBegin = Math.max(0, refTime + offset);
+              if (item.track._resolvedBegin !== computedBegin) {
+                item.track._resolvedBegin = computedBegin;
+                changed = true;
+              }
+            }
+          } else {
+            const numeric = parseFloat(beginStr.replace(/[^\d.-]/g, '')) || 0;
+            item.track._resolvedBegin = numeric;
+          }
         }
       }
     }

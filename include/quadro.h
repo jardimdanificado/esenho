@@ -702,11 +702,117 @@ W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rul
 W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_width, int32_t cap_style, int32_t join_style);
 
 /* =========================================================================
- * Native Font & Glyph Engine ABI
+ * W3C SMIL Animation Engine ABI (SMIL 3.0 Animation Profile / SVG Animation)
  * ========================================================================= */
 
-W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height);
-W_EXPORT void    w_font_measure_text(const char *text, float size, float tracking, float *out_w_h);
+enum {
+    W_SMIL_ATTR_TRANSLATE    = 0,  /* <animateTransform type="translate"> */
+    W_SMIL_ATTR_ROTATE       = 1,  /* <animateTransform type="rotate"> */
+    W_SMIL_ATTR_SCALE        = 2,  /* <animateTransform type="scale"> */
+    W_SMIL_ATTR_SKEW_X       = 3,  /* <animateTransform type="skewX"> */
+    W_SMIL_ATTR_SKEW_Y       = 4,  /* <animateTransform type="skewY"> */
+    W_SMIL_ATTR_OPACITY      = 5,  /* <animate attributeName="opacity"> */
+    W_SMIL_ATTR_FILL         = 6,  /* <animate attributeName="fill"> */
+    W_SMIL_ATTR_STROKE       = 7,  /* <animate attributeName="stroke"> */
+    W_SMIL_ATTR_STROKE_WIDTH = 8,  /* <animate attributeName="stroke-width"> */
+    W_SMIL_ATTR_PATH_D       = 9,  /* <animate attributeName="d"> */
+    W_SMIL_ATTR_MOTION       = 10  /* <animateMotion> */
+};
+
+enum {
+    W_SMIL_CALC_LINEAR   = 0,
+    W_SMIL_CALC_SPLINE   = 1,
+    W_SMIL_CALC_DISCRETE = 2,
+    W_SMIL_CALC_PACED    = 3
+};
+
+enum {
+    W_SMIL_FILL_REMOVE = 0,
+    W_SMIL_FILL_FREEZE = 1
+};
+
+enum {
+    W_SMIL_ADDITIVE_REPLACE = 0,
+    W_SMIL_ADDITIVE_SUM     = 1
+};
+
+enum {
+    W_SMIL_ACCUMULATE_NONE = 0,
+    W_SMIL_ACCUMULATE_SUM  = 1
+};
+
+enum {
+    W_SMIL_ROTATE_NONE         = 0,
+    W_SMIL_ROTATE_AUTO         = 1,
+    W_SMIL_ROTATE_AUTO_REVERSE = 2,
+    W_SMIL_ROTATE_ANGLE        = 3
+};
+
+#define W_SMIL_MAX_KEYFRAMES 64
+#define W_SMIL_MAX_TRACKS    128
+#define W_SMIL_MAX_NODES     128
+
+typedef struct {
+    float x1, y1, x2, y2;
+} w_smil_spline_t;
+
+typedef union {
+    float scalar;
+    struct { float x, y, z; } vec;
+    uint32_t color_rgba;
+    struct {
+        int32_t count;
+        float coords[W_SMIL_MAX_NODES * 2];
+    } path_nodes;
+} w_smil_val_t;
+
+typedef struct {
+    float t; /* Normalized timestamp in seconds */
+    w_smil_val_t val;
+    w_smil_spline_t spline;
+} w_smil_keyframe_t;
+
+typedef struct {
+    int32_t active;
+    int32_t target_id;
+    int32_t attr_type;
+    int32_t calc_mode;
+    int32_t fill_mode;
+    int32_t additive;
+    int32_t accumulate;
+    int32_t rotate_mode;
+    float fixed_angle;
+    int32_t repeat_count;
+    float begin;
+    float dur;
+    int32_t keyframe_count;
+    w_smil_keyframe_t keyframes[W_SMIL_MAX_KEYFRAMES];
+    w_smil_val_t base_val;
+    w_smil_val_t current_val;
+    int32_t motion_count;
+    float motion_coords[W_SMIL_MAX_NODES * 2];
+} w_smil_track_t;
+
+W_EXPORT void     w_smil_init(void);
+W_EXPORT void     w_smil_reset(void);
+W_EXPORT int32_t  w_smil_track_create(int32_t target_id, int32_t attr_type, int32_t calc_mode, float begin, float dur, int32_t repeat_count, int32_t fill_mode);
+W_EXPORT void     w_smil_track_set_additive(int32_t track_idx, int32_t additive, int32_t accumulate);
+W_EXPORT void     w_smil_track_set_motion(int32_t track_idx, const float *coords, int32_t count, int32_t rotate_mode, float fixed_angle);
+W_EXPORT void     w_smil_track_set_base_scalar(int32_t track_idx, float val);
+W_EXPORT void     w_smil_track_set_base_vec2(int32_t track_idx, float x, float y);
+W_EXPORT void     w_smil_track_set_base_rotate(int32_t track_idx, float angle_deg, float cx, float cy);
+W_EXPORT void     w_smil_track_set_base_color(int32_t track_idx, uint32_t rgba);
+W_EXPORT int32_t  w_smil_track_add_scalar(int32_t track_idx, float t, float val, float x1, float y1, float x2, float y2);
+W_EXPORT int32_t  w_smil_track_add_vec2(int32_t track_idx, float t, float x, float y, float x1, float y1, float x2, float y2);
+W_EXPORT int32_t  w_smil_track_add_rotate(int32_t track_idx, float t, float angle_deg, float cx, float cy, float x1, float y1, float x2, float y2);
+W_EXPORT int32_t  w_smil_track_add_color(int32_t track_idx, float t, uint32_t rgba, float x1, float y1, float x2, float y2);
+W_EXPORT int32_t  w_smil_track_add_path(int32_t track_idx, float t, const float *coords, int32_t point_count, float x1, float y1, float x2, float y2);
+W_EXPORT void     w_smil_eval(float time_seconds);
+W_EXPORT float    w_smil_get_scalar(int32_t track_idx);
+W_EXPORT void     w_smil_get_vec3(int32_t track_idx, float *out_vec);
+W_EXPORT uint32_t w_smil_get_color(int32_t track_idx);
+W_EXPORT int32_t  w_smil_get_path(int32_t track_idx, float *out_coords);
+W_EXPORT float    w_smil_solve_spline(float t, float x1, float y1, float x2, float y2);
 
 #endif /* QUADRO_H */
 

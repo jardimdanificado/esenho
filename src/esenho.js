@@ -1324,6 +1324,173 @@ class EsenhoModule {
     };
   }
 
+  /* =========================================================================
+   * W3C SMIL Animation Engine JS Bindings
+   * ========================================================================= */
+  smilInit() {
+    if (typeof this.exports.w_smil_init === 'function') {
+      this.exports.w_smil_init();
+    }
+  }
+
+  smilReset() {
+    if (typeof this.exports.w_smil_reset === 'function') {
+      this.exports.w_smil_reset();
+    }
+  }
+
+  smilTrackCreate(targetId, attrType, calcMode = 1, begin = 0.0, dur = 3.0, repeatCount = 1, fillMode = 1) {
+    if (typeof this.exports.w_smil_track_create === 'function') {
+      return this.exports.w_smil_track_create(targetId, attrType, calcMode, begin, dur, repeatCount, fillMode);
+    }
+    return -1;
+  }
+
+  smilTrackSetAdditive(trackIdx, additive = 0, accumulate = 0) {
+    if (typeof this.exports.w_smil_track_set_additive === 'function') {
+      this.exports.w_smil_track_set_additive(trackIdx, additive, accumulate);
+    }
+  }
+
+  smilTrackSetMotion(trackIdx, coords, rotateMode = 1, fixedAngle = 0.0) {
+    if (!this.memory || typeof this.exports.w_smil_track_set_motion !== 'function' || !coords || coords.length === 0) return;
+    const ptCount = coords.length;
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(ptCount * 4 + 256)
+      : 0;
+    if (!scratchPtr) return;
+    const f32 = new Float32Array(this.memory.buffer);
+    const base = scratchPtr >> 2;
+    for (let i = 0; i < ptCount; i++) {
+      f32[base + i] = coords[i];
+    }
+    this.exports.w_smil_track_set_motion(trackIdx, scratchPtr, ptCount, rotateMode, fixedAngle);
+  }
+
+  smilTrackSetBaseScalar(trackIdx, val) {
+    if (typeof this.exports.w_smil_track_set_base_scalar === 'function') {
+      this.exports.w_smil_track_set_base_scalar(trackIdx, val);
+    }
+  }
+
+  smilTrackSetBaseVec2(trackIdx, x, y) {
+    if (typeof this.exports.w_smil_track_set_base_vec2 === 'function') {
+      this.exports.w_smil_track_set_base_vec2(trackIdx, x, y);
+    }
+  }
+
+  smilTrackSetBaseRotate(trackIdx, angleDeg, cx = 0, cy = 0) {
+    if (typeof this.exports.w_smil_track_set_base_rotate === 'function') {
+      this.exports.w_smil_track_set_base_rotate(trackIdx, angleDeg, cx, cy);
+    }
+  }
+
+  smilTrackSetBaseColor(trackIdx, rgba) {
+    if (typeof this.exports.w_smil_track_set_base_color === 'function') {
+      this.exports.w_smil_track_set_base_color(trackIdx, rgba);
+    }
+  }
+
+  smilTrackAddScalar(trackIdx, t, val, x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1.0) {
+    if (typeof this.exports.w_smil_track_add_scalar === 'function') {
+      return this.exports.w_smil_track_add_scalar(trackIdx, t, val, x1, y1, x2, y2);
+    }
+    return 0;
+  }
+
+  smilTrackAddVec2(trackIdx, t, x, y, x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1.0) {
+    if (typeof this.exports.w_smil_track_add_vec2 === 'function') {
+      return this.exports.w_smil_track_add_vec2(trackIdx, t, x, y, x1, y1, x2, y2);
+    }
+    return 0;
+  }
+
+  smilTrackAddRotate(trackIdx, t, angleDeg, cx = 0, cy = 0, x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1.0) {
+    if (typeof this.exports.w_smil_track_add_rotate === 'function') {
+      return this.exports.w_smil_track_add_rotate(trackIdx, t, angleDeg, cx, cy, x1, y1, x2, y2);
+    }
+    return 0;
+  }
+
+  smilTrackAddColor(trackIdx, t, rgba, x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1.0) {
+    if (typeof this.exports.w_smil_track_add_color === 'function') {
+      return this.exports.w_smil_track_add_color(trackIdx, t, rgba, x1, y1, x2, y2);
+    }
+    return 0;
+  }
+
+  smilTrackAddPath(trackIdx, t, coords, x1 = 0.25, y1 = 0.1, x2 = 0.25, y2 = 1.0) {
+    if (!this.memory || typeof this.exports.w_smil_track_add_path !== 'function' || !coords || coords.length === 0) return 0;
+    const ptCount = coords.length;
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(ptCount * 4 + 256)
+      : 0;
+    if (!scratchPtr) return 0;
+    const f32 = new Float32Array(this.memory.buffer);
+    const base = scratchPtr >> 2;
+    for (let i = 0; i < ptCount; i++) {
+      f32[base + i] = coords[i];
+    }
+    return this.exports.w_smil_track_add_path(trackIdx, t, scratchPtr, ptCount, x1, y1, x2, y2);
+  }
+
+  smilEval(timeSeconds) {
+    if (typeof this.exports.w_smil_eval === 'function') {
+      this.exports.w_smil_eval(timeSeconds);
+    }
+  }
+
+  smilGetScalar(trackIdx) {
+    if (typeof this.exports.w_smil_get_scalar === 'function') {
+      return this.exports.w_smil_get_scalar(trackIdx);
+    }
+    return 0;
+  }
+
+  smilGetVec3(trackIdx) {
+    if (!this.memory || typeof this.exports.w_smil_get_vec3 !== 'function') return [0, 0, 0];
+    let scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(128)
+      : 0;
+    if (!scratchPtr) return [0, 0, 0];
+    this.exports.w_smil_get_vec3(trackIdx, scratchPtr);
+    const f32 = new Float32Array(this.memory.buffer);
+    const base = scratchPtr >> 2;
+    return [f32[base + 0], f32[base + 1], f32[base + 2]];
+  }
+
+  smilGetColor(trackIdx) {
+    if (typeof this.exports.w_smil_get_color === 'function') {
+      return this.exports.w_smil_get_color(trackIdx);
+    }
+    return 0;
+  }
+
+  smilGetPath(trackIdx, outCoords) {
+    if (!this.memory || typeof this.exports.w_smil_get_path !== 'function' || !outCoords) return 0;
+    const count = outCoords.length;
+    const scratchPtr = (typeof this.exports.w_get_clip_mask_buffer === 'function')
+      ? this.exports.w_get_clip_mask_buffer(count * 4 + 256)
+      : 0;
+    if (!scratchPtr) return 0;
+    const written = this.exports.w_smil_get_path(trackIdx, scratchPtr);
+    if (written > 0) {
+      const f32 = new Float32Array(this.memory.buffer);
+      const base = scratchPtr >> 2;
+      for (let i = 0; i < written; i++) {
+        outCoords[i] = f32[base + i];
+      }
+    }
+    return written;
+  }
+
+  smilSolveSpline(t, x1, y1, x2, y2) {
+    if (typeof this.exports.w_smil_solve_spline === 'function') {
+      return this.exports.w_smil_solve_spline(t, x1, y1, x2, y2);
+    }
+    return t;
+  }
+
   readCString(ptr) {
 
     if (!ptr || !this.memory) return '';

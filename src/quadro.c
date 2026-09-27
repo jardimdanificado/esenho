@@ -5197,6 +5197,577 @@ W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const cha
     return 1;
 }
 
+/* =========================================================================
+ * W3C SMIL Animation Engine Implementation (quadro.c)
+ * ========================================================================= */
+
+static w_smil_track_t g_smil_tracks[W_SMIL_MAX_TRACKS];
+static int32_t g_smil_track_count = 0;
+
+W_EXPORT float w_smil_solve_spline(float t, float x1, float y1, float x2, float y2) {
+    if (t <= 0.0f) return 0.0f;
+    if (t >= 1.0f) return 1.0f;
+    if (x1 == y1 && x2 == y2) return t; /* Linear diagonal */
+
+    /* Solve x(u) = t using Newton-Raphson */
+    float u = t;
+    for (int i = 0; i < 8; i++) {
+        float one_minus_u = 1.0f - u;
+        float u2 = u * u;
+        float one_minus_u2 = one_minus_u * one_minus_u;
+        
+        /* x(u) = 3*(1-u)^2*u*x1 + 3*(1-u)*u^2*x2 + u^3 */
+        float current_x = 3.0f * one_minus_u2 * u * x1 + 3.0f * one_minus_u * u2 * x2 + u * u2;
+        float err = current_x - t;
+        if (err > -1e-5f && err < 1e-5f) break;
+
+        /* dx/du = 3*(1-u)^2*x1 + 6*(1-u)*u*(x2-x1) + 3*u^2*(1-x2) */
+        float dx = 3.0f * one_minus_u2 * x1 + 6.0f * one_minus_u * u * (x2 - x1) + 3.0f * u2 * (1.0f - x2);
+        if (dx > -1e-6f && dx < 1e-6f) break;
+
+        u -= err / dx;
+        if (u < 0.0f) { u = 0.0f; break; }
+        if (u > 1.0f) { u = 1.0f; break; }
+    }
+
+    /* Evaluate y(u) */
+    float one_minus_u = 1.0f - u;
+    return 3.0f * one_minus_u * one_minus_u * u * y1 + 3.0f * one_minus_u * u * u * y2 + u * u * u;
+}
+
+W_EXPORT void w_smil_init(void) {
+    w_smil_reset();
+}
+
+W_EXPORT void w_smil_reset(void) {
+    for (int i = 0; i < W_SMIL_MAX_TRACKS; i++) {
+        uint8_t *p = (uint8_t*)&g_smil_tracks[i];
+        for (int b = 0; b < sizeof(w_smil_track_t); b++) p[b] = 0;
+    }
+    g_smil_track_count = 0;
+}
+
+W_EXPORT int32_t w_smil_track_create(int32_t target_id, int32_t attr_type, int32_t calc_mode, float begin, float dur, int32_t repeat_count, int32_t fill_mode) {
+    if (g_smil_track_count >= W_SMIL_MAX_TRACKS) return -1;
+    int32_t idx = g_smil_track_count++;
+    w_smil_track_t *tr = &g_smil_tracks[idx];
+    uint8_t *p = (uint8_t*)tr;
+    for (int b = 0; b < sizeof(w_smil_track_t); b++) p[b] = 0;
+    tr->active = 1;
+    tr->target_id = target_id;
+    tr->attr_type = attr_type;
+    tr->calc_mode = calc_mode;
+    tr->begin = begin >= 0.0f ? begin : 0.0f;
+    tr->dur = dur > 0.001f ? dur : 1.0f;
+    tr->repeat_count = repeat_count;
+    tr->fill_mode = fill_mode;
+    tr->keyframe_count = 0;
+    return idx;
+}
+
+W_EXPORT int32_t w_smil_track_add_scalar(int32_t track_idx, float t, float val, float x1, float y1, float x2, float y2) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return 0;
+    w_smil_track_t *tr = &g_smil_tracks[track_idx];
+    if (tr->keyframe_count >= W_SMIL_MAX_KEYFRAMES) return 0;
+
+    w_smil_keyframe_t *kf = &tr->keyframes[tr->keyframe_count++];
+    kf->t = t;
+    kf->val.scalar = val;
+    kf->spline.x1 = x1; kf->spline.y1 = y1;
+    kf->spline.x2 = x2; kf->spline.y2 = y2;
+    return 1;
+}
+
+W_EXPORT int32_t w_smil_track_add_vec2(int32_t track_idx, float t, float x, float y, float x1, float y1, float x2, float y2) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return 0;
+    w_smil_track_t *tr = &g_smil_tracks[track_idx];
+    if (tr->keyframe_count >= W_SMIL_MAX_KEYFRAMES) return 0;
+
+    w_smil_keyframe_t *kf = &tr->keyframes[tr->keyframe_count++];
+    kf->t = t;
+    kf->val.vec.x = x;
+    kf->val.vec.y = y;
+    kf->val.vec.z = 0.0f;
+    kf->spline.x1 = x1; kf->spline.y1 = y1;
+    kf->spline.x2 = x2; kf->spline.y2 = y2;
+    return 1;
+}
+
+W_EXPORT int32_t w_smil_track_add_rotate(int32_t track_idx, float t, float angle_deg, float cx, float cy, float x1, float y1, float x2, float y2) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return 0;
+    w_smil_track_t *tr = &g_smil_tracks[track_idx];
+    if (tr->keyframe_count >= W_SMIL_MAX_KEYFRAMES) return 0;
+
+    w_smil_keyframe_t *kf = &tr->keyframes[tr->keyframe_count++];
+    kf->t = t;
+    kf->val.vec.x = angle_deg;
+    kf->val.vec.y = cx;
+    kf->val.vec.z = cy;
+    kf->spline.x1 = x1; kf->spline.y1 = y1;
+    kf->spline.x2 = x2; kf->spline.y2 = y2;
+    return 1;
+}
+
+W_EXPORT int32_t w_smil_track_add_color(int32_t track_idx, float t, uint32_t rgba, float x1, float y1, float x2, float y2) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return 0;
+    w_smil_track_t *tr = &g_smil_tracks[track_idx];
+    if (tr->keyframe_count >= W_SMIL_MAX_KEYFRAMES) return 0;
+
+    w_smil_keyframe_t *kf = &tr->keyframes[tr->keyframe_count++];
+    kf->t = t;
+    kf->val.color_rgba = rgba;
+    kf->spline.x1 = x1; kf->spline.y1 = y1;
+    kf->spline.x2 = x2; kf->spline.y2 = y2;
+    return 1;
+}
+
+W_EXPORT int32_t w_smil_track_add_path(int32_t track_idx, float t, const float *coords, int32_t point_count, float x1, float y1, float x2, float y2) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count || !coords) return 0;
+    w_smil_track_t *tr = &g_smil_tracks[track_idx];
+    if (tr->keyframe_count >= W_SMIL_MAX_KEYFRAMES) return 0;
+
+    int32_t count = point_count > W_SMIL_MAX_NODES * 2 ? W_SMIL_MAX_NODES * 2 : point_count;
+    w_smil_keyframe_t *kf = &tr->keyframes[tr->keyframe_count++];
+    kf->t = t;
+    kf->val.path_nodes.count = count;
+    for (int i = 0; i < count; i++) {
+        kf->val.path_nodes.coords[i] = coords[i];
+    }
+    kf->spline.x1 = x1; kf->spline.y1 = y1;
+    kf->spline.x2 = x2; kf->spline.y2 = y2;
+    return 1;
+}
+
+static inline uint32_t interp_rgba(uint32_t c0, uint32_t c1, float p) {
+    uint32_t r0 = (c0) & 0xFF;
+    uint32_t g0 = (c0 >> 8) & 0xFF;
+    uint32_t b0 = (c0 >> 16) & 0xFF;
+    uint32_t a0 = (c0 >> 24) & 0xFF;
+
+    uint32_t r1 = (c1) & 0xFF;
+    uint32_t g1 = (c1 >> 8) & 0xFF;
+    uint32_t b1 = (c1 >> 16) & 0xFF;
+    uint32_t a1 = (c1 >> 24) & 0xFF;
+
+    uint32_t r = (uint32_t)((float)r0 + (float)((int)r1 - (int)r0) * p + 0.5f);
+    uint32_t g = (uint32_t)((float)g0 + (float)((int)g1 - (int)g0) * p + 0.5f);
+    uint32_t b = (uint32_t)((float)b0 + (float)((int)b1 - (int)b0) * p + 0.5f);
+    uint32_t a = (uint32_t)((float)a0 + (float)((int)a1 - (int)a0) * p + 0.5f);
+
+    return (r & 0xFF) | ((g & 0xFF) << 8) | ((b & 0xFF) << 16) | ((a & 0xFF) << 24);
+}
+
+W_EXPORT void w_smil_track_set_additive(int32_t track_idx, int32_t additive, int32_t accumulate) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return;
+    g_smil_tracks[track_idx].additive = additive;
+    g_smil_tracks[track_idx].accumulate = accumulate;
+}
+
+W_EXPORT void w_smil_track_set_motion(int32_t track_idx, const float *coords, int32_t count, int32_t rotate_mode, float fixed_angle) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count || !coords) return;
+    w_smil_track_t *tr = &g_smil_tracks[track_idx];
+    tr->attr_type = W_SMIL_ATTR_MOTION;
+    tr->rotate_mode = rotate_mode;
+    tr->fixed_angle = fixed_angle;
+    int32_t pts = count > W_SMIL_MAX_NODES * 2 ? W_SMIL_MAX_NODES * 2 : count;
+    tr->motion_count = pts;
+    for (int i = 0; i < pts; i++) {
+        tr->motion_coords[i] = coords[i];
+    }
+}
+
+W_EXPORT void w_smil_track_set_base_scalar(int32_t track_idx, float val) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return;
+    g_smil_tracks[track_idx].base_val.scalar = val;
+}
+
+W_EXPORT void w_smil_track_set_base_vec2(int32_t track_idx, float x, float y) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return;
+    g_smil_tracks[track_idx].base_val.vec.x = x;
+    g_smil_tracks[track_idx].base_val.vec.y = y;
+    g_smil_tracks[track_idx].base_val.vec.z = 0.0f;
+}
+
+W_EXPORT void w_smil_track_set_base_rotate(int32_t track_idx, float angle_deg, float cx, float cy) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return;
+    g_smil_tracks[track_idx].base_val.vec.x = angle_deg;
+    g_smil_tracks[track_idx].base_val.vec.y = cx;
+    g_smil_tracks[track_idx].base_val.vec.z = cy;
+}
+
+W_EXPORT void w_smil_track_set_base_color(int32_t track_idx, uint32_t rgba) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return;
+    g_smil_tracks[track_idx].base_val.color_rgba = rgba;
+}
+
+static float calc_keyframe_distance(int attr_type, const w_smil_val_t *v0, const w_smil_val_t *v1) {
+    switch (attr_type) {
+        case W_SMIL_ATTR_OPACITY:
+        case W_SMIL_ATTR_STROKE_WIDTH: {
+            float d = v1->scalar - v0->scalar;
+            return d < 0 ? -d : d;
+        }
+        case W_SMIL_ATTR_TRANSLATE:
+        case W_SMIL_ATTR_SCALE:
+        case W_SMIL_ATTR_SKEW_X:
+        case W_SMIL_ATTR_SKEW_Y:
+        case W_SMIL_ATTR_MOTION: {
+            float dx = v1->vec.x - v0->vec.x;
+            float dy = v1->vec.y - v0->vec.y;
+            return (float)w_isqrt((int)((dx*dx + dy*dy) * 100.0f)) / 10.0f;
+        }
+        case W_SMIL_ATTR_ROTATE: {
+            float da = v1->vec.x - v0->vec.x;
+            return da < 0 ? -da : da;
+        }
+        case W_SMIL_ATTR_FILL:
+        case W_SMIL_ATTR_STROKE: {
+            int dr = ((int)(v1->color_rgba & 0xFF) - (int)(v0->color_rgba & 0xFF));
+            int dg = ((int)((v1->color_rgba >> 8) & 0xFF) - (int)((v0->color_rgba >> 8) & 0xFF));
+            int db = ((int)((v1->color_rgba >> 16) & 0xFF) - (int)((v0->color_rgba >> 16) & 0xFF));
+            return (float)w_isqrt(dr*dr + dg*dg + db*db);
+        }
+        default:
+            return 1.0f;
+    }
+}
+
+static void eval_motion_track(w_smil_track_t *tr, float progress, int cycle_idx) {
+    if (tr->motion_count < 4) return;
+    int num_pts = tr->motion_count / 2;
+
+    /* Compute total arc length across motion path points */
+    float seg_lengths[W_SMIL_MAX_NODES];
+    float total_len = 0.0f;
+    for (int i = 0; i < num_pts - 1; i++) {
+        float x0 = tr->motion_coords[i * 2];
+        float y0 = tr->motion_coords[i * 2 + 1];
+        float x1 = tr->motion_coords[(i + 1) * 2];
+        float y1 = tr->motion_coords[(i + 1) * 2 + 1];
+        float dx = x1 - x0, dy = y1 - y0;
+        float d = (float)w_isqrt((int)((dx*dx + dy*dy) * 10000.0f)) / 100.0f;
+        seg_lengths[i] = d;
+        total_len += d;
+    }
+
+    float target_dist = progress * total_len;
+    float accum_dist = 0.0f;
+    float cur_x = tr->motion_coords[0];
+    float cur_y = tr->motion_coords[1];
+    float tan_dx = 1.0f, tan_dy = 0.0f;
+
+    for (int i = 0; i < num_pts - 1; i++) {
+        float slen = seg_lengths[i];
+        if (target_dist <= accum_dist + slen || i == num_pts - 2) {
+            float local_p = slen > 0.0001f ? (target_dist - accum_dist) / slen : 0.0f;
+            if (local_p < 0.0f) local_p = 0.0f;
+            if (local_p > 1.0f) local_p = 1.0f;
+
+            float x0 = tr->motion_coords[i * 2];
+            float y0 = tr->motion_coords[i * 2 + 1];
+            float x1 = tr->motion_coords[(i + 1) * 2];
+            float y1 = tr->motion_coords[(i + 1) * 2 + 1];
+            cur_x = x0 + (x1 - x0) * local_p;
+            cur_y = y0 + (y1 - y0) * local_p;
+            tan_dx = x1 - x0;
+            tan_dy = y1 - y0;
+            break;
+        }
+        accum_dist += slen;
+    }
+
+    /* Accumulate cycle delta if accumulate="sum" */
+    if (tr->accumulate == W_SMIL_ACCUMULATE_SUM && cycle_idx > 0) {
+        float cycle_dx = tr->motion_coords[(num_pts - 1) * 2] - tr->motion_coords[0];
+        float cycle_dy = tr->motion_coords[(num_pts - 1) * 2 + 1] - tr->motion_coords[1];
+        cur_x += (float)cycle_idx * cycle_dx;
+        cur_y += (float)cycle_idx * cycle_dy;
+    }
+
+    /* Add base offset if additive="sum" */
+    if (tr->additive == W_SMIL_ADDITIVE_SUM) {
+        cur_x += tr->base_val.vec.x;
+        cur_y += tr->base_val.vec.y;
+    }
+
+    tr->current_val.vec.x = cur_x;
+    tr->current_val.vec.y = cur_y;
+
+    /* Compute tangential rotation */
+    float angle_deg = 0.0f;
+    if (tr->rotate_mode == W_SMIL_ROTATE_AUTO || tr->rotate_mode == W_SMIL_ROTATE_AUTO_REVERSE) {
+        if (tan_dx != 0.0f || tan_dy != 0.0f) {
+            float abs_y = tan_dy < 0.0f ? -tan_dy : tan_dy;
+            float abs_x = tan_dx < 0.0f ? -tan_dx : tan_dx;
+            float r = abs_x >= abs_y ? (abs_y / abs_x) : (abs_x / abs_y);
+            float r2 = r * r;
+            float a = r * (0.99997726f + r2 * (-0.33262347f + r2 * (0.19354346f + r2 * (-0.11643287f + r2 * 0.05265332f))));
+            if (abs_x < abs_y) a = 1.5707963267948966f - a;
+            if (tan_dx < 0.0f) a = 3.141592653589793f - a;
+            if (tan_dy < 0.0f) a = -a;
+            angle_deg = a * (180.0f / 3.141592653589793f);
+        }
+        if (tr->rotate_mode == W_SMIL_ROTATE_AUTO_REVERSE) angle_deg += 180.0f;
+    } else if (tr->rotate_mode == W_SMIL_ROTATE_ANGLE) {
+        angle_deg = tr->fixed_angle;
+    }
+    tr->current_val.vec.z = angle_deg;
+}
+
+W_EXPORT void w_smil_eval(float time_seconds) {
+    for (int i = 0; i < g_smil_track_count; i++) {
+        w_smil_track_t *tr = &g_smil_tracks[i];
+        if (!tr->active) continue;
+
+        /* Calculate local cyclic time within duration */
+        float rel_t = time_seconds - tr->begin;
+        float dur = tr->dur > 0.0001f ? tr->dur : 1.0f;
+        float local_t = 0.0f;
+        int cycle_idx = 0;
+
+        if (rel_t < 0.0f) {
+            local_t = 0.0f;
+            cycle_idx = 0;
+        } else {
+            float total_dur = tr->repeat_count > 0 ? (float)tr->repeat_count * dur : dur;
+            if (tr->repeat_count > 0 && rel_t >= total_dur) {
+                if (tr->fill_mode == W_SMIL_FILL_FREEZE) {
+                    local_t = dur;
+                    cycle_idx = tr->repeat_count > 0 ? tr->repeat_count - 1 : 0;
+                } else {
+                    local_t = 0.0f;
+                    cycle_idx = 0;
+                }
+            } else {
+                float div = rel_t / dur;
+                cycle_idx = (int)div;
+                local_t = rel_t - (float)cycle_idx * dur;
+            }
+        }
+
+        /* 1. Handle Dedicated <animateMotion> Path */
+        if (tr->attr_type == W_SMIL_ATTR_MOTION && tr->motion_count >= 4) {
+            float norm_t = local_t / dur;
+            if (norm_t < 0.0f) norm_t = 0.0f;
+            if (norm_t > 1.0f) norm_t = 1.0f;
+            if (tr->calc_mode == W_SMIL_CALC_SPLINE && tr->keyframe_count >= 1) {
+                norm_t = w_smil_solve_spline(norm_t, tr->keyframes[0].spline.x1, tr->keyframes[0].spline.y1, tr->keyframes[0].spline.x2, tr->keyframes[0].spline.y2);
+            }
+            eval_motion_track(tr, norm_t, cycle_idx);
+            continue;
+        }
+
+        if (tr->keyframe_count == 0) continue;
+        if (tr->keyframe_count == 1) {
+            tr->current_val = tr->keyframes[0].val;
+            continue;
+        }
+
+        /* 2. Handle Paced Calculation Mode */
+        if (tr->calc_mode == W_SMIL_CALC_PACED) {
+            float total_dist = 0.0f;
+            float cum_dist[W_SMIL_MAX_KEYFRAMES];
+            cum_dist[0] = 0.0f;
+            for (int k = 0; k < tr->keyframe_count - 1; k++) {
+                float d = calc_keyframe_distance(tr->attr_type, &tr->keyframes[k].val, &tr->keyframes[k + 1].val);
+                total_dist += d;
+                cum_dist[k + 1] = total_dist;
+            }
+
+            float norm_t = local_t / dur;
+            float target_d = norm_t * total_dist;
+            int found_k = 0;
+            float p = 0.0f;
+
+            for (int k = 0; k < tr->keyframe_count - 1; k++) {
+                if (target_d <= cum_dist[k + 1] || k == tr->keyframe_count - 2) {
+                    found_k = k;
+                    float span = cum_dist[k + 1] - cum_dist[k];
+                    p = span > 0.0001f ? (target_d - cum_dist[k]) / span : 0.0f;
+                    break;
+                }
+            }
+            if (p < 0.0f) p = 0.0f;
+            if (p > 1.0f) p = 1.0f;
+
+            w_smil_keyframe_t *k0 = &tr->keyframes[found_k];
+            w_smil_keyframe_t *k1 = &tr->keyframes[found_k + 1];
+
+            switch (tr->attr_type) {
+                case W_SMIL_ATTR_OPACITY:
+                case W_SMIL_ATTR_STROKE_WIDTH:
+                case W_SMIL_ATTR_SKEW_X:
+                case W_SMIL_ATTR_SKEW_Y:
+                    tr->current_val.scalar = k0->val.scalar + (k1->val.scalar - k0->val.scalar) * p;
+                    tr->current_val.vec.x = tr->current_val.scalar;
+                    break;
+                case W_SMIL_ATTR_TRANSLATE:
+                case W_SMIL_ATTR_SCALE:
+                case W_SMIL_ATTR_MOTION:
+                    tr->current_val.vec.x = k0->val.vec.x + (k1->val.vec.x - k0->val.vec.x) * p;
+                    tr->current_val.vec.y = k0->val.vec.y + (k1->val.vec.y - k0->val.vec.y) * p;
+                    tr->current_val.vec.z = k0->val.vec.z + (k1->val.vec.z - k0->val.vec.z) * p;
+                    break;
+                case W_SMIL_ATTR_ROTATE:
+                    tr->current_val.vec.x = k0->val.vec.x + (k1->val.vec.x - k0->val.vec.x) * p;
+                    tr->current_val.vec.y = k0->val.vec.y + (k1->val.vec.y - k0->val.vec.y) * p;
+                    tr->current_val.vec.z = k0->val.vec.z + (k1->val.vec.z - k0->val.vec.z) * p;
+                    break;
+                case W_SMIL_ATTR_FILL:
+                case W_SMIL_ATTR_STROKE:
+                    tr->current_val.color_rgba = interp_rgba(k0->val.color_rgba, k1->val.color_rgba, p);
+                    break;
+                default:
+                    tr->current_val = p < 0.5f ? k0->val : k1->val;
+                    break;
+            }
+        } else {
+            /* Linear, Spline, or Discrete interpolation */
+            if (local_t <= tr->keyframes[0].t) {
+                tr->current_val = tr->keyframes[0].val;
+            } else if (local_t >= tr->keyframes[tr->keyframe_count - 1].t) {
+                tr->current_val = tr->keyframes[tr->keyframe_count - 1].val;
+            } else {
+                for (int k = 0; k < tr->keyframe_count - 1; k++) {
+                    w_smil_keyframe_t *k0 = &tr->keyframes[k];
+                    w_smil_keyframe_t *k1 = &tr->keyframes[k + 1];
+
+                    if (local_t >= k0->t && local_t <= k1->t) {
+                        float span = k1->t - k0->t;
+                        float p = span > 0.0001f ? (local_t - k0->t) / span : 0.0f;
+
+                        if (tr->calc_mode == W_SMIL_CALC_DISCRETE) {
+                            p = 0.0f;
+                        } else if (tr->calc_mode == W_SMIL_CALC_SPLINE) {
+                            p = w_smil_solve_spline(p, k0->spline.x1, k0->spline.y1, k0->spline.x2, k0->spline.y2);
+                        }
+
+                        switch (tr->attr_type) {
+                            case W_SMIL_ATTR_OPACITY:
+                            case W_SMIL_ATTR_STROKE_WIDTH:
+                            case W_SMIL_ATTR_SKEW_X:
+                            case W_SMIL_ATTR_SKEW_Y:
+                                tr->current_val.scalar = k0->val.scalar + (k1->val.scalar - k0->val.scalar) * p;
+                                tr->current_val.vec.x = tr->current_val.scalar;
+                                break;
+                            case W_SMIL_ATTR_TRANSLATE:
+                            case W_SMIL_ATTR_SCALE:
+                            case W_SMIL_ATTR_MOTION:
+                                tr->current_val.vec.x = k0->val.vec.x + (k1->val.vec.x - k0->val.vec.x) * p;
+                                tr->current_val.vec.y = k0->val.vec.y + (k1->val.vec.y - k0->val.vec.y) * p;
+                                tr->current_val.vec.z = k0->val.vec.z + (k1->val.vec.z - k0->val.vec.z) * p;
+                                break;
+                            case W_SMIL_ATTR_ROTATE:
+                                tr->current_val.vec.x = k0->val.vec.x + (k1->val.vec.x - k0->val.vec.x) * p;
+                                tr->current_val.vec.y = k0->val.vec.y + (k1->val.vec.y - k0->val.vec.y) * p;
+                                tr->current_val.vec.z = k0->val.vec.z + (k1->val.vec.z - k0->val.vec.z) * p;
+                                break;
+                            case W_SMIL_ATTR_FILL:
+                            case W_SMIL_ATTR_STROKE:
+                                tr->current_val.color_rgba = interp_rgba(k0->val.color_rgba, k1->val.color_rgba, p);
+                                break;
+                            case W_SMIL_ATTR_PATH_D: {
+                                int count = k0->val.path_nodes.count < k1->val.path_nodes.count ? k0->val.path_nodes.count : k1->val.path_nodes.count;
+                                tr->current_val.path_nodes.count = count;
+                                for (int n = 0; n < count; n++) {
+                                    float v0 = k0->val.path_nodes.coords[n];
+                                    float v1 = k1->val.path_nodes.coords[n];
+                                    tr->current_val.path_nodes.coords[n] = v0 + (v1 - v0) * p;
+                                }
+                                break;
+                            }
+                            default:
+                                tr->current_val = p < 0.5f ? k0->val : k1->val;
+                                break;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        /* 3. Apply accumulate="sum" across repeated iterations */
+        if (tr->accumulate == W_SMIL_ACCUMULATE_SUM && cycle_idx > 0) {
+            w_smil_val_t *first = &tr->keyframes[0].val;
+            w_smil_val_t *last = &tr->keyframes[tr->keyframe_count - 1].val;
+            float c = (float)cycle_idx;
+
+            switch (tr->attr_type) {
+                case W_SMIL_ATTR_OPACITY:
+                case W_SMIL_ATTR_STROKE_WIDTH:
+                case W_SMIL_ATTR_SKEW_X:
+                case W_SMIL_ATTR_SKEW_Y:
+                    tr->current_val.scalar += c * (last->scalar - first->scalar);
+                    tr->current_val.vec.x = tr->current_val.scalar;
+                    break;
+                case W_SMIL_ATTR_TRANSLATE:
+                case W_SMIL_ATTR_SCALE:
+                case W_SMIL_ATTR_MOTION:
+                    tr->current_val.vec.x += c * (last->vec.x - first->vec.x);
+                    tr->current_val.vec.y += c * (last->vec.y - first->vec.y);
+                    tr->current_val.vec.z += c * (last->vec.z - first->vec.z);
+                    break;
+                case W_SMIL_ATTR_ROTATE:
+                    tr->current_val.vec.x += c * (last->vec.x - first->vec.x);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        /* 4. Apply additive="sum" on top of base element value */
+        if (tr->additive == W_SMIL_ADDITIVE_SUM) {
+            switch (tr->attr_type) {
+                case W_SMIL_ATTR_OPACITY:
+                case W_SMIL_ATTR_STROKE_WIDTH:
+                case W_SMIL_ATTR_SKEW_X:
+                case W_SMIL_ATTR_SKEW_Y:
+                    tr->current_val.scalar += tr->base_val.scalar;
+                    tr->current_val.vec.x = tr->current_val.scalar;
+                    break;
+                case W_SMIL_ATTR_TRANSLATE:
+                case W_SMIL_ATTR_SCALE:
+                case W_SMIL_ATTR_MOTION:
+                    tr->current_val.vec.x += tr->base_val.vec.x;
+                    tr->current_val.vec.y += tr->base_val.vec.y;
+                    tr->current_val.vec.z += tr->base_val.vec.z;
+                    break;
+                case W_SMIL_ATTR_ROTATE:
+                    tr->current_val.vec.x += tr->base_val.vec.x;
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+W_EXPORT float w_smil_get_scalar(int32_t track_idx) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return 0.0f;
+    return g_smil_tracks[track_idx].current_val.scalar;
+}
+
+W_EXPORT void w_smil_get_vec3(int32_t track_idx, float *out_vec) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count || !out_vec) return;
+    out_vec[0] = g_smil_tracks[track_idx].current_val.vec.x;
+    out_vec[1] = g_smil_tracks[track_idx].current_val.vec.y;
+    out_vec[2] = g_smil_tracks[track_idx].current_val.vec.z;
+}
+
+W_EXPORT uint32_t w_smil_get_color(int32_t track_idx) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count) return 0;
+    return g_smil_tracks[track_idx].current_val.color_rgba;
+}
+
+W_EXPORT int32_t w_smil_get_path(int32_t track_idx, float *out_coords) {
+    if (track_idx < 0 || track_idx >= g_smil_track_count || !out_coords) return 0;
+    int count = g_smil_tracks[track_idx].current_val.path_nodes.count;
+    for (int i = 0; i < count; i++) {
+        out_coords[i] = g_smil_tracks[track_idx].current_val.path_nodes.coords[i];
+    }
+    return count;
+}
+
 
 
 
