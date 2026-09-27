@@ -92,24 +92,243 @@ export function lerpAngle(a1, a2, t) {
   return a1 + diff * t;
 }
 
+/** Parses raw SVG path string into an array of commands */
+export function parseSvgPathCommands(d) {
+  if (!d || typeof d !== 'string') return [];
+  const cmdRegex = /([a-df-z])([^a-df-z]*)/ig;
+  const commands = [];
+  let match;
+  while ((match = cmdRegex.exec(d)) !== null) {
+    const type = match[1];
+    const args = (match[2].trim().match(/[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/gi) || []).map(Number);
+    commands.push({ type, args });
+  }
+  return commands;
+}
+
+/** Converts all path commands into normalized absolute Cubic Bézier segments: { type: 'M'|'C'|'Z', x, y, cp1x, cp1y, cp2x, cp2y } */
+export function normalizePathToCubics(d) {
+  const commands = parseSvgPathCommands(d);
+  const segments = [];
+  let curX = 0, curY = 0;
+  let startX = 0, startY = 0;
+  let lastCp2X = 0, lastCp2Y = 0;
+  let prevType = '';
+
+  for (const { type, args } of commands) {
+    const isRel = type === type.toLowerCase();
+    const cmd = type.toUpperCase();
+
+    if (cmd === 'M') {
+      for (let k = 0; k < args.length; k += 2) {
+        const x = isRel ? curX + args[k] : args[k];
+        const y = isRel ? curY + args[k + 1] : args[k + 1];
+        if (k === 0) {
+          curX = x; curY = y;
+          startX = x; startY = y;
+          segments.push({ type: 'M', x, y });
+        } else {
+          segments.push({ type: 'C', cp1x: curX, cp1y: curY, cp2x: x, cp2y: y, x, y });
+          curX = x; curY = y;
+        }
+      }
+    } else if (cmd === 'L') {
+      for (let k = 0; k < args.length; k += 2) {
+        const x = isRel ? curX + args[k] : args[k];
+        const y = isRel ? curY + args[k + 1] : args[k + 1];
+        segments.push({ type: 'C', cp1x: curX, cp1y: curY, cp2x: x, cp2y: y, x, y });
+        curX = x; curY = y;
+      }
+    } else if (cmd === 'H') {
+      for (let k = 0; k < args.length; k++) {
+        const x = isRel ? curX + args[k] : args[k];
+        segments.push({ type: 'C', cp1x: curX, cp1y: curY, cp2x: x, cp2y: curY, x, y: curY });
+        curX = x;
+      }
+    } else if (cmd === 'V') {
+      for (let k = 0; k < args.length; k++) {
+        const y = isRel ? curY + args[k] : args[k];
+        segments.push({ type: 'C', cp1x: curX, cp1y: curY, cp2x: curX, cp2y: y, x: curX, y });
+        curY = y;
+      }
+    } else if (cmd === 'C') {
+      for (let k = 0; k < args.length; k += 6) {
+        const cp1x = isRel ? curX + args[k] : args[k];
+        const cp1y = isRel ? curY + args[k + 1] : args[k + 1];
+        const cp2x = isRel ? curX + args[k + 2] : args[k + 2];
+        const cp2y = isRel ? curY + args[k + 3] : args[k + 3];
+        const x = isRel ? curX + args[k + 4] : args[k + 4];
+        const y = isRel ? curY + args[k + 5] : args[k + 5];
+        segments.push({ type: 'C', cp1x, cp1y, cp2x, cp2y, x, y });
+        lastCp2X = cp2x; lastCp2Y = cp2y;
+        curX = x; curY = y;
+      }
+    } else if (cmd === 'S') {
+      for (let k = 0; k < args.length; k += 4) {
+        let cp1x = curX, cp1y = curY;
+        if (prevType === 'C' || prevType === 'S') {
+          cp1x = 2 * curX - lastCp2X;
+          cp1y = 2 * curY - lastCp2Y;
+        }
+        const cp2x = isRel ? curX + args[k] : args[k];
+        const cp2y = isRel ? curY + args[k + 1] : args[k + 1];
+        const x = isRel ? curX + args[k + 2] : args[k + 2];
+        const y = isRel ? curY + args[k + 3] : args[k + 3];
+        segments.push({ type: 'C', cp1x, cp1y, cp2x, cp2y, x, y });
+        lastCp2X = cp2x; lastCp2Y = cp2y;
+        curX = x; curY = y;
+      }
+    } else if (cmd === 'Q') {
+      for (let k = 0; k < args.length; k += 4) {
+        const qx = isRel ? curX + args[k] : args[k];
+        const qy = isRel ? curY + args[k + 1] : args[k + 1];
+        const x = isRel ? curX + args[k + 2] : args[k + 2];
+        const y = isRel ? curY + args[k + 3] : args[k + 3];
+        const cp1x = curX + (2 / 3) * (qx - curX);
+        const cp1y = curY + (2 / 3) * (qy - curY);
+        const cp2x = x + (2 / 3) * (qx - x);
+        const cp2y = y + (2 / 3) * (qy - y);
+        segments.push({ type: 'C', cp1x, cp1y, cp2x, cp2y, x, y });
+        lastCp2X = qx; lastCp2Y = qy;
+        curX = x; curY = y;
+      }
+    } else if (cmd === 'Z') {
+      segments.push({ type: 'Z', x: startX, y: startY });
+      curX = startX; curY = startY;
+    }
+    prevType = cmd;
+  }
+  return segments;
+}
+
+/** Subdivides a cubic segment into two segments at midpoint u = 0.5 using de Casteljau */
+function splitCubicSegment(prevX, prevY, seg) {
+  const p0x = prevX, p0y = prevY;
+  const p1x = seg.cp1x !== undefined ? seg.cp1x : prevX, p1y = seg.cp1y !== undefined ? seg.cp1y : prevY;
+  const p2x = seg.cp2x !== undefined ? seg.cp2x : seg.x, p2y = seg.cp2y !== undefined ? seg.cp2y : seg.y;
+  const p3x = seg.x, p3y = seg.y;
+
+  const p01x = (p0x + p1x) / 2, p01y = (p0y + p1y) / 2;
+  const p12x = (p1x + p2x) / 2, p12y = (p1y + p2y) / 2;
+  const p23x = (p2x + p3x) / 2, p23y = (p2y + p3y) / 2;
+
+  const p012x = (p01x + p12x) / 2, p012y = (p01y + p12y) / 2;
+  const p123x = (p12x + p23x) / 2, p123y = (p12y + p23y) / 2;
+  const p0123x = (p012x + p123x) / 2, p0123y = (p012y + p123y) / 2;
+
+  const segA = { type: 'C', cp1x: p01x, cp1y: p01y, cp2x: p012x, cp2y: p012y, x: p0123x, y: p0123y };
+  const segB = { type: 'C', cp1x: p123x, cp1y: p123y, cp2x: p23x, cp2y: p23y, x: p3x, y: p3y };
+  return [segA, segB];
+}
+
+/** Equalizes two arrays of segments so they have identical segment counts */
+function equalizeSegments(segs1, segs2) {
+  let s1 = [...segs1];
+  let s2 = [...segs2];
+
+  while (s1.length < s2.length) {
+    let longestIdx = -1;
+    let maxDist = -1;
+    let px = s1[0] ? s1[0].x : 0, py = s1[0] ? s1[0].y : 0;
+    for (let i = 0; i < s1.length; i++) {
+      if (s1[i].type === 'C') {
+        const d = Math.hypot(s1[i].x - px, s1[i].y - py);
+        if (d > maxDist) { maxDist = d; longestIdx = i; }
+      }
+      px = s1[i].x; py = s1[i].y;
+    }
+    if (longestIdx === -1) break;
+    const prevSeg = s1[longestIdx - 1] || { x: 0, y: 0 };
+    const [a, b] = splitCubicSegment(prevSeg.x, prevSeg.y, s1[longestIdx]);
+    s1.splice(longestIdx, 1, a, b);
+  }
+
+  while (s2.length < s1.length) {
+    let longestIdx = -1;
+    let maxDist = -1;
+    let px = s2[0] ? s2[0].x : 0, py = s2[0] ? s2[0].y : 0;
+    for (let i = 0; i < s2.length; i++) {
+      if (s2[i].type === 'C') {
+        const d = Math.hypot(s2[i].x - px, s2[i].y - py);
+        if (d > maxDist) { maxDist = d; longestIdx = i; }
+      }
+      px = s2[i].x; py = s2[i].y;
+    }
+    if (longestIdx === -1) break;
+    const prevSeg = s2[longestIdx - 1] || { x: 0, y: 0 };
+    const [a, b] = splitCubicSegment(prevSeg.x, prevSeg.y, s2[longestIdx]);
+    s2.splice(longestIdx, 1, a, b);
+  }
+
+  return [s1, s2];
+}
+
 /** Smooth SVG path and polyline points morphing interpolation */
 export function lerpPath(d1, d2, t) {
   if (typeof d1 !== 'string' || typeof d2 !== 'string') return t >= 1 ? d2 : d1;
   if (d1 === d2) return d1;
-  const numRegex = /[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/g;
-  const nums1 = d1.match(numRegex);
-  const nums2 = d2.match(numRegex);
-  if (!nums1 || !nums2 || nums1.length !== nums2.length) {
+  if (t <= 0) return d1;
+  if (t >= 1) return d2;
+
+  // Check if this is a polyline/polygon point list (only numbers, commas, spaces without SVG command letters)
+  const isPolyline = !/[MmLlHhVvCcSsQqTtAaZz]/.test(d1) && !/[MmLlHhVvCcSsQqTtAaZz]/.test(d2);
+  if (isPolyline) {
+    const numRegex = /[-+]?(?:\d*\.\d+|\d+)(?:[eE][-+]?\d+)?/g;
+    const n1 = (d1.match(numRegex) || []).map(Number);
+    const n2 = (d2.match(numRegex) || []).map(Number);
+    if (n1.length === 0 || n2.length === 0) return t >= 1 ? d2 : d1;
+
+    const count = Math.max(n1.length, n2.length);
+    const result = [];
+    for (let i = 0; i < count; i += 2) {
+      const idx1 = Math.min(i, n1.length - 2);
+      const idx2 = Math.min(i, n2.length - 2);
+      const x1 = n1[idx1], y1 = n1[idx1 + 1];
+      const x2 = n2[idx2], y2 = n2[idx2 + 1];
+      const x = x1 + (x2 - x1) * t;
+      const y = y1 + (y2 - y1) * t;
+      result.push(`${Number(x.toFixed(2))},${Number(y.toFixed(2))}`);
+    }
+    return result.join(' ');
+  }
+
+  const segs1Raw = normalizePathToCubics(d1);
+  const segs2Raw = normalizePathToCubics(d2);
+
+  if (segs1Raw.length === 0 || segs2Raw.length === 0) {
     return t >= 1 ? d2 : d1;
   }
-  let idx = 0;
-  return d1.replace(numRegex, () => {
-    const n1 = parseFloat(nums1[idx]);
-    const n2 = parseFloat(nums2[idx]);
-    idx++;
-    const v = n1 + (n2 - n1) * t;
-    return Number(v.toFixed(3));
-  });
+
+  const [s1, s2] = equalizeSegments(segs1Raw, segs2Raw);
+  const len = Math.min(s1.length, s2.length);
+  let out = '';
+
+  for (let i = 0; i < len; i++) {
+    const a = s1[i];
+    const b = s2[i];
+
+    if (a.type === 'M' || b.type === 'M') {
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+      out += `${out ? ' ' : ''}M ${Number(x.toFixed(2))} ${Number(y.toFixed(2))}`;
+    } else if (a.type === 'Z' && b.type === 'Z') {
+      out += ' Z';
+    } else {
+      const cp1x = (a.cp1x !== undefined ? a.cp1x : a.x) + ((b.cp1x !== undefined ? b.cp1x : b.x) - (a.cp1x !== undefined ? a.cp1x : a.x)) * t;
+      const cp1y = (a.cp1y !== undefined ? a.cp1y : a.y) + ((b.cp1y !== undefined ? b.cp1y : b.y) - (a.cp1y !== undefined ? a.cp1y : a.y)) * t;
+      const cp2x = (a.cp2x !== undefined ? a.cp2x : a.x) + ((b.cp2x !== undefined ? b.cp2x : b.x) - (a.cp2x !== undefined ? a.cp2x : a.x)) * t;
+      const cp2y = (a.cp2y !== undefined ? a.cp2y : a.y) + ((b.cp2y !== undefined ? b.cp2y : b.y) - (a.cp2y !== undefined ? a.cp2y : a.y)) * t;
+      const x = a.x + (b.x - a.x) * t;
+      const y = a.y + (b.y - a.y) * t;
+
+      out += ` C ${Number(cp1x.toFixed(2))} ${Number(cp1y.toFixed(2))}, ${Number(cp2x.toFixed(2))} ${Number(cp2y.toFixed(2))}, ${Number(x.toFixed(2))} ${Number(y.toFixed(2))}`;
+      if (a.type === 'Z' || b.type === 'Z') {
+        out += ' Z';
+      }
+    }
+  }
+
+  return out;
 }
 
 /**
@@ -293,7 +512,15 @@ export function extractLiveObjectProperties(liveObj) {
   // Geometry
   if (typeof liveObj.toPathData === 'function') props.d = liveObj.toPathData();
   else if (liveObj.d !== undefined) props.d = liveObj.d;
-  if (liveObj.points !== undefined && typeof liveObj.points === 'string') props.points = liveObj.points;
+  if (liveObj.points !== undefined) {
+    if (Array.isArray(liveObj.points)) {
+      props.points = liveObj.points.map(p => `${Number(p.x.toFixed(2))},${Number(p.y.toFixed(2))}`).join(' ');
+    } else if (typeof liveObj.points === 'string') {
+      props.points = liveObj.points;
+    } else if (typeof liveObj.points === 'number') {
+      props.starPoints = liveObj.points;
+    }
+  }
   if (liveObj.width !== undefined) props.width = liveObj.width;
   if (liveObj.height !== undefined) props.height = liveObj.height;
   if (liveObj.radius !== undefined) props.radius = liveObj.radius;
@@ -304,7 +531,6 @@ export function extractLiveObjectProperties(liveObj) {
   if (liveObj.polygonSides !== undefined) props.polygonSides = liveObj.polygonSides;
   else if (liveObj.sides !== undefined) props.polygonSides = liveObj.sides;
   if (liveObj.starPoints !== undefined) props.starPoints = liveObj.starPoints;
-  else if (liveObj.points !== undefined && typeof liveObj.points === 'number') props.starPoints = liveObj.points;
   if (liveObj.innerRadius !== undefined) props.innerRadius = liveObj.innerRadius;
 
   // Typography

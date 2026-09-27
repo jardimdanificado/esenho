@@ -231,6 +231,20 @@ pathChannel.addKeyframe(1, pathStart, 'linear');
 pathChannel.addKeyframe(11, pathEnd, 'linear');
 
 assert.strictEqual(pathChannel.sample(6), 'M 20 30 C 25 35, 40 50, 60 70');
+
+// Test Line to Curve Morphing
+const pLine = 'M 0 0 L 100 100';
+const pCurve = 'M 0 0 C 30 70, 70 30, 100 100';
+const pMorph = lerpPath(pLine, pCurve, 0.5);
+assert(pMorph.startsWith('M 0 0 C'), 'Line to curve should morph into valid cubic Bézier');
+assert.strictEqual(pMorph, 'M 0 0 C 15 35, 85 65, 100 100');
+
+// Test Polyline points morphing
+const poly1 = '10,20 30,40';
+const poly2 = '50,60 70,80';
+const polyMid = lerpPath(poly1, poly2, 0.5);
+assert.strictEqual(polyMid, '30,40 50,60');
+
 console.log('✔ Path morphing & lerpPath passed');
 
 // 11. Test Object Renaming
@@ -248,6 +262,80 @@ renameDs.renameObject('layer_star', 'Golden Glowing Star');
 assert.strictEqual(rObj.name, 'Golden Glowing Star');
 assert.deepStrictEqual(notifiedRename, { id: 'layer_star', name: 'Golden Glowing Star' });
 console.log('✔ Object renaming and notification passed');
+
+// 12. Test Easing Tween Curves
+console.log('12. Testing Easing Curves (easeInQuad, easeOutQuad, easeInOutCubic, etc.)...');
+const chEaseIn = new DopeSheetChannel('x', 0);
+chEaseIn.addKeyframe(1, 0, 'easeInQuad');
+chEaseIn.addKeyframe(11, 100, 'easeInQuad');
+
+const chEaseOut = new DopeSheetChannel('x', 0);
+chEaseOut.addKeyframe(1, 0, 'easeOutQuad');
+chEaseOut.addKeyframe(11, 100, 'easeOutQuad');
+
+const chLinear = new DopeSheetChannel('x', 0);
+chLinear.addKeyframe(1, 0, 'linear');
+chLinear.addKeyframe(11, 100, 'linear');
+
+assert.strictEqual(chLinear.sample(6), 50);
+assert.strictEqual(chEaseIn.sample(6), 25);
+assert.strictEqual(chEaseOut.sample(6), 75);
+console.log('✔ Easing curves interpolation passed');
+
+// 13. Test Multi-Stop Gradient Manipulation & SvgGradient
+console.log('13. Testing SvgGradient Multi-Stop Engine...');
+import svgPkg from '../src/svg/svg_engine.js';
+const { SvgDocument, SvgLinearGradient, SvgRadialGradient } = svgPkg;
+
+const grad = new SvgLinearGradient();
+assert.strictEqual(grad.stops.length, 2);
+grad.addStop(0.5, '#00ff88', 0.8, 1.2);
+assert.strictEqual(grad.stops.length, 3);
+assert.strictEqual(grad.stops[1].offset, 0.5);
+assert.strictEqual(grad.stops[1].color, '#00ff88');
+
+grad.setStop(1, { color: '#00ccff', opacity: 0.9 });
+assert.strictEqual(grad.stops[1].color, '#00ccff');
+assert.strictEqual(grad.stops[1].opacity, 0.9);
+
+const removed = grad.removeStop(1);
+assert.strictEqual(removed, true);
+assert.strictEqual(grad.stops.length, 2);
+console.log('✔ SvgGradient multi-stop operations passed');
+
+// 14. Test Animation Persistence in SvgDocument
+console.log('14. Testing Animation Persistence in SvgDocument...');
+
+const persistDoc = new SvgDocument(1280, 720);
+const persistDs = new DopeSheet(120, 60);
+const persistHero = persistDs.getOrCreateObject('obj_hero', 'Hero Character');
+persistHero.setKeyframe('x', 1, 10, 'linear');
+persistHero.setKeyframe('x', 60, 500, 'easeInOutQuad');
+
+persistDoc.animation = persistDs.toJSON();
+
+// Verify JSON roundtrip
+const jsonOut = persistDoc.toJSON();
+assert(jsonOut.animation, 'Document JSON should contain animation data');
+assert.strictEqual(jsonOut.animation.fps, 60);
+assert.strictEqual(jsonOut.animation.totalFrames, 120);
+
+const loadedDoc = new SvgDocument();
+loadedDoc.loadJSON(jsonOut);
+assert(loadedDoc.animation, 'Loaded Document should restore animation data');
+assert.strictEqual(loadedDoc.animation.objects.length, 1);
+assert.strictEqual(loadedDoc.animation.objects[0].id, 'obj_hero');
+
+// Verify SVG XML roundtrip with <script type="application/json" id="wesenho-animation">
+const svgXml = persistDoc.toSVGString();
+assert(svgXml.includes('id="wesenho-animation"'), 'SVG XML should embed wesenho-animation metadata script');
+
+const fromSvgDoc = new SvgDocument();
+fromSvgDoc.fromSVGString(svgXml);
+assert(fromSvgDoc.animation, 'fromSVGString should parse embedded wesenho-animation script');
+assert.strictEqual(fromSvgDoc.animation.objects[0].id, 'obj_hero');
+assert.strictEqual(fromSvgDoc.animation.fps, 60);
+console.log('✔ Animation persistence in SvgDocument passed');
 
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
 

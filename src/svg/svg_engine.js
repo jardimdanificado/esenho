@@ -1609,19 +1609,44 @@
       this.type = type;
       this.stops = attributes.stops && Array.isArray(attributes.stops)
         ? attributes.stops.map(s => ({
-            offset: Number(s.offset !== undefined ? s.offset : 0),
+            offset: Math.max(0, Math.min(1, Number(s.offset !== undefined ? s.offset : 0))),
             color: s.color || '#fabd2f',
-            opacity: Number(s.opacity !== undefined ? s.opacity : 1.0)
+            opacity: Math.max(0, Math.min(1, Number(s.opacity !== undefined ? s.opacity : 1.0))),
+            intensity: Number(s.intensity !== undefined ? s.intensity : 1.0)
           }))
         : [
-            { offset: 0, color: '#fe8019', opacity: 1.0 },
-            { offset: 1, color: '#fabd2f', opacity: 1.0 }
+            { offset: 0, color: '#fe8019', opacity: 1.0, intensity: 1.0 },
+            { offset: 1, color: '#fabd2f', opacity: 1.0, intensity: 1.0 }
           ];
     }
 
-    addStop(offset, color, opacity = 1.0) {
-      this.stops.push({ offset: Number(offset), color, opacity: Number(opacity) });
+    addStop(offset, color, opacity = 1.0, intensity = 1.0) {
+      this.stops.push({
+        offset: Math.max(0, Math.min(1, Number(offset))),
+        color: color || '#fabd2f',
+        opacity: Math.max(0, Math.min(1, Number(opacity))),
+        intensity: Number(intensity)
+      });
       this.stops.sort((a, b) => a.offset - b.offset);
+    }
+
+    removeStop(index) {
+      if (this.stops.length > 2 && index >= 0 && index < this.stops.length) {
+        this.stops.splice(index, 1);
+        return true;
+      }
+      return false;
+    }
+
+    setStop(index, patch = {}) {
+      if (index >= 0 && index < this.stops.length) {
+        const s = this.stops[index];
+        if (patch.offset !== undefined) s.offset = Math.max(0, Math.min(1, Number(patch.offset)));
+        if (patch.color !== undefined) s.color = patch.color;
+        if (patch.opacity !== undefined) s.opacity = Math.max(0, Math.min(1, Number(patch.opacity)));
+        if (patch.intensity !== undefined) s.intensity = Number(patch.intensity);
+        this.stops.sort((a, b) => a.offset - b.offset);
+      }
     }
 
     toSVGElement() {
@@ -1639,9 +1664,10 @@
     }
 
     toSVGElement() {
-      const stopsXml = this.stops.map(s =>
-        `<stop offset="${(s.offset * 100).toFixed(1)}%" stop-color="${s.color}" stop-opacity="${s.opacity}" />`
-      ).join('\n    ');
+      const stopsXml = this.stops.map(s => {
+        const op = Math.min(1, (s.opacity !== undefined ? s.opacity : 1.0) * (s.intensity !== undefined ? s.intensity : 1.0));
+        return `<stop offset="${(s.offset * 100).toFixed(1)}%" stop-color="${s.color}" stop-opacity="${op}" />`;
+      }).join('\n    ');
       return `<linearGradient id="${this.id}" x1="${this.x1}" y1="${this.y1}" x2="${this.x2}" y2="${this.y2}">\n    ${stopsXml}\n  </linearGradient>`;
     }
   }
@@ -1657,9 +1683,10 @@
     }
 
     toSVGElement() {
-      const stopsXml = this.stops.map(s =>
-        `<stop offset="${(s.offset * 100).toFixed(1)}%" stop-color="${s.color}" stop-opacity="${s.opacity}" />`
-      ).join('\n    ');
+      const stopsXml = this.stops.map(s => {
+        const op = Math.min(1, (s.opacity !== undefined ? s.opacity : 1.0) * (s.intensity !== undefined ? s.intensity : 1.0));
+        return `<stop offset="${(s.offset * 100).toFixed(1)}%" stop-color="${s.color}" stop-opacity="${op}" />`;
+      }).join('\n    ');
       return `<radialGradient id="${this.id}" cx="${this.cx}" cy="${this.cy}" r="${this.r}" fx="${this.fx}" fy="${this.fy}">\n    ${stopsXml}\n  </radialGradient>`;
     }
   }
@@ -3371,6 +3398,12 @@
       };
       collectDefs(this.objects);
 
+      if (this.animation) {
+        defsMap.set('wesenho-animation', {
+          toSVGElement: () => `<script type="application/json" id="wesenho-animation">\n    ${JSON.stringify(this.animation)}\n  </script>`
+        });
+      }
+
       let defsXml = '';
       if (defsMap.size > 0) {
         const items = Array.from(defsMap.values()).map(d => d.toSVGElement()).join('\n    ');
@@ -3426,6 +3459,14 @@
         if (svgEl.getAttribute('width')) this.width = parseFloat(svgEl.getAttribute('width'));
         if (svgEl.getAttribute('height')) this.height = parseFloat(svgEl.getAttribute('height'));
         if (svgEl.getAttribute('viewBox')) this.viewBox = svgEl.getAttribute('viewBox');
+
+        // Extract embedded animation metadata
+        const animScript = svgEl.querySelector('script[type="application/json"]#wesenho-animation') || svgEl.querySelector('script#wesenho-animation');
+        if (animScript) {
+          try {
+            this.animation = JSON.parse(animScript.textContent.trim());
+          } catch (e) {}
+        }
 
         // Extract embedded WASM plugins
         const wasmScripts = svgEl.querySelectorAll('script[type="application/wasm"]');
@@ -3604,6 +3645,14 @@
         }
       } else {
         // Fallback RegEx Parser for Node.js
+        const animRegex = /<script\b[^>]*id="wesenho-animation"[^>]*>([\s\S]*?)<\/script>/i;
+        const animMatch = animRegex.exec(svgString);
+        if (animMatch && animMatch[1]) {
+          try {
+            this.animation = JSON.parse(animMatch[1].trim());
+          } catch (e) {}
+        }
+
         const scriptRegex = /<script\b[^>]*type="application\/wasm"[^>]*>([\s\S]*?)<\/script>/gi;
         let sm;
         while ((sm = scriptRegex.exec(svgString)) !== null) {
@@ -3778,13 +3827,17 @@
     }
 
     toJSON() {
-      return {
+      const data = {
         width: this.width,
         height: this.height,
         viewBox: this.viewBox,
         backgroundColor: this.backgroundColor,
         objects: this.objects.map(o => o.toJSON())
       };
+      if (this.animation) {
+        data.animation = this.animation;
+      }
+      return data;
     }
 
     fromJSON(data) {
@@ -3796,6 +3849,9 @@
       this.height = data.height || 600;
       this.viewBox = data.viewBox || `0 0 ${this.width} ${this.height}`;
       this.backgroundColor = data.backgroundColor || '#1d2021';
+      if (data.animation) {
+        this.animation = data.animation;
+      }
       this.objects = (data.objects || []).map(o => {
         const node = SvgNode.fromJSON(o);
         node.doc = this;

@@ -1634,20 +1634,55 @@
               <button id="btn-fill-none" class="btn-sm" style="flex: 1;">Set None</button>
             </div>
           </div>
-          <div id="gradient-controls" style="display: none; flex-direction: column; gap: 4px;">
+          <div id="gradient-controls" style="display: none; flex-direction: column; gap: 6px;">
+            <div style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 2px;">Gradient Configuration</div>
+            <div id="grad-preview-bar" style="height: 20px; border-radius: 4px; border: 1px solid var(--border-color); background: linear-gradient(90deg, #fe8019 0%, #fabd2f 100%); cursor: pointer; box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);" title="Click to add stop at position"></div>
+            
+            <div class="form-row" style="align-items: center; gap: 4px;">
+              <label style="width: 50px;">Stop</label>
+              <select id="prop-grad-stop-select" style="flex: 1;"></select>
+              <button id="btn-grad-add-stop" class="btn-sm" title="Add stop" style="padding: 2px 8px; font-weight: bold; color: var(--primary);">+</button>
+              <button id="btn-grad-del-stop" class="btn-sm" title="Remove active stop" style="padding: 2px 8px; color: var(--danger);">✕</button>
+            </div>
+
             <div class="form-row">
-              <label>Stop 1</label>
+              <label style="width: 50px;">Color</label>
               <div style="display: flex; gap: 6px; width: 100%;">
-                <input type="color" id="prop-grad-c1" value="#fe8019">
-                <input type="text" id="prop-grad-c1-text" value="#fe8019">
+                <input type="color" id="prop-grad-stop-color" value="#fe8019">
+                <input type="text" id="prop-grad-stop-color-text" value="#fe8019">
               </div>
             </div>
+
             <div class="form-row">
-              <label>Stop 2</label>
-              <div style="display: flex; gap: 6px; width: 100%;">
-                <input type="color" id="prop-grad-c2" value="#fabd2f">
-                <input type="text" id="prop-grad-c2-text" value="#fabd2f">
+              <label style="width: 50px;">Pos</label>
+              <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
+                <input type="range" id="prop-grad-stop-pos-slider" min="0" max="100" step="1" value="0" style="flex: 1;">
+                <input type="number" id="prop-grad-stop-pos" min="0" max="100" step="1" value="0" style="width: 48px;">
+                <span style="font-size: 10px; color: var(--text-muted);">%</span>
               </div>
+            </div>
+
+            <div class="form-row">
+              <label style="width: 50px;">Opacity</label>
+              <input type="number" id="prop-grad-stop-opacity" min="0" max="1" step="0.05" value="1.0">
+            </div>
+
+            <div class="form-row">
+              <label style="width: 50px;">Intensity</label>
+              <input type="number" id="prop-grad-stop-intensity" min="0" max="5" step="0.1" value="1.0">
+            </div>
+
+            <div class="form-row" id="grad-angle-row">
+              <label style="width: 50px;">Angle</label>
+              <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+                <input type="number" id="prop-grad-angle" min="0" max="360" step="1" value="0" style="flex: 1;">
+                <span style="font-size: 10px; color: var(--text-muted);">°</span>
+              </div>
+            </div>
+
+            <div class="form-row" id="grad-radius-row" style="display: none;">
+              <label style="width: 50px;">Radius</label>
+              <input type="number" id="prop-grad-radius" min="0.05" max="5" step="0.05" value="0.5">
             </div>
           </div>
 
@@ -4257,11 +4292,8 @@
           if (solidControls) solidControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'none' : 'block';
           if (gradControls) {
             gradControls.style.display = obj.fillType && obj.fillType !== 'solid' ? 'flex' : 'none';
-            if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops.length >= 2) {
-              document.getElementById('prop-grad-c1').value = obj.fillGradient.stops[0].color || '#fe8019';
-              document.getElementById('prop-grad-c1-text').value = obj.fillGradient.stops[0].color || '#fe8019';
-              document.getElementById('prop-grad-c2').value = obj.fillGradient.stops[1].color || '#fabd2f';
-              document.getElementById('prop-grad-c2-text').value = obj.fillGradient.stops[1].color || '#fabd2f';
+            if (obj.fillType && obj.fillType !== 'solid' && typeof syncGradientControls === 'function') {
+              syncGradientControls(obj);
             }
           }
         }
@@ -6101,25 +6133,28 @@
       }
 
       document.getElementById('prop-node-x')?.addEventListener('input', (e) => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.x = Number(e.target.value);
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
 
       document.getElementById('prop-node-y')?.addEventListener('input', (e) => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.y = Number(e.target.value);
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
 
       document.getElementById('prop-node-type')?.addEventListener('change', (e) => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.type = e.target.value;
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
@@ -7026,34 +7061,38 @@
 
       // Bézier Node Actions
       document.getElementById('btn-node-smooth')?.addEventListener('click', () => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.type = 'smooth';
           node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
       document.getElementById('btn-node-symmetric')?.addEventListener('click', () => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.type = 'symmetric';
           node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
       document.getElementById('btn-node-cusp')?.addEventListener('click', () => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.type = 'cusp';
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
       document.getElementById('btn-node-sharp')?.addEventListener('click', () => {
-        const { node } = getActivePathAndNode();
+        const { path, node } = getActivePathAndNode();
         if (node) {
           node.type = 'corner';
           node.cpIn = { x: 0, y: 0 };
           node.cpOut = { x: 0, y: 0 };
+          if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
@@ -7061,6 +7100,7 @@
         const { path } = getActivePathAndNode();
         if (path) {
           path.closed = !path.closed;
+          if (typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
           render();
         }
       });
@@ -7131,47 +7171,236 @@
       document.getElementById('btn-create-outlines')?.addEventListener('click', handleCreateOutlines);
       document.getElementById('btn-quick-create-outlines')?.addEventListener('click', handleCreateOutlines);
 
-      // Gradient Fill Binding
+      // ── Advanced Multi-Stop Gradient Fill Engine ──
+      let activeGradientStopIdx = 0;
+
+      function syncGradientControls(obj) {
+        if (!obj) return;
+        if (!obj.fillGradient) {
+          obj.fillGradient = (obj.fillType === 'radial') ? new SvgRadialGradient() : new SvgLinearGradient();
+        }
+        if (!Array.isArray(obj.fillGradient.stops) || obj.fillGradient.stops.length === 0) {
+          obj.fillGradient.stops = [
+            { offset: 0, color: '#fe8019', opacity: 1.0, intensity: 1.0 },
+            { offset: 1, color: '#fabd2f', opacity: 1.0, intensity: 1.0 }
+          ];
+        }
+
+        const stops = obj.fillGradient.stops;
+        if (activeGradientStopIdx >= stops.length) {
+          activeGradientStopIdx = stops.length - 1;
+        }
+        if (activeGradientStopIdx < 0) {
+          activeGradientStopIdx = 0;
+        }
+
+        // 1. Update Preview Bar CSS
+        const previewBar = document.getElementById('grad-preview-bar');
+        if (previewBar) {
+          const stopsCss = stops.map(s => {
+            const op = (s.opacity !== undefined ? s.opacity : 1.0) * (s.intensity !== undefined ? s.intensity : 1.0);
+            return `${s.color} ${Math.round(s.offset * 100)}%`;
+          }).join(', ');
+          previewBar.style.background = `linear-gradient(90deg, ${stopsCss})`;
+        }
+
+        // 2. Populate Stop Dropdown Selector
+        const stopSelect = document.getElementById('prop-grad-stop-select');
+        if (stopSelect) {
+          stopSelect.innerHTML = '';
+          stops.forEach((s, idx) => {
+            const opt = document.createElement('option');
+            opt.value = String(idx);
+            opt.textContent = `Stop ${idx + 1} (${Math.round(s.offset * 100)}%) - ${s.color}`;
+            if (idx === activeGradientStopIdx) opt.selected = true;
+            stopSelect.appendChild(opt);
+          });
+        }
+
+        // 3. Populate Active Stop Controls
+        const activeStop = stops[activeGradientStopIdx] || stops[0];
+        const colorInput = document.getElementById('prop-grad-stop-color');
+        const colorTextInput = document.getElementById('prop-grad-stop-color-text');
+        const posSlider = document.getElementById('prop-grad-stop-pos-slider');
+        const posInput = document.getElementById('prop-grad-stop-pos');
+        const opInput = document.getElementById('prop-grad-stop-opacity');
+        const intInput = document.getElementById('prop-grad-stop-intensity');
+
+        if (colorInput) colorInput.value = activeStop.color || '#fe8019';
+        if (colorTextInput) colorTextInput.value = activeStop.color || '#fe8019';
+        const posVal = Math.round(activeStop.offset * 100);
+        if (posSlider) posSlider.value = posVal;
+        if (posInput) posInput.value = posVal;
+        if (opInput) opInput.value = activeStop.opacity !== undefined ? activeStop.opacity : 1.0;
+        if (intInput) intInput.value = activeStop.intensity !== undefined ? activeStop.intensity : 1.0;
+
+        // 4. Angle / Radius Visibility & Values
+        const angleRow = document.getElementById('grad-angle-row');
+        const radiusRow = document.getElementById('grad-radius-row');
+        const angleInput = document.getElementById('prop-grad-angle');
+        const radiusInput = document.getElementById('prop-grad-radius');
+
+        if (obj.fillType === 'radial') {
+          if (angleRow) angleRow.style.display = 'none';
+          if (radiusRow) radiusRow.style.display = 'flex';
+          if (radiusInput) radiusInput.value = parseFloat(obj.fillGradient.r) || 0.5;
+        } else {
+          if (angleRow) angleRow.style.display = 'flex';
+          if (radiusRow) radiusRow.style.display = 'none';
+          if (angleInput) angleInput.value = obj.fillGradient.angle !== undefined ? obj.fillGradient.angle : 0;
+        }
+      }
+
       document.getElementById('prop-fill-type')?.addEventListener('change', (e) => {
         const type = e.target.value;
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
           obj.fillType = type;
           if (type === 'linear') {
-            if (!obj.fillGradient) obj.fillGradient = new SvgLinearGradient();
-            obj.fillGradient.type = 'linear';
+            if (!obj.fillGradient || obj.fillGradient.type !== 'linear') {
+              const prevStops = obj.fillGradient ? obj.fillGradient.stops : null;
+              obj.fillGradient = new SvgLinearGradient({ stops: prevStops });
+            }
           } else if (type === 'radial') {
-            if (!obj.fillGradient) obj.fillGradient = new SvgRadialGradient();
-            obj.fillGradient.type = 'radial';
+            if (!obj.fillGradient || obj.fillGradient.type !== 'radial') {
+              const prevStops = obj.fillGradient ? obj.fillGradient.stops : null;
+              obj.fillGradient = new SvgRadialGradient({ stops: prevStops });
+            }
           }
         }
         updateInspector();
         render();
+        scheduleAutosave();
       });
 
-      function updateGradientStop(stopIdx, color) {
+      document.getElementById('prop-grad-stop-select')?.addEventListener('change', (e) => {
+        activeGradientStopIdx = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        if (selected.length > 0) syncGradientControls(selected[0]);
+      });
+
+      document.getElementById('btn-grad-add-stop')?.addEventListener('click', () => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
-          if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops[stopIdx]) {
-            obj.fillGradient.stops[stopIdx].color = color;
+          if (!obj.fillGradient) obj.fillGradient = new SvgLinearGradient();
+          const stops = obj.fillGradient.stops;
+          const newOffset = stops.length >= 2 ? 0.5 : 0.5;
+          obj.fillGradient.addStop(newOffset, '#fabd2f', 1.0, 1.0);
+          activeGradientStopIdx = stops.findIndex(s => Math.abs(s.offset - newOffset) < 0.01);
+          if (activeGradientStopIdx === -1) activeGradientStopIdx = stops.length - 1;
+        }
+        if (selected.length > 0) syncGradientControls(selected[0]);
+        render();
+        scheduleAutosave();
+      });
+
+      document.getElementById('btn-grad-del-stop')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillGradient && obj.fillGradient.stops && obj.fillGradient.stops.length > 2) {
+            obj.fillGradient.removeStop(activeGradientStopIdx);
+            if (activeGradientStopIdx >= obj.fillGradient.stops.length) {
+              activeGradientStopIdx = obj.fillGradient.stops.length - 1;
+            }
+          }
+        }
+        if (selected.length > 0) syncGradientControls(selected[0]);
+        render();
+        scheduleAutosave();
+      });
+
+      document.getElementById('grad-preview-bar')?.addEventListener('click', (e) => {
+        const bar = document.getElementById('grad-preview-bar');
+        if (!bar) return;
+        const rect = bar.getBoundingClientRect();
+        const clickRatio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.fillGradient) obj.fillGradient = new SvgLinearGradient();
+          obj.fillGradient.addStop(clickRatio, '#83a598', 1.0, 1.0);
+          activeGradientStopIdx = obj.fillGradient.stops.findIndex(s => Math.abs(s.offset - clickRatio) < 0.01);
+          if (activeGradientStopIdx === -1) activeGradientStopIdx = obj.fillGradient.stops.length - 1;
+        }
+        if (selected.length > 0) syncGradientControls(selected[0]);
+        render();
+        scheduleAutosave();
+      });
+
+      const applyActiveStopProp = (patch) => {
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillGradient && obj.fillGradient.stops) {
+            obj.fillGradient.setStop(activeGradientStopIdx, patch);
+          }
+        }
+        if (selected.length > 0) syncGradientControls(selected[0]);
+        render();
+        scheduleAutosave();
+      };
+
+      document.getElementById('prop-grad-stop-color')?.addEventListener('input', (e) => {
+        const color = e.target.value;
+        const textInput = document.getElementById('prop-grad-stop-color-text');
+        if (textInput) textInput.value = color;
+        applyActiveStopProp({ color });
+      });
+
+      document.getElementById('prop-grad-stop-color-text')?.addEventListener('change', (e) => {
+        const color = e.target.value;
+        const colInput = document.getElementById('prop-grad-stop-color');
+        if (colInput && color.startsWith('#') && color.length === 7) colInput.value = color;
+        applyActiveStopProp({ color });
+      });
+
+      const onPosChange = (val) => {
+        const offset = Math.max(0, Math.min(100, Number(val))) / 100;
+        const slider = document.getElementById('prop-grad-stop-pos-slider');
+        const numInput = document.getElementById('prop-grad-stop-pos');
+        if (slider) slider.value = Math.round(offset * 100);
+        if (numInput) numInput.value = Math.round(offset * 100);
+        applyActiveStopProp({ offset });
+      };
+
+      document.getElementById('prop-grad-stop-pos-slider')?.addEventListener('input', (e) => onPosChange(e.target.value));
+      document.getElementById('prop-grad-stop-pos')?.addEventListener('change', (e) => onPosChange(e.target.value));
+
+      document.getElementById('prop-grad-stop-opacity')?.addEventListener('input', (e) => {
+        const op = Math.max(0, Math.min(1, Number(e.target.value)));
+        applyActiveStopProp({ opacity: op });
+      });
+
+      document.getElementById('prop-grad-stop-intensity')?.addEventListener('input', (e) => {
+        const intVal = Math.max(0, Math.min(10, Number(e.target.value)));
+        applyActiveStopProp({ intensity: intVal });
+      });
+
+      document.getElementById('prop-grad-angle')?.addEventListener('input', (e) => {
+        const angle = Number(e.target.value) || 0;
+        const rad = angle * Math.PI / 180;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillGradient) {
+            obj.fillGradient.angle = angle;
+            obj.fillGradient.x1 = `${(50 - 50 * Math.cos(rad)).toFixed(1)}%`;
+            obj.fillGradient.y1 = `${(50 - 50 * Math.sin(rad)).toFixed(1)}%`;
+            obj.fillGradient.x2 = `${(50 + 50 * Math.cos(rad)).toFixed(1)}%`;
+            obj.fillGradient.y2 = `${(50 + 50 * Math.sin(rad)).toFixed(1)}%`;
           }
         }
         render();
-      }
+        scheduleAutosave();
+      });
 
-      document.getElementById('prop-grad-c1')?.addEventListener('input', (e) => {
-        document.getElementById('prop-grad-c1-text').value = e.target.value;
-        updateGradientStop(0, e.target.value);
-      });
-      document.getElementById('prop-grad-c1-text')?.addEventListener('change', (e) => {
-        updateGradientStop(0, e.target.value);
-      });
-      document.getElementById('prop-grad-c2')?.addEventListener('input', (e) => {
-        document.getElementById('prop-grad-c2-text').value = e.target.value;
-        updateGradientStop(1, e.target.value);
-      });
-      document.getElementById('prop-grad-c2-text')?.addEventListener('change', (e) => {
-        updateGradientStop(1, e.target.value);
+      document.getElementById('prop-grad-radius')?.addEventListener('input', (e) => {
+        const rVal = Number(e.target.value) || 0.5;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillGradient) {
+            obj.fillGradient.r = `${(rVal * 100).toFixed(1)}%`;
+          }
+        }
+        render();
+        scheduleAutosave();
       });
 
       // Drop Shadow Binding
@@ -7697,11 +7926,16 @@
           if (extractLiveObjectProperties) {
             window.extractLiveObjectProperties = extractLiveObjectProperties;
           }
+          window.DopeSheet = DopeSheet;
           const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
           const dock = document.getElementById('dopesheet-dock');
           if (!dock) return null;
 
-          dopeSheet = new DopeSheet(60, 24);
+          if (doc && doc.animation) {
+            dopeSheet = DopeSheet.fromJSON(doc.animation);
+          } else {
+            dopeSheet = new DopeSheet(60, 24);
+          }
           window.dopeSheet = dopeSheet;
 
           function syncObjectsToDopeSheet() {
@@ -7770,7 +8004,22 @@
                   else obj.d = state.d;
                 }
                 if (state.points !== undefined) {
-                  obj.points = state.points;
+                  if (Array.isArray(obj.points) || obj.type === 'polyline' || obj.type === 'polygon') {
+                    if (typeof state.points === 'string') {
+                      const coords = state.points.trim().split(/[\s,]+/).map(Number);
+                      const newPts = [];
+                      for (let i = 0; i < coords.length; i += 2) {
+                        if (!isNaN(coords[i]) && !isNaN(coords[i + 1])) {
+                          newPts.push({ x: coords[i], y: coords[i + 1] });
+                        }
+                      }
+                      obj.points = newPts;
+                    } else if (Array.isArray(state.points)) {
+                      obj.points = state.points;
+                    }
+                  } else {
+                    obj.points = state.points;
+                  }
                 }
                 if (state.width !== undefined) obj.width = state.width;
                 if (state.height !== undefined) obj.height = state.height;
@@ -8003,6 +8252,9 @@
         autosaveTimeout = setTimeout(async () => {
           try {
             if (typeof EsenhoStore !== 'undefined') {
+              if (window.dopeSheet) {
+                doc.animation = window.dopeSheet.toJSON();
+              }
               const svgXml = doc.toSVGString();
               const jsonDoc = doc.toJSON();
               const thumb = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgXml);
@@ -8014,6 +8266,7 @@
                 height: doc.height,
                 svgData: svgXml,
                 jsonDoc: jsonDoc,
+                animation: window.dopeSheet ? window.dopeSheet.toJSON() : (doc.animation || null),
                 thumbnail: thumb
               });
               localStorage.setItem('esenho_current_vector_project_id', currentProjectId);
@@ -8044,6 +8297,18 @@
               else if (typeof doc.fromJSON === 'function') doc.fromJSON(proj.jsonDoc);
             } else if (proj.svgData) {
               doc.fromSVGString(proj.svgData);
+            }
+            const animData = doc.animation || proj.animation || (proj.jsonDoc && proj.jsonDoc.animation);
+            if (animData) {
+              doc.animation = animData;
+              if (window.DopeSheet) {
+                window.dopeSheet = window.DopeSheet.fromJSON(animData);
+                dopeSheet = window.dopeSheet;
+                if (window.dopeSheetUI) {
+                  window.dopeSheetUI.ds = window.dopeSheet;
+                  window.dopeSheetUI.updateGrid();
+                }
+              }
             }
             updateStageSize();
             updateObjectList();

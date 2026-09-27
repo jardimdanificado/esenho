@@ -75,11 +75,23 @@ export class DopeSheetUI {
 
           <div style="display: flex; align-items: center; gap: 6px;">
             <span>FPS:</span>
-            <select id="ds-select-fps" style="background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px;">
-              <option value="12" ${this.ds.fps === 12 ? 'selected' : ''}>12</option>
-              <option value="24" ${this.ds.fps === 24 ? 'selected' : ''}>24</option>
-              <option value="30" ${this.ds.fps === 30 ? 'selected' : ''}>30</option>
-              <option value="60" ${this.ds.fps === 60 ? 'selected' : ''}>60</option>
+            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 44px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span>Curve:</span>
+            <select id="ds-select-easing" title="Easing Curve for Keyframe(s)" style="background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; font-size: 11px;">
+              <option value="linear">Linear</option>
+              <option value="easeInQuad">Ease In (Quad)</option>
+              <option value="easeOutQuad">Ease Out (Quad)</option>
+              <option value="easeInOutQuad">Ease In/Out (Quad)</option>
+              <option value="easeInCubic">Ease In (Cubic)</option>
+              <option value="easeOutCubic">Ease Out (Cubic)</option>
+              <option value="easeInOutCubic">Ease In/Out (Cubic)</option>
+              <option value="easeInElastic">Elastic In</option>
+              <option value="easeOutElastic">Elastic Out</option>
+              <option value="easeOutBounce">Bounce Out</option>
+              <option value="step">Step (Hold)</option>
             </select>
           </div>
 
@@ -258,7 +270,8 @@ export class DopeSheetUI {
     const loopBtn = this.container.querySelector('#ds-btn-loop');
     const frameInput = this.container.querySelector('#ds-input-frame');
     const totalInput = this.container.querySelector('#ds-input-total');
-    const fpsSelect = this.container.querySelector('#ds-select-fps');
+    const fpsInput = this.container.querySelector('#ds-input-fps');
+    const easingSelect = this.container.querySelector('#ds-select-easing');
     const autoKfBtn = this.container.querySelector('#ds-btn-autokf');
     const addKfBtn = this.container.querySelector('#ds-btn-add-kf');
     const delKfBtn = this.container.querySelector('#ds-btn-del-kf');
@@ -275,9 +288,30 @@ export class DopeSheetUI {
       this.ds.totalFrames = Math.max(1, Number(e.target.value));
       this.updateGrid();
     };
-    fpsSelect.onchange = (e) => {
-      this.ds.fps = Number(e.target.value);
-    };
+    if (fpsInput) {
+      fpsInput.oninput = (e) => {
+        const val = Math.max(1, Math.min(240, Number(e.target.value) || 24));
+        this.ds.fps = val;
+      };
+      fpsInput.onchange = (e) => {
+        const val = Math.max(1, Math.min(240, Number(e.target.value) || 24));
+        this.ds.fps = val;
+        fpsInput.value = val;
+      };
+    }
+    if (easingSelect) {
+      easingSelect.onchange = (e) => {
+        const curve = e.target.value;
+        this.activeEasing = curve;
+        const selectedKfs = this.ds.getSelectedKeyframes();
+        if (selectedKfs.length > 0) {
+          for (const item of selectedKfs) {
+            item.keyframe.tweenType = curve;
+          }
+          this.updateGrid();
+        }
+      };
+    }
 
     autoKfBtn.onclick = () => {
       this.ds.autoKeyframe = !this.ds.autoKeyframe;
@@ -298,17 +332,18 @@ export class DopeSheetUI {
           liveObj = window.doc.findObject ? window.doc.findObject(targetId) : window.doc.objects.find(o => o.id === targetId);
         }
 
+        const curve = this.activeEasing || 'linear';
         if (liveObj) {
           const props = extractLiveObjectProperties(liveObj);
           for (const [key, val] of Object.entries(props)) {
             if (val !== undefined && val !== null) {
-              obj.setKeyframe(key, this.ds.currentFrame, val);
+              obj.setKeyframe(key, this.ds.currentFrame, val, curve);
             }
           }
         } else {
           for (const [key, ch] of obj.channels.entries()) {
             const val = ch.sample(this.ds.currentFrame);
-            ch.addKeyframe(this.ds.currentFrame, val);
+            ch.addKeyframe(this.ds.currentFrame, val, curve);
           }
         }
         this.selectedObjectId = targetId;
@@ -333,12 +368,11 @@ export class DopeSheetUI {
       }
     };
 
-    // ── Scrubbing on Timeline Ruler & Grid Rows ──
+    // ── Scrubbing and Keyframe Selection on Timeline Grid & Ruler ──
     const rulerEl = this.container.querySelector('#ds-ruler-container');
     const gridEl = this.container.querySelector('#ds-grid-rows');
     const onScrub = (e) => {
       const rect = rulerEl.getBoundingClientRect();
-      const scrollEl = this.container.querySelector('#ds-timeline-scroll');
       const clickX = e.clientX - rect.left;
       const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(clickX / this.frameWidth) + 1));
       this.ds.setFrame(targetFrame);
@@ -372,7 +406,43 @@ export class DopeSheetUI {
     };
 
     if (rulerEl) rulerEl.onpointerdown = startScrub;
-    if (gridEl) gridEl.onpointerdown = startScrub;
+
+    if (gridEl) {
+      gridEl.onpointerdown = (e) => {
+        const gridRect = gridEl.getBoundingClientRect();
+        const clickX = e.clientX - gridRect.left;
+        const clickY = e.clientY - gridRect.top;
+        const rowIdx = Math.floor(clickY / 22);
+
+        if (this._flatRows && this._flatRows[rowIdx]) {
+          const row = this._flatRows[rowIdx];
+          if (row.type === 'channel') {
+            const hitKf = row.channel.keyframes.find(k => {
+              const kx = (k.frame - 1) * this.frameWidth + this.frameWidth / 2;
+              return Math.abs(kx - clickX) <= 8;
+            });
+            if (hitKf) {
+              e.stopPropagation();
+              e.preventDefault();
+              if (!e.shiftKey) {
+                this.ds.deselectAllKeyframes();
+              }
+              hitKf.selected = true;
+              this.selectedObjectId = row.object.id;
+              this.activeEasing = hitKf.tweenType || 'linear';
+              const easingSelect = this.container.querySelector('#ds-select-easing');
+              if (easingSelect) easingSelect.value = this.activeEasing;
+              this.ds.setFrame(hitKf.frame);
+              this.updateGrid();
+              return;
+            }
+          }
+        }
+        this.ds.deselectAllKeyframes();
+        this.updateGrid();
+        startScrub(e);
+      };
+    }
 
     // Dismiss active popup menus on outside click
     window.addEventListener('pointerdown', () => {
@@ -524,6 +594,7 @@ export class DopeSheetUI {
         }
       }
     }
+    this._flatRows = flatRows;
 
     const rowHeight = 22;
     const totalH = Math.max(120, flatRows.length * rowHeight);
@@ -546,20 +617,16 @@ export class DopeSheetUI {
       };
 
       if (r.type === 'object') {
+        const trackCount = r.object.channels.size;
         rowEl.innerHTML = `
           <span class="ds-toggle-collapse" style="margin-right: 4px; color: #d79921; cursor: pointer; font-size: 9px; width: 12px;">${r.object.collapsed ? '▶' : '▼'}</span>
           <span style="font-weight: bold; color: #fabd2f; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;" title="${r.label}">${r.label}</span>
-          <button class="ds-add-prop-btn" title="Add Quadro Property Track" style="background: #3c3836; color: #b8bb26; border: 1px solid #504945; border-radius: 3px; padding: 1px 5px; font-size: 9px; cursor: pointer; margin-left: 4px;">+ Track</button>
+          <span style="font-size: 9px; color: #7c6f64; margin-left: 4px;" title="${trackCount} animated tracks">${trackCount > 0 ? `${trackCount} tr` : ''}</span>
         `;
         rowEl.querySelector('.ds-toggle-collapse').onclick = (e) => {
           e.stopPropagation();
           r.object.collapsed = !r.object.collapsed;
           this.updateGrid();
-        };
-        const addBtn = rowEl.querySelector('.ds-add-prop-btn');
-        addBtn.onclick = (e) => {
-          e.stopPropagation();
-          this.showAddPropertyMenu(r.object, addBtn);
         };
       } else {
         const val = r.channel.sample(this.ds.currentFrame);
