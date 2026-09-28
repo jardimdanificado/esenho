@@ -703,6 +703,7 @@ W_EXPORT void    w_path_cubic_to(float c1x, float c1y, float c2x, float c2y, flo
 W_EXPORT void    w_path_close(void);
 W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rule);
 W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_width, int32_t cap_style, int32_t join_style);
+W_EXPORT int32_t w_path_stroke_brush(int32_t layer_idx, uint32_t color, float base_size);
 
 /* =========================================================================
  * Native Font & Glyph Engine ABI
@@ -721,6 +722,9 @@ W_EXPORT void      w_resize(uint32_t width, uint32_t height);
 W_EXPORT void      w_force_composite(void);
 W_EXPORT uint32_t* w_render(void);
 W_EXPORT void      w_brush_set_param(int32_t param, int32_t val);
+W_EXPORT int32_t   w_layer_create(int32_t width, int32_t height);
+W_EXPORT void      w_layer_delete(int32_t idx);
+W_EXPORT int32_t   w_get_selection_scratch_layer(void);
 W_EXPORT uint32_t* get_layer_pixels(int32_t idx);
 W_EXPORT uint32_t* get_composite_pixels(void);
 W_EXPORT int32_t   get_width(void);

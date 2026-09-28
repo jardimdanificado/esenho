@@ -2,17 +2,57 @@
 #include <stdlib.h>
 #include <string.h>
 #include "quadro_svg.h"
+#include "stb_image_write.h"
 
 static void print_usage(const char *prog_name) {
-    printf("Quadro SVG Standalone Native Runtime v1.0.0 (Zero Browser Dependency)\n");
+    printf("Quadro SVG Standalone Native Runtime v2.0.0 (Zero Browser Dependency)\n");
+    printf("Supports Gradients, Textures, Shading, Shadows, Brush Dynamics & DopeSheet\n\n");
     printf("Usage: %s <input.svg> [options]\n\n", prog_name);
     printf("Options:\n");
-    printf("  -o, --output <path>    Output PNG file path (default: output.png)\n");
-    printf("  -s, --scale <float>    Rasterization scale multiplier (default: 1.0)\n");
-    printf("  -w, --width <pixels>   Override raster image width\n");
-    printf("  -h, --height <pixels>  Override raster image height\n");
-    printf("  -v, --verbose          Print document properties and timing\n");
-    printf("      --help             Show this help message\n");
+    printf("  -o, --output <path>            Output PNG file path (default: output.png)\n");
+    printf("  -s, --scale <float>            Rasterization scale multiplier (default: 1.0)\n");
+    printf("  -w, --width <pixels>           Override raster image width\n");
+    printf("  -h, --height <pixels>          Override raster image height\n");
+    printf("  -t, --time <ms>                Evaluate animation at time in milliseconds\n");
+    printf("  -f, --frame <int>              Evaluate animation at specific frame (assumes 30fps or doc fps)\n");
+    printf("      --sequence <pat> <s> <e>   Render PNG animation sequence (pattern, start_ms, end_ms)\n");
+    printf("      --fps <float>              Framerate for sequence export (default: 30.0)\n");
+    printf("      --brush <preset>           Apply Quadro brush preset to strokes (inker, pencil, charcoal, chisel, watercolor)\n");
+    printf("      --brush-scale <float>      Brush dab size multiplier (default: 1.0)\n");
+    printf("      --texture <mode>           Apply Quadro procedural texture (paper, canvas, noise, smoke, crosshatch, halftone, watercolor, pastel, charcoal, wood, marble, grunge)\n");
+    printf("      --texture-scale <float>    Procedural texture scale (default: 100.0)\n");
+    printf("      --texture-contrast <float> Procedural texture contrast (default: 100.0)\n");
+    printf("      --texture-grain <float>    Procedural texture grain (default: 50.0)\n");
+    printf("      --dump-info                Print document scene tree and properties\n");
+    printf("  -v, --verbose                  Verbose output\n");
+    printf("      --help                     Show this help message\n");
+}
+
+static int parse_brush_preset_name(const char *name) {
+    if (!name) return 0;
+    if (strcmp(name, "inker") == 0) return 1;
+    if (strcmp(name, "pencil") == 0) return 2;
+    if (strcmp(name, "charcoal") == 0) return 3;
+    if (strcmp(name, "chisel") == 0) return 4;
+    if (strcmp(name, "watercolor") == 0) return 5;
+    return atoi(name);
+}
+
+static int parse_texture_mode_name(const char *name) {
+    if (!name) return 0;
+    if (strcmp(name, "paper") == 0) return 1;
+    if (strcmp(name, "canvas") == 0) return 2;
+    if (strcmp(name, "noise") == 0) return 3;
+    if (strcmp(name, "smoke") == 0) return 4;
+    if (strcmp(name, "crosshatch") == 0) return 5;
+    if (strcmp(name, "halftone") == 0) return 6;
+    if (strcmp(name, "watercolor") == 0) return 7;
+    if (strcmp(name, "pastel") == 0 || strcmp(name, "rough_pastel") == 0) return 8;
+    if (strcmp(name, "charcoal") == 0 || strcmp(name, "charcoal_tooth") == 0) return 9;
+    if (strcmp(name, "wood") == 0) return 10;
+    if (strcmp(name, "marble") == 0) return 11;
+    if (strcmp(name, "grunge") == 0) return 12;
+    return atoi(name);
 }
 
 int main(int argc, char **argv) {
@@ -23,10 +63,17 @@ int main(int argc, char **argv) {
 
     const char *input_path = NULL;
     const char *output_path = "output.png";
+    const char *seq_pattern = NULL;
+    float seq_start = 0.0f;
+    float seq_end = 0.0f;
+    float fps = 30.0f;
+    float eval_time = -1.0f;
     float scale = 1.0f;
     int override_w = 0;
     int override_h = 0;
     int verbose = 0;
+    int dump_info = 0;
+    quadro_svg_render_options_t render_opts = {0};
 
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "--help") == 0) {
@@ -40,10 +87,41 @@ int main(int argc, char **argv) {
             if (i + 1 < argc) override_w = atoi(argv[++i]);
         } else if (strcmp(argv[i], "-h") == 0 || strcmp(argv[i], "--height") == 0) {
             if (i + 1 < argc) override_h = atoi(argv[++i]);
+        } else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--time") == 0) {
+            if (i + 1 < argc) eval_time = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "-f") == 0 || strcmp(argv[i], "--frame") == 0) {
+            if (i + 1 < argc) {
+                int f = atoi(argv[++i]);
+                eval_time = (f * 1000.0f) / fps;
+            }
+        } else if (strcmp(argv[i], "--fps") == 0) {
+            if (i + 1 < argc) fps = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--brush") == 0) {
+            if (i + 1 < argc) render_opts.brush_preset = parse_brush_preset_name(argv[++i]);
+        } else if (strcmp(argv[i], "--brush-scale") == 0) {
+            if (i + 1 < argc) render_opts.brush_size_scale = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--texture") == 0) {
+            if (i + 1 < argc) render_opts.texture_mode = parse_texture_mode_name(argv[++i]);
+        } else if (strcmp(argv[i], "--texture-scale") == 0) {
+            if (i + 1 < argc) render_opts.texture_scale = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--texture-contrast") == 0) {
+            if (i + 1 < argc) render_opts.texture_contrast = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--texture-grain") == 0) {
+            if (i + 1 < argc) render_opts.texture_grain = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--sequence") == 0) {
+            if (i + 3 < argc) {
+                seq_pattern = argv[++i];
+                seq_start = (float)atof(argv[++i]);
+                seq_end = (float)atof(argv[++i]);
+            }
+        } else if (strcmp(argv[i], "--dump-info") == 0) {
+            dump_info = 1;
         } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "--verbose") == 0) {
             verbose = 1;
         } else if (!input_path && argv[i][0] != '-') {
             input_path = argv[i];
+        } else if (input_path && (strcmp(output_path, "output.png") == 0) && argv[i][0] != '-') {
+            output_path = argv[i];
         }
     }
 
@@ -52,8 +130,8 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    if (verbose) {
-        printf("[quadro-svg] Parsing: %s\n", input_path);
+    if (verbose || dump_info) {
+        printf("[quadro-svg] Loading: %s\n", input_path);
     }
 
     quadro_svg_doc_t *doc = quadro_svg_parse_file(input_path);
@@ -62,20 +140,52 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    if (dump_info || verbose) {
+        printf("[quadro-svg] Canvas: %.1fx%.1f (viewBox: %.1f %.1f %.1f %.1f)\n",
+               doc->width, doc->height, doc->vb_x, doc->vb_y, doc->vb_w, doc->vb_h);
+        int grad_count = 0;
+        for (quadro_svg_gradient_t *g = doc->gradients; g != NULL; g = g->next) grad_count++;
+        printf("[quadro-svg] Active Gradients: %d\n", grad_count);
+    }
+
+    if (seq_pattern) {
+        if (verbose) {
+            printf("[quadro-svg] Exporting Animation Sequence: %s (%.1fms to %.1fms @ %.1ffps)\n",
+                   seq_pattern, seq_start, seq_end, fps);
+        }
+        int ok = quadro_svg_render_sequence(input_path, seq_pattern, seq_start, seq_end, fps, scale);
+        quadro_svg_doc_free(doc);
+        if (ok) {
+            printf("[quadro-svg] Animation sequence rendered successfully!\n");
+            return 0;
+        } else {
+            fprintf(stderr, "Error: Sequence rendering failed.\n");
+            return 1;
+        }
+    }
+
     int out_w = override_w > 0 ? override_w : (int)(doc->width * scale);
     int out_h = override_h > 0 ? override_h : (int)(doc->height * scale);
 
-    if (verbose) {
-        printf("[quadro-svg] SVG Document Dimensions: %.1fx%.1f (viewBox: %.1f %.1f %.1f %.1f)\n",
-               doc->width, doc->height, doc->vb_x, doc->vb_y, doc->vb_w, doc->vb_h);
-        printf("[quadro-svg] Output Target: %s (%dx%d, scale=%.2f)\n", output_path, out_w, out_h, scale);
+    quadro_svg_set_global_options(&render_opts);
+
+    if (eval_time >= 0.0f) {
+        quadro_svg_doc_evaluate_time(doc, eval_time);
+        if (verbose) printf("[quadro-svg] Evaluated frame at time: %.2fms\n", eval_time);
     }
 
-    int ok = quadro_svg_render_to_file(input_path, output_path, scale, override_w, override_h);
+    uint32_t *rgba_buffer = (uint32_t*)malloc(out_w * out_h * sizeof(uint32_t));
+    int ok = quadro_svg_render(doc, rgba_buffer, out_w, out_h, scale);
+
+    if (ok) {
+        ok = stbi_write_png(output_path, out_w, out_h, 4, rgba_buffer, out_w * 4);
+    }
+
+    free(rgba_buffer);
     quadro_svg_doc_free(doc);
 
     if (ok) {
-        printf("[quadro-svg] Rendered successfully -> %s (%dx%d)\n", output_path, out_w, out_h);
+        printf("[quadro-svg] Rendered successfully -> %s (%dx%d, scale=%.2f)\n", output_path, out_w, out_h, scale);
         return 0;
     } else {
         fprintf(stderr, "Error: Rendering failed.\n");

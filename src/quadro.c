@@ -5039,6 +5039,49 @@ W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_wid
     return 1;
 }
 
+/* Trace path vertices with the full Quadro Brush Simulation Engine */
+W_EXPORT int32_t w_path_stroke_brush(int32_t layer_idx, uint32_t color, float base_size) {
+    if (layer_idx < 0 || layer_idx >= layer_count) return 0;
+    if (!layers[layer_idx].pixels || g_path.count < 2) return 0;
+
+    int old_active = active_layer;
+    active_layer = layer_idx;
+    if (base_size > 0.0f) {
+        int sz = (int)base_size;
+        if (sz < 1) sz = 1;
+        brush_config.size = sz;
+    }
+
+    float last_x = 0, last_y = 0;
+    int is_drawing = 0;
+
+    for (uint32_t i = 0; i < g_path.count; i++) {
+        path_point_t pt = g_path.points[i];
+        int ix = (int)pt.x;
+        int iy = (int)pt.y;
+        if (pt.type == 1) { /* move_to */
+            if (is_drawing) {
+                w_brush_stroke_ext(2, (int)last_x, (int)last_y, (int)last_x, (int)last_y, color, 0, 1000, 0, 0);
+            }
+            w_brush_stroke_ext(0, ix, iy, ix, iy, color, 0, 1000, 0, 0);
+            last_x = pt.x;
+            last_y = pt.y;
+            is_drawing = 1;
+        } else if (pt.type == 2 || pt.type == 3) { /* line_to / close */
+            w_brush_stroke_ext(1, ix, iy, (int)last_x, (int)last_y, color, 0, 1000, 0, 0);
+            last_x = pt.x;
+            last_y = pt.y;
+        }
+    }
+    if (is_drawing) {
+        w_brush_stroke_ext(2, (int)last_x, (int)last_y, (int)last_x, (int)last_y, color, 0, 1000, 0, 0);
+    }
+
+    active_layer = old_active;
+    force_composite();
+    return 1;
+}
+
 /* =========================================================================
  * Native Font & Glyph Engine Implementation
  * ========================================================================= */
