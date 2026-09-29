@@ -1998,20 +1998,77 @@
       if (maxY >= lh) maxY = lh - 1;
       if (minY > maxY) return;
 
+      let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
+      for (const pts of scaledPolys) {
+        for (const pt of pts) {
+          if (pt.x < bMinX) bMinX = pt.x;
+          if (pt.x > bMaxX) bMaxX = pt.x;
+          if (pt.y < bMinY) bMinY = pt.y;
+          if (pt.y > bMaxY) bMaxY = pt.y;
+        }
+      }
+      if (bMinX === Infinity) { bMinX = 0; bMaxX = lw; bMinY = 0; bMaxY = lh; }
+
       const baseAlpha = (fillArgb >>> 24) & 0xFF;
       const texMode = fillTexture ? (fillTexture.mode || 0) : 0;
       const texAngle = fillTexture ? (fillTexture.angle || 0) : 0;
       const texScale = Math.round((fillTexture ? (fillTexture.scale || 100) : 100) * scale);
       const texContrast = fillTexture ? (fillTexture.contrast || 100) : 100;
 
+      const isRelative = !!(fillTexture && (fillTexture.relative || fillTexture.is_relative || fillTexture.origin === 'object'));
+      const offsetX = fillTexture ? (fillTexture.offsetX || fillTexture.offset_x || 0) : 0;
+      const offsetY = fillTexture ? (fillTexture.offsetY || fillTexture.offset_y || 0) : 0;
+      const warpStrength = fillTexture ? (fillTexture.warpStrength || fillTexture.warp_strength || 0) : 0;
+      const warpFreq = fillTexture ? (fillTexture.warpFreq || fillTexture.warp_freq || 20) : 20;
+      const noiseDistort = fillTexture ? (fillTexture.noiseDistort || fillTexture.noise_distort || 0) : 0;
+      const hardness = fillTexture && fillTexture.hardness !== undefined ? fillTexture.hardness : 100;
+      const invert = !!(fillTexture && (fillTexture.invert || fillTexture.invert_tex));
+      const blendMode = fillTexture ? (fillTexture.blendMode || fillTexture.blend_mode || fillTexture.blend || 0) : 0;
+      const posterize = fillTexture ? (fillTexture.posterize || 0) : 0;
+      const pinchSwirl = fillTexture ? (fillTexture.pinchSwirl || fillTexture.pinch_swirl || 0) : 0;
+
+      const cx = (bMinX + bMaxX) * 0.5;
+      const cy = (bMinY + bMaxY) * 0.5;
+      const maxR = Math.max(1.0, Math.max(bMaxX - bMinX, bMaxY - bMinY) * 0.5);
+
       const customBuf = fillTexture ? (fillTexture.customBuffer || fillTexture.buffer || (this.customTextureCache && (this.customTextureCache.get(fillTexture.customId || fillTexture.textureId) || this.customTextureCache.get(fillTexture.id)))) : null;
       const customW = fillTexture?.customWidth || customBuf?.width || 256;
       const customH = fillTexture?.customHeight || customBuf?.height || 256;
       const customPixels = customBuf ? (customBuf.pixels || customBuf) : null;
 
+      const allSegments = [];
+      const featherW = hardness < 100 ? Math.max(1, (100 - hardness) * 0.25) : 0;
+      const maxD2 = featherW * featherW;
+      if (featherW > 0) {
+        for (const pts of scaledPolys) {
+          const n = pts.length;
+          for (let i = 0, j = n - 1; i < n; j = i++) {
+            const p1 = pts[j], p2 = pts[i];
+            const vx = p2.x - p1.x, vy = p2.y - p1.y;
+            const segLen2 = vx * vx + vy * vy;
+            allSegments.push({
+              x1: p1.x, y1: p1.y,
+              vx, vy, segLen2,
+              minY: (p1.y < p2.y ? p1.y : p2.y) - featherW,
+              maxY: (p1.y > p2.y ? p1.y : p2.y) + featherW,
+              minX: (p1.x < p2.x ? p1.x : p2.x) - featherW,
+              maxX: (p1.x > p2.x ? p1.x : p2.x) + featherW
+            });
+          }
+        }
+      }
+
       const nodeX = [];
       for (let y = minY; y <= maxY; y++) {
         nodeX.length = 0;
+        let activeSegs = null;
+        if (featherW > 0) {
+          activeSegs = [];
+          for (let s = 0; s < allSegments.length; s++) {
+            const seg = allSegments[s];
+            if (y >= seg.minY && y <= seg.maxY) activeSegs.push(seg);
+          }
+        }
         for (const pts of scaledPolys) {
           const n = pts.length;
           let j = n - 1;
@@ -2039,13 +2096,87 @@
               if (gradient && bounds) {
                 pixColor = sampleGradient(gradient, x, y, bounds, scale, totalOpacity);
               }
-              if (customPixels) {
-                const pA = (pixColor >>> 24) & 0xFF;
-                const sampledA = sampleCustomTexture(customPixels, customW, customH, x, y, texAngle, texScale, texContrast, pA);
-                pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
-              } else if (texMode > 0) {
-                const pA = (pixColor >>> 24) & 0xFF;
-                const sampledA = sampleProceduralTexture(texMode, x, y, texAngle, texScale, texContrast, pA);
+              if (customPixels || texMode > 0) {
+                let sx = isRelative ? (x - bMinX + offsetX) : (x + offsetX);
+                let sy = isRelative ? (y - bMinY + offsetY) : (y + offsetY);
+
+                if (warpStrength > 0) {
+                  const freq = warpFreq > 0 ? warpFreq * 0.01 : 0.2;
+                  sx += Math.sin(sy * freq) * (warpStrength * 0.4);
+                  sy += Math.cos(sx * freq) * (warpStrength * 0.4);
+                }
+
+                if (noiseDistort > 0) {
+                  const isx = Math.floor(sx) | 0;
+                  const isy = Math.floor(sy) | 0;
+                  const jn = (((Math.imul(isx, 374761393) + Math.imul(isy, 668265263)) ^ 0x5bf03635) >>> 0) & 0xFF;
+                  const jitter = (jn - 128) * (noiseDistort * 0.0025);
+                  sx += jitter;
+                  sy += jitter;
+                }
+
+                if (pinchSwirl !== 0) {
+                  const dx = x - cx;
+                  const dy = y - cy;
+                  const r = Math.sqrt(dx * dx + dy * dy);
+                  if (r < maxR) {
+                    const factor = (1.0 - r / maxR) * (pinchSwirl * 0.01) * Math.PI;
+                    const cosS = Math.cos(factor);
+                    const sinS = Math.sin(factor);
+                    const nrx = dx * cosS - dy * sinS;
+                    const nry = dx * sinS + dy * cosS;
+                    if (isRelative) {
+                      sx = cx + nrx - bMinX + offsetX;
+                      sy = cy + nry - bMinY + offsetY;
+                    } else {
+                      sx = cx + nrx + offsetX;
+                      sy = cy + nry + offsetY;
+                    }
+                  }
+                }
+
+                const origA = (pixColor >>> 24) & 0xFF;
+                let sampledA = origA;
+                if (customPixels) {
+                  sampledA = sampleCustomTexture(customPixels, customW, customH, sx, sy, texAngle, texScale, texContrast, origA);
+                } else {
+                  sampledA = sampleProceduralTexture(texMode, sx, sy, texAngle, texScale, texContrast, origA);
+                }
+
+                if (invert) {
+                  let inv = origA - (sampledA - Math.floor(origA * 40 / 255));
+                  sampledA = inv < 0 ? 0 : (inv > 255 ? 255 : inv);
+                }
+
+                if (posterize >= 2) {
+                  const step = Math.floor(255 / posterize);
+                  sampledA = Math.min(255, Math.floor((sampledA + Math.floor(step / 2)) / step) * step);
+                }
+
+                if (featherW > 0 && activeSegs && activeSegs.length > 0) {
+                  let minD2 = maxD2;
+                  for (let s = 0; s < activeSegs.length; s++) {
+                    const seg = activeSegs[s];
+                    if (x < seg.minX || x > seg.maxX) continue;
+                    let d2;
+                    if (seg.segLen2 === 0) {
+                      const dx = x - seg.x1, dy = y - seg.y1;
+                      d2 = dx * dx + dy * dy;
+                    } else {
+                      let t = ((x - seg.x1) * seg.vx + (y - seg.y1) * seg.vy) / seg.segLen2;
+                      if (t < 0) t = 0;
+                      else if (t > 1) t = 1;
+                      const qx = seg.x1 + t * seg.vx - x;
+                      const qy = seg.y1 + t * seg.vy - y;
+                      d2 = qx * qx + qy * qy;
+                    }
+                    if (d2 < minD2) minD2 = d2;
+                  }
+                  if (minD2 < maxD2) {
+                    sampledA = Math.round(sampledA * (Math.sqrt(minD2) / featherW));
+                  }
+                }
+
                 pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
               }
               pixels[row + x] = this.blendFast(pixColor, pixels[row + x]);

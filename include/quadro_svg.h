@@ -84,11 +84,22 @@ typedef struct {
 
 typedef struct {
     int   enabled;
-    int   mode;          /* 1=Paper, 2=Canvas, 3=Noise, 4=Crosshatch, 5=Wood, 6=Leather, 7=Halftone, 8=Watercolor, 9=Charcoal */
+    int   mode;          /* 1..70 procedural textures */
     float scale;         /* 100 default */
     float angle;         /* 0 default */
     float contrast;      /* 100 default */
     float grain;         /* 50 default */
+    int   relative;      /* 0=world space, 1=object-relative */
+    float offset_x;
+    float offset_y;
+    float warp_strength; /* 0..100 */
+    float warp_freq;     /* default 20 */
+    float noise_distort; /* 0..100 */
+    float hardness;      /* 0..100, default 100 */
+    int   invert;        /* 0 or 1 */
+    int   blend_mode;    /* 0=multiply, 1=subtract, 2=overlay, 3=screen, 4=add, 5=color burn */
+    int   posterize;     /* 0=off, 2..16 levels */
+    float pinch_swirl;   /* -100..100 */
 } quadro_svg_texture_config_t;
 
 typedef struct {

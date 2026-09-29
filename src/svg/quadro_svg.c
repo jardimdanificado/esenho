@@ -183,6 +183,17 @@ static void parse_texture_attribute(quadro_svg_texture_config_t *tex, const char
     tex->scale = 100.0f;
     tex->contrast = 100.0f;
     tex->grain = 0.0f;
+    tex->relative = 0;
+    tex->offset_x = 0.0f;
+    tex->offset_y = 0.0f;
+    tex->warp_strength = 0.0f;
+    tex->warp_freq = 20.0f;
+    tex->noise_distort = 0.0f;
+    tex->hardness = 100.0f;
+    tex->invert = 0;
+    tex->blend_mode = 0;
+    tex->posterize = 0;
+    tex->pinch_swirl = 0.0f;
 
     while (*p) {
         while (*p == ' ' || *p == '{' || *p == '}' || *p == '"' || *p == ',' || *p == ';') p++;
@@ -195,6 +206,10 @@ static void parse_texture_attribute(quadro_svg_texture_config_t *tex, const char
 
         if (strcmp(key, "enabled") == 0) {
             tex->enabled = parse_bool_val(p);
+        } else if (strcmp(key, "relative") == 0 || strcmp(key, "is_relative") == 0) {
+            tex->relative = parse_bool_val(p);
+        } else if (strcmp(key, "invert") == 0 || strcmp(key, "invert_tex") == 0) {
+            tex->invert = parse_bool_val(p);
         } else {
             float val = (float)atof(p);
             if (strcmp(key, "mode") == 0) {
@@ -207,6 +222,15 @@ static void parse_texture_attribute(quadro_svg_texture_config_t *tex, const char
             else if (strcmp(key, "angle") == 0) tex->angle = val;
             else if (strcmp(key, "contrast") == 0) tex->contrast = val;
             else if (strcmp(key, "grain") == 0) tex->grain = val;
+            else if (strcmp(key, "offset_x") == 0 || strcmp(key, "offsetX") == 0) tex->offset_x = val;
+            else if (strcmp(key, "offset_y") == 0 || strcmp(key, "offsetY") == 0) tex->offset_y = val;
+            else if (strcmp(key, "warp_strength") == 0 || strcmp(key, "warpStrength") == 0) tex->warp_strength = val;
+            else if (strcmp(key, "warp_freq") == 0 || strcmp(key, "warpFreq") == 0) tex->warp_freq = val;
+            else if (strcmp(key, "noise_distort") == 0 || strcmp(key, "noiseDistort") == 0) tex->noise_distort = val;
+            else if (strcmp(key, "hardness") == 0 || strcmp(key, "fill_hardness") == 0) tex->hardness = val;
+            else if (strcmp(key, "blend_mode") == 0 || strcmp(key, "blendMode") == 0 || strcmp(key, "blend") == 0) tex->blend_mode = (int)val;
+            else if (strcmp(key, "posterize") == 0) tex->posterize = (int)val;
+            else if (strcmp(key, "pinch_swirl") == 0 || strcmp(key, "pinchSwirl") == 0) tex->pinch_swirl = val;
         }
 
         while (*p && *p != ',' && *p != ';' && *p != '}') p++;
@@ -1226,10 +1250,86 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                             uint8_t pix_a = (col >> 24) & 0xFF;
                             pix_a = (uint8_t)(pix_a * (a / 255.0f) * cur_opacity * node->style.fill_opacity);
 
-                            if (eff_fill_tex.enabled) {
-                                pix_a = quadro_sample_procedural_texture(eff_fill_tex.mode, x, y,
+                            if (eff_fill_tex.enabled && eff_fill_tex.mode > 0) {
+                                int sx = eff_fill_tex.relative ? (x - (int)bbox_x1 + (int)eff_fill_tex.offset_x) : (x + (int)eff_fill_tex.offset_x);
+                                int sy = eff_fill_tex.relative ? (y - (int)bbox_y1 + (int)eff_fill_tex.offset_y) : (y + (int)eff_fill_tex.offset_y);
+
+                                if (eff_fill_tex.warp_strength > 0.0f) {
+                                    float freq = eff_fill_tex.warp_freq > 0.0f ? eff_fill_tex.warp_freq * 0.01f : 0.2f;
+                                    sx += (int)(sinf((float)sy * freq) * (eff_fill_tex.warp_strength * 0.4f));
+                                    sy += (int)(cosf((float)sx * freq) * (eff_fill_tex.warp_strength * 0.4f));
+                                }
+                                if (eff_fill_tex.noise_distort > 0.0f) {
+                                    uint32_t jn = (((sx * 374761393 + sy * 668265263) ^ 0x5bf03635) & 0xFF);
+                                    int jitter = (int)((jn - 128) * (eff_fill_tex.noise_distort * 0.0025f));
+                                    sx += jitter;
+                                    sy += jitter;
+                                }
+                                if (eff_fill_tex.pinch_swirl != 0.0f) {
+                                    float cx = (bbox_x1 + bbox_x2) * 0.5f;
+                                    float cy = (bbox_y1 + bbox_y2) * 0.5f;
+                                    float dx = (float)x - cx, dy = (float)y - cy;
+                                    float r = sqrtf(dx * dx + dy * dy);
+                                    float max_r = (bbox_x2 - bbox_x1 > bbox_y2 - bbox_y1 ? bbox_x2 - bbox_x1 : bbox_y2 - bbox_y1) * 0.5f;
+                                    if (max_r > 1.0f && r < max_r) {
+                                        float factor = (1.0f - r / max_r) * (eff_fill_tex.pinch_swirl * 0.01f) * 3.14159265f;
+                                        float cos_s = cosf(factor), sin_s = sinf(factor);
+                                        float nrx = dx * cos_s - dy * sin_s;
+                                        float nry = dx * sin_s + dy * cos_s;
+                                        if (eff_fill_tex.relative) {
+                                            sx = (int)(cx + nrx - bbox_x1 + eff_fill_tex.offset_x);
+                                            sy = (int)(cy + nry - bbox_y1 + eff_fill_tex.offset_y);
+                                        } else {
+                                            sx = (int)(cx + nrx + eff_fill_tex.offset_x);
+                                            sy = (int)(cy + nry + eff_fill_tex.offset_y);
+                                        }
+                                    }
+                                }
+
+                                uint8_t orig_a = pix_a;
+                                pix_a = quadro_sample_procedural_texture(eff_fill_tex.mode, sx, sy,
                                     eff_fill_tex.angle, eff_fill_tex.scale,
                                     eff_fill_tex.contrast, pix_a);
+
+                                if (eff_fill_tex.invert) {
+                                    int inv = (int)orig_a - ((int)pix_a - (int)(orig_a * 40 / 255));
+                                    pix_a = inv < 0 ? 0 : (inv > 255 ? 255 : (uint8_t)inv);
+                                }
+                                if (eff_fill_tex.posterize >= 2) {
+                                    int step = 255 / eff_fill_tex.posterize;
+                                    pix_a = (uint8_t)(((pix_a + step / 2) / step) * step);
+                                }
+
+                                if (eff_fill_tex.hardness < 100.0f) {
+                                    float feather_w = (100.0f - eff_fill_tex.hardness) * 0.25f;
+                                    if (feather_w < 1.0f) feather_w = 1.0f;
+                                    int r = (int)ceilf(feather_w);
+                                    float min_d2 = feather_w * feather_w;
+                                    int found_edge = 0;
+
+                                    for (int dy = -r; dy <= r; dy++) {
+                                        int ny = y + dy;
+                                        if (ny < 0 || ny >= canvas_h) {
+                                            float d2 = (float)(dy * dy);
+                                            if (d2 < min_d2) min_d2 = d2;
+                                            found_edge = 1;
+                                            continue;
+                                        }
+                                        for (int dx = -r; dx <= r; dx++) {
+                                            float d2 = (float)(dx * dx + dy * dy);
+                                            if (d2 >= min_d2) continue;
+                                            int nx = x + dx;
+                                            if (nx < 0 || nx >= canvas_w || ((scratch_layer_pixels[ny * canvas_w + nx] >> 24) & 0xFF) == 0) {
+                                                min_d2 = d2;
+                                                found_edge = 1;
+                                            }
+                                        }
+                                    }
+                                    if (found_edge && min_d2 < feather_w * feather_w) {
+                                        float d = sqrtf(min_d2);
+                                        pix_a = (uint8_t)(pix_a * (d / feather_w));
+                                    }
+                                }
                             }
 
                             if (pix_a > 0) {

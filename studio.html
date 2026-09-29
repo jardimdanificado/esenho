@@ -2022,6 +2022,61 @@
             <label>Grain / Grit</label>
             <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
           </div>
+          <div class="form-row">
+            <label>Origin</label>
+            <select id="prop-fill-tex-relative">
+              <option value="0">Fixed / World</option>
+              <option value="1">Relative / Object</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Offset X/Y</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-fill-tex-offsetX" placeholder="X" step="5" value="0" style="width: 50%;">
+              <input type="number" id="prop-fill-tex-offsetY" placeholder="Y" step="5" value="0" style="width: 50%;">
+            </div>
+          </div>
+
+          <div class="section-header" style="margin-top: 6px;">Fill Dynamics &amp; Distort</div>
+          <div class="form-row">
+            <label>Hardness %</label>
+            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Warp Wave</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
+              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Noise Jitter</label>
+            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Swirl Vortex</label>
+            <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Posterize</label>
+            <select id="prop-fill-tex-posterize">
+              <option value="0">0: Smooth / Off</option>
+              <option value="2">2 Levels (B&amp;W)</option>
+              <option value="3">3 Levels</option>
+              <option value="4">4 Levels (Cel)</option>
+              <option value="6">6 Levels</option>
+              <option value="8">8 Levels</option>
+              <option value="12">12 Levels</option>
+              <option value="16">16 Levels</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Invert Mask</label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="prop-fill-tex-invert">
+              <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
+            </label>
+          </div>
 
           <div class="section-header" style="margin-top: 6px;">Blend &amp; Opacity</div>
           <div class="form-row">
@@ -5013,13 +5068,23 @@
           });
         }
 
-        // Fill Texture
+        // Fill Texture & Dynamics
         const ft = obj.fillTexture || {};
         document.getElementById('prop-fill-tex-mode').value = ft.mode !== undefined ? ft.mode : 0;
         document.getElementById('prop-fill-tex-scale').value = ft.scale !== undefined ? ft.scale : 100;
         document.getElementById('prop-fill-tex-angle').value = ft.angle !== undefined ? ft.angle : 0;
         document.getElementById('prop-fill-tex-contrast').value = ft.contrast !== undefined ? ft.contrast : 100;
         document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
+        document.getElementById('prop-fill-tex-relative').value = (ft.relative || ft.is_relative || ft.origin === 'object') ? '1' : '0';
+        document.getElementById('prop-fill-tex-offsetX').value = ft.offsetX !== undefined ? ft.offsetX : (ft.offset_x || 0);
+        document.getElementById('prop-fill-tex-offsetY').value = ft.offsetY !== undefined ? ft.offsetY : (ft.offset_y || 0);
+        document.getElementById('prop-fill-tex-hardness').value = ft.hardness !== undefined ? ft.hardness : 100;
+        document.getElementById('prop-fill-tex-warpStrength').value = ft.warpStrength !== undefined ? ft.warpStrength : (ft.warp_strength || 0);
+        document.getElementById('prop-fill-tex-warpFreq').value = ft.warpFreq !== undefined ? ft.warpFreq : (ft.warp_freq || 20);
+        document.getElementById('prop-fill-tex-noiseDistort').value = ft.noiseDistort !== undefined ? ft.noiseDistort : (ft.noise_distort || 0);
+        document.getElementById('prop-fill-tex-pinchSwirl').value = ft.pinchSwirl !== undefined ? ft.pinchSwirl : (ft.pinch_swirl || 0);
+        document.getElementById('prop-fill-tex-posterize').value = ft.posterize !== undefined ? ft.posterize : 0;
+        document.getElementById('prop-fill-tex-invert').checked = !!(ft.invert || ft.invert_tex);
 
         // Custom Tip Shapes
         const grpCustomTipShapes = document.getElementById('grp-custom-tip-shapes');
@@ -6803,21 +6868,33 @@
         render();
       });
 
-      // Fill Texture bindings
-      ['mode', 'scale', 'angle', 'contrast', 'grain'].forEach(param => {
+      // Fill Texture & Dynamics bindings
+      ['mode', 'scale', 'angle', 'contrast', 'grain', 'relative', 'offsetX', 'offsetY', 'hardness', 'warpStrength', 'warpFreq', 'noiseDistort', 'pinchSwirl', 'posterize'].forEach(param => {
         const el = document.getElementById(`prop-fill-tex-${param}`);
         if (!el) return;
         el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
           const rawVal = e.target.value;
-          const val = (param === 'mode' && isNaN(Number(rawVal))) ? rawVal : Number(rawVal);
+          let val = (param === 'mode' && isNaN(Number(rawVal))) ? rawVal : Number(rawVal);
+          if (param === 'relative') val = (val === 1 || rawVal === '1');
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
-            if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+            if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, relative: false };
             obj.fillTexture[param] = val;
             if (param === 'mode') obj.fillTexture.enabled = (val !== 0 && val !== '0' && val !== '');
           }
           render();
         });
+      });
+
+      // Invert checkbox
+      document.getElementById('prop-fill-tex-invert')?.addEventListener('change', (e) => {
+        const checked = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+          obj.fillTexture.invert = checked;
+        }
+        render();
       });
 
       document.getElementById('prop-stroke-cap')?.addEventListener('change', (e) => {

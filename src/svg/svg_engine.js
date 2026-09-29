@@ -570,6 +570,17 @@
         scale: 100,
         contrast: 100,
         grain: 0,
+        relative: false,
+        offsetX: 0,
+        offsetY: 0,
+        warpStrength: 0,
+        warpFreq: 20,
+        noiseDistort: 0,
+        hardness: 100,
+        invert: false,
+        blendMode: 0,
+        posterize: 0,
+        pinchSwirl: 0,
         ...(attributes.fillTexture || {})
       };
 
