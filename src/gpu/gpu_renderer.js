@@ -662,6 +662,9 @@ class EsenhoGPURenderer {
     const texToRender = sourceTex || this.compositeTex;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, texToRender);
+    const filter = this.filterMode ? gl.LINEAR : gl.NEAREST;
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
     gl.uniform1i(this.viewportUniforms.u_texture, 0);
 
     // Set uniforms

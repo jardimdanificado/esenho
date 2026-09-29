@@ -68,6 +68,15 @@
     return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
   }
 
+  function posMod(a, m) {
+    const r = a % m;
+    return r < 0 ? r + m : r;
+  }
+
+  function posDiv(a, d) {
+    return Math.floor(a / d);
+  }
+
   function sampleProceduralTexture(mode, x, y, texAngle = 0, texScale = 100, texContrast = 100, baseA = 255) {
     if (mode <= 0 || baseA === 0) return baseA;
     if (texScale <= 0) texScale = 100;
@@ -90,57 +99,210 @@
 
     let modA = baseA;
     if (mode === 1) { // Paper grain
-      const n = ((tx * 1234567 + ty * 7654321) ^ (tx * ty * 13)) & 0xFF;
-      const fiber = ((tx * 3 + ty * 5) % 17 < 3) ? 50 : 255;
+      const n = (((tx * 1234567 + ty * 7654321) ^ (tx * ty * 13)) >>> 0) & 0xFF;
+      const fiber = (posMod(tx * 3 + ty * 5, 17) < 3) ? 50 : 255;
       modA = Math.round((baseA * n * fiber) / (255 * 255));
     } else if (mode === 2) { // Canvas weave
-      const pat = ((Math.abs(tx) % 6 < 3) ^ (Math.abs(ty) % 6 < 3)) ? 255 : 40;
+      const pat = ((posMod(tx, 6) < 3) ^ (posMod(ty, 6) < 3)) ? 255 : 40;
       modA = Math.round((baseA * pat) / 255);
     } else if (mode === 3) { // Noise
-      const n = ((tx * 374761393 + ty * 668265263) ^ 0x5bf03635) & 0xFF;
+      const n = (((tx * 374761393 + ty * 668265263) ^ 0x5bf03635) >>> 0) & 0xFF;
       modA = Math.round((baseA * n) / 255);
-    } else if (mode === 4) { // Perlin Clouds / Soft Smoke
-      const n1 = ((tx * 41 + ty * 59) ^ (tx * 17)) & 0xFF;
-      const n2 = (((tx >> 2) * 103 + (ty >> 2) * 149) ^ (ty * 11)) & 0xFF;
-      const smooth = (n1 + n2 * 3) >> 2;
-      modA = Math.round((baseA * smooth) / 255);
-    } else if (mode === 5) { // Crosshatch
-      const d1 = (Math.abs(tx + ty) % 10 < 2);
-      const d2 = (Math.abs(tx - ty) % 10 < 2);
-      const hatch = (d1 || d2) ? 255 : 30;
-      modA = Math.round((baseA * hatch) / 255);
-    } else if (mode === 6) { // Halftone Dots
-      const cx = Math.abs(tx) % 8 - 4;
-      const cy = Math.abs(ty) % 8 - 4;
-      const dist = cx * cx + cy * cy;
-      const dot = (dist <= 6) ? 255 : 20;
-      modA = Math.round((baseA * dot) / 255);
-    } else if (mode === 7) { // Watercolor Granulation
-      const n1 = ((tx * 2246822519 + ty * 3266489917) ^ ((tx >> 3) * 668265263)) & 0xFF;
-      const cluster = (((tx >> 1) ^ (ty >> 1)) % 11 < 4) ? 240 : 60;
-      modA = Math.round((baseA * n1 * cluster) / (255 * 255));
-    } else if (mode === 8) { // Rough Pastel
-      const n1 = ((tx * 1234567 + ty * 7654321) ^ 0xdeadbeef) & 0xFF;
-      const pit = (n1 > 90) ? 255 : 40;
+    } else if (mode === 4) { // Halftone dots
+      const dx = posMod(tx, 8) - 4, dy = posMod(ty, 8) - 4;
+      const d2 = dx * dx + dy * dy;
+      const pat = (d2 <= 5) ? 255 : 20;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 5) { // Grid
+      const pat = (posMod(tx, 8) === 0 || posMod(ty, 8) === 0) ? 255 : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 6) { // Grunge
+      const bx = posDiv(tx, 4);
+      const by = posDiv(ty, 4);
+      const n = (((bx * 101 + by * 203) ^ (tx * 17 + ty * 31)) >>> 0) & 0xFF;
+      const pat = n > 120 ? 255 : Math.round(n * 255 / 120);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 7) { // Hatch
+      const m = posMod(tx + ty, 6);
+      const pat = (m === 0 || m === 1) ? 255 : 0;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 8) { // Watercolor Cold Press Paper
+      const n1 = (((tx * 239847 + ty * 983471) ^ (tx * 7)) >>> 0) & 0xFF;
+      const bx = posDiv(tx, 3);
+      const by = posDiv(ty, 3);
+      const pit = (posMod(bx * 11 + by * 13, 23) < 4) ? 40 : 255;
       modA = Math.round((baseA * n1 * pit) / (255 * 255));
     } else if (mode === 9) { // Charcoal Tooth
-      const n = ((Math.floor(tx / 2) * 589237 + Math.floor(ty / 2) * 782391) ^ (tx * 31 + ty * 19)) & 0xFF;
+      const bx = posDiv(tx, 2);
+      const by = posDiv(ty, 2);
+      const n = (((bx * 589237 + by * 782391) ^ (tx * 31 + ty * 19)) >>> 0) & 0xFF;
       const tooth = (n > 140) ? 255 : (n > 70 ? 120 : 20);
       modA = Math.round((baseA * tooth) / 255);
     } else if (mode === 10) { // Wood Grain
-      const wave = Math.floor(tx + (ty * ty / 120) % 24);
-      const ring = (Math.abs(wave) % 12 < 3) ? 255 : 70;
+      const wave = tx + posMod(posDiv(ty * ty, 120), 24);
+      const ring = (posMod(wave, 12) < 3) ? 255 : 70;
       modA = Math.round((baseA * ring) / 255);
-    } else if (mode === 11) { // Leather Pores
-      const cx = Math.abs(tx) % 10 - 5;
-      const cy = Math.abs(ty) % 10 - 5;
+    } else if (mode === 11) { // Leather / Cellular Pores
+      const cx = posMod(tx, 10) - 5, cy = posMod(ty, 10) - 5;
       const d = cx * cx + cy * cy;
       const pore = (d <= 3) ? 40 : 240;
       modA = Math.round((baseA * pore) / 255);
     } else if (mode === 12) { // Dense Linen
-      const lx = (Math.abs(tx) % 4 < 2);
-      const ly = (Math.abs(ty) % 4 < 2);
+      const lx = (posMod(tx, 4) < 2), ly = (posMod(ty, 4) < 2);
       const pat = (lx ^ ly) ? 245 : 65;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 13) { // Marble Veins
+      const v = (((tx * 7 + posMod(ty * 13, 31)) ^ (tx * ty)) >>> 0) & 0xFF;
+      const pat = (v > 180) ? 250 : (v < 60 ? 30 : 160);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 14) { // Perlin Cloud
+      const c1 = (((tx * 197 + ty * 311) ^ 0x5a5a5a5a) >>> 0) & 0xFF;
+      const pat = (c1 > 140) ? 240 : (c1 < 60 ? 40 : 130);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 15) { // Basket Weave
+      const bx = posMod(posDiv(tx, 8), 2);
+      const by = posMod(posDiv(ty, 8), 2);
+      const pat = (bx ^ by) ? ((posMod(tx, 4) < 2) ? 235 : 60) : ((posMod(ty, 4) < 2) ? 235 : 60);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 16) { // Sandpaper Grit
+      const g = (((tx * 377 + ty * 491) ^ (tx * ty * 13)) >>> 0) & 0xFF;
+      const tooth = g > 110 ? 255 : (g > 50 ? 110 : 25);
+      modA = Math.round((baseA * tooth) / 255);
+    } else if (mode === 17) { // Radial Halftone
+      const dx = posMod(tx, 16) - 8, dy = posMod(ty, 16) - 8;
+      const d = Math.round(Math.sqrt(dx * dx + dy * dy));
+      let pat = (d <= 6) ? (255 - d * 35) : 30;
+      if (pat < 0) pat = 0;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 18) { // Crackle Fissures
+      const c = (((tx * 17 + ty * 31) ^ (tx * ty * 3)) >>> 0) & 0xFF;
+      const pat = (c < 35 || (posMod(tx + ty * 2, 37) < 3)) ? 30 : 235;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 19) { // Washi Fiber
+      const f1 = (posMod(tx * 7 + ty * 29, 31) < 3) ? 70 : 255;
+      const f2 = (posMod(tx * 19 - ty * 11, 43) < 2) ? 50 : 255;
+      modA = Math.round((baseA * f1 * f2) / (255 * 255));
+    } else if (mode === 20) { // Concrete Stone
+      const p1 = (((tx * 133 + ty * 277) ^ (tx * ty * 17)) >>> 0) & 0xFF;
+      const pat = (p1 > 130) ? 230 : (p1 < 60 ? 50 : 140);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 21) { // Antique Parchment
+      const m1 = posMod(tx * 31 + ty * 17, 47);
+      const m2 = posMod(tx * 13 - ty * 29, 37);
+      let pat = 180 + m1 - m2;
+      if (pat < 0) pat = 0; if (pat > 255) pat = 255;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 22) { // Stipple Noise
+      const r = (((tx * 499 + ty * 883) ^ 0x3d3d3d3d) >>> 0) & 0xFF;
+      const pat = r > 165 ? 245 : (r > 75 ? 140 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 23) { // Spatter Drops
+      const cx = posMod(tx, 32) - 16, cy = posMod(ty, 32) - 16;
+      const d2 = cx * cx + cy * cy;
+      const pat = (d2 <= 9 || (posMod(tx * 97 + ty * 43, 89) < 4)) ? 30 : 240;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 24) { // Raw Fiber Pulp
+      const bx = posDiv(tx, 4);
+      const by = posDiv(ty, 4);
+      const clump = (((bx * 31 + by * 47) ^ (tx * 3)) >>> 0) & 0xFF;
+      const pat = (clump > 140) ? 245 : (clump < 70 ? 60 : 190);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 25) { // Coarse Halftone
+      const dx = posMod(tx, 16) - 8, dy = posMod(ty, 16) - 8;
+      const pat = (dx * dx + dy * dy <= 42) ? 255 : 20;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 26) { // Fine Crosshatch
+      const h1 = posMod(tx + ty, 4) === 0;
+      const h2 = posMod(tx - ty, 4) === 0;
+      const pat = (h1 || h2) ? 250 : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 27) { // Distressed Rust
+      const g = (((tx * 19 + ty * 43) ^ (tx * ty)) >>> 0) & 0xFF;
+      const pat = (g > 160) ? 235 : (g < 60 ? 40 : 130);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 28) { // Dry Bristle Scrape
+      const by = posDiv(ty, 4);
+      const streak = (((tx * 53 + by * 97) ^ (tx * 11)) >>> 0) & 0xFF;
+      const pat = streak > 100 ? 245 : (streak > 40 ? 110 : 25);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 29) { // Pastel Board (Honeycomb)
+      const u = posMod(Math.floor((tx * 866 + ty * 500) / 1000), 12);
+      const v = posMod(Math.floor((-tx * 866 + ty * 500) / 1000), 12);
+      const du = (u > 6) ? (12 - u) : u;
+      const dv = (v > 6) ? (12 - v) : v;
+      const hex = (du < dv) ? du : dv;
+      let pat = 60 + hex * 30;
+      if (pat > 255) pat = 255;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 30) { // Tree Bark
+      const wave = posMod(ty * 13, 29);
+      const xPerturb = posMod(tx + wave, 32);
+      const fissure = (xPerturb > 16) ? (32 - xPerturb) : xPerturb;
+      const fiber = (posMod(tx * 47 + ty * 13, 17) < 3) ? -35 : 20;
+      let pat = fissure * 14 + fiber + 60;
+      if (pat < 0) pat = 0; if (pat > 255) pat = 255;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 31) { // Manga 60L Screen Dots
+      const u = posMod(Math.floor(((tx + ty) * 707) / 1000), 8);
+      const v = posMod(Math.floor(((-tx + ty) * 707) / 1000), 8);
+      const du = u - 4, dv = v - 4;
+      const pat = (du * du + dv * dv <= 5) ? 255 : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 32) { // Manga Sandtone
+      const g1 = (((tx * 127 + ty * 311) ^ (tx * 19)) >>> 0) & 0xFF;
+      const g2 = (((tx * 37 - ty * 97) ^ (ty * 23)) >>> 0) & 0xFF;
+      const pat = (g1 > 170 || (g2 > 210 && posMod(tx + ty, 2) === 0)) ? 245 : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 33) { // Sea Sponge
+      const bx = posDiv(tx, 6);
+      const by = posDiv(ty, 6);
+      const pore = (posMod(bx * 17 + by * 29, 19) < 3) ? 40 : 230;
+      const noise = (((tx * 43 + ty * 71) ^ (tx * ty)) >>> 0) & 0xFF;
+      let pat = Math.round((pore * (160 + (noise >> 1))) / 255);
+      if (pat > 255) pat = 255;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 34) { // Stucco Plaster Wall
+      const facet = (posMod(tx * 3 + ty * 5, 64) < 32) ? 220 : 80;
+      const knife = (posMod(tx * 19 - ty * 23, 41) < 4) ? 40 : 255;
+      const pat = Math.round((facet * knife) / 255);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 35) { // Denim Twill Weave
+      const twill = posMod(tx * 2 + ty, 6);
+      const pat = (twill < 3) ? 240 : 60;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 36) { // Oil Impasto Knife Peaks
+      const ridge = (posMod(tx * 11 + ty * 7, 32) < 16) ? 250 : 50;
+      const gouge = (posMod(tx * 29 - ty * 13, 47) < 3) ? 30 : 240;
+      const pat = Math.round((ridge * gouge) / 255);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 37) { // Dusty Chalk Tooth
+      const grain = (((tx * 199 + ty * 337) ^ (tx * ty * 5)) >>> 0) & 0xFF;
+      const pat = grain > 120 ? 240 : 45;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 38) { // Vintage Engraving Lines
+      const line = posMod(ty + posMod(tx * 7, 5), 6);
+      const pat = (line < 3) ? 245 : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 39) { // Granite Rock Flecks
+      const f1 = (((tx * 17 + ty * 73) ^ (tx * 3)) >>> 0) & 0xFF;
+      const f2 = (((tx * 89 + ty * 13) ^ (ty * 5)) >>> 0) & 0xFF;
+      const pat = (f1 > 220) ? 250 : ((f2 > 230) ? 30 : (120 + ((f1 + f2) >> 2)));
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 40) { // Watercolor Salt Bloom
+      const cx = posMod(tx, 64) - 32, cy = posMod(ty, 64) - 32;
+      const d = Math.round(Math.sqrt(cx * cx + cy * cy));
+      const pat = (d >= 24 && d <= 30) ? 40 : (d < 24 ? 245 : 180);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 41) { // Coarse Burlap Jute
+      const tx_b = (posMod(tx, 8) < 4) ? 220 : 50;
+      const ty_b = (posMod(ty, 8) < 4) ? 220 : 50;
+      const block = posMod(posDiv(tx, 8) + posDiv(ty, 8), 2) === 0;
+      const pat = block ? tx_b : ty_b;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 42) { // Cracked Mud Earth
+      const c1 = (posMod(tx * 13, 47) < 4);
+      const c2 = (posMod(ty * 17, 53) < 4);
+      const pat = (c1 || c2) ? 30 : 235;
       modA = Math.round((baseA * pat) / 255);
     }
 

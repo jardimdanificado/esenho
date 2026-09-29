@@ -77,8 +77,14 @@ void main() {
     // Normalized UV inside document (0.0 to 1.0)
     vec2 doc_uv = doc_px / u_doc_size;
 
-    // Sample composite texture (upload is top-down)
-    vec4 texColor = texture(u_texture, doc_uv);
+    // Sample composite texture (nearest discrete texel vs smooth bilinear)
+    vec4 texColor;
+    if (u_filter_mode == 0) {
+        vec2 texel_pos = clamp(floor(doc_px) + vec2(0.5), vec2(0.5), u_doc_size - vec2(0.5));
+        texColor = texture(u_texture, texel_pos / u_doc_size);
+    } else {
+        texColor = texture(u_texture, doc_uv);
+    }
 
     // Blend over transparency checkerboard
     vec4 bg = get_checkerboard(doc_px);
