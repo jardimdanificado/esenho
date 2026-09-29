@@ -4811,11 +4811,7 @@ W_EXPORT uint32_t w_audio_export_wav(uint8_t *out_wav_buffer, uint32_t max_bytes
 
 #define INIT_PATH_PTS 16384
 
-typedef struct {
-    float x;
-    float y;
-    uint8_t type; /* 1=move, 2=line, 3=close */
-} path_point_t;
+typedef w_path_point_t path_point_t;
 
 typedef struct {
     path_point_t *points;
@@ -5080,6 +5076,14 @@ W_EXPORT int32_t w_path_stroke_brush(int32_t layer_idx, uint32_t color, float ba
     active_layer = old_active;
     force_composite();
     return 1;
+}
+
+W_EXPORT uint32_t w_path_get_count(void) {
+    return g_path.count;
+}
+
+W_EXPORT const w_path_point_t* w_path_get_points(void) {
+    return g_path.points;
 }
 
 /* =========================================================================

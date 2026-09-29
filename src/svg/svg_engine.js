@@ -526,31 +526,29 @@
         ...(attributes.dropShadow || {})
       };
 
-      // Brush & Dynamics Configuration
+      // Brush Configuration (libmypaint)
       this.brushType = attributes.brushType || 'pencil';
-      this.brushConfig = {
-        preset: 'round',
-        hardness: 95,
-        flow: 100,
-        spacing: 5,
-        scatter: 0,
-        roundness: 100,
-        angle: 0,
-        shape: 0,
-        dabBlend: 0,
-        grain: 0,
-        auto_rotate: 0,
-        taper_in: 0,
-        taper_out: 0,
-        size_jitter: 0,
-        angle_jitter: 0,
-        opacity_jitter: 0,
-        wetness: 0,
-        color_pickup: 0,
-        depletion: 0,
-        smudge: 0,
-        ...(attributes.brushConfig || {})
-      };
+      this.brushConfig = typeof attributes.brushConfig === 'string'
+        ? { enabled: true, brush: attributes.brushConfig, preset: attributes.brushConfig }
+        : (attributes.brushConfig
+            ? { enabled: true, ...attributes.brushConfig }
+            : null);
+
+      // Masked MyPaint Brush Fill Configuration
+      this.fillBrushConfig = attributes.fillBrushConfig ? {
+        enabled: true,
+        brush: 'deevad/watercolor',
+        pattern: 'wash',
+        size: 20,
+        density: 1.0,
+        ...(typeof attributes.fillBrushConfig === 'object' ? attributes.fillBrushConfig : { brush: attributes.fillBrushConfig })
+      } : (attributes.fillBrush ? {
+        enabled: true,
+        brush: attributes.fillBrush,
+        pattern: attributes.fillPattern || 'wash',
+        size: attributes.fillBrushSize || 20,
+        density: 1.0
+      } : null);
 
       // Procedural Textures for Stroke and Fill (Modes 0..12)
       this.strokeTexture = {
@@ -626,8 +624,24 @@
           attrs += ` clip-path="url(#clip_${this.clipPathId})"`;
         }
       }
-      if (this.brushConfig) {
-        attrs += ` data-brush="${encodeURIComponent(JSON.stringify(this.brushConfig))}"`;
+      if (this.brushConfig && (this.brushConfig.enabled !== false)) {
+        if (typeof this.brushConfig === 'string') {
+          attrs += ` data-brush="${this.brushConfig}"`;
+        } else if (this.brushConfig.brush && !this.brushConfig.flow && !this.brushConfig.hardness && !this.brushConfig.spacing) {
+          attrs += ` data-brush="${this.brushConfig.brush}"`;
+        } else {
+          attrs += ` data-brush="${encodeURIComponent(JSON.stringify(this.brushConfig))}"`;
+        }
+      }
+      if (this.fillBrushConfig && this.fillBrushConfig.enabled) {
+        const brushName = this.fillBrushConfig.brush || this.fillBrushConfig.preset || 'deevad/watercolor';
+        attrs += ` data-fill-brush="${brushName}"`;
+        if (this.fillBrushConfig.pattern) {
+          attrs += ` data-fill-pattern="${this.fillBrushConfig.pattern}"`;
+        }
+        if (this.fillBrushConfig.size) {
+          attrs += ` data-fill-brush-size="${this.fillBrushConfig.size}"`;
+        }
       }
       if (this.strokeTexture && (this.strokeTexture.mode > 0 || this.strokeTexture.enabled)) {
         attrs += ` data-stroke-tex="${encodeURIComponent(JSON.stringify(this.strokeTexture))}"`;
@@ -793,6 +807,7 @@
         strokeDasharray: this.strokeDasharray,
         dropShadow: { ...this.dropShadow },
         brushConfig: { ...this.brushConfig },
+        fillBrushConfig: this.fillBrushConfig ? { ...this.fillBrushConfig } : null,
         strokeTexture: { ...this.strokeTexture },
         fillTexture: { ...this.fillTexture },
         wasmFilter: { ...this.wasmFilter },
@@ -1154,7 +1169,10 @@
       if (!d) return '';
       const fill = this.getSvgFillAttribute();
       const filter = this.getSvgFilterAttribute();
-      const stroke = this.stroke || 'none';
+      let stroke = this.stroke || 'none';
+      if (this.brushConfig && (this.brushConfig.enabled || (this.brushConfig.brush && this.brushConfig.brush.includes('/')))) {
+        stroke = 'none';
+      }
       const sw = this.strokeWidth;
       const op = this.opacity;
       const fillOp = this.fillOpacity;
@@ -1331,7 +1349,10 @@
       if (!d) return '';
       const fill = this.getSvgFillAttribute();
       const filter = this.getSvgFilterAttribute();
-      const stroke = this.stroke || 'none';
+      let stroke = this.stroke || 'none';
+      if (this.brushConfig && (this.brushConfig.enabled || (this.brushConfig.brush && this.brushConfig.brush.includes('/')))) {
+        stroke = 'none';
+      }
       const sw = this.strokeWidth;
       const op = this.opacity;
       const fillOp = this.fillOpacity;
@@ -3522,8 +3543,30 @@
 
           let brushConfig = undefined;
           const brushAttr = getAttr('data-brush');
-          if (brushAttr) {
-            try { brushConfig = JSON.parse(decodeURIComponent(brushAttr)); } catch (e) {}
+          if (brushAttr && brushAttr !== 'round' && brushAttr !== 'default' && brushAttr !== 'none' && brushAttr !== 'custom') {
+            try {
+              const decoded = decodeURIComponent(brushAttr);
+              if (decoded === 'round' || decoded === 'default' || decoded === 'none' || decoded === 'custom') {
+                brushConfig = undefined;
+              } else {
+                brushConfig = decoded.startsWith('{') ? JSON.parse(decoded) : { enabled: true, brush: decoded, preset: decoded };
+              }
+            } catch (e) {
+              brushConfig = { enabled: true, brush: brushAttr, preset: brushAttr };
+            }
+          }
+
+          let fillBrushConfig = undefined;
+          const fillBrushAttr = getAttr('data-fill-brush');
+          if (fillBrushAttr) {
+            const pattern = getAttr('data-fill-pattern', 'wash');
+            const size = parseFloat(getAttr('data-fill-brush-size', '20'));
+            try {
+              const decoded = decodeURIComponent(fillBrushAttr);
+              fillBrushConfig = decoded.startsWith('{') ? JSON.parse(decoded) : { enabled: true, brush: decoded, pattern, size };
+            } catch (e) {
+              fillBrushConfig = { enabled: true, brush: fillBrushAttr, pattern, size };
+            }
           }
 
           let strokeTexture = undefined;
@@ -3573,7 +3616,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
+            brushConfig, fillBrushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
             rotation, originX, originY
           };
 
@@ -3717,8 +3760,30 @@
 
           let brushConfig = undefined;
           const brushAttr = getAttr('data-brush');
-          if (brushAttr) {
-            try { brushConfig = JSON.parse(decodeURIComponent(brushAttr)); } catch (e) {}
+          if (brushAttr && brushAttr !== 'round' && brushAttr !== 'default' && brushAttr !== 'none' && brushAttr !== 'custom') {
+            try {
+              const decoded = decodeURIComponent(brushAttr);
+              if (decoded === 'round' || decoded === 'default' || decoded === 'none' || decoded === 'custom') {
+                brushConfig = undefined;
+              } else {
+                brushConfig = decoded.startsWith('{') ? JSON.parse(decoded) : { enabled: true, brush: decoded, preset: decoded };
+              }
+            } catch (e) {
+              brushConfig = { enabled: true, brush: brushAttr, preset: brushAttr };
+            }
+          }
+
+          let fillBrushConfig = undefined;
+          const fillBrushAttr = getAttr('data-fill-brush');
+          if (fillBrushAttr) {
+            const pattern = getAttr('data-fill-pattern', 'wash');
+            const size = parseFloat(getAttr('data-fill-brush-size', '20'));
+            try {
+              const decoded = decodeURIComponent(fillBrushAttr);
+              fillBrushConfig = decoded.startsWith('{') ? JSON.parse(decoded) : { enabled: true, brush: decoded, pattern, size };
+            } catch (e) {
+              fillBrushConfig = { enabled: true, brush: fillBrushAttr, pattern, size };
+            }
           }
 
           let strokeTexture = undefined;
@@ -3768,7 +3833,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
+            brushConfig, fillBrushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
             rotation, originX, originY
           };
 
@@ -3849,6 +3914,10 @@
           const tagName = match[1].toLowerCase();
           const attrStr = match[2];
           const attrs = parseAttrString(attrStr);
+          if (tagName === 'rect' && (attrs.width === '100%' || attrs.width === '100') && (attrs.height === '100%' || attrs.height === '100') && !attrs.id) {
+            this.backgroundColor = attrs.fill || this.backgroundColor;
+            continue;
+          }
           const node = createNodeFromAttrs(tagName, attrs);
           if (node) this.addObject(node, false);
         }

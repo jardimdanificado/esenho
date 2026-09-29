@@ -282,6 +282,63 @@ static void test_svg_file_export(void) {
     printf("✔ Exported icon.svg to %s (%ld bytes) successfully!\n", out_png, sz);
 }
 
+static void test_svg_mypaint_brushes(void) {
+    printf("--- 8. Testing libmypaint Vector Strokes & Masked Brush Fills ---\n");
+    const char *xml =
+        "<svg width=\"300\" height=\"300\" viewBox=\"0 0 300 300\">\n"
+        "  <rect width=\"300\" height=\"300\" fill=\"#ffffff\" />\n"
+        "  <path d=\"M 30 150 Q 150 30 270 150\" stroke=\"#1d4ed8\" stroke-width=\"12\" fill=\"none\"\n"
+        "        data-brush=\"deevad/brush.myb\" data-brush-pressure=\"0.8\" />\n"
+        "  <circle cx=\"150\" cy=\"200\" r=\"60\" fill=\"#dc2626\" stroke=\"#991b1b\" stroke-width=\"4\"\n"
+        "          data-fill-brush=\"tanda/watercolor-02-paint.myb\" data-fill-pattern=\"wash\" data-fill-brush-size=\"18\" />\n"
+        "</svg>";
+
+    quadro_svg_doc_t *doc = quadro_svg_parse_string(xml, strlen(xml));
+    assert(doc != NULL);
+
+    uint32_t pixels[300 * 300];
+    memset(pixels, 0, sizeof(pixels));
+
+    int ok = quadro_svg_render(doc, pixels, 300, 300, 1.0f);
+    assert(ok == 1);
+
+    /* Verify stroke rendered */
+    int blue_hits = 0;
+    for (int y = 50; y < 150; y++) {
+        for (int x = 50; x < 250; x++) {
+            uint32_t pix = pixels[y * 300 + x];
+            uint8_t a = (pix >> 24) & 0xFF;
+            uint8_t b = (pix >> 16) & 0xFF;
+            if (a > 50 && b > 100) blue_hits++;
+        }
+    }
+    assert(blue_hits > 50);
+
+    /* Verify masked brush fill rendered inside circle */
+    int red_hits = 0;
+    for (int y = 160; y < 240; y++) {
+        for (int x = 110; x < 190; x++) {
+            uint32_t pix = pixels[y * 300 + x];
+            uint8_t a = (pix >> 24) & 0xFF;
+            uint8_t r = pix & 0xFF;
+            if (a > 50 && r > 100) red_hits++;
+        }
+    }
+    assert(red_hits > 100);
+
+    quadro_svg_doc_free(doc);
+
+    /* Test file export for sample SVGs */
+    const char *out_stroke = "/tmp/test_mypaint_stroke.png";
+    const char *out_fill = "/tmp/test_mypaint_fill.png";
+    ok = quadro_svg_render_to_file("tests/samples/mypaint_stroke_test.svg", out_stroke, 1.0f, 400, 400);
+    assert(ok == 1);
+    ok = quadro_svg_render_to_file("tests/samples/mypaint_fill_test.svg", out_fill, 1.0f, 500, 400);
+    assert(ok == 1);
+
+    printf("✔ libmypaint vector stroke & masked brush fill verified!\n");
+}
+
 int main(void) {
     printf("==================================================\n");
     printf("  Wesenho Quadro Native C SVG Runtime Test Suite  \n");
@@ -294,6 +351,7 @@ int main(void) {
     test_svg_shadows_and_blurs();
     test_svg_animation_and_sequence();
     test_svg_file_export();
+    test_svg_mypaint_brushes();
 
     printf("\n>>> ALL NATIVE C SVG TESTS PASSED! <<<\n");
     return 0;

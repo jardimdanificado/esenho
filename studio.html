@@ -1662,6 +1662,9 @@
       </div>
     </div>
 
+    <!-- Brush & SVG Studio Link -->
+    <a href="brush_studio.html" class="btn-sm" style="text-decoration:none;display:flex;align-items:center;gap:4px;background:var(--bg-panel-sub);color:var(--primary);border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 8px;font-weight:600;" title="Open MyPaint Brush &amp; SVG Studio">🎨 Brush &amp; SVG Studio</a>
+
     <!-- Sidebar Toggle -->
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
@@ -1928,41 +1931,32 @@
             </div>
           </div>
 
-          <div class="section-header" style="margin-top: 6px;">Fill Texture</div>
+          <div class="section-header" style="margin-top: 6px;">🎨 MyPaint Brush Fill (data-fill-brush)</div>
           <div class="form-row">
-            <label>Mode</label>
-            <select id="prop-fill-tex-mode">
-              <option value="0">0: None / Solid</option>
-              <option value="1">1: Paper Grain</option>
-              <option value="2">2: Canvas Weave</option>
-              <option value="3">3: Noise Scatter</option>
-              <option value="4">4: Halftone Dots</option>
-              <option value="5">5: Grid Pattern</option>
-              <option value="6">6: Grunge / Distress</option>
-              <option value="7">7: Hatch Lines</option>
-              <option value="8">8: Watercolor Cold Press</option>
-              <option value="9">9: Charcoal Tooth</option>
-              <option value="10">10: Wood Grain</option>
-              <option value="11">11: Leather Pores</option>
-              <option value="12">12: Dense Linen</option>
-              <optgroup id="grp-custom-fill-textures" label="Custom Textures"></optgroup>
-            </select>
+            <label>Enable Fill Brush</label>
+            <input type="checkbox" id="prop-fill-brush-enable">
           </div>
-          <div class="form-row">
-            <label>Scale %</label>
-            <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Angle °</label>
-            <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Contrast %</label>
-            <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Grain / Grit</label>
-            <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
+          <div id="fill-brush-controls" style="display: none; flex-direction: column; gap: 6px;">
+            <div class="form-row">
+              <label>Pack</label>
+              <select id="prop-fill-brush-pack"></select>
+            </div>
+            <div class="form-row">
+              <label>Preset</label>
+              <select id="prop-fill-brush-select" style="flex: 1;"></select>
+            </div>
+            <div class="form-row">
+              <label>Pattern</label>
+              <select id="prop-fill-brush-pattern">
+                <option value="wash" selected>Wash (Smooth Painterly)</option>
+                <option value="crosshatch">Crosshatch (Sketch Weave)</option>
+                <option value="stipple">Stipple (Textured Dabs)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Dab Size</label>
+              <input type="number" id="prop-fill-brush-size" min="5" max="100" step="1" value="20">
+            </div>
           </div>
 
           <div class="section-header" style="margin-top: 6px;">Blend &amp; Opacity</div>
@@ -2013,43 +2007,6 @@
             <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
           </div>
 
-          <div class="section-header" style="margin-top: 6px;">Stroke Texture</div>
-          <div class="form-row">
-            <label>Mode</label>
-            <select id="prop-stroke-tex-mode">
-              <option value="0">0: None / Solid</option>
-              <option value="1">1: Paper Grain</option>
-              <option value="2">2: Canvas Weave</option>
-              <option value="3">3: Noise Scatter</option>
-              <option value="4">4: Halftone Dots</option>
-              <option value="5">5: Grid Pattern</option>
-              <option value="6">6: Grunge / Distress</option>
-              <option value="7">7: Hatch Lines</option>
-              <option value="8">8: Watercolor Cold Press</option>
-              <option value="9">9: Charcoal Tooth</option>
-              <option value="10">10: Wood Grain</option>
-              <option value="11">11: Leather Pores</option>
-              <option value="12">12: Dense Linen</option>
-              <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Scale %</label>
-            <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Angle °</label>
-            <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Contrast %</label>
-            <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Grain / Grit</label>
-            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
-          </div>
-
           <div class="flyout-divider" style="margin: 4px 0;"></div>
 
           <!-- Brush Dynamics Side Submenu Trigger & Panel -->
@@ -2059,151 +2016,22 @@
               <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
             </button>
             <div id="flyout-brush-dynamics" class="tool-submenu" style="max-height: calc(100vh - 40px); overflow-y: auto;">
-              <div class="flyout-title">Brush Dynamics</div>
+              <div class="flyout-title">Brush Dynamics (libmypaint v1.6.1)</div>
+              <div class="section-header" style="margin-top: 2px;">🎨 Brush Pack &amp; Preset</div>
+              <div class="form-row">
+                <label>Pack</label>
+                <select id="prop-mypaint-brush-pack"></select>
+              </div>
               <div class="form-row">
                 <label>Preset</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <select id="prop-brush-preset" style="flex: 1;">
-                    <option value="custom">-- Custom Settings --</option>
-                    <option value="default">Solid Vector (Default)</option>
-                    <optgroup label="Pencils &amp; Sketching">
-                      <option value="pencil">HB Graphite Pencil</option>
-                      <option value="soft_pencil">6B Soft Graphite</option>
-                      <option value="mech_pencil">0.5mm Mechanical</option>
-                      <option value="blue_pencil">Blue Col-Erase</option>
-                      <option value="tech_pen">Technical Drafting Pen</option>
-                    </optgroup>
-                    <optgroup label="Inkers &amp; Line Art">
-                      <option value="inker">Studio Inker</option>
-                      <option value="gpen">Manga G-Pen</option>
-                      <option value="dry_ink">Dry Ink Bristle</option>
-                      <option value="fountain">Calligraphy Chisel</option>
-                      <option value="brush_pen">Sumi-e Brush Pen</option>
-                    </optgroup>
-                    <optgroup label="Markers &amp; Lettering">
-                      <option value="marker">Art Chisel Marker</option>
-                      <option value="brush_marker">Flexible Brush Marker</option>
-                      <option value="highlighter">Highlighter</option>
-                    </optgroup>
-                    <optgroup label="Paint &amp; Wet Media">
-                      <option value="oil">Oil Impasto (Wet)</option>
-                      <option value="acrylic">Wet Acrylic</option>
-                      <option value="watercolor">Watercolor Wash</option>
-                      <option value="gouache">Matte Gouache</option>
-                      <option value="palette_knife">Palette Knife</option>
-                    </optgroup>
-                    <optgroup label="Charcoal &amp; Pastels">
-                      <option value="charcoal">Vine Dusty Charcoal</option>
-                      <option value="hard_charcoal">Compressed Charcoal</option>
-                      <option value="pastel">Chalk Pastel</option>
-                      <option value="conte">Conté Crayon</option>
-                    </optgroup>
-                    <optgroup label="Airbrush &amp; Sprays">
-                      <option value="airbrush">Soft Airbrush</option>
-                      <option value="hard_airbrush">Flow Airbrush</option>
-                      <option value="spray">Aerosol Splatter Spray</option>
-                    </optgroup>
-                    <optgroup label="Blenders &amp; Smudgers">
-                      <option value="smudge">Finger Smudge</option>
-                      <option value="blend">Paint Blender</option>
-                      <option value="rake_blend">Bristle Smear</option>
-                    </optgroup>
-                    <optgroup label="Special FX">
-                      <option value="pixel">Pixel 1px Pencil</option>
-                      <option value="halftone">Manga Screentone</option>
-                      <option value="crosshatch">Crosshatch Texture</option>
-                    </optgroup>
-                    <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
-                  </select>
-                  <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
-                </div>
+                <select id="prop-mypaint-brush-select" style="flex: 1;"></select>
               </div>
               <div class="form-row">
-                <label>Flow %</label>
-                <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
+                <label>Pressure</label>
+                <input type="number" id="prop-mypaint-brush-pressure" min="0.1" max="2.0" step="0.05" value="0.8">
               </div>
-              <div class="form-row">
-                <label>Hardness %</label>
-                <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
-              </div>
-              <div class="form-row">
-                <label>Spacing %</label>
-                <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
-              </div>
-              <div class="form-row">
-                <label>Scatter</label>
-                <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Roundness %</label>
-                <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
-              </div>
-              <div class="form-row">
-                <label>Angle °</label>
-                <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Dab Shape</label>
-                <select id="prop-brush-shape">
-                  <option value="0">Round</option>
-                  <option value="1">Square</option>
-                  <option value="2">Ellipse</option>
-                  <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Dab Blend</label>
-                <select id="prop-brush-dab-blend">
-                  <option value="0">Normal (Direct)</option>
-                  <option value="1">Smudge</option>
-                  <option value="2">Wet / Glaze</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Auto-Rotate</label>
-                <select id="prop-brush-autorotate">
-                  <option value="0">Fixed Angle</option>
-                  <option value="1">Follow Stroke Direction</option>
-                </select>
-              </div>
-
-              <div class="section-header" style="margin-top: 6px;">Taper &amp; Jitters</div>
-              <div class="form-row">
-                <label>Taper In / Out</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
-                  <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Size Jitter %</label>
-                <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Angle Jitter %</label>
-                <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Opacity Jitter</label>
-                <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
-              </div>
-
-              <div class="section-header" style="margin-top: 6px;">Wet Media &amp; Smudge</div>
-              <div class="form-row">
-                <label>Wetness %</label>
-                <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Color Pickup</label>
-                <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Depletion %</label>
-                <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Smudge %</label>
-                <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+              <div class="form-row" style="margin-top: 8px;">
+                <a href="brush_studio.html" target="_blank" class="btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; text-decoration: none; padding: 6px 8px; background: var(--primary-dim); color: var(--primary); border: 1px solid var(--primary); border-radius: var(--radius-sm); font-weight: 600; font-size: 11px;">🎨 Open Brush Studio ↗</a>
               </div>
             </div>
           </div>
@@ -2220,7 +2048,8 @@
 
       <div id="stage-wrapper">
         <canvas id="quadro-canvas"></canvas>
-        <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
+        <canvas id="mypaint-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 2;"></canvas>
+        <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible" style="position: relative; z-index: 1;"></svg>
       </div>
       <canvas id="overlay-canvas"></canvas>
 
@@ -3021,6 +2850,82 @@
       const doc = new SvgDocument(800, 600);
       window.doc = doc;
       let quadroRenderer = null;
+      let mypaintBridge = null;
+      let mypaintEngine = null;
+      let mypaintBrushHandle = null;
+      let mypaintSurfacePtr = 0;
+      let mypaintSurfaceSize = 0;
+      let mypaintManifest = null;
+      let currentSelectedBrush = 'deevad/2B_pencil.myb';
+      let currentSelectedFillBrush = 'deevad/watercolor.myb';
+      const brushJsonCache = new Map();
+      let isBrushPainting = false;
+      let brushLastTime = 0;
+      let currentBrushTrajectory = [];
+
+      async function getBrushJson(filePath) {
+        if (!filePath || filePath === 'none' || filePath === 'solid') {
+          return null;
+        }
+        if (filePath === 'round' || filePath === 'rounded') {
+          filePath = 'classic/rounded.myb';
+        } else if (filePath === 'default' || filePath === 'custom') {
+          filePath = 'deevad/2B_pencil.myb';
+        } else if (!filePath.includes('/')) {
+          filePath = `classic/${filePath}`;
+        }
+        filePath = filePath.replace(/#/g, '_');
+        if (!filePath.endsWith('.myb')) {
+          filePath += '.myb';
+        }
+        if (brushJsonCache.has(filePath)) return brushJsonCache.get(filePath);
+        try {
+          const res = await fetch(encodeURI(`brushes/mypaint-brushes/brushes/${filePath}`));
+          if (!res.ok) {
+            brushJsonCache.set(filePath, null);
+            return null;
+          }
+          const json = await res.json();
+          brushJsonCache.set(filePath, json);
+          return json;
+        } catch (err) {
+          console.warn('Failed loading brush json:', filePath, err);
+          brushJsonCache.set(filePath, null);
+          return null;
+        }
+      }
+
+      let mypaintReusableImgData = null;
+
+      function ensureMyPaintSurface(w, h) {
+        if (!mypaintEngine || !mypaintEngine.loaded) return;
+        const reqBytes = w * h * 4;
+        if (!mypaintSurfacePtr || mypaintSurfaceSize < reqBytes) {
+          if (mypaintSurfacePtr) mypaintEngine.free(mypaintSurfacePtr);
+          mypaintSurfacePtr = mypaintEngine.alloc(reqBytes);
+          mypaintSurfaceSize = reqBytes;
+        }
+        const mypaintCanvas = document.getElementById('mypaint-canvas');
+        if (mypaintCanvas) {
+          if (mypaintCanvas.width !== w) mypaintCanvas.width = w;
+          if (mypaintCanvas.height !== h) mypaintCanvas.height = h;
+          if (!mypaintReusableImgData || mypaintReusableImgData.width !== w || mypaintReusableImgData.height !== h) {
+            mypaintReusableImgData = mypaintCanvas.getContext('2d').createImageData(w, h);
+          }
+        }
+      }
+
+      function blitMyPaintCanvas(w, h) {
+        const mypaintCanvas = document.getElementById('mypaint-canvas');
+        if (!mypaintCanvas || !mypaintEngine || !mypaintEngine.loaded || !mypaintSurfacePtr) return;
+        const ctx = mypaintCanvas.getContext('2d');
+        if (!mypaintReusableImgData || mypaintReusableImgData.width !== w || mypaintReusableImgData.height !== h) {
+          mypaintReusableImgData = ctx.createImageData(w, h);
+        }
+        const mem8 = new Uint8ClampedArray(mypaintEngine.module.HEAPU8.buffer, mypaintSurfacePtr, w * h * 4);
+        mypaintReusableImgData.data.set(mem8);
+        ctx.putImageData(mypaintReusableImgData, 0, 0);
+      }
 
       // ── Viewport State ──
       let zoom = 1.0;
@@ -3520,6 +3425,14 @@
         quadroCanvas.style.width = `${doc.width}px`;
         quadroCanvas.style.height = `${doc.height}px`;
 
+        const mypaintCanvas = document.getElementById('mypaint-canvas');
+        if (mypaintCanvas) {
+          mypaintCanvas.width = doc.width;
+          mypaintCanvas.height = doc.height;
+          mypaintCanvas.style.width = `${doc.width}px`;
+          mypaintCanvas.style.height = `${doc.height}px`;
+        }
+
         applyViewportTransform();
       }
 
@@ -3578,6 +3491,141 @@
         return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
       }
 
+      // ── Official libmypaint Layer Rasterizer ──
+      async function renderMyPaintLayer() {
+        const mypaintCanvas = document.getElementById('mypaint-canvas');
+        if (!mypaintCanvas || !mypaintEngine || !mypaintEngine.loaded || isBrushPainting) return;
+
+        const w = doc.width;
+        const h = doc.height;
+        ensureMyPaintSurface(w, h);
+
+        const mem32 = new Uint32Array(mypaintEngine.module.HEAPU8.buffer, mypaintSurfacePtr, w * h);
+        mem32.fill(0x00000000);
+
+        const hasMyPaint = doc.objects.some(o => 
+          (o.brushConfig && (o.brushConfig.brush || o.brushConfig.preset || o.brushConfig.enabled)) ||
+          (o.fillBrushConfig && o.fillBrushConfig.enabled)
+        );
+
+        if (!hasMyPaint && !isBrushPainting) {
+          const ctx = mypaintCanvas.getContext('2d');
+          ctx.clearRect(0, 0, w, h);
+          return;
+        }
+
+        for (const obj of doc.objects) {
+          if (!obj.visible) continue;
+
+          // 1. Masked Brush Fill
+          if (obj.fillBrushConfig && obj.fillBrushConfig.enabled) {
+            const fb = obj.fillBrushConfig;
+            const brushPath = fb.brush || 'deevad/watercolor.myb';
+            const json = await getBrushJson(brushPath);
+            if (json) {
+              mypaintEngine.loadBrushData(mypaintBrushHandle, json);
+              mypaintEngine.setBrushColorHex(mypaintBrushHandle, obj.fill || '#fabd2f');
+              mypaintEngine.resetBrush(mypaintBrushHandle);
+
+              const fillSize = fb.size || 20;
+              mypaintEngine.setBaseValue(mypaintBrushHandle, 'radius_logarithmic', Math.log(fillSize / 2));
+
+              const bounds = obj.getBounds();
+              const pattern = fb.pattern || 'wash';
+
+              if (pattern === 'wash') {
+                const stepY = Math.max(8, fillSize * 0.75);
+                let dir = 1;
+                for (let y = bounds.minY + 5; y <= bounds.maxY - 5; y += stepY) {
+                  const startX = dir > 0 ? bounds.minX + 5 : bounds.maxX - 5;
+                  const endX = dir > 0 ? bounds.maxX - 5 : bounds.minX + 5;
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, startX, y, 0.0, 0, 0, 10.0);
+                  const steps = Math.max(4, Math.round(bounds.width / (fillSize * 0.4)));
+                  for (let s = 0; s <= steps; s++) {
+                    const sx = startX + (endX - startX) * (s / steps);
+                    mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, sx, y, 0.85, 0, 0, 0.016);
+                  }
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, endX, y, 0.0, 0, 0, 0.016);
+                  dir = -dir;
+                }
+              } else if (pattern === 'crosshatch') {
+                const step = Math.max(10, fillSize * 0.9);
+                for (let x = bounds.minX - bounds.height; x <= bounds.maxX; x += step) {
+                  const x1 = Math.max(bounds.minX, x);
+                  const y1 = bounds.minY;
+                  const x2 = Math.min(bounds.maxX, x + bounds.height);
+                  const y2 = bounds.maxY;
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, x1, y1, 0.0, 0, 0, 10.0);
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, x2, y2, 0.75, 0, 0, 0.016);
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, x2, y2, 0.0, 0, 0, 0.016);
+                }
+              } else if (pattern === 'stipple') {
+                const count = Math.round((bounds.width * bounds.height) / (fillSize * fillSize * 1.5));
+                for (let i = 0; i < count; i++) {
+                  const rx = bounds.minX + Math.random() * bounds.width;
+                  const ry = bounds.minY + Math.random() * bounds.height;
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, rx, ry, 0.0, 0, 0, 10.0);
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, rx, ry, 0.6 + Math.random() * 0.3, 0, 0, 0.016);
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, rx, ry, 0.0, 0, 0, 0.016);
+                }
+              }
+            }
+          }
+
+          // 2. Organic Brush Stroke
+          if (obj.brushConfig && (obj.brushConfig.brush || obj.brushConfig.preset || obj.brushConfig.enabled)) {
+            const bc = obj.brushConfig;
+            const brushPath = bc.brush || bc.preset || 'deevad/2B_pencil.myb';
+            if (brushPath === 'none' || brushPath === 'solid') {
+              continue;
+            }
+            const json = await getBrushJson(brushPath);
+            if (json) {
+              mypaintEngine.loadBrushData(mypaintBrushHandle, json);
+              mypaintEngine.setBrushColorHex(mypaintBrushHandle, obj.stroke || '#fabd2f');
+              mypaintEngine.resetBrush(mypaintBrushHandle);
+
+              if (bc.radius_logarithmic !== undefined) {
+                mypaintEngine.setBaseValue(mypaintBrushHandle, 'radius_logarithmic', bc.radius_logarithmic);
+              }
+
+              const press = bc.pressure !== undefined ? bc.pressure : 0.8;
+
+              if (obj.strokePoints && obj.strokePoints.length > 0) {
+                const pts = obj.strokePoints;
+                mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, pts[0].x, pts[0].y, 0.0, 0, 0, 10.0);
+                for (let i = 0; i < pts.length; i++) {
+                  const p = pts[i];
+                  const dt = (i > 0 && pts[i - 1].time && p.time)
+                    ? Math.max(0.001, (p.time - pts[i - 1].time) / 1000)
+                    : 0.016;
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, p.x, p.y, p.pressure || press, p.tiltX || 0, p.tiltY || 0, dt);
+                }
+                mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, pts[pts.length - 1].x, pts[pts.length - 1].y, 0.0, 0, 0, 0.016);
+              } else if (obj.toPolyline) {
+                const poly = obj.toPolyline(0.4);
+                if (poly && poly.length >= 2) {
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, poly[0].x, poly[0].y, 0.0, 0, 0, 10.0);
+                  for (let i = 0; i < poly.length; i++) {
+                    const p = poly[i];
+                    mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, p.x, p.y, press, 0, 0, 0.016);
+                  }
+                  if (obj.closed) {
+                    mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, poly[0].x, poly[0].y, press, 0, 0, 0.016);
+                  }
+                  mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, w, h, poly[poly.length - 1].x, poly[poly.length - 1].y, 0.0, 0, 0, 0.016);
+                }
+              }
+            }
+          }
+        }
+
+        if (mypaintEngine && mypaintEngine.clearClipMask) {
+          mypaintEngine.clearClipMask();
+        }
+        blitMyPaintCanvas(w, h);
+      }
+
       // ── Render Loop ──
       function render() {
         // 1. Render Scene (Real-time Quadro WASM or Direct SVG)
@@ -3598,6 +3646,9 @@
           renderSvgStage();
         }
 
+        // Render authentic MyPaint layer
+        renderMyPaintLayer();
+
         // 2. Draw Interactive Overlay (Gizmos, Nodes, Handles)
         drawOverlay();
 
@@ -3615,6 +3666,13 @@
         const match = fullSvg.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
         if (match && match[1]) {
           svgStage.innerHTML = match[1];
+          // Hide duplicate flat SVG strokes and fills when MyPaint organic layer is applied
+          svgStage.querySelectorAll('[data-brush]').forEach(el => {
+            el.setAttribute('stroke', 'none');
+          });
+          svgStage.querySelectorAll('[data-fill-brush]').forEach(el => {
+            el.setAttribute('fill', 'none');
+          });
         } else {
           svgStage.innerHTML = '';
         }
@@ -4524,47 +4582,7 @@
         }
       }
 
-      const BRUSH_PRESET_CONFIGS = {
-        default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        pencil: { hardness: 70, flow: 85, spacing: 5, scatter: 2, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 35, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        soft_pencil: { hardness: 45, flow: 80, spacing: 6, scatter: 4, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        mech_pencil: { hardness: 90, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        blue_pencil: { hardness: 60, flow: 65, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        tech_pen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
 
-        inker: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 20, taper_out: 30, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        gpen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 15, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        dry_ink: { hardness: 70, flow: 90, spacing: 7, scatter: 5, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 10, angle_jitter: 15, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        fountain: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 0, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        brush_pen: { hardness: 85, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 35, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-
-        marker: { hardness: 90, flow: 85, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        brush_marker: { hardness: 80, flow: 85, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 10, taper_out: 15, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        highlighter: { hardness: 100, flow: 70, spacing: 5, scatter: 0, roundness: 20, angle: 90, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-
-        oil: { hardness: 80, flow: 95, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 60, color_pickup: 65, depletion: 35, smudge: 0 },
-        acrylic: { hardness: 85, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 40, color_pickup: 40, depletion: 20, smudge: 0 },
-        watercolor: { hardness: 20, flow: 40, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 85, color_pickup: 30, depletion: 50, smudge: 0 },
-        gouache: { hardness: 85, flow: 90, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 35, color_pickup: 30, depletion: 25, smudge: 0 },
-        palette_knife: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 25, angle: 0, dabBlend: 2, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 70, color_pickup: 70, depletion: 15, smudge: 0 },
-
-        charcoal: { hardness: 45, flow: 75, spacing: 10, scatter: 18, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 12, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        hard_charcoal: { hardness: 75, flow: 90, spacing: 6, scatter: 6, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 45, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        pastel: { hardness: 60, flow: 85, spacing: 8, scatter: 8, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        conte: { hardness: 80, flow: 80, spacing: 6, scatter: 0, roundness: 100, angle: 30, dabBlend: 0, shape: 1, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-
-        airbrush: { hardness: 0, flow: 25, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        hard_airbrush: { hardness: 20, flow: 40, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        spray: { hardness: 60, flow: 50, spacing: 20, scatter: 55, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 40, angle_jitter: 0, opacity_jitter: 30, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-
-        smudge: { hardness: 35, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 80 },
-        blend: { hardness: 50, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 80, color_pickup: 60, depletion: 0, smudge: 0 },
-        rake_blend: { hardness: 60, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 0, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 75 },
-
-        pixel: { hardness: 100, flow: 100, spacing: 100, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        halftone: { hardness: 90, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        crosshatch: { hardness: 85, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 }
-      };
 
       // ── Inspector UI Sync ──
       function updateInspector() {
@@ -4853,6 +4871,31 @@
         document.getElementById('prop-fill-tex-contrast').value = ft.contrast !== undefined ? ft.contrast : 100;
         document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
 
+        // MyPaint Masked Fill Brush
+        const fb = obj.fillBrushConfig || {};
+        const fillBrushEnableCheck = document.getElementById('prop-fill-brush-enable');
+        const fillBrushControls = document.getElementById('fill-brush-controls');
+        const fillBrushPackSel = document.getElementById('prop-fill-brush-pack');
+        const fillBrushSel = document.getElementById('prop-fill-brush-select');
+        const fillBrushPatternSel = document.getElementById('prop-fill-brush-pattern');
+        const fillBrushSizeInput = document.getElementById('prop-fill-brush-size');
+
+        const isFillBrushOn = !!fb.enabled;
+        if (fillBrushEnableCheck) fillBrushEnableCheck.checked = isFillBrushOn;
+        if (fillBrushControls) fillBrushControls.style.display = isFillBrushOn ? 'flex' : 'none';
+        if (fillBrushSel && fb.brush) {
+          const rawBrush = (fb.brush || '').replace(/#/g, '_');
+          const parts = rawBrush.split('/');
+          if (parts.length === 2 && fillBrushPackSel) {
+            fillBrushPackSel.value = parts[0];
+            populateBrushOptions('prop-fill-brush-select', parts[0], rawBrush);
+          } else {
+            fillBrushSel.value = rawBrush;
+          }
+        }
+        if (fillBrushPatternSel) fillBrushPatternSel.value = fb.pattern || 'wash';
+        if (fillBrushSizeInput) fillBrushSizeInput.value = fb.size !== undefined ? fb.size : 20;
+
         // Custom Tip Shapes
         const grpCustomTipShapes = document.getElementById('grp-custom-tip-shapes');
         if (grpCustomTipShapes && typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTipShapes) {
@@ -4881,24 +4924,23 @@
         }
 
         const bc = obj.brushConfig || {};
-        document.getElementById('prop-brush-flow').value = bc.flow !== undefined ? bc.flow : 100;
-        document.getElementById('prop-brush-hardness').value = bc.hardness !== undefined ? bc.hardness : 100;
-        document.getElementById('prop-brush-spacing').value = bc.spacing !== undefined ? bc.spacing : 5;
-        document.getElementById('prop-brush-scatter').value = bc.scatter !== undefined ? bc.scatter : 0;
-        document.getElementById('prop-brush-roundness').value = bc.roundness !== undefined ? bc.roundness : 100;
-        document.getElementById('prop-brush-angle').value = bc.angle !== undefined ? bc.angle : 0;
-        document.getElementById('prop-brush-shape').value = bc.shape !== undefined ? bc.shape : 0;
-        document.getElementById('prop-brush-dab-blend').value = bc.dabBlend !== undefined ? bc.dabBlend : 0;
-        document.getElementById('prop-brush-autorotate').value = bc.auto_rotate ? 1 : 0;
-        document.getElementById('prop-brush-taper-in').value = bc.taper_in !== undefined ? bc.taper_in : 0;
-        document.getElementById('prop-brush-taper-out').value = bc.taper_out !== undefined ? bc.taper_out : 0;
-        document.getElementById('prop-brush-size-jitter').value = bc.size_jitter !== undefined ? bc.size_jitter : 0;
-        document.getElementById('prop-brush-angle-jitter').value = bc.angle_jitter !== undefined ? bc.angle_jitter : 0;
-        document.getElementById('prop-brush-opacity-jitter').value = bc.opacity_jitter !== undefined ? bc.opacity_jitter : 0;
-        document.getElementById('prop-brush-wetness').value = bc.wetness !== undefined ? bc.wetness : 0;
-        document.getElementById('prop-brush-color-pickup').value = bc.color_pickup !== undefined ? bc.color_pickup : 0;
-        document.getElementById('prop-brush-depletion').value = bc.depletion !== undefined ? bc.depletion : 0;
-        document.getElementById('prop-brush-smudge').value = bc.smudge !== undefined ? bc.smudge : 0;
+        // Official libmypaint Stroke Brush sync
+        const mypaintPackSel = document.getElementById('prop-mypaint-brush-pack');
+        const mypaintBrushSel = document.getElementById('prop-mypaint-brush-select');
+        const mypaintPressInput = document.getElementById('prop-mypaint-brush-pressure');
+        if (mypaintBrushSel && (bc.brush || bc.preset)) {
+          const rawBrush = (bc.brush || bc.preset || '').replace(/#/g, '_');
+          const parts = rawBrush.split('/');
+          if (parts.length === 2 && mypaintPackSel) {
+            mypaintPackSel.value = parts[0];
+            populateBrushOptions('prop-mypaint-brush-select', parts[0], rawBrush);
+          } else {
+            mypaintBrushSel.value = rawBrush;
+          }
+        }
+        if (mypaintPressInput) {
+          mypaintPressInput.value = bc.pressure !== undefined ? bc.pressure : 0.8;
+        }
 
         // Stroke Texture
         const st = obj.strokeTexture || {};
@@ -5333,6 +5375,9 @@
           });
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
+          isDragging = true;
+          dragStartX = pt.x;
+          dragStartY = pt.y;
         } else if (activeTool === 'ellipse') {
           currentDraftObj = new SvgEllipse({
             cx: pt.x, cy: pt.y, rx: 1, ry: 1,
@@ -5342,6 +5387,9 @@
           });
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
+          isDragging = true;
+          dragStartX = pt.x;
+          dragStartY = pt.y;
         } else if (activeTool === 'line') {
           currentDraftObj = new SvgLine({
             x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y,
@@ -5350,15 +5398,63 @@
           });
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
+          isDragging = true;
+          dragStartX = pt.x;
+          dragStartY = pt.y;
         } else if (activeTool === 'brush') {
+          const selBrush = document.getElementById('prop-mypaint-brush-select')?.value || currentSelectedBrush || 'deevad/2B_pencil.myb';
+          const pressVal = parseFloat(document.getElementById('prop-mypaint-brush-pressure')?.value) || 0.8;
+          const strokeCol = document.getElementById('prop-stroke-text')?.value || '#fabd2f';
+          const strokeW = Number(document.getElementById('prop-stroke-width')?.value) || 3;
+
+          isBrushPainting = true;
+          isDragging = true;
+          dragStartX = pt.x;
+          dragStartY = pt.y;
+          brushLastTime = performance.now();
+          const pVal = (e.pressure && e.pressure > 0) ? e.pressure : pressVal;
+          currentBrushTrajectory = [{ x: pt.x, y: pt.y, pressure: pVal, time: brushLastTime }];
+
           currentDraftObj = new SvgPath({
             fill: 'none',
-            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
-            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 3
+            stroke: strokeCol,
+            strokeWidth: strokeW,
+            brushConfig: {
+              enabled: true,
+              brush: selBrush,
+              preset: selBrush,
+              pressure: pVal
+            }
           });
+          currentDraftObj.strokePoints = currentBrushTrajectory;
           currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
-          doc.addObject(currentDraftObj);
-          doc.select(currentDraftObj.id);
+
+          if (mypaintEngine && mypaintEngine.loaded && mypaintBrushHandle) {
+            ensureMyPaintSurface(doc.width, doc.height);
+            const startStroke = (json) => {
+              if (json) {
+                mypaintEngine.loadBrushData(mypaintBrushHandle, json);
+              }
+              mypaintEngine.setBrushColorHex(mypaintBrushHandle, strokeCol);
+              mypaintEngine.resetBrush(mypaintBrushHandle);
+              if (strokeW > 1) {
+                const baseRadLog = Math.log(Math.max(0.5, strokeW / 2));
+                mypaintEngine.setBaseValue(mypaintBrushHandle, 'radius_logarithmic', baseRadLog);
+              }
+              mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, doc.width, doc.height, pt.x, pt.y, 0.0, 0, 0, 10.0);
+              mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, doc.width, doc.height, pt.x, pt.y, pVal, e.tiltX || 0, e.tiltY || 0, 0.016);
+              blitMyPaintCanvas(doc.width, doc.height);
+            };
+
+            const cached = brushJsonCache.get(selBrush);
+            if (cached) {
+              startStroke(cached);
+            } else {
+              getBrushJson(selBrush).then(json => {
+                if (isBrushPainting) startStroke(json);
+              });
+            }
+          }
         } else if (activeTool === 'text') {
           const textVal = prompt('Enter text for vector typography:', 'Wesenho Vector');
           if (textVal) {
@@ -5413,7 +5509,7 @@
           return;
         }
 
-        if (!isDragging) {
+        if (!isDragging && !isBrushPainting) {
           if (activeTool === 'pen') {
             drawOverlay();
           } else if (activeTool === 'select') {
@@ -5851,11 +5947,22 @@
           currentDraftObj.x2 = pt.x;
           currentDraftObj.y2 = pt.y;
           render();
-        } else if (activeTool === 'brush' && currentDraftObj) {
+        } else if (activeTool === 'brush' && currentDraftObj && isBrushPainting) {
+          const pressVal = (e.pressure && e.pressure > 0) ? e.pressure : (currentDraftObj.brushConfig?.pressure || 0.8);
+          const now = performance.now();
+          const dt = Math.max(0.001, (now - brushLastTime) / 1000);
+          brushLastTime = now;
+
+          currentBrushTrajectory.push({ x: pt.x, y: pt.y, pressure: pressVal, time: now });
+
           const last = currentDraftObj.nodes[currentDraftObj.nodes.length - 1];
-          if (Math.hypot(pt.x - last.x, pt.y - last.y) > 6) {
+          if (Math.hypot(pt.x - last.x, pt.y - last.y) > 4) {
             currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
-            render();
+          }
+
+          if (mypaintEngine && mypaintEngine.loaded && mypaintBrushHandle) {
+            mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, doc.width, doc.height, pt.x, pt.y, pressVal, e.tiltX || 0, e.tiltY || 0, dt);
+            blitMyPaintCanvas(doc.width, doc.height);
           }
         }
       });
@@ -5922,6 +6029,28 @@
           updateInspector();
           updateObjectList();
           drawOverlay();
+        }
+
+        if (isBrushPainting) {
+          isBrushPainting = false;
+          isDragging = false;
+          if (mypaintEngine && mypaintEngine.loaded && mypaintBrushHandle && currentBrushTrajectory.length > 0) {
+            const last = currentBrushTrajectory[currentBrushTrajectory.length - 1];
+            mypaintEngine.strokeTo(mypaintBrushHandle, mypaintSurfacePtr, doc.width, doc.height, last.x, last.y, 0.0, 0, 0, 0.016);
+            blitMyPaintCanvas(doc.width, doc.height);
+          }
+          if (currentDraftObj) {
+            currentDraftObj.strokePoints = [...currentBrushTrajectory];
+            doc.addObject(currentDraftObj, false);
+          }
+          currentDraftObj = null;
+          currentBrushTrajectory = [];
+          doc.pushHistory('Brush Stroke');
+          render();
+          updateInspector();
+          updateObjectList();
+          scheduleAutosave();
+          return;
         }
 
         if (isDragging) {
@@ -6806,99 +6935,168 @@
         });
       });
 
-      // Brush Preset Binding
-      document.getElementById('prop-brush-preset')?.addEventListener('change', (e) => {
-        const val = e.target.value;
-        let preset = BRUSH_PRESET_CONFIGS[val];
-        if (!preset && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) {
-          const custom = EsenhoStore.getCustomBrushPresets();
-          preset = custom[val];
-        }
-        if (preset) {
-          const selected = doc.getSelectedObjects();
-          for (const obj of selected) {
-            if (!obj.brushConfig) obj.brushConfig = {};
-            Object.assign(obj.brushConfig, preset);
-          }
-          updateInspector();
-          render();
-        }
-      });
-
-      document.getElementById('btn-save-brush-preset')?.addEventListener('click', () => {
-        const selected = doc.getSelectedObjects();
-        const obj = selected[0];
-        const bc = obj ? (obj.brushConfig || {}) : {};
-        const name = window.prompt('Enter name for custom brush preset:');
-        if (name && name.trim()) {
-          const configToSave = {
-            name: name.trim(),
-            desc: 'Custom brush preset',
-            flow: bc.flow !== undefined ? bc.flow : Number(document.getElementById('prop-brush-flow')?.value || 100),
-            hardness: bc.hardness !== undefined ? bc.hardness : Number(document.getElementById('prop-brush-hardness')?.value || 100),
-            spacing: bc.spacing !== undefined ? bc.spacing : Number(document.getElementById('prop-brush-spacing')?.value || 5),
-            scatter: bc.scatter !== undefined ? bc.scatter : Number(document.getElementById('prop-brush-scatter')?.value || 0),
-            roundness: bc.roundness !== undefined ? bc.roundness : Number(document.getElementById('prop-brush-roundness')?.value || 100),
-            angle: bc.angle !== undefined ? bc.angle : Number(document.getElementById('prop-brush-angle')?.value || 0),
-            shape: bc.shape !== undefined ? bc.shape : Number(document.getElementById('prop-brush-shape')?.value || 0),
-            dabBlend: bc.dabBlend !== undefined ? bc.dabBlend : Number(document.getElementById('prop-brush-dab-blend')?.value || 0),
-            auto_rotate: bc.auto_rotate !== undefined ? bc.auto_rotate : Number(document.getElementById('prop-brush-autorotate')?.value || 0),
-            taper_in: bc.taper_in !== undefined ? bc.taper_in : Number(document.getElementById('prop-brush-taper-in')?.value || 0),
-            taper_out: bc.taper_out !== undefined ? bc.taper_out : Number(document.getElementById('prop-brush-taper-out')?.value || 0),
-            size_jitter: bc.size_jitter !== undefined ? bc.size_jitter : Number(document.getElementById('prop-brush-size-jitter')?.value || 0),
-            angle_jitter: bc.angle_jitter !== undefined ? bc.angle_jitter : Number(document.getElementById('prop-brush-angle-jitter')?.value || 0),
-            opacity_jitter: bc.opacity_jitter !== undefined ? bc.opacity_jitter : Number(document.getElementById('prop-brush-opacity-jitter')?.value || 0),
-            wetness: bc.wetness !== undefined ? bc.wetness : Number(document.getElementById('prop-brush-wetness')?.value || 0),
-            color_pickup: bc.color_pickup !== undefined ? bc.color_pickup : Number(document.getElementById('prop-brush-color-pickup')?.value || 0),
-            depletion: bc.depletion !== undefined ? bc.depletion : Number(document.getElementById('prop-brush-depletion')?.value || 0),
-            smudge: bc.smudge !== undefined ? bc.smudge : Number(document.getElementById('prop-brush-smudge')?.value || 0)
-          };
-          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
-            EsenhoStore.saveCustomBrushPreset(name, configToSave);
-            showNotification(`Brush preset "${name.trim()}" saved`);
-            updateInspector();
-          }
-        }
-      });
-
-      // Brush Dynamics Sliders & Controls
-      const brushParamMap = {
-        flow: 'flow',
-        hardness: 'hardness',
-        spacing: 'spacing',
-        scatter: 'scatter',
-        roundness: 'roundness',
-        angle: 'angle',
-        shape: 'shape',
-        'dab-blend': 'dabBlend',
-        autorotate: 'auto_rotate',
-        'taper-in': 'taper_in',
-        'taper-out': 'taper_out',
-        'size-jitter': 'size_jitter',
-        'angle-jitter': 'angle_jitter',
-        'opacity-jitter': 'opacity_jitter',
-        wetness: 'wetness',
-        'color-pickup': 'color_pickup',
-        depletion: 'depletion',
-        smudge: 'smudge'
-      };
-
-      Object.entries(brushParamMap).forEach(([elSuffix, configKey]) => {
-        const id = `prop-brush-${elSuffix}`;
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {
-          const rawVal = e.target.value;
-          const val = (configKey === 'shape' && isNaN(Number(rawVal))) ? rawVal : Number(rawVal);
-          const selected = doc.getSelectedObjects();
-          for (const obj of selected) {
-            if (!obj.brushConfig) obj.brushConfig = {};
-            obj.brushConfig[configKey] = val;
-          }
-          document.getElementById('prop-brush-preset').value = 'custom';
-          render();
+      // ── Official libmypaint Brush Manifest & Selectors ──
+      function populateBrushOptions(selectId, pack, selectedValue) {
+        const select = document.getElementById(selectId);
+        if (!select || !mypaintManifest || !mypaintManifest[pack]) return;
+        select.innerHTML = '';
+        mypaintManifest[pack].forEach(b => {
+          const opt = document.createElement('option');
+          const cleanFile = (b.file || '').replace(/#/g, '_');
+          opt.value = cleanFile;
+          opt.textContent = b.name || cleanFile;
+          if (cleanFile === selectedValue || b.file === selectedValue) opt.selected = true;
+          select.appendChild(opt);
         });
+      }
+
+      function populateMypaintManifestSelectors() {
+        if (!mypaintManifest) return;
+        const packs = Object.keys(mypaintManifest);
+        ['prop-mypaint-brush-pack', 'prop-fill-brush-pack'].forEach(id => {
+          const sel = document.getElementById(id);
+          if (!sel) return;
+          sel.innerHTML = '';
+          packs.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p.toUpperCase();
+            sel.appendChild(opt);
+          });
+        });
+
+        const defaultPack = packs.includes('deevad') ? 'deevad' : (packs[0] || 'classic');
+        const p1 = document.getElementById('prop-mypaint-brush-pack');
+        if (p1) p1.value = defaultPack;
+        populateBrushOptions('prop-mypaint-brush-select', defaultPack, 'deevad/2B_pencil.myb');
+
+        const p2 = document.getElementById('prop-fill-brush-pack');
+        if (p2) p2.value = 'deevad';
+        populateBrushOptions('prop-fill-brush-select', 'deevad', 'deevad/watercolor.myb');
+      }
+
+      document.getElementById('prop-mypaint-brush-pack')?.addEventListener('change', (e) => {
+        const pack = e.target.value;
+        populateBrushOptions('prop-mypaint-brush-select', pack);
+        const sel = document.getElementById('prop-mypaint-brush-select');
+        if (sel && sel.value) {
+          currentSelectedBrush = sel.value;
+          getBrushJson(sel.value).then(json => {
+            if (json && mypaintEngine && mypaintBrushHandle) {
+              mypaintEngine.loadBrushData(mypaintBrushHandle, json);
+              const strokeCol = document.getElementById('prop-stroke-text')?.value || '#fabd2f';
+              mypaintEngine.setBrushColorHex(mypaintBrushHandle, strokeCol);
+            }
+          });
+          if (activeTool === 'select') {
+            const selected = doc.getSelectedObjects();
+            for (const obj of selected) {
+              if (!obj.brushConfig) obj.brushConfig = {};
+              obj.brushConfig.enabled = true;
+              obj.brushConfig.brush = sel.value;
+              obj.brushConfig.preset = sel.value;
+            }
+            render();
+          }
+        }
       });
+
+      document.getElementById('prop-mypaint-brush-select')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        currentSelectedBrush = val;
+        getBrushJson(val).then(json => {
+          if (json && mypaintEngine && mypaintBrushHandle) {
+            mypaintEngine.loadBrushData(mypaintBrushHandle, json);
+            const strokeCol = document.getElementById('prop-stroke-text')?.value || '#fabd2f';
+            mypaintEngine.setBrushColorHex(mypaintBrushHandle, strokeCol);
+          }
+        });
+        if (activeTool === 'select') {
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.brushConfig) obj.brushConfig = {};
+            obj.brushConfig.enabled = true;
+            obj.brushConfig.brush = val;
+            obj.brushConfig.preset = val;
+          }
+          render();
+        }
+      });
+
+      document.getElementById('prop-mypaint-brush-pressure')?.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 0.8;
+        if (activeTool === 'select') {
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.brushConfig) obj.brushConfig = {};
+            obj.brushConfig.pressure = val;
+          }
+          render();
+        }
+      });
+
+      document.getElementById('prop-fill-brush-enable')?.addEventListener('change', (e) => {
+        const isChecked = e.target.checked;
+        const ctrl = document.getElementById('fill-brush-controls');
+        if (ctrl) ctrl.style.display = isChecked ? 'flex' : 'none';
+        const selected = doc.getSelectedObjects();
+        const brush = document.getElementById('prop-fill-brush-select')?.value || currentSelectedFillBrush || 'deevad/watercolor.myb';
+        const pattern = document.getElementById('prop-fill-brush-pattern')?.value || 'wash';
+        const size = parseFloat(document.getElementById('prop-fill-brush-size')?.value) || 20;
+
+        for (const obj of selected) {
+          if (isChecked) {
+            obj.fillBrushConfig = { enabled: true, brush, pattern, size, density: 1.0 };
+          } else {
+            obj.fillBrushConfig = null;
+          }
+        }
+        render();
+      });
+
+      document.getElementById('prop-fill-brush-pack')?.addEventListener('change', (e) => {
+        const pack = e.target.value;
+        populateBrushOptions('prop-fill-brush-select', pack);
+        const sel = document.getElementById('prop-fill-brush-select');
+        if (sel && sel.value) {
+          currentSelectedFillBrush = sel.value;
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (obj.fillBrushConfig) obj.fillBrushConfig.brush = sel.value;
+          }
+          render();
+        }
+      });
+
+      document.getElementById('prop-fill-brush-select')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        currentSelectedFillBrush = val;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillBrushConfig) obj.fillBrushConfig.brush = val;
+        }
+        render();
+      });
+
+      document.getElementById('prop-fill-brush-pattern')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillBrushConfig) obj.fillBrushConfig.pattern = val;
+        }
+        render();
+      });
+
+      document.getElementById('prop-fill-brush-size')?.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 20;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (obj.fillBrushConfig) obj.fillBrushConfig.size = val;
+        }
+        render();
+      });
+
+
 
       // Stroke Texture bindings
       ['mode', 'scale', 'angle', 'contrast', 'grain'].forEach(param => {
@@ -9720,10 +9918,37 @@
           document.title = `${currentProjectTitle} — Wesenho Studio`;
         }
 
+        async function initMyPaint() {
+          try {
+            const bridgeMod = await import('./src/mypaint_bridge.js');
+            mypaintBridge = bridgeMod;
+            mypaintEngine = new bridgeMod.MyPaintEngine();
+            await mypaintEngine.init('plugins/libmypaint.js');
+            mypaintBrushHandle = mypaintEngine.createBrush();
+            ensureMyPaintSurface(doc.width, doc.height);
+
+            const res = await fetch(`brushes/brushes_manifest.json?v=${Date.now()}`);
+            mypaintManifest = await res.json();
+            populateMypaintManifestSelectors();
+            const initialBrush = document.getElementById('prop-mypaint-brush-select')?.value || currentSelectedBrush || 'deevad/2B_pencil.myb';
+            const initialJson = await getBrushJson(initialBrush);
+            if (initialJson && mypaintEngine && mypaintBrushHandle) {
+              mypaintEngine.loadBrushData(mypaintBrushHandle, initialJson);
+              const strokeCol = document.getElementById('prop-stroke-text')?.value || '#fabd2f';
+              mypaintEngine.setBrushColorHex(mypaintBrushHandle, strokeCol);
+            }
+            renderMyPaintLayer();
+            console.log('🎨 Official libmypaint WASM Engine active in Wesenho Studio.');
+          } catch (e) {
+            console.warn('Could not load MyPaint WASM engine or manifest:', e);
+          }
+        }
+
         updateRecentProjectsMenu();
         updateRendererMenuUi();
         initQuadro();
         await initStudioDopeSheet();
+        await initMyPaint();
         updateInspector();
         setTimeout(zoomToFit, 50);
       })();

@@ -695,6 +695,12 @@ enum {
     W_JOIN_BEVEL = 2
 };
 
+typedef struct {
+    float x;
+    float y;
+    uint8_t type; /* 1=move, 2=line, 3=close */
+} w_path_point_t;
+
 W_EXPORT void    w_path_begin(void);
 W_EXPORT void    w_path_move_to(float x, float y);
 W_EXPORT void    w_path_line_to(float x, float y);
@@ -704,6 +710,8 @@ W_EXPORT void    w_path_close(void);
 W_EXPORT int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rule);
 W_EXPORT int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_width, int32_t cap_style, int32_t join_style);
 W_EXPORT int32_t w_path_stroke_brush(int32_t layer_idx, uint32_t color, float base_size);
+W_EXPORT uint32_t w_path_get_count(void);
+W_EXPORT const w_path_point_t* w_path_get_points(void);
 
 /* =========================================================================
  * Native Font & Glyph Engine ABI

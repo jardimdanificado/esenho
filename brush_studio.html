@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wesenho — Brush Studio</title>
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <style>
+    :root {
+      --bg-dark: #121314;
+      --bg-panel: #1a1c1e;
+      --bg-panel-sub: #222528;
+      --bg-input: #101112;
+      --border: #2e3236;
+      --border-bright: #42474d;
+      --primary: #fabd2f;
+      --primary-hover: #fe8019;
+      --accent: #83a598;
+      --text: #ebdbb2;
+      --text-bright: #fbf1c7;
+      --text-muted: #928374;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+      --radius: 6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; font-family: var(--font-sans); }
+    body { background: var(--bg-dark); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 13px; }
+
+    /* Top Navigation Header */
+    header {
+      background: var(--bg-panel);
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; color: var(--text-bright); text-decoration: none; }
+    .brand img { width: 22px; height: 22px; }
+
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .badge { background: #1e252b; color: var(--accent); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-family: var(--font-mono); border: 1px solid rgba(131,165,152,0.2); }
+
+    .btn {
+      background: var(--bg-panel-sub);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+      text-decoration: none;
+    }
+    .btn:hover { background: #2f343a; border-color: var(--border-bright); color: var(--text-bright); }
+    .btn-primary { background: var(--primary); color: #121314; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); color: #121314; }
+
+    /* Workspace */
+    .workspace { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+    /* Left Sidebar: Brush Library */
+    .sidebar-left {
+      width: 280px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .search-input {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      width: 100%;
+      outline: none;
+    }
+    .search-input:focus { border-color: var(--primary); }
+
+    .brush-list-wrap { flex: 1; overflow-y: auto; padding: 6px; display: flex; flex-direction: column; gap: 3px; }
+    .pack-header {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      padding: 8px 6px 3px 6px;
+      letter-spacing: 0.5px;
+    }
+    .brush-card {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: var(--radius);
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: background 0.1s;
+    }
+    .brush-card:hover { background: var(--bg-panel-sub); }
+    .brush-card.active { background: #2a2d30; border-color: var(--primary); }
+    .brush-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: #111;
+      object-fit: contain;
+      border: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .brush-info { flex: 1; min-width: 0; }
+    .brush-name { font-weight: 600; font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-bright); }
+    .brush-meta { font-size: 10px; color: var(--text-muted); }
+
+    /* Center Area: Scratchpad */
+    .center-viewport {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0b0c0d;
+      position: relative;
+      overflow: hidden;
+    }
+    .viewport-toolbar {
+      background: var(--bg-panel);
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .tool-group { display: flex; align-items: center; gap: 8px; }
+
+    .color-swatches { display: flex; gap: 4px; align-items: center; }
+    .swatch {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid var(--border);
+    }
+    .swatch.active { border: 2px solid var(--primary); }
+
+    .canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: #0a0b0c;
+      overflow: hidden;
+    }
+    .studio-canvas {
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: crosshair;
+      touch-action: none;
+      background: #ffffff;
+    }
+
+    /* Right Sidebar: Inspector */
+    .sidebar-right {
+      width: 280px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .inspector-header {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--text-bright);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .inspector-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .prop-section {
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .prop-row { display: flex; flex-direction: column; gap: 4px; }
+    .prop-label-val { display: flex; justify-content: space-between; font-size: 11px; color: var(--text); }
+    .prop-val { font-family: var(--font-mono); color: var(--primary); font-weight: 600; font-size: 10px; }
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--bg-input);
+      border-radius: 2px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <img src="icon.svg" alt="Wesenho">
+      <span>Wesenho <span style="font-weight:400;color:var(--primary);font-size:12px;">Brush Studio</span></span>
+    </div>
+
+    <div class="header-actions">
+      <span class="badge" id="engineStatusBadge">libmypaint v1.6.1 WASM</span>
+      <button class="btn" id="btnExportMyb" title="Export .myb file">💾 Export .myb</button>
+      <a href="studio.html" class="btn btn-primary">← Return to Studio</a>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <div class="workspace">
+    <!-- Left: Brush Catalog -->
+    <aside class="sidebar-left">
+      <div class="sidebar-header">
+        <input type="text" id="brushSearchInput" class="search-input" placeholder="🔍 Search brush...">
+      </div>
+      <div class="brush-list-wrap" id="brushListContainer">
+        <div style="padding:20px;text-align:center;color:var(--text-muted);">Loading brush library...</div>
+      </div>
+    </aside>
+
+    <!-- Center: Scratchpad Canvas -->
+    <main class="center-viewport">
+      <div class="viewport-toolbar">
+        <div class="tool-group">
+          <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;">
+            Color:
+            <input type="color" id="scratchColorPicker" value="#1d2021" style="width:22px;height:22px;border:none;background:transparent;cursor:pointer;">
+          </label>
+          <div class="color-swatches">
+            <div class="swatch active" style="background:#1d2021;" data-color="#1d2021" title="Ink Black"></div>
+            <div class="swatch" style="background:#2563eb;" data-color="#2563eb" title="Cobalt Blue"></div>
+            <div class="swatch" style="background:#dc2626;" data-color="#dc2626" title="Crimson Red"></div>
+            <div class="swatch" style="background:#d97706;" data-color="#d97706" title="Ochre Gold"></div>
+            <div class="swatch" style="background:#059669;" data-color="#059669" title="Emerald Green"></div>
+            <div class="swatch" style="background:#ffffff;" data-color="#ffffff" title="Pure White"></div>
+          </div>
+        </div>
+
+        <div class="tool-group">
+          <span style="font-size:11px;color:var(--text-muted);">Tests:</span>
+          <button class="btn" id="btnTestCurve">〰️ S-Curve</button>
+          <button class="btn" id="btnTestSpiral">🌀 Spiral</button>
+          <button class="btn" id="btnTestHatch">▦ Hatch</button>
+        </div>
+
+        <div class="tool-group">
+          <select id="scratchBgSelect" style="background:var(--bg-panel-sub);color:var(--text);border:1px solid var(--border);padding:4px 8px;border-radius:var(--radius);font-size:11px;">
+            <option value="white">White Canvas</option>
+            <option value="dark">Dark Canvas</option>
+          </select>
+          <button class="btn" id="btnClearScratch">🧹 Clear</button>
+        </div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="scratchCanvas" class="studio-canvas" width="800" height="600"></canvas>
+      </div>
+    </main>
+
+    <!-- Right: Inspector -->
+    <aside class="sidebar-right">
+      <div class="inspector-header">
+        <span id="activeBrushTitle">Active Brush</span>
+        <span class="badge" id="activeBrushPackBadge">OFFICIAL</span>
+      </div>
+
+      <div class="inspector-content">
+        <div class="prop-section">
+          <div class="section-title">📐 Geometry &amp; Radius</div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Radius (Logarithmic)</span>
+              <span class="prop-val" id="val_radius_logarithmic">1.50</span>
+            </div>
+            <input type="range" id="prop_radius_logarithmic" min="-1.5" max="4.5" step="0.05" value="1.5">
+          </div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Hardness</span>
+              <span class="prop-val" id="val_hardness">0.80</span>
+            </div>
+            <input type="range" id="prop_hardness" min="0.0" max="1.0" step="0.01" value="0.8">
+          </div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Dabs Per Radius</span>
+              <span class="prop-val" id="val_dabs_per_basic_radius">1.00</span>
+            </div>
+            <input type="range" id="prop_dabs_per_basic_radius" min="0.0" max="6.0" step="0.1" value="1.0">
+          </div>
+        </div>
+
+        <div class="prop-section">
+          <div class="section-title">💧 Opacity &amp; Dynamics</div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Opacity</span>
+              <span class="prop-val" id="val_opaque">1.00</span>
+            </div>
+            <input type="range" id="prop_opaque" min="0.0" max="1.0" step="0.01" value="1.0">
+          </div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Slow Tracking</span>
+              <span class="prop-val" id="val_slow_tracking">0.00</span>
+            </div>
+            <input type="range" id="prop_slow_tracking" min="0.0" max="10.0" step="0.1" value="0.0">
+          </div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Smudge Length</span>
+              <span class="prop-val" id="val_smudge_length">0.00</span>
+            </div>
+            <input type="range" id="prop_smudge_length" min="0.0" max="1.0" step="0.02" value="0.0">
+          </div>
+          <div class="prop-row">
+            <div class="prop-label-val">
+              <span>Eraser Mode</span>
+              <span class="prop-val" id="val_eraser">0.00</span>
+            </div>
+            <input type="range" id="prop_eraser" min="0.0" max="1.0" step="0.1" value="0.0">
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module">
+    import { MyPaintEngine, MYPAINT_SETTINGS } from "./src/mypaint_bridge.js";
+
+    let engine = null;
+    let currentBrush = null;
+    let surfacePtr = 0;
+    const surfaceW = 800;
+    const surfaceH = 600;
+    let manifestData = null;
+    let currentBrushPath = "classic/2B_pencil.myb";
+    let currentColorHex = "#1d2021";
+    let isDrawing = false;
+    let lastTime = 0;
+
+    const scratchCanvas = document.getElementById("scratchCanvas");
+    const scratchCtx = scratchCanvas.getContext("2d", { willReadFrequently: true });
+
+    async function init() {
+      try {
+        engine = new MyPaintEngine();
+        await engine.init("plugins/libmypaint.js");
+        currentBrush = engine.createBrush();
+        surfacePtr = engine.alloc(surfaceW * surfaceH * 4);
+        resetScratchCanvas();
+
+        const res = await fetch(`brushes/brushes_manifest.json?v=${Date.now()}`);
+        manifestData = await res.json();
+        renderBrushLibrary();
+        await selectBrush(currentBrushPath);
+        setupEvents();
+      } catch (err) {
+        console.error("Failed to init Brush Studio:", err);
+      }
+    }
+
+    function resetScratchCanvas() {
+      if (!engine || !surfacePtr) return;
+      const isDark = document.getElementById("scratchBgSelect").value === "dark";
+      scratchCanvas.style.background = isDark ? "#1a1c1e" : "#ffffff";
+      const mem32 = new Uint32Array(engine.module.HEAPU8.buffer, surfacePtr, surfaceW * surfaceH);
+      mem32.fill(0x00000000);
+      scratchCtx.clearRect(0, 0, surfaceW, surfaceH);
+    }
+
+    function blitSurface() {
+      if (!engine || !surfacePtr) return;
+      const mem8 = new Uint8ClampedArray(engine.module.HEAPU8.buffer, surfacePtr, surfaceW * surfaceH * 4);
+      const imgData = new ImageData(mem8, surfaceW, surfaceH);
+      scratchCtx.putImageData(imgData, 0, 0);
+    }
+
+    function renderBrushLibrary(filter = "") {
+      const container = document.getElementById("brushListContainer");
+      container.innerHTML = "";
+      if (!manifestData) return;
+
+      const f = filter.toLowerCase().trim();
+      for (const [pack, brushes] of Object.entries(manifestData)) {
+        const filtered = brushes.filter(b => !f || b.name.toLowerCase().includes(f) || b.file.toLowerCase().includes(f));
+        if (filtered.length === 0) continue;
+
+        const header = document.createElement("div");
+        header.className = "pack-header";
+        header.textContent = pack.toUpperCase();
+        container.appendChild(header);
+
+        for (const b of filtered) {
+          const card = document.createElement("div");
+          card.className = `brush-card ${b.file === currentBrushPath ? "active" : ""}`;
+          card.dataset.file = b.file;
+
+          const thumbSrc = b.preview || "icon.svg";
+          card.innerHTML = `
+            <img class="brush-thumb" src="${thumbSrc}" onerror="this.src='icon.svg'">
+            <div class="brush-info">
+              <div class="brush-name">${b.name}</div>
+              <div class="brush-meta">${pack}</div>
+            </div>
+          `;
+          card.addEventListener("click", () => selectBrush(b.file, b.name, pack));
+          container.appendChild(card);
+        }
+      }
+    }
+
+    async function selectBrush(filePath, name, pack) {
+      filePath = (filePath || "").replace(/#/g, "_");
+      currentBrushPath = filePath;
+
+      document.querySelectorAll(".brush-card").forEach(c => {
+        c.classList.toggle("active", c.dataset.file === filePath);
+      });
+
+      document.getElementById("activeBrushTitle").textContent = name || filePath.split("/").pop().replace(".myb", "");
+      document.getElementById("activeBrushPackBadge").textContent = (pack || filePath.split("/")[0] || "BRUSH").toUpperCase();
+
+      try {
+        const res = await fetch(`brushes/mypaint-brushes/brushes/${filePath}`);
+        if (res.ok) {
+          const data = await res.json();
+          engine.loadBrushData(currentBrush, data);
+          updateInspectorControls(data);
+        }
+      } catch (err) {
+        console.warn("Failed loading brush data:", err);
+      }
+
+      engine.setBrushColorHex(currentBrush, currentColorHex);
+    }
+
+    function updateInspectorControls(data) {
+      const settings = data.settings || {};
+      const keys = ["radius_logarithmic", "hardness", "dabs_per_basic_radius", "opaque", "slow_tracking", "smudge_length", "eraser"];
+      for (const k of keys) {
+        const slider = document.getElementById(`prop_${k}`);
+        const valSpan = document.getElementById(`val_${k}`);
+        if (!slider || !valSpan) continue;
+
+        let val = 1.0;
+        if (settings[k]) {
+          val = typeof settings[k] === "number" ? settings[k] : (settings[k].base_value ?? 1.0);
+        } else {
+          val = engine.getBaseValue(currentBrush, k);
+        }
+        slider.value = val;
+        valSpan.textContent = Number(val).toFixed(2);
+      }
+    }
+
+    function runTestStroke(type) {
+      engine.resetBrush(currentBrush);
+      if (type === "s-curve") {
+        const startX = 80, startY = 300, endX = 720, endY = 300;
+        engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, startX, startY, 0, 0, 0, 10.0);
+        for (let i = 0; i <= 100; i++) {
+          const t = i / 100;
+          const x = startX + t * (endX - startX);
+          const y = startY + Math.sin(t * Math.PI * 2) * 120;
+          const p = Math.sin(t * Math.PI);
+          engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x, y, p, 0, 0, 0.016);
+        }
+        engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, endX, endY, 0, 0, 0, 0.016);
+      } else if (type === "spiral") {
+        const cx = surfaceW / 2, cy = surfaceH / 2;
+        engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, cx, cy, 0, 0, 0, 10.0);
+        for (let a = 0; a < 25; a += 0.1) {
+          const r = a * 8;
+          const x = cx + Math.cos(a) * r;
+          const y = cy + Math.sin(a) * r;
+          const p = Math.min(1.0, a / 15);
+          engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x, y, p, 0, 0, 0.016);
+        }
+      } else if (type === "hatch") {
+        for (let x = 100; x < 700; x += 35) {
+          engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x, 100, 0, 0, 0, 10.0);
+          engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x + 80, 500, 0.85, 0, 0, 0.016);
+          engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x + 80, 500, 0, 0, 0, 0.016);
+        }
+      }
+      blitSurface();
+    }
+
+    function setupEvents() {
+      document.getElementById("brushSearchInput").addEventListener("input", (e) => {
+        renderBrushLibrary(e.target.value);
+      });
+
+      document.getElementById("scratchColorPicker").addEventListener("input", (e) => {
+        currentColorHex = e.target.value;
+        engine.setBrushColorHex(currentBrush, currentColorHex);
+        document.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
+      });
+
+      document.querySelectorAll(".swatch").forEach(swatch => {
+        swatch.addEventListener("click", () => {
+          document.querySelectorAll(".swatch").forEach(s => s.classList.remove("active"));
+          swatch.classList.add("active");
+          currentColorHex = swatch.dataset.color;
+          document.getElementById("scratchColorPicker").value = currentColorHex;
+          engine.setBrushColorHex(currentBrush, currentColorHex);
+        });
+      });
+
+      const keys = ["radius_logarithmic", "hardness", "dabs_per_basic_radius", "opaque", "slow_tracking", "smudge_length", "eraser"];
+      for (const k of keys) {
+        const slider = document.getElementById(`prop_${k}`);
+        if (!slider) continue;
+        slider.addEventListener("input", (e) => {
+          const val = parseFloat(e.target.value);
+          document.getElementById(`val_${k}`).textContent = val.toFixed(2);
+          engine.setBaseValue(currentBrush, k, val);
+        });
+      }
+
+      scratchCanvas.addEventListener("pointerdown", (e) => {
+        isDrawing = true;
+        const rect = scratchCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (surfaceW / rect.width);
+        const y = (e.clientY - rect.top) * (surfaceH / rect.height);
+        lastTime = performance.now();
+        engine.resetBrush(currentBrush);
+        const pressure = e.pressure > 0 ? e.pressure : 0.8;
+        engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x, y, 0.0, 0, 0, 10.0);
+        engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x, y, pressure, e.tiltX || 0, e.tiltY || 0, 0.016);
+        blitSurface();
+      });
+
+      scratchCanvas.addEventListener("pointermove", (e) => {
+        if (!isDrawing) return;
+        const rect = scratchCanvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (surfaceW / rect.width);
+        const y = (e.clientY - rect.top) * (surfaceH / rect.height);
+        const now = performance.now();
+        const dt = Math.max(0.001, (now - lastTime) / 1000);
+        lastTime = now;
+        const pressure = e.pressure > 0 ? e.pressure : 0.8;
+        engine.strokeTo(currentBrush, surfacePtr, surfaceW, surfaceH, x, y, pressure, e.tiltX || 0, e.tiltY || 0, dt);
+        blitSurface();
+      });
+
+      window.addEventListener("pointerup", () => {
+        if (isDrawing) {
+          isDrawing = false;
+          blitSurface();
+        }
+      });
+
+      document.getElementById("btnTestCurve").addEventListener("click", () => runTestStroke("s-curve"));
+      document.getElementById("btnTestSpiral").addEventListener("click", () => runTestStroke("spiral"));
+      document.getElementById("btnTestHatch").addEventListener("click", () => runTestStroke("hatch"));
+      document.getElementById("btnClearScratch").addEventListener("click", resetScratchCanvas);
+      document.getElementById("scratchBgSelect").addEventListener("change", resetScratchCanvas);
+
+      document.getElementById("btnExportMyb").addEventListener("click", () => {
+        const out = {
+          version: 2,
+          settings: {}
+        };
+        for (const [k, id] of Object.entries(MYPAINT_SETTINGS)) {
+          const val = engine.getBaseValue(currentBrush, k);
+          if (val !== undefined && Math.abs(val) > 0.0001) {
+            out.settings[k] = { base_value: Number(val.toFixed(4)), inputs: {} };
+          }
+        }
+        const blob = new Blob([JSON.stringify(out, null, 2)], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = (currentBrushPath.split("/").pop() || "brush.myb").replace(".myb", "") + "_custom.myb";
+        a.click();
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

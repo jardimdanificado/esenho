@@ -1,0 +1,18 @@
+<svg width="500" height="400" viewBox="0 0 500 400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="500" height="400" fill="#f1f5f9"/>
+  <!-- Serpentine wash fill inside star/polygon -->
+  <polygon points="120,40 150,110 225,115 170,165 185,240 120,200 55,240 70,165 15,115 90,110"
+           fill="#2563eb" stroke="#1e3a8a" stroke-width="3"
+           data-fill-brush="tanda/watercolor-02-paint.myb" data-fill-pattern="wash" data-fill-brush-size="20"/>
+  
+  <!-- Crosshatch fill inside circle/ellipse -->
+  <circle cx="370" cy="140" r="90"
+          fill="#dc2626" stroke="#991b1b" stroke-width="4"
+          data-fill-brush="deevad/pencil.myb" data-fill-pattern="crosshatch" data-fill-brush-size="14"/>
+
+  <!-- Organic stroke with brush + shaded fill inside path -->
+  <path d="M 60 300 Q 250 220 440 300 Q 250 380 60 300 Z"
+        fill="#059669" stroke="#064e3b" stroke-width="6"
+        data-brush="classic/ink_blot.myb"
+        data-fill-brush="tanda/watercolor-02-paint.myb" data-fill-pattern="wash"/>
+</svg>

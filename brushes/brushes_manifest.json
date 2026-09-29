@@ -1,0 +1,996 @@
+{
+  "Dieterle": [
+    {
+      "name": "8B Pencil 1",
+      "file": "Dieterle/8B_Pencil_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/8B_Pencil_1_prev.png"
+    },
+    {
+      "name": "Blender",
+      "file": "Dieterle/Blender.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Blender_prev.png"
+    },
+    {
+      "name": "Dissolver",
+      "file": "Dieterle/Dissolver.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Dissolver_prev.png"
+    },
+    {
+      "name": "Eraser",
+      "file": "Dieterle/Eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Eraser_prev.png"
+    },
+    {
+      "name": "Fan 1",
+      "file": "Dieterle/Fan_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Fan_1_prev.png"
+    },
+    {
+      "name": "Flat2 1",
+      "file": "Dieterle/Flat2_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Flat2_1_prev.png"
+    },
+    {
+      "name": "Flight Feathers",
+      "file": "Dieterle/Flight_Feathers.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Flight_Feathers_prev.png"
+    },
+    {
+      "name": "Fount offset 1",
+      "file": "Dieterle/Fount-offset_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Fount-offset_1_prev.png"
+    },
+    {
+      "name": "Fountain SF 1",
+      "file": "Dieterle/Fountain_SF_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Fountain_SF_1_prev.png"
+    },
+    {
+      "name": "HalfToneCMY 1",
+      "file": "Dieterle/HalfToneCMY_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/HalfToneCMY_1_prev.png"
+    },
+    {
+      "name": "HalfTone 1",
+      "file": "Dieterle/HalfTone_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/HalfTone_1_prev.png"
+    },
+    {
+      "name": "Pencil  Left Handed",
+      "file": "Dieterle/Pencil-_Left_Handed.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Pencil-_Left_Handed_prev.png"
+    },
+    {
+      "name": "Posterizer",
+      "file": "Dieterle/Posterizer.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Posterizer_prev.png"
+    },
+    {
+      "name": "Round 1",
+      "file": "Dieterle/Round_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Round_1_prev.png"
+    },
+    {
+      "name": "Splash",
+      "file": "Dieterle/Splash.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Splash_prev.png"
+    },
+    {
+      "name": "Tail Feathers",
+      "file": "Dieterle/Tail_Feathers.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Tail_Feathers_prev.png"
+    },
+    {
+      "name": "Tail Feathers2",
+      "file": "Dieterle/Tail_Feathers2.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/Tail_Feathers2_prev.png"
+    },
+    {
+      "name": "WateryFlatbrush",
+      "file": "Dieterle/WateryFlatbrush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/WateryFlatbrush_prev.png"
+    },
+    {
+      "name": "arrow 1",
+      "file": "Dieterle/arrow_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/Dieterle/arrow_1_prev.png"
+    }
+  ],
+  "classic": [
+    {
+      "name": "blend+paint",
+      "file": "classic/blend+paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/blend+paint_prev.png"
+    },
+    {
+      "name": "blending knife",
+      "file": "classic/blending_knife.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/blending_knife_prev.png"
+    },
+    {
+      "name": "blur",
+      "file": "classic/blur.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/blur_prev.png"
+    },
+    {
+      "name": "brush",
+      "file": "classic/brush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/brush_prev.png"
+    },
+    {
+      "name": "bulk",
+      "file": "classic/bulk.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/bulk_prev.png"
+    },
+    {
+      "name": "calligraphy",
+      "file": "classic/calligraphy.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/calligraphy_prev.png"
+    },
+    {
+      "name": "charcoal",
+      "file": "classic/charcoal.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/charcoal_prev.png"
+    },
+    {
+      "name": "coarse bulk 1",
+      "file": "classic/coarse_bulk_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/coarse_bulk_1_prev.png"
+    },
+    {
+      "name": "coarse bulk 2",
+      "file": "classic/coarse_bulk_2.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/coarse_bulk_2_prev.png"
+    },
+    {
+      "name": "coarse bulk 3",
+      "file": "classic/coarse_bulk_3.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/coarse_bulk_3_prev.png"
+    },
+    {
+      "name": "dry brush",
+      "file": "classic/dry_brush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/dry_brush_prev.png"
+    },
+    {
+      "name": "imp blending",
+      "file": "classic/imp_blending.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/imp_blending_prev.png"
+    },
+    {
+      "name": "imp details",
+      "file": "classic/imp_details.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/imp_details_prev.png"
+    },
+    {
+      "name": "impressionism",
+      "file": "classic/impressionism.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/impressionism_prev.png"
+    },
+    {
+      "name": "ink blot",
+      "file": "classic/ink_blot.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/ink_blot_prev.png"
+    },
+    {
+      "name": "ink eraser",
+      "file": "classic/ink_eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/ink_eraser_prev.png"
+    },
+    {
+      "name": "kabura",
+      "file": "classic/kabura.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/kabura_prev.png"
+    },
+    {
+      "name": "knife",
+      "file": "classic/knife.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/knife_prev.png"
+    },
+    {
+      "name": "long grass",
+      "file": "classic/long_grass.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/long_grass_prev.png"
+    },
+    {
+      "name": "marker fat",
+      "file": "classic/marker_fat.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/marker_fat_prev.png"
+    },
+    {
+      "name": "marker small",
+      "file": "classic/marker_small.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/marker_small_prev.png"
+    },
+    {
+      "name": "modelling",
+      "file": "classic/modelling.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/modelling_prev.png"
+    },
+    {
+      "name": "modelling2",
+      "file": "classic/modelling2.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/modelling2_prev.png"
+    },
+    {
+      "name": "pen",
+      "file": "classic/pen.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/pen_prev.png"
+    },
+    {
+      "name": "pencil",
+      "file": "classic/pencil.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/pencil_prev.png"
+    },
+    {
+      "name": "pointy ink",
+      "file": "classic/pointy_ink.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/pointy_ink_prev.png"
+    },
+    {
+      "name": "puantilism",
+      "file": "classic/puantilism.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/puantilism_prev.png"
+    },
+    {
+      "name": "puantilism2",
+      "file": "classic/puantilism2.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/puantilism2_prev.png"
+    },
+    {
+      "name": "rounded",
+      "file": "classic/rounded.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/rounded_prev.png"
+    },
+    {
+      "name": "short grass",
+      "file": "classic/short_grass.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/short_grass_prev.png"
+    },
+    {
+      "name": "slow ink",
+      "file": "classic/slow_ink.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/slow_ink_prev.png"
+    },
+    {
+      "name": "smudge+paint",
+      "file": "classic/smudge+paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/smudge+paint_prev.png"
+    },
+    {
+      "name": "smudge",
+      "file": "classic/smudge.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/smudge_prev.png"
+    },
+    {
+      "name": "textured ink",
+      "file": "classic/textured_ink.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/textured_ink_prev.png"
+    },
+    {
+      "name": "wet knife",
+      "file": "classic/wet_knife.myb",
+      "preview": "brushes/mypaint-brushes/brushes/classic/wet_knife_prev.png"
+    }
+  ],
+  "deevad": [
+    {
+      "name": "2B pencil",
+      "file": "deevad/2B_pencil.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/2B_pencil_prev.png"
+    },
+    {
+      "name": "4H pencil",
+      "file": "deevad/4H_pencil.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/4H_pencil_prev.png"
+    },
+    {
+      "name": "airbrush",
+      "file": "deevad/airbrush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/airbrush_prev.png"
+    },
+    {
+      "name": "ballpen",
+      "file": "deevad/ballpen.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/ballpen_prev.png"
+    },
+    {
+      "name": "basic digital brush",
+      "file": "deevad/basic_digital_brush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/basic_digital_brush_prev.png"
+    },
+    {
+      "name": "basic digital brush smudging",
+      "file": "deevad/basic_digital_brush_smudging.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/basic_digital_brush_smudging_prev.png"
+    },
+    {
+      "name": "basic digital knife",
+      "file": "deevad/basic_digital_knife.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/basic_digital_knife_prev.png"
+    },
+    {
+      "name": "basic digital knife smudging",
+      "file": "deevad/basic_digital_knife_smudging.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/basic_digital_knife_smudging_prev.png"
+    },
+    {
+      "name": "blending",
+      "file": "deevad/blending.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/blending_prev.png"
+    },
+    {
+      "name": "brush",
+      "file": "deevad/brush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/brush_prev.png"
+    },
+    {
+      "name": "chalk",
+      "file": "deevad/chalk.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/chalk_prev.png"
+    },
+    {
+      "name": "detail brush large",
+      "file": "deevad/detail_brush_large.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/detail_brush_large_prev.png"
+    },
+    {
+      "name": "detail brush large glazing",
+      "file": "deevad/detail_brush_large_glazing.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/detail_brush_large_glazing_prev.png"
+    },
+    {
+      "name": "detail brush thin",
+      "file": "deevad/detail_brush_thin.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/detail_brush_thin_prev.png"
+    },
+    {
+      "name": "detail brush thin glazing",
+      "file": "deevad/detail_brush_thin_glazing.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/detail_brush_thin_glazing_prev.png"
+    },
+    {
+      "name": "fill",
+      "file": "deevad/fill.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/fill_prev.png"
+    },
+    {
+      "name": "grainy blending",
+      "file": "deevad/grainy_blending.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/grainy_blending_prev.png"
+    },
+    {
+      "name": "kneaded eraser",
+      "file": "deevad/kneaded_eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/kneaded_eraser_prev.png"
+    },
+    {
+      "name": "kneaded eraser large",
+      "file": "deevad/kneaded_eraser_large.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/kneaded_eraser_large_prev.png"
+    },
+    {
+      "name": "large hard eraser",
+      "file": "deevad/large_hard_eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/large_hard_eraser_prev.png"
+    },
+    {
+      "name": "large watercolor fringe",
+      "file": "deevad/large_watercolor_fringe.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/large_watercolor_fringe_prev.png"
+    },
+    {
+      "name": "liner",
+      "file": "deevad/liner.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/liner_prev.png"
+    },
+    {
+      "name": "only water fringe",
+      "file": "deevad/only_water_fringe.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/only_water_fringe_prev.png"
+    },
+    {
+      "name": "pen note",
+      "file": "deevad/pen-note.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/pen-note_prev.png"
+    },
+    {
+      "name": "pen",
+      "file": "deevad/pen.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/pen_prev.png"
+    },
+    {
+      "name": "rigger brush",
+      "file": "deevad/rigger_brush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/rigger_brush_prev.png"
+    },
+    {
+      "name": "rigger brush thin",
+      "file": "deevad/rigger_brush_thin.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/rigger_brush_thin_prev.png"
+    },
+    {
+      "name": "rough",
+      "file": "deevad/rough.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/rough_prev.png"
+    },
+    {
+      "name": "soft dip pen",
+      "file": "deevad/soft-dip-pen.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/soft-dip-pen_prev.png"
+    },
+    {
+      "name": "sponge smudging",
+      "file": "deevad/sponge_smudging.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/sponge_smudging_prev.png"
+    },
+    {
+      "name": "spray",
+      "file": "deevad/spray.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/spray_prev.png"
+    },
+    {
+      "name": "spray2",
+      "file": "deevad/spray2.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/spray2_prev.png"
+    },
+    {
+      "name": "thin hard eraser",
+      "file": "deevad/thin_hard_eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/thin_hard_eraser_prev.png"
+    },
+    {
+      "name": "thin watercolor",
+      "file": "deevad/thin_watercolor.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/thin_watercolor_prev.png"
+    },
+    {
+      "name": "watercolor expressive",
+      "file": "deevad/watercolor_expressive.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/watercolor_expressive_prev.png"
+    },
+    {
+      "name": "watercolor glazing",
+      "file": "deevad/watercolor_glazing.myb",
+      "preview": "brushes/mypaint-brushes/brushes/deevad/watercolor_glazing_prev.png"
+    }
+  ],
+  "experimental": [
+    {
+      "name": "1pixel",
+      "file": "experimental/1pixel.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/1pixel_prev.png"
+    },
+    {
+      "name": "DNA brush",
+      "file": "experimental/DNA_brush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/DNA_brush_prev.png"
+    },
+    {
+      "name": "basic",
+      "file": "experimental/basic.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/basic_prev.png"
+    },
+    {
+      "name": "bubble",
+      "file": "experimental/bubble.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/bubble_prev.png"
+    },
+    {
+      "name": "fur",
+      "file": "experimental/fur.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/fur_prev.png"
+    },
+    {
+      "name": "glow",
+      "file": "experimental/glow.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/glow_prev.png"
+    },
+    {
+      "name": "hard blot",
+      "file": "experimental/hard_blot.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/hard_blot_prev.png"
+    },
+    {
+      "name": "hard sting",
+      "file": "experimental/hard_sting.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/hard_sting_prev.png"
+    },
+    {
+      "name": "irregular ink",
+      "file": "experimental/irregular_ink.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/irregular_ink_prev.png"
+    },
+    {
+      "name": "leaves",
+      "file": "experimental/leaves.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/leaves_prev.png"
+    },
+    {
+      "name": "particules 3",
+      "file": "experimental/particules_3.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/particules_3_prev.png"
+    },
+    {
+      "name": "particules eraser",
+      "file": "experimental/particules_eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/particules_eraser_prev.png"
+    },
+    {
+      "name": "pick and drag",
+      "file": "experimental/pick_and_drag.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/pick_and_drag_prev.png"
+    },
+    {
+      "name": "pixel hardink",
+      "file": "experimental/pixel_hardink.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/pixel_hardink_prev.png"
+    },
+    {
+      "name": "pixelblocking",
+      "file": "experimental/pixelblocking.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/pixelblocking_prev.png"
+    },
+    {
+      "name": "sewing",
+      "file": "experimental/sewing.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/sewing_prev.png"
+    },
+    {
+      "name": "small blot",
+      "file": "experimental/small_blot.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/small_blot_prev.png"
+    },
+    {
+      "name": "soft",
+      "file": "experimental/soft.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/soft_prev.png"
+    },
+    {
+      "name": "soft irregular",
+      "file": "experimental/soft_irregular.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/soft_irregular_prev.png"
+    },
+    {
+      "name": "spaced blot",
+      "file": "experimental/spaced-blot.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/spaced-blot_prev.png"
+    },
+    {
+      "name": "speed blot",
+      "file": "experimental/speed_blot.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/speed_blot_prev.png"
+    },
+    {
+      "name": "subtle pencil",
+      "file": "experimental/subtle_pencil.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/subtle_pencil_prev.png"
+    },
+    {
+      "name": "track",
+      "file": "experimental/track.myb",
+      "preview": "brushes/mypaint-brushes/brushes/experimental/track_prev.png"
+    }
+  ],
+  "kaerhon_v1": [
+    {
+      "name": "Airbrush a",
+      "file": "kaerhon_v1/Airbrush_a.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/Airbrush_a_prev.png"
+    },
+    {
+      "name": "Dirty Transparent sk",
+      "file": "kaerhon_v1/Dirty_Transparent_sk.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/Dirty_Transparent_sk_prev.png"
+    },
+    {
+      "name": "Sketcher2 sk",
+      "file": "kaerhon_v1/Sketcher2_sk.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/Sketcher2_sk_prev.png"
+    },
+    {
+      "name": "Smear sm",
+      "file": "kaerhon_v1/Smear_sm.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/Smear_sm_prev.png"
+    },
+    {
+      "name": "airbruch press a",
+      "file": "kaerhon_v1/airbruch_press_a.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/airbruch_press_a_prev.png"
+    },
+    {
+      "name": "airsmudge a",
+      "file": "kaerhon_v1/airsmudge_a.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/airsmudge_a_prev.png"
+    },
+    {
+      "name": "airsmudgeultimate sk",
+      "file": "kaerhon_v1/airsmudgeultimate_sk.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/airsmudgeultimate_sk_prev.png"
+    },
+    {
+      "name": "classic sk",
+      "file": "kaerhon_v1/classic_sk.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/classic_sk_prev.png"
+    },
+    {
+      "name": "classicroundblock static c",
+      "file": "kaerhon_v1/classicroundblock_static_c.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/classicroundblock_static_c_prev.png"
+    },
+    {
+      "name": "extreme round l",
+      "file": "kaerhon_v1/extreme_round_l.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/extreme_round_l_prev.png"
+    },
+    {
+      "name": "fill c",
+      "file": "kaerhon_v1/fill_c.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/fill_c_prev.png"
+    },
+    {
+      "name": "flat bar l",
+      "file": "kaerhon_v1/flat_bar_l.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/flat_bar_l_prev.png"
+    },
+    {
+      "name": "ink slowline s",
+      "file": "kaerhon_v1/ink-slowline_s.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/ink-slowline_s_prev.png"
+    },
+    {
+      "name": "ink slow s",
+      "file": "kaerhon_v1/ink_slow_s.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/ink_slow_s_prev.png"
+    },
+    {
+      "name": "inkster l",
+      "file": "kaerhon_v1/inkster_l.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/inkster_l_prev.png"
+    },
+    {
+      "name": "paint barrr sm",
+      "file": "kaerhon_v1/paint_barrr_sm.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/paint_barrr_sm_prev.png"
+    },
+    {
+      "name": "paint radius 2 sm",
+      "file": "kaerhon_v1/paint_radius_2_sm.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/paint_radius_2_sm_prev.png"
+    },
+    {
+      "name": "paint sm",
+      "file": "kaerhon_v1/paint_sm.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/paint_sm_prev.png"
+    },
+    {
+      "name": "smudge ink(0.7) sm",
+      "file": "kaerhon_v1/smudge_ink(0.7)_sm.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/smudge_ink(0.7)_sm_prev.png"
+    },
+    {
+      "name": "wet paint sm",
+      "file": "kaerhon_v1/wet_paint_sm.myb",
+      "preview": "brushes/mypaint-brushes/brushes/kaerhon_v1/wet_paint_sm_prev.png"
+    }
+  ],
+  "ramon": [
+    {
+      "name": "100% Opaque",
+      "file": "ramon/100%_Opaque.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/100%_Opaque_prev.png"
+    },
+    {
+      "name": "2B pencil",
+      "file": "ramon/2B_pencil.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/2B_pencil_prev.png"
+    },
+    {
+      "name": "B pencil",
+      "file": "ramon/B-pencil.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/B-pencil_prev.png"
+    },
+    {
+      "name": "Beamlight",
+      "file": "ramon/Beamlight.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Beamlight_prev.png"
+    },
+    {
+      "name": "BigAirbrush",
+      "file": "ramon/BigAirbrush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/BigAirbrush_prev.png"
+    },
+    {
+      "name": "Blur Fast",
+      "file": "ramon/Blur_Fast.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Blur_Fast_prev.png"
+    },
+    {
+      "name": "Classic Paint",
+      "file": "ramon/Classic_Paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Classic_Paint_prev.png"
+    },
+    {
+      "name": "Clouds",
+      "file": "ramon/Clouds.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Clouds_prev.png"
+    },
+    {
+      "name": "Delayed ",
+      "file": "ramon/Delayed_.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Delayed__prev.png"
+    },
+    {
+      "name": "Dirty Noise",
+      "file": "ramon/Dirty_Noise.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Dirty_Noise_prev.png"
+    },
+    {
+      "name": "Glow Airbrush",
+      "file": "ramon/Glow_Airbrush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Glow_Airbrush_prev.png"
+    },
+    {
+      "name": "Grain",
+      "file": "ramon/Grain.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Grain_prev.png"
+    },
+    {
+      "name": "Hard Eraser",
+      "file": "ramon/Hard_Eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Hard_Eraser_prev.png"
+    },
+    {
+      "name": "Knife",
+      "file": "ramon/Knife.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Knife_prev.png"
+    },
+    {
+      "name": "Marker",
+      "file": "ramon/Marker.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Marker_prev.png"
+    },
+    {
+      "name": "P. Shade",
+      "file": "ramon/P._Shade.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/P._Shade_prev.png"
+    },
+    {
+      "name": "Pastel 1",
+      "file": "ramon/Pastel_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Pastel_1_prev.png"
+    },
+    {
+      "name": "Pen",
+      "file": "ramon/Pen.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Pen_prev.png"
+    },
+    {
+      "name": "PenBrush",
+      "file": "ramon/PenBrush.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/PenBrush_prev.png"
+    },
+    {
+      "name": "RS blendOP",
+      "file": "ramon/RS_blendOP.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/RS_blendOP_prev.png"
+    },
+    {
+      "name": "Round",
+      "file": "ramon/Round.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Round_prev.png"
+    },
+    {
+      "name": "Round Bl",
+      "file": "ramon/Round_Bl.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Round_Bl_prev.png"
+    },
+    {
+      "name": "Sketch 1",
+      "file": "ramon/Sketch_1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Sketch_1_prev.png"
+    },
+    {
+      "name": "Smear",
+      "file": "ramon/Smear.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Smear_prev.png"
+    },
+    {
+      "name": "Soft Eraser",
+      "file": "ramon/Soft_Eraser.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Soft_Eraser_prev.png"
+    },
+    {
+      "name": "Thin Pen",
+      "file": "ramon/Thin_Pen.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Thin_Pen_prev.png"
+    },
+    {
+      "name": "Wet Direction",
+      "file": "ramon/Wet_Direction.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/Wet_Direction_prev.png"
+    },
+    {
+      "name": "wet round",
+      "file": "ramon/wet_round.myb",
+      "preview": "brushes/mypaint-brushes/brushes/ramon/wet_round_prev.png"
+    }
+  ],
+  "tanda": [
+    {
+      "name": "acrylic 03 only water",
+      "file": "tanda/acrylic-03-only-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-03-only-water_prev.png"
+    },
+    {
+      "name": "acrylic 03 paint",
+      "file": "tanda/acrylic-03-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-03-paint_prev.png"
+    },
+    {
+      "name": "acrylic 03 with water",
+      "file": "tanda/acrylic-03-with-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-03-with-water_prev.png"
+    },
+    {
+      "name": "acrylic 04 only water",
+      "file": "tanda/acrylic-04-only-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-04-only-water_prev.png"
+    },
+    {
+      "name": "acrylic 04 paint",
+      "file": "tanda/acrylic-04-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-04-paint_prev.png"
+    },
+    {
+      "name": "acrylic 04 with water",
+      "file": "tanda/acrylic-04-with-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-04-with-water_prev.png"
+    },
+    {
+      "name": "acrylic 05 only water",
+      "file": "tanda/acrylic-05-only-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-05-only-water_prev.png"
+    },
+    {
+      "name": "acrylic 05 paint",
+      "file": "tanda/acrylic-05-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-05-paint_prev.png"
+    },
+    {
+      "name": "acrylic 05 with water",
+      "file": "tanda/acrylic-05-with-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/acrylic-05-with-water_prev.png"
+    },
+    {
+      "name": "charcoal 01",
+      "file": "tanda/charcoal-01.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/charcoal-01_prev.png"
+    },
+    {
+      "name": "charcoal 03",
+      "file": "tanda/charcoal-03.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/charcoal-03_prev.png"
+    },
+    {
+      "name": "charcoal 04",
+      "file": "tanda/charcoal-04.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/charcoal-04_prev.png"
+    },
+    {
+      "name": "charcoal blur1",
+      "file": "tanda/charcoal-blur1.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/charcoal-blur1_prev.png"
+    },
+    {
+      "name": "marker 01",
+      "file": "tanda/marker-01.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/marker-01_prev.png"
+    },
+    {
+      "name": "marker 05",
+      "file": "tanda/marker-05.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/marker-05_prev.png"
+    },
+    {
+      "name": "oil 01 clean",
+      "file": "tanda/oil-01-clean.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-01-clean_prev.png"
+    },
+    {
+      "name": "oil 01 paint",
+      "file": "tanda/oil-01-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-01-paint_prev.png"
+    },
+    {
+      "name": "oil 03 clean",
+      "file": "tanda/oil-03-clean.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-03-clean_prev.png"
+    },
+    {
+      "name": "oil 03 paint",
+      "file": "tanda/oil-03-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-03-paint_prev.png"
+    },
+    {
+      "name": "oil 06 clean",
+      "file": "tanda/oil-06-clean.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-06-clean_prev.png"
+    },
+    {
+      "name": "oil 06 paint",
+      "file": "tanda/oil-06-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-06-paint_prev.png"
+    },
+    {
+      "name": "oil mop",
+      "file": "tanda/oil-mop.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/oil-mop_prev.png"
+    },
+    {
+      "name": "pencil 2b",
+      "file": "tanda/pencil-2b.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/pencil-2b_prev.png"
+    },
+    {
+      "name": "pencil 8b",
+      "file": "tanda/pencil-8b.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/pencil-8b_prev.png"
+    },
+    {
+      "name": "splatter 02",
+      "file": "tanda/splatter-02.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/splatter-02_prev.png"
+    },
+    {
+      "name": "splatter 04",
+      "file": "tanda/splatter-04.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/splatter-04_prev.png"
+    },
+    {
+      "name": "texture 03",
+      "file": "tanda/texture-03.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/texture-03_prev.png"
+    },
+    {
+      "name": "texture 06",
+      "file": "tanda/texture-06.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/texture-06_prev.png"
+    },
+    {
+      "name": "texture 12",
+      "file": "tanda/texture-12.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/texture-12_prev.png"
+    },
+    {
+      "name": "water 01",
+      "file": "tanda/water-01.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/water-01_prev.png"
+    },
+    {
+      "name": "water 02",
+      "file": "tanda/water-02.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/water-02_prev.png"
+    },
+    {
+      "name": "water 05",
+      "file": "tanda/water-05.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/water-05_prev.png"
+    },
+    {
+      "name": "water 06",
+      "file": "tanda/water-06.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/water-06_prev.png"
+    },
+    {
+      "name": "watercolor 02 paint",
+      "file": "tanda/watercolor-02-paint.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/watercolor-02-paint_prev.png"
+    },
+    {
+      "name": "watercolor 02 water",
+      "file": "tanda/watercolor-02-water.myb",
+      "preview": "brushes/mypaint-brushes/brushes/tanda/watercolor-02-water_prev.png"
+    }
+  ]
+}

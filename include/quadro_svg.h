@@ -80,6 +80,9 @@ typedef struct {
     float depletion;     /* 0..100 */
     int   dab_blend;
     int   tip_shape;
+    char  mypaint_file[128]; /* .myb brush path/preset */
+    float mypaint_pressure;  /* 0..1 */
+    float mypaint_size;      /* size override */
 } quadro_svg_brush_config_t;
 
 typedef struct {
@@ -157,6 +160,12 @@ typedef struct quadro_svg_style {
     quadro_svg_texture_config_t fill_texture;
     quadro_svg_texture_config_t stroke_texture;
     quadro_svg_shadow_t         shadow;
+
+    /* libmypaint Shape Fill Configuration */
+    int   has_fill_brush;
+    char  fill_brush_file[128];
+    int   fill_brush_pattern;    /* 1=wash/serpentine, 2=crosshatch, 3=stipple */
+    float fill_brush_size;
 } quadro_svg_style_t;
 
 typedef struct quadro_svg_node {
@@ -220,6 +229,9 @@ W_EXPORT uint32_t quadro_sample_gradient(const quadro_svg_gradient_t *grad, floa
 typedef struct {
     int   brush_preset;          /* 0=None, 1=Inker, 2=Pencil, 3=Charcoal, 4=Chisel, 5=Watercolor */
     float brush_size_scale;      /* Stroke width multiplier into brush dab size (default 1.0) */
+    char  mypaint_brush_file[128];/* Global .myb brush override */
+    char  mypaint_fill_brush[128];/* Global .myb fill brush override */
+    int   mypaint_fill_pattern;  /* Global fill pattern */
     int   texture_mode;          /* 0=None, 1=Paper, 2=Canvas, 3=Noise, 4=Smoke, 5=Crosshatch, 6=Halftone, 7=Watercolor, 8=Rough Pastel, 9=Charcoal, 10=Wood, 11=Marble, 12=Grunge */
     float texture_scale;         /* Scale percentage (default 100.0) */
     float texture_contrast;      /* Contrast (default 100.0) */

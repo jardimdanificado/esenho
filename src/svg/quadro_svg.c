@@ -1,4 +1,5 @@
 #include "quadro_svg.h"
+#include "wesenho_mypaint_surface.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -214,6 +215,43 @@ static void parse_texture_attribute(quadro_svg_texture_config_t *tex, const char
     if (decoded) free(decoded);
 }
 
+static int resolve_brush_filepath(const char *name, char *out_path, size_t max_len) {
+    if (!name || !*name) return 0;
+
+    FILE *f = fopen(name, "rb");
+    if (f) {
+        fclose(f);
+        strncpy(out_path, name, max_len - 1);
+        out_path[max_len - 1] = '\0';
+        return 1;
+    }
+
+    snprintf(out_path, max_len, "brushes/mypaint-brushes/brushes/%s", name);
+    f = fopen(out_path, "rb");
+    if (f) {
+        fclose(f);
+        return 1;
+    }
+
+    snprintf(out_path, max_len, "brushes/mypaint-brushes/brushes/%s.myb", name);
+    f = fopen(out_path, "rb");
+    if (f) {
+        fclose(f);
+        return 1;
+    }
+
+    snprintf(out_path, max_len, "%s.myb", name);
+    f = fopen(out_path, "rb");
+    if (f) {
+        fclose(f);
+        return 1;
+    }
+
+    strncpy(out_path, name, max_len - 1);
+    out_path[max_len - 1] = '\0';
+    return 0;
+}
+
 static void parse_brush_attribute(quadro_svg_brush_config_t *b, const char *str) {
     if (!str || !*str) return;
     char *decoded = url_decode(str);
@@ -223,6 +261,22 @@ static void parse_brush_attribute(quadro_svg_brush_config_t *b, const char *str)
     b->hardness = 100.0f;
     b->spacing = 10.0f;
     b->roundness = 100.0f;
+
+    while (*p == ' ') p++;
+    if (*p != '{' && (strstr(p, ".myb") != NULL || strchr(p, '/') != NULL ||
+                      strncmp(p, "deevad", 6) == 0 || strncmp(p, "classic", 7) == 0 ||
+                      strncmp(p, "ramon", 5) == 0 || strncmp(p, "tanda", 5) == 0 ||
+                      strncmp(p, "kaerhon", 7) == 0 || strncmp(p, "Dieterle", 8) == 0 ||
+                      strncmp(p, "experimental", 12) == 0)) {
+        strncpy(b->mypaint_file, p, sizeof(b->mypaint_file) - 1);
+        char *end = b->mypaint_file + strlen(b->mypaint_file) - 1;
+        while (end >= b->mypaint_file && isspace((unsigned char)*end)) {
+            *end = '\0';
+            end--;
+        }
+        if (decoded) free(decoded);
+        return;
+    }
 
     while (*p) {
         while (*p == ' ' || *p == '{' || *p == '}' || *p == '"' || *p == ',' || *p == ';') p++;
@@ -237,11 +291,21 @@ static void parse_brush_attribute(quadro_svg_brush_config_t *b, const char *str)
             b->enabled = parse_bool_val(p);
         } else if (strcmp(key, "auto_rotate") == 0 || strcmp(key, "autoRotate") == 0) {
             b->auto_rotate = parse_bool_val(p);
-        } else if (strcmp(key, "preset") == 0) {
-            while (*p && *p != ',' && *p != '}' && *p != '"') p++;
+        } else if (strcmp(key, "mypaint_file") == 0 || strcmp(key, "mypaintFile") == 0 ||
+                   strcmp(key, "file") == 0 || strcmp(key, "brush") == 0 || strcmp(key, "preset") == 0) {
+            char fbuf[128] = {0};
+            int fi = 0;
+            while (*p && *p != ',' && *p != '}' && *p != '"' && *p != ';' && fi < 127) fbuf[fi++] = *p++;
+            if (b->mypaint_file[0] == '\0' && fbuf[0] != '\0') {
+                strncpy(b->mypaint_file, fbuf, sizeof(b->mypaint_file) - 1);
+                b->enabled = 1;
+            }
+        } else if (strcmp(key, "pressure") == 0 || strcmp(key, "mypaint_pressure") == 0) {
+            b->mypaint_pressure = (float)atof(p);
         } else {
             float val = (float)atof(p);
-            if (strcmp(key, "flow") == 0) b->flow = val;
+            if (strcmp(key, "size") == 0 || strcmp(key, "mypaint_size") == 0) b->mypaint_size = val;
+            else if (strcmp(key, "flow") == 0) b->flow = val;
             else if (strcmp(key, "hardness") == 0) b->hardness = val;
             else if (strcmp(key, "spacing") == 0) b->spacing = val;
             else if (strcmp(key, "scatter") == 0) b->scatter = val;
@@ -1078,6 +1142,28 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
         if (!eff_brush.enabled && g_render_opts.brush_preset > 0) {
             apply_preset_to_brush(&eff_brush, g_render_opts.brush_preset);
         }
+        if (eff_brush.mypaint_file[0] == '\0' && g_render_opts.mypaint_brush_file[0] != '\0') {
+            strncpy(eff_brush.mypaint_file, g_render_opts.mypaint_brush_file, sizeof(eff_brush.mypaint_file) - 1);
+            eff_brush.enabled = 1;
+        }
+
+        int has_fill_brush = node->style.has_fill_brush;
+        char eff_fill_brush_file[128] = {0};
+        int eff_fill_brush_pattern = node->style.fill_brush_pattern ? node->style.fill_brush_pattern : 1;
+        float eff_fill_brush_size = node->style.fill_brush_size > 0 ? node->style.fill_brush_size : 16.0f;
+
+        if (has_fill_brush) {
+            strncpy(eff_fill_brush_file, node->style.fill_brush_file, sizeof(eff_fill_brush_file) - 1);
+        } else if (parent_style && parent_style->has_fill_brush) {
+            has_fill_brush = 1;
+            strncpy(eff_fill_brush_file, parent_style->fill_brush_file, sizeof(eff_fill_brush_file) - 1);
+            if (parent_style->fill_brush_pattern) eff_fill_brush_pattern = parent_style->fill_brush_pattern;
+            if (parent_style->fill_brush_size > 0) eff_fill_brush_size = parent_style->fill_brush_size;
+        } else if (g_render_opts.mypaint_fill_brush[0] != '\0') {
+            has_fill_brush = 1;
+            strncpy(eff_fill_brush_file, g_render_opts.mypaint_fill_brush, sizeof(eff_fill_brush_file) - 1);
+            if (g_render_opts.mypaint_fill_pattern > 0) eff_fill_brush_pattern = g_render_opts.mypaint_fill_pattern;
+        }
 
         quadro_svg_texture_config_t eff_fill_tex = node->style.fill_texture;
         if (!eff_fill_tex.enabled && parent_style && parent_style->fill_texture.enabled) {
@@ -1105,7 +1191,9 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
 
         int is_complex = (fill_grad != NULL) || (strk_grad != NULL) ||
                          eff_fill_tex.enabled || eff_strk_tex.enabled ||
-                         node->style.shadow.enabled || eff_brush.enabled || (node->style.blend_mode != 0);
+                         node->style.shadow.enabled || eff_brush.enabled ||
+                         has_fill_brush || (eff_brush.mypaint_file[0] != '\0') ||
+                         (node->style.blend_mode != 0);
 
         uint32_t *layer_pixels = get_layer_pixels(3);
 
@@ -1195,6 +1283,43 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
             if (has_fill) {
                 if (scratch_layer_pixels) memset(scratch_layer_pixels, 0, total_pixels * sizeof(uint32_t));
                 w_path_fill(scratch_layer, 0xFFFFFFFF, node->style.fill_rule);
+
+                if (has_fill_brush && eff_fill_brush_file[0] != '\0' && scratch_layer_pixels) {
+                    /* Compute Bounding Box and extract 8-bit alpha mask */
+                    int b_min_x = canvas_w, b_min_y = canvas_h, b_max_x = 0, b_max_y = 0;
+                    uint8_t *mask = (uint8_t*)malloc(total_pixels);
+                    if (mask) {
+                        for (int y = 0; y < canvas_h; y++) {
+                            for (int x = 0; x < canvas_w; x++) {
+                                int idx = y * canvas_w + x;
+                                uint8_t a = (scratch_layer_pixels[idx] >> 24) & 0xFF;
+                                mask[idx] = a;
+                                if (a > 0) {
+                                    if (x < b_min_x) b_min_x = x;
+                                    if (x > b_max_x) b_max_x = x;
+                                    if (y < b_min_y) b_min_y = y;
+                                    if (y > b_max_y) b_max_y = y;
+                                }
+                            }
+                        }
+
+                        if (b_max_x >= b_min_x && b_max_y >= b_min_y) {
+                            memset(scratch_layer_pixels, 0, total_pixels * sizeof(uint32_t));
+                            char resolved_brush[256] = {0};
+                            resolve_brush_filepath(eff_fill_brush_file, resolved_brush, sizeof(resolved_brush));
+                            MyPaintBrush *b = w_libmypaint_brush_new();
+                            if (b) {
+                                w_libmypaint_brush_load_file(b, resolved_brush);
+                                w_libmypaint_fill_masked(b, scratch_layer_pixels, canvas_w, canvas_h,
+                                                         mask, (float)b_min_x, (float)b_min_y, (float)b_max_x, (float)b_max_y,
+                                                         0xFFFFFFFF, eff_fill_brush_size, eff_fill_brush_pattern);
+                                w_libmypaint_brush_free(b);
+                            }
+                        }
+                        free(mask);
+                    }
+                }
+
                 if (scratch_layer_pixels) {
                     /* Compute Bounding Box for ObjectBoundingBox coordinates */
                     int b_min_x = canvas_w, b_min_y = canvas_h, b_max_x = 0, b_max_y = 0;
@@ -1245,7 +1370,41 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                 if (scratch_layer_pixels) memset(scratch_layer_pixels, 0, total_pixels * sizeof(uint32_t));
                 render_shape_node(node, &cur_mat);
                 float sw = node->style.stroke_width * sqrtf(cur_mat.a * cur_mat.a + cur_mat.b * cur_mat.b);
-                if (eff_brush.enabled || eff_strk_tex.enabled || g_render_opts.brush_preset != 0 || g_render_opts.texture_mode > 0) {
+
+                if (eff_brush.mypaint_file[0] != '\0' || eff_brush.enabled) {
+                    char resolved_brush[256] = {0};
+                    const char *target_brush = eff_brush.mypaint_file[0] != '\0' ? eff_brush.mypaint_file : "deevad/2B_pencil.myb";
+                    resolve_brush_filepath(target_brush, resolved_brush, sizeof(resolved_brush));
+                    MyPaintBrush *b = w_libmypaint_brush_new();
+                    if (b) {
+                        w_libmypaint_brush_load_file(b, resolved_brush);
+                        uint32_t pt_count = w_path_get_count();
+                        const w_path_point_t *pts = w_path_get_points();
+                        if (pt_count >= 2 && pts) {
+                            float *xc = (float*)malloc(pt_count * sizeof(float));
+                            float *yc = (float*)malloc(pt_count * sizeof(float));
+                            uint8_t *types = (uint8_t*)malloc(pt_count * sizeof(uint8_t));
+                            if (xc && yc && types) {
+                                for (uint32_t i = 0; i < pt_count; i++) {
+                                    xc[i] = pts[i].x;
+                                    yc[i] = pts[i].y;
+                                    types[i] = pts[i].type;
+                                }
+                                float b_sz = (eff_brush.mypaint_size > 0.0f) ? eff_brush.mypaint_size :
+                                             (sw * (g_render_opts.brush_size_scale > 0 ? g_render_opts.brush_size_scale : 1.0f));
+                                if (b_sz < 1.0f) b_sz = 1.0f;
+                                float b_press = (eff_brush.mypaint_pressure > 0.0f) ? eff_brush.mypaint_pressure : 0.8f;
+                                w_libmypaint_stroke_points(b, scratch_layer_pixels, canvas_w, canvas_h,
+                                                           xc, yc, types, (int32_t)pt_count,
+                                                           0xFFFFFFFF, b_sz, b_press);
+                                free(xc);
+                                free(yc);
+                                free(types);
+                            }
+                        }
+                        w_libmypaint_brush_free(b);
+                    }
+                } else if (eff_strk_tex.enabled || g_render_opts.texture_mode > 0) {
                     float b_sz = sw * (g_render_opts.brush_size_scale > 0 ? g_render_opts.brush_size_scale : 1.0f);
                     if (b_sz < 1.0f) b_sz = 1.0f;
                     w_brush_set_param(W_PARAM_SIZE, (int32_t)roundf(b_sz));
@@ -1475,6 +1634,39 @@ static void parse_node_attributes(quadro_svg_node_t *node, const char *tag_str) 
     if (fill_tex) {
         parse_texture_attribute(&node->style.fill_texture, fill_tex);
         free(fill_tex);
+    }
+
+    char *fill_brush = extract_attr(tag_str, "data-fill-brush");
+    if (fill_brush) {
+        node->style.has_fill_brush = 1;
+        strncpy(node->style.fill_brush_file, fill_brush, sizeof(node->style.fill_brush_file) - 1);
+        free(fill_brush);
+    }
+
+    char *fill_pat = extract_attr(tag_str, "data-fill-pattern");
+    if (fill_pat) {
+        if (strcmp(fill_pat, "crosshatch") == 0 || strcmp(fill_pat, "2") == 0) node->style.fill_brush_pattern = 2;
+        else if (strcmp(fill_pat, "stipple") == 0 || strcmp(fill_pat, "3") == 0) node->style.fill_brush_pattern = 3;
+        else node->style.fill_brush_pattern = 1;
+        free(fill_pat);
+    }
+
+    char *fill_sz = extract_attr(tag_str, "data-fill-brush-size");
+    if (fill_sz) {
+        node->style.fill_brush_size = (float)atof(fill_sz);
+        free(fill_sz);
+    }
+
+    char *brush_press = extract_attr(tag_str, "data-brush-pressure");
+    if (brush_press) {
+        node->style.brush.mypaint_pressure = (float)atof(brush_press);
+        free(brush_press);
+    }
+
+    char *brush_sz = extract_attr(tag_str, "data-brush-size");
+    if (brush_sz) {
+        node->style.brush.mypaint_size = (float)atof(brush_sz);
+        free(brush_sz);
     }
 
     char *strk_tex = extract_attr(tag_str, "data-stroke-tex");
@@ -2238,6 +2430,7 @@ int quadro_svg_render(quadro_svg_doc_t *doc, uint32_t *out_rgba, int width, int 
     if (h < 1) h = 1;
 
     w_init(w, h);
+    w_libmypaint_init();
 
     /* Clear Layer 3 */
     uint32_t *layer_pixels = get_layer_pixels(3);

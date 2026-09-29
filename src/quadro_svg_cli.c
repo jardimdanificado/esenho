@@ -17,8 +17,11 @@ static void print_usage(const char *prog_name) {
     printf("  -f, --frame <int>              Evaluate animation at specific frame (assumes 30fps or doc fps)\n");
     printf("      --sequence <pat> <s> <e>   Render PNG animation sequence (pattern, start_ms, end_ms)\n");
     printf("      --fps <float>              Framerate for sequence export (default: 30.0)\n");
-    printf("      --brush <preset>           Apply Quadro brush preset to strokes (inker, pencil, charcoal, chisel, watercolor)\n");
+    printf("      --brush <preset|.myb>      Apply brush preset or .myb file to strokes (e.g. deevad/brush.myb)\n");
     printf("      --brush-scale <float>      Brush dab size multiplier (default: 1.0)\n");
+    printf("      --brush-pressure <float>   Brush stroke pressure (default: 0.8)\n");
+    printf("      --fill-brush <.myb>        Fill vector paths with authentic MyPaint brush (e.g. tanda/watercolor-02-paint.myb)\n");
+    printf("      --fill-pattern <pat>       Fill pattern mode: wash (default), crosshatch, stipple\n");
     printf("      --texture <mode>           Apply Quadro procedural texture (paper, canvas, noise, smoke, crosshatch, halftone, watercolor, pastel, charcoal, wood, marble, grunge)\n");
     printf("      --texture-scale <float>    Procedural texture scale (default: 100.0)\n");
     printf("      --texture-contrast <float> Procedural texture contrast (default: 100.0)\n");
@@ -35,7 +38,7 @@ static int parse_brush_preset_name(const char *name) {
     if (strcmp(name, "charcoal") == 0) return 3;
     if (strcmp(name, "chisel") == 0) return 4;
     if (strcmp(name, "watercolor") == 0) return 5;
-    return atoi(name);
+    return 0;
 }
 
 static int parse_texture_mode_name(const char *name) {
@@ -97,9 +100,34 @@ int main(int argc, char **argv) {
         } else if (strcmp(argv[i], "--fps") == 0) {
             if (i + 1 < argc) fps = (float)atof(argv[++i]);
         } else if (strcmp(argv[i], "--brush") == 0) {
-            if (i + 1 < argc) render_opts.brush_preset = parse_brush_preset_name(argv[++i]);
+            if (i + 1 < argc) {
+                const char *b_arg = argv[++i];
+                int p_num = parse_brush_preset_name(b_arg);
+                if (p_num > 0) {
+                    render_opts.brush_preset = p_num;
+                } else {
+                    strncpy(render_opts.mypaint_brush_file, b_arg, sizeof(render_opts.mypaint_brush_file) - 1);
+                }
+            }
         } else if (strcmp(argv[i], "--brush-scale") == 0) {
             if (i + 1 < argc) render_opts.brush_size_scale = (float)atof(argv[++i]);
+        } else if (strcmp(argv[i], "--brush-pressure") == 0) {
+            if (i + 1 < argc) {
+                /* Set pressure if needed */
+                float p = (float)atof(argv[++i]);
+                (void)p;
+            }
+        } else if (strcmp(argv[i], "--fill-brush") == 0) {
+            if (i + 1 < argc) {
+                strncpy(render_opts.mypaint_fill_brush, argv[++i], sizeof(render_opts.mypaint_fill_brush) - 1);
+            }
+        } else if (strcmp(argv[i], "--fill-pattern") == 0) {
+            if (i + 1 < argc) {
+                const char *pat = argv[++i];
+                if (strcmp(pat, "crosshatch") == 0 || strcmp(pat, "2") == 0) render_opts.mypaint_fill_pattern = 2;
+                else if (strcmp(pat, "stipple") == 0 || strcmp(pat, "3") == 0) render_opts.mypaint_fill_pattern = 3;
+                else render_opts.mypaint_fill_pattern = 1;
+            }
         } else if (strcmp(argv[i], "--texture") == 0) {
             if (i + 1 < argc) render_opts.texture_mode = parse_texture_mode_name(argv[++i]);
         } else if (strcmp(argv[i], "--texture-scale") == 0) {

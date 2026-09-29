@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Wesenho - MyPaint Engine Test Sandbox</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+    body { background: #18181b; color: #e4e4e7; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+    header { background: #27272a; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #3f3f46; }
+    h1 { font-size: 16px; font-weight: 600; }
+    .toolbar { display: flex; gap: 12px; align-items: center; }
+    select, button, input { background: #3f3f46; color: #fff; border: 1px solid #52525b; padding: 6px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; }
+    select:focus, button:focus, input:focus { outline: none; border-color: #3b82f6; }
+    button:hover { background: #52525b; }
+    .main { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; background: #09090b; }
+    canvas { background: #ffffff; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5); cursor: crosshair; touch-action: none; }
+    .status { font-size: 12px; color: #a1a1aa; display: flex; gap: 15px; }
+    .badge { background: #1e293b; color: #38bdf8; padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎨 Wesenho &mdash; MyPaint WASM Sidecar Sandbox</h1>
+    <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:8px;">Pincel:
+        <img id="brushPreview" src="" style="width:24px;height:24px;border-radius:4px;background:#27272a;display:none;object-fit:contain;border:1px solid #52525b;">
+        <select id="presetSelect" style="max-width:240px;">
+          <option value="">Carregando pincéis oficiais...</option>
+        </select>
+      </label>
+      <label>Cor:
+        <input type="color" id="colorPicker" value="#2563eb">
+      </label>
+      <label>
+        <button id="importBtn">📁 Importar .myb</button>
+        <input type="file" id="fileInput" accept=".myb,.json" style="display: none;">
+      </label>
+      <button id="clearBtn">🧹 Limpar Tela</button>
+    </div>
+    <div class="status">
+      <span class="badge" id="engineStatus">Carregando WASM...</span>
+      <span id="strokeStats">Dabs: 0</span>
+    </div>
+  </header>
+
+  <div class="main">
+    <canvas id="viewCanvas" width="900" height="650"></canvas>
+  </div>
+
+  <script type="module">
+    import { MyPaintEngine, MYPAINT_PRESETS } from './src/mypaint_bridge.js';
+
+    const canvas = document.getElementById('viewCanvas');
+    const ctx = canvas.getContext('2d');
+    const presetSelect = document.getElementById('presetSelect');
+    const brushPreview = document.getElementById('brushPreview');
+    const colorPicker = document.getElementById('colorPicker');
+    const clearBtn = document.getElementById('clearBtn');
+    const importBtn = document.getElementById('importBtn');
+    const fileInput = document.getElementById('fileInput');
+    const engineStatus = document.getElementById('engineStatus');
+    const strokeStats = document.getElementById('strokeStats');
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const pixelCount = width * height;
+
+    let engine = null;
+    let brush = 0;
+    let surfacePtr = 0;
+    let isDrawing = false;
+    let lastTime = 0;
+    let totalDabs = 0;
+    let brushFileMap = {};
+
+    // Preenche fundo branco no canvas
+    function resetCanvasBackground() {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      if (engine && surfacePtr) {
+        const mem32 = new Uint32Array(engine.module.HEAPU8.buffer, surfacePtr, pixelCount);
+        mem32.fill(0xFFFFFFFF);
+      }
+    }
+
+    async function loadBrushManifest() {
+      try {
+        const res = await fetch(`brushes/brushes_manifest.json?v=${Date.now()}`);
+        const manifest = await res.json();
+        presetSelect.innerHTML = '';
+
+        for (const [pack, brushes] of Object.entries(manifest)) {
+          const optgroup = document.createElement('optgroup');
+          optgroup.label = `Pack: ${pack.toUpperCase()} (${brushes.length})`;
+          for (const b of brushes) {
+            const cleanFile = (b.file || '').replace(/#/g, '_');
+            const cleanPreview = (b.preview || '').replace(/#/g, '_');
+            const opt = document.createElement('option');
+            opt.value = cleanFile;
+            opt.textContent = b.name;
+            opt.dataset.preview = cleanPreview;
+            optgroup.appendChild(opt);
+            brushFileMap[cleanFile] = { ...b, file: cleanFile, preview: cleanPreview };
+          }
+          presetSelect.appendChild(optgroup);
+        }
+
+        // Seleciona um clássico como default
+        const defaultBrush = Object.keys(brushFileMap).find(k => k.includes('deevad/brush.myb') || k.includes('classic/brush.myb')) || Object.keys(brushFileMap)[0];
+        if (defaultBrush) {
+          presetSelect.value = defaultBrush;
+          await applySelectedBrush();
+        }
+      } catch (err) {
+        console.warn('Fallback para presets embutidos:', err);
+      }
+    }
+
+    async function applySelectedBrush() {
+      let filePath = (presetSelect.value || '').replace(/#/g, '_');
+      if (!filePath || !engine || !brush) return;
+
+      const info = brushFileMap[filePath];
+      if (info && info.preview) {
+        brushPreview.src = encodeURI(info.preview.replace(/#/g, '_'));
+        brushPreview.style.display = 'block';
+      } else {
+        brushPreview.style.display = 'none';
+      }
+
+      try {
+        const res = await fetch(encodeURI(`brushes/mypaint-brushes/brushes/${filePath}`));
+        const json = await res.json();
+        engine.loadBrushData(brush, json);
+        engine.setBrushColorHex(brush, colorPicker.value);
+        engine.resetBrush(brush);
+      } catch (err) {
+        console.error('Erro ao carregar brush:', err);
+      }
+    }
+
+    async function bootstrap() {
+      try {
+        engine = new MyPaintEngine();
+        await engine.init('plugins/libmypaint.js');
+        brush = engine.createBrush();
+        surfacePtr = engine.alloc(pixelCount * 4);
+
+        resetCanvasBackground();
+        await loadBrushManifest();
+        engine.setBrushColorHex(brush, colorPicker.value);
+
+        engineStatus.textContent = 'Official libmypaint (v1.6.1 WASM) • 196 Presets';
+        engineStatus.style.color = '#4ade80';
+      } catch (err) {
+        console.error('Erro ao inicializar engine:', err);
+        engineStatus.textContent = 'Erro ao carregar WASM: ' + err.message;
+        engineStatus.style.color = '#f87171';
+      }
+    }
+
+    colorPicker.addEventListener('input', () => {
+      if (brush && engine) {
+        engine.setBrushColorHex(brush, colorPicker.value);
+      }
+    });
+
+    presetSelect.addEventListener('change', () => {
+      applySelectedBrush();
+    });
+
+    importBtn.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const json = JSON.parse(text);
+        engine.loadBrushData(brush, json);
+        engine.setBrushColorHex(brush, colorPicker.value);
+        engine.resetBrush(brush);
+        engineStatus.textContent = `Custom: ${file.name}`;
+      } catch (err) {
+        alert('Erro ao ler arquivo .myb: ' + err.message);
+      }
+    });
+
+    clearBtn.addEventListener('click', () => {
+      resetCanvasBackground();
+      if (engine && brush) engine.resetBrush(brush);
+      totalDabs = 0;
+      strokeStats.textContent = 'Dabs: 0';
+    });
+
+    function syncDirtyRectToCanvas(rect) {
+      if (!rect || !surfacePtr || !engine) return;
+      const rx = Math.max(0, rect.minX);
+      const ry = Math.max(0, rect.minY);
+      const rw = Math.min(width, rect.maxX) - rx;
+      const rh = Math.min(height, rect.maxY) - ry;
+      if (rw <= 0 || rh <= 0) return;
+
+      const imgData = new ImageData(new Uint8ClampedArray(engine.module.HEAPU8.buffer, surfacePtr, pixelCount * 4), width, height);
+      ctx.putImageData(imgData, 0, 0, rx, ry, rw, rh);
+    }
+
+    function handlePointerDown(e) {
+      if (!engine || !brush) return;
+      canvas.setPointerCapture(e.pointerId);
+      isDrawing = true;
+      lastTime = performance.now();
+      engine.resetBrush(brush);
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const pressure = e.pressure > 0 ? e.pressure : 0.6;
+
+      const res = engine.strokeTo(brush, surfacePtr, width, height, x, y, pressure, 0, 0, 0.016);
+      totalDabs += res.dabsDrawn;
+      syncDirtyRectToCanvas(res.dirtyRect);
+      strokeStats.textContent = `Dabs: ${totalDabs}`;
+    }
+
+    function handlePointerMove(e) {
+      if (!isDrawing || !engine || !brush) return;
+      const now = performance.now();
+      const dt = Math.max(0.001, (now - lastTime) / 1000);
+      lastTime = now;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const pressure = e.pressure > 0 ? e.pressure : 0.6;
+
+      const res = engine.strokeTo(brush, surfacePtr, width, height, x, y, pressure, e.tiltX || 0, e.tiltY || 0, dt);
+      totalDabs += res.dabsDrawn;
+      syncDirtyRectToCanvas(res.dirtyRect);
+      strokeStats.textContent = `Dabs: ${totalDabs}`;
+    }
+
+    function handlePointerUp(e) {
+      if (!isDrawing) return;
+      isDrawing = false;
+      if (engine && brush) engine.resetBrush(brush);
+    }
+
+    canvas.addEventListener('pointerdown', handlePointerDown);
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('pointercancel', handlePointerUp);
+
+    bootstrap();
+  </script>
+</body>
+</html>

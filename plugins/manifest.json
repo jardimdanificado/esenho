@@ -6,6 +6,8 @@
   "edge.wasm",
   "grayscale.wasm",
   "invert.wasm",
+  "libmypaint.wasm",
+  "mypaint.wasm",
   "noise.wasm",
   "pixelate.wasm",
   "sepia.wasm",

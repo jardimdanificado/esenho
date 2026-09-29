@@ -892,6 +892,7 @@
     }
 
     _renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity) {
+      if (obj.fillBrushConfig && obj.fillBrushConfig.enabled) return;
       const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
       if (!hasFill) return;
 
@@ -913,6 +914,7 @@
     }
 
     _renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity) {
+      if (obj.brushConfig || obj.strokePoints || obj.type === 'brush') return;
       if (!obj.stroke || obj.stroke === 'none' || !(obj.strokeWidth > 0)) return;
 
       const strokeAlpha = (obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1.0) * totalOpacity;
