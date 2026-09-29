@@ -871,18 +871,33 @@ static void update_hardness_lut(int hardness) {
     for (int i = 0; i < 1024; i++) {
         // i corresponds to (dist/r)^2 in range 0..1023
         int dist_approx = w_isqrt((i * 65536) / 1023); // 0..256
-        if (hardness == 100) {
+        if (dist_approx > 256) dist_approx = 256;
+        if (hardness >= 100) {
             g_hardness_lut[i] = 255;
-        } else if (hardness == 0) {
+        } else if (hardness <= 0) {
+            // Smooth radial Gaussian/cosine-like falloff for airbrushes
             int num = 256 - dist_approx;
-            if (num < 0) num = 0;
-            g_hardness_lut[i] = (uint8_t)((num * num) / 256);
+            if (num <= 0) {
+                g_hardness_lut[i] = 0;
+            } else {
+                int val = (num * num * 255) / 65536;
+                if (val > 255) val = 255;
+                if (val < 0) val = 0;
+                g_hardness_lut[i] = (uint8_t)val;
+            }
         } else if (dist_approx > inner_unit) {
             int num = 256 - dist_approx;
             int den = 256 - inner_unit;
             if (den > 0 && num > 0) {
-                int val = (num * 255) / den;
-                g_hardness_lut[i] = (val > 255) ? 255 : (uint8_t)val;
+                // Hermite smoothstep for smooth natural feathering
+                int t = (num * 256) / den; // 0..256
+                if (t > 256) t = 256;
+                if (t < 0) t = 0;
+                int smooth_t = (t * t * (3 * 256 - 2 * t)) / 65536;
+                int val = (smooth_t * 255) / 256;
+                if (val > 255) val = 255;
+                if (val < 0) val = 0;
+                g_hardness_lut[i] = (uint8_t)val;
             } else {
                 g_hardness_lut[i] = 0;
             }

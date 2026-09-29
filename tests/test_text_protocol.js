@@ -1671,13 +1671,13 @@ async function run() {
   // Test Brush Presets System & REPL Commands
   console.log('--- Testing Brush Presets System ---');
   host.executeCommand('preset inker');
-  if (host.activeBrush !== 'inker' || host.brushParams.hardness !== 100 || !!host.strokeIsEraser !== false) {
-    throw new Error(`Expected preset inker active with hardness 100, got activeBrush=${host.activeBrush}, hardness=${host.brushParams.hardness}`);
+  if (host.activeBrush !== 'inker' || host.brushParams.hardness !== 95 || !!host.strokeIsEraser !== false) {
+    throw new Error(`Expected preset inker active with hardness 95, got activeBrush=${host.activeBrush}, hardness=${host.brushParams.hardness}`);
   }
 
   host.executeCommand('preset charcoal');
-  if (host.activeBrush !== 'charcoal' || host.brushParams.grain !== 60 || host.brushParams.scatter !== 18) {
-    throw new Error(`Expected preset charcoal active with grain 60 scatter 18, got activeBrush=${host.activeBrush}, grain=${host.brushParams.grain}`);
+  if (host.activeBrush !== 'charcoal' || host.brushParams.grain !== 65 || host.brushParams.scatter !== 18) {
+    throw new Error(`Expected preset charcoal active with grain 65 scatter 18, got activeBrush=${host.activeBrush}, grain=${host.brushParams.grain}`);
   }
 
   host.executeCommand('preset soft_eraser');
@@ -1718,11 +1718,11 @@ async function run() {
 
   // Test that switching from charcoal (grain, scatter, jitter) to inker resets all non-inker params cleanly
   host.executeCommand('preset charcoal');
-  if (host.brushParams.grain !== 60 || host.brushParams.scatter !== 18 || host.brushParams.size_jitter !== 12 || host.activeTexture !== 'charcoal_tooth') {
+  if (host.brushParams.grain !== 65 || host.brushParams.scatter !== 18 || host.brushParams.size_jitter !== 14 || host.activeTexture !== 'charcoal_tooth') {
     throw new Error("Charcoal params not set properly");
   }
   host.executeCommand('preset inker');
-  if (host.brushParams.grain !== 0 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 0 || host.activeTexture !== 'none') {
+  if (host.brushParams.grain !== 12 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 0 || host.activeTexture !== 'paper') {
     throw new Error(`Preset parameter leak: inker inherited previous params (grain=${host.brushParams.grain}, scatter=${host.brushParams.scatter}, jitter=${host.brushParams.size_jitter}, texture=${host.activeTexture})`);
   }
 
@@ -1745,7 +1745,7 @@ async function run() {
     throw new Error(`Expected custom_textured_brush to save texture=grunge, got ${host.customBrushPresets.custom_textured_brush?.texture}`);
   }
   host.executeCommand('preset inker');
-  if (host.activeTexture !== 'none') throw new Error("Expected inker to have texture=none");
+  if (host.activeTexture !== 'paper') throw new Error("Expected inker to have texture=paper");
   host.executeCommand('preset custom_textured_brush');
   if (host.activeTexture !== 'grunge' || host.brushParams.grain !== 42) {
     throw new Error(`Expected custom_textured_brush loaded with texture=grunge grain=42, got texture=${host.activeTexture}, grain=${host.brushParams.grain}`);

@@ -136,6 +136,19 @@ static inline wframebuffer_t *w_get_texture(void) {
     return &g_texture;
 }
 
+#ifdef __wasm__
+W_EXPORT void w_set_layer(uint32_t *pixels, int32_t width, int32_t height) {
+    g_layer.pixels = pixels;
+    g_layer.width = width;
+    g_layer.height = height;
+}
+
+W_EXPORT void w_set_texture(uint32_t *pixels, int32_t width, int32_t height) {
+    g_texture.pixels = pixels;
+    g_texture.width = width;
+    g_texture.height = height;
+}
+#else
 static inline void w_set_layer(uint32_t *pixels, int32_t width, int32_t height) {
     g_layer.pixels = pixels;
     g_layer.width = width;
@@ -147,6 +160,7 @@ static inline void w_set_texture(uint32_t *pixels, int32_t width, int32_t height
     g_texture.width = width;
     g_texture.height = height;
 }
+#endif
 
 W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h, int32_t resample);
 W_EXPORT int32_t w_layer_duplicate(int32_t layer_idx);

@@ -216,40 +216,48 @@ const BRUSH_PRESETS = {
     name: 'HB Pencil',
     desc: 'Classic graphite sketch pencil with delicate paper grain & tilt response',
     category: 'sketch',
-    shape: 0, size: 4, opacity: 90, hardness: 70, flow: 85, spacing: 5,
-    smoothing: 15, grain: 35, texture: 'paper', texture_contrast: 25,
-    pressure_size: 1, pressure_flow: 1, tilt_angle: 1, scatter: 2, subpixel: 1, mode: 0, eraser: 0
+    shape: 'circle', size: 4, opacity: 90, hardness: 65, flow: 85, spacing: 4,
+    smoothing: 15, grain: 45, texture: 'paper', texture_contrast: 40, texture_scale: 85,
+    pressure_size: 1, pressure_flow: 1, tilt_angle: 1, scatter: 1, subpixel: 1, mode: 0, eraser: 0
   },
   soft_pencil: {
     name: '6B Graphite',
     desc: 'Soft dark sketching pencil with rich organic tooth and pressure depth',
     category: 'sketch',
-    shape: 0, size: 8, opacity: 85, hardness: 45, flow: 80, spacing: 6,
-    smoothing: 15, grain: 55, texture: 'paper', texture_contrast: 40,
-    pressure_size: 1, pressure_flow: 1, tilt_angle: 1, scatter: 4, subpixel: 1, mode: 0, eraser: 0
+    shape: 'charcoal', size: 9, opacity: 85, hardness: 35, flow: 80, spacing: 5,
+    smoothing: 15, grain: 65, texture: 'charcoal_tooth', texture_contrast: 55, texture_scale: 90,
+    pressure_size: 1, pressure_flow: 1, tilt_angle: 1, scatter: 4, size_jitter: 8, subpixel: 1, mode: 0, eraser: 0
   },
   mech_pencil: {
     name: '0.5mm Mechanical',
     desc: 'Crisp technical drafting pencil with tight fixed-core feedback',
     category: 'sketch',
-    shape: 0, size: 2, opacity: 95, hardness: 90, flow: 95, spacing: 4,
-    smoothing: 20, grain: 20, texture: 'paper', pressure_size: 1, pressure_flow: 1,
-    subpixel: 1, mode: 0, eraser: 0
+    shape: 'circle', size: 2, opacity: 98, hardness: 95, flow: 95, spacing: 3,
+    smoothing: 20, grain: 25, texture: 'paper', texture_contrast: 25, texture_scale: 60,
+    pressure_size: 0, pressure_flow: 1, subpixel: 1, mode: 0, eraser: 0
   },
   blue_pencil: {
     name: 'Blue Col-Erase',
     desc: 'Classic blue animation layout pencil with multiply glaze buildup',
     category: 'sketch',
-    shape: 0, size: 5, opacity: 75, hardness: 60, flow: 65, spacing: 5,
-    color: '#458588', dab_blend: 1, smoothing: 15, grain: 30, texture: 'paper',
+    shape: 'circle', size: 5, opacity: 70, hardness: 50, flow: 60, spacing: 4,
+    color: '#458588', dab_blend: 1, smoothing: 15, grain: 40, texture: 'paper', texture_contrast: 35, texture_scale: 90,
     pressure_size: 1, pressure_flow: 1, subpixel: 1, mode: 0, eraser: 0
   },
   tech_pen: {
     name: 'Technical Pen',
     desc: 'Razor-sharp precision drafting pen with fixed width and high stabilization',
     category: 'sketch',
-    shape: 0, size: 2, opacity: 100, hardness: 100, flow: 100, spacing: 4,
-    smoothing: 35, pressure_size: 0, pressure_flow: 0, grain: 0, mode: 0, subpixel: 1, eraser: 0
+    shape: 'circle', size: 2, opacity: 100, hardness: 100, flow: 100, spacing: 2,
+    smoothing: 40, pressure_size: 0, pressure_flow: 0, grain: 8, texture: 'paper', texture_contrast: 15, mode: 0, subpixel: 1, eraser: 0
+  },
+  washi_sketch: {
+    name: 'Washi Graphite',
+    desc: 'Organic fibrous Japanese paper sketch pencil with raw paper tooth',
+    category: 'sketch',
+    shape: 'bristle', size: 7, opacity: 80, hardness: 55, flow: 75, spacing: 5,
+    smoothing: 15, grain: 55, texture: 'washi', texture_contrast: 50, texture_scale: 100,
+    pressure_size: 1, pressure_flow: 1, tilt_angle: 1, subpixel: 1, mode: 0, eraser: 0
   },
 
   // 2. Inkers & Line Art
@@ -257,40 +265,42 @@ const BRUSH_PRESETS = {
     name: 'Studio Inker',
     desc: 'Smooth comic inking brush with dynamic pressure taper & high streamline',
     category: 'ink',
-    shape: 0, size: 6, opacity: 100, hardness: 100, flow: 100, spacing: 4,
-    smoothing: 35, taper_in: 20, taper_out: 30, pressure_size: 1, pressure_flow: 0,
-    grain: 0, mode: 0, subpixel: 1, eraser: 0
+    shape: 'circle', size: 6, opacity: 100, hardness: 95, flow: 100, spacing: 3,
+    smoothing: 35, taper_in: 20, taper_out: 35, pressure_size: 1, pressure_flow: 0,
+    grain: 12, texture: 'paper', texture_contrast: 20, mode: 0, subpixel: 1, eraser: 0
   },
   gpen: {
     name: 'Manga G-Pen',
     desc: 'Expressive dip pen with high pressure flare & velocity dynamic',
     category: 'ink',
-    shape: 0, size: 8, opacity: 100, hardness: 100, flow: 100, spacing: 4,
-    smoothing: 25, velocity: 30, taper_in: 15, pressure_size: 1, pressure_flow: 0,
-    grain: 0, mode: 0, subpixel: 1, eraser: 0
+    shape: 'circle', size: 8, opacity: 100, hardness: 100, flow: 100, spacing: 3,
+    smoothing: 20, velocity: 35, taper_in: 15, taper_out: 25, pressure_size: 1, pressure_flow: 0,
+    grain: 10, texture: 'paper', mode: 0, subpixel: 1, eraser: 0
   },
   dry_ink: {
     name: 'Dry Ink',
     desc: 'Rough dry brush with bristled tooth and dynamic direction flow',
     category: 'ink',
-    shape: 0, size: 10, opacity: 95, hardness: 70, flow: 90, spacing: 7,
-    grain: 50, texture: 'charcoal_tooth', size_jitter: 10, angle_jitter: 15, auto_rotate: 1,
+    shape: 'dry_brush', size: 12, opacity: 92, hardness: 65, flow: 85, spacing: 8,
+    grain: 60, texture: 'dry_scrape', texture_contrast: 70, texture_scale: 110,
+    size_jitter: 14, angle_jitter: 20, auto_rotate: 1,
     pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, subpixel: 1, eraser: 0
   },
   fountain: {
     name: 'Calligraphy Chisel',
     desc: 'Angled 45° chisel fountain pen for lettering and flourishing',
     category: 'ink',
-    shape: 2, size: 7, angle: 45, roundness: 35, opacity: 100, hardness: 95, flow: 100,
-    spacing: 5, smoothing: 20, pressure_size: 1, pressure_flow: 0, tilt_angle: 1, mode: 0, eraser: 0
+    shape: 'oval', size: 8, angle: 45, roundness: 25, opacity: 100, hardness: 95, flow: 100,
+    spacing: 4, smoothing: 25, grain: 15, texture: 'parchment',
+    pressure_size: 1, pressure_flow: 0, tilt_angle: 1, mode: 0, eraser: 0
   },
   brush_pen: {
     name: 'Brush Pen',
     desc: 'Sumi-e style flexible hair brush with rich pooling and sharp flicks',
     category: 'ink',
-    shape: 0, size: 14, opacity: 100, hardness: 85, flow: 95, spacing: 4,
-    smoothing: 30, velocity: 20, taper_out: 35, pressure_size: 1, pressure_flow: 1,
-    subpixel: 1, mode: 0, eraser: 0
+    shape: 'dagger', size: 16, opacity: 95, hardness: 75, flow: 90, spacing: 4,
+    smoothing: 30, velocity: 25, taper_out: 40, grain: 30, texture: 'washi', texture_contrast: 40,
+    auto_rotate: 1, pressure_size: 1, pressure_flow: 1, subpixel: 1, mode: 0, eraser: 0
   },
 
   // 3. Markers & Lettering
@@ -298,24 +308,24 @@ const BRUSH_PRESETS = {
     name: 'Art Marker',
     desc: 'Broad angled alcohol marker with multiply glaze layering',
     category: 'marker',
-    shape: 2, size: 24, angle: 45, roundness: 35, opacity: 75, hardness: 90, flow: 85,
-    spacing: 5, smoothing: 15, dab_blend: 1, pressure_size: 0, pressure_flow: 1,
-    grain: 0, mode: 0, eraser: 0
+    shape: 'chisel', size: 26, angle: 45, roundness: 30, opacity: 75, hardness: 85, flow: 80,
+    spacing: 4, smoothing: 15, dab_blend: 1, grain: 20, texture: 'paper', texture_contrast: 30,
+    pressure_size: 0, pressure_flow: 1, mode: 0, eraser: 0
   },
   brush_marker: {
     name: 'Brush Marker',
     desc: 'Flexible brush marker with smooth gradient buildup',
     category: 'marker',
-    shape: 0, size: 16, opacity: 80, hardness: 80, flow: 85, spacing: 5,
-    smoothing: 25, dab_blend: 1, taper_in: 10, taper_out: 15, pressure_size: 1, pressure_flow: 1,
-    grain: 0, mode: 0, eraser: 0
+    shape: 'oval', size: 18, opacity: 80, hardness: 70, flow: 80, spacing: 4,
+    smoothing: 25, dab_blend: 1, taper_in: 12, taper_out: 18, grain: 25, texture: 'paper',
+    pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
   },
   highlighter: {
     name: 'Highlighter',
     desc: 'Translucent flat fluorescent highlighter',
     category: 'marker',
-    shape: 2, size: 36, angle: 90, roundness: 20, opacity: 40, hardness: 100, flow: 70,
-    spacing: 5, dab_blend: 1, pressure_size: 0, pressure_flow: 0, grain: 0, mode: 0, eraser: 0
+    shape: 'chisel', size: 38, angle: 90, roundness: 18, opacity: 45, hardness: 95, flow: 65,
+    spacing: 4, dab_blend: 1, grain: 10, texture: 'paper', pressure_size: 0, pressure_flow: 0, mode: 0, eraser: 0
   },
 
   // 4. Wet Media & Painting
@@ -323,40 +333,44 @@ const BRUSH_PRESETS = {
     name: 'Oil Impasto',
     desc: 'Thick wet oil paint with live pigment pickup, canvas grain and natural depletion',
     category: 'paint',
-    shape: 0, size: 26, opacity: 100, hardness: 80, flow: 95, spacing: 6,
-    smoothing: 20, mode: 2, wetness: 60, color_pickup: 65, depletion: 35,
-    texture: 'canvas', grain: 30, pressure_size: 1, pressure_flow: 1, eraser: 0
+    shape: 'fan', size: 28, opacity: 100, hardness: 75, flow: 95, spacing: 6,
+    smoothing: 20, mode: 2, wetness: 65, color_pickup: 70, depletion: 35,
+    texture: 'canvas', grain: 45, texture_contrast: 55, texture_scale: 100, auto_rotate: 1,
+    pressure_size: 1, pressure_flow: 1, eraser: 0
   },
   acrylic: {
     name: 'Wet Acrylic',
-    desc: 'Smooth opaque acrylic paint with subtle edge mixing',
+    desc: 'Smooth opaque acrylic paint with linen weave mixing',
     category: 'paint',
-    shape: 0, size: 20, opacity: 100, hardness: 85, flow: 100, spacing: 5,
-    smoothing: 20, mode: 2, wetness: 40, color_pickup: 40, depletion: 20,
-    pressure_size: 1, pressure_flow: 1, grain: 0, eraser: 0
+    shape: 'bristle', size: 22, opacity: 98, hardness: 80, flow: 95, spacing: 5,
+    smoothing: 20, mode: 2, wetness: 45, color_pickup: 45, depletion: 20,
+    texture: 'linen', grain: 30, texture_contrast: 40, auto_rotate: 1,
+    pressure_size: 1, pressure_flow: 1, eraser: 0
   },
   watercolor: {
     name: 'Watercolor Wash',
     desc: 'Translucent watery wash with organic bleeding on wet watercolor paper',
     category: 'paint',
-    shape: 0, size: 34, opacity: 35, hardness: 20, flow: 40, spacing: 6,
-    smoothing: 25, mode: 2, wetness: 85, color_pickup: 30, depletion: 50,
-    texture: 'watercolor', grain: 40, pressure_size: 1, pressure_flow: 1, eraser: 0
+    shape: 'soft_round', size: 38, opacity: 35, hardness: 15, flow: 40, spacing: 5,
+    smoothing: 25, mode: 2, wetness: 85, color_pickup: 30, depletion: 55,
+    texture: 'watercolor', grain: 55, texture_contrast: 60, texture_scale: 120,
+    dab_blend: 1, pressure_size: 1, pressure_flow: 1, eraser: 0
   },
   gouache: {
     name: 'Matte Gouache',
     desc: 'Opaque velvety matte gouache with clean edges and smooth blending',
     category: 'paint',
-    shape: 0, size: 18, opacity: 95, hardness: 85, flow: 90, spacing: 5,
+    shape: 'circle', size: 20, opacity: 95, hardness: 85, flow: 90, spacing: 4,
     smoothing: 20, mode: 2, wetness: 35, color_pickup: 30, depletion: 25,
-    texture: 'paper', grain: 20, pressure_size: 1, pressure_flow: 1, eraser: 0
+    texture: 'paper', grain: 35, texture_contrast: 40, pressure_size: 1, pressure_flow: 1, eraser: 0
   },
   palette_knife: {
     name: 'Palette Knife',
     desc: 'Flat directional scraping knife for razor edges and impasto streaks',
     category: 'paint',
-    shape: 2, size: 28, angle: 0, roundness: 25, opacity: 100, hardness: 95, flow: 100,
-    smoothing: 15, auto_rotate: 1, mode: 2, wetness: 70, color_pickup: 70, depletion: 15, eraser: 0
+    shape: 'chisel', size: 30, angle: 0, roundness: 20, opacity: 100, hardness: 95, flow: 100,
+    smoothing: 15, auto_rotate: 1, mode: 2, wetness: 75, color_pickup: 75, depletion: 15,
+    texture: 'canvas', grain: 25, eraser: 0
   },
 
   // 5. Charcoal & Pastels
@@ -364,32 +378,32 @@ const BRUSH_PRESETS = {
     name: 'Vine Charcoal',
     desc: 'Textured dusty charcoal stick for gesture sketch and blocking',
     category: 'charcoal',
-    shape: 0, size: 22, opacity: 80, hardness: 45, flow: 75, spacing: 10,
-    texture: 'charcoal_tooth', grain: 60, scatter: 18, size_jitter: 12, smoothing: 10,
+    shape: 'charcoal', size: 24, opacity: 80, hardness: 40, flow: 70, spacing: 8,
+    texture: 'charcoal_tooth', grain: 65, texture_contrast: 70, scatter: 18, size_jitter: 14, smoothing: 10,
     pressure_size: 1, pressure_flow: 1, tilt_angle: 1, mode: 0, eraser: 0
   },
   hard_charcoal: {
     name: 'Compressed Charcoal',
     desc: 'Deep black dense charcoal pencil with crisp tooth',
     category: 'charcoal',
-    shape: 0, size: 12, opacity: 95, hardness: 75, flow: 90, spacing: 6,
-    texture: 'charcoal_tooth', grain: 45, scatter: 6, smoothing: 12,
+    shape: 'square', size: 14, opacity: 95, hardness: 70, flow: 90, spacing: 5,
+    texture: 'charcoal_tooth', grain: 50, texture_contrast: 60, scatter: 6, smoothing: 12,
     pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
   },
   pastel: {
     name: 'Chalk Pastel',
-    desc: 'Dense powdery chalk pastel for expressive blending',
+    desc: 'Dense powdery chalk pastel for expressive blending on sandpaper',
     category: 'charcoal',
-    shape: 0, size: 18, opacity: 90, hardness: 60, flow: 85, spacing: 8,
-    texture: 'canvas', grain: 50, scatter: 8, smoothing: 12,
+    shape: 'charcoal', size: 20, opacity: 90, hardness: 55, flow: 85, spacing: 7,
+    texture: 'sandpaper', grain: 60, texture_contrast: 60, scatter: 10, size_jitter: 8, smoothing: 12,
     pressure_size: 1, pressure_flow: 1, tilt_angle: 1, mode: 0, eraser: 0
   },
   conte: {
     name: 'Conté Crayon',
     desc: 'Square-edged hard sketching crayon with paper tooth',
     category: 'charcoal',
-    shape: 1, size: 14, angle: 30, opacity: 85, hardness: 80, flow: 80, spacing: 6,
-    texture: 'paper', grain: 50, pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
+    shape: 'square', size: 15, angle: 30, roundness: 60, opacity: 85, hardness: 75, flow: 80, spacing: 5,
+    texture: 'paper', grain: 55, texture_contrast: 55, pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
   },
 
   // 6. Airbrushes & Sprays
@@ -397,22 +411,24 @@ const BRUSH_PRESETS = {
     name: 'Soft Airbrush',
     desc: 'Ultra-soft feathering airbrush for smooth gradients and shadows',
     category: 'airbrush',
-    shape: 0, size: 50, opacity: 30, hardness: 0, flow: 25, spacing: 4,
-    smoothing: 20, pressure_size: 0, pressure_flow: 1, grain: 0, mode: 0, eraser: 0
+    shape: 'soft_round', size: 55, opacity: 25, hardness: 0, flow: 20, spacing: 4,
+    smoothing: 20, grain: 12, texture: 'stipple_noise', texture_scale: 80,
+    pressure_size: 0, pressure_flow: 1, mode: 0, eraser: 0
   },
   hard_airbrush: {
     name: 'Flow Airbrush',
     desc: 'Medium airbrush with pressure size and velocity response',
     category: 'airbrush',
-    shape: 0, size: 35, opacity: 45, hardness: 20, flow: 40, spacing: 4,
-    smoothing: 20, pressure_size: 1, pressure_flow: 1, velocity: 20, grain: 0, mode: 0, eraser: 0
+    shape: 'soft_round', size: 36, opacity: 40, hardness: 15, flow: 35, spacing: 4,
+    smoothing: 20, velocity: 25, grain: 18, texture: 'stipple_noise',
+    pressure_size: 1, pressure_flow: 1, mode: 0, eraser: 0
   },
   spray: {
     name: 'Aerosol Spray',
     desc: 'Heavy particle aerosol splatter spray for street art and textures',
     category: 'airbrush',
-    shape: 0, size: 45, opacity: 65, hardness: 60, flow: 50, spacing: 20,
-    scatter: 55, size_jitter: 40, opacity_jitter: 30, grain: 40, texture: 'noise',
+    shape: 'splatter', size: 48, opacity: 65, hardness: 50, flow: 50, spacing: 22,
+    scatter: 60, size_jitter: 45, opacity_jitter: 35, grain: 55, texture: 'spatter_drops', texture_scale: 100,
     pressure_flow: 1, mode: 0, eraser: 0
   },
 
@@ -421,22 +437,22 @@ const BRUSH_PRESETS = {
     name: 'Finger Smudge',
     desc: 'Soft finger blender for smoothing edges and color gradients',
     category: 'blend',
-    shape: 0, size: 30, opacity: 100, hardness: 35, smudge: 80, spacing: 5,
-    smoothing: 15, mode: 1, grain: 0, eraser: 0
+    shape: 'soft_round', size: 32, opacity: 100, hardness: 30, smudge: 85, spacing: 4,
+    smoothing: 18, mode: 1, grain: 15, texture: 'paper', eraser: 0
   },
   blend: {
     name: 'Paint Blender',
     desc: 'Wet color mixer and surface pigment blender',
     category: 'blend',
-    shape: 0, size: 28, opacity: 100, hardness: 50, mode: 2, wetness: 80,
-    color_pickup: 60, spacing: 5, smoothing: 15, grain: 0, eraser: 0
+    shape: 'circle', size: 28, opacity: 100, hardness: 45, mode: 2, wetness: 85,
+    color_pickup: 65, spacing: 4, smoothing: 18, grain: 20, texture: 'canvas', eraser: 0
   },
   rake_blend: {
     name: 'Bristle Smear',
     desc: 'Directional bristle smudger for hair, fur, and motion smearing',
     category: 'blend',
-    shape: 2, size: 32, angle: 0, roundness: 35, auto_rotate: 1, opacity: 100, hardness: 60, smudge: 75, spacing: 5,
-    smoothing: 15, mode: 1, grain: 0, eraser: 0
+    shape: 'rake', size: 34, angle: 0, roundness: 35, auto_rotate: 1, opacity: 100, hardness: 60, smudge: 80, spacing: 4,
+    smoothing: 15, mode: 1, grain: 25, texture: 'dry_scrape', eraser: 0
   },
 
   // 8. Erasers
@@ -444,22 +460,23 @@ const BRUSH_PRESETS = {
     name: 'Kneaded Eraser',
     desc: 'Soft feathered eraser for gentle lifting and soft highlights',
     category: 'eraser',
-    shape: 0, size: 32, opacity: 100, hardness: 15, flow: 45, spacing: 5,
-    smoothing: 15, mode: 0, eraser: 1, grain: 0
+    shape: 'soft_round', size: 34, opacity: 100, hardness: 10, flow: 40, spacing: 4,
+    smoothing: 18, mode: 0, eraser: 1, grain: 20, texture: 'paper'
   },
   hard_eraser: {
     name: 'Vinyl Eraser',
     desc: 'Clean razor-sharp eraser for exact cutouts',
     category: 'eraser',
-    shape: 0, size: 18, opacity: 100, hardness: 100, flow: 100, spacing: 4,
-    smoothing: 15, mode: 0, eraser: 1, grain: 0
+    shape: 'circle', size: 18, opacity: 100, hardness: 100, flow: 100, spacing: 3,
+    smoothing: 15, mode: 0, eraser: 1, grain: 0, texture: 'none'
   },
   textured_eraser: {
     name: 'Grunge Eraser',
     desc: 'Textured eraser for weathering and organic distressing',
     category: 'eraser',
-    shape: 0, size: 26, opacity: 100, hardness: 50, flow: 80, spacing: 8,
-    grain: 55, texture: 'grunge', scatter: 10, smoothing: 10, mode: 0, eraser: 1
+    shape: 'splatter', size: 28, opacity: 100, hardness: 45, flow: 75, spacing: 8,
+    grain: 65, texture: 'grunge', scatter: 15, size_jitter: 12, angle_jitter: 25, auto_rotate: 1,
+    smoothing: 10, mode: 0, eraser: 1
   },
 
   // 9. Special, FX & Screentones
@@ -467,7 +484,7 @@ const BRUSH_PRESETS = {
     name: 'Pixel Pencil',
     desc: '1px pixel-perfect pencil without anti-aliasing',
     category: 'fx',
-    shape: 1, size: 1, opacity: 100, hardness: 100, flow: 100, spacing: 100,
+    shape: 'square', size: 1, opacity: 100, hardness: 100, flow: 100, spacing: 100,
     subpixel: 0, smoothing: 0, pressure_size: 0, pressure_flow: 0, grain: 0,
     texture: 'none', mode: 0, eraser: 0
   },
@@ -475,16 +492,16 @@ const BRUSH_PRESETS = {
     name: 'Manga Screentone',
     desc: 'Halftone screen dots pattern with pressure opacity',
     category: 'fx',
-    shape: 0, size: 32, opacity: 100, hardness: 90, flow: 100, spacing: 8,
-    texture: 'dots', texture_mode: 0, grain: 100, texture_contrast: 100, texture_scale: 100, pressure_size: 0, pressure_flow: 1,
+    shape: 'circle', size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    texture: 'dots', texture_mode: 4, grain: 85, texture_contrast: 80, texture_scale: 100, pressure_size: 0, pressure_flow: 1,
     smoothing: 10, mode: 0, eraser: 0
   },
   crosshatch: {
     name: 'Crosshatch',
     desc: 'Diagonal hatching texture screentone for comic shading',
     category: 'fx',
-    shape: 0, size: 32, opacity: 100, hardness: 85, flow: 100, spacing: 8,
-    texture: 'hatch', texture_mode: 0, grain: 100, texture_contrast: 100, texture_scale: 100, pressure_size: 0, pressure_flow: 1,
+    shape: 'circle', size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    texture: 'hatch', texture_mode: 7, grain: 85, texture_contrast: 80, texture_scale: 100, pressure_size: 0, pressure_flow: 1,
     smoothing: 10, mode: 0, eraser: 0
   },
 
@@ -493,7 +510,7 @@ const BRUSH_PRESETS = {
     name: 'Paper Grain',
     desc: 'Cold-press heavy paper texture brush for graphite & pastel shading',
     category: 'texture',
-    shape: 0, size: 28, opacity: 85, hardness: 65, flow: 90, spacing: 6,
+    shape: 'circle', size: 28, opacity: 85, hardness: 65, flow: 90, spacing: 6,
     texture: 'paper', grain: 65, texture_contrast: 40, texture_scale: 100, texture_rotate: 0,
     pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
   },
@@ -501,7 +518,7 @@ const BRUSH_PRESETS = {
     name: 'Canvas Weave',
     desc: 'Woven coarse linen canvas texture for oil & acrylic painting',
     category: 'texture',
-    shape: 0, size: 32, opacity: 90, hardness: 75, flow: 95, spacing: 6,
+    shape: 'circle', size: 32, opacity: 90, hardness: 75, flow: 95, spacing: 6,
     texture: 'canvas', grain: 55, texture_contrast: 50, texture_scale: 100, texture_rotate: 0,
     pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
   },
@@ -509,7 +526,7 @@ const BRUSH_PRESETS = {
     name: 'Watercolor Wash',
     desc: 'Granulating rough watercolor wash on handmade rag paper',
     category: 'texture',
-    shape: 0, size: 40, opacity: 50, hardness: 30, flow: 60, spacing: 6,
+    shape: 'soft_round', size: 40, opacity: 50, hardness: 30, flow: 60, spacing: 6,
     texture: 'watercolor', grain: 60, texture_contrast: 50, texture_scale: 120, texture_rotate: 0,
     wetness: 70, color_pickup: 30, depletion: 40, pressure_size: 1, pressure_flow: 1,
     smoothing: 20, mode: 2, eraser: 0
@@ -518,7 +535,7 @@ const BRUSH_PRESETS = {
     name: 'Charcoal Tooth',
     desc: 'Deep porous tooth texture with organic graphite dispersion',
     category: 'texture',
-    shape: 0, size: 24, opacity: 85, hardness: 50, flow: 80, spacing: 8,
+    shape: 'charcoal', size: 24, opacity: 85, hardness: 50, flow: 80, spacing: 8,
     texture: 'charcoal_tooth', grain: 70, texture_contrast: 60, texture_scale: 100,
     scatter: 12, size_jitter: 10, pressure_size: 1, pressure_flow: 1,
     smoothing: 12, mode: 0, eraser: 0
@@ -527,7 +544,7 @@ const BRUSH_PRESETS = {
     name: 'Perlin Noise',
     desc: 'Fine stippled noise grain for airbrush shading and film texture',
     category: 'texture',
-    shape: 0, size: 36, opacity: 70, hardness: 40, flow: 65, spacing: 6,
+    shape: 'stipple', size: 36, opacity: 70, hardness: 40, flow: 65, spacing: 6,
     texture: 'noise', grain: 50, texture_contrast: 50, texture_scale: 100,
     scatter: 15, pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
@@ -535,7 +552,7 @@ const BRUSH_PRESETS = {
     name: 'Grunge Distress',
     desc: 'Heavy distressed weathered grunge texture for background blocking',
     category: 'texture',
-    shape: 0, size: 45, opacity: 85, hardness: 60, flow: 80, spacing: 10,
+    shape: 'splatter', size: 45, opacity: 85, hardness: 60, flow: 80, spacing: 10,
     texture: 'grunge', grain: 70, texture_contrast: 75, texture_scale: 120,
     scatter: 20, size_jitter: 15, angle_jitter: 25, auto_rotate: 1, pressure_flow: 1,
     smoothing: 10, mode: 0, eraser: 0
@@ -544,7 +561,7 @@ const BRUSH_PRESETS = {
     name: 'Wood Grain',
     desc: 'Natural organic wood fiber texture with directional pressure flow',
     category: 'texture',
-    shape: 0, size: 38, opacity: 80, hardness: 70, flow: 85, spacing: 7,
+    shape: 'circle', size: 38, opacity: 80, hardness: 70, flow: 85, spacing: 7,
     texture: 'wood', grain: 60, texture_contrast: 60, texture_scale: 100, texture_rotate: 0,
     pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
   },
@@ -552,7 +569,7 @@ const BRUSH_PRESETS = {
     name: 'Sandpaper Grit',
     desc: 'Rough high-grit abrasive texture for chalk & dry scraping',
     category: 'texture',
-    shape: 0, size: 30, opacity: 90, hardness: 55, flow: 85, spacing: 8,
+    shape: 'charcoal', size: 30, opacity: 90, hardness: 55, flow: 85, spacing: 8,
     texture: 'sandpaper', grain: 75, texture_contrast: 70, texture_scale: 80,
     scatter: 15, pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
@@ -560,7 +577,7 @@ const BRUSH_PRESETS = {
     name: 'Crackle Fissure',
     desc: 'Fractured ceramic and dry earth crackle texture',
     category: 'texture',
-    shape: 0, size: 40, opacity: 90, hardness: 75, flow: 90, spacing: 10,
+    shape: 'circle', size: 40, opacity: 90, hardness: 75, flow: 90, spacing: 10,
     texture: 'crackle', grain: 80, texture_contrast: 85, texture_scale: 150,
     pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
@@ -568,7 +585,7 @@ const BRUSH_PRESETS = {
     name: 'Marble Veins',
     desc: 'Smooth polished marble mineral veining texture',
     category: 'texture',
-    shape: 0, size: 36, opacity: 75, hardness: 60, flow: 75, spacing: 6,
+    shape: 'circle', size: 36, opacity: 75, hardness: 60, flow: 75, spacing: 6,
     texture: 'marble', grain: 50, texture_contrast: 60, texture_scale: 110,
     pressure_size: 1, pressure_flow: 1, smoothing: 18, mode: 0, eraser: 0
   },
@@ -576,7 +593,7 @@ const BRUSH_PRESETS = {
     name: 'Halftone Dots',
     desc: 'Uniform manga screentone dots with pressure dynamic flow',
     category: 'texture',
-    shape: 0, size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    shape: 'circle', size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
     texture: 'dots', grain: 85, texture_contrast: 80, texture_scale: 100,
     pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
@@ -584,7 +601,7 @@ const BRUSH_PRESETS = {
     name: 'Crosshatch Shading',
     desc: 'Multi-angle crosshatching texture pattern for comic rendering',
     category: 'texture',
-    shape: 0, size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    shape: 'circle', size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
     texture: 'hatch', grain: 85, texture_contrast: 80, texture_scale: 100,
     pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
@@ -2096,6 +2113,168 @@ function createProceduralTextures() {
       }
     }
     map.set('crackle', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 19. Washi Fibrous Paper (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const fiber1 = ((x * 7 + y * 29) % 31 < 3) ? 70 : 255;
+        const fiber2 = ((x * 19 - y * 11 + 500) % 43 < 2) ? 50 : 255;
+        const baseN = 195 + Math.floor(Math.sin(x * 0.1) * Math.cos(y * 0.1) * 25 + (Math.random() - 0.5) * 35);
+        const v = Math.max(0, Math.min(255, Math.floor((baseN * fiber1 * fiber2) / (255 * 255))));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('washi', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 20. Concrete / Rough Stone (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const p1 = Math.sin(x * 0.08) * Math.sin(y * 0.08) * 45;
+        const p2 = ((x * 133 + y * 277) ^ (x * y * 17)) & 0xFF;
+        const v = Math.max(0, Math.min(255, Math.floor(140 + p1 + (p2 > 130 ? 60 : -60) + (Math.random() - 0.5) * 40)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('concrete', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 21. Mottled Antique Parchment (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const m1 = Math.sin(x * 0.02 + y * 0.015) * 40;
+        const m2 = Math.cos(x * 0.05 - y * 0.04) * 25;
+        const v = Math.max(0, Math.min(255, Math.floor(190 + m1 + m2 + (Math.random() - 0.5) * 30)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('parchment', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 22. Stipple Fine Noise (128x128)
+  {
+    const w = 128, h = 128;
+    const buf = Buf.alloc(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      const r = Math.random();
+      const v = r > 0.65 ? 245 : (r > 0.3 ? 140 : 35);
+      buf[i * 4 + 0] = v; buf[i * 4 + 1] = v; buf[i * 4 + 2] = v; buf[i * 4 + 3] = 0xFF;
+    }
+    map.set('stipple_noise', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 23. Spatter Droplets (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    buf.fill(240);
+    for (let i = 0; i < 90; i++) {
+      const cx = Math.floor(Math.random() * w);
+      const cy = Math.floor(Math.random() * h);
+      const rad = Math.floor(1 + Math.random() * 4);
+      for (let dy = -rad; dy <= rad; dy++) {
+        for (let dx = -rad; dx <= rad; dx++) {
+          if (dx * dx + dy * dy <= rad * rad) {
+            const px = (cx + dx + w) % w, py = (cy + dy + h) % h;
+            const idx = (py * w + px) * 4;
+            buf[idx + 0] = 30; buf[idx + 1] = 30; buf[idx + 2] = 30; buf[idx + 3] = 0xFF;
+          }
+        }
+      }
+    }
+    map.set('spatter_drops', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 24. Heavy Fiber Pulp (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const clump = ((Math.floor(x / 4) * 31 + Math.floor(y / 4) * 47) ^ (x * 3)) & 0xFF;
+        const v = Math.max(0, Math.min(255, Math.floor(200 + (clump > 140 ? 45 : -70) + (Math.random() - 0.5) * 45)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('fiber_pulp', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 25. Coarse Halftone (32x32)
+  {
+    const w = 32, h = 32;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const dx = (x % 16) - 8, dy = (y % 16) - 8;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const v = d <= 6.5 ? 255 : 20;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('halftone_coarse', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 26. Fine Crosshatch (16x16)
+  {
+    const w = 16, h = 16;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const h1 = (x + y) % 4 === 0;
+        const h2 = (x - y + 16) % 4 === 0;
+        const v = (h1 || h2) ? 250 : 30;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('crosshatch_fine', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 27. Rust Distress (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const r1 = Math.sin(x * 0.04) * Math.cos(y * 0.04) * 80;
+        const r2 = Math.sin(x * 0.12 - y * 0.1) * 40;
+        const g = ((x * 19 + y * 43) ^ (x * y)) & 0xFF;
+        const v = Math.max(0, Math.min(255, Math.floor(130 + r1 + r2 + (g > 160 ? 55 : -55))));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('rust_distress', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 28. Dry Brush Directional Scrape (128x128)
+  {
+    const w = 128, h = 128;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const streak = ((x * 53 + (y >> 2) * 97) ^ (x * 11)) & 0xFF;
+        const v = streak > 100 ? 245 : (streak > 40 ? 110 : 25);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('dry_scrape', { width: w, height: h, data: buf, category: 'texture' });
   }
 
   return map;
