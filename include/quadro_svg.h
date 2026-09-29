@@ -96,6 +96,7 @@ typedef struct {
     float warp_freq;     /* default 20 */
     float noise_distort; /* 0..100 */
     float hardness;      /* 0..100, default 100 */
+    float hardness_intensity; /* 1..500, default 50.0f */
     int   invert;        /* 0 or 1 */
     int   blend_mode;    /* 0=multiply, 1=subtract, 2=overlay, 3=screen, 4=add, 5=color burn */
     int   posterize;     /* 0=off, 2..16 levels */

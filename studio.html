@@ -2043,6 +2043,10 @@
             <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
           </div>
           <div class="form-row">
+            <label>Soft Reach</label>
+            <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
+          </div>
+          <div class="form-row">
             <label>Warp Wave</label>
             <div style="display: flex; gap: 4px; width: 100%;">
               <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
@@ -5079,6 +5083,7 @@
         document.getElementById('prop-fill-tex-offsetX').value = ft.offsetX !== undefined ? ft.offsetX : (ft.offset_x || 0);
         document.getElementById('prop-fill-tex-offsetY').value = ft.offsetY !== undefined ? ft.offsetY : (ft.offset_y || 0);
         document.getElementById('prop-fill-tex-hardness').value = ft.hardness !== undefined ? ft.hardness : 100;
+        document.getElementById('prop-fill-tex-hardnessIntensity').value = ft.hardnessIntensity !== undefined ? ft.hardnessIntensity : (ft.hardness_intensity !== undefined ? ft.hardness_intensity : 50);
         document.getElementById('prop-fill-tex-warpStrength').value = ft.warpStrength !== undefined ? ft.warpStrength : (ft.warp_strength || 0);
         document.getElementById('prop-fill-tex-warpFreq').value = ft.warpFreq !== undefined ? ft.warpFreq : (ft.warp_freq || 20);
         document.getElementById('prop-fill-tex-noiseDistort').value = ft.noiseDistort !== undefined ? ft.noiseDistort : (ft.noise_distort || 0);
@@ -6869,7 +6874,7 @@
       });
 
       // Fill Texture & Dynamics bindings
-      ['mode', 'scale', 'angle', 'contrast', 'grain', 'relative', 'offsetX', 'offsetY', 'hardness', 'warpStrength', 'warpFreq', 'noiseDistort', 'pinchSwirl', 'posterize'].forEach(param => {
+      ['mode', 'scale', 'angle', 'contrast', 'grain', 'relative', 'offsetX', 'offsetY', 'hardness', 'hardnessIntensity', 'warpStrength', 'warpFreq', 'noiseDistort', 'pinchSwirl', 'posterize'].forEach(param => {
         const el = document.getElementById(`prop-fill-tex-${param}`);
         if (!el) return;
         el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', (e) => {

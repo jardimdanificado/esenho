@@ -2022,6 +2022,7 @@
       const warpFreq = fillTexture ? (fillTexture.warpFreq || fillTexture.warp_freq || 20) : 20;
       const noiseDistort = fillTexture ? (fillTexture.noiseDistort || fillTexture.noise_distort || 0) : 0;
       const hardness = fillTexture && fillTexture.hardness !== undefined ? fillTexture.hardness : 100;
+      const hardnessIntensity = fillTexture ? (fillTexture.hardnessIntensity !== undefined ? fillTexture.hardnessIntensity : (fillTexture.hardness_intensity !== undefined ? fillTexture.hardness_intensity : (fillTexture.hardnessRadius || 50))) : 50;
       const invert = !!(fillTexture && (fillTexture.invert || fillTexture.invert_tex));
       const blendMode = fillTexture ? (fillTexture.blendMode || fillTexture.blend_mode || fillTexture.blend || 0) : 0;
       const posterize = fillTexture ? (fillTexture.posterize || 0) : 0;
@@ -2037,7 +2038,7 @@
       const customPixels = customBuf ? (customBuf.pixels || customBuf) : null;
 
       const allSegments = [];
-      const featherW = hardness < 100 ? Math.max(1, (100 - hardness) * 0.25) : 0;
+      const featherW = hardness < 100 ? Math.max(1, ((100 - hardness) * 0.01) * hardnessIntensity) : 0;
       const maxD2 = featherW * featherW;
       if (featherW > 0) {
         for (const pts of scaledPolys) {

@@ -577,6 +577,7 @@
         warpFreq: 20,
         noiseDistort: 0,
         hardness: 100,
+        hardnessIntensity: 50,
         invert: false,
         blendMode: 0,
         posterize: 0,

@@ -190,6 +190,7 @@ static void parse_texture_attribute(quadro_svg_texture_config_t *tex, const char
     tex->warp_freq = 20.0f;
     tex->noise_distort = 0.0f;
     tex->hardness = 100.0f;
+    tex->hardness_intensity = 50.0f;
     tex->invert = 0;
     tex->blend_mode = 0;
     tex->posterize = 0;
@@ -228,6 +229,7 @@ static void parse_texture_attribute(quadro_svg_texture_config_t *tex, const char
             else if (strcmp(key, "warp_freq") == 0 || strcmp(key, "warpFreq") == 0) tex->warp_freq = val;
             else if (strcmp(key, "noise_distort") == 0 || strcmp(key, "noiseDistort") == 0) tex->noise_distort = val;
             else if (strcmp(key, "hardness") == 0 || strcmp(key, "fill_hardness") == 0) tex->hardness = val;
+            else if (strcmp(key, "hardness_intensity") == 0 || strcmp(key, "hardnessIntensity") == 0 || strcmp(key, "hardness_radius") == 0 || strcmp(key, "hardnessRadius") == 0) tex->hardness_intensity = val;
             else if (strcmp(key, "blend_mode") == 0 || strcmp(key, "blendMode") == 0 || strcmp(key, "blend") == 0) tex->blend_mode = (int)val;
             else if (strcmp(key, "posterize") == 0) tex->posterize = (int)val;
             else if (strcmp(key, "pinch_swirl") == 0 || strcmp(key, "pinchSwirl") == 0) tex->pinch_swirl = val;
@@ -1301,7 +1303,8 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                                 }
 
                                 if (eff_fill_tex.hardness < 100.0f) {
-                                    float feather_w = (100.0f - eff_fill_tex.hardness) * 0.25f;
+                                    float intensity = eff_fill_tex.hardness_intensity > 0.0f ? eff_fill_tex.hardness_intensity : 50.0f;
+                                    float feather_w = ((100.0f - eff_fill_tex.hardness) * 0.01f) * intensity;
                                     if (feather_w < 1.0f) feather_w = 1.0f;
                                     int r = (int)ceilf(feather_w);
                                     float min_d2 = feather_w * feather_w;
