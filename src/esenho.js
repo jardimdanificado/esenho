@@ -2632,6 +2632,568 @@ function createProceduralTextures() {
     map.set('cracked_earth', { width: w, height: h, data: buf, category: 'texture' });
   }
 
+  // 43. Cyber PCB Circuit Board (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const cx = x % 32, cy = y % 32;
+        const dx = cx - 16, dy = cy - 16;
+        const d2 = dx * dx + dy * dy;
+        const isPad = d2 <= 25;
+        const isHole = d2 <= 4;
+        const isTrace = cx === 16 || cy === 16 || ((cx + cy) % 32 === 0 && cx >= 6 && cx <= 26);
+        const v = isHole ? 35 : (isPad || isTrace ? 250 : 55);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('circuit_board', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('circuits', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 44. Foliage & Organic Leaves (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 32) - 16, v = (y % 32) - 16;
+        const lu = Math.round((u + v) * 0.7071), lv = Math.round((-u + v) * 0.7071);
+        const wMax = Math.max(0, 6 - Math.floor((lu * lu) / 28));
+        const inLeaf = lu >= -13 && lu <= 13 && lv >= -wMax && lv <= wMax;
+        const isStem = inLeaf && lv === 0;
+        const vVal = inLeaf ? (isStem ? 45 : 230) : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('foliage_leaves', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('leaves', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('foliage', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 45. Grass Blades Lawn (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 16) - 8, v = y % 32;
+        const curve = Math.floor(((32 - v) * (32 - v)) / 160);
+        const du = Math.abs(u - curve);
+        const wBlade = Math.floor(((32 - v) * 3) / 32);
+        const vVal = du <= wBlade ? Math.max(35, 245 - v * 3) : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('grass_blades', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('grass', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 46. Butterfly Wings Motif (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = Math.abs((x % 40) - 20), v = (y % 40) - 20;
+        const dUp = (u - 10)*(u - 10) + (v + 6)*(v + 6);
+        const dDn = (u - 7)*(u - 7) + (v - 8)*(v - 8);
+        const inWing = dUp <= 64 || dDn <= 36 || (u <= 2 && v >= -14 && v <= 14);
+        const vein = inWing && ((u * 3 + v * 2) % 7 < 2);
+        const vVal = inWing ? (vein ? 65 : 240) : 30;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('butterfly_motif', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('butterfly', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 47. Mystic Surreal Eyes (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 48) - 24, v = (y % 32) - 16;
+        const vAbs = Math.abs(v);
+        const vBound = Math.max(0, 12 - Math.floor((u * u) / 48));
+        const inEye = vAbs <= vBound;
+        const d2 = u * u + v * v;
+        const isPupil = d2 <= 12;
+        const isIris = d2 <= 56;
+        const isLid = vAbs >= vBound - 2 && vAbs <= vBound + 1;
+        const vVal = isPupil ? 25 : (isIris ? 230 : (inEye ? 180 : (isLid ? 245 : 30)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('mystic_eyes', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('eyes', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 48. Steampunk Gears & Cogs (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 36) - 18, v = (y % 36) - 18;
+        const r = Math.round(Math.sqrt(u * u + v * v));
+        const ang = Math.round(((Math.atan2(v, u) * 180 / Math.PI) + 360) % 360);
+        const cog = Math.floor((ang * 8) / 360) % 2 === 0;
+        const rMax = cog ? 15 : 12;
+        const inGear = r <= rMax && r >= 5;
+        const isHole = r <= 4;
+        const vVal = isHole ? 30 : (inGear ? 240 : 40);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('steampunk_gears', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('gears', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 49. Kitty Silhouettes & Paw Prints (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = x % 36, v = y % 36;
+        const dMain = (u - 18)*(u - 18) + (v - 22)*(v - 22);
+        const d1 = (u - 11)*(u - 11) + (v - 11)*(v - 11);
+        const d2 = (u - 15)*(u - 15) + (v - 8)*(v - 8);
+        const d3 = (u - 21)*(u - 21) + (v - 8)*(v - 8);
+        const d4 = (u - 25)*(u - 25) + (v - 11)*(v - 11);
+        const isPaw = dMain <= 49 || d1 <= 9 || d2 <= 9 || d3 <= 9 || d4 <= 9;
+        const vVal = isPaw ? 245 : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('kitty_paws', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('cats', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('paw_prints', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 50. Dragon / Reptile Armor Scales (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const row = Math.floor(y / 16);
+        const off = row % 2 === 0 ? 0 : 12;
+        const u = ((x + off) % 24) - 12, v = y % 16;
+        const d = Math.round(Math.sqrt(u * u + (v - 16) * (v - 16)));
+        const vVal = d <= 14 && d >= 11 ? 255 : (d < 11 ? Math.min(255, 150 + v * 6) : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('dragon_scales', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('scales', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 51. Starry Cosmos & Constellations (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = Math.abs((x % 40) - 20), v = Math.abs((y % 40) - 20);
+        const isStar = u * v <= 6 && u + v <= 16;
+        const isTiny = (u === 8 && v === 10) || (u === 12 && v === 12);
+        const neb = (((x * 31 + y * 67) ^ (x * y * 7)) >>> 0) & 0x3F;
+        const vVal = isStar ? 255 : (isTiny ? 230 : 35 + neb);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('starry_cosmos', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('cosmos', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('stars', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 52. Sci-Fi Cyber Hex Tech (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = Math.floor((x * 0.866 + y * 0.5) % 16);
+        const v = Math.floor((-x * 0.866 + y * 0.5 + 1600) % 16);
+        const isBorder = u <= 2 || u >= 14 || v <= 2 || v >= 14;
+        const isNode = u >= 7 && u <= 9 && v >= 7 && v <= 9;
+        const vVal = isNode ? 255 : (isBorder ? 210 : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('hex_tech', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('cyber_hex', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 53. Bubble & Soap Foam Clusters (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const c1x = (x % 28) - 14, c1y = (y % 28) - 14;
+        const d1 = Math.round(Math.sqrt(c1x * c1x + c1y * c1y));
+        const c2x = ((x + 14) % 20) - 10, c2y = ((y + 10) % 20) - 10;
+        const d2 = Math.round(Math.sqrt(c2x * c2x + c2y * c2y));
+        const isWall = (d1 >= 11 && d1 <= 13) || (d2 >= 8 && d2 <= 9);
+        const isGlint = d1 < 11 && c1x <= -5 && c1y <= -5;
+        const vVal = isGlint ? 255 : (isWall ? 235 : (d1 < 11 ? 120 : 35));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('bubble_foam', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('bubbles', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 54. Celtic Knot Interlaced Ribbons (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = x % 24, v = y % 24;
+        const b1 = (u + v) % 12;
+        const b2 = (u - v + 24) % 12;
+        const s1 = b1 >= 4 && b1 <= 8;
+        const s2 = b2 >= 4 && b2 <= 8;
+        const over = (Math.floor(u / 12) ^ Math.floor(v / 12)) !== 0;
+        const vVal = (s1 && s2) ? (over ? (b1 === 4 || b1 === 8 ? 40 : 240) : (b2 === 4 || b2 === 8 ? 40 : 240)) : ((s1 || s2) ? 230 : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('celtic_knot', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('celtic', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 55. Skulls & Crossbones Motif (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 36) - 18, v = (y % 36) - 18;
+        const dHead = u * u + (v + 4) * (v + 4);
+        const inJaw = u >= -5 && u <= 5 && v >= 4 && v <= 10;
+        const inHead = dHead <= 81 || inJaw;
+        const inEye1 = (u + 4)*(u + 4) + (v + 2)*(v + 2) <= 6;
+        const inEye2 = (u - 4)*(u - 4) + (v + 2)*(v + 2) <= 6;
+        const inNose = u * u + (v - 3) * (v - 3) <= 2;
+        const vVal = (inEye1 || inEye2 || inNose) ? 25 : (inHead ? 245 : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('skulls_bones', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('skulls', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 56. Hearts & Sweet Cupid Motif (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 32) - 16, v = (y % 32) - 14;
+        const uAbs = Math.abs(u);
+        const topY = Math.round(Math.sqrt(uAbs * 6));
+        const d2 = u * u + (v - topY) * (v - topY);
+        const inHeart = d2 <= 64 && v <= 12;
+        const glint = inHeart && u >= -8 && u <= -4 && v >= -4 && v <= 0;
+        const vVal = glint ? 255 : (inHeart ? 235 : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('hearts_cupid', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('hearts', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 57. Traditional Japanese Waves (Seigaiha) (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const row = Math.floor(y / 12);
+        const off = row % 2 === 0 ? 0 : 16;
+        const u = ((x + off) % 32) - 16, v = y % 12;
+        const d = Math.round(Math.sqrt(u * u + (v - 12) * (v - 12)));
+        const isArch = d <= 20 && d % 4 < 2;
+        const vVal = isArch ? 245 : 45;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('seigaiha_waves', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('seigaiha', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 58. Musical Notation & Staff (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = x % 40, v = y % 32;
+        const isStaff = v === 8 || v === 12 || v === 16 || v === 20 || v === 24;
+        const n1 = (u - 14)*(u - 14) + (v - 20)*(v - 20) <= 12;
+        const s1 = u === 17 && v >= 6 && v <= 20;
+        const n2 = (u - 28)*(u - 28) + (v - 16)*(v - 16) <= 12;
+        const s2 = u === 31 && v >= 2 && v <= 16;
+        const beam = u >= 17 && u <= 31 && v >= 2 && v <= 5;
+        const isNote = n1 || s1 || n2 || s2 || beam;
+        const vVal = (isNote || isStaff) ? 245 : 40;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('music_notes', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('music', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 59. Classic Houndstooth (Pied-de-Poule) (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = x % 16, v = y % 16;
+        const q1 = u < 8 && v < 8;
+        const q4 = u >= 8 && v >= 8;
+        const teeth = u + v >= 8 && u + v <= 16 && ((u < 8) ^ (v < 8));
+        const isHt = q1 || q4 || teeth;
+        const vVal = isHt ? 245 : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('houndstooth', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('pied_de_poule', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 60. Bird Feathers & Plumage (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 20) - 10, v = y % 40;
+        const uAbs = Math.abs(u);
+        const spine = uAbs === 0;
+        const barb = (v - uAbs * 2) % 5 < 2 && uAbs <= 9;
+        const vVal = spine ? 255 : (barb ? 220 : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('feathers_plumage', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('feathers', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 61. Interlinked Chainmail Armor (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const row = Math.floor(y / 8);
+        const off = row % 2 === 0 ? 0 : 8;
+        const u = ((x + off) % 16) - 8, v = (y % 8) - 4;
+        const d = Math.round(Math.sqrt(u * u + v * v * 3));
+        const ring = d >= 5 && d <= 8;
+        const vVal = ring ? 240 : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('chainmail', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 62. Vintage Damask & Floral Paisley (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 36) - 18, v = (y % 36) - 18;
+        const r = Math.round(Math.sqrt(u * u + v * v));
+        const ang = Math.round(((Math.atan2(v, u) * 180 / Math.PI) + 360) % 360);
+        const swirl = (r * 8 - Math.floor(ang / 15)) % 24 < 8;
+        const vVal = swirl ? 235 : 45;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('damask_paisley', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('paisley', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 63. Argyle Diamond Plaid (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = Math.abs((x % 32) - 16), v = Math.abs((y % 48) - 24);
+        const dVal = u * 3 + v * 2;
+        const isDiamond = dVal <= 48;
+        const isStitch = (u * 3 + v * 2) % 8 < 4 && dVal >= 46 && dVal <= 50;
+        const vVal = isStitch ? 255 : (isDiamond ? 210 : 50);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('argyle_diamonds', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('argyle', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 64. Masonry Brick Wall & Mortar (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const row = Math.floor(y / 12);
+        const off = row % 2 === 0 ? 0 : 16;
+        const u = (x + off) % 32, v = y % 12;
+        const isMortar = u < 2 || v < 2;
+        const bNoise = (((x * 13 + y * 29) ^ (x * 7)) >>> 0) & 0x1F;
+        const vVal = isMortar ? 40 : 180 + bNoise;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('brick_wall', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('brick', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 65. Liquid Molten Magma / Lava (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const n1 = (((x * 179 + y * 313) ^ (x * y * 7)) >>> 0) & 0xFF;
+        const w1 = (x * 3 + y * 2 + (n1 >> 2)) % 48;
+        const fissure = Math.abs(w1 - 24);
+        const vVal = fissure <= 4 ? 255 : (fissure <= 10 ? 190 : 35);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('lava_magma', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('lava', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 66. Geometric Labyrinth Maze (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = x % 24, v = y % 24;
+        const wall = u === 0 || v === 0 || (u >= 6 && u <= 18 && (v === 6 || v === 18)) || (u === 12 && v >= 6 && v <= 14);
+        const vVal = wall ? 245 : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('labyrinth_maze', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('maze', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 67. Lightning Electric Arcs (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const jag = (y * 13) % 17;
+        const bolt = (x + jag - 24 + 480) % 48;
+        const vVal = bolt <= 2 ? 255 : (bolt <= 5 ? 140 : 25);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('lightning_arcs', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('lightning', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 68. Radial Spiderweb (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x % 48) - 24, v = (y % 48) - 24;
+        const r = Math.round(Math.sqrt(u * u + v * v));
+        const uAbs = Math.abs(u), vAbs = Math.abs(v);
+        const ring = r % 8 <= 1 && r <= 24;
+        const spoke = (u === 0 || v === 0 || uAbs === vAbs) && r <= 24;
+        const vVal = (ring || spoke) ? 245 : 30;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('spider_web', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('spiderweb', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 69. Crystal Facets & Gemstones (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const cx = (x % 24) - 12, cy = (y % 24) - 12;
+        const cxAbs = Math.abs(cx), cyAbs = Math.abs(cy);
+        const diff = Math.abs(cxAbs - cyAbs);
+        const isEdge = diff <= 1 || cxAbs === 11 || cyAbs === 11;
+        const vVal = isEdge ? 30 : Math.max(0, Math.min(255, 175 + cx * 4 - cy * 3));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('voronoi_crystals', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('crystals', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 70. 8-Bit Retro Space Pixel Invaders (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    const sprite = [0x00, 0x04, 0x02, 0x07, 0x0D, 0x0F, 0x0A, 0x05];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const bx = Math.floor((x % 24) / 3);
+        const by = Math.floor((y % 24) / 3);
+        const symX = bx > 3 ? (7 - bx) : bx;
+        const isPixel = (sprite[by & 7] & (1 << symX)) !== 0;
+        const vVal = isPixel ? 245 : 30;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('pixel_invaders', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('space_invaders', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
   return map;
 }
 

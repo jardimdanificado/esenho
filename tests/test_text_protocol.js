@@ -1760,7 +1760,7 @@ async function run() {
     throw new Error(`dumpBrushScript did not contain texture commands: ${dumpedScript}`);
   }
 
-  // Test procedural texture registry contains all 42 textures
+  // Test procedural texture registry contains all 70 textures
   const requiredTextures = [
     'paper', 'canvas', 'noise', 'dots', 'grid', 'grunge', 'hatch', 'watercolor',
     'charcoal_tooth', 'wood', 'leather', 'linen', 'marble', 'cloud_grain', 'weave',
@@ -1768,7 +1768,13 @@ async function run() {
     'spatter_drops', 'fiber_pulp', 'halftone_coarse', 'crosshatch_fine', 'rust_distress',
     'dry_scrape', 'pastel_board', 'bark', 'manga_dots', 'manga_sand', 'sponge',
     'rough_plaster', 'denim', 'oil_impasto', 'dry_chalk', 'engraving_lines', 'granite',
-    'salt_bloom', 'burlap', 'cracked_earth'
+    'salt_bloom', 'burlap', 'cracked_earth',
+    'circuit_board', 'foliage_leaves', 'grass_blades', 'butterfly_motif', 'mystic_eyes',
+    'steampunk_gears', 'kitty_paws', 'dragon_scales', 'starry_cosmos', 'hex_tech',
+    'bubble_foam', 'celtic_knot', 'skulls_bones', 'hearts_cupid', 'seigaiha_waves',
+    'music_notes', 'houndstooth', 'feathers_plumage', 'chainmail', 'damask_paisley',
+    'argyle_diamonds', 'brick_wall', 'lava_magma', 'labyrinth_maze', 'lightning_arcs',
+    'spider_web', 'voronoi_crystals', 'pixel_invaders'
   ];
   for (const tname of requiredTextures) {
     if (!host.textures.has(tname)) {

@@ -659,6 +659,239 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int c2 = (w_pos_mod(ty * 17, 53) < 4);
         int pat = (c1 || c2) ? 30 : 235;
         mod_a = (base_a * pat) / 255;
+    } else if (mode == 43) { /* Cyber PCB Circuit Board */
+        int cx = w_pos_mod(tx, 32), cy = w_pos_mod(ty, 32);
+        int dx = cx - 16, dy = cy - 16;
+        int d2 = dx * dx + dy * dy;
+        int is_pad = (d2 <= 25);
+        int is_hole = (d2 <= 4);
+        int is_trace = (cx == 16 || cy == 16 || (w_pos_mod(cx + cy, 32) == 0 && cx >= 6 && cx <= 26));
+        int pat = is_hole ? 35 : (is_pad || is_trace ? 250 : 55);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 44) { /* Foliage / Organic Leaves */
+        int u = w_pos_mod(tx, 32) - 16, v = w_pos_mod(ty, 32) - 16;
+        int lu = (u + v) * 707 / 1000, lv = (-u + v) * 707 / 1000;
+        int w_max = 6 - (lu * lu) / 28;
+        if (w_max < 0) w_max = 0;
+        int in_leaf = (lu >= -13 && lu <= 13 && lv >= -w_max && lv <= w_max);
+        int is_stem = in_leaf && (lv == 0);
+        int pat = in_leaf ? (is_stem ? 45 : 230) : 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 45) { /* Grass Blades Lawn */
+        int u = w_pos_mod(tx, 16) - 8, v = w_pos_mod(ty, 32);
+        int curve = ((32 - v) * (32 - v)) / 160;
+        int du = u - curve;
+        if (du < 0) du = -du;
+        int w_blade = ((32 - v) * 3) / 32;
+        int pat = (du <= w_blade) ? (245 - v * 3) : 35;
+        if (pat < 35) pat = 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 46) { /* Butterfly Wings Motif */
+        int u = w_pos_mod(tx, 40) - 20; if (u < 0) u = -u;
+        int v = w_pos_mod(ty, 40) - 20;
+        int d_up = (u - 10)*(u - 10) + (v + 6)*(v + 6);
+        int d_dn = (u - 7)*(u - 7) + (v - 8)*(v - 8);
+        int in_wing = (d_up <= 64 || d_dn <= 36 || (u <= 2 && v >= -14 && v <= 14));
+        int vein = in_wing && (w_pos_mod(u * 3 + v * 2, 7) < 2);
+        int pat = in_wing ? (vein ? 65 : 240) : 30;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 47) { /* Mystic Surreal Eyes */
+        int u = w_pos_mod(tx, 48) - 24, v = w_pos_mod(ty, 32) - 16;
+        int v_abs = v < 0 ? -v : v;
+        int v_bound = 12 - (u * u) / 48;
+        if (v_bound < 0) v_bound = 0;
+        int in_eye = (v_abs <= v_bound);
+        int d2 = u * u + v * v;
+        int is_pupil = (d2 <= 12);
+        int is_iris = (d2 <= 56);
+        int is_lid = (v_abs >= v_bound - 2 && v_abs <= v_bound + 1);
+        int pat = is_pupil ? 25 : (is_iris ? 230 : (in_eye ? 180 : (is_lid ? 245 : 30)));
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 48) { /* Steampunk Gears / Cogs */
+        int u = w_pos_mod(tx, 36) - 18, v = w_pos_mod(ty, 36) - 18;
+        int r = w_isqrt(u * u + v * v);
+        int ang = w_atan2_deg(v, u);
+        int cog = (w_pos_mod((ang * 8) / 360, 2) == 0);
+        int r_max = cog ? 15 : 12;
+        int in_gear = (r <= r_max && r >= 5);
+        int is_hole = (r <= 4);
+        int pat = is_hole ? 30 : (in_gear ? 240 : 40);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 49) { /* Kitty Silhouettes & Paw Prints */
+        int u = w_pos_mod(tx, 36), v = w_pos_mod(ty, 36);
+        int d_main = (u - 18)*(u - 18) + (v - 22)*(v - 22);
+        int d1 = (u - 11)*(u - 11) + (v - 11)*(v - 11);
+        int d2 = (u - 15)*(u - 15) + (v - 8)*(v - 8);
+        int d3 = (u - 21)*(u - 21) + (v - 8)*(v - 8);
+        int d4 = (u - 25)*(u - 25) + (v - 11)*(v - 11);
+        int is_paw = (d_main <= 49 || d1 <= 9 || d2 <= 9 || d3 <= 9 || d4 <= 9);
+        int pat = is_paw ? 245 : 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 50) { /* Dragon / Reptile Armor Scales */
+        int row = w_pos_div(ty, 16);
+        int off = (w_pos_mod(row, 2) == 0) ? 0 : 12;
+        int u = w_pos_mod(tx + off, 24) - 12, v = w_pos_mod(ty, 16);
+        int d = w_isqrt(u * u + (v - 16) * (v - 16));
+        int pat = (d <= 14 && d >= 11) ? 255 : (d < 11 ? (150 + v * 6) : 35);
+        if (pat > 255) pat = 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 51) { /* Starry Cosmos & Constellations */
+        int u = w_pos_mod(tx, 40) - 20; if (u < 0) u = -u;
+        int v = w_pos_mod(ty, 40) - 20; if (v < 0) v = -v;
+        int is_star = (u * v <= 6 && (u + v <= 16));
+        int is_tiny = (u == 8 && v == 10) || (u == 12 && v == 12);
+        uint32_t neb = (((uint32_t)tx * 31u + (uint32_t)ty * 67u) ^ ((uint32_t)tx * (uint32_t)ty * 7u)) & 0x3F;
+        int pat = is_star ? 255 : (is_tiny ? 230 : (35 + neb));
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 52) { /* Sci-Fi Cyber Hex Tech */
+        int u = w_pos_mod((tx * 866 + ty * 500) / 1000, 16);
+        int v = w_pos_mod((-tx * 866 + ty * 500) / 1000, 16);
+        int is_border = (u <= 2 || u >= 14 || v <= 2 || v >= 14);
+        int is_node = (u >= 7 && u <= 9 && v >= 7 && v <= 9);
+        int pat = is_node ? 255 : (is_border ? 210 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 53) { /* Bubble & Soap Foam Clusters */
+        int c1x = w_pos_mod(tx, 28) - 14, c1y = w_pos_mod(ty, 28) - 14;
+        int d1 = w_isqrt(c1x * c1x + c1y * c1y);
+        int c2x = w_pos_mod(tx + 14, 20) - 10, c2y = w_pos_mod(ty + 10, 20) - 10;
+        int d2 = w_isqrt(c2x * c2x + c2y * c2y);
+        int is_wall = (d1 >= 11 && d1 <= 13) || (d2 >= 8 && d2 <= 9);
+        int is_glint = (d1 < 11 && c1x <= -5 && c1y <= -5);
+        int pat = is_glint ? 255 : (is_wall ? 235 : (d1 < 11 ? 120 : 35));
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 54) { /* Celtic Knot Interlaced Ribbons */
+        int u = w_pos_mod(tx, 24), v = w_pos_mod(ty, 24);
+        int b1 = w_pos_mod(u + v, 12);
+        int b2 = w_pos_mod(u - v + 24, 12);
+        int s1 = (b1 >= 4 && b1 <= 8);
+        int s2 = (b2 >= 4 && b2 <= 8);
+        int over = (w_pos_div(u, 12) ^ w_pos_div(v, 12));
+        int pat = (s1 && s2) ? (over ? (b1 == 4 || b1 == 8 ? 40 : 240) : (b2 == 4 || b2 == 8 ? 40 : 240)) : ((s1 || s2) ? 230 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 55) { /* Skulls & Crossbones Motif */
+        int u = w_pos_mod(tx, 36) - 18, v = w_pos_mod(ty, 36) - 18;
+        int d_head = u * u + (v + 4) * (v + 4);
+        int in_jaw = (u >= -5 && u <= 5 && v >= 4 && v <= 10);
+        int in_head = (d_head <= 81) || in_jaw;
+        int in_eye1 = (u + 4) * (u + 4) + (v + 2) * (v + 2) <= 6;
+        int in_eye2 = (u - 4) * (u - 4) + (v + 2) * (v + 2) <= 6;
+        int in_nose = (u * u + (v - 3) * (v - 3) <= 2);
+        int pat = (in_eye1 || in_eye2 || in_nose) ? 25 : (in_head ? 245 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 56) { /* Hearts & Sweet Cupid Motif */
+        int u = w_pos_mod(tx, 32) - 16, v = w_pos_mod(ty, 32) - 14;
+        int u_abs = u < 0 ? -u : u;
+        int top_y = w_isqrt(u_abs * 6);
+        int d2 = u * u + (v - top_y) * (v - top_y);
+        int in_heart = (d2 <= 64 && v <= 12);
+        int glint = in_heart && (u >= -8 && u <= -4 && v >= -4 && v <= 0);
+        int pat = glint ? 255 : (in_heart ? 235 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 57) { /* Traditional Japanese Waves (Seigaiha) */
+        int row = w_pos_div(ty, 12);
+        int off = (w_pos_mod(row, 2) == 0) ? 0 : 16;
+        int u = w_pos_mod(tx + off, 32) - 16, v = w_pos_mod(ty, 12);
+        int d = w_isqrt(u * u + (v - 12) * (v - 12));
+        int is_arch = (d <= 20 && w_pos_mod(d, 4) < 2);
+        int pat = is_arch ? 245 : 45;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 58) { /* Musical Notation & Staff */
+        int u = w_pos_mod(tx, 40), v = w_pos_mod(ty, 32);
+        int is_staff = (v == 8 || v == 12 || v == 16 || v == 20 || v == 24);
+        int n1 = (u - 14)*(u - 14) + (v - 20)*(v - 20) <= 12;
+        int s1 = (u == 17 && v >= 6 && v <= 20);
+        int n2 = (u - 28)*(u - 28) + (v - 16)*(v - 16) <= 12;
+        int s2 = (u == 31 && v >= 2 && v <= 16);
+        int beam = (u >= 17 && u <= 31 && v >= 2 && v <= 5);
+        int is_note = n1 || s1 || n2 || s2 || beam;
+        int pat = (is_note || is_staff) ? 245 : 40;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 59) { /* Classic Houndstooth (Pied-de-Poule) */
+        int u = w_pos_mod(tx, 16), v = w_pos_mod(ty, 16);
+        int q1 = (u < 8 && v < 8);
+        int q4 = (u >= 8 && v >= 8);
+        int teeth = (u + v >= 8 && u + v <= 16 && ((u < 8) ^ (v < 8)));
+        int is_ht = q1 || q4 || teeth;
+        int pat = is_ht ? 245 : 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 60) { /* Bird Feathers & Plumage */
+        int u = w_pos_mod(tx, 20) - 10, v = w_pos_mod(ty, 40);
+        int u_abs = u < 0 ? -u : u;
+        int spine = (u_abs == 0);
+        int barb = (w_pos_mod(v - u_abs * 2, 5) < 2 && u_abs <= 9);
+        int pat = spine ? 255 : (barb ? 220 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 61) { /* Interlinked Chainmail Armor */
+        int row = w_pos_div(ty, 8);
+        int off = (w_pos_mod(row, 2) == 0) ? 0 : 8;
+        int u = w_pos_mod(tx + off, 16) - 8, v = w_pos_mod(ty, 8) - 4;
+        int d = w_isqrt(u * u + v * v * 3);
+        int ring = (d >= 5 && d <= 8);
+        int pat = ring ? 240 : 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 62) { /* Vintage Damask & Floral Paisley */
+        int u = w_pos_mod(tx, 36) - 18, v = w_pos_mod(ty, 36) - 18;
+        int r = w_isqrt(u * u + v * v);
+        int ang = w_atan2_deg(v, u);
+        int swirl = w_pos_mod(r * 8 - ang / 15, 24) < 8;
+        int pat = swirl ? 235 : 45;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 63) { /* Argyle Diamond Plaid */
+        int u = w_pos_mod(tx, 32) - 16; if (u < 0) u = -u;
+        int v = w_pos_mod(ty, 48) - 24; if (v < 0) v = -v;
+        int d_val = u * 3 + v * 2;
+        int is_diamond = (d_val <= 48);
+        int is_stitch = (w_pos_mod(u * 3 + v * 2, 8) < 4 && d_val >= 46 && d_val <= 50);
+        int pat = is_stitch ? 255 : (is_diamond ? 210 : 50);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 64) { /* Masonry Brick Wall & Mortar */
+        int row = w_pos_div(ty, 12);
+        int off = (w_pos_mod(row, 2) == 0) ? 0 : 16;
+        int u = w_pos_mod(tx + off, 32), v = w_pos_mod(ty, 12);
+        int is_mortar = (u < 2 || v < 2);
+        uint32_t b_noise = (((uint32_t)tx * 13u + (uint32_t)ty * 29u) ^ ((uint32_t)tx * 7u)) & 0x1F;
+        int pat = is_mortar ? 40 : (180 + b_noise);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 65) { /* Liquid Molten Magma / Lava */
+        uint32_t n1 = (((uint32_t)tx * 179u + (uint32_t)ty * 313u) ^ ((uint32_t)tx * (uint32_t)ty * 7u)) & 0xFF;
+        int w1 = w_pos_mod(tx * 3 + ty * 2 + (n1 >> 2), 48);
+        int fissure = w1 - 24; if (fissure < 0) fissure = -fissure;
+        int pat = (fissure <= 4) ? 255 : (fissure <= 10 ? 190 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 66) { /* Geometric Labyrinth Maze */
+        int u = w_pos_mod(tx, 24), v = w_pos_mod(ty, 24);
+        int wall = (u == 0 || v == 0 || (u >= 6 && u <= 18 && (v == 6 || v == 18)) || (u == 12 && v >= 6 && v <= 14));
+        int pat = wall ? 245 : 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 67) { /* Lightning Electric Arcs */
+        int jag = w_pos_mod(ty * 13, 17);
+        int bolt = w_pos_mod(tx + jag - 24, 48);
+        int pat = (bolt <= 2) ? 255 : (bolt <= 5 ? 140 : 25);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 68) { /* Radial Spiderweb */
+        int u = w_pos_mod(tx, 48) - 24, v = w_pos_mod(ty, 48) - 24;
+        int r = w_isqrt(u * u + v * v);
+        int u_abs = u < 0 ? -u : u, v_abs = v < 0 ? -v : v;
+        int ring = (w_pos_mod(r, 8) <= 1 && r <= 24);
+        int spoke = (u == 0 || v == 0 || u_abs == v_abs) && (r <= 24);
+        int pat = (ring || spoke) ? 245 : 30;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 69) { /* Crystal Facets / Gemstones */
+        int cx = w_pos_mod(tx, 24) - 12, cy = w_pos_mod(ty, 24) - 12;
+        int cx_abs = cx < 0 ? -cx : cx, cy_abs = cy < 0 ? -cy : cy;
+        int diff = cx_abs - cy_abs; if (diff < 0) diff = -diff;
+        int is_edge = (diff <= 1 || cx_abs == 11 || cy_abs == 11);
+        int pat = is_edge ? 30 : (175 + cx * 4 - cy * 3);
+        if (pat > 255) pat = 255; if (pat < 0) pat = 0;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 70) { /* 8-Bit Space Pixel Invaders */
+        int bx = w_pos_div(w_pos_mod(tx, 24), 3);
+        int by = w_pos_div(w_pos_mod(ty, 24), 3);
+        int sym_x = bx > 3 ? (7 - bx) : bx;
+        static const uint8_t sprite[8] = { 0x00, 0x04, 0x02, 0x07, 0x0D, 0x0F, 0x0A, 0x05 };
+        int is_pixel = (sprite[by & 7] & (1 << sym_x)) != 0;
+        int pat = is_pixel ? 245 : 30;
+        mod_a = (base_a * pat) / 255;
     }
     if (tex_contrast != 100 && tex_contrast >= 0 && base_a > 0) {
         int factor = (mod_a * 255) / base_a;

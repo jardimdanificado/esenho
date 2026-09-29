@@ -304,6 +304,233 @@
       const c2 = (posMod(ty * 17, 53) < 4);
       const pat = (c1 || c2) ? 30 : 235;
       modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 43) { // Cyber PCB Circuit Board
+      const cx = posMod(tx, 32), cy = posMod(ty, 32);
+      const dx = cx - 16, dy = cy - 16;
+      const d2 = dx * dx + dy * dy;
+      const is_pad = (d2 <= 25);
+      const is_hole = (d2 <= 4);
+      const is_trace = (cx === 16 || cy === 16 || (posMod(cx + cy, 32) === 0 && cx >= 6 && cx <= 26));
+      const pat = is_hole ? 35 : (is_pad || is_trace ? 250 : 55);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 44) { // Foliage / Organic Leaves
+      const u = posMod(tx, 32) - 16, v = posMod(ty, 32) - 16;
+      const lu = Math.round((u + v) * 0.7071), lv = Math.round((-u + v) * 0.7071);
+      const w_max = Math.max(0, 6 - Math.floor((lu * lu) / 28));
+      const in_leaf = (lu >= -13 && lu <= 13 && lv >= -w_max && lv <= w_max);
+      const is_stem = in_leaf && (lv === 0);
+      const pat = in_leaf ? (is_stem ? 45 : 230) : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 45) { // Grass Blades Lawn
+      const u = posMod(tx, 16) - 8, v = posMod(ty, 32);
+      const curve = Math.floor(((32 - v) * (32 - v)) / 160);
+      const du = Math.abs(u - curve);
+      const w_blade = Math.floor(((32 - v) * 3) / 32);
+      const pat = (du <= w_blade) ? Math.max(35, 245 - v * 3) : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 46) { // Butterfly Wings Motif
+      const u = Math.abs(posMod(tx, 40) - 20);
+      const v = posMod(ty, 40) - 20;
+      const d_up = (u - 10)*(u - 10) + (v + 6)*(v + 6);
+      const d_dn = (u - 7)*(u - 7) + (v - 8)*(v - 8);
+      const in_wing = (d_up <= 64 || d_dn <= 36 || (u <= 2 && v >= -14 && v <= 14));
+      const vein = in_wing && (posMod(u * 3 + v * 2, 7) < 2);
+      const pat = in_wing ? (vein ? 65 : 240) : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 47) { // Mystic Surreal Eyes
+      const u = posMod(tx, 48) - 24, v = posMod(ty, 32) - 16;
+      const v_abs = Math.abs(v);
+      const v_bound = Math.max(0, 12 - Math.floor((u * u) / 48));
+      const in_eye = (v_abs <= v_bound);
+      const d2 = u * u + v * v;
+      const is_pupil = (d2 <= 12);
+      const is_iris = (d2 <= 56);
+      const is_lid = (v_abs >= v_bound - 2 && v_abs <= v_bound + 1);
+      const pat = is_pupil ? 25 : (is_iris ? 230 : (in_eye ? 180 : (is_lid ? 245 : 30)));
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 48) { // Steampunk Gears / Cogs
+      const u = posMod(tx, 36) - 18, v = posMod(ty, 36) - 18;
+      const r = Math.round(Math.sqrt(u * u + v * v));
+      const ang = Math.round(((Math.atan2(v, u) * 180 / Math.PI) + 360) % 360);
+      const cog = (posMod(Math.floor((ang * 8) / 360), 2) === 0);
+      const r_max = cog ? 15 : 12;
+      const in_gear = (r <= r_max && r >= 5);
+      const is_hole = (r <= 4);
+      const pat = is_hole ? 30 : (in_gear ? 240 : 40);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 49) { // Kitty Silhouettes & Paw Prints
+      const u = posMod(tx, 36), v = posMod(ty, 36);
+      const d_main = (u - 18)*(u - 18) + (v - 22)*(v - 22);
+      const d1 = (u - 11)*(u - 11) + (v - 11)*(v - 11);
+      const d2 = (u - 15)*(u - 15) + (v - 8)*(v - 8);
+      const d3 = (u - 21)*(u - 21) + (v - 8)*(v - 8);
+      const d4 = (u - 25)*(u - 25) + (v - 11)*(v - 11);
+      const is_paw = (d_main <= 49 || d1 <= 9 || d2 <= 9 || d3 <= 9 || d4 <= 9);
+      const pat = is_paw ? 245 : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 50) { // Dragon / Reptile Armor Scales
+      const row = posDiv(ty, 16);
+      const off = (posMod(row, 2) === 0) ? 0 : 12;
+      const u = posMod(tx + off, 24) - 12, v = posMod(ty, 16);
+      const d = Math.round(Math.sqrt(u * u + (v - 16) * (v - 16)));
+      const pat = (d <= 14 && d >= 11) ? 255 : (d < 11 ? Math.min(255, 150 + v * 6) : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 51) { // Starry Cosmos & Constellations
+      const u = Math.abs(posMod(tx, 40) - 20);
+      const v = Math.abs(posMod(ty, 40) - 20);
+      const is_star = (u * v <= 6 && (u + v <= 16));
+      const is_tiny = (u === 8 && v === 10) || (u === 12 && v === 12);
+      const neb = (((tx * 31 + ty * 67) ^ (tx * ty * 7)) >>> 0) & 0x3F;
+      const pat = is_star ? 255 : (is_tiny ? 230 : (35 + neb));
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 52) { // Sci-Fi Cyber Hex Tech
+      const u = posMod(Math.floor((tx * 866 + ty * 500) / 1000), 16);
+      const v = posMod(Math.floor((-tx * 866 + ty * 500) / 1000), 16);
+      const is_border = (u <= 2 || u >= 14 || v <= 2 || v >= 14);
+      const is_node = (u >= 7 && u <= 9 && v >= 7 && v <= 9);
+      const pat = is_node ? 255 : (is_border ? 210 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 53) { // Bubble & Soap Foam Clusters
+      const c1x = posMod(tx, 28) - 14, c1y = posMod(ty, 28) - 14;
+      const d1 = Math.round(Math.sqrt(c1x * c1x + c1y * c1y));
+      const c2x = posMod(tx + 14, 20) - 10, c2y = posMod(ty + 10, 20) - 10;
+      const d2 = Math.round(Math.sqrt(c2x * c2x + c2y * c2y));
+      const is_wall = (d1 >= 11 && d1 <= 13) || (d2 >= 8 && d2 <= 9);
+      const is_glint = (d1 < 11 && c1x <= -5 && c1y <= -5);
+      const pat = is_glint ? 255 : (is_wall ? 235 : (d1 < 11 ? 120 : 35));
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 54) { // Celtic Knot Interlaced Ribbons
+      const u = posMod(tx, 24), v = posMod(ty, 24);
+      const b1 = posMod(u + v, 12);
+      const b2 = posMod(u - v + 24, 12);
+      const s1 = (b1 >= 4 && b1 <= 8);
+      const s2 = (b2 >= 4 && b2 <= 8);
+      const over = (posDiv(u, 12) ^ posDiv(v, 12));
+      const pat = (s1 && s2) ? (over ? (b1 === 4 || b1 === 8 ? 40 : 240) : (b2 === 4 || b2 === 8 ? 40 : 240)) : ((s1 || s2) ? 230 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 55) { // Skulls & Crossbones Motif
+      const u = posMod(tx, 36) - 18, v = posMod(ty, 36) - 18;
+      const d_head = u * u + (v + 4) * (v + 4);
+      const in_jaw = (u >= -5 && u <= 5 && v >= 4 && v <= 10);
+      const in_head = (d_head <= 81) || in_jaw;
+      const in_eye1 = (u + 4) * (u + 4) + (v + 2) * (v + 2) <= 6;
+      const in_eye2 = (u - 4) * (u - 4) + (v + 2) * (v + 2) <= 6;
+      const in_nose = (u * u + (v - 3) * (v - 3) <= 2);
+      const pat = (in_eye1 || in_eye2 || in_nose) ? 25 : (in_head ? 245 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 56) { // Hearts & Sweet Cupid Motif
+      const u = posMod(tx, 32) - 16, v = posMod(ty, 32) - 14;
+      const u_abs = Math.abs(u);
+      const top_y = Math.round(Math.sqrt(u_abs * 6));
+      const d2 = u * u + (v - top_y) * (v - top_y);
+      const in_heart = (d2 <= 64 && v <= 12);
+      const glint = in_heart && (u >= -8 && u <= -4 && v >= -4 && v <= 0);
+      const pat = glint ? 255 : (in_heart ? 235 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 57) { // Traditional Japanese Waves (Seigaiha)
+      const row = posDiv(ty, 12);
+      const off = (posMod(row, 2) === 0) ? 0 : 16;
+      const u = posMod(tx + off, 32) - 16, v = posMod(ty, 12);
+      const d = Math.round(Math.sqrt(u * u + (v - 12) * (v - 12)));
+      const is_arch = (d <= 20 && posMod(d, 4) < 2);
+      const pat = is_arch ? 245 : 45;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 58) { // Musical Notation & Staff
+      const u = posMod(tx, 40), v = posMod(ty, 32);
+      const is_staff = (v === 8 || v === 12 || v === 16 || v === 20 || v === 24);
+      const n1 = (u - 14)*(u - 14) + (v - 20)*(v - 20) <= 12;
+      const s1 = (u === 17 && v >= 6 && v <= 20);
+      const n2 = (u - 28)*(u - 28) + (v - 16)*(v - 16) <= 12;
+      const s2 = (u === 31 && v >= 2 && v <= 16);
+      const beam = (u >= 17 && u <= 31 && v >= 2 && v <= 5);
+      const is_note = n1 || s1 || n2 || s2 || beam;
+      const pat = (is_note || is_staff) ? 245 : 40;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 59) { // Classic Houndstooth (Pied-de-Poule)
+      const u = posMod(tx, 16), v = posMod(ty, 16);
+      const q1 = (u < 8 && v < 8);
+      const q4 = (u >= 8 && v >= 8);
+      const teeth = (u + v >= 8 && u + v <= 16 && (u < 8 ^ v < 8));
+      const is_ht = q1 || q4 || teeth;
+      const pat = is_ht ? 245 : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 60) { // Bird Feathers & Plumage
+      const u = posMod(tx, 20) - 10, v = posMod(ty, 40);
+      const u_abs = Math.abs(u);
+      const spine = (u_abs === 0);
+      const barb = (posMod(v - u_abs * 2, 5) < 2 && u_abs <= 9);
+      const pat = spine ? 255 : (barb ? 220 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 61) { // Interlinked Chainmail Armor
+      const row = posDiv(ty, 8);
+      const off = (posMod(row, 2) === 0) ? 0 : 8;
+      const u = posMod(tx + off, 16) - 8, v = posMod(ty, 8) - 4;
+      const d = Math.round(Math.sqrt(u * u + v * v * 3));
+      const ring = (d >= 5 && d <= 8);
+      const pat = ring ? 240 : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 62) { // Vintage Damask & Floral Paisley
+      const u = posMod(tx, 36) - 18, v = posMod(ty, 36) - 18;
+      const r = Math.round(Math.sqrt(u * u + v * v));
+      const ang = Math.round(((Math.atan2(v, u) * 180 / Math.PI) + 360) % 360);
+      const swirl = posMod(r * 8 - Math.floor(ang / 15), 24) < 8;
+      const pat = swirl ? 235 : 45;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 63) { // Argyle Diamond Plaid
+      const u = Math.abs(posMod(tx, 32) - 16);
+      const v = Math.abs(posMod(ty, 48) - 24);
+      const d_val = u * 3 + v * 2;
+      const is_diamond = (d_val <= 48);
+      const is_stitch = (posMod(u * 3 + v * 2, 8) < 4 && d_val >= 46 && d_val <= 50);
+      const pat = is_stitch ? 255 : (is_diamond ? 210 : 50);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 64) { // Masonry Brick Wall & Mortar
+      const row = posDiv(ty, 12);
+      const off = (posMod(row, 2) === 0) ? 0 : 16;
+      const u = posMod(tx + off, 32), v = posMod(ty, 12);
+      const is_mortar = (u < 2 || v < 2);
+      const b_noise = (((tx * 13 + ty * 29) ^ (tx * 7)) >>> 0) & 0x1F;
+      const pat = is_mortar ? 40 : (180 + b_noise);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 65) { // Liquid Molten Magma / Lava
+      const n1 = (((tx * 179 + ty * 313) ^ (tx * ty * 7)) >>> 0) & 0xFF;
+      const w1 = posMod(tx * 3 + ty * 2 + (n1 >> 2), 48);
+      const fissure = Math.abs(w1 - 24);
+      const pat = (fissure <= 4) ? 255 : (fissure <= 10 ? 190 : 35);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 66) { // Geometric Labyrinth Maze
+      const u = posMod(tx, 24), v = posMod(ty, 24);
+      const wall = (u === 0 || v === 0 || (u >= 6 && u <= 18 && (v === 6 || v === 18)) || (u === 12 && v >= 6 && v <= 14));
+      const pat = wall ? 245 : 35;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 67) { // Lightning Electric Arcs
+      const jag = posMod(ty * 13, 17);
+      const bolt = posMod(tx + jag - 24, 48);
+      const pat = (bolt <= 2) ? 255 : (bolt <= 5 ? 140 : 25);
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 68) { // Radial Spiderweb
+      const u = posMod(tx, 48) - 24, v = posMod(ty, 48) - 24;
+      const r = Math.round(Math.sqrt(u * u + v * v));
+      const u_abs = Math.abs(u), v_abs = Math.abs(v);
+      const ring = (posMod(r, 8) <= 1 && r <= 24);
+      const spoke = (u === 0 || v === 0 || u_abs === v_abs) && (r <= 24);
+      const pat = (ring || spoke) ? 245 : 30;
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 69) { // Crystal Facets / Gemstones
+      const cx = posMod(tx, 24) - 12, cy = posMod(ty, 24) - 12;
+      const cx_abs = Math.abs(cx), cy_abs = Math.abs(cy);
+      const diff = Math.abs(cx_abs - cy_abs);
+      const is_edge = (diff <= 1 || cx_abs === 11 || cy_abs === 11);
+      const pat = is_edge ? 30 : Math.max(0, Math.min(255, 175 + cx * 4 - cy * 3));
+      modA = Math.round((baseA * pat) / 255);
+    } else if (mode === 70) { // 8-Bit Space Pixel Invaders
+      const bx = posDiv(posMod(tx, 24), 3);
+      const by = posDiv(posMod(ty, 24), 3);
+      const sym_x = bx > 3 ? (7 - bx) : bx;
+      const sprite = [0x00, 0x04, 0x02, 0x07, 0x0D, 0x0F, 0x0A, 0x05];
+      const is_pixel = (sprite[by & 7] & (1 << sym_x)) !== 0;
+      const pat = is_pixel ? 245 : 30;
+      modA = Math.round((baseA * pat) / 255);
     }
 
     if (texContrast !== 100 && texContrast >= 0 && baseA > 0) {
