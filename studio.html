@@ -2113,6 +2113,20 @@
                       <option value="halftone">Manga Screentone</option>
                       <option value="crosshatch">Crosshatch Texture</option>
                     </optgroup>
+                    <optgroup label="Textured &amp; Media Grain">
+                      <option value="paper_texture">Paper Grain Brush</option>
+                      <option value="canvas_texture">Canvas Weave Brush</option>
+                      <option value="watercolor_paper">Watercolor Wash Brush</option>
+                      <option value="charcoal_tooth_brush">Charcoal Tooth Brush</option>
+                      <option value="noise_grain">Perlin Noise Grain</option>
+                      <option value="grunge_distress">Grunge Distress Brush</option>
+                      <option value="wood_grain">Wood Grain Brush</option>
+                      <option value="sandpaper_grit">Sandpaper Grit Brush</option>
+                      <option value="crackle_fissure">Crackle Fissure Brush</option>
+                      <option value="marble_veins">Marble Veins Brush</option>
+                      <option value="halftone_screentone">Halftone Screentone</option>
+                      <option value="crosshatch_screentone">Crosshatch Screentone</option>
+                    </optgroup>
                     <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
                   </select>
                   <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
@@ -4525,45 +4539,59 @@
       }
 
       const BRUSH_PRESET_CONFIGS = {
-        default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        pencil: { hardness: 70, flow: 85, spacing: 5, scatter: 2, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 35, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        soft_pencil: { hardness: 45, flow: 80, spacing: 6, scatter: 4, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        mech_pencil: { hardness: 90, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        blue_pencil: { hardness: 60, flow: 65, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        tech_pen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, texture_scale: 100, texture_rotate: 0, texture_contrast: 100, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        pencil: { hardness: 70, flow: 85, spacing: 5, scatter: 2, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 35, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 25, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        soft_pencil: { hardness: 45, flow: 80, spacing: 6, scatter: 4, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        mech_pencil: { hardness: 90, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 20, texture: 'paper', texture_mode: 1, texture_scale: 80, texture_rotate: 0, texture_contrast: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        blue_pencil: { hardness: 60, flow: 65, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 30, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 25, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        tech_pen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
 
-        inker: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 20, taper_out: 30, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        gpen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 15, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        dry_ink: { hardness: 70, flow: 90, spacing: 7, scatter: 5, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 10, angle_jitter: 15, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        fountain: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 0, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        brush_pen: { hardness: 85, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 35, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        inker: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 20, taper_out: 30, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        gpen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 15, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        dry_ink: { hardness: 70, flow: 90, spacing: 7, scatter: 5, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, texture: 'charcoal_tooth', texture_mode: 9, texture_scale: 100, texture_rotate: 0, texture_contrast: 60, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 10, angle_jitter: 15, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        fountain: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 0, shape: 2, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        brush_pen: { hardness: 85, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 35, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
 
-        marker: { hardness: 90, flow: 85, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        brush_marker: { hardness: 80, flow: 85, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 10, taper_out: 15, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        highlighter: { hardness: 100, flow: 70, spacing: 5, scatter: 0, roundness: 20, angle: 90, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        marker: { hardness: 90, flow: 85, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 1, shape: 2, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        brush_marker: { hardness: 80, flow: 85, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 10, taper_out: 15, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        highlighter: { hardness: 100, flow: 70, spacing: 5, scatter: 0, roundness: 20, angle: 90, dabBlend: 1, shape: 2, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
 
-        oil: { hardness: 80, flow: 95, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 60, color_pickup: 65, depletion: 35, smudge: 0 },
-        acrylic: { hardness: 85, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 40, color_pickup: 40, depletion: 20, smudge: 0 },
-        watercolor: { hardness: 20, flow: 40, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 85, color_pickup: 30, depletion: 50, smudge: 0 },
-        gouache: { hardness: 85, flow: 90, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 35, color_pickup: 30, depletion: 25, smudge: 0 },
-        palette_knife: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 25, angle: 0, dabBlend: 2, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 70, color_pickup: 70, depletion: 15, smudge: 0 },
+        oil: { hardness: 80, flow: 95, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 30, texture: 'canvas', texture_mode: 2, texture_scale: 100, texture_rotate: 0, texture_contrast: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 60, color_pickup: 65, depletion: 35, smudge: 0 },
+        acrylic: { hardness: 85, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 40, color_pickup: 40, depletion: 20, smudge: 0 },
+        watercolor: { hardness: 20, flow: 40, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 40, texture: 'watercolor', texture_mode: 8, texture_scale: 120, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 85, color_pickup: 30, depletion: 50, smudge: 0 },
+        gouache: { hardness: 85, flow: 90, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 20, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 30, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 35, color_pickup: 30, depletion: 25, smudge: 0 },
+        palette_knife: { hardness: 95, flow: 100, spacing: 5, scatter: 0, roundness: 25, angle: 0, dabBlend: 2, shape: 2, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 70, color_pickup: 70, depletion: 15, smudge: 0 },
 
-        charcoal: { hardness: 45, flow: 75, spacing: 10, scatter: 18, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 12, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        hard_charcoal: { hardness: 75, flow: 90, spacing: 6, scatter: 6, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 45, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        pastel: { hardness: 60, flow: 85, spacing: 8, scatter: 8, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        conte: { hardness: 80, flow: 80, spacing: 6, scatter: 0, roundness: 100, angle: 30, dabBlend: 0, shape: 1, grain: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        charcoal: { hardness: 45, flow: 75, spacing: 10, scatter: 18, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, texture: 'charcoal_tooth', texture_mode: 9, texture_scale: 100, texture_rotate: 0, texture_contrast: 70, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 12, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        hard_charcoal: { hardness: 75, flow: 90, spacing: 6, scatter: 6, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 45, texture: 'charcoal_tooth', texture_mode: 9, texture_scale: 100, texture_rotate: 0, texture_contrast: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        pastel: { hardness: 60, flow: 85, spacing: 8, scatter: 8, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, texture: 'canvas', texture_mode: 2, texture_scale: 100, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        conte: { hardness: 80, flow: 80, spacing: 6, scatter: 0, roundness: 100, angle: 30, dabBlend: 0, shape: 1, grain: 50, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
 
-        airbrush: { hardness: 0, flow: 25, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        hard_airbrush: { hardness: 20, flow: 40, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        spray: { hardness: 60, flow: 50, spacing: 20, scatter: 55, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 40, angle_jitter: 0, opacity_jitter: 30, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        airbrush: { hardness: 0, flow: 25, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        hard_airbrush: { hardness: 20, flow: 40, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        spray: { hardness: 60, flow: 50, spacing: 20, scatter: 55, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 40, texture: 'noise', texture_mode: 3, texture_scale: 100, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 40, angle_jitter: 0, opacity_jitter: 30, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
 
-        smudge: { hardness: 35, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 80 },
-        blend: { hardness: 50, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 80, color_pickup: 60, depletion: 0, smudge: 0 },
-        rake_blend: { hardness: 60, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 0, dabBlend: 1, shape: 2, grain: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 75 },
+        smudge: { hardness: 35, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 1, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 80 },
+        blend: { hardness: 50, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 80, color_pickup: 60, depletion: 0, smudge: 0 },
+        rake_blend: { hardness: 60, flow: 100, spacing: 5, scatter: 0, roundness: 35, angle: 0, dabBlend: 1, shape: 2, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 75 },
 
-        pixel: { hardness: 100, flow: 100, spacing: 100, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        halftone: { hardness: 90, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        crosshatch: { hardness: 85, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 }
+        pixel: { hardness: 100, flow: 100, spacing: 100, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        halftone: { hardness: 90, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 85, texture: 'dots', texture_mode: 4, texture_scale: 100, texture_rotate: 0, texture_contrast: 80, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        crosshatch: { hardness: 85, flow: 100, spacing: 8, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 85, texture: 'hatch', texture_mode: 7, texture_scale: 100, texture_rotate: 0, texture_contrast: 80, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+
+        // Textured & Media Grain Presets
+        paper_texture: { hardness: 65, flow: 90, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 65, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        canvas_texture: { hardness: 75, flow: 95, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, texture: 'canvas', texture_mode: 2, texture_scale: 100, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        watercolor_paper: { hardness: 30, flow: 60, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 0, grain: 60, texture: 'watercolor', texture_mode: 8, texture_scale: 120, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 70, color_pickup: 30, depletion: 40, smudge: 0 },
+        charcoal_tooth_brush: { hardness: 50, flow: 80, spacing: 8, scatter: 12, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 70, texture: 'charcoal_tooth', texture_mode: 9, texture_scale: 100, texture_rotate: 0, texture_contrast: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 10, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        noise_grain: { hardness: 40, flow: 65, spacing: 6, scatter: 15, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, texture: 'noise', texture_mode: 3, texture_scale: 100, texture_rotate: 0, texture_contrast: 50, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        grunge_distress: { hardness: 60, flow: 80, spacing: 10, scatter: 20, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 70, texture: 'grunge', texture_mode: 6, texture_scale: 120, texture_rotate: 0, texture_contrast: 75, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 15, angle_jitter: 25, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        wood_grain: { hardness: 70, flow: 85, spacing: 7, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, texture: 'wood', texture_mode: 10, texture_scale: 100, texture_rotate: 0, texture_contrast: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        sandpaper_grit: { hardness: 55, flow: 85, spacing: 8, scatter: 15, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 75, texture: 'sandpaper', texture_mode: 9, texture_scale: 80, texture_rotate: 0, texture_contrast: 70, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        crackle_fissure: { hardness: 75, flow: 90, spacing: 10, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 80, texture: 'crackle', texture_mode: 6, texture_scale: 150, texture_rotate: 0, texture_contrast: 85, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        marble_veins: { hardness: 60, flow: 75, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 50, texture: 'marble', texture_mode: 8, texture_scale: 110, texture_rotate: 0, texture_contrast: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        halftone_screentone: { hardness: 85, flow: 100, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 85, texture: 'dots', texture_mode: 4, texture_scale: 100, texture_rotate: 0, texture_contrast: 80, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        crosshatch_screentone: { hardness: 85, flow: 100, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 85, texture: 'hatch', texture_mode: 7, texture_scale: 100, texture_rotate: 0, texture_contrast: 80, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 }
       };
 
       // ── Inspector UI Sync ──
@@ -6819,6 +6847,17 @@
           for (const obj of selected) {
             if (!obj.brushConfig) obj.brushConfig = {};
             Object.assign(obj.brushConfig, preset);
+            if (!obj.strokeTexture) obj.strokeTexture = {};
+            const texName = preset.texture || 'none';
+            const texMode = preset.texture_mode !== undefined ? preset.texture_mode : (texName !== 'none' ? 1 : 0);
+            const grainVal = preset.grain !== undefined ? preset.grain : 0;
+            obj.strokeTexture.name = texName;
+            obj.strokeTexture.mode = texMode;
+            obj.strokeTexture.enabled = (texMode !== 0 && texMode !== '0' && texName !== 'none' && grainVal > 0);
+            obj.strokeTexture.grain = grainVal;
+            obj.strokeTexture.scale = preset.texture_scale !== undefined ? preset.texture_scale : 100;
+            obj.strokeTexture.angle = preset.texture_rotate !== undefined ? preset.texture_rotate : (preset.texture_angle || 0);
+            obj.strokeTexture.contrast = preset.texture_contrast !== undefined ? preset.texture_contrast : 100;
           }
           updateInspector();
           render();
@@ -6829,6 +6868,7 @@
         const selected = doc.getSelectedObjects();
         const obj = selected[0];
         const bc = obj ? (obj.brushConfig || {}) : {};
+        const st = obj ? (obj.strokeTexture || {}) : {};
         const name = window.prompt('Enter name for custom brush preset:');
         if (name && name.trim()) {
           const configToSave = {
@@ -6851,7 +6891,13 @@
             wetness: bc.wetness !== undefined ? bc.wetness : Number(document.getElementById('prop-brush-wetness')?.value || 0),
             color_pickup: bc.color_pickup !== undefined ? bc.color_pickup : Number(document.getElementById('prop-brush-color-pickup')?.value || 0),
             depletion: bc.depletion !== undefined ? bc.depletion : Number(document.getElementById('prop-brush-depletion')?.value || 0),
-            smudge: bc.smudge !== undefined ? bc.smudge : Number(document.getElementById('prop-brush-smudge')?.value || 0)
+            smudge: bc.smudge !== undefined ? bc.smudge : Number(document.getElementById('prop-brush-smudge')?.value || 0),
+            texture: st.name || bc.texture || 'none',
+            texture_mode: st.mode !== undefined ? st.mode : (bc.texture_mode !== undefined ? bc.texture_mode : 0),
+            texture_scale: st.scale !== undefined ? st.scale : (bc.texture_scale !== undefined ? bc.texture_scale : 100),
+            texture_rotate: st.angle !== undefined ? st.angle : (bc.texture_rotate !== undefined ? bc.texture_rotate : 0),
+            texture_contrast: st.contrast !== undefined ? st.contrast : (bc.texture_contrast !== undefined ? bc.texture_contrast : 100),
+            grain: st.grain !== undefined ? st.grain : (bc.grain !== undefined ? bc.grain : 0)
           };
           if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
             EsenhoStore.saveCustomBrushPreset(name, configToSave);

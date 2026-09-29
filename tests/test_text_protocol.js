@@ -1718,12 +1718,46 @@ async function run() {
 
   // Test that switching from charcoal (grain, scatter, jitter) to inker resets all non-inker params cleanly
   host.executeCommand('preset charcoal');
-  if (host.brushParams.grain !== 60 || host.brushParams.scatter !== 18 || host.brushParams.size_jitter !== 12) {
+  if (host.brushParams.grain !== 60 || host.brushParams.scatter !== 18 || host.brushParams.size_jitter !== 12 || host.activeTexture !== 'charcoal_tooth') {
     throw new Error("Charcoal params not set properly");
   }
   host.executeCommand('preset inker');
   if (host.brushParams.grain !== 0 || host.brushParams.scatter !== 0 || host.brushParams.size_jitter !== 0 || host.activeTexture !== 'none') {
     throw new Error(`Preset parameter leak: inker inherited previous params (grain=${host.brushParams.grain}, scatter=${host.brushParams.scatter}, jitter=${host.brushParams.size_jitter}, texture=${host.activeTexture})`);
+  }
+
+  // Test that textured presets load their textures properly
+  host.executeCommand('preset paper_texture');
+  if (host.activeTexture !== 'paper' || host.brushParams.texture !== 'paper' || host.brushParams.grain !== 65) {
+    throw new Error(`Expected paper_texture to have texture=paper and grain=65, got texture=${host.activeTexture}, grain=${host.brushParams.grain}`);
+  }
+
+  host.executeCommand('preset canvas_texture');
+  if (host.activeTexture !== 'canvas' || host.brushParams.texture !== 'canvas' || host.brushParams.grain !== 55) {
+    throw new Error(`Expected canvas_texture to have texture=canvas and grain=55, got texture=${host.activeTexture}, grain=${host.brushParams.grain}`);
+  }
+
+  // Test custom preset preserves texture
+  host.executeCommand('set texture grunge');
+  host.executeCommand('set grain 42');
+  host.executeCommand('preset save custom_textured_brush');
+  if (!host.customBrushPresets.custom_textured_brush || host.customBrushPresets.custom_textured_brush.texture !== 'grunge') {
+    throw new Error(`Expected custom_textured_brush to save texture=grunge, got ${host.customBrushPresets.custom_textured_brush?.texture}`);
+  }
+  host.executeCommand('preset inker');
+  if (host.activeTexture !== 'none') throw new Error("Expected inker to have texture=none");
+  host.executeCommand('preset custom_textured_brush');
+  if (host.activeTexture !== 'grunge' || host.brushParams.grain !== 42) {
+    throw new Error(`Expected custom_textured_brush loaded with texture=grunge grain=42, got texture=${host.activeTexture}, grain=${host.brushParams.grain}`);
+  }
+  host.executeCommand('preset delete custom_textured_brush');
+
+  // Test dump brush script includes texture
+  host.executeCommand('set texture wood');
+  host.executeCommand('set grain 50');
+  const dumpedScript = host.dumpBrushScript();
+  if (!dumpedScript.includes('set texture wood') || !dumpedScript.includes('set grain 50')) {
+    throw new Error(`dumpBrushScript did not contain texture commands: ${dumpedScript}`);
   }
 
   // Test Renderer switching command

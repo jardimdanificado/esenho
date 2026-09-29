@@ -469,14 +469,14 @@ const BRUSH_PRESETS = {
     category: 'fx',
     shape: 1, size: 1, opacity: 100, hardness: 100, flow: 100, spacing: 100,
     subpixel: 0, smoothing: 0, pressure_size: 0, pressure_flow: 0, grain: 0,
-    mode: 0, eraser: 0
+    texture: 'none', mode: 0, eraser: 0
   },
   halftone: {
     name: 'Manga Screentone',
     desc: 'Halftone screen dots pattern with pressure opacity',
     category: 'fx',
     shape: 0, size: 32, opacity: 100, hardness: 90, flow: 100, spacing: 8,
-    texture: 'dots', texture_mode: 4, pressure_size: 0, pressure_flow: 1,
+    texture: 'dots', texture_mode: 0, grain: 100, texture_contrast: 100, texture_scale: 100, pressure_size: 0, pressure_flow: 1,
     smoothing: 10, mode: 0, eraser: 0
   },
   crosshatch: {
@@ -484,8 +484,109 @@ const BRUSH_PRESETS = {
     desc: 'Diagonal hatching texture screentone for comic shading',
     category: 'fx',
     shape: 0, size: 32, opacity: 100, hardness: 85, flow: 100, spacing: 8,
-    texture: 'hatch', texture_mode: 4, pressure_size: 0, pressure_flow: 1,
+    texture: 'hatch', texture_mode: 0, grain: 100, texture_contrast: 100, texture_scale: 100, pressure_size: 0, pressure_flow: 1,
     smoothing: 10, mode: 0, eraser: 0
+  },
+
+  // 10. Textured & Grain Media Presets
+  paper_texture: {
+    name: 'Paper Grain',
+    desc: 'Cold-press heavy paper texture brush for graphite & pastel shading',
+    category: 'texture',
+    shape: 0, size: 28, opacity: 85, hardness: 65, flow: 90, spacing: 6,
+    texture: 'paper', grain: 65, texture_contrast: 40, texture_scale: 100, texture_rotate: 0,
+    pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
+  },
+  canvas_texture: {
+    name: 'Canvas Weave',
+    desc: 'Woven coarse linen canvas texture for oil & acrylic painting',
+    category: 'texture',
+    shape: 0, size: 32, opacity: 90, hardness: 75, flow: 95, spacing: 6,
+    texture: 'canvas', grain: 55, texture_contrast: 50, texture_scale: 100, texture_rotate: 0,
+    pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
+  },
+  watercolor_paper: {
+    name: 'Watercolor Wash',
+    desc: 'Granulating rough watercolor wash on handmade rag paper',
+    category: 'texture',
+    shape: 0, size: 40, opacity: 50, hardness: 30, flow: 60, spacing: 6,
+    texture: 'watercolor', grain: 60, texture_contrast: 50, texture_scale: 120, texture_rotate: 0,
+    wetness: 70, color_pickup: 30, depletion: 40, pressure_size: 1, pressure_flow: 1,
+    smoothing: 20, mode: 2, eraser: 0
+  },
+  charcoal_tooth_brush: {
+    name: 'Charcoal Tooth',
+    desc: 'Deep porous tooth texture with organic graphite dispersion',
+    category: 'texture',
+    shape: 0, size: 24, opacity: 85, hardness: 50, flow: 80, spacing: 8,
+    texture: 'charcoal_tooth', grain: 70, texture_contrast: 60, texture_scale: 100,
+    scatter: 12, size_jitter: 10, pressure_size: 1, pressure_flow: 1,
+    smoothing: 12, mode: 0, eraser: 0
+  },
+  noise_grain: {
+    name: 'Perlin Noise',
+    desc: 'Fine stippled noise grain for airbrush shading and film texture',
+    category: 'texture',
+    shape: 0, size: 36, opacity: 70, hardness: 40, flow: 65, spacing: 6,
+    texture: 'noise', grain: 50, texture_contrast: 50, texture_scale: 100,
+    scatter: 15, pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  grunge_distress: {
+    name: 'Grunge Distress',
+    desc: 'Heavy distressed weathered grunge texture for background blocking',
+    category: 'texture',
+    shape: 0, size: 45, opacity: 85, hardness: 60, flow: 80, spacing: 10,
+    texture: 'grunge', grain: 70, texture_contrast: 75, texture_scale: 120,
+    scatter: 20, size_jitter: 15, angle_jitter: 25, auto_rotate: 1, pressure_flow: 1,
+    smoothing: 10, mode: 0, eraser: 0
+  },
+  wood_grain: {
+    name: 'Wood Grain',
+    desc: 'Natural organic wood fiber texture with directional pressure flow',
+    category: 'texture',
+    shape: 0, size: 38, opacity: 80, hardness: 70, flow: 85, spacing: 7,
+    texture: 'wood', grain: 60, texture_contrast: 60, texture_scale: 100, texture_rotate: 0,
+    pressure_size: 1, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
+  },
+  sandpaper_grit: {
+    name: 'Sandpaper Grit',
+    desc: 'Rough high-grit abrasive texture for chalk & dry scraping',
+    category: 'texture',
+    shape: 0, size: 30, opacity: 90, hardness: 55, flow: 85, spacing: 8,
+    texture: 'sandpaper', grain: 75, texture_contrast: 70, texture_scale: 80,
+    scatter: 15, pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  crackle_fissure: {
+    name: 'Crackle Fissure',
+    desc: 'Fractured ceramic and dry earth crackle texture',
+    category: 'texture',
+    shape: 0, size: 40, opacity: 90, hardness: 75, flow: 90, spacing: 10,
+    texture: 'crackle', grain: 80, texture_contrast: 85, texture_scale: 150,
+    pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  marble_veins: {
+    name: 'Marble Veins',
+    desc: 'Smooth polished marble mineral veining texture',
+    category: 'texture',
+    shape: 0, size: 36, opacity: 75, hardness: 60, flow: 75, spacing: 6,
+    texture: 'marble', grain: 50, texture_contrast: 60, texture_scale: 110,
+    pressure_size: 1, pressure_flow: 1, smoothing: 18, mode: 0, eraser: 0
+  },
+  halftone_screentone: {
+    name: 'Halftone Dots',
+    desc: 'Uniform manga screentone dots with pressure dynamic flow',
+    category: 'texture',
+    shape: 0, size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    texture: 'dots', grain: 85, texture_contrast: 80, texture_scale: 100,
+    pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  crosshatch_screentone: {
+    name: 'Crosshatch Shading',
+    desc: 'Multi-angle crosshatching texture pattern for comic rendering',
+    category: 'texture',
+    shape: 0, size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    texture: 'hatch', grain: 85, texture_contrast: 80, texture_scale: 100,
+    pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
 
   // Compatibility aliases
@@ -3587,6 +3688,7 @@ const COMMAND_RULES = [
       host.customBrushPresets[name] = {
         name: m.name,
         ...JSON.parse(JSON.stringify(host.brushParams || {})),
+        texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
         eraser: host.strokeIsEraser ? 1 : 0
       };
       if (typeof localStorage !== 'undefined') {
@@ -6673,6 +6775,7 @@ class EsenhoScreenHost {
       smudge: 0,
       wetness: 0,
       grain: 0,
+      texture: 'none',
       texture_mode: 0,
       texture_angle: 0,
       texture_scale: 100,
@@ -7478,6 +7581,7 @@ class EsenhoScreenHost {
   setTexture(name) {
     if (!name || name === 'none' || name === '0' || name === 'off') {
       this.activeTexture = 'none';
+      if (this.brushParams) this.brushParams.texture = 'none';
       // disable grain texture: set tex_layer to -1 (clears g_texture in WASM)
       if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
         this.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, -1);
@@ -7488,6 +7592,7 @@ class EsenhoScreenHost {
     // Ensure texture registered as layer
     const layerId = this.getTextureId(lower);
     this.activeTexture = lower;
+    if (this.brushParams) this.brushParams.texture = lower;
     // Point brush engine at this layer for grain sampling
     if (this.canvasActor && typeof this.canvasActor.exports.w_brush_set_param === 'function') {
       this.canvasActor.exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, layerId);
@@ -7516,10 +7621,15 @@ class EsenhoScreenHost {
         this.actionMode = 'draw';
         this.strokeIsEraser = 0;
       }
+
+      // Explicitly set texture from preset or default to none
+      const tex = preset.texture || 'none';
+      this.setTexture(tex);
+
       for (const [k, v] of Object.entries(preset)) {
         if (k === 'name' || k === 'icon' || k === 'desc' || k === 'eraser' || k === 'category') continue;
-        if (k === 'texture' && typeof v === 'string') {
-          this.setTexture(v);
+        if (k === 'texture') {
+          if (typeof v === 'string') this.setTexture(v);
         } else {
           this.setBrushParam(k, v);
         }
@@ -7579,6 +7689,11 @@ class EsenhoScreenHost {
       `set smudge ${bp.smudge || 50}`,
       `set wetness ${bp.wetness || 50}`,
       `set grain ${bp.grain || 0}`,
+      `set texture ${bp.texture || this.activeTexture || 'none'}`,
+      `set texture_scale ${bp.texture_scale || 100}`,
+      `set texture_rotate ${bp.texture_rotate !== undefined ? bp.texture_rotate : (bp.texture_angle || 0)}`,
+      `set texture_contrast ${bp.texture_contrast !== undefined ? bp.texture_contrast : 100}`,
+      `set texture_mode ${bp.texture_mode || 0}`,
       `set smooth ${bp.smoothing || 0}`,
       `set auto_rotate ${bp.auto_rotate ? 'on' : 'off'}`,
       `set velocity ${bp.velocity || 0}`,

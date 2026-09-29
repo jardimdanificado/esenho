@@ -3204,6 +3204,7 @@ async function main() {
           name: name.trim(),
           desc: 'Custom user brush preset',
           ...JSON.parse(JSON.stringify(host.brushParams || {})),
+          texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
           eraser: host.strokeIsEraser ? 1 : 0
         };
         saveCustomBrushPresets(host.customBrushPresets);
@@ -4571,7 +4572,8 @@ async function main() {
       lines.push(`set dab_blend ${blendNames[bp.dab_blend] || 'normal'}`);
     }
     if (bp.symmetry !== undefined) lines.push(`set symmetry ${bp.symmetry}`);
-    if (host.activeTexture) lines.push(`set texture ${host.activeTexture}`);
+    if (bp.texture || host.activeTexture) lines.push(`set texture ${bp.texture || host.activeTexture}`);
+    if (bp.texture_mode !== undefined) lines.push(`set texture_mode ${bp.texture_mode}`);
     return lines.join('\n');
   }
 
@@ -9378,8 +9380,10 @@ async function main() {
           const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
           const custom = host.customBrushPresets || {};
           custom[key] = {
-            ...host.brushParams,
+            ...JSON.parse(JSON.stringify(host.brushParams || {})),
+            texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
             name: name.trim(),
+            category: 'custom',
             desc: `User custom preset (${host.brushParams.size}px)`
           };
           host.customBrushPresets = custom;
@@ -10104,16 +10108,22 @@ async function main() {
         const name = prompt('Enter custom brush preset name:', 'My Custom Brush');
         if (name && name.trim()) {
           const key = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_');
-          if (host.customBrushPresets) {
-            host.customBrushPresets[key] = {
-              name: name.trim(),
-              category: 'custom',
-              params: { ...(host.brushParams || {}) }
-            };
-          }
+          if (!host.customBrushPresets) host.customBrushPresets = {};
+          host.customBrushPresets[key] = {
+            name: name.trim(),
+            category: 'custom',
+            desc: `Custom preset (${host.brushParams?.size || 12}px)`,
+            ...JSON.parse(JSON.stringify(host.brushParams || {})),
+            texture: host.activeTexture || (host.brushParams && host.brushParams.texture) || 'none',
+            eraser: host.strokeIsEraser ? 1 : 0
+          };
+          saveCustomBrushPresets(host.customBrushPresets);
+          host.activeBrush = key;
           populateBrushPresetsUI();
+          if (typeof renderBrushShelf === 'function') renderBrushShelf();
           syncInfinitePainterUI();
-          alert(`Brush preset "${name.trim()}" saved!`);
+          syncUiFromHost();
+          triggerHaptic(15);
         }
       });
     }
