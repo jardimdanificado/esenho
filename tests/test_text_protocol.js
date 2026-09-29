@@ -1760,6 +1760,26 @@ async function run() {
     throw new Error(`dumpBrushScript did not contain texture commands: ${dumpedScript}`);
   }
 
+  // Test procedural texture registry contains all 42 textures
+  const requiredTextures = [
+    'paper', 'canvas', 'noise', 'dots', 'grid', 'grunge', 'hatch', 'watercolor',
+    'charcoal_tooth', 'wood', 'leather', 'linen', 'marble', 'cloud_grain', 'weave',
+    'sandpaper', 'halftone', 'crackle', 'washi', 'concrete', 'parchment', 'stipple_noise',
+    'spatter_drops', 'fiber_pulp', 'halftone_coarse', 'crosshatch_fine', 'rust_distress',
+    'dry_scrape', 'pastel_board', 'bark', 'manga_dots', 'manga_sand', 'sponge',
+    'rough_plaster', 'denim', 'oil_impasto', 'dry_chalk', 'engraving_lines', 'granite',
+    'salt_bloom', 'burlap', 'cracked_earth'
+  ];
+  for (const tname of requiredTextures) {
+    if (!host.textures.has(tname)) {
+      throw new Error(`Procedural texture '${tname}' missing from host texture registry`);
+    }
+    host.executeCommand(`set texture ${tname}`);
+    if (host.activeTexture !== tname) {
+      throw new Error(`Failed to activate texture '${tname}' via command`);
+    }
+  }
+
   // Test Renderer switching command
   host.executeCommand('set renderer cpu');
   if (host.renderMode !== 'cpu') {

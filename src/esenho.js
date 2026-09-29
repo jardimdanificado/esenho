@@ -2277,6 +2277,263 @@ function createProceduralTextures() {
     map.set('dry_scrape', { width: w, height: h, data: buf, category: 'texture' });
   }
 
+  // 29. Honeycomb Pastel Board / Canson Mi-Teintes (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = (x * 0.8660254 + y * 0.5) % 12;
+        const v = (-x * 0.8660254 + y * 0.5 + 1200) % 12;
+        const w3 = (y % 12);
+        const hexDist = Math.min(Math.abs(u - 6), Math.abs(v - 6), Math.abs(w3 - 6));
+        const vVal = Math.max(0, Math.min(255, Math.floor(60 + hexDist * 38 + (Math.random() - 0.5) * 20)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = vVal; buf[idx + 1] = vVal; buf[idx + 2] = vVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('pastel_board', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 30. Organic Tree Bark Grain (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const wave = Math.sin(y * 0.04) * 14 + Math.sin(y * 0.12) * 5;
+        const xPerturb = (x + wave + 2560) % 32;
+        const fissure = Math.abs(xPerturb - 16) / 16;
+        const fiberNoise = ((x * 47 + y * 13) % 17 < 3) ? -35 : 20;
+        const v = Math.max(0, Math.min(255, Math.floor(180 * Math.pow(fissure, 0.6) + fiberNoise + (Math.random() - 0.5) * 30)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('bark', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 31. Fine 60-Line Manga Tone (32x32, 45-degree angle)
+  {
+    const w = 32, h = 32;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const u = ((x + y) * 0.7071) % 8;
+        const v = ((-x + y) * 0.7071 + 800) % 8;
+        const du = u - 4, dv = v - 4;
+        const dist = Math.sqrt(du * du + dv * dv);
+        const val = dist <= 2.2 ? 255 : 30;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = val; buf[idx + 1] = val; buf[idx + 2] = val; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('manga_dots', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('screentone_dots', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 32. Manga Sandtone Shading (128x128)
+  {
+    const w = 128, h = 128;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const g1 = ((x * 127 + y * 311) ^ (x * 19)) & 0xFF;
+        const g2 = ((x * 37 - y * 97 + 1000) ^ (y * 23)) & 0xFF;
+        const v = (g1 > 170 || (g2 > 210 && (x + y) % 2 === 0)) ? 245 : 35;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('manga_sand', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('screentone_sand', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 33. Natural Sea Sponge Porous (128x128)
+  {
+    const w = 128, h = 128;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const c1 = Math.sin(x * 0.12) * Math.cos(y * 0.12) * 50;
+        const c2 = Math.sin(x * 0.28 - y * 0.22) * 35;
+        const pore = ((Math.floor(x / 6) * 17 + Math.floor(y / 6) * 29) % 19 < 3) ? -80 : 20;
+        const v = Math.max(0, Math.min(255, Math.floor(160 + c1 + c2 + pore + (Math.random() - 0.5) * 40)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('sponge', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 34. Rough Stucco Plaster (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const sweep = Math.sin((x + y * 0.6) * 0.04) * 60;
+        const trowel = Math.abs(Math.sin((x * 0.03 - y * 0.05))) * 50;
+        const v = Math.max(0, Math.min(255, Math.floor(150 + sweep + trowel + (Math.random() - 0.5) * 35)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('rough_plaster', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('stucco', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 35. Denim Twill Weave (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const twill = (x * 2 + y) % 6;
+        const ridge = twill < 3 ? 240 : 60;
+        const threadNoise = ((x * 19 + y * 23) % 7 < 2) ? -25 : 15;
+        const v = Math.max(0, Math.min(255, ridge + threadNoise));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('denim', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 36. Impasto Palette Knife Peaks (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const ridge = Math.abs(Math.sin((x + y * 0.4) * 0.05) * Math.cos((x * 0.4 - y) * 0.05));
+        const crest = Math.pow(ridge, 0.35) * 220;
+        const gouge = Math.sin(x * 0.1 + y * 0.08) * 30;
+        const v = Math.max(0, Math.min(255, Math.floor(40 + crest + gouge)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('oil_impasto', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('impasto', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 37. Dusty Chalk Tooth (128x128)
+  {
+    const w = 128, h = 128;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const streak = Math.sin(x * 0.15 + (Math.random() - 0.5) * 0.8) * 40;
+        const grain = ((x * 199 + y * 337) ^ (x * y * 5)) & 0xFF;
+        const v = Math.max(0, Math.min(255, Math.floor(130 + streak + (grain > 120 ? 80 : -70))));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('dry_chalk', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 38. Vintage Engraving Line Screen (32x32)
+  {
+    const w = 32, h = 32;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const wave = Math.sin(x * 0.4) * 2;
+        const line = ((y + wave + 320) % 6);
+        const v = line < 3 ? 245 : 30;
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('engraving_lines', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('woodcut', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 39. Granite Mineral Flecks (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const f1 = ((x * 17 + y * 73) ^ (x * 3)) & 0xFF;
+        const f2 = ((x * 89 + y * 13) ^ (y * 5)) & 0xFF;
+        let v = 160;
+        if (f1 > 220) v = 250;
+        else if (f2 > 230) v = 30;
+        else v = 120 + ((f1 + f2) >> 2);
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('granite', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 40. Watercolor Salt Bloom (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    buf.fill(200);
+    const blooms = [
+      [40,50,28],[130,80,35],[200,45,25],[70,170,32],[170,160,40],[225,210,26],[30,225,24],[110,230,30]
+    ];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let bloomVal = 200;
+        for (const [bx, by, br] of blooms) {
+          const dx = x - bx, dy = y - by;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist <= br) {
+            const edge = dist / br;
+            const ring = Math.sin(edge * Math.PI) * (edge > 0.75 ? 90 : -70);
+            bloomVal = Math.max(30, Math.min(255, Math.floor(bloomVal + ring)));
+          }
+        }
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = bloomVal; buf[idx + 1] = bloomVal; buf[idx + 2] = bloomVal; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('salt_bloom', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 41. Coarse Jute Burlap Weave (64x64)
+  {
+    const w = 64, h = 64;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const threadX = (x % 8 < 4) ? 220 : 50;
+        const threadY = (y % 8 < 4) ? 220 : 50;
+        const block = (Math.floor(x / 8) + Math.floor(y / 8)) % 2 === 0;
+        const v = block ? threadX : threadY;
+        const slub = (Math.random() - 0.5) * 30;
+        const fin = Math.max(0, Math.min(255, Math.floor(v + slub)));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = fin; buf[idx + 1] = fin; buf[idx + 2] = fin; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('burlap', { width: w, height: h, data: buf, category: 'texture' });
+    map.set('jute', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
+  // 42. Drying Mud Cracked Earth (256x256)
+  {
+    const w = 256, h = 256;
+    const buf = Buf.alloc(w * h * 4);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const c1 = Math.abs(Math.sin(x * 0.05 + Math.sin(y * 0.05) * 2.0));
+        const c2 = Math.abs(Math.cos(y * 0.05 + Math.cos(x * 0.05) * 2.0));
+        const crack = Math.min(c1, c2);
+        const v = crack < 0.15 ? 30 : Math.min(255, Math.floor(180 + crack * 70 + (Math.random() - 0.5) * 25));
+        const idx = (y * w + x) * 4;
+        buf[idx + 0] = v; buf[idx + 1] = v; buf[idx + 2] = v; buf[idx + 3] = 0xFF;
+      }
+    }
+    map.set('cracked_earth', { width: w, height: h, data: buf, category: 'texture' });
+  }
+
   return map;
 }
 
