@@ -594,7 +594,7 @@ const BRUSH_PRESETS = {
     desc: 'Uniform manga screentone dots with pressure dynamic flow',
     category: 'texture',
     shape: 'circle', size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
-    texture: 'dots', grain: 85, texture_contrast: 80, texture_scale: 100,
+    texture: 'manga_dots', grain: 85, texture_contrast: 80, texture_scale: 100,
     pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
   },
   crosshatch_screentone: {
@@ -602,8 +602,106 @@ const BRUSH_PRESETS = {
     desc: 'Multi-angle crosshatching texture pattern for comic rendering',
     category: 'texture',
     shape: 'circle', size: 35, opacity: 100, hardness: 85, flow: 100, spacing: 6,
-    texture: 'hatch', grain: 85, texture_contrast: 80, texture_scale: 100,
+    texture: 'crosshatch_fine', grain: 85, texture_contrast: 80, texture_scale: 100,
     pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  pastel_honeycomb: {
+    name: 'Honeycomb Pastel',
+    desc: 'Canson Mi-Teintes honeycomb dimpled paper with soft pastel tooth',
+    category: 'texture',
+    shape: 'charcoal', size: 26, opacity: 90, hardness: 50, flow: 85, spacing: 7,
+    texture: 'pastel_board', grain: 65, texture_contrast: 60, texture_scale: 100,
+    scatter: 8, size_jitter: 8, pressure_size: 1, pressure_flow: 1, smoothing: 12, mode: 0, eraser: 0
+  },
+  impasto_oil: {
+    name: 'Impasto Knife Crests',
+    desc: 'Heavy palette knife impasto crests with thick 3D paint relief',
+    category: 'texture',
+    shape: 'chisel', size: 36, opacity: 100, hardness: 90, flow: 100, spacing: 6,
+    texture: 'oil_impasto', grain: 60, texture_contrast: 70, texture_scale: 110,
+    auto_rotate: 1, wetness: 65, color_pickup: 70, depletion: 30, smoothing: 18, mode: 2, eraser: 0
+  },
+  sponge_fx: {
+    name: 'Sea Sponge Porous',
+    desc: 'Organic sea sponge porous holes for foliage, moss, and stone texturing',
+    category: 'texture',
+    shape: 'splatter', size: 44, opacity: 80, hardness: 50, flow: 75, spacing: 14,
+    texture: 'sponge', grain: 70, texture_contrast: 70, texture_scale: 100,
+    scatter: 25, size_jitter: 20, angle_jitter: 40, auto_rotate: 1, pressure_size: 1, pressure_flow: 1,
+    smoothing: 10, mode: 0, eraser: 0
+  },
+  manga_sand_screentone: {
+    name: 'Manga Sandtone',
+    desc: 'Fine anime/manga sand tone stipple shading for backgrounds and shadows',
+    category: 'texture',
+    shape: 'circle', size: 36, opacity: 100, hardness: 85, flow: 100, spacing: 6,
+    texture: 'manga_sand', grain: 80, texture_contrast: 75, texture_scale: 100,
+    pressure_size: 0, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  stucco_plaster: {
+    name: 'Stucco Plaster Wall',
+    desc: 'Troweled wall plaster and rough fresco texture with sharp facets',
+    category: 'texture',
+    shape: 'square', size: 40, opacity: 85, hardness: 65, flow: 80, spacing: 8,
+    texture: 'rough_plaster', grain: 65, texture_contrast: 65, texture_scale: 120,
+    pressure_size: 1, pressure_flow: 1, smoothing: 12, mode: 0, eraser: 0
+  },
+  salt_bloom_wash: {
+    name: 'Salt Bloom Wash',
+    desc: 'Granulating crystalline watercolor salt dispersion effect',
+    category: 'texture',
+    shape: 'soft_round', size: 48, opacity: 55, hardness: 25, flow: 60, spacing: 8,
+    texture: 'salt_bloom', grain: 70, texture_contrast: 75, texture_scale: 130,
+    wetness: 80, color_pickup: 35, depletion: 45, pressure_size: 1, pressure_flow: 1,
+    smoothing: 20, mode: 2, eraser: 0
+  },
+  tree_bark_brush: {
+    name: 'Tree Bark Grain',
+    desc: 'Deep fibrous tree bark and wood grain with directional flow',
+    category: 'texture',
+    shape: 'dry_brush', size: 38, opacity: 90, hardness: 70, flow: 85, spacing: 8,
+    texture: 'bark', grain: 70, texture_contrast: 75, texture_scale: 100,
+    auto_rotate: 1, pressure_size: 1, pressure_flow: 1, smoothing: 12, mode: 0, eraser: 0
+  },
+  vintage_engraving: {
+    name: 'Vintage Engraving',
+    desc: 'Woodcut and bank note sinusoidal engraving line screentone',
+    category: 'texture',
+    shape: 'oval', size: 35, opacity: 100, hardness: 90, flow: 100, spacing: 5,
+    texture: 'engraving_lines', grain: 85, texture_contrast: 85, texture_scale: 100,
+    pressure_size: 0, pressure_flow: 1, smoothing: 15, mode: 0, eraser: 0
+  },
+  granite_rock: {
+    name: 'Granite Rock Flecks',
+    desc: 'Rough granite mineral stone with quartz, feldspar and mica flecks',
+    category: 'texture',
+    shape: 'charcoal', size: 32, opacity: 88, hardness: 60, flow: 85, spacing: 7,
+    texture: 'granite', grain: 65, texture_contrast: 70, texture_scale: 100,
+    scatter: 12, size_jitter: 10, pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  coarse_burlap: {
+    name: 'Coarse Burlap Jute',
+    desc: 'Heavy open jute burlap sacking weave for rustic textures',
+    category: 'texture',
+    shape: 'circle', size: 36, opacity: 90, hardness: 75, flow: 90, spacing: 6,
+    texture: 'burlap', grain: 65, texture_contrast: 65, texture_scale: 100,
+    pressure_size: 1, pressure_flow: 1, smoothing: 12, mode: 0, eraser: 0
+  },
+  cracked_mud: {
+    name: 'Cracked Mud Earth',
+    desc: 'Dry polygonal lakebed mud and baked clay crack fissures',
+    category: 'texture',
+    shape: 'circle', size: 42, opacity: 92, hardness: 75, flow: 95, spacing: 9,
+    texture: 'cracked_earth', grain: 80, texture_contrast: 85, texture_scale: 140,
+    pressure_size: 1, pressure_flow: 1, smoothing: 10, mode: 0, eraser: 0
+  },
+  denim_fabric: {
+    name: 'Denim Twill Fabric',
+    desc: 'Diagonal 2/1 twill weave denim cloth texture',
+    category: 'texture',
+    shape: 'circle', size: 34, opacity: 90, hardness: 70, flow: 90, spacing: 6,
+    texture: 'denim', grain: 60, texture_contrast: 60, texture_scale: 100,
+    pressure_size: 1, pressure_flow: 1, smoothing: 12, mode: 0, eraser: 0
   },
 
   // Compatibility aliases

@@ -488,6 +488,159 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int lx = (tx % 4 < 2), ly = (ty % 4 < 2);
         int pat = (lx ^ ly) ? 245 : 65;
         mod_a = (base_a * pat) / 255;
+    } else if (mode == 13) { /* Marble Veins */
+        int v = ((tx * 7 + (ty * 13) % 31) ^ (tx * ty)) & 0xFF;
+        int pat = (v > 180) ? 250 : (v < 60 ? 30 : 160);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 14) { /* Perlin Cloud */
+        uint32_t c1 = ((tx * 197 + ty * 311) ^ 0x5a5a5a5a) & 0xFF;
+        int pat = (c1 > 140) ? 240 : (c1 < 60 ? 40 : 130);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 15) { /* Basket Weave */
+        int bx = ((tx / 8) % 2 + 2) % 2, by = ((ty / 8) % 2 + 2) % 2;
+        int pat = (bx ^ by) ? ((tx % 4 < 2) ? 235 : 60) : ((ty % 4 < 2) ? 235 : 60);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 16) { /* Sandpaper Grit */
+        uint32_t g = ((tx * 377 + ty * 491) ^ (tx * ty * 13)) & 0xFF;
+        int tooth = g > 110 ? 255 : (g > 50 ? 110 : 25);
+        mod_a = (base_a * tooth) / 255;
+    } else if (mode == 17) { /* Radial Halftone */
+        int dx = (tx % 16) - 8, dy = (ty % 16) - 8;
+        int d = w_isqrt(dx * dx + dy * dy);
+        int pat = (d <= 6) ? (255 - d * 35) : 30;
+        if (pat < 0) pat = 0;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 18) { /* Crackle Fissures */
+        int c = ((tx * 17 + ty * 31) ^ (tx * ty * 3)) & 0xFF;
+        int pat = (c < 35 || ((tx + ty * 2) % 37 < 3)) ? 30 : 235;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 19) { /* Washi Fiber */
+        int f1 = ((tx * 7 + ty * 29) % 31 < 3) ? 70 : 255;
+        int f2 = ((tx * 19 - ty * 11 + 500) % 43 < 2) ? 50 : 255;
+        mod_a = (base_a * f1 * f2) / (255 * 255);
+    } else if (mode == 20) { /* Concrete Stone */
+        int p1 = ((tx * 133 + ty * 277) ^ (tx * ty * 17)) & 0xFF;
+        int pat = (p1 > 130) ? 230 : (p1 < 60 ? 50 : 140);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 21) { /* Antique Parchment */
+        int m1 = ((tx * 31 + ty * 17) % 47);
+        int m2 = ((tx * 13 - ty * 29 + 600) % 37);
+        int pat = 180 + m1 - m2;
+        if (pat < 0) pat = 0; if (pat > 255) pat = 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 22) { /* Stipple Noise */
+        uint32_t r = ((tx * 499 + ty * 883) ^ 0x3d3d3d3d) & 0xFF;
+        int pat = r > 165 ? 245 : (r > 75 ? 140 : 35);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 23) { /* Spatter Drops */
+        int cx = (tx % 32) - 16, cy = (ty % 32) - 16;
+        int d2 = cx * cx + cy * cy;
+        int pat = (d2 <= 9 || ((tx * 97 + ty * 43) % 89 < 4)) ? 30 : 240;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 24) { /* Raw Fiber Pulp */
+        int clump = (((tx / 4) * 31 + (ty / 4) * 47) ^ (tx * 3)) & 0xFF;
+        int pat = (clump > 140) ? 245 : (clump < 70 ? 60 : 190);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 25) { /* Coarse Halftone */
+        int dx = (tx % 16) - 8, dy = (ty % 16) - 8;
+        int pat = (dx * dx + dy * dy <= 42) ? 255 : 20;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 26) { /* Fine Crosshatch */
+        int h1 = (tx + ty) % 4 == 0;
+        int h2 = (tx - ty + 400) % 4 == 0;
+        int pat = (h1 || h2) ? 250 : 30;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 27) { /* Distressed Rust */
+        int g = ((tx * 19 + ty * 43) ^ (tx * ty)) & 0xFF;
+        int pat = (g > 160) ? 235 : (g < 60 ? 40 : 130);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 28) { /* Dry Bristle Scrape */
+        int streak = ((tx * 53 + (ty >> 2) * 97) ^ (tx * 11)) & 0xFF;
+        int pat = streak > 100 ? 245 : (streak > 40 ? 110 : 25);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 29) { /* Pastel Board (Honeycomb) */
+        int u = ((tx * 866 + ty * 500) / 1000) % 12;
+        if (u < 0) u += 12;
+        int v = ((-tx * 866 + ty * 500 + 120000) / 1000) % 12;
+        if (v < 0) v += 12;
+        int du = (u > 6) ? (12 - u) : u;
+        int dv = (v > 6) ? (12 - v) : v;
+        int hex = (du < dv) ? du : dv;
+        int pat = 60 + hex * 30;
+        if (pat > 255) pat = 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 30) { /* Tree Bark */
+        int wave = (ty * 13) % 29;
+        int xPerturb = (tx + wave + 2560) % 32;
+        int fissure = (xPerturb > 16) ? (32 - xPerturb) : xPerturb;
+        int fiber = ((tx * 47 + ty * 13) % 17 < 3) ? -35 : 20;
+        int pat = fissure * 14 + fiber + 60;
+        if (pat < 0) pat = 0; if (pat > 255) pat = 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 31) { /* Manga 60L Screen Dots */
+        int u = (((tx + ty) * 707) / 1000) % 8;
+        if (u < 0) u += 8;
+        int v = (((-tx + ty + 8000) * 707) / 1000) % 8;
+        if (v < 0) v += 8;
+        int du = u - 4, dv = v - 4;
+        int pat = (du * du + dv * dv <= 5) ? 255 : 30;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 32) { /* Manga Sandtone */
+        uint32_t g1 = ((tx * 127 + ty * 311) ^ (tx * 19)) & 0xFF;
+        uint32_t g2 = ((tx * 37 - ty * 97 + 1000) ^ (ty * 23)) & 0xFF;
+        int pat = (g1 > 170 || (g2 > 210 && (tx + ty) % 2 == 0)) ? 245 : 35;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 33) { /* Sea Sponge */
+        int pore = (((tx / 6) * 17 + (ty / 6) * 29) % 19 < 3) ? 40 : 230;
+        uint32_t noise = ((tx * 43 + ty * 71) ^ (tx * ty)) & 0xFF;
+        int pat = (pore * (160 + (noise >> 1))) / 255;
+        if (pat > 255) pat = 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 34) { /* Stucco Plaster Wall */
+        int facet = ((tx * 3 + ty * 5) % 64 < 32) ? 220 : 80;
+        int knife = ((tx * 19 - ty * 23 + 500) % 41 < 4) ? 40 : 255;
+        int pat = (facet * knife) / 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 35) { /* Denim Twill Weave */
+        int twill = (tx * 2 + ty) % 6;
+        if (twill < 0) twill += 6;
+        int pat = (twill < 3) ? 240 : 60;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 36) { /* Oil Impasto Knife Peaks */
+        int ridge = ((tx * 11 + ty * 7) % 32 < 16) ? 250 : 50;
+        int gouge = ((tx * 29 - ty * 13 + 500) % 47 < 3) ? 30 : 240;
+        int pat = (ridge * gouge) / 255;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 37) { /* Dusty Chalk Tooth */
+        int grain = ((tx * 199 + ty * 337) ^ (tx * ty * 5)) & 0xFF;
+        int pat = grain > 120 ? 240 : 45;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 38) { /* Vintage Engraving Lines */
+        int line = ((ty + ((tx * 7) % 5)) % 6);
+        if (line < 0) line += 6;
+        int pat = (line < 3) ? 245 : 30;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 39) { /* Granite Rock Flecks */
+        uint32_t f1 = ((tx * 17 + ty * 73) ^ (tx * 3)) & 0xFF;
+        uint32_t f2 = ((tx * 89 + ty * 13) ^ (ty * 5)) & 0xFF;
+        int pat = (f1 > 220) ? 250 : ((f2 > 230) ? 30 : (120 + ((f1 + f2) >> 2)));
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 40) { /* Watercolor Salt Bloom */
+        int cx = (tx % 64) - 32, cy = (ty % 64) - 32;
+        int d = w_isqrt(cx * cx + cy * cy);
+        int pat = (d >= 24 && d <= 30) ? 40 : (d < 24 ? 245 : 180);
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 41) { /* Coarse Burlap Jute */
+        int tx_b = (tx % 8 < 4) ? 220 : 50;
+        int ty_b = (ty % 8 < 4) ? 220 : 50;
+        int block = ((tx / 8) + (ty / 8)) % 2 == 0;
+        int pat = block ? tx_b : ty_b;
+        mod_a = (base_a * pat) / 255;
+    } else if (mode == 42) { /* Cracked Mud Earth */
+        int c1 = ((tx * 13) % 47 < 4);
+        int c2 = ((ty * 17) % 53 < 4);
+        int pat = (c1 || c2) ? 30 : 235;
+        mod_a = (base_a * pat) / 255;
     }
     if (tex_contrast != 100 && tex_contrast >= 0 && base_a > 0) {
         int factor = (mod_a * 255) / base_a;

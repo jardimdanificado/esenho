@@ -994,13 +994,15 @@ static void fill_polygon(uint32_t *pixels, int width, int height, uint32_t fill_
             int x_end = node_x[i + 1] >= width ? (width - 1) : node_x[i + 1];
             for (int x = x_start; x <= x_end; x++) {
                 if (is_pixel_clipped(x, y)) continue;
-                if (brush_config.grain > 0) {
-                    if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
-                }
-
                 uint32_t a = DIV255(dab_flow_a * max_stroke_a);
                 if (brush_config.tex_mode > 0 || (g_texture.pixels && g_texture.width > 0)) {
-                    a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                    uint32_t tex_a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                    int g = brush_config.grain;
+                    if (g <= 0) g = 100;
+                    if (g > 100) g = 100;
+                    a = (a * (100 - g) + tex_a * g) / 100;
+                } else if (brush_config.grain > 0) {
+                    if ((next_random() % 100) < (uint32_t)brush_config.grain) continue;
                 }
                 if (a == 0) continue;
 
@@ -1228,7 +1230,11 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
             }
 
             if (has_tex) {
-                a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                uint32_t tex_a = w_sample_texture(brush_config.tex_mode, x, y, brush_config.tex_angle, brush_config.tex_scale, brush_config.tex_contrast, a);
+                int g = brush_config.grain;
+                if (g <= 0) g = 100;
+                if (g > 100) g = 100;
+                a = (a * (100 - g) + tex_a * g) / 100;
             }
             if (a == 0) continue;
 
