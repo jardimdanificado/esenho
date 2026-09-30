@@ -169,15 +169,15 @@ W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, 
 W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 
 /* =========================================================================
- * MyPaint Dynamic Brush Engine API
+ * Universal Dynamic Brush Engine API (Continuous Physics & Spline Curves)
  * ========================================================================= */
-W_EXPORT void  w_mypaint_brush_init(void);
-W_EXPORT void  w_mypaint_brush_set_base(int32_t setting, float value);
-W_EXPORT float w_mypaint_brush_get_base(int32_t setting);
-W_EXPORT void  w_mypaint_brush_set_curve(int32_t setting, int32_t input_idx, int32_t npoints, const float *x, const float *y);
-W_EXPORT void  w_mypaint_brush_clear_curve(int32_t setting, int32_t input_idx);
-W_EXPORT void  w_mypaint_brush_reset_state(void);
-W_EXPORT void  w_mypaint_brush_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom);
+W_EXPORT void  w_brush_dyn_init(void);
+W_EXPORT void  w_brush_dyn_set_base(int32_t setting, float value);
+W_EXPORT float w_brush_dyn_get_base(int32_t setting);
+W_EXPORT void  w_brush_dyn_set_curve(int32_t setting, int32_t input_idx, int32_t npoints, const float *x, const float *y);
+W_EXPORT void  w_brush_dyn_clear_curve(int32_t setting, int32_t input_idx);
+W_EXPORT void  w_brush_dyn_reset_state(void);
+W_EXPORT void  w_brush_dyn_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom);
 
 
 /* =========================================================================

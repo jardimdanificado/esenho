@@ -450,6 +450,23 @@ export const PARAMETER_REGISTRY = {
   brushDualSpacing: { label: 'Dual Tip Spacing', group: 'Brush Dynamics', type: 'number', default: 100, min: 1, max: 500, unit: '%', step: 1 },
   brushSymmetry: { label: 'Symmetry Axis', group: 'Brush Dynamics', type: 'number', default: 0, min: 0, max: 3, step: 1 },
 
+  // ── Universal Continuous Brush Dynamics Channels ──
+  dynRadiusLog: { label: 'Log Radius (Exp)', group: 'Brush Dynamics', type: 'number', default: 2.0, min: -2.0, max: 8.0, step: 0.1 },
+  dynHardness: { label: 'Gaussian Hardness', group: 'Brush Dynamics', type: 'number', default: 80, min: 0, max: 100, unit: '%', step: 1 },
+  dynDabsPerSec: { label: 'Airbrush Rate', group: 'Brush Dynamics', type: 'number', default: 0, min: 0, max: 300, unit: 'dab/s', step: 1 },
+  dynDabsPerActual: { label: 'Spacing (Actual Radius)', group: 'Brush Dynamics', type: 'number', default: 2.0, min: 0, max: 20.0, step: 0.1 },
+  dynDabsPerBasic: { label: 'Spacing (Base Radius)', group: 'Brush Dynamics', type: 'number', default: 0.0, min: 0, max: 20.0, step: 0.1 },
+  dynLazyTracking: { label: 'Lazy Stabilizer', group: 'Brush Dynamics', type: 'number', default: 0.0, min: 0, max: 5.0, unit: 's', step: 0.05 },
+  dynSpeedEmaFine: { label: 'Speed EMA (Fine)', group: 'Brush Dynamics', type: 'number', default: 0.04, min: 0.001, max: 2.0, unit: 's', step: 0.01 },
+  dynSpeedEmaCoarse: { label: 'Speed EMA (Coarse)', group: 'Brush Dynamics', type: 'number', default: 0.8, min: 0.01, max: 5.0, unit: 's', step: 0.05 },
+  dynSmudge: { label: 'Area Smudge Rate', group: 'Brush Dynamics', type: 'number', default: 0, min: 0, max: 100, unit: '%', step: 1 },
+  dynSmudgeLength: { label: 'Smudge Pigment Decay', group: 'Brush Dynamics', type: 'number', default: 0.5, min: 0, max: 10.0, step: 0.1 },
+  dynEllipseRatio: { label: 'Ellipse Aspect Ratio', group: 'Brush Dynamics', type: 'number', default: 1.0, min: 1.0, max: 10.0, step: 0.1 },
+  dynEllipseAngle: { label: 'Ellipse Angle', group: 'Brush Dynamics', type: 'angle', default: 0, unit: '°', step: 1 },
+  dynColorize: { label: 'Colorize Mode', group: 'Brush Dynamics', type: 'step', default: 0 },
+  dynPressureGainLog: { label: 'Pressure Gain (Log)', group: 'Brush Dynamics', type: 'number', default: 0.0, min: -3.0, max: 3.0, step: 0.1 },
+  dynJitterOffset: { label: 'Positional Jitter', group: 'Brush Dynamics', type: 'number', default: 0.0, min: 0, max: 10.0, step: 0.1 },
+
   // ── Layer FX & Filters Group (Quadro Filter ABI) ──
   fxBlur: { label: 'Blur Filter', group: 'Layer FX', type: 'number', default: 0, min: 0, max: 100, unit: 'px', step: 1 },
   fxBrightness: { label: 'Brightness', group: 'Layer FX', type: 'number', default: 100, min: 0, max: 300, unit: '%', step: 1 },
@@ -1027,9 +1044,54 @@ export class DopeSheetObject {
       if (state.brushTaperOut !== undefined) { bc.taper_out = state.brushTaperOut; bc.taperOut = state.brushTaperOut; }
       if (state.brushSizeJitter !== undefined) { bc.size_jitter = state.brushSizeJitter; bc.sizeJitter = state.brushSizeJitter; }
       if (state.brushAngleJitter !== undefined) { bc.angle_jitter = state.brushAngleJitter; bc.angleJitter = state.brushAngleJitter; }
-      if (state.brushOpacityJitter !== undefined) { bc.opacity_jitter = state.brushOpacityJitter; bc.opacityJitter = state.brushOpacityJitter; }
       if (state.brushColorPickup !== undefined) { bc.color_pickup = state.brushColorPickup; bc.colorPickup = state.brushColorPickup; }
       if (state.brushDepletion !== undefined) bc.depletion = state.brushDepletion;
+      
+      // Continuous brush dynamics settings
+      if (state.dynRadiusLog !== undefined) bc.dynRadiusLog = state.dynRadiusLog;
+      else if (state.myPaintRadiusLog !== undefined) bc.dynRadiusLog = state.myPaintRadiusLog;
+
+      if (state.dynHardness !== undefined) bc.dynHardness = state.dynHardness;
+      else if (state.myPaintHardness !== undefined) bc.dynHardness = state.myPaintHardness;
+
+      if (state.dynDabsPerSec !== undefined) bc.dynDabsPerSec = state.dynDabsPerSec;
+      else if (state.myPaintDabsPerSec !== undefined) bc.dynDabsPerSec = state.myPaintDabsPerSec;
+
+      if (state.dynDabsPerActual !== undefined) bc.dynDabsPerActual = state.dynDabsPerActual;
+      else if (state.myPaintDabsPerActual !== undefined) bc.dynDabsPerActual = state.myPaintDabsPerActual;
+
+      if (state.dynDabsPerBasic !== undefined) bc.dynDabsPerBasic = state.dynDabsPerBasic;
+      else if (state.myPaintDabsPerBasic !== undefined) bc.dynDabsPerBasic = state.myPaintDabsPerBasic;
+
+      if (state.dynLazyTracking !== undefined) bc.dynLazyTracking = state.dynLazyTracking;
+      else if (state.myPaintSlowTracking !== undefined) bc.dynLazyTracking = state.myPaintSlowTracking;
+
+      if (state.dynSpeedEmaFine !== undefined) bc.dynSpeedEmaFine = state.dynSpeedEmaFine;
+      else if (state.myPaintSpeed1Slowness !== undefined) bc.dynSpeedEmaFine = state.myPaintSpeed1Slowness;
+
+      if (state.dynSpeedEmaCoarse !== undefined) bc.dynSpeedEmaCoarse = state.dynSpeedEmaCoarse;
+      else if (state.myPaintSpeed2Slowness !== undefined) bc.dynSpeedEmaCoarse = state.myPaintSpeed2Slowness;
+
+      if (state.dynSmudge !== undefined) bc.dynSmudge = state.dynSmudge;
+      else if (state.myPaintSmudge !== undefined) bc.dynSmudge = state.myPaintSmudge;
+
+      if (state.dynSmudgeLength !== undefined) bc.dynSmudgeLength = state.dynSmudgeLength;
+      else if (state.myPaintSmudgeLength !== undefined) bc.dynSmudgeLength = state.myPaintSmudgeLength;
+
+      if (state.dynEllipseRatio !== undefined) bc.dynEllipseRatio = state.dynEllipseRatio;
+      else if (state.myPaintEllipticalRatio !== undefined) bc.dynEllipseRatio = state.myPaintEllipticalRatio;
+
+      if (state.dynEllipseAngle !== undefined) bc.dynEllipseAngle = state.dynEllipseAngle;
+      else if (state.myPaintEllipticalAngle !== undefined) bc.dynEllipseAngle = state.myPaintEllipticalAngle;
+
+      if (state.dynColorize !== undefined) bc.dynColorize = state.dynColorize;
+      else if (state.myPaintColorize !== undefined) bc.dynColorize = state.myPaintColorize;
+
+      if (state.dynPressureGainLog !== undefined) bc.dynPressureGainLog = state.dynPressureGainLog;
+      else if (state.myPaintPressureGainLog !== undefined) bc.dynPressureGainLog = state.myPaintPressureGainLog;
+
+      if (state.dynJitterOffset !== undefined) bc.dynJitterOffset = state.dynJitterOffset;
+      else if (state.myPaintOffsetRandom !== undefined) bc.dynJitterOffset = state.myPaintOffsetRandom;
     }
   }
 

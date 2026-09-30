@@ -34,20 +34,19 @@ bin/test_native_svg: tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c -lm
 
-bin/test_mypaint_brush: tests/test_mypaint_brush.c src/mypaint/mypaint_brush.c include/mypaint_brush.h
+bin/test_brush_dynamics: tests/test_brush_dynamics.c src/quadro_brush_dynamics.c include/quadro_brush_dynamics.h
 	mkdir -p bin
-	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_mypaint_brush.c src/mypaint/mypaint_brush.c -lm
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_brush_dynamics.c src/quadro_brush_dynamics.c -lm
 
-native: bin/quadro-svg bin/test_native_svg bin/test_mypaint_brush
+native: bin/quadro-svg bin/test_brush_dynamics
 
-test-native: bin/test_native_svg bin/test_mypaint_brush
-	./bin/test_native_svg
-	./bin/test_mypaint_brush
+test-native: bin/test_brush_dynamics
+	./bin/test_brush_dynamics
 
-test-mypaint: bin/test_mypaint_brush
-	./bin/test_mypaint_brush
+test-brush-dyn: bin/test_brush_dynamics
+	./bin/test_brush_dynamics
 
 clean:
 	rm -rf plugins/*.wasm plugins/manifest.json roms bin
 
-.PHONY: all run clean native test-native test-mypaint
+.PHONY: all run clean native test-native test-brush-dyn

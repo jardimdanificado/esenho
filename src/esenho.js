@@ -432,6 +432,63 @@ const BRUSH_PRESETS = {
     pressure_flow: 1, mode: 0, eraser: 0
   },
 
+  // Continuous Brush Dynamics Presets (Physics & Splines)
+  airbrush_continuous: {
+    name: 'Dynamic Airbrush',
+    desc: 'Temporal Gaussian airbrush with continuous time-based dtime accumulation & soft edge',
+    category: 'airbrush',
+    engine: 'dynamic',
+    size: 40, opacity: 60, hardness: 40,
+    dyn_radius_log: 3.5, dyn_hardness: 0.35,
+    dyn_dabs_per_second: 80, dyn_dabs_per_actual: 0.8,
+    dyn_speed_fine_slowness: 0.05, dyn_lazy_tracking: 0.02,
+    mode: 0, subpixel: 1, eraser: 0
+  },
+  wet_acrylic_smudge: {
+    name: 'Wet Acrylic Smudge',
+    desc: 'Area-weighted Gaussian smudge integration with continuous pigment decay',
+    category: 'paint',
+    engine: 'dynamic',
+    size: 28, opacity: 95, hardness: 80,
+    dyn_radius_log: 3.2, dyn_hardness: 0.8,
+    dyn_smudge: 0.75, dyn_smudge_length: 1.8, dyn_smudge_radius_log: 3.0,
+    dyn_dabs_per_actual: 3.0, dyn_speed_fine_slowness: 0.04,
+    mode: 2, subpixel: 1, eraser: 0
+  },
+  calligraphy_chisel_dyn: {
+    name: 'Calligraphy Chisel (Dyn)',
+    desc: 'Dynamic 4:1 elliptical dab rotation mapped to movement direction & attack angle',
+    category: 'ink',
+    engine: 'dynamic',
+    size: 14, opacity: 100, hardness: 95,
+    dyn_radius_log: 2.4, dyn_hardness: 0.95,
+    dyn_ellipse_ratio: 4.2, dyn_ellipse_angle: 45,
+    dyn_dabs_per_actual: 4.0, dyn_direction_filter: 0.2,
+    mode: 0, subpixel: 1, eraser: 0
+  },
+  charcoal_expressive_dyn: {
+    name: 'Expressive Charcoal (Dyn)',
+    desc: 'Dynamic pressure gain curve and tilt declination response for rich drawing',
+    category: 'charcoal',
+    engine: 'dynamic',
+    size: 18, opacity: 90, hardness: 50,
+    dyn_radius_log: 2.8, dyn_hardness: 0.5,
+    dyn_pressure_gain_log: 0.4, dyn_jitter_offset: 0.15,
+    dyn_dabs_per_actual: 2.5,
+    mode: 0, subpixel: 1, eraser: 0
+  },
+  streamline_inker_dyn: {
+    name: 'Streamline Inker (Dyn)',
+    desc: 'Dual EMA filtered speed dynamics with lazy mouse position stabilizer',
+    category: 'ink',
+    engine: 'dynamic',
+    size: 8, opacity: 100, hardness: 98,
+    dyn_radius_log: 1.8, dyn_hardness: 0.98,
+    dyn_lazy_tracking: 0.08, dyn_speed_fine_slowness: 0.03, dyn_speed_coarse_slowness: 0.5,
+    dyn_dabs_per_actual: 5.0,
+    mode: 0, subpixel: 1, eraser: 0
+  },
+
   // 7. Blenders & Smudgers
   smudge: {
     name: 'Finger Smudge',
@@ -818,6 +875,81 @@ class EsenhoModule {
       this.exports.w_brush_stroke(state, x, y, prevX, prevY, color >>> 0, eraser ? 1 : 0);
     }
   }
+
+  dynBrushInit() {
+    if (typeof this.exports.w_brush_dyn_init === 'function') {
+      this.exports.w_brush_dyn_init();
+    } else if (typeof this.exports.w_mypaint_brush_init === 'function') {
+      this.exports.w_mypaint_brush_init();
+    }
+  }
+
+  dynBrushSetBase(setting, value) {
+    if (typeof this.exports.w_brush_dyn_set_base === 'function') {
+      this.exports.w_brush_dyn_set_base(setting, Number(value) || 0.0);
+    } else if (typeof this.exports.w_mypaint_brush_set_base === 'function') {
+      this.exports.w_mypaint_brush_set_base(setting, Number(value) || 0.0);
+    }
+  }
+
+  dynBrushGetBase(setting) {
+    if (typeof this.exports.w_brush_dyn_get_base === 'function') {
+      return this.exports.w_brush_dyn_get_base(setting);
+    } else if (typeof this.exports.w_mypaint_brush_get_base === 'function') {
+      return this.exports.w_mypaint_brush_get_base(setting);
+    }
+    return 0.0;
+  }
+
+  dynBrushSetCurve(setting, inputIdx, points) {
+    const fn = this.exports.w_brush_dyn_set_curve || this.exports.w_mypaint_brush_set_curve;
+    const clrFn = this.exports.w_brush_dyn_clear_curve || this.exports.w_mypaint_brush_clear_curve;
+    if (typeof fn !== 'function' || !this.exports.memory) return;
+    if (!points || points.length === 0) {
+      if (typeof clrFn === 'function') clrFn(setting, inputIdx);
+      return;
+    }
+    const n = Math.min(points.length, 16);
+    const xArr = new Float32Array(n);
+    const yArr = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      xArr[i] = points[i].x !== undefined ? points[i].x : points[i][0];
+      yArr[i] = points[i].y !== undefined ? points[i].y : points[i][1];
+    }
+    const heapF32 = new Float32Array(this.exports.memory.buffer);
+    const ptrX = 1024;
+    const ptrY = 1024 + n * 4;
+    heapF32.set(xArr, ptrX >> 2);
+    heapF32.set(yArr, ptrY >> 2);
+    fn(setting, inputIdx, n, ptrX, ptrY);
+  }
+
+  dynBrushResetState() {
+    if (typeof this.exports.w_brush_dyn_reset_state === 'function') {
+      this.exports.w_brush_dyn_reset_state();
+    } else if (typeof this.exports.w_mypaint_brush_reset_state === 'function') {
+      this.exports.w_mypaint_brush_reset_state();
+    }
+  }
+
+  dynBrushStrokeTo(x, y, pressure, tiltX, tiltY, dtime, viewzoom = 1.0) {
+    const fn = this.exports.w_brush_dyn_stroke_to || this.exports.w_mypaint_brush_stroke_to;
+    if (typeof fn === 'function') {
+      const p = pressure !== undefined ? Number(pressure) : 0.5;
+      const tx = tiltX !== undefined ? Number(tiltX) : 0.0;
+      const ty = tiltY !== undefined ? Number(tiltY) : 0.0;
+      const dt = dtime !== undefined ? Math.max(Number(dtime), 0.0001) : 0.016;
+      fn(x, y, p, tx, ty, dt, Number(viewzoom) || 1.0);
+    }
+  }
+
+  /* Aliases */
+  myPaintInit() { this.dynBrushInit(); }
+  myPaintSetBase(s, v) { this.dynBrushSetBase(s, v); }
+  myPaintGetBase(s) { return this.dynBrushGetBase(s); }
+  myPaintSetCurve(s, i, p) { this.dynBrushSetCurve(s, i, p); }
+  myPaintResetState() { this.dynBrushResetState(); }
+  myPaintStrokeTo(x, y, p, tx, ty, dt, z) { this.dynBrushStrokeTo(x, y, p, tx, ty, dt, z); }
 
   vectorSetRecording(enabled) {
     if (typeof this.exports.w_vector_set_recording === 'function') {
@@ -8856,6 +8988,87 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Syncs continuous dynamic brush settings to canvas.wasm
+   */
+  syncDynBrushParams() {
+    const fn = this.canvasActor?.exports.w_brush_dyn_set_base || this.canvasActor?.exports.w_mypaint_brush_set_base;
+    if (typeof fn !== 'function') return;
+    const bp = this.brushParams || {};
+    
+    const SETTINGS = {
+      opaque: 0,
+      radius_log: 3,
+      hardness: 4,
+      dabs_per_basic: 5,
+      dabs_per_actual: 6,
+      dabs_per_second: 7,
+      speed1_slowness: 9,
+      speed2_slowness: 10,
+      slow_tracking: 16,
+      smudge: 27,
+      smudge_length: 28,
+      smudge_radius_log: 29,
+      smudge_bucket: 30,
+      elliptical_dab_ratio: 38,
+      elliptical_dab_angle: 39,
+      direction_filter: 40,
+      pressure_gain_log: 44,
+      offset_by_random: 13
+    };
+
+    const rLog = bp.dyn_radius_log !== undefined ? bp.dyn_radius_log : bp.mypaint_radius_log;
+    if (rLog !== undefined) fn(SETTINGS.radius_log, Number(rLog));
+
+    const hard = bp.dyn_hardness !== undefined ? bp.dyn_hardness : bp.mypaint_hardness;
+    if (hard !== undefined) fn(SETTINGS.hardness, Number(hard));
+
+    const dabsSec = bp.dyn_dabs_per_second !== undefined ? bp.dyn_dabs_per_second : bp.mypaint_dabs_per_second;
+    if (dabsSec !== undefined) fn(SETTINGS.dabs_per_second, Number(dabsSec));
+
+    const dabsAct = bp.dyn_dabs_per_actual !== undefined ? bp.dyn_dabs_per_actual : bp.mypaint_dabs_per_actual;
+    if (dabsAct !== undefined) fn(SETTINGS.dabs_per_actual, Number(dabsAct));
+
+    const dabsBas = bp.dyn_dabs_per_basic !== undefined ? bp.dyn_dabs_per_basic : bp.mypaint_dabs_per_basic;
+    if (dabsBas !== undefined) fn(SETTINGS.dabs_per_basic, Number(dabsBas));
+
+    const sp1 = bp.dyn_speed_fine_slowness !== undefined ? bp.dyn_speed_fine_slowness : bp.mypaint_speed1_slowness;
+    if (sp1 !== undefined) fn(SETTINGS.speed1_slowness, Number(sp1));
+
+    const sp2 = bp.dyn_speed_coarse_slowness !== undefined ? bp.dyn_speed_coarse_slowness : bp.mypaint_speed2_slowness;
+    if (sp2 !== undefined) fn(SETTINGS.speed2_slowness, Number(sp2));
+
+    const lazy = bp.dyn_lazy_tracking !== undefined ? bp.dyn_lazy_tracking : bp.mypaint_slow_tracking;
+    if (lazy !== undefined) fn(SETTINGS.slow_tracking, Number(lazy));
+
+    const sm = bp.dyn_smudge !== undefined ? bp.dyn_smudge : bp.mypaint_smudge;
+    if (sm !== undefined) fn(SETTINGS.smudge, Number(sm));
+
+    const smLen = bp.dyn_smudge_length !== undefined ? bp.dyn_smudge_length : bp.mypaint_smudge_length;
+    if (smLen !== undefined) fn(SETTINGS.smudge_length, Number(smLen));
+
+    const smRad = bp.dyn_smudge_radius_log !== undefined ? bp.dyn_smudge_radius_log : bp.mypaint_smudge_radius_log;
+    if (smRad !== undefined) fn(SETTINGS.smudge_radius_log, Number(smRad));
+
+    const elRatio = bp.dyn_ellipse_ratio !== undefined ? bp.dyn_ellipse_ratio : bp.mypaint_elliptical_ratio;
+    if (elRatio !== undefined) fn(SETTINGS.elliptical_dab_ratio, Number(elRatio));
+
+    const elAngle = bp.dyn_ellipse_angle !== undefined ? bp.dyn_ellipse_angle : bp.mypaint_elliptical_angle;
+    if (elAngle !== undefined) fn(SETTINGS.elliptical_dab_angle, Number(elAngle));
+
+    const dirFilt = bp.dyn_direction_filter !== undefined ? bp.dyn_direction_filter : bp.mypaint_direction_filter;
+    if (dirFilt !== undefined) fn(SETTINGS.direction_filter, Number(dirFilt));
+
+    const pGain = bp.dyn_pressure_gain_log !== undefined ? bp.dyn_pressure_gain_log : bp.mypaint_pressure_gain_log;
+    if (pGain !== undefined) fn(SETTINGS.pressure_gain_log, Number(pGain));
+
+    const jit = bp.dyn_jitter_offset !== undefined ? bp.dyn_jitter_offset : bp.mypaint_offset_random;
+    if (jit !== undefined) fn(SETTINGS.offset_by_random, Number(jit));
+  }
+
+  /* Alias */
+  syncMyPaintParams() { this.syncDynBrushParams(); }
+
+  /**
    * Helper to ensure WASM linear memory has enough pages allocated.
    */
   ensureMemory(plugin, requiredBytes) {
@@ -8906,8 +9119,25 @@ class EsenhoScreenHost {
     const tx = (tiltX !== undefined && tiltX !== null) ? Math.round(tiltX) : 0;
     const ty = (tiltY !== undefined && tiltY !== null) ? Math.round(tiltY) : 0;
 
+    const isDynamic = (this.brushParams && (this.brushParams.engine === 'dynamic' || this.brushParams.engine === 'mypaint' || this.brushParams.dyn_continuous)) &&
+                      (typeof this.canvasActor.exports.w_brush_dyn_stroke_to === 'function' || typeof this.canvasActor.exports.w_mypaint_brush_stroke_to === 'function');
+
     const invokeStroke = (s, curX, curY, pX, pY) => {
-      if (typeof this.canvasActor.exports.w_brush_stroke_ext === 'function') {
+      if (isDynamic) {
+        const strokeFn = this.canvasActor.exports.w_brush_dyn_stroke_to || this.canvasActor.exports.w_mypaint_brush_stroke_to;
+        const resetFn = this.canvasActor.exports.w_brush_dyn_reset_state || this.canvasActor.exports.w_mypaint_brush_reset_state;
+        if (s === 0) {
+          this.syncDynBrushParams();
+          if (typeof resetFn === 'function') resetFn();
+          this._dynStrokeLastTime = performance.now();
+        }
+        const now = performance.now();
+        const dtSec = Math.max(0.001, ((now - (this._dynStrokeLastTime || now)) / 1000.0));
+        this._dynStrokeLastTime = now;
+        const normTiltX = tx / 90.0;
+        const normTiltY = ty / 90.0;
+        strokeFn(curX, curY, mappedPressure, normTiltX, normTiltY, dtSec, this.zoom || 1.0);
+      } else if (typeof this.canvasActor.exports.w_brush_stroke_ext === 'function') {
         this.canvasActor.exports.w_brush_stroke_ext(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser, press, tx, ty);
       } else if (typeof this.canvasActor.exports.w_brush_stroke === 'function') {
         this.canvasActor.exports.w_brush_stroke(s, Math.round(curX), Math.round(curY), Math.round(pX), Math.round(pY), col >>> 0, eraser);

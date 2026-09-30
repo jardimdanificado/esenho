@@ -5378,54 +5378,64 @@ W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const cha
 }
 
 /* =========================================================================
- * MyPaint Dynamic Brush Engine Integration
+ * Universal Dynamic Brush Engine Integration (Physics & Splines)
  * ========================================================================= */
-#include "mypaint/mypaint_brush.c"
+#include "quadro_brush_dynamics.c"
 
-static mypaint_brush_def_t g_mypaint_brush;
-static mypaint_brush_state_t g_mypaint_state;
-static bool g_mypaint_initialized = false;
+static w_dyn_brush_def_t g_dyn_brush;
+static w_dyn_brush_state_t g_dyn_brush_state;
+static bool g_dyn_brush_initialized = false;
 
-static void quadro_mypaint_render_dab(void *surface_ctx, const mypaint_dab_t *dab) {
+static void quadro_dyn_render_dab(void *surface_ctx, const w_dyn_dab_t *dab) {
     (void)surface_ctx;
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
     if (!pix || w <= 0 || h <= 0) return;
-    mypaint_surface_render_dab_stateful(pix, w, h, dab, &g_mypaint_state);
+    w_dyn_surface_render_dab_stateful(pix, w, h, dab, &g_dyn_brush_state);
 }
 
-W_EXPORT void w_mypaint_brush_init(void) {
-    mypaint_brush_init(&g_mypaint_brush);
-    mypaint_brush_state_init(&g_mypaint_state);
-    g_mypaint_initialized = true;
+W_EXPORT void w_brush_dyn_init(void) {
+    w_dyn_brush_init(&g_dyn_brush);
+    w_dyn_brush_state_init(&g_dyn_brush_state);
+    g_dyn_brush_initialized = true;
 }
 
-W_EXPORT void w_mypaint_brush_set_base(int32_t setting, float value) {
-    if (!g_mypaint_initialized) w_mypaint_brush_init();
-    mypaint_brush_set_base_value(&g_mypaint_brush, setting, value);
+W_EXPORT void w_brush_dyn_set_base(int32_t setting, float value) {
+    if (!g_dyn_brush_initialized) w_brush_dyn_init();
+    w_dyn_brush_set_base(&g_dyn_brush, setting, value);
 }
 
-W_EXPORT float w_mypaint_brush_get_base(int32_t setting) {
-    if (!g_mypaint_initialized) w_mypaint_brush_init();
-    return mypaint_brush_get_base_value(&g_mypaint_brush, setting);
+W_EXPORT float w_brush_dyn_get_base(int32_t setting) {
+    if (!g_dyn_brush_initialized) w_brush_dyn_init();
+    return w_dyn_brush_get_base(&g_dyn_brush, setting);
 }
 
-W_EXPORT void w_mypaint_brush_set_curve(int32_t setting, int32_t input_idx, int32_t npoints, const float *x, const float *y) {
-    if (!g_mypaint_initialized) w_mypaint_brush_init();
-    mypaint_brush_set_curve(&g_mypaint_brush, setting, input_idx, npoints, x, y);
+W_EXPORT void w_brush_dyn_set_curve(int32_t setting, int32_t input_idx, int32_t npoints, const float *x, const float *y) {
+    if (!g_dyn_brush_initialized) w_brush_dyn_init();
+    w_dyn_brush_set_curve(&g_dyn_brush, setting, input_idx, npoints, x, y);
 }
 
-W_EXPORT void w_mypaint_brush_clear_curve(int32_t setting, int32_t input_idx) {
-    if (!g_mypaint_initialized) w_mypaint_brush_init();
-    mypaint_brush_clear_curve(&g_mypaint_brush, setting, input_idx);
+W_EXPORT void w_brush_dyn_clear_curve(int32_t setting, int32_t input_idx) {
+    if (!g_dyn_brush_initialized) w_brush_dyn_init();
+    w_dyn_brush_clear_curve(&g_dyn_brush, setting, input_idx);
 }
 
-W_EXPORT void w_mypaint_brush_reset_state(void) {
-    mypaint_brush_state_reset(&g_mypaint_state);
+W_EXPORT void w_brush_dyn_reset_state(void) {
+    w_dyn_brush_state_reset(&g_dyn_brush_state);
 }
 
-W_EXPORT void w_mypaint_brush_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom) {
-    if (!g_mypaint_initialized) w_mypaint_brush_init();
+W_EXPORT void w_brush_dyn_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom) {
+    if (!g_dyn_brush_initialized) w_brush_dyn_init();
     init_surface_if_needed();
-    mypaint_brush_stroke_to(&g_mypaint_brush, &g_mypaint_state, x, y, pressure, tilt_x, tilt_y, dtime, viewzoom, 0, quadro_mypaint_render_dab);
+    w_dyn_brush_stroke_to(&g_dyn_brush, &g_dyn_brush_state, x, y, pressure, tilt_x, tilt_y, dtime, viewzoom, 0, quadro_dyn_render_dab);
 }
+
+/* Backwards compatibility aliases */
+W_EXPORT void w_mypaint_brush_init(void) { w_brush_dyn_init(); }
+W_EXPORT void w_mypaint_brush_set_base(int32_t s, float v) { w_brush_dyn_set_base(s, v); }
+W_EXPORT float w_mypaint_brush_get_base(int32_t s) { return w_brush_dyn_get_base(s); }
+W_EXPORT void w_mypaint_brush_set_curve(int32_t s, int32_t i, int32_t n, const float *x, const float *y) { w_brush_dyn_set_curve(s, i, n, x, y); }
+W_EXPORT void w_mypaint_brush_clear_curve(int32_t s, int32_t i) { w_brush_dyn_clear_curve(s, i); }
+W_EXPORT void w_mypaint_brush_reset_state(void) { w_brush_dyn_reset_state(); }
+W_EXPORT void w_mypaint_brush_stroke_to(float x, float y, float p, float tx, float ty, float dt, float z) { w_brush_dyn_stroke_to(x, y, p, tx, ty, dt, z); }
+
