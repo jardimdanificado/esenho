@@ -2133,7 +2133,9 @@ void quadro_svg_doc_evaluate_time(quadro_svg_doc_t *doc, float time_ms) {
         char id[64];
         float x, y, rot, sx, sy, opacity, sw;
         uint32_t stroke_col, fill_col;
+        float warp_strength, warp_freq, noise_distort, pinch_swirl, grain, hardness, scale, angle;
         int has_x, has_y, has_rot, has_sx, has_sy, has_op, has_sw, has_scol, has_fcol;
+        int has_warp_str, has_warp_freq, has_noise_distort, has_pinch_swirl, has_grain, has_hardness, has_scale, has_angle;
     } node_anim_state_t;
 
     node_anim_state_t states[256];
@@ -2217,6 +2219,14 @@ void quadro_svg_doc_evaluate_time(quadro_svg_doc_t *doc, float time_ms) {
         else if (strcmp(tr->property, "strokeWidth") == 0) { states[s_idx].sw = val; states[s_idx].has_sw = 1; }
         else if (strcmp(tr->property, "strokeColor") == 0) { states[s_idx].stroke_col = col; states[s_idx].has_scol = 1; }
         else if (strcmp(tr->property, "fillColor") == 0) { states[s_idx].fill_col = col; states[s_idx].has_fcol = 1; }
+        else if (strcmp(tr->property, "texWarpStrength") == 0) { states[s_idx].warp_strength = val; states[s_idx].has_warp_str = 1; }
+        else if (strcmp(tr->property, "texWarpFreq") == 0) { states[s_idx].warp_freq = val; states[s_idx].has_warp_freq = 1; }
+        else if (strcmp(tr->property, "texNoiseDistort") == 0) { states[s_idx].noise_distort = val; states[s_idx].has_noise_distort = 1; }
+        else if (strcmp(tr->property, "texPinchSwirl") == 0) { states[s_idx].pinch_swirl = val; states[s_idx].has_pinch_swirl = 1; }
+        else if (strcmp(tr->property, "texGrain") == 0) { states[s_idx].grain = val; states[s_idx].has_grain = 1; }
+        else if (strcmp(tr->property, "texHardness") == 0) { states[s_idx].hardness = val; states[s_idx].has_hardness = 1; }
+        else if (strcmp(tr->property, "texScale") == 0) { states[s_idx].scale = val; states[s_idx].has_scale = 1; }
+        else if (strcmp(tr->property, "texAngle") == 0) { states[s_idx].angle = val; states[s_idx].has_angle = 1; }
     }
 
     for (int i = 0; i < state_count; i++) {
@@ -2227,6 +2237,14 @@ void quadro_svg_doc_evaluate_time(quadro_svg_doc_t *doc, float time_ms) {
         if (states[i].has_sw) target->style.stroke_width = states[i].sw;
         if (states[i].has_scol && states[i].stroke_col != 0) target->style.stroke_color = states[i].stroke_col;
         if (states[i].has_fcol && states[i].fill_col != 0) target->style.fill_color = states[i].fill_col;
+        if (states[i].has_warp_str) target->style.fill_texture.warp_strength = (int)states[i].warp_strength;
+        if (states[i].has_warp_freq) target->style.fill_texture.warp_freq = (int)states[i].warp_freq;
+        if (states[i].has_noise_distort) target->style.fill_texture.noise_distort = (int)states[i].noise_distort;
+        if (states[i].has_pinch_swirl) target->style.fill_texture.pinch_swirl = (int)states[i].pinch_swirl;
+        if (states[i].has_grain) target->style.fill_texture.grain = (int)states[i].grain;
+        if (states[i].has_hardness) target->style.fill_texture.hardness = (int)states[i].hardness;
+        if (states[i].has_scale) target->style.fill_texture.scale = (int)states[i].scale;
+        if (states[i].has_angle) target->style.fill_texture.angle = (int)states[i].angle;
 
         if (states[i].has_x || states[i].has_y || states[i].has_rot || states[i].has_sx || states[i].has_sy) {
             float rad = states[i].rot * (float)M_PI / 180.0f;

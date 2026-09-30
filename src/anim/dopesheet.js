@@ -1026,6 +1026,20 @@ export class DopeSheetObject {
       if (state.wasmParam2 !== undefined) wf.param2 = state.wasmParam2;
       if (state.wasmParam3 !== undefined) wf.param3 = state.wasmParam3;
     }
+    if (targetObj.fillFilter) {
+      const ff = targetObj.fillFilter;
+      if (state.wasmPlugin !== undefined) ff.plugin = state.wasmPlugin;
+      if (state.wasmParam1 !== undefined) ff.param1 = state.wasmParam1;
+      if (state.wasmParam2 !== undefined) ff.param2 = state.wasmParam2;
+      if (state.wasmParam3 !== undefined) ff.param3 = state.wasmParam3;
+    }
+    if (targetObj.strokeFilter) {
+      const sf = targetObj.strokeFilter;
+      if (state.wasmPlugin !== undefined) sf.plugin = state.wasmPlugin;
+      if (state.wasmParam1 !== undefined) sf.param1 = state.wasmParam1;
+      if (state.wasmParam2 !== undefined) sf.param2 = state.wasmParam2;
+      if (state.wasmParam3 !== undefined) sf.param3 = state.wasmParam3;
+    }
     // Nested Brush Dynamics
     if (targetObj.brushConfig) {
       const bc = targetObj.brushConfig;
