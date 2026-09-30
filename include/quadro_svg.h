@@ -135,6 +135,15 @@ typedef struct {
     quadro_svg_anim_track_t *tracks;
 } quadro_svg_animation_t;
 
+typedef struct {
+    int      enabled;
+    uint32_t color;
+    float    blur;
+    float    dx;
+    float    dy;
+    float    opacity;
+} quadro_svg_shadow_config_t;
+
 typedef struct quadro_svg_style {
     uint32_t fill_color;       /* ARGB format */
     uint32_t stroke_color;     /* ARGB format */
@@ -159,6 +168,7 @@ typedef struct quadro_svg_style {
     quadro_svg_brush_config_t   brush;
     quadro_svg_texture_config_t fill_texture;
     quadro_svg_texture_config_t stroke_texture;
+    quadro_svg_shadow_config_t  shadow;
 } quadro_svg_style_t;
 
 typedef struct quadro_svg_node {

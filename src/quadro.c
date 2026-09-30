@@ -5377,6 +5377,55 @@ W_EXPORT int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const cha
     return w_font_draw_text_transform(layer_idx, x, y, text, size, color, tracking, line_height, 0.0f, 1.0f, 1.0f, x, y, 0);
 }
 
+/* =========================================================================
+ * MyPaint Dynamic Brush Engine Integration
+ * ========================================================================= */
+#include "mypaint/mypaint_brush.c"
 
+static mypaint_brush_def_t g_mypaint_brush;
+static mypaint_brush_state_t g_mypaint_state;
+static bool g_mypaint_initialized = false;
 
+static void quadro_mypaint_render_dab(void *surface_ctx, const mypaint_dab_t *dab) {
+    (void)surface_ctx;
+    int w = 0, h = 0;
+    uint32_t *pix = get_current_draw_target(&w, &h);
+    if (!pix || w <= 0 || h <= 0) return;
+    mypaint_surface_render_dab_stateful(pix, w, h, dab, &g_mypaint_state);
+}
 
+W_EXPORT void w_mypaint_brush_init(void) {
+    mypaint_brush_init(&g_mypaint_brush);
+    mypaint_brush_state_init(&g_mypaint_state);
+    g_mypaint_initialized = true;
+}
+
+W_EXPORT void w_mypaint_brush_set_base(int32_t setting, float value) {
+    if (!g_mypaint_initialized) w_mypaint_brush_init();
+    mypaint_brush_set_base_value(&g_mypaint_brush, setting, value);
+}
+
+W_EXPORT float w_mypaint_brush_get_base(int32_t setting) {
+    if (!g_mypaint_initialized) w_mypaint_brush_init();
+    return mypaint_brush_get_base_value(&g_mypaint_brush, setting);
+}
+
+W_EXPORT void w_mypaint_brush_set_curve(int32_t setting, int32_t input_idx, int32_t npoints, const float *x, const float *y) {
+    if (!g_mypaint_initialized) w_mypaint_brush_init();
+    mypaint_brush_set_curve(&g_mypaint_brush, setting, input_idx, npoints, x, y);
+}
+
+W_EXPORT void w_mypaint_brush_clear_curve(int32_t setting, int32_t input_idx) {
+    if (!g_mypaint_initialized) w_mypaint_brush_init();
+    mypaint_brush_clear_curve(&g_mypaint_brush, setting, input_idx);
+}
+
+W_EXPORT void w_mypaint_brush_reset_state(void) {
+    mypaint_brush_state_reset(&g_mypaint_state);
+}
+
+W_EXPORT void w_mypaint_brush_stroke_to(float x, float y, float pressure, float tilt_x, float tilt_y, float dtime, float viewzoom) {
+    if (!g_mypaint_initialized) w_mypaint_brush_init();
+    init_surface_if_needed();
+    mypaint_brush_stroke_to(&g_mypaint_brush, &g_mypaint_state, x, y, pressure, tilt_x, tilt_y, dtime, viewzoom, 0, quadro_mypaint_render_dab);
+}

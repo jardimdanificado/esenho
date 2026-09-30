@@ -34,12 +34,20 @@ bin/test_native_svg: tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_native_svg.c src/svg/quadro_svg.c src/svg/quadro_font.c src/quadro.c -lm
 
-native: bin/quadro-svg bin/test_native_svg
+bin/test_mypaint_brush: tests/test_mypaint_brush.c src/mypaint/mypaint_brush.c include/mypaint_brush.h
+	mkdir -p bin
+	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_mypaint_brush.c src/mypaint/mypaint_brush.c -lm
 
-test-native: bin/test_native_svg
+native: bin/quadro-svg bin/test_native_svg bin/test_mypaint_brush
+
+test-native: bin/test_native_svg bin/test_mypaint_brush
 	./bin/test_native_svg
+	./bin/test_mypaint_brush
+
+test-mypaint: bin/test_mypaint_brush
+	./bin/test_mypaint_brush
 
 clean:
 	rm -rf plugins/*.wasm plugins/manifest.json roms bin
 
-.PHONY: all run clean native test-native
+.PHONY: all run clean native test-native test-mypaint
