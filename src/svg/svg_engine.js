@@ -584,6 +584,8 @@
         opacity: 1.0,
         ...(attributes.wasmFilter || {})
       };
+      this.fillFilter = attributes.fillFilter ? { ...attributes.fillFilter } : { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+      this.strokeFilter = attributes.strokeFilter ? { ...attributes.strokeFilter } : { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
 
       // Transform
       this.x = Number(attributes.x || 0);
@@ -641,6 +643,12 @@
       }
       if (this.wasmFilter && this.wasmFilter.enabled) {
         attrs += ` data-wasm-filter="${encodeURIComponent(JSON.stringify(this.wasmFilter))}"`;
+      }
+      if (this.fillFilter && this.fillFilter.enabled) {
+        attrs += ` data-fill-filter="${encodeURIComponent(JSON.stringify(this.fillFilter))}"`;
+      }
+      if (this.strokeFilter && this.strokeFilter.enabled) {
+        attrs += ` data-stroke-filter="${encodeURIComponent(JSON.stringify(this.strokeFilter))}"`;
       }
       return attrs;
     }
@@ -790,6 +798,8 @@
         strokeTexture: { ...this.strokeTexture },
         fillTexture: { ...this.fillTexture },
         wasmFilter: { ...this.wasmFilter },
+        fillFilter: { ...this.fillFilter },
+        strokeFilter: { ...this.strokeFilter },
         x: this.x,
         y: this.y,
         rotation: this.rotation,
@@ -3529,6 +3539,18 @@
             try { wasmFilter = JSON.parse(decodeURIComponent(wasmFilterAttr)); } catch (e) {}
           }
 
+          let fillFilter = undefined;
+          const fillFilterAttr = getAttr('data-fill-filter');
+          if (fillFilterAttr) {
+            try { fillFilter = JSON.parse(decodeURIComponent(fillFilterAttr)); } catch (e) {}
+          }
+
+          let strokeFilter = undefined;
+          const strokeFilterAttr = getAttr('data-stroke-filter');
+          if (strokeFilterAttr) {
+            try { strokeFilter = JSON.parse(decodeURIComponent(strokeFilterAttr)); } catch (e) {}
+          }
+
           const transformAttr = getAttr('transform');
           let rotation = 0;
           let originX = undefined, originY = undefined;
@@ -3546,7 +3568,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter,
+            brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter, fillFilter, strokeFilter,
             rotation, originX, originY
           };
 
@@ -3718,6 +3740,18 @@
             try { wasmFilter = JSON.parse(decodeURIComponent(wasmFilterAttr)); } catch (e) {}
           }
 
+          let fillFilter = undefined;
+          const fillFilterAttr = getAttr('data-fill-filter');
+          if (fillFilterAttr) {
+            try { fillFilter = JSON.parse(decodeURIComponent(fillFilterAttr)); } catch (e) {}
+          }
+
+          let strokeFilter = undefined;
+          const strokeFilterAttr = getAttr('data-stroke-filter');
+          if (strokeFilterAttr) {
+            try { strokeFilter = JSON.parse(decodeURIComponent(strokeFilterAttr)); } catch (e) {}
+          }
+
           const transformAttr = getAttr('transform');
           let rotation = 0;
           let originX = undefined, originY = undefined;
@@ -3735,7 +3769,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter,
+            brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter, fillFilter, strokeFilter,
             rotation, originX, originY
           };
 

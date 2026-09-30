@@ -278,6 +278,54 @@ static inline int w_atan2_deg(int dy, int dx) {
     return angle % 360;
 }
 
+/** Freestanding float trigonometry and math (zero libc dependencies) */
+static inline float w_sinf(float x) {
+    const float PI = 3.14159265358979323846f;
+    const float TWO_PI = 6.28318530717958647692f;
+    while (x > PI) x -= TWO_PI;
+    while (x < -PI) x += TWO_PI;
+    float abs_x = x < 0.0f ? -x : x;
+    float num = 16.0f * x * (PI - abs_x);
+    float den = 5.0f * PI * PI - 4.0f * abs_x * (PI - abs_x);
+    if (den == 0.0f) return 0.0f;
+    return num / den;
+}
+
+static inline float w_cosf(float x) {
+    return w_sinf(x + 1.5707963267948966f);
+}
+
+static inline float w_atan2f(float y, float x) {
+    if (x == 0.0f && y == 0.0f) return 0.0f;
+    const float PI = 3.14159265358979323846f;
+    const float PI_2 = 1.5707963267948966f;
+    float abs_y = y < 0.0f ? -y : y;
+    float abs_x = x < 0.0f ? -x : x;
+    float angle;
+    if (abs_x >= abs_y) {
+        float r = abs_y / (abs_x + 1e-7f);
+        angle = r * (0.97239411f - 0.19194795f * r * r);
+    } else {
+        float r = abs_x / (abs_y + 1e-7f);
+        angle = PI_2 - r * (0.97239411f - 0.19194795f * r * r);
+    }
+    if (x < 0.0f && y >= 0.0f) angle = PI - angle;
+    else if (x < 0.0f && y < 0.0f) angle = -PI + angle;
+    else if (x >= 0.0f && y < 0.0f) angle = -angle;
+    return angle;
+}
+
+static inline float w_sqrtf(float x) {
+    if (x <= 0.0f) return 0.0f;
+    union { float f; uint32_t i; } conv;
+    conv.f = x;
+    conv.i = 0x1fbd1df5 + (conv.i >> 1);
+    float y = conv.f;
+    y = 0.5f * (y + x / y);
+    y = 0.5f * (y + x / y);
+    return y;
+}
+
 /** Integer RGB -> HSV (h: 0..359, s: 0..255, v: 0..255) */
 static inline void w_rgb_to_hsv(uint32_t color, int *out_h, int *out_s, int *out_v) {
     int r = color & 0xFF;

@@ -776,6 +776,26 @@ const BRUSH_PRESETS = {
   lasso: { mode: 4 }
 };
 
+function createDefaultWasmImports(options = {}) {
+  const env = {
+    sinf: (x) => Math.sin(x),
+    cosf: (x) => Math.cos(x),
+    tanf: (x) => Math.tan(x),
+    atan2f: (y, x) => Math.atan2(y, x),
+    sqrtf: (x) => Math.sqrt(x),
+    fabsf: (x) => Math.abs(x),
+    powf: (x, y) => Math.pow(x, y),
+    fmodf: (x, y) => x % y,
+    roundf: (x) => Math.round(x),
+    floorf: (x) => Math.floor(x),
+    ceilf: (x) => Math.ceil(x),
+    expf: (x) => Math.exp(x),
+    logf: (x) => Math.log(x),
+    ...(options.env || {})
+  };
+  return { env, ...(options.imports || {}) };
+}
+
 /**
  * Native Esenho WebAssembly Module Wrapper.
  * Freestanding, libc-free WASM runner with direct ABI function exports.
@@ -804,7 +824,7 @@ class EsenhoModule {
     this.name = options.name || (typeof this.wasmPath === 'string' ? path.basename(String(this.wasmPath), '.wasm') : 'module');
     const wasmBytes = isBytes ? wasmPathOrBytes : fs.readFileSync(wasmPathOrBytes);
     this.wasmModule = new WebAssembly.Module(wasmBytes);
-    this.instance = new WebAssembly.Instance(this.wasmModule, { env: {} });
+    this.instance = new WebAssembly.Instance(this.wasmModule, createDefaultWasmImports(options));
     this.exports = this.instance.exports;
     this.memory = this.exports.memory;
     this.layerPtr = 0;
@@ -821,7 +841,7 @@ class EsenhoModule {
    */
   static async fromBytes(bytes, options = {}) {
     const u8 = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
-    const res = await WebAssembly.instantiate(u8, { env: {} });
+    const res = await WebAssembly.instantiate(u8, createDefaultWasmImports(options));
     const instance = res.instance || res;
     return new EsenhoModule(instance, options);
   }

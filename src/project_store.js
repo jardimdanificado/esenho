@@ -667,6 +667,61 @@
       return false;
     },
 
+    getCustomFillPresets() {
+      try {
+        if (typeof localStorage === "undefined") {
+          return this._nodeFillPresets || {};
+        }
+        const stored = localStorage.getItem("esenho_custom_fill_presets_v1");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && typeof parsed === "object") return parsed;
+        }
+      } catch (_) {}
+      return {};
+    },
+
+    saveCustomFillPreset(name, presetData) {
+      if (!name) return false;
+      const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+      const current = this.getCustomFillPresets();
+      current[key] = {
+        name: name.trim(),
+        desc: presetData.desc || "Custom fill preset",
+        ...JSON.parse(JSON.stringify(presetData))
+      };
+      if (typeof localStorage !== "undefined") {
+        try {
+          localStorage.setItem("esenho_custom_fill_presets_v1", JSON.stringify(current));
+          return true;
+        } catch (_) {}
+      } else {
+        if (!this._nodeFillPresets) this._nodeFillPresets = {};
+        this._nodeFillPresets[key] = current[key];
+        return true;
+      }
+      return false;
+    },
+
+    deleteCustomFillPreset(name) {
+      if (!name) return false;
+      const key = name.trim().toLowerCase().replace(/\s+/g, "_");
+      const current = this.getCustomFillPresets();
+      if (current[key]) {
+        delete current[key];
+        if (typeof localStorage !== "undefined") {
+          try {
+            localStorage.setItem("esenho_custom_fill_presets_v1", JSON.stringify(current));
+            return true;
+          } catch (_) {}
+        } else if (this._nodeFillPresets) {
+          delete this._nodeFillPresets[key];
+          return true;
+        }
+      }
+      return false;
+    },
+
     /* ── Custom Raster Textures ── */
     async saveCustomTexture(id, textureData) {
       if (!id || !textureData) return false;

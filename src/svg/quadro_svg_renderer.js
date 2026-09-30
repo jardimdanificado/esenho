@@ -1888,101 +1888,102 @@
             let x1 = nodeX[i + 1] >= lw ? lw - 1 : nodeX[i + 1];
             const row = y * lw;
             for (let x = x0; x <= x1; x++) {
+              let sx = isRelative ? (x - bMinX + offsetX) : (x + offsetX);
+              let sy = isRelative ? (y - bMinY + offsetY) : (y + offsetY);
+
+              if (warpStrength > 0) {
+                const freq = warpFreq > 0 ? warpFreq * 0.01 : 0.2;
+                sx += Math.sin(sy * freq) * (warpStrength * 0.4);
+                sy += Math.cos(sx * freq) * (warpStrength * 0.4);
+              }
+
+              if (noiseDistort > 0) {
+                const isx = Math.floor(sx) | 0;
+                const isy = Math.floor(sy) | 0;
+                const jn = (((Math.imul(isx, 374761393) + Math.imul(isy, 668265263)) ^ 0x5bf03635) >>> 0) & 0xFF;
+                const jitter = (jn - 128) * (noiseDistort * 0.0025);
+                sx += jitter;
+                sy += jitter;
+              }
+
+              if (pinchSwirl !== 0) {
+                const dx = x - cx;
+                const dy = y - cy;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                if (r < maxR) {
+                  const factor = (1.0 - r / maxR) * (pinchSwirl * 0.01) * Math.PI;
+                  const cosS = Math.cos(factor);
+                  const sinS = Math.sin(factor);
+                  const nrx = dx * cosS - dy * sinS;
+                  const nry = dx * sinS + dy * cosS;
+                  if (isRelative) {
+                    sx = cx + nrx - bMinX + offsetX;
+                    sy = cy + nry - bMinY + offsetY;
+                  } else {
+                    sx = cx + nrx + offsetX;
+                    sy = cy + nry + offsetY;
+                  }
+                }
+              }
+
               let pixColor = fillArgb;
               if (gradient && bounds) {
-                pixColor = sampleGradient(gradient, x, y, bounds, scale, totalOpacity);
+                const gradX = (warpStrength > 0 || noiseDistort > 0 || pinchSwirl !== 0) ? (isRelative ? sx + bMinX - offsetX : sx - offsetX) : x;
+                const gradY = (warpStrength > 0 || noiseDistort > 0 || pinchSwirl !== 0) ? (isRelative ? sy + bMinY - offsetY : sy - offsetY) : y;
+                pixColor = sampleGradient(gradient, gradX, gradY, bounds, scale, totalOpacity);
               }
-              if (customPixels || texMode > 0) {
-                let sx = isRelative ? (x - bMinX + offsetX) : (x + offsetX);
-                let sy = isRelative ? (y - bMinY + offsetY) : (y + offsetY);
 
-                if (warpStrength > 0) {
-                  const freq = warpFreq > 0 ? warpFreq * 0.01 : 0.2;
-                  sx += Math.sin(sy * freq) * (warpStrength * 0.4);
-                  sy += Math.cos(sx * freq) * (warpStrength * 0.4);
-                }
-
-                if (noiseDistort > 0) {
-                  const isx = Math.floor(sx) | 0;
-                  const isy = Math.floor(sy) | 0;
-                  const jn = (((Math.imul(isx, 374761393) + Math.imul(isy, 668265263)) ^ 0x5bf03635) >>> 0) & 0xFF;
-                  const jitter = (jn - 128) * (noiseDistort * 0.0025);
-                  sx += jitter;
-                  sy += jitter;
-                }
-
-                if (pinchSwirl !== 0) {
-                  const dx = x - cx;
-                  const dy = y - cy;
-                  const r = Math.sqrt(dx * dx + dy * dy);
-                  if (r < maxR) {
-                    const factor = (1.0 - r / maxR) * (pinchSwirl * 0.01) * Math.PI;
-                    const cosS = Math.cos(factor);
-                    const sinS = Math.sin(factor);
-                    const nrx = dx * cosS - dy * sinS;
-                    const nry = dx * sinS + dy * cosS;
-                    if (isRelative) {
-                      sx = cx + nrx - bMinX + offsetX;
-                      sy = cy + nry - bMinY + offsetY;
-                    } else {
-                      sx = cx + nrx + offsetX;
-                      sy = cy + nry + offsetY;
-                    }
-                  }
-                }
-
-                const origA = (pixColor >>> 24) & 0xFF;
-                let sampledA = origA;
-                if (customPixels) {
-                  sampledA = sampleCustomTexture(customPixels, customW, customH, sx, sy, texAngle, texScale, texContrast, origA);
-                } else {
-                  sampledA = sampleProceduralTexture(texMode, sx, sy, texAngle, texScale, texContrast, origA);
-                }
-
-                if (texGrain > 0) {
-                  const isx = Math.floor(sx) | 0;
-                  const isy = Math.floor(sy) | 0;
-                  const hg = (((Math.imul(isx, 1103515245) + Math.imul(isy, 12345) + 0x654321) ^ 0xDEADBEEF) >>> 0) & 0xFF;
-                  const gFactor = 1.0 - (texGrain * 0.01) * ((hg - 128) / 128.0);
-                  sampledA = Math.max(0, Math.min(255, Math.round(sampledA * gFactor)));
-                }
-
-                if (invert) {
-                  let inv = origA - (sampledA - Math.floor(origA * 40 / 255));
-                  sampledA = inv < 0 ? 0 : (inv > 255 ? 255 : inv);
-                }
-
-                if (posterize >= 2) {
-                  const step = Math.floor(255 / posterize);
-                  sampledA = Math.min(255, Math.floor((sampledA + Math.floor(step / 2)) / step) * step);
-                }
-
-                if (featherW > 0 && activeSegs && activeSegs.length > 0) {
-                  let minD2 = maxD2;
-                  for (let s = 0; s < activeSegs.length; s++) {
-                    const seg = activeSegs[s];
-                    if (x < seg.minX || x > seg.maxX) continue;
-                    let d2;
-                    if (seg.segLen2 === 0) {
-                      const dx = x - seg.x1, dy = y - seg.y1;
-                      d2 = dx * dx + dy * dy;
-                    } else {
-                      let t = ((x - seg.x1) * seg.vx + (y - seg.y1) * seg.vy) / seg.segLen2;
-                      if (t < 0) t = 0;
-                      else if (t > 1) t = 1;
-                      const qx = seg.x1 + t * seg.vx - x;
-                      const qy = seg.y1 + t * seg.vy - y;
-                      d2 = qx * qx + qy * qy;
-                    }
-                    if (d2 < minD2) minD2 = d2;
-                  }
-                  if (minD2 < maxD2) {
-                    sampledA = Math.round(sampledA * (Math.sqrt(minD2) / featherW));
-                  }
-                }
-
-                pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
+              const origA = (pixColor >>> 24) & 0xFF;
+              let sampledA = origA;
+              if (customPixels) {
+                sampledA = sampleCustomTexture(customPixels, customW, customH, sx, sy, texAngle, texScale, texContrast, origA);
+              } else if (texMode > 0) {
+                sampledA = sampleProceduralTexture(texMode, sx, sy, texAngle, texScale, texContrast, origA);
               }
+
+              if (texGrain > 0) {
+                const isx = Math.floor(sx) | 0;
+                const isy = Math.floor(sy) | 0;
+                const hg = (((Math.imul(isx, 1103515245) + Math.imul(isy, 12345) + 0x654321) ^ 0xDEADBEEF) >>> 0) & 0xFF;
+                const gFactor = 1.0 - (texGrain * 0.01) * ((hg - 128) / 128.0);
+                sampledA = Math.max(0, Math.min(255, Math.round(sampledA * gFactor)));
+              }
+
+              if (invert) {
+                let inv = origA - (sampledA - Math.floor(origA * 40 / 255));
+                sampledA = inv < 0 ? 0 : (inv > 255 ? 255 : inv);
+              }
+
+              if (posterize >= 2) {
+                const step = Math.floor(255 / posterize);
+                sampledA = Math.min(255, Math.floor((sampledA + Math.floor(step / 2)) / step) * step);
+              }
+
+              if (featherW > 0 && activeSegs && activeSegs.length > 0) {
+                let minD2 = maxD2;
+                for (let s = 0; s < activeSegs.length; s++) {
+                  const seg = activeSegs[s];
+                  if (x < seg.minX || x > seg.maxX) continue;
+                  let d2;
+                  if (seg.segLen2 === 0) {
+                    const dx = x - seg.x1, dy = y - seg.y1;
+                    d2 = dx * dx + dy * dy;
+                  } else {
+                    let t = ((x - seg.x1) * seg.vx + (y - seg.y1) * seg.vy) / seg.segLen2;
+                    if (t < 0) t = 0;
+                    else if (t > 1) t = 1;
+                    const qx = seg.x1 + t * seg.vx - x;
+                    const qy = seg.y1 + t * seg.vy - y;
+                    d2 = qx * qx + qy * qy;
+                  }
+                  if (d2 < minD2) minD2 = d2;
+                }
+                if (minD2 < maxD2) {
+                  sampledA = Math.round(sampledA * (Math.sqrt(minD2) / featherW));
+                }
+              }
+
+              pixColor = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
               pixels[row + x] = this.blendFast(pixColor, pixels[row + x]);
             }
           }

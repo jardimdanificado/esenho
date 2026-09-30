@@ -2049,29 +2049,48 @@
               <div class="flyout-title">Fill Dynamics &amp; FX</div>
               <div class="form-row">
                 <label>Preset</label>
-                <select id="prop-fill-preset" style="width: 100%;">
-                  <option value="custom">-- Custom Settings --</option>
-                  <option value="default">Solid Flat Color (Default)</option>
-                  <optgroup label="Artistic &amp; Media Fills">
-                    <option value="soft_watercolor">Soft Watercolor Wash</option>
-                    <option value="manga_screentone">Manga Screentone Cel</option>
-                    <option value="comic_cel">4-Level Cel Shading</option>
-                    <option value="vintage_engraving">Vintage Engraved Fills</option>
-                    <option value="denim_fabric">Denim Twill Weave</option>
-                  </optgroup>
-                  <optgroup label="Distortion &amp; Dynamics">
-                    <option value="warped_marble">Warped Liquid Marble</option>
-                    <option value="noise_dissolve">Noise Dissolve / Sand</option>
-                    <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
-                    <option value="cracked_earth">Cracked Mud Fissures</option>
-                    <option value="glitch_heatwave">Glitch Heatwave</option>
-                  </optgroup>
-                  <optgroup label="Sci-Fi &amp; Fantasy">
-                    <option value="circuit_tech">Cyber Circuit Board</option>
-                    <option value="dragon_scales">Mythic Dragon Scales</option>
-                    <option value="inverted_negative">Inverted Texture Mask</option>
-                  </optgroup>
-                </select>
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <select id="prop-fill-preset" style="flex: 1;">
+                    <option value="custom">-- Custom Settings --</option>
+                    <option value="default">Solid Flat Color (Default)</option>
+                    <optgroup id="grp-custom-fill-presets" label="Custom Fill Presets"></optgroup>
+                    <optgroup label="WASM Optical Lenses &amp; Filters">
+                      <option value="fisheye_lens">Fisheye Spherical Lens</option>
+                      <option value="swirl_vortex_lens">Swirl Vortex Whirlpool Lens</option>
+                      <option value="water_ripple_lens">Water Caustic Ripple Lens</option>
+                      <option value="kaleidoscope_prism_lens">Kaleidoscope Symmetrical Lens</option>
+                      <option value="crt_monitor_lens">Retro CRT Monitor Lens</option>
+                      <option value="cyberpunk_duotone_lens">Cyberpunk Duotone Lens</option>
+                      <option value="thermal_predator_lens">Infrared Thermal Heat Lens</option>
+                      <option value="kuwahara_oil_canvas">Kuwahara Oil Painting Canvas</option>
+                      <option value="chromatic_aberration_lens">Chromatic RGB Split Lens</option>
+                      <option value="vhs_glitch_lens">VHS Glitch Tear Lens</option>
+                      <option value="frosted_glass_lens">Frosted Glass Distortion Lens</option>
+                      <option value="solarized_dream_lens">Solarized Sabattier Lens</option>
+                      <option value="neon_bloom_lens">Neon Bloom Glow Lens</option>
+                    </optgroup>
+                    <optgroup label="Artistic &amp; Media Fills">
+                      <option value="soft_watercolor">Soft Watercolor Wash</option>
+                      <option value="manga_screentone">Manga Screentone Cel</option>
+                      <option value="comic_cel">4-Level Cel Shading</option>
+                      <option value="vintage_engraving">Vintage Engraved Fills</option>
+                      <option value="denim_fabric">Denim Twill Weave</option>
+                    </optgroup>
+                    <optgroup label="Distortion &amp; Dynamics">
+                      <option value="warped_marble">Warped Liquid Marble</option>
+                      <option value="noise_dissolve">Noise Dissolve / Sand</option>
+                      <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
+                      <option value="cracked_earth">Cracked Mud Fissures</option>
+                      <option value="glitch_heatwave">Glitch Heatwave</option>
+                    </optgroup>
+                    <optgroup label="Sci-Fi &amp; Fantasy">
+                      <option value="circuit_tech">Cyber Circuit Board</option>
+                      <option value="dragon_scales">Mythic Dragon Scales</option>
+                      <option value="inverted_negative">Inverted Texture Mask</option>
+                    </optgroup>
+                  </select>
+                  <button id="btn-save-fill-preset" class="btn btn-secondary btn-sm" title="Save Current Fill as Custom Preset" style="padding: 2px 6px; font-size: 10px;">Save</button>
+                </div>
               </div>
               <div class="form-row">
                 <label>Hardness %</label>
@@ -2132,17 +2151,34 @@
               <div class="form-row">
                 <label>Plugin</label>
                 <select id="prop-fill-filter-plugin">
-                  <option value="dither">Dither</option>
-                  <option value="blur">Blur</option>
-                  <option value="pixelate">Pixelate</option>
-                  <option value="edge">Edge Detection</option>
-                  <option value="noise">Noise</option>
-                  <option value="invert">Invert</option>
-                  <option value="grayscale">Grayscale</option>
-                  <option value="sepia">Sepia</option>
-                  <option value="threshold">Threshold</option>
+                  <option value="bloom">Bloom Glow</option>
+                  <option value="blur">Box Blur</option>
                   <option value="brightness">Brightness</option>
+                  <option value="chromatic">Chromatic Aberration</option>
                   <option value="contrast">Contrast</option>
+                  <option value="dither">Ordered Dither</option>
+                  <option value="duotone">Duotone Gradient</option>
+                  <option value="edge">Edge Detection</option>
+                  <option value="emboss">3D Emboss</option>
+                  <option value="fisheye">Fisheye Lens</option>
+                  <option value="frosted_glass">Frosted Glass</option>
+                  <option value="glitch">VHS Glitch</option>
+                  <option value="grayscale">Grayscale</option>
+                  <option value="halftone_dot">Halftone Screen Dots</option>
+                  <option value="invert">Invert</option>
+                  <option value="kaleidoscope">Kaleidoscope Lens</option>
+                  <option value="kuwahara">Oil Painting (Kuwahara)</option>
+                  <option value="noise">Film Grain / Noise</option>
+                  <option value="pixelate">Pixelate Mosaic</option>
+                  <option value="ripple">Water Ripple Lens</option>
+                  <option value="scanline">CRT Scanlines</option>
+                  <option value="sepia">Sepia Vintage</option>
+                  <option value="sharpen">Sharpen (Unsharp Mask)</option>
+                  <option value="solarize">Solarize (Sabattier)</option>
+                  <option value="swirl">Swirl Vortex</option>
+                  <option value="thermal">Thermal Vision</option>
+                  <option value="threshold">Binary Threshold</option>
+                  <option value="vignette">Vignette Lens</option>
                 </select>
               </div>
               <div class="form-row">
@@ -2322,6 +2358,18 @@
                   <select id="prop-brush-preset" style="flex: 1;">
                     <option value="custom">-- Custom Settings --</option>
                     <option value="default">Solid Vector (Default)</option>
+                    <optgroup label="WASM FX &amp; Lens Brushes">
+                      <option value="neon_glow_brush">Neon Glow Stroke (Bloom)</option>
+                      <option value="glitch_vhs_pen">VHS Glitch Tear Pen</option>
+                      <option value="comic_halftone_ink">Halftone Screen Dots</option>
+                      <option value="chromatic_prism_brush">Chromatic Aberration Prism</option>
+                      <option value="kuwahara_oil_brush">Kuwahara Painterly Oil</option>
+                      <option value="thermal_heat_pen">Thermal Heatmap Sensor</option>
+                      <option value="crt_pixel_pen">Retro CRT Scanline Pen</option>
+                      <option value="frosted_highlighter">Frosted Glass Diffuse</option>
+                      <option value="dither_retro_pen">1-Bit Bayer Dither Pen</option>
+                      <option value="emboss_relief_pen">3D Emboss Bas-Relief</option>
+                    </optgroup>
                     <optgroup label="Pencils &amp; Sketching">
                       <option value="pencil">HB Graphite Pencil</option>
                       <option value="soft_pencil">6B Soft Graphite</option>
@@ -2503,17 +2551,34 @@
               <div class="form-row">
                 <label>Plugin</label>
                 <select id="prop-stroke-filter-plugin">
-                  <option value="dither">Dither</option>
-                  <option value="blur">Blur</option>
-                  <option value="pixelate">Pixelate</option>
-                  <option value="edge">Edge Detection</option>
-                  <option value="noise">Noise</option>
-                  <option value="invert">Invert</option>
-                  <option value="grayscale">Grayscale</option>
-                  <option value="sepia">Sepia</option>
-                  <option value="threshold">Threshold</option>
+                  <option value="bloom">Bloom Glow</option>
+                  <option value="blur">Box Blur</option>
                   <option value="brightness">Brightness</option>
+                  <option value="chromatic">Chromatic Aberration</option>
                   <option value="contrast">Contrast</option>
+                  <option value="dither">Ordered Dither</option>
+                  <option value="duotone">Duotone Gradient</option>
+                  <option value="edge">Edge Detection</option>
+                  <option value="emboss">3D Emboss</option>
+                  <option value="fisheye">Fisheye Lens</option>
+                  <option value="frosted_glass">Frosted Glass</option>
+                  <option value="glitch">VHS Glitch</option>
+                  <option value="grayscale">Grayscale</option>
+                  <option value="halftone_dot">Halftone Screen Dots</option>
+                  <option value="invert">Invert</option>
+                  <option value="kaleidoscope">Kaleidoscope Lens</option>
+                  <option value="kuwahara">Oil Painting (Kuwahara)</option>
+                  <option value="noise">Film Grain / Noise</option>
+                  <option value="pixelate">Pixelate Mosaic</option>
+                  <option value="ripple">Water Ripple Lens</option>
+                  <option value="scanline">CRT Scanlines</option>
+                  <option value="sepia">Sepia Vintage</option>
+                  <option value="sharpen">Sharpen (Unsharp Mask)</option>
+                  <option value="solarize">Solarize (Sabattier)</option>
+                  <option value="swirl">Swirl Vortex</option>
+                  <option value="thermal">Thermal Vision</option>
+                  <option value="threshold">Binary Threshold</option>
+                  <option value="vignette">Vignette Lens</option>
                 </select>
               </div>
               <div class="form-row">
@@ -3705,7 +3770,22 @@
 
       // ── Init Quadro WASM Engine ──
       async function preloadWasmPlugins() {
-        const pluginList = ['blur', 'brightness', 'contrast', 'dither', 'edge', 'grayscale', 'invert', 'noise', 'pixelate', 'sepia', 'threshold'];
+        let pluginList = [
+          'bloom', 'blur', 'brightness', 'chromatic', 'contrast', 'dither',
+          'duotone', 'edge', 'emboss', 'fisheye', 'frosted_glass', 'glitch',
+          'grayscale', 'halftone_dot', 'invert', 'kaleidoscope', 'kuwahara',
+          'noise', 'pixelate', 'ripple', 'scanline', 'sepia', 'sharpen',
+          'solarize', 'swirl', 'thermal', 'threshold', 'vignette'
+        ];
+        try {
+          const res = await fetch('plugins/manifest.json');
+          if (res.ok) {
+            const list = await res.json();
+            const manifestPlugins = list.map(f => typeof f === 'string' ? f.replace(/\.wasm$/i, '') : (f.name || f.file || '').replace(/\.wasm$/i, '')).filter(Boolean);
+            if (manifestPlugins.length > 0) pluginList = manifestPlugins;
+          }
+        } catch (e) {}
+
         for (const name of pluginList) {
           try {
             const res = await fetch(`plugins/${name}.wasm`);
@@ -3719,6 +3799,21 @@
             console.warn(`Could not preload WASM plugin ${name}:`, e);
           }
         }
+
+        ['prop-fill-filter-plugin', 'prop-stroke-filter-plugin'].forEach(selId => {
+          const sel = document.getElementById(selId);
+          if (sel) {
+            const existing = new Set(Array.from(sel.options).map(o => o.value));
+            pluginList.forEach(name => {
+              if (!existing.has(name)) {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                sel.appendChild(opt);
+              }
+            });
+          }
+        });
       }
 
       async function initQuadro() {
@@ -4760,6 +4855,20 @@
 
       const BRUSH_PRESET_CONFIGS = {
         default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, texture_scale: 100, texture_rotate: 0, texture_contrast: 100, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
+        
+        // WASM FX & Optical Lens Brushes
+        neon_glow_brush: { hardness: 90, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 10, taper_out: 10, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'bloom', target: 'stroke', p1: 130, p2: 12, opacity: 1.0 } },
+        glitch_vhs_pen: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 15, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'glitch', target: 'stroke', p1: 25, p2: 12, opacity: 1.0 } },
+        comic_halftone_ink: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 15, taper_out: 25, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'halftone_dot', target: 'stroke', p1: 6, p2: 0, opacity: 1.0 } },
+        chromatic_prism_brush: { hardness: 85, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 10, taper_out: 15, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'chromatic', target: 'stroke', p1: 12, p2: 0, opacity: 1.0 } },
+        kuwahara_oil_brush: { hardness: 80, flow: 95, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 2, shape: 2, grain: 40, texture: 'canvas', texture_mode: 2, texture_scale: 100, texture_rotate: 0, texture_contrast: 60, auto_rotate: 1, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 60, color_pickup: 65, depletion: 35, smudge: 0, wasmFilter: { enabled: true, plugin: 'kuwahara', target: 'stroke', p1: 3, p2: 0, opacity: 1.0 } },
+        thermal_heat_pen: { hardness: 95, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 5, taper_out: 5, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'thermal', target: 'stroke', p1: 110, p2: 0, opacity: 1.0 } },
+        crt_pixel_pen: { hardness: 100, flow: 100, spacing: 20, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'scanline', target: 'stroke', p1: 50, p2: 1, opacity: 1.0 } },
+        frosted_highlighter: { hardness: 70, flow: 80, spacing: 5, scatter: 0, roundness: 35, angle: 45, dabBlend: 1, shape: 2, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'frosted_glass', target: 'stroke', p1: 10, p2: 2, opacity: 1.0 } },
+        dither_retro_pen: { hardness: 100, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 } },
+        emboss_relief_pen: { hardness: 90, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'emboss', target: 'stroke', p1: 3, p2: 0, opacity: 1.0 } },
+
+        // Pencils & Line Art
         pencil: { hardness: 70, flow: 85, spacing: 5, scatter: 2, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 35, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 25, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
         soft_pencil: { hardness: 45, flow: 80, spacing: 6, scatter: 4, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 55, texture: 'paper', texture_mode: 1, texture_scale: 100, texture_rotate: 0, texture_contrast: 40, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
         mech_pencil: { hardness: 90, flow: 95, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 20, texture: 'paper', texture_mode: 1, texture_scale: 80, texture_rotate: 0, texture_contrast: 20, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
@@ -4828,6 +4937,23 @@
 
       const FILL_PRESET_CONFIGS = {
         default: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false },
+        
+        // WASM Optical Lens & Filter Presets
+        fisheye_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'fisheye', target: 'backdrop', p1: 35, p2: 110, opacity: 1.0 } },
+        swirl_vortex_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'swirl', target: 'backdrop', p1: 120, p2: 85, opacity: 1.0 } },
+        water_ripple_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'ripple', target: 'backdrop', p1: 25, p2: 10, opacity: 1.0 } },
+        kaleidoscope_prism_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'kaleidoscope', target: 'backdrop', p1: 6, p2: 30, opacity: 1.0 } },
+        crt_monitor_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'scanline', target: 'backdrop', p1: 50, p2: 1, opacity: 1.0 } },
+        cyberpunk_duotone_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'duotone', target: 'backdrop', p1: 0, p2: 120, opacity: 1.0 } },
+        thermal_predator_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'thermal', target: 'backdrop', p1: 110, p2: 0, opacity: 1.0 } },
+        kuwahara_oil_canvas: { mode: 2, scale: 100, angle: 0, contrast: 110, grain: 20, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'kuwahara', target: 'fill', p1: 4, p2: 0, opacity: 1.0 } },
+        chromatic_aberration_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'chromatic', target: 'backdrop', p1: 12, p2: 0, opacity: 1.0 } },
+        vhs_glitch_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'glitch', target: 'backdrop', p1: 25, p2: 12, opacity: 1.0 } },
+        frosted_glass_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'frosted_glass', target: 'backdrop', p1: 10, p2: 2, opacity: 1.0 } },
+        solarized_dream_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'solarize', target: 'backdrop', p1: 110, p2: 0, opacity: 1.0 } },
+        neon_bloom_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'bloom', target: 'backdrop', p1: 140, p2: 10, opacity: 1.0 } },
+
+        // Procedural Textures & Fills
         soft_watercolor: { mode: 8, scale: 120, angle: 0, contrast: 110, grain: 40, hardness: 25, hardnessIntensity: 80, warpStrength: 10, warpFreq: 15, noiseDistort: 5, pinchSwirl: 0, posterize: 0, invert: false },
         manga_screentone: { mode: 31, scale: 80, angle: 45, contrast: 200, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 3, invert: false },
         comic_cel: { mode: 0, scale: 100, angle: 0, contrast: 150, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 4, invert: false },
@@ -5099,6 +5225,18 @@
         }
 
         // Fill Texture & Dynamics
+        const grpCustomFills = document.getElementById('grp-custom-fill-presets');
+        if (grpCustomFills && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomFillPresets) {
+          grpCustomFills.innerHTML = '';
+          const customFills = EsenhoStore.getCustomFillPresets();
+          for (const [k, p] of Object.entries(customFills)) {
+            const opt = document.createElement('option');
+            opt.value = k;
+            opt.textContent = p.name || k;
+            grpCustomFills.appendChild(opt);
+          }
+        }
+
         const ft = obj.fillTexture || {};
         if (document.getElementById('prop-fill-preset')) {
           document.getElementById('prop-fill-preset').value = ft.preset || 'custom';
@@ -6869,18 +7007,65 @@
       // Fill Preset Selector
       document.getElementById('prop-fill-preset')?.addEventListener('change', (e) => {
         const val = e.target.value;
-        const preset = FILL_PRESET_CONFIGS[val];
+        let preset = FILL_PRESET_CONFIGS[val];
+        if (!preset && typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomFillPresets) {
+          const custom = EsenhoStore.getCustomFillPresets();
+          preset = custom[val];
+        }
         if (preset) {
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (!obj.fillTexture) obj.fillTexture = { enabled: true };
             Object.assign(obj.fillTexture, preset);
             obj.fillTexture.preset = val;
-            obj.fillTexture.enabled = (preset.mode !== 0 || preset.hardness < 100 || preset.warpStrength > 0 || preset.noiseDistort > 0 || preset.pinchSwirl !== 0 || preset.posterize > 0);
+            obj.fillTexture.enabled = (preset.mode !== 0 || (preset.hardness !== undefined && preset.hardness < 100) || (preset.warpStrength > 0) || (preset.noiseDistort > 0) || (preset.pinchSwirl !== 0) || (preset.posterize > 0) || (preset.grain > 0) || preset.invert);
+            if (preset.wasmFilter) {
+              obj.fillFilter = JSON.parse(JSON.stringify(preset.wasmFilter));
+              if (!obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter = {};
+              Object.assign(obj.fillTexture.wasmFilter, preset.wasmFilter);
+              obj.wasmFilter = JSON.parse(JSON.stringify(preset.wasmFilter));
+            } else if (val === 'default') {
+              if (obj.fillFilter) obj.fillFilter.enabled = false;
+              if (obj.fillTexture?.wasmFilter) obj.fillTexture.wasmFilter.enabled = false;
+              if (obj.wasmFilter && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop')) obj.wasmFilter.enabled = false;
+            }
           }
           updateInspector();
           render();
           scheduleAutosave();
+        }
+      });
+
+      document.getElementById('btn-save-fill-preset')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const obj = selected[0];
+        const ft = obj ? (obj.fillTexture || {}) : {};
+        const ff = obj ? (obj.fillFilter || (ft.wasmFilter && ft.wasmFilter.enabled ? ft.wasmFilter : (obj.wasmFilter && obj.wasmFilter.enabled ? obj.wasmFilter : null))) : null;
+        const name = window.prompt('Enter name for custom fill preset:');
+        if (name && name.trim()) {
+          const configToSave = {
+            name: name.trim(),
+            desc: 'Custom fill preset',
+            mode: ft.mode !== undefined ? ft.mode : Number(document.getElementById('prop-fill-tex-mode')?.value || 0),
+            scale: ft.scale !== undefined ? ft.scale : Number(document.getElementById('prop-fill-tex-scale')?.value || 100),
+            angle: ft.angle !== undefined ? ft.angle : Number(document.getElementById('prop-fill-tex-angle')?.value || 0),
+            contrast: ft.contrast !== undefined ? ft.contrast : Number(document.getElementById('prop-fill-tex-contrast')?.value || 100),
+            grain: ft.grain !== undefined ? ft.grain : Number(document.getElementById('prop-fill-tex-grain')?.value || 0),
+            hardness: ft.hardness !== undefined ? ft.hardness : Number(document.getElementById('prop-fill-tex-hardness')?.value || 100),
+            hardnessIntensity: ft.hardnessIntensity !== undefined ? ft.hardnessIntensity : Number(document.getElementById('prop-fill-tex-hardnessIntensity')?.value || 50),
+            warpStrength: ft.warpStrength !== undefined ? ft.warpStrength : Number(document.getElementById('prop-fill-tex-warpStrength')?.value || 0),
+            warpFreq: ft.warpFreq !== undefined ? ft.warpFreq : Number(document.getElementById('prop-fill-tex-warpFreq')?.value || 20),
+            noiseDistort: ft.noiseDistort !== undefined ? ft.noiseDistort : Number(document.getElementById('prop-fill-tex-noiseDistort')?.value || 0),
+            pinchSwirl: ft.pinchSwirl !== undefined ? ft.pinchSwirl : Number(document.getElementById('prop-fill-tex-pinchSwirl')?.value || 0),
+            posterize: ft.posterize !== undefined ? ft.posterize : Number(document.getElementById('prop-fill-tex-posterize')?.value || 0),
+            invert: ft.invert !== undefined ? ft.invert : (document.getElementById('prop-fill-tex-invert')?.checked || false),
+            wasmFilter: ff && ff.enabled ? { ...ff } : undefined
+          };
+          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomFillPreset) {
+            EsenhoStore.saveCustomFillPreset(name, configToSave);
+            showNotification(`Fill preset "${name.trim()}" saved`);
+            updateInspector();
+          }
         }
       });
 
@@ -6897,7 +7082,16 @@
             if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, relative: false };
             obj.fillTexture[param] = val;
             obj.fillTexture.preset = 'custom';
-            if (param === 'mode') obj.fillTexture.enabled = (val !== 0 && val !== '0' && val !== '');
+            obj.fillTexture.enabled = (
+              (obj.fillTexture.mode && obj.fillTexture.mode !== 0 && obj.fillTexture.mode !== '0') ||
+              (obj.fillTexture.hardness !== undefined && obj.fillTexture.hardness < 100) ||
+              (obj.fillTexture.warpStrength > 0) ||
+              (obj.fillTexture.noiseDistort > 0) ||
+              (obj.fillTexture.pinchSwirl !== 0) ||
+              (obj.fillTexture.posterize > 0) ||
+              (obj.fillTexture.grain > 0) ||
+              (obj.fillTexture.invert)
+            );
           }
           const presetEl = document.getElementById('prop-fill-preset');
           if (presetEl) presetEl.value = 'custom';
@@ -7212,6 +7406,13 @@
           for (const obj of selected) {
             if (!obj.brushConfig) obj.brushConfig = {};
             Object.assign(obj.brushConfig, preset);
+            if (preset.wasmFilter !== undefined) {
+              obj.strokeFilter = JSON.parse(JSON.stringify(preset.wasmFilter));
+              obj.brushConfig.wasmFilter = JSON.parse(JSON.stringify(preset.wasmFilter));
+            } else if (preset.wasm_filter !== undefined) {
+              obj.strokeFilter = JSON.parse(JSON.stringify(preset.wasm_filter));
+              obj.brushConfig.wasmFilter = JSON.parse(JSON.stringify(preset.wasm_filter));
+            }
             if (!obj.strokeTexture) obj.strokeTexture = {};
             const texName = preset.texture || 'none';
             const texMode = preset.texture_mode !== undefined ? preset.texture_mode : (texName !== 'none' ? 1 : 0);
@@ -7236,6 +7437,7 @@
         const st = obj ? (obj.strokeTexture || {}) : {};
         const name = window.prompt('Enter name for custom brush preset:');
         if (name && name.trim()) {
+          const strokeFilt = (obj && obj.strokeFilter && obj.strokeFilter.enabled) ? obj.strokeFilter : (bc.wasmFilter && bc.wasmFilter.enabled ? bc.wasmFilter : null);
           const configToSave = {
             name: name.trim(),
             desc: 'Custom brush preset',
@@ -7262,7 +7464,8 @@
             texture_scale: st.scale !== undefined ? st.scale : (bc.texture_scale !== undefined ? bc.texture_scale : 100),
             texture_rotate: st.angle !== undefined ? st.angle : (bc.texture_rotate !== undefined ? bc.texture_rotate : 0),
             texture_contrast: st.contrast !== undefined ? st.contrast : (bc.texture_contrast !== undefined ? bc.texture_contrast : 100),
-            grain: st.grain !== undefined ? st.grain : (bc.grain !== undefined ? bc.grain : 0)
+            grain: st.grain !== undefined ? st.grain : (bc.grain !== undefined ? bc.grain : 0),
+            wasmFilter: strokeFilt ? { ...strokeFilt } : undefined
           };
           if (typeof EsenhoStore !== 'undefined' && EsenhoStore.saveCustomBrushPreset) {
             EsenhoStore.saveCustomBrushPreset(name, configToSave);

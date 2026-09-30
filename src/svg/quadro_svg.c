@@ -1168,7 +1168,7 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                             uint8_t pix_a = (col >> 24) & 0xFF;
                             pix_a = (uint8_t)(pix_a * (a / 255.0f) * cur_opacity * node->style.fill_opacity);
 
-                            if (eff_fill_tex.enabled && eff_fill_tex.mode > 0) {
+                            if (eff_fill_tex.enabled && (eff_fill_tex.mode > 0 || eff_fill_tex.warp_strength > 0.0f || eff_fill_tex.noise_distort > 0.0f || eff_fill_tex.pinch_swirl != 0.0f || eff_fill_tex.grain > 0.0f || eff_fill_tex.invert || eff_fill_tex.hardness < 100.0f || eff_fill_tex.posterize >= 2)) {
                                 int sx = eff_fill_tex.relative ? (x - (int)bbox_x1 + (int)eff_fill_tex.offset_x) : (x + (int)eff_fill_tex.offset_x);
                                 int sy = eff_fill_tex.relative ? (y - (int)bbox_y1 + (int)eff_fill_tex.offset_y) : (y + (int)eff_fill_tex.offset_y);
 
@@ -1204,10 +1204,18 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                                     }
                                 }
 
+                                if (fill_grad) {
+                                    col = quadro_sample_gradient(fill_grad, (float)sx, (float)sy, bbox_x1, bbox_y1, bbox_x2, bbox_y2);
+                                    pix_a = (col >> 24) & 0xFF;
+                                    pix_a = (uint8_t)(pix_a * (a / 255.0f) * cur_opacity * node->style.fill_opacity);
+                                }
+
                                 uint8_t orig_a = pix_a;
-                                pix_a = quadro_sample_procedural_texture(eff_fill_tex.mode, sx, sy,
-                                    eff_fill_tex.angle, eff_fill_tex.scale,
-                                    eff_fill_tex.contrast, pix_a);
+                                if (eff_fill_tex.mode > 0) {
+                                    pix_a = quadro_sample_procedural_texture(eff_fill_tex.mode, sx, sy,
+                                        eff_fill_tex.angle, eff_fill_tex.scale,
+                                        eff_fill_tex.contrast, pix_a);
+                                }
 
                                 if (eff_fill_tex.grain > 0.0f) {
                                     uint32_t hg = (((sx * 1103515245 + sy * 12345 + 0x654321) ^ 0xDEADBEEF) & 0xFF);
