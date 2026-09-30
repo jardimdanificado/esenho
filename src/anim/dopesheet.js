@@ -375,14 +375,6 @@ export const PARAMETER_REGISTRY = {
   lineHeight: { label: 'Line Height', group: 'Typography', type: 'number', default: 1.2, min: 0.5, max: 4.0, step: 0.1 },
   textPathOffset: { label: 'Text Path Offset', group: 'Typography', type: 'number', default: 0, min: 0, max: 1000, unit: 'px', step: 1 },
 
-  // ── Drop Shadow & Glow Group ──
-  shadowEnable: { label: 'Shadow Enable', group: 'Drop Shadow', type: 'step', default: 1 },
-  shadowColor: { label: 'Shadow Color', group: 'Drop Shadow', type: 'color', default: '#000000' },
-  shadowBlur: { label: 'Shadow Blur', group: 'Drop Shadow', type: 'number', default: 4, min: 0, max: 100, unit: 'px', step: 1 },
-  shadowOffsetX: { label: 'Shadow Offset X', group: 'Drop Shadow', type: 'number', default: 2, min: -500, max: 500, unit: 'px', step: 1 },
-  shadowOffsetY: { label: 'Shadow Offset Y', group: 'Drop Shadow', type: 'number', default: 2, min: -500, max: 500, unit: 'px', step: 1 },
-  shadowOpacity: { label: 'Shadow Opacity', group: 'Drop Shadow', type: 'number', default: 0.6, min: 0, max: 1.0, step: 0.05 },
-
   // ── Stroke & Outline Group ──
   strokeColor: { label: 'Stroke Color', group: 'Stroke', type: 'color', default: '#1d2021' },
   strokeWidth: { label: 'Stroke Width', group: 'Stroke', type: 'number', default: 2, min: 0, max: 500, unit: 'px', step: 1 },
@@ -391,6 +383,11 @@ export const PARAMETER_REGISTRY = {
   strokeMiterLimit: { label: 'Miter Limit', group: 'Stroke', type: 'number', default: 4, min: 1, max: 100, step: 1 },
   strokeCap: { label: 'Line Cap Style', group: 'Stroke', type: 'step', default: 'round' },
   strokeJoin: { label: 'Line Join Style', group: 'Stroke', type: 'step', default: 'round' },
+  strokeTexMode: { label: 'Stroke Tex Mode', group: 'Stroke', type: 'number', default: 0, min: 0, max: 70, step: 1 },
+  strokeTexScale: { label: 'Stroke Tex Scale', group: 'Stroke', type: 'number', default: 100, min: 1, max: 1000, unit: '%', step: 1 },
+  strokeTexContrast: { label: 'Stroke Tex Contrast', group: 'Stroke', type: 'number', default: 100, min: 0, max: 500, unit: '%', step: 1 },
+  strokeTexGrain: { label: 'Stroke Tex Grain', group: 'Stroke', type: 'number', default: 0, min: 0, max: 100, unit: '%', step: 1 },
+  strokeTexAngle: { label: 'Stroke Tex Angle', group: 'Stroke', type: 'angle', default: 0, unit: '°', step: 1 },
 
   // ── Fill & Material Group ──
   fillColor: { label: 'Fill Color', group: 'Fill & Material', type: 'color', default: '#fabd2f' },
@@ -399,10 +396,28 @@ export const PARAMETER_REGISTRY = {
   gradientScale: { label: 'Gradient Scale', group: 'Fill & Material', type: 'number', default: 100, min: 1, max: 1000, unit: '%', step: 1 },
   gradientCenterX: { label: 'Grad Center X', group: 'Fill & Material', type: 'number', default: 50, min: 0, max: 100, unit: '%', step: 1 },
   gradientCenterY: { label: 'Grad Center Y', group: 'Fill & Material', type: 'number', default: 50, min: 0, max: 100, unit: '%', step: 1 },
-  texMode: { label: 'Texture Mode', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 12, step: 1 },
+  texMode: { label: 'Texture Mode', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 70, step: 1 },
   texScale: { label: 'Texture Scale', group: 'Fill & Material', type: 'number', default: 100, min: 1, max: 1000, unit: '%', step: 1 },
   texContrast: { label: 'Texture Contrast', group: 'Fill & Material', type: 'number', default: 100, min: 0, max: 500, unit: '%', step: 1 },
+  texGrain: { label: 'Texture Grain', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 100, unit: '%', step: 1 },
   texAngle: { label: 'Texture Angle', group: 'Fill & Material', type: 'angle', default: 0, unit: '°', step: 1 },
+  texOffsetX: { label: 'Texture Offset X', group: 'Fill & Material', type: 'number', default: 0, min: -1000, max: 1000, unit: 'px', step: 1 },
+  texOffsetY: { label: 'Texture Offset Y', group: 'Fill & Material', type: 'number', default: 0, min: -1000, max: 1000, unit: 'px', step: 1 },
+  texWarpStrength: { label: 'Texture Warp', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 100, unit: '%', step: 1 },
+  texWarpFreq: { label: 'Texture Warp Freq', group: 'Fill & Material', type: 'number', default: 20, min: 1, max: 100, step: 1 },
+  texNoiseDistort: { label: 'Noise Distort', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 100, unit: '%', step: 1 },
+  texHardness: { label: 'Fill Hardness', group: 'Fill & Material', type: 'number', default: 100, min: 0, max: 100, unit: '%', step: 1 },
+  texHardnessIntensity: { label: 'Hardness Range', group: 'Fill & Material', type: 'number', default: 50, min: 1, max: 500, unit: 'px', step: 1 },
+  texInvert: { label: 'Invert Texture', group: 'Fill & Material', type: 'step', default: 0 },
+  texBlendMode: { label: 'Tex Blend Mode', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 5, step: 1 },
+  texPosterize: { label: 'Posterize Levels', group: 'Fill & Material', type: 'number', default: 0, min: 0, max: 16, step: 1 },
+  texPinchSwirl: { label: 'Pinch / Swirl', group: 'Fill & Material', type: 'number', default: 0, min: -100, max: 100, unit: '%', step: 1 },
+
+  // ── WASM FX Plugins ──
+  wasmPlugin: { label: 'WASM Plugin', group: 'WASM FX', type: 'step', default: '' },
+  wasmParam1: { label: 'WASM Param 1', group: 'WASM FX', type: 'number', default: 0, step: 1 },
+  wasmParam2: { label: 'WASM Param 2', group: 'WASM FX', type: 'number', default: 0, step: 1 },
+  wasmParam3: { label: 'WASM Param 3', group: 'WASM FX', type: 'number', default: 0, step: 1 },
 
   // ── Brush Dynamics & Physics (Quadro.c Engine w_brush_config_t) ──
   brushSize: { label: 'Brush Size', group: 'Brush Dynamics', type: 'number', default: 20, min: 1, max: 1000, unit: 'px', step: 1 },
@@ -544,25 +559,7 @@ export function extractLiveObjectProperties(liveObj) {
   if (liveObj.lineHeight !== undefined) props.lineHeight = liveObj.lineHeight;
   if (liveObj.textPathOffset !== undefined) props.textPathOffset = liveObj.textPathOffset;
 
-  // Drop Shadow / Glow
-  if (liveObj.shadow) {
-    if (liveObj.shadow.enabled !== undefined) props.shadowEnable = liveObj.shadow.enabled ? 1 : 0;
-    if (liveObj.shadow.color !== undefined) props.shadowColor = liveObj.shadow.color;
-    if (liveObj.shadow.blur !== undefined) props.shadowBlur = liveObj.shadow.blur;
-    if (liveObj.shadow.offsetX !== undefined) props.shadowOffsetX = liveObj.shadow.offsetX;
-    else if (liveObj.shadow.x !== undefined) props.shadowOffsetX = liveObj.shadow.x;
-    if (liveObj.shadow.offsetY !== undefined) props.shadowOffsetY = liveObj.shadow.offsetY;
-    else if (liveObj.shadow.y !== undefined) props.shadowOffsetY = liveObj.shadow.y;
-    if (liveObj.shadow.opacity !== undefined) props.shadowOpacity = liveObj.shadow.opacity;
-  }
-  if (liveObj.shadowEnable !== undefined) props.shadowEnable = liveObj.shadowEnable ? 1 : 0;
-  if (liveObj.shadowColor !== undefined) props.shadowColor = liveObj.shadowColor;
-  if (liveObj.shadowBlur !== undefined) props.shadowBlur = liveObj.shadowBlur;
-  if (liveObj.shadowOffsetX !== undefined) props.shadowOffsetX = liveObj.shadowOffsetX;
-  if (liveObj.shadowOffsetY !== undefined) props.shadowOffsetY = liveObj.shadowOffsetY;
-  if (liveObj.shadowOpacity !== undefined) props.shadowOpacity = liveObj.shadowOpacity;
-
-  // Stroke
+  // Stroke & Stroke Textures
   if (liveObj.strokeColor !== undefined) props.strokeColor = liveObj.strokeColor;
   else if (liveObj.stroke && liveObj.stroke !== 'none') props.strokeColor = liveObj.stroke;
   if (liveObj.strokeWidth !== undefined) props.strokeWidth = liveObj.strokeWidth;
@@ -575,8 +572,20 @@ export function extractLiveObjectProperties(liveObj) {
   else if (liveObj.strokeLinecap !== undefined) props.strokeCap = liveObj.strokeLinecap;
   if (liveObj.strokeJoin !== undefined) props.strokeJoin = liveObj.strokeJoin;
   else if (liveObj.strokeLinejoin !== undefined) props.strokeJoin = liveObj.strokeLinejoin;
+  if (liveObj.strokeTexture) {
+    if (liveObj.strokeTexture.mode !== undefined) props.strokeTexMode = liveObj.strokeTexture.mode;
+    if (liveObj.strokeTexture.scale !== undefined) props.strokeTexScale = liveObj.strokeTexture.scale;
+    if (liveObj.strokeTexture.contrast !== undefined) props.strokeTexContrast = liveObj.strokeTexture.contrast;
+    if (liveObj.strokeTexture.grain !== undefined) props.strokeTexGrain = liveObj.strokeTexture.grain;
+    if (liveObj.strokeTexture.angle !== undefined) props.strokeTexAngle = liveObj.strokeTexture.angle;
+  }
+  if (liveObj.strokeTexMode !== undefined) props.strokeTexMode = liveObj.strokeTexMode;
+  if (liveObj.strokeTexScale !== undefined) props.strokeTexScale = liveObj.strokeTexScale;
+  if (liveObj.strokeTexContrast !== undefined) props.strokeTexContrast = liveObj.strokeTexContrast;
+  if (liveObj.strokeTexGrain !== undefined) props.strokeTexGrain = liveObj.strokeTexGrain;
+  if (liveObj.strokeTexAngle !== undefined) props.strokeTexAngle = liveObj.strokeTexAngle;
 
-  // Fill & Material
+  // Fill & Material & Fill Texture Dynamics
   if (liveObj.fillColor !== undefined) props.fillColor = liveObj.fillColor;
   else if (liveObj.fill && liveObj.fill !== 'none') props.fillColor = liveObj.fill;
   if (liveObj.fillOpacity !== undefined) props.fillOpacity = liveObj.fillOpacity;
@@ -584,10 +593,60 @@ export function extractLiveObjectProperties(liveObj) {
   if (liveObj.gradientScale !== undefined) props.gradientScale = liveObj.gradientScale;
   if (liveObj.gradientCenterX !== undefined) props.gradientCenterX = liveObj.gradientCenterX;
   if (liveObj.gradientCenterY !== undefined) props.gradientCenterY = liveObj.gradientCenterY;
+  if (liveObj.fillTexture) {
+    if (liveObj.fillTexture.mode !== undefined) props.texMode = liveObj.fillTexture.mode;
+    if (liveObj.fillTexture.scale !== undefined) props.texScale = liveObj.fillTexture.scale;
+    if (liveObj.fillTexture.contrast !== undefined) props.texContrast = liveObj.fillTexture.contrast;
+    if (liveObj.fillTexture.grain !== undefined) props.texGrain = liveObj.fillTexture.grain;
+    if (liveObj.fillTexture.angle !== undefined) props.texAngle = liveObj.fillTexture.angle;
+    if (liveObj.fillTexture.offsetX !== undefined) props.texOffsetX = liveObj.fillTexture.offsetX;
+    else if (liveObj.fillTexture.offset_x !== undefined) props.texOffsetX = liveObj.fillTexture.offset_x;
+    if (liveObj.fillTexture.offsetY !== undefined) props.texOffsetY = liveObj.fillTexture.offsetY;
+    else if (liveObj.fillTexture.offset_y !== undefined) props.texOffsetY = liveObj.fillTexture.offset_y;
+    if (liveObj.fillTexture.warpStrength !== undefined) props.texWarpStrength = liveObj.fillTexture.warpStrength;
+    else if (liveObj.fillTexture.warp_strength !== undefined) props.texWarpStrength = liveObj.fillTexture.warp_strength;
+    if (liveObj.fillTexture.warpFreq !== undefined) props.texWarpFreq = liveObj.fillTexture.warpFreq;
+    else if (liveObj.fillTexture.warp_freq !== undefined) props.texWarpFreq = liveObj.fillTexture.warp_freq;
+    if (liveObj.fillTexture.noiseDistort !== undefined) props.texNoiseDistort = liveObj.fillTexture.noiseDistort;
+    else if (liveObj.fillTexture.noise_distort !== undefined) props.texNoiseDistort = liveObj.fillTexture.noise_distort;
+    if (liveObj.fillTexture.hardness !== undefined) props.texHardness = liveObj.fillTexture.hardness;
+    if (liveObj.fillTexture.hardnessIntensity !== undefined) props.texHardnessIntensity = liveObj.fillTexture.hardnessIntensity;
+    else if (liveObj.fillTexture.hardness_intensity !== undefined) props.texHardnessIntensity = liveObj.fillTexture.hardness_intensity;
+    if (liveObj.fillTexture.invert !== undefined) props.texInvert = liveObj.fillTexture.invert ? 1 : 0;
+    if (liveObj.fillTexture.blendMode !== undefined) props.texBlendMode = liveObj.fillTexture.blendMode;
+    else if (liveObj.fillTexture.blend_mode !== undefined) props.texBlendMode = liveObj.fillTexture.blend_mode;
+    if (liveObj.fillTexture.posterize !== undefined) props.texPosterize = liveObj.fillTexture.posterize;
+    if (liveObj.fillTexture.pinchSwirl !== undefined) props.texPinchSwirl = liveObj.fillTexture.pinchSwirl;
+    else if (liveObj.fillTexture.pinch_swirl !== undefined) props.texPinchSwirl = liveObj.fillTexture.pinch_swirl;
+  }
   if (liveObj.texMode !== undefined) props.texMode = liveObj.texMode;
   if (liveObj.texScale !== undefined) props.texScale = liveObj.texScale;
   if (liveObj.texContrast !== undefined) props.texContrast = liveObj.texContrast;
+  if (liveObj.texGrain !== undefined) props.texGrain = liveObj.texGrain;
   if (liveObj.texAngle !== undefined) props.texAngle = liveObj.texAngle;
+  if (liveObj.texOffsetX !== undefined) props.texOffsetX = liveObj.texOffsetX;
+  if (liveObj.texOffsetY !== undefined) props.texOffsetY = liveObj.texOffsetY;
+  if (liveObj.texWarpStrength !== undefined) props.texWarpStrength = liveObj.texWarpStrength;
+  if (liveObj.texWarpFreq !== undefined) props.texWarpFreq = liveObj.texWarpFreq;
+  if (liveObj.texNoiseDistort !== undefined) props.texNoiseDistort = liveObj.texNoiseDistort;
+  if (liveObj.texHardness !== undefined) props.texHardness = liveObj.texHardness;
+  if (liveObj.texHardnessIntensity !== undefined) props.texHardnessIntensity = liveObj.texHardnessIntensity;
+  if (liveObj.texInvert !== undefined) props.texInvert = liveObj.texInvert;
+  if (liveObj.texBlendMode !== undefined) props.texBlendMode = liveObj.texBlendMode;
+  if (liveObj.texPosterize !== undefined) props.texPosterize = liveObj.texPosterize;
+  if (liveObj.texPinchSwirl !== undefined) props.texPinchSwirl = liveObj.texPinchSwirl;
+
+  // WASM FX Plugins
+  if (liveObj.wasmFilter) {
+    if (liveObj.wasmFilter.plugin !== undefined) props.wasmPlugin = liveObj.wasmFilter.plugin;
+    if (liveObj.wasmFilter.param1 !== undefined) props.wasmParam1 = liveObj.wasmFilter.param1;
+    if (liveObj.wasmFilter.param2 !== undefined) props.wasmParam2 = liveObj.wasmFilter.param2;
+    if (liveObj.wasmFilter.param3 !== undefined) props.wasmParam3 = liveObj.wasmFilter.param3;
+  }
+  if (liveObj.wasmPlugin !== undefined) props.wasmPlugin = liveObj.wasmPlugin;
+  if (liveObj.wasmParam1 !== undefined) props.wasmParam1 = liveObj.wasmParam1;
+  if (liveObj.wasmParam2 !== undefined) props.wasmParam2 = liveObj.wasmParam2;
+  if (liveObj.wasmParam3 !== undefined) props.wasmParam3 = liveObj.wasmParam3;
 
   // Layer FX & Filters
   if (liveObj.fxBlur !== undefined) props.fxBlur = liveObj.fxBlur;
@@ -912,6 +971,65 @@ export class DopeSheetObject {
       if (key in targetObj) {
         targetObj[key] = val;
       }
+    }
+    // Nested Fill Texture Dynamics
+    if (targetObj.fillTexture) {
+      const ft = targetObj.fillTexture;
+      if (state.texMode !== undefined) ft.mode = state.texMode;
+      if (state.texScale !== undefined) ft.scale = state.texScale;
+      if (state.texContrast !== undefined) ft.contrast = state.texContrast;
+      if (state.texGrain !== undefined) ft.grain = state.texGrain;
+      if (state.texAngle !== undefined) ft.angle = state.texAngle;
+      if (state.texOffsetX !== undefined) { ft.offsetX = state.texOffsetX; ft.offset_x = state.texOffsetX; }
+      if (state.texOffsetY !== undefined) { ft.offsetY = state.texOffsetY; ft.offset_y = state.texOffsetY; }
+      if (state.texWarpStrength !== undefined) { ft.warpStrength = state.texWarpStrength; ft.warp_strength = state.texWarpStrength; }
+      if (state.texWarpFreq !== undefined) { ft.warpFreq = state.texWarpFreq; ft.warp_freq = state.texWarpFreq; }
+      if (state.texNoiseDistort !== undefined) { ft.noiseDistort = state.texNoiseDistort; ft.noise_distort = state.texNoiseDistort; }
+      if (state.texHardness !== undefined) ft.hardness = state.texHardness;
+      if (state.texHardnessIntensity !== undefined) { ft.hardnessIntensity = state.texHardnessIntensity; ft.hardness_intensity = state.texHardnessIntensity; }
+      if (state.texInvert !== undefined) ft.invert = !!state.texInvert;
+      if (state.texBlendMode !== undefined) { ft.blendMode = state.texBlendMode; ft.blend_mode = state.texBlendMode; }
+      if (state.texPosterize !== undefined) ft.posterize = state.texPosterize;
+      if (state.texPinchSwirl !== undefined) { ft.pinchSwirl = state.texPinchSwirl; ft.pinch_swirl = state.texPinchSwirl; }
+    }
+    // Nested Stroke Texture
+    if (targetObj.strokeTexture) {
+      const st = targetObj.strokeTexture;
+      if (state.strokeTexMode !== undefined) st.mode = state.strokeTexMode;
+      if (state.strokeTexScale !== undefined) st.scale = state.strokeTexScale;
+      if (state.strokeTexContrast !== undefined) st.contrast = state.strokeTexContrast;
+      if (state.strokeTexGrain !== undefined) st.grain = state.strokeTexGrain;
+      if (state.strokeTexAngle !== undefined) st.angle = state.strokeTexAngle;
+    }
+    // Nested WASM Filter
+    if (targetObj.wasmFilter) {
+      const wf = targetObj.wasmFilter;
+      if (state.wasmPlugin !== undefined) wf.plugin = state.wasmPlugin;
+      if (state.wasmParam1 !== undefined) wf.param1 = state.wasmParam1;
+      if (state.wasmParam2 !== undefined) wf.param2 = state.wasmParam2;
+      if (state.wasmParam3 !== undefined) wf.param3 = state.wasmParam3;
+    }
+    // Nested Brush Dynamics
+    if (targetObj.brushConfig) {
+      const bc = targetObj.brushConfig;
+      if (state.brushHardness !== undefined) bc.hardness = state.brushHardness;
+      if (state.brushFlow !== undefined) bc.flow = state.brushFlow;
+      if (state.brushSpacing !== undefined) bc.spacing = state.brushSpacing;
+      if (state.brushAngle !== undefined) bc.angle = state.brushAngle;
+      if (state.brushRoundness !== undefined) bc.roundness = state.brushRoundness;
+      if (state.brushScatter !== undefined) bc.scatter = state.brushScatter;
+      if (state.brushSmudge !== undefined) bc.smudge = state.brushSmudge;
+      if (state.brushWetness !== undefined) bc.wetness = state.brushWetness;
+      if (state.brushGrain !== undefined) bc.grain = state.brushGrain;
+      if (state.brushShape !== undefined) bc.shape = state.brushShape;
+      if (state.brushDabBlend !== undefined) bc.dabBlend = state.brushDabBlend;
+      if (state.brushTaperIn !== undefined) { bc.taper_in = state.brushTaperIn; bc.taperIn = state.brushTaperIn; }
+      if (state.brushTaperOut !== undefined) { bc.taper_out = state.brushTaperOut; bc.taperOut = state.brushTaperOut; }
+      if (state.brushSizeJitter !== undefined) { bc.size_jitter = state.brushSizeJitter; bc.sizeJitter = state.brushSizeJitter; }
+      if (state.brushAngleJitter !== undefined) { bc.angle_jitter = state.brushAngleJitter; bc.angleJitter = state.brushAngleJitter; }
+      if (state.brushOpacityJitter !== undefined) { bc.opacity_jitter = state.brushOpacityJitter; bc.opacityJitter = state.brushOpacityJitter; }
+      if (state.brushColorPickup !== undefined) { bc.color_pickup = state.brushColorPickup; bc.colorPickup = state.brushColorPickup; }
+      if (state.brushDepletion !== undefined) bc.depletion = state.brushDepletion;
     }
   }
 

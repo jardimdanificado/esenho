@@ -18,9 +18,11 @@ const requiredParams = [
   'x', 'y', 'zDepth', 'scaleX', 'scaleY', 'rotation', 'skewX', 'skewY', 'opacity', 'originX', 'originY',
   'width', 'height', 'radius', 'rx', 'ry', 'cornerRadius', 'polygonSides', 'starPoints', 'innerRadius',
   'text', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle', 'textAlign', 'letterSpacing', 'lineHeight', 'textPathOffset',
-  'shadowEnable', 'shadowColor', 'shadowBlur', 'shadowOffsetX', 'shadowOffsetY', 'shadowOpacity',
   'strokeColor', 'strokeWidth', 'strokeOpacity', 'strokeDashOffset', 'strokeMiterLimit', 'strokeCap', 'strokeJoin',
-  'fillColor', 'fillOpacity', 'gradientAngle', 'gradientScale', 'gradientCenterX', 'gradientCenterY', 'texMode', 'texScale', 'texContrast', 'texAngle',
+  'strokeTexMode', 'strokeTexScale', 'strokeTexContrast', 'strokeTexGrain', 'strokeTexAngle',
+  'fillColor', 'fillOpacity', 'gradientAngle', 'gradientScale', 'gradientCenterX', 'gradientCenterY',
+  'texMode', 'texScale', 'texContrast', 'texGrain', 'texAngle', 'texOffsetX', 'texOffsetY', 'texWarpStrength', 'texWarpFreq', 'texNoiseDistort', 'texHardness', 'texHardnessIntensity', 'texInvert', 'texBlendMode', 'texPosterize', 'texPinchSwirl',
+  'wasmPlugin', 'wasmParam1', 'wasmParam2', 'wasmParam3',
   'brushSize', 'brushOpacity', 'brushHardness', 'brushFlow', 'brushSpacing', 'brushAngle', 'brushRoundness', 'brushScatter',
   'brushTolerance', 'brushSmudge', 'brushWetness', 'brushGrain', 'brushColor', 'brushSmooth', 'brushMidpoint', 'brushVelocity',
   'brushTaperIn', 'brushTaperOut', 'brushFade', 'brushSizeJitter', 'brushAngleJitter', 'brushOpacityJitter', 'brushColorJitter',
@@ -38,10 +40,11 @@ for (const param of requiredParams) {
 const groups = getParameterGroups();
 assert(groups['Transform'] && groups['Transform'].length >= 9);
 assert(groups['Typography'] && groups['Typography'].length >= 8);
-assert(groups['Drop Shadow'] && groups['Drop Shadow'].length >= 6);
+assert(groups['Stroke'] && groups['Stroke'].length >= 10);
+assert(groups['Fill & Material'] && groups['Fill & Material'].length >= 15);
+assert(groups['WASM FX'] && groups['WASM FX'].length >= 4);
 assert(groups['Brush Dynamics'] && groups['Brush Dynamics'].length >= 20);
 assert(groups['Layer FX'] && groups['Layer FX'].length >= 10);
-assert(groups['Fill & Material'] && groups['Fill & Material'].length >= 8);
 assert(groups['Audio DSP'] && groups['Audio DSP'].length >= 8);
 
 // Verify default collapsed is true
@@ -178,7 +181,9 @@ const mockLiveNode = {
   text: 'Quadro Animation',
   fontSize: 48,
   fontFamily: 'Inter',
-  shadow: { enabled: true, color: '#111111', blur: 10, offsetX: 5, offsetY: 8, opacity: 0.5 },
+  fillTexture: { mode: 5, scale: 150, contrast: 120, grain: 30, warpStrength: 45, hardness: 80, invert: true },
+  strokeTexture: { mode: 2, scale: 200, contrast: 100, grain: 10, angle: 90 },
+  wasmFilter: { plugin: 'pixelate', param1: 8 },
   filterBlur: 3,
   filterHue: 90,
   brushSize: 35,
@@ -198,16 +203,19 @@ assert.strictEqual(extracted.strokeWidth, 4);
 assert.strictEqual(extracted.strokeDashOffset, 12);
 assert.strictEqual(extracted.strokeCap, 'square');
 assert.strictEqual(extracted.strokeJoin, 'miter');
+assert.strictEqual(extracted.strokeTexMode, 2);
+assert.strictEqual(extracted.strokeTexScale, 200);
+assert.strictEqual(extracted.texMode, 5);
+assert.strictEqual(extracted.texScale, 150);
+assert.strictEqual(extracted.texWarpStrength, 45);
+assert.strictEqual(extracted.texHardness, 80);
+assert.strictEqual(extracted.texInvert, 1);
+assert.strictEqual(extracted.wasmPlugin, 'pixelate');
+assert.strictEqual(extracted.wasmParam1, 8);
 assert.strictEqual(extracted.polygonSides, 6);
 assert.strictEqual(extracted.text, 'Quadro Animation');
 assert.strictEqual(extracted.fontSize, 48);
 assert.strictEqual(extracted.fontFamily, 'Inter');
-assert.strictEqual(extracted.shadowEnable, 1);
-assert.strictEqual(extracted.shadowColor, '#111111');
-assert.strictEqual(extracted.shadowBlur, 10);
-assert.strictEqual(extracted.shadowOffsetX, 5);
-assert.strictEqual(extracted.shadowOffsetY, 8);
-assert.strictEqual(extracted.shadowOpacity, 0.5);
 assert.strictEqual(extracted.fxBlur, 3);
 assert.strictEqual(extracted.fxHue, 90);
 assert.strictEqual(extracted.brushSize, 35);

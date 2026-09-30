@@ -8810,15 +8810,70 @@
             if (state.letterSpacing !== undefined) obj.letterSpacing = state.letterSpacing;
             if (state.lineHeight !== undefined) obj.lineHeight = state.lineHeight;
             if (state.textPathOffset !== undefined) obj.textPathOffset = state.textPathOffset;
-            if (state.shadowEnable !== undefined || state.shadowColor !== undefined || state.shadowBlur !== undefined || state.shadowOffsetX !== undefined || state.shadowOffsetY !== undefined || state.shadowOpacity !== undefined) {
-              if (!obj.shadow) obj.shadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-              if (state.shadowEnable !== undefined) obj.shadow.enabled = !!state.shadowEnable;
-              if (state.shadowColor !== undefined) obj.shadow.color = state.shadowColor;
-              if (state.shadowBlur !== undefined) obj.shadow.blur = state.shadowBlur;
-              if (state.shadowOffsetX !== undefined) obj.shadow.offsetX = state.shadowOffsetX;
-              if (state.shadowOffsetY !== undefined) obj.shadow.offsetY = state.shadowOffsetY;
-              if (state.shadowOpacity !== undefined) obj.shadow.opacity = state.shadowOpacity;
+            
+            // Nested Fill Texture Dynamics
+            if (obj.fillTexture) {
+              const ft = obj.fillTexture;
+              if (state.texMode !== undefined) ft.mode = state.texMode;
+              if (state.texScale !== undefined) ft.scale = state.texScale;
+              if (state.texContrast !== undefined) ft.contrast = state.texContrast;
+              if (state.texGrain !== undefined) ft.grain = state.texGrain;
+              if (state.texAngle !== undefined) ft.angle = state.texAngle;
+              if (state.texOffsetX !== undefined) { ft.offsetX = state.texOffsetX; ft.offset_x = state.texOffsetX; }
+              if (state.texOffsetY !== undefined) { ft.offsetY = state.texOffsetY; ft.offset_y = state.texOffsetY; }
+              if (state.texWarpStrength !== undefined) { ft.warpStrength = state.texWarpStrength; ft.warp_strength = state.texWarpStrength; }
+              if (state.texWarpFreq !== undefined) { ft.warpFreq = state.texWarpFreq; ft.warp_freq = state.texWarpFreq; }
+              if (state.texNoiseDistort !== undefined) { ft.noiseDistort = state.texNoiseDistort; ft.noise_distort = state.texNoiseDistort; }
+              if (state.texHardness !== undefined) ft.hardness = state.texHardness;
+              if (state.texHardnessIntensity !== undefined) { ft.hardnessIntensity = state.texHardnessIntensity; ft.hardness_intensity = state.texHardnessIntensity; }
+              if (state.texInvert !== undefined) ft.invert = !!state.texInvert;
+              if (state.texBlendMode !== undefined) { ft.blendMode = state.texBlendMode; ft.blend_mode = state.texBlendMode; }
+              if (state.texPosterize !== undefined) ft.posterize = state.texPosterize;
+              if (state.texPinchSwirl !== undefined) { ft.pinchSwirl = state.texPinchSwirl; ft.pinch_swirl = state.texPinchSwirl; }
             }
+
+            // Nested Stroke Texture
+            if (obj.strokeTexture) {
+              const st = obj.strokeTexture;
+              if (state.strokeTexMode !== undefined) st.mode = state.strokeTexMode;
+              if (state.strokeTexScale !== undefined) st.scale = state.strokeTexScale;
+              if (state.strokeTexContrast !== undefined) st.contrast = state.strokeTexContrast;
+              if (state.strokeTexGrain !== undefined) st.grain = state.strokeTexGrain;
+              if (state.strokeTexAngle !== undefined) st.angle = state.strokeTexAngle;
+            }
+
+            // Nested WASM Filter
+            if (obj.wasmFilter) {
+              const wf = obj.wasmFilter;
+              if (state.wasmPlugin !== undefined) wf.plugin = state.wasmPlugin;
+              if (state.wasmParam1 !== undefined) wf.param1 = state.wasmParam1;
+              if (state.wasmParam2 !== undefined) wf.param2 = state.wasmParam2;
+              if (state.wasmParam3 !== undefined) wf.param3 = state.wasmParam3;
+            }
+
+            // Nested Brush Dynamics
+            if (obj.brushConfig) {
+              const bc = obj.brushConfig;
+              if (state.brushHardness !== undefined) bc.hardness = state.brushHardness;
+              if (state.brushFlow !== undefined) bc.flow = state.brushFlow;
+              if (state.brushSpacing !== undefined) bc.spacing = state.brushSpacing;
+              if (state.brushAngle !== undefined) bc.angle = state.brushAngle;
+              if (state.brushRoundness !== undefined) bc.roundness = state.brushRoundness;
+              if (state.brushScatter !== undefined) bc.scatter = state.brushScatter;
+              if (state.brushSmudge !== undefined) bc.smudge = state.brushSmudge;
+              if (state.brushWetness !== undefined) bc.wetness = state.brushWetness;
+              if (state.brushGrain !== undefined) bc.grain = state.brushGrain;
+              if (state.brushShape !== undefined) bc.shape = state.brushShape;
+              if (state.brushDabBlend !== undefined) bc.dabBlend = state.brushDabBlend;
+              if (state.brushTaperIn !== undefined) { bc.taper_in = state.brushTaperIn; bc.taperIn = state.brushTaperIn; }
+              if (state.brushTaperOut !== undefined) { bc.taper_out = state.brushTaperOut; bc.taperOut = state.brushTaperOut; }
+              if (state.brushSizeJitter !== undefined) { bc.size_jitter = state.brushSizeJitter; bc.sizeJitter = state.brushSizeJitter; }
+              if (state.brushAngleJitter !== undefined) { bc.angle_jitter = state.brushAngleJitter; bc.angleJitter = state.brushAngleJitter; }
+              if (state.brushOpacityJitter !== undefined) { bc.opacity_jitter = state.brushOpacityJitter; bc.opacityJitter = state.brushOpacityJitter; }
+              if (state.brushColorPickup !== undefined) { bc.color_pickup = state.brushColorPickup; bc.colorPickup = state.brushColorPickup; }
+              if (state.brushDepletion !== undefined) bc.depletion = state.brushDepletion;
+            }
+
             if (state.fxBlur !== undefined) obj.filterBlur = state.fxBlur;
             if (state.fxBrightness !== undefined) obj.filterBrightness = state.fxBrightness;
             if (state.fxContrast !== undefined) obj.filterContrast = state.fxContrast;
