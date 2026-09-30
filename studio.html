@@ -1444,85 +1444,106 @@
     }
 
     .recents-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      flex: 1;
     }
 
     .recent-item {
       background: var(--bg-panel-sub);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      overflow: hidden;
+      padding: 6px 8px;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      gap: 8px;
       transition: border-color 0.15s ease, background 0.15s ease;
+      cursor: pointer;
     }
 
     .recent-item:hover {
-      border-color: var(--border-bright);
+      border-color: var(--primary);
+      background: var(--bg-input-focus);
     }
 
     .recent-thumb {
-      width: 100%;
-      height: 120px;
-      background: #141617;
+      width: 44px;
+      height: 32px;
+      background: #121314;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
       display: flex;
       align-items: center;
       justify-content: center;
-      border-bottom: 1px solid var(--border);
       overflow: hidden;
-      cursor: pointer;
+      flex-shrink: 0;
     }
 
     .recent-thumb img, .recent-thumb svg {
-      max-width: 90%;
-      max-height: 90%;
+      max-width: 100%;
+      max-height: 100%;
       object-fit: contain;
     }
 
-    .recent-meta {
-      padding: 10px 12px;
+    .recent-info {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      flex: 1;
+      gap: 2px;
     }
 
-    .recent-title-row {
+    .recent-name-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
     }
 
-    .recent-title {
+    .recent-name {
       font-size: 12px;
-      font-weight: 600;
-      color: var(--text-main);
+      font-weight: 700;
+      color: var(--text-bright);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      cursor: pointer;
     }
 
-    .recent-title:hover {
+    .recent-item:hover .recent-name {
       color: var(--primary);
     }
 
-    .recent-sub {
+    .recent-meta-text {
       font-size: 10px;
       color: var(--text-muted);
       font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    .recent-actions {
+    .recent-btns {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-top: 6px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .recent-btns .btn-icon {
+      padding: 3px 6px;
+      font-size: 11px;
+      border-radius: 3px;
+      background: transparent;
+      border: 1px solid transparent;
+      cursor: pointer;
+    }
+
+    .recent-btns .btn-icon:hover {
+      border-color: var(--border-bright);
+      background: var(--bg-panel);
     }
   </style>
 </head>
@@ -2421,50 +2442,55 @@
 
     <!-- Panel: Projects -->
     <div id="dock-panel-projects" style="display: none; width: 100%; height: 100%;">
-      <div class="dock-panel-body">
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;">
-          <button type="button" class="btn-sm btn-primary" id="btn-header-new" style="padding: 6px 4px; font-size: 11px;" title="Create new blank canvas">+ New</button>
-          <button type="button" class="btn-sm" id="btn-import-svg" style="padding: 6px 4px; font-size: 11px;" title="Open SVG Vector Document">Open SVG</button>
-          <button type="button" class="btn-sm" id="btn-import-img" style="padding: 6px 4px; font-size: 11px;" title="Import Bitmap Image onto Stage">Import Img</button>
+      <div class="dock-panel-body" style="padding: 8px; display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box; overflow: hidden;">
+        <!-- Top Toolbar -->
+        <div style="display: flex; gap: 6px; flex-shrink: 0;">
+          <button type="button" class="btn-primary" id="btn-header-new" style="flex: 1; padding: 6px 8px; font-size: 11px; font-weight: 700; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;" title="Create new blank vector canvas">+ New</button>
+          <button type="button" class="btn-secondary" id="btn-import-svg" style="flex: 1; padding: 6px 8px; font-size: 11px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); display: flex; align-items: center; justify-content: center; gap: 4px;" title="Open SVG Vector Document">Open SVG</button>
+          <button type="button" class="btn-secondary" id="btn-import-img" style="flex: 1; padding: 6px 8px; font-size: 11px; font-weight: 600; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); display: flex; align-items: center; justify-content: center; gap: 4px;" title="Import Bitmap Image onto Stage">Open Img</button>
         </div>
 
-        <!-- Quick New Project Section -->
-        <div id="card-dock-new-project" style="display: none; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px; background: var(--bg-card); margin-top: 6px;">
-          <div class="section-label" style="margin-top: 0;">New Canvas Settings</div>
-          <div class="form-row">
-            <label>Title</label>
-            <input type="text" id="inp-new-title" value="Untitled Vector">
+        <!-- Quick New Project Drawer -->
+        <div id="card-dock-new-project" style="display: none; border: 1px solid var(--border-bright); border-radius: var(--radius-md); padding: 10px; background: var(--bg-panel-sub); flex-shrink: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 11px; font-weight: 700; color: var(--primary); text-transform: uppercase;">New Canvas</span>
+            <button type="button" id="btn-cancel-new-proj" class="btn-icon" style="font-size: 11px; padding: 2px 6px; color: var(--text-muted);" title="Cancel">✕</button>
           </div>
-          <div class="grid-2">
+          <div class="form-row" style="margin-bottom: 6px;">
+            <label style="font-size: 11px;">Title</label>
+            <input type="text" id="inp-new-title" value="Untitled Vector" style="font-size: 11px; padding: 4px 6px;">
+          </div>
+          <div class="grid-2" style="gap: 6px; margin-bottom: 6px;">
             <div class="form-row">
-              <label style="flex: 0 0 45px;">Width</label>
-              <input type="number" id="inp-new-w" value="1280" min="64" max="8192">
+              <label style="flex: 0 0 42px; font-size: 11px;">Width</label>
+              <input type="number" id="inp-new-w" value="1280" min="64" max="8192" style="font-size: 11px; padding: 4px 6px;">
             </div>
             <div class="form-row">
-              <label style="flex: 0 0 45px;">Height</label>
-              <input type="number" id="inp-new-h" value="720" min="64" max="8192">
+              <label style="flex: 0 0 42px; font-size: 11px;">Height</label>
+              <input type="number" id="inp-new-h" value="720" min="64" max="8192" style="font-size: 11px; padding: 4px 6px;">
             </div>
           </div>
-          <div class="form-row">
-            <label>Presets</label>
+          <div class="form-row" style="margin-bottom: 8px;">
+            <label style="font-size: 11px;">Preset</label>
             <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-              <button type="button" class="btn-sm btn-new-preset" data-w="800" data-h="600">800×600</button>
-              <button type="button" class="btn-sm btn-new-preset" data-w="1280" data-h="720">720p</button>
-              <button type="button" class="btn-sm btn-new-preset" data-w="1920" data-h="1080">1080p</button>
-              <button type="button" class="btn-sm btn-new-preset" data-w="1080" data-h="1080">1:1</button>
+              <button type="button" class="btn-sm btn-new-preset" data-w="800" data-h="600" style="padding: 2px 6px; font-size: 10px;">800×600</button>
+              <button type="button" class="btn-sm btn-new-preset" data-w="1280" data-h="720" style="padding: 2px 6px; font-size: 10px;">720p</button>
+              <button type="button" class="btn-sm btn-new-preset" data-w="1920" data-h="1080" style="padding: 2px 6px; font-size: 10px;">1080p</button>
+              <button type="button" class="btn-sm btn-new-preset" data-w="1080" data-h="1080" style="padding: 2px 6px; font-size: 10px;">1:1</button>
             </div>
           </div>
-          <button id="btn-confirm-new-project" class="btn-primary" style="width: 100%; margin-top: 4px; padding: 6px;">Create Canvas</button>
+          <button id="btn-confirm-new-project" class="btn-primary" style="width: 100%; padding: 6px 12px; font-size: 11px; font-weight: 700;">Create Canvas</button>
         </div>
 
-        <div style="margin-top: 8px; flex: 1; display: flex; flex-direction: column;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span id="recents-count-badge" class="badge">0 projects</span>
-            <button id="btn-modal-clear-storage" class="btn-sm" style="font-size: 10px; padding: 2px 6px; color: var(--danger); border-color: var(--danger-dim);">Clear All</button>
-          </div>
-          <div id="recents-grid" class="recents-grid" style="flex: 1; overflow-y: auto; max-height: 400px; display: flex; flex-direction: column; gap: 6px; padding: 4px 0;">
-            <div class="empty-state" style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 11px;">Loading stored projects...</div>
-          </div>
+        <!-- Saved Projects List -->
+        <div id="recents-grid" class="recents-grid" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px;">
+          <div class="empty-state" style="padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 11px;">Loading stored projects...</div>
+        </div>
+
+        <!-- Bottom Status / Clear Bar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px solid var(--border); flex-shrink: 0; font-size: 10px;">
+          <span id="recents-count-badge" style="color: var(--text-muted);">0 projects</span>
+          <button id="btn-modal-clear-storage" class="btn-icon" style="font-size: 10px; padding: 2px 6px; color: var(--danger); border: 1px solid var(--danger-dim); border-radius: 3px;" title="Clear local project cache">Clear All</button>
         </div>
       </div>
     </div>
@@ -2476,22 +2502,6 @@
         <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: var(--bg-panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
         <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); z-index: 40; cursor: row-resize;"></canvas>
         <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: var(--bg-panel-sub); border-right: 1px solid var(--border); z-index: 40; cursor: col-resize;"></canvas>
-
-        <!-- Floating Canvas Tool Selector Dropdown -->
-        <div id="viewport-tool-bar" style="position: absolute; top: 24px; left: 24px; z-index: 50; display: flex; align-items: center; gap: 6px; background: var(--bg-panel); padding: 3px 8px; border: 1px solid var(--border-bright); border-radius: var(--radius-md); box-shadow: 0 2px 10px rgba(0,0,0,0.45);">
-          <span style="font-size: 10px; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Tool:</span>
-          <select id="tool-dropdown-select" class="tool-select-dropdown" style="font-size: 11px; padding: 2px 6px; font-weight: 600; background: var(--bg-input); border: 1px solid var(--border); color: var(--primary); border-radius: var(--radius-sm); outline: none; cursor: pointer;">
-            <option value="select">↖ Select / Move (V)</option>
-            <option value="node">⬡ Node Edit (A)</option>
-            <option value="hand">✋ Hand / Pan (H)</option>
-            <option value="pen">✒ Pen &amp; Curves (P)</option>
-            <option value="brush">🖌 Freehand Brush (B)</option>
-            <option value="text">T Typography Text (T)</option>
-            <option value="rect">▭ Rectangle (R)</option>
-            <option value="ellipse">◯ Ellipse (O)</option>
-            <option value="line">╱ Line (L)</option>
-          </select>
-        </div>
 
         <div id="stage-wrapper">
           <canvas id="quadro-canvas"></canvas>
@@ -9524,16 +9534,16 @@
 
       async function renderProjectsPanel() {
         if (!recentsGrid || typeof EsenhoStore === 'undefined') return;
-        recentsGrid.innerHTML = '<div style="padding: 16px; text-align: center; color: var(--text-muted); font-size: 11px;">Loading stored projects...</div>';
+        recentsGrid.innerHTML = '<div style="padding: 24px 12px; text-align: center; color: var(--text-muted); font-size: 11px;">Loading stored projects...</div>';
         try {
           const list = await EsenhoStore.listProjects();
           const countBadge = document.getElementById('recents-count-badge');
-          if (countBadge) countBadge.textContent = `${list ? list.length : 0} projects`;
+          if (countBadge) countBadge.textContent = `${list ? list.length : 0}`;
           if (!list || list.length === 0) {
             recentsGrid.innerHTML = `
-              <div style="padding: 20px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
-                <div style="font-size: 12px; font-weight: 600; color: var(--text-main);">No saved projects yet</div>
-                <div style="font-size: 10px; color: var(--text-muted); line-height: 1.4;">Projects saved in browser memory will appear here.</div>
+              <div style="padding: 30px 16px; text-align: center; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; border: 1px dashed var(--border); border-radius: var(--radius-md); background: rgba(0,0,0,0.15);">
+                <div style="font-size: 13px; font-weight: 700; color: var(--text-main);">No saved projects</div>
+                <div style="font-size: 11px; color: var(--text-muted); line-height: 1.4;">Projects saved in local storage will appear here. Click <strong>+ New</strong> or <strong>Open SVG</strong> to get started.</div>
               </div>
             `;
             return;
@@ -9541,30 +9551,26 @@
           recentsGrid.innerHTML = list.map(p => {
             const dateStr = new Date(p.updatedAt).toLocaleDateString();
             const isVec = p.type === 'vector';
-            const icon = isVec ? '∿' : '◫';
             const badge = isVec
-              ? `<span class="badge" style="color: var(--primary); border-color: var(--primary-dim);"><span style="font-size: 10px; margin-right: 2px;">∿</span>Vec</span>`
-              : `<span class="badge" style="color: var(--accent); border-color: var(--accent-dim);"><span style="font-size: 10px; margin-right: 2px;">◫</span>Raster</span>`;
+              ? `<span class="badge" style="color: var(--primary); border-color: var(--primary-dim); font-size: 9px; font-weight: 700; padding: 1px 5px;"><span style="margin-right: 2px;">∿</span>Vector</span>`
+              : `<span class="badge" style="color: var(--accent); border-color: var(--accent-dim); font-size: 9px; font-weight: 700; padding: 1px 5px;"><span style="margin-right: 2px;">◫</span>Raster</span>`;
             const thumbHtml = p.thumbnail 
-              ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:4px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail" style="width:100%;height:100%;object-fit:cover;">`)
-              : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 9px; color: var(--text-muted);">No Preview</div>`;
+              ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:2px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail">`)
+              : `<span style="font-size: 8px; color: var(--text-muted);">None</span>`;
             return `
-              <div class="recent-item" style="border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px; background: var(--bg-card); display: flex; flex-direction: column; gap: 4px;">
-                <div style="display: flex; gap: 8px; align-items: center;">
-                  <div class="recent-thumb" style="width: 48px; height: 36px; background: var(--bg-canvas); border-radius: 3px; overflow: hidden; cursor: pointer; flex-shrink: 0;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${thumbHtml}</div>
-                  <div style="flex: 1; overflow: hidden;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 4px;">
-                      <div class="recent-title" style="font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${p.name}" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${p.name}</div>
-                      ${badge}
-                    </div>
-                    <div class="recent-sub" style="font-size: 9px; color: var(--text-muted);">${p.width} × ${p.height} • ${dateStr}</div>
+              <div class="recent-item" onclick="window.handleOpenRecent('${p.id}', '${p.type}')" title="Click to open ${p.name}">
+                <div class="recent-thumb">${thumbHtml}</div>
+                <div class="recent-info">
+                  <div class="recent-name-row">
+                    <span class="recent-name" title="${p.name}">${p.name}</span>
+                    ${badge}
                   </div>
+                  <div class="recent-meta-text">${p.width} × ${p.height} • ${dateStr}</div>
                 </div>
-                <div class="recent-actions" style="display: flex; gap: 4px; margin-top: 2px; padding-top: 4px; border-top: 1px solid var(--border-dim);" onclick="event.stopPropagation();">
-                  <button type="button" class="btn-sm btn-primary" style="flex: 1; padding: 2px 4px; font-size: 10px;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
-                  <button type="button" class="btn-sm" style="padding: 2px 4px; font-size: 10px;" title="Rename" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">Rename</button>
-                  ${!isVec ? `<button type="button" class="btn-sm" title="Insert as layer" style="color: var(--accent); border-color: var(--accent); padding: 2px 4px; font-size: 10px;" onclick="window.handleInsertPainterImage('${p.id}')">+ Layer</button>` : ''}
-                  <button type="button" class="btn-sm" title="Delete" style="color: var(--danger); border-color: var(--danger-dim); padding: 2px 4px; font-size: 10px;" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
+                <div class="recent-btns" onclick="event.stopPropagation();">
+                  <button type="button" class="btn-icon" title="Rename project" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">✏️</button>
+                  ${!isVec ? `<button type="button" class="btn-icon" title="Insert as layer" style="color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">➕</button>` : ''}
+                  <button type="button" class="btn-icon" title="Delete project" style="color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">🗑</button>
                 </div>
               </div>
             `;
@@ -9653,6 +9659,11 @@
         openOrFocusPanel('projects');
         const card = document.getElementById('card-dock-new-project');
         if (card) card.style.display = 'block';
+      });
+
+      document.getElementById('btn-cancel-new-proj')?.addEventListener('click', () => {
+        const card = document.getElementById('card-dock-new-project');
+        if (card) card.style.display = 'none';
       });
 
       document.getElementById('btn-open-recents-modal')?.addEventListener('click', () => {
