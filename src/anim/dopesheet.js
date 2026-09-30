@@ -971,10 +971,10 @@ export class DopeSheetObject {
     }
   }
 
-  sample(frame) {
+  sample(frame, includeUnkeyed = false) {
     const state = {};
     for (const [key, ch] of this.channels.entries()) {
-      if (!ch.muted) {
+      if (!ch.muted && (includeUnkeyed || ch.keyframes.length > 0)) {
         state[key] = ch.sample(frame);
       }
     }
@@ -1262,14 +1262,14 @@ export class DopeSheet {
     else this.play();
   }
 
-  evaluate(frame = this.currentFrame) {
-    return this.sampleAll(frame);
+  evaluate(frame = this.currentFrame, includeUnkeyed = false) {
+    return this.sampleAll(frame, includeUnkeyed);
   }
 
-  sampleAll(frame = this.currentFrame) {
+  sampleAll(frame = this.currentFrame, includeUnkeyed = false) {
     const results = {};
     for (const [id, obj] of this.objects.entries()) {
-      results[id] = obj.sample(frame);
+      results[id] = obj.sample(frame, includeUnkeyed);
     }
     return results;
   }

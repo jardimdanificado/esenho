@@ -6606,6 +6606,13 @@
             e.preventDefault();
             return;
           }
+        } else if (e.code === 'Space' || e.key === ' ' || key === 'spacebar') {
+          e.preventDefault();
+          if (typeof toggleScenePlay === 'function') {
+            toggleScenePlay();
+          } else if (typeof window.toggleScenePlay === 'function') {
+            window.toggleScenePlay();
+          }
         } else if (key === 'enter') {
           if (activeTool === 'pen') commitPenPath();
         } else if (key === 'v') {
@@ -9235,12 +9242,19 @@
         });
       };
 
-      function toggleScenePlay() {
-        if (isScenePlaying) pauseScenePlay();
-        else startScenePlay();
+      async function toggleScenePlay() {
+        if (isScenePlaying) {
+          pauseScenePlay();
+        } else {
+          await startScenePlay();
+        }
       }
+      window.toggleScenePlay = toggleScenePlay;
 
-      function startScenePlay() {
+      async function startScenePlay() {
+        if (!window.dopeSheet) {
+          await initStudioDopeSheet();
+        }
         if (!window.dopeSheet) return;
         isScenePlaying = true;
         const fps = window.dopeSheet.fps || 24;
@@ -9270,6 +9284,7 @@
         scenePlayInterval = null;
         updateSceneAnimUI();
       }
+      window.pauseScenePlay = pauseScenePlay;
 
       window.recordAutoKeyframe = function(targetObj, changedProps = null) {
         if (!window.dopeSheet || !window.dopeSheet.autoKeyframe) return;
