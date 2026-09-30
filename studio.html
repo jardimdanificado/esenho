@@ -2048,6 +2048,32 @@
             <div id="flyout-fill-dynamics" class="tool-submenu" style="max-height: calc(100vh - 40px); overflow-y: auto;">
               <div class="flyout-title">Fill Dynamics &amp; FX</div>
               <div class="form-row">
+                <label>Preset</label>
+                <select id="prop-fill-preset" style="width: 100%;">
+                  <option value="custom">-- Custom Settings --</option>
+                  <option value="default">Solid Flat Color (Default)</option>
+                  <optgroup label="Artistic &amp; Media Fills">
+                    <option value="soft_watercolor">Soft Watercolor Wash</option>
+                    <option value="manga_screentone">Manga Screentone Cel</option>
+                    <option value="comic_cel">4-Level Cel Shading</option>
+                    <option value="vintage_engraving">Vintage Engraved Fills</option>
+                    <option value="denim_fabric">Denim Twill Weave</option>
+                  </optgroup>
+                  <optgroup label="Distortion &amp; Dynamics">
+                    <option value="warped_marble">Warped Liquid Marble</option>
+                    <option value="noise_dissolve">Noise Dissolve / Sand</option>
+                    <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
+                    <option value="cracked_earth">Cracked Mud Fissures</option>
+                    <option value="glitch_heatwave">Glitch Heatwave</option>
+                  </optgroup>
+                  <optgroup label="Sci-Fi &amp; Fantasy">
+                    <option value="circuit_tech">Cyber Circuit Board</option>
+                    <option value="dragon_scales">Mythic Dragon Scales</option>
+                    <option value="inverted_negative">Inverted Texture Mask</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="form-row">
                 <label>Hardness %</label>
                 <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
               </div>
@@ -4800,6 +4826,23 @@
         denim_fabric: { hardness: 70, flow: 90, spacing: 6, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 60, texture: 'denim', texture_mode: 35, texture_scale: 100, texture_rotate: 0, texture_contrast: 60, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 }
       };
 
+      const FILL_PRESET_CONFIGS = {
+        default: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false },
+        soft_watercolor: { mode: 8, scale: 120, angle: 0, contrast: 110, grain: 40, hardness: 25, hardnessIntensity: 80, warpStrength: 10, warpFreq: 15, noiseDistort: 5, pinchSwirl: 0, posterize: 0, invert: false },
+        manga_screentone: { mode: 31, scale: 80, angle: 45, contrast: 200, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 3, invert: false },
+        comic_cel: { mode: 0, scale: 100, angle: 0, contrast: 150, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 4, invert: false },
+        vintage_engraving: { mode: 38, scale: 110, angle: 45, contrast: 180, grain: 10, hardness: 100, hardnessIntensity: 50, warpStrength: 5, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false },
+        denim_fabric: { mode: 35, scale: 90, angle: 45, contrast: 120, grain: 30, hardness: 95, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false },
+        warped_marble: { mode: 8, scale: 150, angle: 30, contrast: 140, grain: 15, hardness: 95, hardnessIntensity: 50, warpStrength: 55, warpFreq: 25, noiseDistort: 10, pinchSwirl: 20, posterize: 0, invert: false },
+        noise_dissolve: { mode: 32, scale: 100, angle: 0, contrast: 130, grain: 65, hardness: 70, hardnessIntensity: 60, warpStrength: 0, warpFreq: 20, noiseDistort: 45, pinchSwirl: 0, posterize: 0, invert: false },
+        black_hole_vortex: { mode: 51, scale: 130, angle: 0, contrast: 160, grain: 20, hardness: 90, hardnessIntensity: 50, warpStrength: 25, warpFreq: 30, noiseDistort: 15, pinchSwirl: 85, posterize: 0, invert: false },
+        cracked_earth: { mode: 42, scale: 140, angle: 0, contrast: 160, grain: 20, hardness: 85, hardnessIntensity: 45, warpStrength: 20, warpFreq: 20, noiseDistort: 15, pinchSwirl: 0, posterize: 0, invert: false },
+        glitch_heatwave: { mode: 67, scale: 100, angle: 0, contrast: 160, grain: 35, hardness: 80, hardnessIntensity: 60, warpStrength: 80, warpFreq: 45, noiseDistort: 55, pinchSwirl: -40, posterize: 6, invert: false },
+        circuit_tech: { mode: 43, scale: 120, angle: 0, contrast: 170, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 4, invert: false },
+        dragon_scales: { mode: 50, scale: 130, angle: 0, contrast: 150, grain: 15, hardness: 95, hardnessIntensity: 50, warpStrength: 10, warpFreq: 20, noiseDistort: 5, pinchSwirl: 15, posterize: 0, invert: false },
+        inverted_negative: { mode: 47, scale: 120, angle: 0, contrast: 150, grain: 20, hardness: 90, hardnessIntensity: 50, warpStrength: 30, warpFreq: 25, noiseDistort: 10, pinchSwirl: 25, posterize: 0, invert: true }
+      };
+
       // ── Inspector UI Sync ──
       function updateInspector() {
         const selected = doc.getSelectedObjects();
@@ -5057,6 +5100,9 @@
 
         // Fill Texture & Dynamics
         const ft = obj.fillTexture || {};
+        if (document.getElementById('prop-fill-preset')) {
+          document.getElementById('prop-fill-preset').value = ft.preset || 'custom';
+        }
         document.getElementById('prop-fill-tex-mode').value = ft.mode !== undefined ? ft.mode : 0;
         document.getElementById('prop-fill-tex-scale').value = ft.scale !== undefined ? ft.scale : 100;
         document.getElementById('prop-fill-tex-angle').value = ft.angle !== undefined ? ft.angle : 0;
@@ -6820,6 +6866,24 @@
         render();
       });
 
+      // Fill Preset Selector
+      document.getElementById('prop-fill-preset')?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const preset = FILL_PRESET_CONFIGS[val];
+        if (preset) {
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.fillTexture) obj.fillTexture = { enabled: true };
+            Object.assign(obj.fillTexture, preset);
+            obj.fillTexture.preset = val;
+            obj.fillTexture.enabled = (preset.mode !== 0 || preset.hardness < 100 || preset.warpStrength > 0 || preset.noiseDistort > 0 || preset.pinchSwirl !== 0 || preset.posterize > 0);
+          }
+          updateInspector();
+          render();
+          scheduleAutosave();
+        }
+      });
+
       // Fill Texture & Dynamics bindings
       ['mode', 'scale', 'angle', 'contrast', 'grain', 'relative', 'offsetX', 'offsetY', 'hardness', 'hardnessIntensity', 'warpStrength', 'warpFreq', 'noiseDistort', 'pinchSwirl', 'posterize'].forEach(param => {
         const el = document.getElementById(`prop-fill-tex-${param}`);
@@ -6832,8 +6896,11 @@
           for (const obj of selected) {
             if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, relative: false };
             obj.fillTexture[param] = val;
+            obj.fillTexture.preset = 'custom';
             if (param === 'mode') obj.fillTexture.enabled = (val !== 0 && val !== '0' && val !== '');
           }
+          const presetEl = document.getElementById('prop-fill-preset');
+          if (presetEl) presetEl.value = 'custom';
           render();
         });
       });
@@ -6845,7 +6912,10 @@
         for (const obj of selected) {
           if (!obj.fillTexture) obj.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
           obj.fillTexture.invert = checked;
+          obj.fillTexture.preset = 'custom';
         }
+        const presetEl = document.getElementById('prop-fill-preset');
+        if (presetEl) presetEl.value = 'custom';
         render();
       });
 
