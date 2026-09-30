@@ -2896,34 +2896,7 @@
       </div>
     </div>
 
-    <!-- Panel 6: Animation Timeline & DopeSheet -->
-    <div id="dock-panel-timeline" style="display: none; width: 100%; height: 100%;">
-      <div class="dock-panel-body" style="padding: 0; overflow: hidden; background: #1d2021; display: flex; flex-direction: column;">
-        <div id="timeline-top-bar" style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bg-panel); border-bottom: 1px solid var(--border); flex-shrink: 0; font-size: 11px;">
-          <button id="tl-btn-prev" class="btn-icon" title="Previous Frame" style="font-size: 10px; padding: 2px 6px;">⏮</button>
-          <button id="tl-btn-play" class="btn-icon" title="Play / Pause (Space)" style="font-size: 11px; padding: 2px 10px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-          <button id="tl-btn-next" class="btn-icon" title="Next Frame" style="font-size: 10px; padding: 2px 6px;">⏭</button>
-          <button id="tl-btn-loop" class="btn-icon" title="Toggle Loop" style="font-size: 10px; padding: 2px 6px; color: var(--accent);">🔁</button>
-          
-          <div style="width: 1px; height: 14px; background: var(--border); margin: 0 2px;"></div>
-          
-          <input type="range" id="tl-scrubber" min="1" max="60" value="1" style="width: 140px; cursor: pointer; accent-color: var(--primary);">
-          <span id="tl-time-badge" style="font-family: var(--font-mono); font-weight: bold; color: var(--primary); font-size: 11px;">F 1/60</span>
-          
-          <div style="width: 1px; height: 14px; background: var(--border); margin: 0 2px;"></div>
-          
-          <span style="color: var(--text-muted); font-size: 10px;">FPS:</span>
-          <input type="number" id="tl-input-fps" min="1" max="240" value="24" style="width: 38px; padding: 1px 3px; text-align: center; font-size: 10px;">
-          
-          <span style="color: var(--text-muted); font-size: 10px;">Total:</span>
-          <input type="number" id="tl-input-total" min="1" max="9999" value="60" style="width: 44px; padding: 1px 3px; text-align: center; font-size: 10px;">
-          
-          <button id="tl-btn-autokf" class="btn-sm" style="padding: 2px 6px; font-size: 10px; margin-left: auto;" title="Auto-record property changes">● Auto-Record</button>
-          <button id="tl-btn-add-event" class="btn-sm btn-primary" style="padding: 2px 8px; font-size: 10px;" title="Record State at current frame">◆ Record State</button>
-        </div>
-        <div id="dopesheet-dock" style="flex: 1; width: 100%; height: calc(100% - 32px); overflow: hidden;"></div>
-      </div>
-    </div>
+
 
     <!-- Panel 8: Vector Auto-Tracer -->
     <div id="dock-panel-tracer" style="display: none; width: 100%; height: 100%;">
@@ -6381,7 +6354,6 @@
       document.getElementById('btn-quick-toggle-inspector')?.addEventListener('click', () => toggleStudioPanel('inspector'));
       document.getElementById('btn-quick-toggle-fill')?.addEventListener('click', () => toggleStudioPanel('fill'));
       document.getElementById('btn-quick-toggle-stroke')?.addEventListener('click', () => toggleStudioPanel('stroke'));
-      document.getElementById('btn-quick-toggle-timeline')?.addEventListener('click', () => toggleStudioPanel('timeline'));
       document.getElementById('btn-quick-toggle-code')?.addEventListener('click', () => toggleStudioPanel('code'));
 
 
@@ -8422,8 +8394,7 @@
         projects: { id: 'panel_projects', component: 'projects', title: 'Projects', defaultPos: { refId: 'panel_scene', direction: 'within' } },
         assets: { id: 'panel_assets', component: 'assets', title: 'Asset Library', defaultPos: { refId: 'panel_scene', direction: 'within' } },
         export: { id: 'panel_export', component: 'export', title: 'Export Studio', defaultPos: { refId: 'panel_scene', direction: 'within' } },
-        timeline: { id: 'panel_timeline', component: 'timeline', title: 'Timeline & DopeSheet', defaultPos: { refId: 'panel_viewport', direction: 'below' }, initialHeight: 180 },
-        code: { id: 'panel_code', component: 'code', title: 'Live SVG Source', defaultPos: { refId: 'panel_timeline', direction: 'within' } }
+        code: { id: 'panel_code', component: 'code', title: 'Live SVG Source', defaultPos: { refId: 'panel_scene', direction: 'within' } }
       };
 
       function openOrFocusPanel(name) {
@@ -8512,7 +8483,6 @@
           snapping: document.getElementById('dock-panel-snapping'),
           canvas: document.getElementById('dock-panel-canvas'),
           projects: document.getElementById('dock-panel-projects'),
-          timeline: document.getElementById('dock-panel-timeline'),
           tracer: document.getElementById('dock-panel-tracer'),
           export: document.getElementById('dock-panel-export'),
           assets: document.getElementById('dock-panel-assets'),
@@ -8578,15 +8548,12 @@
         dockApi.addPanel({ id: 'panel_canvas', component: 'canvas', title: 'Canvas Setup', position: { referencePanel: insp, direction: 'within' } });
         dockApi.addPanel({ id: 'panel_tracer', component: 'tracer', title: 'Vector Auto-Tracer', position: { referencePanel: insp, direction: 'within' } });
 
-        // 3. Right Bottom Dock: Scene & Assets (below inspector in right dock)
+        // 3. Right Bottom Dock: Scene, Projects, Assets, Export & SVG Code
         const scene = dockApi.addPanel({ id: 'panel_scene', component: 'scene', title: 'Objects & Layers', position: { referencePanel: insp, direction: 'below' }, initialHeight: 280 });
         dockApi.addPanel({ id: 'panel_projects', component: 'projects', title: 'Projects', position: { referencePanel: scene, direction: 'within' } });
         dockApi.addPanel({ id: 'panel_assets', component: 'assets', title: 'Asset Library', position: { referencePanel: scene, direction: 'within' } });
         dockApi.addPanel({ id: 'panel_export', component: 'export', title: 'Export Studio', position: { referencePanel: scene, direction: 'within' } });
-
-        // 4. Bottom Dock: Timeline & Live SVG Code (180px height)
-        const timeline = dockApi.addPanel({ id: 'panel_timeline', component: 'timeline', title: 'Timeline & DopeSheet', position: { referencePanel: vp, direction: 'below' }, initialHeight: 180 });
-        dockApi.addPanel({ id: 'panel_code', component: 'code', title: 'Live SVG Source', position: { referencePanel: timeline, direction: 'within' } });
+        dockApi.addPanel({ id: 'panel_code', component: 'code', title: 'Live SVG Source', position: { referencePanel: scene, direction: 'within' } });
 
         syncPanelMenuCheckboxes();
 
