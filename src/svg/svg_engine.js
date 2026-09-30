@@ -515,17 +515,6 @@
       this.strokeLinejoin = attributes.strokeLinejoin || 'round';
       this.strokeDasharray = attributes.strokeDasharray || '';
 
-      // Drop Shadows & Glows
-      this.dropShadow = {
-        enabled: false,
-        color: '#000000',
-        blur: 4,
-        offsetX: 2,
-        offsetY: 2,
-        opacity: 0.6,
-        ...(attributes.dropShadow || {})
-      };
-
       // Brush & Dynamics Configuration
       this.brushType = attributes.brushType || 'pencil';
       this.brushConfig = {
@@ -647,9 +636,6 @@
       if (this.fillTexture && (this.fillTexture.mode > 0 || this.fillTexture.enabled)) {
         attrs += ` data-fill-tex="${encodeURIComponent(JSON.stringify(this.fillTexture))}"`;
       }
-      if (this.dropShadow && this.dropShadow.enabled) {
-        attrs += ` data-shadow="${encodeURIComponent(JSON.stringify(this.dropShadow))}"`;
-      }
       if (this.fillGradient) {
         attrs += ` data-gradient="${encodeURIComponent(JSON.stringify(this.fillGradient))}"`;
       }
@@ -677,9 +663,6 @@
     }
 
     getSvgFilterAttribute() {
-      if (this.dropShadow && this.dropShadow.enabled) {
-        return ` filter="url(#shadow_${this.id})"`;
-      }
       return '';
     }
 
@@ -803,7 +786,6 @@
         strokeLinecap: this.strokeLinecap,
         strokeLinejoin: this.strokeLinejoin,
         strokeDasharray: this.strokeDasharray,
-        dropShadow: { ...this.dropShadow },
         brushConfig: { ...this.brushConfig },
         strokeTexture: { ...this.strokeTexture },
         fillTexture: { ...this.fillTexture },
@@ -1462,7 +1444,6 @@
         brushType: this.brushType,
         brushConfig: this.brushConfig ? { ...this.brushConfig } : undefined,
         wasmFilter: this.wasmFilter ? { ...this.wasmFilter } : undefined,
-        dropShadow: this.dropShadow ? { ...this.dropShadow } : undefined,
         opacity: this.opacity,
         rotation: this.rotation,
         scaleX: this.scaleX,
@@ -2707,8 +2688,7 @@
         opacity: firstSelected.opacity,
         brushConfig: { ...firstSelected.brushConfig },
         strokeTexture: { ...firstSelected.strokeTexture },
-        fillTexture: { ...firstSelected.fillTexture },
-        dropShadow: { ...firstSelected.dropShadow }
+        fillTexture: { ...firstSelected.fillTexture }
       };
 
       const newResultObj = new SvgCompoundPath({
@@ -3395,19 +3375,6 @@
               }
             }
           }
-          if (obj.dropShadow && obj.dropShadow.enabled) {
-            const shadowId = `shadow_${obj.id}`;
-            if (!defsMap.has(shadowId)) {
-              const dx = obj.dropShadow.offsetX !== undefined ? obj.dropShadow.offsetX : 4;
-              const dy = obj.dropShadow.offsetY !== undefined ? obj.dropShadow.offsetY : 4;
-              const blur = obj.dropShadow.blur !== undefined ? obj.dropShadow.blur : 8;
-              const color = obj.dropShadow.color || '#000000';
-              const op = obj.dropShadow.opacity !== undefined ? obj.dropShadow.opacity : 0.6;
-              defsMap.set(shadowId, {
-                toSVGElement: () => `<filter id="${shadowId}" x="-30%" y="-30%" width="160%" height="160%">\n      <feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${blur / 2}" flood-color="${color}" flood-opacity="${op}" />\n    </filter>`
-              });
-            }
-          }
           if (obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin) {
             const pName = obj.wasmFilter.plugin;
             const scriptId = `wasm-plugin-${pName}`;
@@ -3550,12 +3517,6 @@
             try { fillTexture = JSON.parse(decodeURIComponent(fillTexAttr)); } catch (e) {}
           }
 
-          let dropShadow = undefined;
-          const shadowAttr = getAttr('data-shadow');
-          if (shadowAttr) {
-            try { dropShadow = JSON.parse(decodeURIComponent(shadowAttr)); } catch (e) {}
-          }
-
           let fillGradient = undefined;
           const gradAttr = getAttr('data-gradient');
           if (gradAttr) {
@@ -3585,7 +3546,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
+            brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter,
             rotation, originX, originY
           };
 
@@ -3745,12 +3706,6 @@
             try { fillTexture = JSON.parse(decodeURIComponent(fillTexAttr)); } catch (e) {}
           }
 
-          let dropShadow = undefined;
-          const shadowAttr = getAttr('data-shadow');
-          if (shadowAttr) {
-            try { dropShadow = JSON.parse(decodeURIComponent(shadowAttr)); } catch (e) {}
-          }
-
           let fillGradient = undefined;
           const gradAttr = getAttr('data-gradient');
           if (gradAttr) {
@@ -3780,7 +3735,7 @@
           const baseProps = {
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
-            brushConfig, strokeTexture, fillTexture, dropShadow, fillGradient, wasmFilter,
+            brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter,
             rotation, originX, originY
           };
 

@@ -2037,49 +2037,100 @@
             </div>
           </div>
 
-          <div class="section-header" style="margin-top: 6px;">Fill Dynamics &amp; Distort</div>
-          <div class="form-row">
-            <label>Hardness %</label>
-            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Soft Reach</label>
-            <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
-          </div>
-          <div class="form-row">
-            <label>Warp Wave</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
-              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
+          <div class="flyout-divider" style="margin: 4px 0;"></div>
+
+          <!-- Fill Dynamics & FX Side Submenu Trigger & Panel -->
+          <div class="tool-submenu-wrap" id="wrap-fill-dynamics">
+            <button type="button" id="btn-open-fill-dynamics" class="btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; font-size: 11px; font-weight: 600; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-bright);">
+              <span>Fill Dynamics &amp; FX</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div id="flyout-fill-dynamics" class="tool-submenu" style="max-height: calc(100vh - 40px); overflow-y: auto;">
+              <div class="flyout-title">Fill Dynamics &amp; FX</div>
+              <div class="form-row">
+                <label>Hardness %</label>
+                <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
+              </div>
+              <div class="form-row">
+                <label>Soft Reach</label>
+                <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
+              </div>
+              <div class="form-row">
+                <label>Warp Wave</label>
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
+                  <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Noise Jitter</label>
+                <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Swirl Vortex</label>
+                <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
+              </div>
+              <div class="form-row">
+                <label>Posterize</label>
+                <select id="prop-fill-tex-posterize">
+                  <option value="0">0: Smooth / Off</option>
+                  <option value="2">2 Levels (B&amp;W)</option>
+                  <option value="3">3 Levels</option>
+                  <option value="4">4 Levels (Cel)</option>
+                  <option value="6">6 Levels</option>
+                  <option value="8">8 Levels</option>
+                  <option value="12">12 Levels</option>
+                  <option value="16">16 Levels</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Invert Mask</label>
+                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                  <input type="checkbox" id="prop-fill-tex-invert">
+                  <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
+                </label>
+              </div>
+
+              <div class="section-header" style="margin-top: 8px;">Fill WASM Plugin &amp; Lens</div>
+              <div class="form-row">
+                <label>Enable</label>
+                <input type="checkbox" id="prop-fill-filter-enabled">
+              </div>
+              <div class="form-row">
+                <label>Target</label>
+                <select id="prop-fill-filter-target">
+                  <option value="fill" selected>Fill Surface</option>
+                  <option value="backdrop">Backdrop Lens</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Plugin</label>
+                <select id="prop-fill-filter-plugin">
+                  <option value="dither">Dither</option>
+                  <option value="blur">Blur</option>
+                  <option value="pixelate">Pixelate</option>
+                  <option value="edge">Edge Detection</option>
+                  <option value="noise">Noise</option>
+                  <option value="invert">Invert</option>
+                  <option value="grayscale">Grayscale</option>
+                  <option value="sepia">Sepia</option>
+                  <option value="threshold">Threshold</option>
+                  <option value="brightness">Brightness</option>
+                  <option value="contrast">Contrast</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>P1 / P2</label>
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <input type="number" id="prop-fill-filter-p1" placeholder="P1" value="0" style="width: 50%;">
+                  <input type="number" id="prop-fill-filter-p2" placeholder="P2" value="0" style="width: 50%;">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Opacity</label>
+                <input type="number" id="prop-fill-filter-opacity" min="0" max="1" step="0.05" value="1.0">
+              </div>
             </div>
-          </div>
-          <div class="form-row">
-            <label>Noise Jitter</label>
-            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Swirl Vortex</label>
-            <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Posterize</label>
-            <select id="prop-fill-tex-posterize">
-              <option value="0">0: Smooth / Off</option>
-              <option value="2">2 Levels (B&amp;W)</option>
-              <option value="3">3 Levels</option>
-              <option value="4">4 Levels (Cel)</option>
-              <option value="6">6 Levels</option>
-              <option value="8">8 Levels</option>
-              <option value="12">12 Levels</option>
-              <option value="16">16 Levels</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Invert Mask</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="checkbox" id="prop-fill-tex-invert">
-              <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
-            </label>
           </div>
 
           <div class="section-header" style="margin-top: 6px;">Blend &amp; Opacity</div>
@@ -2124,6 +2175,10 @@
               <option value="miter">Miter</option>
               <option value="bevel">Bevel</option>
             </select>
+          </div>
+          <div class="form-row">
+            <label>Hardness %</label>
+            <input type="number" id="prop-stroke-hardness" min="0" max="100" step="5" value="95">
           </div>
           <div class="form-row">
             <label>No Stroke</label>
@@ -2405,6 +2460,46 @@
               <div class="form-row">
                 <label>Smudge %</label>
                 <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+              </div>
+
+              <div class="section-header" style="margin-top: 8px;">Stroke WASM Plugin &amp; Lens</div>
+              <div class="form-row">
+                <label>Enable</label>
+                <input type="checkbox" id="prop-stroke-filter-enabled">
+              </div>
+              <div class="form-row">
+                <label>Target</label>
+                <select id="prop-stroke-filter-target">
+                  <option value="stroke" selected>Stroke Outline</option>
+                  <option value="backdrop">Backdrop Lens</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>Plugin</label>
+                <select id="prop-stroke-filter-plugin">
+                  <option value="dither">Dither</option>
+                  <option value="blur">Blur</option>
+                  <option value="pixelate">Pixelate</option>
+                  <option value="edge">Edge Detection</option>
+                  <option value="noise">Noise</option>
+                  <option value="invert">Invert</option>
+                  <option value="grayscale">Grayscale</option>
+                  <option value="sepia">Sepia</option>
+                  <option value="threshold">Threshold</option>
+                  <option value="brightness">Brightness</option>
+                  <option value="contrast">Contrast</option>
+                </select>
+              </div>
+              <div class="form-row">
+                <label>P1 / P2</label>
+                <div style="display: flex; gap: 4px; width: 100%;">
+                  <input type="number" id="prop-stroke-filter-p1" placeholder="P1" value="0" style="width: 50%;">
+                  <input type="number" id="prop-stroke-filter-p2" placeholder="P2" value="0" style="width: 50%;">
+                </div>
+              </div>
+              <div class="form-row">
+                <label>Opacity</label>
+                <input type="number" id="prop-stroke-filter-opacity" min="0" max="1" step="0.05" value="1.0">
               </div>
             </div>
           </div>
@@ -2829,92 +2924,6 @@
           </div>
         </details>
 
-        <!-- Drop Shadow Accordion -->
-        <details class="section-accordion">
-          <summary>
-            <span>Drop Shadow & Glow</span>
-            <input type="checkbox" id="prop-shadow-enable" style="cursor: pointer;" onclick="event.stopPropagation()">
-          </summary>
-          <div class="accordion-body">
-            <div id="shadow-controls" style="display: none; flex-direction: column; gap: 6px;">
-              <div class="form-row">
-                <label>Color</label>
-                <div style="display: flex; gap: 6px; width: 100%;">
-                  <input type="color" id="prop-shadow-color" value="#000000">
-                  <input type="text" id="prop-shadow-text" value="#000000">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Blur (px)</label>
-                <input type="number" id="prop-shadow-blur" min="0" max="64" step="1" value="4">
-              </div>
-              <div class="form-row">
-                <label>Offset X / Y</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-shadow-ox" step="1" value="2" title="Offset X">
-                  <input type="number" id="prop-shadow-oy" step="1" value="2" title="Offset Y">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Opacity</label>
-                <input type="number" id="prop-shadow-opacity" min="0" max="1" step="0.05" value="0.6">
-              </div>
-            </div>
-          </div>
-        </details>
-
-        <!-- WASM Filter & Lens Accordion -->
-        <details class="section-accordion" id="accordion-wasm-filter">
-          <summary>
-            <span>WASM Filter & Lens</span>
-            <input type="checkbox" id="prop-filter-enabled" style="cursor: pointer;" onclick="event.stopPropagation()">
-          </summary>
-          <div class="accordion-body">
-            <div id="filter-controls" style="display: none; flex-direction: column; gap: 6px;">
-              <div class="form-row">
-                <label>Target</label>
-                <select id="prop-filter-target">
-                  <option value="backdrop">Lens</option>
-                  <option value="fill">Fill</option>
-                  <option value="stroke">Stroke</option>
-                  <option value="object">Fill + Stroke</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Plugin</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <select id="prop-filter-plugin" style="flex: 1;">
-                    <option value="dither">Dither</option>
-                    <option value="blur">Blur</option>
-                    <option value="pixelate">Pixelate</option>
-                    <option value="edge">Edge Detection</option>
-                    <option value="noise">Noise</option>
-                    <option value="invert">Invert</option>
-                    <option value="grayscale">Grayscale</option>
-                    <option value="sepia">Sepia</option>
-                    <option value="threshold">Threshold</option>
-                    <option value="brightness">Brightness</option>
-                    <option value="contrast">Contrast</option>
-                  </select>
-                  <button id="btn-import-wasm-plugin" title="Import .wasm plugin" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border-color); background: var(--bg-secondary); color: var(--text-main); border-radius: 3px;">+ Import</button>
-                  <input type="file" id="input-wasm-plugin" accept=".wasm" style="display: none;">
-                </div>
-              </div>
-              <div class="form-row" id="row-filter-p1">
-                <label id="lbl-filter-p1">Param 1</label>
-                <input type="number" id="prop-filter-p1" value="0">
-              </div>
-              <div class="form-row" id="row-filter-p2">
-                <label id="lbl-filter-p2">Param 2</label>
-                <input type="number" id="prop-filter-p2" value="0">
-              </div>
-              <div class="form-row">
-                <label>Opacity %</label>
-                <input type="number" id="prop-filter-opacity" min="0" max="100" step="5" value="100">
-              </div>
-            </div>
-          </div>
-        </details>
       </div>
 
       <!-- Tab 3: Canvas Setup & Engine Settings -->
@@ -3688,15 +3697,13 @@
 
       async function initQuadro() {
         try {
-          const res = await fetch('plugins/canvas.wasm');
-          if (res.ok) {
-            const buf = await res.arrayBuffer();
-            const actor = new EsenhoModule(new Uint8Array(buf));
-            quadroRenderer = new QuadroSvgRenderer(actor);
-            document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
-            await preloadWasmPlugins();
-            render();
-          }
+          const actor = await EsenhoModule.fromURL('plugins/canvas.wasm', { name: 'canvas' });
+          quadroRenderer = new QuadroSvgRenderer(actor);
+          document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
+          await preloadWasmPlugins();
+          viewportRenderMode = 'quadro';
+          if (typeof updateRendererMenuUi === 'function') updateRendererMenuUi();
+          render();
         } catch (err) {
           console.warn('Quadro WASM could not be initialized from network, using direct preview:', err);
         }
@@ -5013,30 +5020,6 @@
           }
         }
 
-        // Drop Shadow Sync
-        const shadowCb = document.getElementById('prop-shadow-enable');
-        const shadowControls = document.getElementById('shadow-controls');
-        const ds = obj.dropShadow || { enabled: false, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-        if (shadowCb) {
-          shadowCb.checked = !!ds.enabled;
-          if (shadowControls) shadowControls.style.display = ds.enabled ? 'flex' : 'none';
-          document.getElementById('prop-shadow-color').value = ds.color || '#000000';
-          document.getElementById('prop-shadow-text').value = ds.color || '#000000';
-          document.getElementById('prop-shadow-blur').value = ds.blur !== undefined ? ds.blur : 4;
-          document.getElementById('prop-shadow-ox').value = ds.offsetX !== undefined ? ds.offsetX : 2;
-          document.getElementById('prop-shadow-oy').value = ds.offsetY !== undefined ? ds.offsetY : 2;
-          document.getElementById('prop-shadow-opacity').value = ds.opacity !== undefined ? ds.opacity : 0.6;
-        }
-
-        if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
-          strokeColor.value = obj.stroke;
-        }
-        strokeText.value = obj.stroke || 'none';
-        strokeW.value = obj.strokeWidth || 1;
-        strokeCap.value = obj.strokeLinecap || 'round';
-        strokeJoin.value = obj.strokeLinejoin || 'round';
-        objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
-
         if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
           strokeColor.value = obj.stroke;
         }
@@ -5091,6 +5074,17 @@
         document.getElementById('prop-fill-tex-posterize').value = ft.posterize !== undefined ? ft.posterize : 0;
         document.getElementById('prop-fill-tex-invert').checked = !!(ft.invert || ft.invert_tex);
 
+        // Fill WASM Plugin Sync
+        const fwf = obj.fillFilter || (ft.wasmFilter) || (obj.wasmFilter && obj.wasmFilter.target === 'fill' ? obj.wasmFilter : { enabled: false, target: 'fill' });
+        if (document.getElementById('prop-fill-filter-enabled')) {
+          document.getElementById('prop-fill-filter-enabled').checked = !!fwf.enabled;
+          document.getElementById('prop-fill-filter-target').value = fwf.target || 'fill';
+          document.getElementById('prop-fill-filter-plugin').value = fwf.plugin || 'dither';
+          document.getElementById('prop-fill-filter-p1').value = fwf.p1 !== undefined ? fwf.p1 : 0;
+          document.getElementById('prop-fill-filter-p2').value = fwf.p2 !== undefined ? fwf.p2 : 0;
+          document.getElementById('prop-fill-filter-opacity').value = fwf.opacity !== undefined ? fwf.opacity : 1.0;
+        }
+
         // Custom Tip Shapes
         const grpCustomTipShapes = document.getElementById('grp-custom-tip-shapes');
         if (grpCustomTipShapes && typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTipShapes) {
@@ -5119,6 +5113,9 @@
         }
 
         const bc = obj.brushConfig || {};
+        const strokeHardnessInput = document.getElementById('prop-stroke-hardness');
+        if (strokeHardnessInput) strokeHardnessInput.value = bc.hardness !== undefined ? bc.hardness : (obj.strokeHardness !== undefined ? obj.strokeHardness : 95);
+
         document.getElementById('prop-brush-flow').value = bc.flow !== undefined ? bc.flow : 100;
         document.getElementById('prop-brush-hardness').value = bc.hardness !== undefined ? bc.hardness : 100;
         document.getElementById('prop-brush-spacing').value = bc.spacing !== undefined ? bc.spacing : 5;
@@ -5138,6 +5135,17 @@
         document.getElementById('prop-brush-depletion').value = bc.depletion !== undefined ? bc.depletion : 0;
         document.getElementById('prop-brush-smudge').value = bc.smudge !== undefined ? bc.smudge : 0;
 
+        // Stroke WASM Plugin Sync
+        const swf = obj.strokeFilter || (bc.wasmFilter) || (obj.wasmFilter && obj.wasmFilter.target === 'stroke' ? obj.wasmFilter : { enabled: false, target: 'stroke' });
+        if (document.getElementById('prop-stroke-filter-enabled')) {
+          document.getElementById('prop-stroke-filter-enabled').checked = !!swf.enabled;
+          document.getElementById('prop-stroke-filter-target').value = swf.target || 'stroke';
+          document.getElementById('prop-stroke-filter-plugin').value = swf.plugin || 'dither';
+          document.getElementById('prop-stroke-filter-p1').value = swf.p1 !== undefined ? swf.p1 : 0;
+          document.getElementById('prop-stroke-filter-p2').value = swf.p2 !== undefined ? swf.p2 : 0;
+          document.getElementById('prop-stroke-filter-opacity').value = swf.opacity !== undefined ? swf.opacity : 1.0;
+        }
+
         // Stroke Texture
         const st = obj.strokeTexture || {};
         document.getElementById('prop-stroke-tex-mode').value = st.mode !== undefined ? st.mode : 0;
@@ -5145,75 +5153,6 @@
         document.getElementById('prop-stroke-tex-angle').value = st.angle !== undefined ? st.angle : 0;
         document.getElementById('prop-stroke-tex-contrast').value = st.contrast !== undefined ? st.contrast : 100;
         document.getElementById('prop-stroke-tex-grain').value = st.grain !== undefined ? st.grain : 0;
-
-        // WASM Filter & Lens
-        const wf = obj.wasmFilter || {};
-        const filterEnabledCheckbox = document.getElementById('prop-filter-enabled');
-        const filterControls = document.getElementById('filter-controls');
-        const filterTargetSelect = document.getElementById('prop-filter-target');
-        const filterPluginSelect = document.getElementById('prop-filter-plugin');
-        const filterP1 = document.getElementById('prop-filter-p1');
-        const filterP2 = document.getElementById('prop-filter-p2');
-        const filterOpacity = document.getElementById('prop-filter-opacity');
-        const lblP1 = document.getElementById('lbl-filter-p1');
-        const lblP2 = document.getElementById('lbl-filter-p2');
-
-        const isFilterOn = !!wf.enabled;
-        if (filterEnabledCheckbox) filterEnabledCheckbox.checked = isFilterOn;
-        if (filterControls) filterControls.style.display = isFilterOn ? 'flex' : 'none';
-
-        if (filterPluginSelect) {
-          const allKnownPlugins = new Set();
-          if (doc && doc.wasmPlugins) {
-            for (const k of doc.wasmPlugins.keys()) allKnownPlugins.add(k);
-          }
-          if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) {
-            for (const k of SvgEngine.wasmPlugins.keys()) allKnownPlugins.add(k);
-          }
-          for (const k of allKnownPlugins) {
-            if (!Array.from(filterPluginSelect.options).some(o => o.value === k)) {
-              const opt = document.createElement('option');
-              opt.value = k;
-              opt.textContent = k;
-              filterPluginSelect.appendChild(opt);
-            }
-          }
-        }
-
-        if (filterTargetSelect) filterTargetSelect.value = wf.target || 'backdrop';
-        if (filterPluginSelect) filterPluginSelect.value = wf.plugin || 'dither';
-        if (filterP1) filterP1.value = wf.p1 !== undefined ? wf.p1 : 0;
-        if (filterP2) filterP2.value = wf.p2 !== undefined ? wf.p2 : 0;
-        if (filterOpacity) filterOpacity.value = wf.opacity !== undefined ? Math.round(wf.opacity * 100) : 100;
-
-        const pName = filterPluginSelect ? filterPluginSelect.value : 'dither';
-        if (lblP1 && lblP2) {
-          if (pName === 'blur') {
-            lblP1.textContent = 'Radius (px)';
-            lblP2.textContent = 'Unused';
-          } else if (pName === 'dither') {
-            lblP1.textContent = 'Luma Bias (-64..64)';
-            lblP2.textContent = 'Invert (0/1)';
-          } else if (pName === 'pixelate') {
-            lblP1.textContent = 'Block Size (px)';
-            lblP2.textContent = 'Unused';
-          } else if (pName === 'edge') {
-            lblP1.textContent = 'Threshold (0..255)';
-            lblP2.textContent = 'Mode (0/1)';
-          } else if (pName === 'noise') {
-            lblP1.textContent = 'Amount % (0..100)';
-            lblP2.textContent = 'Type (0/1)';
-          } else if (pName === 'brightness' || pName === 'contrast') {
-            lblP1.textContent = 'Amount (-100..100)';
-            lblP2.textContent = 'Unused';
-          } else if (pName === 'threshold') {
-            lblP1.textContent = 'Cutoff (0..255)';
-            lblP2.textContent = 'Invert (0/1)';
-          } else {
-            lblP1.textContent = 'Param 1';
-            lblP2.textContent = 'Param 2';
-          }
-        }
 
         if (window.dopeSheetUI) {
           if (selected.length > 0) {
@@ -6320,6 +6259,14 @@
             sub.style.top = `${subTop}px`;
             sub.style.left = `${rect.right + 6 + 250 + 4}px`;
           }
+        } else if (flyout.id === 'flyout-fill') {
+          const sub = document.getElementById('flyout-fill-dynamics');
+          if (sub) {
+            const subH = 440;
+            const subTop = Math.max(10, Math.min(top, window.innerHeight - subH - 16));
+            sub.style.top = `${subTop}px`;
+            sub.style.left = `${rect.right + 6 + 250 + 4}px`;
+          }
         }
       }
 
@@ -6902,6 +6849,64 @@
         render();
       });
 
+      // Fill WASM Plugin bindings
+      document.getElementById('prop-fill-filter-enabled')?.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.fillFilter) obj.fillFilter = { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+          obj.fillFilter.enabled = enabled;
+          if (obj.fillTexture) {
+            if (!obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter = { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+            obj.fillTexture.wasmFilter.enabled = enabled;
+          }
+        }
+        render();
+      });
+      document.getElementById('prop-fill-filter-target')?.addEventListener('change', (e) => {
+        const target = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.fillFilter) obj.fillFilter = { enabled: true, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+          obj.fillFilter.target = target;
+          if (obj.fillTexture && obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter.target = target;
+        }
+        render();
+      });
+      document.getElementById('prop-fill-filter-plugin')?.addEventListener('change', (e) => {
+        const plugin = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.fillFilter) obj.fillFilter = { enabled: true, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+          obj.fillFilter.plugin = plugin;
+          if (obj.fillTexture && obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter.plugin = plugin;
+        }
+        render();
+      });
+      ['p1', 'p2'].forEach(param => {
+        document.getElementById(`prop-fill-filter-${param}`)?.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.fillFilter) obj.fillFilter = { enabled: true, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+            obj.fillFilter[param] = val;
+            if (obj.fillTexture && obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter[param] = val;
+          }
+          render();
+        });
+      });
+      document.getElementById('prop-fill-filter-opacity')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) / 100;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.fillFilter) obj.fillFilter = { enabled: true, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+          obj.fillFilter.opacity = val;
+          if (obj.fillTexture && obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter.opacity = val;
+        }
+        render();
+      });
+
+      // Stroke options
       document.getElementById('prop-stroke-cap')?.addEventListener('change', (e) => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.strokeLinecap = e.target.value;
@@ -6911,6 +6916,74 @@
       document.getElementById('prop-stroke-join')?.addEventListener('change', (e) => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.strokeLinejoin = e.target.value;
+        render();
+      });
+
+      document.getElementById('prop-stroke-hardness')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.brushConfig) obj.brushConfig = {};
+          obj.brushConfig.hardness = val;
+          obj.strokeHardness = val;
+        }
+        render();
+      });
+
+      // Stroke WASM Plugin bindings
+      document.getElementById('prop-stroke-filter-enabled')?.addEventListener('change', (e) => {
+        const enabled = e.target.checked;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.strokeFilter) obj.strokeFilter = { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+          obj.strokeFilter.enabled = enabled;
+          if (obj.brushConfig) {
+            if (!obj.brushConfig.wasmFilter) obj.brushConfig.wasmFilter = { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+            obj.brushConfig.wasmFilter.enabled = enabled;
+          }
+        }
+        render();
+      });
+      document.getElementById('prop-stroke-filter-target')?.addEventListener('change', (e) => {
+        const target = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.strokeFilter) obj.strokeFilter = { enabled: true, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+          obj.strokeFilter.target = target;
+          if (obj.brushConfig && obj.brushConfig.wasmFilter) obj.brushConfig.wasmFilter.target = target;
+        }
+        render();
+      });
+      document.getElementById('prop-stroke-filter-plugin')?.addEventListener('change', (e) => {
+        const plugin = e.target.value;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.strokeFilter) obj.strokeFilter = { enabled: true, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+          obj.strokeFilter.plugin = plugin;
+          if (obj.brushConfig && obj.brushConfig.wasmFilter) obj.brushConfig.wasmFilter.plugin = plugin;
+        }
+        render();
+      });
+      ['p1', 'p2'].forEach(param => {
+        document.getElementById(`prop-stroke-filter-${param}`)?.addEventListener('input', (e) => {
+          const val = Number(e.target.value);
+          const selected = doc.getSelectedObjects();
+          for (const obj of selected) {
+            if (!obj.strokeFilter) obj.strokeFilter = { enabled: true, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+            obj.strokeFilter[param] = val;
+            if (obj.brushConfig && obj.brushConfig.wasmFilter) obj.brushConfig.wasmFilter[param] = val;
+          }
+          render();
+        });
+      });
+      document.getElementById('prop-stroke-filter-opacity')?.addEventListener('input', (e) => {
+        const val = Number(e.target.value) / 100;
+        const selected = doc.getSelectedObjects();
+        for (const obj of selected) {
+          if (!obj.strokeFilter) obj.strokeFilter = { enabled: true, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+          obj.strokeFilter.opacity = val;
+          if (obj.brushConfig && obj.brushConfig.wasmFilter) obj.brushConfig.wasmFilter.opacity = val;
+        }
         render();
       });
 
@@ -7483,6 +7556,24 @@
             positionAndOpenFlyout(btn, flyout);
           }
         });
+      });
+
+      const positionFillDyn = () => {
+        const flyoutFill = document.getElementById('flyout-fill');
+        const flyoutFillDyn = document.getElementById('flyout-fill-dynamics');
+        if (!flyoutFill || !flyoutFillDyn) return;
+        const rect = flyoutFill.getBoundingClientRect();
+        const subH = flyoutFillDyn.offsetHeight || 460;
+        const subTop = Math.max(10, Math.min(rect.top, window.innerHeight - subH - 16));
+        flyoutFillDyn.style.top = `${subTop}px`;
+        flyoutFillDyn.style.left = `${rect.right + 4}px`;
+      };
+
+      document.getElementById('wrap-fill-dynamics')?.addEventListener('mouseenter', positionFillDyn);
+      document.getElementById('btn-open-fill-dynamics')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        positionFillDyn();
+        document.getElementById('wrap-fill-dynamics')?.classList.toggle('open');
       });
 
       const positionBrushDyn = () => {
@@ -8255,82 +8346,6 @@
         scheduleAutosave();
       });
 
-      // Drop Shadow Binding
-      document.getElementById('prop-shadow-enable')?.addEventListener('change', (e) => {
-        const enabled = e.target.checked;
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.dropShadow) obj.dropShadow = { enabled: false, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-          obj.dropShadow.enabled = enabled;
-        }
-        updateInspector();
-        render();
-      });
-
-      document.getElementById('prop-shadow-color')?.addEventListener('input', (e) => {
-        document.getElementById('prop-shadow-text').value = e.target.value;
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-          obj.dropShadow.color = e.target.value;
-        }
-        render();
-      });
-      document.getElementById('prop-shadow-text')?.addEventListener('change', (e) => {
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-          obj.dropShadow.color = e.target.value;
-        }
-        render();
-      });
-      ['blur', 'ox', 'oy', 'opacity'].forEach(param => {
-        const el = document.getElementById(`prop-shadow-${param}`);
-        if (!el) return;
-        const key = param === 'ox' ? 'offsetX' : (param === 'oy' ? 'offsetY' : param);
-        el.addEventListener('input', (e) => {
-          const val = Number(e.target.value);
-          const selected = doc.getSelectedObjects();
-          for (const obj of selected) {
-            if (!obj.dropShadow) obj.dropShadow = { enabled: true, color: '#000000', blur: 4, offsetX: 2, offsetY: 2, opacity: 0.6 };
-            obj.dropShadow[key] = val;
-          }
-          render();
-        });
-      });
-
-      // WASM Filter & Lens Binding
-      document.getElementById('prop-filter-enabled')?.addEventListener('change', (e) => {
-        const enabled = e.target.checked;
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.wasmFilter) obj.wasmFilter = { enabled: false, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-          obj.wasmFilter.enabled = enabled;
-        }
-        updateInspector();
-        render();
-      });
-
-      document.getElementById('prop-filter-target')?.addEventListener('change', (e) => {
-        const target = e.target.value;
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-          obj.wasmFilter.target = target;
-        }
-        render();
-      });
-
-      document.getElementById('prop-filter-plugin')?.addEventListener('change', (e) => {
-        const plugin = e.target.value;
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-          obj.wasmFilter.plugin = plugin;
-        }
-        updateInspector();
-        render();
-      });
 
       document.getElementById('btn-import-wasm-plugin')?.addEventListener('click', () => {
         document.getElementById('input-wasm-plugin')?.click();
@@ -8354,61 +8369,28 @@
             await EsenhoStore.savePlugin(name, bytes);
           }
 
-          const sel = document.getElementById('prop-filter-plugin');
-          if (sel) {
-            let opt = Array.from(sel.options).find(o => o.value === name);
-            if (!opt) {
-              opt = document.createElement('option');
-              opt.value = name;
-              opt.textContent = name;
-              sel.appendChild(opt);
+          ['prop-fill-filter-plugin', 'prop-stroke-filter-plugin'].forEach(selId => {
+            const sel = document.getElementById(selId);
+            if (sel) {
+              let opt = Array.from(sel.options).find(o => o.value === name);
+              if (!opt) {
+                opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                sel.appendChild(opt);
+              }
+              sel.value = name;
             }
-            sel.value = name;
-          }
+          });
 
-          const selected = doc.getSelectedObjects();
-          for (const obj of selected) {
-            if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: name, target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-            obj.wasmFilter.plugin = name;
-          }
+          showNotification(`Plugin "${name}" imported`);
           updateInspector();
           render();
-          showNotification(`Plugin "${name}" imported`);
         } catch (err) {
           console.error('Failed to import WASM plugin:', err);
           showNotification('Error loading WASM plugin');
         }
         e.target.value = '';
-      });
-
-      document.getElementById('prop-filter-p1')?.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-          obj.wasmFilter.p1 = val;
-        }
-        render();
-      });
-
-      document.getElementById('prop-filter-p2')?.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-          obj.wasmFilter.p2 = val;
-        }
-        render();
-      });
-
-      document.getElementById('prop-filter-opacity')?.addEventListener('input', (e) => {
-        const val = Number(e.target.value) / 100;
-        const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          if (!obj.wasmFilter) obj.wasmFilter = { enabled: true, plugin: 'dither', target: 'backdrop', p1: 0, p2: 0, opacity: 1.0 };
-          obj.wasmFilter.opacity = val;
-        }
-        render();
       });
 
       // Image Raster Editor

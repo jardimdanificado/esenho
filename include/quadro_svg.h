@@ -103,15 +103,6 @@ typedef struct {
     float pinch_swirl;   /* -100..100 */
 } quadro_svg_texture_config_t;
 
-typedef struct {
-    int      enabled;
-    uint32_t color;      /* ARGB format */
-    float    blur;       /* Gaussian radius */
-    float    offset_x;
-    float    offset_y;
-    float    opacity;    /* 0.0 .. 1.0 */
-} quadro_svg_shadow_t;
-
 typedef struct quadro_svg_clip_path {
     char id[64];
     struct quadro_svg_node *node;
@@ -168,7 +159,6 @@ typedef struct quadro_svg_style {
     quadro_svg_brush_config_t   brush;
     quadro_svg_texture_config_t fill_texture;
     quadro_svg_texture_config_t stroke_texture;
-    quadro_svg_shadow_t         shadow;
 } quadro_svg_style_t;
 
 typedef struct quadro_svg_node {

@@ -757,6 +757,19 @@ class EsenhoModule {
   }
 
   /**
+   * Async factory — instantiates WASM bytes asynchronously to bypass browser main-thread 4KB compile limit.
+   * @param {Uint8Array|ArrayBuffer} bytes
+   * @param {object} [options]
+   * @returns {Promise<EsenhoModule>}
+   */
+  static async fromBytes(bytes, options = {}) {
+    const u8 = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+    const res = await WebAssembly.instantiate(u8, { env: {} });
+    const instance = res.instance || res;
+    return new EsenhoModule(instance, options);
+  }
+
+  /**
    * Async factory — fetches WASM from URL, works in browser and Node (via fetch polyfill).
    * @param {string} url
    * @param {object} [options]
@@ -774,7 +787,7 @@ class EsenhoModule {
       throw new Error(`Failed to load WASM from ${fetchUrl}: HTTP ${resp.status} ${resp.statusText}`);
     }
     const bytes = new Uint8Array(await resp.arrayBuffer());
-    return new EsenhoModule(bytes, options);
+    return EsenhoModule.fromBytes(bytes, options);
   }
 
   setLayer(pixelsPtr, width, height) {

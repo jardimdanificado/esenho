@@ -246,7 +246,7 @@ static void parse_brush_attribute(quadro_svg_brush_config_t *b, const char *str)
     const char *p = decoded ? decoded : str;
     b->enabled = 1;
     b->flow = 100.0f;
-    b->hardness = 100.0f;
+    b->hardness = 95.0f;
     b->spacing = 10.0f;
     b->roundness = 100.0f;
 
@@ -292,44 +292,6 @@ static void parse_brush_attribute(quadro_svg_brush_config_t *b, const char *str)
     if (decoded) free(decoded);
 }
 
-static void parse_shadow_attribute(quadro_svg_shadow_t *sh, const char *str) {
-    if (!str || !*str) return;
-    char *decoded = url_decode(str);
-    const char *p = decoded ? decoded : str;
-    sh->enabled = 1;
-    sh->color = 0xFF000000;
-    sh->opacity = 0.6f;
-    sh->blur = 8.0f;
-
-    while (*p) {
-        while (*p == ' ' || *p == '{' || *p == '}' || *p == '"' || *p == ',' || *p == ';') p++;
-        if (!*p) break;
-
-        char key[32] = {0};
-        int ki = 0;
-        while (*p && *p != ':' && *p != '=' && *p != '"' && !isspace(*p) && ki < 31) key[ki++] = *p++;
-        while (*p == ':' || *p == '=' || *p == ' ' || *p == '"') p++;
-
-        if (strcmp(key, "enabled") == 0) {
-            sh->enabled = parse_bool_val(p);
-        } else if (strcmp(key, "color") == 0) {
-            char cbuf[32] = {0};
-            int ci = 0;
-            while (*p && *p != ',' && *p != '}' && *p != '"' && ci < 31) cbuf[ci++] = *p++;
-            int hc = 0;
-            sh->color = parse_color(cbuf, &hc);
-        } else {
-            float val = (float)atof(p);
-            if (strcmp(key, "blur") == 0) sh->blur = val;
-            else if (strcmp(key, "offsetX") == 0 || strcmp(key, "dx") == 0) sh->offset_x = val;
-            else if (strcmp(key, "offsetY") == 0 || strcmp(key, "dy") == 0) sh->offset_y = val;
-            else if (strcmp(key, "opacity") == 0) sh->opacity = val;
-        }
-
-        while (*p && *p != ',' && *p != ';' && *p != '}') p++;
-    }
-    if (decoded) free(decoded);
-}
 
 static void apply_style_property(quadro_svg_style_t *st, const char *key, const char *val) {
     if (strcmp(key, "fill") == 0) {
@@ -1131,7 +1093,7 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
 
         int is_complex = (fill_grad != NULL) || (strk_grad != NULL) ||
                          eff_fill_tex.enabled || eff_strk_tex.enabled ||
-                         node->style.shadow.enabled || eff_brush.enabled || (node->style.blend_mode != 0);
+                         eff_brush.enabled || (node->style.blend_mode != 0);
 
         uint32_t *layer_pixels = get_layer_pixels(3);
 
@@ -1161,7 +1123,7 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                 }
             }
         } else {
-            /* Complex path: scratch buffer for shading, shadows & textures */
+            /* Complex path: scratch buffer for shading & textures */
             int total_pixels = canvas_w * canvas_h;
             uint32_t *scratch = (uint32_t*)malloc(total_pixels * sizeof(uint32_t));
             memset(scratch, 0, total_pixels * sizeof(uint32_t));
@@ -1169,53 +1131,7 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
             int scratch_layer = w_get_selection_scratch_layer();
             uint32_t *scratch_layer_pixels = get_layer_pixels(scratch_layer);
 
-            /* 1. Drop Shadow Pass */
-            if (node->style.shadow.enabled && node->style.shadow.opacity > 0.0f) {
-                uint8_t *alpha_buf = (uint8_t*)malloc(total_pixels);
-                uint8_t *temp_buf  = (uint8_t*)malloc(total_pixels);
-                memset(alpha_buf, 0, total_pixels);
-
-                if (scratch_layer_pixels) memset(scratch_layer_pixels, 0, total_pixels * sizeof(uint32_t));
-                render_shape_node(node, &cur_mat);
-                if (has_fill) w_path_fill(scratch_layer, 0xFFFFFFFF, node->style.fill_rule);
-                if (has_stroke) {
-                    float sw = node->style.stroke_width * sqrtf(cur_mat.a * cur_mat.a + cur_mat.b * cur_mat.b);
-                    w_path_stroke(scratch_layer, 0xFFFFFFFF, sw, node->style.cap_style, node->style.join_style);
-                }
-
-                if (scratch_layer_pixels) {
-                    for (int i = 0; i < total_pixels; i++) {
-                        alpha_buf[i] = (scratch_layer_pixels[i] >> 24) & 0xFF;
-                    }
-                }
-
-                gaussian_box_blur_alpha(alpha_buf, temp_buf, canvas_w, canvas_h, node->style.shadow.blur);
-
-                int ox = (int)roundf(node->style.shadow.offset_x);
-                int oy = (int)roundf(node->style.shadow.offset_y);
-                uint32_t base_scol = node->style.shadow.color;
-                uint8_t s_r = base_scol & 0xFF, s_g = (base_scol >> 8) & 0xFF, s_b = (base_scol >> 16) & 0xFF;
-
-                for (int y = 0; y < canvas_h; y++) {
-                    int src_y = y - oy;
-                    if (src_y < 0 || src_y >= canvas_h) continue;
-                    for (int x = 0; x < canvas_w; x++) {
-                        int src_x = x - ox;
-                        if (src_x < 0 || src_x >= canvas_w) continue;
-                        uint8_t sa = alpha_buf[src_y * canvas_w + src_x];
-                        sa = (uint8_t)(sa * node->style.shadow.opacity * cur_opacity);
-                        if (sa > 0) {
-                            uint32_t shadow_pix = ((uint32_t)sa << 24) | ((uint32_t)s_b << 16) | ((uint32_t)s_g << 8) | s_r;
-                            layer_pixels[y * canvas_w + x] = blend_pixels(layer_pixels[y * canvas_w + x], shadow_pix, 0);
-                        }
-                    }
-                }
-
-                free(alpha_buf);
-                free(temp_buf);
-            }
-
-            /* 2. Shape Fill Shading */
+            /* 1. Shape Fill Shading */
             render_shape_node(node, &cur_mat);
 
             if (has_fill) {
@@ -1292,6 +1208,13 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                                 pix_a = quadro_sample_procedural_texture(eff_fill_tex.mode, sx, sy,
                                     eff_fill_tex.angle, eff_fill_tex.scale,
                                     eff_fill_tex.contrast, pix_a);
+
+                                if (eff_fill_tex.grain > 0.0f) {
+                                    uint32_t hg = (((sx * 1103515245 + sy * 12345 + 0x654321) ^ 0xDEADBEEF) & 0xFF);
+                                    float grain_factor = 1.0f - (eff_fill_tex.grain * 0.01f) * ((float)((int)hg - 128) / 128.0f);
+                                    int ga = (int)(pix_a * grain_factor);
+                                    pix_a = ga < 0 ? 0 : (ga > 255 ? 255 : (uint8_t)ga);
+                                }
 
                                 if (eff_fill_tex.invert) {
                                     int inv = (int)orig_a - ((int)pix_a - (int)(orig_a * 40 / 255));
@@ -1584,12 +1507,6 @@ static void parse_node_attributes(quadro_svg_node_t *node, const char *tag_str) 
     if (strk_tex) {
         parse_texture_attribute(&node->style.stroke_texture, strk_tex);
         free(strk_tex);
-    }
-
-    char *shadow = extract_attr(tag_str, "data-shadow");
-    if (shadow) {
-        parse_shadow_attribute(&node->style.shadow, shadow);
-        free(shadow);
     }
 
     char *style = extract_attr(tag_str, "style");

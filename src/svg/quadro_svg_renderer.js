@@ -1041,243 +1041,222 @@
       const rotatePoly = (poly) => (rad === 0 ? poly : poly.map(rotatePt));
       const rotatePolys = (polys) => (rad === 0 ? polys : polys.map(rotatePoly));
 
-      // 0. Render Drop Shadow & Glow
-      if (obj.dropShadow && obj.dropShadow.enabled) {
-        this.renderDropShadow(pathObj, obj.dropShadow, scale, totalOpacity);
+      const rawPolys = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
+      const rotatedPolys = rotatePolys(rawPolys);
+
+      // Check Non-Destructive WASM Filter Plugins (Separate for Fill/Lens and Stroke)
+      const effFillFilter = (obj.fillFilter && obj.fillFilter.enabled && obj.fillFilter.plugin) ? obj.fillFilter : (obj.fillTexture?.wasmFilter?.enabled ? obj.fillTexture.wasmFilter : (obj.wasmFilter?.enabled && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop' || !obj.wasmFilter.target) ? obj.wasmFilter : null));
+      const effStrokeFilter = (obj.strokeFilter && obj.strokeFilter.enabled && obj.strokeFilter.plugin) ? obj.strokeFilter : (obj.brushConfig?.wasmFilter?.enabled ? obj.brushConfig.wasmFilter : (obj.wasmFilter?.enabled && obj.wasmFilter.target === 'stroke' ? obj.wasmFilter : null));
+      const effObjectFilter = (obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin && obj.wasmFilter.target === 'object') ? obj.wasmFilter : null;
+
+      const exp = this.actor.exports;
+      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
+      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
+      const pixPtr = exp.w_layer_get_pixels(3);
+      const pixels = (pixPtr && this.actor.memory) ? new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh) : null;
+
+      let bMinX = 0, bMinY = 0, bMaxX = lw - 1, bMaxY = lh - 1;
+      if (bounds) {
+        const pts = [
+          rotatePt({ x: bounds.minX, y: bounds.minY }),
+          rotatePt({ x: bounds.maxX, y: bounds.minY }),
+          rotatePt({ x: bounds.maxX, y: bounds.maxY }),
+          rotatePt({ x: bounds.minX, y: bounds.maxY })
+        ];
+        bMinX = Math.min(...pts.map(p => p.x));
+        bMaxX = Math.max(...pts.map(p => p.x));
+        bMinY = Math.min(...pts.map(p => p.y));
+        bMaxY = Math.max(...pts.map(p => p.y));
       }
+      const pad = Math.ceil(Math.max(obj.strokeWidth || 2, 8) * scale);
+      const bx0 = Math.max(0, Math.floor(bMinX * scale - pad));
+      const by0 = Math.max(0, Math.floor(bMinY * scale - pad));
+      const bx1 = Math.min(lw - 1, Math.ceil(bMaxX * scale + pad));
+      const by1 = Math.min(lh - 1, Math.ceil(bMaxY * scale + pad));
+      const bw = bx1 - bx0 + 1;
+      const bh = by1 - by0 + 1;
 
-      // Check Non-Destructive WASM Filter Plugin
-      const hasWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin;
-      if (hasWasmFilter) {
-        const exp = this.actor.exports;
-        const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
-        const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
-        const pixPtr = exp.w_layer_get_pixels(3);
+      const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
+      const hasStroke = obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0;
 
-        if (pixPtr && this.actor.memory) {
-          const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
-
-          let bMinX = 0, bMinY = 0, bMaxX = lw - 1, bMaxY = lh - 1;
-          if (bounds) {
-            const pts = [
-              rotatePt({ x: bounds.minX, y: bounds.minY }),
-              rotatePt({ x: bounds.maxX, y: bounds.minY }),
-              rotatePt({ x: bounds.maxX, y: bounds.maxY }),
-              rotatePt({ x: bounds.minX, y: bounds.maxY })
-            ];
-            bMinX = Math.min(...pts.map(p => p.x));
-            bMaxX = Math.max(...pts.map(p => p.x));
-            bMinY = Math.min(...pts.map(p => p.y));
-            bMaxY = Math.max(...pts.map(p => p.y));
+      if (effObjectFilter && pixels && bw > 0 && bh > 0) {
+        const savedBuf = new Uint32Array(bw * bh);
+        for (let y = 0; y < bh; y++) {
+          const srcRow = (by0 + y) * lw + bx0;
+          const dstRow = y * bw;
+          for (let x = 0; x < bw; x++) {
+            savedBuf[dstRow + x] = pixels[srcRow + x];
+            pixels[srcRow + x] = 0;
           }
-          const pad = Math.ceil(Math.max(obj.strokeWidth || 2, 8) * scale);
-          const bx0 = Math.max(0, Math.floor(bMinX * scale - pad));
-          const by0 = Math.max(0, Math.floor(bMinY * scale - pad));
-          const bx1 = Math.min(lw - 1, Math.ceil(bMaxX * scale + pad));
-          const by1 = Math.min(lh - 1, Math.ceil(bMaxY * scale + pad));
-          const bw = bx1 - bx0 + 1;
-          const bh = by1 - by0 + 1;
+        }
+        if (hasFill) this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+        if (hasStroke) this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
 
-          if (bw > 0 && bh > 0) {
-            const target = obj.wasmFilter.target || 'backdrop';
-            const p1 = Number(obj.wasmFilter.p1 || 0);
-            const p2 = Number(obj.wasmFilter.p2 || 0);
-            const filterOpacity = obj.wasmFilter.opacity !== undefined ? Number(obj.wasmFilter.opacity) : 1.0;
-            const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
+        const objBuf = new Uint32Array(bw * bh);
+        for (let y = 0; y < bh; y++) {
+          const srcRow = (by0 + y) * lw + bx0;
+          const dstRow = y * bw;
+          for (let x = 0; x < bw; x++) {
+            objBuf[dstRow + x] = pixels[srcRow + x];
+            pixels[srcRow + x] = savedBuf[dstRow + x];
+          }
+        }
 
-            if (target === 'backdrop') {
-              // ── Filter Lens / Adjustment Shape: Filter whatever is beneath inside shape boundary ──
-              const lensBuf = new Uint32Array(bw * bh);
-              for (let y = 0; y < bh; y++) {
-                const srcRow = (by0 + y) * lw + bx0;
-                const dstRow = y * bw;
-                for (let x = 0; x < bw; x++) {
-                  lensBuf[dstRow + x] = pixels[srcRow + x];
-                }
+        this.filterRunner.applyFilter(effObjectFilter.plugin, objBuf, bw, bh, Number(effObjectFilter.p1 || 0), Number(effObjectFilter.p2 || 0), this.currentDoc);
+        const filterOpacity = effObjectFilter.opacity !== undefined ? Number(effObjectFilter.opacity) : 1.0;
+
+        for (let y = 0; y < bh; y++) {
+          const destRow = (by0 + y) * lw + bx0;
+          const srcRow = y * bw;
+          for (let x = 0; x < bw; x++) {
+            let col = objBuf[srcRow + x];
+            let a = (col >>> 24) & 0xFF;
+            if (a > 0) {
+              if (filterOpacity < 1.0) {
+                a = Math.round(a * filterOpacity);
+                col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
               }
-
-              this.filterRunner.applyFilter(obj.wasmFilter.plugin, lensBuf, bw, bh, p1, p2, this.currentDoc);
-              const shapeMask = this.rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, rad, origin);
-
-              for (let y = 0; y < bh; y++) {
-                const destRow = (by0 + y) * lw + bx0;
-                const srcRow = y * bw;
-                for (let x = 0; x < bw; x++) {
-                  const m = shapeMask[srcRow + x];
-                  if (m > 0) {
-                    const orig = pixels[destRow + x];
-                    const filt = lensBuf[srcRow + x];
-                    const effectiveAlpha = (m / 255) * filterOpacity * totalOpacity;
-                    pixels[destRow + x] = lerpArgb(orig, filt, effectiveAlpha);
-                  }
-                }
-              }
-
-              // Optional fill tint over lens if user set a non-transparent fill
-              if (hasFill && obj.fillOpacity > 0) {
-                this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
-              }
-              // Stroke over lens
-              if (obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0) {
-                this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
-              }
-              return;
-
-            } else if (target === 'fill') {
-              // ── Non-destructive Fill Filter ──
-              if (hasFill) {
-                const savedBuf = new Uint32Array(bw * bh);
-                for (let y = 0; y < bh; y++) {
-                  const srcRow = (by0 + y) * lw + bx0;
-                  const dstRow = y * bw;
-                  for (let x = 0; x < bw; x++) {
-                    savedBuf[dstRow + x] = pixels[srcRow + x];
-                    pixels[srcRow + x] = 0;
-                  }
-                }
-
-                this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
-
-                const fillBuf = new Uint32Array(bw * bh);
-                for (let y = 0; y < bh; y++) {
-                  const srcRow = (by0 + y) * lw + bx0;
-                  const dstRow = y * bw;
-                  for (let x = 0; x < bw; x++) {
-                    fillBuf[dstRow + x] = pixels[srcRow + x];
-                    pixels[srcRow + x] = savedBuf[dstRow + x];
-                  }
-                }
-
-                this.filterRunner.applyFilter(obj.wasmFilter.plugin, fillBuf, bw, bh, p1, p2, this.currentDoc);
-
-                for (let y = 0; y < bh; y++) {
-                  const destRow = (by0 + y) * lw + bx0;
-                  const srcRow = y * bw;
-                  for (let x = 0; x < bw; x++) {
-                    let col = fillBuf[srcRow + x];
-                    let a = (col >>> 24) & 0xFF;
-                    if (a > 0) {
-                      if (filterOpacity < 1.0) {
-                        a = Math.round(a * filterOpacity);
-                        col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
-                      }
-                      pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
-                    }
-                  }
-                }
-              }
-
-              if (obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0) {
-                this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
-              }
-              return;
-
-            } else if (target === 'stroke') {
-              // ── Non-destructive Stroke Filter ──
-              if (hasFill) {
-                this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
-              }
-
-              if (obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0) {
-                const savedBuf = new Uint32Array(bw * bh);
-                for (let y = 0; y < bh; y++) {
-                  const srcRow = (by0 + y) * lw + bx0;
-                  const dstRow = y * bw;
-                  for (let x = 0; x < bw; x++) {
-                    savedBuf[dstRow + x] = pixels[srcRow + x];
-                    pixels[srcRow + x] = 0;
-                  }
-                }
-
-                this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
-
-                const strokeBuf = new Uint32Array(bw * bh);
-                for (let y = 0; y < bh; y++) {
-                  const srcRow = (by0 + y) * lw + bx0;
-                  const dstRow = y * bw;
-                  for (let x = 0; x < bw; x++) {
-                    strokeBuf[dstRow + x] = pixels[srcRow + x];
-                    pixels[srcRow + x] = savedBuf[dstRow + x];
-                  }
-                }
-
-                this.filterRunner.applyFilter(obj.wasmFilter.plugin, strokeBuf, bw, bh, p1, p2, this.currentDoc);
-
-                for (let y = 0; y < bh; y++) {
-                  const destRow = (by0 + y) * lw + bx0;
-                  const srcRow = y * bw;
-                  for (let x = 0; x < bw; x++) {
-                    let col = strokeBuf[srcRow + x];
-                    let a = (col >>> 24) & 0xFF;
-                    if (a > 0) {
-                      if (filterOpacity < 1.0) {
-                        a = Math.round(a * filterOpacity);
-                        col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
-                      }
-                      pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
-                    }
-                  }
-                }
-              }
-              return;
-
-            } else if (target === 'object') {
-              // ── Whole Object (Fill + Stroke) Filter ──
-              const savedBuf = new Uint32Array(bw * bh);
-              for (let y = 0; y < bh; y++) {
-                const srcRow = (by0 + y) * lw + bx0;
-                const dstRow = y * bw;
-                for (let x = 0; x < bw; x++) {
-                  savedBuf[dstRow + x] = pixels[srcRow + x];
-                  pixels[srcRow + x] = 0;
-                }
-              }
-
-              if (hasFill) {
-                this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
-              }
-              if (obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0) {
-                this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
-              }
-
-              const objBuf = new Uint32Array(bw * bh);
-              for (let y = 0; y < bh; y++) {
-                const srcRow = (by0 + y) * lw + bx0;
-                const dstRow = y * bw;
-                for (let x = 0; x < bw; x++) {
-                  objBuf[dstRow + x] = pixels[srcRow + x];
-                  pixels[srcRow + x] = savedBuf[dstRow + x];
-                }
-              }
-
-              this.filterRunner.applyFilter(obj.wasmFilter.plugin, objBuf, bw, bh, p1, p2, this.currentDoc);
-
-              for (let y = 0; y < bh; y++) {
-                const destRow = (by0 + y) * lw + bx0;
-                const srcRow = y * bw;
-                for (let x = 0; x < bw; x++) {
-                  let col = objBuf[srcRow + x];
-                  let a = (col >>> 24) & 0xFF;
-                  if (a > 0) {
-                    if (filterOpacity < 1.0) {
-                      a = Math.round(a * filterOpacity);
-                      col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
-                    }
-                    pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
-                  }
-                }
-              }
-              return;
+              pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
             }
           }
         }
+        return;
       }
 
-      // 1. Render Fill (Solid, Linear Gradient, Radial Gradient, Procedural Texture)
-      this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+      // 1. Render Fill / Lens Pass
+      if (effFillFilter && pixels && bw > 0 && bh > 0) {
+        const target = effFillFilter.target || 'fill';
+        const p1 = Number(effFillFilter.p1 || 0);
+        const p2 = Number(effFillFilter.p2 || 0);
+        const filterOpacity = effFillFilter.opacity !== undefined ? Number(effFillFilter.opacity) : 1.0;
 
-      // 2. Render Stroke (with brush dynamics & stroke texture support)
-      this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
+        if (target === 'backdrop') {
+          const lensBuf = new Uint32Array(bw * bh);
+          for (let y = 0; y < bh; y++) {
+            const srcRow = (by0 + y) * lw + bx0;
+            const dstRow = y * bw;
+            for (let x = 0; x < bw; x++) {
+              lensBuf[dstRow + x] = pixels[srcRow + x];
+            }
+          }
+
+          this.filterRunner.applyFilter(effFillFilter.plugin, lensBuf, bw, bh, p1, p2, this.currentDoc);
+          const shapeMask = this.rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, rad, origin);
+
+          for (let y = 0; y < bh; y++) {
+            const destRow = (by0 + y) * lw + bx0;
+            const srcRow = y * bw;
+            for (let x = 0; x < bw; x++) {
+              const m = shapeMask[srcRow + x];
+              if (m > 0) {
+                const orig = pixels[destRow + x];
+                const filt = lensBuf[srcRow + x];
+                const effectiveAlpha = (m / 255) * filterOpacity * totalOpacity;
+                pixels[destRow + x] = lerpArgb(orig, filt, effectiveAlpha);
+              }
+            }
+          }
+
+          if (hasFill && obj.fillOpacity > 0) {
+            this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+          }
+        } else {
+          if (hasFill) {
+            const savedBuf = new Uint32Array(bw * bh);
+            for (let y = 0; y < bh; y++) {
+              const srcRow = (by0 + y) * lw + bx0;
+              const dstRow = y * bw;
+              for (let x = 0; x < bw; x++) {
+                savedBuf[dstRow + x] = pixels[srcRow + x];
+                pixels[srcRow + x] = 0;
+              }
+            }
+
+            this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+
+            const fillBuf = new Uint32Array(bw * bh);
+            for (let y = 0; y < bh; y++) {
+              const srcRow = (by0 + y) * lw + bx0;
+              const dstRow = y * bw;
+              for (let x = 0; x < bw; x++) {
+                fillBuf[dstRow + x] = pixels[srcRow + x];
+                pixels[srcRow + x] = savedBuf[dstRow + x];
+              }
+            }
+
+            this.filterRunner.applyFilter(effFillFilter.plugin, fillBuf, bw, bh, p1, p2, this.currentDoc);
+
+            for (let y = 0; y < bh; y++) {
+              const destRow = (by0 + y) * lw + bx0;
+              const srcRow = y * bw;
+              for (let x = 0; x < bw; x++) {
+                let col = fillBuf[srcRow + x];
+                let a = (col >>> 24) & 0xFF;
+                if (a > 0) {
+                  if (filterOpacity < 1.0) {
+                    a = Math.round(a * filterOpacity);
+                    col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+                  }
+                  pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
+                }
+              }
+            }
+          }
+        }
+      } else {
+        this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+      }
+
+      // 2. Render Stroke Pass
+      if (effStrokeFilter && pixels && bw > 0 && bh > 0) {
+        const p1 = Number(effStrokeFilter.p1 || 0);
+        const p2 = Number(effStrokeFilter.p2 || 0);
+        const filterOpacity = effStrokeFilter.opacity !== undefined ? Number(effStrokeFilter.opacity) : 1.0;
+
+        if (hasStroke) {
+          const savedBuf = new Uint32Array(bw * bh);
+          for (let y = 0; y < bh; y++) {
+            const srcRow = (by0 + y) * lw + bx0;
+            const dstRow = y * bw;
+            for (let x = 0; x < bw; x++) {
+              savedBuf[dstRow + x] = pixels[srcRow + x];
+              pixels[srcRow + x] = 0;
+            }
+          }
+
+          this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
+
+          const strokeBuf = new Uint32Array(bw * bh);
+          for (let y = 0; y < bh; y++) {
+            const srcRow = (by0 + y) * lw + bx0;
+            const dstRow = y * bw;
+            for (let x = 0; x < bw; x++) {
+              strokeBuf[dstRow + x] = pixels[srcRow + x];
+              pixels[srcRow + x] = savedBuf[dstRow + x];
+            }
+          }
+
+          this.filterRunner.applyFilter(effStrokeFilter.plugin, strokeBuf, bw, bh, p1, p2, this.currentDoc);
+
+          for (let y = 0; y < bh; y++) {
+            const destRow = (by0 + y) * lw + bx0;
+            const srcRow = y * bw;
+            for (let x = 0; x < bw; x++) {
+              let col = strokeBuf[srcRow + x];
+              let a = (col >>> 24) & 0xFF;
+              if (a > 0) {
+                if (filterOpacity < 1.0) {
+                  a = Math.round(a * filterOpacity);
+                  col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+                }
+                pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
+              }
+            }
+          }
+        }
+      } else {
+        this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
+      }
     }
 
     _renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity) {
@@ -1309,15 +1288,16 @@
 
       if ((strokeArgb >>> 24) > 0) {
         const strokeWidth = Math.max(1, Math.round(obj.strokeWidth * scale));
+
         if (pathObj.toPolylines) {
-          const polylines = pathObj.toPolylines(0.4);
+          const polylines = rotatePolys(pathObj.toPolylines(0.4));
           const subPaths = pathObj.subPaths || [];
           for (let i = 0; i < polylines.length; i++) {
             const poly = polylines[i];
             if (poly.length >= 2) {
               const closed = subPaths[i] ? subPaths[i].closed : true;
               this.strokePolyline(
-                rotatePoly(poly),
+                poly,
                 strokeArgb,
                 strokeWidth,
                 closed,
@@ -1328,10 +1308,10 @@
             }
           }
         } else if (pathObj.toPolyline) {
-          const poly = pathObj.toPolyline(0.4);
+          const poly = rotatePoly(pathObj.toPolyline(0.4));
           if (poly.length >= 2) {
             this.strokePolyline(
-              rotatePoly(poly),
+              poly,
               strokeArgb,
               strokeWidth,
               pathObj.closed,
@@ -1624,20 +1604,6 @@
           const lines = String(textObj.text || '').split('\n');
           const lineStep = (textObj.fontSize * (textObj.lineHeight || 1.2)) * scale;
 
-          // Render drop shadow if enabled
-          if (textObj.dropShadow && textObj.dropShadow.enabled) {
-            const s = textObj.dropShadow;
-            octx.save();
-            octx.shadowColor = s.color || '#000000';
-            octx.shadowBlur = (s.blur || 4) * scale;
-            octx.shadowOffsetX = (s.offsetX || 2) * scale;
-            octx.shadowOffsetY = (s.offsetY || 2) * scale;
-            octx.fillStyle = textObj.fill && textObj.fill !== 'none' ? textObj.fill : '#fabd2f';
-            lines.forEach((line, idx) => {
-              octx.fillText(line, tx, ty + idx * lineStep);
-            });
-            octx.restore();
-          }
 
           // Fill Text
           if (textObj.fill && textObj.fill !== 'none') {
@@ -1790,177 +1756,6 @@
     }
 
     /**
-     * Render Gaussian Drop Shadows & Glows (Optimized Local Bounding Box Blit)
-     */
-    renderDropShadow(pathObj, shadowConfig, scale = 1.0, parentOpacity = 1.0) {
-      const exp = this.actor.exports;
-      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
-      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
-      const pixPtr = exp.w_layer_get_pixels(3);
-      if (!pixPtr || !this.actor.memory) return;
-
-      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
-      const polylines = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
-      if (!polylines.length) return;
-
-      const blur = Math.max(0, Math.round((shadowConfig.blur !== undefined ? shadowConfig.blur : 4) * scale));
-      const ox = Math.round((shadowConfig.offsetX !== undefined ? shadowConfig.offsetX : 2) * scale);
-      const oy = Math.round((shadowConfig.offsetY !== undefined ? shadowConfig.offsetY : 2) * scale);
-      const shadowAlpha = (shadowConfig.opacity !== undefined ? shadowConfig.opacity : 0.6) * parentOpacity;
-      const shadowColor = parseCssColorToArgb(shadowConfig.color || '#000000', 1.0);
-      const sR = shadowColor & 0xFF, sG = (shadowColor >> 8) & 0xFF, sB = (shadowColor >> 16) & 0xFF;
-
-      // Compute bounding box
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const poly of polylines) {
-        for (const p of poly) {
-          const sx = p.x * scale + ox;
-          const sy = p.y * scale + oy;
-          if (sx < minX) minX = sx;
-          if (sx > maxX) maxX = sx;
-          if (sy < minY) minY = sy;
-          if (sy > maxY) maxY = sy;
-        }
-      }
-      if (minX === Infinity) return;
-
-      const pad = Math.max(4, blur * 3);
-      const bx0 = Math.max(0, Math.floor(minX - pad));
-      const by0 = Math.max(0, Math.floor(minY - pad));
-      const bx1 = Math.min(lw - 1, Math.ceil(maxX + pad));
-      const by1 = Math.min(lh - 1, Math.ceil(maxY + pad));
-      const bw = bx1 - bx0 + 1;
-      const bh = by1 - by0 + 1;
-      if (bw <= 0 || bh <= 0) return;
-
-      // 1. Create local silhouette mask
-      const mask = new Uint8Array(bw * bh);
-
-      for (const poly of polylines) {
-        if (poly.length < 3) continue;
-        const localPts = poly.map(p => ({
-          x: Math.round(p.x * scale) + ox - bx0,
-          y: Math.round(p.y * scale) + oy - by0
-        }));
-
-        let pMinY = bh, pMaxY = 0;
-        for (const p of localPts) {
-          if (p.y < pMinY) pMinY = p.y;
-          if (p.y > pMaxY) pMaxY = p.y;
-        }
-        pMinY = Math.max(0, pMinY);
-        pMaxY = Math.min(bh - 1, pMaxY);
-
-        const nodeX = [];
-        for (let y = pMinY; y <= pMaxY; y++) {
-          nodeX.length = 0;
-          let j = localPts.length - 1;
-          for (let i = 0; i < localPts.length; i++) {
-            const pi = localPts[i];
-            const pj = localPts[j];
-            if ((pi.y < y && pj.y >= y) || (pj.y < y && pi.y >= y)) {
-              const x = Math.round(pi.x + (y - pi.y) / (pj.y - pi.y) * (pj.x - pi.x));
-              nodeX.push(x);
-            }
-            j = i;
-          }
-          nodeX.sort((a, b) => a - b);
-          for (let i = 0; i < nodeX.length; i += 2) {
-            if (nodeX[i] >= bw) break;
-            if (nodeX[i + 1] > 0) {
-              const x0 = Math.max(0, nodeX[i]);
-              const x1 = Math.min(bw - 1, nodeX[i + 1]);
-              const row = y * bw;
-              for (let x = x0; x <= x1; x++) {
-                mask[row + x] = 255;
-              }
-            }
-          }
-        }
-      }
-
-      // 2. Exact 3-Pass Local Gaussian Blur
-      let blurredMask = mask;
-      if (blur > 0) {
-        const radius = Math.min(100, blur);
-        const r = Math.max(1, Math.round(radius / 2));
-        let current = new Float32Array(mask);
-        let temp = new Float32Array(bw * bh);
-
-        for (let pass = 0; pass < 3; pass++) {
-          // Horizontal pass
-          const iarrH = 1 / (r + r + 1);
-          for (let y = 0; y < bh; y++) {
-            const row = y * bw;
-            const firstVal = current[row];
-            const lastVal = current[row + bw - 1];
-            let sum = (r + 1) * firstVal;
-            for (let j = 0; j < r; j++) {
-              sum += current[row + Math.min(bw - 1, j)];
-            }
-            for (let x = 0; x <= r; x++) {
-              sum += current[row + Math.min(bw - 1, x + r)] - firstVal;
-              temp[row + x] = sum * iarrH;
-            }
-            for (let x = r + 1; x < bw - r; x++) {
-              sum += current[row + x + r] - current[row + x - r - 1];
-              temp[row + x] = sum * iarrH;
-            }
-            for (let x = Math.max(r + 1, bw - r); x < bw; x++) {
-              sum += lastVal - current[row + x - r - 1];
-              temp[row + x] = sum * iarrH;
-            }
-          }
-
-          // Vertical pass
-          const iarrV = 1 / (r + r + 1);
-          for (let x = 0; x < bw; x++) {
-            const firstVal = temp[x];
-            const lastVal = temp[(bh - 1) * bw + x];
-            let sum = (r + 1) * firstVal;
-            for (let j = 0; j < r; j++) {
-              sum += temp[Math.min(bh - 1, j) * bw + x];
-            }
-            for (let y = 0; y <= r; y++) {
-              sum += temp[Math.min(bh - 1, y + r) * bw + x] - firstVal;
-              current[y * bw + x] = sum * iarrV;
-            }
-            for (let y = r + 1; y < bh - r; y++) {
-              sum += temp[(y + r) * bw + x] - temp[(y - r - 1) * bw + x];
-              current[y * bw + x] = sum * iarrV;
-            }
-            for (let y = Math.max(r + 1, bh - r); y < bh; y++) {
-              sum += lastVal - temp[(y - r - 1) * bw + x];
-              current[y * bw + x] = sum * iarrV;
-            }
-          }
-        }
-
-        blurredMask = new Uint8Array(bw * bh);
-        for (let i = 0; i < bw * bh; i++) {
-          blurredMask[i] = Math.max(0, Math.min(255, Math.round(current[i])));
-        }
-      }
-
-      // 3. Blit local shadow onto layer
-      for (let y = 0; y < bh; y++) {
-        const destY = by0 + y;
-        if (destY >= lh) break;
-        const destRow = destY * lw;
-        const srcRow = y * bw;
-        for (let x = 0; x < bw; x++) {
-          const destX = bx0 + x;
-          if (destX >= lw) break;
-          const alphaVal = Math.round(blurredMask[srcRow + x] * shadowAlpha);
-          if (alphaVal > 0) {
-            const argb = ((alphaVal << 24) | (sB << 16) | (sG << 8) | sR) >>> 0;
-            pixels[destRow + destX] = this.blendFast(argb, pixels[destRow + destX]);
-          }
-        }
-      }
-    }
-
-    /**
      * Scanline polygon fill in Quadro layer with procedural texture and gradient masking
      */
     fillPolygon(poly, argbColor, scale = 1.0, fillTexture = null, gradient = null, bounds = null, totalOpacity = 1.0) {
@@ -1993,7 +1788,6 @@
         });
         scaledPolys.push(sPts);
       }
-
       if (minY < 0) minY = 0;
       if (maxY >= lh) maxY = lh - 1;
       if (minY > maxY) return;
@@ -2014,6 +1808,7 @@
       const texAngle = fillTexture ? (fillTexture.angle || 0) : 0;
       const texScale = Math.round((fillTexture ? (fillTexture.scale || 100) : 100) * scale);
       const texContrast = fillTexture ? (fillTexture.contrast || 100) : 100;
+      const texGrain = fillTexture ? (fillTexture.grain || 0) : 0;
 
       const isRelative = !!(fillTexture && (fillTexture.relative || fillTexture.is_relative || fillTexture.origin === 'object'));
       const offsetX = fillTexture ? (fillTexture.offsetX || fillTexture.offset_x || 0) : 0;
@@ -2142,6 +1937,14 @@
                   sampledA = sampleCustomTexture(customPixels, customW, customH, sx, sy, texAngle, texScale, texContrast, origA);
                 } else {
                   sampledA = sampleProceduralTexture(texMode, sx, sy, texAngle, texScale, texContrast, origA);
+                }
+
+                if (texGrain > 0) {
+                  const isx = Math.floor(sx) | 0;
+                  const isy = Math.floor(sy) | 0;
+                  const hg = (((Math.imul(isx, 1103515245) + Math.imul(isy, 12345) + 0x654321) ^ 0xDEADBEEF) >>> 0) & 0xFF;
+                  const gFactor = 1.0 - (texGrain * 0.01) * ((hg - 128) / 128.0);
+                  sampledA = Math.max(0, Math.min(255, Math.round(sampledA * gFactor)));
                 }
 
                 if (invert) {
