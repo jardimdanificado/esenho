@@ -643,6 +643,108 @@
       pointer-events: auto;
     }
 
+    /* ── Left Retractable Sidebar (Fill & Stroke Dynamics) ── */
+    #left-sidebar {
+      width: 270px;
+      height: 100%;
+      max-height: 100%;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      z-index: 95;
+      flex-shrink: 0;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    #left-sidebar.collapsed {
+      width: 0 !important;
+      min-width: 0 !important;
+      border-right: none !important;
+      visibility: hidden;
+    }
+
+    .left-tab-bar {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel-sub);
+      padding: 6px 8px;
+      gap: 4px;
+      flex-shrink: 0;
+      align-items: center;
+    }
+
+    .left-tab-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 5px 6px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+      letter-spacing: 0.3px;
+      line-height: 1.2;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.12s ease;
+      white-space: nowrap;
+    }
+
+    .left-tab-btn:hover {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .left-tab-btn.active {
+      background: var(--bg-panel);
+      color: var(--primary);
+      border: 1px solid var(--border);
+      font-weight: 700;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+
+    .left-tab-content {
+      flex: 1 1 0px;
+      min-height: 0;
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      display: none;
+      padding: 8px 10px;
+      padding-bottom: 24px;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      overscroll-behavior: contain;
+    }
+
+    .left-tab-content::-webkit-scrollbar {
+      width: 4px;
+    }
+    .left-tab-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .left-tab-content::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+    .left-tab-content::-webkit-scrollbar-thumb:hover {
+      background: var(--border-bright);
+    }
+
+    .left-tab-content.active {
+      display: flex;
+    }
+
     /* ── Center Viewport / Canvas ── */
     #viewport-container {
       flex: 1;
@@ -1229,6 +1331,17 @@
         overflow: visible;
       }
 
+      #left-sidebar {
+        position: fixed;
+        top: 42px;
+        left: 48px;
+        bottom: 0;
+        width: 270px;
+        max-width: calc(100vw - 56px);
+        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
+        z-index: 1001;
+      }
+
       #sidebar {
         position: fixed;
         top: 42px;
@@ -1662,7 +1775,8 @@
       </div>
     </div>
 
-    <!-- Timeline / DopeSheet & Sidebar Toggles -->
+    <!-- Sidebar & Timeline Toggles -->
+    <button id="btn-toggle-left-sidebar" class="btn-sm" title="Toggle Fill &amp; Stroke Panels (Shift+F)">🎨 Fill &amp; Stroke</button>
     <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (Shift+T)">🎬 Timeline</button>
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
@@ -1844,14 +1958,36 @@
 
       <div class="toolbar-sep"></div>
       
-      <!-- Fill Tool & Popover -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn tool-swatch-btn" id="btn-popover-fill" title="Fill &amp; Texture" style="position: relative; display: flex; align-items: center; justify-content: center;">
-          <div id="swatch-fill-preview" style="width: 18px; height: 18px; background: #fabd2f; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
-          <span class="flyout-indicator">▸</span>
+      <!-- Fill Swatch Tool Button -->
+      <button class="tool-btn tool-swatch-btn" id="btn-popover-fill" title="Fill &amp; Texture Panel (Shift+F)" style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div id="swatch-fill-preview" style="width: 18px; height: 18px; background: #fabd2f; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
+      </button>
+
+      <!-- Stroke Swatch Tool Button -->
+      <button class="tool-btn tool-swatch-btn" id="btn-popover-stroke" title="Stroke &amp; Brush Dynamics Panel" style="position: relative; display: flex; align-items: center; justify-content: center;">
+        <div id="swatch-stroke-preview" style="width: 18px; height: 18px; background: transparent; border: 3.5px solid #1d2021; border-radius: 3px; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
+      </button>
+    </div>
+
+    <!-- Left Retractable Sidebar (Fill & Stroke Dynamics) -->
+    <div id="left-sidebar">
+      <div class="left-tab-bar">
+        <button class="left-tab-btn active" data-left-tab="tab-left-fill" title="Fill &amp; Fill Dynamics">
+          <span>Fill &amp; Dynamics</span>
         </button>
-        <div id="flyout-fill" class="tool-flyout" style="width: 250px; max-height: calc(100vh - 40px); overflow-y: auto;">
-          <div class="flyout-title">Fill &amp; Texture</div>
+        <button class="left-tab-btn" data-left-tab="tab-left-stroke" title="Stroke &amp; Brush Dynamics">
+          <span>Stroke &amp; Brush</span>
+        </button>
+        <button id="btn-collapse-left-sidebar" class="btn-icon" title="Collapse Left Sidebar" style="width: 22px; height: 22px; font-size: 10px; flex-shrink: 0; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">◀</button>
+      </div>
+
+      <!-- Tab 1: Fill & Fill Dynamics -->
+      <div class="left-tab-content active" id="tab-left-fill">
+        <!-- 1. Fill Surface & Colors -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Fill Surface</span>
+          </div>
           <div class="form-row">
             <label>Fill Type</label>
             <select id="prop-fill-type">
@@ -1928,8 +2064,13 @@
               <input type="number" id="prop-grad-radius" min="0.05" max="5" step="0.05" value="0.5">
             </div>
           </div>
+        </div>
 
-          <div class="section-header" style="margin-top: 6px;">Fill Texture</div>
+        <!-- 2. Fill Texture Generator -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Fill Procedural Texture</span>
+          </div>
           <div class="form-row">
             <label>Mode</label>
             <select id="prop-fill-tex-mode">
@@ -2037,166 +2178,170 @@
               <input type="number" id="prop-fill-tex-offsetY" placeholder="Y" step="5" value="0" style="width: 50%;">
             </div>
           </div>
+        </div>
 
-          <div class="flyout-divider" style="margin: 4px 0;"></div>
-
-          <!-- Fill Dynamics & FX Side Submenu Trigger & Panel -->
-          <div class="tool-submenu-wrap" id="wrap-fill-dynamics">
-            <button type="button" id="btn-open-fill-dynamics" class="btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; font-size: 11px; font-weight: 600; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-bright);">
-              <span>Fill Dynamics &amp; FX</span>
-              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
-            </button>
-            <div id="flyout-fill-dynamics" class="tool-submenu" style="max-height: calc(100vh - 40px); overflow-y: auto;">
-              <div class="flyout-title">Fill Dynamics &amp; FX</div>
-              <div class="form-row">
-                <label>Preset</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <select id="prop-fill-preset" style="flex: 1;">
-                    <option value="custom">-- Custom Settings --</option>
-                    <option value="default">Solid Flat Color (Default)</option>
-                    <optgroup id="grp-custom-fill-presets" label="Custom Fill Presets"></optgroup>
-                    <optgroup label="WASM Optical Lenses &amp; Filters">
-                      <option value="fisheye_lens">Fisheye Spherical Lens</option>
-                      <option value="swirl_vortex_lens">Swirl Vortex Whirlpool Lens</option>
-                      <option value="water_ripple_lens">Water Caustic Ripple Lens</option>
-                      <option value="kaleidoscope_prism_lens">Kaleidoscope Symmetrical Lens</option>
-                      <option value="crt_monitor_lens">Retro CRT Monitor Lens</option>
-                      <option value="cyberpunk_duotone_lens">Cyberpunk Duotone Lens</option>
-                      <option value="thermal_predator_lens">Infrared Thermal Heat Lens</option>
-                      <option value="kuwahara_oil_canvas">Kuwahara Oil Painting Canvas</option>
-                      <option value="chromatic_aberration_lens">Chromatic RGB Split Lens</option>
-                      <option value="vhs_glitch_lens">VHS Glitch Tear Lens</option>
-                      <option value="frosted_glass_lens">Frosted Glass Distortion Lens</option>
-                      <option value="solarized_dream_lens">Solarized Sabattier Lens</option>
-                      <option value="neon_bloom_lens">Neon Bloom Glow Lens</option>
-                    </optgroup>
-                    <optgroup label="Artistic &amp; Media Fills">
-                      <option value="soft_watercolor">Soft Watercolor Wash</option>
-                      <option value="manga_screentone">Manga Screentone Cel</option>
-                      <option value="comic_cel">4-Level Cel Shading</option>
-                      <option value="vintage_engraving">Vintage Engraved Fills</option>
-                      <option value="denim_fabric">Denim Twill Weave</option>
-                    </optgroup>
-                    <optgroup label="Distortion &amp; Dynamics">
-                      <option value="warped_marble">Warped Liquid Marble</option>
-                      <option value="noise_dissolve">Noise Dissolve / Sand</option>
-                      <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
-                      <option value="cracked_earth">Cracked Mud Fissures</option>
-                      <option value="glitch_heatwave">Glitch Heatwave</option>
-                    </optgroup>
-                    <optgroup label="Sci-Fi &amp; Fantasy">
-                      <option value="circuit_tech">Cyber Circuit Board</option>
-                      <option value="dragon_scales">Mythic Dragon Scales</option>
-                      <option value="inverted_negative">Inverted Texture Mask</option>
-                    </optgroup>
-                  </select>
-                  <button id="btn-save-fill-preset" class="btn btn-secondary btn-sm" title="Save Current Fill as Custom Preset" style="padding: 2px 6px; font-size: 10px;">Save</button>
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Hardness %</label>
-                <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
-              </div>
-              <div class="form-row">
-                <label>Soft Reach</label>
-                <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
-              </div>
-              <div class="form-row">
-                <label>Warp Wave</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
-                  <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Noise Jitter</label>
-                <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Swirl Vortex</label>
-                <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Posterize</label>
-                <select id="prop-fill-tex-posterize">
-                  <option value="0">0: Smooth / Off</option>
-                  <option value="2">2 Levels (B&amp;W)</option>
-                  <option value="3">3 Levels</option>
-                  <option value="4">4 Levels (Cel)</option>
-                  <option value="6">6 Levels</option>
-                  <option value="8">8 Levels</option>
-                  <option value="12">12 Levels</option>
-                  <option value="16">16 Levels</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Invert Mask</label>
-                <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-                  <input type="checkbox" id="prop-fill-tex-invert">
-                  <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
-                </label>
-              </div>
-
-              <div class="section-header" style="margin-top: 8px;">Fill WASM Plugin &amp; Lens</div>
-              <div class="form-row">
-                <label>Enable</label>
-                <input type="checkbox" id="prop-fill-filter-enabled">
-              </div>
-              <div class="form-row">
-                <label>Target</label>
-                <select id="prop-fill-filter-target">
-                  <option value="fill" selected>Fill Surface</option>
-                  <option value="backdrop">Backdrop Lens</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Plugin</label>
-                <select id="prop-fill-filter-plugin">
-                  <option value="bloom">Bloom Glow</option>
-                  <option value="blur">Box Blur</option>
-                  <option value="brightness">Brightness</option>
-                  <option value="chromatic">Chromatic Aberration</option>
-                  <option value="contrast">Contrast</option>
-                  <option value="dither">Ordered Dither</option>
-                  <option value="duotone">Duotone Gradient</option>
-                  <option value="edge">Edge Detection</option>
-                  <option value="emboss">3D Emboss</option>
-                  <option value="fisheye">Fisheye Lens</option>
-                  <option value="frosted_glass">Frosted Glass</option>
-                  <option value="glitch">VHS Glitch</option>
-                  <option value="grayscale">Grayscale</option>
-                  <option value="halftone_dot">Halftone Screen Dots</option>
-                  <option value="invert">Invert</option>
-                  <option value="kaleidoscope">Kaleidoscope Lens</option>
-                  <option value="kuwahara">Oil Painting (Kuwahara)</option>
-                  <option value="noise">Film Grain / Noise</option>
-                  <option value="pixelate">Pixelate Mosaic</option>
-                  <option value="ripple">Water Ripple Lens</option>
-                  <option value="scanline">CRT Scanlines</option>
-                  <option value="sepia">Sepia Vintage</option>
-                  <option value="sharpen">Sharpen (Unsharp Mask)</option>
-                  <option value="solarize">Solarize (Sabattier)</option>
-                  <option value="swirl">Swirl Vortex</option>
-                  <option value="thermal">Thermal Vision</option>
-                  <option value="threshold">Binary Threshold</option>
-                  <option value="vignette">Vignette Lens</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>P1 / P2</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <input type="number" id="prop-fill-filter-p1" placeholder="P1" value="0" style="width: 50%;">
-                  <input type="number" id="prop-fill-filter-p2" placeholder="P2" value="0" style="width: 50%;">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Opacity</label>
-                <input type="number" id="prop-fill-filter-opacity" min="0" max="1" step="0.05" value="1.0">
-              </div>
+        <!-- 3. Fill Dynamics & Presets -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Fill Dynamics &amp; Distortion</span>
+          </div>
+          <div class="form-row">
+            <label>Preset</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <select id="prop-fill-preset" style="flex: 1;">
+                <option value="custom">-- Custom Settings --</option>
+                <option value="default">Solid Flat Color (Default)</option>
+                <optgroup id="grp-custom-fill-presets" label="Custom Fill Presets"></optgroup>
+                <optgroup label="WASM Optical Lenses &amp; Filters">
+                  <option value="fisheye_lens">Fisheye Spherical Lens</option>
+                  <option value="swirl_vortex_lens">Swirl Vortex Whirlpool Lens</option>
+                  <option value="water_ripple_lens">Water Caustic Ripple Lens</option>
+                  <option value="kaleidoscope_prism_lens">Kaleidoscope Symmetrical Lens</option>
+                  <option value="crt_monitor_lens">Retro CRT Monitor Lens</option>
+                  <option value="cyberpunk_duotone_lens">Cyberpunk Duotone Lens</option>
+                  <option value="thermal_predator_lens">Infrared Thermal Heat Lens</option>
+                  <option value="kuwahara_oil_canvas">Kuwahara Oil Painting Canvas</option>
+                  <option value="chromatic_aberration_lens">Chromatic RGB Split Lens</option>
+                  <option value="vhs_glitch_lens">VHS Glitch Tear Lens</option>
+                  <option value="frosted_glass_lens">Frosted Glass Distortion Lens</option>
+                  <option value="solarized_dream_lens">Solarized Sabattier Lens</option>
+                  <option value="neon_bloom_lens">Neon Bloom Glow Lens</option>
+                </optgroup>
+                <optgroup label="Artistic &amp; Media Fills">
+                  <option value="soft_watercolor">Soft Watercolor Wash</option>
+                  <option value="manga_screentone">Manga Screentone Cel</option>
+                  <option value="comic_cel">4-Level Cel Shading</option>
+                  <option value="vintage_engraving">Vintage Engraved Fills</option>
+                  <option value="denim_fabric">Denim Twill Weave</option>
+                </optgroup>
+                <optgroup label="Distortion &amp; Dynamics">
+                  <option value="warped_marble">Warped Liquid Marble</option>
+                  <option value="noise_dissolve">Noise Dissolve / Sand</option>
+                  <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
+                  <option value="cracked_earth">Cracked Mud Fissures</option>
+                  <option value="glitch_heatwave">Glitch Heatwave</option>
+                </optgroup>
+                <optgroup label="Sci-Fi &amp; Fantasy">
+                  <option value="circuit_tech">Cyber Circuit Board</option>
+                  <option value="dragon_scales">Mythic Dragon Scales</option>
+                  <option value="inverted_negative">Inverted Texture Mask</option>
+                </optgroup>
+              </select>
+              <button id="btn-save-fill-preset" class="btn btn-secondary btn-sm" title="Save Current Fill as Custom Preset" style="padding: 2px 6px; font-size: 10px;">Save</button>
             </div>
           </div>
+          <div class="form-row">
+            <label>Hardness %</label>
+            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Soft Reach</label>
+            <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
+          </div>
+          <div class="form-row">
+            <label>Warp Wave</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
+              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Noise Jitter</label>
+            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Swirl Vortex</label>
+            <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Posterize</label>
+            <select id="prop-fill-tex-posterize">
+              <option value="0">0: Smooth / Off</option>
+              <option value="2">2 Levels (B&amp;W)</option>
+              <option value="3">3 Levels</option>
+              <option value="4">4 Levels (Cel)</option>
+              <option value="6">6 Levels</option>
+              <option value="8">8 Levels</option>
+              <option value="12">12 Levels</option>
+              <option value="16">16 Levels</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Invert Mask</label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="prop-fill-tex-invert">
+              <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
+            </label>
+          </div>
+        </div>
 
-          <div class="section-header" style="margin-top: 6px;">Blend &amp; Opacity</div>
+        <!-- 4. Fill WASM Plugin & Lens -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Fill WASM Plugin &amp; Lens</span>
+          </div>
+          <div class="form-row">
+            <label>Enable</label>
+            <input type="checkbox" id="prop-fill-filter-enabled">
+          </div>
+          <div class="form-row">
+            <label>Target</label>
+            <select id="prop-fill-filter-target">
+              <option value="fill" selected>Fill Surface</option>
+              <option value="backdrop">Backdrop Lens</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Plugin</label>
+            <select id="prop-fill-filter-plugin">
+              <option value="bloom">Bloom Glow</option>
+              <option value="blur">Box Blur</option>
+              <option value="brightness">Brightness</option>
+              <option value="chromatic">Chromatic Aberration</option>
+              <option value="contrast">Contrast</option>
+              <option value="dither">Ordered Dither</option>
+              <option value="duotone">Duotone Gradient</option>
+              <option value="edge">Edge Detection</option>
+              <option value="emboss">3D Emboss</option>
+              <option value="fisheye">Fisheye Lens</option>
+              <option value="frosted_glass">Frosted Glass</option>
+              <option value="glitch">VHS Glitch</option>
+              <option value="grayscale">Grayscale</option>
+              <option value="halftone_dot">Halftone Screen Dots</option>
+              <option value="invert">Invert</option>
+              <option value="kaleidoscope">Kaleidoscope Lens</option>
+              <option value="kuwahara">Oil Painting (Kuwahara)</option>
+              <option value="noise">Film Grain / Noise</option>
+              <option value="pixelate">Pixelate Mosaic</option>
+              <option value="ripple">Water Ripple Lens</option>
+              <option value="scanline">CRT Scanlines</option>
+              <option value="sepia">Sepia Vintage</option>
+              <option value="sharpen">Sharpen (Unsharp Mask)</option>
+              <option value="solarize">Solarize (Sabattier)</option>
+              <option value="swirl">Swirl Vortex</option>
+              <option value="thermal">Thermal Vision</option>
+              <option value="threshold">Binary Threshold</option>
+              <option value="vignette">Vignette Lens</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>P1 / P2</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-fill-filter-p1" placeholder="P1" value="0" style="width: 50%;">
+              <input type="number" id="prop-fill-filter-p2" placeholder="P2" value="0" style="width: 50%;">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Opacity</label>
+            <input type="number" id="prop-fill-filter-opacity" min="0" max="1" step="0.05" value="1.0">
+          </div>
+        </div>
+
+        <!-- 5. Blend & Opacity -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Blend &amp; Opacity</span>
+          </div>
           <div class="form-row">
             <label>Opacity</label>
             <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
@@ -2204,14 +2349,13 @@
         </div>
       </div>
 
-      <!-- Stroke Tool & Popover -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn tool-swatch-btn" id="btn-popover-stroke" title="Stroke &amp; Outline" style="position: relative; display: flex; align-items: center; justify-content: center;">
-          <div id="swatch-stroke-preview" style="width: 18px; height: 18px; background: transparent; border: 3.5px solid #1d2021; border-radius: 3px; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
-          <span class="flyout-indicator">▸</span>
-        </button>
-        <div id="flyout-stroke" class="tool-flyout" style="width: 250px; overflow: visible;">
-          <div class="flyout-title">Stroke &amp; Outline</div>
+      <!-- Tab 2: Stroke & Brush Dynamics -->
+      <div class="left-tab-content" id="tab-left-stroke">
+        <!-- 1. Stroke Properties -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Stroke &amp; Outline</span>
+          </div>
           <div class="form-row">
             <label>Color</label>
             <div style="display: flex; gap: 6px; width: 100%;">
@@ -2247,8 +2391,13 @@
             <label>No Stroke</label>
             <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
           </div>
+        </div>
 
-          <div class="section-header" style="margin-top: 6px;">Stroke Texture</div>
+        <!-- 2. Stroke Texture -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Stroke Texture</span>
+          </div>
           <div class="form-row">
             <label>Mode</label>
             <select id="prop-stroke-tex-mode">
@@ -2342,258 +2491,267 @@
             <label>Grain / Grit</label>
             <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
           </div>
+        </div>
 
-          <div class="flyout-divider" style="margin: 4px 0;"></div>
-
-          <!-- Brush Dynamics Side Submenu Trigger & Panel -->
-          <div class="tool-submenu-wrap" id="wrap-stroke-brush-dynamics">
-            <button type="button" id="btn-open-brush-dynamics" class="btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px; font-size: 11px; font-weight: 600; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; color: var(--text-bright);">
-              <span>Brush Dynamics</span>
-              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
-            </button>
-            <div id="flyout-brush-dynamics" class="tool-submenu" style="max-height: calc(100vh - 40px); overflow-y: auto;">
-              <div class="flyout-title">Brush Dynamics</div>
-              <div class="form-row">
-                <label>Preset</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <select id="prop-brush-preset" style="flex: 1;">
-                    <option value="custom">-- Custom Settings --</option>
-                    <option value="default">Solid Vector (Default)</option>
-                    <optgroup label="WASM FX &amp; Lens Brushes">
-                      <option value="neon_glow_brush">Neon Glow Stroke (Bloom)</option>
-                      <option value="glitch_vhs_pen">VHS Glitch Tear Pen</option>
-                      <option value="comic_halftone_ink">Halftone Screen Dots</option>
-                      <option value="chromatic_prism_brush">Chromatic Aberration Prism</option>
-                      <option value="kuwahara_oil_brush">Kuwahara Painterly Oil</option>
-                      <option value="thermal_heat_pen">Thermal Heatmap Sensor</option>
-                      <option value="crt_pixel_pen">Retro CRT Scanline Pen</option>
-                      <option value="frosted_highlighter">Frosted Glass Diffuse</option>
-                      <option value="dither_retro_pen">1-Bit Bayer Dither Pen</option>
-                      <option value="emboss_relief_pen">3D Emboss Bas-Relief</option>
-                    </optgroup>
-                    <optgroup label="Pencils &amp; Sketching">
-                      <option value="pencil">HB Graphite Pencil</option>
-                      <option value="soft_pencil">6B Soft Graphite</option>
-                      <option value="mech_pencil">0.5mm Mechanical</option>
-                      <option value="blue_pencil">Blue Col-Erase</option>
-                      <option value="tech_pen">Technical Drafting Pen</option>
-                    </optgroup>
-                    <optgroup label="Inkers &amp; Line Art">
-                      <option value="inker">Studio Inker</option>
-                      <option value="gpen">Manga G-Pen</option>
-                      <option value="dry_ink">Dry Ink Bristle</option>
-                      <option value="fountain">Calligraphy Chisel</option>
-                      <option value="brush_pen">Sumi-e Brush Pen</option>
-                    </optgroup>
-                    <optgroup label="Markers &amp; Lettering">
-                      <option value="marker">Art Chisel Marker</option>
-                      <option value="brush_marker">Flexible Brush Marker</option>
-                      <option value="highlighter">Highlighter</option>
-                    </optgroup>
-                    <optgroup label="Paint &amp; Wet Media">
-                      <option value="oil">Oil Impasto (Wet)</option>
-                      <option value="acrylic">Wet Acrylic</option>
-                      <option value="watercolor">Watercolor Wash</option>
-                      <option value="gouache">Matte Gouache</option>
-                      <option value="palette_knife">Palette Knife</option>
-                    </optgroup>
-                    <optgroup label="Charcoal &amp; Pastels">
-                      <option value="charcoal">Vine Dusty Charcoal</option>
-                      <option value="hard_charcoal">Compressed Charcoal</option>
-                      <option value="pastel">Chalk Pastel</option>
-                      <option value="conte">Conté Crayon</option>
-                    </optgroup>
-                    <optgroup label="Airbrush &amp; Sprays">
-                      <option value="airbrush">Soft Airbrush</option>
-                      <option value="hard_airbrush">Flow Airbrush</option>
-                      <option value="spray">Aerosol Splatter Spray</option>
-                    </optgroup>
-                    <optgroup label="Blenders &amp; Smudgers">
-                      <option value="smudge">Finger Smudge</option>
-                      <option value="blend">Paint Blender</option>
-                      <option value="rake_blend">Bristle Smear</option>
-                    </optgroup>
-                    <optgroup label="Special FX">
-                      <option value="pixel">Pixel 1px Pencil</option>
-                      <option value="halftone">Manga Screentone</option>
-                      <option value="crosshatch">Crosshatch Texture</option>
-                    </optgroup>
-                    <optgroup label="Textured &amp; Media Grain">
-                      <option value="paper_texture">Paper Grain Brush</option>
-                      <option value="canvas_texture">Canvas Weave Brush</option>
-                      <option value="watercolor_paper">Watercolor Wash Brush</option>
-                      <option value="charcoal_tooth_brush">Charcoal Tooth Brush</option>
-                      <option value="noise_grain">Perlin Noise Grain</option>
-                      <option value="grunge_distress">Grunge Distress Brush</option>
-                      <option value="wood_grain">Wood Grain Brush</option>
-                      <option value="sandpaper_grit">Sandpaper Grit Brush</option>
-                      <option value="crackle_fissure">Crackle Fissure Brush</option>
-                      <option value="marble_veins">Marble Veins Brush</option>
-                      <option value="halftone_screentone">Halftone Screentone</option>
-                      <option value="crosshatch_screentone">Crosshatch Screentone</option>
-                      <option value="pastel_honeycomb">Honeycomb Pastel</option>
-                      <option value="impasto_oil">Impasto Knife Crests</option>
-                      <option value="sponge_fx">Sea Sponge Porous</option>
-                      <option value="manga_sand_screentone">Manga Sandtone</option>
-                      <option value="stucco_plaster">Stucco Plaster Wall</option>
-                      <option value="salt_bloom_wash">Salt Bloom Wash</option>
-                      <option value="tree_bark_brush">Tree Bark Grain</option>
-                      <option value="vintage_engraving">Vintage Engraving</option>
-                      <option value="granite_rock">Granite Rock Flecks</option>
-                      <option value="coarse_burlap">Coarse Burlap Jute</option>
-                      <option value="cracked_mud">Cracked Mud Earth</option>
-                      <option value="denim_fabric">Denim Twill Fabric</option>
-                    </optgroup>
-                    <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
-                  </select>
-                  <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Flow %</label>
-                <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
-              </div>
-              <div class="form-row">
-                <label>Hardness %</label>
-                <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
-              </div>
-              <div class="form-row">
-                <label>Spacing %</label>
-                <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
-              </div>
-              <div class="form-row">
-                <label>Scatter</label>
-                <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Roundness %</label>
-                <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
-              </div>
-              <div class="form-row">
-                <label>Angle °</label>
-                <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Dab Shape</label>
-                <select id="prop-brush-shape">
-                  <option value="0">Round</option>
-                  <option value="1">Square</option>
-                  <option value="2">Ellipse</option>
-                  <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Dab Blend</label>
-                <select id="prop-brush-dab-blend">
-                  <option value="0">Normal (Direct)</option>
-                  <option value="1">Smudge</option>
-                  <option value="2">Wet / Glaze</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Auto-Rotate</label>
-                <select id="prop-brush-autorotate">
-                  <option value="0">Fixed Angle</option>
-                  <option value="1">Follow Stroke Direction</option>
-                </select>
-              </div>
-
-              <div class="section-header" style="margin-top: 6px;">Taper &amp; Jitters</div>
-              <div class="form-row">
-                <label>Taper In / Out</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
-                  <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Size Jitter %</label>
-                <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Angle Jitter %</label>
-                <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Opacity Jitter</label>
-                <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
-              </div>
-
-              <div class="section-header" style="margin-top: 6px;">Wet Media &amp; Smudge</div>
-              <div class="form-row">
-                <label>Wetness %</label>
-                <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Color Pickup</label>
-                <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Depletion %</label>
-                <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
-              </div>
-              <div class="form-row">
-                <label>Smudge %</label>
-                <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
-              </div>
-
-              <div class="section-header" style="margin-top: 8px;">Stroke WASM Plugin &amp; Lens</div>
-              <div class="form-row">
-                <label>Enable</label>
-                <input type="checkbox" id="prop-stroke-filter-enabled">
-              </div>
-              <div class="form-row">
-                <label>Target</label>
-                <select id="prop-stroke-filter-target">
-                  <option value="stroke" selected>Stroke Outline</option>
-                  <option value="backdrop">Backdrop Lens</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Plugin</label>
-                <select id="prop-stroke-filter-plugin">
-                  <option value="bloom">Bloom Glow</option>
-                  <option value="blur">Box Blur</option>
-                  <option value="brightness">Brightness</option>
-                  <option value="chromatic">Chromatic Aberration</option>
-                  <option value="contrast">Contrast</option>
-                  <option value="dither">Ordered Dither</option>
-                  <option value="duotone">Duotone Gradient</option>
-                  <option value="edge">Edge Detection</option>
-                  <option value="emboss">3D Emboss</option>
-                  <option value="fisheye">Fisheye Lens</option>
-                  <option value="frosted_glass">Frosted Glass</option>
-                  <option value="glitch">VHS Glitch</option>
-                  <option value="grayscale">Grayscale</option>
-                  <option value="halftone_dot">Halftone Screen Dots</option>
-                  <option value="invert">Invert</option>
-                  <option value="kaleidoscope">Kaleidoscope Lens</option>
-                  <option value="kuwahara">Oil Painting (Kuwahara)</option>
-                  <option value="noise">Film Grain / Noise</option>
-                  <option value="pixelate">Pixelate Mosaic</option>
-                  <option value="ripple">Water Ripple Lens</option>
-                  <option value="scanline">CRT Scanlines</option>
-                  <option value="sepia">Sepia Vintage</option>
-                  <option value="sharpen">Sharpen (Unsharp Mask)</option>
-                  <option value="solarize">Solarize (Sabattier)</option>
-                  <option value="swirl">Swirl Vortex</option>
-                  <option value="thermal">Thermal Vision</option>
-                  <option value="threshold">Binary Threshold</option>
-                  <option value="vignette">Vignette Lens</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>P1 / P2</label>
-                <div style="display: flex; gap: 4px; width: 100%;">
-                  <input type="number" id="prop-stroke-filter-p1" placeholder="P1" value="0" style="width: 50%;">
-                  <input type="number" id="prop-stroke-filter-p2" placeholder="P2" value="0" style="width: 50%;">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Opacity</label>
-                <input type="number" id="prop-stroke-filter-opacity" min="0" max="1" step="0.05" value="1.0">
-              </div>
+        <!-- 3. Brush Dynamics & Presets -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Brush Dynamics &amp; Presets</span>
+          </div>
+          <div class="form-row">
+            <label>Preset</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <select id="prop-brush-preset" style="flex: 1;">
+                <option value="custom">-- Custom Settings --</option>
+                <option value="default">Solid Vector (Default)</option>
+                <optgroup label="WASM FX &amp; Lens Brushes">
+                  <option value="neon_glow_brush">Neon Glow Stroke (Bloom)</option>
+                  <option value="glitch_vhs_pen">VHS Glitch Tear Pen</option>
+                  <option value="comic_halftone_ink">Halftone Screen Dots</option>
+                  <option value="chromatic_prism_brush">Chromatic Aberration Prism</option>
+                  <option value="kuwahara_oil_brush">Kuwahara Painterly Oil</option>
+                  <option value="thermal_heat_pen">Thermal Heatmap Sensor</option>
+                  <option value="crt_pixel_pen">Retro CRT Scanline Pen</option>
+                  <option value="frosted_highlighter">Frosted Glass Diffuse</option>
+                  <option value="dither_retro_pen">1-Bit Bayer Dither Pen</option>
+                  <option value="emboss_relief_pen">3D Emboss Bas-Relief</option>
+                </optgroup>
+                <optgroup label="Pencils &amp; Sketching">
+                  <option value="pencil">HB Graphite Pencil</option>
+                  <option value="soft_pencil">6B Soft Graphite</option>
+                  <option value="mech_pencil">0.5mm Mechanical</option>
+                  <option value="blue_pencil">Blue Col-Erase</option>
+                  <option value="tech_pen">Technical Drafting Pen</option>
+                </optgroup>
+                <optgroup label="Inkers &amp; Line Art">
+                  <option value="inker">Studio Inker</option>
+                  <option value="gpen">Manga G-Pen</option>
+                  <option value="dry_ink">Dry Ink Bristle</option>
+                  <option value="fountain">Calligraphy Chisel</option>
+                  <option value="brush_pen">Sumi-e Brush Pen</option>
+                </optgroup>
+                <optgroup label="Markers &amp; Lettering">
+                  <option value="marker">Art Chisel Marker</option>
+                  <option value="brush_marker">Flexible Brush Marker</option>
+                  <option value="highlighter">Highlighter</option>
+                </optgroup>
+                <optgroup label="Paint &amp; Wet Media">
+                  <option value="oil">Oil Impasto (Wet)</option>
+                  <option value="acrylic">Wet Acrylic</option>
+                  <option value="watercolor">Watercolor Wash</option>
+                  <option value="gouache">Matte Gouache</option>
+                  <option value="palette_knife">Palette Knife</option>
+                </optgroup>
+                <optgroup label="Charcoal &amp; Pastels">
+                  <option value="charcoal">Vine Dusty Charcoal</option>
+                  <option value="hard_charcoal">Compressed Charcoal</option>
+                  <option value="pastel">Chalk Pastel</option>
+                  <option value="conte">Conté Crayon</option>
+                </optgroup>
+                <optgroup label="Airbrush &amp; Sprays">
+                  <option value="airbrush">Soft Airbrush</option>
+                  <option value="hard_airbrush">Flow Airbrush</option>
+                  <option value="spray">Aerosol Splatter Spray</option>
+                </optgroup>
+                <optgroup label="Blenders &amp; Smudgers">
+                  <option value="smudge">Finger Smudge</option>
+                  <option value="blend">Paint Blender</option>
+                  <option value="rake_blend">Bristle Smear</option>
+                </optgroup>
+                <optgroup label="Special FX">
+                  <option value="pixel">Pixel 1px Pencil</option>
+                  <option value="halftone">Manga Screentone</option>
+                  <option value="crosshatch">Crosshatch Texture</option>
+                </optgroup>
+                <optgroup label="Textured &amp; Media Grain">
+                  <option value="paper_texture">Paper Grain Brush</option>
+                  <option value="canvas_texture">Canvas Weave Brush</option>
+                  <option value="watercolor_paper">Watercolor Wash Brush</option>
+                  <option value="charcoal_tooth_brush">Charcoal Tooth Brush</option>
+                  <option value="noise_grain">Perlin Noise Grain</option>
+                  <option value="grunge_distress">Grunge Distress Brush</option>
+                  <option value="wood_grain">Wood Grain Brush</option>
+                  <option value="sandpaper_grit">Sandpaper Grit Brush</option>
+                  <option value="crackle_fissure">Crackle Fissure Brush</option>
+                  <option value="marble_veins">Marble Veins Brush</option>
+                  <option value="halftone_screentone">Halftone Screentone</option>
+                  <option value="crosshatch_screentone">Crosshatch Screentone</option>
+                  <option value="pastel_honeycomb">Honeycomb Pastel</option>
+                  <option value="impasto_oil">Impasto Knife Crests</option>
+                  <option value="sponge_fx">Sea Sponge Porous</option>
+                  <option value="manga_sand_screentone">Manga Sandtone</option>
+                  <option value="stucco_plaster">Stucco Plaster Wall</option>
+                  <option value="salt_bloom_wash">Salt Bloom Wash</option>
+                  <option value="tree_bark_brush">Tree Bark Grain</option>
+                  <option value="vintage_engraving">Vintage Engraving</option>
+                  <option value="granite_rock">Granite Rock Flecks</option>
+                  <option value="coarse_burlap">Coarse Burlap Jute</option>
+                  <option value="cracked_mud">Cracked Mud Earth</option>
+                  <option value="denim_fabric">Denim Twill Fabric</option>
+                </optgroup>
+                <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
+              </select>
+              <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
             </div>
+          </div>
+          <div class="form-row">
+            <label>Flow %</label>
+            <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Hardness %</label>
+            <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Spacing %</label>
+            <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
+          </div>
+          <div class="form-row">
+            <label>Scatter</label>
+            <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Roundness %</label>
+            <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Angle °</label>
+            <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Dab Shape</label>
+            <select id="prop-brush-shape">
+              <option value="0">Round</option>
+              <option value="1">Square</option>
+              <option value="2">Ellipse</option>
+              <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Dab Blend</label>
+            <select id="prop-brush-dab-blend">
+              <option value="0">Normal (Direct)</option>
+              <option value="1">Smudge</option>
+              <option value="2">Wet / Glaze</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Auto-Rotate</label>
+            <select id="prop-brush-autorotate">
+              <option value="0">Fixed Angle</option>
+              <option value="1">Follow Stroke Direction</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 4. Taper & Jitters -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Taper &amp; Jitters</span>
+          </div>
+          <div class="form-row">
+            <label>Taper In / Out</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
+              <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Size Jitter %</label>
+            <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Angle Jitter %</label>
+            <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Opacity Jitter</label>
+            <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
+          </div>
+        </div>
+
+        <!-- 5. Wet Media & Smudge -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Wet Media &amp; Smudge</span>
+          </div>
+          <div class="form-row">
+            <label>Wetness %</label>
+            <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Color Pickup</label>
+            <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Depletion %</label>
+            <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Smudge %</label>
+            <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+          </div>
+        </div>
+
+        <!-- 6. Stroke WASM Plugin & Lens -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Stroke WASM Plugin &amp; Lens</span>
+          </div>
+          <div class="form-row">
+            <label>Enable</label>
+            <input type="checkbox" id="prop-stroke-filter-enabled">
+          </div>
+          <div class="form-row">
+            <label>Target</label>
+            <select id="prop-stroke-filter-target">
+              <option value="stroke" selected>Stroke Outline</option>
+              <option value="backdrop">Backdrop Lens</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Plugin</label>
+            <select id="prop-stroke-filter-plugin">
+              <option value="bloom">Bloom Glow</option>
+              <option value="blur">Box Blur</option>
+              <option value="brightness">Brightness</option>
+              <option value="chromatic">Chromatic Aberration</option>
+              <option value="contrast">Contrast</option>
+              <option value="dither">Ordered Dither</option>
+              <option value="duotone">Duotone Gradient</option>
+              <option value="edge">Edge Detection</option>
+              <option value="emboss">3D Emboss</option>
+              <option value="fisheye">Fisheye Lens</option>
+              <option value="frosted_glass">Frosted Glass</option>
+              <option value="glitch">VHS Glitch</option>
+              <option value="grayscale">Grayscale</option>
+              <option value="halftone_dot">Halftone Screen Dots</option>
+              <option value="invert">Invert</option>
+              <option value="kaleidoscope">Kaleidoscope Lens</option>
+              <option value="kuwahara">Oil Painting (Kuwahara)</option>
+              <option value="noise">Film Grain / Noise</option>
+              <option value="pixelate">Pixelate Mosaic</option>
+              <option value="ripple">Water Ripple Lens</option>
+              <option value="scanline">CRT Scanlines</option>
+              <option value="sepia">Sepia Vintage</option>
+              <option value="sharpen">Sharpen (Unsharp Mask)</option>
+              <option value="solarize">Solarize (Sabattier)</option>
+              <option value="swirl">Swirl Vortex</option>
+              <option value="thermal">Thermal Vision</option>
+              <option value="threshold">Binary Threshold</option>
+              <option value="vignette">Vignette Lens</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>P1 / P2</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-stroke-filter-p1" placeholder="P1" value="0" style="width: 50%;">
+              <input type="number" id="prop-stroke-filter-p2" placeholder="P2" value="0" style="width: 50%;">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Opacity</label>
+            <input type="number" id="prop-stroke-filter-opacity" min="0" max="1" step="0.05" value="1.0">
           </div>
         </div>
       </div>
@@ -6468,24 +6626,6 @@
         const top = Math.max(10, Math.min(rect.top, window.innerHeight - flyoutH - 16));
         flyout.style.top = `${top}px`;
         flyout.style.left = `${rect.right + 6}px`;
-
-        if (flyout.id === 'flyout-stroke') {
-          const sub = document.getElementById('flyout-brush-dynamics');
-          if (sub) {
-            const subH = 440;
-            const subTop = Math.max(10, Math.min(top, window.innerHeight - subH - 16));
-            sub.style.top = `${subTop}px`;
-            sub.style.left = `${rect.right + 6 + 250 + 4}px`;
-          }
-        } else if (flyout.id === 'flyout-fill') {
-          const sub = document.getElementById('flyout-fill-dynamics');
-          if (sub) {
-            const subH = 440;
-            const subTop = Math.max(10, Math.min(top, window.innerHeight - subH - 16));
-            sub.style.top = `${subTop}px`;
-            sub.style.left = `${rect.right + 6 + 250 + 4}px`;
-          }
-        }
       }
 
       const shapeFlyout = document.getElementById('flyout-shapes');
@@ -6671,6 +6811,11 @@
             toggleTimelineDock();
           } else {
             document.getElementById('tool-text')?.click();
+          }
+        } else if (key === 'f') {
+          if (e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('btn-toggle-left-sidebar')?.click();
           }
         } else if (key === '0') {
           zoomToFit();
@@ -7855,9 +8000,7 @@
         { btnId: 'btn-popover-node-curves', flyoutId: 'flyout-node-curves' },
         { btnId: 'btn-popover-align', flyoutId: 'flyout-align' },
         { btnId: 'btn-popover-pathfinder', flyoutId: 'flyout-pathfinder' },
-        { btnId: 'btn-popover-snap', flyoutId: 'flyout-snap' },
-        { btnId: 'btn-popover-fill', flyoutId: 'flyout-fill' },
-        { btnId: 'btn-popover-stroke', flyoutId: 'flyout-stroke' }
+        { btnId: 'btn-popover-snap', flyoutId: 'flyout-snap' }
       ];
 
       popoverToggles.forEach(({ btnId, flyoutId }) => {
@@ -7875,40 +8018,70 @@
         });
       });
 
-      const positionFillDyn = () => {
-        const flyoutFill = document.getElementById('flyout-fill');
-        const flyoutFillDyn = document.getElementById('flyout-fill-dynamics');
-        if (!flyoutFill || !flyoutFillDyn) return;
-        const rect = flyoutFill.getBoundingClientRect();
-        const subH = flyoutFillDyn.offsetHeight || 460;
-        const subTop = Math.max(10, Math.min(rect.top, window.innerHeight - subH - 16));
-        flyoutFillDyn.style.top = `${subTop}px`;
-        flyoutFillDyn.style.left = `${rect.right + 4}px`;
-      };
+      // ── Left Retractable Sidebar (Fill & Stroke Dynamics) ──
+      const leftSidebarEl = document.getElementById('left-sidebar');
+      const leftTabButtons = document.querySelectorAll('.left-tab-btn');
+      const leftTabContents = document.querySelectorAll('.left-tab-content');
 
-      document.getElementById('wrap-fill-dynamics')?.addEventListener('mouseenter', positionFillDyn);
-      document.getElementById('btn-open-fill-dynamics')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        positionFillDyn();
-        document.getElementById('wrap-fill-dynamics')?.classList.toggle('open');
+      function switchLeftTab(targetTabId) {
+        if (!leftSidebarEl) return;
+        leftSidebarEl.classList.remove('collapsed');
+        leftTabButtons.forEach(b => {
+          b.classList.toggle('active', b.dataset.leftTab === targetTabId);
+        });
+        leftTabContents.forEach(c => {
+          c.classList.toggle('active', c.id === targetTabId);
+        });
+        updateInspector();
+        drawOverlay();
+      }
+      window.switchLeftTab = switchLeftTab;
+
+      leftTabButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const tabId = btn.dataset.leftTab;
+          if (tabId) switchLeftTab(tabId);
+        });
       });
 
-      const positionBrushDyn = () => {
-        const flyoutStroke = document.getElementById('flyout-stroke');
-        const flyoutBrush = document.getElementById('flyout-brush-dynamics');
-        if (!flyoutStroke || !flyoutBrush) return;
-        const rect = flyoutStroke.getBoundingClientRect();
-        const subH = flyoutBrush.offsetHeight || 460;
-        const subTop = Math.max(10, Math.min(rect.top, window.innerHeight - subH - 16));
-        flyoutBrush.style.top = `${subTop}px`;
-        flyoutBrush.style.left = `${rect.right + 4}px`;
-      };
+      document.getElementById('btn-collapse-left-sidebar')?.addEventListener('click', () => {
+        leftSidebarEl?.classList.add('collapsed');
+        drawOverlay();
+      });
 
-      document.getElementById('wrap-stroke-brush-dynamics')?.addEventListener('mouseenter', positionBrushDyn);
-      document.getElementById('btn-open-brush-dynamics')?.addEventListener('click', (e) => {
+      document.getElementById('btn-toggle-left-sidebar')?.addEventListener('click', () => {
+        leftSidebarEl?.classList.toggle('collapsed');
+        drawOverlay();
+      });
+
+      document.getElementById('btn-popover-fill')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        positionBrushDyn();
-        document.getElementById('wrap-stroke-brush-dynamics')?.classList.toggle('open');
+        if (leftSidebarEl?.classList.contains('collapsed')) {
+          switchLeftTab('tab-left-fill');
+        } else {
+          const isFillActive = document.getElementById('tab-left-fill')?.classList.contains('active');
+          if (isFillActive) {
+            leftSidebarEl?.classList.add('collapsed');
+            drawOverlay();
+          } else {
+            switchLeftTab('tab-left-fill');
+          }
+        }
+      });
+
+      document.getElementById('btn-popover-stroke')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (leftSidebarEl?.classList.contains('collapsed')) {
+          switchLeftTab('tab-left-stroke');
+        } else {
+          const isStrokeActive = document.getElementById('tab-left-stroke')?.classList.contains('active');
+          if (isStrokeActive) {
+            leftSidebarEl?.classList.add('collapsed');
+            drawOverlay();
+          } else {
+            switchLeftTab('tab-left-stroke');
+          }
+        }
       });
 
       document.addEventListener('click', (e) => {
