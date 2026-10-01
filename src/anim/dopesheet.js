@@ -777,6 +777,19 @@ export class DopeSheetChannel {
     return null;
   }
 
+  moveKeyframe(fromFrame, toFrame) {
+    if (fromFrame === toFrame) return this.getKeyframeAt(fromFrame);
+    const kf = this.getKeyframeAt(fromFrame);
+    if (!kf) return null;
+    const existingTargetIdx = this.keyframes.findIndex(k => k.frame === toFrame);
+    if (existingTargetIdx !== -1) {
+      this.keyframes.splice(existingTargetIdx, 1);
+    }
+    kf.frame = toFrame;
+    this.keyframes.sort((a, b) => a.frame - b.frame);
+    return kf;
+  }
+
   getKeyframeAt(frame) {
     return this.keyframes.find(k => k.frame === frame) || null;
   }
@@ -906,6 +919,18 @@ export class DopeSheetObject {
       if (removed) anyRemoved = true;
     }
     return anyRemoved;
+  }
+
+  moveKeyframe(fromFrame, toFrame) {
+    if (fromFrame === toFrame) return false;
+    let movedAny = false;
+    for (const ch of this.channels.values()) {
+      if (ch.hasKeyframeAt(fromFrame)) {
+        ch.moveKeyframe(fromFrame, toFrame);
+        movedAny = true;
+      }
+    }
+    return movedAny;
   }
 
   getKeyframeTweenAt(frame) {
@@ -1216,13 +1241,22 @@ export class DopeSheet {
       }
       return null;
     } else {
-      const frame = paramKeyOrFrame;
       const removed = obj.removeKeyframesAtFrame(frame);
       if (removed) {
         this.notify('keyframeRemoved', { objectId, frame });
       }
       return removed;
     }
+  }
+
+  moveKeyframe(objectId, fromFrame, toFrame) {
+    const obj = this.objects.get(objectId);
+    if (!obj) return false;
+    const moved = obj.moveKeyframe(fromFrame, toFrame);
+    if (moved) {
+      this.notify('keyframeMoved', { objectId, fromFrame, toFrame });
+    }
+    return moved;
   }
 
   setFrame(frame) {

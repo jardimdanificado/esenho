@@ -434,6 +434,13 @@ singleTrackObj.removeKeyframesAtFrame(15);
 assert.deepStrictEqual(singleTrackObj.getKeyframeFrames(), [1, 30]);
 assert.strictEqual(singleTrackObj.hasAnyKeyframeAt(15), false);
 
+// Test moving keyframe across channels and object
+singleTrackObj.moveKeyframe(30, 45);
+assert.deepStrictEqual(singleTrackObj.getKeyframeFrames(), [1, 45]);
+assert.strictEqual(singleTrackObj.hasAnyKeyframeAt(30), false);
+assert.strictEqual(singleTrackObj.hasAnyKeyframeAt(45), true);
+assert.strictEqual(singleTrackObj.channels.get('x').getKeyframeAt(45).value, 300);
+
 console.log('✔ Single-track per object operations passed');
 
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');

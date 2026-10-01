@@ -1662,7 +1662,8 @@
       </div>
     </div>
 
-    <!-- Sidebar Toggle -->
+    <!-- Timeline / DopeSheet & Sidebar Toggles -->
+    <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (Shift+T)">🎬 Timeline</button>
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
 
@@ -2611,6 +2612,9 @@
       </div>
       <canvas id="overlay-canvas"></canvas>
 
+      <!-- DopeSheet / Animation Timeline Dock -->
+      <div id="dopesheet-dock" style="display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 240px; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.5);"></div>
+
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
     </div>
@@ -2745,6 +2749,9 @@
             <div style="display: flex; gap: 4px; margin-top: 2px;">
               <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
               <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
+            </div>
+            <div style="display: flex; gap: 4px; margin-top: 4px;">
+              <button id="scene-btn-open-timeline" class="btn-sm" style="flex: 1; font-size: 10px; background: #32302f; color: #fabd2f; border: 1px solid #504945; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Open / Close DopeSheet Timeline Dock">🎬 Open Timeline / DopeSheet</button>
             </div>
           </div>
         </div>
@@ -9441,25 +9448,27 @@
         }
       }
 
-      const btnToggleTimeline = document.getElementById('btn-toggle-timeline');
-      const dopesheetDock = document.getElementById('dopesheet-dock');
-
       async function toggleTimelineDock() {
         if (!dopeSheet) await initStudioDopeSheet();
-        if (dopesheetDock) {
-          const isHidden = dopesheetDock.style.display === 'none';
-          dopesheetDock.style.display = isHidden ? 'block' : 'none';
-          if (btnToggleTimeline) {
-            btnToggleTimeline.style.background = isHidden ? '#d79921' : '';
-            btnToggleTimeline.style.color = isHidden ? '#1d2021' : '';
+        const dock = document.getElementById('dopesheet-dock');
+        const btn = document.getElementById('btn-toggle-timeline');
+        if (dock) {
+          const isHidden = dock.style.display === 'none' || !dock.style.display;
+          dock.style.display = isHidden ? 'block' : 'none';
+          if (btn) {
+            btn.style.background = isHidden ? '#d79921' : '';
+            btn.style.color = isHidden ? '#1d2021' : '';
           }
           if (isHidden && dopeSheetUI) {
             dopeSheetUI.updateGrid();
+            dopeSheetUI.updatePlayhead();
           }
         }
       }
+      window.toggleTimelineDock = toggleTimelineDock;
 
-      btnToggleTimeline?.addEventListener('click', toggleTimelineDock);
+      document.getElementById('btn-toggle-timeline')?.addEventListener('click', toggleTimelineDock);
+      document.getElementById('scene-btn-open-timeline')?.addEventListener('click', toggleTimelineDock);
 
       // Mobile Touch Pinch-to-Zoom, Two-Finger Pan, Rotation & Tap Gestures (2-finger Undo, 3-finger Redo)
       let touchStartDist = 0;
