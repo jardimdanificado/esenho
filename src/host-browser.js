@@ -7134,6 +7134,10 @@ async function main() {
     host.setViewportFiltering(val);
     if (chkViewportFilter) chkViewportFilter.checked = host.viewportFiltering;
     if (ipChkViewportFilter) ipChkViewportFilter.checked = host.viewportFiltering;
+    const checkBilinear = document.getElementById('check-vfilter-bilinear');
+    const checkNearest = document.getElementById('check-vfilter-nearest');
+    if (checkBilinear) checkBilinear.style.opacity = host.viewportFiltering ? '1' : '0';
+    if (checkNearest) checkNearest.style.opacity = host.viewportFiltering ? '0' : '1';
     localStorage.setItem('esenho_viewport_filter', host.viewportFiltering ? '1' : '0');
     markCanvasDirty();
   };
@@ -7145,6 +7149,7 @@ async function main() {
     ipChkViewportFilter.checked = !!host.viewportFiltering;
     ipChkViewportFilter.addEventListener('change', () => syncViewportFilter(ipChkViewportFilter.checked));
   }
+  syncViewportFilter(host.viewportFiltering);
 
   const chkBrushOutline = document.getElementById('ui-chk-brush-outline');
   const ipChkBrushOutline = document.getElementById('ip-chk-brush-outline');
@@ -7252,6 +7257,12 @@ async function main() {
     host.renderMode = cleanMode;
     if (selRenderer) selRenderer.value = cleanMode;
     if (ipSelRenderer) ipSelRenderer.value = cleanMode;
+    const checkGpu = document.getElementById('check-engine-gpu');
+    const checkSoftware = document.getElementById('check-engine-software');
+    if (checkGpu) checkGpu.style.opacity = cleanMode === 'gpu' ? '1' : '0';
+    if (checkSoftware) checkSoftware.style.opacity = cleanMode === 'cpu' ? '1' : '0';
+    const label = document.getElementById('menu-current-renderer-label');
+    if (label) label.textContent = cleanMode === 'gpu' ? 'WEBGL 2 (GPU)' : 'SOFTWARE (CPU)';
     try {
       localStorage.setItem('esenho_render_mode', cleanMode);
     } catch (_) {}
@@ -7272,6 +7283,7 @@ async function main() {
     ipSelRenderer.value = host.renderMode;
     ipSelRenderer.addEventListener('change', () => syncRenderer(ipSelRenderer.value));
   }
+  syncRenderer(host.renderMode);
 
   // Floating toolbar visibility & scale
   const chkFloatingToolbar = document.getElementById('ui-chk-floating-toolbar');
@@ -8806,12 +8818,7 @@ async function main() {
       btn.addEventListener('click', () => {
         const eng = btn.dataset.engine;
         if (eng) {
-          runCmd(`renderer ${eng}`);
-          document.querySelectorAll('.engine-check').forEach(c => c.style.opacity = '0');
-          const check = document.getElementById(`check-engine-${eng}`);
-          if (check) check.style.opacity = '1';
-          const label = document.getElementById('menu-current-renderer-label');
-          if (label) label.textContent = eng.toUpperCase();
+          syncRenderer(eng);
         }
       });
     });
@@ -8820,10 +8827,7 @@ async function main() {
       btn.addEventListener('click', () => {
         const vfilt = btn.dataset.vfilter;
         if (vfilt) {
-          runCmd(`filter ${vfilt}`);
-          document.querySelectorAll('.vfilter-check').forEach(c => c.style.opacity = '0');
-          const check = document.getElementById(`check-vfilter-${vfilt}`);
-          if (check) check.style.opacity = '1';
+          syncViewportFilter(vfilt === 'bilinear');
         }
       });
     });

@@ -7560,24 +7560,36 @@
         if (checkQuadro) checkQuadro.style.opacity = (viewportRenderMode === 'quadro') ? '1' : '0';
         if (label) label.textContent = (viewportRenderMode === 'svg') ? 'SVG Direct' : 'Quadro';
 
+        // Keep all canvas tab controls and selectors in sync with current state
+        const sel1 = document.getElementById('select-render-mode');
+        const sel2 = document.getElementById('prop-viewport-renderer');
+        if (sel1 && sel1.value !== viewportRenderMode) sel1.value = viewportRenderMode;
+        if (sel2 && sel2.value !== viewportRenderMode) sel2.value = viewportRenderMode;
+
         const scaleMap = { '0.5': 'check-scale-05', '1.0': 'check-scale-10', '2.0': 'check-scale-20' };
         Object.entries(scaleMap).forEach(([scStr, id]) => {
           const el = document.getElementById(id);
           if (el) el.style.opacity = (Math.abs(quadroRenderScale - parseFloat(scStr)) < 0.01) ? '1' : '0';
         });
 
+        const propScale = document.getElementById('prop-quadro-scale');
+        if (propScale && parseFloat(propScale.value) !== quadroRenderScale) {
+          propScale.value = String(quadroRenderScale);
+        }
+
         const checkBilinear = document.getElementById('check-vfilter-bilinear');
         const checkNearest = document.getElementById('check-vfilter-nearest');
         if (checkBilinear) checkBilinear.style.opacity = viewportBilinear ? '1' : '0';
         if (checkNearest) checkNearest.style.opacity = viewportBilinear ? '0' : '1';
+
+        const chk = document.getElementById('prop-viewport-bilinear');
+        if (chk && chk.checked !== viewportBilinear) {
+          chk.checked = viewportBilinear;
+        }
       }
 
       const syncRenderMode = (val) => {
         viewportRenderMode = val;
-        const sel1 = document.getElementById('select-render-mode');
-        const sel2 = document.getElementById('prop-viewport-renderer');
-        if (sel1 && sel1.value !== val) sel1.value = val;
-        if (sel2 && sel2.value !== val) sel2.value = val;
         updateRendererMenuUi();
         render();
       };
@@ -9232,6 +9244,7 @@
               if (rEl) rEl.value = viewportRotation;
               if (cxEl) cxEl.value = Math.round(panX);
               if (cyEl) cyEl.value = Math.round(panY);
+              updateRendererMenuUi();
             } else if (targetId === 'tab-style') {
               updateInspector();
             } else if (targetId === 'tab-scene' || targetId === 'tab-objects') {
