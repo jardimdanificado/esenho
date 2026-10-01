@@ -1299,7 +1299,9 @@ export class DopeSheet {
     if (selectedObjectId && this.objects.has(selectedObjectId)) {
       const obj = this.objects.get(selectedObjectId);
       obj.getKeyframeFrames().forEach(f => frameSet.add(f));
-    } else {
+    }
+    // If no keyframes found for selected object, search across all objects in scene
+    if (frameSet.size === 0) {
       for (const obj of this.objects.values()) {
         obj.getKeyframeFrames().forEach(f => frameSet.add(f));
       }
@@ -1316,6 +1318,9 @@ export class DopeSheet {
     if (this.loop && frames.length > 0 && frames[0] < this.currentFrame) {
       return this.setFrame(frames[0]);
     }
+    if (frames.length > 0 && frames[frames.length - 1] === this.currentFrame) {
+      return this.currentFrame;
+    }
     return this.nextFrame();
   }
 
@@ -1327,6 +1332,9 @@ export class DopeSheet {
     }
     if (this.loop && frames.length > 0 && frames[frames.length - 1] > this.currentFrame) {
       return this.setFrame(frames[frames.length - 1]);
+    }
+    if (frames.length > 0 && frames[0] === this.currentFrame) {
+      return this.currentFrame;
     }
     return this.prevFrame();
   }

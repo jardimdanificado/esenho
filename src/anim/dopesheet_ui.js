@@ -33,6 +33,7 @@ export class DopeSheetUI {
     this.isScrubbing = false;
     this._playInterval = null;
     this._activeMenu = null;
+    this.navMode = 'keyframe'; // 'keyframe' (jump key-to-key) | 'step' (step frame-to-frame)
 
     this.render();
     this.ds.subscribe((event, payload) => {
@@ -47,6 +48,20 @@ export class DopeSheetUI {
     });
   }
 
+  updateNavModeUI(mode = null) {
+    if (mode) this.navMode = mode;
+    const txt = this.container.querySelector('#ds-nav-mode-text');
+    const btn = this.container.querySelector('#ds-btn-nav-mode');
+    if (txt) {
+      txt.textContent = (this.navMode === 'step') ? '▮ Steps' : '❖ Keys';
+    }
+    if (btn) {
+      btn.style.background = (this.navMode === 'step') ? 'rgba(69, 133, 136, 0.2)' : 'rgba(250, 189, 47, 0.15)';
+      btn.style.color = (this.navMode === 'step') ? '#83a598' : '#fabd2f';
+      btn.title = (this.navMode === 'step') ? 'Navigation: Step 1 Frame (Click to jump Keyframes)' : 'Navigation: Jump Keyframes (Click to step 1 frame)';
+    }
+  }
+
   render() {
     this.container.innerHTML = `
       <div class="dopesheet-panel" style="display: flex; flex-direction: column; height: 100%; width: 100%; background: #1d2021; color: #ebdbb2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; font-size: 11px; border-top: 2px solid #3c3836; user-select: none; box-sizing: border-box; position: relative;">
@@ -55,29 +70,35 @@ export class DopeSheetUI {
         <div id="ds-resize-handle" title="Drag vertically to resize Timeline height" style="position: absolute; top: -6px; left: 0; right: 0; height: 10px; cursor: ns-resize; z-index: 100; background: transparent;"></div>
 
         <!-- Header Toolbar -->
-        <div class="ds-toolbar" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: #282828; border-bottom: 1px solid #3c3836; flex-wrap: wrap; z-index: 30;">
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <button id="ds-btn-prev" class="ds-btn" title="Previous Keyframe (Shift+Click for 1 frame)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">⏮</button>
+        <div class="ds-toolbar" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #282828; border-bottom: 1px solid #3c3836; flex-wrap: wrap; z-index: 30;">
+          <div style="display: flex; align-items: center; gap: 3px;">
+            <button id="ds-btn-prev-key" class="ds-btn" title="Jump to Previous Keyframe ([ or Alt+Left)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">⏮</button>
+            <button id="ds-btn-step-prev" class="ds-btn" title="Step 1 Frame Back (Left)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">◀</button>
             <button id="ds-btn-play" class="ds-btn" title="Play / Pause (Space)" style="background: #d79921; color: #282828; font-weight: bold; border: 1px solid #fabd2f; border-radius: 4px; padding: 3px 12px; cursor: pointer;">▶</button>
-            <button id="ds-btn-next" class="ds-btn" title="Next Keyframe (Shift+Click for 1 frame)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">⏭</button>
-            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#458588' : '#3c3836'}; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
+            <button id="ds-btn-step-next" class="ds-btn" title="Step 1 Frame Forward (Right)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">▶</button>
+            <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">⏭</button>
+            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#458588' : '#3c3836'}; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
           </div>
 
-          <div style="height: 16px; width: 1px; background: #504945; margin: 0 4px;"></div>
+          <button id="ds-btn-nav-mode" class="ds-btn" title="Toggle Navigation: Jump Keyframe vs Step 1 Frame" style="background: rgba(250, 189, 47, 0.15); color: #fabd2f; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; font-weight: bold;">
+            <span id="ds-nav-mode-text">❖ Keys</span>
+          </button>
 
-          <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="height: 16px; width: 1px; background: #504945; margin: 0 2px;"></div>
+
+          <div style="display: flex; align-items: center; gap: 4px;">
             <span>Frame:</span>
-            <input id="ds-input-frame" type="number" min="1" max="${this.ds.totalFrames}" value="${this.ds.currentFrame}" style="width: 48px; background: #1d2021; color: #fabd2f; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center; font-weight: bold;">
+            <input id="ds-input-frame" type="number" min="1" max="${this.ds.totalFrames}" value="${this.ds.currentFrame}" style="width: 44px; background: #1d2021; color: #fabd2f; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center; font-weight: bold;">
             <span style="color: #928374;">/</span>
-            <input id="ds-input-total" type="number" min="1" max="9999" value="${this.ds.totalFrames}" style="width: 48px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
+            <input id="ds-input-total" type="number" min="1" max="9999" value="${this.ds.totalFrames}" style="width: 44px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
             <span>FPS:</span>
-            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 44px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
+            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 40px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
           </div>
 
-          <div style="display: flex; align-items: center; gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 4px;">
             <span>Curve:</span>
             <select id="ds-select-easing" title="Easing Curve for Keyframe(s)" style="background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; font-size: 11px;">
               <option value="linear">Linear</option>
@@ -98,16 +119,21 @@ export class DopeSheetUI {
             </button>
           </div>
 
-          <div style="height: 16px; width: 1px; background: #504945; margin: 0 4px;"></div>
+          <div style="height: 16px; width: 1px; background: #504945; margin: 0 2px;"></div>
 
-          <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: #b8bb26; color: #282828; font-weight: bold; border: 1px solid #b8bb26; border-radius: 4px; padding: 3px 8px; cursor: pointer;">◆ Add Keyframe</button>
+          <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: #b8bb26; color: #282828; font-weight: bold; border: 1px solid #b8bb26; border-radius: 4px; padding: 3px 8px; cursor: pointer;">◆ Add Key</button>
           <button id="ds-btn-del-kf" class="ds-btn" title="Remove Keyframe" style="background: #ea6962; color: #282828; font-weight: bold; border: 1px solid #ea6962; border-radius: 4px; padding: 3px 8px; cursor: pointer;">◇ Remove</button>
           
-          <button id="ds-btn-autokf" class="ds-btn" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? '#cc241d' : '#3c3836'}; color: ${this.ds.autoKeyframe ? '#ffffff' : '#ebdbb2'}; border: 1px solid ${this.ds.autoKeyframe ? '#fb4934' : '#504945'}; border-radius: 4px; padding: 3px 10px; cursor: pointer; display: flex; align-items: center; gap: 6px; font-weight: bold; margin-left: auto;">
+          <button id="ds-btn-autokf" class="ds-btn" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? '#cc241d' : '#3c3836'}; color: ${this.ds.autoKeyframe ? '#ffffff' : '#ebdbb2'}; border: 1px solid ${this.ds.autoKeyframe ? '#fb4934' : '#504945'}; border-radius: 4px; padding: 3px 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold; margin-left: auto;">
             <span id="ds-autokf-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${this.ds.autoKeyframe ? '#fb4934' : '#7c6f64'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 6px #fb4934' : 'none'};"></span>
             Auto-Keyframe
           </button>
-          <button id="ds-btn-collapse-timeline" class="ds-btn" title="Collapse Timeline (Shift+T)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; margin-left: 6px;">▼</button>
+
+          <button id="ds-btn-export-video" class="ds-btn" title="Export Animation to Video (WebM/MP4), Spritesheet, or Interactive HTML5" style="background: #458588; color: #ebdbb2; border: 1px solid #83a598; border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            <span>🎬 Export Video</span>
+          </button>
+
+          <button id="ds-btn-collapse-timeline" class="ds-btn" title="Collapse Timeline (Shift+T)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; margin-left: 2px;">▼</button>
         </div>
 
         <!-- Main Body: Split View (Object Tracks List on Left, Timeline Grid on Right) -->
@@ -252,8 +278,13 @@ export class DopeSheetUI {
     }
 
     const playBtn = this.container.querySelector('#ds-btn-play');
-    const prevBtn = this.container.querySelector('#ds-btn-prev');
-    const nextBtn = this.container.querySelector('#ds-btn-next');
+    const prevKeyBtn = this.container.querySelector('#ds-btn-prev-key');
+    const prevStepBtn = this.container.querySelector('#ds-btn-step-prev');
+    const nextStepBtn = this.container.querySelector('#ds-btn-step-next');
+    const nextKeyBtn = this.container.querySelector('#ds-btn-next-key');
+    const navModeBtn = this.container.querySelector('#ds-btn-nav-mode');
+    const navModeText = this.container.querySelector('#ds-nav-mode-text');
+    const exportVideoBtn = this.container.querySelector('#ds-btn-export-video');
     const loopBtn = this.container.querySelector('#ds-btn-loop');
     const collapseBtn = this.container.querySelector('#ds-btn-collapse-timeline');
     const frameInput = this.container.querySelector('#ds-input-frame');
@@ -268,20 +299,45 @@ export class DopeSheetUI {
       if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
       this.togglePlayback();
     };
-    prevBtn.onclick = (e) => {
-      if (e && e.shiftKey) {
-        this.ds.prevFrame();
-      } else {
+
+    if (prevKeyBtn) {
+      prevKeyBtn.onclick = () => {
         this.ds.prevKeyframe(this.selectedObjectId);
-      }
-    };
-    nextBtn.onclick = (e) => {
-      if (e && e.shiftKey) {
+      };
+    }
+    if (prevStepBtn) {
+      prevStepBtn.onclick = () => {
+        this.ds.prevFrame();
+      };
+    }
+    if (nextStepBtn) {
+      nextStepBtn.onclick = () => {
         this.ds.nextFrame();
-      } else {
+      };
+    }
+    if (nextKeyBtn) {
+      nextKeyBtn.onclick = () => {
         this.ds.nextKeyframe(this.selectedObjectId);
-      }
-    };
+      };
+    }
+
+    if (navModeBtn) {
+      navModeBtn.onclick = () => {
+        this.navMode = (this.navMode === 'step') ? 'keyframe' : 'step';
+        this.updateNavModeUI();
+        if (typeof window !== 'undefined' && typeof window.syncAnimationNavMode === 'function') {
+          window.syncAnimationNavMode(this.navMode);
+        }
+      };
+    }
+
+    if (exportVideoBtn) {
+      exportVideoBtn.onclick = () => {
+        if (typeof window !== 'undefined' && typeof window.openAnimationExportModal === 'function') {
+          window.openAnimationExportModal();
+        }
+      };
+    }
     loopBtn.onclick = () => {
       this.ds.loop = !this.ds.loop;
       loopBtn.style.background = this.ds.loop ? '#458588' : '#3c3836';

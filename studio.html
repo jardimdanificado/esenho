@@ -1622,8 +1622,15 @@
               <span>Export JPEG (.jpg)</span>
             </button>
             <div class="menu-divider"></div>
+            <button type="button" class="menu-item" id="btn-quick-export-video">
+              <span>Export Video (.webm / .mp4)</span>
+            </button>
+            <button type="button" class="menu-item" id="btn-quick-export-spritesheet">
+              <span>Export Spritesheet (.png)</span>
+            </button>
+            <div class="menu-divider"></div>
             <button type="button" class="menu-item" id="btn-export-advanced" style="font-size: 10px; color: var(--primary);">
-              <span>Advanced Export...</span>
+              <span>Export Center (Video / Image)...</span>
               <span class="shortcut">Ctrl+E</span>
             </button>
           </div>
@@ -2799,34 +2806,112 @@
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
     </div>
 
-    <!-- Export Modal -->
+    <!-- Export Modal (Static Image & Video / Animation Center) -->
     <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center;">
-      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; width: 340px; box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: flex; flex-direction: column; gap: 10px;">
+      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; width: 380px; max-width: 95vw; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px;">
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-          <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Document</h3>
+          <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Center</h3>
           <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
         </div>
-        <div class="form-row">
-          <label>Format</label>
-          <select id="export-format">
-            <option value="image/png" selected>PNG (Lossless)</option>
-            <option value="image/webp">WebP</option>
-            <option value="image/jpeg">JPEG</option>
-            <option value="image/svg+xml">SVG Vector</option>
-          </select>
+
+        <!-- Export Mode Tab Switcher -->
+        <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">📷 Static Image</button>
+          <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">🎬 Animation &amp; Video</button>
         </div>
-        <div class="form-row">
-          <label>Scale Factor</label>
-          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1;">
-            <span style="font-size: 11px; color: var(--text-dim);">×</span>
+
+        <!-- Tab 1: Static Image Export -->
+        <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
+          <div class="form-row">
+            <label>Format</label>
+            <select id="export-format">
+              <option value="image/png" selected>PNG (Lossless)</option>
+              <option value="image/webp">WebP</option>
+              <option value="image/jpeg">JPEG</option>
+              <option value="image/svg+xml">SVG Vector</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Scale Factor</label>
+            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+              <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1;">
+              <span style="font-size: 11px; color: var(--text-dim);">×</span>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Dimensions</label>
+            <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
+          </div>
+          <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
+        </div>
+
+        <!-- Tab 2: Animation & Video Export -->
+        <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
+          <div class="form-row">
+            <label>Format</label>
+            <select id="export-anim-format">
+              <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
+              <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
+              <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
+              <option value="spritesheet">Sprite Sheet Grid (.png)</option>
+              <option value="html5">Interactive Standalone Player (.html)</option>
+              <option value="animated-svg">Animated Vector SVG (.svg)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Frame Range</label>
+            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+              <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
+              <span style="font-size: 11px; color: var(--text-muted);">to</span>
+              <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Framerate</label>
+            <select id="export-anim-fps">
+              <option value="12">12 FPS (Stylized / 2D Anime)</option>
+              <option value="24" selected>24 FPS (Cinematic standard)</option>
+              <option value="30">30 FPS (Smooth 30Hz)</option>
+              <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Resolution</label>
+            <select id="export-anim-scale">
+              <option value="0.5">0.5× (Draft / Half Res)</option>
+              <option value="1.0" selected>1.0× (Native 100%)</option>
+              <option value="2.0">2.0× (2× Hi-DPI / 1080p+)</option>
+              <option value="3.0">3.0× (3× Super-Sample)</option>
+              <option value="4.0">4.0× (4K Ultra HD)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Background</label>
+            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+              <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Output Info</label>
+            <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
+          </div>
+
+          <!-- Progress Bar during Animation Render -->
+          <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+              <span id="export-anim-status-text">Recording frames...</span>
+              <span id="export-anim-pct-text">0%</span>
+            </div>
+            <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
+              <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
+            <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
           </div>
         </div>
-        <div class="form-row">
-          <label>Dimensions</label>
-          <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
-        </div>
-        <button id="btn-do-export" style="width: 100%; margin-top: 6px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export File</button>
       </div>
     </div>
 
@@ -3164,11 +3249,13 @@
             <span style="font-weight: bold; color: var(--primary);">
               <span>Animation</span>
             </span>
-            <div style="display: flex; gap: 3px; align-items: center;">
-              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Keyframe (Shift+Click for 1 frame)" style="font-size: 9px; padding: 2px 4px;">⏮</button>
-              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-              <button id="scene-anim-btn-next" class="btn-icon" title="Next Keyframe (Shift+Click for 1 frame)" style="font-size: 9px; padding: 2px 4px;">⏭</button>
-              <button id="scene-anim-btn-loop" class="btn-sm" title="Toggle Loop" style="font-size: 10px; padding: 1px 6px; color: var(--accent); font-weight: 600;">Loop</button>
+            <div style="display: flex; gap: 2px; align-items: center;">
+              <button id="scene-anim-btn-prev" class="btn-icon" title="Jump to Previous Keyframe ([ or Alt+Left)" style="font-size: 9px; padding: 2px 4px;">⏮</button>
+              <button id="scene-anim-btn-step-prev" class="btn-icon" title="Step 1 Frame Back (Left)" style="font-size: 9px; padding: 2px 4px;">◀</button>
+              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation (Space)" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
+              <button id="scene-anim-btn-step-next" class="btn-icon" title="Step 1 Frame Forward (Right)" style="font-size: 9px; padding: 2px 4px;">▶</button>
+              <button id="scene-anim-btn-next" class="btn-icon" title="Jump to Next Keyframe (] or Alt+Right)" style="font-size: 9px; padding: 2px 4px;">⏭</button>
+              <button id="scene-anim-btn-loop" class="btn-sm" title="Toggle Loop" style="font-size: 9px; padding: 1px 5px; color: var(--accent); font-weight: 600;">Loop</button>
             </div>
           </div>
 
@@ -3192,7 +3279,13 @@
               </div>
             </div>
 
-            <div class="form-row" style="margin-top: 4px; align-items: center;">
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-top: 2px;">
+              <button id="scene-anim-btn-nav-mode" class="btn-sm" style="flex: 1; font-size: 10px; background: rgba(250, 189, 47, 0.12); color: var(--primary); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; gap: 4px;" title="Switch Step Mode (Keys ❖ / Steps ▮)">
+                <span>Mode:</span> <strong id="scene-nav-mode-label">❖ Keyframes</strong>
+              </button>
+            </div>
+
+            <div class="form-row" style="margin-top: 2px; align-items: center;">
               <label style="font-size: 10px; color: var(--text-muted); width: 42px;">Curve</label>
               <select id="scene-anim-select-easing" title="Easing Curve for Keyframes" style="flex: 1; padding: 2px 4px; font-size: 10px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
                 <option value="linear">Linear</option>
@@ -3214,6 +3307,8 @@
               <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
               <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
             </div>
+
+            <button id="btn-scene-open-export-anim" class="btn-sm" style="width: 100%; margin-top: 4px; background: rgba(69, 133, 136, 0.2); border: 1px solid var(--accent); color: var(--accent); font-weight: 600;" title="Export Animation to Video (WebM/MP4), Spritesheet, or Interactive HTML5">🎬 Export Video &amp; Animation...</button>
           </div>
         </div>
 
@@ -6905,6 +7000,34 @@
             doc.removeObject(obj.id);
           }
           render();
+        } else if (e.key === '[' || (e.altKey && e.key === 'ArrowLeft')) {
+          e.preventDefault();
+          if (window.dopeSheet) {
+            const selId = window.dopeSheetUI?.selectedObjectId || null;
+            const prevF = window.dopeSheet.prevKeyframe(selId);
+            seekSceneFrame(prevF);
+          }
+        } else if (e.key === ']' || (e.altKey && e.key === 'ArrowRight')) {
+          e.preventDefault();
+          if (window.dopeSheet) {
+            const selId = window.dopeSheetUI?.selectedObjectId || null;
+            const nextF = window.dopeSheet.nextKeyframe(selId);
+            seekSceneFrame(nextF);
+          }
+        } else if (e.key === 'ArrowLeft' && e.shiftKey) {
+          e.preventDefault();
+          if (window.dopeSheet) {
+            const selId = window.dopeSheetUI?.selectedObjectId || null;
+            const prevF = window.dopeSheet.prevKeyframe(selId);
+            seekSceneFrame(prevF);
+          }
+        } else if (e.key === 'ArrowRight' && e.shiftKey) {
+          e.preventDefault();
+          if (window.dopeSheet) {
+            const selId = window.dopeSheetUI?.selectedObjectId || null;
+            const nextF = window.dopeSheet.nextKeyframe(selId);
+            seekSceneFrame(nextF);
+          }
         }
       });
 
@@ -8200,11 +8323,53 @@
       document.getElementById('btn-text-detach-path')?.addEventListener('click', handleTextDetachPath);
       document.getElementById('btn-text-detach-path-sub')?.addEventListener('click', handleTextDetachPath);
 
-      // ── Multi-Scale Export Modal ──
+      // ── Multi-Scale & Video / Animation Export Modal ──
       const modalExport = document.getElementById('modal-export');
       const exportFormatSelect = document.getElementById('export-format');
       const exportScaleInput = document.getElementById('export-scale');
       const exportDimPreview = document.getElementById('export-dim-preview');
+
+      const paneExportStatic = document.getElementById('pane-export-static');
+      const paneExportAnim = document.getElementById('pane-export-anim');
+      const tabBtnExportStatic = document.getElementById('tab-btn-export-static');
+      const tabBtnExportAnim = document.getElementById('tab-btn-export-anim');
+
+      const exportAnimFormat = document.getElementById('export-anim-format');
+      const exportAnimStart = document.getElementById('export-anim-start');
+      const exportAnimEnd = document.getElementById('export-anim-end');
+      const exportAnimFps = document.getElementById('export-anim-fps');
+      const exportAnimScale = document.getElementById('export-anim-scale');
+      const exportAnimBg = document.getElementById('export-anim-bg');
+      const exportAnimDimPreview = document.getElementById('export-anim-dim-preview');
+      const exportAnimProgressWrap = document.getElementById('export-anim-progress-wrap');
+      const exportAnimProgressBar = document.getElementById('export-anim-progress-bar');
+      const exportAnimStatusText = document.getElementById('export-anim-status-text');
+      const exportAnimPctText = document.getElementById('export-anim-pct-text');
+      const btnDoExportAnim = document.getElementById('btn-do-export-anim');
+      const btnCancelExportAnim = document.getElementById('btn-cancel-export-anim');
+
+      let currentExportTab = 'static';
+      let isAnimExportCancelled = false;
+
+      function switchExportTab(tabName) {
+        currentExportTab = tabName;
+        if (tabName === 'anim') {
+          if (paneExportStatic) paneExportStatic.style.display = 'none';
+          if (paneExportAnim) paneExportAnim.style.display = 'flex';
+          if (tabBtnExportStatic) tabBtnExportStatic.classList.remove('active');
+          if (tabBtnExportAnim) tabBtnExportAnim.classList.add('active');
+          updateAnimExportDimPreview();
+        } else {
+          if (paneExportStatic) paneExportStatic.style.display = 'flex';
+          if (paneExportAnim) paneExportAnim.style.display = 'none';
+          if (tabBtnExportStatic) tabBtnExportStatic.classList.add('active');
+          if (tabBtnExportAnim) tabBtnExportAnim.classList.remove('active');
+          updateExportDimPreview();
+        }
+      }
+
+      tabBtnExportStatic?.addEventListener('click', () => switchExportTab('static'));
+      tabBtnExportAnim?.addEventListener('click', () => switchExportTab('anim'));
 
       function updateExportDimPreview() {
         if (!exportDimPreview) return;
@@ -8214,11 +8379,64 @@
         exportDimPreview.textContent = `${w} × ${h} px (@${scale}×)`;
       }
 
+      function updateAnimExportDimPreview() {
+        if (!exportAnimDimPreview) return;
+        const scale = parseFloat(exportAnimScale?.value || 1.0);
+        const w = Math.round(doc.width * scale);
+        const h = Math.round(doc.height * scale);
+        const start = parseInt(exportAnimStart?.value, 10) || 1;
+        const end = parseInt(exportAnimEnd?.value, 10) || (window.dopeSheet?.totalFrames || 60);
+        const fps = parseInt(exportAnimFps?.value, 10) || (window.dopeSheet?.fps || 24);
+        const total = Math.max(1, end - start + 1);
+        const durationSec = (total / fps).toFixed(1);
+        exportAnimDimPreview.textContent = `${w} × ${h} px (${total} frames @ ${fps}fps = ${durationSec}s)`;
+      }
+
+      [exportAnimStart, exportAnimEnd, exportAnimFps, exportAnimScale].forEach(el => {
+        el?.addEventListener('input', updateAnimExportDimPreview);
+        el?.addEventListener('change', updateAnimExportDimPreview);
+      });
+
+      window.openAnimationExportModal = function(targetFormat = null) {
+        if (modalExport) {
+          modalExport.style.display = 'flex';
+          switchExportTab('anim');
+          if (targetFormat && exportAnimFormat) {
+            exportAnimFormat.value = targetFormat;
+          }
+          if (exportAnimStart) exportAnimStart.value = '1';
+          if (exportAnimEnd && window.dopeSheet) exportAnimEnd.value = String(window.dopeSheet.totalFrames || 60);
+          if (exportAnimFps && window.dopeSheet) exportAnimFps.value = String(window.dopeSheet.fps || 24);
+          updateAnimExportDimPreview();
+        }
+      };
+
       document.getElementById('btn-export-multiscale')?.addEventListener('click', () => {
         menuDropdown?.classList.remove('active');
         btnMenuLogo?.classList.remove('active');
         updateExportDimPreview();
-        if (modalExport) modalExport.style.display = 'flex';
+        if (modalExport) {
+          modalExport.style.display = 'flex';
+          switchExportTab('static');
+        }
+      });
+
+      document.getElementById('btn-scene-open-export-anim')?.addEventListener('click', () => {
+        window.openAnimationExportModal();
+      });
+
+      document.getElementById('btn-quick-export-video')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        window.openAnimationExportModal('video/webm');
+      });
+
+      document.getElementById('btn-quick-export-spritesheet')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        window.openAnimationExportModal('spritesheet');
       });
 
       document.getElementById('btn-close-export')?.addEventListener('click', () => {
@@ -8228,6 +8446,17 @@
       exportScaleInput?.addEventListener('input', updateExportDimPreview);
       exportScaleInput?.addEventListener('change', updateExportDimPreview);
 
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      }
+
       async function performExport(format = 'image/png', scale = 1) {
         const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : (format === 'image/svg+xml' ? 'svg' : 'png'));
         const safeTitle = (currentProjectTitle || 'wesenho').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'wesenho';
@@ -8236,14 +8465,7 @@
         if (format === 'image/svg+xml') {
           const svgData = doc.toSVGString();
           const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          downloadBlob(blob, filename);
           if (modalExport) modalExport.style.display = 'none';
           showNotification(`Exported ${filename}`);
           return;
@@ -8255,51 +8477,19 @@
         cvs.width = outW;
         cvs.height = outH;
 
-        const saveFromCanvas = () => {
-          const downloadUrl = (url) => {
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showNotification(`Exported ${filename}`);
-            if (modalExport) modalExport.style.display = 'none';
-          };
-
-          if (typeof cvs.toBlob === 'function') {
-            cvs.toBlob((blob) => {
-              if (blob) {
-                const url = URL.createObjectURL(blob);
-                downloadUrl(url);
-                URL.revokeObjectURL(url);
-              } else {
-                const dataUrl = cvs.toDataURL(format, 0.95);
-                downloadUrl(dataUrl);
-              }
-            }, format, 0.95);
-          } else {
-            const dataUrl = cvs.toDataURL(format, 0.95);
-            downloadUrl(dataUrl);
+        if (quadroRenderer) {
+          const needBg = format === 'image/jpeg' || (doc.backgroundColor && doc.backgroundColor !== 'transparent');
+          quadroRenderer.renderToCanvas(doc, cvs, { scale: scale, background: needBg });
+        } else {
+          const ctx2d = cvs.getContext('2d');
+          ctx2d.clearRect(0, 0, outW, outH);
+          if (doc.backgroundColor && doc.backgroundColor !== 'transparent') {
+            ctx2d.fillStyle = doc.backgroundColor;
+            ctx2d.fillRect(0, 0, outW, outH);
           }
-        };
-
-        if (!quadroRenderer) {
-          showNotification('Export error: Native Quadro WASM engine not initialized');
-          if (modalExport) modalExport.style.display = 'none';
-          return;
-        }
-
-        const needBg = format === 'image/jpeg' || (doc.backgroundColor && doc.backgroundColor !== 'transparent');
-        const ok = quadroRenderer.renderToCanvas(doc, cvs, { scale: scale, background: needBg });
-        if (!ok) {
-          showNotification('Export failed: native Quadro render failed');
-          if (modalExport) modalExport.style.display = 'none';
-          return;
         }
 
         if (format === 'image/jpeg' && (!doc.backgroundColor || doc.backgroundColor === 'transparent')) {
-          // Flatten over white for JPEG
           const ctx2d = cvs.getContext('2d');
           const imgData = ctx2d.getImageData(0, 0, outW, outH);
           ctx2d.fillStyle = '#ffffff';
@@ -8307,13 +8497,493 @@
           ctx2d.putImageData(imgData, 0, 0);
         }
 
-        saveFromCanvas();
+        if (typeof cvs.toBlob === 'function') {
+          cvs.toBlob((blob) => {
+            if (blob) {
+              downloadBlob(blob, filename);
+              showNotification(`Exported ${filename}`);
+              if (modalExport) modalExport.style.display = 'none';
+            }
+          }, format, 0.95);
+        }
+      }
+
+      // ── Robust Scene Frame Rasterizer Helper ──
+      async function renderDocFrameToCanvas(targetCanvas, scale = 1.0, includeBg = true) {
+        const w = Math.round(doc.width * scale);
+        const h = Math.round(doc.height * scale);
+        if (targetCanvas.width !== w || targetCanvas.height !== h) {
+          targetCanvas.width = w;
+          targetCanvas.height = h;
+        }
+        const ctx = targetCanvas.getContext('2d', { willReadFrequently: true });
+
+        let rendered = false;
+        if (quadroRenderer && typeof quadroRenderer.renderToCanvas === 'function') {
+          try {
+            const off = document.createElement('canvas');
+            off.width = w;
+            off.height = h;
+            if (quadroRenderer.renderToCanvas(doc, off, { scale, background: includeBg })) {
+              ctx.clearRect(0, 0, w, h);
+              ctx.drawImage(off, 0, 0);
+              rendered = true;
+            }
+          } catch (e) {
+            console.warn('Quadro frame render fallback to SVG:', e);
+          }
+        }
+
+        if (!rendered) {
+          const svgStr = doc.toSVGString();
+          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              ctx.clearRect(0, 0, w, h);
+              if (includeBg && doc.backgroundColor && doc.backgroundColor !== 'transparent' && doc.backgroundColor !== 'none') {
+                ctx.fillStyle = doc.backgroundColor;
+                ctx.fillRect(0, 0, w, h);
+              }
+              ctx.drawImage(img, 0, 0, w, h);
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            img.onerror = () => {
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            img.src = url;
+          });
+        }
+      }
+
+      // ── Full Animation & Video Exporter Engine ──
+      async function performAnimationExport() {
+        if (!window.dopeSheet) {
+          await initStudioDopeSheet();
+        }
+        if (!window.dopeSheet) {
+          showNotification('Animation engine not initialized');
+          return;
+        }
+
+        const format = exportAnimFormat?.value || 'image/gif';
+        const startFrame = Math.max(1, parseInt(exportAnimStart?.value, 10) || 1);
+        const totalMax = window.dopeSheet.totalFrames || 60;
+        const endFrame = Math.min(totalMax, Math.max(startFrame, parseInt(exportAnimEnd?.value, 10) || totalMax));
+        const fps = Math.max(1, parseInt(exportAnimFps?.value, 10) || (window.dopeSheet.fps || 24));
+        const scale = parseFloat(exportAnimScale?.value || 1.0);
+        const includeBg = exportAnimBg ? exportAnimBg.checked : true;
+        const safeTitle = (currentProjectTitle || 'wesenho_anim').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'wesenho_anim';
+
+        const totalFramesToRender = endFrame - startFrame + 1;
+        isAnimExportCancelled = false;
+
+        // UI state: progress indicator
+        if (exportAnimProgressWrap) exportAnimProgressWrap.style.display = 'flex';
+        if (btnCancelExportAnim) btnCancelExportAnim.style.display = 'inline-block';
+        if (btnDoExportAnim) {
+          btnDoExportAnim.disabled = true;
+          btnDoExportAnim.textContent = 'Rendering...';
+        }
+
+        const updateProgress = (curIndex, total) => {
+          const pct = Math.round((curIndex / total) * 100);
+          if (exportAnimProgressBar) exportAnimProgressBar.style.width = `${pct}%`;
+          if (exportAnimPctText) exportAnimPctText.textContent = `${pct}%`;
+          if (exportAnimStatusText) exportAnimStatusText.textContent = `Rendering frame ${curIndex} of ${total}...`;
+        };
+
+        btnCancelExportAnim.onclick = () => {
+          isAnimExportCancelled = true;
+          if (exportAnimStatusText) exportAnimStatusText.textContent = 'Cancelling...';
+        };
+
+        const originalFrame = window.dopeSheet.currentFrame;
+
+        try {
+          if (format === 'image/gif') {
+            const { GifEncoder } = await import('./src/anim/gif_encoder.js');
+            const frameW = Math.round(doc.width * scale);
+            const frameH = Math.round(doc.height * scale);
+            const frameCanvas = document.createElement('canvas');
+            frameCanvas.width = frameW;
+            frameCanvas.height = frameH;
+            const frameCtx = frameCanvas.getContext('2d', { willReadFrequently: true });
+
+            const gif = new GifEncoder(frameW, frameH, { repeat: 0 });
+            gif.start();
+            const frameDelayMs = Math.round(1000 / fps);
+
+            for (let i = 0; i < totalFramesToRender; i++) {
+              if (isAnimExportCancelled) break;
+              const f = startFrame + i;
+              window.seekSceneFrame(f);
+              await renderDocFrameToCanvas(frameCanvas, scale, includeBg);
+              gif.addFrame(frameCtx, frameDelayMs);
+              updateProgress(i + 1, totalFramesToRender);
+              await new Promise(r => setTimeout(r, 4));
+            }
+
+            if (!isAnimExportCancelled) {
+              const gifBlob = gif.getBlob();
+              const filename = `${safeTitle}_${frameW}x${frameH}_${fps}fps.gif`;
+              downloadBlob(gifBlob, filename);
+              showNotification(`Exported Animated GIF: ${filename}`);
+            }
+          } else if (format === 'html5') {
+            const svgFrames = [];
+            for (let i = 0; i < totalFramesToRender; i++) {
+              if (isAnimExportCancelled) break;
+              const f = startFrame + i;
+              window.seekSceneFrame(f);
+              svgFrames.push(doc.toSVGString());
+              updateProgress(i + 1, totalFramesToRender);
+              await new Promise(r => setTimeout(r, 4));
+            }
+
+            if (!isAnimExportCancelled && svgFrames.length > 0) {
+              const framesJSON = JSON.stringify(svgFrames);
+              const bgFill = includeBg && doc.backgroundColor && doc.backgroundColor !== 'transparent' && doc.backgroundColor !== 'none'
+                ? doc.backgroundColor
+                : '#1d2021';
+              const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${safeTitle} — Wesenho Player</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #181818;
+      --card: #242424;
+      --border: #383838;
+      --primary: #fabd2f;
+      --accent: #458588;
+      --text: #ebdbb2;
+      --text-dim: #928374;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .player-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--card);
+      border: 1px solid var(--border);
+      padding: 14px;
+      border-radius: 10px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+      max-width: 96vw;
+    }
+    .title-bar {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .stage-wrap {
+      width: ${doc.width}px;
+      height: ${doc.height}px;
+      max-width: 90vw;
+      max-height: 72vh;
+      background: ${bgFill};
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage-wrap svg {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 12px;
+      width: 100%;
+    }
+    button {
+      background: var(--primary);
+      color: #000;
+      border: none;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.15s;
+    }
+    button:hover { opacity: 0.9; }
+    .btn-secondary {
+      background: #32302f;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .badge {
+      font-family: ui-monospace, monospace;
+      font-size: 11px;
+      color: var(--text);
+      background: #1d2021;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="player-card">
+    <div class="title-bar">
+      <span>${safeTitle}</span>
+      <span style="color: var(--text-dim); font-size: 11px;">${doc.width} × ${doc.height} px • ${fps} FPS</span>
+    </div>
+    <div class="stage-wrap" id="stage-wrap"></div>
+    <div class="controls">
+      <button id="btn-play">▶ Play</button>
+      <button id="btn-prev" class="btn-secondary" title="Previous Frame">◀</button>
+      <input type="range" id="scrubber" min="0" max="${totalFramesToRender - 1}" value="0">
+      <button id="btn-next" class="btn-secondary" title="Next Frame">▶</button>
+      <span id="badge" class="badge">F 1 / ${totalFramesToRender}</span>
+      <button id="btn-loop" class="btn-secondary" style="font-size: 11px;">🔁 Loop</button>
+    </div>
+  </div>
+  <script>
+    const frames = ${framesJSON};
+    let curIdx = 0;
+    let playing = true;
+    let looping = true;
+    let timer = null;
+    const fps = ${fps};
+    const total = frames.length;
+
+    const stageWrap = document.getElementById('stage-wrap');
+    const scrub = document.getElementById('scrubber');
+    const badge = document.getElementById('badge');
+    const btnPlay = document.getElementById('btn-play');
+    const btnLoop = document.getElementById('btn-loop');
+    const btnPrev = document.getElementById('btn-prev');
+    const btnNext = document.getElementById('btn-next');
+
+    function renderIndex(idx) {
+      curIdx = (idx + total) % total;
+      scrub.value = curIdx;
+      badge.textContent = 'F ' + (curIdx + 1) + ' / ' + total;
+      stageWrap.innerHTML = frames[curIdx] || '';
+    }
+
+    function togglePlay() {
+      playing = !playing;
+      btnPlay.textContent = playing ? '⏸ Pause' : '▶ Play';
+      if (playing) {
+        clearInterval(timer);
+        timer = setInterval(() => {
+          if (curIdx + 1 >= total && !looping) {
+            togglePlay();
+            return;
+          }
+          renderIndex(curIdx + 1);
+        }, 1000 / fps);
+      } else {
+        clearInterval(timer);
+      }
+    }
+
+    btnPlay.onclick = togglePlay;
+    btnLoop.onclick = () => {
+      looping = !looping;
+      btnLoop.style.opacity = looping ? '1.0' : '0.4';
+    };
+    btnPrev.onclick = () => { if (playing) togglePlay(); renderIndex(curIdx - 1); };
+    btnNext.onclick = () => { if (playing) togglePlay(); renderIndex(curIdx + 1); };
+    scrub.oninput = (e) => { if (playing) togglePlay(); renderIndex(Number(e.target.value)); };
+
+    window.onkeydown = (e) => {
+      if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+      else if (e.code === 'ArrowLeft') { if (playing) togglePlay(); renderIndex(curIdx - 1); }
+      else if (e.code === 'ArrowRight') { if (playing) togglePlay(); renderIndex(curIdx + 1); }
+    };
+
+    renderIndex(0);
+    togglePlay();
+  <\/script>
+</body>
+</html>`;
+              const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+              const filename = `${safeTitle}_player.html`;
+              downloadBlob(blob, filename);
+              showNotification(`Exported HTML5 Player: ${filename}`);
+            }
+          } else if (format === 'animated-svg') {
+            const svgFrames = [];
+            for (let i = 0; i < totalFramesToRender; i++) {
+              if (isAnimExportCancelled) break;
+              const f = startFrame + i;
+              window.seekSceneFrame(f);
+              const fullSvg = doc.toSVGString();
+              const match = fullSvg.match(/<svg[^>]*>([\s\S]*)<\/svg>/i);
+              svgFrames.push(match ? match[1] : fullSvg);
+              updateProgress(i + 1, totalFramesToRender);
+              await new Promise(r => setTimeout(r, 4));
+            }
+
+            if (!isAnimExportCancelled && svgFrames.length > 0) {
+              const durSec = (totalFramesToRender / fps).toFixed(3);
+              const frameDur = (1 / fps).toFixed(3);
+              const bgRect = includeBg && doc.backgroundColor && doc.backgroundColor !== 'transparent' && doc.backgroundColor !== 'none'
+                ? `<rect width="${doc.width}" height="${doc.height}" fill="${doc.backgroundColor}" />`
+                : '';
+
+              let framesXml = '';
+              for (let i = 0; i < svgFrames.length; i++) {
+                const beginSec = (i / fps).toFixed(3);
+                framesXml += `  <g id="frame_${i + 1}" display="${i === 0 ? 'inline' : 'none'}">\n` +
+                  `    <set attributeName="display" to="inline" begin="${beginSec}s" dur="${frameDur}s" repeatCount="indefinite" />\n` +
+                  `    <set attributeName="display" to="none" begin="${(Number(beginSec) + Number(frameDur)).toFixed(3)}s" dur="${(durSec - frameDur).toFixed(3)}s" repeatCount="indefinite" />\n` +
+                  `    ${svgFrames[i]}\n` +
+                  `  </g>\n`;
+              }
+
+              const animSvg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${doc.width} ${doc.height}" width="${doc.width}" height="${doc.height}">\n${bgRect}\n${framesXml}\n</svg>`;
+              const blob = new Blob([animSvg], { type: 'image/svg+xml;charset=utf-8' });
+              const filename = `${safeTitle}_animated_${fps}fps.svg`;
+              downloadBlob(blob, filename);
+              showNotification(`Exported Animated SVG: ${filename}`);
+            }
+          } else if (format === 'spritesheet') {
+            const frameW = Math.round(doc.width * scale);
+            const frameH = Math.round(doc.height * scale);
+            const cols = Math.min(totalFramesToRender, Math.ceil(Math.sqrt(totalFramesToRender)));
+            const rows = Math.ceil(totalFramesToRender / cols);
+
+            const sheetCvs = document.createElement('canvas');
+            sheetCvs.width = cols * frameW;
+            sheetCvs.height = rows * frameH;
+            const sheetCtx = sheetCvs.getContext('2d');
+
+            const fCvs = document.createElement('canvas');
+            fCvs.width = frameW;
+            fCvs.height = frameH;
+
+            for (let i = 0; i < totalFramesToRender; i++) {
+              if (isAnimExportCancelled) break;
+              const f = startFrame + i;
+              window.seekSceneFrame(f);
+              await renderDocFrameToCanvas(fCvs, scale, includeBg);
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              sheetCtx.drawImage(fCvs, col * frameW, row * frameH);
+              updateProgress(i + 1, totalFramesToRender);
+              await new Promise(r => setTimeout(r, 4));
+            }
+
+            if (!isAnimExportCancelled) {
+              sheetCvs.toBlob((blob) => {
+                if (blob) {
+                  const filename = `${safeTitle}_spritesheet_${cols}x${rows}.png`;
+                  downloadBlob(blob, filename);
+                  showNotification(`Exported spritesheet: ${filename}`);
+                }
+              }, 'image/png');
+            }
+          } else {
+            // Frame-Accurate WebM / Video Export via WebmMuxer (Exact speed, zero slow-motion)
+            const { WebmMuxer, extractVP8FromWebP } = await import('./src/anim/webm_muxer.js');
+            const outW = Math.round(doc.width * scale);
+            const outH = Math.round(doc.height * scale);
+            const videoCvs = document.createElement('canvas');
+            videoCvs.width = outW;
+            videoCvs.height = outH;
+
+            const muxer = new WebmMuxer(outW, outH, fps);
+
+            for (let i = 0; i < totalFramesToRender; i++) {
+              if (isAnimExportCancelled) break;
+              const f = startFrame + i;
+              window.seekSceneFrame(f);
+              await renderDocFrameToCanvas(videoCvs, scale, includeBg);
+
+              // Extract pure VP8 keyframe directly from Canvas WebP encoding
+              const webpDataUrl = videoCvs.toDataURL('image/webp', 0.95);
+              const base64 = webpDataUrl.split(',')[1];
+              const binaryStr = atob(base64);
+              const u8 = new Uint8Array(binaryStr.length);
+              for (let b = 0; b < binaryStr.length; b++) u8[b] = binaryStr.charCodeAt(b);
+
+              const vp8Chunk = extractVP8FromWebP(u8);
+              if (vp8Chunk) {
+                muxer.addVP8Frame(vp8Chunk);
+              }
+              updateProgress(i + 1, totalFramesToRender);
+              await new Promise(r => setTimeout(r, 4));
+            }
+
+            if (!isAnimExportCancelled && muxer.frames.length > 0) {
+              const videoBlob = muxer.getBlob();
+              const filename = `${safeTitle}_${outW}x${outH}_${fps}fps.webm`;
+              downloadBlob(videoBlob, filename);
+              if (format === 'video/mp4') {
+                showNotification(`Navegador sem suporte a MP4 nativo (Linux/Chromium); gerado vídeo WebM com taxa de quadros e velocidade exatas: ${filename}`);
+              } else {
+                showNotification(`Exported frame-accurate video: ${filename}`);
+              }
+            }
+          }
+        } catch (err) {
+          console.error('Animation export error:', err);
+          showNotification(`Export failed: ${err.message || err}`);
+        } finally {
+          // Restore original frame
+          window.seekSceneFrame(originalFrame);
+          if (exportAnimProgressWrap) exportAnimProgressWrap.style.display = 'none';
+          if (btnCancelExportAnim) btnCancelExportAnim.style.display = 'none';
+          if (btnDoExportAnim) {
+            btnDoExportAnim.disabled = false;
+            btnDoExportAnim.textContent = 'Render & Export Video';
+          }
+          if (modalExport) modalExport.style.display = 'none';
+        }
       }
 
       document.getElementById('btn-do-export')?.addEventListener('click', async () => {
         const format = exportFormatSelect?.value || 'image/png';
         const scale = Math.max(0.01, Number(exportScaleInput?.value || 1));
         await performExport(format, scale);
+      });
+
+      document.getElementById('btn-do-export-anim')?.addEventListener('click', async () => {
+        await performAnimationExport();
       });
 
       // Geometry & Dimensions Bindings
@@ -9657,28 +10327,56 @@
           }
 
           // Wire Scene Tab Animation Controls
+          window.animNavMode = 'keyframe'; // 'keyframe' | 'step'
+
+          window.syncAnimationNavMode = function(mode) {
+            window.animNavMode = mode;
+            const label = document.getElementById('scene-nav-mode-label');
+            const btn = document.getElementById('scene-anim-btn-nav-mode');
+            if (label) {
+              label.textContent = (mode === 'step') ? '▮ 1 Frame Step' : '❖ Keyframes';
+            }
+            if (btn) {
+              btn.style.background = (mode === 'step') ? 'rgba(69, 133, 136, 0.15)' : 'rgba(250, 189, 47, 0.12)';
+              btn.style.color = (mode === 'step') ? 'var(--accent)' : 'var(--primary)';
+            }
+            if (window.dopeSheetUI && window.dopeSheetUI.navMode !== mode) {
+              window.dopeSheetUI.updateNavModeUI(mode);
+            }
+          };
+
           document.getElementById('scene-anim-btn-play')?.addEventListener('click', (e) => {
             if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
             toggleScenePlay();
           });
-          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', (e) => {
-            if (e.shiftKey) {
-              seekSceneFrame(Math.max(1, (window.dopeSheet?.currentFrame || 1) - 1));
-            } else if (window.dopeSheet) {
+          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', () => {
+            if (window.dopeSheet) {
               const selId = window.dopeSheetUI?.selectedObjectId || null;
               const prevF = window.dopeSheet.prevKeyframe(selId);
               seekSceneFrame(prevF);
             }
           });
-          document.getElementById('scene-anim-btn-next')?.addEventListener('click', (e) => {
-            if (e.shiftKey) {
-              const total = window.dopeSheet?.totalFrames || 60;
-              seekSceneFrame(Math.min(total, (window.dopeSheet?.currentFrame || 1) + 1));
-            } else if (window.dopeSheet) {
+          document.getElementById('scene-anim-btn-step-prev')?.addEventListener('click', () => {
+            if (window.dopeSheet) {
+              seekSceneFrame(Math.max(1, (window.dopeSheet.currentFrame || 1) - 1));
+            }
+          });
+          document.getElementById('scene-anim-btn-step-next')?.addEventListener('click', () => {
+            if (window.dopeSheet) {
+              const total = window.dopeSheet.totalFrames || 60;
+              seekSceneFrame(Math.min(total, (window.dopeSheet.currentFrame || 1) + 1));
+            }
+          });
+          document.getElementById('scene-anim-btn-next')?.addEventListener('click', () => {
+            if (window.dopeSheet) {
               const selId = window.dopeSheetUI?.selectedObjectId || null;
               const nextF = window.dopeSheet.nextKeyframe(selId);
               seekSceneFrame(nextF);
             }
+          });
+          document.getElementById('scene-anim-btn-nav-mode')?.addEventListener('click', () => {
+            const nextMode = (window.animNavMode === 'step') ? 'keyframe' : 'step';
+            window.syncAnimationNavMode(nextMode);
           });
           document.getElementById('scene-anim-btn-loop')?.addEventListener('click', () => {
             isSceneLooping = !isSceneLooping;
