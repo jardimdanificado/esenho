@@ -1332,21 +1332,23 @@ export class DopeSheetUI {
       return '●';
     };
 
-    // 1. Build List of Display Rows (Objects and their active/modified Channel sub-tracks)
+    // 1. Build List of Display Rows (Objects and their active/modified Channel sub-tracks in Hierarchy order)
     const displayRows = [];
-    for (const obj of this.ds.objects.values()) {
+    const processedIds = new Set();
+
+    const addObjectRow = (obj, live = null, depth = 0) => {
+      if (!obj || processedIds.has(obj.id)) return;
+      processedIds.add(obj.id);
+
       let label = obj.name;
       let objType = obj.targetType || 'vector';
-      if (typeof window !== 'undefined' && window.doc) {
-        const live = window.doc.findObject ? window.doc.findObject(obj.id) : (window.doc.objects ? window.doc.objects.find(o => o.id === obj.id) : null);
-        if (live) {
-          if (live.name) {
-            obj.name = live.name;
-            label = live.name;
-          }
-          if (live.type) {
-            objType = live.type;
-          }
+      if (live) {
+        if (live.name) {
+          obj.name = live.name;
+          label = live.name;
+        }
+        if (live.type) {
+          objType = live.type;
         }
       }
 
@@ -1359,6 +1361,7 @@ export class DopeSheetUI {
         id: obj.id,
         label,
         objType,
+        depth,
         activeChannels,
         collapsed: isCollapsed,
         height: 26
@@ -1373,9 +1376,35 @@ export class DopeSheetUI {
             paramKey: ch.paramKey,
             id: `${obj.id}:${ch.paramKey}`,
             label: ch.label || ch.paramKey,
+            depth: depth + 1,
             height: 22
           });
         }
+      }
+
+      if (live && live.type === 'group' && Array.isArray(live.children)) {
+        for (const child of live.children) {
+          const childDObj = this.ds.getOrCreateObject(child.id, child.name || `${child.type} ${child.id}`, child.type === 'group' ? 'group' : 'vector');
+          addObjectRow(childDObj, child, depth + 1);
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined' && window.doc && Array.isArray(window.doc.objects)) {
+      for (const live of window.doc.objects) {
+        const dObj = this.ds.getOrCreateObject(live.id, live.name || `${live.type} ${live.id}`, live.type === 'group' ? 'group' : 'vector');
+        addObjectRow(dObj, live, 0);
+      }
+    }
+
+    // Add any remaining objects in this.ds.objects (e.g. camera, audio, or external tracks)
+    for (const obj of this.ds.objects.values()) {
+      if (!processedIds.has(obj.id)) {
+        let live = null;
+        if (typeof window !== 'undefined' && window.doc) {
+          live = window.doc.findObject ? window.doc.findObject(obj.id) : null;
+        }
+        addObjectRow(obj, live, 0);
       }
     }
 
@@ -1401,7 +1430,8 @@ export class DopeSheetUI {
 
       if (r.type === 'object') {
         const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
-        rowEl.style.padding = '0 8px';
+        const depthPad = r.depth ? (r.depth * 14) : 0;
+        rowEl.style.padding = `0 8px 0 ${8 + depthPad}px`;
         if (isSelected) {
           rowEl.style.background = '#3c3836';
           rowEl.style.borderLeft = '3px solid #fabd2f';
@@ -1436,8 +1466,8 @@ export class DopeSheetUI {
 
         rowEl.innerHTML = `
           <span class="ds-row-toggle" style="font-size: 9px; width: 14px; text-align: center; color: ${hasSubtracks ? '#a89984' : '#504945'}; cursor: ${hasSubtracks ? 'pointer' : 'default'}; margin-right: 2px;">${toggleIcon}</span>
-          <span style="font-size: 11px; margin-right: 6px; color: #83a598; width: 14px; text-align: center;">${icon}</span>
-          <span style="font-weight: bold; color: ${isSelected ? '#fabd2f' : '#ebdbb2'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label}">${r.label}</span>
+          <span style="font-size: 11px; margin-right: 6px; color: ${r.objType === 'group' ? '#fabd2f' : '#83a598'}; width: 14px; text-align: center;">${icon}</span>
+          <span style="font-weight: bold; color: ${isSelected ? '#fabd2f' : (r.objType === 'group' ? '#ebdbb2' : '#d5c4a1')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label}">${r.label}</span>
           <span style="font-size: 9px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
           <span class="ds-del-track-btn" title="Remove object from timeline" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
         `;
@@ -1480,7 +1510,8 @@ export class DopeSheetUI {
       } else {
         // Channel sub-track row
         const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
-        rowEl.style.padding = '0 8px 0 26px';
+        const depthPad = r.depth ? ((r.depth - 1) * 14) : 0;
+        rowEl.style.padding = `0 8px 0 ${26 + depthPad}px`;
         if (isSelected) {
           rowEl.style.background = '#32302f';
           rowEl.style.borderLeft = '3px solid #83a598';

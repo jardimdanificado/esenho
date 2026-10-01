@@ -595,6 +595,8 @@
       this.originY = attributes.originY !== undefined ? Number(attributes.originY) : undefined;
       this.scaleX = Number(attributes.scaleX !== undefined ? attributes.scaleX : 1);
       this.scaleY = Number(attributes.scaleY !== undefined ? attributes.scaleY : 1);
+      this.skewX = Number(attributes.skewX || 0);
+      this.skewY = Number(attributes.skewY || 0);
       this.clipPathId = attributes.clipPathId || null;
       this.parent = null;
     }
@@ -617,6 +619,12 @@
         const sx = this.scaleX !== undefined ? this.scaleX : 1;
         const sy = this.scaleY !== undefined ? this.scaleY : 1;
         transforms.push(`translate(${origin.x} ${origin.y}) scale(${sx} ${sy}) translate(${-origin.x} ${-origin.y})`);
+      }
+      if (this.skewX && this.skewX !== 0) {
+        transforms.push(`skewX(${this.skewX})`);
+      }
+      if (this.skewY && this.skewY !== 0) {
+        transforms.push(`skewY(${this.skewY})`);
       }
       return transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
     }
@@ -807,6 +815,8 @@
         originY: this.originY,
         scaleX: this.scaleX,
         scaleY: this.scaleY,
+        skewX: this.skewX,
+        skewY: this.skewY,
         clipPathId: this.clipPathId
       };
     }
@@ -2229,17 +2239,21 @@
 
     _localHitTest(px, py, tolerance = 6) {
       if (!this.visible || this.locked) return false;
+      const tx = Number(this.x || 0);
+      const ty = Number(this.y || 0);
+      const testX = px - tx;
+      const testY = py - ty;
       for (let i = this.children.length - 1; i >= 0; i--) {
         const c = this.children[i];
-        if (c.visible && !c.locked && c.hitTest(px, py, tolerance)) {
+        if (c.visible && !c.locked && c.hitTest(testX, testY, tolerance)) {
           return true;
         }
       }
       return false;
     }
 
-    getBounds() {
-      if (this.children.length === 0) return { minX: this.x, minY: this.y, maxX: this.x, maxY: this.y, width: 0, height: 0 };
+    getBounds(local = false) {
+      if (this.children.length === 0) return { minX: this.x || 0, minY: this.y || 0, maxX: this.x || 0, maxY: this.y || 0, width: 0, height: 0 };
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const c of this.children) {
         if (!c.visible) continue;
@@ -2247,8 +2261,44 @@
         minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
         maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
       }
-      if (minX === Infinity) return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
-      return { minX, minY, maxX, maxY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
+      if (minX === Infinity) return { minX: this.x || 0, minY: this.y || 0, maxX: this.x || 0, maxY: this.y || 0, width: 0, height: 0 };
+      const offsetX = (!local && this.x) ? Number(this.x) : 0;
+      const offsetY = (!local && this.y) ? Number(this.y) : 0;
+      return {
+        minX: minX + offsetX,
+        minY: minY + offsetY,
+        maxX: maxX + offsetX,
+        maxY: maxY + offsetY,
+        width: Math.max(0, maxX - minX),
+        height: Math.max(0, maxY - minY)
+      };
+    }
+
+    getTransformAttribute() {
+      const transforms = [];
+      const tx = Number(this.x || 0);
+      const ty = Number(this.y || 0);
+      if (tx !== 0 || ty !== 0) {
+        transforms.push(`translate(${tx} ${ty})`);
+      }
+      const localBounds = this.getBounds(true);
+      const ox = this.originX !== undefined ? this.originX : (localBounds.minX + localBounds.width / 2);
+      const oy = this.originY !== undefined ? this.originY : (localBounds.minY + localBounds.height / 2);
+      if (this.rotation && this.rotation !== 0) {
+        transforms.push(`rotate(${this.rotation} ${ox} ${oy})`);
+      }
+      if ((this.scaleX !== undefined && this.scaleX !== 1) || (this.scaleY !== undefined && this.scaleY !== 1)) {
+        const sx = this.scaleX !== undefined ? this.scaleX : 1;
+        const sy = this.scaleY !== undefined ? this.scaleY : 1;
+        transforms.push(`translate(${ox} ${oy}) scale(${sx} ${sy}) translate(${-ox} ${-oy})`);
+      }
+      if (this.skewX && this.skewX !== 0) {
+        transforms.push(`skewX(${this.skewX})`);
+      }
+      if (this.skewY && this.skewY !== 0) {
+        transforms.push(`skewY(${this.skewY})`);
+      }
+      return transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
     }
 
     toSVGElement() {
@@ -2423,6 +2473,20 @@
         return null;
       };
       return findRecursive(this.objects);
+    }
+
+    getAllObjects() {
+      const res = [];
+      const collect = (list) => {
+        for (const o of list) {
+          res.push(o);
+          if (o.type === 'group' && o.children) {
+            collect(o.children);
+          }
+        }
+      };
+      collect(this.objects);
+      return res;
     }
 
     /** Group Selected Objects */

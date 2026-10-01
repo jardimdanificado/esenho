@@ -331,7 +331,7 @@ console.log('✔ Easing curves, Custom Bézier, Physics Bounce, Spring & Spline 
 // 13. Test Multi-Stop Gradient Manipulation & SvgGradient
 console.log('13. Testing SvgGradient Multi-Stop Engine...');
 import svgPkg from '../src/svg/svg_engine.js';
-const { SvgDocument, SvgLinearGradient, SvgRadialGradient, SvgText } = svgPkg;
+const { SvgDocument, SvgLinearGradient, SvgRadialGradient, SvgText, SvgGroup, SvgRect, SvgCircle } = svgPkg;
 
 const grad = new SvgLinearGradient();
 assert.strictEqual(grad.stops.length, 2);
@@ -442,6 +442,64 @@ assert.strictEqual(singleTrackObj.hasAnyKeyframeAt(45), true);
 assert.strictEqual(singleTrackObj.channels.get('x').getKeyframeAt(45).value, 300);
 
 console.log('✔ Single-track per object operations passed');
+
+// 17. Test SvgGroup Animation & Scene Graph Hierarchical Synchronization
+console.log('17. Testing SvgGroup Animation & Hierarchy Synchronization...');
+const testDoc = new SvgDocument(800, 600);
+
+const rect1 = new SvgRect({ id: 'child_rect', x: 20, y: 30, width: 60, height: 40, fill: '#fabd2f' });
+const circ1 = new SvgCircle({ id: 'child_circ', cx: 100, cy: 100, r: 25, fill: '#83a598' });
+const grp1 = new SvgGroup({ id: 'grp_main', name: 'Main Character Group' });
+grp1.add(rect1);
+grp1.add(circ1);
+testDoc.addObject(grp1);
+
+// Test doc.getAllObjects()
+const allObjs = testDoc.getAllObjects();
+assert.strictEqual(allObjs.length, 3, 'getAllObjects should return group and its 2 children');
+assert.strictEqual(allObjs[0].id, 'grp_main');
+assert.strictEqual(allObjs[1].id, 'child_rect');
+assert.strictEqual(allObjs[2].id, 'child_circ');
+
+// Test extractLiveObjectProperties on group
+const grpLiveProps = extractLiveObjectProperties(grp1);
+assert.strictEqual(grpLiveProps.x, 0);
+assert.strictEqual(grpLiveProps.y, 0);
+assert.strictEqual(grpLiveProps.rotation, 0);
+assert.strictEqual(grpLiveProps.scaleX, 1);
+assert.strictEqual(grpLiveProps.scaleY, 1);
+
+// Test SvgGroup transform rendering when animated
+grp1.x = 150;
+grp1.y = 80;
+grp1.rotation = 45;
+grp1.scaleX = 1.5;
+grp1.scaleY = 1.5;
+grp1.opacity = 0.85;
+
+const grpSvg = grp1.toSVGElement();
+assert.ok(grpSvg.includes('id="grp_main"'), 'SVG must include group id');
+assert.ok(grpSvg.includes('opacity="0.85"'), 'SVG must include group opacity');
+assert.ok(grpSvg.includes('translate(150 80)'), 'SVG transform must translate group by (x, y)');
+assert.ok(grpSvg.includes('rotate(45'), 'SVG transform must rotate group');
+assert.ok(grpSvg.includes('scale(1.5 1.5)'), 'SVG transform must scale group');
+assert.ok(grpSvg.includes('child_rect'), 'SVG must contain child_rect');
+assert.ok(grpSvg.includes('child_circ'), 'SVG must contain child_circ');
+
+// Test DopeSheet multi-track animation on group
+const grpDopeSheet = new DopeSheet(60, 24);
+const dGrp = grpDopeSheet.getOrCreateObject(grp1.id, grp1.name, 'group');
+dGrp.setKeyframe('x', 1, 0, 'linear');
+dGrp.setKeyframe('y', 1, 0, 'linear');
+dGrp.setKeyframe('x', 30, 200, 'easeOutQuad');
+dGrp.setKeyframe('y', 30, 100, 'easeOutQuad');
+dGrp.setKeyframe('rotation', 30, 90, 'easeInOutCubic');
+
+const sampleF15 = grpDopeSheet.evaluate(15);
+assert.ok(sampleF15.grp_main.x > 0 && sampleF15.grp_main.x < 200, 'Sampled group X at frame 15 should be between 0 and 200');
+assert.ok(sampleF15.grp_main.y > 0 && sampleF15.grp_main.y < 100, 'Sampled group Y at frame 15 should be between 0 and 100');
+
+console.log('✔ SvgGroup Animation & Scene Graph Hierarchy passed');
 
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
 

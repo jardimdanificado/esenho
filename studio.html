@@ -4654,6 +4654,10 @@
           renderNodeItem(doc.objects[i], 0);
         }
 
+        if (typeof window.syncObjectsToDopeSheet === 'function') {
+          window.syncObjectsToDopeSheet();
+        }
+
         updateSelectedObjectEventsUI();
       }
 
@@ -9167,10 +9171,12 @@
 
           function syncObjectsToDopeSheet() {
             if (!doc || !dopeSheet) return;
-            for (const obj of doc.objects) {
-              dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, 'vector');
+            const all = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
+            for (const obj of all) {
+              dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, obj.type === 'group' ? 'group' : 'vector');
             }
           }
+          window.syncObjectsToDopeSheet = syncObjectsToDopeSheet;
           syncObjectsToDopeSheet();
 
           if (dock) {
