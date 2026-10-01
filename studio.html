@@ -3278,12 +3278,6 @@
               </div>
             </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 4px; margin-top: 2px;">
-              <button id="scene-anim-btn-nav-mode" class="btn-sm" style="flex: 1; font-size: 10px; background: rgba(250, 189, 47, 0.12); color: var(--primary); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; gap: 4px;" title="Switch Step Mode (Keys ❖ / Steps ▮)">
-                <span>Mode:</span> <strong id="scene-nav-mode-label">❖ Keyframes</strong>
-              </button>
-            </div>
-
             <div class="form-row" style="margin-top: 2px; align-items: center;">
               <label style="font-size: 10px; color: var(--text-muted); width: 42px;">Curve</label>
               <select id="scene-anim-select-easing" title="Easing Curve for Keyframes" style="flex: 1; padding: 2px 4px; font-size: 10px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
@@ -10328,24 +10322,6 @@
           }
 
           // Wire Scene Tab Animation Controls
-          window.animNavMode = 'keyframe'; // 'keyframe' | 'step'
-
-          window.syncAnimationNavMode = function(mode) {
-            window.animNavMode = mode;
-            const label = document.getElementById('scene-nav-mode-label');
-            const btn = document.getElementById('scene-anim-btn-nav-mode');
-            if (label) {
-              label.textContent = (mode === 'step') ? '▮ 1 Frame Step' : '❖ Keyframes';
-            }
-            if (btn) {
-              btn.style.background = (mode === 'step') ? 'rgba(69, 133, 136, 0.15)' : 'rgba(250, 189, 47, 0.12)';
-              btn.style.color = (mode === 'step') ? 'var(--accent)' : 'var(--primary)';
-            }
-            if (window.dopeSheetUI && window.dopeSheetUI.navMode !== mode) {
-              window.dopeSheetUI.updateNavModeUI(mode);
-            }
-          };
-
           document.getElementById('scene-anim-btn-play')?.addEventListener('click', (e) => {
             if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
             toggleScenePlay();
@@ -10374,10 +10350,6 @@
               const nextF = window.dopeSheet.nextKeyframe(selId);
               seekSceneFrame(nextF);
             }
-          });
-          document.getElementById('scene-anim-btn-nav-mode')?.addEventListener('click', () => {
-            const nextMode = (window.animNavMode === 'step') ? 'keyframe' : 'step';
-            window.syncAnimationNavMode(nextMode);
           });
           document.getElementById('scene-anim-btn-loop')?.addEventListener('click', () => {
             isSceneLooping = !isSceneLooping;

@@ -33,7 +33,6 @@ export class DopeSheetUI {
     this.isScrubbing = false;
     this._playInterval = null;
     this._activeMenu = null;
-    this.navMode = 'keyframe'; // 'keyframe' (jump key-to-key) | 'step' (step frame-to-frame)
 
     this.render();
     this.ds.subscribe((event, payload) => {
@@ -46,20 +45,6 @@ export class DopeSheetUI {
         this.updateGrid();
       }
     });
-  }
-
-  updateNavModeUI(mode = null) {
-    if (mode) this.navMode = mode;
-    const txt = this.container.querySelector('#ds-nav-mode-text');
-    const btn = this.container.querySelector('#ds-btn-nav-mode');
-    if (txt) {
-      txt.textContent = (this.navMode === 'step') ? '▮ Steps' : '❖ Keys';
-    }
-    if (btn) {
-      btn.style.background = (this.navMode === 'step') ? 'rgba(69, 133, 136, 0.2)' : 'rgba(250, 189, 47, 0.15)';
-      btn.style.color = (this.navMode === 'step') ? '#83a598' : '#fabd2f';
-      btn.title = (this.navMode === 'step') ? 'Navigation: Step 1 Frame (Click to jump Keyframes)' : 'Navigation: Jump Keyframes (Click to step 1 frame)';
-    }
   }
 
   render() {
@@ -79,10 +64,6 @@ export class DopeSheetUI {
             <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">⏭</button>
             <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#458588' : '#3c3836'}; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
           </div>
-
-          <button id="ds-btn-nav-mode" class="ds-btn" title="Toggle Navigation: Jump Keyframe vs Step 1 Frame" style="background: rgba(250, 189, 47, 0.15); color: #fabd2f; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; font-weight: bold;">
-            <span id="ds-nav-mode-text">❖ Keys</span>
-          </button>
 
           <div style="height: 16px; width: 1px; background: #504945; margin: 0 2px;"></div>
 
@@ -282,9 +263,6 @@ export class DopeSheetUI {
     const prevStepBtn = this.container.querySelector('#ds-btn-step-prev');
     const nextStepBtn = this.container.querySelector('#ds-btn-step-next');
     const nextKeyBtn = this.container.querySelector('#ds-btn-next-key');
-    const navModeBtn = this.container.querySelector('#ds-btn-nav-mode');
-    const navModeText = this.container.querySelector('#ds-nav-mode-text');
-    const exportVideoBtn = this.container.querySelector('#ds-btn-export-video');
     const loopBtn = this.container.querySelector('#ds-btn-loop');
     const collapseBtn = this.container.querySelector('#ds-btn-collapse-timeline');
     const frameInput = this.container.querySelector('#ds-input-frame');
@@ -318,24 +296,6 @@ export class DopeSheetUI {
     if (nextKeyBtn) {
       nextKeyBtn.onclick = () => {
         this.ds.nextKeyframe(this.selectedObjectId);
-      };
-    }
-
-    if (navModeBtn) {
-      navModeBtn.onclick = () => {
-        this.navMode = (this.navMode === 'step') ? 'keyframe' : 'step';
-        this.updateNavModeUI();
-        if (typeof window !== 'undefined' && typeof window.syncAnimationNavMode === 'function') {
-          window.syncAnimationNavMode(this.navMode);
-        }
-      };
-    }
-
-    if (exportVideoBtn) {
-      exportVideoBtn.onclick = () => {
-        if (typeof window !== 'undefined' && typeof window.openAnimationExportModal === 'function') {
-          window.openAnimationExportModal();
-        }
       };
     }
     loopBtn.onclick = () => {
