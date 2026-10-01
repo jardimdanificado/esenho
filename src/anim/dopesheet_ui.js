@@ -115,11 +115,16 @@ export class DopeSheetUI {
         <div id="ds-body" style="display: flex; flex: 1; min-height: 0; position: relative; overflow: hidden;">
           
           <!-- Left: Objects / Layers Sidebar -->
-          <div id="ds-tree-sidebar" style="width: 250px; min-width: 200px; max-width: 340px; background: #282828; border-right: 1px solid #3c3836; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;">
+          <div id="ds-tree-sidebar" style="width: 290px; min-width: 230px; max-width: 420px; background: #282828; border-right: 1px solid #3c3836; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;">
             <!-- Tree Header (Matches 24px ruler height exactly) -->
-            <div style="height: 24px; min-height: 24px; padding: 0 8px; background: #32302f; border-bottom: 1px solid #3c3836; font-weight: bold; color: #a89984; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
-              <span>Layers & Objects</span>
-              <span style="font-size: 9px; color: #7c6f64;">1 Track / Object</span>
+            <div style="height: 24px; min-height: 24px; padding: 0 6px; background: #32302f; border-bottom: 1px solid #3c3836; font-weight: bold; color: #a89984; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
+              <span style="font-size: 10px; font-weight: bold; color: #ebdbb2;">OBJECTS &amp; LAYERS</span>
+              <div style="display: flex; align-items: center; gap: 3px;">
+                <button id="ds-btn-hdr-group" title="Group Selected (Ctrl+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">📁 Group</button>
+                <button id="ds-btn-hdr-ungroup" title="Ungroup Selected (Ctrl+Shift+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">Ungroup</button>
+                <button id="ds-btn-hdr-top" title="Bring to Front" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 3px; cursor: pointer;">⬆</button>
+                <button id="ds-btn-hdr-bot" title="Send to Bottom" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 3px; cursor: pointer;">⬇</button>
+              </div>
             </div>
             <!-- Scrollable Track Labels Container -->
             <div id="ds-tree-scroll" style="flex: 1; overflow-y: hidden; overflow-x: hidden; position: relative;">
@@ -397,6 +402,64 @@ export class DopeSheetUI {
       }
     };
 
+    const btnHdrGroup = this.container.querySelector('#ds-btn-hdr-group');
+    if (btnHdrGroup) {
+      btnHdrGroup.onclick = (e) => {
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && window.doc && window.doc.groupSelected) {
+          window.doc.groupSelected();
+          if (window.render) window.render();
+          if (window.updateInspector) window.updateInspector();
+          this.updateGrid();
+        }
+      };
+    }
+
+    const btnHdrUngroup = this.container.querySelector('#ds-btn-hdr-ungroup');
+    if (btnHdrUngroup) {
+      btnHdrUngroup.onclick = (e) => {
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && window.doc && window.doc.ungroupSelected) {
+          window.doc.ungroupSelected();
+          if (window.render) window.render();
+          if (window.updateInspector) window.updateInspector();
+          this.updateGrid();
+        }
+      };
+    }
+
+    const btnHdrTop = this.container.querySelector('#ds-btn-hdr-top');
+    if (btnHdrTop) {
+      btnHdrTop.onclick = (e) => {
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && window.doc) {
+          const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects()[0] : null;
+          if (sel && window.doc.bringToFront) {
+            window.doc.bringToFront(sel.id);
+            if (window.render) window.render();
+            if (window.updateInspector) window.updateInspector();
+            this.updateGrid();
+          }
+        }
+      };
+    }
+
+    const btnHdrBot = this.container.querySelector('#ds-btn-hdr-bot');
+    if (btnHdrBot) {
+      btnHdrBot.onclick = (e) => {
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && window.doc) {
+          const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects()[0] : null;
+          if (sel && window.doc.sendToBack) {
+            window.doc.sendToBack(sel.id);
+            if (window.render) window.render();
+            if (window.updateInspector) window.updateInspector();
+            this.updateGrid();
+          }
+        }
+      };
+    };
+
     // ── Scrubbing and Keyframe Selection / Dragging on Timeline Grid & Ruler ──
     const rulerEl = this.container.querySelector('#ds-ruler-container');
     const gridEl = this.container.querySelector('#ds-grid-rows');
@@ -470,6 +533,7 @@ export class DopeSheetUI {
                   if (window.doc.select) window.doc.select(hitRow.object.id);
                   if (window.render) window.render();
                   if (window.updateInspector) window.updateInspector();
+                  if (window.drawOverlay) window.drawOverlay();
                 }
                 this.updateGrid();
 
@@ -516,6 +580,7 @@ export class DopeSheetUI {
                 if (window.doc.select) window.doc.select(hitRow.object.id);
                 if (window.render) window.render();
                 if (window.updateInspector) window.updateInspector();
+                if (window.drawOverlay) window.drawOverlay();
               }
               this.updateGrid();
             } else {
@@ -542,6 +607,7 @@ export class DopeSheetUI {
                   if (window.doc.select) window.doc.select(hitRow.object.id);
                   if (window.render) window.render();
                   if (window.updateInspector) window.updateInspector();
+                  if (window.drawOverlay) window.drawOverlay();
                 }
                 this.updateGrid();
 
@@ -587,6 +653,7 @@ export class DopeSheetUI {
                 if (window.doc.select) window.doc.select(hitRow.object.id);
                 if (window.render) window.render();
                 if (window.updateInspector) window.updateInspector();
+                if (window.drawOverlay) window.drawOverlay();
               }
               this.updateGrid();
             }
@@ -1307,6 +1374,86 @@ export class DopeSheetUI {
     }
   }
 
+  openAddParameterMenu(dObj, clientX, clientY) {
+    this.closeActiveMenu();
+    const menu = document.createElement('div');
+    menu.className = 'ds-param-popup-menu';
+    menu.style.position = 'fixed';
+    menu.style.left = `${Math.max(10, Math.min(window.innerWidth - 220, clientX - 20))}px`;
+    menu.style.top = `${Math.max(10, Math.min(window.innerHeight - 260, clientY - 140))}px`;
+    menu.style.width = '210px';
+    menu.style.maxHeight = '280px';
+    menu.style.overflowY = 'auto';
+    menu.style.background = '#282828';
+    menu.style.border = '1px solid #504945';
+    menu.style.borderRadius = '4px';
+    menu.style.boxShadow = '0 6px 20px rgba(0,0,0,0.7)';
+    menu.style.zIndex = '99999';
+    menu.style.padding = '4px 0';
+    menu.style.fontSize = '11px';
+    menu.style.color = '#ebdbb2';
+    menu.style.userSelect = 'none';
+
+    const groups = getParameterGroups();
+    for (const [groupName, params] of Object.entries(groups)) {
+      const header = document.createElement('div');
+      header.style.padding = '4px 8px';
+      header.style.fontWeight = 'bold';
+      header.style.color = '#fabd2f';
+      header.style.fontSize = '10px';
+      header.style.borderBottom = '1px solid #3c3836';
+      header.style.marginTop = '2px';
+      header.textContent = groupName;
+      menu.appendChild(header);
+
+      for (const p of params) {
+        const item = document.createElement('div');
+        item.style.padding = '4px 10px';
+        item.style.cursor = 'pointer';
+        item.style.display = 'flex';
+        item.style.justifyContent = 'space-between';
+        item.style.alignItems = 'center';
+        const hasTrack = dObj.channels.has(p.key);
+        item.innerHTML = `<span>${p.label}</span><span style="font-size: 9px; color: ${hasTrack ? '#b8bb26' : '#7c6f64'}; font-weight: bold;">${hasTrack ? '✓' : '+'}</span>`;
+
+        item.onmouseenter = () => item.style.background = '#3c3836';
+        item.onmouseleave = () => item.style.background = 'transparent';
+
+        item.onclick = (e) => {
+          e.stopPropagation();
+          let liveObj = null;
+          if (typeof window !== 'undefined' && window.doc) {
+            liveObj = window.doc.findObject ? window.doc.findObject(dObj.id) : null;
+          }
+          let initialVal = p.default;
+          if (liveObj) {
+            const props = extractLiveObjectProperties(liveObj);
+            if (props[p.key] !== undefined) initialVal = props[p.key];
+          }
+          const ch = dObj.getOrCreateChannel(p.key, p.label, initialVal, p.type);
+          if (ch.keyframes.length === 0) {
+            ch.addKeyframe(this.ds.currentFrame, initialVal, this.activeEasing || 'linear');
+          }
+          dObj.collapsed = false;
+          this.closeActiveMenu();
+          this.updateGrid();
+        };
+        menu.appendChild(item);
+      }
+    }
+
+    document.body.appendChild(menu);
+    this._activeMenu = menu;
+
+    const closeHandler = (e) => {
+      if (!menu.contains(e.target)) {
+        this.closeActiveMenu();
+        document.removeEventListener('pointerdown', closeHandler);
+      }
+    };
+    setTimeout(() => document.addEventListener('pointerdown', closeHandler), 10);
+  }
+
   updateGrid() {
     const totalW = Math.max(800, this.ds.totalFrames * this.frameWidth + 40);
     const treeRowsEl = this.container.querySelector('#ds-tree-rows');
@@ -1429,9 +1576,16 @@ export class DopeSheetUI {
       rowEl.style.cursor = 'pointer';
 
       if (r.type === 'object') {
+        let liveObj = null;
+        if (typeof window !== 'undefined' && window.doc) {
+          liveObj = window.doc.findObject ? window.doc.findObject(r.object.id) : null;
+        }
+        const isVisible = liveObj ? (liveObj.visible !== false) : true;
+        const isLocked = liveObj ? (liveObj.locked === true) : false;
+
         const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
         const depthPad = r.depth ? (r.depth * 14) : 0;
-        rowEl.style.padding = `0 8px 0 ${8 + depthPad}px`;
+        rowEl.style.padding = `0 6px 0 ${6 + depthPad}px`;
         if (isSelected) {
           rowEl.style.background = '#3c3836';
           rowEl.style.borderLeft = '3px solid #fabd2f';
@@ -1462,24 +1616,161 @@ export class DopeSheetUI {
 
         const icon = getIcon(r.objType);
         const hasSubtracks = r.activeChannels.length > 0;
-        const toggleIcon = hasSubtracks ? (r.collapsed ? '▶' : '▼') : '·';
+        const toggleIcon = (r.objType === 'group' || hasSubtracks) ? (r.collapsed ? '▶' : '▼') : '·';
 
         rowEl.innerHTML = `
-          <span class="ds-row-toggle" style="font-size: 9px; width: 14px; text-align: center; color: ${hasSubtracks ? '#a89984' : '#504945'}; cursor: ${hasSubtracks ? 'pointer' : 'default'}; margin-right: 2px;">${toggleIcon}</span>
-          <span style="font-size: 11px; margin-right: 6px; color: ${r.objType === 'group' ? '#fabd2f' : '#83a598'}; width: 14px; text-align: center;">${icon}</span>
-          <span style="font-weight: bold; color: ${isSelected ? '#fabd2f' : (r.objType === 'group' ? '#ebdbb2' : '#d5c4a1')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label}">${r.label}</span>
-          <span style="font-size: 9px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
-          <span class="ds-del-track-btn" title="Remove object from timeline" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
+          <span class="ds-row-toggle" style="font-size: 9px; width: 12px; text-align: center; color: ${(r.objType === 'group' || hasSubtracks) ? '#a89984' : '#504945'}; cursor: ${(r.objType === 'group' || hasSubtracks) ? 'pointer' : 'default'}; margin-right: 2px;">${toggleIcon}</span>
+          <span style="font-size: 11px; margin-right: 4px; color: ${r.objType === 'group' ? '#fabd2f' : '#83a598'}; width: 14px; text-align: center;">${icon}</span>
+          <span class="ds-obj-name" style="font-weight: bold; color: ${isSelected ? '#fabd2f' : (r.objType === 'group' ? '#ebdbb2' : '#d5c4a1')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label} (Double-click to rename)">${r.label}</span>
+          <span class="ds-vis-btn" title="Toggle Visibility" style="font-size: 10px; margin-right: 3px; opacity: ${isVisible ? '0.9' : '0.3'}; cursor: pointer; padding: 0 2px;">${isVisible ? '👁' : '👁‍🗨'}</span>
+          <span class="ds-lock-btn" title="Toggle Lock" style="font-size: 10px; margin-right: 3px; opacity: ${isLocked ? '1.0' : '0.3'}; color: ${isLocked ? '#ea6962' : 'inherit'}; cursor: pointer; padding: 0 2px;">${isLocked ? '🔒' : '🔓'}</span>
+          <span class="ds-add-param-btn" title="Add Parameter Track (+)" style="font-size: 11px; margin-right: 3px; color: #fabd2f; font-weight: bold; cursor: pointer; padding: 0 2px;">＋</span>
+          <span style="font-size: 8px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 4px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
+          <span class="ds-del-track-btn" title="Delete Object" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
         `;
 
         const toggleBtn = rowEl.querySelector('.ds-row-toggle');
-        if (toggleBtn && hasSubtracks) {
+        if (toggleBtn && (r.objType === 'group' || hasSubtracks)) {
           toggleBtn.onclick = (e) => {
             e.stopPropagation();
             r.object.collapsed = !r.collapsed;
+            if (liveObj && r.objType === 'group') liveObj.collapsed = r.object.collapsed;
             this.updateGrid();
           };
         }
+
+        const visBtn = rowEl.querySelector('.ds-vis-btn');
+        if (visBtn) {
+          visBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (liveObj) {
+              liveObj.visible = !liveObj.visible;
+              if (window.render) window.render();
+              if (window.updateInspector) window.updateInspector();
+              this.updateGrid();
+            }
+          };
+        }
+
+        const lockBtn = rowEl.querySelector('.ds-lock-btn');
+        if (lockBtn) {
+          lockBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (liveObj) {
+              liveObj.locked = !liveObj.locked;
+              if (window.render) window.render();
+              if (window.updateInspector) window.updateInspector();
+              this.updateGrid();
+            }
+          };
+        }
+
+        const addParamBtn = rowEl.querySelector('.ds-add-param-btn');
+        if (addParamBtn) {
+          addParamBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.openAddParameterMenu(r.object, e.clientX, e.clientY);
+          };
+        }
+
+        // Inline double-click to rename
+        const nameSpan = rowEl.querySelector('.ds-obj-name');
+        if (nameSpan) {
+          nameSpan.ondblclick = (e) => {
+            e.stopPropagation();
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.value = r.label;
+            input.style.fontSize = '10px';
+            input.style.width = '80px';
+            input.style.background = '#1d2021';
+            input.style.color = '#fabd2f';
+            input.style.border = '1px solid #fabd2f';
+            input.style.borderRadius = '2px';
+            input.style.padding = '0 2px';
+
+            const saveName = () => {
+              const val = input.value.trim();
+              if (val && val !== r.label) {
+                r.object.name = val;
+                if (liveObj) {
+                  liveObj.name = val;
+                  if (typeof window !== 'undefined' && window.doc && window.doc.pushHistory) {
+                    window.doc.pushHistory(`Rename to ${val}`);
+                  }
+                }
+                this.ds.renameObject(r.object.id, val);
+                if (window.updateInspector) window.updateInspector();
+              }
+              this.updateGrid();
+            };
+
+            input.onblur = saveName;
+            input.onkeydown = (ev) => {
+              if (ev.key === 'Enter') saveName();
+              if (ev.key === 'Escape') this.updateGrid();
+            };
+
+            nameSpan.replaceWith(input);
+            input.focus();
+            input.select();
+          };
+        }
+
+        // Drag & Drop reordering
+        rowEl.draggable = true;
+        rowEl.ondragstart = (e) => {
+          this._dragSourceId = r.object.id;
+          rowEl.style.opacity = '0.5';
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', r.object.id);
+        };
+        rowEl.ondragend = () => {
+          this._dragSourceId = null;
+          rowEl.style.opacity = '1.0';
+          this.container.querySelectorAll('.ds-drop-top, .ds-drop-bottom, .ds-drop-inside').forEach(el => {
+            el.classList.remove('ds-drop-top', 'ds-drop-bottom', 'ds-drop-inside');
+          });
+        };
+        rowEl.ondragover = (e) => {
+          e.preventDefault();
+          if (!this._dragSourceId || this._dragSourceId === r.object.id) return;
+          const rect = rowEl.getBoundingClientRect();
+          const relY = (e.clientY - rect.top) / rect.height;
+          rowEl.classList.remove('ds-drop-top', 'ds-drop-bottom', 'ds-drop-inside');
+          if (r.objType === 'group') {
+            if (relY < 0.25) rowEl.classList.add('ds-drop-top');
+            else if (relY > 0.75) rowEl.classList.add('ds-drop-bottom');
+            else rowEl.classList.add('ds-drop-inside');
+          } else {
+            if (relY < 0.5) rowEl.classList.add('ds-drop-top');
+            else rowEl.classList.add('ds-drop-bottom');
+          }
+        };
+        rowEl.ondragleave = () => {
+          rowEl.classList.remove('ds-drop-top', 'ds-drop-bottom', 'ds-drop-inside');
+        };
+        rowEl.ondrop = (e) => {
+          e.preventDefault();
+          if (!this._dragSourceId || this._dragSourceId === r.object.id) return;
+          const rect = rowEl.getBoundingClientRect();
+          const relY = (e.clientY - rect.top) / rect.height;
+          let dropPos = 'above';
+          if (r.objType === 'group') {
+            if (relY < 0.25) dropPos = 'above';
+            else if (relY > 0.75) dropPos = 'below';
+            else dropPos = 'inside';
+          } else {
+            dropPos = relY < 0.5 ? 'above' : 'below';
+          }
+          if (typeof window !== 'undefined' && window.doc && window.doc.reorderTreeItem) {
+            window.doc.reorderTreeItem(this._dragSourceId, r.object.id, dropPos);
+            if (window.render) window.render();
+            if (window.updateInspector) window.updateInspector();
+          }
+          this._dragSourceId = null;
+          this.updateGrid();
+        };
 
         rowEl.onclick = () => {
           this.selectedObjectId = r.object.id;
@@ -1488,6 +1779,7 @@ export class DopeSheetUI {
             if (window.doc.select) window.doc.select(r.object.id);
             if (window.render) window.render();
             if (window.updateInspector) window.updateInspector();
+            if (window.drawOverlay) window.drawOverlay();
           }
           this.syncEasingUI();
           this.updateGrid();
@@ -1499,10 +1791,18 @@ export class DopeSheetUI {
           delBtn.onmouseleave = () => delBtn.style.color = '#7c6f64';
           delBtn.onclick = (e) => {
             e.stopPropagation();
+            if (liveObj && typeof window !== 'undefined' && window.doc && window.doc.removeObject) {
+              window.doc.removeObject(liveObj.id);
+            }
             this.ds.removeObject(r.object.id);
             if (this.selectedObjectId === r.object.id) {
               this.selectedObjectId = null;
               this.selectedParamKey = null;
+            }
+            if (typeof window !== 'undefined') {
+              if (window.render) window.render();
+              if (window.updateInspector) window.updateInspector();
+              if (window.drawOverlay) window.drawOverlay();
             }
             this.updateGrid();
           };
@@ -1511,7 +1811,7 @@ export class DopeSheetUI {
         // Channel sub-track row
         const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
         const depthPad = r.depth ? ((r.depth - 1) * 14) : 0;
-        rowEl.style.padding = `0 8px 0 ${26 + depthPad}px`;
+        rowEl.style.padding = `0 6px 0 ${24 + depthPad}px`;
         if (isSelected) {
           rowEl.style.background = '#32302f';
           rowEl.style.borderLeft = '3px solid #83a598';
@@ -1524,7 +1824,7 @@ export class DopeSheetUI {
         const pIcon = getParamIcon(r.paramKey);
 
         rowEl.innerHTML = `
-          <span style="font-size: 10px; margin-right: 5px; color: #a89984; width: 12px; text-align: center;">${pIcon}</span>
+          <span style="font-size: 10px; margin-right: 4px; color: #a89984; width: 12px; text-align: center;">${pIcon}</span>
           <span style="color: ${isSelected ? '#fabd2f' : '#d5c4a1'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10px;" title="${r.label}">${r.label}</span>
           <span style="font-size: 8px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px;" title="${kfCount} keyframes">${kfCount} kf</span>
           <span class="ds-del-channel-btn" title="Remove parameter track" style="color: #665c54; font-size: 10px; cursor: pointer; padding: 0 2px;">✕</span>
@@ -1537,6 +1837,7 @@ export class DopeSheetUI {
             if (window.doc.select) window.doc.select(r.object.id);
             if (window.render) window.render();
             if (window.updateInspector) window.updateInspector();
+            if (window.drawOverlay) window.drawOverlay();
           }
           this.syncEasingUI();
           this.updateGrid();

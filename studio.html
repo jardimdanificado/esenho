@@ -2612,8 +2612,8 @@
       </div>
       <canvas id="overlay-canvas"></canvas>
 
-      <!-- DopeSheet / Animation Timeline Dock -->
-      <div id="dopesheet-dock" style="display: none; position: absolute; bottom: 0; left: 0; right: 0; height: 240px; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.5);"></div>
+      <!-- DopeSheet / Animation Timeline Dock (Unified Object Manager & Timeline) -->
+      <div id="dopesheet-dock" style="display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 240px; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.5);"></div>
 
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
@@ -2653,68 +2653,16 @@
     <!-- Mobile Sidebar Backdrop -->
     <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
 
-    <!-- Right Sidebar (Scene Graph & Inspector) -->
+    <!-- Right Sidebar (Properties & Inspector) -->
     <div id="sidebar">
       <div class="tab-bar">
-        <button class="tab-btn active" data-tab="tab-objects">Scene</button>
-        <button class="tab-btn" data-tab="tab-style">Inspect</button>
+        <button class="tab-btn active" data-tab="tab-style">Inspect</button>
+        <button class="tab-btn" data-tab="tab-objects">Operations</button>
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
       </div>
 
-      <!-- Tab 1: Object Tree / Hierarchy & Animation -->
-      <div class="tab-content active" id="tab-objects">
-        <!-- Objects Hierarchy Tree -->
-        <div class="section-card" style="margin-bottom: 8px;">
-          <div class="section-header">
-            <span>Objects &amp; Layers</span>
-          </div>
-
-          <div id="object-list"></div>
-
-          <!-- Unified Layer & Shape Operations -->
-          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
-            <div class="grid-4">
-              <button id="btn-bring-front" class="btn-sm" title="Bring to Front">Top</button>
-              <button id="btn-bring-fwd" class="btn-sm" title="Bring Forward">Up</button>
-              <button id="btn-send-back" class="btn-sm" title="Send Backward">Down</button>
-              <button id="btn-send-bot" class="btn-sm" title="Send to Bottom">Bot</button>
-            </div>
-
-            <div class="grid-2">
-              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">Group</button>
-              <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">Ungroup</button>
-            </div>
-
-            <div class="grid-3">
-              <button id="btn-rename-obj" class="btn-sm" title="Rename Selected Object (F2)">Rename</button>
-              <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">Duplicate</button>
-              <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">Delete</button>
-            </div>
-
-            <div class="grid-2" style="margin-top: 2px;">
-              <button id="btn-node-convert-path" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
-              <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Text Outlines</button>
-            </div>
-
-            <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">Rasterize to Image</button>
-
-            <!-- Masking & Text Path Controls -->
-            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); margin-top: 4px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
-            <div class="grid-2" style="margin-top: 2px;">
-              <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
-              <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">Release Mask</button>
-            </div>
-
-            <div class="grid-2">
-              <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
-              <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">Detach Text</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Tab 2: Style & Transform Inspector -->
-      <div class="tab-content" id="tab-style">
+      <!-- Tab 1: Style & Transform Inspector (Active Default) -->
+      <div class="tab-content active" id="tab-style">
         <!-- Inspect & Status Summary Card -->
         <div class="section-card" id="card-inspect-status" style="margin-bottom: 8px;">
           <div class="section-header">
@@ -2963,8 +2911,53 @@
 
             <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
           </div>
-        </details>
+      </div>
 
+      <!-- Tab 2: Operations (Masking, Vector Path Tools & Shape Ops) -->
+      <div class="tab-content" id="tab-objects">
+        <div class="section-card" style="margin-bottom: 8px;">
+          <div class="section-header">
+            <span>Vector &amp; Layer Operations</span>
+          </div>
+
+          <!-- Hidden container for backward-compatibility if referenced -->
+          <div id="object-list" style="display: none;"></div>
+
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 11px; color: var(--text-dim); line-height: 1.4; padding: 4px 0;">
+              Layers, hierarchy, reordering and keyframes are managed directly in the <strong>Timeline &amp; Object Manager</strong> dock below.
+            </div>
+
+            <div class="grid-2">
+              <button id="btn-node-convert-path" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
+              <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Text Outlines</button>
+            </div>
+
+            <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">Rasterize to Image</button>
+
+            <!-- Masking & Text Path Controls -->
+            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); margin-top: 4px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
+            <div class="grid-2">
+              <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
+              <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">Release Mask</button>
+            </div>
+
+            <div class="grid-2">
+              <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
+              <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">Detach Text</button>
+            </div>
+
+            <div class="grid-2" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 6px;">
+              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">📁 Group</button>
+              <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">Ungroup</button>
+            </div>
+
+            <div class="grid-2">
+              <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">Duplicate</button>
+              <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">Delete</button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- Tab 3: Canvas Setup & Engine Settings -->
@@ -3887,6 +3880,7 @@
         if (objCountBadge) objCountBadge.textContent = `${doc.objects.length} items`;
         if (svgCodeEditor) svgCodeEditor.value = doc.toSVGString();
       }
+      window.render = render;
       window.renderSvgEditor = render;
 
       function renderSvgStage() {
@@ -3987,6 +3981,7 @@
 
         drawRulers();
       }
+      window.drawOverlay = drawOverlay;
 
       function renderOverlay() {
         // 1. Draw User Guidelines (from rulers)
@@ -4839,6 +4834,13 @@
             propObjName.value = '';
             propObjName.disabled = true;
           }
+          if (window.dopeSheetUI) {
+            window.dopeSheetUI.selectedObjectId = null;
+            window.dopeSheetUI.selectedParamKey = null;
+            window.dopeSheetUI.syncEasingUI();
+            window.dopeSheetUI.updateGrid();
+          }
+          updateSwatches();
           return;
         }
         const obj = selected[0];
@@ -5172,6 +5174,7 @@
         updateSelectedObjectEventsUI();
         updateSwatches();
       }
+      window.updateInspector = updateInspector;
 
       function updateSwatches() {
         const fillTextEl = document.getElementById('prop-fill-text');
