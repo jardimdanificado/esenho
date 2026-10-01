@@ -2815,12 +2815,11 @@
     <div id="sidebar">
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="tab-style">Inspect</button>
-        <button class="tab-btn" data-tab="tab-operations">Operations</button>
         <button class="tab-btn" data-tab="tab-scene">Scene</button>
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
       </div>
 
-      <!-- Tab 1: Style & Transform Inspector (Active Default) -->
+      <!-- Tab 1: Style, Geometry & Operations Inspector (Active Default) -->
       <div class="tab-content active" id="tab-style">
         <!-- Inspect & Status Summary Card -->
         <div class="section-card" id="card-inspect-status" style="margin-bottom: 8px;">
@@ -3070,17 +3069,14 @@
 
             <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
           </div>
-      </div>
+        </details>
 
-      <!-- Tab 2: Operations (Masking, Vector Path Tools & Shape Ops) -->
-      <div class="tab-content" id="tab-operations">
-        <div class="section-card" style="margin-bottom: 8px;">
-          <div class="section-header">
+        <!-- Vector & Layer Operations (Merged into Inspect) -->
+        <details open class="section-accordion" id="card-operations" style="margin-top: 8px;">
+          <summary>
             <span>Vector &amp; Layer Operations</span>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-
+          </summary>
+          <div class="accordion-body" style="padding: 6px 8px; display: flex; flex-direction: column; gap: 6px;">
             <div class="grid-2">
               <button id="btn-node-convert-path" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
               <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Text Outlines</button>
@@ -3101,7 +3097,7 @@
             </div>
 
             <div class="grid-2" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 6px;">
-              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">📁 Group</button>
+              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">Group</button>
               <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">Ungroup</button>
             </div>
 
@@ -3110,10 +3106,10 @@
               <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">Delete</button>
             </div>
           </div>
-        </div>
+        </details>
       </div>
 
-      <!-- Tab 3: Scene (Classic Object Hierarchy & Keyframe Animator) -->
+      <!-- Tab 2: Scene (Classic Object Hierarchy & Keyframe Animator) -->
       <div class="tab-content" id="tab-scene">
         <!-- Objects Hierarchy Tree -->
         <div class="section-card" style="margin-bottom: 8px;">
@@ -3145,11 +3141,11 @@
             <span style="font-weight: bold; color: var(--primary);">
               <span>Animation</span>
             </span>
-            <div style="display: flex; gap: 3px;">
-              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Frame" style="font-size: 9px; padding: 2px 4px;">⏮</button>
+            <div style="display: flex; gap: 3px; align-items: center;">
+              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Keyframe (Shift+Click for 1 frame)" style="font-size: 9px; padding: 2px 4px;">⏮</button>
               <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-              <button id="scene-anim-btn-next" class="btn-icon" title="Next Frame" style="font-size: 9px; padding: 2px 4px;">⏭</button>
-              <button id="scene-anim-btn-loop" class="btn-icon" title="Toggle Loop" style="font-size: 9px; padding: 2px 4px; color: var(--accent);">🔁</button>
+              <button id="scene-anim-btn-next" class="btn-icon" title="Next Keyframe (Shift+Click for 1 frame)" style="font-size: 9px; padding: 2px 4px;">⏭</button>
+              <button id="scene-anim-btn-loop" class="btn-sm" title="Toggle Loop" style="font-size: 10px; padding: 1px 6px; color: var(--accent); font-weight: 600;">Loop</button>
             </div>
           </div>
 
@@ -3171,6 +3167,24 @@
                 <span>FPS:</span>
                 <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
               </div>
+            </div>
+
+            <div class="form-row" style="margin-top: 4px; align-items: center;">
+              <label style="font-size: 10px; color: var(--text-muted); width: 42px;">Curve</label>
+              <select id="scene-anim-select-easing" title="Easing Curve for Keyframes" style="flex: 1; padding: 2px 4px; font-size: 10px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+                <option value="linear">Linear</option>
+                <option value="easeInQuad">Ease In (Quad)</option>
+                <option value="easeOutQuad">Ease Out (Quad)</option>
+                <option value="easeInOutQuad">Ease In/Out (Quad)</option>
+                <option value="easeInCubic">Ease In (Cubic)</option>
+                <option value="easeOutCubic">Ease Out (Cubic)</option>
+                <option value="easeInOutCubic">Ease In/Out (Cubic)</option>
+                <option value="easeInElastic">Elastic In</option>
+                <option value="easeOutElastic">Elastic Out</option>
+                <option value="easeOutBounce">Bounce Out</option>
+                <option value="step">Step (Hold)</option>
+                <option value="custom">Custom Bézier...</option>
+              </select>
             </div>
 
             <div style="display: flex; gap: 4px; margin-top: 2px;">
@@ -9447,6 +9461,11 @@
           btnLoop.style.opacity = isSceneLooping ? '1.0' : '0.4';
         }
 
+        const selectEasing = document.getElementById('scene-anim-select-easing');
+        if (selectEasing && window.dopeSheetUI) {
+          selectEasing.value = window.dopeSheetUI.activeEasing || 'linear';
+        }
+
         document.querySelectorAll('.event-row').forEach(row => {
           const f = parseInt(row.querySelector('[data-frame]')?.dataset.frame, 10);
           if (f === cur) row.classList.add('active');
@@ -9578,16 +9597,34 @@
 
           // Wire Scene Tab Animation Controls
           document.getElementById('scene-anim-btn-play')?.addEventListener('click', toggleScenePlay);
-          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', () => {
-            seekSceneFrame(Math.max(1, (window.dopeSheet?.currentFrame || 1) - 1));
+          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', (e) => {
+            if (e.shiftKey) {
+              seekSceneFrame(Math.max(1, (window.dopeSheet?.currentFrame || 1) - 1));
+            } else if (window.dopeSheet) {
+              const selId = window.dopeSheetUI?.selectedObjectId || null;
+              const prevF = window.dopeSheet.prevKeyframe(selId);
+              seekSceneFrame(prevF);
+            }
           });
-          document.getElementById('scene-anim-btn-next')?.addEventListener('click', () => {
-            const total = window.dopeSheet?.totalFrames || 60;
-            seekSceneFrame(Math.min(total, (window.dopeSheet?.currentFrame || 1) + 1));
+          document.getElementById('scene-anim-btn-next')?.addEventListener('click', (e) => {
+            if (e.shiftKey) {
+              const total = window.dopeSheet?.totalFrames || 60;
+              seekSceneFrame(Math.min(total, (window.dopeSheet?.currentFrame || 1) + 1));
+            } else if (window.dopeSheet) {
+              const selId = window.dopeSheetUI?.selectedObjectId || null;
+              const nextF = window.dopeSheet.nextKeyframe(selId);
+              seekSceneFrame(nextF);
+            }
           });
           document.getElementById('scene-anim-btn-loop')?.addEventListener('click', () => {
             isSceneLooping = !isSceneLooping;
             updateSceneAnimUI();
+          });
+          document.getElementById('scene-anim-select-easing')?.addEventListener('change', (e) => {
+            const curve = e.target.value;
+            if (window.dopeSheetUI) {
+              window.dopeSheetUI.applyCurve(curve);
+            }
           });
           document.getElementById('scene-anim-scrubber')?.addEventListener('input', (e) => {
             seekSceneFrame(parseInt(e.target.value, 10));

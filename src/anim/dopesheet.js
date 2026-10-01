@@ -1291,6 +1291,43 @@ export class DopeSheet {
     return this.setFrame(prev);
   }
 
+  getAllKeyframeFrames(selectedObjectId = null) {
+    const frameSet = new Set();
+    if (selectedObjectId && this.objects.has(selectedObjectId)) {
+      const obj = this.objects.get(selectedObjectId);
+      obj.getKeyframeFrames().forEach(f => frameSet.add(f));
+    } else {
+      for (const obj of this.objects.values()) {
+        obj.getKeyframeFrames().forEach(f => frameSet.add(f));
+      }
+    }
+    return Array.from(frameSet).sort((a, b) => a - b);
+  }
+
+  nextKeyframe(selectedObjectId = null) {
+    const frames = this.getAllKeyframeFrames(selectedObjectId);
+    const next = frames.find(f => f > this.currentFrame);
+    if (next !== undefined) {
+      return this.setFrame(next);
+    }
+    if (this.loop && frames.length > 0 && frames[0] < this.currentFrame) {
+      return this.setFrame(frames[0]);
+    }
+    return this.nextFrame();
+  }
+
+  prevKeyframe(selectedObjectId = null) {
+    const frames = this.getAllKeyframeFrames(selectedObjectId);
+    const prevs = frames.filter(f => f < this.currentFrame);
+    if (prevs.length > 0) {
+      return this.setFrame(prevs[prevs.length - 1]);
+    }
+    if (this.loop && frames.length > 0 && frames[frames.length - 1] > this.currentFrame) {
+      return this.setFrame(frames[frames.length - 1]);
+    }
+    return this.prevFrame();
+  }
+
   play() {
     this.isPlaying = true;
     this.notify('playStateChanged', { isPlaying: true });

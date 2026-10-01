@@ -51,18 +51,16 @@ export class DopeSheetUI {
     this.container.innerHTML = `
       <div class="dopesheet-panel" style="display: flex; flex-direction: column; height: 100%; width: 100%; background: #1d2021; color: #ebdbb2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; font-size: 11px; border-top: 2px solid #3c3836; user-select: none; box-sizing: border-box; position: relative;">
         
-        <!-- Top Resize Handle / Ear -->
-        <div id="ds-resize-handle" title="Drag vertically to resize Timeline height" style="position: absolute; top: -6px; left: 0; right: 0; height: 12px; cursor: ns-resize; z-index: 100; display: flex; align-items: center; justify-content: center;">
-          <div class="ds-resize-ear" style="width: 56px; height: 4px; background: #665c54; border-radius: 2px; transition: background 0.15s, transform 0.15s; pointer-events: none;"></div>
-        </div>
+        <!-- Top Invisible Resize Hit-area -->
+        <div id="ds-resize-handle" title="Drag vertically to resize Timeline height" style="position: absolute; top: -6px; left: 0; right: 0; height: 10px; cursor: ns-resize; z-index: 100; background: transparent;"></div>
 
         <!-- Header Toolbar -->
         <div class="ds-toolbar" style="display: flex; align-items: center; gap: 8px; padding: 4px 10px; background: #282828; border-bottom: 1px solid #3c3836; flex-wrap: wrap; z-index: 30;">
           <div style="display: flex; align-items: center; gap: 4px;">
-            <button id="ds-btn-prev" class="ds-btn" title="Previous Frame (Left Arrow)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">⏮</button>
+            <button id="ds-btn-prev" class="ds-btn" title="Previous Keyframe (Shift+Click for 1 frame)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">⏮</button>
             <button id="ds-btn-play" class="ds-btn" title="Play / Pause (Space)" style="background: #d79921; color: #282828; font-weight: bold; border: 1px solid #fabd2f; border-radius: 4px; padding: 3px 12px; cursor: pointer;">▶</button>
-            <button id="ds-btn-next" class="ds-btn" title="Next Frame (Right Arrow)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">⏭</button>
-            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#458588' : '#3c3836'}; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">🔁</button>
+            <button id="ds-btn-next" class="ds-btn" title="Next Keyframe (Shift+Click for 1 frame)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; cursor: pointer;">⏭</button>
+            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#458588' : '#3c3836'}; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 8px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
           </div>
 
           <div style="height: 16px; width: 1px; background: #504945; margin: 0 4px;"></div>
@@ -120,7 +118,7 @@ export class DopeSheetUI {
             <div style="height: 24px; min-height: 24px; padding: 0 6px; background: #32302f; border-bottom: 1px solid #3c3836; font-weight: bold; color: #a89984; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
               <span style="font-size: 10px; font-weight: bold; color: #ebdbb2;">OBJECTS &amp; LAYERS</span>
               <div style="display: flex; align-items: center; gap: 3px;">
-                <button id="ds-btn-hdr-group" title="Group Selected (Ctrl+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">📁 Group</button>
+                <button id="ds-btn-hdr-group" title="Group Selected (Ctrl+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">Group</button>
                 <button id="ds-btn-hdr-ungroup" title="Ungroup Selected (Ctrl+Shift+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">Ungroup</button>
                 <button id="ds-btn-hdr-top" title="Bring to Front" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 3px; cursor: pointer;">⬆</button>
                 <button id="ds-btn-hdr-bot" title="Send to Bottom" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 3px; cursor: pointer;">⬇</button>
@@ -174,7 +172,7 @@ export class DopeSheetUI {
       this.container.addEventListener(evtName, stopEvt);
     });
 
-    // ── Resizable Dock Height ("Orelha" / Top Grip Handle) ──
+    // ── Resizable Dock Height ──
     try {
       const savedH = localStorage.getItem('wesenho_timeline_height');
       if (savedH && Number(savedH) >= 100) {
@@ -183,24 +181,10 @@ export class DopeSheetUI {
     } catch (_) {}
 
     const resizeHandle = this.container.querySelector('#ds-resize-handle');
-    const resizeEar = this.container.querySelector('.ds-resize-ear');
     if (resizeHandle) {
       let isResizing = false;
       let startY = 0;
       let startH = 0;
-
-      resizeHandle.onmouseenter = () => {
-        if (resizeEar) {
-          resizeEar.style.background = '#fabd2f';
-          resizeEar.style.transform = 'scaleY(1.6)';
-        }
-      };
-      resizeHandle.onmouseleave = () => {
-        if (!isResizing && resizeEar) {
-          resizeEar.style.background = '#665c54';
-          resizeEar.style.transform = 'scaleY(1)';
-        }
-      };
 
       const onResizeMove = (e) => {
         if (!isResizing) return;
@@ -222,10 +206,6 @@ export class DopeSheetUI {
           isResizing = false;
           document.body.style.cursor = '';
           document.body.style.userSelect = '';
-          if (resizeEar) {
-            resizeEar.style.background = '#665c54';
-            resizeEar.style.transform = 'scaleY(1)';
-          }
           window.removeEventListener('pointermove', onResizeMove, { capture: true });
           window.removeEventListener('pointerup', onResizeUp, { capture: true });
           this.updateGrid();
@@ -240,10 +220,6 @@ export class DopeSheetUI {
         startH = this.container.offsetHeight;
         document.body.style.cursor = 'ns-resize';
         document.body.style.userSelect = 'none';
-        if (resizeEar) {
-          resizeEar.style.background = '#fabd2f';
-          resizeEar.style.transform = 'scaleY(1.6)';
-        }
         window.addEventListener('pointermove', onResizeMove, { capture: true });
         window.addEventListener('pointerup', onResizeUp, { capture: true });
       });
@@ -287,8 +263,20 @@ export class DopeSheetUI {
     const delKfBtn = this.container.querySelector('#ds-btn-del-kf');
 
     playBtn.onclick = () => this.togglePlayback();
-    prevBtn.onclick = () => this.ds.prevFrame();
-    nextBtn.onclick = () => this.ds.nextFrame();
+    prevBtn.onclick = (e) => {
+      if (e && e.shiftKey) {
+        this.ds.prevFrame();
+      } else {
+        this.ds.prevKeyframe(this.selectedObjectId);
+      }
+    };
+    nextBtn.onclick = (e) => {
+      if (e && e.shiftKey) {
+        this.ds.nextFrame();
+      } else {
+        this.ds.nextKeyframe(this.selectedObjectId);
+      }
+    };
     loopBtn.onclick = () => {
       this.ds.loop = !this.ds.loop;
       loopBtn.style.background = this.ds.loop ? '#458588' : '#3c3836';
@@ -1609,7 +1597,7 @@ export class DopeSheetUI {
             case 'image': return '🖼';
             case 'camera': return '📷';
             case 'brush_preset': return '🖌';
-            case 'group': return '📁';
+            case 'group': return '⊞';
             default: return '◈';
           }
         };
