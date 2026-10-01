@@ -107,6 +107,7 @@ export class DopeSheetUI {
             <span id="ds-autokf-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${this.ds.autoKeyframe ? '#fb4934' : '#7c6f64'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 6px #fb4934' : 'none'};"></span>
             Auto-Keyframe
           </button>
+          <button id="ds-btn-collapse-timeline" class="ds-btn" title="Collapse Timeline (Shift+T)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; margin-left: 6px;">▼</button>
         </div>
 
         <!-- Main Body: Split View (Object Tracks List on Left, Timeline Grid on Right) -->
@@ -254,6 +255,7 @@ export class DopeSheetUI {
     const prevBtn = this.container.querySelector('#ds-btn-prev');
     const nextBtn = this.container.querySelector('#ds-btn-next');
     const loopBtn = this.container.querySelector('#ds-btn-loop');
+    const collapseBtn = this.container.querySelector('#ds-btn-collapse-timeline');
     const frameInput = this.container.querySelector('#ds-input-frame');
     const totalInput = this.container.querySelector('#ds-input-total');
     const fpsInput = this.container.querySelector('#ds-input-fps');
@@ -281,6 +283,16 @@ export class DopeSheetUI {
       this.ds.loop = !this.ds.loop;
       loopBtn.style.background = this.ds.loop ? '#458588' : '#3c3836';
     };
+    if (collapseBtn) {
+      collapseBtn.onclick = (e) => {
+        e.stopPropagation();
+        if (typeof window !== 'undefined' && typeof window.toggleTimelineDock === 'function') {
+          window.toggleTimelineDock();
+        } else {
+          this.container.classList.toggle('collapsed');
+        }
+      };
+    }
     frameInput.onchange = (e) => this.ds.setFrame(Number(e.target.value));
     totalInput.onchange = (e) => {
       this.ds.totalFrames = Math.max(1, Number(e.target.value));
@@ -1488,21 +1500,25 @@ export class DopeSheetUI {
       }
 
       const activeChannels = Array.from(obj.channels.values()).filter(ch => ch.keyframes.length > 0);
-      const isCollapsed = (obj.collapsed === true);
+      const isTracksCollapsed = (obj.collapsed === true);
+      const isGroupCollapsed = live ? (live.collapsed === true) : (obj.groupCollapsed === true);
 
       displayRows.push({
         type: 'object',
         object: obj,
+        liveObj: live,
         id: obj.id,
         label,
         objType,
         depth,
         activeChannels,
-        collapsed: isCollapsed,
+        tracksCollapsed: isTracksCollapsed,
+        groupCollapsed: isGroupCollapsed,
         height: 26
       });
 
-      if (!isCollapsed && activeChannels.length > 0) {
+      // 1. Channel sub-tracks of THIS object (if tracks are expanded)
+      if (!isTracksCollapsed && activeChannels.length > 0) {
         for (const ch of activeChannels) {
           displayRows.push({
             type: 'channel',
@@ -1517,10 +1533,13 @@ export class DopeSheetUI {
         }
       }
 
+      // 2. Child objects if this is a group (if group hierarchy is expanded)
       if (live && live.type === 'group' && Array.isArray(live.children)) {
-        for (const child of live.children) {
-          const childDObj = this.ds.getOrCreateObject(child.id, child.name || `${child.type} ${child.id}`, child.type === 'group' ? 'group' : 'vector');
-          addObjectRow(childDObj, child, depth + 1);
+        if (!isGroupCollapsed) {
+          for (const child of live.children) {
+            const childDObj = this.ds.getOrCreateObject(child.id, child.name || `${child.type} ${child.id}`, child.type === 'group' ? 'group' : 'vector');
+            addObjectRow(childDObj, child, depth + 1);
+          }
         }
       }
     };
@@ -1564,8 +1583,8 @@ export class DopeSheetUI {
       rowEl.style.cursor = 'pointer';
 
       if (r.type === 'object') {
-        let liveObj = null;
-        if (typeof window !== 'undefined' && window.doc) {
+        let liveObj = r.liveObj || null;
+        if (!liveObj && typeof window !== 'undefined' && window.doc) {
           liveObj = window.doc.findObject ? window.doc.findObject(r.object.id) : null;
         }
         const isVisible = liveObj ? (liveObj.visible !== false) : true;
@@ -1603,13 +1622,22 @@ export class DopeSheetUI {
         };
 
         const icon = getIcon(r.objType);
+        const isGroup = (r.objType === 'group');
         const hasSubtracks = r.activeChannels.length > 0;
-        const toggleIcon = (r.objType === 'group' || hasSubtracks) ? (r.collapsed ? '▶' : '▼') : '·';
+
+        const groupToggleHtml = isGroup
+          ? `<span class="ds-group-toggle" title="${r.groupCollapsed ? 'Expand Group (Show child objects)' : 'Collapse Group (Hide child objects)'}" style="font-size: 9px; width: 12px; text-align: center; color: #a89984; cursor: pointer; margin-right: 2px;">${r.groupCollapsed ? '▶' : '▼'}</span>`
+          : `<span class="ds-group-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-right: 2px;"></span>`;
+
+        const tracksToggleHtml = hasSubtracks
+          ? `<span class="ds-tracks-toggle" title="${r.tracksCollapsed ? 'Expand Parameter Tracks' : 'Collapse Parameter Tracks'}" style="font-size: 9px; width: 12px; text-align: center; color: #fabd2f; cursor: pointer; margin-left: 2px; margin-right: 4px;">${r.tracksCollapsed ? '▶' : '▼'}</span>`
+          : `<span class="ds-tracks-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-left: 2px; margin-right: 4px;"></span>`;
 
         rowEl.innerHTML = `
-          <span class="ds-row-toggle" style="font-size: 9px; width: 12px; text-align: center; color: ${(r.objType === 'group' || hasSubtracks) ? '#a89984' : '#504945'}; cursor: ${(r.objType === 'group' || hasSubtracks) ? 'pointer' : 'default'}; margin-right: 2px;">${toggleIcon}</span>
-          <span style="font-size: 11px; margin-right: 4px; color: ${r.objType === 'group' ? '#fabd2f' : '#83a598'}; width: 14px; text-align: center;">${icon}</span>
-          <span class="ds-obj-name" style="font-weight: bold; color: ${isSelected ? '#fabd2f' : (r.objType === 'group' ? '#ebdbb2' : '#d5c4a1')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label} (Double-click to rename)">${r.label}</span>
+          ${groupToggleHtml}
+          <span style="font-size: 11px; margin-right: 4px; color: ${isGroup ? '#fabd2f' : '#83a598'}; width: 14px; text-align: center;">${icon}</span>
+          <span class="ds-obj-name" style="font-weight: bold; color: ${isSelected ? '#fabd2f' : (isGroup ? '#ebdbb2' : '#d5c4a1')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label} (Double-click to rename)">${r.label}</span>
+          ${tracksToggleHtml}
           <span class="ds-vis-btn" title="Toggle Visibility" style="font-size: 10px; margin-right: 3px; opacity: ${isVisible ? '0.9' : '0.3'}; cursor: pointer; padding: 0 2px;">${isVisible ? '👁' : '👁‍🗨'}</span>
           <span class="ds-lock-btn" title="Toggle Lock" style="font-size: 10px; margin-right: 3px; opacity: ${isLocked ? '1.0' : '0.3'}; color: ${isLocked ? '#ea6962' : 'inherit'}; cursor: pointer; padding: 0 2px;">${isLocked ? '🔒' : '🔓'}</span>
           <span class="ds-add-param-btn" title="Add Parameter Track (+)" style="font-size: 11px; margin-right: 3px; color: #fabd2f; font-weight: bold; cursor: pointer; padding: 0 2px;">＋</span>
@@ -1617,12 +1645,22 @@ export class DopeSheetUI {
           <span class="ds-del-track-btn" title="Delete Object" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
         `;
 
-        const toggleBtn = rowEl.querySelector('.ds-row-toggle');
-        if (toggleBtn && (r.objType === 'group' || hasSubtracks)) {
-          toggleBtn.onclick = (e) => {
+        const groupToggleBtn = rowEl.querySelector('.ds-group-toggle');
+        if (groupToggleBtn && isGroup) {
+          groupToggleBtn.onclick = (e) => {
             e.stopPropagation();
-            r.object.collapsed = !r.collapsed;
-            if (liveObj && r.objType === 'group') liveObj.collapsed = r.object.collapsed;
+            const newCollapsed = !r.groupCollapsed;
+            r.object.groupCollapsed = newCollapsed;
+            if (liveObj) liveObj.collapsed = newCollapsed;
+            this.updateGrid();
+          };
+        }
+
+        const tracksToggleBtn = rowEl.querySelector('.ds-tracks-toggle');
+        if (tracksToggleBtn && hasSubtracks) {
+          tracksToggleBtn.onclick = (e) => {
+            e.stopPropagation();
+            r.object.collapsed = !r.tracksCollapsed;
             this.updateGrid();
           };
         }

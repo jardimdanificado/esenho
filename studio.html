@@ -813,11 +813,34 @@
       min-width: 0;
       min-height: 0;
       overflow: hidden;
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
+    #sidebar.collapsed,
     #sidebar.desktop-hidden {
-      display: none !important;
+      width: 0 !important;
+      min-width: 0 !important;
+      border-left: none !important;
+      visibility: hidden;
+    }
+
+    /* ── DopeSheet / Timeline Dock Animation ── */
+    #dopesheet-dock {
+      display: block;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 240px;
+      z-index: 50;
+      box-shadow: 0 -4px 16px rgba(0,0,0,0.5);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      overflow: hidden;
+    }
+
+    #dopesheet-dock.collapsed {
+      transform: translateY(100%);
+      pointer-events: none;
     }
 
     .tab-bar {
@@ -1776,8 +1799,7 @@
     </div>
 
     <!-- Sidebar & Timeline Toggles -->
-    <button id="btn-toggle-left-sidebar" class="btn-sm" title="Toggle Fill &amp; Stroke Panels (Shift+F)">🎨 Fill &amp; Stroke</button>
-    <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (Shift+T)">🎬 Timeline</button>
+    <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (Shift+T)" style="background: #d79921; color: #1d2021; font-weight: 600;">🎬 Timeline</button>
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
 
@@ -2771,7 +2793,7 @@
       <canvas id="overlay-canvas"></canvas>
 
       <!-- DopeSheet / Animation Timeline Dock (Unified Object Manager & Timeline) -->
-      <div id="dopesheet-dock" style="display: block; position: absolute; bottom: 0; left: 0; right: 0; height: 240px; z-index: 50; box-shadow: 0 -4px 16px rgba(0,0,0,0.5);"></div>
+      <div id="dopesheet-dock"></div>
 
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
@@ -2817,6 +2839,7 @@
         <button class="tab-btn active" data-tab="tab-style">Inspect</button>
         <button class="tab-btn" data-tab="tab-scene">Scene</button>
         <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
+        <button id="btn-collapse-sidebar" class="btn-icon" title="Collapse Sidebar" style="width: 22px; height: 22px; font-size: 10px; flex-shrink: 0; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">▶</button>
       </div>
 
       <!-- Tab 1: Style, Geometry & Operations Inspector (Active Default) -->
@@ -6829,7 +6852,9 @@
         } else if (key === 'f') {
           if (e.shiftKey) {
             e.preventDefault();
-            document.getElementById('btn-toggle-left-sidebar')?.click();
+            const leftSidebarEl = document.getElementById('left-sidebar');
+            leftSidebarEl?.classList.toggle('collapsed');
+            drawOverlay();
           }
         } else if (key === '0') {
           zoomToFit();
@@ -9218,12 +9243,16 @@
       // Sidebar Toggle (Desktop Collapse & Mobile Drawer)
       const sidebarEl = document.getElementById('sidebar');
       const backdropEl = document.getElementById('sidebar-backdrop');
+      document.getElementById('btn-collapse-sidebar')?.addEventListener('click', () => {
+        sidebarEl?.classList.add('collapsed');
+        drawOverlay();
+      });
       document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => {
         if (window.innerWidth <= 860) {
           sidebarEl?.classList.toggle('mobile-open');
           backdropEl?.classList.toggle('active');
         } else {
-          sidebarEl?.classList.toggle('desktop-hidden');
+          sidebarEl?.classList.toggle('collapsed');
           drawOverlay();
         }
       });
@@ -9684,15 +9713,23 @@
         const dock = document.getElementById('dopesheet-dock');
         const btn = document.getElementById('btn-toggle-timeline');
         if (dock) {
-          const isHidden = dock.style.display === 'none' || !dock.style.display;
-          dock.style.display = isHidden ? 'block' : 'none';
-          if (btn) {
-            btn.style.background = isHidden ? '#d79921' : '';
-            btn.style.color = isHidden ? '#1d2021' : '';
-          }
-          if (isHidden && dopeSheetUI) {
-            dopeSheetUI.updateGrid();
-            dopeSheetUI.updatePlayhead();
+          const isCollapsed = dock.classList.contains('collapsed');
+          if (isCollapsed) {
+            dock.classList.remove('collapsed');
+            if (btn) {
+              btn.style.background = '#d79921';
+              btn.style.color = '#1d2021';
+            }
+            if (dopeSheetUI) {
+              dopeSheetUI.updateGrid();
+              dopeSheetUI.updatePlayhead();
+            }
+          } else {
+            dock.classList.add('collapsed');
+            if (btn) {
+              btn.style.background = '';
+              btn.style.color = '';
+            }
           }
         }
       }

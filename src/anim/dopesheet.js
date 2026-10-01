@@ -884,7 +884,8 @@ export class DopeSheetObject {
     this.id = id;
     this.name = name;
     this.targetType = targetType; // 'vector', 'raster', 'camera', 'brush_preset'
-    this.collapsed = true;
+    this.collapsed = true; // Tracks / channels collapsed state
+    this.groupCollapsed = false; // Group hierarchy children collapsed state
     this.channels = new Map(); // paramKey -> DopeSheetChannel
   }
 
@@ -1154,6 +1155,7 @@ export class DopeSheetObject {
       name: this.name,
       targetType: this.targetType,
       collapsed: this.collapsed,
+      groupCollapsed: this.groupCollapsed,
       channels: channelsArr
     };
   }
@@ -1161,6 +1163,7 @@ export class DopeSheetObject {
   static fromJSON(data) {
     const obj = new DopeSheetObject(data.id, data.name, data.targetType);
     obj.collapsed = !!data.collapsed;
+    obj.groupCollapsed = !!data.groupCollapsed;
     if (Array.isArray(data.channels)) {
       for (const chData of data.channels) {
         const ch = DopeSheetChannel.fromJSON(chData);
