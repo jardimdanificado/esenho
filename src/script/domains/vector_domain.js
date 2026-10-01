@@ -55,8 +55,24 @@ export class VectorDomain {
     return this.sdk.commands.dispatch('vector.removeObject', { id: objectId });
   }
 
-  setStyle(objectId, style = {}) {
-    return this.sdk.commands.dispatch('vector.setStyle', { id: objectId, style });
+  setStyle(objectId, style = {}, options = {}) {
+    return this.sdk.commands.dispatch('vector.setStyle', { id: objectId, style, options });
+  }
+
+  setGroupStyle(groupId, style = {}, options = {}) {
+    return this.sdk.commands.dispatch('vector.setStyle', { id: groupId, style, options });
+  }
+
+  setGroupFill(groupId, fill, options = {}) {
+    return this.sdk.commands.dispatch('vector.setStyle', { id: groupId, style: { fill }, options });
+  }
+
+  setGroupStroke(groupId, stroke, options = {}) {
+    return this.sdk.commands.dispatch('vector.setStyle', { id: groupId, style: { stroke }, options });
+  }
+
+  setGroupStrokeWidth(groupId, strokeWidth, options = {}) {
+    return this.sdk.commands.dispatch('vector.setStyle', { id: groupId, style: { strokeWidth }, options });
   }
 
   transform(objectId, matrixOrDelta = {}) {

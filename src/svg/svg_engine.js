@@ -2148,16 +2148,690 @@
   class SvgGroup extends SvgNode {
     constructor(attributes = {}) {
       super('group', attributes);
+      this._bulkApplying = true;
       this.children = [];
       this.collapsed = attributes.collapsed !== undefined ? !!attributes.collapsed : false;
+      this._fill = attributes.fill;
+      this._stroke = attributes.stroke;
+      this._strokeWidth = attributes.strokeWidth;
+      this._fillOpacity = attributes.fillOpacity;
+      this._strokeOpacity = attributes.strokeOpacity;
+      this._strokeLinecap = attributes.strokeLinecap;
+      this._strokeLinejoin = attributes.strokeLinejoin;
+      this._strokeDasharray = attributes.strokeDasharray;
+      this._strokeDashoffset = attributes.strokeDashoffset;
+      this._strokeHardness = attributes.strokeHardness;
+      this._fillType = attributes.fillType;
+      this._fillGradient = attributes.fillGradient;
+      this._fillTexture = attributes.fillTexture;
+      this._strokeTexture = attributes.strokeTexture;
+      this._brushConfig = attributes.brushConfig;
+      this._wasmFilter = attributes.wasmFilter;
+      this._fillFilter = attributes.fillFilter;
+      this._strokeFilter = attributes.strokeFilter;
 
       if (attributes.children && Array.isArray(attributes.children)) {
         this.children = attributes.children.map(c => {
-          const child = SvgNode.fromJSON(c);
+          const child = (c instanceof SvgNode) ? c : SvgNode.fromJSON(c);
           child.parent = this;
           return child;
         });
       }
+      this._bulkApplying = false;
+    }
+
+    /* ── Fill & Stroke Cascading Getters & Setters for Mass Modification ── */
+    get fill() {
+      if (this._fill !== undefined) return this._fill;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].fill || 'none';
+      }
+      return 'none';
+    }
+
+    set fill(val) {
+      this._fill = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setFill(val);
+      }
+    }
+
+    get stroke() {
+      if (this._stroke !== undefined) return this._stroke;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].stroke || 'none';
+      }
+      return 'none';
+    }
+
+    set stroke(val) {
+      this._stroke = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStroke(val);
+      }
+    }
+
+    get strokeWidth() {
+      if (this._strokeWidth !== undefined) return this._strokeWidth;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeWidth !== undefined ? this.children[0].strokeWidth : 1;
+      }
+      return 1;
+    }
+
+    set strokeWidth(val) {
+      this._strokeWidth = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeWidth(val);
+      }
+    }
+
+    get fillOpacity() {
+      if (this._fillOpacity !== undefined) return this._fillOpacity;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].fillOpacity !== undefined ? this.children[0].fillOpacity : 1.0;
+      }
+      return 1.0;
+    }
+
+    set fillOpacity(val) {
+      this._fillOpacity = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setFillOpacity(val);
+      }
+    }
+
+    get strokeOpacity() {
+      if (this._strokeOpacity !== undefined) return this._strokeOpacity;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeOpacity !== undefined ? this.children[0].strokeOpacity : 1.0;
+      }
+      return 1.0;
+    }
+
+    set strokeOpacity(val) {
+      this._strokeOpacity = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeOpacity(val);
+      }
+    }
+
+    get strokeLinecap() {
+      if (this._strokeLinecap !== undefined) return this._strokeLinecap;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeLinecap || 'round';
+      }
+      return 'round';
+    }
+
+    set strokeLinecap(val) {
+      this._strokeLinecap = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeLinecap(val);
+      }
+    }
+
+    get strokeLinejoin() {
+      if (this._strokeLinejoin !== undefined) return this._strokeLinejoin;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeLinejoin || 'round';
+      }
+      return 'round';
+    }
+
+    set strokeLinejoin(val) {
+      this._strokeLinejoin = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeLinejoin(val);
+      }
+    }
+
+    get strokeDasharray() {
+      if (this._strokeDasharray !== undefined) return this._strokeDasharray;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeDasharray || '';
+      }
+      return '';
+    }
+
+    set strokeDasharray(val) {
+      this._strokeDasharray = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeDasharray(val);
+      }
+    }
+
+    get strokeDashoffset() {
+      if (this._strokeDashoffset !== undefined) return this._strokeDashoffset;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeDashoffset || 0;
+      }
+      return 0;
+    }
+
+    set strokeDashoffset(val) {
+      this._strokeDashoffset = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeDashoffset(val);
+      }
+    }
+
+    get strokeHardness() {
+      if (this._strokeHardness !== undefined) return this._strokeHardness;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeHardness !== undefined ? this.children[0].strokeHardness : 95;
+      }
+      return 95;
+    }
+
+    set strokeHardness(val) {
+      this._strokeHardness = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeHardness(val);
+      }
+    }
+
+    get fillType() {
+      if (this._fillType !== undefined) return this._fillType;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].fillType || 'solid';
+      }
+      return 'solid';
+    }
+
+    set fillType(val) {
+      this._fillType = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setFillType(val);
+      }
+    }
+
+    get fillGradient() {
+      if (this._fillGradient !== undefined) return this._fillGradient;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].fillGradient || null;
+      }
+      return null;
+    }
+
+    set fillGradient(val) {
+      this._fillGradient = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setFillGradient(val);
+      }
+    }
+
+    get fillTexture() {
+      if (this._fillTexture !== undefined) return this._fillTexture;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].fillTexture || null;
+      }
+      return null;
+    }
+
+    set fillTexture(val) {
+      this._fillTexture = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setFillTexture(val);
+      }
+    }
+
+    get strokeTexture() {
+      if (this._strokeTexture !== undefined) return this._strokeTexture;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeTexture || null;
+      }
+      return null;
+    }
+
+    set strokeTexture(val) {
+      this._strokeTexture = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeTexture(val);
+      }
+    }
+
+    get brushConfig() {
+      if (this._brushConfig !== undefined) return this._brushConfig;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].brushConfig || null;
+      }
+      return null;
+    }
+
+    set brushConfig(val) {
+      this._brushConfig = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setBrushConfig(val);
+      }
+    }
+
+    get strokeFilter() {
+      if (this._strokeFilter !== undefined) return this._strokeFilter;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].strokeFilter || null;
+      }
+      return null;
+    }
+
+    set strokeFilter(val) {
+      this._strokeFilter = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setStrokeFilter(val);
+      }
+    }
+
+    get fillFilter() {
+      if (this._fillFilter !== undefined) return this._fillFilter;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].fillFilter || null;
+      }
+      return null;
+    }
+
+    set fillFilter(val) {
+      this._fillFilter = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setFillFilter(val);
+      }
+    }
+
+    get wasmFilter() {
+      if (this._wasmFilter !== undefined) return this._wasmFilter;
+      if (this.children && this.children.length > 0) {
+        return this.children[0].wasmFilter || null;
+      }
+      return null;
+    }
+
+    set wasmFilter(val) {
+      this._wasmFilter = val;
+      if (!this._bulkApplying && this.children && this.children.length > 0) {
+        this.setWasmFilter(val);
+      }
+    }
+
+    /* ── Mass Modification Methods on Group ── */
+
+    /** Apply arbitrary styles in bulk across the entire group subtree */
+    setStyle(style = {}, options = { recursive: true, preserveNone: false }) {
+      if (!style) return this;
+      if (style.fill !== undefined) this.setFill(style.fill, options);
+      if (style.stroke !== undefined) this.setStroke(style.stroke, options);
+      if (style.strokeWidth !== undefined) this.setStrokeWidth(style.strokeWidth, options);
+      if (style.fillOpacity !== undefined) this.setFillOpacity(style.fillOpacity, options);
+      if (style.strokeOpacity !== undefined) this.setStrokeOpacity(style.strokeOpacity, options);
+      if (style.strokeLinecap !== undefined) this.setStrokeLinecap(style.strokeLinecap, options);
+      if (style.strokeLinejoin !== undefined) this.setStrokeLinejoin(style.strokeLinejoin, options);
+      if (style.strokeDasharray !== undefined) this.setStrokeDasharray(style.strokeDasharray, options);
+      if (style.strokeDashoffset !== undefined) this.setStrokeDashoffset(style.strokeDashoffset, options);
+      if (style.strokeHardness !== undefined) this.setStrokeHardness(style.strokeHardness, options);
+      if (style.fillType !== undefined) this.setFillType(style.fillType, options);
+      if (style.fillGradient !== undefined) this.setFillGradient(style.fillGradient, options);
+      if (style.fillTexture !== undefined) this.setFillTexture(style.fillTexture, options);
+      if (style.strokeTexture !== undefined) this.setStrokeTexture(style.strokeTexture, options);
+      if (style.brushConfig !== undefined) this.setBrushConfig(style.brushConfig, options);
+      if (style.fillFilter !== undefined) this.setFillFilter(style.fillFilter, options);
+      if (style.strokeFilter !== undefined) this.setStrokeFilter(style.strokeFilter, options);
+      if (style.wasmFilter !== undefined) this.setWasmFilter(style.wasmFilter, options);
+      if (style.opacity !== undefined) this.opacity = style.opacity;
+      return this;
+    }
+
+    /** Modify fill in bulk across all group items */
+    setFill(val, options = { recursive: true, preserveNone: false }) {
+      this._fill = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFill === 'function') {
+            child.setFill(val, options);
+          }
+        } else {
+          if (options.preserveNone && (child.fill === 'none' || !child.fill)) continue;
+          child.fill = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke in bulk across all group items */
+    setStroke(val, options = { recursive: true, preserveNone: false }) {
+      this._stroke = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStroke === 'function') {
+            child.setStroke(val, options);
+          }
+        } else {
+          if (options.preserveNone && (child.stroke === 'none' || !child.stroke)) continue;
+          child.stroke = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke width in bulk across all group items */
+    setStrokeWidth(val, options = { recursive: true }) {
+      this._strokeWidth = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeWidth === 'function') {
+            child.setStrokeWidth(val, options);
+          }
+        } else {
+          child.strokeWidth = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify fill opacity in bulk */
+    setFillOpacity(val, options = { recursive: true }) {
+      this._fillOpacity = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillOpacity === 'function') {
+            child.setFillOpacity(val, options);
+          }
+        } else {
+          child.fillOpacity = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke opacity in bulk */
+    setStrokeOpacity(val, options = { recursive: true }) {
+      this._strokeOpacity = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeOpacity === 'function') {
+            child.setStrokeOpacity(val, options);
+          }
+        } else {
+          child.strokeOpacity = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke linecap in bulk */
+    setStrokeLinecap(val, options = { recursive: true }) {
+      this._strokeLinecap = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeLinecap === 'function') {
+            child.setStrokeLinecap(val, options);
+          }
+        } else {
+          child.strokeLinecap = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke linejoin in bulk */
+    setStrokeLinejoin(val, options = { recursive: true }) {
+      this._strokeLinejoin = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeLinejoin === 'function') {
+            child.setStrokeLinejoin(val, options);
+          }
+        } else {
+          child.strokeLinejoin = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke dasharray in bulk */
+    setStrokeDasharray(val, options = { recursive: true }) {
+      this._strokeDasharray = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeDasharray === 'function') {
+            child.setStrokeDasharray(val, options);
+          }
+        } else {
+          child.strokeDasharray = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke dashoffset in bulk */
+    setStrokeDashoffset(val, options = { recursive: true }) {
+      this._strokeDashoffset = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeDashoffset === 'function') {
+            child.setStrokeDashoffset(val, options);
+          }
+        } else {
+          child.strokeDashoffset = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke hardness in bulk */
+    setStrokeHardness(val, options = { recursive: true }) {
+      this._strokeHardness = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeHardness === 'function') {
+            child.setStrokeHardness(val, options);
+          }
+        } else {
+          child.strokeHardness = val;
+          if (!child.brushConfig) child.brushConfig = {};
+          child.brushConfig.hardness = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify fill type in bulk */
+    setFillType(val, options = { recursive: true }) {
+      this._fillType = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillType === 'function') {
+            child.setFillType(val, options);
+          }
+        } else {
+          child.fillType = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify fill gradient in bulk */
+    setFillGradient(val, options = { recursive: true }) {
+      this._fillGradient = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillGradient === 'function') {
+            child.setFillGradient(val, options);
+          }
+        } else {
+          child.fillGradient = val ? (typeof val.clone === 'function' ? val.clone() : JSON.parse(JSON.stringify(val))) : null;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify fill texture in bulk */
+    setFillTexture(val, options = { recursive: true }) {
+      this._fillTexture = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillTexture === 'function') {
+            child.setFillTexture(val, options);
+          }
+        } else {
+          child.fillTexture = val ? JSON.parse(JSON.stringify(val)) : null;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke texture in bulk */
+    setStrokeTexture(val, options = { recursive: true }) {
+      this._strokeTexture = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeTexture === 'function') {
+            child.setStrokeTexture(val, options);
+          }
+        } else {
+          child.strokeTexture = val ? JSON.parse(JSON.stringify(val)) : null;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify brush dynamics config in bulk */
+    setBrushConfig(val, options = { recursive: true }) {
+      this._brushConfig = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setBrushConfig === 'function') {
+            child.setBrushConfig(val, options);
+          }
+        } else {
+          child.brushConfig = val ? JSON.parse(JSON.stringify(val)) : {};
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke filter in bulk */
+    setStrokeFilter(val, options = { recursive: true }) {
+      this._strokeFilter = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeFilter === 'function') {
+            child.setStrokeFilter(val, options);
+          }
+        } else {
+          child.strokeFilter = val ? JSON.parse(JSON.stringify(val)) : null;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify fill filter in bulk */
+    setFillFilter(val, options = { recursive: true }) {
+      this._fillFilter = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillFilter === 'function') {
+            child.setFillFilter(val, options);
+          }
+        } else {
+          child.fillFilter = val ? JSON.parse(JSON.stringify(val)) : null;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify wasm filter in bulk */
+    setWasmFilter(val, options = { recursive: true }) {
+      this._wasmFilter = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setWasmFilter === 'function') {
+            child.setWasmFilter(val, options);
+          }
+        } else {
+          child.wasmFilter = val ? JSON.parse(JSON.stringify(val)) : null;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Walk all descendants in the group hierarchy */
+    forEachDescendant(callback, depth = 0) {
+      for (const child of this.children) {
+        callback(child, depth, this);
+        if (child.type === 'group' && typeof child.forEachDescendant === 'function') {
+          child.forEachDescendant(callback, depth + 1);
+        }
+      }
+    }
+
+    /** Return all descendants in a flat array */
+    getAllDescendants() {
+      const result = [];
+      this.forEachDescendant(child => result.push(child));
+      return result;
+    }
+
+    /** Apply custom callback across children / descendants */
+    applyToChildren(fn, options = { recursive: true }) {
+      for (const child of this.children) {
+        fn(child, this);
+        if (options.recursive !== false && child.type === 'group' && typeof child.applyToChildren === 'function') {
+          child.applyToChildren(fn, options);
+        }
+      }
+      return this;
     }
 
     add(child) {
@@ -2306,7 +2980,15 @@
         .filter(c => c.visible !== false)
         .map(c => c.toSVGElement())
         .join('\n    ');
-      const groupEl = `<g id="${this.id}" opacity="${this.opacity}"${this.getExtraSVGAttributes(false)}>\n    ${kids}\n  </g>`;
+      let groupAttrs = ` id="${this.id}" opacity="${this.opacity}"`;
+      if (this._fill !== undefined && this._fill !== null) groupAttrs += ` fill="${this.getSvgFillAttribute()}"`;
+      if (this._stroke !== undefined && this._stroke !== null) groupAttrs += ` stroke="${this.stroke}"`;
+      if (this._strokeWidth !== undefined) groupAttrs += ` stroke-width="${this.strokeWidth}"`;
+      if (this._strokeLinecap) groupAttrs += ` stroke-linecap="${this.strokeLinecap}"`;
+      if (this._strokeLinejoin) groupAttrs += ` stroke-linejoin="${this.strokeLinejoin}"`;
+      if (this._fillOpacity !== undefined && this._fillOpacity !== 1.0) groupAttrs += ` fill-opacity="${this.fillOpacity}"`;
+      if (this._strokeOpacity !== undefined && this._strokeOpacity !== 1.0) groupAttrs += ` stroke-opacity="${this.strokeOpacity}"`;
+      const groupEl = `<g${groupAttrs}${this.getExtraSVGAttributes(false)}>\n    ${kids}\n  </g>`;
       return this.wrapClipPath(groupEl);
     }
 
@@ -2314,6 +2996,13 @@
       const data = super.toJSON();
       data.collapsed = this.collapsed;
       data.children = this.children.map(c => c.toJSON());
+      if (this._fill !== undefined) data.fill = this._fill;
+      if (this._stroke !== undefined) data.stroke = this._stroke;
+      if (this._strokeWidth !== undefined) data.strokeWidth = this._strokeWidth;
+      if (this._fillOpacity !== undefined) data.fillOpacity = this._fillOpacity;
+      if (this._strokeOpacity !== undefined) data.strokeOpacity = this._strokeOpacity;
+      if (this._strokeLinecap !== undefined) data.strokeLinecap = this._strokeLinecap;
+      if (this._strokeLinejoin !== undefined) data.strokeLinejoin = this._strokeLinejoin;
       return data;
     }
 
@@ -2548,6 +3237,50 @@
       }
 
       this.pushHistory('Ungroup Objects');
+      return true;
+    }
+
+    /** Modify Group Style in Bulk */
+    setGroupStyle(groupId, style = {}, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setStyle(style, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Update Group Style (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Fill in Bulk */
+    setGroupFill(groupId, fill, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setFill(fill, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Fill (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Stroke in Bulk */
+    setGroupStroke(groupId, stroke, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setStroke(stroke, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Stroke (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Stroke Width in Bulk */
+    setGroupStrokeWidth(groupId, width, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setStrokeWidth(width, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Stroke Width (${grp.name || grp.id})`);
+      }
       return true;
     }
 

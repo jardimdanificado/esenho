@@ -986,6 +986,77 @@ async function runSvgEngineTests() {
 
   console.log('✔ Shared EsenhoStore Plugins & Brush Presets passed');
 
+  // --- 29. Test Mass Stroke & Fill Modifications on Groups & Hierarchies ---
+  console.log('--- Testing Mass Stroke & Fill Modifications on Groups ---');
+  const groupDoc = new SvgDocument(800, 600);
+  const r1 = new SvgRect({ x: 10, y: 10, width: 50, height: 50, fill: '#ff0000', stroke: '#00ff00', strokeWidth: 2 });
+  const c1 = new SvgCircle({ cx: 100, cy: 100, r: 20, fill: '#0000ff', stroke: '#ffff00', strokeWidth: 1 });
+  const p1 = new SvgPath({ d: 'M 0 0 L 10 10', fill: 'none', stroke: '#000000', strokeWidth: 1 });
+  
+  const subGroup = new SvgGroup({ name: 'Sub Group' });
+  const subRect = new SvgRect({ x: 200, y: 200, width: 40, height: 40, fill: '#123456', stroke: '#654321', strokeWidth: 3 });
+  subGroup.add(subRect);
+
+  const mainGroup = new SvgGroup({ name: 'Main Group' });
+  mainGroup.add(r1);
+  mainGroup.add(c1);
+  mainGroup.add(p1);
+  mainGroup.add(subGroup);
+  groupDoc.addObject(mainGroup);
+
+  // 1. Test direct property assignment cascades to all descendants
+  mainGroup.fill = '#fabd2f';
+  assert.strictEqual(r1.fill, '#fabd2f', 'Rect fill should be updated by group.fill');
+  assert.strictEqual(c1.fill, '#fabd2f', 'Circle fill should be updated by group.fill');
+  assert.strictEqual(subRect.fill, '#fabd2f', 'Nested group subRect fill should be updated by mainGroup.fill');
+  assert.strictEqual(mainGroup.fill, '#fabd2f', 'mainGroup.fill getter should reflect new fill');
+
+  mainGroup.stroke = '#83a598';
+  assert.strictEqual(r1.stroke, '#83a598', 'Rect stroke should be updated by group.stroke');
+  assert.strictEqual(c1.stroke, '#83a598', 'Circle stroke should be updated by group.stroke');
+  assert.strictEqual(p1.stroke, '#83a598', 'Path stroke should be updated by group.stroke');
+  assert.strictEqual(subRect.stroke, '#83a598', 'Nested subRect stroke should be updated');
+
+  mainGroup.strokeWidth = 8;
+  assert.strictEqual(r1.strokeWidth, 8, 'Rect strokeWidth should be updated');
+  assert.strictEqual(c1.strokeWidth, 8, 'Circle strokeWidth should be updated');
+  assert.strictEqual(subRect.strokeWidth, 8, 'Nested subRect strokeWidth should be updated');
+
+  // 2. Test group.setStyle bulk update
+  mainGroup.setStyle({ fill: '#d3869b', stroke: '#b8bb26', strokeWidth: 5, fillOpacity: 0.8, strokeOpacity: 0.9 });
+  assert.strictEqual(r1.fill, '#d3869b');
+  assert.strictEqual(r1.stroke, '#b8bb26');
+  assert.strictEqual(r1.strokeWidth, 5);
+  assert.strictEqual(r1.fillOpacity, 0.8);
+  assert.strictEqual(r1.strokeOpacity, 0.9);
+  assert.strictEqual(subRect.fill, '#d3869b');
+  assert.strictEqual(subRect.stroke, '#b8bb26');
+
+  // 3. Test group.setFill with preserveNone
+  p1.fill = 'none';
+  mainGroup.setFill('#fe8019', { preserveNone: true });
+  assert.strictEqual(r1.fill, '#fe8019');
+  assert.strictEqual(p1.fill, 'none', 'Path with fill="none" should be preserved when preserveNone is true');
+
+  // 4. Test SvgDocument document-level helpers
+  groupDoc.setGroupFill(mainGroup.id, '#458588');
+  assert.strictEqual(r1.fill, '#458588', 'doc.setGroupFill should update children');
+  assert.strictEqual(subRect.fill, '#458588', 'doc.setGroupFill should update nested children');
+
+  groupDoc.setGroupStroke(mainGroup.id, '#cc241d');
+  assert.strictEqual(r1.stroke, '#cc241d', 'doc.setGroupStroke should update children');
+
+  groupDoc.setGroupStrokeWidth(mainGroup.id, 12);
+  assert.strictEqual(r1.strokeWidth, 12, 'doc.setGroupStrokeWidth should update children');
+
+  // 5. Test serialization & SVG export of styled group
+  const groupSvg = mainGroup.toSVGElement();
+  assert(groupSvg.includes('fill="#458588"'), 'SVG <g> output should include group fill');
+  assert(groupSvg.includes('stroke="#cc241d"'), 'SVG <g> output should include group stroke');
+  assert(groupSvg.includes('stroke-width="12"'), 'SVG <g> output should include group stroke-width');
+
+  console.log('✔ Mass Stroke & Fill Modifications on Groups & Hierarchies passed');
+
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }
 

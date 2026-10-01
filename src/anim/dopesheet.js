@@ -1030,6 +1030,14 @@ export class DopeSheetObject {
         targetObj[key] = val;
       }
     }
+    if (state.fillColor !== undefined) targetObj.fill = state.fillColor;
+    if (state.strokeColor !== undefined) targetObj.stroke = state.strokeColor;
+    if (state.strokeWidth !== undefined) targetObj.strokeWidth = state.strokeWidth;
+    if (state.fillOpacity !== undefined) targetObj.fillOpacity = state.fillOpacity;
+    if (state.strokeOpacity !== undefined) targetObj.strokeOpacity = state.strokeOpacity;
+    if (state.strokeDashOffset !== undefined) { targetObj.strokeDashoffset = state.strokeDashOffset; targetObj.strokeDashOffset = state.strokeDashOffset; }
+    if (state.strokeCap !== undefined) { targetObj.strokeLinecap = state.strokeCap; targetObj.strokeCap = state.strokeCap; }
+    if (state.strokeJoin !== undefined) { targetObj.strokeLinejoin = state.strokeJoin; targetObj.strokeJoin = state.strokeJoin; }
     // Nested Fill Texture Dynamics
     if (targetObj.fillTexture) {
       const ft = targetObj.fillTexture;

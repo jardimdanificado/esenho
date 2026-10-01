@@ -139,6 +139,66 @@ export class WesenhoSDK {
       toScript: p => `wesenho.vector.create${p.type.charAt(0).toUpperCase() + p.type.slice(1)}(${p.x}, ${p.y}, ${p.width || p.rx}, ${p.height || p.ry});`
     });
 
+    this.commands.register('vector.setStyle', {
+      execute: (payload, ctx) => {
+        const doc = ctx.vectorDoc;
+        if (doc) {
+          const obj = doc.findObject ? doc.findObject(payload.id) : (doc.objects ? doc.objects.find(o => o.id === payload.id) : null);
+          if (obj) {
+            let prevSnapshot = null;
+            if (obj.type === 'group' && typeof obj.getAllDescendants === 'function') {
+              prevSnapshot = {
+                groupStyle: { fill: obj.fill, stroke: obj.stroke, strokeWidth: obj.strokeWidth, fillOpacity: obj.fillOpacity, strokeOpacity: obj.strokeOpacity },
+                children: obj.getAllDescendants().map(c => ({ id: c.id, fill: c.fill, stroke: c.stroke, strokeWidth: c.strokeWidth, fillOpacity: c.fillOpacity, strokeOpacity: c.strokeOpacity }))
+              };
+            } else {
+              prevSnapshot = {};
+              for (const k of Object.keys(payload.style || {})) {
+                prevSnapshot[k] = obj[k];
+              }
+            }
+            if (typeof obj.setStyle === 'function') {
+              obj.setStyle(payload.style, payload.options);
+            } else {
+              for (const [k, v] of Object.entries(payload.style || {})) {
+                obj[k] = v;
+              }
+            }
+            return { id: payload.id, prevSnapshot, isGroup: obj.type === 'group' };
+          }
+        }
+        return null;
+      },
+      undo: (undoData, payload, ctx) => {
+        const doc = ctx.vectorDoc;
+        if (doc && undoData && undoData.prevSnapshot) {
+          const obj = doc.findObject ? doc.findObject(undoData.id) : (doc.objects ? doc.objects.find(o => o.id === undoData.id) : null);
+          if (obj) {
+            if (undoData.isGroup && undoData.prevSnapshot.children) {
+              for (const [k, v] of Object.entries(undoData.prevSnapshot.groupStyle || {})) {
+                if (v !== undefined) obj[k] = v;
+              }
+              for (const item of undoData.prevSnapshot.children) {
+                const child = doc.findObject ? doc.findObject(item.id) : null;
+                if (child) {
+                  if (item.fill !== undefined) child.fill = item.fill;
+                  if (item.stroke !== undefined) child.stroke = item.stroke;
+                  if (item.strokeWidth !== undefined) child.strokeWidth = item.strokeWidth;
+                  if (item.fillOpacity !== undefined) child.fillOpacity = item.fillOpacity;
+                  if (item.strokeOpacity !== undefined) child.strokeOpacity = item.strokeOpacity;
+                }
+              }
+            } else {
+              for (const [k, v] of Object.entries(undoData.prevSnapshot)) {
+                obj[k] = v;
+              }
+            }
+          }
+        }
+      },
+      toScript: p => `wesenho.vector.setStyle(${JSON.stringify(p.id)}, ${JSON.stringify(p.style)});`
+    });
+
     // ── Animation Commands ──
     this.commands.register('anim.setFrame', {
       execute: (payload, ctx) => {
