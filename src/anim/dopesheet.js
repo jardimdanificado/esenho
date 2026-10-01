@@ -809,20 +809,25 @@ export class DopeSheetChannel {
   }
 
   getSpan(frame) {
-    if (this.keyframes.length === 0) return null;
-    let prev = null;
-    let next = null;
-    for (let i = 0; i < this.keyframes.length; i++) {
-      const k = this.keyframes[i];
-      if (k.frame <= frame) {
-        prev = k;
-        next = this.keyframes[i + 1] || null;
+    const kfs = this.keyframes;
+    const len = kfs.length;
+    if (len === 0) return null;
+    if (frame < kfs[0].frame) {
+      return { prev: null, next: kfs[0] };
+    }
+    if (frame >= kfs[len - 1].frame) {
+      return { prev: kfs[len - 1], next: null };
+    }
+    let low = 0, high = len - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      if (kfs[mid].frame <= frame) {
+        low = mid + 1;
       } else {
-        if (!next) next = k;
-        break;
+        high = mid - 1;
       }
     }
-    return { prev, next };
+    return { prev: kfs[high], next: kfs[high + 1] || null };
   }
 
   sample(frame) {

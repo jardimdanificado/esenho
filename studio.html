@@ -2834,8 +2834,14 @@
           <div class="form-row">
             <label>Scale Factor</label>
             <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-              <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1;">
+              <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
               <span style="font-size: 11px; color: var(--text-dim);">×</span>
+              <div style="display: flex; gap: 2px;">
+                <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+                <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+                <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
+                <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+              </div>
             </div>
           </div>
           <div class="form-row">
@@ -2876,14 +2882,17 @@
             </select>
           </div>
           <div class="form-row">
-            <label>Resolution</label>
-            <select id="export-anim-scale">
-              <option value="0.5">0.5× (Draft / Half Res)</option>
-              <option value="1.0" selected>1.0× (Native 100%)</option>
-              <option value="2.0">2.0× (2× Hi-DPI / 1080p+)</option>
-              <option value="3.0">3.0× (3× Super-Sample)</option>
-              <option value="4.0">4.0× (4K Ultra HD)</option>
-            </select>
+            <label>Scale Factor</label>
+            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+              <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+              <span style="font-size: 11px; color: var(--text-dim);">×</span>
+              <div style="display: flex; gap: 2px;">
+                <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
+                <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+                <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+                <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+              </div>
+            </div>
           </div>
           <div class="form-row">
             <label>Background</label>
@@ -8386,6 +8395,24 @@
       [exportAnimStart, exportAnimEnd, exportAnimFps, exportAnimScale].forEach(el => {
         el?.addEventListener('input', updateAnimExportDimPreview);
         el?.addEventListener('change', updateAnimExportDimPreview);
+      });
+
+      document.querySelectorAll('.preset-static-scale').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (exportScaleInput) {
+            exportScaleInput.value = btn.dataset.scale || '1';
+            updateExportDimPreview();
+          }
+        });
+      });
+
+      document.querySelectorAll('.preset-anim-scale').forEach(btn => {
+        btn.addEventListener('click', () => {
+          if (exportAnimScale) {
+            exportAnimScale.value = btn.dataset.scale || '1';
+            updateAnimExportDimPreview();
+          }
+        });
       });
 
       window.openAnimationExportModal = function(targetFormat = null) {

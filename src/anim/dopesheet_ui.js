@@ -110,10 +110,6 @@ export class DopeSheetUI {
             Auto-Keyframe
           </button>
 
-          <button id="ds-btn-export-video" class="ds-btn" title="Export Animation to Video (WebM/MP4), Spritesheet, or Interactive HTML5" style="background: #458588; color: #ebdbb2; border: 1px solid #83a598; border-radius: 4px; padding: 3px 8px; font-weight: bold; font-size: 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-            <span>🎬 Export Video</span>
-          </button>
-
           <button id="ds-btn-collapse-timeline" class="ds-btn" title="Collapse Timeline (Shift+T)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; margin-left: 2px;">▼</button>
         </div>
 
