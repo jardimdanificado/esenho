@@ -319,6 +319,8 @@ export class DopeSheetUI {
       };
     }
 
+    this.selectedParamKey = null;
+
     autoKfBtn.onclick = () => {
       this.ds.autoKeyframe = !this.ds.autoKeyframe;
       this.updateAutoKeyframeUI();
@@ -342,21 +344,33 @@ export class DopeSheetUI {
         }
 
         const curve = this.activeEasing || 'linear';
-        if (liveObj) {
+        if (this.selectedParamKey && obj.channels.has(this.selectedParamKey)) {
+          const ch = obj.channels.get(this.selectedParamKey);
+          let val = ch.sample(this.ds.currentFrame);
+          if (liveObj) {
+            const props = extractLiveObjectProperties(liveObj);
+            if (props[this.selectedParamKey] !== undefined) val = props[this.selectedParamKey];
+          }
+          ch.addKeyframe(this.ds.currentFrame, val, curve);
+          this.ds.deselectAllKeyframes();
+          ch.setKeyframeSelectedAt(this.ds.currentFrame, true);
+        } else if (liveObj) {
           const props = extractLiveObjectProperties(liveObj);
           for (const [key, val] of Object.entries(props)) {
             if (val !== undefined && val !== null) {
               obj.setKeyframe(key, this.ds.currentFrame, val, curve);
             }
           }
+          this.ds.deselectAllKeyframes();
+          obj.setKeyframeSelectedAt(this.ds.currentFrame, true);
         } else {
           for (const [key, ch] of obj.channels.entries()) {
             const val = ch.sample(this.ds.currentFrame);
             ch.addKeyframe(this.ds.currentFrame, val, curve);
           }
+          this.ds.deselectAllKeyframes();
+          obj.setKeyframeSelectedAt(this.ds.currentFrame, true);
         }
-        this.ds.deselectAllKeyframes();
-        obj.setKeyframeSelectedAt(this.ds.currentFrame, true);
         this.selectedObjectId = targetId;
         this.updateGrid();
         if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
@@ -372,7 +386,11 @@ export class DopeSheetUI {
       if (targetId) {
         const obj = this.ds.objects.get(targetId);
         if (obj) {
-          obj.removeKeyframesAtFrame(this.ds.currentFrame);
+          if (this.selectedParamKey && obj.channels.has(this.selectedParamKey)) {
+            obj.channels.get(this.selectedParamKey).removeKeyframe(this.ds.currentFrame);
+          } else {
+            obj.removeKeyframesAtFrame(this.ds.currentFrame);
+          }
           this.updateGrid();
           if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
         }
@@ -418,86 +436,161 @@ export class DopeSheetUI {
 
     if (rulerEl) rulerEl.onpointerdown = startScrub;
 
-    let dragKeyframe = null; // { object, initialFrame, currentFrame }
+    let dragKeyframe = null; // { type, object, channel?, initialFrame, currentFrame }
     if (gridEl) {
       gridEl.onpointerdown = (e) => {
         const gridRect = gridEl.getBoundingClientRect();
         const clickX = e.clientX - gridRect.left;
         const clickY = e.clientY - gridRect.top;
-        const rowHeight = 26;
-        const rowIdx = Math.floor(clickY / rowHeight);
 
-        if (this._objectRows && this._objectRows[rowIdx]) {
-          const row = this._objectRows[rowIdx];
-          const kfFrames = row.object.getKeyframeFrames();
+        if (this._displayRows && this._displayRows.length > 0) {
+          const hitRow = this._displayRows.find(r => clickY >= r.y && clickY < r.y + r.height);
+          if (hitRow) {
+            if (hitRow.type === 'channel') {
+              const kfFrames = hitRow.channel.keyframes.map(k => k.frame);
+              const hitFrame = kfFrames.find(f => {
+                const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
+                return Math.abs(kx - clickX) <= 8;
+              });
 
-          // Check if user clicked directly on a keyframe diamond
-          const hitFrame = kfFrames.find(f => {
-            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-            return Math.abs(kx - clickX) <= 8;
-          });
-
-          if (hitFrame !== undefined) {
-            e.stopPropagation();
-            e.preventDefault();
-            if (!e.shiftKey) {
-              this.ds.deselectAllKeyframes();
-            }
-            row.object.setKeyframeSelectedAt(hitFrame, true);
-            this.selectedObjectId = row.object.id;
-            this.activeEasing = row.object.getKeyframeTweenAt(hitFrame);
-            this.syncEasingUI();
-            this.ds.setFrame(hitFrame);
-            if (typeof window !== 'undefined' && window.doc) {
-              if (window.doc.select) window.doc.select(row.object.id);
-              if (window.render) window.render();
-              if (window.updateInspector) window.updateInspector();
-            }
-            this.updateGrid();
-
-            // Start keyframe dragging
-            dragKeyframe = {
-              object: row.object,
-              initialFrame: hitFrame,
-              currentFrame: hitFrame
-            };
-
-            const onDragMove = (me) => {
-              if (!dragKeyframe) return;
-              me.stopPropagation();
-              me.preventDefault();
-              const curRect = gridEl.getBoundingClientRect();
-              const curClickX = me.clientX - curRect.left;
-              const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curClickX / this.frameWidth) + 1));
-              if (targetF !== dragKeyframe.currentFrame) {
-                dragKeyframe.object.moveKeyframe(dragKeyframe.currentFrame, targetF);
-                dragKeyframe.currentFrame = targetF;
-                this.ds.setFrame(targetF);
+              if (hitFrame !== undefined) {
+                e.stopPropagation();
+                e.preventDefault();
+                if (!e.shiftKey) {
+                  this.ds.deselectAllKeyframes();
+                }
+                hitRow.channel.setKeyframeSelectedAt(hitFrame, true);
+                this.selectedObjectId = hitRow.object.id;
+                this.selectedParamKey = hitRow.paramKey;
+                const targetKf = hitRow.channel.getKeyframeAt(hitFrame);
+                this.activeEasing = targetKf ? targetKf.tweenType : 'linear';
+                this.syncEasingUI();
+                this.ds.setFrame(hitFrame);
+                if (typeof window !== 'undefined' && window.doc) {
+                  if (window.doc.select) window.doc.select(hitRow.object.id);
+                  if (window.render) window.render();
+                  if (window.updateInspector) window.updateInspector();
+                }
                 this.updateGrid();
-                if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
+
+                dragKeyframe = {
+                  type: 'channel',
+                  object: hitRow.object,
+                  channel: hitRow.channel,
+                  initialFrame: hitFrame,
+                  currentFrame: hitFrame
+                };
+
+                const onDragMove = (me) => {
+                  if (!dragKeyframe) return;
+                  me.stopPropagation();
+                  me.preventDefault();
+                  const curRect = gridEl.getBoundingClientRect();
+                  const curClickX = me.clientX - curRect.left;
+                  const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curClickX / this.frameWidth) + 1));
+                  if (targetF !== dragKeyframe.currentFrame) {
+                    dragKeyframe.channel.moveKeyframe(dragKeyframe.currentFrame, targetF);
+                    dragKeyframe.currentFrame = targetF;
+                    this.ds.setFrame(targetF);
+                    this.updateGrid();
+                    if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
+                  }
+                };
+
+                const onDragUp = (ue) => {
+                  dragKeyframe = null;
+                  window.removeEventListener('pointermove', onDragMove, { capture: true });
+                  window.removeEventListener('pointerup', onDragUp, { capture: true });
+                };
+
+                window.addEventListener('pointermove', onDragMove, { capture: true });
+                window.addEventListener('pointerup', onDragUp, { capture: true });
+                return;
               }
-            };
 
-            const onDragUp = (ue) => {
-              dragKeyframe = null;
-              window.removeEventListener('pointermove', onDragMove, { capture: true });
-              window.removeEventListener('pointerup', onDragUp, { capture: true });
-            };
+              // Clicked on channel empty space
+              this.selectedObjectId = hitRow.object.id;
+              this.selectedParamKey = hitRow.paramKey;
+              this.ds.deselectAllKeyframes();
+              if (typeof window !== 'undefined' && window.doc) {
+                if (window.doc.select) window.doc.select(hitRow.object.id);
+                if (window.render) window.render();
+                if (window.updateInspector) window.updateInspector();
+              }
+              this.updateGrid();
+            } else {
+              // Object row
+              const kfFrames = hitRow.object.getKeyframeFrames();
+              const hitFrame = kfFrames.find(f => {
+                const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
+                return Math.abs(kx - clickX) <= 8;
+              });
 
-            window.addEventListener('pointermove', onDragMove, { capture: true });
-            window.addEventListener('pointerup', onDragUp, { capture: true });
-            return;
+              if (hitFrame !== undefined) {
+                e.stopPropagation();
+                e.preventDefault();
+                if (!e.shiftKey) {
+                  this.ds.deselectAllKeyframes();
+                }
+                hitRow.object.setKeyframeSelectedAt(hitFrame, true);
+                this.selectedObjectId = hitRow.object.id;
+                this.selectedParamKey = null;
+                this.activeEasing = hitRow.object.getKeyframeTweenAt(hitFrame);
+                this.syncEasingUI();
+                this.ds.setFrame(hitFrame);
+                if (typeof window !== 'undefined' && window.doc) {
+                  if (window.doc.select) window.doc.select(hitRow.object.id);
+                  if (window.render) window.render();
+                  if (window.updateInspector) window.updateInspector();
+                }
+                this.updateGrid();
+
+                dragKeyframe = {
+                  type: 'object',
+                  object: hitRow.object,
+                  initialFrame: hitFrame,
+                  currentFrame: hitFrame
+                };
+
+                const onDragMove = (me) => {
+                  if (!dragKeyframe) return;
+                  me.stopPropagation();
+                  me.preventDefault();
+                  const curRect = gridEl.getBoundingClientRect();
+                  const curClickX = me.clientX - curRect.left;
+                  const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curClickX / this.frameWidth) + 1));
+                  if (targetF !== dragKeyframe.currentFrame) {
+                    dragKeyframe.object.moveKeyframe(dragKeyframe.currentFrame, targetF);
+                    dragKeyframe.currentFrame = targetF;
+                    this.ds.setFrame(targetF);
+                    this.updateGrid();
+                    if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
+                  }
+                };
+
+                const onDragUp = (ue) => {
+                  dragKeyframe = null;
+                  window.removeEventListener('pointermove', onDragMove, { capture: true });
+                  window.removeEventListener('pointerup', onDragUp, { capture: true });
+                };
+
+                window.addEventListener('pointermove', onDragMove, { capture: true });
+                window.addEventListener('pointerup', onDragUp, { capture: true });
+                return;
+              }
+
+              // Clicked on object track empty space
+              this.selectedObjectId = hitRow.object.id;
+              this.selectedParamKey = null;
+              this.ds.deselectAllKeyframes();
+              if (typeof window !== 'undefined' && window.doc) {
+                if (window.doc.select) window.doc.select(hitRow.object.id);
+                if (window.render) window.render();
+                if (window.updateInspector) window.updateInspector();
+              }
+              this.updateGrid();
+            }
           }
-
-          // Clicked on object track empty space
-          this.selectedObjectId = row.object.id;
-          this.ds.deselectAllKeyframes();
-          if (typeof window !== 'undefined' && window.doc) {
-            if (window.doc.select) window.doc.select(row.object.id);
-            if (window.render) window.render();
-            if (window.updateInspector) window.updateInspector();
-          }
-          this.updateGrid();
         } else {
           this.ds.deselectAllKeyframes();
           this.updateGrid();
@@ -509,15 +602,20 @@ export class DopeSheetUI {
         const gridRect = gridEl.getBoundingClientRect();
         const clickX = e.clientX - gridRect.left;
         const clickY = e.clientY - gridRect.top;
-        const rowHeight = 26;
-        const rowIdx = Math.floor(clickY / rowHeight);
-        if (this._objectRows && this._objectRows[rowIdx]) {
-          const row = this._objectRows[rowIdx];
-          const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(clickX / this.frameWidth) + 1));
-          this.selectedObjectId = row.object.id;
-          this.ds.setFrame(targetFrame);
-          const addKfBtn = this.container.querySelector('#ds-btn-add-kf');
-          if (addKfBtn) addKfBtn.click();
+        if (this._displayRows && this._displayRows.length > 0) {
+          const hitRow = this._displayRows.find(r => clickY >= r.y && clickY < r.y + r.height);
+          if (hitRow) {
+            const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(clickX / this.frameWidth) + 1));
+            this.selectedObjectId = hitRow.object.id;
+            this.ds.setFrame(targetFrame);
+            if (hitRow.type === 'channel') {
+              this.selectedParamKey = hitRow.paramKey;
+            } else {
+              this.selectedParamKey = null;
+            }
+            const addKfBtn = this.container.querySelector('#ds-btn-add-kf');
+            if (addKfBtn) addKfBtn.click();
+          }
         }
       };
     }
@@ -1216,8 +1314,26 @@ export class DopeSheetUI {
     const gridCanvas = this.container.querySelector('#ds-grid-canvas');
     if (!treeRowsEl || !rulerCanvas || !gridCanvas) return;
 
-    // 1. Build List of Objects (1 track per object)
-    const objectRows = [];
+    // Helper for property group icon
+    const getParamIcon = (key) => {
+      const def = PARAMETER_REGISTRY[key] || {};
+      const grp = def.group || '';
+      if (grp === 'Transform') {
+        if (key === 'rotation') return '↻';
+        if (key === 'scaleX' || key === 'scaleY') return '📐';
+        if (key === 'opacity') return '👁';
+        return '⌖';
+      }
+      if (grp === 'Fill & Paint' || grp === 'Stroke' || def.type === 'color') return '🎨';
+      if (grp === 'Brush Dynamics') return '🖌';
+      if (grp === 'Geometry' || grp === 'Vector Path') return '∿';
+      if (grp === 'Filters & Lens FX') return '✨';
+      if (grp === 'Typography') return 'T';
+      return '●';
+    };
+
+    // 1. Build List of Display Rows (Objects and their active/modified Channel sub-tracks)
+    const displayRows = [];
     for (const obj of this.ds.objects.values()) {
       let label = obj.name;
       let objType = obj.targetType || 'vector';
@@ -1233,86 +1349,181 @@ export class DopeSheetUI {
           }
         }
       }
-      objectRows.push({ object: obj, id: obj.id, label, type: objType });
-    }
-    this._objectRows = objectRows;
 
-    const rowHeight = 26;
-    const totalH = Math.max(120, objectRows.length * rowHeight);
+      const activeChannels = Array.from(obj.channels.values()).filter(ch => ch.keyframes.length > 0);
+      const isCollapsed = (obj.collapsed === true);
+
+      displayRows.push({
+        type: 'object',
+        object: obj,
+        id: obj.id,
+        label,
+        objType,
+        activeChannels,
+        collapsed: isCollapsed,
+        height: 26
+      });
+
+      if (!isCollapsed && activeChannels.length > 0) {
+        for (const ch of activeChannels) {
+          displayRows.push({
+            type: 'channel',
+            object: obj,
+            channel: ch,
+            paramKey: ch.paramKey,
+            id: `${obj.id}:${ch.paramKey}`,
+            label: ch.label || ch.paramKey,
+            height: 22
+          });
+        }
+      }
+    }
+
+    // Compute cumulative Y offsets for every row
+    let currentY = 0;
+    displayRows.forEach(r => {
+      r.y = currentY;
+      currentY += r.height;
+    });
+    this._displayRows = displayRows;
+    const totalH = Math.max(120, currentY);
 
     // 2. Render Left Sidebar DOM Rows
     treeRowsEl.innerHTML = '';
-    objectRows.forEach((r, idx) => {
+    displayRows.forEach((r, idx) => {
       const rowEl = document.createElement('div');
-      rowEl.style.height = `${rowHeight}px`;
+      rowEl.style.height = `${r.height}px`;
       rowEl.style.display = 'flex';
       rowEl.style.alignItems = 'center';
-      rowEl.style.padding = '0 8px';
       rowEl.style.borderBottom = '1px solid #32302f';
       rowEl.style.boxSizing = 'border-box';
       rowEl.style.cursor = 'pointer';
 
-      const isSelected = (r.object.id === this.selectedObjectId);
-      if (isSelected) {
-        rowEl.style.background = '#3c3836';
-        rowEl.style.borderLeft = '3px solid #fabd2f';
-      } else {
-        rowEl.style.background = (idx % 2 === 0 ? '#282828' : '#242424');
-        rowEl.style.borderLeft = '3px solid transparent';
-      }
-
-      const kfFrames = r.object.getKeyframeFrames();
-      const kfCount = kfFrames.length;
-
-      const getIcon = (type) => {
-        switch (type) {
-          case 'rect': return '▭';
-          case 'circle': return '○';
-          case 'ellipse': return '⬭';
-          case 'star': return '★';
-          case 'polygon': return '⬡';
-          case 'path': return '∿';
-          case 'text': return 'T';
-          case 'image': return '🖼';
-          case 'camera': return '📷';
-          case 'brush_preset': return '🖌';
-          case 'group': return '📁';
-          default: return '◈';
+      if (r.type === 'object') {
+        const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
+        rowEl.style.padding = '0 8px';
+        if (isSelected) {
+          rowEl.style.background = '#3c3836';
+          rowEl.style.borderLeft = '3px solid #fabd2f';
+        } else {
+          rowEl.style.background = (idx % 2 === 0 ? '#282828' : '#242424');
+          rowEl.style.borderLeft = '3px solid transparent';
         }
-      };
 
-      const icon = getIcon(r.type);
+        const kfFrames = r.object.getKeyframeFrames();
+        const kfCount = kfFrames.length;
 
-      rowEl.innerHTML = `
-        <span style="font-size: 11px; margin-right: 6px; color: #83a598; width: 14px; text-align: center;">${icon}</span>
-        <span style="font-weight: bold; color: ${isSelected ? '#fabd2f' : '#ebdbb2'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label}">${r.label}</span>
-        <span style="font-size: 9px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes">${kfCount > 0 ? `${kfCount} kf` : ''}</span>
-        <span class="ds-del-track-btn" title="Remove object from timeline" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
-      `;
-
-      rowEl.onclick = () => {
-        this.selectedObjectId = r.object.id;
-        if (typeof window !== 'undefined' && window.doc) {
-          if (window.doc.select) window.doc.select(r.object.id);
-          if (window.render) window.render();
-          if (window.updateInspector) window.updateInspector();
-        }
-        this.syncEasingUI();
-        this.updateGrid();
-      };
-
-      const delBtn = rowEl.querySelector('.ds-del-track-btn');
-      if (delBtn) {
-        delBtn.onmouseenter = () => delBtn.style.color = '#ea6962';
-        delBtn.onmouseleave = () => delBtn.style.color = '#7c6f64';
-        delBtn.onclick = (e) => {
-          e.stopPropagation();
-          this.ds.removeObject(r.object.id);
-          if (this.selectedObjectId === r.object.id) {
-            this.selectedObjectId = null;
+        const getIcon = (type) => {
+          switch (type) {
+            case 'rect': return '▭';
+            case 'circle': return '○';
+            case 'ellipse': return '⬭';
+            case 'star': return '★';
+            case 'polygon': return '⬡';
+            case 'path': return '∿';
+            case 'text': return 'T';
+            case 'image': return '🖼';
+            case 'camera': return '📷';
+            case 'brush_preset': return '🖌';
+            case 'group': return '📁';
+            default: return '◈';
           }
+        };
+
+        const icon = getIcon(r.objType);
+        const hasSubtracks = r.activeChannels.length > 0;
+        const toggleIcon = hasSubtracks ? (r.collapsed ? '▶' : '▼') : '·';
+
+        rowEl.innerHTML = `
+          <span class="ds-row-toggle" style="font-size: 9px; width: 14px; text-align: center; color: ${hasSubtracks ? '#a89984' : '#504945'}; cursor: ${hasSubtracks ? 'pointer' : 'default'}; margin-right: 2px;">${toggleIcon}</span>
+          <span style="font-size: 11px; margin-right: 6px; color: #83a598; width: 14px; text-align: center;">${icon}</span>
+          <span style="font-weight: bold; color: ${isSelected ? '#fabd2f' : '#ebdbb2'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label}">${r.label}</span>
+          <span style="font-size: 9px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
+          <span class="ds-del-track-btn" title="Remove object from timeline" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
+        `;
+
+        const toggleBtn = rowEl.querySelector('.ds-row-toggle');
+        if (toggleBtn && hasSubtracks) {
+          toggleBtn.onclick = (e) => {
+            e.stopPropagation();
+            r.object.collapsed = !r.collapsed;
+            this.updateGrid();
+          };
+        }
+
+        rowEl.onclick = () => {
+          this.selectedObjectId = r.object.id;
+          this.selectedParamKey = null;
+          if (typeof window !== 'undefined' && window.doc) {
+            if (window.doc.select) window.doc.select(r.object.id);
+            if (window.render) window.render();
+            if (window.updateInspector) window.updateInspector();
+          }
+          this.syncEasingUI();
           this.updateGrid();
         };
+
+        const delBtn = rowEl.querySelector('.ds-del-track-btn');
+        if (delBtn) {
+          delBtn.onmouseenter = () => delBtn.style.color = '#ea6962';
+          delBtn.onmouseleave = () => delBtn.style.color = '#7c6f64';
+          delBtn.onclick = (e) => {
+            e.stopPropagation();
+            this.ds.removeObject(r.object.id);
+            if (this.selectedObjectId === r.object.id) {
+              this.selectedObjectId = null;
+              this.selectedParamKey = null;
+            }
+            this.updateGrid();
+          };
+        }
+      } else {
+        // Channel sub-track row
+        const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
+        rowEl.style.padding = '0 8px 0 26px';
+        if (isSelected) {
+          rowEl.style.background = '#32302f';
+          rowEl.style.borderLeft = '3px solid #83a598';
+        } else {
+          rowEl.style.background = '#1d2021';
+          rowEl.style.borderLeft = '3px solid transparent';
+        }
+
+        const kfCount = r.channel.keyframes.length;
+        const pIcon = getParamIcon(r.paramKey);
+
+        rowEl.innerHTML = `
+          <span style="font-size: 10px; margin-right: 5px; color: #a89984; width: 12px; text-align: center;">${pIcon}</span>
+          <span style="color: ${isSelected ? '#fabd2f' : '#d5c4a1'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10px;" title="${r.label}">${r.label}</span>
+          <span style="font-size: 8px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px;" title="${kfCount} keyframes">${kfCount} kf</span>
+          <span class="ds-del-channel-btn" title="Remove parameter track" style="color: #665c54; font-size: 10px; cursor: pointer; padding: 0 2px;">✕</span>
+        `;
+
+        rowEl.onclick = () => {
+          this.selectedObjectId = r.object.id;
+          this.selectedParamKey = r.paramKey;
+          if (typeof window !== 'undefined' && window.doc) {
+            if (window.doc.select) window.doc.select(r.object.id);
+            if (window.render) window.render();
+            if (window.updateInspector) window.updateInspector();
+          }
+          this.syncEasingUI();
+          this.updateGrid();
+        };
+
+        const delChanBtn = rowEl.querySelector('.ds-del-channel-btn');
+        if (delChanBtn) {
+          delChanBtn.onmouseenter = () => delChanBtn.style.color = '#ea6962';
+          delChanBtn.onmouseleave = () => delChanBtn.style.color = '#665c54';
+          delChanBtn.onclick = (e) => {
+            e.stopPropagation();
+            r.object.removeChannel(r.paramKey);
+            if (this.selectedParamKey === r.paramKey) {
+              this.selectedParamKey = null;
+            }
+            this.updateGrid();
+          };
+        }
       }
 
       treeRowsEl.appendChild(rowEl);
@@ -1391,51 +1602,102 @@ export class DopeSheetUI {
     }
 
     // Draw row backgrounds, span lines & keyframe diamonds
-    objectRows.forEach((r, idx) => {
-      const y = idx * rowHeight;
-      const isSelectedObj = (r.object.id === this.selectedObjectId);
-      gctx.fillStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.08)' : (idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)');
-      gctx.fillRect(0, y, totalW, rowHeight);
-      gctx.strokeStyle = '#32302f';
-      gctx.strokeRect(0, y, totalW, rowHeight);
+    displayRows.forEach((r, idx) => {
+      const y = r.y;
+      const rH = r.height;
 
-      const kfFrames = r.object.getKeyframeFrames();
-      if (kfFrames.length > 0) {
-        const firstF = kfFrames[0];
-        const lastF = kfFrames[kfFrames.length - 1];
-        if (firstF < lastF) {
-          // Draw active animation span bar between first and last keyframe
-          const x1 = (firstF - 1) * this.frameWidth + this.frameWidth / 2;
-          const x2 = (lastF - 1) * this.frameWidth + this.frameWidth / 2;
-          const cy = y + rowHeight / 2;
-          gctx.strokeStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.45)' : 'rgba(131, 165, 152, 0.3)';
-          gctx.lineWidth = 3;
-          gctx.beginPath();
-          gctx.moveTo(x1, cy);
-          gctx.lineTo(x2, cy);
-          gctx.stroke();
+      if (r.type === 'object') {
+        const isSelectedObj = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
+        gctx.fillStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.08)' : (idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)');
+        gctx.fillRect(0, y, totalW, rH);
+        gctx.strokeStyle = '#32302f';
+        gctx.strokeRect(0, y, totalW, rH);
+
+        const kfFrames = r.object.getKeyframeFrames();
+        if (kfFrames.length > 0) {
+          const firstF = kfFrames[0];
+          const lastF = kfFrames[kfFrames.length - 1];
+          if (firstF < lastF) {
+            // Active animation span bar between first and last keyframe
+            const x1 = (firstF - 1) * this.frameWidth + this.frameWidth / 2;
+            const x2 = (lastF - 1) * this.frameWidth + this.frameWidth / 2;
+            const cy = y + rH / 2;
+            gctx.strokeStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.45)' : 'rgba(131, 165, 152, 0.3)';
+            gctx.lineWidth = 3;
+            gctx.beginPath();
+            gctx.moveTo(x1, cy);
+            gctx.lineTo(x2, cy);
+            gctx.stroke();
+          }
+
+          // Draw Summary Keyframe Diamonds
+          for (const f of kfFrames) {
+            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
+            const ky = y + rH / 2;
+            const size = 5.5;
+            const tween = r.object.getKeyframeTweenAt(f);
+            const isSelectedKf = r.object.isKeyframeSelectedAt(f);
+
+            gctx.fillStyle = isSelectedKf ? '#fb4934' : getEasingColor(tween);
+            gctx.strokeStyle = isSelectedKf ? '#ffffff' : '#1d2021';
+            gctx.lineWidth = isSelectedKf ? 1.8 : 1.2;
+
+            gctx.beginPath();
+            gctx.moveTo(kx, ky - size);
+            gctx.lineTo(kx + size, ky);
+            gctx.lineTo(kx, ky + size);
+            gctx.lineTo(kx - size, ky);
+            gctx.closePath();
+            gctx.fill();
+            gctx.stroke();
+          }
         }
+      } else {
+        // Channel sub-track row
+        const isSelectedChan = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
+        gctx.fillStyle = isSelectedChan ? 'rgba(250, 189, 47, 0.12)' : 'rgba(20, 22, 23, 0.6)';
+        gctx.fillRect(0, y, totalW, rH);
+        gctx.strokeStyle = '#282828';
+        gctx.strokeRect(0, y, totalW, rH);
 
-        // Draw Keyframe Diamonds
-        for (const f of kfFrames) {
-          const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-          const ky = y + rowHeight / 2;
-          const size = 5.5;
-          const tween = r.object.getKeyframeTweenAt(f);
-          const isSelectedKf = r.object.isKeyframeSelectedAt(f);
+        const chKeyframes = r.channel.keyframes;
+        if (chKeyframes.length > 0) {
+          const firstF = chKeyframes[0].frame;
+          const lastF = chKeyframes[chKeyframes.length - 1].frame;
+          if (firstF < lastF) {
+            const x1 = (firstF - 1) * this.frameWidth + this.frameWidth / 2;
+            const x2 = (lastF - 1) * this.frameWidth + this.frameWidth / 2;
+            const cy = y + rH / 2;
+            gctx.strokeStyle = isSelectedChan ? 'rgba(250, 189, 47, 0.35)' : 'rgba(100, 120, 115, 0.25)';
+            gctx.lineWidth = 2;
+            gctx.beginPath();
+            gctx.moveTo(x1, cy);
+            gctx.lineTo(x2, cy);
+            gctx.stroke();
+          }
 
-          gctx.fillStyle = isSelectedKf ? '#fb4934' : getEasingColor(tween);
-          gctx.strokeStyle = isSelectedKf ? '#ffffff' : '#1d2021';
-          gctx.lineWidth = isSelectedKf ? 1.8 : 1.2;
+          // Draw Channel-Specific Keyframe Diamonds
+          for (const kf of chKeyframes) {
+            const f = kf.frame;
+            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
+            const ky = y + rH / 2;
+            const size = 4.5;
+            const tween = kf.tweenType || 'linear';
+            const isSelectedKf = !!kf.selected;
 
-          gctx.beginPath();
-          gctx.moveTo(kx, ky - size);
-          gctx.lineTo(kx + size, ky);
-          gctx.lineTo(kx, ky + size);
-          gctx.lineTo(kx - size, ky);
-          gctx.closePath();
-          gctx.fill();
-          gctx.stroke();
+            gctx.fillStyle = isSelectedKf ? '#fb4934' : getEasingColor(tween);
+            gctx.strokeStyle = isSelectedKf ? '#ffffff' : '#1d2021';
+            gctx.lineWidth = isSelectedKf ? 1.6 : 1.0;
+
+            gctx.beginPath();
+            gctx.moveTo(kx, ky - size);
+            gctx.lineTo(kx + size, ky);
+            gctx.lineTo(kx, ky + size);
+            gctx.lineTo(kx - size, ky);
+            gctx.closePath();
+            gctx.fill();
+            gctx.stroke();
+          }
         }
       }
     });

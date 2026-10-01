@@ -798,6 +798,16 @@ export class DopeSheetChannel {
     return this.keyframes.some(k => k.frame === frame);
   }
 
+  isKeyframeSelectedAt(frame) {
+    const kf = this.getKeyframeAt(frame);
+    return kf ? !!kf.selected : false;
+  }
+
+  setKeyframeSelectedAt(frame, selected = true) {
+    const kf = this.getKeyframeAt(frame);
+    if (kf) kf.selected = selected;
+  }
+
   getSpan(frame) {
     if (this.keyframes.length === 0) return null;
     let prev = null;

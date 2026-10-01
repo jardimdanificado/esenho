@@ -2711,63 +2711,6 @@
             </div>
           </div>
         </div>
-
-        <!-- Scene Animation Bar -->
-        <div class="section-card" id="card-scene-anim" style="margin-bottom: 8px;">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; color: var(--primary);">
-              <span>Animation</span>
-            </span>
-            <div style="display: flex; gap: 3px;">
-              <button id="scene-anim-btn-prev" class="btn-icon" title="Previous Frame" style="font-size: 9px; padding: 2px 4px;">⏮</button>
-              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-              <button id="scene-anim-btn-next" class="btn-icon" title="Next Frame" style="font-size: 9px; padding: 2px 4px;">⏭</button>
-              <button id="scene-anim-btn-loop" class="btn-icon" title="Toggle Loop" style="font-size: 9px; padding: 2px 4px; color: var(--accent);">🔁</button>
-            </div>
-          </div>
-
-          <!-- Scrubbing & Frame Control -->
-          <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
-              <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <span>Frame:</span>
-                <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-                <span>/</span>
-                <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-              </div>
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <span>FPS:</span>
-                <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 4px; margin-top: 2px;">
-              <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
-              <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
-            </div>
-            <div style="display: flex; gap: 4px; margin-top: 4px;">
-              <button id="scene-btn-open-timeline" class="btn-sm" style="flex: 1; font-size: 10px; background: #32302f; color: #fabd2f; border: 1px solid #504945; display: flex; align-items: center; justify-content: center; gap: 4px;" title="Open / Close DopeSheet Timeline Dock">🎬 Open Timeline / DopeSheet</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Selected Object Animation Events Card -->
-        <div class="section-card" id="card-selected-events">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
-            <span id="selected-events-badge" style="font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);">No selection</span>
-          </div>
-          <div id="selected-events-container" style="margin-top: 4px;">
-            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
-              Select an object to inspect or record keyframe states
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Tab 2: Style & Transform Inspector -->
@@ -4406,138 +4349,7 @@
       }
 
       function updateSelectedObjectEventsUI() {
-        const container = document.getElementById('selected-events-container');
-        const titleEl = document.getElementById('selected-events-title');
-        const badgeEl = document.getElementById('selected-events-badge');
-        if (!container) return;
-
-        const selected = doc.getSelectedObjects();
-        if (selected.length === 0) {
-          if (titleEl) titleEl.textContent = 'Object Events';
-          if (badgeEl) badgeEl.textContent = 'No selection';
-          container.innerHTML = `
-            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
-              Select an object to inspect or record keyframe states
-            </div>
-          `;
-          return;
-        }
-
-        const mainTarget = selected[0];
-        if (titleEl) titleEl.textContent = `Events: ${mainTarget.name || mainTarget.id}`;
-
-        const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
-          ? window.dopeSheet.getObject(mainTarget.id)
-          : (window.dopeSheet?.objects?.get(mainTarget.id));
-        const events = dObj ? dObj.getEventList() : [];
-        if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
-
-        const currentFrame = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
-
-        if (events.length === 0) {
-          container.innerHTML = `
-            <div style="font-size: 10px; color: var(--text-muted); padding: 6px 4px; text-align: center; font-style: italic;">
-              No keyframe states recorded for this object
-            </div>
-            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 10px;">
-              + Record State at F${currentFrame}
-            </button>
-          `;
-        } else {
-          const easings = ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'spring', 'bounce', 'elastic'];
-          let rowsHtml = '';
-          for (const ev of events) {
-            const easingOptions = easings.map(e => `<option value="${e}" ${ev.tweenType === e ? 'selected' : ''}>${e}</option>`).join('');
-            rowsHtml += `
-              <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 3px;">
-                <div style="display: flex; align-items: center; gap: 4px;">
-                  <button class="event-frame-btn" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to frame ${ev.frame}">◆ F${ev.frame}</button>
-                  <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 9px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px;">
-                    ${easingOptions}
-                  </select>
-                </div>
-                <div style="display: flex; align-items: center; gap: 2px;">
-                  <button class="btn-icon" data-action="update-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Update keyframe with current live properties" style="font-size: 10px; color: var(--text-muted); padding: 1px 3px;">⟳</button>
-                  <button class="btn-icon" data-action="delete-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Delete keyframe state" style="font-size: 9px; color: var(--danger); padding: 1px 3px;">✕</button>
-                </div>
-              </div>
-            `;
-          }
-
-          rowsHtml += `
-            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 6px; font-size: 10px;">
-              + Record State at F${currentFrame}
-            </button>
-          `;
-          container.innerHTML = rowsHtml;
-        }
-
-        container.onclick = (e) => {
-          const actionBtn = e.target.closest('[data-action]');
-          if (!actionBtn) return;
-          const action = actionBtn.dataset.action;
-          const frame = parseInt(actionBtn.dataset.frame, 10);
-          const objId = actionBtn.dataset.objectId;
-
-          if (action === 'seek-frame' && !isNaN(frame)) {
-            if (typeof window.seekSceneFrame === 'function') {
-              window.seekSceneFrame(frame);
-            }
-          } else if (action === 'update-event') {
-            const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
-            if (targetObj && window.dopeSheet) {
-              const targetDObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
-              const props = (typeof window.extractLiveObjectProperties === 'function')
-                ? window.extractLiveObjectProperties(targetObj)
-                : { x: targetObj.x, y: targetObj.y, rotation: targetObj.rotation, opacity: targetObj.opacity };
-              targetDObj.setEventState(frame, props);
-              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-              doc.pushHistory(`Update Event F${frame}`);
-              updateSelectedObjectEventsUI();
-              updateObjectList();
-            }
-          } else if (action === 'delete-event') {
-            if (window.dopeSheet) {
-              const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
-              if (targetDObj) {
-                targetDObj.removeKeyframesAtFrame(frame);
-                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-                doc.pushHistory(`Delete Event F${frame}`);
-                updateSelectedObjectEventsUI();
-                updateObjectList();
-              }
-            }
-          } else if (action === 'add-event') {
-            const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
-            if (targetObj && window.dopeSheet) {
-              const curF = window.dopeSheet.currentFrame || 1;
-              const targetDObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
-              const props = (typeof window.extractLiveObjectProperties === 'function')
-                ? window.extractLiveObjectProperties(targetObj)
-                : { x: targetObj.x, y: targetObj.y, rotation: targetObj.rotation, opacity: targetObj.opacity };
-              targetDObj.setEventState(curF, props);
-              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-              doc.pushHistory(`Record Event F${curF}`);
-              updateSelectedObjectEventsUI();
-              updateObjectList();
-            }
-          }
-        };
-
-        container.onchange = (e) => {
-          if (e.target.dataset.action === 'change-easing') {
-            const frame = parseInt(e.target.dataset.frame, 10);
-            const objId = e.target.dataset.objectId;
-            if (window.dopeSheet) {
-              const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
-              if (targetDObj) {
-                targetDObj.setKeyframeTweenAt(frame, e.target.value);
-                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-                doc.pushHistory(`Change Easing on F${frame}`);
-              }
-            }
-          }
-        };
+        // Simplified animator removed; all keyframes and tracks are handled by the DopeSheet Timeline.
       }
 
       function updateObjectList() {
@@ -9319,10 +9131,15 @@
           };
 
         const toRecord = changedProps ? { ...changedProps } : liveProps;
+        let anyRecorded = false;
         for (const [key, val] of Object.entries(toRecord)) {
           if (val !== undefined && val !== null) {
             dObj.setKeyframe(key, currentFrame, val);
+            anyRecorded = true;
           }
+        }
+        if (anyRecorded) {
+          dObj.collapsed = false;
         }
         if (window.dopeSheetUI) {
           window.dopeSheetUI.updateGrid();
@@ -9351,26 +9168,7 @@
           function syncObjectsToDopeSheet() {
             if (!doc || !dopeSheet) return;
             for (const obj of doc.objects) {
-              const dObj = dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, 'vector');
-              dObj.collapsed = true;
-              if (dObj.channels.size === 0) {
-                if (obj.x !== undefined) dObj.getOrCreateChannel('x', obj.x);
-                if (obj.y !== undefined) dObj.getOrCreateChannel('y', obj.y);
-                if (obj.cx !== undefined) dObj.getOrCreateChannel('x', obj.cx);
-                if (obj.cy !== undefined) dObj.getOrCreateChannel('y', obj.cy);
-                if (obj.rotation !== undefined) dObj.getOrCreateChannel('rotation', obj.rotation);
-                if (obj.scaleX !== undefined) dObj.getOrCreateChannel('scaleX', obj.scaleX);
-                if (obj.scaleY !== undefined) dObj.getOrCreateChannel('scaleY', obj.scaleY);
-                if (obj.opacity !== undefined) dObj.getOrCreateChannel('opacity', obj.opacity);
-                if (obj.fill && obj.fill !== 'none') dObj.getOrCreateChannel('fillColor', obj.fill);
-                if (obj.stroke && obj.stroke !== 'none') dObj.getOrCreateChannel('strokeColor', obj.stroke);
-                if (obj.strokeWidth !== undefined) dObj.getOrCreateChannel('strokeWidth', obj.strokeWidth);
-                if (obj.type === 'text' || obj.text !== undefined) {
-                  if (obj.text !== undefined) dObj.getOrCreateChannel('text', obj.text);
-                  if (obj.fontSize !== undefined) dObj.getOrCreateChannel('fontSize', obj.fontSize);
-                  if (obj.letterSpacing !== undefined) dObj.getOrCreateChannel('letterSpacing', obj.letterSpacing);
-                }
-              }
+              dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, 'vector');
             }
           }
           syncObjectsToDopeSheet();
@@ -9378,68 +9176,10 @@
           if (dock) {
             dopeSheetUI = new DopeSheetUI(dock, dopeSheet, (frame, samples) => {
               applyAnimationSamples(samples);
-              updateSceneAnimUI();
             });
             window.dopeSheetUI = dopeSheetUI;
           }
 
-          // Wire Scene Tab Animation Controls
-          document.getElementById('scene-anim-btn-play')?.addEventListener('click', toggleScenePlay);
-          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', () => {
-            seekSceneFrame(Math.max(1, (window.dopeSheet?.currentFrame || 1) - 1));
-          });
-          document.getElementById('scene-anim-btn-next')?.addEventListener('click', () => {
-            const total = window.dopeSheet?.totalFrames || 60;
-            seekSceneFrame(Math.min(total, (window.dopeSheet?.currentFrame || 1) + 1));
-          });
-          document.getElementById('scene-anim-btn-loop')?.addEventListener('click', () => {
-            isSceneLooping = !isSceneLooping;
-            updateSceneAnimUI();
-          });
-          document.getElementById('scene-anim-scrubber')?.addEventListener('input', (e) => {
-            seekSceneFrame(parseInt(e.target.value, 10));
-          });
-          document.getElementById('scene-anim-input-frame')?.addEventListener('change', (e) => {
-            seekSceneFrame(parseInt(e.target.value, 10));
-          });
-          document.getElementById('scene-anim-input-total')?.addEventListener('change', (e) => {
-            const val = Math.max(1, parseInt(e.target.value, 10) || 60);
-            if (window.dopeSheet) window.dopeSheet.totalFrames = val;
-            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-            updateSceneAnimUI();
-          });
-          document.getElementById('scene-anim-input-fps')?.addEventListener('change', (e) => {
-            const val = Math.max(1, parseInt(e.target.value, 10) || 24);
-            if (window.dopeSheet) window.dopeSheet.fps = val;
-            if (isScenePlaying) {
-              clearInterval(scenePlayInterval);
-              startScenePlay();
-            }
-            updateSceneAnimUI();
-          });
-          document.getElementById('scene-btn-add-event')?.addEventListener('click', () => {
-            if (!window.dopeSheet) return;
-            const currentFrame = window.dopeSheet.currentFrame || 1;
-            const selectedObjs = (doc.getSelectedObjects && doc.getSelectedObjects().length > 0) ? doc.getSelectedObjects() : doc.objects;
-            for (const t of selectedObjs) {
-              const dObj = window.dopeSheet.getOrCreateObject(t.id, t.name || `${t.type} ${t.id}`, 'vector');
-              const props = (typeof window.extractLiveObjectProperties === 'function')
-                ? window.extractLiveObjectProperties(t)
-                : { x: t.x, y: t.y, rotation: t.rotation, opacity: t.opacity };
-              dObj.setEventState(currentFrame, props);
-            }
-            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-            doc.pushHistory(`Record Event on Frame ${currentFrame}`);
-            updateObjectList();
-          });
-          document.getElementById('scene-btn-autokf')?.addEventListener('click', () => {
-            if (window.dopeSheet) {
-              window.dopeSheet.autoKeyframe = !window.dopeSheet.autoKeyframe;
-              updateSceneAnimUI();
-            }
-          });
-
-          updateSceneAnimUI();
           updateObjectList();
           return dopeSheet;
         } catch (err) {
