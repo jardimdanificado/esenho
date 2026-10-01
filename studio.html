@@ -6819,6 +6819,9 @@
           }
         } else if (e.code === 'Space' || e.key === ' ' || key === 'spacebar') {
           e.preventDefault();
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
           if (typeof toggleScenePlay === 'function') {
             toggleScenePlay();
           } else if (typeof window.toggleScenePlay === 'function') {
@@ -9466,10 +9469,11 @@
         const inpFps = document.getElementById('scene-anim-input-fps');
         if (inpFps) inpFps.value = String(fps);
 
+        const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
         const btnPlay = document.getElementById('scene-anim-btn-play');
         if (btnPlay) {
-          btnPlay.textContent = isScenePlaying ? '⏸' : '▶';
-          btnPlay.style.background = isScenePlaying ? 'var(--accent)' : 'var(--primary)';
+          btnPlay.textContent = isPlaying ? '⏸' : '▶';
+          btnPlay.style.background = isPlaying ? 'var(--accent)' : 'var(--primary)';
         }
 
         const btnAutoKf = document.getElementById('scene-btn-autokf');
@@ -9503,7 +9507,12 @@
       };
 
       async function toggleScenePlay() {
-        if (isScenePlaying) {
+        if (!window.dopeSheet) {
+          await initStudioDopeSheet();
+        }
+        if (!window.dopeSheet) return;
+        const isPlaying = !!(isScenePlaying || window.dopeSheet.isPlaying);
+        if (isPlaying) {
           pauseScenePlay();
         } else {
           await startScenePlay();
@@ -9517,6 +9526,7 @@
         }
         if (!window.dopeSheet) return;
         isScenePlaying = true;
+        window.dopeSheet.play();
         const fps = window.dopeSheet.fps || 24;
         const intervalMs = 1000 / fps;
 
@@ -9525,7 +9535,7 @@
           let nextFrame = (window.dopeSheet.currentFrame || 1) + 1;
           const total = window.dopeSheet.totalFrames || 60;
           if (nextFrame > total) {
-            if (isSceneLooping) {
+            if (isSceneLooping || window.dopeSheet.loop) {
               nextFrame = 1;
             } else {
               pauseScenePlay();
@@ -9536,13 +9546,22 @@
         }, intervalMs);
 
         updateSceneAnimUI();
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.updatePlayButton();
+        }
       }
 
       function pauseScenePlay() {
         isScenePlaying = false;
+        if (window.dopeSheet) {
+          window.dopeSheet.pause();
+        }
         clearInterval(scenePlayInterval);
         scenePlayInterval = null;
         updateSceneAnimUI();
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.updatePlayButton();
+        }
       }
       window.pauseScenePlay = pauseScenePlay;
 
@@ -9625,7 +9644,10 @@
           }
 
           // Wire Scene Tab Animation Controls
-          document.getElementById('scene-anim-btn-play')?.addEventListener('click', toggleScenePlay);
+          document.getElementById('scene-anim-btn-play')?.addEventListener('click', (e) => {
+            if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
+            toggleScenePlay();
+          });
           document.getElementById('scene-anim-btn-prev')?.addEventListener('click', (e) => {
             if (e.shiftKey) {
               seekSceneFrame(Math.max(1, (window.dopeSheet?.currentFrame || 1) - 1));

@@ -264,7 +264,10 @@ export class DopeSheetUI {
     const addKfBtn = this.container.querySelector('#ds-btn-add-kf');
     const delKfBtn = this.container.querySelector('#ds-btn-del-kf');
 
-    playBtn.onclick = () => this.togglePlayback();
+    playBtn.onclick = (e) => {
+      if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
+      this.togglePlayback();
+    };
     prevBtn.onclick = (e) => {
       if (e && e.shiftKey) {
         this.ds.prevFrame();
@@ -707,6 +710,10 @@ export class DopeSheetUI {
   }
 
   togglePlayback() {
+    if (typeof window !== 'undefined' && typeof window.toggleScenePlay === 'function') {
+      window.toggleScenePlay();
+      return;
+    }
     if (this.ds.isPlaying) {
       this.ds.pause();
       if (this._playInterval) clearInterval(this._playInterval);
