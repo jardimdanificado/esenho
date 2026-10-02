@@ -643,6 +643,73 @@
       pointer-events: auto;
     }
 
+    /* ── Canvas Context Menu ── */
+    .context-menu {
+      display: none;
+      position: fixed;
+      z-index: 1000000;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+      padding: 4px 0;
+      min-width: 190px;
+      font-size: 11.5px;
+      color: var(--text);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .context-menu.active {
+      display: flex;
+      flex-direction: column;
+    }
+    .context-menu-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 14px;
+      cursor: pointer;
+      color: var(--text);
+      transition: background 0.1s, color 0.1s;
+      gap: 12px;
+      font-size: 11.5px;
+    }
+    .context-menu-item:hover {
+      background: var(--primary);
+      color: #1d2021;
+      font-weight: 600;
+    }
+    .context-menu-item:hover .context-menu-hotkey {
+      color: #1d2021;
+    }
+    .context-menu-item.danger:hover {
+      background: var(--danger);
+      color: #fff;
+    }
+    .context-menu-item.disabled {
+      opacity: 0.35;
+      pointer-events: none;
+    }
+    .context-menu-hotkey {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-left: auto;
+    }
+    .context-menu-sep {
+      height: 1px;
+      background: var(--border);
+      margin: 3px 0;
+    }
+    .context-menu-header {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 4px 14px 2px;
+    }
+
     /* ── Left Retractable Sidebar (Fill & Stroke Dynamics) ── */
     #left-sidebar {
       width: 270px;
@@ -3485,6 +3552,9 @@
     </div>
   </div>
 
+  <!-- Viewport Right-Click Context Menu -->
+  <div id="canvas-context-menu" class="context-menu"></div>
+
   <!-- Modal: Recent Projects -->
   <div id="modal-recents" class="modal-backdrop" style="display: none;">
     <div class="modal-card" style="max-width: 820px; width: 92%;">
@@ -3648,6 +3718,10 @@
       let dragStartX = 0, dragStartY = 0;
       let currentDraftObj = null;
       let activeNodeIdx = -1;
+      let selectedNodeIndices = new Set();
+      let isNodeMarqueeSelecting = false;
+      let nodeMarqueeBox = null;
+      let nodeDragStartPositions = null;
       let activeHandleType = null; // 'in', 'out', 'anchor'
       let activeResizeHandle = null; // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
       let activeTransformMode = null; // 'resize', 'rotate', 'anchor'
@@ -4322,7 +4396,143 @@
         node.cpIn = { x: -dx, y: -dy };
       }
 
+      function snapAnchorPoint(pt, excludeNodes = []) {
+        const snapTol = 8 / zoom;
+        let bestX = pt.x;
+        let bestY = pt.y;
+        let minDx = snapTol;
+        let minDy = snapTol;
+        activeSnapLines = [];
+
+        // 1. Snap to other anchor points in document
+        for (const obj of doc.objects) {
+          if (obj.nodes && Array.isArray(obj.nodes)) {
+            for (let i = 0; i < obj.nodes.length; i++) {
+              const other = obj.nodes[i];
+              if (excludeNodes.includes(other)) continue;
+              const dx = Math.abs(pt.x - other.x);
+              if (dx < minDx) {
+                minDx = dx;
+                bestX = other.x;
+                activeSnapLines.push({ type: 'v', pos: other.x });
+              }
+              const dy = Math.abs(pt.y - other.y);
+              if (dy < minDy) {
+                minDy = dy;
+                bestY = other.y;
+                activeSnapLines.push({ type: 'h', pos: other.y });
+              }
+            }
+          }
+        }
+
+        // 2. Snap to user guides
+        if (userGuides) {
+          if (userGuides.vertical) {
+            for (const gx of userGuides.vertical) {
+              const dx = Math.abs(pt.x - gx);
+              if (dx < minDx) {
+                minDx = dx;
+                bestX = gx;
+                activeSnapLines.push({ type: 'v', pos: gx });
+              }
+            }
+          }
+          if (userGuides.horizontal) {
+            for (const gy of userGuides.horizontal) {
+              const dy = Math.abs(pt.y - gy);
+              if (dy < minDy) {
+                minDy = dy;
+                bestY = gy;
+                activeSnapLines.push({ type: 'h', pos: gy });
+              }
+            }
+          }
+        }
+
+        // 3. Snap to canvas bounds
+        const canvasBounds = [
+          { type: 'v', pos: 0 }, { type: 'v', pos: doc.width / 2 }, { type: 'v', pos: doc.width },
+          { type: 'h', pos: 0 }, { type: 'h', pos: doc.height / 2 }, { type: 'h', pos: doc.height }
+        ];
+        for (const b of canvasBounds) {
+          if (b.type === 'v') {
+            const dx = Math.abs(pt.x - b.pos);
+            if (dx < minDx) {
+              minDx = dx;
+              bestX = b.pos;
+              activeSnapLines.push(b);
+            }
+          } else {
+            const dy = Math.abs(pt.y - b.pos);
+            if (dy < minDy) {
+              minDy = dy;
+              bestY = b.pos;
+              activeSnapLines.push(b);
+            }
+          }
+        }
+
+        return { x: bestX, y: bestY };
+      }
+
+      function applyNodeTypeToSelection(type) {
+        const { path } = getActivePathAndNode();
+        if (!path || !path.nodes) return;
+        const targetIndices = selectedNodeIndices.size > 0 ? Array.from(selectedNodeIndices) : (activeNodeIdx >= 0 ? [activeNodeIdx] : []);
+        if (targetIndices.length === 0) return;
+
+        for (const idx of targetIndices) {
+          const node = path.nodes[idx];
+          if (!node) continue;
+          node.type = type;
+          if (type === 'corner') {
+            node.cpIn = { x: 0, y: 0 };
+            node.cpOut = { x: 0, y: 0 };
+          } else if (type === 'smooth' || type === 'symmetric') {
+            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
+              ensureNodeDefaultHandles(path, node, idx);
+            } else {
+              node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
+            }
+          } else if (type === 'cusp') {
+            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
+              ensureNodeDefaultHandles(path, node, idx);
+            }
+          }
+        }
+        if (typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
+        doc.pushHistory(`Set Node Type: ${type}`);
+        render();
+        updateInspector();
+        drawOverlay();
+      }
+
+      function deleteSelectedNodes() {
+        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+        if (!selectedPath || !selectedPath.nodes || selectedPath.nodes.length === 0) return;
+        const toDelete = selectedNodeIndices.size > 0 ? Array.from(selectedNodeIndices) : (activeNodeIdx >= 0 ? [activeNodeIdx] : []);
+        if (toDelete.length === 0) return;
+
+        if (selectedPath.nodes.length - toDelete.length >= 2) {
+          selectedPath.removeNodes(toDelete);
+          selectedNodeIndices.clear();
+          activeNodeIdx = Math.min(activeNodeIdx, selectedPath.nodes.length - 1);
+          if (activeNodeIdx >= 0) selectedNodeIndices.add(activeNodeIdx);
+          doc.pushHistory('Remove Anchor Points');
+        } else {
+          doc.removeObject(selectedPath.id);
+          selectedNodeIndices.clear();
+          activeNodeIdx = -1;
+          doc.pushHistory('Delete Path');
+        }
+        render();
+        updateInspector();
+        drawOverlay();
+      }
+
       function drawOverlay() {
+        if (window.__isExportingAnimation) return;
         const dpr = window.devicePixelRatio || 1;
         const vw = viewportContainer.clientWidth || 800;
         const vh = viewportContainer.clientHeight || 600;
@@ -4412,6 +4622,23 @@
           ctx.fillStyle = 'rgba(250, 189, 47, 0.12)';
           ctx.fillRect(bx, by, bw, bh);
           ctx.strokeStyle = '#fabd2f';
+          ctx.lineWidth = 1.2 / zoom;
+          ctx.setLineDash([4 / zoom, 3 / zoom]);
+          ctx.strokeRect(bx, by, bw, bh);
+          ctx.restore();
+        }
+
+        // Draw Node Marquee Box (Multi-Anchor Selection Box)
+        if (isNodeMarqueeSelecting && nodeMarqueeBox) {
+          const bx = Math.min(nodeMarqueeBox.startX, nodeMarqueeBox.endX);
+          const by = Math.min(nodeMarqueeBox.startY, nodeMarqueeBox.endY);
+          const bw = Math.abs(nodeMarqueeBox.endX - nodeMarqueeBox.startX);
+          const bh = Math.abs(nodeMarqueeBox.endY - nodeMarqueeBox.startY);
+
+          ctx.save();
+          ctx.fillStyle = 'rgba(131, 165, 152, 0.15)';
+          ctx.fillRect(bx, by, bw, bh);
+          ctx.strokeStyle = '#83a598';
           ctx.lineWidth = 1.2 / zoom;
           ctx.setLineDash([4 / zoom, 3 / zoom]);
           ctx.strokeRect(bx, by, bw, bh);
@@ -4643,10 +4870,11 @@
               }
 
               // Anchor Point
-              ctx.fillStyle = (i === activeNodeIdx) ? '#fe8019' : '#fabd2f';
-              ctx.strokeStyle = '#1d2021';
-              ctx.lineWidth = 1.5 / zoom;
-              const as = 7 / zoom;
+              const isSelNode = (i === activeNodeIdx) || selectedNodeIndices.has(i);
+              ctx.fillStyle = isSelNode ? '#fe8019' : '#fabd2f';
+              ctx.strokeStyle = isSelNode ? '#ffffff' : '#1d2021';
+              ctx.lineWidth = (isSelNode ? 2.0 : 1.5) / zoom;
+              const as = (isSelNode ? 8.5 : 7.0) / zoom;
               ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
               ctx.strokeRect(node.x - as / 2, node.y - as / 2, as, as);
             }
@@ -5620,6 +5848,10 @@
         }
 
         const bc = obj.brushConfig || {};
+        const brushPresetSelect = document.getElementById('prop-brush-preset');
+        if (brushPresetSelect) {
+          brushPresetSelect.value = bc.preset || 'default';
+        }
         const strokeHardnessInput = document.getElementById('prop-stroke-hardness');
         if (strokeHardnessInput) strokeHardnessInput.value = bc.hardness !== undefined ? bc.hardness : (obj.strokeHardness !== undefined ? obj.strokeHardness : 95);
 
@@ -5914,22 +6146,28 @@
 
           activeNodeIdx = -1;
           activeHandleType = null;
+          let hitAnyNode = false;
 
           const paths = getSelectedPaths();
           for (const obj of paths) {
-            // First check existing control handles
+            if (!obj.nodes) continue;
+            // 1. Check existing control handles
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
               const cpIn = node.getAbsCpIn();
               if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= 8 / zoom) {
                 activeNodeIdx = i;
+                selectedNodeIndices = new Set([i]);
                 activeHandleType = 'in';
+                hitAnyNode = true;
                 break;
               }
               const cpOut = node.getAbsCpOut();
               if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= 8 / zoom) {
                 activeNodeIdx = i;
+                selectedNodeIndices = new Set([i]);
                 activeHandleType = 'out';
+                hitAnyNode = true;
                 break;
               }
             }
@@ -5940,11 +6178,26 @@
               break;
             }
 
-            // Then check anchor point
+            // 2. Check anchor points
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
               if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 8 / zoom) {
-                activeNodeIdx = i;
+                if (e.shiftKey) {
+                  if (selectedNodeIndices.has(i)) {
+                    selectedNodeIndices.delete(i);
+                    activeNodeIdx = selectedNodeIndices.size > 0 ? Array.from(selectedNodeIndices)[selectedNodeIndices.size - 1] : -1;
+                  } else {
+                    selectedNodeIndices.add(i);
+                    activeNodeIdx = i;
+                  }
+                } else {
+                  if (!selectedNodeIndices.has(i)) {
+                    selectedNodeIndices.clear();
+                    selectedNodeIndices.add(i);
+                  }
+                  activeNodeIdx = i;
+                }
+
                 if (e.altKey) {
                   activeHandleType = 'out';
                   node.type = e.shiftKey ? 'cusp' : 'smooth';
@@ -5953,13 +6206,42 @@
                 } else {
                   activeHandleType = 'anchor';
                 }
+                nodeDragStartPositions = Array.from(selectedNodeIndices).map(idx => ({ idx, x: obj.nodes[idx].x, y: obj.nodes[idx].y }));
                 isDragging = true;
                 dragStartX = pt.x;
                 dragStartY = pt.y;
+                hitAnyNode = true;
                 break;
               }
             }
-            if (activeNodeIdx !== -1) break;
+            if (hitAnyNode) break;
+
+            // 3. Check clicking on path segment to insert a new anchor point
+            if (typeof obj.insertAnchorAtPoint === 'function') {
+              const splitRes = obj.insertAnchorAtPoint(pt.x, pt.y, 8 / zoom);
+              if (splitRes) {
+                selectedNodeIndices = new Set([splitRes.index]);
+                activeNodeIdx = splitRes.index;
+                activeHandleType = 'anchor';
+                nodeDragStartPositions = [{ idx: splitRes.index, x: splitRes.node.x, y: splitRes.node.y }];
+                isDragging = true;
+                dragStartX = pt.x;
+                dragStartY = pt.y;
+                hitAnyNode = true;
+                doc.pushHistory('Add Anchor Point');
+                break;
+              }
+            }
+          }
+
+          if (!hitAnyNode) {
+            if (!e.shiftKey) {
+              selectedNodeIndices.clear();
+              activeNodeIdx = -1;
+            }
+            // Start Node Marquee Box Selection
+            isNodeMarqueeSelecting = true;
+            nodeMarqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
           }
           render();
           updateInspector();
@@ -6481,22 +6763,35 @@
               drawOverlay();
             }
           }
-        } else if (activeTool === 'node' && activeNodeIdx !== -1) {
+        } else if (activeTool === 'node' && (activeNodeIdx !== -1 || selectedNodeIndices.size > 0)) {
           const { path, node } = getActivePathAndNode();
-          if (node) {
-            const forceIndep = e.altKey || node.type === 'cusp';
+          if (path && (node || selectedNodeIndices.size > 0)) {
+            const forceIndep = e.altKey || (node && node.type === 'cusp');
             if (activeHandleType === 'anchor') {
-              if (e.altKey && Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
+              if (e.altKey && node && Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
                 activeHandleType = 'out';
                 node.type = e.shiftKey ? 'cusp' : 'smooth';
                 node.setAbsCpOut(pt.x, pt.y, forceIndep);
               } else {
-                node.x = pt.x;
-                node.y = pt.y;
+                const excludeList = Array.from(selectedNodeIndices).map(idx => path.nodes[idx]).filter(Boolean);
+                const snappedPt = snapAnchorPoint(pt, excludeList);
+                const dx = snappedPt.x - dragStartX;
+                const dy = snappedPt.y - dragStartY;
+                if (nodeDragStartPositions && nodeDragStartPositions.length > 0) {
+                  for (const entry of nodeDragStartPositions) {
+                    if (path.nodes[entry.idx]) {
+                      path.nodes[entry.idx].x = entry.x + dx;
+                      path.nodes[entry.idx].y = entry.y + dy;
+                    }
+                  }
+                } else if (node) {
+                  node.x = snappedPt.x;
+                  node.y = snappedPt.y;
+                }
               }
-            } else if (activeHandleType === 'in') {
+            } else if (activeHandleType === 'in' && node) {
               node.setAbsCpIn(pt.x, pt.y, forceIndep);
-            } else if (activeHandleType === 'out') {
+            } else if (activeHandleType === 'out' && node) {
               node.setAbsCpOut(pt.x, pt.y, forceIndep);
             }
             if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
@@ -6608,6 +6903,14 @@
           updateObjectList();
           drawOverlay();
         }
+        if (isNodeMarqueeSelecting) {
+          isNodeMarqueeSelecting = false;
+          nodeMarqueeBox = null;
+          render();
+          updateInspector();
+          drawOverlay();
+        }
+        nodeDragStartPositions = null;
 
         if (isDragging) {
           isDragging = false;
@@ -6662,6 +6965,7 @@
               const node = path.nodes[i];
               if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 10 / zoom) {
                 activeNodeIdx = i;
+                selectedNodeIndices = new Set([i]);
                 const hasHandles = Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 || Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5;
                 if (hasHandles) {
                   node.type = 'corner';
@@ -6682,19 +6986,428 @@
         }
       });
 
-      // ── Zoom Controls (Wheel) ──
-      viewportContainer.addEventListener('wheel', (e) => {
-        if (e.target.closest('#dopesheet-dock')) return;
+      // ── Context Menu (Canvas & Objects & Anchor Nodes) ──
+      function showCanvasContextMenu(e, pt) {
         e.preventDefault();
-        const delta = e.deltaY < 0 ? 1.15 : 0.85;
+        e.stopPropagation();
+
+        const menu = document.getElementById('canvas-context-menu');
+        if (!menu) return;
+        menu.innerHTML = '';
+
+        const selectedObjs = doc.getSelectedObjects();
+        const isNodeTool = activeTool === 'node';
+        const { path: activePath, node: activeNode } = (isNodeTool || selectedNodeIndices.size > 0) ? getActivePathAndNode() : { path: null, node: null };
+        const hasSelectedNodes = isNodeTool && (selectedNodeIndices.size > 0 || activeNodeIdx !== -1);
+
+        // Check if right clicked over an anchor node or segment
+        let clickedNodeIdx = -1;
+        let clickedOnSegment = null;
+        if (activePath && activePath.nodes) {
+          for (let i = 0; i < activePath.nodes.length; i++) {
+            const n = activePath.nodes[i];
+            if (Math.hypot(pt.x - n.x, pt.y - n.y) <= 12 / zoom) {
+              clickedNodeIdx = i;
+              break;
+            }
+          }
+          if (clickedNodeIdx === -1 && typeof activePath.findClosestSegmentPoint === 'function') {
+            clickedOnSegment = activePath.findClosestSegmentPoint(pt.x, pt.y, 14 / zoom);
+          }
+        }
+
+        const items = [];
+        const addItem = (label, hotkey, action, opts = {}) => {
+          items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled });
+        };
+        const addHeader = (title) => {
+          items.push({ type: 'header', title });
+        };
+        const addSep = () => {
+          if (items.length > 0 && items[items.length - 1].type !== 'sep' && items[items.length - 1].type !== 'header') {
+            items.push({ type: 'sep' });
+          }
+        };
+
+        // Case A: Anchor / Node Tool Context
+        if (isNodeTool || clickedNodeIdx !== -1 || (hasSelectedNodes && activePath)) {
+          if (clickedNodeIdx !== -1 && !selectedNodeIndices.has(clickedNodeIdx)) {
+            if (!e.shiftKey) selectedNodeIndices.clear();
+            selectedNodeIndices.add(clickedNodeIdx);
+            activeNodeIdx = clickedNodeIdx;
+            render();
+            drawOverlay();
+          }
+
+          addHeader('Anchor Point');
+          addItem('Smooth (Aligned Tangents)', '', () => applyNodeTypeToSelection('smooth'));
+          addItem('Corner / Sharp', '', () => applyNodeTypeToSelection('corner'));
+          addItem('Symmetric (Mirrored)', '', () => applyNodeTypeToSelection('symmetric'));
+          addItem('Cusp (Independent Handles)', '', () => applyNodeTypeToSelection('cusp'));
+
+          addSep();
+          if (clickedOnSegment) {
+            addItem('Add Anchor Here', '+', () => {
+              const res = activePath.splitSegment(clickedOnSegment.segIdx, clickedOnSegment.t);
+              if (res) {
+                selectedNodeIndices = new Set([res.index]);
+                activeNodeIdx = res.index;
+                doc.pushHistory('Add Anchor');
+                render();
+                drawOverlay();
+                updateInspector();
+              }
+            });
+          }
+
+          addItem('Remove Anchor(s)', 'Del', () => deleteSelectedNodes(), { danger: true });
+
+          if (activePath && (activeNodeIdx !== -1 || selectedNodeIndices.size === 1)) {
+            addItem('Split Path at Node', '', () => {
+              const nodeIdx = activeNodeIdx !== -1 ? activeNodeIdx : Array.from(selectedNodeIndices)[0];
+              const res = activePath.splitAtNode(nodeIdx);
+              if (res && res.length > 1) {
+                doc.addObject(res[1]);
+                doc.select(res[1].id);
+              }
+              doc.pushHistory('Split Path');
+              render();
+              drawOverlay();
+              updateInspector();
+              updateObjectList();
+            });
+          }
+
+          if (activePath) {
+            addItem(activePath.closed ? 'Open Path' : 'Close Path', '', () => {
+              activePath.closed = !activePath.closed;
+              doc.pushHistory(activePath.closed ? 'Close Path' : 'Open Path');
+              render();
+              drawOverlay();
+              updateInspector();
+            });
+          }
+        } else if (selectedObjs.length > 0) {
+          // Case B: Object Selection Context
+          if (selectedObjs.length >= 2) {
+            addHeader('Pathfinder');
+            addItem('Union (Unite)', 'Alt+U', () => { doc.booleanOperation('union'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+            addItem('Subtract (Minus Front)', 'Alt+S', () => { doc.booleanOperation('subtract'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+            addItem('Intersect', 'Alt+I', () => { doc.booleanOperation('intersect'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+            addItem('Exclude (XOR)', 'Alt+X', () => { doc.booleanOperation('exclude'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+
+            addHeader('Align & Distribute');
+            addItem('Align Left', '', () => { doc.alignSelected('left'); render(); drawOverlay(); });
+            addItem('Align Center (H)', '', () => { doc.alignSelected('center'); render(); drawOverlay(); });
+            addItem('Align Right', '', () => { doc.alignSelected('right'); render(); drawOverlay(); });
+            addItem('Align Top', '', () => { doc.alignSelected('top'); render(); drawOverlay(); });
+            addItem('Align Middle (V)', '', () => { doc.alignSelected('middle'); render(); drawOverlay(); });
+            addItem('Align Bottom', '', () => { doc.alignSelected('bottom'); render(); drawOverlay(); });
+            addItem('Distribute Horizontally', '', () => { doc.distributeSelected('horizontal'); render(); drawOverlay(); });
+            addItem('Distribute Vertically', '', () => { doc.distributeSelected('vertical'); render(); drawOverlay(); });
+
+            addHeader('Clipping Mask');
+            addItem('Make Clipping Mask', 'Ctrl+7', () => {
+              if (doc.createMask()) {
+                render();
+                drawOverlay();
+                updateObjectList();
+                updateInspector();
+                showNotification('Clipping mask created');
+              }
+            });
+          }
+
+          const hasMask = selectedObjs.some(o => o.clipPathId);
+          if (hasMask) {
+            addItem('Release Clipping Mask', 'Ctrl+Alt+7', () => {
+              if (doc.releaseMask()) {
+                render();
+                drawOverlay();
+                updateObjectList();
+                updateInspector();
+                showNotification('Clipping mask released');
+              }
+            });
+          }
+
+          const hasPrimitives = selectedObjs.some(o => ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'star'].includes(o.type));
+          const hasText = selectedObjs.some(o => o.type === 'text');
+          const hasStroke = selectedObjs.some(o => o.stroke && o.stroke !== 'none' && o.strokeWidth > 0);
+          const hasGroups = selectedObjs.some(o => o.type === 'group');
+
+          if (hasPrimitives || hasText || hasStroke || hasGroups) {
+            addHeader('Convert & Structure');
+            if (hasPrimitives) {
+              addItem('Convert Shape to Path', '', () => {
+                if (doc.convertSelectedToPath()) {
+                  updateObjectList();
+                  updateInspector();
+                  render();
+                  drawOverlay();
+                  showNotification('Converted to editable path');
+                }
+              });
+            }
+            if (hasText) {
+              addItem('Convert Text to Outlines', 'Ctrl+Shift+O', () => {
+                if (doc.convertSelectedToPath()) {
+                  updateObjectList();
+                  updateInspector();
+                  render();
+                  drawOverlay();
+                  showNotification('Converted text to outlines');
+                }
+              });
+            }
+            if (hasStroke) {
+              addItem('Outline Stroke', '', () => {
+                if (doc.outlineStrokeSelected()) {
+                  updateObjectList();
+                  updateInspector();
+                  render();
+                  drawOverlay();
+                  showNotification('Strokes outlined to filled paths');
+                }
+              });
+            }
+            if (selectedObjs.length >= 2) {
+              addItem('Group Selection', 'Ctrl+G', () => {
+                doc.groupSelected();
+                updateObjectList();
+                updateInspector();
+                render();
+                drawOverlay();
+              });
+            }
+            if (hasGroups) {
+              addItem('Ungroup', 'Ctrl+Shift+G', () => {
+                doc.ungroupSelected();
+                updateObjectList();
+                updateInspector();
+                render();
+                drawOverlay();
+              });
+            }
+          }
+
+          addHeader('Transform');
+          addItem('Flip Horizontal', 'Shift+H', () => {
+            doc.flipSelected('horizontal');
+            render();
+            drawOverlay();
+            updateInspector();
+          });
+          addItem('Flip Vertical', 'Shift+V', () => {
+            doc.flipSelected('vertical');
+            render();
+            drawOverlay();
+            updateInspector();
+          });
+
+          addHeader('Arrange');
+          addItem('Bring to Front', 'Ctrl+Shift+]', () => {
+            for (const o of selectedObjs) doc.bringToFront(o.id);
+            render();
+            drawOverlay();
+            updateObjectList();
+          });
+          addItem('Bring Forward', 'Ctrl+]', () => {
+            for (const o of selectedObjs) doc.bringForward(o.id);
+            render();
+            drawOverlay();
+            updateObjectList();
+          });
+          addItem('Send Backward', 'Ctrl+[', () => {
+            for (const o of selectedObjs) doc.sendBackward(o.id);
+            render();
+            drawOverlay();
+            updateObjectList();
+          });
+          addItem('Send to Back', 'Ctrl+Shift+[', () => {
+            for (const o of selectedObjs) doc.sendToBack(o.id);
+            render();
+            drawOverlay();
+            updateObjectList();
+          });
+
+          addSep();
+          addItem('Cut', 'Ctrl+X', () => {
+            doc.copySelected();
+            for (const o of selectedObjs) doc.removeObject(o.id);
+            render();
+            drawOverlay();
+            updateInspector();
+            updateObjectList();
+          });
+          addItem('Copy', 'Ctrl+C', () => {
+            doc.copySelected();
+            showNotification('Copied to clipboard');
+          });
+          addItem('Duplicate', 'Ctrl+D', () => {
+            doc.duplicateSelected();
+            render();
+            drawOverlay();
+            updateInspector();
+            updateObjectList();
+          });
+          addItem('Delete', 'Del', () => {
+            for (const o of selectedObjs) doc.removeObject(o.id);
+            render();
+            drawOverlay();
+            updateInspector();
+            updateObjectList();
+          }, { danger: true });
+        } else {
+          // Case C: Empty Canvas Context
+          addItem('Paste', 'Ctrl+V', () => {
+            doc.paste();
+            render();
+            drawOverlay();
+            updateInspector();
+            updateObjectList();
+          });
+          addItem('Select All', 'Ctrl+A', () => {
+            doc.selectAll();
+            render();
+            drawOverlay();
+            updateInspector();
+          });
+          addSep();
+          addItem('Zoom to Fit Canvas', 'Ctrl+0', () => {
+            zoomToFit();
+          });
+          addItem('Reset Viewport (100%)', 'Ctrl+1', () => {
+            zoom = 1.0;
+            panX = 0;
+            panY = 0;
+            applyViewportTransform();
+            render();
+          });
+          addSep();
+          addItem('Add Horizontal Guide Here', '', () => {
+            userGuides.horizontal.push(Math.round(pt.y));
+            drawOverlay();
+            showNotification(`Added guide at Y: ${Math.round(pt.y)}`);
+          });
+          addItem('Add Vertical Guide Here', '', () => {
+            userGuides.vertical.push(Math.round(pt.x));
+            drawOverlay();
+            showNotification(`Added guide at X: ${Math.round(pt.x)}`);
+          });
+        }
+
+        for (const it of items) {
+          if (it.type === 'header') {
+            const h = document.createElement('div');
+            h.className = 'context-menu-header';
+            h.textContent = it.title;
+            menu.appendChild(h);
+          } else if (it.type === 'sep') {
+            const s = document.createElement('div');
+            s.className = 'context-menu-sep';
+            menu.appendChild(s);
+          } else if (it.type === 'item') {
+            const row = document.createElement('div');
+            row.className = `context-menu-item ${it.danger ? 'danger' : ''} ${it.disabled ? 'disabled' : ''}`;
+
+            const labelSpan = document.createElement('span');
+            labelSpan.textContent = it.label;
+            row.appendChild(labelSpan);
+
+            if (it.hotkey) {
+              const hk = document.createElement('span');
+              hk.className = 'context-menu-hotkey';
+              hk.textContent = it.hotkey;
+              row.appendChild(hk);
+            }
+
+            row.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              hideCanvasContextMenu();
+              if (typeof it.action === 'function') it.action();
+            });
+
+            menu.appendChild(row);
+          }
+        }
+
+        menu.classList.add('active');
+        const menuRect = menu.getBoundingClientRect();
+        let posX = e.clientX;
+        let posY = e.clientY;
+        if (posX + menuRect.width > window.innerWidth - 8) {
+          posX = window.innerWidth - menuRect.width - 8;
+        }
+        if (posY + menuRect.height > window.innerHeight - 8) {
+          posY = window.innerHeight - menuRect.height - 8;
+        }
+        menu.style.left = `${Math.max(8, posX)}px`;
+        menu.style.top = `${Math.max(8, posY)}px`;
+      }
+
+      function hideCanvasContextMenu() {
+        const menu = document.getElementById('canvas-context-menu');
+        if (menu) menu.classList.remove('active');
+      }
+
+      window.addEventListener('pointerdown', (e) => {
+        if (!e.target.closest('#canvas-context-menu')) {
+          hideCanvasContextMenu();
+        }
+      });
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          hideCanvasContextMenu();
+        }
+      });
+
+      viewportContainer.addEventListener('contextmenu', (e) => {
+        if (e.target.closest('#dopesheet-dock') || e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
+        e.preventDefault();
+        const pt = screenToDoc(e.clientX, e.clientY);
+
+        if (activeTool === 'select') {
+          const hitObj = doc.hitTest(pt.x, pt.y);
+          if (hitObj) {
+            if (!doc.selectedIds.has(hitObj.id)) {
+              if (!e.shiftKey) doc.selectedIds.clear();
+              doc.selectedIds.add(hitObj.id);
+              render();
+              drawOverlay();
+              updateInspector();
+              updateObjectList();
+            }
+          }
+        }
+        showCanvasContextMenu(e, pt);
+      });
+
+      // ── Zoom & Pan Controls (Touchpad & Wheel) ──
+      viewportContainer.addEventListener('wheel', (e) => {
+        if (e.target.closest('#dopesheet-dock') || e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
+        e.preventDefault();
+
         const rect = viewportContainer.getBoundingClientRect();
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
-        const newZoom = Math.max(0.1, Math.min(10.0, zoom * delta));
-        panX = mouseX - (mouseX - panX) * (newZoom / zoom);
-        panY = mouseY - (mouseY - panY) * (newZoom / zoom);
-        zoom = newZoom;
+        if (e.ctrlKey || e.metaKey) {
+          // Pinch-to-zoom on touchpad or Ctrl+Wheel on mouse
+          const zoomFactor = Math.exp(-e.deltaY * 0.008);
+          const newZoom = Math.max(0.05, Math.min(20.0, zoom * zoomFactor));
+          panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+          panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+          zoom = newZoom;
+        } else if (e.shiftKey) {
+          // Shift+Wheel for horizontal pan
+          panX -= (e.deltaY || e.deltaX);
+        } else {
+          // Standard two-finger touchpad pan or mouse wheel scroll
+          panX -= e.deltaX;
+          panY -= e.deltaY;
+        }
+
         applyViewportTransform();
         render();
       }, { passive: false });
@@ -6979,27 +7692,27 @@
             showNotification('Guide deleted');
             return;
           }
-          if (activeTool === 'node' && activeNodeIdx !== -1) {
-            const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-            if (selectedPath && selectedPath.nodes && selectedPath.nodes.length > 0) {
-              if (selectedPath.nodes.length > 2) {
-                selectedPath.removeNode(activeNodeIdx);
-                activeNodeIdx = Math.min(activeNodeIdx, selectedPath.nodes.length - 1);
-                doc.pushHistory('Remove Anchor Point');
-              } else {
-                doc.removeObject(selectedPath.id);
-                activeNodeIdx = -1;
-              }
-              render();
-              updateInspector();
-              return;
-            }
+          if (activeTool === 'node' && (activeNodeIdx !== -1 || selectedNodeIndices.size > 0)) {
+            deleteSelectedNodes();
+            return;
           }
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             doc.removeObject(obj.id);
           }
           render();
+        } else if (e.shiftKey && (key === 'h' || e.code === 'KeyH')) {
+          e.preventDefault();
+          doc.flipSelected('horizontal');
+          render();
+          updateInspector();
+          drawOverlay();
+        } else if (e.shiftKey && (key === 'v' || e.code === 'KeyV')) {
+          e.preventDefault();
+          doc.flipSelected('vertical');
+          render();
+          updateInspector();
+          drawOverlay();
         } else if (e.key === '[' || (e.altKey && e.key === 'ArrowLeft')) {
           e.preventDefault();
           if (window.dopeSheet) {
@@ -7313,6 +8026,20 @@
         render();
       };
 
+      const handleFillColorClick = (e) => {
+        const textEl = document.getElementById('prop-fill-text');
+        if (textEl && (!textEl.value || textEl.value === 'none')) {
+          const val = e.target.value || '#fabd2f';
+          textEl.value = val;
+          applyFillToSelected(val);
+          doc.pushHistory('Change Fill Color');
+          scheduleAutosave();
+        }
+      };
+
+      document.getElementById('prop-fill-color')?.addEventListener('pointerdown', handleFillColorClick);
+      document.getElementById('prop-fill-color')?.addEventListener('click', handleFillColorClick);
+
       document.getElementById('prop-fill-color')?.addEventListener('input', (e) => {
         const textEl = document.getElementById('prop-fill-text');
         if (textEl) textEl.value = e.target.value;
@@ -7348,6 +8075,20 @@
         doc.pushHistory('Set Fill None');
         scheduleAutosave();
       });
+
+      const handleStrokeColorClick = (e) => {
+        const textEl = document.getElementById('prop-stroke-text');
+        if (textEl && (!textEl.value || textEl.value === 'none')) {
+          const val = e.target.value || '#1d2021';
+          textEl.value = val;
+          applyStrokeToSelected(val);
+          doc.pushHistory('Change Stroke Color');
+          scheduleAutosave();
+        }
+      };
+
+      document.getElementById('prop-stroke-color')?.addEventListener('pointerdown', handleStrokeColorClick);
+      document.getElementById('prop-stroke-color')?.addEventListener('click', handleStrokeColorClick);
 
       document.getElementById('prop-stroke-color')?.addEventListener('input', (e) => {
         const textEl = document.getElementById('prop-stroke-text');
@@ -7657,19 +8398,7 @@
       const btnDeleteNode = document.getElementById('btn-delete-node');
       if (btnDeleteNode) {
         btnDeleteNode.addEventListener('click', () => {
-          const { path, node } = getActivePathAndNode();
-          if (path && activeNodeIdx >= 0 && path.nodes && path.nodes[activeNodeIdx]) {
-            if (path.nodes.length > 2) {
-              path.removeNode(activeNodeIdx);
-              activeNodeIdx = Math.min(activeNodeIdx, path.nodes.length - 1);
-              doc.pushHistory('Remove Anchor Point');
-            } else {
-              doc.removeObject(path.id);
-              activeNodeIdx = -1;
-            }
-            render();
-            updateInspector();
-          }
+          deleteSelectedNodes();
         });
       }
 
@@ -7819,6 +8548,7 @@
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (!obj.brushConfig) obj.brushConfig = {};
+            obj.brushConfig.preset = val;
             Object.assign(obj.brushConfig, preset);
             if (preset.wasmFilter !== undefined) {
               obj.strokeFilter = JSON.parse(JSON.stringify(preset.wasmFilter));
@@ -7826,6 +8556,9 @@
             } else if (preset.wasm_filter !== undefined) {
               obj.strokeFilter = JSON.parse(JSON.stringify(preset.wasm_filter));
               obj.brushConfig.wasmFilter = JSON.parse(JSON.stringify(preset.wasm_filter));
+            } else {
+              obj.strokeFilter = null;
+              obj.brushConfig.wasmFilter = null;
             }
             if (!obj.strokeTexture) obj.strokeTexture = {};
             const texName = preset.texture || 'none';
@@ -8657,6 +9390,7 @@
 
         const totalFramesToRender = endFrame - startFrame + 1;
         isAnimExportCancelled = false;
+        window.__isExportingAnimation = true;
 
         // UI state: progress indicator
         if (exportAnimProgressWrap) exportAnimProgressWrap.style.display = 'flex';
@@ -9042,7 +9776,11 @@
           showNotification(`Export failed: ${err.message || err}`);
         } finally {
           // Restore original frame
+          window.__isExportingAnimation = false;
           window.seekSceneFrame(originalFrame);
+          render();
+          drawOverlay();
+          updateInspector();
           if (exportAnimProgressWrap) exportAnimProgressWrap.style.display = 'none';
           if (btnCancelExportAnim) btnCancelExportAnim.style.display = 'none';
           if (btnDoExportAnim) {
@@ -9267,65 +10005,22 @@
       // Bézier Node Actions
       ['btn-node-smooth', 'top-node-smooth'].forEach(id => {
         document.getElementById(id)?.addEventListener('click', () => {
-          const { path, node } = getActivePathAndNode();
-          if (node) {
-            node.type = 'smooth';
-            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
-              ensureNodeDefaultHandles(path, node, activeNodeIdx);
-            } else {
-              node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
-            }
-            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-            render();
-            updateInspector();
-            drawOverlay();
-          }
+          applyNodeTypeToSelection('smooth');
         });
       });
       ['btn-node-symmetric', 'top-node-symmetric'].forEach(id => {
         document.getElementById(id)?.addEventListener('click', () => {
-          const { path, node } = getActivePathAndNode();
-          if (node) {
-            node.type = 'symmetric';
-            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
-              ensureNodeDefaultHandles(path, node, activeNodeIdx);
-            } else {
-              node.setAbsCpOut(node.x + node.cpOut.x, node.y + node.cpOut.y);
-            }
-            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-            render();
-            updateInspector();
-            drawOverlay();
-          }
+          applyNodeTypeToSelection('symmetric');
         });
       });
       ['btn-node-cusp', 'top-node-cusp'].forEach(id => {
         document.getElementById(id)?.addEventListener('click', () => {
-          const { path, node } = getActivePathAndNode();
-          if (node) {
-            node.type = 'cusp';
-            if (Math.hypot(node.cpIn.x, node.cpIn.y) < 1 && Math.hypot(node.cpOut.x, node.cpOut.y) < 1) {
-              ensureNodeDefaultHandles(path, node, activeNodeIdx);
-            }
-            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-            render();
-            updateInspector();
-            drawOverlay();
-          }
+          applyNodeTypeToSelection('cusp');
         });
       });
       ['btn-node-sharp', 'top-node-sharp'].forEach(id => {
         document.getElementById(id)?.addEventListener('click', () => {
-          const { path, node } = getActivePathAndNode();
-          if (node) {
-            node.type = 'corner';
-            node.cpIn = { x: 0, y: 0 };
-            node.cpOut = { x: 0, y: 0 };
-            if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-            render();
-            updateInspector();
-            drawOverlay();
-          }
+          applyNodeTypeToSelection('corner');
         });
       });
       ['btn-path-close', 'top-path-close'].forEach(id => {
@@ -10176,8 +10871,10 @@
           }
         }
         render();
-        drawOverlay();
-        updateInspector();
+        if (!window.__isExportingAnimation) {
+          drawOverlay();
+          updateInspector();
+        }
       }
 
       window.seekSceneFrame = function(frame) {
@@ -10190,12 +10887,14 @@
           ? window.dopeSheet.evaluate(frame)
           : (typeof window.dopeSheet.sampleAll === 'function' ? window.dopeSheet.sampleAll(frame) : {});
         applyAnimationSamples(samples);
-        if (window.dopeSheetUI) {
-          window.dopeSheetUI.currentFrame = frame;
-          window.dopeSheetUI.updateGrid();
+        if (!window.__isExportingAnimation) {
+          if (window.dopeSheetUI) {
+            window.dopeSheetUI.currentFrame = frame;
+            window.dopeSheetUI.updateGrid();
+          }
+          updateSceneAnimUI();
+          updateSelectedObjectEventsUI();
         }
-        updateSceneAnimUI();
-        updateSelectedObjectEventsUI();
       };
 
       window.updateSceneAnimUI = function() {

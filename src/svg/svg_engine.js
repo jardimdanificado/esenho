@@ -959,6 +959,171 @@
       return null;
     }
 
+    removeNodes(indices) {
+      if (!indices || indices.length === 0) return [];
+      const sorted = [...new Set(indices)].filter(i => i >= 0 && i < this.nodes.length).sort((a, b) => b - a);
+      const removed = [];
+      for (const idx of sorted) {
+        removed.push(this.nodes.splice(idx, 1)[0]);
+      }
+      return removed;
+    }
+
+    findClosestSegmentPoint(px, py, tolerance = 12) {
+      if (this.nodes.length < 2) return null;
+      const numSegments = this.closed ? this.nodes.length : this.nodes.length - 1;
+      let bestDist = Infinity;
+      let bestSeg = -1;
+      let bestT = 0;
+      let bestPt = null;
+
+      const evalCubic = (p0, p1, p2, p3, t) => {
+        const u = 1 - t;
+        const tt = t * t;
+        const uu = u * u;
+        const uuu = uu * u;
+        const ttt = tt * t;
+        return {
+          x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
+          y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y
+        };
+      };
+
+      for (let s = 0; s < numSegments; s++) {
+        const p0 = this.nodes[s];
+        const nextIdx = (s === this.nodes.length - 1) ? 0 : s + 1;
+        const p3 = this.nodes[nextIdx];
+        const p1 = p0.getAbsCpOut();
+        const p2 = p3.getAbsCpIn();
+
+        const hasCp1 = Math.hypot(p0.cpOut.x, p0.cpOut.y) > 0.1;
+        const hasCp2 = Math.hypot(p3.cpIn.x, p3.cpIn.y) > 0.1;
+
+        const steps = (hasCp1 || hasCp2) ? 30 : 10;
+        for (let step = 0; step <= steps; step++) {
+          const t = step / steps;
+          let pt;
+          if (hasCp1 || hasCp2) {
+            pt = evalCubic(p0, p1, p2, p3, t);
+          } else {
+            pt = { x: p0.x + (p3.x - p0.x) * t, y: p0.y + (p3.y - p0.y) * t };
+          }
+          const dist = Math.hypot(px - pt.x, py - pt.y);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestSeg = s;
+            bestT = t;
+            bestPt = pt;
+          }
+        }
+      }
+
+      if (bestDist <= tolerance && bestSeg !== -1) {
+        // Refine t locally with 5 sub-steps around bestT
+        const p0 = this.nodes[bestSeg];
+        const nextIdx = (bestSeg === this.nodes.length - 1) ? 0 : bestSeg + 1;
+        const p3 = this.nodes[nextIdx];
+        const p1 = p0.getAbsCpOut();
+        const p2 = p3.getAbsCpIn();
+        const hasCp = Math.hypot(p0.cpOut.x, p0.cpOut.y) > 0.1 || Math.hypot(p3.cpIn.x, p3.cpIn.y) > 0.1;
+        
+        let tMin = Math.max(0, bestT - 0.05);
+        let tMax = Math.min(1, bestT + 0.05);
+        for (let step = 0; step <= 10; step++) {
+          const t = tMin + (tMax - tMin) * (step / 10);
+          const pt = hasCp ? evalCubic(p0, p1, p2, p3, t) : { x: p0.x + (p3.x - p0.x) * t, y: p0.y + (p3.y - p0.y) * t };
+          const dist = Math.hypot(px - pt.x, py - pt.y);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestT = t;
+            bestPt = pt;
+          }
+        }
+        return { segIdx: bestSeg, t: Math.max(0.02, Math.min(0.98, bestT)), dist: bestDist, point: bestPt };
+      }
+      return null;
+    }
+
+    splitSegment(segIdx, t) {
+      if (segIdx < 0 || segIdx >= this.nodes.length) return null;
+      const isLast = segIdx === this.nodes.length - 1;
+      if (isLast && !this.closed) return null;
+
+      const p0 = this.nodes[segIdx];
+      const nextIdx = isLast ? 0 : segIdx + 1;
+      const p3 = this.nodes[nextIdx];
+      const p1 = p0.getAbsCpOut();
+      const p2 = p3.getAbsCpIn();
+
+      const hasCp1 = Math.hypot(p0.cpOut.x, p0.cpOut.y) > 0.1;
+      const hasCp2 = Math.hypot(p3.cpIn.x, p3.cpIn.y) > 0.1;
+
+      let newNode;
+      if (!hasCp1 && !hasCp2) {
+        const nx = p0.x + (p3.x - p0.x) * t;
+        const ny = p0.y + (p3.y - p0.y) * t;
+        newNode = new PathNode(nx, ny, { x: 0, y: 0 }, { x: 0, y: 0 }, 'corner');
+      } else {
+        const p01 = { x: p0.x + (p1.x - p0.x) * t, y: p0.y + (p1.y - p0.y) * t };
+        const p12 = { x: p1.x + (p2.x - p1.x) * t, y: p1.y + (p2.y - p1.y) * t };
+        const p23 = { x: p2.x + (p3.x - p2.x) * t, y: p2.y + (p3.y - p2.y) * t };
+        const p012 = { x: p01.x + (p12.x - p01.x) * t, y: p01.y + (p12.y - p01.y) * t };
+        const p123 = { x: p12.x + (p23.x - p12.x) * t, y: p12.y + (p23.y - p12.y) * t };
+        const pSplit = { x: p012.x + (p123.x - p012.x) * t, y: p012.y + (p123.y - p012.y) * t };
+
+        p0.setAbsCpOut(p01.x, p01.y, true);
+        p3.setAbsCpIn(p23.x, p23.y, true);
+
+        newNode = new PathNode(
+          pSplit.x,
+          pSplit.y,
+          { x: p012.x - pSplit.x, y: p012.y - pSplit.y },
+          { x: p123.x - pSplit.x, y: p123.y - pSplit.y },
+          'smooth'
+        );
+      }
+
+      const insertIdx = segIdx + 1;
+      this.nodes.splice(insertIdx, 0, newNode);
+      return { node: newNode, index: insertIdx };
+    }
+
+    insertAnchorAtPoint(px, py, tolerance = 12) {
+      const match = this.findClosestSegmentPoint(px, py, tolerance);
+      if (match) {
+        return this.splitSegment(match.segIdx, match.t);
+      }
+      return null;
+    }
+
+    splitAtNode(nodeIdx) {
+      if (nodeIdx < 0 || nodeIdx >= this.nodes.length) return null;
+      if (this.closed) {
+        // Open closed path starting/ending at nodeIdx
+        const rotated = [];
+        for (let i = 0; i < this.nodes.length; i++) {
+          rotated.push(this.nodes[(nodeIdx + i) % this.nodes.length]);
+        }
+        this.nodes = rotated;
+        this.closed = false;
+        return [this];
+      } else {
+        if (nodeIdx === 0 || nodeIdx === this.nodes.length - 1) return [this];
+        // Split open path into two paths
+        const part1Nodes = this.nodes.slice(0, nodeIdx + 1);
+        const part2Nodes = this.nodes.slice(nodeIdx);
+        this.nodes = part1Nodes;
+        const newPath = new SvgPath({
+          ...this.toJSON(),
+          id: undefined,
+          name: `${this.name} (Part 2)`,
+          nodes: part2Nodes.map(n => ({ x: n.x, y: n.y, cpIn: { ...n.cpIn }, cpOut: { ...n.cpOut }, type: n.type })),
+          closed: false
+        });
+        return [this, newPath];
+      }
+    }
+
     toPathData() {
       if (this.nodes.length === 0) return '';
       let d = `M ${this.nodes[0].x.toFixed(2)} ${this.nodes[0].y.toFixed(2)}`;
@@ -3794,9 +3959,9 @@
       const selected = this.getSelectedObjects();
       let converted = false;
       for (const obj of selected) {
-        if (typeof obj.toPath === 'function' && obj.type !== 'path' && obj.type !== 'image' && obj.type !== 'text' && obj.type !== 'group') {
+        if (typeof obj.toPath === 'function' && obj.type !== 'path' && obj.type !== 'image' && obj.type !== 'group') {
           if (!converted) {
-            this.pushHistory('Convert to Path');
+            this.pushHistory(obj.type === 'text' ? 'Convert Text to Outlines' : 'Convert to Path');
             converted = true;
           }
           const pathObj = obj.toPath();
@@ -4091,6 +4256,113 @@
           else if (obj.y !== undefined) obj.y += dy;
           curY += b.height + gap;
         }
+      }
+      return true;
+    }
+
+    /**
+     * Flip Selected Objects Horizontally or Vertically
+     * @param {'horizontal'|'vertical'} direction
+     */
+    flipSelected(direction = 'horizontal') {
+      const selected = this.getSelectedObjects();
+      if (selected.length === 0) return false;
+
+      this.pushHistory(`Flip ${direction.charAt(0).toUpperCase() + direction.slice(1)}`);
+
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const obj of selected) {
+        const b = typeof obj.getTransformedBounds === 'function' ? obj.getTransformedBounds() : obj.getBounds();
+        minX = Math.min(minX, b.minX);
+        minY = Math.min(minY, b.minY);
+        maxX = Math.max(maxX, b.maxX);
+        maxY = Math.max(maxY, b.maxY);
+      }
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+
+      const flipObj = (obj) => {
+        if (obj.locked) return;
+        if (direction === 'horizontal') {
+          if (obj.type === 'path' && obj.nodes) {
+            for (const n of obj.nodes) {
+              n.x = 2 * cx - n.x;
+              n.cpIn.x = -n.cpIn.x;
+              n.cpOut.x = -n.cpOut.x;
+            }
+          } else if (obj.type === 'compoundPath' && obj.subPaths) {
+            for (const sp of obj.subPaths) {
+              for (const n of sp.nodes) {
+                n.x = 2 * cx - n.x;
+                n.cpIn.x = -n.cpIn.x;
+                n.cpOut.x = -n.cpOut.x;
+              }
+            }
+          } else if (obj.type === 'rect') {
+            obj.x = 2 * cx - (obj.x + obj.width);
+            if (obj.rotation) obj.rotation = -obj.rotation;
+          } else if (obj.type === 'circle' || obj.type === 'ellipse') {
+            obj.cx = 2 * cx - obj.cx;
+            if (obj.rotation) obj.rotation = -obj.rotation;
+          } else if (obj.type === 'line') {
+            obj.x1 = 2 * cx - obj.x1;
+            obj.x2 = 2 * cx - obj.x2;
+          } else if ((obj.type === 'polyline' || obj.type === 'polygon') && obj.points) {
+            for (const p of obj.points) {
+              p.x = 2 * cx - p.x;
+            }
+          } else if (obj.type === 'group' && obj.children) {
+            for (const child of obj.children) {
+              flipObj(child);
+            }
+          } else {
+            const w = obj.width || 0;
+            if (obj.x !== undefined) obj.x = 2 * cx - (obj.x + w);
+            if (obj.rotation) obj.rotation = -obj.rotation;
+          }
+        } else {
+          // Vertical
+          if (obj.type === 'path' && obj.nodes) {
+            for (const n of obj.nodes) {
+              n.y = 2 * cy - n.y;
+              n.cpIn.y = -n.cpIn.y;
+              n.cpOut.y = -n.cpOut.y;
+            }
+          } else if (obj.type === 'compoundPath' && obj.subPaths) {
+            for (const sp of obj.subPaths) {
+              for (const n of sp.nodes) {
+                n.y = 2 * cy - n.y;
+                n.cpIn.y = -n.cpIn.y;
+                n.cpOut.y = -n.cpOut.y;
+              }
+            }
+          } else if (obj.type === 'rect') {
+            obj.y = 2 * cy - (obj.y + obj.height);
+            if (obj.rotation) obj.rotation = -obj.rotation;
+          } else if (obj.type === 'circle' || obj.type === 'ellipse') {
+            obj.cy = 2 * cy - obj.cy;
+            if (obj.rotation) obj.rotation = -obj.rotation;
+          } else if (obj.type === 'line') {
+            obj.y1 = 2 * cy - obj.y1;
+            obj.y2 = 2 * cy - obj.y2;
+          } else if ((obj.type === 'polyline' || obj.type === 'polygon') && obj.points) {
+            for (const p of obj.points) {
+              p.y = 2 * cy - p.y;
+            }
+          } else if (obj.type === 'group' && obj.children) {
+            for (const child of obj.children) {
+              flipObj(child);
+            }
+          } else {
+            const h = obj.height || 0;
+            if (obj.y !== undefined) obj.y = 2 * cy - (obj.y + h);
+            if (obj.rotation) obj.rotation = -obj.rotation;
+          }
+        }
+      };
+
+      for (const obj of selected) {
+        flipObj(obj);
       }
       return true;
     }
