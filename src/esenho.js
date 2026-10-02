@@ -9366,7 +9366,8 @@ class EsenhoScreenHost {
     this.pushUndoSnapshot(`filter ${fname}`);
 
     const byteLen = cw * ch * 4;
-    const requiredMem = 65536 + byteLen * 2 + 65536;
+    // Multi-buffer filters (bloom, blur, emboss, kuwahara, etc.) allocate 3-6x scratch buffers following the layer
+    const requiredMem = 65536 + byteLen * 8 + 65536;
     if (plugin.memory.buffer.byteLength < requiredMem) {
       const currentBytes = plugin.memory.buffer.byteLength;
       const pagesNeeded = Math.ceil((requiredMem - currentBytes) / 65536);
@@ -9387,7 +9388,12 @@ class EsenhoScreenHost {
 
     plugin.setLayer(layerPtr, cw, ch);
 
-    plugin.exports.w_filter_apply(p1, p2);
+    try {
+      plugin.exports.w_filter_apply(p1, p2);
+    } catch (err) {
+      console.warn(`Filter plugin "${fname}" execution error:`, err);
+      return false;
+    }
 
     new Uint8Array(this.canvasActor.memory.buffer, pixPtr, byteLen)
       .set(new Uint8Array(plugin.memory.buffer, plugin.layerPtr, byteLen));

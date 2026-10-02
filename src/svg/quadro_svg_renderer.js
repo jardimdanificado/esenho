@@ -68,6 +68,105 @@
     return ((a << 24) | (b << 16) | (g << 8) | r) >>> 0;
   }
 
+  /* ── 2D Affine Matrix Helpers for Hierarchical Scene Graph Rendering ── */
+  function identityMatrix() {
+    return [1, 0, 0, 1, 0, 0];
+  }
+
+  function multiplyMatrix(m1, m2) {
+    if (!m1) return m2;
+    if (!m2) return m1;
+    const a1 = m1[0], b1 = m1[1], c1 = m1[2], d1 = m1[3], e1 = m1[4], f1 = m1[5];
+    const a2 = m2[0], b2 = m2[1], c2 = m2[2], d2 = m2[3], e2 = m2[4], f2 = m2[5];
+    return [
+      a1 * a2 + c1 * b2,
+      b1 * a2 + d1 * b2,
+      a1 * c2 + c1 * d2,
+      b1 * c2 + d1 * d2,
+      a1 * e2 + c1 * f2 + e1,
+      b1 * e2 + d1 * f2 + f1
+    ];
+  }
+
+  function translateMatrix(tx, ty) {
+    return [1, 0, 0, 1, tx, ty];
+  }
+
+  function rotateMatrix(angleDeg, ox = 0, oy = 0) {
+    const rad = angleDeg * Math.PI / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return [
+      cos,
+      sin,
+      -sin,
+      cos,
+      ox - ox * cos + oy * sin,
+      oy - ox * sin - oy * cos
+    ];
+  }
+
+  function scaleMatrix(sx, sy, ox = 0, oy = 0) {
+    return [
+      sx,
+      0,
+      0,
+      sy,
+      ox - ox * sx,
+      oy - oy * sy
+    ];
+  }
+
+  function skewMatrix(skewXDeg, skewYDeg) {
+    const tanX = Math.tan((skewXDeg || 0) * Math.PI / 180);
+    const tanY = Math.tan((skewYDeg || 0) * Math.PI / 180);
+    return [1, tanY, tanX, 1, 0, 0];
+  }
+
+  function transformPoint(m, p) {
+    if (!m) return p;
+    return {
+      x: m[0] * p.x + m[2] * p.y + m[4],
+      y: m[1] * p.x + m[3] * p.y + m[5]
+    };
+  }
+
+  function isIdentityMatrix(m) {
+    if (!m) return true;
+    return Math.abs(m[0] - 1) < 1e-6 &&
+           Math.abs(m[1]) < 1e-6 &&
+           Math.abs(m[2]) < 1e-6 &&
+           Math.abs(m[3] - 1) < 1e-6 &&
+           Math.abs(m[4]) < 1e-6 &&
+           Math.abs(m[5]) < 1e-6;
+  }
+
+  function getNodeLocalMatrix(node) {
+    let m = identityMatrix();
+    if (node.type === 'group') {
+      const tx = Number(node.x || 0);
+      const ty = Number(node.y || 0);
+      if (tx !== 0 || ty !== 0) {
+        m = multiplyMatrix(m, translateMatrix(tx, ty));
+      }
+    }
+    const bounds = (typeof node.getBounds === 'function') ? (node.type === 'group' ? node.getBounds(true) : node.getBounds()) : { minX: 0, minY: 0, width: 0, height: 0 };
+    const ox = node.originX !== undefined ? node.originX : (bounds.minX + (bounds.width || 0) / 2);
+    const oy = node.originY !== undefined ? node.originY : (bounds.minY + (bounds.height || 0) / 2);
+    if (node.rotation && node.rotation !== 0) {
+      m = multiplyMatrix(m, rotateMatrix(node.rotation, ox, oy));
+    }
+    if ((node.scaleX !== undefined && node.scaleX !== 1) || (node.scaleY !== undefined && node.scaleY !== 1)) {
+      const sx = node.scaleX !== undefined ? node.scaleX : 1;
+      const sy = node.scaleY !== undefined ? node.scaleY : 1;
+      m = multiplyMatrix(m, scaleMatrix(sx, sy, ox, oy));
+    }
+    if (node.skewX || node.skewY) {
+      m = multiplyMatrix(m, skewMatrix(node.skewX || 0, node.skewY || 0));
+    }
+    return m;
+  }
+
   function posMod(a, m) {
     const r = a % m;
     return r < 0 ? r + m : r;
@@ -724,11 +823,13 @@
     }
 
     applyFilter(name, pixelBuffer32, width, height, p1 = 0, p2 = 0, doc = null) {
+      if (!name || width <= 0 || height <= 0 || !pixelBuffer32 || pixelBuffer32.length === 0) return false;
       const plugin = this.getOrInstantiatePlugin(name, doc);
       if (!plugin || typeof plugin.exports.w_filter_apply !== 'function') return false;
 
       const byteLen = width * height * 4;
-      const requiredMem = 65536 + byteLen * 2 + 65536;
+      // Multi-buffer filters (bloom, blur, emboss, kuwahara, etc.) allocate 3-6x scratch buffers following the layer
+      const requiredMem = 65536 + byteLen * 8 + 65536;
       if (plugin.memory.buffer.byteLength < requiredMem) {
         const currentBytes = plugin.memory.buffer.byteLength;
         const pagesNeeded = Math.ceil((requiredMem - currentBytes) / 65536);
@@ -745,7 +846,12 @@
         plugin.exports.w_set_layer(layerPtr, width, height);
       }
 
-      plugin.exports.w_filter_apply(p1, p2);
+      try {
+        plugin.exports.w_filter_apply(p1, p2);
+      } catch (err) {
+        console.warn(`Filter plugin "${name}" execution error:`, err);
+        return false;
+      }
 
       pixelBuffer32.set(new Uint32Array(plugin.memory.buffer, layerPtr, width * height));
       return true;
@@ -835,8 +941,11 @@
     /**
      * Generate an alpha mask buffer for a clipping mask object
      */
-    generateMaskAlpha(maskObj, scale, lw, lh) {
+    generateMaskAlpha(maskObj, scale, lw, lh, parentMatrix = null) {
       const maskAlpha = new Uint8Array(lw * lh);
+      const localM = getNodeLocalMatrix(maskObj);
+      const maskMatrix = parentMatrix ? multiplyMatrix(parentMatrix, localM) : localM;
+
       if (typeof document !== 'undefined' && document.createElement) {
         const off = document.createElement('canvas');
         off.width = lw;
@@ -845,14 +954,8 @@
         if (!ctx) return maskAlpha;
 
         ctx.save();
-        const bounds = maskObj.getBounds ? maskObj.getBounds() : null;
-        const origin = (typeof maskObj.getOrigin === 'function')
-          ? maskObj.getOrigin()
-          : { x: (bounds?.minX || 0) + (bounds?.width || 0) / 2, y: (bounds?.minY || 0) + (bounds?.height || 0) / 2 };
-        if (maskObj.rotation && maskObj.rotation !== 0) {
-          ctx.translate(origin.x * scale, origin.y * scale);
-          ctx.rotate(maskObj.rotation * Math.PI / 180);
-          ctx.translate(-origin.x * scale, -origin.y * scale);
+        if (!isIdentityMatrix(maskMatrix)) {
+          ctx.transform(maskMatrix[0], maskMatrix[1], maskMatrix[2], maskMatrix[3], maskMatrix[4] * scale, maskMatrix[5] * scale);
         }
 
         ctx.fillStyle = '#ffffff';
@@ -905,7 +1008,9 @@
       } else {
         let pathObj = maskObj;
         if (typeof maskObj.toPath === 'function') pathObj = maskObj.toPath();
-        const polylines = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
+        const rawPolys = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
+        const transformPoly = (poly) => isIdentityMatrix(maskMatrix) ? poly : poly.map(p => transformPoint(maskMatrix, p));
+        const polylines = rawPolys.map(transformPoly);
         for (const poly of polylines) {
           if (!poly || poly.length < 3) continue;
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -928,15 +1033,17 @@
     /**
      * Render a single SvgNode into Quadro
      */
-    renderObject(obj, scale = 1.0, parentOpacity = 1.0) {
+    renderObject(obj, scale = 1.0, parentOpacity = 1.0, parentMatrix = null) {
       if (!obj.visible) return;
 
       const totalOpacity = (obj.opacity !== undefined ? obj.opacity : 1.0) * parentOpacity;
       if (totalOpacity <= 0.001) return;
 
       if (obj.type === 'group') {
+        const localM = getNodeLocalMatrix(obj);
+        const groupMatrix = parentMatrix ? multiplyMatrix(parentMatrix, localM) : localM;
         for (const child of obj.children) {
-          this.renderObject(child, scale, totalOpacity);
+          this.renderObject(child, scale, totalOpacity, groupMatrix);
         }
         return;
       }
@@ -953,8 +1060,8 @@
           const savedBuffer = new Uint32Array(pixels.length);
           savedBuffer.set(pixels);
 
-          const maskAlpha = this.generateMaskAlpha(maskObj, scale, lw, lh);
-          this.renderObjectDirect(obj, scale, totalOpacity);
+          const maskAlpha = this.generateMaskAlpha(maskObj, scale, lw, lh, parentMatrix);
+          this.renderObjectDirect(obj, scale, totalOpacity, parentMatrix);
 
           for (let i = 0; i < lw * lh; i++) {
             const m = maskAlpha[i];
@@ -977,11 +1084,14 @@
         }
       }
 
-      this.renderObjectDirect(obj, scale, totalOpacity);
+      this.renderObjectDirect(obj, scale, totalOpacity, parentMatrix);
     }
 
-    renderObjectDirect(obj, scale = 1.0, totalOpacity = 1.0) {
+    renderObjectDirect(obj, scale = 1.0, totalOpacity = 1.0, parentMatrix = null) {
       if (!obj.visible) return;
+
+      const localM = getNodeLocalMatrix(obj);
+      const totalMatrix = parentMatrix ? multiplyMatrix(parentMatrix, localM) : localM;
 
       // Handle Text with dedicated canvas rasterization unless custom brush dynamics/textures/WASM filters are applied
       if (obj.type === 'text') {
@@ -1002,14 +1112,14 @@
         const hasWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
 
         if (!hasCustomBrush && !hasTexture && !hasWasmFilter) {
-          this.renderText(obj, scale, totalOpacity);
+          this.renderText(obj, scale, totalOpacity, totalMatrix);
           return;
         }
       }
 
       // Handle Raster Image
       if (obj.type === 'image') {
-        this.renderImage(obj, scale, totalOpacity);
+        this.renderImage(obj, scale, totalOpacity, totalMatrix);
         return;
       }
 
@@ -1021,28 +1131,10 @@
 
       const bounds = obj.getBounds ? obj.getBounds() : (pathObj.getBounds ? pathObj.getBounds() : null);
 
-      // Apply rotation if needed
-      const origin = (typeof obj.getOrigin === 'function')
-        ? obj.getOrigin()
-        : { x: (bounds?.minX || 0) + (bounds?.width || 0) / 2, y: (bounds?.minY || 0) + (bounds?.height || 0) / 2 };
-      const rad = (obj.rotation || 0) * Math.PI / 180;
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
-
-      const rotatePt = (p) => {
-        if (rad === 0) return p;
-        const dx = p.x - origin.x;
-        const dy = p.y - origin.y;
-        return {
-          x: origin.x + dx * cosA - dy * sinA,
-          y: origin.y + dx * sinA + dy * cosA
-        };
-      };
-      const rotatePoly = (poly) => (rad === 0 ? poly : poly.map(rotatePt));
-      const rotatePolys = (polys) => (rad === 0 ? polys : polys.map(rotatePoly));
-
       const rawPolys = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
-      const rotatedPolys = rotatePolys(rawPolys);
+      const transformPoly = (poly) => isIdentityMatrix(totalMatrix) ? poly : poly.map(p => transformPoint(totalMatrix, p));
+      const transformPolys = (polys) => isIdentityMatrix(totalMatrix) ? polys : polys.map(transformPoly);
+      const rotatedPolys = transformPolys(rawPolys);
 
       // Check Non-Destructive WASM Filter Plugins (Separate for Fill/Lens and Stroke)
       const effFillFilter = (obj.fillFilter && obj.fillFilter.enabled && obj.fillFilter.plugin) ? obj.fillFilter : (obj.fillTexture?.wasmFilter?.enabled ? obj.fillTexture.wasmFilter : (obj.wasmFilter?.enabled && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop' || !obj.wasmFilter.target) ? obj.wasmFilter : null));
@@ -1058,10 +1150,10 @@
       let bMinX = 0, bMinY = 0, bMaxX = lw - 1, bMaxY = lh - 1;
       if (bounds) {
         const pts = [
-          rotatePt({ x: bounds.minX, y: bounds.minY }),
-          rotatePt({ x: bounds.maxX, y: bounds.minY }),
-          rotatePt({ x: bounds.maxX, y: bounds.maxY }),
-          rotatePt({ x: bounds.minX, y: bounds.maxY })
+          transformPoint(totalMatrix, { x: bounds.minX, y: bounds.minY }),
+          transformPoint(totalMatrix, { x: bounds.maxX, y: bounds.minY }),
+          transformPoint(totalMatrix, { x: bounds.maxX, y: bounds.maxY }),
+          transformPoint(totalMatrix, { x: bounds.minX, y: bounds.maxY })
         ];
         bMinX = Math.min(...pts.map(p => p.x));
         bMaxX = Math.max(...pts.map(p => p.x));
@@ -1069,12 +1161,12 @@
         bMaxY = Math.max(...pts.map(p => p.y));
       }
       const pad = Math.ceil(Math.max(obj.strokeWidth || 2, 8) * scale);
-      const bx0 = Math.max(0, Math.floor(bMinX * scale - pad));
-      const by0 = Math.max(0, Math.floor(bMinY * scale - pad));
-      const bx1 = Math.min(lw - 1, Math.ceil(bMaxX * scale + pad));
-      const by1 = Math.min(lh - 1, Math.ceil(bMaxY * scale + pad));
-      const bw = bx1 - bx0 + 1;
-      const bh = by1 - by0 + 1;
+      const bx0 = Math.max(0, Math.min(lw - 1, Math.floor(bMinX * scale - pad)));
+      const by0 = Math.max(0, Math.min(lh - 1, Math.floor(bMinY * scale - pad)));
+      const bx1 = Math.min(lw - 1, Math.max(0, Math.ceil(bMaxX * scale + pad)));
+      const by1 = Math.min(lh - 1, Math.max(0, Math.ceil(bMaxY * scale + pad)));
+      const bw = (bx1 >= bx0) ? (bx1 - bx0 + 1) : 0;
+      const bh = (by1 >= by0) ? (by1 - by0 + 1) : 0;
 
       const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
       const hasStroke = obj.stroke && obj.stroke !== 'none' && obj.strokeWidth > 0;
@@ -1089,8 +1181,8 @@
             pixels[srcRow + x] = 0;
           }
         }
-        if (hasFill) this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
-        if (hasStroke) this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
+        if (hasFill) this._renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity);
+        if (hasStroke) this._renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity);
 
         const objBuf = new Uint32Array(bw * bh);
         for (let y = 0; y < bh; y++) {
@@ -1141,7 +1233,7 @@
           }
 
           this.filterRunner.applyFilter(effFillFilter.plugin, lensBuf, bw, bh, p1, p2, this.currentDoc);
-          const shapeMask = this.rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, rad, origin);
+          const shapeMask = this.rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, totalMatrix, rotatedPolys);
 
           for (let y = 0; y < bh; y++) {
             const destRow = (by0 + y) * lw + bx0;
@@ -1158,7 +1250,7 @@
           }
 
           if (hasFill && obj.fillOpacity > 0) {
-            this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+            this._renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity);
           }
         } else {
           if (hasFill) {
@@ -1172,7 +1264,7 @@
               }
             }
 
-            this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+            this._renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity);
 
             const fillBuf = new Uint32Array(bw * bh);
             for (let y = 0; y < bh; y++) {
@@ -1204,7 +1296,7 @@
           }
         }
       } else {
-        this._renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity);
+        this._renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity);
       }
 
       // 2. Render Stroke Pass
@@ -1224,7 +1316,7 @@
             }
           }
 
-          this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
+          this._renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity);
 
           const strokeBuf = new Uint32Array(bw * bh);
           for (let y = 0; y < bh; y++) {
@@ -1255,11 +1347,11 @@
           }
         }
       } else {
-        this._renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity);
+        this._renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity);
       }
     }
 
-    _renderObjectFillOnly(obj, pathObj, rotatePoly, rotatePolys, bounds, scale, totalOpacity) {
+    _renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity) {
       const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
       if (!hasFill) return;
 
@@ -1267,54 +1359,29 @@
       const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
       const gradient = (obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null;
 
-      if (pathObj.toPolylines) {
-        const polylines = pathObj.toPolylines(0.5);
-        if (polylines.length > 0) {
-          this.fillCompoundPolygons(rotatePolys(polylines), pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
-        }
-      } else if (pathObj.toPolyline) {
-        const poly = pathObj.toPolyline(0.5);
-        if (poly.length >= 3) {
-          this.fillPolygon(rotatePoly(poly), fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
-        }
+      if (rotatedPolys && rotatedPolys.length > 0) {
+        this.fillCompoundPolygons(rotatedPolys, pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
       }
     }
 
-    _renderObjectStrokeOnly(obj, pathObj, rotatePoly, rotatePolys, scale, totalOpacity) {
+    _renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity) {
       if (!obj.stroke || obj.stroke === 'none' || !(obj.strokeWidth > 0)) return;
 
       const strokeAlpha = (obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1.0) * totalOpacity;
       const strokeArgb = parseCssColorToArgb(obj.stroke, strokeAlpha);
 
-      if ((strokeArgb >>> 24) > 0) {
+      if ((strokeArgb >>> 24) > 0 && rotatedPolys && rotatedPolys.length > 0) {
         const strokeWidth = Math.max(1, Math.round(obj.strokeWidth * scale));
-
-        if (pathObj.toPolylines) {
-          const polylines = rotatePolys(pathObj.toPolylines(0.4));
-          const subPaths = pathObj.subPaths || [];
-          for (let i = 0; i < polylines.length; i++) {
-            const poly = polylines[i];
-            if (poly.length >= 2) {
-              const closed = subPaths[i] ? subPaths[i].closed : true;
-              this.strokePolyline(
-                poly,
-                strokeArgb,
-                strokeWidth,
-                closed,
-                obj.brushConfig,
-                obj.strokeTexture,
-                scale
-              );
-            }
-          }
-        } else if (pathObj.toPolyline) {
-          const poly = rotatePoly(pathObj.toPolyline(0.4));
+        const subPaths = pathObj.subPaths || [];
+        for (let i = 0; i < rotatedPolys.length; i++) {
+          const poly = rotatedPolys[i];
           if (poly.length >= 2) {
+            const closed = subPaths[i] ? subPaths[i].closed : (pathObj.closed !== undefined ? pathObj.closed : true);
             this.strokePolyline(
               poly,
               strokeArgb,
               strokeWidth,
-              pathObj.closed,
+              closed,
               obj.brushConfig,
               obj.strokeTexture,
               scale
@@ -1327,7 +1394,7 @@
     /**
      * Rasterize a local 8-bit silhouette mask of a shape into [0..bw-1, 0..bh-1]
      */
-    rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, rad = 0, origin = null) {
+    rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, totalMatrix = null, rotatedPolys = null) {
       const mask = new Uint8Array(bw * bh);
 
       if (typeof document !== 'undefined' && document.createElement) {
@@ -1338,10 +1405,8 @@
         if (ctx) {
           ctx.save();
           ctx.translate(-bx0, -by0);
-          if (rad !== 0 && origin) {
-            ctx.translate(origin.x * scale, origin.y * scale);
-            ctx.rotate(rad);
-            ctx.translate(-origin.x * scale, -origin.y * scale);
+          if (totalMatrix && !isIdentityMatrix(totalMatrix)) {
+            ctx.transform(totalMatrix[0], totalMatrix[1], totalMatrix[2], totalMatrix[3], totalMatrix[4] * scale, totalMatrix[5] * scale);
           }
           ctx.fillStyle = '#ffffff';
 
@@ -1391,28 +1456,13 @@
       }
 
       // Pure JS scanline fallback (for Node / headless tests)
-      const cosA = Math.cos(rad);
-      const sinA = Math.sin(rad);
-      const rotatePt = (p) => {
-        if (rad === 0 || !origin) return p;
-        const dx = p.x - origin.x;
-        const dy = p.y - origin.y;
-        return {
-          x: origin.x + dx * cosA - dy * sinA,
-          y: origin.y + dx * sinA + dy * cosA
-        };
-      };
-
-      const polylines = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
+      const polylines = rotatedPolys || (pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []));
       for (const poly of polylines) {
         if (!poly || poly.length < 3) continue;
-        const localPts = poly.map(p => {
-          const rp = rotatePt(p);
-          return {
-            x: Math.round(rp.x * scale) - bx0,
-            y: Math.round(rp.y * scale) - by0
-          };
-        });
+        const localPts = poly.map(p => ({
+          x: Math.round(p.x * scale) - bx0,
+          y: Math.round(p.y * scale) - by0
+        }));
 
         let pMinY = bh, pMaxY = 0;
         for (const p of localPts) {
@@ -1455,7 +1505,7 @@
     /**
      * Render Text into Quadro WASM using high-resolution typography rasterization
      */
-    renderText(textObj, scale = 1.0, totalOpacity = 1.0) {
+    renderText(textObj, scale = 1.0, totalOpacity = 1.0, totalMatrix = null) {
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
@@ -1492,6 +1542,9 @@
             pts = pathObj.toPath().toPolyline(0.2);
           }
           if (pts && pts.length >= 2) {
+            if (totalMatrix && !isIdentityMatrix(totalMatrix)) {
+              pts = pts.map(p => transformPoint(totalMatrix, p));
+            }
             const cumLens = [0];
             let totalLen = 0;
             for (let i = 1; i < pts.length; i++) {
@@ -1577,23 +1630,27 @@
           }
         } else {
           octx.save();
-          const origin = (typeof textObj.getOrigin === 'function')
-            ? textObj.getOrigin()
-            : { x: textObj.x, y: textObj.y };
-          
-          octx.translate(origin.x * scale, origin.y * scale);
-          if (textObj.rotation) {
-            octx.rotate((textObj.rotation || 0) * Math.PI / 180);
+          if (totalMatrix && !isIdentityMatrix(totalMatrix)) {
+            octx.transform(totalMatrix[0], totalMatrix[1], totalMatrix[2], totalMatrix[3], totalMatrix[4] * scale, totalMatrix[5] * scale);
+          } else {
+            const origin = (typeof textObj.getOrigin === 'function')
+              ? textObj.getOrigin()
+              : { x: textObj.x, y: textObj.y };
+            
+            octx.translate(origin.x * scale, origin.y * scale);
+            if (textObj.rotation) {
+              octx.rotate((textObj.rotation || 0) * Math.PI / 180);
+            }
+            if (textObj.scaleX !== undefined || textObj.scaleY !== undefined) {
+              octx.scale(textObj.scaleX !== undefined ? textObj.scaleX : 1.0, textObj.scaleY !== undefined ? textObj.scaleY : 1.0);
+            }
+            if (textObj.skewX || textObj.skewY) {
+              const tanX = Math.tan((textObj.skewX || 0) * Math.PI / 180);
+              const tanY = Math.tan((textObj.skewY || 0) * Math.PI / 180);
+              octx.transform(1, tanY, tanX, 1, 0, 0);
+            }
+            octx.translate(-origin.x * scale, -origin.y * scale);
           }
-          if (textObj.scaleX !== undefined || textObj.scaleY !== undefined) {
-            octx.scale(textObj.scaleX !== undefined ? textObj.scaleX : 1.0, textObj.scaleY !== undefined ? textObj.scaleY : 1.0);
-          }
-          if (textObj.skewX || textObj.skewY) {
-            const tanX = Math.tan((textObj.skewX || 0) * Math.PI / 180);
-            const tanY = Math.tan((textObj.skewY || 0) * Math.PI / 180);
-            octx.transform(1, tanY, tanX, 1, 0, 0);
-          }
-          octx.translate(-origin.x * scale, -origin.y * scale);
 
           if (textObj.opacity !== undefined) {
             octx.globalAlpha = Math.max(0, Math.min(1, textObj.opacity));
@@ -1603,7 +1660,6 @@
           const ty = textObj.y * scale;
           const lines = String(textObj.text || '').split('\n');
           const lineStep = (textObj.fontSize * (textObj.lineHeight || 1.2)) * scale;
-
 
           // Fill Text
           if (textObj.fill && textObj.fill !== 'none') {
@@ -1676,7 +1732,9 @@
         // Fallback for headless environments
         const pathObj = textObj.toPath();
         if (pathObj.toPolylines) {
-          const polylines = pathObj.toPolylines(0.5);
+          const rawPolys = pathObj.toPolylines(0.5);
+          const transformPoly = (poly) => isIdentityMatrix(totalMatrix) ? poly : poly.map(p => transformPoint(totalMatrix, p));
+          const polylines = rawPolys.map(transformPoly);
           const fillAlpha = (textObj.fillOpacity !== undefined ? textObj.fillOpacity : 1.0) * totalOpacity;
           const fillArgb = parseCssColorToArgb(textObj.fill || '#fabd2f', fillAlpha);
           this.fillCompoundPolygons(polylines, 'nonzero', fillArgb, scale, textObj.fillTexture, null, textObj.getBounds(), totalOpacity);
@@ -1687,7 +1745,7 @@
     /**
      * Render Image (Raster) into Quadro WASM
      */
-    renderImage(imgObj, scale = 1.0, totalOpacity = 1.0) {
+    renderImage(imgObj, scale = 1.0, totalOpacity = 1.0, totalMatrix = null) {
       if (!imgObj._imgElement) {
         if (imgObj.src && typeof Image !== 'undefined' && !imgObj._loading) {
           imgObj._loading = true;
@@ -1725,13 +1783,17 @@
         if (!octx) return;
 
         octx.save();
-        const origin = (typeof imgObj.getOrigin === 'function')
-          ? imgObj.getOrigin()
-          : { x: imgObj.x + imgObj.width / 2, y: imgObj.y + imgObj.height / 2 };
-        if (imgObj.rotation && imgObj.rotation !== 0) {
-          octx.translate(origin.x * scale, origin.y * scale);
-          octx.rotate(imgObj.rotation * Math.PI / 180);
-          octx.translate(-origin.x * scale, -origin.y * scale);
+        if (totalMatrix && !isIdentityMatrix(totalMatrix)) {
+          octx.transform(totalMatrix[0], totalMatrix[1], totalMatrix[2], totalMatrix[3], totalMatrix[4] * scale, totalMatrix[5] * scale);
+        } else {
+          const origin = (typeof imgObj.getOrigin === 'function')
+            ? imgObj.getOrigin()
+            : { x: imgObj.x + imgObj.width / 2, y: imgObj.y + imgObj.height / 2 };
+          if (imgObj.rotation && imgObj.rotation !== 0) {
+            octx.translate(origin.x * scale, origin.y * scale);
+            octx.rotate(imgObj.rotation * Math.PI / 180);
+            octx.translate(-origin.x * scale, -origin.y * scale);
+          }
         }
         octx.drawImage(imgObj._imgElement, sx, sy, sw, sh);
         octx.restore();

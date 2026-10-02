@@ -499,21 +499,36 @@
       this.blendMode = attributes.blendMode || 'normal';
 
       // Style & Fill
-      this.fill = attributes.fill !== undefined ? attributes.fill : '#fabd2f';
-      this.fillOpacity = attributes.fillOpacity !== undefined ? Number(attributes.fillOpacity) : 1.0;
-      this.fillType = attributes.fillType || 'solid'; // 'solid', 'linear', 'radial'
-      this.fillGradient = attributes.fillGradient
-        ? (attributes.fillGradient instanceof SvgGradient
-            ? attributes.fillGradient
-            : { enabled: true, stops: [], type: attributes.fillType || 'linear', ...attributes.fillGradient })
-        : null;
+      if (type === 'group') {
+        this.fill = attributes.fill;
+        this.fillOpacity = attributes.fillOpacity !== undefined ? Number(attributes.fillOpacity) : undefined;
+        this.fillType = attributes.fillType;
+        this.fillGradient = attributes.fillGradient || null;
+        this.stroke = attributes.stroke;
+        this.strokeWidth = attributes.strokeWidth !== undefined ? Number(attributes.strokeWidth) : undefined;
+        this.strokeOpacity = attributes.strokeOpacity !== undefined ? Number(attributes.strokeOpacity) : undefined;
+        this.strokeLinecap = attributes.strokeLinecap;
+        this.strokeLinejoin = attributes.strokeLinejoin;
+        this.strokeDasharray = attributes.strokeDasharray;
+      } else {
+        this.fill = attributes.fill !== undefined ? attributes.fill : '#fabd2f';
+        this.fillOpacity = attributes.fillOpacity !== undefined ? Number(attributes.fillOpacity) : 1.0;
+        this.fillType = attributes.fillType || 'solid'; // 'solid', 'linear', 'radial'
+        this.fillGradient = attributes.fillGradient
+          ? (attributes.fillGradient instanceof SvgGradient
+              ? attributes.fillGradient
+              : { enabled: true, stops: [], type: attributes.fillType || 'linear', ...attributes.fillGradient })
+          : null;
 
-      this.stroke = attributes.stroke !== undefined ? attributes.stroke : '#1d2021';
-      this.strokeWidth = attributes.strokeWidth !== undefined ? Number(attributes.strokeWidth) : 2;
-      this.strokeOpacity = attributes.strokeOpacity !== undefined ? Number(attributes.strokeOpacity) : 1.0;
-      this.strokeLinecap = attributes.strokeLinecap || 'round';
-      this.strokeLinejoin = attributes.strokeLinejoin || 'round';
-      this.strokeDasharray = attributes.strokeDasharray || '';
+        this.stroke = attributes.stroke !== undefined ? attributes.stroke : '#1d2021';
+        this.strokeWidth = attributes.strokeWidth !== undefined ? Number(attributes.strokeWidth) : 2;
+        this.strokeOpacity = attributes.strokeOpacity !== undefined ? Number(attributes.strokeOpacity) : 1.0;
+        this.strokeLinecap = attributes.strokeLinecap || 'round';
+        this.strokeLinejoin = attributes.strokeLinejoin || 'round';
+        this.strokeDasharray = attributes.strokeDasharray || '';
+      }
+
+      this.dropShadow = attributes.dropShadow ? { ...attributes.dropShadow } : null;
 
       // Brush & Dynamics Configuration
       this.brushType = attributes.brushType || 'pencil';
@@ -679,6 +694,9 @@
     }
 
     getSvgFilterAttribute() {
+      if (this.dropShadow && this.dropShadow.enabled) {
+        return ` filter="url(#shadow_${this.id})"`;
+      }
       return '';
     }
 
@@ -2362,11 +2380,25 @@
     }
 
     get fillTexture() {
-      if (this._fillTexture !== undefined) return this._fillTexture;
-      if (this.children && this.children.length > 0) {
-        return this.children[0].fillTexture || null;
+      const self = this;
+      let targetObj = this._fillTexture;
+      if (!targetObj && this.children && this.children.length > 0) {
+        targetObj = this.children[0].fillTexture;
       }
-      return null;
+      if (!targetObj) {
+        targetObj = { enabled: false, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, relative: false };
+        this._fillTexture = targetObj;
+      }
+      return new Proxy(targetObj, {
+        get(target, prop) {
+          return target[prop];
+        },
+        set(target, prop, value) {
+          target[prop] = value;
+          self.setFillTextureParam(prop, value);
+          return true;
+        }
+      });
     }
 
     set fillTexture(val) {
@@ -2377,11 +2409,25 @@
     }
 
     get strokeTexture() {
-      if (this._strokeTexture !== undefined) return this._strokeTexture;
-      if (this.children && this.children.length > 0) {
-        return this.children[0].strokeTexture || null;
+      const self = this;
+      let targetObj = this._strokeTexture;
+      if (!targetObj && this.children && this.children.length > 0) {
+        targetObj = this.children[0].strokeTexture;
       }
-      return null;
+      if (!targetObj) {
+        targetObj = { enabled: false, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+        this._strokeTexture = targetObj;
+      }
+      return new Proxy(targetObj, {
+        get(target, prop) {
+          return target[prop];
+        },
+        set(target, prop, value) {
+          target[prop] = value;
+          self.setStrokeTextureParam(prop, value);
+          return true;
+        }
+      });
     }
 
     set strokeTexture(val) {
@@ -2392,11 +2438,25 @@
     }
 
     get brushConfig() {
-      if (this._brushConfig !== undefined) return this._brushConfig;
-      if (this.children && this.children.length > 0) {
-        return this.children[0].brushConfig || null;
+      const self = this;
+      let targetObj = this._brushConfig;
+      if (!targetObj && this.children && this.children.length > 0) {
+        targetObj = this.children[0].brushConfig;
       }
-      return null;
+      if (!targetObj) {
+        targetObj = {};
+        this._brushConfig = targetObj;
+      }
+      return new Proxy(targetObj, {
+        get(target, prop) {
+          return target[prop];
+        },
+        set(target, prop, value) {
+          target[prop] = value;
+          self.setBrushConfigParam(prop, value);
+          return true;
+        }
+      });
     }
 
     set brushConfig(val) {
@@ -2407,11 +2467,22 @@
     }
 
     get strokeFilter() {
-      if (this._strokeFilter !== undefined) return this._strokeFilter;
-      if (this.children && this.children.length > 0) {
-        return this.children[0].strokeFilter || null;
+      const self = this;
+      let targetObj = this._strokeFilter;
+      if (!targetObj && this.children && this.children.length > 0) {
+        targetObj = this.children[0].strokeFilter;
       }
-      return null;
+      if (!targetObj) return null;
+      return new Proxy(targetObj, {
+        get(target, prop) {
+          return target[prop];
+        },
+        set(target, prop, value) {
+          target[prop] = value;
+          self.setStrokeFilterParam(prop, value);
+          return true;
+        }
+      });
     }
 
     set strokeFilter(val) {
@@ -2422,11 +2493,22 @@
     }
 
     get fillFilter() {
-      if (this._fillFilter !== undefined) return this._fillFilter;
-      if (this.children && this.children.length > 0) {
-        return this.children[0].fillFilter || null;
+      const self = this;
+      let targetObj = this._fillFilter;
+      if (!targetObj && this.children && this.children.length > 0) {
+        targetObj = this.children[0].fillFilter;
       }
-      return null;
+      if (!targetObj) return null;
+      return new Proxy(targetObj, {
+        get(target, prop) {
+          return target[prop];
+        },
+        set(target, prop, value) {
+          target[prop] = value;
+          self.setFillFilterParam(prop, value);
+          return true;
+        }
+      });
     }
 
     set fillFilter(val) {
@@ -2437,11 +2519,22 @@
     }
 
     get wasmFilter() {
-      if (this._wasmFilter !== undefined) return this._wasmFilter;
-      if (this.children && this.children.length > 0) {
-        return this.children[0].wasmFilter || null;
+      const self = this;
+      let targetObj = this._wasmFilter;
+      if (!targetObj && this.children && this.children.length > 0) {
+        targetObj = this.children[0].wasmFilter;
       }
-      return null;
+      if (!targetObj) return null;
+      return new Proxy(targetObj, {
+        get(target, prop) {
+          return target[prop];
+        },
+        set(target, prop, value) {
+          target[prop] = value;
+          self.setWasmFilterParam(prop, value);
+          return true;
+        }
+      });
     }
 
     set wasmFilter(val) {
@@ -2806,6 +2899,158 @@
       return this;
     }
 
+    /** Modify a single fill texture parameter across all children / descendants */
+    setFillTextureParam(param, val, options = { recursive: true }) {
+      if (!this._fillTexture) {
+        this._fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, relative: false };
+      }
+      this._fillTexture[param] = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillTextureParam === 'function') {
+            child.setFillTextureParam(param, val, options);
+          }
+        } else {
+          if (!child.fillTexture) {
+            child.fillTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, relative: false };
+          }
+          child.fillTexture[param] = val;
+          if (param === 'mode') {
+            child.fillTexture.enabled = (
+              (val !== undefined && val !== 0 && val !== '0' && val !== 'none' && val !== '') ||
+              (child.fillTexture.hardness !== undefined && child.fillTexture.hardness < 100) ||
+              (child.fillTexture.warpStrength > 0) ||
+              (child.fillTexture.noiseDistort > 0) ||
+              (child.fillTexture.pinchSwirl !== 0) ||
+              (child.fillTexture.posterize > 0) ||
+              (child.fillTexture.grain > 0) ||
+              (child.fillTexture.invert)
+            );
+          }
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify a single stroke texture parameter across all children / descendants */
+    setStrokeTextureParam(param, val, options = { recursive: true }) {
+      if (!this._strokeTexture) {
+        this._strokeTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+      }
+      this._strokeTexture[param] = val;
+      if (param === 'mode') {
+        this._strokeTexture.enabled = (val !== undefined && val !== 0 && val !== '0' && val !== 'none' && val !== '');
+      }
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeTextureParam === 'function') {
+            child.setStrokeTextureParam(param, val, options);
+          }
+        } else {
+          if (!child.strokeTexture) {
+            child.strokeTexture = { enabled: true, mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0 };
+          }
+          child.strokeTexture[param] = val;
+          if (param === 'mode') {
+            child.strokeTexture.enabled = (val !== undefined && val !== 0 && val !== '0' && val !== 'none' && val !== '');
+          }
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify a single brush dynamics parameter across all children / descendants */
+    setBrushConfigParam(key, val, options = { recursive: true }) {
+      if (!this._brushConfig) this._brushConfig = {};
+      this._brushConfig[key] = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setBrushConfigParam === 'function') {
+            child.setBrushConfigParam(key, val, options);
+          }
+        } else {
+          if (!child.brushConfig) child.brushConfig = {};
+          child.brushConfig[key] = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify fill filter param in bulk */
+    setFillFilterParam(param, val, options = { recursive: true }) {
+      if (!this._fillFilter) this._fillFilter = { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+      this._fillFilter[param] = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setFillFilterParam === 'function') {
+            child.setFillFilterParam(param, val, options);
+          }
+        } else {
+          if (!child.fillFilter) child.fillFilter = { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
+          child.fillFilter[param] = val;
+          if (child.fillTexture && child.fillTexture.wasmFilter) {
+            child.fillTexture.wasmFilter[param] = val;
+          }
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify stroke filter param in bulk */
+    setStrokeFilterParam(param, val, options = { recursive: true }) {
+      if (!this._strokeFilter) this._strokeFilter = { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+      this._strokeFilter[param] = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setStrokeFilterParam === 'function') {
+            child.setStrokeFilterParam(param, val, options);
+          }
+        } else {
+          if (!child.strokeFilter) child.strokeFilter = { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
+          child.strokeFilter[param] = val;
+          if (child.brushConfig && child.brushConfig.wasmFilter) {
+            child.brushConfig.wasmFilter[param] = val;
+          }
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
+    /** Modify wasm filter param in bulk */
+    setWasmFilterParam(param, val, options = { recursive: true }) {
+      if (!this._wasmFilter) this._wasmFilter = { enabled: false, plugin: 'dither', p1: 0, p2: 0, opacity: 1.0 };
+      this._wasmFilter[param] = val;
+      if (this._bulkApplying) return this;
+      this._bulkApplying = true;
+      for (const child of this.children) {
+        if (child.type === 'group') {
+          if (options.recursive !== false && typeof child.setWasmFilterParam === 'function') {
+            child.setWasmFilterParam(param, val, options);
+          }
+        } else {
+          if (!child.wasmFilter) child.wasmFilter = { enabled: false, plugin: 'dither', p1: 0, p2: 0, opacity: 1.0 };
+          child.wasmFilter[param] = val;
+        }
+      }
+      this._bulkApplying = false;
+      return this;
+    }
+
     /** Walk all descendants in the group hierarchy */
     forEachDescendant(callback, depth = 0) {
       for (const child of this.children) {
@@ -2864,7 +3109,8 @@
     }
 
     _shiftGeometry(dx, dy) {
-      super._shiftGeometry(dx, dy);
+      if (this.originX !== undefined) this.originX += dx;
+      if (this.originY !== undefined) this.originY += dy;
       for (const child of this.children) {
         if (typeof child._shiftGeometry === 'function') {
           child._shiftGeometry(dx, dy);
@@ -2876,11 +3122,19 @@
           child.cx += dx; child.cy += dy;
         } else if (child.type === 'line') {
           child.x1 += dx; child.y1 += dy; child.x2 += dx; child.y2 += dy;
-        } else if (child.type === 'path') {
+        } else if (child.type === 'path' && child.nodes) {
           for (const n of child.nodes) {
             n.x += dx; n.y += dy;
           }
-        } else if (child.type === 'polygon' || child.type === 'polyline') {
+        } else if (child.type === 'compoundPath' && child.subPaths) {
+          for (const sp of child.subPaths) {
+            if (sp.nodes) {
+              for (const n of sp.nodes) {
+                n.x += dx; n.y += dy;
+              }
+            }
+          }
+        } else if ((child.type === 'polygon' || child.type === 'polyline') && child.points) {
           for (const p of child.points) {
             p.x += dx; p.y += dy;
           }
@@ -2889,7 +3143,8 @@
     }
 
     move(dx, dy) {
-      super.move(dx, dy);
+      if (this.originX !== undefined) this.originX += dx;
+      if (this.originY !== undefined) this.originY += dy;
       for (const child of this.children) {
         if (typeof child.move === 'function') {
           child.move(dx, dy);
@@ -2899,11 +3154,19 @@
           child.cx += dx; child.cy += dy;
         } else if (child.type === 'line') {
           child.x1 += dx; child.y1 += dy; child.x2 += dx; child.y2 += dy;
-        } else if (child.type === 'path') {
+        } else if (child.type === 'path' && child.nodes) {
           for (const n of child.nodes) {
             n.x += dx; n.y += dy;
           }
-        } else if (child.type === 'polygon' || child.type === 'polyline') {
+        } else if (child.type === 'compoundPath' && child.subPaths) {
+          for (const sp of child.subPaths) {
+            if (sp.nodes) {
+              for (const n of sp.nodes) {
+                n.x += dx; n.y += dy;
+              }
+            }
+          }
+        } else if ((child.type === 'polygon' || child.type === 'polyline') && child.points) {
           for (const p of child.points) {
             p.x += dx; p.y += dy;
           }
@@ -2997,12 +3260,41 @@
       data.collapsed = this.collapsed;
       data.children = this.children.map(c => c.toJSON());
       if (this._fill !== undefined) data.fill = this._fill;
+      else delete data.fill;
       if (this._stroke !== undefined) data.stroke = this._stroke;
+      else delete data.stroke;
       if (this._strokeWidth !== undefined) data.strokeWidth = this._strokeWidth;
+      else delete data.strokeWidth;
       if (this._fillOpacity !== undefined) data.fillOpacity = this._fillOpacity;
+      else delete data.fillOpacity;
       if (this._strokeOpacity !== undefined) data.strokeOpacity = this._strokeOpacity;
+      else delete data.strokeOpacity;
       if (this._strokeLinecap !== undefined) data.strokeLinecap = this._strokeLinecap;
+      else delete data.strokeLinecap;
       if (this._strokeLinejoin !== undefined) data.strokeLinejoin = this._strokeLinejoin;
+      else delete data.strokeLinejoin;
+      if (this._strokeDasharray !== undefined) data.strokeDasharray = this._strokeDasharray;
+      else delete data.strokeDasharray;
+      if (this._strokeDashoffset !== undefined) data.strokeDashoffset = this._strokeDashoffset;
+      else delete data.strokeDashoffset;
+      if (this._strokeHardness !== undefined) data.strokeHardness = this._strokeHardness;
+      else delete data.strokeHardness;
+      if (this._fillType !== undefined) data.fillType = this._fillType;
+      else delete data.fillType;
+      if (this._fillGradient !== undefined) data.fillGradient = this._fillGradient;
+      else delete data.fillGradient;
+      if (this._fillTexture !== undefined) data.fillTexture = this._fillTexture;
+      else delete data.fillTexture;
+      if (this._strokeTexture !== undefined) data.strokeTexture = this._strokeTexture;
+      else delete data.strokeTexture;
+      if (this._brushConfig !== undefined) data.brushConfig = this._brushConfig;
+      else delete data.brushConfig;
+      if (this._wasmFilter !== undefined) data.wasmFilter = this._wasmFilter;
+      else delete data.wasmFilter;
+      if (this._fillFilter !== undefined) data.fillFilter = this._fillFilter;
+      else delete data.fillFilter;
+      if (this._strokeFilter !== undefined) data.strokeFilter = this._strokeFilter;
+      else delete data.strokeFilter;
       return data;
     }
 
@@ -3280,6 +3572,72 @@
       grp.setStrokeWidth(width, options);
       if (options.recordHistory !== false) {
         this.pushHistory(`Change Group Stroke Width (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Fill Texture in Bulk */
+    setGroupFillTexture(groupId, fillTexture, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setFillTexture(fillTexture, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Fill Texture (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Stroke Texture in Bulk */
+    setGroupStrokeTexture(groupId, strokeTexture, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setStrokeTexture(strokeTexture, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Stroke Texture (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Brush Config in Bulk */
+    setGroupBrushConfig(groupId, brushConfig, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setBrushConfig(brushConfig, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Brush Config (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Fill Texture Param */
+    setGroupFillTextureParam(groupId, param, val, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setFillTextureParam(param, val, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Fill Texture ${param} (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Stroke Texture Param */
+    setGroupStrokeTextureParam(groupId, param, val, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setStrokeTextureParam(param, val, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Stroke Texture ${param} (${grp.name || grp.id})`);
+      }
+      return true;
+    }
+
+    /** Modify Group Brush Config Param */
+    setGroupBrushConfigParam(groupId, key, val, options = {}) {
+      const grp = this.findObject(groupId);
+      if (!grp || grp.type !== 'group') return false;
+      grp.setBrushConfigParam(key, val, options);
+      if (options.recordHistory !== false) {
+        this.pushHistory(`Change Group Brush Config ${key} (${grp.name || grp.id})`);
       }
       return true;
     }
@@ -4205,6 +4563,18 @@
                 });
               }
             }
+          }
+          if (obj.dropShadow && obj.dropShadow.enabled) {
+            const sh = obj.dropShadow;
+            const blur = sh.blur !== undefined ? sh.blur : 8;
+            const dx = sh.offsetX !== undefined ? sh.offsetX : 4;
+            const dy = sh.offsetY !== undefined ? sh.offsetY : 4;
+            const color = sh.color || '#000000';
+            const opacity = sh.opacity !== undefined ? sh.opacity : 0.5;
+            const filterId = `shadow_${obj.id}`;
+            defsMap.set(filterId, {
+              toSVGElement: () => `<filter id="${filterId}" x="-50%" y="-50%" width="200%" height="200%">\n      <feDropShadow dx="${dx}" dy="${dy}" stdDeviation="${(blur / 2).toFixed(1)}" flood-color="${color}" flood-opacity="${opacity}" />\n    </filter>`
+            });
           }
           if (obj.type === 'group' && obj.children) {
             collectDefs(obj.children);

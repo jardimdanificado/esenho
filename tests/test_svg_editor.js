@@ -989,73 +989,151 @@ async function runSvgEngineTests() {
   // --- 29. Test Mass Stroke & Fill Modifications on Groups & Hierarchies ---
   console.log('--- Testing Mass Stroke & Fill Modifications on Groups ---');
   const groupDoc = new SvgDocument(800, 600);
-  const r1 = new SvgRect({ x: 10, y: 10, width: 50, height: 50, fill: '#ff0000', stroke: '#00ff00', strokeWidth: 2 });
-  const c1 = new SvgCircle({ cx: 100, cy: 100, r: 20, fill: '#0000ff', stroke: '#ffff00', strokeWidth: 1 });
-  const p1 = new SvgPath({ d: 'M 0 0 L 10 10', fill: 'none', stroke: '#000000', strokeWidth: 1 });
+  const grpR1 = new SvgRect({ x: 10, y: 10, width: 50, height: 50, fill: '#ff0000', stroke: '#00ff00', strokeWidth: 2 });
+  const grpC1 = new SvgCircle({ cx: 100, cy: 100, r: 20, fill: '#0000ff', stroke: '#ffff00', strokeWidth: 1 });
+  const grpP1 = new SvgPath({ d: 'M 0 0 L 10 10', fill: 'none', stroke: '#000000', strokeWidth: 1 });
   
   const subGroup = new SvgGroup({ name: 'Sub Group' });
   const subRect = new SvgRect({ x: 200, y: 200, width: 40, height: 40, fill: '#123456', stroke: '#654321', strokeWidth: 3 });
   subGroup.add(subRect);
 
   const mainGroup = new SvgGroup({ name: 'Main Group' });
-  mainGroup.add(r1);
-  mainGroup.add(c1);
-  mainGroup.add(p1);
+  mainGroup.add(grpR1);
+  mainGroup.add(grpC1);
+  mainGroup.add(grpP1);
   mainGroup.add(subGroup);
   groupDoc.addObject(mainGroup);
 
   // 1. Test direct property assignment cascades to all descendants
   mainGroup.fill = '#fabd2f';
-  assert.strictEqual(r1.fill, '#fabd2f', 'Rect fill should be updated by group.fill');
-  assert.strictEqual(c1.fill, '#fabd2f', 'Circle fill should be updated by group.fill');
+  assert.strictEqual(grpR1.fill, '#fabd2f', 'Rect fill should be updated by group.fill');
+  assert.strictEqual(grpC1.fill, '#fabd2f', 'Circle fill should be updated by group.fill');
   assert.strictEqual(subRect.fill, '#fabd2f', 'Nested group subRect fill should be updated by mainGroup.fill');
   assert.strictEqual(mainGroup.fill, '#fabd2f', 'mainGroup.fill getter should reflect new fill');
 
   mainGroup.stroke = '#83a598';
-  assert.strictEqual(r1.stroke, '#83a598', 'Rect stroke should be updated by group.stroke');
-  assert.strictEqual(c1.stroke, '#83a598', 'Circle stroke should be updated by group.stroke');
-  assert.strictEqual(p1.stroke, '#83a598', 'Path stroke should be updated by group.stroke');
+  assert.strictEqual(grpR1.stroke, '#83a598', 'Rect stroke should be updated by group.stroke');
+  assert.strictEqual(grpC1.stroke, '#83a598', 'Circle stroke should be updated by group.stroke');
+  assert.strictEqual(grpP1.stroke, '#83a598', 'Path stroke should be updated by group.stroke');
   assert.strictEqual(subRect.stroke, '#83a598', 'Nested subRect stroke should be updated');
 
   mainGroup.strokeWidth = 8;
-  assert.strictEqual(r1.strokeWidth, 8, 'Rect strokeWidth should be updated');
-  assert.strictEqual(c1.strokeWidth, 8, 'Circle strokeWidth should be updated');
+  assert.strictEqual(grpR1.strokeWidth, 8, 'Rect strokeWidth should be updated');
+  assert.strictEqual(grpC1.strokeWidth, 8, 'Circle strokeWidth should be updated');
   assert.strictEqual(subRect.strokeWidth, 8, 'Nested subRect strokeWidth should be updated');
 
   // 2. Test group.setStyle bulk update
   mainGroup.setStyle({ fill: '#d3869b', stroke: '#b8bb26', strokeWidth: 5, fillOpacity: 0.8, strokeOpacity: 0.9 });
-  assert.strictEqual(r1.fill, '#d3869b');
-  assert.strictEqual(r1.stroke, '#b8bb26');
-  assert.strictEqual(r1.strokeWidth, 5);
-  assert.strictEqual(r1.fillOpacity, 0.8);
-  assert.strictEqual(r1.strokeOpacity, 0.9);
+  assert.strictEqual(grpR1.fill, '#d3869b');
+  assert.strictEqual(grpR1.stroke, '#b8bb26');
+  assert.strictEqual(grpR1.strokeWidth, 5);
+  assert.strictEqual(grpR1.fillOpacity, 0.8);
+  assert.strictEqual(grpR1.strokeOpacity, 0.9);
   assert.strictEqual(subRect.fill, '#d3869b');
   assert.strictEqual(subRect.stroke, '#b8bb26');
 
   // 3. Test group.setFill with preserveNone
-  p1.fill = 'none';
+  grpP1.fill = 'none';
   mainGroup.setFill('#fe8019', { preserveNone: true });
-  assert.strictEqual(r1.fill, '#fe8019');
-  assert.strictEqual(p1.fill, 'none', 'Path with fill="none" should be preserved when preserveNone is true');
+  assert.strictEqual(grpR1.fill, '#fe8019');
+  assert.strictEqual(grpP1.fill, 'none', 'Path with fill="none" should be preserved when preserveNone is true');
 
   // 4. Test SvgDocument document-level helpers
   groupDoc.setGroupFill(mainGroup.id, '#458588');
-  assert.strictEqual(r1.fill, '#458588', 'doc.setGroupFill should update children');
+  assert.strictEqual(grpR1.fill, '#458588', 'doc.setGroupFill should update children');
   assert.strictEqual(subRect.fill, '#458588', 'doc.setGroupFill should update nested children');
 
   groupDoc.setGroupStroke(mainGroup.id, '#cc241d');
-  assert.strictEqual(r1.stroke, '#cc241d', 'doc.setGroupStroke should update children');
+  assert.strictEqual(grpR1.stroke, '#cc241d', 'doc.setGroupStroke should update children');
 
   groupDoc.setGroupStrokeWidth(mainGroup.id, 12);
-  assert.strictEqual(r1.strokeWidth, 12, 'doc.setGroupStrokeWidth should update children');
+  assert.strictEqual(grpR1.strokeWidth, 12, 'doc.setGroupStrokeWidth should update children');
 
-  // 5. Test serialization & SVG export of styled group
+  // 5. Test stroke and fill texture mode cascading on groups via proxy and methods
+  mainGroup.strokeTexture.mode = 4;
+  assert.strictEqual(grpR1.strokeTexture.mode, 4, 'Rect strokeTexture.mode should be updated via group proxy');
+  assert.strictEqual(subRect.strokeTexture.mode, 4, 'Nested subRect strokeTexture.mode should be updated via group proxy');
+  assert.strictEqual(grpR1.strokeTexture.enabled, true, 'strokeTexture should be enabled when mode > 0');
+
+  mainGroup.fillTexture.mode = 2;
+  assert.strictEqual(grpR1.fillTexture.mode, 2, 'Rect fillTexture.mode should be updated via group proxy');
+  assert.strictEqual(subRect.fillTexture.mode, 2, 'Nested subRect fillTexture.mode should be updated via group proxy');
+  assert.strictEqual(grpR1.fillTexture.enabled, true, 'fillTexture should be enabled when mode > 0');
+
+  mainGroup.brushConfig.flow = 42;
+  assert.strictEqual(grpR1.brushConfig.flow, 42, 'Rect brushConfig.flow should be updated via group proxy');
+  assert.strictEqual(subRect.brushConfig.flow, 42, 'Nested subRect brushConfig.flow should be updated via group proxy');
+
+  groupDoc.setGroupStrokeTextureParam(mainGroup.id, 'mode', 8);
+  assert.strictEqual(grpR1.strokeTexture.mode, 8, 'doc.setGroupStrokeTextureParam should update children');
+  assert.strictEqual(subRect.strokeTexture.mode, 8, 'doc.setGroupStrokeTextureParam should update nested children');
+
+  groupDoc.setGroupFillTextureParam(mainGroup.id, 'mode', 11);
+  assert.strictEqual(grpR1.fillTexture.mode, 11, 'doc.setGroupFillTextureParam should update children');
+  assert.strictEqual(subRect.fillTexture.mode, 11, 'doc.setGroupFillTextureParam should update nested children');
+
+  // 6. Test serialization & SVG export of styled group
   const groupSvg = mainGroup.toSVGElement();
   assert(groupSvg.includes('fill="#458588"'), 'SVG <g> output should include group fill');
   assert(groupSvg.includes('stroke="#cc241d"'), 'SVG <g> output should include group stroke');
   assert(groupSvg.includes('stroke-width="12"'), 'SVG <g> output should include group stroke-width');
 
   console.log('✔ Mass Stroke & Fill Modifications on Groups & Hierarchies passed');
+
+  // 29. Test Quadro SVG Group Transformations & Nested Hierarchies Rendering
+  console.log('--- Testing Quadro SVG Group Transformations & Rendering Position ---');
+  if (fs.existsSync(canvasWasmPath)) {
+    const actor = new EsenhoModule(canvasWasmPath);
+    const renderer = new QuadroSvgRenderer(actor);
+
+    const quadDoc = new SvgDocument(400, 400);
+    quadDoc.backgroundColor = '#000000';
+
+    // Group at (100, 50) with 0 rotation
+    const testGrp = new SvgGroup({ x: 100, y: 50, name: 'PosTestGroup' });
+    const grpRect = new SvgRect({ x: 10, y: 10, width: 40, height: 40, fill: '#ff0000', stroke: 'none' });
+    testGrp.add(grpRect);
+    quadDoc.addObject(testGrp);
+
+    renderer.renderDocument(quadDoc, { scale: 1.0 });
+    const rendered = renderer.getImageData();
+    assert(rendered, 'ImageData should be returned');
+
+    // Expected rect in canvas coordinates:
+    // Group translation (100, 50) + Rect local pos (10, 10) => rect spans x in [110..150], y in [60..100]
+    // Check pixel at (120, 70) is RED (r=255, g=0, b=0)
+    const idxTarget = (70 * 400 + 120) * 4;
+    const r = rendered.data[idxTarget];
+    const g = rendered.data[idxTarget + 1];
+    const b = rendered.data[idxTarget + 2];
+    assert.strictEqual(r, 255, `Pixel at (120, 70) should be Red (255), got ${r}`);
+    assert.strictEqual(g, 0, `Pixel at (120, 70) green should be 0, got ${g}`);
+    assert.strictEqual(b, 0, `Pixel at (120, 70) blue should be 0, got ${b}`);
+
+    // Check pixel at (20, 20) (untranslated rect position) is background (black)
+    const idxUntranslated = (20 * 400 + 20) * 4;
+    assert.strictEqual(rendered.data[idxUntranslated], 0, 'Pixel at (20, 20) should be background black (0)');
+
+    // Test nested groups
+    const outerGrp = new SvgGroup({ x: 50, y: 50, name: 'Outer' });
+    const innerGrp = new SvgGroup({ x: 30, y: 20, name: 'Inner' });
+    const innerRect = new SvgRect({ x: 10, y: 10, width: 20, height: 20, fill: '#00ff00', stroke: 'none' });
+    innerGrp.add(innerRect);
+    outerGrp.add(innerGrp);
+
+    const nestedDoc = new SvgDocument(400, 400);
+    nestedDoc.backgroundColor = '#000000';
+    nestedDoc.addObject(outerGrp);
+
+    renderer.renderDocument(nestedDoc, { scale: 1.0 });
+    const nestedData = renderer.getImageData();
+
+    // Expected: outer (50, 50) + inner (30, 20) + rect (10, 10) => (90, 80) to (110, 100)
+    const idxNestedTarget = (85 * 400 + 95) * 4;
+    assert.strictEqual(nestedData.data[idxNestedTarget + 1], 255, 'Nested group rect should render green at (95, 85)');
+
+    console.log('✔ Quadro SVG Group Transformations & Nested Hierarchies Rendering Position passed');
+  }
 
   console.log('\nALL SVG OBJECT ENGINE, ROADMAP PHASES 1-3 & ADVANCED VECTOR TESTS PASSED SUCCESSFULLY!');
 }
