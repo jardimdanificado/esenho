@@ -98,36 +98,19 @@
       background: var(--border-bright);
     }
 
-    /* ── Header / Top Bar ── */
+    /* ── Header / Top Bar (Removed for Full Canvas Workspace) ── */
     header {
-      height: 42px;
-      background: var(--bg-panel);
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 10px;
-      gap: 8px;
-      z-index: 2000;
-      flex-shrink: 0;
-      max-width: 100vw;
-      width: 100%;
-      overflow: visible;
-      position: relative;
+      display: none !important;
     }
 
-    .top-control-bar {
+    #workspace {
+      flex: 1 1 0px;
       display: flex;
-      align-items: center;
-      gap: 6px;
-      flex: 1 1 auto;
-      justify-content: flex-start;
-      min-width: 0;
-      overflow-x: auto;
-      overflow-y: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
-      padding: 2px 4px;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+      width: 100vw;
+      height: 100vh;
     }
     .top-control-bar::-webkit-scrollbar {
       height: 3px;
@@ -789,8 +772,8 @@
       display: flex;
       border-bottom: 1px solid var(--border);
       background: var(--bg-panel-sub);
-      padding: 6px 8px;
-      gap: 4px;
+      padding: 4px 6px;
+      gap: 3px;
       flex-shrink: 0;
       align-items: center;
     }
@@ -800,11 +783,11 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 5px 6px;
-      font-size: 11px;
+      padding: 4px 6px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: capitalize;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       line-height: 1.2;
       background: transparent;
       border: 1px solid transparent;
@@ -836,10 +819,10 @@
       overflow-y: auto;
       overflow-x: hidden;
       display: none;
-      padding: 8px 10px;
-      padding-bottom: 24px;
+      padding: 6px 8px;
+      padding-bottom: 20px;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
       overscroll-behavior: contain;
@@ -946,8 +929,8 @@
       display: flex;
       border-bottom: 1px solid var(--border);
       background: var(--bg-panel-sub);
-      padding: 6px 8px;
-      gap: 6px;
+      padding: 4px 6px;
+      gap: 4px;
       flex-shrink: 0;
       align-items: center;
     }
@@ -957,11 +940,11 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 6px 10px;
-      font-size: 11px;
+      padding: 4px 8px;
+      font-size: 10px;
       font-weight: 600;
       text-transform: capitalize;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
       line-height: 1.2;
       background: transparent;
       border: 1px solid transparent;
@@ -992,10 +975,10 @@
       overflow-y: auto;
       overflow-x: hidden;
       display: none;
-      padding: 10px;
-      padding-bottom: 28px;
+      padding: 6px 8px;
+      padding-bottom: 20px;
       flex-direction: column;
-      gap: 10px;
+      gap: 6px;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
       overscroll-behavior: contain;
@@ -1027,23 +1010,23 @@
       background: var(--bg-panel-sub);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: 8px 10px;
+      padding: 6px 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       flex-shrink: 0;
     }
 
     .section-header {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       color: var(--text-dim);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 4px;
+      padding-bottom: 3px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      margin-bottom: 2px;
+      margin-bottom: 1px;
     }
 
     .section-header .section-icon {
@@ -1060,8 +1043,8 @@
     }
 
     details.section-accordion summary {
-      padding: 8px 10px;
-      font-size: 11px;
+      padding: 6px 8px;
+      font-size: 10px;
       font-weight: 700;
       color: var(--text-dim);
       cursor: pointer;
@@ -1078,10 +1061,10 @@
     }
 
     details.section-accordion .accordion-body {
-      padding: 8px 10px;
+      padding: 6px 8px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       border-top: 1px solid var(--border);
     }
 
@@ -1089,14 +1072,14 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
     }
 
     .form-row label {
-      font-size: 11px;
+      font-size: 10px;
       color: var(--text-muted);
       font-weight: 500;
-      flex: 0 0 85px;
+      flex: 0 0 80px;
       white-space: nowrap;
     }
 
@@ -1455,7 +1438,7 @@
 
       #left-sidebar {
         position: fixed;
-        top: 42px;
+        top: 0;
         left: 0;
         bottom: 0;
         width: 270px;
@@ -1466,7 +1449,7 @@
 
       #sidebar {
         position: fixed;
-        top: 42px;
+        top: 0;
         right: 0;
         bottom: 0;
         width: 260px;
@@ -1665,183 +1648,8 @@
 </head>
 <body>
 
-  <!-- Top Bar -->
-  <header>
-    <div class="menu-container">
-      <button id="btn-menu-logo" class="brand-btn" title="Main Menu">
-        <div class="brand-icon">E</div>
-        <span style="font-size: 8px; color: var(--text-muted); margin-left: -2px;">▼</span>
-      </button>
-
-      <!-- App Dropdown Menu -->
-      <div id="app-menu-dropdown" class="dropdown-menu">
-        <button id="btn-new-project" class="menu-item">
-          <span>New Project</span>
-          <span class="shortcut">Ctrl+N</span>
-        </button>
-        <div class="menu-item-submenu-wrap">
-          <button id="btn-recent-projects" class="menu-item">
-            <span>Recent Projects</span>
-            <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
-          </button>
-          <div id="menu-recent-projects-flyout" class="menu-submenu">
-            <div id="menu-recents-list" style="display: flex; flex-direction: column; gap: 2px;">
-              <div style="padding: 10px; font-size: 10px; color: var(--text-muted); text-align: center;">Loading...</div>
-            </div>
-            <div class="menu-divider"></div>
-            <button id="btn-open-recents-modal" class="menu-item" style="font-size: 10px; color: var(--primary);">
-              <span>All Projects &amp; Storage...</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <button id="btn-import-svg" class="menu-item">
-          <span>Open SVG</span>
-          <span class="shortcut">Ctrl+O</span>
-        </button>
-        <button id="btn-import-img" class="menu-item">
-          <span>Import Image</span>
-        </button>
-        <input type="file" id="file-import-img" accept="image/*" style="display: none;">
-        <div class="menu-item-submenu-wrap">
-          <button id="btn-export-menu" class="menu-item">
-            <span>Export</span>
-            <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
-          </button>
-          <div id="menu-export-flyout" class="menu-submenu">
-            <button type="button" class="menu-item" id="btn-quick-export-svg">
-              <span>Export SVG (.svg)</span>
-            </button>
-            <button type="button" class="menu-item" id="btn-quick-export-png">
-              <span>Export PNG (.png)</span>
-            </button>
-            <button type="button" class="menu-item" id="btn-quick-export-jpg">
-              <span>Export JPEG (.jpg)</span>
-            </button>
-            <div class="menu-divider"></div>
-            <button type="button" class="menu-item" id="btn-quick-export-video">
-              <span>Export Video (.webm / .mp4)</span>
-            </button>
-            <button type="button" class="menu-item" id="btn-quick-export-spritesheet">
-              <span>Export Spritesheet (.png)</span>
-            </button>
-            <div class="menu-divider"></div>
-            <button type="button" class="menu-item" id="btn-export-advanced" style="font-size: 10px; color: var(--primary);">
-              <span>Export Center (Video / Image)...</span>
-              <span class="shortcut">Ctrl+E</span>
-            </button>
-          </div>
-        </div>
-        <button id="btn-menu-asset-bundle" class="menu-item">
-          <span>Asset Bundle...</span>
-        </button>
-
-        <div class="menu-divider"></div>
-
-        <button id="btn-undo" class="menu-item">
-          <span>Undo</span>
-          <span class="shortcut">Ctrl+Z</span>
-        </button>
-        <button id="btn-redo" class="menu-item">
-          <span>Redo</span>
-          <span class="shortcut">Ctrl+Y</span>
-        </button>
-        <button id="btn-menu-zoom-fit" class="menu-item">
-          <span>Zoom to Fit</span>
-          <span class="shortcut">0</span>
-        </button>
-
-        <div class="menu-divider"></div>
-
-        <div class="menu-item-submenu-wrap">
-          <button id="btn-renderer-menu" class="menu-item">
-            <span>Renderer</span>
-            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
-              <span id="menu-current-renderer-label" style="font-size: 9px; color: var(--primary); font-family: var(--font-mono);">SVG Direct</span>
-              <span style="font-size: 8px; color: var(--text-muted);">▸</span>
-            </div>
-          </button>
-          <div id="menu-renderer-flyout" class="menu-submenu">
-            <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Engine</div>
-            <button type="button" class="menu-item render-opt-btn" data-renderer="svg">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="render-check" id="check-renderer-svg" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
-                <span>SVG Direct (Native DOM)</span>
-              </span>
-            </button>
-            <button type="button" class="menu-item render-opt-btn" data-renderer="quadro">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="render-check" id="check-renderer-quadro" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
-                <span>Quadro (Software Raster)</span>
-              </span>
-            </button>
-
-            <div class="menu-divider"></div>
-            <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Quadro Scale</div>
-            <button type="button" class="menu-item render-scale-btn" data-scale="0.5">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="scale-check" id="check-scale-05" style="width: 12px; font-size: 10px; color: var(--accent); opacity: 0;">✓</span>
-                <span>0.5× (Draft Half)</span>
-              </span>
-            </button>
-            <button type="button" class="menu-item render-scale-btn" data-scale="1.0">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="scale-check" id="check-scale-10" style="width: 12px; font-size: 10px; color: var(--accent);">✓</span>
-                <span>1.0× (Native 1:1)</span>
-              </span>
-            </button>
-            <button type="button" class="menu-item render-scale-btn" data-scale="2.0">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="scale-check" id="check-scale-20" style="width: 12px; font-size: 10px; color: var(--accent); opacity: 0;">✓</span>
-                <span>2.0× (Hi-DPI Retina)</span>
-              </span>
-            </button>
-
-            <div class="menu-divider"></div>
-            <div style="padding: 4px 8px; font-size: 9px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Viewport Filter</div>
-            <button type="button" class="menu-item view-filter-opt" data-vfilter="bilinear">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="vfilter-check" id="check-vfilter-bilinear" style="width: 12px; font-size: 10px; color: var(--primary);">✓</span>
-                <span>Bilinear (Smooth)</span>
-              </span>
-            </button>
-            <button type="button" class="menu-item view-filter-opt" data-vfilter="nearest">
-              <span style="display: flex; align-items: center; gap: 6px;">
-                <span class="vfilter-check" id="check-vfilter-nearest" style="width: 12px; font-size: 10px; color: var(--primary); opacity: 0;">✓</span>
-                <span>Nearest (Crisp / Pixel Art)</span>
-              </span>
-            </button>
-          </div>
-        </div>
-
-        <div class="menu-divider"></div>
-
-        <button id="btn-clear-storage" class="menu-item" style="color: var(--danger);">
-          <span>Clear Storage / Memory</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Top Control Bar: Fill & Stroke Swatches -->
-    <div id="top-control-bar" class="top-control-bar">
-      <!-- Fill Swatch Tool Button -->
-      <button class="top-tool-btn tool-swatch-btn" id="btn-popover-fill" title="Fill &amp; Texture Panel (Shift+F)" style="display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer;">
-        <div id="swatch-fill-preview" style="width: 16px; height: 16px; background: #fabd2f; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4); flex-shrink: 0;"></div>
-        <span style="font-size: 11px; font-weight: 600;">Fill</span>
-      </button>
-
-      <!-- Stroke Swatch Tool Button -->
-      <button class="top-tool-btn tool-swatch-btn" id="btn-popover-stroke" title="Stroke &amp; Brush Dynamics Panel" style="display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer;">
-        <div id="swatch-stroke-preview" style="width: 16px; height: 16px; background: transparent; border: 3px solid #1d2021; border-radius: 3px; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.4); flex-shrink: 0;"></div>
-        <span style="font-size: 11px; font-weight: 600;">Stroke</span>
-      </button>
-    </div>
-
-    <!-- Sidebar Toggle -->
-    <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
-  </header>
+  <!-- Hidden File Input for Raster Image Import -->
+  <input type="file" id="file-import-img" accept="image/*" style="display: none;">
 
   <!-- Main Workspace -->
   <div id="workspace">
@@ -2783,11 +2591,8 @@
       <!-- Tab 1: Style, Geometry & Operations Inspector (Active Default) -->
       <div class="tab-content active" id="tab-style">
         <!-- Inspect & Status Summary Card -->
-        <div class="section-card" id="card-inspect-status" style="margin-bottom: 8px;">
-          <div class="section-header">
-            <span>Inspect</span>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
+        <div class="section-card" id="card-inspect-status">
+          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 10px;">
             <div style="display: flex; justify-content: space-between;">
               <span style="color: var(--text-muted);">Active Tool</span>
               <span class="status-val" id="status-tool" style="font-weight: bold; color: var(--text-main);">Select</span>
@@ -4797,6 +4602,19 @@
           return;
         }
 
+        // Auto-expand any selected objects and their parent group hierarchy
+        const selectedList = doc.getSelectedObjects ? doc.getSelectedObjects() : [];
+        for (const sel of selectedList) {
+          if (sel && sel.type === 'group') {
+            sel.collapsed = false;
+          }
+          let p = sel ? sel.parent : null;
+          while (p) {
+            p.collapsed = false;
+            p = p.parent;
+          }
+        }
+
         function renderNodeItem(obj, depth = 0) {
           const isSelected = doc.selectedIds.has(obj.id);
           const isGroup = obj.type === 'group';
@@ -6568,16 +6386,15 @@
         if (isTouchPinching) return;
 
         if (activeGuideDrag) {
-          const pt = screenToDoc(e.clientX, e.clientY);
           const rulerTopRect = rulerTopCanvas ? rulerTopCanvas.getBoundingClientRect() : null;
           const rulerLeftRect = rulerLeftCanvas ? rulerLeftCanvas.getBoundingClientRect() : null;
           let removeGuide = false;
           if (activeGuideDrag.type === 'horizontal') {
-            if ((rulerTopRect && e.clientY <= rulerTopRect.bottom + 5) || pt.y < -50 || pt.y > doc.height + 50) {
+            if (rulerTopRect && e.clientY <= rulerTopRect.bottom) {
               removeGuide = true;
             }
           } else if (activeGuideDrag.type === 'vertical') {
-            if ((rulerLeftRect && e.clientX <= rulerLeftRect.right + 5) || pt.x < -50 || pt.x > doc.width + 50) {
+            if (rulerLeftRect && e.clientX <= rulerLeftRect.right) {
               removeGuide = true;
             }
           }
@@ -7064,6 +6881,45 @@
             { type: 'item', label: 'Send to Back', hotkey: 'Ctrl+Shift+[', action: () => { for (const o of selectedObjs) doc.sendToBack(o.id); render(); drawOverlay(); updateObjectList(); } }
           ]);
 
+          // Fill & Stroke Submenu
+          addSubmenu('Fill & Stroke', [
+            { type: 'item', label: 'Open Fill & Dynamics Panel', hotkey: 'Shift+F', action: () => switchLeftTab('tab-left-fill') },
+            { type: 'item', label: 'Open Stroke & Brush Panel', action: () => switchLeftTab('tab-left-stroke') }
+          ]);
+
+          // File & Project Submenu
+          addSubmenu('File & Project', [
+            { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
+            { type: 'item', label: 'Recent Projects & Storage...', action: () => openRecentsModal() },
+            { type: 'sep' },
+            { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
+            { type: 'item', label: 'Import Image...', action: () => document.getElementById('file-import-img')?.click() },
+            { type: 'sep' },
+            { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
+          ]);
+
+          // Export Submenu
+          addSubmenu('Export', [
+            { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
+            { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
+            { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
+            { type: 'sep' },
+            { type: 'item', label: 'Export Video (.webm / .mp4)', action: () => document.getElementById('btn-quick-export-video')?.click() },
+            { type: 'item', label: 'Export Spritesheet (.png)', action: () => document.getElementById('btn-quick-export-spritesheet')?.click() },
+            { type: 'sep' },
+            { type: 'item', label: 'Export Center (Video / Image)...', hotkey: 'Ctrl+E', action: () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; } },
+            { type: 'item', label: 'Asset Bundle...', action: () => document.getElementById('btn-menu-asset-bundle')?.click() }
+          ]);
+
+          // Workspace & Panels Submenu
+          addSubmenu('Panels & Viewport', [
+            { type: 'item', label: 'Toggle Left Sidebar (Fill & Stroke)', action: () => { leftSidebarEl?.classList.toggle('collapsed'); drawOverlay(); } },
+            { type: 'item', label: 'Toggle Inspector Sidebar (Panels)', action: () => { if (window.innerWidth <= 860) { sidebarEl?.classList.toggle('mobile-open'); backdropEl?.classList.toggle('active'); } else { sidebarEl?.classList.toggle('collapsed'); drawOverlay(); } } },
+            { type: 'sep' },
+            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
+            { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
+          ]);
+
           if (hitGuide && userGuides && userGuides[hitGuide.type] && userGuides[hitGuide.type][hitGuide.index] !== undefined) {
             const guideVal = userGuides[hitGuide.type][hitGuide.index];
             const guideLabel = hitGuide.type === 'horizontal' ? `Remove Horizontal Guide (Y: ${guideVal})` : `Remove Vertical Guide (X: ${guideVal})`;
@@ -7134,32 +6990,52 @@
             { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') }
           ]);
 
-          addSep();
-          addItem('Paste', 'Ctrl+V', () => {
-            doc.paste();
-            render();
-            drawOverlay();
-            updateInspector();
-            updateObjectList();
-          });
-          addItem('Select All', 'Ctrl+A', () => {
-            doc.selectAll();
-            render();
-            drawOverlay();
-            updateInspector();
-          });
-          addSep();
-          addItem('Zoom to Fit Canvas', 'Ctrl+0', () => {
-            zoomToFit();
-          });
-          addItem('Reset Viewport (100%)', 'Ctrl+1', () => {
-            zoom = 1.0;
-            panX = 0;
-            panY = 0;
-            applyViewportTransform();
-            render();
-          });
-          addSep();
+          addSubmenu('Edit & History', [
+            { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => handleUndo() },
+            { type: 'item', label: 'Redo', hotkey: 'Ctrl+Y', action: () => { doc.redo(); render(); } },
+            { type: 'sep' },
+            { type: 'item', label: 'Paste', hotkey: 'Ctrl+V', action: () => { doc.paste(); render(); drawOverlay(); updateInspector(); updateObjectList(); } },
+            { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => { doc.selectAll(); render(); drawOverlay(); updateInspector(); } }
+          ]);
+
+          // Fill & Stroke Submenu
+          addSubmenu('Fill & Stroke', [
+            { type: 'item', label: 'Open Fill & Dynamics Panel', hotkey: 'Shift+F', action: () => switchLeftTab('tab-left-fill') },
+            { type: 'item', label: 'Open Stroke & Brush Panel', action: () => switchLeftTab('tab-left-stroke') }
+          ]);
+
+          // File & Project Submenu
+          addSubmenu('File & Project', [
+            { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
+            { type: 'item', label: 'Recent Projects & Storage...', action: () => openRecentsModal() },
+            { type: 'sep' },
+            { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
+            { type: 'item', label: 'Import Image...', action: () => document.getElementById('file-import-img')?.click() },
+            { type: 'sep' },
+            { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
+          ]);
+
+          // Export Submenu
+          addSubmenu('Export', [
+            { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
+            { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
+            { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
+            { type: 'sep' },
+            { type: 'item', label: 'Export Video (.webm / .mp4)', action: () => document.getElementById('btn-quick-export-video')?.click() },
+            { type: 'item', label: 'Export Spritesheet (.png)', action: () => document.getElementById('btn-quick-export-spritesheet')?.click() },
+            { type: 'sep' },
+            { type: 'item', label: 'Export Center (Video / Image)...', hotkey: 'Ctrl+E', action: () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; } },
+            { type: 'item', label: 'Asset Bundle...', action: () => document.getElementById('btn-menu-asset-bundle')?.click() }
+          ]);
+
+          // Workspace & Panels Submenu
+          addSubmenu('Panels & Viewport', [
+            { type: 'item', label: 'Toggle Left Sidebar (Fill & Stroke)', action: () => { leftSidebarEl?.classList.toggle('collapsed'); drawOverlay(); } },
+            { type: 'item', label: 'Toggle Inspector Sidebar (Panels)', action: () => { if (window.innerWidth <= 860) { sidebarEl?.classList.toggle('mobile-open'); backdropEl?.classList.toggle('active'); } else { sidebarEl?.classList.toggle('collapsed'); drawOverlay(); } } },
+            { type: 'sep' },
+            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
+            { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
+          ]);
 
           // Viewport & Engine Submenu
           addSubmenu('Viewport & Engine', [
@@ -7370,6 +7246,13 @@
         if (e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
         e.preventDefault();
         const pt = screenToDoc(e.clientX, e.clientY);
+
+        // Immediate guide deletion on right click
+        const hitGuide = typeof findGuideAt === 'function' ? findGuideAt(pt, 8) : null;
+        if (hitGuide) {
+          removeGuide(hitGuide.type, hitGuide.index);
+          return;
+        }
 
         if (activeTool === 'select') {
           let hitObj = null;
