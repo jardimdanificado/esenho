@@ -673,13 +673,18 @@
       transition: background 0.1s, color 0.1s;
       gap: 12px;
       font-size: 11.5px;
+      position: relative;
     }
-    .context-menu-item:hover {
+    .context-menu-item:hover,
+    .context-menu-item.submenu-open {
       background: var(--primary);
       color: #1d2021;
       font-weight: 600;
     }
-    .context-menu-item:hover .context-menu-hotkey {
+    .context-menu-item:hover .context-menu-hotkey,
+    .context-menu-item.submenu-open .context-menu-hotkey,
+    .context-menu-item:hover .context-menu-arrow,
+    .context-menu-item.submenu-open .context-menu-arrow {
       color: #1d2021;
     }
     .context-menu-item.danger:hover {
@@ -695,6 +700,34 @@
       color: var(--text-muted);
       font-family: var(--font-mono);
       margin-left: auto;
+    }
+    .context-menu-arrow {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-left: auto;
+    }
+    .context-submenu {
+      display: none;
+      position: absolute;
+      left: 100%;
+      top: -4px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
+      padding: 4px 0;
+      min-width: 190px;
+      font-size: 11.5px;
+      font-weight: normal;
+      color: var(--text);
+      user-select: none;
+      -webkit-user-select: none;
+      z-index: 1000001;
+    }
+    .context-menu-item:hover > .context-submenu,
+    .context-menu-item.submenu-open > .context-submenu {
+      display: flex;
+      flex-direction: column;
     }
     .context-menu-sep {
       height: 1px;
@@ -2985,7 +3018,6 @@
       <div class="tab-bar">
         <button class="tab-btn active" data-tab="tab-style">Inspect</button>
         <button class="tab-btn" data-tab="tab-scene">Scene</button>
-        <button class="tab-btn" data-tab="tab-canvas">Canvas</button>
       </div>
 
       <!-- Tab 1: Style, Geometry & Operations Inspector (Active Default) -->
@@ -3239,47 +3271,45 @@
             <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
           </div>
         </details>
-
-        <!-- Vector & Layer Operations (Merged into Inspect) -->
-        <details open class="section-accordion" id="card-operations" style="margin-top: 8px;">
-          <summary>
-            <span>Vector &amp; Layer Operations</span>
-          </summary>
-          <div class="accordion-body" style="padding: 6px 8px; display: flex; flex-direction: column; gap: 6px;">
-            <div class="grid-2">
-              <button id="btn-node-convert-path" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
-              <button id="btn-create-outlines" class="btn-sm" style="border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Text Outlines</button>
-            </div>
-
-            <button id="btn-rasterize" class="btn-sm" style="width: 100%; border-color: var(--primary); color: var(--primary);" title="Rasterize selected vector objects into a Bitmap Image layer">Rasterize to Image</button>
-
-            <!-- Masking & Text Path Controls -->
-            <div id="mask-status-badge" style="font-size: 10px; padding: 4px 6px; background: rgba(255,255,255,0.04); border-radius: var(--radius-sm); margin-top: 4px; border: 1px solid var(--border);">Status: <span style="color: var(--text-muted);">None</span></div>
-            <div class="grid-2">
-              <button id="btn-mask-create" class="btn-sm" title="Create Clipping Mask using top shape">Make Mask</button>
-              <button id="btn-mask-release" class="btn-sm" title="Release Clipping Mask">Release Mask</button>
-            </div>
-
-            <div class="grid-2">
-              <button id="btn-text-attach-path" class="btn-sm" title="Attach Selected Text to Selected Path">Text on Path</button>
-              <button id="btn-text-detach-path" class="btn-sm" title="Detach Text from Path">Detach Text</button>
-            </div>
-
-            <div class="grid-2" style="margin-top: 4px; border-top: 1px solid var(--border); padding-top: 6px;">
-              <button id="btn-group-obj" class="btn-sm" title="Group Selected (Ctrl+G)">Group</button>
-              <button id="btn-ungroup-obj" class="btn-sm" title="Ungroup Selected (Ctrl+Shift+G)">Ungroup</button>
-            </div>
-
-            <div class="grid-2">
-              <button id="btn-duplicate-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">Duplicate</button>
-              <button id="btn-delete-obj" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete Object (Del)">Delete</button>
-            </div>
-          </div>
-        </details>
       </div>
 
-      <!-- Tab 2: Scene (Classic Object Hierarchy & Keyframe Animator) -->
+      <!-- Tab 2: Scene (Document, Object Hierarchy & Keyframe Animator) -->
       <div class="tab-content" id="tab-scene">
+        <!-- Document & Project Card -->
+        <div class="section-card" id="card-doc-project" style="margin-bottom: 8px;">
+          <div class="section-header">
+            <span>Document &amp; Project</span>
+          </div>
+          <div class="form-row">
+            <label>Project Name</label>
+            <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector">
+          </div>
+          <div class="form-row">
+            <label>Preset Size</label>
+            <select id="prop-canvas-preset">
+              <option value="custom">-- Custom Size --</option>
+              <option value="800x600" selected>800 × 600 (Standard)</option>
+              <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
+              <option value="1280x720">1280 × 720 (HD 720p)</option>
+              <option value="1920x1080">1920 × 1080 (Full HD)</option>
+              <option value="2560x1440">2560 × 1440 (2K QHD)</option>
+              <option value="3840x2160">3840 × 2160 (4K UHD)</option>
+              <option value="512x512">512 × 512 (Icon)</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Dimensions</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
+              <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Background</label>
+            <input type="text" id="prop-doc-bg" value="#1d2021">
+          </div>
+        </div>
+
         <!-- Objects Hierarchy Tree -->
         <div class="section-card" style="margin-bottom: 8px;">
           <div class="section-header">
@@ -3378,97 +3408,8 @@
           </div>
         </div>
       </div>
-
-      <!-- Tab 4: Canvas Setup & Engine Settings -->
-      <div class="tab-content" id="tab-canvas">
-        <div class="section-card">
-          <div class="section-header">
-            <span>Document &amp; Project</span>
-          </div>
-          <div class="form-row">
-            <label>Project Name</label>
-            <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector">
-          </div>
-          <div class="form-row">
-            <label>Preset Size</label>
-            <select id="prop-canvas-preset">
-              <option value="custom">-- Custom Size --</option>
-              <option value="800x600" selected>800 × 600 (Standard)</option>
-              <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
-              <option value="1280x720">1280 × 720 (HD 720p)</option>
-              <option value="1920x1080">1920 × 1080 (Full HD)</option>
-              <option value="2560x1440">2560 × 1440 (2K QHD)</option>
-              <option value="3840x2160">3840 × 2160 (4K UHD)</option>
-              <option value="512x512">512 × 512 (Icon)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Dimensions</label>
-            <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
-              <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Background</label>
-            <input type="text" id="prop-doc-bg" value="#1d2021">
-          </div>
-        </div>
-
-        <div class="section-card">
-          <div class="section-header">
-            <span>Viewport</span>
-          </div>
-          <div class="form-row">
-            <label>Renderer</label>
-            <select id="prop-viewport-renderer">
-              <option value="svg" selected>SVG Direct</option>
-              <option value="quadro">Quadro</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Render Scale</label>
-            <select id="prop-quadro-scale">
-              <option value="0.25">0.25× (Draft Quarter)</option>
-              <option value="0.5">0.5× (Draft Half)</option>
-              <option value="1.0" selected>1.0× (Native 1:1)</option>
-              <option value="1.5">1.5× (150% Super-Sample)</option>
-              <option value="2.0">2.0× (2× Retina Hi-DPI)</option>
-              <option value="3.0">3.0× (3× Ultra-Sample)</option>
-              <option value="4.0">4.0× (4× High-Res)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Bilinear Filter</label>
-            <input type="checkbox" id="prop-viewport-bilinear" checked style="cursor: pointer;">
-          </div>
-          <div class="form-row">
-            <label>Zoom Level</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-zoom-val" value="100" min="10" max="1000" step="10">
-              <button id="btn-zoom-fit-panel" class="btn-sm" title="Zoom to Fit Canvas">Fit (0)</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Rotation</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-viewport-rot" value="0" min="-360" max="360" step="15" title="Canvas Viewport Angle (deg)">
-              <button id="btn-reset-viewport-rot" class="btn-sm" title="Reset Rotation to 0°">0°</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Camera Position</label>
-            <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-camera-x" value="40" step="10" title="Camera Pan X">
-              <input type="number" id="prop-camera-y" value="40" step="10" title="Camera Pan Y">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Reset View</label>
-            <button id="btn-reset-camera" class="btn-sm" style="flex: 1;">Center & Reset View</button>
-          </div>
-        </div>
-      </div>
+    </div>
+  </div>
     </div>
   </div>
 
@@ -6123,39 +6064,39 @@
           }
 
           if (!activeTransformMode && !activeResizeHandle) {
-            const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
-            if (clickedSelected && !e.shiftKey) {
-              // Clicked directly on already selected object (e.g. child inside group selected in Object Manager)
-              // Keep current selection intact so dragging/transforming affects only this object
-            } else {
-              let hit = null;
-              if (e.altKey) {
-                hit = groupSelectMode ? doc.hitTestDeep(pt.x, pt.y) : doc.hitTest(pt.x, pt.y);
+            let hit = null;
+            if (groupSelectMode) {
+              const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
+              if (clickedSelected && !e.shiftKey) {
+                // Keep current selection intact so dragging/transforming affects this object/group
               } else {
-                hit = groupSelectMode ? doc.hitTest(pt.x, pt.y) : (doc.hitTestDeep(pt.x, pt.y) || doc.hitTest(pt.x, pt.y));
+                hit = e.altKey ? doc.hitTestDeep(pt.x, pt.y) : doc.hitTest(pt.x, pt.y);
               }
-              if (hit) {
-                if (e.shiftKey) {
-                  doc.select(hit.id, true);
-                } else if (!doc.isSelected(hit.id)) {
-                  doc.select(hit.id, false);
-                }
+            } else {
+              hit = doc.hitTestDeep(pt.x, pt.y);
+            }
+
+            if (hit) {
+              if (e.shiftKey) {
+                doc.select(hit.id, true);
+              } else if (!doc.isSelected(hit.id)) {
+                doc.select(hit.id, false);
+              }
+            } else if (!groupSelectMode || !selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y))) {
+              const hitGuide = findGuideAt(pt);
+              if (hitGuide) {
+                activeGuideDrag = { type: hitGuide.type, index: hitGuide.index };
+                selectedGuide = { type: hitGuide.type, index: hitGuide.index };
+                drawOverlay();
+                return;
               } else {
-                const hitGuide = findGuideAt(pt);
-                if (hitGuide) {
-                  activeGuideDrag = { type: hitGuide.type, index: hitGuide.index };
-                  selectedGuide = { type: hitGuide.type, index: hitGuide.index };
-                  drawOverlay();
-                  return;
-                } else {
-                  selectedGuide = null;
-                  // Clicked empty canvas -> Start Marquee Box Selection
-                  isMarqueeSelecting = true;
-                  marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
-                  marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
-                  if (!e.shiftKey) {
-                    doc.clearSelection();
-                  }
+                selectedGuide = null;
+                // Clicked empty canvas -> Start Marquee Box Selection
+                isMarqueeSelecting = true;
+                marqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
+                marqueeBaseSelected = e.shiftKey ? new Set(doc.selectedIds) : new Set();
+                if (!e.shiftKey) {
+                  doc.clearSelection();
                 }
               }
             }
@@ -7058,6 +6999,11 @@
         const addItem = (label, hotkey, action, opts = {}) => {
           items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled });
         };
+        const addSubmenu = (label, subitems) => {
+          if (subitems && subitems.length > 0) {
+            items.push({ type: 'submenu', label, items: subitems });
+          }
+        };
         const addHeader = (title) => {
           items.push({ type: 'header', title });
         };
@@ -7077,13 +7023,14 @@
             drawOverlay();
           }
 
-          addHeader('Anchor Point');
-          addItem('Smooth (Aligned Tangents)', '', () => applyNodeTypeToSelection('smooth'));
-          addItem('Corner / Sharp', '', () => applyNodeTypeToSelection('corner'));
-          addItem('Symmetric (Mirrored)', '', () => applyNodeTypeToSelection('symmetric'));
-          addItem('Cusp (Independent Handles)', '', () => applyNodeTypeToSelection('cusp'));
+          const nodeTypeItems = [
+            { type: 'item', label: 'Smooth (Aligned Tangents)', action: () => applyNodeTypeToSelection('smooth') },
+            { type: 'item', label: 'Corner / Sharp', action: () => applyNodeTypeToSelection('corner') },
+            { type: 'item', label: 'Symmetric (Mirrored)', action: () => applyNodeTypeToSelection('symmetric') },
+            { type: 'item', label: 'Cusp (Independent Handles)', action: () => applyNodeTypeToSelection('cusp') }
+          ];
+          addSubmenu('Convert Anchor Type', nodeTypeItems);
 
-          addSep();
           if (clickedOnSegment) {
             addItem('Add Anchor Here', '+', () => {
               const res = activePath.splitSegment(clickedOnSegment.segIdx, clickedOnSegment.t);
@@ -7127,58 +7074,36 @@
           }
         } else if (selectedObjs.length > 0) {
           // Case B: Object Selection Context
-          if (selectedObjs.length >= 2) {
-            addHeader('Pathfinder');
-            addItem('Union (Unite)', 'Alt+U', () => { doc.booleanOperation('union'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
-            addItem('Subtract (Minus Front)', 'Alt+S', () => { doc.booleanOperation('subtract'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
-            addItem('Intersect', 'Alt+I', () => { doc.booleanOperation('intersect'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
-            addItem('Exclude (XOR)', 'Alt+X', () => { doc.booleanOperation('exclude'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
-
-            addHeader('Align & Distribute');
-            addItem('Align Left', '', () => { doc.alignSelected('left'); render(); drawOverlay(); });
-            addItem('Align Center (H)', '', () => { doc.alignSelected('center'); render(); drawOverlay(); });
-            addItem('Align Right', '', () => { doc.alignSelected('right'); render(); drawOverlay(); });
-            addItem('Align Top', '', () => { doc.alignSelected('top'); render(); drawOverlay(); });
-            addItem('Align Middle (V)', '', () => { doc.alignSelected('middle'); render(); drawOverlay(); });
-            addItem('Align Bottom', '', () => { doc.alignSelected('bottom'); render(); drawOverlay(); });
-            addItem('Distribute Horizontally', '', () => { doc.distributeSelected('horizontal'); render(); drawOverlay(); });
-            addItem('Distribute Vertically', '', () => { doc.distributeSelected('vertical'); render(); drawOverlay(); });
-
-            addHeader('Clipping Mask');
-            addItem('Make Clipping Mask', 'Ctrl+7', () => {
-              if (doc.createClipMask ? doc.createClipMask() : doc.createMask()) {
-                render();
-                drawOverlay();
-                updateObjectList();
-                updateInspector();
-                showNotification('Clipping mask created');
+          addItem('Record Animation State', '◆', () => {
+            if (window.dopeSheet) {
+              const curF = window.dopeSheet.currentFrame || 1;
+              for (const o of selectedObjs) {
+                recordObjectAnimationState(o, curF);
               }
-            });
-          }
+              doc.pushHistory(`Record State F${curF}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+              showNotification(`Recorded state at Frame ${curF}`);
+            }
+          });
 
-          const hasMask = selectedObjs.some(o => o.clipPathId);
-          if (hasMask) {
-            addItem('Release Clipping Mask', 'Ctrl+Alt+7', () => {
-              if (doc.releaseClipMask ? doc.releaseClipMask() : doc.releaseMask()) {
-                render();
-                drawOverlay();
-                updateObjectList();
-                updateInspector();
-                showNotification('Clipping mask released');
-              }
-            });
-          }
+          addSep();
 
+          // Convert & Structure Submenu
+          const convertItems = [];
           const hasPrimitives = selectedObjs.some(o => ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'star'].includes(o.type));
           const hasText = selectedObjs.some(o => o.type === 'text');
           const hasStroke = selectedObjs.some(o => o.stroke && o.stroke !== 'none' && o.strokeWidth > 0);
           const hasGroups = selectedObjs.some(o => o.type === 'group');
           const hasImages = selectedObjs.some(o => o.type === 'image');
+          const hasAttachedText = selectedObjs.some(o => o.type === 'text' && o.pathId);
+          const canAttachText = selectedObjs.length >= 2 && selectedObjs.some(o => o.type === 'text') && selectedObjs.some(o => o.type === 'path' || o.type === 'line' || o.type === 'compoundPath');
 
-          if (hasPrimitives || hasText || hasStroke || hasGroups || hasImages || selectedObjs.length > 0) {
-            addHeader('Convert & Structure');
-            if (hasPrimitives) {
-              addItem('Convert Shape to Path', '', () => {
+          if (hasPrimitives) {
+            convertItems.push({
+              type: 'item',
+              label: 'Convert Shape to Path',
+              action: () => {
                 if (doc.convertSelectedToPath()) {
                   updateObjectList();
                   updateInspector();
@@ -7186,10 +7111,15 @@
                   drawOverlay();
                   showNotification('Converted to editable path');
                 }
-              });
-            }
-            if (hasText) {
-              addItem('Convert Text to Outlines', 'Ctrl+Shift+O', () => {
+              }
+            });
+          }
+          if (hasText) {
+            convertItems.push({
+              type: 'item',
+              label: 'Convert Text to Outlines',
+              hotkey: 'Ctrl+Shift+O',
+              action: () => {
                 if (doc.convertSelectedToPath()) {
                   updateObjectList();
                   updateInspector();
@@ -7197,10 +7127,44 @@
                   drawOverlay();
                   showNotification('Converted text to outlines');
                 }
-              });
-            }
-            if (hasStroke) {
-              addItem('Outline Stroke', '', () => {
+              }
+            });
+          }
+          if (canAttachText) {
+            convertItems.push({
+              type: 'item',
+              label: 'Text on Path (Attach)',
+              action: () => {
+                if (doc.attachTextToPath()) {
+                  updateObjectList();
+                  updateInspector();
+                  render();
+                  drawOverlay();
+                  showNotification('Attached text to path');
+                }
+              }
+            });
+          }
+          if (hasAttachedText) {
+            convertItems.push({
+              type: 'item',
+              label: 'Detach Text from Path',
+              action: () => {
+                if (doc.detachTextFromPath()) {
+                  updateObjectList();
+                  updateInspector();
+                  render();
+                  drawOverlay();
+                  showNotification('Detached text from path');
+                }
+              }
+            });
+          }
+          if (hasStroke) {
+            convertItems.push({
+              type: 'item',
+              label: 'Outline Stroke',
+              action: () => {
                 if (doc.outlineStrokeSelected()) {
                   updateObjectList();
                   updateInspector();
@@ -7208,89 +7172,139 @@
                   drawOverlay();
                   showNotification('Strokes outlined to filled paths');
                 }
-              });
-            }
-            if (selectedObjs.length > 0 && !hasImages) {
-              addItem('Rasterize to Image Layer', '', () => {
+              }
+            });
+          }
+          if (selectedObjs.length > 0 && !hasImages) {
+            convertItems.push({
+              type: 'item',
+              label: 'Rasterize to Image Layer',
+              action: () => {
                 rasterizeSelectedToImage();
-              });
-            }
-            if (selectedObjs.length >= 2) {
-              addItem('Group Selection', 'Ctrl+G', () => {
+              }
+            });
+          }
+          if (selectedObjs.length >= 2) {
+            convertItems.push({
+              type: 'item',
+              label: 'Group Selection',
+              hotkey: 'Ctrl+G',
+              action: () => {
                 doc.groupSelected();
                 updateObjectList();
                 updateInspector();
                 render();
                 drawOverlay();
-              });
-            }
-            if (hasGroups) {
-              addItem('Ungroup', 'Ctrl+Shift+G', () => {
+              }
+            });
+          }
+          if (hasGroups) {
+            convertItems.push({
+              type: 'item',
+              label: 'Ungroup',
+              hotkey: 'Ctrl+Shift+G',
+              action: () => {
                 doc.ungroupSelected();
                 updateObjectList();
                 updateInspector();
                 render();
                 drawOverlay();
-              });
-            }
+              }
+            });
+          }
+          if (convertItems.length > 0) {
+            addSubmenu('Convert & Structure', convertItems);
           }
 
+          // Pathfinder Submenu
+          if (selectedObjs.length >= 2) {
+            addSubmenu('Pathfinder', [
+              { type: 'item', label: 'Union (Unite)', hotkey: 'Alt+U', action: () => { doc.booleanOperation('union'); updateObjectList(); updateInspector(); render(); drawOverlay(); } },
+              { type: 'item', label: 'Subtract (Minus Front)', hotkey: 'Alt+S', action: () => { doc.booleanOperation('subtract'); updateObjectList(); updateInspector(); render(); drawOverlay(); } },
+              { type: 'item', label: 'Intersect', hotkey: 'Alt+I', action: () => { doc.booleanOperation('intersect'); updateObjectList(); updateInspector(); render(); drawOverlay(); } },
+              { type: 'item', label: 'Exclude (XOR)', hotkey: 'Alt+X', action: () => { doc.booleanOperation('exclude'); updateObjectList(); updateInspector(); render(); drawOverlay(); } }
+            ]);
+
+            // Align & Distribute Submenu
+            addSubmenu('Align & Distribute', [
+              { type: 'item', label: 'Align Left', action: () => { doc.alignSelected('left'); render(); drawOverlay(); } },
+              { type: 'item', label: 'Align Center (H)', action: () => { doc.alignSelected('center'); render(); drawOverlay(); } },
+              { type: 'item', label: 'Align Right', action: () => { doc.alignSelected('right'); render(); drawOverlay(); } },
+              { type: 'item', label: 'Align Top', action: () => { doc.alignSelected('top'); render(); drawOverlay(); } },
+              { type: 'item', label: 'Align Middle (V)', action: () => { doc.alignSelected('middle'); render(); drawOverlay(); } },
+              { type: 'item', label: 'Align Bottom', action: () => { doc.alignSelected('bottom'); render(); drawOverlay(); } },
+              { type: 'sep' },
+              { type: 'item', label: 'Distribute Horizontally', action: () => { doc.distributeSelected('horizontal'); render(); drawOverlay(); } },
+              { type: 'item', label: 'Distribute Vertically', action: () => { doc.distributeSelected('vertical'); render(); drawOverlay(); } }
+            ]);
+          }
+
+          // Clipping Mask Submenu
+          const hasMask = selectedObjs.some(o => o.clipPathId);
+          const clipItems = [];
+          if (selectedObjs.length >= 2) {
+            clipItems.push({
+              type: 'item',
+              label: 'Make Clipping Mask',
+              hotkey: 'Ctrl+7',
+              action: () => {
+                if (doc.createClipMask ? doc.createClipMask() : doc.createMask()) {
+                  render();
+                  drawOverlay();
+                  updateObjectList();
+                  updateInspector();
+                  showNotification('Clipping mask created');
+                }
+              }
+            });
+          }
+          if (hasMask) {
+            clipItems.push({
+              type: 'item',
+              label: 'Release Clipping Mask',
+              hotkey: 'Ctrl+Alt+7',
+              action: () => {
+                if (doc.releaseClipMask ? doc.releaseClipMask() : doc.releaseMask()) {
+                  render();
+                  drawOverlay();
+                  updateObjectList();
+                  updateInspector();
+                  showNotification('Clipping mask released');
+                }
+              }
+            });
+          }
+          if (clipItems.length > 0) {
+            addSubmenu('Clipping Mask', clipItems);
+          }
+
+          // Image & Painter Submenu
           if (hasImages) {
             const imgObj = selectedObjs.find(o => o.type === 'image');
-            addHeader('Image & Painter');
-            addItem('Edit Image in Painter', '🎨', () => {
-              openPainterForImage(imgObj);
-            });
-            addItem('Vectorize Image (Trace to Paths)', '', () => {
-              document.getElementById('btn-trace-image')?.click();
-            });
-            addItem('Save as Texture Asset', '', () => {
-              document.getElementById('btn-save-img-texture')?.click();
-            });
-            addItem('Save as Brush Tip Shape', '', () => {
-              document.getElementById('btn-save-img-tip')?.click();
-            });
+            addSubmenu('Image & Painter', [
+              { type: 'item', label: 'Edit Image in Painter', hotkey: '🎨', action: () => openPainterForImage(imgObj) },
+              { type: 'item', label: 'Vectorize Image (Trace to Paths)', action: () => document.getElementById('btn-trace-image')?.click() },
+              { type: 'item', label: 'Save as Texture Asset', action: () => document.getElementById('btn-save-img-texture')?.click() },
+              { type: 'item', label: 'Save as Brush Tip Shape', action: () => document.getElementById('btn-save-img-tip')?.click() }
+            ]);
           }
 
-          addHeader('Transform');
-          addItem('Flip Horizontal', 'Shift+H', () => {
-            doc.flipSelected('horizontal');
-            render();
-            drawOverlay();
-            updateInspector();
-          });
-          addItem('Flip Vertical', 'Shift+V', () => {
-            doc.flipSelected('vertical');
-            render();
-            drawOverlay();
-            updateInspector();
-          });
+          // Transform Submenu
+          addSubmenu('Transform', [
+            { type: 'item', label: 'Flip Horizontal', hotkey: 'Shift+H', action: () => { doc.flipSelected('horizontal'); render(); drawOverlay(); updateInspector(); } },
+            { type: 'item', label: 'Flip Vertical', hotkey: 'Shift+V', action: () => { doc.flipSelected('vertical'); render(); drawOverlay(); updateInspector(); } },
+            { type: 'sep' },
+            { type: 'item', label: 'Rotate 90° CW', action: () => { document.getElementById('btn-rot-90')?.click(); } },
+            { type: 'item', label: 'Reset Rotation', action: () => { document.getElementById('btn-rot-reset')?.click(); } }
+          ]);
 
-          addHeader('Arrange');
-          addItem('Bring to Front', 'Ctrl+Shift+]', () => {
-            for (const o of selectedObjs) doc.bringToFront(o.id);
-            render();
-            drawOverlay();
-            updateObjectList();
-          });
-          addItem('Bring Forward', 'Ctrl+]', () => {
-            for (const o of selectedObjs) doc.bringForward(o.id);
-            render();
-            drawOverlay();
-            updateObjectList();
-          });
-          addItem('Send Backward', 'Ctrl+[', () => {
-            for (const o of selectedObjs) doc.sendBackward(o.id);
-            render();
-            drawOverlay();
-            updateObjectList();
-          });
-          addItem('Send to Back', 'Ctrl+Shift+[', () => {
-            for (const o of selectedObjs) doc.sendToBack(o.id);
-            render();
-            drawOverlay();
-            updateObjectList();
-          });
+          // Arrange Submenu
+          addSubmenu('Arrange', [
+            { type: 'item', label: 'Bring to Front', hotkey: 'Ctrl+Shift+]', action: () => { for (const o of selectedObjs) doc.bringToFront(o.id); render(); drawOverlay(); updateObjectList(); } },
+            { type: 'item', label: 'Bring Forward', hotkey: 'Ctrl+]', action: () => { for (const o of selectedObjs) doc.bringForward(o.id); render(); drawOverlay(); updateObjectList(); } },
+            { type: 'item', label: 'Send Backward', hotkey: 'Ctrl+[', action: () => { for (const o of selectedObjs) doc.sendBackward(o.id); render(); drawOverlay(); updateObjectList(); } },
+            { type: 'item', label: 'Send to Back', hotkey: 'Ctrl+Shift+[', action: () => { for (const o of selectedObjs) doc.sendToBack(o.id); render(); drawOverlay(); updateObjectList(); } }
+          ]);
 
           addSep();
           if (selectedObjs.length === 1) {
@@ -7309,18 +7323,6 @@
             render();
             updateObjectList();
             updateInspector();
-          });
-          addItem('Record Animation State', '◆', () => {
-            if (window.dopeSheet) {
-              const curF = window.dopeSheet.currentFrame || 1;
-              for (const o of selectedObjs) {
-                recordObjectAnimationState(o, curF);
-              }
-              doc.pushHistory(`Record State F${curF}`);
-              updateSelectedObjectEventsUI();
-              updateObjectList();
-              showNotification(`Recorded state at Frame ${curF}`);
-            }
           });
 
           addSep();
@@ -7352,6 +7354,19 @@
           }, { danger: true });
         } else {
           // Case C: Empty Canvas Context
+          addSubmenu('Tools', [
+            { type: 'item', label: 'Select Tool', hotkey: 'V', action: () => selectTool('select') },
+            { type: 'item', label: 'Direct / Node Select', hotkey: 'A', action: () => selectTool('node') },
+            { type: 'item', label: 'Hand / Pan Canvas', hotkey: 'H', action: () => selectTool('hand') },
+            { type: 'item', label: 'Pen / Bézier Tool', hotkey: 'P', action: () => selectTool('pen') },
+            { type: 'item', label: 'Brush Tool', hotkey: 'B', action: () => selectTool('brush') },
+            { type: 'item', label: 'Rectangle Shape', hotkey: 'R', action: () => selectTool('rect') },
+            { type: 'item', label: 'Ellipse / Circle', hotkey: 'O', action: () => selectTool('ellipse') },
+            { type: 'item', label: 'Line Segment', hotkey: 'L', action: () => selectTool('line') },
+            { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') }
+          ]);
+
+          addSep();
           addItem('Paste', 'Ctrl+V', () => {
             doc.paste();
             render();
@@ -7377,84 +7392,105 @@
             render();
           });
           addSep();
-          addHeader('Viewport & Engine');
-          addItem(viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', '', () => {
-            syncRenderMode('quadro');
-          });
-          addItem(viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', '', () => {
-            syncRenderMode('svg');
-          });
-          addItem(Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', '', () => {
-            quadroRenderScale = 0.5;
-            updateStageSize();
-            render();
-            updateRendererMenuUi();
-          });
-          addItem(Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', '', () => {
-            quadroRenderScale = 1.0;
-            updateStageSize();
-            render();
-            updateRendererMenuUi();
-          });
-          addItem(Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', '', () => {
-            quadroRenderScale = 2.0;
-            updateStageSize();
-            render();
-            updateRendererMenuUi();
-          });
-          addItem(viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Nearest (Crisp)', '', () => {
-            setViewportBilinear(!viewportBilinear, true);
-          });
-          addItem(groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', '', () => {
-            setGroupSelectMode(!groupSelectMode, true);
-          });
-          addSep();
-          addItem('Add Horizontal Guide Here', '', () => {
-            userGuides.horizontal.push(Math.round(pt.y));
-            drawOverlay();
-            showNotification(`Added guide at Y: ${Math.round(pt.y)}`);
-          });
-          addItem('Add Vertical Guide Here', '', () => {
-            userGuides.vertical.push(Math.round(pt.x));
-            drawOverlay();
-            showNotification(`Added guide at X: ${Math.round(pt.x)}`);
-          });
+
+          // Viewport & Engine Submenu
+          addSubmenu('Viewport & Engine', [
+            { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
+            { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
+            { type: 'sep' },
+            { type: 'item', label: Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', action: () => { quadroRenderScale = 0.5; updateStageSize(); render(); updateRendererMenuUi(); } },
+            { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+            { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+            { type: 'sep' },
+            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(!viewportBilinear, true) },
+            { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
+          ]);
+
+          // Guides Submenu
+          addSubmenu('Guides', [
+            { type: 'item', label: 'Add Horizontal Guide Here', action: () => { userGuides.horizontal.push(Math.round(pt.y)); drawOverlay(); showNotification(`Added guide at Y: ${Math.round(pt.y)}`); } },
+            { type: 'item', label: 'Add Vertical Guide Here', action: () => { userGuides.vertical.push(Math.round(pt.x)); drawOverlay(); showNotification(`Added guide at X: ${Math.round(pt.x)}`); } },
+            { type: 'sep' },
+            { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
+          ]);
         }
 
-        for (const it of items) {
-          if (it.type === 'header') {
-            const h = document.createElement('div');
-            h.className = 'context-menu-header';
-            h.textContent = it.title;
-            menu.appendChild(h);
-          } else if (it.type === 'sep') {
-            const s = document.createElement('div');
-            s.className = 'context-menu-sep';
-            menu.appendChild(s);
-          } else if (it.type === 'item') {
-            const row = document.createElement('div');
-            row.className = `context-menu-item ${it.danger ? 'danger' : ''} ${it.disabled ? 'disabled' : ''}`;
+        function renderMenuElements(itemsList, parentContainer) {
+          for (const it of itemsList) {
+            if (it.type === 'header') {
+              const h = document.createElement('div');
+              h.className = 'context-menu-header';
+              h.textContent = it.title;
+              parentContainer.appendChild(h);
+            } else if (it.type === 'sep') {
+              const s = document.createElement('div');
+              s.className = 'context-menu-sep';
+              parentContainer.appendChild(s);
+            } else if (it.type === 'submenu') {
+              if (!it.items || it.items.length === 0) continue;
+              const row = document.createElement('div');
+              row.className = 'context-menu-item has-submenu';
 
-            const labelSpan = document.createElement('span');
-            labelSpan.textContent = it.label;
-            row.appendChild(labelSpan);
+              const labelSpan = document.createElement('span');
+              labelSpan.textContent = it.label;
+              row.appendChild(labelSpan);
 
-            if (it.hotkey) {
-              const hk = document.createElement('span');
-              hk.className = 'context-menu-hotkey';
-              hk.textContent = it.hotkey;
-              row.appendChild(hk);
+              const arrowSpan = document.createElement('span');
+              arrowSpan.className = 'context-menu-arrow';
+              arrowSpan.textContent = '▶';
+              row.appendChild(arrowSpan);
+
+              const subEl = document.createElement('div');
+              subEl.className = 'context-submenu';
+              renderMenuElements(it.items, subEl);
+              row.appendChild(subEl);
+
+              row.addEventListener('mouseenter', () => {
+                const r = subEl.getBoundingClientRect();
+                if (r.right > window.innerWidth - 10) {
+                  subEl.style.left = 'auto';
+                  subEl.style.right = '100%';
+                } else {
+                  subEl.style.left = '100%';
+                  subEl.style.right = 'auto';
+                }
+                if (r.bottom > window.innerHeight - 10) {
+                  subEl.style.top = 'auto';
+                  subEl.style.bottom = '0';
+                } else {
+                  subEl.style.top = '-4px';
+                  subEl.style.bottom = 'auto';
+                }
+              });
+
+              parentContainer.appendChild(row);
+            } else if (it.type === 'item') {
+              const row = document.createElement('div');
+              row.className = `context-menu-item ${it.danger ? 'danger' : ''} ${it.disabled ? 'disabled' : ''}`;
+
+              const labelSpan = document.createElement('span');
+              labelSpan.textContent = it.label;
+              row.appendChild(labelSpan);
+
+              if (it.hotkey) {
+                const hk = document.createElement('span');
+                hk.className = 'context-menu-hotkey';
+                hk.textContent = it.hotkey;
+                row.appendChild(hk);
+              }
+
+              row.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hideCanvasContextMenu();
+                if (typeof it.action === 'function') it.action();
+              });
+
+              parentContainer.appendChild(row);
             }
-
-            row.addEventListener('click', (ev) => {
-              ev.stopPropagation();
-              hideCanvasContextMenu();
-              if (typeof it.action === 'function') it.action();
-            });
-
-            menu.appendChild(row);
           }
         }
+
+        renderMenuElements(items, menu);
 
         menu.classList.add('active');
         const menuRect = menu.getBoundingClientRect();
@@ -7486,35 +7522,62 @@
         }
       });
 
+      function clearAllGuides() {
+        userGuides.horizontal = [];
+        userGuides.vertical = [];
+        selectedGuide = null;
+        drawOverlay();
+        showNotification('All guides cleared');
+      }
+      window.clearAllGuides = clearAllGuides;
+
+      function selectTool(toolName) {
+        if (toolName === 'rect' || toolName === 'ellipse' || toolName === 'line') {
+          setShapeTool(toolName);
+          return;
+        }
+        if (activeTool === 'pen' && toolName !== 'pen') {
+          commitPenPath();
+        }
+        const btn = document.querySelector(`.tool-btn[data-tool="${toolName}"]`);
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+        activeTool = toolName;
+        if (activeTool === 'hand') {
+          viewportContainer.classList.add('panning');
+        } else {
+          viewportContainer.classList.remove('panning');
+        }
+        if (statusTool) statusTool.textContent = btn?.title ? btn.title.split('(')[0].trim() : toolName;
+        render();
+        drawOverlay();
+      }
+      window.selectTool = selectTool;
+
       viewportContainer.addEventListener('contextmenu', (e) => {
         if (e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
         e.preventDefault();
         const pt = screenToDoc(e.clientX, e.clientY);
 
         if (activeTool === 'select') {
-          const selected = doc.getSelectedObjects();
-          // Check if right-click landed directly on any already selected object (individual child element or group)
-          const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
-          if (clickedSelected) {
-            // Keep current selection intact (do not override individual element with parent group)
-          } else {
-            const hitDeep = doc.hitTestDeep(pt.x, pt.y);
-            const hitTop = doc.hitTest(pt.x, pt.y);
-            let hitObj = null;
-            if (groupSelectMode) {
-              hitObj = e.altKey ? hitDeep : (hitTop || hitDeep);
-            } else {
-              hitObj = e.altKey ? (hitTop || hitDeep) : (hitDeep || hitTop);
+          let hitObj = null;
+          if (groupSelectMode) {
+            const selected = doc.getSelectedObjects();
+            const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
+            if (!clickedSelected) {
+              hitObj = e.altKey ? doc.hitTestDeep(pt.x, pt.y) : (doc.hitTest(pt.x, pt.y) || doc.hitTestDeep(pt.x, pt.y));
             }
-            if (hitObj) {
-              if (!doc.selectedIds.has(hitObj.id)) {
-                if (!e.shiftKey) doc.selectedIds.clear();
-                doc.selectedIds.add(hitObj.id);
-                render();
-                drawOverlay();
-                updateInspector();
-                updateObjectList();
-              }
+          } else {
+            hitObj = doc.hitTestDeep(pt.x, pt.y);
+          }
+          if (hitObj) {
+            if (!doc.selectedIds.has(hitObj.id)) {
+              if (!e.shiftKey) doc.selectedIds.clear();
+              doc.selectedIds.add(hitObj.id);
+              render();
+              drawOverlay();
+              updateInspector();
+              updateObjectList();
             }
           }
         }
@@ -10874,6 +10937,14 @@
             } else if (targetId === 'tab-style') {
               updateInspector();
             } else if (targetId === 'tab-scene' || targetId === 'tab-objects') {
+              const wEl = document.getElementById('prop-doc-w');
+              const hEl = document.getElementById('prop-doc-h');
+              const bgEl = document.getElementById('prop-doc-bg');
+              const nameEl = document.getElementById('prop-project-name');
+              if (wEl) wEl.value = doc.width;
+              if (hEl) hEl.value = doc.height;
+              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+              if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
               updateObjectList();
               updateSelectedObjectEventsUI();
               updateSceneAnimUI();

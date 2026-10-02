@@ -4087,20 +4087,37 @@
 
     /** Hit Test deepest child inside groups (for direct child selection) */
     hitTestDeep(px, py, tolerance = 6) {
-      for (let i = this.objects.length - 1; i >= 0; i--) {
-        const obj = this.objects[i];
-        if (!obj.visible || obj.locked) continue;
-        if (obj.type === 'group' && obj.children) {
-          for (let k = obj.children.length - 1; k >= 0; k--) {
-            const ch = obj.children[k];
-            if (ch.visible && !ch.locked && ch.hitTest(px, py, tolerance)) {
-              return ch;
-            }
+      const hitNode = (node, curX, curY) => {
+        if (!node.visible || node.locked) return null;
+        if (node.type === 'group' && Array.isArray(node.children)) {
+          let localX = curX - Number(node.x || 0);
+          let localY = curY - Number(node.y || 0);
+          if (node.rotation && node.rotation !== 0) {
+            const rad = -(node.rotation * Math.PI / 180);
+            const cosA = Math.cos(rad);
+            const sinA = Math.sin(rad);
+            const ox = (node.originX !== undefined) ? node.originX : 0;
+            const oy = (node.originY !== undefined) ? node.originY : 0;
+            const dx = localX - ox;
+            const dy = localY - oy;
+            localX = ox + dx * cosA - dy * sinA;
+            localY = oy + dx * sinA + dy * cosA;
           }
+          for (let k = node.children.length - 1; k >= 0; k--) {
+            const deepHit = hitNode(node.children[k], localX, localY);
+            if (deepHit) return deepHit;
+          }
+          return null; // Return null so we never return group itself
         }
-        if (obj.hitTest(px, py, tolerance)) {
-          return obj;
+        if (typeof node.hitTest === 'function' && node.hitTest(curX, curY, tolerance)) {
+          return node;
         }
+        return null;
+      };
+
+      for (let i = this.objects.length - 1; i >= 0; i--) {
+        const leaf = hitNode(this.objects[i], px, py);
+        if (leaf) return leaf;
       }
       return null;
     }
