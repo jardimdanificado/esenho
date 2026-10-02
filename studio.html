@@ -891,25 +891,6 @@
       visibility: hidden;
     }
 
-    /* ── DopeSheet / Timeline Dock Animation ── */
-    #dopesheet-dock {
-      display: block;
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 240px;
-      z-index: 50;
-      box-shadow: 0 -4px 16px rgba(0,0,0,0.5);
-      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      overflow: hidden;
-    }
-
-    #dopesheet-dock.collapsed {
-      transform: translateY(100%);
-      pointer-events: none;
-    }
-
     .tab-bar {
       display: flex;
       border-bottom: 1px solid var(--border);
@@ -1872,8 +1853,7 @@
       </div>
     </div>
 
-    <!-- Sidebar & Timeline Toggles -->
-    <button id="btn-toggle-timeline" class="btn-sm" title="Toggle Timeline / DopeSheet (Shift+T)" style="background: #d79921; color: #1d2021; font-weight: 600;">🎬 Timeline</button>
+    <!-- Sidebar Toggle -->
     <button id="btn-toggle-sidebar" class="btn-sm" title="Toggle Inspector Sidebar (Panels)">⚙ Panels</button>
   </header>
 
@@ -2866,9 +2846,6 @@
       </div>
       <canvas id="overlay-canvas"></canvas>
 
-      <!-- DopeSheet / Animation Timeline Dock (Unified Object Manager & Timeline) -->
-      <div id="dopesheet-dock"></div>
-
       <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
       <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
     </div>
@@ -3296,9 +3273,8 @@
       <div class="tab-content" id="tab-scene">
         <!-- Objects Hierarchy Tree -->
         <div class="section-card" style="margin-bottom: 8px;">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <div class="section-header">
             <span>Objects &amp; Layers</span>
-            <button id="scene-btn-open-timeline" class="btn-sm" style="font-size: 9px; padding: 1px 6px;" title="Open / Close Timeline Dock">🎬 Timeline</button>
           </div>
 
           <div id="object-list"></div>
@@ -4236,12 +4212,8 @@
         applyViewportTransform();
       }
 
-      function applyViewportTransform() {
-        stageWrapper.style.transform = `translate(${panX}px, ${panY}px) rotate(${viewportRotation}deg) scale(${zoom})`;
-        statusZoom.textContent = `${Math.round(zoom * 100)}%`;
-        if (statusRotation) {
-          statusRotation.textContent = `${Math.round(viewportRotation)}°`;
-        }
+      let syncViewportInputsRaf = null;
+      function syncViewportInputs() {
         const zoomInput = document.getElementById('prop-zoom-val');
         if (zoomInput && document.activeElement !== zoomInput) {
           zoomInput.value = Math.round(zoom * 100);
@@ -4257,6 +4229,20 @@
         const camYInput = document.getElementById('prop-camera-y');
         if (camYInput && document.activeElement !== camYInput) {
           camYInput.value = Math.round(panY);
+        }
+      }
+
+      function applyViewportTransform() {
+        stageWrapper.style.transform = `translate(${panX}px, ${panY}px) rotate(${viewportRotation}deg) scale(${zoom})`;
+        statusZoom.textContent = `${Math.round(zoom * 100)}%`;
+        if (statusRotation) {
+          statusRotation.textContent = `${Math.round(viewportRotation)}°`;
+        }
+        if (!syncViewportInputsRaf) {
+          syncViewportInputsRaf = requestAnimationFrame(() => {
+            syncViewportInputsRaf = null;
+            syncViewportInputs();
+          });
         }
         drawOverlay();
       }
@@ -5033,8 +5019,12 @@
             if (window.dopeSheet) {
               const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
               if (targetDObj) {
-                targetDObj.removeEventState(frame);
-                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                if (typeof targetDObj.removeEventState === 'function') {
+                  targetDObj.removeEventState(frame);
+                } else if (typeof targetDObj.removeKeyframesAtFrame === 'function') {
+                  targetDObj.removeKeyframesAtFrame(frame);
+                }
+                if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') window.dopeSheetUI.updateGrid();
                 doc.pushHistory(`Delete Event F${frame}`);
                 updateSelectedObjectEventsUI();
                 updateObjectList();
@@ -5201,6 +5191,21 @@
             render();
             updateObjectList();
             updateInspector();
+          });
+
+          // Right-click context menu in Scene Objects tree
+          item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!doc.selectedIds.has(obj.id)) {
+              if (!e.shiftKey) doc.selectedIds.clear();
+              doc.selectedIds.add(obj.id);
+              render();
+              drawOverlay();
+              updateInspector();
+              updateObjectList();
+            }
+            showCanvasContextMenu(e, { x: obj.x || 0, y: obj.y || 0 });
           });
 
           // HTML5 Drag & Drop
@@ -5936,7 +5941,6 @@
 
       // ── Pointer & Tool Event Handlers ──
       viewportContainer.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('#dopesheet-dock')) return;
         if (isTouchPinching) return;
 
         // Hand tool / Space / Middle Click Pan
@@ -7232,6 +7236,41 @@
           });
 
           addSep();
+          if (selectedObjs.length === 1) {
+            addItem('Rename...', 'F2', () => triggerRenameSelected());
+          }
+          const allLocked = selectedObjs.every(o => o.locked);
+          addItem(allLocked ? 'Unlock Object(s)' : 'Lock Object(s)', '', () => {
+            for (const o of selectedObjs) o.locked = !allLocked;
+            render();
+            updateObjectList();
+            updateInspector();
+          });
+          const allHidden = selectedObjs.every(o => !o.visible);
+          addItem(allHidden ? 'Show Object(s)' : 'Hide Object(s)', '', () => {
+            for (const o of selectedObjs) o.visible = allHidden;
+            render();
+            updateObjectList();
+            updateInspector();
+          });
+          addItem('Record Animation State', '◆', () => {
+            if (window.dopeSheet) {
+              const curF = window.dopeSheet.currentFrame || 1;
+              for (const o of selectedObjs) {
+                const dObj = window.dopeSheet.getOrCreateObject(o.id, o.name || o.id, 'vector');
+                const props = (typeof window.extractLiveObjectProperties === 'function')
+                  ? window.extractLiveObjectProperties(o)
+                  : { x: o.x, y: o.y, rotation: o.rotation, opacity: o.opacity };
+                dObj.setEventState(curF, props);
+              }
+              doc.pushHistory(`Record State F${curF}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+              showNotification(`Recorded state at Frame ${curF}`);
+            }
+          });
+
+          addSep();
           addItem('Cut', 'Ctrl+X', () => {
             doc.copySelected();
             for (const o of selectedObjs) doc.removeObject(o.id);
@@ -7363,20 +7402,29 @@
       });
 
       viewportContainer.addEventListener('contextmenu', (e) => {
-        if (e.target.closest('#dopesheet-dock') || e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
+        if (e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
         e.preventDefault();
         const pt = screenToDoc(e.clientX, e.clientY);
 
         if (activeTool === 'select') {
-          const hitObj = doc.hitTest(pt.x, pt.y);
-          if (hitObj) {
-            if (!doc.selectedIds.has(hitObj.id)) {
-              if (!e.shiftKey) doc.selectedIds.clear();
-              doc.selectedIds.add(hitObj.id);
-              render();
-              drawOverlay();
-              updateInspector();
-              updateObjectList();
+          const selected = doc.getSelectedObjects();
+          // Check if right-click landed directly on any already selected object (individual child element or group)
+          const clickedSelected = selected.find(o => o.visible && !o.locked && o.hitTest(pt.x, pt.y));
+          if (clickedSelected) {
+            // Keep current selection intact (do not override individual element with parent group)
+          } else {
+            const hitDeep = doc.hitTestDeep(pt.x, pt.y);
+            const hitTop = doc.hitTest(pt.x, pt.y);
+            const hitObj = e.altKey ? hitDeep : (hitTop || hitDeep);
+            if (hitObj) {
+              if (!doc.selectedIds.has(hitObj.id)) {
+                if (!e.shiftKey) doc.selectedIds.clear();
+                doc.selectedIds.add(hitObj.id);
+                render();
+                drawOverlay();
+                updateInspector();
+                updateObjectList();
+              }
             }
           }
         }
@@ -7385,7 +7433,7 @@
 
       // ── Zoom & Pan Controls (Touchpad & Wheel) ──
       viewportContainer.addEventListener('wheel', (e) => {
-        if (e.target.closest('#dopesheet-dock') || e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
+        if (e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
         e.preventDefault();
 
         const rect = viewportContainer.getBoundingClientRect();
@@ -7396,7 +7444,6 @@
           // Shift+Wheel for horizontal scroll/pan
           panX -= (e.deltaY || e.deltaX);
           applyViewportTransform();
-          render();
           return;
         }
 
@@ -7405,7 +7452,6 @@
           panX -= e.deltaX;
           panY -= e.deltaY;
           applyViewportTransform();
-          render();
           return;
         }
 
@@ -7426,7 +7472,6 @@
         zoom = newZoom;
 
         applyViewportTransform();
-        render();
       }, { passive: false });
 
       // ── Toolbar Switching & Unified Shape Tool ──
@@ -7673,7 +7718,7 @@
         } else if (key === 't') {
           if (e.shiftKey) {
             e.preventDefault();
-            toggleTimelineDock();
+            document.querySelector('.tab-btn[data-tab="scene"]')?.click();
           } else {
             document.getElementById('tool-text')?.click();
           }
@@ -11087,8 +11132,6 @@
             window.extractLiveObjectProperties = extractLiveObjectProperties;
           }
           window.DopeSheet = DopeSheet;
-          const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
-          const dock = document.getElementById('dopesheet-dock');
 
           if (doc && doc.animation) {
             dopeSheet = DopeSheet.fromJSON(doc.animation);
@@ -11107,22 +11150,15 @@
           window.syncObjectsToDopeSheet = syncObjectsToDopeSheet;
           syncObjectsToDopeSheet();
 
-          if (dock) {
-            dopeSheetUI = new DopeSheetUI(dock, dopeSheet, (frame, samples) => {
-              applyAnimationSamples(samples);
-              updateSceneAnimUI();
-            });
-            window.dopeSheetUI = dopeSheetUI;
-          }
-
-          // Wire Scene Tab Animation Controls
+          // Wire Scene Tab Animation Controls (Animator Fácil)
           document.getElementById('scene-anim-btn-play')?.addEventListener('click', (e) => {
             if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
             toggleScenePlay();
           });
           document.getElementById('scene-anim-btn-prev')?.addEventListener('click', () => {
             if (window.dopeSheet) {
-              const selId = window.dopeSheetUI?.selectedObjectId || null;
+              const selectedObjs = doc.getSelectedObjects();
+              const selId = selectedObjs[0]?.id || null;
               const prevF = window.dopeSheet.prevKeyframe(selId);
               seekSceneFrame(prevF);
             }
@@ -11140,7 +11176,8 @@
           });
           document.getElementById('scene-anim-btn-next')?.addEventListener('click', () => {
             if (window.dopeSheet) {
-              const selId = window.dopeSheetUI?.selectedObjectId || null;
+              const selectedObjs = doc.getSelectedObjects();
+              const selId = selectedObjs[0]?.id || null;
               const nextF = window.dopeSheet.nextKeyframe(selId);
               seekSceneFrame(nextF);
             }
@@ -11151,8 +11188,15 @@
           });
           document.getElementById('scene-anim-select-easing')?.addEventListener('change', (e) => {
             const curve = e.target.value;
-            if (window.dopeSheetUI) {
-              window.dopeSheetUI.applyCurve(curve);
+            if (window.dopeSheet) {
+              const selectedObjs = doc.getSelectedObjects();
+              const curFrame = window.dopeSheet.currentFrame || 1;
+              for (const obj of selectedObjs) {
+                const dObj = window.dopeSheet.getObject(obj.id);
+                if (dObj) dObj.setKeyframeTweenAt(curFrame, curve);
+              }
+              updateSceneAnimUI();
+              updateSelectedObjectEventsUI();
             }
           });
           document.getElementById('scene-anim-scrubber')?.addEventListener('input', (e) => {
@@ -11164,7 +11208,6 @@
           document.getElementById('scene-anim-input-total')?.addEventListener('change', (e) => {
             const val = Math.max(1, parseInt(e.target.value, 10) || 60);
             if (window.dopeSheet) window.dopeSheet.totalFrames = val;
-            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
             updateSceneAnimUI();
           });
           document.getElementById('scene-anim-input-fps')?.addEventListener('change', (e) => {
@@ -11187,7 +11230,6 @@
                 : { x: t.x, y: t.y, rotation: t.rotation, opacity: t.opacity };
               dObj.setEventState(currentFrame, props);
             }
-            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
             doc.pushHistory(`Record Event on Frame ${currentFrame}`);
             updateSelectedObjectEventsUI();
             updateObjectList();
@@ -11203,40 +11245,10 @@
           updateObjectList();
           return dopeSheet;
         } catch (err) {
-          console.error('Failed to initialize DopeSheet:', err);
+          console.error('Failed to initialize Animator:', err);
           return null;
         }
       }
-
-      async function toggleTimelineDock() {
-        if (!dopeSheet) await initStudioDopeSheet();
-        const dock = document.getElementById('dopesheet-dock');
-        const btn = document.getElementById('btn-toggle-timeline');
-        if (dock) {
-          const isCollapsed = dock.classList.contains('collapsed');
-          if (isCollapsed) {
-            dock.classList.remove('collapsed');
-            if (btn) {
-              btn.style.background = '#d79921';
-              btn.style.color = '#1d2021';
-            }
-            if (dopeSheetUI) {
-              dopeSheetUI.updateGrid();
-              dopeSheetUI.updatePlayhead();
-            }
-          } else {
-            dock.classList.add('collapsed');
-            if (btn) {
-              btn.style.background = '';
-              btn.style.color = '';
-            }
-          }
-        }
-      }
-      window.toggleTimelineDock = toggleTimelineDock;
-
-      document.getElementById('btn-toggle-timeline')?.addEventListener('click', toggleTimelineDock);
-      document.getElementById('scene-btn-open-timeline')?.addEventListener('click', toggleTimelineDock);
 
       // Mobile Touch Pinch-to-Zoom, Two-Finger Pan, Rotation & Tap Gestures (2-finger Undo, 3-finger Redo)
       let touchStartDist = 0;
@@ -11350,7 +11362,6 @@
           viewportRotation = newRotation;
 
           applyViewportTransform();
-          render();
         }
       }, { passive: false });
 

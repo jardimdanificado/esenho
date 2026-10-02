@@ -937,6 +937,10 @@ export class DopeSheetObject {
     return anyRemoved;
   }
 
+  removeEventState(frame) {
+    return this.removeKeyframesAtFrame(frame);
+  }
+
   moveKeyframe(fromFrame, toFrame) {
     if (fromFrame === toFrame) return false;
     let movedAny = false;
