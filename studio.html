@@ -709,7 +709,7 @@
     .context-submenu {
       display: none;
       position: absolute;
-      left: 100%;
+      left: calc(100% - 2px);
       top: -4px;
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
@@ -717,12 +717,30 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
       padding: 4px 0;
       min-width: 190px;
+      max-width: 280px;
       font-size: 11.5px;
       font-weight: normal;
       color: var(--text);
       user-select: none;
       -webkit-user-select: none;
       z-index: 1000001;
+    }
+    .context-menu.submenus-left .context-submenu {
+      left: auto;
+      right: calc(100% - 2px);
+    }
+    .context-submenu::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 10px;
+    }
+    .context-menu:not(.submenus-left) .context-submenu::before {
+      left: -10px;
+    }
+    .context-menu.submenus-left .context-submenu::before {
+      right: -10px;
     }
     .context-menu-item:hover > .context-submenu,
     .context-menu-item.submenu-open > .context-submenu {
@@ -1438,10 +1456,10 @@
       #left-sidebar {
         position: fixed;
         top: 42px;
-        left: 48px;
+        left: 0;
         bottom: 0;
         width: 270px;
-        max-width: calc(100vw - 56px);
+        max-width: calc(100vw - 16px);
         box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
         z-index: 1001;
       }
@@ -1806,93 +1824,19 @@
       </div>
     </div>
 
-    <!-- Top Control Bar: Node & Curves, Pathfinder, Alignment (Inkscape-style) -->
+    <!-- Top Control Bar: Fill & Stroke Swatches -->
     <div id="top-control-bar" class="top-control-bar">
-      <!-- Select & Group Mode -->
-      <div class="top-tool-group" title="Selection Mode">
-        <span class="top-tool-group-label">Select</span>
-        <button type="button" class="top-tool-btn active" id="top-toggle-group-select" title="Group Select: When enabled, clicking an element selects its parent group. When disabled, selects individual objects directly.">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><path d="M1 1h14v14H1z" stroke-dasharray="2 1" stroke-width="1"/></svg>
-          <span style="font-size: 10px; margin-left: 3px; font-weight: 600;">Group Select</span>
-        </button>
-      </div>
+      <!-- Fill Swatch Tool Button -->
+      <button class="top-tool-btn tool-swatch-btn" id="btn-popover-fill" title="Fill &amp; Texture Panel (Shift+F)" style="display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer;">
+        <div id="swatch-fill-preview" style="width: 16px; height: 16px; background: #fabd2f; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4); flex-shrink: 0;"></div>
+        <span style="font-size: 11px; font-weight: 600;">Fill</span>
+      </button>
 
-      <!-- Node & Curves Group -->
-      <div class="top-tool-group" title="Node &amp; Curves Controls">
-        <span class="top-tool-group-label">Node</span>
-        <button type="button" class="top-tool-btn" id="top-node-smooth" title="Smooth: Aligned tangent handles">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 C 6 4, 10 4, 14 12"/><circle cx="8" cy="5.5" r="1.5" fill="currentColor"/><line x1="4.5" y1="5.5" x2="11.5" y2="5.5" stroke-width="1"/><circle cx="4.5" cy="5.5" r="1"/><circle cx="11.5" cy="5.5" r="1"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-node-symmetric" title="Symmetric: Mirrored handles">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 13 C 6 6, 10 6, 14 13"/><circle cx="8" cy="6" r="1.5" fill="currentColor"/><line x1="3.5" y1="6" x2="12.5" y2="6" stroke-width="1"/><rect x="3" y="5" width="2" height="2" fill="currentColor"/><rect x="11" y="5" width="2" height="2" fill="currentColor"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-node-cusp" title="Cusp / Independent handles">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 12 L 8 4 L 14 12"/><circle cx="8" cy="4" r="1.5" fill="currentColor"/><line x1="8" y1="4" x2="5" y2="8" stroke-width="1"/><line x1="8" y1="4" x2="11" y2="8" stroke-width="1"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-node-sharp" title="Sharp / Corner: Clear handles">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="2 13 8 3 14 13"/><rect x="6.5" y="2" width="3" height="3" fill="currentColor"/></svg>
-        </button>
-        <div class="top-tool-subsep"></div>
-        <button type="button" class="top-tool-btn" id="top-path-close" title="Toggle Close / Open Path">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><polygon points="3,4 13,4 13,12 3,12"/><line x1="13" y1="4" x2="3" y2="12" stroke-dasharray="2 2"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-node-convert-path" title="Convert selected shape to editable Bézier path">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3.5" y="3.5" width="9" height="9" rx="0.5"/><circle cx="3.5" cy="3.5" r="1.5" fill="var(--accent)"/><circle cx="12.5" cy="3.5" r="1.5" fill="var(--accent)"/><circle cx="12.5" cy="12.5" r="1.5" fill="var(--accent)"/><circle cx="3.5" cy="12.5" r="1.5" fill="var(--accent)"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-create-outlines" title="Convert text to vector outlines">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.2"><text x="8" y="12.5" text-anchor="middle" font-size="11" font-weight="900" fill="none" stroke="currentColor" font-family="sans-serif">A</text></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-simplify-path" title="Simplify Path (RDP curve simplification)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 11 Q 5 2, 8 8 T 14 5"/><polyline points="10 13 14 13 14 9"/></svg>
-        </button>
-      </div>
-
-      <!-- Pathfinder / Boolean Ops Group -->
-      <div class="top-tool-group" title="Pathfinder (Boolean Operations)">
-        <span class="top-tool-group-label">Pathfinder</span>
-        <button type="button" class="top-tool-btn" id="top-path-union" title="Union (Ctrl++)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 5a3 3 0 0 1 3-3h3v3h3a3 3 0 0 1 3 3v3a3 3 0 0 1-3 3h-3v-3H5a3 3 0 0 1-3-3z" fill="currentColor" fill-opacity="0.25"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-path-subtract" title="Subtract / Difference (Ctrl+-)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 5a3 3 0 0 1 3-3h4v4H5v4H2z" fill="currentColor" fill-opacity="0.4"/><rect x="6" y="6" width="8" height="8" rx="2" stroke-dasharray="2 1"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-path-intersect" title="Intersect (Ctrl+*)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="8" height="8" rx="2"/><rect x="6" y="6" width="8" height="8" rx="2"/><rect x="6" y="6" width="4" height="4" fill="currentColor" fill-opacity="0.5"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-path-exclude" title="Exclude / XOR (Ctrl+^)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 2h8v4H6v4H2z M10 6h4v8H6v-4h4z" fill="currentColor" fill-opacity="0.35"/><rect x="2" y="2" width="8" height="8" rx="1"/><rect x="6" y="6" width="8" height="8" rx="1"/></svg>
-        </button>
-      </div>
-
-      <!-- Alignment & Distribution Group -->
-      <div class="top-tool-group" title="Align &amp; Distribute">
-        <span class="top-tool-group-label">Align</span>
-        <button type="button" class="top-tool-btn" id="top-align-left" title="Align Left">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="2" y2="14" stroke-width="2"/><rect x="4" y="4" width="9" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="4" y="9" width="6" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-align-center" title="Align Center Horizontally">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="8" y1="2" x2="8" y2="14" stroke-dasharray="1 1"/><rect x="3" y="4" width="10" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="5" y="9" width="6" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-align-right" title="Align Right">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="14" y1="2" x2="14" y2="14" stroke-width="2"/><rect x="3" y="4" width="9" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="6" y="9" width="6" height="3" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-align-top" title="Align Top">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="14" y2="2" stroke-width="2"/><rect x="4" y="4" width="3" height="9" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9" y="4" width="3" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-align-middle" title="Align Middle Vertically">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="8" x2="14" y2="8" stroke-dasharray="1 1"/><rect x="4" y="3" width="3" height="10" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9" y="5" width="3" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-align-bottom" title="Align Bottom">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="14" x2="14" y2="14" stroke-width="2"/><rect x="4" y="3" width="3" height="9" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9" y="6" width="3" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <div class="top-tool-subsep"></div>
-        <button type="button" class="top-tool-btn" id="top-distribute-h" title="Distribute Horizontally">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="2" y2="14"/><line x1="14" y1="2" x2="14" y2="14"/><rect x="4" y="5" width="2.5" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="9.5" y="5" width="2.5" height="6" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-        <button type="button" class="top-tool-btn" id="top-distribute-v" title="Distribute Vertically">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><line x1="2" y1="2" x2="14" y2="2"/><line x1="2" y1="14" x2="14" y2="14"/><rect x="5" y="4" width="6" height="2.5" rx="0.5" fill="currentColor" fill-opacity="0.3"/><rect x="5" y="9.5" width="6" height="2.5" rx="0.5" fill="currentColor" fill-opacity="0.3"/></svg>
-        </button>
-      </div>
+      <!-- Stroke Swatch Tool Button -->
+      <button class="top-tool-btn tool-swatch-btn" id="btn-popover-stroke" title="Stroke &amp; Brush Dynamics Panel" style="display: flex; align-items: center; gap: 6px; padding: 3px 8px; cursor: pointer;">
+        <div id="swatch-stroke-preview" style="width: 16px; height: 16px; background: transparent; border: 3px solid #1d2021; border-radius: 3px; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.4); flex-shrink: 0;"></div>
+        <span style="font-size: 11px; font-weight: 600;">Stroke</span>
+      </button>
     </div>
 
     <!-- Sidebar Toggle -->
@@ -1902,190 +1846,6 @@
   <!-- Main Workspace -->
   <div id="workspace">
 
-    <!-- Left Tool Palette -->
-    <div id="toolbar">
-      <button class="tool-btn active" id="tool-select" data-tool="select" title="Select / Transform (V)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l7 18 2.5-7.5L20 11 3 3z"/></svg>
-        <span class="hotkey">V</span>
-      </button>
-      <button class="tool-btn" id="tool-hand" data-tool="hand" title="Hand / Pan (H)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v4"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v6"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
-        <span class="hotkey">H</span>
-      </button>
-      <button class="tool-btn" id="tool-node" data-tool="node" title="Bézier Node Editor (A)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><line x1="3" y1="12" x2="9" y2="12"/><line x1="15" y1="12" x2="21" y2="12"/></svg>
-        <span class="hotkey">A</span>
-      </button>
-      <button class="tool-btn" id="tool-pen" data-tool="pen" title="Bézier Pen (P)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
-        <span class="hotkey">P</span>
-      </button>
-      <button class="tool-btn" id="tool-brush" data-tool="brush" title="Freehand Vector Brush (B)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.06 11.9l8.07-8.06a2.85 2.85 0 1 1 4.03 4.03l-8.06 8.08"/><path d="M7.07 14.94c-1.66 0-3 1.34-3 3 0 2 2 3.06 3 3.06s3-1.06 3-3.06c0-1.66-1.34-3-3-3z"/></svg>
-        <span class="hotkey">B</span>
-      </button>
-      
-      <div class="toolbar-sep"></div>
-      
-      <!-- Unified Shape Tool Popover -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn" id="tool-shape-unified" data-tool="rect" title="Shapes (R, O, L)">
-          <span id="tool-shape-icon" style="display: flex; align-items: center; justify-content: center;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
-          </span>
-          <span class="flyout-indicator">▸</span>
-        </button>
-        <div id="flyout-shapes" class="tool-flyout">
-          <div class="flyout-title">Shapes</div>
-          <div class="flyout-col">
-            <button type="button" class="btn-icon" id="shape-opt-rect" data-tool="rect" style="width: 100%; justify-content: flex-start; gap: 8px; padding: 5px 8px; font-size: 11px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>
-              <span>Rectangle</span> <span style="margin-left: auto; color: var(--text-muted); font-size: 10px;">R</span>
-            </button>
-            <button type="button" class="btn-icon" id="shape-opt-ellipse" data-tool="ellipse" style="width: 100%; justify-content: flex-start; gap: 8px; padding: 5px 8px; font-size: 11px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
-              <span>Ellipse / Circle</span> <span style="margin-left: auto; color: var(--text-muted); font-size: 10px;">O</span>
-            </button>
-            <button type="button" class="btn-icon" id="shape-opt-line" data-tool="line" style="width: 100%; justify-content: flex-start; gap: 8px; padding: 5px 8px; font-size: 11px;">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>
-              <span>Line</span> <span style="margin-left: auto; color: var(--text-muted); font-size: 10px;">L</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <button class="tool-btn" id="tool-text" data-tool="text" title="Vector Typography (T)">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="12" y1="4" x2="12" y2="20"/><line x1="9" y1="20" x2="15" y2="20"/></svg>
-        <span class="hotkey">T</span>
-      </button>
-      
-      <div class="toolbar-sep"></div>
-
-      <!-- Node & Curves Flyout -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn" id="btn-popover-node-curves" title="Node &amp; Curves Tools">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17c3-7 8-7 11 0s8 7 11 0"/><circle cx="3" cy="17" r="2"/><circle cx="14" cy="17" r="2"/><circle cx="21" cy="13" r="2"/></svg>
-          <span class="flyout-indicator">▸</span>
-        </button>
-        <div id="flyout-node-curves" class="tool-flyout" style="width: 190px;">
-          <div class="flyout-title">Node &amp; Curves</div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="btn-node-smooth" title="Smooth: Aligned tangent handles" style="flex: 1; font-size: 10px; padding: 4px;">Smooth</button>
-            <button class="btn-icon" id="btn-node-symmetric" title="Symmetric: Mirrored handles" style="flex: 1; font-size: 10px; padding: 4px;">Symmetric</button>
-          </div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="btn-node-cusp" title="Cusp / Independent handles" style="flex: 1; font-size: 10px; padding: 4px;">Cusp</button>
-            <button class="btn-icon" id="btn-node-sharp" title="Sharp Corner: Clear handles" style="flex: 1; font-size: 10px; padding: 4px;">Sharp</button>
-          </div>
-          <button class="btn-icon" id="btn-path-close" style="width: 100%; font-size: 10px; padding: 4px; margin-top: 2px;" title="Toggle Close / Open Path">Toggle Close Path</button>
-          
-          <div class="flyout-divider"></div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="btn-quick-convert-path" style="flex: 1; font-size: 10px; padding: 4px; border-color: var(--accent); color: var(--accent);" title="Convert selected primitive to editable Bézier path">Shape to Path</button>
-            <button class="btn-icon" id="btn-quick-create-outlines" style="flex: 1; font-size: 10px; padding: 4px; border-color: var(--accent); color: var(--accent);" title="Convert text to vector curve outlines">Outlines</button>
-          </div>
-
-          <div class="flyout-divider"></div>
-          <div style="font-size: 10px; color: var(--text-muted); margin-bottom: 3px;">Simplify Curves (RDP)</div>
-          <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-            <input type="range" id="prop-simplify-tol" min="0.2" max="10.0" step="0.2" value="2.0" style="flex: 1;">
-            <span id="prop-simplify-val" style="font-size: 10px; width: 22px; text-align: right; font-family: var(--font-mono);">2.0</span>
-          </div>
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
-            <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer; color: var(--text);">
-              <input type="checkbox" id="prop-simplify-bezier" checked> Bézier Fit
-            </label>
-            <button class="btn-sm" id="btn-simplify-path" style="font-size: 9px; padding: 2px 6px; border-color: var(--primary); color: var(--primary);">Simplify</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Alignment & Distribution Flyout -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn" id="btn-popover-align" title="Align & Distribute">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="4" x2="4" y2="20"/><rect x="8" y="7" width="12" height="4" rx="1"/><rect x="8" y="13" width="8" height="4" rx="1"/></svg>
-          <span class="flyout-indicator">▸</span>
-        </button>
-        <div id="flyout-align" class="tool-flyout">
-          <div class="flyout-title">Align & Distribute</div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="quick-align-left" title="Align Left">⇤</button>
-            <button class="btn-icon" id="quick-align-center" title="Align Center">⇥⇤</button>
-            <button class="btn-icon" id="quick-align-right" title="Align Right">⇥</button>
-          </div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="quick-align-top" title="Align Top">⤒</button>
-            <button class="btn-icon" id="quick-align-middle" title="Align Middle">⤓⤒</button>
-            <button class="btn-icon" id="quick-align-bottom" title="Align Bottom">⤓</button>
-          </div>
-          <div class="flyout-divider"></div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="quick-distribute-h" title="Distribute Horizontally" style="flex: 1; font-size: 10px; padding: 4px;">Dist H</button>
-            <button class="btn-icon" id="quick-distribute-v" title="Distribute Vertically" style="flex: 1; font-size: 10px; padding: 4px;">Dist V</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pathfinder / Boolean Ops Flyout -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn" id="btn-popover-pathfinder" title="Pathfinder Operations">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="9" r="6"/><circle cx="15" cy="15" r="6"/></svg>
-          <span class="flyout-indicator">▸</span>
-        </button>
-        <div id="flyout-pathfinder" class="tool-flyout">
-          <div class="flyout-title">Pathfinder (Boolean)</div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="quick-path-union" title="Union" style="flex: 1; font-size: 10px; padding: 4px;">Union</button>
-            <button class="btn-icon" id="quick-path-subtract" title="Subtract" style="flex: 1; font-size: 10px; padding: 4px;">Subtract</button>
-          </div>
-          <div class="flyout-row">
-            <button class="btn-icon" id="quick-path-intersect" title="Intersect" style="flex: 1; font-size: 10px; padding: 4px;">Intersect</button>
-            <button class="btn-icon" id="quick-path-exclude" title="Exclude" style="flex: 1; font-size: 10px; padding: 4px;">Exclude</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Smart Snapping Flyout -->
-      <div class="tool-popover-wrap">
-        <button class="tool-btn" id="btn-popover-snap" title="Snapping Options">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3v7a6 6 0 0 0 12 0V3"/><line x1="6" y1="7" x2="6" y2="3"/><line x1="18" y1="7" x2="18" y2="3"/></svg>
-          <span class="flyout-indicator">▸</span>
-        </button>
-        <div id="flyout-snap" class="tool-flyout">
-          <div class="flyout-title" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>Smart Snapping</span>
-            <button class="btn-sm" id="btn-toggle-snap" style="font-size: 9px; padding: 2px 6px; color: var(--primary);">ON</button>
-          </div>
-          <div class="flyout-col">
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-grid"> Grid</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-canvas" checked> Canvas Center &amp; Edges</label>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-guides" checked> Ruler Guides</label>
-              <button type="button" id="btn-clear-ruler-guides" class="btn-sm" style="font-size: 9px; padding: 1px 4px; border-color: var(--danger-dim); color: var(--danger);" title="Clear all ruler guide lines">Clear</button>
-            </div>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; color: var(--text); font-size: 11px;"><input type="checkbox" id="snap-opt-objects" checked> Object Geometry</label>
-          </div>
-          <div style="margin-top: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted);">
-              <span>Intensity</span>
-              <span id="lbl-snap-intensity" style="font-family: monospace;">6px</span>
-            </div>
-            <input type="range" id="snap-intensity" min="1" max="30" value="6" style="width: 100%; margin-top: 2px;">
-          </div>
-        </div>
-      </div>
-
-      <div class="toolbar-sep"></div>
-      
-      <!-- Fill Swatch Tool Button -->
-      <button class="tool-btn tool-swatch-btn" id="btn-popover-fill" title="Fill &amp; Texture Panel (Shift+F)" style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <div id="swatch-fill-preview" style="width: 18px; height: 18px; background: #fabd2f; border: 1.5px solid rgba(255,255,255,0.25); border-radius: 3px; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
-      </button>
-
-      <!-- Stroke Swatch Tool Button -->
-      <button class="tool-btn tool-swatch-btn" id="btn-popover-stroke" title="Stroke &amp; Brush Dynamics Panel" style="position: relative; display: flex; align-items: center; justify-content: center;">
-        <div id="swatch-stroke-preview" style="width: 18px; height: 18px; background: transparent; border: 3.5px solid #1d2021; border-radius: 3px; box-sizing: border-box; box-shadow: 0 1px 3px rgba(0,0,0,0.4);"></div>
-      </button>
-    </div>
 
     <!-- Left Retractable Sidebar (Fill & Stroke Dynamics) -->
     <div id="left-sidebar">
@@ -3317,20 +3077,6 @@
           </div>
 
           <div id="object-list"></div>
-
-          <!-- Quick Layer Order Buttons -->
-          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
-            <div class="grid-4">
-              <button id="btn-bring-front" class="btn-sm" title="Bring to Front">Top</button>
-              <button id="btn-bring-fwd" class="btn-sm" title="Bring Forward">Up</button>
-              <button id="btn-send-back" class="btn-sm" title="Send Backward">Down</button>
-              <button id="btn-send-bot" class="btn-sm" title="Send to Bottom">Bot</button>
-            </div>
-            <div class="grid-2">
-              <button id="btn-rename-obj" class="btn-sm" title="Rename Selected Object (F2)">Rename</button>
-              <button id="btn-scene-dup-obj" class="btn-sm" title="Duplicate Object (Ctrl+D)">Duplicate</button>
-            </div>
-          </div>
         </div>
 
         <!-- Scene Animation Bar -->
@@ -6321,8 +6067,7 @@
             });
             doc.addObject(textObj);
             doc.select(textObj.id);
-            const selectToolBtn = document.getElementById('tool-select');
-            if (selectToolBtn) selectToolBtn.click();
+            selectTool('select');
             render();
             updateInspector();
             updateObjectList();
@@ -6966,6 +6711,18 @@
       });
 
       // ── Context Menu (Canvas & Objects & Anchor Nodes) ──
+      function removeGuide(type, index) {
+        if (userGuides && userGuides[type] && userGuides[type][index] !== undefined) {
+          userGuides[type].splice(index, 1);
+          if (selectedGuide && selectedGuide.type === type && selectedGuide.index === index) {
+            selectedGuide = null;
+          }
+          drawOverlay();
+          showNotification('Guideline removed');
+        }
+      }
+      window.removeGuide = removeGuide;
+
       function showCanvasContextMenu(e, pt) {
         e.preventDefault();
         e.stopPropagation();
@@ -6978,6 +6735,7 @@
         const isNodeTool = activeTool === 'node';
         const { path: activePath, node: activeNode } = (isNodeTool || selectedNodeIndices.size > 0) ? getActivePathAndNode() : { path: null, node: null };
         const hasSelectedNodes = isNodeTool && (selectedNodeIndices.size > 0 || activeNodeIdx !== -1);
+        const hitGuide = (typeof findGuideAt === 'function' ? findGuideAt(pt, 8) : null) || selectedGuide;
 
         // Check if right clicked over an anchor node or segment
         let clickedNodeIdx = -1;
@@ -7306,6 +7064,16 @@
             { type: 'item', label: 'Send to Back', hotkey: 'Ctrl+Shift+[', action: () => { for (const o of selectedObjs) doc.sendToBack(o.id); render(); drawOverlay(); updateObjectList(); } }
           ]);
 
+          if (hitGuide && userGuides && userGuides[hitGuide.type] && userGuides[hitGuide.type][hitGuide.index] !== undefined) {
+            const guideVal = userGuides[hitGuide.type][hitGuide.index];
+            const guideLabel = hitGuide.type === 'horizontal' ? `Remove Horizontal Guide (Y: ${guideVal})` : `Remove Vertical Guide (X: ${guideVal})`;
+            addSubmenu('Guides', [
+              { type: 'item', label: guideLabel, danger: true, action: () => removeGuide(hitGuide.type, hitGuide.index) },
+              { type: 'sep' },
+              { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
+            ]);
+          }
+
           addSep();
           if (selectedObjs.length === 1) {
             addItem('Rename...', 'F2', () => triggerRenameSelected());
@@ -7407,12 +7175,25 @@
           ]);
 
           // Guides Submenu
-          addSubmenu('Guides', [
+          const guideItems = [];
+          if (hitGuide && userGuides && userGuides[hitGuide.type] && userGuides[hitGuide.type][hitGuide.index] !== undefined) {
+            const guideVal = userGuides[hitGuide.type][hitGuide.index];
+            const guideLabel = hitGuide.type === 'horizontal' ? `Remove Horizontal Guide (Y: ${guideVal})` : `Remove Vertical Guide (X: ${guideVal})`;
+            guideItems.push({
+              type: 'item',
+              label: guideLabel,
+              danger: true,
+              action: () => removeGuide(hitGuide.type, hitGuide.index)
+            });
+            guideItems.push({ type: 'sep' });
+          }
+          guideItems.push(
             { type: 'item', label: 'Add Horizontal Guide Here', action: () => { userGuides.horizontal.push(Math.round(pt.y)); drawOverlay(); showNotification(`Added guide at Y: ${Math.round(pt.y)}`); } },
             { type: 'item', label: 'Add Vertical Guide Here', action: () => { userGuides.vertical.push(Math.round(pt.x)); drawOverlay(); showNotification(`Added guide at X: ${Math.round(pt.x)}`); } },
             { type: 'sep' },
             { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
-          ]);
+          );
+          addSubmenu('Guides', guideItems);
         }
 
         function renderMenuElements(itemsList, parentContainer) {
@@ -7446,17 +7227,31 @@
               row.appendChild(subEl);
 
               row.addEventListener('mouseenter', () => {
-                const r = subEl.getBoundingClientRect();
-                if (r.right > window.innerWidth - 10) {
+                const parentRect = menu.getBoundingClientRect();
+                const rowRect = row.getBoundingClientRect();
+
+                subEl.style.visibility = 'hidden';
+                subEl.style.display = 'flex';
+                const subRect = subEl.getBoundingClientRect();
+                subEl.style.visibility = '';
+                subEl.style.display = '';
+
+                const preferLeft = menu.classList.contains('submenus-left') || 
+                                   (parentRect.right + (subRect.width || 190) > window.innerWidth - 10) || 
+                                   (rowRect.right + (subRect.width || 190) > window.innerWidth - 10);
+                if (preferLeft) {
                   subEl.style.left = 'auto';
-                  subEl.style.right = '100%';
+                  subEl.style.right = 'calc(100% - 2px)';
                 } else {
-                  subEl.style.left = '100%';
+                  subEl.style.left = 'calc(100% - 2px)';
                   subEl.style.right = 'auto';
                 }
-                if (r.bottom > window.innerHeight - 10) {
-                  subEl.style.top = 'auto';
-                  subEl.style.bottom = '0';
+
+                const overflowY = (rowRect.top + (subRect.height || 180)) - (window.innerHeight - 12);
+                if (overflowY > 0) {
+                  const newTop = Math.max(-rowRect.top + 8, -4 - overflowY);
+                  subEl.style.top = `${newTop}px`;
+                  subEl.style.bottom = 'auto';
                 } else {
                   subEl.style.top = '-4px';
                   subEl.style.bottom = 'auto';
@@ -7502,8 +7297,17 @@
         if (posY + menuRect.height > window.innerHeight - 8) {
           posY = window.innerHeight - menuRect.height - 8;
         }
-        menu.style.left = `${Math.max(8, posX)}px`;
-        menu.style.top = `${Math.max(8, posY)}px`;
+        posX = Math.max(8, posX);
+        posY = Math.max(8, posY);
+
+        if (posX > window.innerWidth - 440) {
+          menu.classList.add('submenus-left');
+        } else {
+          menu.classList.remove('submenus-left');
+        }
+
+        menu.style.left = `${posX}px`;
+        menu.style.top = `${posY}px`;
       }
 
       function hideCanvasContextMenu() {
@@ -7548,7 +7352,15 @@
         } else {
           viewportContainer.classList.remove('panning');
         }
-        if (statusTool) statusTool.textContent = btn?.title ? btn.title.split('(')[0].trim() : toolName;
+        const toolTitles = {
+          select: 'Select / Transform',
+          hand: 'Hand / Pan Canvas',
+          node: 'Bézier Node Editor',
+          pen: 'Bézier Pen',
+          brush: 'Freehand Vector Brush',
+          text: 'Vector Typography'
+        };
+        if (statusTool) statusTool.textContent = toolTitles[toolName] || (btn?.title ? btn.title.split('(')[0].trim() : toolName);
         render();
         drawOverlay();
       }
@@ -7623,37 +7435,15 @@
           commitPenPath();
         }
         activeTool = type;
-        const unifiedBtn = document.getElementById('tool-shape-unified');
-        const iconEl = document.getElementById('tool-shape-icon');
-        const iconMap = {
-          rect: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>',
-          ellipse: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>',
-          line: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="20" x2="20" y2="4"/></svg>'
-        };
         const titleMap = {
-          rect: 'Rectangle (R)',
-          ellipse: 'Ellipse / Circle (O)',
-          line: 'Line (L)'
+          rect: 'Rectangle Shape',
+          ellipse: 'Ellipse / Circle Shape',
+          line: 'Line Segment Shape'
         };
-        if (unifiedBtn) {
-          unifiedBtn.dataset.tool = type;
-          unifiedBtn.title = titleMap[type] || 'Shapes';
-        }
-        if (iconEl && iconMap[type]) {
-          iconEl.innerHTML = iconMap[type];
-        }
-        ['rect', 'ellipse', 'line'].forEach(t => {
-          const optBtn = document.getElementById(`shape-opt-${t}`);
-          if (optBtn) {
-            optBtn.style.background = (t === type) ? 'var(--bg-panel-sub)' : 'transparent';
-            optBtn.style.color = (t === type) ? 'var(--primary)' : 'var(--text-main)';
-          }
-        });
-        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-        unifiedBtn?.classList.add('active');
         viewportContainer.classList.remove('panning');
-        if (statusTool) statusTool.textContent = titleMap[type]?.split('(')[0].trim() || type;
+        if (statusTool) statusTool.textContent = titleMap[type] || type;
         render();
+        drawOverlay();
       }
 
       ['rect', 'ellipse', 'line'].forEach(type => {
@@ -7843,27 +7633,27 @@
         } else if (key === 'enter') {
           if (activeTool === 'pen') commitPenPath();
         } else if (key === 'v') {
-          document.getElementById('tool-select')?.click();
+          selectTool('select');
         } else if (key === 'h') {
-          document.getElementById('tool-hand')?.click();
+          selectTool('hand');
         } else if (key === 'a') {
-          document.getElementById('tool-node')?.click();
+          selectTool('node');
         } else if (key === 'p') {
-          document.getElementById('tool-pen')?.click();
+          selectTool('pen');
         } else if (key === 'b') {
-          document.getElementById('tool-brush')?.click();
+          selectTool('brush');
         } else if (key === 'r') {
-          setShapeTool('rect');
+          selectTool('rect');
         } else if (key === 'o') {
-          setShapeTool('ellipse');
+          selectTool('ellipse');
         } else if (key === 'l') {
-          setShapeTool('line');
+          selectTool('line');
         } else if (key === 't') {
           if (e.shiftKey) {
             e.preventDefault();
             document.querySelector('.tab-btn[data-tab="scene"]')?.click();
           } else {
-            document.getElementById('tool-text')?.click();
+            selectTool('text');
           }
         } else if (key === 'f') {
           if (e.shiftKey) {
