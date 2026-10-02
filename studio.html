@@ -744,106 +744,127 @@
       padding: 4px 14px 2px;
     }
 
-    /* ── Left Retractable Sidebar (Fill & Stroke Dynamics) ── */
-    #left-sidebar {
-      width: 270px;
+    /* ── Dockview Layout Engine & Gruvbox Theme ── */
+    #dockview-container {
+      width: 100%;
       height: 100%;
-      max-height: 100%;
-      background: var(--bg-panel);
-      border-right: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      z-index: 95;
-      flex-shrink: 0;
-      min-width: 0;
-      min-height: 0;
+      position: absolute;
+      inset: 0;
       overflow: hidden;
-      transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      background: var(--bg-dark);
     }
 
-    #left-sidebar.collapsed {
-      width: 0 !important;
-      min-width: 0 !important;
-      border-right: none !important;
-      visibility: hidden;
+    .dockview-theme-dark {
+      --dv-drag-over-background-color: rgba(250, 189, 47, 0.15);
+      --dv-drag-over-border-color: var(--primary);
+      --dv-tabs-and-actions-container-background-color: #1a1c1d;
+      --dv-activegroup-visiblepanel-tab-background-color: var(--bg-panel);
+      --dv-activegroup-visiblepanel-tab-color: var(--primary);
+      --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+      --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
+      --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-panel);
+      --dv-inactivegroup-visiblepanel-tab-color: var(--text);
+      --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+      --dv-inactivegroup-hiddenpanel-tab-color: var(--text-dim);
+      --dv-tab-divider-color: var(--border);
+      --dv-separator-border: 1px solid var(--border);
+      --dv-paneview-active-outline-color: var(--primary);
+      --dv-defaulttab-hover-background-color: rgba(255, 255, 255, 0.05);
+      --dv-group-view-background-color: var(--bg-panel);
+      --dv-background-color: var(--bg-panel);
+      --dv-sash-hover-color: var(--primary);
+      --dv-sash-size: 4px;
     }
 
-    .left-tab-bar {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-panel-sub);
-      padding: 4px 6px;
-      gap: 3px;
-      flex-shrink: 0;
-      align-items: center;
+    /* Never show close buttons on tabs/groups - docks cannot be closed */
+    .dockview-theme-dark .dv-default-tab-action,
+    .dockview-theme-dark .dv-tab-close-btn,
+    .dockview-theme-dark [class*="close-btn"],
+    .dockview-theme-dark [class*="tab-close"],
+    .dockview-theme-dark .dv-group-action-close {
+      display: none !important;
     }
 
-    .left-tab-btn {
-      flex: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px 6px;
-      font-size: 10px;
+    .dockview-theme-dark .dv-tab {
+      font-size: 11px;
       font-weight: 600;
-      text-transform: capitalize;
       letter-spacing: 0.2px;
-      line-height: 1.2;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.12s ease;
-      white-space: nowrap;
+      padding: 0 12px;
+      height: 28px;
+      cursor: pointer !important;
+      user-select: none;
     }
 
-    .left-tab-btn:hover {
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.05);
+    .dockview-theme-dark .dv-tab * {
+      cursor: pointer !important;
     }
 
-    .left-tab-btn.active {
-      background: var(--bg-panel);
-      color: var(--primary);
-      border: 1px solid var(--border);
-      font-weight: 700;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    .dockview-theme-dark .dv-tabs-and-actions-container {
+      height: 28px;
+      border-bottom: 1px solid var(--border);
+      background: #1a1c1d;
     }
 
-    .left-tab-content {
-      flex: 1 1 0px;
-      min-height: 0;
+    .dock-panel-content {
+      width: 100%;
       height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      display: none;
-      padding: 6px 8px;
-      padding-bottom: 20px;
+      background: var(--bg-panel);
+      display: flex;
       flex-direction: column;
+      padding: 6px 8px;
+      padding-bottom: 24px;
       gap: 6px;
+      box-sizing: border-box;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
       overscroll-behavior: contain;
     }
 
-    .left-tab-content::-webkit-scrollbar {
+    .dock-panel-content::-webkit-scrollbar {
       width: 4px;
     }
-    .left-tab-content::-webkit-scrollbar-track {
+    .dock-panel-content::-webkit-scrollbar-track {
       background: transparent;
     }
-    .left-tab-content::-webkit-scrollbar-thumb {
+    .dock-panel-content::-webkit-scrollbar-thumb {
       background: var(--border);
       border-radius: 2px;
     }
-    .left-tab-content::-webkit-scrollbar-thumb:hover {
+    .dock-panel-content::-webkit-scrollbar-thumb:hover {
       background: var(--border-bright);
     }
 
-    .left-tab-content.active {
+    #dock-panel-canvas {
+      padding: 0 !important;
+      overflow: hidden !important;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-canvas);
+    }
+
+    #dock-panel-canvas #viewport-container {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+    }
+
+    #dock-panel-scene {
+      padding: 6px;
+      overflow: hidden;
       display: flex;
+      flex-direction: column;
+    }
+
+    #dock-panel-animation {
+      padding: 6px 8px 16px 8px;
+    }
+
+    #dock-panel-document {
+      padding: 6px 8px 16px 8px;
     }
 
     /* ── Center Viewport / Canvas ── */
@@ -898,111 +919,6 @@
       height: 100%;
       pointer-events: none;
       z-index: 5;
-    }
-
-    /* ── Right Inspector & Sidebar ── */
-    #sidebar {
-      width: 260px;
-      height: 100%;
-      max-height: 100%;
-      background: var(--bg-panel);
-      border-left: 1px solid var(--border);
-      display: flex;
-      flex-direction: column;
-      z-index: 1001;
-      flex-shrink: 0;
-      min-width: 0;
-      min-height: 0;
-      overflow: hidden;
-      transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    #sidebar.collapsed,
-    #sidebar.desktop-hidden {
-      width: 0 !important;
-      min-width: 0 !important;
-      border-left: none !important;
-      visibility: hidden;
-    }
-
-    .tab-bar {
-      display: flex;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg-panel-sub);
-      padding: 4px 6px;
-      gap: 4px;
-      flex-shrink: 0;
-      align-items: center;
-    }
-
-    .tab-btn {
-      flex: 1;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 4px 8px;
-      font-size: 10px;
-      font-weight: 600;
-      text-transform: capitalize;
-      letter-spacing: 0.2px;
-      line-height: 1.2;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: var(--radius-sm);
-      color: var(--text-muted);
-      cursor: pointer;
-      text-align: center;
-      transition: all 0.12s ease;
-    }
-
-    .tab-btn:hover {
-      color: var(--text);
-      background: rgba(255, 255, 255, 0.05);
-    }
-
-    .tab-btn.active {
-      background: var(--bg-panel);
-      color: var(--primary);
-      border: 1px solid var(--border);
-      font-weight: 700;
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-    }
-
-    .tab-content {
-      flex: 1 1 0px;
-      min-height: 0;
-      height: 100%;
-      overflow-y: auto;
-      overflow-x: hidden;
-      display: none;
-      padding: 6px 8px;
-      padding-bottom: 20px;
-      flex-direction: column;
-      gap: 6px;
-      scrollbar-width: thin;
-      scrollbar-color: var(--border) transparent;
-      overscroll-behavior: contain;
-    }
-
-    .tab-content::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    .tab-content::-webkit-scrollbar-track {
-      background: transparent;
-    }
-
-    .tab-content::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 2px;
-    }
-
-    .tab-content::-webkit-scrollbar-thumb:hover {
-      background: var(--border-bright);
-    }
-
-    .tab-content.active {
-      display: flex;
     }
 
     /* ── Collapsible Card Sections ── */
@@ -1141,13 +1057,16 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
-      min-height: 120px;
-      max-height: 250px;
+      min-height: 80px;
+      flex: 1;
+      width: 100%;
+      height: 100%;
       overflow-y: auto;
       border: 1px solid var(--border);
       background: var(--bg-input);
-      padding: 3px;
+      padding: 4px;
       border-radius: var(--radius-md);
+      box-sizing: border-box;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
     }
@@ -1651,29 +1570,14 @@
   <!-- Hidden File Input for Raster Image Import -->
   <input type="file" id="file-import-img" accept="image/*" style="display: none;">
 
-  <!-- Main Workspace -->
+  <!-- Main Workspace (Dockview Multi-Dock System) -->
   <div id="workspace">
+    <div id="dockview-container" class="dockview-theme-dark"></div>
 
-
-    <!-- Left Retractable Sidebar (Fill & Stroke Dynamics) -->
-    <div id="left-sidebar">
-      <div class="left-tab-bar">
-        <button class="left-tab-btn active" data-left-tab="tab-left-fill" title="Fill &amp; Fill Dynamics">
-          <span>Fill &amp; Dynamics</span>
-        </button>
-        <button class="left-tab-btn" data-left-tab="tab-left-stroke" title="Stroke &amp; Brush Dynamics">
-          <span>Stroke &amp; Brush</span>
-        </button>
-        <button id="btn-collapse-left-sidebar" class="btn-icon" title="Collapse Left Sidebar" style="width: 22px; height: 22px; font-size: 10px; flex-shrink: 0; color: var(--text-muted); display: flex; align-items: center; justify-content: center;">◀</button>
-      </div>
-
-      <!-- Tab 1: Fill & Fill Dynamics -->
-      <div class="left-tab-content active" id="tab-left-fill">
-        <!-- 1. Fill Surface & Colors -->
+    <!-- Dock Panel 1: Fill & Fill Dynamics -->
+    <div id="dock-panel-fill" class="dock-panel-content">
+      <!-- 1. Fill Surface & Colors -->
         <div class="section-card">
-          <div class="section-header">
-            <span>Fill Surface</span>
-          </div>
           <div class="form-row">
             <label>Fill Type</label>
             <select id="prop-fill-type">
@@ -2033,15 +1937,12 @@
             <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
           </div>
         </div>
-      </div>
+    </div>
 
-      <!-- Tab 2: Stroke & Brush Dynamics -->
-      <div class="left-tab-content" id="tab-left-stroke">
-        <!-- 1. Stroke Properties -->
+    <!-- Dock Panel 2: Stroke & Brush Dynamics -->
+    <div id="dock-panel-stroke" class="dock-panel-content">
+      <!-- 1. Stroke Properties -->
         <div class="section-card">
-          <div class="section-header">
-            <span>Stroke &amp; Outline</span>
-          </div>
           <div class="form-row">
             <label>Color</label>
             <div style="display: flex; gap: 6px; width: 100%;">
@@ -2443,524 +2344,506 @@
       </div>
     </div>
 
-    <!-- Center Interactive Viewport -->
-    <div id="viewport-container">
-      <!-- Rulers & Guides Overlay -->
-      <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: var(--bg-panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
-      <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); z-index: 40; cursor: row-resize;"></canvas>
-      <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: var(--bg-panel-sub); border-right: 1px solid var(--border); z-index: 40; cursor: col-resize;"></canvas>
+    <!-- Dock Panel 3: Canvas / Viewport -->
+    <div id="dock-panel-canvas" class="dock-panel-content">
+      <div id="viewport-container">
+        <!-- Rulers & Guides Overlay -->
+        <div id="ruler-corner" title="Rulers (px)" style="position: absolute; top: 0; left: 0; width: 18px; height: 18px; background: var(--bg-panel); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); z-index: 40; display: flex; align-items: center; justify-content: center; font-size: 7px; color: #777; user-select: none;">px</div>
+        <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); z-index: 40; cursor: row-resize;"></canvas>
+        <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: var(--bg-panel-sub); border-right: 1px solid var(--border); z-index: 40; cursor: col-resize;"></canvas>
 
-      <div id="stage-wrapper">
-        <canvas id="quadro-canvas"></canvas>
-        <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
-      </div>
-      <canvas id="overlay-canvas"></canvas>
-
-      <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
-      <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
-    </div>
-
-    <!-- Export Modal (Static Image & Video / Animation Center) -->
-    <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center;">
-      <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; width: 380px; max-width: 95vw; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-          <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Center</h3>
-          <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
+        <div id="stage-wrapper">
+          <canvas id="quadro-canvas"></canvas>
+          <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
         </div>
+        <canvas id="overlay-canvas"></canvas>
 
-        <!-- Export Mode Tab Switcher -->
-        <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-          <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">📷 Static Image</button>
-          <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">🎬 Animation &amp; Video</button>
-        </div>
-
-        <!-- Tab 1: Static Image Export -->
-        <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
-          <div class="form-row">
-            <label>Format</label>
-            <select id="export-format">
-              <option value="image/png" selected>PNG (Lossless)</option>
-              <option value="image/webp">WebP</option>
-              <option value="image/jpeg">JPEG</option>
-              <option value="image/svg+xml">SVG Vector</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Scale Factor</label>
-            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-              <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-              <span style="font-size: 11px; color: var(--text-dim);">×</span>
-              <div style="display: flex; gap: 2px;">
-                <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-                <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-                <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
-                <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Dimensions</label>
-            <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
-          </div>
-          <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
-        </div>
-
-        <!-- Tab 2: Animation & Video Export -->
-        <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
-          <div class="form-row">
-            <label>Format</label>
-            <select id="export-anim-format">
-              <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
-              <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
-              <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
-              <option value="spritesheet">Sprite Sheet Grid (.png)</option>
-              <option value="html5">Interactive Standalone Player (.html)</option>
-              <option value="animated-svg">Animated Vector SVG (.svg)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Frame Range</label>
-            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-              <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
-              <span style="font-size: 11px; color: var(--text-muted);">to</span>
-              <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Framerate</label>
-            <select id="export-anim-fps">
-              <option value="12">12 FPS (Stylized / 2D Anime)</option>
-              <option value="24" selected>24 FPS (Cinematic standard)</option>
-              <option value="30">30 FPS (Smooth 30Hz)</option>
-              <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Scale Factor</label>
-            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-              <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-              <span style="font-size: 11px; color: var(--text-dim);">×</span>
-              <div style="display: flex; gap: 2px;">
-                <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
-                <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-                <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-                <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Background</label>
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-              <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
-            </label>
-          </div>
-          <div class="form-row">
-            <label>Output Info</label>
-            <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
-          </div>
-
-          <!-- Progress Bar during Animation Render -->
-          <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
-              <span id="export-anim-status-text">Recording frames...</span>
-              <span id="export-anim-pct-text">0%</span>
-            </div>
-            <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
-              <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 6px; margin-top: 4px;">
-            <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
-            <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
-          </div>
-        </div>
+        <!-- Embedded Raster Painter (Fullscreen overlay concealing Studio UI) -->
+        <iframe id="painter-iframe" src="about:blank" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; border: none; z-index: 99999; background: var(--bg-dark);"></iframe>
       </div>
     </div>
 
-    <!-- Mobile Sidebar Backdrop -->
-    <div id="sidebar-backdrop" class="sidebar-backdrop"></div>
-
-    <!-- Right Sidebar (Properties, Operations, Scene & Inspector) -->
-    <div id="sidebar">
-      <div class="tab-bar">
-        <button class="tab-btn active" data-tab="tab-style">Inspect</button>
-        <button class="tab-btn" data-tab="tab-scene">Scene</button>
-      </div>
-
-      <!-- Tab 1: Style, Geometry & Operations Inspector (Active Default) -->
-      <div class="tab-content active" id="tab-style">
-        <!-- Inspect & Status Summary Card -->
-        <div class="section-card" id="card-inspect-status">
-          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 10px;">
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-muted);">Active Tool</span>
-              <span class="status-val" id="status-tool" style="font-weight: bold; color: var(--text-main);">Select</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-muted);">Cursor Position</span>
-              <span class="status-val" id="status-coords" style="font-family: monospace; color: var(--text-main);">0, 0</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-muted);">Viewport Zoom</span>
-              <span class="status-val" id="status-zoom" style="font-family: monospace; color: var(--text-main);">100%</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-muted);">Viewport Angle</span>
-              <span class="status-val" id="status-rotation" style="font-family: monospace; color: var(--text-main); cursor: pointer;" title="Reset rotation">0°</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: var(--text-muted);">Total Objects</span>
-              <span class="status-val" id="status-objects" style="font-weight: bold; color: var(--accent);">0</span>
-            </div>
+    <!-- Dock Panel 4: Inspect (Status, Transform & Geometry) -->
+    <div id="dock-panel-inspect" class="dock-panel-content">
+      <!-- Inspect & Status Summary Card -->
+      <div class="section-card" id="card-inspect-status">
+        <div style="display: flex; flex-direction: column; gap: 4px; font-size: 10px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Active Tool</span>
+            <span class="status-val" id="status-tool" style="font-weight: bold; color: var(--text-main);">Select</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Cursor Position</span>
+            <span class="status-val" id="status-coords" style="font-family: monospace; color: var(--text-main);">0, 0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Viewport Zoom</span>
+            <span class="status-val" id="status-zoom" style="font-family: monospace; color: var(--text-main);">100%</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Viewport Angle</span>
+            <span class="status-val" id="status-rotation" style="font-family: monospace; color: var(--text-main); cursor: pointer;" title="Reset rotation">0°</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Total Objects</span>
+            <span class="status-val" id="status-objects" style="font-weight: bold; color: var(--accent);">0</span>
           </div>
         </div>
+      </div>
 
-        <!-- 5. Transform & Geometry -->
-        <details open class="section-accordion" id="card-geometry">
-          <summary>
-            <span>Transform &amp; Geometry</span>
-            <span id="prop-geom-type" class="badge">None</span>
-          </summary>
-          <div class="accordion-body">
-            <!-- Object Name / Label Field -->
-            <div class="form-row" id="geom-name-row" style="margin-bottom: 6px;">
-              <label>Name / Label</label>
-              <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px;">
-            </div>
+      <!-- 5. Transform & Geometry -->
+      <details open class="section-accordion" id="card-geometry">
+        <summary>
+          <span>Transform &amp; Geometry</span>
+          <span id="prop-geom-type" class="badge">None</span>
+        </summary>
+        <div class="accordion-body">
+          <!-- Object Name / Label Field -->
+          <div class="form-row" id="geom-name-row" style="margin-bottom: 6px;">
+            <label>Name / Label</label>
+            <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px;">
+          </div>
 
-            <!-- Rect Fields -->
-            <div id="geom-rect-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Position (X, Y)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
-                  <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Size (W × H)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
-                  <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Corner Radius</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
-                  <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
-                </div>
+          <!-- Rect Fields -->
+          <div id="geom-rect-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Position (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
+                <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
               </div>
             </div>
-
-            <!-- Circle Fields -->
-            <div id="geom-circle-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Center (CX, CY)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
-                  <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Radius (R)</label>
-                <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+            <div class="form-row">
+              <label>Size (W × H)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
+                <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
               </div>
             </div>
-
-            <!-- Ellipse Fields -->
-            <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Center (CX, CY)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
-                  <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Radii (RX × RY)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
-                  <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
-                </div>
+            <div class="form-row">
+              <label>Corner Radius</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
+                <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
               </div>
             </div>
+          </div>
 
-            <!-- Line Fields -->
-            <div id="geom-line-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Start (X1, Y1)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
-                  <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>End (X2, Y2)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-line-x2" step="1" title="End X (px)">
-                  <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
-                </div>
+          <!-- Circle Fields -->
+          <div id="geom-circle-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Center (CX, CY)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
+                <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
               </div>
             </div>
+            <div class="form-row">
+              <label>Radius (R)</label>
+              <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+            </div>
+          </div>
 
-            <!-- Path / Group Bounds -->
-            <div id="geom-path-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Bounds (X, Y)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-path-x" step="1" title="Min X (px)">
-                  <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Size (W × H)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
-                  <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Path Info</label>
-                <input type="text" id="prop-path-info" readonly style="color: var(--text-dim); font-size: 10px;">
-              </div>
-
-              <!-- Selected Anchor Point Inspector -->
-              <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
-                <div class="form-row" style="justify-content: space-between; align-items: center;">
-                  <label style="font-weight: 600; color: var(--accent);">Anchor Node</label>
-                  <span id="node-editor-index" class="badge">#0</span>
-                </div>
-                <div class="form-row">
-                  <label>Anchor (X, Y)</label>
-                  <div class="grid-2" style="width: 100%;">
-                    <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
-                    <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
-                  </div>
-                </div>
-                <div class="form-row">
-                  <label>Node Type</label>
-                  <select id="prop-node-type">
-                    <option value="smooth">Smooth (Aligned Handles)</option>
-                    <option value="corner">Corner (Sharp)</option>
-                    <option value="cusp">Cusp (Independent Handles)</option>
-                    <option value="symmetric">Symmetric</option>
-                  </select>
-                </div>
-                <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Remove Selected Anchor</button>
+          <!-- Ellipse Fields -->
+          <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Center (CX, CY)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
+                <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
               </div>
             </div>
-
-            <!-- Image Fields & Actions -->
-            <div id="geom-image-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Position (X, Y)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-img-x" step="1" title="Position X (px)">
-                  <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Size (W × H)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
-                  <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
-                </div>
-              </div>
-              <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
-                <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">Edit Raster in Painter</button>
-                <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
-                <button id="btn-save-img-texture" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Texture Asset</button>
-                <button id="btn-save-img-tip" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Brush Tip Shape</button>
+            <div class="form-row">
+              <label>Radii (RX × RY)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
+                <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
               </div>
             </div>
+          </div>
 
-            <!-- Text Fields -->
-            <div id="geom-text-fields" class="geom-group" style="display: none;">
-              <div class="form-row">
-                <label>Text</label>
-                <input type="text" id="prop-text-content" value="Wesenho Text">
-              </div>
-              <div class="form-row">
-                <label>Font</label>
-                <select id="prop-text-font">
-                  <option value="sans-serif">Sans-Serif</option>
-                  <option value="serif">Serif</option>
-                  <option value="monospace">Monospace</option>
-                  <option value="Arial, sans-serif">Arial</option>
-                  <option value="'Courier New', monospace">Courier New</option>
-                  <option value="'Times New Roman', serif">Times New Roman</option>
-                  <option value="Georgia, serif">Georgia</option>
-                  <option value="Impact, sans-serif">Impact</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Size (px)</label>
-                <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
-              </div>
-              <div class="form-row">
-                <label>Align</label>
-                <select id="prop-text-align">
-                  <option value="left">Left</option>
-                  <option value="center">Center</option>
-                  <option value="right">Right</option>
-                </select>
-              </div>
-              <div class="form-row">
-                <label>Spacing</label>
-                <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+          <!-- Line Fields -->
+          <div id="geom-line-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Start (X1, Y1)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
+                <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
               </div>
             </div>
+            <div class="form-row">
+              <label>End (X2, Y2)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-line-x2" step="1" title="End X (px)">
+                <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
+              </div>
+            </div>
+          </div>
 
-            <!-- Object Transform: Rotation & Anchor -->
-            <div id="geom-transform-fields" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: none;">
-              <div class="form-row">
-                <label>Rotation (°)</label>
-                <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-                  <input type="number" id="prop-obj-rotation" min="-360" max="360" step="1" value="0" style="flex: 1;" title="Rotation in degrees">
-                  <button type="button" id="btn-rot-90" class="btn-sm" style="padding: 0 6px;" title="Rotate +90°">+90°</button>
-                  <button type="button" id="btn-rot-reset" class="btn-sm" style="padding: 0 6px;" title="Reset Rotation to 0°">0°</button>
-                </div>
+          <!-- Path / Group Bounds -->
+          <div id="geom-path-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Bounds (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-path-x" step="1" title="Min X (px)">
+                <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Size (W × H)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
+                <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Path Info</label>
+              <input type="text" id="prop-path-info" readonly style="color: var(--text-dim); font-size: 10px;">
+            </div>
+
+            <!-- Selected Anchor Point Inspector -->
+            <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
+              <div class="form-row" style="justify-content: space-between; align-items: center;">
+                <label style="font-weight: 600; color: var(--accent);">Anchor Node</label>
+                <span id="node-editor-index" class="badge">#0</span>
               </div>
               <div class="form-row">
                 <label>Anchor (X, Y)</label>
                 <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-obj-origin-x" step="1" title="Anchor Origin X">
-                  <input type="number" id="prop-obj-origin-y" step="1" title="Anchor Origin Y">
+                  <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
+                  <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
                 </div>
               </div>
-              <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
-            </div>
-
-            <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
-          </div>
-        </details>
-      </div>
-
-      <!-- Tab 2: Scene (Document, Object Hierarchy & Keyframe Animator) -->
-      <div class="tab-content" id="tab-scene">
-        <!-- Document & Project Card -->
-        <div class="section-card" id="card-doc-project" style="margin-bottom: 8px;">
-          <div class="section-header">
-            <span>Document &amp; Project</span>
-          </div>
-          <div class="form-row">
-            <label>Project Name</label>
-            <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector">
-          </div>
-          <div class="form-row">
-            <label>Preset Size</label>
-            <select id="prop-canvas-preset">
-              <option value="custom">-- Custom Size --</option>
-              <option value="800x600" selected>800 × 600 (Standard)</option>
-              <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
-              <option value="1280x720">1280 × 720 (HD 720p)</option>
-              <option value="1920x1080">1920 × 1080 (Full HD)</option>
-              <option value="2560x1440">2560 × 1440 (2K QHD)</option>
-              <option value="3840x2160">3840 × 2160 (4K UHD)</option>
-              <option value="512x512">512 × 512 (Icon)</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Dimensions</label>
-            <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
-              <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Background</label>
-            <input type="text" id="prop-doc-bg" value="#1d2021">
-          </div>
-        </div>
-
-        <!-- Objects Hierarchy Tree -->
-        <div class="section-card" style="margin-bottom: 8px;">
-          <div class="section-header">
-            <span>Objects &amp; Layers</span>
-          </div>
-
-          <div id="object-list"></div>
-        </div>
-
-        <!-- Scene Animation Bar -->
-        <div class="section-card" id="card-scene-anim" style="margin-bottom: 8px;">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; color: var(--primary);">
-              <span>Animation</span>
-            </span>
-            <div style="display: flex; gap: 2px; align-items: center;">
-              <button id="scene-anim-btn-prev" class="btn-icon" title="Jump to Previous Keyframe ([ or Alt+Left)" style="font-size: 9px; padding: 2px 4px;">⏮</button>
-              <button id="scene-anim-btn-step-prev" class="btn-icon" title="Step 1 Frame Back (Left)" style="font-size: 9px; padding: 2px 4px;">◀</button>
-              <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation (Space)" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-              <button id="scene-anim-btn-step-next" class="btn-icon" title="Step 1 Frame Forward (Right)" style="font-size: 9px; padding: 2px 4px;">▶</button>
-              <button id="scene-anim-btn-next" class="btn-icon" title="Jump to Next Keyframe (] or Alt+Right)" style="font-size: 9px; padding: 2px 4px;">⏭</button>
-              <button id="scene-anim-btn-loop" class="btn-sm" title="Toggle Loop" style="font-size: 9px; padding: 1px 5px; color: var(--accent); font-weight: 600;">Loop</button>
-            </div>
-          </div>
-
-          <!-- Scrubbing & Frame Control -->
-          <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
-              <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <span>Frame:</span>
-                <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-                <span>/</span>
-                <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              <div class="form-row">
+                <label>Node Type</label>
+                <select id="prop-node-type">
+                  <option value="smooth">Smooth (Aligned Handles)</option>
+                  <option value="corner">Corner (Sharp)</option>
+                  <option value="cusp">Cusp (Independent Handles)</option>
+                  <option value="symmetric">Symmetric</option>
+                </select>
               </div>
-              <div style="display: flex; align-items: center; gap: 4px;">
-                <span>FPS:</span>
-                <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Remove Selected Anchor</button>
+            </div>
+          </div>
+
+          <!-- Image Fields & Actions -->
+          <div id="geom-image-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Position (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-img-x" step="1" title="Position X (px)">
+                <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
               </div>
             </div>
+            <div class="form-row">
+              <label>Size (W × H)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
+                <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
+              <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">Edit Raster in Painter</button>
+              <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
+              <button id="btn-save-img-texture" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Texture Asset</button>
+              <button id="btn-save-img-tip" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Brush Tip Shape</button>
+            </div>
+          </div>
 
-            <div class="form-row" style="margin-top: 2px; align-items: center;">
-              <label style="font-size: 10px; color: var(--text-muted); width: 42px;">Curve</label>
-              <select id="scene-anim-select-easing" title="Easing Curve for Keyframes" style="flex: 1; padding: 2px 4px; font-size: 10px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-                <option value="linear">Linear</option>
-                <option value="easeInQuad">Ease In (Quad)</option>
-                <option value="easeOutQuad">Ease Out (Quad)</option>
-                <option value="easeInOutQuad">Ease In/Out (Quad)</option>
-                <option value="easeInCubic">Ease In (Cubic)</option>
-                <option value="easeOutCubic">Ease Out (Cubic)</option>
-                <option value="easeInOutCubic">Ease In/Out (Cubic)</option>
-                <option value="easeInElastic">Elastic In</option>
-                <option value="easeOutElastic">Elastic Out</option>
-                <option value="easeOutBounce">Bounce Out</option>
-                <option value="step">Step (Hold)</option>
-                <option value="custom">Custom Bézier...</option>
+          <!-- Text Fields -->
+          <div id="geom-text-fields" class="geom-group" style="display: none;">
+            <div class="form-row">
+              <label>Text</label>
+              <input type="text" id="prop-text-content" value="Wesenho Text">
+            </div>
+            <div class="form-row">
+              <label>Font</label>
+              <select id="prop-text-font">
+                <option value="sans-serif">Sans-Serif</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Courier New', monospace">Courier New</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+                <option value="Georgia, serif">Georgia</option>
+                <option value="Impact, sans-serif">Impact</option>
               </select>
             </div>
-
-            <div style="display: flex; gap: 4px; margin-top: 2px;">
-              <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
-              <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
+            <div class="form-row">
+              <label>Size (px)</label>
+              <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
             </div>
+            <div class="form-row">
+              <label>Align</label>
+              <select id="prop-text-align">
+                <option value="left">Left</option>
+                <option value="center">Center</option>
+                <option value="right">Right</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Spacing</label>
+              <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+            </div>
+          </div>
+
+          <!-- Object Transform: Rotation & Anchor -->
+          <div id="geom-transform-fields" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: none;">
+            <div class="form-row">
+              <label>Rotation (°)</label>
+              <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+                <input type="number" id="prop-obj-rotation" min="-360" max="360" step="1" value="0" style="flex: 1;" title="Rotation in degrees">
+                <button type="button" id="btn-rot-90" class="btn-sm" style="padding: 0 6px;" title="Rotate +90°">+90°</button>
+                <button type="button" id="btn-rot-reset" class="btn-sm" style="padding: 0 6px;" title="Reset Rotation to 0°">0°</button>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Anchor (X, Y)</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-obj-origin-x" step="1" title="Anchor Origin X">
+                <input type="number" id="prop-obj-origin-y" step="1" title="Anchor Origin Y">
+              </div>
+            </div>
+            <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
+          </div>
+
+          <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
+        </div>
+      </details>
+    </div>
+
+    <!-- Dock Panel 5: Scene (Object Hierarchy Tree) -->
+    <div id="dock-panel-scene" class="dock-panel-content">
+      <div id="object-list"></div>
+    </div>
+
+    <!-- Dock Panel 6: Document & Project Settings -->
+    <div id="dock-panel-document" class="dock-panel-content">
+      <div class="section-card" id="card-doc-project">
+        <div class="form-row">
+          <label>Project Name</label>
+          <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector">
+        </div>
+        <div class="form-row">
+          <label>Preset Size</label>
+          <select id="prop-canvas-preset">
+            <option value="custom">-- Custom Size --</option>
+            <option value="800x600" selected>800 × 600 (Standard)</option>
+            <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
+            <option value="1280x720">1280 × 720 (HD 720p)</option>
+            <option value="1920x1080">1920 × 1080 (Full HD)</option>
+            <option value="2560x1440">2560 × 1440 (2K QHD)</option>
+            <option value="3840x2160">3840 × 2160 (4K UHD)</option>
+            <option value="512x512">512 × 512 (Icon)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Dimensions</label>
+          <div class="grid-2" style="width: 100%;">
+            <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
+            <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Background</label>
+          <input type="text" id="prop-doc-bg" value="#1d2021">
+        </div>
+      </div>
+    </div>
+
+    <!-- Dock Panel 7: Keyframe Animation & Object Events -->
+    <div id="dock-panel-animation" class="dock-panel-content">
+      <!-- Scene Animation Bar -->
+      <div class="section-card" id="card-scene-anim">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+          <span style="font-weight: 700; color: var(--text-dim); font-size: 10px; text-transform: uppercase;">Playback Controls</span>
+          <div style="display: flex; gap: 2px; align-items: center;">
+            <button id="scene-anim-btn-prev" class="btn-icon" title="Jump to Previous Keyframe ([ or Alt+Left)" style="font-size: 9px; padding: 2px 4px;">⏮</button>
+            <button id="scene-anim-btn-step-prev" class="btn-icon" title="Step 1 Frame Back (Left)" style="font-size: 9px; padding: 2px 4px;">◀</button>
+            <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation (Space)" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
+            <button id="scene-anim-btn-step-next" class="btn-icon" title="Step 1 Frame Forward (Right)" style="font-size: 9px; padding: 2px 4px;">▶</button>
+            <button id="scene-anim-btn-next" class="btn-icon" title="Jump to Next Keyframe (] or Alt+Right)" style="font-size: 9px; padding: 2px 4px;">⏭</button>
+            <button id="scene-anim-btn-loop" class="btn-sm" title="Toggle Loop" style="font-size: 9px; padding: 1px 5px; color: var(--accent); font-weight: 600;">Loop</button>
           </div>
         </div>
 
-        <!-- Selected Object Animation Events Card -->
-        <div class="section-card" id="card-selected-events">
-          <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
-            <span id="selected-events-badge" class="badge" style="font-size: 9px;">No selection</span>
+        <!-- Scrubbing & Frame Control -->
+        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
+            <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
           </div>
 
-          <div id="selected-events-container" style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
-            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
-              Select an object to inspect or record keyframe states
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span>Frame:</span>
+              <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              <span>/</span>
+              <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
             </div>
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span>FPS:</span>
+              <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+            </div>
+          </div>
+
+          <div class="form-row" style="margin-top: 2px; align-items: center;">
+            <label style="font-size: 10px; color: var(--text-muted); width: 42px;">Curve</label>
+            <select id="scene-anim-select-easing" title="Easing Curve for Keyframes" style="flex: 1; padding: 2px 4px; font-size: 10px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+              <option value="linear">Linear</option>
+              <option value="easeInQuad">Ease In (Quad)</option>
+              <option value="easeOutQuad">Ease Out (Quad)</option>
+              <option value="easeInOutQuad">Ease In/Out (Quad)</option>
+              <option value="easeInCubic">Ease In (Cubic)</option>
+              <option value="easeOutCubic">Ease Out (Cubic)</option>
+              <option value="easeInOutCubic">Ease In/Out (Cubic)</option>
+              <option value="easeInElastic">Elastic In</option>
+              <option value="easeOutElastic">Elastic Out</option>
+              <option value="easeOutBounce">Bounce Out</option>
+              <option value="step">Step (Hold)</option>
+              <option value="custom">Custom Bézier...</option>
+            </select>
+          </div>
+
+          <div style="display: flex; gap: 4px; margin-top: 2px;">
+            <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
+            <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Object Animation Events Card -->
+      <div class="section-card" id="card-selected-events" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
+          <span id="selected-events-badge" class="badge" style="font-size: 9px;">No selection</span>
+        </div>
+
+        <div id="selected-events-container" style="margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1;">
+          <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
+            Select an object to inspect or record keyframe states
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- Export Modal (Static Image & Video / Animation Center) -->
+  <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; width: 380px; max-width: 95vw; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+        <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Center</h3>
+        <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
+      </div>
+
+      <!-- Export Mode Tab Switcher -->
+      <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">📷 Static Image</button>
+        <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">🎬 Animation &amp; Video</button>
+      </div>
+
+      <!-- Tab 1: Static Image Export -->
+      <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="form-row">
+          <label>Format</label>
+          <select id="export-format">
+            <option value="image/png" selected>PNG (Lossless)</option>
+            <option value="image/webp">WebP</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/svg+xml">SVG Vector</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale Factor</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+            <span style="font-size: 11px; color: var(--text-dim);">×</span>
+            <div style="display: flex; gap: 2px;">
+              <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+              <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+              <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
+              <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Dimensions</label>
+          <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
+        </div>
+        <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
+      </div>
+
+      <!-- Tab 2: Animation & Video Export -->
+      <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
+        <div class="form-row">
+          <label>Format</label>
+          <select id="export-anim-format">
+            <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
+            <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
+            <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
+            <option value="spritesheet">Sprite Sheet Grid (.png)</option>
+            <option value="html5">Interactive Standalone Player (.html)</option>
+            <option value="animated-svg">Animated Vector SVG (.svg)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Frame Range</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
+            <span style="font-size: 11px; color: var(--text-muted);">to</span>
+            <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Framerate</label>
+          <select id="export-anim-fps">
+            <option value="12">12 FPS (Stylized / 2D Anime)</option>
+            <option value="24" selected>24 FPS (Cinematic standard)</option>
+            <option value="30">30 FPS (Smooth 30Hz)</option>
+            <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale Factor</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+            <span style="font-size: 11px; color: var(--text-dim);">×</span>
+            <div style="display: flex; gap: 2px;">
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Background</label>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Output Info</label>
+          <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
+        </div>
+
+        <!-- Progress Bar during Animation Render -->
+        <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+            <span id="export-anim-status-text">Recording frames...</span>
+            <span id="export-anim-pct-text">0%</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
+            <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
+          <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3163,6 +3046,7 @@
   </div>
 
   <!-- Scripts -->
+  <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
   <script src="src/asset_bundle.js"></script>
   <script src="src/esenho.js"></script>
@@ -3728,20 +3612,27 @@
 
       // ── Stage & Viewport Updates ──
       function updateStageSize() {
-        stageWrapper.style.width = `${doc.width}px`;
-        stageWrapper.style.height = `${doc.height}px`;
-        svgStage.setAttribute('width', doc.width);
-        svgStage.setAttribute('height', doc.height);
-        svgStage.setAttribute('viewBox', `0 0 ${doc.width} ${doc.height}`);
+        const targetW = doc.width;
+        const targetH = doc.height;
+        if (stageWrapper.style.width !== `${targetW}px`) stageWrapper.style.width = `${targetW}px`;
+        if (stageWrapper.style.height !== `${targetH}px`) stageWrapper.style.height = `${targetH}px`;
+        svgStage.setAttribute('width', targetW);
+        svgStage.setAttribute('height', targetH);
+        svgStage.setAttribute('viewBox', `0 0 ${targetW} ${targetH}`);
         svgStage.setAttribute('overflow', 'visible');
         svgStage.style.overflow = 'visible';
 
-        quadroCanvas.width = Math.round(doc.width * quadroRenderScale);
-        quadroCanvas.height = Math.round(doc.height * quadroRenderScale);
-        quadroCanvas.style.width = `${doc.width}px`;
-        quadroCanvas.style.height = `${doc.height}px`;
+        const qW = Math.round(targetW * quadroRenderScale);
+        const qH = Math.round(targetH * quadroRenderScale);
+        if (quadroCanvas.width !== qW || quadroCanvas.height !== qH) {
+          quadroCanvas.width = qW;
+          quadroCanvas.height = qH;
+          quadroCanvas.style.width = `${targetW}px`;
+          quadroCanvas.style.height = `${targetH}px`;
+        }
 
         applyViewportTransform();
+        render();
       }
 
       let syncViewportInputsRaf = null;
@@ -5058,13 +4949,35 @@
       // ── Inspector UI Sync ──
       function updateInspector() {
         const selected = doc.getSelectedObjects();
-        const propDocW = document.getElementById('prop-doc-w');
-        const propDocH = document.getElementById('prop-doc-h');
-        const propDocBg = document.getElementById('prop-doc-bg');
 
-        propDocW.value = doc.width;
-        propDocH.value = doc.height;
-        propDocBg.value = doc.backgroundColor || '#1d2021';
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el && val !== undefined && val !== null) el.value = val;
+          return el;
+        };
+        const setChecked = (id, checked) => {
+          const el = document.getElementById(id);
+          if (el) el.checked = !!checked;
+          return el;
+        };
+        const setText = (id, text) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = text;
+          return el;
+        };
+        const setDisplay = (id, display) => {
+          const el = document.getElementById(id);
+          if (el) el.style.display = display;
+          return el;
+        };
+
+        setVal('prop-doc-w', doc.width);
+        setVal('prop-doc-h', doc.height);
+        setVal('prop-doc-bg', doc.backgroundColor || '#1d2021');
+        const propDocBgColor = document.getElementById('prop-doc-bg-color');
+        if (propDocBgColor && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) {
+          propDocBgColor.value = doc.backgroundColor;
+        }
 
         const propGeomType = document.getElementById('prop-geom-type');
         const btnConvertPath = document.getElementById('btn-convert-path');
@@ -5120,121 +5033,109 @@
 
         // Geometry & Dimensions Sync
         if (obj.type === 'rect') {
-          const g = document.getElementById('geom-rect-fields');
-          if (g) g.style.display = 'block';
-          document.getElementById('prop-rect-x').value = Math.round(obj.x);
-          document.getElementById('prop-rect-y').value = Math.round(obj.y);
-          document.getElementById('prop-rect-w').value = Math.round(obj.width);
-          document.getElementById('prop-rect-h').value = Math.round(obj.height);
-          document.getElementById('prop-rect-rx').value = obj.rx || 0;
-          document.getElementById('prop-rect-ry').value = obj.ry || 0;
+          setDisplay('geom-rect-fields', 'block');
+          setVal('prop-rect-x', Math.round(obj.x));
+          setVal('prop-rect-y', Math.round(obj.y));
+          setVal('prop-rect-w', Math.round(obj.width));
+          setVal('prop-rect-h', Math.round(obj.height));
+          setVal('prop-rect-rx', obj.rx || 0);
+          setVal('prop-rect-ry', obj.ry || 0);
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Rect to Bézier Path';
           }
         } else if (obj.type === 'circle') {
-          const g = document.getElementById('geom-circle-fields');
-          if (g) g.style.display = 'block';
-          document.getElementById('prop-circle-cx').value = Math.round(obj.cx);
-          document.getElementById('prop-circle-cy').value = Math.round(obj.cy);
-          document.getElementById('prop-circle-r').value = Math.round(obj.r || obj.rx);
+          setDisplay('geom-circle-fields', 'block');
+          setVal('prop-circle-cx', Math.round(obj.cx));
+          setVal('prop-circle-cy', Math.round(obj.cy));
+          setVal('prop-circle-r', Math.round(obj.r || obj.rx));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Circle to Bézier Path';
           }
         } else if (obj.type === 'ellipse') {
-          const g = document.getElementById('geom-ellipse-fields');
-          if (g) g.style.display = 'block';
-          document.getElementById('prop-ellipse-cx').value = Math.round(obj.cx);
-          document.getElementById('prop-ellipse-cy').value = Math.round(obj.cy);
-          document.getElementById('prop-ellipse-rx').value = Math.round(obj.rx);
-          document.getElementById('prop-ellipse-ry').value = Math.round(obj.ry);
+          setDisplay('geom-ellipse-fields', 'block');
+          setVal('prop-ellipse-cx', Math.round(obj.cx));
+          setVal('prop-ellipse-cy', Math.round(obj.cy));
+          setVal('prop-ellipse-rx', Math.round(obj.rx));
+          setVal('prop-ellipse-ry', Math.round(obj.ry));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Ellipse to Bézier Path';
           }
         } else if (obj.type === 'line') {
-          const g = document.getElementById('geom-line-fields');
-          if (g) g.style.display = 'block';
-          document.getElementById('prop-line-x1').value = Math.round(obj.x1);
-          document.getElementById('prop-line-y1').value = Math.round(obj.y1);
-          document.getElementById('prop-line-x2').value = Math.round(obj.x2);
-          document.getElementById('prop-line-y2').value = Math.round(obj.y2);
+          setDisplay('geom-line-fields', 'block');
+          setVal('prop-line-x1', Math.round(obj.x1));
+          setVal('prop-line-y1', Math.round(obj.y1));
+          setVal('prop-line-x2', Math.round(obj.x2));
+          setVal('prop-line-y2', Math.round(obj.y2));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Line to Bézier Path';
           }
         } else if (obj.type === 'image') {
-          const g = document.getElementById('geom-image-fields');
-          if (g) g.style.display = 'block';
-          document.getElementById('prop-img-x').value = Math.round(obj.x);
-          document.getElementById('prop-img-y').value = Math.round(obj.y);
-          document.getElementById('prop-img-w').value = Math.round(obj.width);
-          document.getElementById('prop-img-h').value = Math.round(obj.height);
+          setDisplay('geom-image-fields', 'block');
+          setVal('prop-img-x', Math.round(obj.x));
+          setVal('prop-img-y', Math.round(obj.y));
+          setVal('prop-img-w', Math.round(obj.width));
+          setVal('prop-img-h', Math.round(obj.height));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'none';
           }
         } else if (obj.type === 'text') {
-          const g = document.getElementById('geom-text-fields');
-          if (g) g.style.display = 'block';
-          document.getElementById('prop-text-content').value = obj.text || '';
-          document.getElementById('prop-text-font').value = obj.fontFamily || 'sans-serif';
-          document.getElementById('prop-text-size').value = obj.fontSize || 36;
-          document.getElementById('prop-text-align').value = obj.textAlign || 'left';
-          document.getElementById('prop-text-spacing').value = obj.letterSpacing || 0;
+          setDisplay('geom-text-fields', 'block');
+          setVal('prop-text-content', obj.text || '');
+          setVal('prop-text-font', obj.fontFamily || 'sans-serif');
+          setVal('prop-text-size', obj.fontSize || 36);
+          setVal('prop-text-align', obj.textAlign || 'left');
+          setVal('prop-text-spacing', obj.letterSpacing || 0);
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '📐 Convert Text to Bézier Path';
           }
         } else if (obj.type === 'compoundPath') {
-          const g = document.getElementById('geom-path-fields');
-          if (g) g.style.display = 'block';
+          setDisplay('geom-path-fields', 'block');
           const b = obj.getBounds();
-          document.getElementById('prop-path-x').value = Math.round(b.minX);
-          document.getElementById('prop-path-y').value = Math.round(b.minY);
-          document.getElementById('prop-path-w').value = Math.round(b.width);
-          document.getElementById('prop-path-h').value = Math.round(b.height);
-          document.getElementById('prop-path-info').value = `${obj.subPaths ? obj.subPaths.length : 0} sub-paths (${obj.fillRule || 'evenodd'})`;
-          const simpSec = document.getElementById('path-simplify-section');
-          if (simpSec) simpSec.style.display = 'block';
+          setVal('prop-path-x', Math.round(b.minX));
+          setVal('prop-path-y', Math.round(b.minY));
+          setVal('prop-path-w', Math.round(b.width));
+          setVal('prop-path-h', Math.round(b.height));
+          setVal('prop-path-info', `${obj.subPaths ? obj.subPaths.length : 0} sub-paths (${obj.fillRule || 'evenodd'})`);
+          setDisplay('path-simplify-section', 'block');
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'path') {
-          const g = document.getElementById('geom-path-fields');
-          if (g) g.style.display = 'block';
+          setDisplay('geom-path-fields', 'block');
           const b = obj.getBounds();
-          document.getElementById('prop-path-x').value = Math.round(b.minX);
-          document.getElementById('prop-path-y').value = Math.round(b.minY);
-          document.getElementById('prop-path-w').value = Math.round(b.width);
-          document.getElementById('prop-path-h').value = Math.round(b.height);
-          document.getElementById('prop-path-info').value = `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`;
-          const simpSec = document.getElementById('path-simplify-section');
-          if (simpSec) simpSec.style.display = 'block';
+          setVal('prop-path-x', Math.round(b.minX));
+          setVal('prop-path-y', Math.round(b.minY));
+          setVal('prop-path-w', Math.round(b.width));
+          setVal('prop-path-h', Math.round(b.height));
+          setVal('prop-path-info', `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`);
+          setDisplay('path-simplify-section', 'block');
 
           const nodeSec = document.getElementById('node-editor-section');
           if (nodeSec) {
             const { path, node } = getActivePathAndNode();
             if (activeTool === 'node' && activeNodeIdx >= 0 && node && path) {
               nodeSec.style.display = 'block';
-              document.getElementById('node-editor-index').textContent = `#${activeNodeIdx + 1} of ${path.nodes.length}`;
-              document.getElementById('prop-node-x').value = Math.round(node.x);
-              document.getElementById('prop-node-y').value = Math.round(node.y);
-              document.getElementById('prop-node-type').value = node.type || 'smooth';
+              setText('node-editor-index', `#${activeNodeIdx + 1} of ${path.nodes.length}`);
+              setVal('prop-node-x', Math.round(node.x));
+              setVal('prop-node-y', Math.round(node.y));
+              setVal('prop-node-type', node.type || 'smooth');
             } else {
               nodeSec.style.display = 'none';
             }
           }
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'group') {
-          const g = document.getElementById('geom-path-fields');
-          if (g) g.style.display = 'block';
+          setDisplay('geom-path-fields', 'block');
           const b = obj.getBounds();
-          document.getElementById('prop-path-x').value = Math.round(b.minX);
-          document.getElementById('prop-path-y').value = Math.round(b.minY);
-          document.getElementById('prop-path-w').value = Math.round(b.width);
-          document.getElementById('prop-path-h').value = Math.round(b.height);
-          document.getElementById('prop-path-info').value = `${obj.children ? obj.children.length : 0} objects inside`;
-          const simpSec = document.getElementById('path-simplify-section');
-          if (simpSec) simpSec.style.display = 'none';
+          setVal('prop-path-x', Math.round(b.minX));
+          setVal('prop-path-y', Math.round(b.minY));
+          setVal('prop-path-w', Math.round(b.width));
+          setVal('prop-path-h', Math.round(b.height));
+          setVal('prop-path-info', `${obj.children ? obj.children.length : 0} objects inside`);
+          setDisplay('path-simplify-section', 'none');
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         }
 
@@ -5243,29 +5144,16 @@
         if (geomTransform) {
           geomTransform.style.display = 'block';
           const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
-          const rotInput = document.getElementById('prop-obj-rotation');
-          const oxInput = document.getElementById('prop-obj-origin-x');
-          const oyInput = document.getElementById('prop-obj-origin-y');
-          if (rotInput) rotInput.value = Math.round(obj.rotation || 0);
-          if (oxInput) oxInput.value = Math.round(origin.x);
-          if (oyInput) oyInput.value = Math.round(origin.y);
+          setVal('prop-obj-rotation', Math.round(obj.rotation || 0));
+          setVal('prop-obj-origin-x', Math.round(origin.x));
+          setVal('prop-obj-origin-y', Math.round(origin.y));
         }
-
-        const fillColor = document.getElementById('prop-fill-color');
-        const fillText = document.getElementById('prop-fill-text');
-        const fillOp = document.getElementById('prop-fill-opacity');
-        const strokeColor = document.getElementById('prop-stroke-color');
-        const strokeText = document.getElementById('prop-stroke-text');
-        const strokeW = document.getElementById('prop-stroke-width');
-        const strokeCap = document.getElementById('prop-stroke-cap');
-        const strokeJoin = document.getElementById('prop-stroke-join');
-        const objOp = document.getElementById('prop-obj-opacity');
 
         if (obj.fill && obj.fill.startsWith('#') && obj.fill.length === 7) {
-          fillColor.value = obj.fill;
+          setVal('prop-fill-color', obj.fill);
         }
-        fillText.value = obj.fill || 'none';
-        fillOp.value = obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0;
+        setVal('prop-fill-text', obj.fill || 'none');
+        setVal('prop-fill-opacity', obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0);
 
         // Gradients Sync
         const propFillType = document.getElementById('prop-fill-type');
@@ -5283,13 +5171,13 @@
         }
 
         if (obj.stroke && obj.stroke.startsWith('#') && obj.stroke.length === 7) {
-          strokeColor.value = obj.stroke;
+          setVal('prop-stroke-color', obj.stroke);
         }
-        strokeText.value = obj.stroke || 'none';
-        strokeW.value = obj.strokeWidth || 1;
-        strokeCap.value = obj.strokeLinecap || 'round';
-        strokeJoin.value = obj.strokeLinejoin || 'round';
-        objOp.value = obj.opacity !== undefined ? obj.opacity : 1.0;
+        setVal('prop-stroke-text', obj.stroke || 'none');
+        setVal('prop-stroke-width', obj.strokeWidth || 1);
+        setVal('prop-stroke-cap', obj.strokeLinecap || 'round');
+        setVal('prop-stroke-join', obj.strokeLinejoin || 'round');
+        setVal('prop-obj-opacity', obj.opacity !== undefined ? obj.opacity : 1.0);
 
         // Custom Textures
         const grpCustomFillTex = document.getElementById('grp-custom-fill-textures');
@@ -5331,36 +5219,32 @@
         }
 
         const ft = obj.fillTexture || {};
-        if (document.getElementById('prop-fill-preset')) {
-          document.getElementById('prop-fill-preset').value = ft.preset || 'custom';
-        }
-        document.getElementById('prop-fill-tex-mode').value = ft.mode !== undefined ? ft.mode : 0;
-        document.getElementById('prop-fill-tex-scale').value = ft.scale !== undefined ? ft.scale : 100;
-        document.getElementById('prop-fill-tex-angle').value = ft.angle !== undefined ? ft.angle : 0;
-        document.getElementById('prop-fill-tex-contrast').value = ft.contrast !== undefined ? ft.contrast : 100;
-        document.getElementById('prop-fill-tex-grain').value = ft.grain !== undefined ? ft.grain : 0;
-        document.getElementById('prop-fill-tex-relative').value = (ft.relative || ft.is_relative || ft.origin === 'object') ? '1' : '0';
-        document.getElementById('prop-fill-tex-offsetX').value = ft.offsetX !== undefined ? ft.offsetX : (ft.offset_x || 0);
-        document.getElementById('prop-fill-tex-offsetY').value = ft.offsetY !== undefined ? ft.offsetY : (ft.offset_y || 0);
-        document.getElementById('prop-fill-tex-hardness').value = ft.hardness !== undefined ? ft.hardness : 100;
-        document.getElementById('prop-fill-tex-hardnessIntensity').value = ft.hardnessIntensity !== undefined ? ft.hardnessIntensity : (ft.hardness_intensity !== undefined ? ft.hardness_intensity : 50);
-        document.getElementById('prop-fill-tex-warpStrength').value = ft.warpStrength !== undefined ? ft.warpStrength : (ft.warp_strength || 0);
-        document.getElementById('prop-fill-tex-warpFreq').value = ft.warpFreq !== undefined ? ft.warpFreq : (ft.warp_freq || 20);
-        document.getElementById('prop-fill-tex-noiseDistort').value = ft.noiseDistort !== undefined ? ft.noiseDistort : (ft.noise_distort || 0);
-        document.getElementById('prop-fill-tex-pinchSwirl').value = ft.pinchSwirl !== undefined ? ft.pinchSwirl : (ft.pinch_swirl || 0);
-        document.getElementById('prop-fill-tex-posterize').value = ft.posterize !== undefined ? ft.posterize : 0;
-        document.getElementById('prop-fill-tex-invert').checked = !!(ft.invert || ft.invert_tex);
+        setVal('prop-fill-preset', ft.preset || 'custom');
+        setVal('prop-fill-tex-mode', ft.mode !== undefined ? ft.mode : 0);
+        setVal('prop-fill-tex-scale', ft.scale !== undefined ? ft.scale : 100);
+        setVal('prop-fill-tex-angle', ft.angle !== undefined ? ft.angle : 0);
+        setVal('prop-fill-tex-contrast', ft.contrast !== undefined ? ft.contrast : 100);
+        setVal('prop-fill-tex-grain', ft.grain !== undefined ? ft.grain : 0);
+        setVal('prop-fill-tex-relative', (ft.relative || ft.is_relative || ft.origin === 'object') ? '1' : '0');
+        setVal('prop-fill-tex-offsetX', ft.offsetX !== undefined ? ft.offsetX : (ft.offset_x || 0));
+        setVal('prop-fill-tex-offsetY', ft.offsetY !== undefined ? ft.offsetY : (ft.offset_y || 0));
+        setVal('prop-fill-tex-hardness', ft.hardness !== undefined ? ft.hardness : 100);
+        setVal('prop-fill-tex-hardnessIntensity', ft.hardnessIntensity !== undefined ? ft.hardnessIntensity : (ft.hardness_intensity !== undefined ? ft.hardness_intensity : 50));
+        setVal('prop-fill-tex-warpStrength', ft.warpStrength !== undefined ? ft.warpStrength : (ft.warp_strength || 0));
+        setVal('prop-fill-tex-warpFreq', ft.warpFreq !== undefined ? ft.warpFreq : (ft.warp_freq || 20));
+        setVal('prop-fill-tex-noiseDistort', ft.noiseDistort !== undefined ? ft.noiseDistort : (ft.noise_distort || 0));
+        setVal('prop-fill-tex-pinchSwirl', ft.pinchSwirl !== undefined ? ft.pinchSwirl : (ft.pinch_swirl || 0));
+        setVal('prop-fill-tex-posterize', ft.posterize !== undefined ? ft.posterize : 0);
+        setChecked('prop-fill-tex-invert', ft.invert || ft.invert_tex);
 
         // Fill WASM Plugin Sync
         const fwf = obj.fillFilter || (ft.wasmFilter) || (obj.wasmFilter && obj.wasmFilter.target === 'fill' ? obj.wasmFilter : { enabled: false, target: 'fill' });
-        if (document.getElementById('prop-fill-filter-enabled')) {
-          document.getElementById('prop-fill-filter-enabled').checked = !!fwf.enabled;
-          document.getElementById('prop-fill-filter-target').value = fwf.target || 'fill';
-          document.getElementById('prop-fill-filter-plugin').value = fwf.plugin || 'dither';
-          document.getElementById('prop-fill-filter-p1').value = fwf.p1 !== undefined ? fwf.p1 : 0;
-          document.getElementById('prop-fill-filter-p2').value = fwf.p2 !== undefined ? fwf.p2 : 0;
-          document.getElementById('prop-fill-filter-opacity').value = fwf.opacity !== undefined ? fwf.opacity : 1.0;
-        }
+        setChecked('prop-fill-filter-enabled', fwf.enabled);
+        setVal('prop-fill-filter-target', fwf.target || 'fill');
+        setVal('prop-fill-filter-plugin', fwf.plugin || 'dither');
+        setVal('prop-fill-filter-p1', fwf.p1 !== undefined ? fwf.p1 : 0);
+        setVal('prop-fill-filter-p2', fwf.p2 !== undefined ? fwf.p2 : 0);
+        setVal('prop-fill-filter-opacity', fwf.opacity !== undefined ? fwf.opacity : 1.0);
 
         // Custom Tip Shapes
         const grpCustomTipShapes = document.getElementById('grp-custom-tip-shapes');
@@ -5390,50 +5274,43 @@
         }
 
         const bc = obj.brushConfig || {};
-        const brushPresetSelect = document.getElementById('prop-brush-preset');
-        if (brushPresetSelect) {
-          brushPresetSelect.value = bc.preset || 'default';
-        }
-        const strokeHardnessInput = document.getElementById('prop-stroke-hardness');
-        if (strokeHardnessInput) strokeHardnessInput.value = bc.hardness !== undefined ? bc.hardness : (obj.strokeHardness !== undefined ? obj.strokeHardness : 95);
-
-        document.getElementById('prop-brush-flow').value = bc.flow !== undefined ? bc.flow : 100;
-        document.getElementById('prop-brush-hardness').value = bc.hardness !== undefined ? bc.hardness : 100;
-        document.getElementById('prop-brush-spacing').value = bc.spacing !== undefined ? bc.spacing : 5;
-        document.getElementById('prop-brush-scatter').value = bc.scatter !== undefined ? bc.scatter : 0;
-        document.getElementById('prop-brush-roundness').value = bc.roundness !== undefined ? bc.roundness : 100;
-        document.getElementById('prop-brush-angle').value = bc.angle !== undefined ? bc.angle : 0;
-        document.getElementById('prop-brush-shape').value = bc.shape !== undefined ? bc.shape : 0;
-        document.getElementById('prop-brush-dab-blend').value = bc.dabBlend !== undefined ? bc.dabBlend : 0;
-        document.getElementById('prop-brush-autorotate').value = bc.auto_rotate ? 1 : 0;
-        document.getElementById('prop-brush-taper-in').value = bc.taper_in !== undefined ? bc.taper_in : 0;
-        document.getElementById('prop-brush-taper-out').value = bc.taper_out !== undefined ? bc.taper_out : 0;
-        document.getElementById('prop-brush-size-jitter').value = bc.size_jitter !== undefined ? bc.size_jitter : 0;
-        document.getElementById('prop-brush-angle-jitter').value = bc.angle_jitter !== undefined ? bc.angle_jitter : 0;
-        document.getElementById('prop-brush-opacity-jitter').value = bc.opacity_jitter !== undefined ? bc.opacity_jitter : 0;
-        document.getElementById('prop-brush-wetness').value = bc.wetness !== undefined ? bc.wetness : 0;
-        document.getElementById('prop-brush-color-pickup').value = bc.color_pickup !== undefined ? bc.color_pickup : 0;
-        document.getElementById('prop-brush-depletion').value = bc.depletion !== undefined ? bc.depletion : 0;
-        document.getElementById('prop-brush-smudge').value = bc.smudge !== undefined ? bc.smudge : 0;
+        setVal('prop-brush-preset', bc.preset || 'default');
+        setVal('prop-stroke-hardness', bc.hardness !== undefined ? bc.hardness : (obj.strokeHardness !== undefined ? obj.strokeHardness : 95));
+        setVal('prop-brush-flow', bc.flow !== undefined ? bc.flow : 100);
+        setVal('prop-brush-hardness', bc.hardness !== undefined ? bc.hardness : 100);
+        setVal('prop-brush-spacing', bc.spacing !== undefined ? bc.spacing : 5);
+        setVal('prop-brush-scatter', bc.scatter !== undefined ? bc.scatter : 0);
+        setVal('prop-brush-roundness', bc.roundness !== undefined ? bc.roundness : 100);
+        setVal('prop-brush-angle', bc.angle !== undefined ? bc.angle : 0);
+        setVal('prop-brush-shape', bc.shape !== undefined ? bc.shape : 0);
+        setVal('prop-brush-dab-blend', bc.dabBlend !== undefined ? bc.dabBlend : 0);
+        setVal('prop-brush-autorotate', bc.auto_rotate ? 1 : 0);
+        setVal('prop-brush-taper-in', bc.taper_in !== undefined ? bc.taper_in : 0);
+        setVal('prop-brush-taper-out', bc.taper_out !== undefined ? bc.taper_out : 0);
+        setVal('prop-brush-size-jitter', bc.size_jitter !== undefined ? bc.size_jitter : 0);
+        setVal('prop-brush-angle-jitter', bc.angle_jitter !== undefined ? bc.angle_jitter : 0);
+        setVal('prop-brush-opacity-jitter', bc.opacity_jitter !== undefined ? bc.opacity_jitter : 0);
+        setVal('prop-brush-wetness', bc.wetness !== undefined ? bc.wetness : 0);
+        setVal('prop-brush-color-pickup', bc.color_pickup !== undefined ? bc.color_pickup : 0);
+        setVal('prop-brush-depletion', bc.depletion !== undefined ? bc.depletion : 0);
+        setVal('prop-brush-smudge', bc.smudge !== undefined ? bc.smudge : 0);
 
         // Stroke WASM Plugin Sync
         const swf = obj.strokeFilter || (bc.wasmFilter) || (obj.wasmFilter && obj.wasmFilter.target === 'stroke' ? obj.wasmFilter : { enabled: false, target: 'stroke' });
-        if (document.getElementById('prop-stroke-filter-enabled')) {
-          document.getElementById('prop-stroke-filter-enabled').checked = !!swf.enabled;
-          document.getElementById('prop-stroke-filter-target').value = swf.target || 'stroke';
-          document.getElementById('prop-stroke-filter-plugin').value = swf.plugin || 'dither';
-          document.getElementById('prop-stroke-filter-p1').value = swf.p1 !== undefined ? swf.p1 : 0;
-          document.getElementById('prop-stroke-filter-p2').value = swf.p2 !== undefined ? swf.p2 : 0;
-          document.getElementById('prop-stroke-filter-opacity').value = swf.opacity !== undefined ? swf.opacity : 1.0;
-        }
+        setChecked('prop-stroke-filter-enabled', swf.enabled);
+        setVal('prop-stroke-filter-target', swf.target || 'stroke');
+        setVal('prop-stroke-filter-plugin', swf.plugin || 'dither');
+        setVal('prop-stroke-filter-p1', swf.p1 !== undefined ? swf.p1 : 0);
+        setVal('prop-stroke-filter-p2', swf.p2 !== undefined ? swf.p2 : 0);
+        setVal('prop-stroke-filter-opacity', swf.opacity !== undefined ? swf.opacity : 1.0);
 
         // Stroke Texture
         const st = obj.strokeTexture || {};
-        document.getElementById('prop-stroke-tex-mode').value = st.mode !== undefined ? st.mode : 0;
-        document.getElementById('prop-stroke-tex-scale').value = st.scale !== undefined ? st.scale : 100;
-        document.getElementById('prop-stroke-tex-angle').value = st.angle !== undefined ? st.angle : 0;
-        document.getElementById('prop-stroke-tex-contrast').value = st.contrast !== undefined ? st.contrast : 100;
-        document.getElementById('prop-stroke-tex-grain').value = st.grain !== undefined ? st.grain : 0;
+        setVal('prop-stroke-tex-mode', st.mode !== undefined ? st.mode : 0);
+        setVal('prop-stroke-tex-scale', st.scale !== undefined ? st.scale : 100);
+        setVal('prop-stroke-tex-angle', st.angle !== undefined ? st.angle : 0);
+        setVal('prop-stroke-tex-contrast', st.contrast !== undefined ? st.contrast : 100);
+        setVal('prop-stroke-tex-grain', st.grain !== undefined ? st.grain : 0);
 
         if (window.dopeSheetUI) {
           if (selected.length > 0) {
@@ -6919,8 +6796,12 @@
 
           // Workspace & Panels Submenu
           addSubmenu('Panels & Viewport', [
-            { type: 'item', label: 'Toggle Left Sidebar (Fill & Stroke)', action: () => { leftSidebarEl?.classList.toggle('collapsed'); drawOverlay(); } },
-            { type: 'item', label: 'Toggle Inspector Sidebar (Panels)', action: () => { if (window.innerWidth <= 860) { sidebarEl?.classList.toggle('mobile-open'); backdropEl?.classList.toggle('active'); } else { sidebarEl?.classList.toggle('collapsed'); drawOverlay(); } } },
+            { type: 'item', label: 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => switchLeftTab('fill') },
+            { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
+            { type: 'item', label: 'Inspector & Transform Dock', action: () => switchTab('inspect') },
+            { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
+            { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
+            { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
             { type: 'sep' },
             { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
             { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
@@ -7036,8 +6917,12 @@
 
           // Workspace & Panels Submenu
           addSubmenu('Panels & Viewport', [
-            { type: 'item', label: 'Toggle Left Sidebar (Fill & Stroke)', action: () => { leftSidebarEl?.classList.toggle('collapsed'); drawOverlay(); } },
-            { type: 'item', label: 'Toggle Inspector Sidebar (Panels)', action: () => { if (window.innerWidth <= 860) { sidebarEl?.classList.toggle('mobile-open'); backdropEl?.classList.toggle('active'); } else { sidebarEl?.classList.toggle('collapsed'); drawOverlay(); } } },
+            { type: 'item', label: 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => switchLeftTab('fill') },
+            { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
+            { type: 'item', label: 'Inspector & Transform Dock', action: () => switchTab('inspect') },
+            { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
+            { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
+            { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
             { type: 'sep' },
             { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
             { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
@@ -7249,7 +7134,7 @@
       window.selectTool = selectTool;
 
       viewportContainer.addEventListener('contextmenu', (e) => {
-        if (e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
+        if (e.target.closest('.context-menu') || e.target.closest('.dock-panel-content:not(#dock-panel-canvas)')) return;
         e.preventDefault();
         const pt = screenToDoc(e.clientX, e.clientY);
 
@@ -7288,7 +7173,7 @@
 
       // ── Zoom & Pan Controls (Touchpad & Wheel) ──
       viewportContainer.addEventListener('wheel', (e) => {
-        if (e.target.closest('#left-sidebar') || e.target.closest('#sidebar') || e.target.closest('.context-menu')) return;
+        if (e.target.closest('.context-menu') || e.target.closest('.dock-panel-content:not(#dock-panel-canvas)')) return;
         e.preventDefault();
 
         const rect = viewportContainer.getBoundingClientRect();
@@ -7541,16 +7426,14 @@
         } else if (key === 't') {
           if (e.shiftKey) {
             e.preventDefault();
-            document.querySelector('.tab-btn[data-tab="scene"]')?.click();
+            switchTab('scene');
           } else {
             selectTool('text');
           }
         } else if (key === 'f') {
           if (e.shiftKey) {
             e.preventDefault();
-            const leftSidebarEl = document.getElementById('left-sidebar');
-            leftSidebarEl?.classList.toggle('collapsed');
-            drawOverlay();
+            switchLeftTab('fill');
           }
         } else if (key === '0') {
           zoomToFit();
@@ -8902,70 +8785,208 @@
         });
       });
 
-      // ── Left Retractable Sidebar (Fill & Stroke Dynamics) ──
-      const leftSidebarEl = document.getElementById('left-sidebar');
-      const leftTabButtons = document.querySelectorAll('.left-tab-btn');
-      const leftTabContents = document.querySelectorAll('.left-tab-content');
+      // ── Dockview Initialization & Tab Switching ──
+      let dockviewApi = null;
+
+      function initDockview() {
+        const container = document.getElementById('dockview-container');
+        if (!container || typeof window['dockview-core'] === 'undefined') return;
+
+        dockviewApi = window['dockview-core'].createDockview(container, {
+          className: 'dockview-theme-dark',
+          createComponent: (options) => {
+            const panelId = options.id || options.name;
+            const el = document.getElementById('dock-panel-' + panelId);
+            return {
+              element: el,
+              init: () => {},
+              update: () => {},
+              dispose: () => {}
+            };
+          }
+        });
+
+        window.dockviewApi = dockviewApi;
+
+        // 1. Center Canvas Viewport
+        dockviewApi.addPanel({
+          id: 'canvas',
+          component: 'canvas',
+          title: 'Canvas'
+        });
+
+        // 2. Left Fill panel
+        dockviewApi.addPanel({
+          id: 'fill',
+          component: 'fill',
+          title: 'Fill',
+          position: { direction: 'left', referencePanel: 'canvas' },
+          initialWidth: 280
+        });
+
+        // 3. Left Stroke panel (tabbed with Fill)
+        dockviewApi.addPanel({
+          id: 'stroke',
+          component: 'stroke',
+          title: 'Stroke',
+          position: { referencePanel: 'fill' }
+        });
+
+        // 4. Right Inspect panel
+        dockviewApi.addPanel({
+          id: 'inspect',
+          component: 'inspect',
+          title: 'Inspect',
+          position: { direction: 'right', referencePanel: 'canvas' },
+          initialWidth: 280
+        });
+
+        // 5. Right Scene panel (tabbed with Inspect)
+        dockviewApi.addPanel({
+          id: 'scene',
+          component: 'scene',
+          title: 'Scene',
+          position: { referencePanel: 'inspect' }
+        });
+
+        // 6. Right Document panel (tabbed with Inspect)
+        dockviewApi.addPanel({
+          id: 'document',
+          component: 'document',
+          title: 'Document',
+          position: { referencePanel: 'inspect' }
+        });
+
+        // 7. Right Animation panel (tabbed with Inspect)
+        dockviewApi.addPanel({
+          id: 'animation',
+          component: 'animation',
+          title: 'Animation',
+          position: { referencePanel: 'inspect' }
+        });
+
+        // Activate canvas initially
+        dockviewApi.getPanel('canvas')?.api?.setActive();
+
+        // Prevent closing any panels
+        if (dockviewApi.onWillClosePanel) {
+          dockviewApi.onWillClosePanel((e) => {
+            if (e && e.preventDefault) e.preventDefault();
+          });
+        }
+
+        // Explicit instant tab switching on tab clicks
+        const activateTabFromEvent = (e) => {
+          const tabEl = e.target.closest('.dv-tab');
+          if (!tabEl) return;
+          const panelId = tabEl.dataset.tabPanelId || tabEl.getAttribute('aria-label')?.toLowerCase();
+          if (panelId && dockviewApi) {
+            const panel = dockviewApi.getPanel(panelId);
+            if (panel) {
+              panel.api.setActive();
+              if (panelId === 'fill' || panelId === 'stroke') {
+                switchLeftTab(panelId);
+              } else if (panelId === 'inspect' || panelId === 'scene' || panelId === 'document' || panelId === 'animation') {
+                switchTab(panelId);
+              }
+            }
+          }
+        };
+        container.addEventListener('pointerdown', activateTabFromEvent, true);
+        container.addEventListener('click', activateTabFromEvent, true);
+
+        // Active panel change handler
+        if (dockviewApi.onDidActivePanelChange) {
+          dockviewApi.onDidActivePanelChange((event) => {
+            const id = event?.panel?.id;
+            if (id === 'document') {
+              const wEl = document.getElementById('prop-doc-w');
+              const hEl = document.getElementById('prop-doc-h');
+              const bgEl = document.getElementById('prop-doc-bg');
+              const nameEl = document.getElementById('prop-project-name');
+              if (wEl) wEl.value = doc.width;
+              if (hEl) hEl.value = doc.height;
+              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+              if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
+            } else if (id === 'scene') {
+              updateObjectList();
+            } else if (id === 'animation') {
+              updateSelectedObjectEventsUI();
+              updateSceneAnimUI();
+            } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
+              updateInspector();
+            }
+            if (typeof drawOverlay === 'function') drawOverlay();
+            if (typeof drawRulers === 'function') drawRulers();
+          });
+        }
+
+        // Relayout handler
+        if (dockviewApi.onDidLayoutChange) {
+          dockviewApi.onDidLayoutChange(() => {
+            if (typeof drawRulers === 'function') drawRulers();
+            if (typeof drawOverlay === 'function') drawOverlay();
+          });
+        }
+
+        // Viewport resize observer
+        const vp = document.getElementById('viewport-container');
+        if (vp && typeof ResizeObserver !== 'undefined') {
+          const ro = new ResizeObserver(() => {
+            if (typeof drawRulers === 'function') drawRulers();
+            if (typeof drawOverlay === 'function') drawOverlay();
+          });
+          ro.observe(vp);
+        }
+      }
 
       function switchLeftTab(targetTabId) {
-        if (!leftSidebarEl) return;
-        leftSidebarEl.classList.remove('collapsed');
-        leftTabButtons.forEach(b => {
-          b.classList.toggle('active', b.dataset.leftTab === targetTabId);
-        });
-        leftTabContents.forEach(c => {
-          c.classList.toggle('active', c.id === targetTabId);
-        });
+        const panelId = (targetTabId === 'tab-left-stroke' || targetTabId === 'stroke') ? 'stroke' : 'fill';
+        window.dockviewApi?.getPanel(panelId)?.api?.setActive();
         updateInspector();
         drawOverlay();
       }
       window.switchLeftTab = switchLeftTab;
 
-      leftTabButtons.forEach(btn => {
-        btn.addEventListener('click', () => {
-          const tabId = btn.dataset.leftTab;
-          if (tabId) switchLeftTab(tabId);
-        });
-      });
-
-      document.getElementById('btn-collapse-left-sidebar')?.addEventListener('click', () => {
-        leftSidebarEl?.classList.add('collapsed');
+      function switchTab(targetTabId) {
+        let panelId = 'inspect';
+        if (targetTabId === 'tab-scene' || targetTabId === 'scene' || targetTabId === 'tab-objects') {
+          panelId = 'scene';
+        } else if (targetTabId === 'tab-document' || targetTabId === 'document') {
+          panelId = 'document';
+        } else if (targetTabId === 'tab-animation' || targetTabId === 'animation') {
+          panelId = 'animation';
+        }
+        window.dockviewApi?.getPanel(panelId)?.api?.setActive();
+        if (panelId === 'document') {
+          const wEl = document.getElementById('prop-doc-w');
+          const hEl = document.getElementById('prop-doc-h');
+          const bgEl = document.getElementById('prop-doc-bg');
+          const nameEl = document.getElementById('prop-project-name');
+          if (wEl) wEl.value = doc.width;
+          if (hEl) hEl.value = doc.height;
+          if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+          if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
+        } else if (panelId === 'scene') {
+          updateObjectList();
+        } else if (panelId === 'animation') {
+          updateSelectedObjectEventsUI();
+          updateSceneAnimUI();
+        } else {
+          updateInspector();
+        }
         drawOverlay();
-      });
-
-      document.getElementById('btn-toggle-left-sidebar')?.addEventListener('click', () => {
-        leftSidebarEl?.classList.toggle('collapsed');
-        drawOverlay();
-      });
+      }
+      window.switchTab = switchTab;
 
       document.getElementById('btn-popover-fill')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (leftSidebarEl?.classList.contains('collapsed')) {
-          switchLeftTab('tab-left-fill');
-        } else {
-          const isFillActive = document.getElementById('tab-left-fill')?.classList.contains('active');
-          if (isFillActive) {
-            leftSidebarEl?.classList.add('collapsed');
-            drawOverlay();
-          } else {
-            switchLeftTab('tab-left-fill');
-          }
-        }
+        switchLeftTab('fill');
       });
 
       document.getElementById('btn-popover-stroke')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (leftSidebarEl?.classList.contains('collapsed')) {
-          switchLeftTab('tab-left-stroke');
-        } else {
-          const isStrokeActive = document.getElementById('tab-left-stroke')?.classList.contains('active');
-          if (isStrokeActive) {
-            leftSidebarEl?.classList.add('collapsed');
-            drawOverlay();
-          } else {
-            switchLeftTab('tab-left-stroke');
-          }
-        }
+        switchLeftTab('stroke');
       });
 
       document.addEventListener('click', (e) => {
@@ -10588,67 +10609,7 @@
         render();
       });
 
-      // Tab Switching
-      document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-          btn.classList.add('active');
-          const targetId = btn.dataset.tab;
-          if (targetId) {
-            const targetEl = document.getElementById(targetId);
-            if (targetEl) targetEl.classList.add('active');
-            if (targetId === 'tab-canvas') {
-              const wEl = document.getElementById('prop-doc-w');
-              const hEl = document.getElementById('prop-doc-h');
-              const bgEl = document.getElementById('prop-doc-bg');
-              const zEl = document.getElementById('prop-zoom-val');
-              const rEl = document.getElementById('prop-viewport-rot');
-              const cxEl = document.getElementById('prop-camera-x');
-              const cyEl = document.getElementById('prop-camera-y');
-              if (wEl) wEl.value = doc.width;
-              if (hEl) hEl.value = doc.height;
-              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
-              if (zEl) zEl.value = Math.round(zoom * 100);
-              if (rEl) rEl.value = viewportRotation;
-              if (cxEl) cxEl.value = Math.round(panX);
-              if (cyEl) cyEl.value = Math.round(panY);
-              updateRendererMenuUi();
-            } else if (targetId === 'tab-style') {
-              updateInspector();
-            } else if (targetId === 'tab-scene' || targetId === 'tab-objects') {
-              const wEl = document.getElementById('prop-doc-w');
-              const hEl = document.getElementById('prop-doc-h');
-              const bgEl = document.getElementById('prop-doc-bg');
-              const nameEl = document.getElementById('prop-project-name');
-              if (wEl) wEl.value = doc.width;
-              if (hEl) hEl.value = doc.height;
-              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
-              if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
-              updateObjectList();
-              updateSelectedObjectEventsUI();
-              updateSceneAnimUI();
-            }
-          }
-        });
-      });
-
-      // Sidebar Toggle (Desktop Collapse & Mobile Drawer)
-      const sidebarEl = document.getElementById('sidebar');
-      const backdropEl = document.getElementById('sidebar-backdrop');
-      document.getElementById('btn-toggle-sidebar')?.addEventListener('click', () => {
-        if (window.innerWidth <= 860) {
-          sidebarEl?.classList.toggle('mobile-open');
-          backdropEl?.classList.toggle('active');
-        } else {
-          sidebarEl?.classList.toggle('collapsed');
-          drawOverlay();
-        }
-      });
-      backdropEl?.addEventListener('click', () => {
-        sidebarEl?.classList.remove('mobile-open');
-        backdropEl?.classList.remove('active');
-      });
+      // Legacy sidebar and tab listeners migrated to Dockview window.switchTab / window.switchLeftTab
 
       // ── DopeSheet & Scene Animation / Events System ──
       let dopeSheet = null;
@@ -11948,6 +11909,7 @@
       const lastVecProj = localStorage.getItem('esenho_current_vector_project_id');
 
       (async () => {
+        initDockview();
         if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
           try {
             const customPlugins = await EsenhoStore.getAllPlugins();
