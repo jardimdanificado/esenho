@@ -1775,6 +1775,15 @@
 
     <!-- Top Control Bar: Node & Curves, Pathfinder, Alignment (Inkscape-style) -->
     <div id="top-control-bar" class="top-control-bar">
+      <!-- Select & Group Mode -->
+      <div class="top-tool-group" title="Selection Mode">
+        <span class="top-tool-group-label">Select</span>
+        <button type="button" class="top-tool-btn active" id="top-toggle-group-select" title="Group Select: When enabled, clicking an element selects its parent group. When disabled, selects individual objects directly.">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/><path d="M1 1h14v14H1z" stroke-dasharray="2 1" stroke-width="1"/></svg>
+          <span style="font-size: 10px; margin-left: 3px; font-weight: 600;">Group Select</span>
+        </button>
+      </div>
+
       <!-- Node & Curves Group -->
       <div class="top-tool-group" title="Node &amp; Curves Controls">
         <span class="top-tool-group-label">Node</span>
@@ -3710,6 +3719,37 @@
       let resizeStartPoint = { x: 0, y: 0 };
       let resizeStartLocalPoint = { x: 0, y: 0 };
       let hoveredObj = null;
+      let groupSelectMode = true; // When true, clicking an element selects its root group. When false, selects individual objects directly.
+
+      function setGroupSelectMode(enabled, notify = false) {
+        groupSelectMode = Boolean(enabled);
+        const btn = document.getElementById('top-toggle-group-select');
+        if (btn) {
+          btn.classList.toggle('active', groupSelectMode);
+        }
+        if (notify) {
+          showNotification(groupSelectMode ? 'Group Select: Enabled (Parent Groups)' : 'Group Select: Disabled (Individual Elements)');
+        }
+      }
+      window.setGroupSelectMode = setGroupSelectMode;
+      document.getElementById('top-toggle-group-select')?.addEventListener('click', () => {
+        setGroupSelectMode(!groupSelectMode, true);
+      });
+
+      function recordObjectAnimationState(obj, frame) {
+        if (!obj || !window.dopeSheet) return;
+        const dObj = window.dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, obj.type === 'group' ? 'group' : 'vector');
+        const props = (typeof window.extractLiveObjectProperties === 'function')
+          ? window.extractLiveObjectProperties(obj)
+          : { x: obj.x, y: obj.y, rotation: obj.rotation, opacity: obj.opacity };
+        dObj.setEventState(frame, props);
+        if (obj.type === 'group' && Array.isArray(obj.children)) {
+          for (const child of obj.children) {
+            recordObjectAnimationState(child, frame);
+          }
+        }
+      }
+      window.recordObjectAnimationState = recordObjectAnimationState;
 
       function showNotification(msg, duration = 2200) {
         let toast = document.getElementById('studio-toast-bubble');
@@ -5005,11 +5045,7 @@
           } else if (action === 'update-event') {
             const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
             if (targetObj && window.dopeSheet) {
-              const targetDObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
-              const props = (typeof window.extractLiveObjectProperties === 'function')
-                ? window.extractLiveObjectProperties(targetObj)
-                : { x: targetObj.x, y: targetObj.y, rotation: targetObj.rotation, opacity: targetObj.opacity };
-              targetDObj.setEventState(frame, props);
+              recordObjectAnimationState(targetObj, frame);
               if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
               doc.pushHistory(`Update Event F${frame}`);
               updateSelectedObjectEventsUI();
@@ -5034,11 +5070,7 @@
             const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
             if (targetObj && window.dopeSheet) {
               const curF = window.dopeSheet.currentFrame || 1;
-              const targetDObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
-              const props = (typeof window.extractLiveObjectProperties === 'function')
-                ? window.extractLiveObjectProperties(targetObj)
-                : { x: targetObj.x, y: targetObj.y, rotation: targetObj.rotation, opacity: targetObj.opacity };
-              targetDObj.setEventState(curF, props);
+              recordObjectAnimationState(targetObj, curF);
               if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
               doc.pushHistory(`Record Event F${curF}`);
               updateSelectedObjectEventsUI();
@@ -6098,9 +6130,9 @@
             } else {
               let hit = null;
               if (e.altKey) {
-                hit = doc.hitTestDeep(pt.x, pt.y);
+                hit = groupSelectMode ? doc.hitTestDeep(pt.x, pt.y) : doc.hitTest(pt.x, pt.y);
               } else {
-                hit = doc.hitTest(pt.x, pt.y);
+                hit = groupSelectMode ? doc.hitTest(pt.x, pt.y) : (doc.hitTestDeep(pt.x, pt.y) || doc.hitTest(pt.x, pt.y));
               }
               if (hit) {
                 if (e.shiftKey) {
@@ -6405,7 +6437,9 @@
           if (isMarqueeSelecting && marqueeBox) {
             marqueeBox.endX = pt.x;
             marqueeBox.endY = pt.y;
-            const hits = doc.hitTestBox(marqueeBox.startX, marqueeBox.startY, marqueeBox.endX, marqueeBox.endY);
+            const hits = groupSelectMode
+              ? doc.hitTestBox(marqueeBox.startX, marqueeBox.startY, marqueeBox.endX, marqueeBox.endY)
+              : (typeof doc.hitTestBoxDeep === 'function' ? doc.hitTestBoxDeep(marqueeBox.startX, marqueeBox.startY, marqueeBox.endX, marqueeBox.endY) : doc.hitTestBox(marqueeBox.startX, marqueeBox.startY, marqueeBox.endX, marqueeBox.endY));
             doc.selectedIds = new Set(marqueeBaseSelected);
             for (const h of hits) {
               doc.selectedIds.add(h.id);
@@ -7112,7 +7146,7 @@
 
             addHeader('Clipping Mask');
             addItem('Make Clipping Mask', 'Ctrl+7', () => {
-              if (doc.createMask()) {
+              if (doc.createClipMask ? doc.createClipMask() : doc.createMask()) {
                 render();
                 drawOverlay();
                 updateObjectList();
@@ -7125,7 +7159,7 @@
           const hasMask = selectedObjs.some(o => o.clipPathId);
           if (hasMask) {
             addItem('Release Clipping Mask', 'Ctrl+Alt+7', () => {
-              if (doc.releaseMask()) {
+              if (doc.releaseClipMask ? doc.releaseClipMask() : doc.releaseMask()) {
                 render();
                 drawOverlay();
                 updateObjectList();
@@ -7139,8 +7173,9 @@
           const hasText = selectedObjs.some(o => o.type === 'text');
           const hasStroke = selectedObjs.some(o => o.stroke && o.stroke !== 'none' && o.strokeWidth > 0);
           const hasGroups = selectedObjs.some(o => o.type === 'group');
+          const hasImages = selectedObjs.some(o => o.type === 'image');
 
-          if (hasPrimitives || hasText || hasStroke || hasGroups) {
+          if (hasPrimitives || hasText || hasStroke || hasGroups || hasImages || selectedObjs.length > 0) {
             addHeader('Convert & Structure');
             if (hasPrimitives) {
               addItem('Convert Shape to Path', '', () => {
@@ -7175,6 +7210,11 @@
                 }
               });
             }
+            if (selectedObjs.length > 0 && !hasImages) {
+              addItem('Rasterize to Image Layer', '', () => {
+                rasterizeSelectedToImage();
+              });
+            }
             if (selectedObjs.length >= 2) {
               addItem('Group Selection', 'Ctrl+G', () => {
                 doc.groupSelected();
@@ -7193,6 +7233,23 @@
                 drawOverlay();
               });
             }
+          }
+
+          if (hasImages) {
+            const imgObj = selectedObjs.find(o => o.type === 'image');
+            addHeader('Image & Painter');
+            addItem('Edit Image in Painter', '🎨', () => {
+              openPainterForImage(imgObj);
+            });
+            addItem('Vectorize Image (Trace to Paths)', '', () => {
+              document.getElementById('btn-trace-image')?.click();
+            });
+            addItem('Save as Texture Asset', '', () => {
+              document.getElementById('btn-save-img-texture')?.click();
+            });
+            addItem('Save as Brush Tip Shape', '', () => {
+              document.getElementById('btn-save-img-tip')?.click();
+            });
           }
 
           addHeader('Transform');
@@ -7257,11 +7314,7 @@
             if (window.dopeSheet) {
               const curF = window.dopeSheet.currentFrame || 1;
               for (const o of selectedObjs) {
-                const dObj = window.dopeSheet.getOrCreateObject(o.id, o.name || o.id, 'vector');
-                const props = (typeof window.extractLiveObjectProperties === 'function')
-                  ? window.extractLiveObjectProperties(o)
-                  : { x: o.x, y: o.y, rotation: o.rotation, opacity: o.opacity };
-                dObj.setEventState(curF, props);
+                recordObjectAnimationState(o, curF);
               }
               doc.pushHistory(`Record State F${curF}`);
               updateSelectedObjectEventsUI();
@@ -7322,6 +7375,38 @@
             panY = 0;
             applyViewportTransform();
             render();
+          });
+          addSep();
+          addHeader('Viewport & Engine');
+          addItem(viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', '', () => {
+            syncRenderMode('quadro');
+          });
+          addItem(viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', '', () => {
+            syncRenderMode('svg');
+          });
+          addItem(Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', '', () => {
+            quadroRenderScale = 0.5;
+            updateStageSize();
+            render();
+            updateRendererMenuUi();
+          });
+          addItem(Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', '', () => {
+            quadroRenderScale = 1.0;
+            updateStageSize();
+            render();
+            updateRendererMenuUi();
+          });
+          addItem(Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', '', () => {
+            quadroRenderScale = 2.0;
+            updateStageSize();
+            render();
+            updateRendererMenuUi();
+          });
+          addItem(viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Nearest (Crisp)', '', () => {
+            setViewportBilinear(!viewportBilinear, true);
+          });
+          addItem(groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', '', () => {
+            setGroupSelectMode(!groupSelectMode, true);
           });
           addSep();
           addItem('Add Horizontal Guide Here', '', () => {
@@ -7415,7 +7500,12 @@
           } else {
             const hitDeep = doc.hitTestDeep(pt.x, pt.y);
             const hitTop = doc.hitTest(pt.x, pt.y);
-            const hitObj = e.altKey ? hitDeep : (hitTop || hitDeep);
+            let hitObj = null;
+            if (groupSelectMode) {
+              hitObj = e.altKey ? hitDeep : (hitTop || hitDeep);
+            } else {
+              hitObj = e.altKey ? (hitTop || hitDeep) : (hitDeep || hitTop);
+            }
             if (hitObj) {
               if (!doc.selectedIds.has(hitObj.id)) {
                 if (!e.shiftKey) doc.selectedIds.clear();
@@ -7440,6 +7530,17 @@
         const mouseX = e.clientX - rect.left;
         const mouseY = e.clientY - rect.top;
 
+        if (e.ctrlKey || e.metaKey) {
+          // Touchpad pinch-to-zoom or Ctrl+Wheel: smooth exponential scaling centered at cursor
+          const clampedDelta = Math.max(-50, Math.min(50, e.deltaY));
+          const newZoom = Math.max(0.05, Math.min(20.0, zoom * Math.pow(0.992, clampedDelta)));
+          panX = mouseX - (mouseX - panX) * (newZoom / zoom);
+          panY = mouseY - (mouseY - panY) * (newZoom / zoom);
+          zoom = newZoom;
+          applyViewportTransform();
+          return;
+        }
+
         if (e.shiftKey) {
           // Shift+Wheel for horizontal scroll/pan
           panX -= (e.deltaY || e.deltaX);
@@ -7447,30 +7548,9 @@
           return;
         }
 
-        if (Math.abs(e.deltaX) > 0.5 && !e.ctrlKey && !e.metaKey) {
-          // Touchpad 2-finger pan (has horizontal component)
-          panX -= e.deltaX;
-          panY -= e.deltaY;
-          applyViewportTransform();
-          return;
-        }
-
-        let newZoom;
-        if (e.ctrlKey || e.metaKey) {
-          // Touchpad pinch-to-zoom or Ctrl+Wheel: smooth exponential scaling
-          const clampedDelta = Math.max(-50, Math.min(50, e.deltaY));
-          newZoom = zoom * Math.pow(0.992, clampedDelta);
-        } else {
-          // Regular mouse wheel: crisp, snappy zoom step centered at cursor
-          const delta = e.deltaY < 0 ? 1.12 : (1 / 1.12);
-          newZoom = zoom * delta;
-        }
-
-        newZoom = Math.max(0.05, Math.min(20.0, newZoom));
-        panX = mouseX - (mouseX - panX) * (newZoom / zoom);
-        panY = mouseY - (mouseY - panY) * (newZoom / zoom);
-        zoom = newZoom;
-
+        // Two-finger swipe on touchpad or mouse wheel: Pan viewport vertically and horizontally
+        panX -= e.deltaX;
+        panY -= e.deltaY;
         applyViewportTransform();
       }, { passive: false });
 
@@ -8000,14 +8080,14 @@
       });
 
       // Rasterize to Image Object
-      document.getElementById('btn-rasterize')?.addEventListener('click', () => {
+      function rasterizeSelectedToImage() {
         const selected = doc.getSelectedObjects();
-        if (selected.length === 0 || !quadroRenderer) return;
+        if (selected.length === 0) return;
 
         // Bounding box of selection
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const obj of selected) {
-          const b = obj.getBounds ? obj.getBounds() : { minX: obj.x, minY: obj.y, maxX: obj.x, maxY: obj.y };
+          const b = obj.getBounds ? obj.getBounds() : { minX: obj.x || 0, minY: obj.y || 0, maxX: (obj.x || 0) + (obj.width || 0), maxY: (obj.y || 0) + (obj.height || 0) };
           minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
           maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
         }
@@ -8030,41 +8110,79 @@
         }
 
         try {
-          quadroRenderer.renderDocument(tempDoc, { scale: 1.0, background: false });
-          const imgData = quadroRenderer.getImageData();
-          if (imgData) {
+          if (quadroRenderer) {
+            quadroRenderer.renderDocument(tempDoc, { scale: 1.0, background: false });
+            const imgData = quadroRenderer.getImageData();
+            if (imgData) {
+              const cvs = document.createElement('canvas');
+              cvs.width = w; cvs.height = h;
+              const ctx2d = cvs.getContext('2d');
+              
+              const rawCvs = document.createElement('canvas');
+              rawCvs.width = imgData.width; rawCvs.height = imgData.height;
+              const rawCtx = rawCvs.getContext('2d');
+              const rawImg = rawCtx.createImageData(imgData.width, imgData.height);
+              rawImg.data.set(imgData.data);
+              rawCtx.putImageData(rawImg, 0, 0);
+              
+              ctx2d.drawImage(rawCvs, 0, 0);
+
+              const src = cvs.toDataURL('image/png');
+              const newImage = new Image();
+              newImage.onload = () => {
+                const svgImage = new SvgEngine.SvgImage({ x: minX, y: minY, width: w, height: h, src: src });
+                svgImage._imgElement = newImage;
+                doc.pushHistory('Rasterize to Image');
+                selected.forEach(o => doc.removeObject(o.id));
+                doc.addObject(svgImage);
+                doc.clearSelection();
+                doc.select(svgImage.id);
+                updateObjectList();
+                updateInspector();
+                render();
+                drawOverlay();
+                showNotification('Rasterized to Image Layer');
+              };
+              newImage.src = src;
+              return;
+            }
+          }
+
+          // Fallback via SVG Image Blob
+          const svgStr = tempDoc.toSVGString();
+          const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const img = new Image();
+          img.onload = () => {
             const cvs = document.createElement('canvas');
-            // We MUST crop to w and h because Quadro's internal canvas might be larger than requested
             cvs.width = w; cvs.height = h;
             const ctx2d = cvs.getContext('2d');
-            
-            // Draw imgData into an offscreen canvas of imgData's size, then drawImage to crop
-            const rawCvs = document.createElement('canvas');
-            rawCvs.width = imgData.width; rawCvs.height = imgData.height;
-            const rawCtx = rawCvs.getContext('2d');
-            const rawImg = rawCtx.createImageData(imgData.width, imgData.height);
-            rawImg.data.set(imgData.data);
-            rawCtx.putImageData(rawImg, 0, 0);
-            
-            ctx2d.drawImage(rawCvs, 0, 0);
-
+            ctx2d.drawImage(img, 0, 0);
+            URL.revokeObjectURL(url);
             const src = cvs.toDataURL('image/png');
-            const newImage = new Image();
-            newImage.onload = () => {
-              const svgImage = new SvgEngine.SvgImage({ x: minX, y: minY, width: w, height: h, src: src });
-              svgImage._imgElement = newImage;
-              selected.forEach(o => doc.removeObject(o.id));
-              doc.addObject(svgImage);
-              doc.clearSelection();
-              doc.select(svgImage.id);
-              updateObjectList();
-              render();
-            };
-            newImage.src = src;
-          }
+            const svgImage = new SvgEngine.SvgImage({ x: minX, y: minY, width: w, height: h, src: src });
+            svgImage._imgElement = img;
+            doc.pushHistory('Rasterize to Image');
+            selected.forEach(o => doc.removeObject(o.id));
+            doc.addObject(svgImage);
+            doc.clearSelection();
+            doc.select(svgImage.id);
+            updateObjectList();
+            updateInspector();
+            render();
+            drawOverlay();
+            showNotification('Rasterized to Image Layer');
+          };
+          img.src = url;
         } catch (e) {
           console.error(e);
+          showNotification('Failed to rasterize selection');
         }
+      }
+      window.rasterizeSelectedToImage = rasterizeSelectedToImage;
+
+      document.getElementById('btn-rasterize')?.addEventListener('click', () => {
+        rasterizeSelectedToImage();
       });
 
       // ── Inspector & Property Binding ──
@@ -10443,13 +10561,11 @@
 
       // Image Raster Editor
       let editingRasterObj = null;
-      document.getElementById('btn-edit-raster')?.addEventListener('click', () => {
-        const selected = doc.getSelectedObjects();
-        const imgObj = selected.find(o => o.type === 'image');
+      function openPainterForImage(imgObj) {
         if (!imgObj) return;
-
         editingRasterObj = imgObj;
         const iframe = document.getElementById('painter-iframe');
+        if (!iframe) return;
         iframe.src = 'painter.html?embedded=true';
         iframe.style.display = 'block';
 
@@ -10466,8 +10582,14 @@
             }, '*');
           } catch (_) {}
         };
-
         iframe.onload = sendInit;
+      }
+      window.openPainterForImage = openPainterForImage;
+
+      document.getElementById('btn-edit-raster')?.addEventListener('click', () => {
+        const selected = doc.getSelectedObjects();
+        const imgObj = selected.find(o => o.type === 'image');
+        if (imgObj) openPainterForImage(imgObj);
       });
 
       window.addEventListener('message', (e) => {
@@ -10810,6 +10932,15 @@
             if (state.skewX !== undefined) obj.skewX = state.skewX;
             if (state.skewY !== undefined) obj.skewY = state.skewY;
             if (state.opacity !== undefined) obj.opacity = state.opacity;
+            if (state.originX !== undefined) obj.originX = state.originX;
+            if (state.originY !== undefined) obj.originY = state.originY;
+            if (state.zDepth !== undefined) obj.zDepth = state.zDepth;
+
+            // Groups only animate container transforms; protect child materials & properties from cascade
+            if (obj.type === 'group') {
+              continue;
+            }
+
             if (state.fillColor !== undefined) obj.fill = state.fillColor;
             if (state.fillOpacity !== undefined) obj.fillOpacity = state.fillOpacity;
             if (state.strokeColor !== undefined) obj.stroke = state.strokeColor;
@@ -11224,11 +11355,7 @@
             const currentFrame = window.dopeSheet.currentFrame || 1;
             const selectedObjs = (doc.getSelectedObjects && doc.getSelectedObjects().length > 0) ? doc.getSelectedObjects() : doc.objects;
             for (const t of selectedObjs) {
-              const dObj = window.dopeSheet.getOrCreateObject(t.id, t.name || `${t.type} ${t.id}`, 'vector');
-              const props = (typeof window.extractLiveObjectProperties === 'function')
-                ? window.extractLiveObjectProperties(t)
-                : { x: t.x, y: t.y, rotation: t.rotation, opacity: t.opacity };
-              dObj.setEventState(currentFrame, props);
+              recordObjectAnimationState(t, currentFrame);
             }
             doc.pushHistory(`Record Event on Frame ${currentFrame}`);
             updateSelectedObjectEventsUI();

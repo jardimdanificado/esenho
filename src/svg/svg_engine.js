@@ -4129,6 +4129,39 @@
       return results;
     }
 
+    /** Deep box marquee test to select individual leaf objects inside groups */
+    hitTestBoxDeep(minX, minY, maxX, maxY, intersect = true) {
+      const results = [];
+      const boxMinX = Math.min(minX, maxX);
+      const boxMinY = Math.min(minY, maxY);
+      const boxMaxX = Math.max(minX, maxX);
+      const boxMaxY = Math.max(minY, maxY);
+
+      const checkNode = (node) => {
+        if (!node.visible || node.locked) return;
+        if (node.type === 'group' && node.children) {
+          for (const child of node.children) {
+            checkNode(child);
+          }
+          return;
+        }
+        if (node.type === 'text' && node.pathId) return;
+        const b = typeof node.getTransformedBounds === 'function' ? node.getTransformedBounds() : (typeof node.getBounds === 'function' ? node.getBounds() : { minX: node.x || 0, minY: node.y || 0, maxX: (node.x || 0) + (node.width || 0), maxY: (node.y || 0) + (node.height || 0) });
+        if (intersect) {
+          const overlaps = !(b.maxX < boxMinX || b.minX > boxMaxX || b.maxY < boxMinY || b.minY > boxMaxY);
+          if (overlaps) results.push(node);
+        } else {
+          const enclosed = b.minX >= boxMinX && b.maxX <= boxMaxX && b.minY >= boxMinY && b.maxY <= boxMaxY;
+          if (enclosed) results.push(node);
+        }
+      };
+
+      for (let i = 0; i < this.objects.length; i++) {
+        checkNode(this.objects[i]);
+      }
+      return results;
+    }
+
     /**
      * Alignment (Left, Center, Right, Top, Middle, Bottom)
      * @param {'left'|'center'|'right'|'top'|'middle'|'bottom'} alignment
@@ -4506,6 +4539,14 @@
         }
       }
       return released;
+    }
+
+    createMask() {
+      return this.createClipMask();
+    }
+
+    releaseMask() {
+      return this.releaseClipMask();
     }
 
     /**

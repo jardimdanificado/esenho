@@ -541,6 +541,11 @@ export function extractLiveObjectProperties(liveObj) {
   if (liveObj.originX !== undefined) props.originX = liveObj.originX;
   if (liveObj.originY !== undefined) props.originY = liveObj.originY;
 
+  // Groups only animate container transform and opacity; protect child object materials and properties
+  if (liveObj.type === 'group') {
+    return props;
+  }
+
   // Geometry
   if (typeof liveObj.toPathData === 'function') props.d = liveObj.toPathData();
   else if (liveObj.d !== undefined) props.d = liveObj.d;
