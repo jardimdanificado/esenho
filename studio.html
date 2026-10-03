@@ -1573,7 +1573,10 @@
   <!-- Main Workspace (Dockview Multi-Dock System) -->
   <div id="workspace">
     <div id="dockview-container" class="dockview-theme-dark"></div>
+  </div>
 
+  <!-- Dock Panel Template Pool (Dockview moves panels into its layout container dynamically) -->
+  <div id="dock-panel-pool" style="display: none;">
     <!-- Dock Panel 1: Fill & Fill Dynamics -->
     <div id="dock-panel-fill" class="dock-panel-content">
       <!-- 1. Fill Surface & Colors -->
@@ -6924,6 +6927,8 @@
             { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
             { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
             { type: 'sep' },
+            { type: 'item', label: 'Reset Dock Layout', action: () => resetDockviewLayout() },
+            { type: 'sep' },
             { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
             { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
           ]);
@@ -8786,27 +8791,43 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v3';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'animation'];
       let dockviewApi = null;
+      let saveDockviewLayoutTimeout = null;
 
-      function initDockview() {
-        const container = document.getElementById('dockview-container');
-        if (!container || typeof window['dockview-core'] === 'undefined') return;
+      const panelElementMap = new Map();
+      function getPanelElement(id) {
+        if (panelElementMap.has(id)) return panelElementMap.get(id);
+        const el = document.getElementById('dock-panel-' + id);
+        if (el) panelElementMap.set(id, el);
+        return el;
+      }
 
-        dockviewApi = window['dockview-core'].createDockview(container, {
-          className: 'dockview-theme-dark',
-          createComponent: (options) => {
-            const panelId = options.id || options.name;
-            const el = document.getElementById('dock-panel-' + panelId);
-            return {
-              element: el,
-              init: () => {},
-              update: () => {},
-              dispose: () => {}
-            };
+      function scheduleSaveDockviewLayout() {
+        if (!dockviewApi) return;
+        if (saveDockviewLayoutTimeout) clearTimeout(saveDockviewLayoutTimeout);
+        saveDockviewLayoutTimeout = setTimeout(() => {
+          try {
+            const layoutData = dockviewApi.toJSON();
+            if (layoutData && layoutData.panels) {
+              const hasAll = REQUIRED_PANEL_IDS.every(id => !!layoutData.panels[id]);
+              if (hasAll) {
+                localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to save dockview layout:', err);
           }
-        });
+        }, 300);
+      }
+      window.scheduleSaveDockviewLayout = scheduleSaveDockviewLayout;
 
-        window.dockviewApi = dockviewApi;
+      function createDefaultDockPanels() {
+        if (!dockviewApi) return;
+        try {
+          dockviewApi.clear();
+        } catch (_) {}
 
         // 1. Center Canvas Viewport
         dockviewApi.addPanel({
@@ -8865,8 +8886,78 @@
           position: { referencePanel: 'inspect' }
         });
 
-        // Activate canvas initially
+        // Activate default panels
         dockviewApi.getPanel('canvas')?.api?.setActive();
+        dockviewApi.getPanel('fill')?.api?.setActive();
+        dockviewApi.getPanel('inspect')?.api?.setActive();
+      }
+      window.createDefaultDockPanels = createDefaultDockPanels;
+
+      function resetDockviewLayout() {
+        try {
+          localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
+        } catch (e) {}
+        if (dockviewApi) {
+          createDefaultDockPanels();
+          scheduleSaveDockviewLayout();
+          if (typeof showNotification === 'function') {
+            showNotification('Dock layout reset to default');
+          }
+          if (typeof drawOverlay === 'function') drawOverlay();
+          if (typeof drawRulers === 'function') drawRulers();
+        }
+      }
+      window.resetDockviewLayout = resetDockviewLayout;
+
+      function initDockview() {
+        const container = document.getElementById('dockview-container');
+        if (!container || typeof window['dockview-core'] === 'undefined') return;
+
+        // Pre-cache all panel DOM elements so they are never lost during DOM mutations/clearing
+        REQUIRED_PANEL_IDS.forEach(id => getPanelElement(id));
+
+        dockviewApi = window['dockview-core'].createDockview(container, {
+          className: 'dockview-theme-dark',
+          defaultRenderer: 'always',
+          createComponent: (options) => {
+            const panelId = options.id || options.name;
+            const el = getPanelElement(panelId);
+            return {
+              element: el || document.createElement('div'),
+              init: () => {},
+              update: () => {},
+              dispose: () => {}
+            };
+          }
+        });
+
+        window.dockviewApi = dockviewApi;
+
+        // Restore layout from localStorage if available, or build default
+        let restored = false;
+        try {
+          const savedLayoutRaw = localStorage.getItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
+          if (savedLayoutRaw) {
+            const savedLayout = JSON.parse(savedLayoutRaw);
+            if (savedLayout && savedLayout.grid && savedLayout.panels) {
+              dockviewApi.fromJSON(savedLayout);
+              const allLoaded = REQUIRED_PANEL_IDS.every(id => !!dockviewApi.getPanel(id));
+              if (allLoaded) {
+                restored = true;
+              } else {
+                console.warn('Saved dockview layout missing required panels, restoring default');
+                try { localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY); } catch (_) {}
+              }
+            }
+          }
+        } catch (err) {
+          console.warn('Failed to restore dockview layout from storage:', err);
+          try { localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY); } catch (_) {}
+        }
+
+        if (!restored) {
+          createDefaultDockPanels();
+        }
 
         // Prevent closing any panels
         if (dockviewApi.onWillClosePanel) {
@@ -8874,26 +8965,6 @@
             if (e && e.preventDefault) e.preventDefault();
           });
         }
-
-        // Explicit instant tab switching on tab clicks
-        const activateTabFromEvent = (e) => {
-          const tabEl = e.target.closest('.dv-tab');
-          if (!tabEl) return;
-          const panelId = tabEl.dataset.tabPanelId || tabEl.getAttribute('aria-label')?.toLowerCase();
-          if (panelId && dockviewApi) {
-            const panel = dockviewApi.getPanel(panelId);
-            if (panel) {
-              panel.api.setActive();
-              if (panelId === 'fill' || panelId === 'stroke') {
-                switchLeftTab(panelId);
-              } else if (panelId === 'inspect' || panelId === 'scene' || panelId === 'document' || panelId === 'animation') {
-                switchTab(panelId);
-              }
-            }
-          }
-        };
-        container.addEventListener('pointerdown', activateTabFromEvent, true);
-        container.addEventListener('click', activateTabFromEvent, true);
 
         // Active panel change handler
         if (dockviewApi.onDidActivePanelChange) {
@@ -8918,6 +8989,7 @@
             }
             if (typeof drawOverlay === 'function') drawOverlay();
             if (typeof drawRulers === 'function') drawRulers();
+            scheduleSaveDockviewLayout();
           });
         }
 
@@ -8926,8 +8998,22 @@
           dockviewApi.onDidLayoutChange(() => {
             if (typeof drawRulers === 'function') drawRulers();
             if (typeof drawOverlay === 'function') drawOverlay();
+            scheduleSaveDockviewLayout();
           });
         }
+
+        window.addEventListener('beforeunload', () => {
+          if (!dockviewApi) return;
+          try {
+            const layoutData = dockviewApi.toJSON();
+            if (layoutData && layoutData.panels) {
+              const hasAll = REQUIRED_PANEL_IDS.every(id => !!layoutData.panels[id]);
+              if (hasAll) {
+                localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
+              }
+            }
+          } catch (e) {}
+        });
 
         // Viewport resize observer
         const vp = document.getElementById('viewport-container');
