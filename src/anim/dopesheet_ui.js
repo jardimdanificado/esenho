@@ -62,7 +62,7 @@ export class DopeSheetUI {
             <button id="ds-btn-play" class="ds-btn" title="Play / Pause (Space)" style="background: var(--primary); color: var(--bg-dark); font-weight: 700; border: 1px solid var(--primary); border-radius: 3px; padding: 2px 10px; cursor: pointer; font-size: 11px;">▶</button>
             <button id="ds-btn-step-next" class="ds-btn" title="Step 1 Frame Forward (Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">▶</button>
             <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">⏭</button>
-            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? 'var(--accent)' : 'var(--bg-panel)'}; color: ${this.ds.loop ? '#fff' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
+            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#b16286' : 'var(--bg-input)'}; color: ${this.ds.loop ? '#ffffff' : 'var(--text-muted)'}; border: 1px solid ${this.ds.loop ? '#d3869b' : 'var(--border)'}; border-radius: 3px; padding: 2px 8px; font-weight: ${this.ds.loop ? '700' : '600'}; font-size: 10px; cursor: pointer;">Loop</button>
           </div>
 
           <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
@@ -102,8 +102,8 @@ export class DopeSheetUI {
 
           <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
 
-          <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: var(--success); color: #fff; font-weight: 600; border: 1px solid var(--success); border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10.5px;">◆ Add Key</button>
-          <button id="ds-btn-del-kf" class="ds-btn" title="Remove Keyframe" style="background: var(--danger); color: #fff; font-weight: 600; border: 1px solid var(--danger); border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10.5px;">◇ Remove</button>
+          <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: #2e7d32; color: #ffffff; font-weight: 700; border: 1px solid #4caf50; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10.5px;">◆ Add</button>
+          <button id="ds-btn-del-kf" class="ds-btn" title="Remove Keyframe" style="background: #c62828; color: #ffffff; font-weight: 700; border: 1px solid #ef5350; border-radius: 3px; padding: 2px 8px; cursor: pointer; font-size: 10.5px;">◇ Remove</button>
           
           <button id="ds-btn-autokf" class="ds-btn" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--bg-panel)'}; color: ${this.ds.autoKeyframe ? '#ffffff' : 'var(--text)'}; border: 1px solid ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--border)'}; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 10.5px;">
             <span id="ds-autokf-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${this.ds.autoKeyframe ? '#fb4934' : 'var(--text-muted)'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 5px #fb4934' : 'none'};"></span>
@@ -253,8 +253,10 @@ export class DopeSheetUI {
     }
     loopBtn.onclick = () => {
       this.ds.loop = !this.ds.loop;
-      loopBtn.style.background = this.ds.loop ? 'var(--accent)' : 'var(--bg-panel)';
-      loopBtn.style.color = this.ds.loop ? '#fff' : 'var(--text)';
+      loopBtn.style.background = this.ds.loop ? '#b16286' : 'var(--bg-input)';
+      loopBtn.style.color = this.ds.loop ? '#ffffff' : 'var(--text-muted)';
+      loopBtn.style.border = this.ds.loop ? '1px solid #d3869b' : '1px solid var(--border)';
+      loopBtn.style.fontWeight = this.ds.loop ? '700' : '600';
     };
     const zoomInBtn = this.container.querySelector('#ds-btn-zoom-in');
     if (zoomInBtn) {
@@ -762,10 +764,9 @@ export class DopeSheetUI {
 
     container.innerHTML = `
       <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; box-sizing: border-box;">
-        <!-- Header -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-          <span style="font-weight: 700; color: var(--primary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Easing &amp; Physics Curve</span>
-          <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px; overflow: hidden; text-overflow: ellipsis; max-width: 170px; white-space: nowrap;">...</span>
+        <!-- Compact Header Info -->
+        <div style="display: flex; justify-content: flex-end; align-items: center;">
+          <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px; overflow: hidden; text-overflow: ellipsis; max-width: 260px; white-space: nowrap;">...</span>
         </div>
 
         <!-- Mode Switcher Tabs -->

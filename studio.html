@@ -43,33 +43,7 @@
       --bg-secondary: var(--bg-panel-sub);
     }
 
-    [data-theme="light"], body.theme-light {
-      --bg-dark: #edf0f5;
-      --bg-canvas: #dbe2ea;
-      --bg-panel: #ffffff;
-      --bg-panel-sub: #f1f5f9;
-      --bg-input: #ffffff;
-      --bg-input-focus: #f8fafc;
-      --border: #c4cdd8;
-      --border-bright: #94a3b8;
-      --border-focus: #2563eb;
-      --border-subtle: rgba(0, 0, 0, 0.08);
-      --text: #0f172a;
-      --text-bright: #020617;
-      --text-dim: #334155;
-      --text-muted: #64748b;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --primary-dim: rgba(37, 99, 235, 0.12);
-      --primary-text: #ffffff;
-      --accent: #0284c7;
-      --accent-hover: #0369a1;
-      --accent-dim: rgba(2, 132, 199, 0.12);
-      --danger: #dc2626;
-      --danger-dim: rgba(220, 38, 38, 0.12);
-      --success: #16a34a;
-      color-scheme: light;
-    }
+
 
     [data-theme="gray"], [data-theme="ableton"], body.theme-gray, body.theme-ableton {
       --bg-dark: #222528;
@@ -1080,7 +1054,7 @@
       pointer-events: none;
     }
 
-    /* ── Dockview Layout Engine & Gruvbox / Light / Ableton Theme ── */
+    /* ── Dockview Layout Engine & Gruvbox Dark / Ableton Gray Themes ── */
     #dockview-container {
       width: 100%;
       height: 100%;
@@ -1091,7 +1065,6 @@
     }
 
     .dockview-theme-dark,
-    .dockview-theme-light,
     .dockview-theme-ableton,
     #dockview-container {
       --dv-drag-over-background-color: var(--primary-dim);
@@ -1156,23 +1129,6 @@
       background: var(--bg-panel-sub);
     }
 
-    [data-theme="light"] #dockview-container .dv-tab:hover:not(.dv-active-tab),
-    body.theme-light #dockview-container .dv-tab:hover:not(.dv-active-tab) {
-      background: var(--bg-panel-sub) !important;
-      color: var(--text-bright) !important;
-    }
-
-    [data-theme="light"] .vscode-statusbar .statusbar-item:hover,
-    body.theme-light .vscode-statusbar .statusbar-item:hover {
-      background: rgba(0, 0, 0, 0.06) !important;
-      color: var(--text-bright) !important;
-    }
-
-    [data-theme="light"] .object-item:hover,
-    body.theme-light .object-item:hover {
-      background: var(--bg-panel-sub) !important;
-      border-color: var(--border-bright) !important;
-    }
 
     #dockview-container .dv-tab * {
       cursor: pointer !important;
@@ -1247,9 +1203,6 @@
       box-sizing: border-box;
     }
 
-    #dock-panel-document {
-      padding: 6px 8px 16px 8px;
-    }
 
     /* ── Center Viewport / Canvas ── */
     #viewport-container {
@@ -2445,7 +2398,7 @@
         <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
-      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Light Gray)" style="cursor: pointer;">
+      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Ableton Gray)" style="cursor: pointer;">
         <span class="statusbar-icon">☀</span>
         <span id="status-theme-text">☾ Gruvbox</span>
       </div>
@@ -3247,8 +3200,7 @@
     <div id="dock-panel-inspect" class="dock-panel-content">
       <!-- 5. Transform & Geometry -->
       <div class="section-card" id="card-geometry">
-        <div class="section-header">
-          <span>Properties &amp; Geometry</span>
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
           <span id="prop-geom-type" class="badge">None</span>
         </div>
         <!-- Object Name / Label Field -->
@@ -3470,16 +3422,26 @@
       <div id="object-list"></div>
     </div>
 
-    <!-- Dock Panel 6: Document & Project Settings -->
-    <div id="dock-panel-document" class="dock-panel-content">
-      <div class="section-card" id="card-doc-project">
-        <div class="form-row">
-          <label>Project Name</label>
-          <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector">
+    <!-- Dock Panel 7: Conventional Animation Timeline -->
+    <div id="dock-panel-animation" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel);">
+      <div id="timeline-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
+    </div>
+
+    <!-- Dock Panel 8: Projects & Storage Manager -->
+    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%;">
+      <!-- Active Document & Canvas Settings -->
+      <div class="section-card" id="card-doc-project" style="margin: 8px 10px 4px 10px; padding: 8px 10px; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+        <div style="font-size: 10.5px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Active Canvas</span>
+          <span id="doc-size-badge" class="badge" style="font-size: 9.5px;">800 × 600</span>
         </div>
-        <div class="form-row">
-          <label>Preset Size</label>
-          <select id="prop-canvas-preset">
+        <div class="form-row" style="margin-bottom: 4px;">
+          <label style="flex: 0 0 50px;">Title</label>
+          <input type="text" id="prop-project-name" placeholder="Project name" value="Untitled Vector" style="font-size: 11px;">
+        </div>
+        <div class="form-row" style="margin-bottom: 4px;">
+          <label style="flex: 0 0 50px;">Preset</label>
+          <select id="prop-canvas-preset" style="font-size: 11px;">
             <option value="custom">-- Custom Size --</option>
             <option value="800x600" selected>800 × 600 (Standard)</option>
             <option value="1080x1080">1080 × 1080 (Square 1:1)</option>
@@ -3490,27 +3452,19 @@
             <option value="512x512">512 × 512 (Icon)</option>
           </select>
         </div>
-        <div class="form-row">
-          <label>Dimensions</label>
+        <div class="form-row" style="margin-bottom: 4px;">
+          <label style="flex: 0 0 50px;">Size</label>
           <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)">
-            <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)">
+            <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)" style="font-size: 11px;">
+            <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)" style="font-size: 11px;">
           </div>
         </div>
-        <div class="form-row">
-          <label>Background</label>
-          <input type="text" id="prop-doc-bg" value="#1d2021">
+        <div class="form-row" style="margin-bottom: 0;">
+          <label style="flex: 0 0 50px;">Color</label>
+          <input type="text" id="prop-doc-bg" value="#1d2021" style="font-size: 11px;">
         </div>
       </div>
-    </div>
 
-    <!-- Dock Panel 7: Conventional Animation Timeline -->
-    <div id="dock-panel-animation" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel);">
-      <div id="timeline-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
-    </div>
-
-    <!-- Dock Panel 8: Projects & Storage Manager -->
-    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%;">
       <!-- Inline New Project Card (Replaces Modal) -->
       <div id="hub-new-project-card" style="display: none; padding: 10px 12px; background: var(--bg-panel-sub); border-bottom: 2px solid var(--primary); flex-direction: column; gap: 8px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -3755,8 +3709,6 @@
 
     <!-- Dock Panel 11: Image Tracer / Vectorizer -->
     <div id="dock-panel-tracer" class="dock-panel-content" style="padding: 12px; overflow-y: auto; background: var(--bg-panel); display: flex; flex-direction: column; gap: 10px; height: 100%;">
-      <div style="font-size: 11px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Trace Image to Vector</div>
-      
       <div id="tracer-source-info" style="font-size: 11px; color: var(--text-muted); background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
         Select a raster image on the canvas to vectorize.
       </div>
@@ -3871,28 +3823,25 @@
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (!['dark', 'gray', 'light'].includes(currentTheme)) currentTheme = 'dark';
+      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        currentTheme = ['light', 'gray', 'dark'].includes(theme) ? theme : 'dark';
+        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
-        document.body.classList.toggle('theme-light', currentTheme === 'light');
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
         document.body.classList.toggle('theme-ableton', currentTheme === 'gray');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
-          dvContainer.classList.toggle('dockview-theme-light', currentTheme === 'light');
-          dvContainer.classList.toggle('dockview-theme-dark', currentTheme === 'dark' || currentTheme === 'gray');
+          dvContainer.classList.toggle('dockview-theme-dark', true);
         }
 
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
-          if (currentTheme === 'light') themeText.textContent = '☀ Light';
-          else if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
+          if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
           else themeText.textContent = '☾ Dark';
         }
 
@@ -3914,13 +3863,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Dark', gray: 'Gray', light: 'Light' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Ableton Gray' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray', 'light'];
+        const order = ['dark', 'gray'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -4632,16 +4581,14 @@
         return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
       }
 
-      // ── Render Loop ──
-      function render() {
-        // 1. Render Scene (Real-time Quadro WASM or Direct SVG)
+      // ── Render Loops ──
+      function renderFast(skipOverlay = false) {
         if (viewportRenderMode === 'quadro' && quadroRenderer) {
           svgStage.style.display = 'none';
           quadroCanvas.style.display = 'block';
           try {
             quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: quadroRenderScale, background: true });
           } catch (err) {
-            console.warn('Realtime Quadro render error, fallback to SVG:', err);
             svgStage.style.display = 'block';
             quadroCanvas.style.display = 'none';
             renderSvgStage();
@@ -4651,11 +4598,27 @@
           quadroCanvas.style.display = 'none';
           renderSvgStage();
         }
+        if (!skipOverlay) {
+          drawOverlay();
+        }
+      }
+      window.renderFast = renderFast;
 
-        // 2. Draw Interactive Overlay (Gizmos, Nodes, Handles)
-        drawOverlay();
+      let isDragRenderScheduled = false;
+      function scheduleFastRender() {
+        if (isDragRenderScheduled) return;
+        isDragRenderScheduled = true;
+        requestAnimationFrame(() => {
+          isDragRenderScheduled = false;
+          renderFast();
+        });
+      }
+      window.scheduleFastRender = scheduleFastRender;
 
-        // 3. Update Sidebar & UI
+      function render() {
+        renderFast(false);
+
+        // Update Sidebar & UI
         updateObjectList();
         updateInspector();
         if (statusObjects) statusObjects.textContent = doc.objects.length;
@@ -6932,9 +6895,7 @@
                   if (obj.rotation < 0) obj.rotation += 360;
                 }
               }
-              render();
-              updateInspector();
-              drawOverlay();
+              scheduleFastRender();
               return;
             } else {
               const obj = selected[0];
@@ -6945,9 +6906,7 @@
                 if (newRot < 0) newRot += 360;
                 if (e.shiftKey) newRot = Math.round(newRot / 15) * 15;
                 obj.rotation = newRot;
-                render();
-                updateInspector();
-                drawOverlay();
+                scheduleFastRender();
                 return;
               }
             }
@@ -6962,9 +6921,7 @@
                 obj.originX = Math.round(pt.x);
                 obj.originY = Math.round(pt.y);
               }
-              render();
-              updateInspector();
-              drawOverlay();
+              scheduleFastRender();
               return;
             }
           }
@@ -7008,10 +6965,10 @@
                   newMaxY = newMinY + newH;
                 } else if (activeResizeHandle === 'ne') {
                   newMaxX = newMinX + newW;
-                  newMinY = newMaxY - newH;
+                  newMaxY = newMinY - newH;
                 } else if (activeResizeHandle === 'nw') {
                   newMinX = newMaxX - newW;
-                  newMinY = newMaxY - newH;
+                  newMaxY = newMinY - newH;
                 }
               } else {
                 if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dX);
@@ -7029,9 +6986,7 @@
                   scaleObjectToBox(obj, item.state, initialBounds, newMinX, newMinY, newW, newH);
                 }
               }
-              render();
-              updateInspector();
-              drawOverlay();
+              scheduleFastRender();
               return;
             } else {
               const obj = selected[0];
@@ -7074,10 +7029,10 @@
                     newMaxY = newMinY + newH;
                   } else if (activeResizeHandle === 'ne') {
                     newMaxX = newMinX + newW;
-                    newMinY = newMaxY - newH;
+                    newMaxY = newMinY - newH;
                   } else if (activeResizeHandle === 'nw') {
                     newMinX = newMaxX - newW;
-                    newMinY = newMaxY - newH;
+                    newMaxY = newMinY - newH;
                   }
                 } else {
                   if (activeResizeHandle.includes('e')) newMaxX = Math.max(initialBounds.minX + 2, initialBounds.maxX + dLocalX);
@@ -7156,9 +7111,7 @@
                   }
                 }
 
-                render();
-                updateInspector();
-                drawOverlay();
+                scheduleFastRender();
                 return;
               }
             }
@@ -7219,9 +7172,7 @@
               }
               dragStartX = pt.x;
               dragStartY = pt.y;
-              render();
-              updateInspector();
-              drawOverlay();
+              scheduleFastRender();
             }
           }
         } else if (activeTool === 'node' && (activeNodeIdx !== -1 || selectedNodeIndices.size > 0)) {
@@ -7256,9 +7207,7 @@
               node.setAbsCpOut(pt.x, pt.y, forceIndep);
             }
             if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
-            render();
-            updateInspector();
-            drawOverlay();
+            scheduleFastRender();
           }
         } else if (activeTool === 'pen' && isPenDraggingAnchor && currentPenPath && activeNodeIdx !== -1) {
           const node = currentPenPath.nodes[activeNodeIdx];
@@ -7272,7 +7221,7 @@
               }
               node.setAbsCpOut(pt.x, pt.y, forceIndep);
             }
-            render();
+            scheduleFastRender();
           }
         } else if (activeTool === 'rect' && currentDraftObj) {
           const minX = Math.min(dragStartX, pt.x);
@@ -7283,20 +7232,20 @@
           currentDraftObj.y = minY;
           currentDraftObj.width = w;
           currentDraftObj.height = h;
-          render();
+          scheduleFastRender();
         } else if (activeTool === 'ellipse' && currentDraftObj) {
           currentDraftObj.rx = Math.abs(pt.x - dragStartX);
           currentDraftObj.ry = Math.abs(pt.y - dragStartY);
-          render();
+          scheduleFastRender();
         } else if (activeTool === 'line' && currentDraftObj) {
           currentDraftObj.x2 = pt.x;
           currentDraftObj.y2 = pt.y;
-          render();
+          scheduleFastRender();
         } else if (activeTool === 'brush' && currentDraftObj) {
           const last = currentDraftObj.nodes[currentDraftObj.nodes.length - 1];
           if (Math.hypot(pt.x - last.x, pt.y - last.y) > 6) {
             currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
-            render();
+            scheduleFastRender();
           }
         }
       });
@@ -10219,8 +10168,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v7';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export', 'animation', 'curves'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v8';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'tracer', 'projects', 'assets', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -10250,6 +10199,7 @@
 
       function openDockPanel(id) {
         if (!dockviewApi) return;
+        if (id === 'document') id = 'projects';
         const existing = dockviewApi.getPanel(id);
         if (existing) {
           existing.api.setActive();
@@ -10268,7 +10218,6 @@
           stroke: 'Stroke',
           inspect: 'Transform',
           scene: 'Scene',
-          document: 'Document',
           animation: 'Timeline',
           curves: 'Curves',
           tracer: 'Vectorizer',
@@ -10295,8 +10244,8 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
             }
-          } else if (['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'];
+          } else if (['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -10337,7 +10286,6 @@
         if (imgObj) {
           sourceInfo.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">🖼️</span>
               <div style="overflow: hidden; flex: 1;">
                 <div style="color: var(--text-bright); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${imgObj.name || 'Raster Image'}</div>
                 <div style="font-size: 10px; color: var(--text-muted);">${Math.round(imgObj.width)} × ${Math.round(imgObj.height)} px</div>
@@ -10397,7 +10345,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'];
+        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -10410,7 +10358,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
-        const hasRight = ['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -10466,15 +10414,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 6. Right Document panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'document',
-            component: 'document',
-            title: 'Document',
-            position: { referencePanel: 'inspect' }
-          });
-
-          // 7. Right Vectorizer panel (tabbed with Inspect)
+          // 6. Right Vectorizer panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'tracer',
             component: 'tracer',
@@ -10482,7 +10422,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 8. Right Projects panel (tabbed with Inspect)
+          // 7. Right Projects panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'projects',
             component: 'projects',
@@ -10490,7 +10430,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 9. Right Asset Bundle panel (tabbed with Inspect)
+          // 8. Right Asset Bundle panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'assets',
             component: 'assets',
@@ -10498,7 +10438,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 10. Right Export panel (tabbed with Inspect)
+          // 9. Right Export panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'export',
             component: 'export',
@@ -10506,7 +10446,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 11. Bottom Timeline panel
+          // 10. Bottom Timeline panel
           dockviewApi.addPanel({
             id: 'animation',
             component: 'animation',
@@ -10618,16 +10558,7 @@
         if (dockviewApi.onDidActivePanelChange) {
           dockviewApi.onDidActivePanelChange((event) => {
             const id = event?.panel?.id;
-            if (id === 'document') {
-              const wEl = document.getElementById('prop-doc-w');
-              const hEl = document.getElementById('prop-doc-h');
-              const bgEl = document.getElementById('prop-doc-bg');
-              const nameEl = document.getElementById('prop-project-name');
-              if (wEl) wEl.value = doc.width;
-              if (hEl) hEl.value = doc.height;
-              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
-              if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
-            } else if (id === 'scene') {
+            if (id === 'scene') {
               updateObjectList();
             } else if (id === 'animation') {
               updateSelectedObjectEventsUI();
@@ -10639,6 +10570,16 @@
             } else if (id === 'tracer') {
               updateTracerUI();
             } else if (id === 'projects') {
+              const wEl = document.getElementById('prop-doc-w');
+              const hEl = document.getElementById('prop-doc-h');
+              const bgEl = document.getElementById('prop-doc-bg');
+              const nameEl = document.getElementById('prop-project-name');
+              const sizeBadge = document.getElementById('doc-size-badge');
+              if (wEl) wEl.value = doc.width;
+              if (hEl) hEl.value = doc.height;
+              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+              if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
+              if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height}`;
               if (typeof refreshProjectsList === 'function') refreshProjectsList();
             } else if (id === 'assets') {
               if (typeof populateBundleExportList === 'function') populateBundleExportList();
@@ -10699,21 +10640,24 @@
         let panelId = 'inspect';
         if (targetTabId === 'tab-scene' || targetTabId === 'scene' || targetTabId === 'tab-objects') {
           panelId = 'scene';
-        } else if (targetTabId === 'tab-document' || targetTabId === 'document') {
-          panelId = 'document';
+        } else if (targetTabId === 'tab-document' || targetTabId === 'document' || targetTabId === 'projects') {
+          panelId = 'projects';
         } else if (targetTabId === 'tab-animation' || targetTabId === 'animation') {
           panelId = 'animation';
         }
         openDockPanel(panelId);
-        if (panelId === 'document') {
+        if (panelId === 'projects') {
           const wEl = document.getElementById('prop-doc-w');
           const hEl = document.getElementById('prop-doc-h');
           const bgEl = document.getElementById('prop-doc-bg');
           const nameEl = document.getElementById('prop-project-name');
+          const sizeBadge = document.getElementById('doc-size-badge');
           if (wEl) wEl.value = doc.width;
           if (hEl) hEl.value = doc.height;
           if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
           if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
+          if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height}`;
+          if (typeof refreshProjectsList === 'function') refreshProjectsList();
         } else if (panelId === 'scene') {
           updateObjectList();
         } else if (panelId === 'animation') {
@@ -10868,7 +10812,6 @@
         const isStrokeOpen = !!dockviewApi?.getPanel('stroke');
         const isInspectOpen = !!dockviewApi?.getPanel('inspect');
         const isSceneOpen = !!dockviewApi?.getPanel('scene');
-        const isDocOpen = !!dockviewApi?.getPanel('document');
         const isTracerOpen = !!dockviewApi?.getPanel('tracer');
         const isProjectsOpen = !!dockviewApi?.getPanel('projects');
         const isAssetsOpen = !!dockviewApi?.getPanel('assets');
@@ -10882,18 +10825,16 @@
           { type: 'item', label: (isStrokeOpen ? '✓ ' : '') + 'Stroke & Brush Dock', action: () => toggleDockPanel('stroke') },
           { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
-          { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => toggleDockPanel('document') },
           { type: 'item', label: (isTracerOpen ? '✓ ' : '') + 'Vectorizer Dock', action: () => toggleDockPanel('tracer') },
-          { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + 'Projects & Storage Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
+          { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + 'Projects & Document Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
           { type: 'item', label: (isAssetsOpen ? '✓ ' : '') + 'Asset Bundle Dock', action: () => toggleDockPanel('assets') },
           { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
-            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') },
-            { type: 'item', label: (currentTheme === 'light' ? '✓ ' : '') + 'Light', action: () => setTheme('light') }
+            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Ableton Gray', action: () => setTheme('gray') }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
@@ -12816,10 +12757,15 @@
             if (state.fxSat !== undefined) obj.filterSat = state.fxSat;
           }
         }
-        render();
-        if (!window.__isExportingAnimation) {
-          drawOverlay();
-          updateInspector();
+        const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
+        if (isPlaying) {
+          renderFast(false);
+        } else {
+          render();
+          if (!window.__isExportingAnimation) {
+            drawOverlay();
+            updateInspector();
+          }
         }
       }
 
@@ -12834,12 +12780,19 @@
           : (typeof window.dopeSheet.sampleAll === 'function' ? window.dopeSheet.sampleAll(frame) : {});
         applyAnimationSamples(samples);
         if (!window.__isExportingAnimation) {
+          const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
           if (window.dopeSheetUI) {
             window.dopeSheetUI.currentFrame = frame;
-            window.dopeSheetUI.updateGrid();
+            if (!isPlaying) {
+              window.dopeSheetUI.updateGrid();
+            } else {
+              window.dopeSheetUI.updatePlayhead();
+            }
           }
           updateSceneAnimUI();
-          updateSelectedObjectEventsUI();
+          if (!isPlaying) {
+            updateSelectedObjectEventsUI();
+          }
         }
       };
 

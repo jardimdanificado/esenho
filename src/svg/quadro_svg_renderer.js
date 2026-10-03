@@ -2139,20 +2139,16 @@
       const outPtr = exp.w_layer_get_pixels(3);
       if (!outPtr || !this.actor.memory) return null;
 
-      const u32 = new Uint32Array(this.actor.memory.buffer, outPtr, w * h);
-      const imgDataArray = new Uint8ClampedArray(w * h * 4);
-
-      // Convert ARGB to RGBA
-      for (let i = 0; i < u32.length; i++) {
-        const p = u32[i];
-        const idx = i * 4;
-        imgDataArray[idx] = p & 0xFF;         // R
-        imgDataArray[idx + 1] = (p >> 8) & 0xFF;  // G
-        imgDataArray[idx + 2] = (p >> 16) & 0xFF; // B
-        imgDataArray[idx + 3] = (p >> 24) & 0xFF; // A
+      const totalPixels = w * h;
+      if (!this._cachedRawArray || this._cachedRawArray.length !== totalPixels * 4) {
+        this._cachedRawArray = new Uint8ClampedArray(totalPixels * 4);
+        this._cachedRawU32 = new Uint32Array(this._cachedRawArray.buffer);
       }
 
-      return { width: w, height: h, data: imgDataArray };
+      const srcU32 = new Uint32Array(this.actor.memory.buffer, outPtr, totalPixels);
+      this._cachedRawU32.set(srcU32);
+
+      return { width: w, height: h, data: this._cachedRawArray };
     }
 
     /**
@@ -2161,16 +2157,34 @@
     renderToCanvas(doc, canvas, options = {}) {
       const res = this.renderDocument(doc, options);
       if (!res) return false;
-      const imgData = this.getImageData();
-      if (!imgData) return false;
-      if (canvas.width !== imgData.width || canvas.height !== imgData.height) {
-        canvas.width = imgData.width;
-        canvas.height = imgData.height;
+
+      const exp = this.actor.exports;
+      const w = exp.get_width ? exp.get_width() : 800;
+      const h = exp.get_height ? exp.get_height() : 600;
+      const outPtr = exp.w_layer_get_pixels(3);
+      if (!outPtr || !this.actor.memory) return false;
+
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
       }
+
       const ctx2d = canvas.getContext('2d');
-      const img = ctx2d.createImageData(imgData.width, imgData.height);
-      img.data.set(imgData.data);
-      ctx2d.putImageData(img, 0, 0);
+      if (!ctx2d) return false;
+
+      // Reuse cached ImageData to eliminate GC pauses and per-frame memory allocation
+      if (!this._cachedCanvasImageData || this._cachedCanvasWidth !== w || this._cachedCanvasHeight !== h) {
+        this._cachedCanvasImageData = ctx2d.createImageData(w, h);
+        this._cachedCanvasU32 = new Uint32Array(this._cachedCanvasImageData.data.buffer);
+        this._cachedCanvasWidth = w;
+        this._cachedCanvasHeight = h;
+      }
+
+      const totalPixels = w * h;
+      const srcU32 = new Uint32Array(this.actor.memory.buffer, outPtr, totalPixels);
+      this._cachedCanvasU32.set(srcU32);
+
+      ctx2d.putImageData(this._cachedCanvasImageData, 0, 0);
       return true;
     }
   }
