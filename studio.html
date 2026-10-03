@@ -305,7 +305,64 @@
       overflow: hidden;
       min-height: 0;
       width: 100vw;
-      height: calc(100vh - 32px);
+      height: calc(100vh - 54px);
+    }
+
+    /* VS Code Footer / Statusbar */
+    .vscode-statusbar {
+      height: 22px;
+      min-height: 22px;
+      background: var(--bg-dark, #141617);
+      border-top: 1px solid var(--border, #3c3836);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-size: 11px;
+      color: var(--text-muted, #928374);
+      user-select: none;
+      z-index: 100;
+      flex-shrink: 0;
+      box-sizing: border-box;
+      width: 100vw;
+    }
+
+    .vscode-statusbar .statusbar-left,
+    .vscode-statusbar .statusbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 100%;
+    }
+
+    .vscode-statusbar .statusbar-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      height: 100%;
+      padding: 0 6px;
+      cursor: default;
+      border-radius: 2px;
+      transition: color 0.08s ease, background 0.08s ease;
+    }
+
+    .vscode-statusbar .statusbar-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-bright, #fbf1c7);
+    }
+
+    .vscode-statusbar .statusbar-icon {
+      font-size: 10px;
+      opacity: 0.85;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .vscode-statusbar #status-coords,
+    .vscode-statusbar #status-zoom,
+    .vscode-statusbar #status-rotation,
+    .vscode-statusbar #status-doc-size {
+      font-family: var(--font-mono, monospace);
     }
     .top-control-bar::-webkit-scrollbar {
       height: 3px;
@@ -1835,56 +1892,7 @@
         <button class="menubar-item" id="menu-btn-selection" role="menuitem" tabindex="0">Selection</button>
         <button class="menubar-item" id="menu-btn-view" role="menuitem" tabindex="0">View</button>
         <button class="menubar-item" id="menu-btn-animation" role="menuitem" tabindex="0">Animation</button>
-        <button class="menubar-item" id="menu-btn-help" role="menuitem" tabindex="0">Help</button>
       </nav>
-    </div>
-
-    <!-- Center: Command Center / Document Title -->
-    <div class="titlebar-center">
-      <div class="titlebar-command-center" id="titlebar-command-center" title="Quick Open & Commands (Ctrl+P)">
-        <span class="cmd-icon">
-          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-          </svg>
-        </span>
-        <span class="cmd-title" id="titlebar-proj-label">esenho — Untitled Artwork</span>
-        <span class="cmd-dirty" id="titlebar-dirty-indicator" style="display: none;" title="Unsaved changes">●</span>
-        <span class="cmd-shortcut">Ctrl+P</span>
-      </div>
-    </div>
-
-    <!-- Right: Layout Toggles & Quick Actions -->
-    <div class="titlebar-right">
-      <div class="titlebar-layout-toggles">
-        <button class="titlebar-btn" id="btn-toggle-left-dock" title="Toggle Left Sidebar (Fill & Stroke)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm4 1H3v8h3V4zm1 8h6V4H7v8z"/>
-          </svg>
-        </button>
-        <button class="titlebar-btn" id="btn-toggle-right-dock" title="Toggle Right Sidebar (Inspect, Scene, Doc, Anim)">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm7 1H3v8h6V4zm1 8h3V4h-3v8z"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="titlebar-divider"></div>
-
-      <!-- Quick Export Button -->
-      <button class="titlebar-btn primary-action" id="titlebar-btn-export" title="Export Center (Ctrl+E)">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
-          <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V10.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
-        </svg>
-        <span>Export</span>
-      </button>
-
-      <!-- Fullscreen Toggle -->
-      <button class="titlebar-btn" id="titlebar-btn-fullscreen" title="Toggle Fullscreen (F11)">
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
-          <path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0V2h3.5a.5.5 0 0 0 0-1h-4zm13 0h-4a.5.5 0 0 0 0 1H14v3.5a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5zM1 14.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 0-1H2v-3.5a.5.5 0 0 0-1 0v4zm14 0v-4a.5.5 0 0 0-1 0V14h-3.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 .5-.5z"/>
-        </svg>
-      </button>
     </div>
   </header>
 
@@ -1895,6 +1903,41 @@
   <div id="workspace">
     <div id="dockview-container" class="dockview-theme-dark"></div>
   </div>
+
+  <!-- VS Code Bottom Status Bar -->
+  <footer id="vscode-statusbar" class="vscode-statusbar" role="contentinfo">
+    <div class="statusbar-left">
+      <div class="statusbar-item" id="status-tool-badge" title="Active Tool">
+        <span class="statusbar-icon">🛠</span>
+        <span id="status-tool">Select</span>
+      </div>
+      <div class="statusbar-item" id="status-coords-badge" title="Cursor Coordinates (Doc X, Y)">
+        <span class="statusbar-icon">📍</span>
+        <span id="status-coords">0, 0</span>
+      </div>
+      <div class="statusbar-item" id="status-objects-badge" title="Total Objects in Scene">
+        <span class="statusbar-icon">📦</span>
+        <span id="status-objects">0 objects</span>
+      </div>
+      <div class="statusbar-item" id="status-doc-size-badge" title="Document Dimensions">
+        <span class="statusbar-icon">📐</span>
+        <span id="status-doc-size">800 × 600 px</span>
+      </div>
+    </div>
+    <div class="statusbar-right">
+      <div class="statusbar-item" id="status-render-mode" title="Click to Toggle Quadro WASM / Direct SVG Renderer" style="cursor: pointer;">
+        <span id="status-renderer-text">⚡ Quadro WASM</span>
+      </div>
+      <div class="statusbar-item" id="status-rotation-badge" title="Viewport Rotation (Click to Reset)" style="cursor: pointer;">
+        <span class="statusbar-icon">↻</span>
+        <span id="status-rotation">0°</span>
+      </div>
+      <div class="statusbar-item" id="status-zoom-badge" title="Viewport Zoom (Click to Reset 100%)" style="cursor: pointer;">
+        <span class="statusbar-icon">🔍</span>
+        <span id="status-zoom">100%</span>
+      </div>
+    </div>
+  </footer>
 
   <!-- Dock Panel Template Pool (Dockview moves panels into its layout container dynamically) -->
   <div id="dock-panel-pool" style="display: none;">
@@ -2687,34 +2730,8 @@
       </div>
     </div>
 
-    <!-- Dock Panel 4: Inspect (Status, Transform & Geometry) -->
+    <!-- Dock Panel 4: Transform & Geometry -->
     <div id="dock-panel-inspect" class="dock-panel-content">
-      <!-- Inspect & Status Summary Card -->
-      <div class="section-card" id="card-inspect-status">
-        <div style="display: flex; flex-direction: column; gap: 4px; font-size: 10px;">
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Active Tool</span>
-            <span class="status-val" id="status-tool" style="font-weight: bold; color: var(--text-main);">Select</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Cursor Position</span>
-            <span class="status-val" id="status-coords" style="font-family: monospace; color: var(--text-main);">0, 0</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Viewport Zoom</span>
-            <span class="status-val" id="status-zoom" style="font-family: monospace; color: var(--text-main);">100%</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Viewport Angle</span>
-            <span class="status-val" id="status-rotation" style="font-family: monospace; color: var(--text-main); cursor: pointer;" title="Reset rotation">0°</span>
-          </div>
-          <div style="display: flex; justify-content: space-between;">
-            <span style="color: var(--text-muted);">Total Objects</span>
-            <span class="status-val" id="status-objects" style="font-weight: bold; color: var(--accent);">0</span>
-          </div>
-        </div>
-      </div>
-
       <!-- 5. Transform & Geometry -->
       <details open class="section-accordion" id="card-geometry">
         <summary>
@@ -3648,15 +3665,58 @@
       }
 
       // ── Rulers System ──
+      let showRulers = true;
+      let rulerThickness = 18; // default thickness in px (14, 18, 24)
+      const rulerCornerEl = document.getElementById('ruler-corner');
       const rulerTopCanvas = document.getElementById('ruler-top');
       const rulerLeftCanvas = document.getElementById('ruler-left');
 
+      function updateRulerLayout() {
+        if (!rulerCornerEl || !rulerTopCanvas || !rulerLeftCanvas) return;
+        if (!showRulers) {
+          rulerCornerEl.style.display = 'none';
+          rulerTopCanvas.style.display = 'none';
+          rulerLeftCanvas.style.display = 'none';
+        } else {
+          rulerCornerEl.style.display = 'flex';
+          rulerCornerEl.style.width = rulerThickness + 'px';
+          rulerCornerEl.style.height = rulerThickness + 'px';
+
+          rulerTopCanvas.style.display = 'block';
+          rulerTopCanvas.style.left = rulerThickness + 'px';
+          rulerTopCanvas.style.height = rulerThickness + 'px';
+          rulerTopCanvas.style.width = `calc(100% - ${rulerThickness}px)`;
+
+          rulerLeftCanvas.style.display = 'block';
+          rulerLeftCanvas.style.top = rulerThickness + 'px';
+          rulerLeftCanvas.style.width = rulerThickness + 'px';
+          rulerLeftCanvas.style.height = `calc(100% - ${rulerThickness}px)`;
+
+          drawRulers();
+        }
+      }
+
+      function toggleRulers() {
+        showRulers = !showRulers;
+        updateRulerLayout();
+        showNotification(showRulers ? 'Rulers Visible' : 'Rulers Hidden');
+      }
+      window.toggleRulers = toggleRulers;
+
+      function setRulerThickness(size) {
+        rulerThickness = Math.max(10, Math.min(48, Number(size) || 18));
+        showRulers = true;
+        updateRulerLayout();
+        showNotification(`Ruler size: ${rulerThickness}px`);
+      }
+      window.setRulerThickness = setRulerThickness;
+
       function drawRulers() {
-        if (!rulerTopCanvas || !rulerLeftCanvas) return;
+        if (!rulerTopCanvas || !rulerLeftCanvas || !showRulers) return;
         const dpr = window.devicePixelRatio || 1;
         const topW = rulerTopCanvas.clientWidth || 800;
-        const topH = 18;
-        const leftW = 18;
+        const topH = rulerThickness;
+        const leftW = rulerThickness;
         const leftH = rulerLeftCanvas.clientHeight || 600;
 
         if (rulerTopCanvas.width !== Math.round(topW * dpr) || rulerTopCanvas.height !== Math.round(topH * dpr)) {
@@ -5301,6 +5361,14 @@
         const propDocBgColor = document.getElementById('prop-doc-bg-color');
         if (propDocBgColor && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) {
           propDocBgColor.value = doc.backgroundColor;
+        }
+
+        const statusDocSize = document.getElementById('status-doc-size');
+        if (statusDocSize) {
+          statusDocSize.textContent = `${doc.width} × ${doc.height} px`;
+        }
+        if (statusObjects) {
+          statusObjects.textContent = `${doc.objects.length} ${doc.objects.length === 1 ? 'object' : 'objects'}`;
         }
 
         const propGeomType = document.getElementById('prop-geom-type');
@@ -7084,41 +7152,11 @@
             { type: 'item', label: 'Send to Back', hotkey: 'Ctrl+Shift+[', action: () => { for (const o of selectedObjs) doc.sendToBack(o.id); render(); drawOverlay(); updateObjectList(); } }
           ]);
 
-          // Fill & Stroke Submenu
-          addSubmenu('Fill & Stroke', [
-            { type: 'item', label: 'Open Fill & Dynamics Panel', hotkey: 'Shift+F', action: () => switchLeftTab('tab-left-fill') },
-            { type: 'item', label: 'Open Stroke & Brush Panel', action: () => switchLeftTab('tab-left-stroke') }
-          ]);
-
-          // File & Project Submenu
-          addSubmenu('File & Project', [
-            { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
-            { type: 'item', label: 'Recent Projects & Storage...', action: () => openRecentsModal() },
-            { type: 'sep' },
-            { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
-            { type: 'item', label: 'Import Image...', action: () => document.getElementById('file-import-img')?.click() },
-            { type: 'sep' },
-            { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
-          ]);
-
-          // Export Submenu
-          addSubmenu('Export', [
-            { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
-            { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
-            { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
-            { type: 'sep' },
-            { type: 'item', label: 'Export Video (.webm / .mp4)', action: () => document.getElementById('btn-quick-export-video')?.click() },
-            { type: 'item', label: 'Export Spritesheet (.png)', action: () => document.getElementById('btn-quick-export-spritesheet')?.click() },
-            { type: 'sep' },
-            { type: 'item', label: 'Export Center (Video / Image)...', hotkey: 'Ctrl+E', action: () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; } },
-            { type: 'item', label: 'Asset Bundle...', action: () => document.getElementById('btn-menu-asset-bundle')?.click() }
-          ]);
-
           // Workspace & Panels Submenu
           addSubmenu('Panels & Viewport', [
             { type: 'item', label: 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => switchLeftTab('fill') },
             { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
-            { type: 'item', label: 'Inspector & Transform Dock', action: () => switchTab('inspect') },
+            { type: 'item', label: 'Transform & Geometry Dock', action: () => switchTab('inspect') },
             { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
             { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
             { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
@@ -7127,15 +7165,29 @@
             { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
           ]);
 
+          // Rulers & Guides Submenu
+          const rulerGuideItems = [
+            { type: 'item', label: (showRulers ? '✓ ' : '') + 'Show Rulers', hotkey: 'Shift+R', action: () => toggleRulers() },
+            { type: 'submenu', label: 'Ruler Thickness', items: [
+              { type: 'item', label: (rulerThickness === 14 ? '✓ ' : '') + '14px (Thin)', action: () => setRulerThickness(14) },
+              { type: 'item', label: (rulerThickness === 18 ? '✓ ' : '') + '18px (Normal)', action: () => setRulerThickness(18) },
+              { type: 'item', label: (rulerThickness === 24 ? '✓ ' : '') + '24px (Large)', action: () => setRulerThickness(24) }
+            ]},
+            { type: 'sep' }
+          ];
           if (hitGuide && userGuides && userGuides[hitGuide.type] && userGuides[hitGuide.type][hitGuide.index] !== undefined) {
             const guideVal = userGuides[hitGuide.type][hitGuide.index];
             const guideLabel = hitGuide.type === 'horizontal' ? `Remove Horizontal Guide (Y: ${guideVal})` : `Remove Vertical Guide (X: ${guideVal})`;
-            addSubmenu('Guides', [
-              { type: 'item', label: guideLabel, danger: true, action: () => removeGuide(hitGuide.type, hitGuide.index) },
-              { type: 'sep' },
-              { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
-            ]);
+            rulerGuideItems.push({ type: 'item', label: guideLabel, danger: true, action: () => removeGuide(hitGuide.type, hitGuide.index) });
+            rulerGuideItems.push({ type: 'sep' });
           }
+          rulerGuideItems.push(
+            { type: 'item', label: 'Add Horizontal Guide Here', action: () => { userGuides.horizontal.push(Math.round(pt.y)); drawOverlay(); showNotification(`Added guide at Y: ${Math.round(pt.y)}`); } },
+            { type: 'item', label: 'Add Vertical Guide Here', action: () => { userGuides.vertical.push(Math.round(pt.x)); drawOverlay(); showNotification(`Added guide at X: ${Math.round(pt.x)}`); } },
+            { type: 'sep' },
+            { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
+          );
+          addSubmenu('Rulers & Guides', rulerGuideItems);
 
           addSep();
           if (selectedObjs.length === 1) {
@@ -7205,41 +7257,11 @@
             { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => { doc.selectAll(); render(); drawOverlay(); updateInspector(); } }
           ]);
 
-          // Fill & Stroke Submenu
-          addSubmenu('Fill & Stroke', [
-            { type: 'item', label: 'Open Fill & Dynamics Panel', hotkey: 'Shift+F', action: () => switchLeftTab('tab-left-fill') },
-            { type: 'item', label: 'Open Stroke & Brush Panel', action: () => switchLeftTab('tab-left-stroke') }
-          ]);
-
-          // File & Project Submenu
-          addSubmenu('File & Project', [
-            { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
-            { type: 'item', label: 'Recent Projects & Storage...', action: () => openRecentsModal() },
-            { type: 'sep' },
-            { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
-            { type: 'item', label: 'Import Image...', action: () => document.getElementById('file-import-img')?.click() },
-            { type: 'sep' },
-            { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
-          ]);
-
-          // Export Submenu
-          addSubmenu('Export', [
-            { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
-            { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
-            { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
-            { type: 'sep' },
-            { type: 'item', label: 'Export Video (.webm / .mp4)', action: () => document.getElementById('btn-quick-export-video')?.click() },
-            { type: 'item', label: 'Export Spritesheet (.png)', action: () => document.getElementById('btn-quick-export-spritesheet')?.click() },
-            { type: 'sep' },
-            { type: 'item', label: 'Export Center (Video / Image)...', hotkey: 'Ctrl+E', action: () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; } },
-            { type: 'item', label: 'Asset Bundle...', action: () => document.getElementById('btn-menu-asset-bundle')?.click() }
-          ]);
-
           // Workspace & Panels Submenu
           addSubmenu('Panels & Viewport', [
             { type: 'item', label: 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => switchLeftTab('fill') },
             { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
-            { type: 'item', label: 'Inspector & Transform Dock', action: () => switchTab('inspect') },
+            { type: 'item', label: 'Transform & Geometry Dock', action: () => switchTab('inspect') },
             { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
             { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
             { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
@@ -7263,26 +7285,34 @@
             { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
           ]);
 
-          // Guides Submenu
-          const guideItems = [];
+          // Rulers & Guides Submenu
+          const emptyGuideItems = [
+            { type: 'item', label: (showRulers ? '✓ ' : '') + 'Show Rulers', hotkey: 'Shift+R', action: () => toggleRulers() },
+            { type: 'submenu', label: 'Ruler Thickness', items: [
+              { type: 'item', label: (rulerThickness === 14 ? '✓ ' : '') + '14px (Thin)', action: () => setRulerThickness(14) },
+              { type: 'item', label: (rulerThickness === 18 ? '✓ ' : '') + '18px (Normal)', action: () => setRulerThickness(18) },
+              { type: 'item', label: (rulerThickness === 24 ? '✓ ' : '') + '24px (Large)', action: () => setRulerThickness(24) }
+            ]},
+            { type: 'sep' }
+          ];
           if (hitGuide && userGuides && userGuides[hitGuide.type] && userGuides[hitGuide.type][hitGuide.index] !== undefined) {
             const guideVal = userGuides[hitGuide.type][hitGuide.index];
             const guideLabel = hitGuide.type === 'horizontal' ? `Remove Horizontal Guide (Y: ${guideVal})` : `Remove Vertical Guide (X: ${guideVal})`;
-            guideItems.push({
+            emptyGuideItems.push({
               type: 'item',
               label: guideLabel,
               danger: true,
               action: () => removeGuide(hitGuide.type, hitGuide.index)
             });
-            guideItems.push({ type: 'sep' });
+            emptyGuideItems.push({ type: 'sep' });
           }
-          guideItems.push(
+          emptyGuideItems.push(
             { type: 'item', label: 'Add Horizontal Guide Here', action: () => { userGuides.horizontal.push(Math.round(pt.y)); drawOverlay(); showNotification(`Added guide at Y: ${Math.round(pt.y)}`); } },
             { type: 'item', label: 'Add Vertical Guide Here', action: () => { userGuides.vertical.push(Math.round(pt.x)); drawOverlay(); showNotification(`Added guide at X: ${Math.round(pt.x)}`); } },
             { type: 'sep' },
             { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
           );
-          addSubmenu('Guides', guideItems);
+          addSubmenu('Rulers & Guides', emptyGuideItems);
         }
 
         // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
@@ -8124,7 +8154,12 @@
         } else if (key === 'b') {
           selectTool('brush');
         } else if (key === 'r') {
-          selectTool('rect');
+          if (e.shiftKey) {
+            e.preventDefault();
+            toggleRulers();
+          } else {
+            selectTool('rect');
+          }
         } else if (key === 'o') {
           selectTool('ellipse');
         } else if (key === 'l') {
@@ -9001,6 +9036,11 @@
         if (chk && chk.checked !== viewportBilinear) {
           chk.checked = viewportBilinear;
         }
+
+        const statusRendererText = document.getElementById('status-renderer-text');
+        if (statusRendererText) {
+          statusRendererText.textContent = (viewportRenderMode === 'svg') ? '🌐 Direct SVG' : '⚡ Quadro WASM';
+        }
       }
 
       const syncRenderMode = (val) => {
@@ -9260,6 +9300,28 @@
         viewportRotation = 0;
         applyViewportTransform();
         render();
+        showNotification('Viewport Rotation Reset: 0°');
+      });
+
+      document.getElementById('status-rotation-badge')?.addEventListener('click', () => {
+        viewportRotation = 0;
+        applyViewportTransform();
+        render();
+        showNotification('Viewport Rotation Reset: 0°');
+      });
+
+      document.getElementById('status-zoom-badge')?.addEventListener('click', () => {
+        zoom = 1.0;
+        panX = 0;
+        panY = 0;
+        applyViewportTransform();
+        render();
+        showNotification('Viewport Zoom Reset: 100%');
+      });
+
+      document.getElementById('status-render-mode')?.addEventListener('click', () => {
+        syncRenderMode(viewportRenderMode === 'quadro' ? 'svg' : 'quadro');
+        showNotification(viewportRenderMode === 'quadro' ? 'Renderer: Quadro WASM' : 'Renderer: Direct SVG');
       });
 
       document.getElementById('prop-quadro-scale')?.addEventListener('change', (e) => {
@@ -9532,7 +9594,7 @@
         const titleMap = {
           fill: 'Fill',
           stroke: 'Stroke',
-          inspect: 'Inspect',
+          inspect: 'Transform',
           scene: 'Scene',
           document: 'Document',
           animation: 'Animation'
@@ -9653,11 +9715,11 @@
           position: { referencePanel: 'fill' }
         });
 
-        // 4. Right Inspect panel
+        // 4. Right Transform panel
         dockviewApi.addPanel({
           id: 'inspect',
           component: 'inspect',
-          title: 'Inspect',
+          title: 'Transform',
           position: { direction: 'right', referencePanel: 'canvas' },
           initialWidth: 280
         });
@@ -10015,15 +10077,23 @@
           { type: 'header', title: 'Dock Panels & Views' },
           { type: 'item', label: (isFillOpen ? '✓ ' : '') + 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => { if (isFillOpen) switchLeftTab('fill'); else openDockPanel('fill'); } },
           { type: 'item', label: (isStrokeOpen ? '✓ ' : '') + 'Stroke & Brush Dock', action: () => { if (isStrokeOpen) switchLeftTab('stroke'); else openDockPanel('stroke'); } },
-          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Inspector & Geometry Dock', action: () => { if (isInspectOpen) switchTab('inspect'); else openDockPanel('inspect'); } },
+          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => { if (isInspectOpen) switchTab('inspect'); else openDockPanel('inspect'); } },
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => { if (isSceneOpen) switchTab('scene'); else openDockPanel('scene'); } },
           { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => { if (isDocOpen) switchTab('document'); else openDockPanel('document'); } },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation & Events Dock', action: () => { if (isAnimOpen) switchTab('animation'); else openDockPanel('animation'); } },
           { type: 'sep' },
-          { type: 'item', label: 'Toggle Left Sidebar', action: () => toggleLeftSidebar() },
-          { type: 'item', label: 'Toggle Right Sidebar', action: () => toggleRightSidebar() },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
           { type: 'sep' },
+          { type: 'submenu', label: 'Rulers & Guides', items: [
+            { type: 'item', label: (showRulers ? '✓ ' : '') + 'Show Rulers', hotkey: 'Shift+R', action: () => toggleRulers() },
+            { type: 'submenu', label: 'Ruler Thickness', items: [
+              { type: 'item', label: (rulerThickness === 14 ? '✓ ' : '') + '14px (Thin)', action: () => setRulerThickness(14) },
+              { type: 'item', label: (rulerThickness === 18 ? '✓ ' : '') + '18px (Normal)', action: () => setRulerThickness(18) },
+              { type: 'item', label: (rulerThickness === 24 ? '✓ ' : '') + '24px (Large)', action: () => setRulerThickness(24) }
+            ]},
+            { type: 'sep' },
+            { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
+          ]},
           { type: 'submenu', label: 'Viewport & Engine', items: [
             { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
             { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
@@ -10113,8 +10183,7 @@
         { id: 'menu-btn-edit', key: 'edit' },
         { id: 'menu-btn-selection', key: 'selection' },
         { id: 'menu-btn-view', key: 'view' },
-        { id: 'menu-btn-animation', key: 'animation' },
-        { id: 'menu-btn-help', key: 'help' }
+        { id: 'menu-btn-animation', key: 'animation' }
       ];
 
       menubarButtons.forEach(({ id, key }) => {
