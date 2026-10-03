@@ -99,9 +99,203 @@
       background: var(--border-bright);
     }
 
-    /* ── Header / Top Bar (Removed for Full Canvas Workspace) ── */
-    header {
-      display: none !important;
+    /* ── VS Code Style Titlebar ── */
+    .vscode-titlebar {
+      height: 32px;
+      min-height: 32px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 8px 0 10px;
+      user-select: none;
+      -webkit-user-select: none;
+      font-size: 12px;
+      z-index: 1000;
+      flex-shrink: 0;
+      width: 100vw;
+      box-sizing: border-box;
+    }
+
+    .titlebar-left {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    .titlebar-app-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      margin-right: 4px;
+      color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .titlebar-menubar {
+      display: flex;
+      align-items: center;
+      gap: 1px;
+    }
+
+    .menubar-item {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      font-size: 11.5px;
+      font-weight: 500;
+      padding: 2px 7px;
+      height: 22px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.08s ease, color 0.08s ease;
+      outline: none;
+    }
+
+    .menubar-item:hover,
+    .menubar-item.active {
+      background: var(--bg-panel-sub);
+      color: var(--text-bright);
+      border-color: var(--border-bright);
+    }
+
+    .titlebar-center {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex: 2 1 0;
+      min-width: 0;
+    }
+
+    .titlebar-command-center {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      height: 22px;
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      max-width: 440px;
+      width: 100%;
+      cursor: pointer;
+      transition: all 0.1s ease;
+      color: var(--text-muted);
+      font-size: 11px;
+    }
+
+    .titlebar-command-center:hover {
+      background: var(--bg-panel-sub);
+      border-color: var(--border-bright);
+      color: var(--text-dim);
+    }
+
+    .titlebar-command-center .cmd-icon {
+      font-size: 10px;
+      opacity: 0.7;
+      display: flex;
+      align-items: center;
+    }
+
+    .titlebar-command-center .cmd-title {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .titlebar-command-center .cmd-dirty {
+      color: var(--primary);
+      font-size: 9px;
+      margin-left: 2px;
+    }
+
+    .titlebar-command-center .cmd-shortcut {
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      opacity: 0.6;
+      background: var(--bg-panel);
+      padding: 1px 4px;
+      border-radius: 2px;
+      border: 1px solid var(--border);
+    }
+
+    .titlebar-right {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 3px;
+      flex: 1 1 0;
+      min-width: 0;
+    }
+
+    .titlebar-layout-toggles {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .titlebar-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      padding: 3px 6px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.08s ease;
+    }
+
+    .titlebar-btn:hover {
+      background: var(--bg-panel-sub);
+      color: var(--text-bright);
+      border-color: var(--border);
+    }
+
+    .titlebar-btn.active {
+      color: var(--primary);
+      background: var(--primary-dim);
+      border-color: var(--primary);
+    }
+
+    .titlebar-btn.primary-action {
+      background: var(--primary-dim);
+      color: var(--primary);
+      border-color: rgba(250, 189, 47, 0.3);
+      font-weight: 600;
+      padding: 3px 8px;
+    }
+
+    .titlebar-btn.primary-action:hover {
+      background: var(--primary);
+      color: #141617;
+      border-color: var(--primary);
+    }
+
+    .titlebar-divider {
+      width: 1px;
+      height: 14px;
+      background: var(--border);
+      margin: 0 4px;
     }
 
     #workspace {
@@ -111,7 +305,7 @@
       overflow: hidden;
       min-height: 0;
       width: 100vw;
-      height: 100vh;
+      height: calc(100vh - 32px);
     }
     .top-control-bar::-webkit-scrollbar {
       height: 3px;
@@ -1623,6 +1817,76 @@
   </style>
 </head>
 <body>
+
+  <!-- VS Code Custom Titlebar & Menu System -->
+  <header id="vscode-titlebar" class="vscode-titlebar">
+    <!-- Left: App Icon + Menu Bar -->
+    <div class="titlebar-left">
+      <div class="titlebar-app-icon" id="titlebar-brand-icon" title="Wesenho Studio">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 2 7 12 12 22 7 12 2" fill="var(--primary)" stroke="var(--primary)"></polygon>
+          <polyline points="2 17 12 22 22 17"></polyline>
+          <polyline points="2 12 12 17 22 12"></polyline>
+        </svg>
+      </div>
+      <nav class="titlebar-menubar" id="titlebar-menubar" role="menubar">
+        <button class="menubar-item" id="menu-btn-file" role="menuitem" tabindex="0">File</button>
+        <button class="menubar-item" id="menu-btn-edit" role="menuitem" tabindex="0">Edit</button>
+        <button class="menubar-item" id="menu-btn-selection" role="menuitem" tabindex="0">Selection</button>
+        <button class="menubar-item" id="menu-btn-view" role="menuitem" tabindex="0">View</button>
+        <button class="menubar-item" id="menu-btn-animation" role="menuitem" tabindex="0">Animation</button>
+        <button class="menubar-item" id="menu-btn-help" role="menuitem" tabindex="0">Help</button>
+      </nav>
+    </div>
+
+    <!-- Center: Command Center / Document Title -->
+    <div class="titlebar-center">
+      <div class="titlebar-command-center" id="titlebar-command-center" title="Quick Open & Commands (Ctrl+P)">
+        <span class="cmd-icon">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+          </svg>
+        </span>
+        <span class="cmd-title" id="titlebar-proj-label">esenho — Untitled Artwork</span>
+        <span class="cmd-dirty" id="titlebar-dirty-indicator" style="display: none;" title="Unsaved changes">●</span>
+        <span class="cmd-shortcut">Ctrl+P</span>
+      </div>
+    </div>
+
+    <!-- Right: Layout Toggles & Quick Actions -->
+    <div class="titlebar-right">
+      <div class="titlebar-layout-toggles">
+        <button class="titlebar-btn" id="btn-toggle-left-dock" title="Toggle Left Sidebar (Fill & Stroke)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm4 1H3v8h3V4zm1 8h6V4H7v8z"/>
+          </svg>
+        </button>
+        <button class="titlebar-btn" id="btn-toggle-right-dock" title="Toggle Right Sidebar (Inspect, Scene, Doc, Anim)">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3zm7 1H3v8h6V4zm1 8h3V4h-3v8z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="titlebar-divider"></div>
+
+      <!-- Quick Export Button -->
+      <button class="titlebar-btn primary-action" id="titlebar-btn-export" title="Export Center (Ctrl+E)">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V10.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+        </svg>
+        <span>Export</span>
+      </button>
+
+      <!-- Fullscreen Toggle -->
+      <button class="titlebar-btn" id="titlebar-btn-fullscreen" title="Toggle Fullscreen (F11)">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M1.5 1a.5.5 0 0 0-.5.5v4a.5.5 0 0 0 1 0V2h3.5a.5.5 0 0 0 0-1h-4zm13 0h-4a.5.5 0 0 0 0 1H14v3.5a.5.5 0 0 0 1 0v-4a.5.5 0 0 0-.5-.5zM1 14.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 0-1H2v-3.5a.5.5 0 0 0-1 0v4zm14 0v-4a.5.5 0 0 0-1 0V14h-3.5a.5.5 0 0 0 0 1h4a.5.5 0 0 0 .5-.5z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
 
   <!-- Hidden File Input for Raster Image Import -->
   <input type="file" id="file-import-img" accept="image/*" style="display: none;">
@@ -9247,11 +9511,8 @@
         saveDockviewLayoutTimeout = setTimeout(() => {
           try {
             const layoutData = dockviewApi.toJSON();
-            if (layoutData && layoutData.panels) {
-              const hasAll = REQUIRED_PANEL_IDS.every(id => !!layoutData.panels[id]);
-              if (hasAll) {
-                localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
-              }
+            if (layoutData && layoutData.panels && !!layoutData.panels['canvas']) {
+              localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
             }
           } catch (err) {
             console.warn('Failed to save dockview layout:', err);
@@ -9259,6 +9520,108 @@
         }, 300);
       }
       window.scheduleSaveDockviewLayout = scheduleSaveDockviewLayout;
+
+      function openDockPanel(id) {
+        if (!dockviewApi) return;
+        const existing = dockviewApi.getPanel(id);
+        if (existing) {
+          existing.api.setActive();
+          updateTitlebarLayoutButtons();
+          return existing;
+        }
+        const titleMap = {
+          fill: 'Fill',
+          stroke: 'Stroke',
+          inspect: 'Inspect',
+          scene: 'Scene',
+          document: 'Document',
+          animation: 'Animation'
+        };
+        const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
+
+        if (id === 'fill' || id === 'stroke') {
+          const otherLeft = (id === 'fill' ? 'stroke' : 'fill');
+          const ref = dockviewApi.getPanel(otherLeft);
+          if (ref) {
+            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherLeft } });
+          } else {
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 280 });
+          }
+        } else if (['inspect', 'scene', 'document', 'animation'].includes(id)) {
+          const rightGroup = ['inspect', 'scene', 'document', 'animation'];
+          const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
+          if (otherRight) {
+            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
+          } else {
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 280 });
+          }
+        }
+        const p = dockviewApi.getPanel(id);
+        p?.api?.setActive();
+        scheduleSaveDockviewLayout();
+        updateTitlebarLayoutButtons();
+        return p;
+      }
+      window.openDockPanel = openDockPanel;
+
+      function closeDockPanel(id) {
+        if (id === 'canvas' || !dockviewApi) return;
+        const p = dockviewApi.getPanel(id);
+        if (p) {
+          p.api.close();
+          scheduleSaveDockviewLayout();
+          updateTitlebarLayoutButtons();
+        }
+      }
+      window.closeDockPanel = closeDockPanel;
+
+      function toggleDockPanel(id) {
+        if (!dockviewApi) return;
+        const p = dockviewApi.getPanel(id);
+        if (p) {
+          closeDockPanel(id);
+        } else {
+          openDockPanel(id);
+        }
+      }
+      window.toggleDockPanel = toggleDockPanel;
+
+      function toggleLeftSidebar() {
+        if (!dockviewApi) return;
+        const hasLeft = !!dockviewApi.getPanel('fill') || !!dockviewApi.getPanel('stroke');
+        if (hasLeft) {
+          closeDockPanel('fill');
+          closeDockPanel('stroke');
+        } else {
+          openDockPanel('fill');
+          openDockPanel('stroke');
+          dockviewApi.getPanel('fill')?.api?.setActive();
+        }
+      }
+      window.toggleLeftSidebar = toggleLeftSidebar;
+
+      function toggleRightSidebar() {
+        if (!dockviewApi) return;
+        const rightIds = ['inspect', 'scene', 'document', 'animation'];
+        const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
+        if (hasRight) {
+          rightIds.forEach(id => closeDockPanel(id));
+        } else {
+          rightIds.forEach(id => openDockPanel(id));
+          dockviewApi.getPanel('inspect')?.api?.setActive();
+        }
+      }
+      window.toggleRightSidebar = toggleRightSidebar;
+
+      function updateTitlebarLayoutButtons() {
+        const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
+        const hasRight = ['inspect', 'scene', 'document', 'animation'].some(id => !!dockviewApi?.getPanel(id));
+        const btnLeft = document.getElementById('btn-toggle-left-dock');
+        const btnRight = document.getElementById('btn-toggle-right-dock');
+        if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
+        if (btnRight) btnRight.classList.toggle('active', hasRight);
+      }
+      window.updateTitlebarLayoutButtons = updateTitlebarLayoutButtons;
 
       function createDefaultDockPanels() {
         if (!dockviewApi) return;
@@ -9327,6 +9690,7 @@
         dockviewApi.getPanel('canvas')?.api?.setActive();
         dockviewApi.getPanel('fill')?.api?.setActive();
         dockviewApi.getPanel('inspect')?.api?.setActive();
+        updateTitlebarLayoutButtons();
       }
       window.createDefaultDockPanels = createDefaultDockPanels;
 
@@ -9376,15 +9740,9 @@
           const savedLayoutRaw = localStorage.getItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
           if (savedLayoutRaw) {
             const savedLayout = JSON.parse(savedLayoutRaw);
-            if (savedLayout && savedLayout.grid && savedLayout.panels) {
+            if (savedLayout && savedLayout.grid && savedLayout.panels && savedLayout.panels['canvas']) {
               dockviewApi.fromJSON(savedLayout);
-              const allLoaded = REQUIRED_PANEL_IDS.every(id => !!dockviewApi.getPanel(id));
-              if (allLoaded) {
-                restored = true;
-              } else {
-                console.warn('Saved dockview layout missing required panels, restoring default');
-                try { localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY); } catch (_) {}
-              }
+              restored = true;
             }
           }
         } catch (err) {
@@ -9396,10 +9754,12 @@
           createDefaultDockPanels();
         }
 
-        // Prevent closing any panels
+        // Prevent closing only canvas panel (allow closing other tabs)
         if (dockviewApi.onWillClosePanel) {
           dockviewApi.onWillClosePanel((e) => {
-            if (e && e.preventDefault) e.preventDefault();
+            if (e?.panel?.id === 'canvas') {
+              if (e.preventDefault) e.preventDefault();
+            }
           });
         }
 
@@ -9427,6 +9787,7 @@
             if (typeof drawOverlay === 'function') drawOverlay();
             if (typeof drawRulers === 'function') drawRulers();
             scheduleSaveDockviewLayout();
+            updateTitlebarLayoutButtons();
           });
         }
 
@@ -9436,6 +9797,7 @@
             if (typeof drawRulers === 'function') drawRulers();
             if (typeof drawOverlay === 'function') drawOverlay();
             scheduleSaveDockviewLayout();
+            updateTitlebarLayoutButtons();
           });
         }
 
@@ -9443,11 +9805,8 @@
           if (!dockviewApi) return;
           try {
             const layoutData = dockviewApi.toJSON();
-            if (layoutData && layoutData.panels) {
-              const hasAll = REQUIRED_PANEL_IDS.every(id => !!layoutData.panels[id]);
-              if (hasAll) {
-                localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
-              }
+            if (layoutData && layoutData.panels && !!layoutData.panels['canvas']) {
+              localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
             }
           } catch (e) {}
         });
@@ -9461,11 +9820,13 @@
           });
           ro.observe(vp);
         }
+
+        updateTitlebarLayoutButtons();
       }
 
       function switchLeftTab(targetTabId) {
         const panelId = (targetTabId === 'tab-left-stroke' || targetTabId === 'stroke') ? 'stroke' : 'fill';
-        window.dockviewApi?.getPanel(panelId)?.api?.setActive();
+        openDockPanel(panelId);
         updateInspector();
         drawOverlay();
       }
@@ -9480,7 +9841,7 @@
         } else if (targetTabId === 'tab-animation' || targetTabId === 'animation') {
           panelId = 'animation';
         }
-        window.dockviewApi?.getPanel(panelId)?.api?.setActive();
+        openDockPanel(panelId);
         if (panelId === 'document') {
           const wEl = document.getElementById('prop-doc-w');
           const hEl = document.getElementById('prop-doc-h');
@@ -9501,6 +9862,293 @@
         drawOverlay();
       }
       window.switchTab = switchTab;
+
+      // ── VS Code Titlebar Menubar Controller & Action Sets ──
+      let activeMenubarMenu = null;
+
+      function updateTitlebarProjectName(name, isDirty = false) {
+        const label = document.getElementById('titlebar-proj-label');
+        const dirty = document.getElementById('titlebar-dirty-indicator');
+        if (label) {
+          label.textContent = `esenho — ${name || 'Untitled Artwork'}`;
+        }
+        if (dirty) {
+          dirty.style.display = isDirty ? 'inline-block' : 'none';
+        }
+      }
+      window.updateTitlebarProjectName = updateTitlebarProjectName;
+
+      function getFileMenuActions() {
+        return [
+          { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
+          { type: 'item', label: 'Recent Projects & Storage...', action: () => openRecentsModal() },
+          { type: 'sep' },
+          { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
+          { type: 'item', label: 'Import Image Layer...', action: () => document.getElementById('file-import-img')?.click() },
+          { type: 'sep' },
+          { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
+          { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
+          { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
+          { type: 'sep' },
+          { type: 'item', label: 'Export Video (.webm / .mp4)', action: () => document.getElementById('btn-quick-export-video')?.click() },
+          { type: 'item', label: 'Export Spritesheet (.png)', action: () => document.getElementById('btn-quick-export-spritesheet')?.click() },
+          { type: 'sep' },
+          { type: 'item', label: 'Export Center (Video / Image)...', hotkey: 'Ctrl+E', action: () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; } },
+          { type: 'item', label: 'Asset Bundle...', action: () => document.getElementById('btn-menu-asset-bundle')?.click() },
+          { type: 'sep' },
+          { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
+        ];
+      }
+
+      function getEditMenuActions() {
+        return [
+          { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => handleUndo() },
+          { type: 'item', label: 'Redo', hotkey: 'Ctrl+Y', action: () => { doc.redo(); render(); } },
+          { type: 'sep' },
+          { type: 'item', label: 'Cut', hotkey: 'Ctrl+X', action: () => {
+            const selectedObjs = doc.getSelectedObjects();
+            if (selectedObjs.length > 0) {
+              doc.copySelected();
+              for (const o of selectedObjs) doc.removeObject(o.id);
+              render(); drawOverlay(); updateInspector(); updateObjectList();
+            }
+          }},
+          { type: 'item', label: 'Copy', hotkey: 'Ctrl+C', action: () => {
+            if (doc.getSelectedObjects().length > 0) {
+              doc.copySelected();
+              showNotification('Copied to clipboard');
+            }
+          }},
+          { type: 'item', label: 'Paste', hotkey: 'Ctrl+V', action: () => {
+            doc.paste(); render(); drawOverlay(); updateInspector(); updateObjectList();
+          }},
+          { type: 'item', label: 'Duplicate', hotkey: 'Ctrl+D', action: () => {
+            doc.duplicateSelected(); render(); drawOverlay(); updateInspector(); updateObjectList();
+          }},
+          { type: 'item', label: 'Delete', hotkey: 'Del', danger: true, action: () => {
+            const selectedObjs = doc.getSelectedObjects();
+            for (const o of selectedObjs) doc.removeObject(o.id);
+            render(); drawOverlay(); updateInspector(); updateObjectList();
+          }},
+          { type: 'sep' },
+          { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => {
+            doc.selectAll(); render(); drawOverlay(); updateInspector();
+          }},
+          { type: 'item', label: 'Deselect All', hotkey: 'Esc', action: () => {
+            doc.selectedIds.clear(); render(); drawOverlay(); updateInspector();
+          }}
+        ];
+      }
+
+      function getSelectionMenuActions() {
+        const selectedObjs = doc.getSelectedObjects();
+        const hasPrimitives = selectedObjs.some(o => ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'star'].includes(o.type));
+        const hasText = selectedObjs.some(o => o.type === 'text');
+        const hasStroke = selectedObjs.some(o => o.stroke && o.stroke !== 'none' && o.strokeWidth > 0);
+        const hasGroups = selectedObjs.some(o => o.type === 'group');
+        const hasImages = selectedObjs.some(o => o.type === 'image');
+        const hasMask = selectedObjs.some(o => o.clipPathId);
+
+        return [
+          { type: 'item', label: 'Convert Shape to Path', disabled: !hasPrimitives, action: () => {
+            if (doc.convertSelectedToPath()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Converted to editable path'); }
+          }},
+          { type: 'item', label: 'Convert Text to Outlines', hotkey: 'Ctrl+Shift+O', disabled: !hasText, action: () => {
+            if (doc.convertSelectedToPath()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Converted text to outlines'); }
+          }},
+          { type: 'item', label: 'Outline Stroke', disabled: !hasStroke, action: () => {
+            if (doc.outlineStrokeSelected()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Strokes outlined to filled paths'); }
+          }},
+          { type: 'item', label: 'Rasterize to Image Layer', disabled: selectedObjs.length === 0 || hasImages, action: () => rasterizeSelectedToImage() },
+          { type: 'sep' },
+          { type: 'item', label: 'Group Selection', hotkey: 'Ctrl+G', disabled: selectedObjs.length < 2, action: () => {
+            doc.groupSelected(); updateObjectList(); updateInspector(); render(); drawOverlay();
+          }},
+          { type: 'item', label: 'Ungroup', hotkey: 'Ctrl+Shift+G', disabled: !hasGroups, action: () => {
+            doc.ungroupSelected(); updateObjectList(); updateInspector(); render(); drawOverlay();
+          }},
+          { type: 'item', label: 'Make Clipping Mask', hotkey: 'Ctrl+7', disabled: selectedObjs.length < 2, action: handleMaskCreate },
+          { type: 'item', label: 'Release Clipping Mask', hotkey: 'Ctrl+Alt+7', disabled: !hasMask, action: handleMaskRelease },
+          { type: 'sep' },
+          { type: 'submenu', label: 'Pathfinder', items: [
+            { type: 'item', label: 'Union (Unite)', hotkey: 'Alt+U', disabled: selectedObjs.length < 2, action: () => { doc.booleanOperation('union'); updateObjectList(); updateInspector(); render(); drawOverlay(); } },
+            { type: 'item', label: 'Subtract (Minus Front)', hotkey: 'Alt+S', disabled: selectedObjs.length < 2, action: () => { doc.booleanOperation('subtract'); updateObjectList(); updateInspector(); render(); drawOverlay(); } },
+            { type: 'item', label: 'Intersect', hotkey: 'Alt+I', disabled: selectedObjs.length < 2, action: () => { doc.booleanOperation('intersect'); updateObjectList(); updateInspector(); render(); drawOverlay(); } },
+            { type: 'item', label: 'Exclude (XOR)', hotkey: 'Alt+X', disabled: selectedObjs.length < 2, action: () => { doc.booleanOperation('exclude'); updateObjectList(); updateInspector(); render(); drawOverlay(); } }
+          ]},
+          { type: 'submenu', label: 'Align & Distribute', items: [
+            { type: 'item', label: 'Align Left', disabled: selectedObjs.length < 2, action: () => { doc.alignSelected('left'); render(); drawOverlay(); } },
+            { type: 'item', label: 'Align Center (H)', disabled: selectedObjs.length < 2, action: () => { doc.alignSelected('center'); render(); drawOverlay(); } },
+            { type: 'item', label: 'Align Right', disabled: selectedObjs.length < 2, action: () => { doc.alignSelected('right'); render(); drawOverlay(); } },
+            { type: 'item', label: 'Align Top', disabled: selectedObjs.length < 2, action: () => { doc.alignSelected('top'); render(); drawOverlay(); } },
+            { type: 'item', label: 'Align Middle (V)', disabled: selectedObjs.length < 2, action: () => { doc.alignSelected('middle'); render(); drawOverlay(); } },
+            { type: 'item', label: 'Align Bottom', disabled: selectedObjs.length < 2, action: () => { doc.alignSelected('bottom'); render(); drawOverlay(); } },
+            { type: 'sep' },
+            { type: 'item', label: 'Distribute Horizontally', disabled: selectedObjs.length < 3, action: () => { doc.distributeSelected('horizontal'); render(); drawOverlay(); } },
+            { type: 'item', label: 'Distribute Vertically', disabled: selectedObjs.length < 3, action: () => { doc.distributeSelected('vertical'); render(); drawOverlay(); } }
+          ]},
+          { type: 'submenu', label: 'Arrange', items: [
+            { type: 'item', label: 'Bring to Front', hotkey: 'Ctrl+Shift+]', disabled: selectedObjs.length === 0, action: () => { for (const o of selectedObjs) doc.bringToFront(o.id); render(); drawOverlay(); updateObjectList(); } },
+            { type: 'item', label: 'Bring Forward', hotkey: 'Ctrl+]', disabled: selectedObjs.length === 0, action: () => { for (const o of selectedObjs) doc.bringForward(o.id); render(); drawOverlay(); updateObjectList(); } },
+            { type: 'item', label: 'Send Backward', hotkey: 'Ctrl+[', disabled: selectedObjs.length === 0, action: () => { for (const o of selectedObjs) doc.sendBackward(o.id); render(); drawOverlay(); updateObjectList(); } },
+            { type: 'item', label: 'Send to Back', hotkey: 'Ctrl+Shift+[', disabled: selectedObjs.length === 0, action: () => { for (const o of selectedObjs) doc.sendToBack(o.id); render(); drawOverlay(); updateObjectList(); } }
+          ]},
+          { type: 'submenu', label: 'Transform', items: [
+            { type: 'item', label: 'Flip Horizontal', hotkey: 'Shift+H', disabled: selectedObjs.length === 0, action: () => { doc.flipSelected('horizontal'); render(); drawOverlay(); updateInspector(); } },
+            { type: 'item', label: 'Flip Vertical', hotkey: 'Shift+V', disabled: selectedObjs.length === 0, action: () => { doc.flipSelected('vertical'); render(); drawOverlay(); updateInspector(); } },
+            { type: 'sep' },
+            { type: 'item', label: 'Rotate 90° CW', disabled: selectedObjs.length === 0, action: () => { document.getElementById('btn-rot-90')?.click(); } },
+            { type: 'item', label: 'Reset Rotation', disabled: selectedObjs.length === 0, action: () => { document.getElementById('btn-rot-reset')?.click(); } }
+          ]}
+        ];
+      }
+
+      function getViewMenuActions() {
+        const isFillOpen = !!dockviewApi?.getPanel('fill');
+        const isStrokeOpen = !!dockviewApi?.getPanel('stroke');
+        const isInspectOpen = !!dockviewApi?.getPanel('inspect');
+        const isSceneOpen = !!dockviewApi?.getPanel('scene');
+        const isDocOpen = !!dockviewApi?.getPanel('document');
+        const isAnimOpen = !!dockviewApi?.getPanel('animation');
+
+        return [
+          { type: 'header', title: 'Dock Panels & Views' },
+          { type: 'item', label: (isFillOpen ? '✓ ' : '') + 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => { if (isFillOpen) switchLeftTab('fill'); else openDockPanel('fill'); } },
+          { type: 'item', label: (isStrokeOpen ? '✓ ' : '') + 'Stroke & Brush Dock', action: () => { if (isStrokeOpen) switchLeftTab('stroke'); else openDockPanel('stroke'); } },
+          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Inspector & Geometry Dock', action: () => { if (isInspectOpen) switchTab('inspect'); else openDockPanel('inspect'); } },
+          { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => { if (isSceneOpen) switchTab('scene'); else openDockPanel('scene'); } },
+          { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => { if (isDocOpen) switchTab('document'); else openDockPanel('document'); } },
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation & Events Dock', action: () => { if (isAnimOpen) switchTab('animation'); else openDockPanel('animation'); } },
+          { type: 'sep' },
+          { type: 'item', label: 'Toggle Left Sidebar', action: () => toggleLeftSidebar() },
+          { type: 'item', label: 'Toggle Right Sidebar', action: () => toggleRightSidebar() },
+          { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
+          { type: 'sep' },
+          { type: 'submenu', label: 'Viewport & Engine', items: [
+            { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
+            { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
+            { type: 'sep' },
+            { type: 'item', label: Math.abs(quadroRenderScale - 0.5) < 0.01 ? '✓ Scale: 0.5× (Fast Draft)' : 'Scale: 0.5× (Fast Draft)', action: () => { quadroRenderScale = 0.5; updateStageSize(); render(); updateRendererMenuUi(); } },
+            { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+            { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
+            { type: 'sep' },
+            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(!viewportBilinear, true) },
+            { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
+          ]},
+          { type: 'sep' },
+          { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
+          { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } },
+          { type: 'item', label: 'Toggle Fullscreen', hotkey: 'F11', action: () => toggleFullscreen() }
+        ];
+      }
+
+      function getAnimationMenuActions() {
+        const selectedObjs = doc.getSelectedObjects();
+        return [
+          { type: 'item', label: 'Record Animation State', hotkey: '◆', disabled: selectedObjs.length === 0, action: () => {
+            if (window.dopeSheet) {
+              const curF = window.dopeSheet.currentFrame || 1;
+              for (const o of selectedObjs) recordObjectAnimationState(o, curF);
+              doc.pushHistory(`Record State F${curF}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+              showNotification(`Recorded state at Frame ${curF}`);
+            }
+          }},
+          { type: 'item', label: 'Play / Pause Timeline', hotkey: 'Space', action: () => {
+            document.getElementById('btn-play-timeline')?.click() || document.getElementById('btn-anim-play')?.click();
+          }},
+          { type: 'sep' },
+          { type: 'item', label: 'Go to First Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = 1; render(); } },
+          { type: 'item', label: 'Go to Last Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = window.dopeSheet.totalFrames || 60; render(); } },
+          { type: 'sep' },
+          { type: 'item', label: 'Onion Skinning Settings...', action: () => openDockPanel('animation') }
+        ];
+      }
+
+      function getHelpMenuActions() {
+        return [
+          { type: 'item', label: 'Keyboard Shortcuts', hotkey: '?', action: () => openHelpModal() },
+          { type: 'item', label: 'Command Palette / Quick Open', hotkey: 'Ctrl+P', action: () => openRecentsModal() },
+          { type: 'sep' },
+          { type: 'item', label: 'About Wesenho Studio 2026', action: () => showNotification('Wesenho Studio 2026 — Quadro Engine v3') }
+        ];
+      }
+
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      }
+
+      function openMenubarMenu(menuKey, buttonEl) {
+        if (!window.contextMenuService || !buttonEl) return;
+        activeMenubarMenu = menuKey;
+        document.querySelectorAll('.menubar-item').forEach(b => b.classList.remove('active'));
+        buttonEl.classList.add('active');
+
+        let actions = [];
+        if (menuKey === 'file') actions = getFileMenuActions();
+        else if (menuKey === 'edit') actions = getEditMenuActions();
+        else if (menuKey === 'selection') actions = getSelectionMenuActions();
+        else if (menuKey === 'view') actions = getViewMenuActions();
+        else if (menuKey === 'animation') actions = getAnimationMenuActions();
+        else if (menuKey === 'help') actions = getHelpMenuActions();
+
+        const rect = buttonEl.getBoundingClientRect();
+        window.contextMenuService.showContextMenu({
+          getAnchor: () => ({ x: rect.left, y: rect.bottom + 1 }),
+          getActions: () => actions,
+          onHide: () => {
+            activeMenubarMenu = null;
+            buttonEl.classList.remove('active');
+          }
+        });
+      }
+
+      const menubarButtons = [
+        { id: 'menu-btn-file', key: 'file' },
+        { id: 'menu-btn-edit', key: 'edit' },
+        { id: 'menu-btn-selection', key: 'selection' },
+        { id: 'menu-btn-view', key: 'view' },
+        { id: 'menu-btn-animation', key: 'animation' },
+        { id: 'menu-btn-help', key: 'help' }
+      ];
+
+      menubarButtons.forEach(({ id, key }) => {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (activeMenubarMenu === key) {
+            window.contextMenuService?.hideContextMenu();
+          } else {
+            openMenubarMenu(key, btn);
+          }
+        });
+        btn.addEventListener('mouseenter', () => {
+          if (activeMenubarMenu && activeMenubarMenu !== key) {
+            openMenubarMenu(key, btn);
+          }
+        });
+      });
+
+      document.getElementById('titlebar-brand-icon')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const btnFile = document.getElementById('menu-btn-file');
+        if (btnFile) openMenubarMenu('file', btnFile);
+      });
+
+      document.getElementById('btn-toggle-left-dock')?.addEventListener('click', () => toggleLeftSidebar());
+      document.getElementById('btn-toggle-right-dock')?.addEventListener('click', () => toggleRightSidebar());
+      document.getElementById('titlebar-btn-export')?.addEventListener('click', () => {
+        updateExportDimPreview();
+        if (modalExport) modalExport.style.display = 'flex';
+      });
+      document.getElementById('titlebar-btn-fullscreen')?.addEventListener('click', () => toggleFullscreen());
+      document.getElementById('titlebar-command-center')?.addEventListener('click', () => openRecentsModal());
 
       document.getElementById('btn-popover-fill')?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -11813,6 +12461,7 @@
             const propProjName = document.getElementById('prop-project-name');
             if (propProjName) propProjName.value = currentProjectTitle;
             document.title = `${currentProjectTitle} — Wesenho Studio`;
+            updateTitlebarProjectName(currentProjectTitle);
             if (proj.jsonDoc) {
               if (typeof doc.loadJSON === 'function') doc.loadJSON(proj.jsonDoc);
               else if (typeof doc.fromJSON === 'function') doc.fromJSON(proj.jsonDoc);
@@ -11849,6 +12498,7 @@
       propProjectName?.addEventListener('input', (e) => {
         currentProjectTitle = e.target.value.trim() || 'Untitled Vector';
         document.title = `${currentProjectTitle} — Wesenho Studio`;
+        updateTitlebarProjectName(currentProjectTitle);
         if (currentProjectId && typeof EsenhoStore !== 'undefined') {
           EsenhoStore.renameProject(currentProjectId, currentProjectTitle).catch(() => {});
         }
@@ -11969,6 +12619,7 @@
             const propProjName = document.getElementById('prop-project-name');
             if (propProjName) propProjName.value = currentProjectTitle;
             document.title = `${currentProjectTitle} — Wesenho Studio`;
+            updateTitlebarProjectName(currentProjectTitle);
           }
           await openRecentsModal();
           updateRecentProjectsMenu();
@@ -12414,6 +13065,7 @@
         const propProjName = document.getElementById('prop-project-name');
         if (propProjName) propProjName.value = currentProjectTitle;
         document.title = `${currentProjectTitle} — Wesenho Studio`;
+        updateTitlebarProjectName(currentProjectTitle);
         doc.clear();
         doc.width = w;
         doc.height = h;
@@ -12462,6 +13114,7 @@
           const propProjName = document.getElementById('prop-project-name');
           if (propProjName) propProjName.value = currentProjectTitle;
           document.title = `${currentProjectTitle} — Wesenho Studio`;
+          updateTitlebarProjectName(currentProjectTitle);
         }
 
         updateRecentProjectsMenu();
