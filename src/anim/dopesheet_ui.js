@@ -794,10 +794,11 @@ export class DopeSheetUI {
           </div>
         </div>
 
-        <!-- Actions -->
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: 4px;">
-          <div id="ds-ce-sub-actions"></div>
-          <button id="ds-ce-apply" class="btn-primary btn-sm" style="padding: 4px 12px; font-weight: bold; cursor: pointer;">Apply to Keyframe(s)</button>
+        <!-- Actions Footer -->
+        <div style="margin-top: auto; padding-top: 6px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
+          <button id="ds-ce-apply" class="btn-primary" style="width: 100%; padding: 6px 12px; font-weight: 700; font-size: 11px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <span>Apply to Keyframe</span>
+          </button>
         </div>
       </div>
     `;
@@ -815,12 +816,18 @@ export class DopeSheetUI {
     const fromPixelY = (py) => Math.max(yMin, Math.min(yMax, yMin + (H - padY - py) / (H - 2 * padY) * (yMax - yMin)));
 
     const controlsContainer = container.querySelector('#ds-ce-controls-container');
-    const subActionsContainer = container.querySelector('#ds-ce-sub-actions');
     const strLabel = container.querySelector('#ds-ce-curve-str');
     const previewDot = container.querySelector('#ds-ce-preview-dot');
 
     let draggingTarget = null;
     let currentCurveFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
+
+    const adjustCurveInputWidth = (inputEl) => {
+      if (!inputEl) return;
+      const valStr = String(inputEl.value ?? '');
+      const charLen = Math.max(valStr.length, 3);
+      inputEl.style.width = `${Math.max(40, charLen * 8.5 + 16)}px`;
+    };
 
     const updateControlsUI = () => {
       ['bezier', 'bounce', 'spring', 'spline'].forEach(m => {
@@ -834,8 +841,6 @@ export class DopeSheetUI {
         }
       });
 
-      if (subActionsContainer) subActionsContainer.innerHTML = '';
-
       if (currentMode === 'bezier') {
         yMin = -0.3; yMax = 1.3;
         controlsContainer.innerHTML = `
@@ -848,34 +853,41 @@ export class DopeSheetUI {
             <button class="ds-ce-preset" data-vals="0.34,1.56,0.64,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Spring Overshoot</button>
             <button class="ds-ce-preset" data-vals="0.36,0,0.66,-0.56" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Anticipate</button>
           </div>
-          <div style="display: flex; gap: 8px; justify-content: space-between; font-size: 11px;">
+          <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; font-size: 11px; background: var(--bg-panel-sub); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
             <div style="display: flex; align-items: center; gap: 3px;">
-              <span style="color: var(--accent); font-weight: bold;">P1:</span>
-              <input id="ds-ce-x1" type="number" step="0.01" value="${Math.round(p1.x * 100) / 100}" style="width: 44px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px; text-align: center; font-size: 10px;">
-              <input id="ds-ce-y1" type="number" step="0.01" value="${Math.round(p1.y * 100) / 100}" style="width: 44px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px; text-align: center; font-size: 10px;">
+              <span style="color: var(--accent); font-weight: bold; font-size: 10px;">P1:</span>
+              <input id="ds-ce-x1" type="number" step="0.01" value="${Math.round(p1.x * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
+              <input id="ds-ce-y1" type="number" step="0.01" value="${Math.round(p1.y * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
             </div>
             <div style="display: flex; align-items: center; gap: 3px;">
-              <span style="color: var(--primary); font-weight: bold;">P2:</span>
-              <input id="ds-ce-x2" type="number" step="0.01" value="${Math.round(p2.x * 100) / 100}" style="width: 44px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px; text-align: center; font-size: 10px;">
-              <input id="ds-ce-y2" type="number" step="0.01" value="${Math.round(p2.y * 100) / 100}" style="width: 44px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px; text-align: center; font-size: 10px;">
+              <span style="color: var(--primary); font-weight: bold; font-size: 10px;">P2:</span>
+              <input id="ds-ce-x2" type="number" step="0.01" value="${Math.round(p2.x * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
+              <input id="ds-ce-y2" type="number" step="0.01" value="${Math.round(p2.y * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
             </div>
           </div>
         `;
-        controlsContainer.querySelectorAll('.ds-ce-preset').forEach(btn => {
-          btn.onclick = () => {
-            const [x1, y1, x2, y2] = btn.getAttribute('data-vals').split(',').map(Number);
-            p1 = { x: x1, y: y1 }; p2 = { x: x2, y: y2 };
-            syncGraph();
-          };
-        });
         const ix1 = controlsContainer.querySelector('#ds-ce-x1');
         const iy1 = controlsContainer.querySelector('#ds-ce-y1');
         const ix2 = controlsContainer.querySelector('#ds-ce-x2');
         const iy2 = controlsContainer.querySelector('#ds-ce-y2');
-        if (ix1) ix1.oninput = () => { p1.x = Math.max(0, Math.min(1, parseFloat(ix1.value) || 0)); syncGraph(); };
-        if (iy1) iy1.oninput = () => { p1.y = parseFloat(iy1.value) || 0; syncGraph(); };
-        if (ix2) ix2.oninput = () => { p2.x = Math.max(0, Math.min(1, parseFloat(ix2.value) || 0)); syncGraph(); };
-        if (iy2) iy2.oninput = () => { p2.y = parseFloat(iy2.value) || 0; syncGraph(); };
+        [ix1, iy1, ix2, iy2].forEach(adjustCurveInputWidth);
+
+        controlsContainer.querySelectorAll('.ds-ce-preset').forEach(btn => {
+          btn.onclick = () => {
+            const [x1, y1, x2, y2] = btn.getAttribute('data-vals').split(',').map(Number);
+            p1 = { x: x1, y: y1 }; p2 = { x: x2, y: y2 };
+            if (ix1) { ix1.value = Math.round(p1.x * 100) / 100; adjustCurveInputWidth(ix1); }
+            if (iy1) { iy1.value = Math.round(p1.y * 100) / 100; adjustCurveInputWidth(iy1); }
+            if (ix2) { ix2.value = Math.round(p2.x * 100) / 100; adjustCurveInputWidth(ix2); }
+            if (iy2) { iy2.value = Math.round(p2.y * 100) / 100; adjustCurveInputWidth(iy2); }
+            syncGraph();
+          };
+        });
+
+        if (ix1) ix1.oninput = () => { p1.x = Math.max(0, Math.min(1, parseFloat(ix1.value) || 0)); adjustCurveInputWidth(ix1); syncGraph(); };
+        if (iy1) iy1.oninput = () => { p1.y = parseFloat(iy1.value) || 0; adjustCurveInputWidth(iy1); syncGraph(); };
+        if (ix2) ix2.oninput = () => { p2.x = Math.max(0, Math.min(1, parseFloat(ix2.value) || 0)); adjustCurveInputWidth(ix2); syncGraph(); };
+        if (iy2) iy2.oninput = () => { p2.y = parseFloat(iy2.value) || 0; adjustCurveInputWidth(iy2); syncGraph(); };
       } else if (currentMode === 'bounce') {
         yMin = -0.1; yMax = 1.1;
         controlsContainer.innerHTML = `
@@ -948,11 +960,14 @@ export class DopeSheetUI {
       } else if (currentMode === 'spline') {
         yMin = -0.3; yMax = 1.3;
         controlsContainer.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
-            <span>Freeform Nodes: <b>${splineNodes.length} points</b></span>
-            <button id="btn-add-spline-node" class="btn-sm btn-primary" style="font-size: 10px; padding: 2px 6px;">+ Add Node</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: var(--bg-panel-sub); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="color: var(--text-dim); font-size: 10px;">Freeform Nodes:</span>
+              <b style="color: var(--primary); font-size: 11px;">${splineNodes.length} pts</b>
+            </div>
+            <button id="btn-add-spline-node" class="btn-sm" style="font-size: 10px; padding: 2px 8px; font-weight: 600; cursor: pointer; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright);">+ node</button>
           </div>
-          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">Click &amp; drag nodes on graph. Double-click on canvas to insert point.</div>
+          <div style="font-size: 9.5px; color: var(--text-muted); margin-top: 2px; padding: 0 2px;">Click &amp; drag nodes on graph. Double-click canvas to insert.</div>
         `;
         controlsContainer.querySelector('#btn-add-spline-node').onclick = () => {
           const midX = 0.5;
@@ -999,7 +1014,8 @@ export class DopeSheetUI {
       const x1 = toPixelX(1), y1 = toPixelY(1);
 
       // Box 0..1
-      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      const isLight = document.body && (document.body.getAttribute('data-theme') === 'light' || document.body.classList.contains('theme-light'));
+      ctx.fillStyle = isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)';
       ctx.fillRect(x0, y1, x1 - x0, y0 - y1);
       ctx.strokeStyle = colBorder;
       ctx.lineWidth = 1;
@@ -1155,10 +1171,10 @@ export class DopeSheetUI {
         const iy1 = controlsContainer.querySelector('#ds-ce-y1');
         const ix2 = controlsContainer.querySelector('#ds-ce-x2');
         const iy2 = controlsContainer.querySelector('#ds-ce-y2');
-        if (ix1) ix1.value = Math.round(p1.x * 100) / 100;
-        if (iy1) iy1.value = Math.round(p1.y * 100) / 100;
-        if (ix2) ix2.value = Math.round(p2.x * 100) / 100;
-        if (iy2) iy2.value = Math.round(p2.y * 100) / 100;
+        if (ix1) { ix1.value = Math.round(p1.x * 100) / 100; adjustCurveInputWidth(ix1); }
+        if (iy1) { iy1.value = Math.round(p1.y * 100) / 100; adjustCurveInputWidth(iy1); }
+        if (ix2) { ix2.value = Math.round(p2.x * 100) / 100; adjustCurveInputWidth(ix2); }
+        if (iy2) { iy2.value = Math.round(p2.y * 100) / 100; adjustCurveInputWidth(iy2); }
       } else if (currentMode === 'spline') {
         const idx = draggingTarget;
         if (idx === 0) {

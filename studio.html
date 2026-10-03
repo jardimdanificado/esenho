@@ -26,6 +26,7 @@
       --primary: #fabd2f;
       --primary-hover: #fe8019;
       --primary-dim: rgba(250, 189, 47, 0.16);
+      --primary-text: #141617;
       --accent: #83a598;
       --accent-hover: #a89984;
       --accent-dim: rgba(131, 165, 152, 0.16);
@@ -43,28 +44,29 @@
     }
 
     [data-theme="light"], body.theme-light {
-      --bg-dark: #e8ecf0;
-      --bg-canvas: #dfe4ea;
+      --bg-dark: #edf0f5;
+      --bg-canvas: #dbe2ea;
       --bg-panel: #ffffff;
       --bg-panel-sub: #f1f5f9;
       --bg-input: #ffffff;
       --bg-input-focus: #f8fafc;
-      --border: #cbd5e1;
+      --border: #c4cdd8;
       --border-bright: #94a3b8;
       --border-focus: #2563eb;
       --border-subtle: rgba(0, 0, 0, 0.08);
-      --text: #1e293b;
-      --text-bright: #0f172a;
-      --text-dim: #475569;
+      --text: #0f172a;
+      --text-bright: #020617;
+      --text-dim: #334155;
       --text-muted: #64748b;
       --primary: #2563eb;
       --primary-hover: #1d4ed8;
-      --primary-dim: rgba(37, 99, 235, 0.14);
+      --primary-dim: rgba(37, 99, 235, 0.12);
+      --primary-text: #ffffff;
       --accent: #0284c7;
       --accent-hover: #0369a1;
-      --accent-dim: rgba(2, 132, 199, 0.14);
+      --accent-dim: rgba(2, 132, 199, 0.12);
       --danger: #dc2626;
-      --danger-dim: rgba(220, 38, 38, 0.14);
+      --danger-dim: rgba(220, 38, 38, 0.12);
       --success: #16a34a;
       color-scheme: light;
     }
@@ -87,6 +89,7 @@
       --primary: #ff9f1c;
       --primary-hover: #ffa933;
       --primary-dim: rgba(255, 159, 28, 0.18);
+      --primary-text: #141617;
       --accent: #38bdf8;
       --accent-hover: #60a5fa;
       --accent-dim: rgba(56, 189, 248, 0.18);
@@ -334,14 +337,14 @@
     .titlebar-btn.primary-action {
       background: var(--primary-dim);
       color: var(--primary);
-      border-color: rgba(250, 189, 47, 0.3);
+      border-color: var(--primary);
       font-weight: 600;
       padding: 3px 8px;
     }
 
     .titlebar-btn.primary-action:hover {
       background: var(--primary);
-      color: #141617;
+      color: var(--primary-text, #141617);
       border-color: var(--primary);
     }
 
@@ -700,15 +703,15 @@
 
     button.btn-primary {
       background: var(--primary);
-      color: #141617;
-      border-color: #d79921;
+      color: var(--primary-text, #141617);
+      border-color: var(--primary);
       font-weight: 700;
     }
 
     button.btn-primary:hover {
       background: var(--primary-hover);
       border-color: var(--primary-hover);
-      color: #141617;
+      color: var(--primary-text, #141617);
     }
 
     button.btn-sm {
@@ -1005,7 +1008,7 @@
     .monaco-menu .action-item.focused > .action-menu-item,
     .monaco-menu .action-item:hover > .action-menu-item {
       background: var(--primary);
-      color: #141617;
+      color: var(--primary-text, #141617);
       font-weight: 600;
     }
 
@@ -1015,7 +1018,7 @@
     .monaco-menu .action-item:hover > .action-menu-item .submenu-indicator,
     .monaco-menu .action-item.focused > .action-menu-item .menu-item-check,
     .monaco-menu .action-item:hover > .action-menu-item .menu-item-check {
-      color: #141617;
+      color: var(--primary-text, #141617);
     }
 
     .monaco-menu .action-item.danger.focused > .action-menu-item,
@@ -1150,7 +1153,25 @@
 
     #dockview-container .dv-tab:hover:not(.dv-active-tab) {
       color: var(--text-bright) !important;
-      background: rgba(255, 255, 255, 0.04);
+      background: var(--bg-panel-sub);
+    }
+
+    [data-theme="light"] #dockview-container .dv-tab:hover:not(.dv-active-tab),
+    body.theme-light #dockview-container .dv-tab:hover:not(.dv-active-tab) {
+      background: var(--bg-panel-sub) !important;
+      color: var(--text-bright) !important;
+    }
+
+    [data-theme="light"] .vscode-statusbar .statusbar-item:hover,
+    body.theme-light .vscode-statusbar .statusbar-item:hover {
+      background: rgba(0, 0, 0, 0.06) !important;
+      color: var(--text-bright) !important;
+    }
+
+    [data-theme="light"] .object-item:hover,
+    body.theme-light .object-item:hover {
+      background: var(--bg-panel-sub) !important;
+      border-color: var(--border-bright) !important;
     }
 
     #dockview-container .dv-tab * {
@@ -2515,7 +2536,102 @@
           </div>
         </div>
 
-        <!-- 2. Fill Texture Generator -->
+        <!-- 2. Fill Dynamics & Presets -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Fill Dynamics &amp; Distortion</span>
+          </div>
+          <div class="form-row">
+            <label>Preset</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <select id="prop-fill-preset" style="flex: 1;">
+                <option value="custom">-- Custom Settings --</option>
+                <option value="default">Solid Flat Color (Default)</option>
+                <optgroup id="grp-custom-fill-presets" label="Custom Fill Presets"></optgroup>
+                <optgroup label="WASM Optical Lenses &amp; Filters">
+                  <option value="fisheye_lens">Fisheye Spherical Lens</option>
+                  <option value="swirl_vortex_lens">Swirl Vortex Whirlpool Lens</option>
+                  <option value="water_ripple_lens">Water Caustic Ripple Lens</option>
+                  <option value="kaleidoscope_prism_lens">Kaleidoscope Symmetrical Lens</option>
+                  <option value="crt_monitor_lens">Retro CRT Monitor Lens</option>
+                  <option value="cyberpunk_duotone_lens">Cyberpunk Duotone Lens</option>
+                  <option value="thermal_predator_lens">Infrared Thermal Heat Lens</option>
+                  <option value="kuwahara_oil_canvas">Kuwahara Oil Painting Canvas</option>
+                  <option value="chromatic_aberration_lens">Chromatic RGB Split Lens</option>
+                  <option value="vhs_glitch_lens">VHS Glitch Tear Lens</option>
+                  <option value="frosted_glass_lens">Frosted Glass Distortion Lens</option>
+                  <option value="solarized_dream_lens">Solarized Sabattier Lens</option>
+                  <option value="neon_bloom_lens">Neon Bloom Glow Lens</option>
+                </optgroup>
+                <optgroup label="Artistic &amp; Media Fills">
+                  <option value="soft_watercolor">Soft Watercolor Wash</option>
+                  <option value="manga_screentone">Manga Screentone Cel</option>
+                  <option value="comic_cel">4-Level Cel Shading</option>
+                  <option value="vintage_engraving">Vintage Engraved Fills</option>
+                  <option value="denim_fabric">Denim Twill Weave</option>
+                </optgroup>
+                <optgroup label="Distortion &amp; Dynamics">
+                  <option value="warped_marble">Warped Liquid Marble</option>
+                  <option value="noise_dissolve">Noise Dissolve / Sand</option>
+                  <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
+                  <option value="cracked_earth">Cracked Mud Fissures</option>
+                  <option value="glitch_heatwave">Glitch Heatwave</option>
+                </optgroup>
+                <optgroup label="Sci-Fi &amp; Fantasy">
+                  <option value="circuit_tech">Cyber Circuit Board</option>
+                  <option value="dragon_scales">Mythic Dragon Scales</option>
+                  <option value="inverted_negative">Inverted Texture Mask</option>
+                </optgroup>
+              </select>
+              <button id="btn-save-fill-preset" class="btn btn-secondary btn-sm" title="Save Current Fill as Custom Preset" style="padding: 2px 6px; font-size: 10px;">Save</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Hardness %</label>
+            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Soft Reach</label>
+            <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
+          </div>
+          <div class="form-row">
+            <label>Warp Wave</label>
+            <div style="display: flex; gap: 4px; width: 100%;">
+              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
+              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Noise Jitter</label>
+            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Swirl Vortex</label>
+            <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Posterize</label>
+            <select id="prop-fill-tex-posterize">
+              <option value="0">0: Smooth / Off</option>
+              <option value="2">2 Levels (B&amp;W)</option>
+              <option value="3">3 Levels</option>
+              <option value="4">4 Levels (Cel)</option>
+              <option value="6">6 Levels</option>
+              <option value="8">8 Levels</option>
+              <option value="12">12 Levels</option>
+              <option value="16">16 Levels</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Invert Mask</label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="prop-fill-tex-invert">
+              <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. Fill Texture Generator -->
         <div class="section-card">
           <div class="section-header">
             <span>Fill Procedural Texture</span>
@@ -2626,101 +2742,6 @@
               <input type="number" id="prop-fill-tex-offsetX" placeholder="X" step="5" value="0" style="width: 50%;">
               <input type="number" id="prop-fill-tex-offsetY" placeholder="Y" step="5" value="0" style="width: 50%;">
             </div>
-          </div>
-        </div>
-
-        <!-- 3. Fill Dynamics & Presets -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Fill Dynamics &amp; Distortion</span>
-          </div>
-          <div class="form-row">
-            <label>Preset</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <select id="prop-fill-preset" style="flex: 1;">
-                <option value="custom">-- Custom Settings --</option>
-                <option value="default">Solid Flat Color (Default)</option>
-                <optgroup id="grp-custom-fill-presets" label="Custom Fill Presets"></optgroup>
-                <optgroup label="WASM Optical Lenses &amp; Filters">
-                  <option value="fisheye_lens">Fisheye Spherical Lens</option>
-                  <option value="swirl_vortex_lens">Swirl Vortex Whirlpool Lens</option>
-                  <option value="water_ripple_lens">Water Caustic Ripple Lens</option>
-                  <option value="kaleidoscope_prism_lens">Kaleidoscope Symmetrical Lens</option>
-                  <option value="crt_monitor_lens">Retro CRT Monitor Lens</option>
-                  <option value="cyberpunk_duotone_lens">Cyberpunk Duotone Lens</option>
-                  <option value="thermal_predator_lens">Infrared Thermal Heat Lens</option>
-                  <option value="kuwahara_oil_canvas">Kuwahara Oil Painting Canvas</option>
-                  <option value="chromatic_aberration_lens">Chromatic RGB Split Lens</option>
-                  <option value="vhs_glitch_lens">VHS Glitch Tear Lens</option>
-                  <option value="frosted_glass_lens">Frosted Glass Distortion Lens</option>
-                  <option value="solarized_dream_lens">Solarized Sabattier Lens</option>
-                  <option value="neon_bloom_lens">Neon Bloom Glow Lens</option>
-                </optgroup>
-                <optgroup label="Artistic &amp; Media Fills">
-                  <option value="soft_watercolor">Soft Watercolor Wash</option>
-                  <option value="manga_screentone">Manga Screentone Cel</option>
-                  <option value="comic_cel">4-Level Cel Shading</option>
-                  <option value="vintage_engraving">Vintage Engraved Fills</option>
-                  <option value="denim_fabric">Denim Twill Weave</option>
-                </optgroup>
-                <optgroup label="Distortion &amp; Dynamics">
-                  <option value="warped_marble">Warped Liquid Marble</option>
-                  <option value="noise_dissolve">Noise Dissolve / Sand</option>
-                  <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
-                  <option value="cracked_earth">Cracked Mud Fissures</option>
-                  <option value="glitch_heatwave">Glitch Heatwave</option>
-                </optgroup>
-                <optgroup label="Sci-Fi &amp; Fantasy">
-                  <option value="circuit_tech">Cyber Circuit Board</option>
-                  <option value="dragon_scales">Mythic Dragon Scales</option>
-                  <option value="inverted_negative">Inverted Texture Mask</option>
-                </optgroup>
-              </select>
-              <button id="btn-save-fill-preset" class="btn btn-secondary btn-sm" title="Save Current Fill as Custom Preset" style="padding: 2px 6px; font-size: 10px;">Save</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Hardness %</label>
-            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Soft Reach</label>
-            <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
-          </div>
-          <div class="form-row">
-            <label>Warp Wave</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
-              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Noise Jitter</label>
-            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Swirl Vortex</label>
-            <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Posterize</label>
-            <select id="prop-fill-tex-posterize">
-              <option value="0">0: Smooth / Off</option>
-              <option value="2">2 Levels (B&amp;W)</option>
-              <option value="3">3 Levels</option>
-              <option value="4">4 Levels (Cel)</option>
-              <option value="6">6 Levels</option>
-              <option value="8">8 Levels</option>
-              <option value="12">12 Levels</option>
-              <option value="16">16 Levels</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Invert Mask</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="checkbox" id="prop-fill-tex-invert">
-              <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
-            </label>
           </div>
         </div>
 
@@ -2839,107 +2860,7 @@
           </div>
         </div>
 
-        <!-- 2. Stroke Texture -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Stroke Texture</span>
-          </div>
-          <div class="form-row">
-            <label>Mode</label>
-            <select id="prop-stroke-tex-mode">
-              <option value="0">0: None / Solid</option>
-              <option value="1">1: Paper Grain</option>
-              <option value="2">2: Canvas Weave</option>
-              <option value="3">3: Noise Scatter</option>
-              <option value="4">4: Halftone Dots</option>
-              <option value="5">5: Grid Pattern</option>
-              <option value="6">6: Grunge / Distress</option>
-              <option value="7">7: Hatch Lines</option>
-              <option value="8">8: Watercolor Cold Press</option>
-              <option value="9">9: Charcoal Tooth</option>
-              <option value="10">10: Wood Grain</option>
-              <option value="11">11: Leather Pores</option>
-              <option value="12">12: Dense Linen</option>
-              <option value="13">13: Marble Veins</option>
-              <option value="14">14: Perlin Cloud</option>
-              <option value="15">15: Basket Weave</option>
-              <option value="16">16: Sandpaper Grit</option>
-              <option value="17">17: Radial Halftone</option>
-              <option value="18">18: Crackle Fissures</option>
-              <option value="19">19: Washi Fiber</option>
-              <option value="20">20: Concrete Stone</option>
-              <option value="21">21: Antique Parchment</option>
-              <option value="22">22: Stipple Noise</option>
-              <option value="23">23: Spatter Drops</option>
-              <option value="24">24: Raw Fiber Pulp</option>
-              <option value="25">25: Coarse Halftone</option>
-              <option value="26">26: Fine Crosshatch</option>
-              <option value="27">27: Distressed Rust</option>
-              <option value="28">28: Dry Bristle Scrape</option>
-              <option value="29">29: Pastel Honeycomb</option>
-              <option value="30">30: Tree Bark</option>
-              <option value="31">31: Manga Screen Dots</option>
-              <option value="32">32: Manga Sandtone</option>
-              <option value="33">33: Sea Sponge</option>
-              <option value="34">34: Stucco Plaster</option>
-              <option value="35">35: Denim Twill</option>
-              <option value="36">36: Impasto Knife Peaks</option>
-              <option value="37">37: Dusty Chalk Tooth</option>
-              <option value="38">38: Engraving Lines</option>
-              <option value="39">39: Granite Mineral</option>
-              <option value="40">40: Salt Bloom</option>
-              <option value="41">41: Coarse Burlap</option>
-              <option value="42">42: Cracked Earth</option>
-              <option value="43">43: Cyber Circuit Board</option>
-              <option value="44">44: Foliage &amp; Leaves</option>
-              <option value="45">45: Grass Blades Lawn</option>
-              <option value="46">46: Butterfly Wings Motif</option>
-              <option value="47">47: Mystic Surreal Eyes</option>
-              <option value="48">48: Steampunk Gears &amp; Cogs</option>
-              <option value="49">49: Kitty Paw Prints</option>
-              <option value="50">50: Dragon Armor Scales</option>
-              <option value="51">51: Starry Cosmos &amp; Galaxies</option>
-              <option value="52">52: Sci-Fi Hex Tech</option>
-              <option value="53">53: Bubble Soap Foam</option>
-              <option value="54">54: Celtic Knot Braids</option>
-              <option value="55">55: Skulls &amp; Crossbones</option>
-              <option value="56">56: Sweet Hearts Motif</option>
-              <option value="57">57: Seigaiha Ocean Waves</option>
-              <option value="58">58: Musical Staff &amp; Notes</option>
-              <option value="59">59: Classic Houndstooth</option>
-              <option value="60">60: Bird Feathers Plumage</option>
-              <option value="61">61: Chainmail Ringmesh</option>
-              <option value="62">62: Damask Floral Paisley</option>
-              <option value="63">63: Argyle Diamond Plaid</option>
-              <option value="64">64: Masonry Brick Wall</option>
-              <option value="65">65: Molten Magma Lava</option>
-              <option value="66">66: Labyrinth Geometric Maze</option>
-              <option value="67">67: Lightning Electric Arcs</option>
-              <option value="68">68: Radial Spiderweb</option>
-              <option value="69">69: Crystal Gemstone Facets</option>
-              <option value="70">70: 8-Bit Space Invaders</option>
-              <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Scale %</label>
-            <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Angle °</label>
-            <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
-          </div>
-          <div class="form-row">
-            <label>Contrast %</label>
-            <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
-          </div>
-          <div class="form-row">
-            <label>Grain / Grit</label>
-            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
-          </div>
-        </div>
-
-        <!-- 3. Brush Dynamics & Presets -->
+        <!-- 2. Brush Dynamics & Presets -->
         <div class="section-card">
           <div class="section-header">
             <span>Brush Dynamics &amp; Presets</span>
@@ -3090,7 +3011,7 @@
           </div>
         </div>
 
-        <!-- 4. Taper & Jitters -->
+        <!-- 3. Taper & Jitters -->
         <div class="section-card">
           <div class="section-header">
             <span>Taper &amp; Jitters</span>
@@ -3116,7 +3037,7 @@
           </div>
         </div>
 
-        <!-- 5. Wet Media & Smudge -->
+        <!-- 4. Wet Media & Smudge -->
         <div class="section-card">
           <div class="section-header">
             <span>Wet Media &amp; Smudge</span>
@@ -3136,6 +3057,106 @@
           <div class="form-row">
             <label>Smudge %</label>
             <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+          </div>
+        </div>
+
+        <!-- 5. Stroke Texture -->
+        <div class="section-card">
+          <div class="section-header">
+            <span>Stroke Texture</span>
+          </div>
+          <div class="form-row">
+            <label>Mode</label>
+            <select id="prop-stroke-tex-mode">
+              <option value="0">0: None / Solid</option>
+              <option value="1">1: Paper Grain</option>
+              <option value="2">2: Canvas Weave</option>
+              <option value="3">3: Noise Scatter</option>
+              <option value="4">4: Halftone Dots</option>
+              <option value="5">5: Grid Pattern</option>
+              <option value="6">6: Grunge / Distress</option>
+              <option value="7">7: Hatch Lines</option>
+              <option value="8">8: Watercolor Cold Press</option>
+              <option value="9">9: Charcoal Tooth</option>
+              <option value="10">10: Wood Grain</option>
+              <option value="11">11: Leather Pores</option>
+              <option value="12">12: Dense Linen</option>
+              <option value="13">13: Marble Veins</option>
+              <option value="14">14: Perlin Cloud</option>
+              <option value="15">15: Basket Weave</option>
+              <option value="16">16: Sandpaper Grit</option>
+              <option value="17">17: Radial Halftone</option>
+              <option value="18">18: Crackle Fissures</option>
+              <option value="19">19: Washi Fiber</option>
+              <option value="20">20: Concrete Stone</option>
+              <option value="21">21: Antique Parchment</option>
+              <option value="22">22: Stipple Noise</option>
+              <option value="23">23: Spatter Drops</option>
+              <option value="24">24: Raw Fiber Pulp</option>
+              <option value="25">25: Coarse Halftone</option>
+              <option value="26">26: Fine Crosshatch</option>
+              <option value="27">27: Distressed Rust</option>
+              <option value="28">28: Dry Bristle Scrape</option>
+              <option value="29">29: Pastel Honeycomb</option>
+              <option value="30">30: Tree Bark</option>
+              <option value="31">31: Manga Screen Dots</option>
+              <option value="32">32: Manga Sandtone</option>
+              <option value="33">33: Sea Sponge</option>
+              <option value="34">34: Stucco Plaster</option>
+              <option value="35">35: Denim Twill</option>
+              <option value="36">36: Impasto Knife Peaks</option>
+              <option value="37">37: Dusty Chalk Tooth</option>
+              <option value="38">38: Engraving Lines</option>
+              <option value="39">39: Granite Mineral</option>
+              <option value="40">40: Salt Bloom</option>
+              <option value="41">41: Coarse Burlap</option>
+              <option value="42">42: Cracked Earth</option>
+              <option value="43">43: Cyber Circuit Board</option>
+              <option value="44">44: Foliage &amp; Leaves</option>
+              <option value="45">45: Grass Blades Lawn</option>
+              <option value="46">46: Butterfly Wings Motif</option>
+              <option value="47">47: Mystic Surreal Eyes</option>
+              <option value="48">48: Steampunk Gears &amp; Cogs</option>
+              <option value="49">49: Kitty Paw Prints</option>
+              <option value="50">50: Dragon Armor Scales</option>
+              <option value="51">51: Starry Cosmos &amp; Galaxies</option>
+              <option value="52">52: Sci-Fi Hex Tech</option>
+              <option value="53">53: Bubble Soap Foam</option>
+              <option value="54">54: Celtic Knot Braids</option>
+              <option value="55">55: Skulls &amp; Crossbones</option>
+              <option value="56">56: Sweet Hearts Motif</option>
+              <option value="57">57: Seigaiha Ocean Waves</option>
+              <option value="58">58: Musical Staff &amp; Notes</option>
+              <option value="59">59: Classic Houndstooth</option>
+              <option value="60">60: Bird Feathers Plumage</option>
+              <option value="61">61: Chainmail Ringmesh</option>
+              <option value="62">62: Damask Floral Paisley</option>
+              <option value="63">63: Argyle Diamond Plaid</option>
+              <option value="64">64: Masonry Brick Wall</option>
+              <option value="65">65: Molten Magma Lava</option>
+              <option value="66">66: Labyrinth Geometric Maze</option>
+              <option value="67">67: Lightning Electric Arcs</option>
+              <option value="68">68: Radial Spiderweb</option>
+              <option value="69">69: Crystal Gemstone Facets</option>
+              <option value="70">70: 8-Bit Space Invaders</option>
+              <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Scale %</label>
+            <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Angle °</label>
+            <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
+          </div>
+          <div class="form-row">
+            <label>Contrast %</label>
+            <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
+          </div>
+          <div class="form-row">
+            <label>Grain / Grit</label>
+            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
           </div>
         </div>
 
@@ -6340,6 +6361,7 @@
 
         updateSelectedObjectEventsUI();
         updateSwatches();
+        if (typeof updateTracerUI === 'function') updateTracerUI();
       }
       window.updateInspector = updateInspector;
 
@@ -10313,9 +10335,19 @@
         const selected = (typeof doc !== 'undefined' && doc.getSelectedObjects) ? doc.getSelectedObjects() : [];
         const imgObj = selected.find(o => o.type === 'image');
         if (imgObj) {
-          sourceInfo.innerHTML = `<span style="color: var(--text-bright); font-weight: 600;">Image selected:</span> ${imgObj.name || 'Raster Image'} (${Math.round(imgObj.width)} × ${Math.round(imgObj.height)} px)`;
+          sourceInfo.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">🖼️</span>
+              <div style="overflow: hidden; flex: 1;">
+                <div style="color: var(--text-bright); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${imgObj.name || 'Raster Image'}</div>
+                <div style="font-size: 10px; color: var(--text-muted);">${Math.round(imgObj.width)} × ${Math.round(imgObj.height)} px</div>
+              </div>
+            </div>
+          `;
+          sourceInfo.style.borderColor = 'var(--primary)';
         } else {
-          sourceInfo.textContent = 'Select a raster image on the canvas to vectorize.';
+          sourceInfo.innerHTML = '<span style="color: var(--text-muted);">Select a raster image on the canvas to vectorize.</span>';
+          sourceInfo.style.borderColor = 'var(--border)';
         }
       }
       window.updateTracerUI = updateTracerUI;
