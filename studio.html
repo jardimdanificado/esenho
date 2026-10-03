@@ -1087,7 +1087,10 @@
       background: var(--bg-dark);
     }
 
-    .dockview-theme-dark {
+    .dockview-theme-dark,
+    .dockview-theme-light,
+    .dockview-theme-ableton,
+    #dockview-container {
       --dv-drag-over-background-color: var(--primary-dim);
       --dv-drag-over-border-color: var(--primary);
       --dv-tabs-and-actions-container-background-color: var(--bg-panel-sub);
@@ -1111,17 +1114,17 @@
     }
 
     /* Hide Dockview tab close buttons, group close buttons and right-side overflow/dropdown actions */
-    .dockview-theme-dark .dv-tab-close-btn,
-    .dockview-theme-dark .dv-default-tab-action,
-    .dockview-theme-dark .dv-group-action-close,
-    .dockview-theme-dark .dv-right-actions-container,
-    .dockview-theme-dark .dv-tabs-overflow-dropdown-root,
-    .dockview-theme-dark .dv-tabs-overflow-dropdown-default,
-    .dockview-theme-dark .dv-tabs-overflow-container {
+    #dockview-container .dv-tab-close-btn,
+    #dockview-container .dv-default-tab-action,
+    #dockview-container .dv-group-action-close,
+    #dockview-container .dv-right-actions-container,
+    #dockview-container .dv-tabs-overflow-dropdown-root,
+    #dockview-container .dv-tabs-overflow-dropdown-default,
+    #dockview-container .dv-tabs-overflow-container {
       display: none !important;
     }
 
-    .dockview-theme-dark .dv-tab {
+    #dockview-container .dv-tab {
       font-size: 10.5px;
       font-weight: 600;
       letter-spacing: 0.3px;
@@ -1135,22 +1138,22 @@
       background: transparent;
     }
 
-    .dockview-theme-dark .dv-tab.dv-active-tab {
+    #dockview-container .dv-tab.dv-active-tab {
       color: var(--primary) !important;
       box-shadow: inset 0 -2px 0 var(--primary);
       background: var(--bg-panel) !important;
     }
 
-    .dockview-theme-dark .dv-tab:hover:not(.dv-active-tab) {
+    #dockview-container .dv-tab:hover:not(.dv-active-tab) {
       color: var(--text-bright) !important;
       background: rgba(255, 255, 255, 0.04);
     }
 
-    .dockview-theme-dark .dv-tab * {
+    #dockview-container .dv-tab * {
       cursor: pointer !important;
     }
 
-    .dockview-theme-dark .dv-tabs-and-actions-container {
+    #dockview-container .dv-tabs-and-actions-container {
       height: 25px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-panel-sub);
@@ -10199,7 +10202,7 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v4';
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v5';
       const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'animation', 'hub'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
@@ -10247,23 +10250,34 @@
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
-        if (id === 'fill' || id === 'stroke') {
-          const otherLeft = (id === 'fill' ? 'stroke' : 'fill');
-          const ref = dockviewApi.getPanel(otherLeft);
-          if (ref) {
-            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherLeft } });
+        try {
+          if (id === 'fill' || id === 'stroke') {
+            const otherLeft = (id === 'fill' ? 'stroke' : 'fill');
+            const ref = dockviewApi.getPanel(otherLeft);
+            if (ref) {
+              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherLeft } });
+            } else {
+              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
+            }
+          } else if (id === 'animation') {
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
+          } else if (['inspect', 'scene', 'document', 'hub'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'document', 'hub'];
+            const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
+            if (otherRight) {
+              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
+            } else {
+              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 290 });
+            }
           } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
+            dockviewApi.addPanel({ id, component: id, title });
           }
-        } else if (id === 'animation') {
-          dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
-        } else if (['inspect', 'scene', 'document', 'hub'].includes(id)) {
-          const rightGroup = ['inspect', 'scene', 'document', 'hub'];
-          const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
-          if (otherRight) {
-            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
-          } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 290 });
+        } catch (err) {
+          console.warn('Dockview failed to add panel with relative position, attempting fallback:', err);
+          try {
+            dockviewApi.addPanel({ id, component: id, title });
+          } catch (e2) {
+            console.error('Failed to open dock panel:', e2);
           }
         }
         const p = dockviewApi.getPanel(id);
@@ -10373,76 +10387,80 @@
           dockviewApi.clear();
         } catch (_) {}
 
-        // 1. Center Canvas Viewport
-        dockviewApi.addPanel({
-          id: 'canvas',
-          component: 'canvas',
-          title: 'Canvas'
-        });
+        try {
+          // 1. Center Canvas Viewport
+          dockviewApi.addPanel({
+            id: 'canvas',
+            component: 'canvas',
+            title: 'Canvas'
+          });
 
-        // 2. Left Fill panel
-        dockviewApi.addPanel({
-          id: 'fill',
-          component: 'fill',
-          title: 'Fill',
-          position: { direction: 'left', referencePanel: 'canvas' },
-          initialWidth: 260
-        });
+          // 2. Left Fill panel
+          dockviewApi.addPanel({
+            id: 'fill',
+            component: 'fill',
+            title: 'Fill',
+            position: { direction: 'left', referencePanel: 'canvas' },
+            initialWidth: 260
+          });
 
-        // 3. Left Stroke panel (tabbed with Fill)
-        dockviewApi.addPanel({
-          id: 'stroke',
-          component: 'stroke',
-          title: 'Stroke',
-          position: { referencePanel: 'fill' }
-        });
+          // 3. Left Stroke panel (tabbed with Fill)
+          dockviewApi.addPanel({
+            id: 'stroke',
+            component: 'stroke',
+            title: 'Stroke',
+            position: { referencePanel: 'fill' }
+          });
 
-        // 4. Right Transform panel
-        dockviewApi.addPanel({
-          id: 'inspect',
-          component: 'inspect',
-          title: 'Transform',
-          position: { direction: 'right', referencePanel: 'canvas' },
-          initialWidth: 270
-        });
+          // 4. Right Transform panel
+          dockviewApi.addPanel({
+            id: 'inspect',
+            component: 'inspect',
+            title: 'Transform',
+            position: { direction: 'right', referencePanel: 'canvas' },
+            initialWidth: 270
+          });
 
-        // 5. Right Scene panel (tabbed with Inspect)
-        dockviewApi.addPanel({
-          id: 'scene',
-          component: 'scene',
-          title: 'Scene',
-          position: { referencePanel: 'inspect' }
-        });
+          // 5. Right Scene panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'scene',
+            component: 'scene',
+            title: 'Scene',
+            position: { referencePanel: 'inspect' }
+          });
 
-        // 6. Right Document panel (tabbed with Inspect)
-        dockviewApi.addPanel({
-          id: 'document',
-          component: 'document',
-          title: 'Document',
-          position: { referencePanel: 'inspect' }
-        });
+          // 6. Right Document panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'document',
+            component: 'document',
+            title: 'Document',
+            position: { referencePanel: 'inspect' }
+          });
 
-        // 7. Right Project & Assets Hub panel (tabbed with Inspect)
-        dockviewApi.addPanel({
-          id: 'hub',
-          component: 'hub',
-          title: 'Project & Assets',
-          position: { referencePanel: 'inspect' }
-        });
+          // 7. Right Project & Assets Hub panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'hub',
+            component: 'hub',
+            title: 'Project & Assets',
+            position: { referencePanel: 'inspect' }
+          });
 
-        // 8. Bottom Timeline panel
-        dockviewApi.addPanel({
-          id: 'animation',
-          component: 'animation',
-          title: 'Timeline',
-          position: { direction: 'below', referencePanel: 'canvas' },
-          initialHeight: 210
-        });
+          // 8. Bottom Timeline panel
+          dockviewApi.addPanel({
+            id: 'animation',
+            component: 'animation',
+            title: 'Timeline',
+            position: { direction: 'below', referencePanel: 'canvas' },
+            initialHeight: 210
+          });
 
-        // Activate default panels
-        dockviewApi.getPanel('canvas')?.api?.setActive();
-        dockviewApi.getPanel('fill')?.api?.setActive();
-        dockviewApi.getPanel('inspect')?.api?.setActive();
+          // Activate default panels
+          dockviewApi.getPanel('canvas')?.api?.setActive();
+          dockviewApi.getPanel('fill')?.api?.setActive();
+          dockviewApi.getPanel('inspect')?.api?.setActive();
+        } catch (err) {
+          console.error('Error creating default dock panels:', err);
+        }
         updateTitlebarLayoutButtons();
       }
       window.createDefaultDockPanels = createDefaultDockPanels;
@@ -10470,20 +10488,25 @@
         // Pre-cache all panel DOM elements so they are never lost during DOM mutations/clearing
         REQUIRED_PANEL_IDS.forEach(id => getPanelElement(id));
 
-        dockviewApi = window['dockview-core'].createDockview(container, {
-          className: 'dockview-theme-dark',
-          defaultRenderer: 'always',
-          createComponent: (options) => {
-            const panelId = options.id || options.name;
-            const el = getPanelElement(panelId);
-            return {
-              element: el || document.createElement('div'),
-              init: () => {},
-              update: () => {},
-              dispose: () => {}
-            };
-          }
-        });
+        try {
+          dockviewApi = window['dockview-core'].createDockview(container, {
+            className: 'dockview-theme-dark',
+            defaultRenderer: 'always',
+            createComponent: (options) => {
+              const panelId = options.id || options.name;
+              const el = getPanelElement(panelId);
+              return {
+                element: el || document.createElement('div'),
+                init: () => {},
+                update: () => {},
+                dispose: () => {}
+              };
+            }
+          });
+        } catch (e) {
+          console.error('Failed to create dockview instance:', e);
+          return;
+        }
 
         window.dockviewApi = dockviewApi;
 
@@ -10495,12 +10518,18 @@
             const savedLayout = JSON.parse(savedLayoutRaw);
             if (savedLayout && savedLayout.grid && savedLayout.panels && savedLayout.panels['canvas']) {
               dockviewApi.fromJSON(savedLayout);
-              restored = true;
+              if (dockviewApi.panels && dockviewApi.panels.length >= 2 && dockviewApi.getPanel('canvas')) {
+                restored = true;
+              } else {
+                console.warn('Restored layout is incomplete, resetting to default');
+                try { dockviewApi.clear(); } catch (_) {}
+              }
             }
           }
         } catch (err) {
           console.warn('Failed to restore dockview layout from storage:', err);
           try { localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY); } catch (_) {}
+          try { dockviewApi.clear(); } catch (_) {}
         }
 
         if (!restored) {

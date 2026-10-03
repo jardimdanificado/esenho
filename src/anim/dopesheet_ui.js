@@ -325,22 +325,34 @@ export class DopeSheetUI {
         }
       };
     }
-    frameInput.onchange = (e) => this.ds.setFrame(Number(e.target.value));
+    const adjustInput = (el) => this.adjustInputWidth(el);
+    frameInput.oninput = () => adjustInput(frameInput);
+    frameInput.onchange = (e) => {
+      this.ds.setFrame(Number(e.target.value));
+      adjustInput(frameInput);
+    };
+    totalInput.oninput = () => adjustInput(totalInput);
     totalInput.onchange = (e) => {
       this.ds.totalFrames = Math.max(1, Number(e.target.value));
+      adjustInput(totalInput);
       this.updateGrid();
     };
     if (fpsInput) {
       fpsInput.oninput = (e) => {
         const val = Math.max(1, Math.min(240, Number(e.target.value) || 24));
         this.ds.fps = val;
+        adjustInput(fpsInput);
       };
       fpsInput.onchange = (e) => {
         const val = Math.max(1, Math.min(240, Number(e.target.value) || 24));
         this.ds.fps = val;
         fpsInput.value = val;
+        adjustInput(fpsInput);
       };
     }
+    adjustInput(frameInput);
+    adjustInput(totalInput);
+    adjustInput(fpsInput);
     const customCurveBtn = this.container.querySelector('#ds-btn-custom-curve');
     if (customCurveBtn) {
       customCurveBtn.onclick = () => this.openCurveEditorModal();
@@ -1333,9 +1345,19 @@ export class DopeSheetUI {
     }
   }
 
+  adjustInputWidth(inputEl) {
+    if (!inputEl) return;
+    const valStr = String(inputEl.value ?? '');
+    const charLen = Math.max(valStr.length, 2);
+    inputEl.style.width = `${Math.max(48, charLen * 8.5 + 20)}px`;
+  }
+
   updatePlayhead() {
     const frameInput = this.container.querySelector('#ds-input-frame');
-    if (frameInput) frameInput.value = this.ds.currentFrame;
+    if (frameInput) {
+      frameInput.value = this.ds.currentFrame;
+      this.adjustInputWidth(frameInput);
+    }
 
     const playheadEl = this.container.querySelector('#ds-playhead');
     if (playheadEl) {
@@ -1433,6 +1455,14 @@ export class DopeSheetUI {
   }
 
   updateGrid() {
+    const totalInput = this.container.querySelector('#ds-input-total');
+    if (totalInput) {
+      if (String(totalInput.value) !== String(this.ds.totalFrames)) {
+        totalInput.value = this.ds.totalFrames;
+      }
+      this.adjustInputWidth(totalInput);
+    }
+
     const totalW = Math.max(800, this.ds.totalFrames * this.frameWidth + 40);
     const treeRowsEl = this.container.querySelector('#ds-tree-rows');
     const rulerCanvas = this.container.querySelector('#ds-ruler-canvas');
@@ -1457,7 +1487,7 @@ export class DopeSheetUI {
       return '●';
     };
 
-    // 1. Build List of Display Rows (Filtered strictly to SELECTED objects only)
+    // 1. Build List of Display Rows (Filtered to SELECTED objects and all their recursive group members)
     const displayRows = [];
     const processedIds = new Set();
 
@@ -1487,7 +1517,7 @@ export class DopeSheetUI {
         id: obj.id,
         label,
         objType,
-        depth: 0,
+        depth: depth || 0,
         activeChannels,
         tracksCollapsed: isTracksCollapsed,
         height: 26
@@ -1503,9 +1533,20 @@ export class DopeSheetUI {
             paramKey: ch.paramKey,
             id: `${obj.id}:${ch.paramKey}`,
             label: ch.label || ch.paramKey,
-            depth: 1,
+            depth: (depth || 0) + 1,
             height: 22
           });
+        }
+      }
+    };
+
+    const processObjectAndChildren = (live, depth = 0) => {
+      if (!live) return;
+      const dObj = this.ds.getOrCreateObject(live.id, live.name || `${live.type} ${live.id}`, live.type === 'group' ? 'group' : 'vector');
+      addObjectRow(dObj, live, depth);
+      if (live.type === 'group' && Array.isArray(live.children)) {
+        for (const child of live.children) {
+          processObjectAndChildren(child, depth + 1);
         }
       }
     };
@@ -1514,14 +1555,21 @@ export class DopeSheetUI {
     if (typeof window !== 'undefined' && window.doc && typeof window.doc.getSelectedObjects === 'function') {
       selectedObjs = window.doc.getSelectedObjects();
     } else if (this.selectedObjectId) {
+      let liveObj = null;
+      if (typeof window !== 'undefined' && window.doc && typeof window.doc.findObject === 'function') {
+        liveObj = window.doc.findObject(this.selectedObjectId);
+      }
       const dObj = this.ds.objects.get(this.selectedObjectId);
-      if (dObj) selectedObjs = [dObj];
+      if (liveObj) {
+        selectedObjs = [liveObj];
+      } else if (dObj) {
+        selectedObjs = [dObj];
+      }
     }
 
     if (selectedObjs.length > 0) {
       for (const live of selectedObjs) {
-        const dObj = this.ds.getOrCreateObject(live.id, live.name || `${live.type} ${live.id}`, live.type === 'group' ? 'group' : 'vector');
-        addObjectRow(dObj, live, 0);
+        processObjectAndChildren(live, 0);
       }
     }
 
@@ -1555,7 +1603,8 @@ export class DopeSheetUI {
 
         if (r.type === 'object') {
           const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
-          rowEl.style.padding = '0 8px 0 8px';
+          const indent = (r.depth || 0) * 12 + 8;
+          rowEl.style.padding = `0 8px 0 ${indent}px`;
           if (isSelected) {
             rowEl.style.background = 'var(--primary-dim, rgba(250, 189, 47, 0.16))';
             rowEl.style.borderLeft = '3px solid var(--primary)';
@@ -1639,7 +1688,8 @@ export class DopeSheetUI {
         } else {
           // Channel sub-track row
           const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
-          rowEl.style.padding = '0 8px 0 24px';
+          const indent = (r.depth || 1) * 12 + 12;
+          rowEl.style.padding = `0 8px 0 ${indent}px`;
           if (isSelected) {
             rowEl.style.background = 'var(--accent-dim, rgba(131, 165, 152, 0.16))';
             rowEl.style.borderLeft = '3px solid var(--accent)';
