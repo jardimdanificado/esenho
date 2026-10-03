@@ -43,56 +43,56 @@
     }
 
     [data-theme="light"], body.theme-light {
-      --bg-dark: #d8dcde;
-      --bg-canvas: #cfd4d8;
-      --bg-panel: #eceff1;
-      --bg-panel-sub: #e0e4e7;
+      --bg-dark: #e8ecf0;
+      --bg-canvas: #dfe4ea;
+      --bg-panel: #ffffff;
+      --bg-panel-sub: #f1f5f9;
       --bg-input: #ffffff;
       --bg-input-focus: #f8fafc;
-      --border: #c4c9cd;
-      --border-bright: #a4abb2;
-      --border-focus: #d78206;
+      --border: #cbd5e1;
+      --border-bright: #94a3b8;
+      --border-focus: #2563eb;
       --border-subtle: rgba(0, 0, 0, 0.08);
-      --text: #2c3238;
-      --text-bright: #14181c;
-      --text-dim: #4c545c;
-      --text-muted: #75808a;
-      --primary: #d78206;
-      --primary-hover: #fe8019;
-      --primary-dim: rgba(215, 130, 6, 0.15);
-      --accent: #0d8096;
-      --accent-hover: #0b6678;
-      --accent-dim: rgba(13, 128, 150, 0.15);
-      --danger: #cc241d;
-      --danger-dim: rgba(204, 36, 29, 0.15);
-      --success: #79740e;
+      --text: #1e293b;
+      --text-bright: #0f172a;
+      --text-dim: #475569;
+      --text-muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-dim: rgba(37, 99, 235, 0.14);
+      --accent: #0284c7;
+      --accent-hover: #0369a1;
+      --accent-dim: rgba(2, 132, 199, 0.14);
+      --danger: #dc2626;
+      --danger-dim: rgba(220, 38, 38, 0.14);
+      --success: #16a34a;
       color-scheme: light;
     }
 
-    [data-theme="ableton"], body.theme-ableton {
-      --bg-dark: #292929;
-      --bg-canvas: #1f1f1f;
-      --bg-panel: #3b3b3b;
-      --bg-panel-sub: #303030;
-      --bg-input: #232323;
-      --bg-input-focus: #181818;
-      --border: #222222;
-      --border-bright: #4e4e4e;
-      --border-focus: #ff764d;
-      --border-subtle: rgba(0, 0, 0, 0.25);
-      --text: #c8c8c8;
-      --text-bright: #f0f0f0;
-      --text-dim: #909090;
-      --text-muted: #707070;
-      --primary: #ff764d;
-      --primary-hover: #ff916e;
-      --primary-dim: rgba(255, 118, 77, 0.18);
-      --accent: #ffd700;
-      --accent-hover: #ffe24d;
-      --accent-dim: rgba(255, 215, 0, 0.18);
-      --danger: #e24a4a;
-      --danger-dim: rgba(226, 74, 74, 0.18);
-      --success: #60c57b;
+    [data-theme="gray"], [data-theme="ableton"], body.theme-gray, body.theme-ableton {
+      --bg-dark: #222528;
+      --bg-canvas: #1a1c1e;
+      --bg-panel: #2e3236;
+      --bg-panel-sub: #383d42;
+      --bg-input: #1e2124;
+      --bg-input-focus: #282c31;
+      --border: #444b52;
+      --border-bright: #646e78;
+      --border-focus: #ff9f1c;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --text: #e2e8f0;
+      --text-bright: #ffffff;
+      --text-dim: #cbd5e1;
+      --text-muted: #94a3b8;
+      --primary: #ff9f1c;
+      --primary-hover: #ffa933;
+      --primary-dim: rgba(255, 159, 28, 0.18);
+      --accent: #38bdf8;
+      --accent-hover: #60a5fa;
+      --accent-dim: rgba(56, 189, 248, 0.18);
+      --danger: #f87171;
+      --danger-dim: rgba(248, 113, 113, 0.18);
+      --success: #4ade80;
       color-scheme: dark;
     }
 
@@ -1109,8 +1109,12 @@
       --dv-group-view-background-color: var(--bg-panel);
       --dv-background-color: var(--bg-panel);
       --dv-sash-hover-color: var(--primary);
-      --dv-sash-size: 3px;
+      --dv-sash-size: 4px;
       --dv-tabs-and-actions-container-height: 25px;
+    }
+
+    #dockview-container .dv-sash {
+      z-index: 99 !important;
     }
 
     /* Hide Dockview tab close buttons, group close buttons and right-side overflow/dropdown actions */
@@ -3484,240 +3488,258 @@
       <div id="timeline-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
     </div>
 
-    <!-- Dock Panel 8: Unified Projects, Asset Bundle & Export Center Hub -->
-    <div id="dock-panel-hub" class="dock-panel-content" style="padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-panel);">
-      <!-- Hub Top Subtabs -->
-      <div style="display: flex; gap: 3px; padding: 4px 8px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); flex-shrink: 0;">
-        <button id="hub-tab-btn-projects" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer;">Projects &amp; Storage</button>
-        <button id="hub-tab-btn-assets" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer;">Asset Bundle</button>
-        <button id="hub-tab-btn-export" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer;">Export Center</button>
+    <!-- Dock Panel 8: Projects & Storage Manager -->
+    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%;">
+      <!-- Inline New Project Card (Replaces Modal) -->
+      <div id="hub-new-project-card" style="display: none; padding: 10px 12px; background: var(--bg-panel-sub); border-bottom: 2px solid var(--primary); flex-direction: column; gap: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-size: 11px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px;">New Canvas / Project</span>
+          <button type="button" id="btn-cancel-new-proj-card" class="btn-icon" style="font-size: 10px; padding: 1px 4px;">✕</button>
+        </div>
+        <div class="form-row">
+          <label style="flex: 0 0 50px;">Title</label>
+          <input type="text" id="inp-new-title" value="Untitled Vector" style="font-size: 11px;">
+        </div>
+        <div class="grid-2">
+          <div class="form-row">
+            <label style="flex: 0 0 50px;">Width</label>
+            <input type="number" id="inp-new-w" value="1280" min="64" max="8192" style="font-size: 11px;">
+          </div>
+          <div class="form-row">
+            <label style="flex: 0 0 50px;">Height</label>
+            <input type="number" id="inp-new-h" value="720" min="64" max="8192" style="font-size: 11px;">
+          </div>
+        </div>
+        <div class="form-row" style="align-items: center;">
+          <label style="flex: 0 0 50px;">Presets</label>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            <button type="button" class="btn-sm btn-new-preset" data-w="800" data-h="600" style="padding: 2px 6px; font-size: 10px;">800×600</button>
+            <button type="button" class="btn-sm btn-new-preset" data-w="1280" data-h="720" style="padding: 2px 6px; font-size: 10px;">720p</button>
+            <button type="button" class="btn-sm btn-new-preset" data-w="1920" data-h="1080" style="padding: 2px 6px; font-size: 10px;">1080p</button>
+            <button type="button" class="btn-sm btn-new-preset" data-w="1080" data-h="1080" style="padding: 2px 6px; font-size: 10px;">1:1</button>
+            <button type="button" class="btn-sm btn-new-preset" data-w="3840" data-h="2160" style="padding: 2px 6px; font-size: 10px;">4K</button>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 6px; margin-top: 2px;">
+          <button type="button" id="btn-close-new-proj-card" class="btn-sm" style="font-size: 11px; padding: 3px 10px;">Cancel</button>
+          <button type="button" id="btn-confirm-new-project" class="btn-sm btn-primary" style="font-size: 11px; padding: 3px 12px; font-weight: 600;">Create Canvas</button>
+        </div>
       </div>
 
-      <!-- Hub Content Panes Area -->
-      <div style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;">
-        <!-- Sub-pane 1: Projects & Storage -->
-        <div id="hub-pane-projects" style="display: flex; flex-direction: column; height: 100%;">
-          <!-- Projects Toolbar -->
-          <div class="recents-toolbar" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <div class="recents-search-box" style="flex: 1; min-width: 140px; display: flex; align-items: center; gap: 4px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 6px;">
-              <input type="text" id="recents-search-input" placeholder="Search projects..." autocomplete="off" style="border: none; background: transparent; color: var(--text); font-size: 11px; width: 100%; outline: none;">
-              <button type="button" id="btn-recents-clear-search" class="btn-icon" style="display: none; font-size: 9px; padding: 1px 3px;">✕</button>
-            </div>
-
-            <div class="recents-filter-pills" style="display: flex; gap: 2px;">
-              <button type="button" class="recents-pill active btn-sm" data-filter="all" id="pill-filter-all" style="padding: 2px 6px; font-size: 10px;">All</button>
-              <button type="button" class="recents-pill btn-sm" data-filter="vector" id="pill-filter-vector" style="padding: 2px 6px; font-size: 10px;">Vector</button>
-              <button type="button" class="recents-pill btn-sm" data-filter="raster" id="pill-filter-raster" style="padding: 2px 6px; font-size: 10px;">Raster</button>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <button type="button" id="btn-recents-import-file" class="btn-sm" title="Import .esen or .svg file into storage" style="font-size: 10px; padding: 2px 6px;">Import</button>
-              <input type="file" id="inp-recents-import-file" accept=".esen,.svg,.json" style="display: none;">
-              <button type="button" id="btn-modal-new-proj" class="btn-sm btn-primary" style="font-size: 10px; padding: 2px 6px;">+ New</button>
-            </div>
-          </div>
-
-          <!-- Stored Projects Grid / List -->
-          <div id="recents-grid" class="recents-grid" style="flex: 1; padding: 10px; overflow-y: auto;">
-            <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
-          </div>
-
-          <!-- Projects Footer -->
-          <div style="padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub); font-size: 10px; color: var(--text-dim);">
-            <span id="recents-storage-info">IndexedDB Storage</span>
-            <div style="display: flex; gap: 4px;">
-              <button type="button" id="btn-modal-bundle-backup" class="btn-sm" style="font-size: 10px; padding: 2px 6px;">Backup All</button>
-              <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear</button>
-            </div>
-          </div>
+      <!-- Projects Toolbar -->
+      <div class="recents-toolbar" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+        <div class="recents-search-box" style="flex: 1; min-width: 140px; display: flex; align-items: center; gap: 4px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 6px;">
+          <input type="text" id="recents-search-input" placeholder="Search projects..." autocomplete="off" style="border: none; background: transparent; color: var(--text); font-size: 11px; width: 100%; outline: none;">
+          <button type="button" id="btn-recents-clear-search" class="btn-icon" style="display: none; font-size: 9px; padding: 1px 3px;">✕</button>
         </div>
 
-        <!-- Sub-pane 2: Asset Bundle -->
-        <div id="hub-pane-assets" style="display: none; flex-direction: column; padding: 12px; gap: 10px;">
-          <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-            <button id="tab-btn-bundle-export" class="tab-btn active btn-sm" style="font-weight: bold; cursor: pointer;">Export Bundle</button>
-            <button id="tab-btn-bundle-import" class="tab-btn btn-sm" style="color: var(--text-muted); cursor: pointer;">Import Bundle</button>
-          </div>
-
-          <!-- Bundle Export -->
-          <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 10px;">
-            <div class="form-row">
-              <label>Bundle Title</label>
-              <input type="text" id="inp-bundle-title" value="Wesenho Assets">
-            </div>
-            <div class="form-row">
-              <label>Author</label>
-              <input type="text" id="inp-bundle-author" value="User">
-            </div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-              <span style="font-size: 11px; font-weight: bold; color: var(--text-muted);">Assets to include:</span>
-              <div style="display: flex; gap: 4px;">
-                <button type="button" id="btn-bundle-select-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Select All</button>
-                <button type="button" id="btn-bundle-deselect-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Deselect All</button>
-              </div>
-            </div>
-
-            <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-              <div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes</div>
-              <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-              
-              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">WASM Plugins</div>
-              <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-
-              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Textures</div>
-              <div id="bundle-export-textures-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-
-              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Brush Tip Shapes</div>
-              <div id="bundle-export-tip-shapes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-
-              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Projects</div>
-              <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-            </div>
-
-            <button id="btn-do-bundle-export" class="btn-primary" style="width: 100%; padding: 7px; margin-top: 4px; font-weight: 600;">Download Asset Bundle (.wesenbundle)</button>
-          </div>
-
-          <!-- Bundle Import -->
-          <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 10px;">
-            <div style="border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 20px; text-align: center; background: var(--bg-dark);">
-              <p style="margin: 0 0 8px 0; font-size: 11px; color: var(--text-dim);">Select a .wesenbundle file to install</p>
-              <input type="file" id="inp-bundle-file" accept=".wesenbundle,.json" style="display: none;">
-              <button type="button" id="btn-choose-bundle-file" class="btn-sm" style="padding: 4px 10px;">Choose Bundle File...</button>
-            </div>
-            <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 8px;">
-              <h4 id="bundle-import-title" style="margin: 0; font-size: 12px; color: var(--text-bright);"></h4>
-              <div id="bundle-import-summary" style="font-size: 11px; color: var(--text-dim);"></div>
-              <button id="btn-do-bundle-import" class="btn-primary" style="width: 100%; padding: 6px; font-weight: bold;">Install Bundle</button>
-            </div>
-          </div>
+        <div class="recents-filter-pills" style="display: flex; gap: 2px;">
+          <button type="button" class="recents-pill active btn-sm" data-filter="all" id="pill-filter-all" style="padding: 2px 6px; font-size: 10px;">All</button>
+          <button type="button" class="recents-pill btn-sm" data-filter="vector" id="pill-filter-vector" style="padding: 2px 6px; font-size: 10px;">Vector</button>
+          <button type="button" class="recents-pill btn-sm" data-filter="raster" id="pill-filter-raster" style="padding: 2px 6px; font-size: 10px;">Raster</button>
         </div>
 
-        <!-- Sub-pane 3: Export Center -->
-        <div id="hub-pane-export" style="display: none; flex-direction: column; padding: 12px; gap: 10px;">
-          <!-- Export Mode Switcher -->
-          <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-            <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">Static Image</button>
-            <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">Animation &amp; Video</button>
-          </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <button type="button" id="btn-recents-import-file" class="btn-sm" title="Import .esen or .svg file into storage" style="font-size: 10px; padding: 2px 6px;">Import</button>
+          <input type="file" id="inp-recents-import-file" accept=".esen,.svg,.json" style="display: none;">
+          <button type="button" id="btn-modal-new-proj" class="btn-sm btn-primary" style="font-size: 10px; padding: 2px 6px;">+ New</button>
+        </div>
+      </div>
 
-          <!-- Static Image Export Pane -->
-          <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
-            <div class="form-row">
-              <label>Format</label>
-              <select id="export-format">
-                <option value="image/png" selected>PNG (Lossless)</option>
-                <option value="image/webp">WebP</option>
-                <option value="image/jpeg">JPEG</option>
-                <option value="image/svg+xml">SVG Vector</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Scale Factor</label>
-              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-                <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-                <span style="font-size: 11px; color: var(--text-dim);">×</span>
-                <div style="display: flex; gap: 2px;">
-                  <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-                  <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-                  <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
-                  <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
-                </div>
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Dimensions</label>
-              <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
-            </div>
-            <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
-          </div>
+      <!-- Stored Projects Grid / List -->
+      <div id="recents-grid" class="recents-grid" style="flex: 1; padding: 10px; overflow-y: auto;">
+        <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
+      </div>
 
-          <!-- Animation & Video Export Pane -->
-          <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
-            <div class="form-row">
-              <label>Format</label>
-              <select id="export-anim-format">
-                <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
-                <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
-                <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
-                <option value="spritesheet">Sprite Sheet Grid (.png)</option>
-                <option value="html5">Interactive Standalone Player (.html)</option>
-                <option value="animated-svg">Animated Vector SVG (.svg)</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Frame Range</label>
-              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-                <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
-                <span style="font-size: 11px; color: var(--text-muted);">to</span>
-                <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Framerate</label>
-              <select id="export-anim-fps">
-                <option value="12">12 FPS (Stylized / 2D Anime)</option>
-                <option value="24" selected>24 FPS (Cinematic standard)</option>
-                <option value="30">30 FPS (Smooth 30Hz)</option>
-                <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Scale Factor</label>
-              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-                <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-                <span style="font-size: 11px; color: var(--text-dim);">×</span>
-                <div style="display: flex; gap: 2px;">
-                  <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
-                  <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-                  <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-                  <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
-                </div>
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Background</label>
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-                <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
-              </label>
-            </div>
-            <div class="form-row">
-              <label>Output Info</label>
-              <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
-            </div>
-
-            <!-- Progress Bar during Animation Render -->
-            <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
-              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
-                <span id="export-anim-status-text">Recording frames...</span>
-                <span id="export-anim-pct-text">0%</span>
-              </div>
-              <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
-                <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
-              </div>
-            </div>
-
-            <div style="display: flex; gap: 6px; margin-top: 4px;">
-              <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
-              <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
-            </div>
-          </div>
+      <!-- Projects Footer -->
+      <div style="padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub); font-size: 10px; color: var(--text-dim);">
+        <span id="recents-storage-info">IndexedDB Storage</span>
+        <div style="display: flex; gap: 4px;">
+          <button type="button" id="btn-modal-bundle-backup" class="btn-sm" style="font-size: 10px; padding: 2px 6px;">Backup All</button>
+          <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear</button>
         </div>
       </div>
     </div>
-  </div>
 
+    <!-- Dock Panel 9: Asset Bundle -->
+    <div id="dock-panel-assets" class="dock-panel-content" style="padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: var(--bg-panel); height: 100%;">
+      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+        <button id="tab-btn-bundle-export" class="tab-btn active btn-sm" style="font-weight: bold; cursor: pointer;">Export Bundle</button>
+        <button id="tab-btn-bundle-import" class="tab-btn btn-sm" style="color: var(--text-muted); cursor: pointer;">Import Bundle</button>
+      </div>
 
+      <!-- Bundle Export -->
+      <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="form-row">
+          <label>Bundle Title</label>
+          <input type="text" id="inp-bundle-title" value="Wesenho Assets">
+        </div>
+        <div class="form-row">
+          <label>Author</label>
+          <input type="text" id="inp-bundle-author" value="User">
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+          <span style="font-size: 11px; font-weight: bold; color: var(--text-muted);">Assets to include:</span>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" id="btn-bundle-select-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Select All</button>
+            <button type="button" id="btn-bundle-deselect-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Deselect All</button>
+          </div>
+        </div>
 
+        <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+          <div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes</div>
+          <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+          
+          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">WASM Plugins</div>
+          <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
 
+          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Textures</div>
+          <div id="bundle-export-textures-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
 
-  <!-- Hidden File Input for SVG Import -->
-  <input type="file" id="file-input-svg" accept=".svg" style="display: none;">
+          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Brush Tip Shapes</div>
+          <div id="bundle-export-tip-shapes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
 
-  <!-- Trace Image Modal -->
-  <div id="modal-trace" class="modal-overlay">
-    <div class="modal-card">
-      <h2>Trace Image to Vector</h2>
+          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Projects</div>
+          <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+        </div>
+
+        <button id="btn-do-bundle-export" class="btn-primary" style="width: 100%; padding: 7px; margin-top: 4px; font-weight: 600;">Download Asset Bundle (.wesenbundle)</button>
+      </div>
+
+      <!-- Bundle Import -->
+      <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 10px;">
+        <div style="border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 20px; text-align: center; background: var(--bg-dark);">
+          <p style="margin: 0 0 8px 0; font-size: 11px; color: var(--text-dim);">Select a .wesenbundle file to install</p>
+          <input type="file" id="inp-bundle-file" accept=".wesenbundle,.json" style="display: none;">
+          <button type="button" id="btn-choose-bundle-file" class="btn-sm" style="padding: 4px 10px;">Choose Bundle File...</button>
+        </div>
+        <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 8px;">
+          <h4 id="bundle-import-title" style="margin: 0; font-size: 12px; color: var(--text-bright);"></h4>
+          <div id="bundle-import-summary" style="font-size: 11px; color: var(--text-dim);"></div>
+          <button id="btn-do-bundle-import" class="btn-primary" style="width: 100%; padding: 6px; font-weight: bold;">Install Bundle</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dock Panel 10: Export Center -->
+    <div id="dock-panel-export" class="dock-panel-content" style="padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: var(--bg-panel); height: 100%;">
+      <!-- Export Mode Switcher -->
+      <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">Static Image</button>
+        <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">Animation &amp; Video</button>
+      </div>
+
+      <!-- Static Image Export Pane -->
+      <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
+        <div class="form-row">
+          <label>Format</label>
+          <select id="export-format">
+            <option value="image/png" selected>PNG (Lossless)</option>
+            <option value="image/webp">WebP</option>
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/svg+xml">SVG Vector</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale Factor</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+            <span style="font-size: 11px; color: var(--text-dim);">×</span>
+            <div style="display: flex; gap: 2px;">
+              <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+              <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+              <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
+              <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Dimensions</label>
+          <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
+        </div>
+        <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
+      </div>
+
+      <!-- Animation & Video Export Pane -->
+      <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
+        <div class="form-row">
+          <label>Format</label>
+          <select id="export-anim-format">
+            <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
+            <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
+            <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
+            <option value="spritesheet">Sprite Sheet Grid (.png)</option>
+            <option value="html5">Interactive Standalone Player (.html)</option>
+            <option value="animated-svg">Animated Vector SVG (.svg)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Frame Range</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
+            <span style="font-size: 11px; color: var(--text-muted);">to</span>
+            <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Framerate</label>
+          <select id="export-anim-fps">
+            <option value="12">12 FPS (Stylized / 2D Anime)</option>
+            <option value="24" selected>24 FPS (Cinematic standard)</option>
+            <option value="30">30 FPS (Smooth 30Hz)</option>
+            <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Scale Factor</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+            <span style="font-size: 11px; color: var(--text-dim);">×</span>
+            <div style="display: flex; gap: 2px;">
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+              <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Background</label>
+          <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+            <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Output Info</label>
+          <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
+        </div>
+
+        <!-- Progress Bar during Animation Render -->
+        <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+            <span id="export-anim-status-text">Recording frames...</span>
+            <span id="export-anim-pct-text">0%</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
+            <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+          <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
+          <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dock Panel 11: Image Tracer / Vectorizer -->
+    <div id="dock-panel-tracer" class="dock-panel-content" style="padding: 12px; overflow-y: auto; background: var(--bg-panel); display: flex; flex-direction: column; gap: 10px; height: 100%;">
+      <div style="font-size: 11px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">Trace Image to Vector</div>
       
+      <div id="tracer-source-info" style="font-size: 11px; color: var(--text-muted); background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+        Select a raster image on the canvas to vectorize.
+      </div>
+
       <div class="form-row">
         <label>Mode</label>
         <select id="trace-opt-mode">
@@ -3766,59 +3788,27 @@
         </label>
       </div>
 
-      <div class="modal-actions">
-        <button id="btn-cancel-trace">Cancel</button>
-        <button id="btn-run-trace" class="btn-primary">Trace & Vectorize</button>
+      <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+        <button id="btn-run-trace" class="btn-primary" style="padding: 7px; font-weight: 600; width: 100%;">Trace &amp; Vectorize</button>
       </div>
     </div>
+
+    <!-- Dock Panel 12: Curve Editor -->
+    <div id="dock-panel-curves" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel); display: flex; flex-direction: column; width: 100%; height: 100%;">
+      <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
+    </div>
   </div>
+
+  <!-- Hidden File Input for SVG Import -->
+  <input type="file" id="file-input-svg" accept=".svg" style="display: none;">
 
   <!-- Monaco / VS Code Context View Container -->
   <div id="monaco-context-view" class="monaco-context-view"></div>
 
 
 
-  <!-- Modal: New Project -->
-  <div id="modal-new-project" class="modal-backdrop" style="display: none;">
-    <div class="modal-card modal-sm">
-      <div class="modal-header">
-        <h3>New Canvas / Project</h3>
-        <button class="modal-close" id="btn-close-new-project">✕</button>
-      </div>
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
-        <div class="form-row">
-          <label>Title</label>
-          <input type="text" id="inp-new-title" value="Untitled Vector">
-        </div>
-        <div class="grid-2">
-          <div class="form-row">
-            <label style="flex: 0 0 45px;">Width</label>
-            <input type="number" id="inp-new-w" value="1280" min="64" max="8192">
-          </div>
-          <div class="form-row">
-            <label style="flex: 0 0 45px;">Height</label>
-            <input type="number" id="inp-new-h" value="720" min="64" max="8192">
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Presets</label>
-          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
-            <button type="button" class="btn-sm btn-new-preset" data-w="800" data-h="600">800×600</button>
-            <button type="button" class="btn-sm btn-new-preset" data-w="1280" data-h="720">720p</button>
-            <button type="button" class="btn-sm btn-new-preset" data-w="1920" data-h="1080">1080p</button>
-            <button type="button" class="btn-sm btn-new-preset" data-w="1080" data-h="1080">1:1</button>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button id="btn-confirm-new-project" class="btn-primary" style="width: 100%;">Create Canvas</button>
-      </div>
-    </div>
-  </div>
-
-
-
   <!-- Scripts -->
+  <script src="src/version.js"></script>
   <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
   <script src="src/asset_bundle.js"></script>
@@ -3859,26 +3849,30 @@
 
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
-      if (!['dark', 'light', 'ableton'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'ableton') currentTheme = 'gray';
+      if (!['dark', 'gray', 'light'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
-        currentTheme = ['light', 'ableton', 'dark'].includes(theme) ? theme : 'dark';
+        if (theme === 'ableton') theme = 'gray';
+        currentTheme = ['light', 'gray', 'dark'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-light', currentTheme === 'light');
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
-        document.body.classList.toggle('theme-ableton', currentTheme === 'ableton');
+        document.body.classList.toggle('theme-gray', currentTheme === 'gray');
+        document.body.classList.toggle('theme-ableton', currentTheme === 'gray');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
           dvContainer.classList.toggle('dockview-theme-light', currentTheme === 'light');
+          dvContainer.classList.toggle('dockview-theme-dark', currentTheme === 'dark' || currentTheme === 'gray');
         }
 
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
-          if (currentTheme === 'light') themeText.textContent = '☀ Light Gray';
-          else if (currentTheme === 'ableton') themeText.textContent = '◼ Ableton Gray';
-          else themeText.textContent = '☾ Gruvbox Dark';
+          if (currentTheme === 'light') themeText.textContent = '☀ Light';
+          else if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
+          else themeText.textContent = '☾ Dark';
         }
 
         saveStudioSettings({ theme: currentTheme });
@@ -3899,13 +3893,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', light: 'Light Gray', ableton: 'Ableton Mid Gray' };
+          const names = { dark: 'Dark', gray: 'Gray', light: 'Light' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'light', 'ableton'];
+        const order = ['dark', 'gray', 'light'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -8723,7 +8717,8 @@
             closeRecentsModal();
             closedSomething = true;
           }
-          if (modalNewProject && modalNewProject.style.display === 'flex') {
+          const newProjCard = document.getElementById('hub-new-project-card');
+          if (newProjCard && newProjCard.style.display === 'flex') {
             closeNewProjectModal();
             closedSomething = true;
           }
@@ -10202,8 +10197,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v5';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'animation', 'hub'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v7';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -10236,6 +10231,13 @@
         const existing = dockviewApi.getPanel(id);
         if (existing) {
           existing.api.setActive();
+          if (id === 'curves' && window.dopeSheetUI && typeof window.dopeSheetUI.mountCurveEditor === 'function') {
+            window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
+          } else if (id === 'projects') {
+            if (typeof refreshProjectsList === 'function') refreshProjectsList();
+          } else if (id === 'tracer') {
+            if (typeof updateTracerUI === 'function') updateTracerUI();
+          }
           updateTitlebarLayoutButtons();
           return existing;
         }
@@ -10246,7 +10248,11 @@
           scene: 'Scene',
           document: 'Document',
           animation: 'Timeline',
-          hub: 'Project & Assets'
+          curves: 'Curves',
+          tracer: 'Vectorizer',
+          projects: 'Projects',
+          assets: 'Asset Bundle',
+          export: 'Export'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -10259,10 +10265,16 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
             }
-          } else if (id === 'animation') {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
-          } else if (['inspect', 'scene', 'document', 'hub'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'document', 'hub'];
+          } else if (id === 'animation' || id === 'curves') {
+            const otherBottom = (id === 'animation' ? 'curves' : 'animation');
+            const refBottom = dockviewApi.getPanel(otherBottom);
+            if (refBottom) {
+              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherBottom } });
+            } else {
+              dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
+            }
+          } else if (['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -10282,43 +10294,36 @@
         }
         const p = dockviewApi.getPanel(id);
         p?.api?.setActive();
+        if (id === 'curves' && window.dopeSheetUI && typeof window.dopeSheetUI.mountCurveEditor === 'function') {
+          window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
+        } else if (id === 'projects') {
+          if (typeof refreshProjectsList === 'function') refreshProjectsList();
+        } else if (id === 'tracer') {
+          if (typeof updateTracerUI === 'function') updateTracerUI();
+        }
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
         return p;
       }
       window.openDockPanel = openDockPanel;
 
-      function switchHubTab(tabName) {
-        const btnProj = document.getElementById('hub-tab-btn-projects');
-        const btnAssets = document.getElementById('hub-tab-btn-assets');
-        const btnExport = document.getElementById('hub-tab-btn-export');
-        const paneProj = document.getElementById('hub-pane-projects');
-        const paneAssets = document.getElementById('hub-pane-assets');
-        const paneExport = document.getElementById('hub-pane-export');
-
-        if (btnProj) btnProj.classList.toggle('active', tabName === 'projects');
-        if (btnAssets) btnAssets.classList.toggle('active', tabName === 'assets');
-        if (btnExport) btnExport.classList.toggle('active', tabName === 'export');
-
-        if (paneProj) paneProj.style.display = (tabName === 'projects') ? 'flex' : 'none';
-        if (paneAssets) paneAssets.style.display = (tabName === 'assets') ? 'flex' : 'none';
-        if (paneExport) paneExport.style.display = (tabName === 'export') ? 'flex' : 'none';
-
-        if (tabName === 'projects') {
-          if (typeof loadProjectsFromStorage === 'function') loadProjectsFromStorage();
-          else if (typeof openRecentsModal === 'function') openRecentsModal();
-        } else if (tabName === 'assets') {
-          if (typeof refreshAssetBundleLists === 'function') refreshAssetBundleLists();
-          else if (typeof populateBundleExportList === 'function') populateBundleExportList();
-        } else if (tabName === 'export') {
-          if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
+      function updateTracerUI() {
+        const sourceInfo = document.getElementById('tracer-source-info');
+        if (!sourceInfo) return;
+        const selected = (typeof doc !== 'undefined' && doc.getSelectedObjects) ? doc.getSelectedObjects() : [];
+        const imgObj = selected.find(o => o.type === 'image');
+        if (imgObj) {
+          sourceInfo.innerHTML = `<span style="color: var(--text-bright); font-weight: 600;">Image selected:</span> ${imgObj.name || 'Raster Image'} (${Math.round(imgObj.width)} × ${Math.round(imgObj.height)} px)`;
+        } else {
+          sourceInfo.textContent = 'Select a raster image on the canvas to vectorize.';
         }
       }
-      window.switchHubTab = switchHubTab;
+      window.updateTracerUI = updateTracerUI;
 
       function openHubTab(tabName = 'projects') {
-        openDockPanel('hub');
-        switchHubTab(tabName);
+        if (tabName === 'assets') openDockPanel('assets');
+        else if (tabName === 'export') openDockPanel('export');
+        else openDockPanel('projects');
       }
       window.openHubTab = openHubTab;
 
@@ -10360,7 +10365,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'document', 'hub'];
+        const rightIds = ['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -10373,7 +10378,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
-        const hasRight = ['inspect', 'scene', 'document', 'hub'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'document', 'tracer', 'projects', 'assets', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -10437,21 +10442,53 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 7. Right Project & Assets Hub panel (tabbed with Inspect)
+          // 7. Right Vectorizer panel (tabbed with Inspect)
           dockviewApi.addPanel({
-            id: 'hub',
-            component: 'hub',
-            title: 'Project & Assets',
+            id: 'tracer',
+            component: 'tracer',
+            title: 'Vectorizer',
             position: { referencePanel: 'inspect' }
           });
 
-          // 8. Bottom Timeline panel
+          // 8. Right Projects panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'projects',
+            component: 'projects',
+            title: 'Projects',
+            position: { referencePanel: 'inspect' }
+          });
+
+          // 9. Right Asset Bundle panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'assets',
+            component: 'assets',
+            title: 'Asset Bundle',
+            position: { referencePanel: 'inspect' }
+          });
+
+          // 10. Right Export panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'export',
+            component: 'export',
+            title: 'Export',
+            position: { referencePanel: 'inspect' }
+          });
+
+          // 11. Bottom Timeline panel
           dockviewApi.addPanel({
             id: 'animation',
             component: 'animation',
             title: 'Timeline',
             position: { direction: 'below', referencePanel: 'canvas' },
             initialHeight: 210
+          });
+
+          // 12. Bottom Curves panel (tabbed with Timeline)
+          dockviewApi.addPanel({
+            id: 'curves',
+            component: 'curves',
+            title: 'Curves',
+            position: { referencePanel: 'animation' }
           });
 
           // Activate default panels
@@ -10563,10 +10600,20 @@
             } else if (id === 'animation') {
               updateSelectedObjectEventsUI();
               updateSceneAnimUI();
+            } else if (id === 'curves') {
+              if (window.dopeSheetUI && typeof window.dopeSheetUI.mountCurveEditor === 'function') {
+                window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
+              }
+            } else if (id === 'tracer') {
+              updateTracerUI();
+            } else if (id === 'projects') {
+              if (typeof refreshProjectsList === 'function') refreshProjectsList();
+            } else if (id === 'assets') {
+              if (typeof populateBundleExportList === 'function') populateBundleExportList();
+            } else if (id === 'export') {
+              if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
             } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
               updateInspector();
-            } else if (id === 'hub') {
-              if (typeof refreshProjectsList === 'function') refreshProjectsList();
             }
             if (typeof drawOverlay === 'function') drawOverlay();
             if (typeof drawRulers === 'function') drawRulers();
@@ -10665,7 +10712,9 @@
       function getFileMenuActions() {
         return [
           { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
-          { type: 'item', label: 'Project & Assets...', hotkey: 'Ctrl+E', action: () => openHubTab('projects') },
+          { type: 'item', label: 'Projects & Storage...', hotkey: 'Ctrl+E', action: () => openDockPanel('projects') },
+          { type: 'item', label: 'Asset Bundle...', action: () => openDockPanel('assets') },
+          { type: 'item', label: 'Export Center...', action: () => openDockPanel('export') },
           { type: 'sep' },
           { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
           { type: 'item', label: 'Import Image Layer...', action: () => document.getElementById('file-import-img')?.click() },
@@ -10737,6 +10786,7 @@
           { type: 'item', label: 'Outline Stroke', disabled: !hasStroke, action: () => {
             if (doc.outlineStrokeSelected()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Strokes outlined to filled paths'); }
           }},
+          { type: 'item', label: 'Trace Image to Vector...', disabled: !hasImages, action: () => openDockPanel('tracer') },
           { type: 'item', label: 'Rasterize to Image Layer', disabled: selectedObjs.length === 0 || hasImages, action: () => rasterizeSelectedToImage() },
           { type: 'sep' },
           { type: 'item', label: 'Group Selection', hotkey: 'Ctrl+G', disabled: selectedObjs.length < 2, action: () => {
@@ -10787,8 +10837,12 @@
         const isInspectOpen = !!dockviewApi?.getPanel('inspect');
         const isSceneOpen = !!dockviewApi?.getPanel('scene');
         const isDocOpen = !!dockviewApi?.getPanel('document');
+        const isTracerOpen = !!dockviewApi?.getPanel('tracer');
+        const isProjectsOpen = !!dockviewApi?.getPanel('projects');
+        const isAssetsOpen = !!dockviewApi?.getPanel('assets');
+        const isExportOpen = !!dockviewApi?.getPanel('export');
         const isAnimOpen = !!dockviewApi?.getPanel('animation');
-        const isHubOpen = !!dockviewApi?.getPanel('hub');
+        const isCurvesOpen = !!dockviewApi?.getPanel('curves');
 
         return [
           { type: 'header', title: 'Dock Panels & Views' },
@@ -10797,13 +10851,17 @@
           { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
           { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => toggleDockPanel('document') },
+          { type: 'item', label: (isTracerOpen ? '✓ ' : '') + 'Vectorizer Dock', action: () => toggleDockPanel('tracer') },
+          { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + 'Projects & Storage Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
+          { type: 'item', label: (isAssetsOpen ? '✓ ' : '') + 'Asset Bundle Dock', action: () => toggleDockPanel('assets') },
+          { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
-          { type: 'item', label: (isHubOpen ? '✓ ' : '') + 'Project & Assets Hub Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('hub') },
+          { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
-            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'light' ? '✓ ' : '') + 'Light Gray', action: () => setTheme('light') },
-            { type: 'item', label: (currentTheme === 'ableton' ? '✓ ' : '') + 'Ableton Mid Gray', action: () => setTheme('ableton') }
+            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Dark', action: () => setTheme('dark') },
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') },
+            { type: 'item', label: (currentTheme === 'light' ? '✓ ' : '') + 'Light', action: () => setTheme('light') }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
@@ -10881,7 +10939,10 @@
         else if (menuKey === 'selection') actions = getSelectionMenuActions();
         else if (menuKey === 'view') actions = getViewMenuActions();
         else if (menuKey === 'animation') actions = getAnimationMenuActions();
-        else if (menuKey === 'about') actions = [{ type: 'item', label: 'esenho 0.10.127', action: () => showNotification('esenho 0.10.127') }];
+        else if (menuKey === 'about') {
+          const vStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.10.132';
+          actions = [{ type: 'item', label: `esenho ${vStr}`, action: () => showNotification(`esenho ${vStr}`) }];
+        }
 
         const rect = buttonEl.getBoundingClientRect();
         window.contextMenuService.showContextMenu({
@@ -12503,24 +12564,15 @@
       });
 
       document.getElementById('btn-trace-vector')?.addEventListener('click', () => {
-        const selected = doc.getSelectedObjects();
-        const imgObj = selected.find(o => o.type === 'image');
-        if (!imgObj || !imgObj._imgElement) {
-          alert('Please select a raster image on canvas to trace.');
-          return;
-        }
-        if (modalTrace) modalTrace.classList.add('active');
-      });
-
-      document.getElementById('btn-cancel-trace')?.addEventListener('click', () => {
-        if (modalTrace) modalTrace.classList.remove('active');
+        openDockPanel('tracer');
+        updateTracerUI();
       });
 
       document.getElementById('btn-run-trace')?.addEventListener('click', () => {
         const selected = doc.getSelectedObjects();
         const imgObj = selected.find(o => o.type === 'image');
         if (!imgObj || !imgObj._imgElement) {
-          if (modalTrace) modalTrace.classList.remove('active');
+          alert('Please select a raster image on canvas to trace.');
           return;
         }
 
@@ -12560,10 +12612,10 @@
         doc.select(traced.id);
         doc.pushHistory('Trace Image to Vector');
 
-        if (modalTrace) modalTrace.classList.remove('active');
         updateObjectList();
         updateInspector();
         render();
+        showNotification('Vectorized image layer into editable vector paths');
       });
 
       // Legacy sidebar and tab listeners migrated to Dockview window.switchTab / window.switchLeftTab
@@ -12958,6 +13010,12 @@
               seekSceneFrame(frame);
             });
           }
+          if (window.dopeSheetUI) {
+            const curvesEl = document.getElementById('dock-panel-curves') || document.getElementById('curve-editor-dock-mount');
+            if (curvesEl) {
+              window.dopeSheetUI.mountCurveEditor(curvesEl);
+            }
+          }
 
           updateSceneAnimUI();
           updateObjectList();
@@ -13214,13 +13272,21 @@
       });
 
       // ── Recent Projects & Hub Project Manager ──
-      const modalNewProject = document.getElementById('modal-new-project');
-
       function openNewProjectModal() {
-        if (modalNewProject) modalNewProject.style.display = 'flex';
+        openHubTab('projects');
+        const card = document.getElementById('hub-new-project-card');
+        if (card) {
+          card.style.display = 'flex';
+          const titleInp = document.getElementById('inp-new-title');
+          if (titleInp) {
+            titleInp.focus();
+            titleInp.select();
+          }
+        }
       }
       function closeNewProjectModal() {
-        if (modalNewProject) modalNewProject.style.display = 'none';
+        const card = document.getElementById('hub-new-project-card');
+        if (card) card.style.display = 'none';
       }
       function closeRecentsModal() {
         closeDockPanel('hub');
@@ -13680,11 +13746,12 @@
         openRecentsModal();
       });
 
+      document.getElementById('btn-close-new-proj-card')?.addEventListener('click', closeNewProjectModal);
+      document.getElementById('btn-cancel-new-proj-card')?.addEventListener('click', closeNewProjectModal);
       document.getElementById('btn-close-new-project')?.addEventListener('click', closeNewProjectModal);
       document.getElementById('btn-close-recents')?.addEventListener('click', closeRecentsModal);
 
       document.getElementById('btn-modal-new-proj')?.addEventListener('click', () => {
-        closeRecentsModal();
         openNewProjectModal();
       });
 
@@ -13958,7 +14025,7 @@
       });
 
       // Close modals on backdrop click
-      [modalNewProject, document.getElementById('modal-trace')].forEach(modal => {
+      [document.getElementById('modal-trace')].forEach(modal => {
         if (!modal) return;
         modal.addEventListener('click', (e) => {
           if (e.target === modal) {
