@@ -908,12 +908,7 @@
       user-select: none;
       -webkit-user-select: none;
       outline: none;
-      animation: monacoMenuFadeIn 0.08s cubic-bezier(0.16, 1, 0.3, 1);
-    }
-
-    @keyframes monacoMenuFadeIn {
-      from { opacity: 0; transform: scale(0.98); }
-      to { opacity: 1; transform: scale(1); }
+      will-change: transform, opacity;
     }
 
     .monaco-menu {
@@ -1111,9 +1106,8 @@
       background: var(--bg-panel);
       display: flex;
       flex-direction: column;
-      padding: 4px 6px;
-      padding-bottom: 20px;
-      gap: 4px;
+      padding: 6px 8px 16px 8px;
+      gap: 6px;
       box-sizing: border-box;
       scrollbar-width: thin;
       scrollbar-color: var(--border) transparent;
@@ -1158,11 +1152,17 @@
     }
 
     #dock-panel-animation {
-      padding: 4px 6px 16px 6px;
+      padding: 6px 8px 8px 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      box-sizing: border-box;
     }
 
     #dock-panel-document {
-      padding: 4px 6px 16px 6px;
+      padding: 6px 8px 16px 8px;
     }
 
     /* ── Center Viewport / Canvas ── */
@@ -1219,16 +1219,22 @@
       z-index: 5;
     }
 
-    /* ── Collapsible Card Sections ── */
+    /* ── Flat VS Code Style Sections ── */
     .section-card {
-      background: var(--bg-panel-sub);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      padding: 4px 6px;
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      padding: 0;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 4px;
       flex-shrink: 0;
+    }
+
+    .section-card + .section-card {
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 6px;
+      margin-top: 2px;
     }
 
     .section-header {
@@ -1238,10 +1244,10 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 2px;
+      padding: 3px 0;
       border-bottom: 1px solid var(--border-subtle);
-      margin-bottom: 1px;
-      letter-spacing: 0.4px;
+      margin-bottom: 3px;
+      letter-spacing: 0.5px;
       text-transform: uppercase;
     }
 
@@ -1251,40 +1257,253 @@
     }
 
     details.section-accordion {
-      background: var(--bg-panel-sub);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-md);
-      overflow: hidden;
+      background: transparent;
+      border: none;
+      border-top: 1px solid var(--border-subtle);
+      border-radius: 0;
+      overflow: visible;
       flex-shrink: 0;
     }
 
+    details.section-accordion:first-child {
+      border-top: none;
+    }
+
     details.section-accordion summary {
-      padding: 4px 6px;
+      padding: 4px 0;
       font-size: 9.5px;
       font-weight: 700;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.5px;
       text-transform: uppercase;
       color: var(--text-dim);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: rgba(0, 0, 0, 0.15);
+      background: transparent;
       user-select: none;
-      transition: background 0.12s ease, color 0.12s ease;
+      transition: color 0.12s ease;
     }
 
     details.section-accordion summary:hover {
       color: var(--text-bright);
-      background: rgba(255, 255, 255, 0.04);
+      background: transparent;
     }
 
     details.section-accordion .accordion-body {
-      padding: 4px 6px;
+      padding: 4px 0 6px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-top: none;
+    }
+
+    /* ── High-Density Sleek Animation Panel Layout ── */
+    #dock-panel-animation {
+      padding: 4px 6px 6px 6px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      height: 100%;
+      box-sizing: border-box;
+    }
+
+    .anim-toolbar-card {
       display: flex;
       flex-direction: column;
       gap: 3px;
-      border-top: 1px solid var(--border);
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    .anim-row-primary {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+    }
+
+    .anim-row-secondary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      width: 100%;
+    }
+
+    .anim-btn-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      flex-shrink: 0;
+    }
+
+    .anim-btn-group .btn-icon {
+      font-size: 8.5px;
+      padding: 1px 4px;
+      height: 19px;
+      min-width: 19px;
+    }
+
+    .anim-btn-group .btn-play {
+      font-size: 9px;
+      padding: 1px 6px;
+      background: var(--primary);
+      color: #000;
+      font-weight: bold;
+      border-radius: var(--radius-sm);
+    }
+
+    .anim-btn-group .btn-loop {
+      font-size: 8.5px;
+      padding: 1px 4px;
+      height: 19px;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .anim-scrubber-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 80px;
+    }
+
+    .anim-scrubber-wrap input[type="range"] {
+      flex: 1;
+      cursor: pointer;
+      accent-color: var(--primary);
+      height: 12px;
+      margin: 0;
+    }
+
+    #scene-anim-time-badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--primary);
+      font-weight: bold;
+      min-width: 38px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    .anim-frame-inputs {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 9.5px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .anim-frame-inputs input {
+      width: 32px;
+      padding: 1px 2px;
+      font-size: 9.5px;
+      font-family: var(--font-mono);
+      text-align: center;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      color: var(--text-bright);
+      border-radius: 2px;
+      height: 19px;
+      -moz-appearance: textfield;
+      box-sizing: border-box;
+    }
+
+    .anim-frame-inputs input::-webkit-inner-spin-button,
+    .anim-frame-inputs input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .anim-actions-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .anim-actions-wrap select {
+      flex: 1;
+      max-width: 110px;
+      padding: 1px 3px;
+      font-size: 9px;
+      height: 19px;
+    }
+
+    .anim-actions-wrap button {
+      font-size: 9px;
+      padding: 1px 5px;
+      height: 19px;
+      white-space: nowrap;
+    }
+
+    .anim-track-ribbon {
+      position: relative;
+      height: 14px;
+      background: rgba(0, 0, 0, 0.35);
+      border-radius: 2px;
+      border: 1px solid var(--border);
+      margin: 2px 0 4px 0;
+      overflow: hidden;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .anim-playhead-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: var(--primary);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .anim-keyframe-diamond {
+      position: absolute;
+      top: 2px;
+      width: 8px;
+      height: 8px;
+      transform: rotate(45deg);
+      z-index: 3;
+      cursor: pointer;
+      transition: transform 0.08s ease;
+    }
+
+    .anim-keyframe-diamond:hover {
+      transform: rotate(45deg) scale(1.3);
+    }
+
+    .anim-events-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    #selected-events-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow-y: auto;
+      min-height: 0;
+      padding-right: 2px;
+    }
+
+    .anim-empty-state {
+      font-size: 10px;
+      color: var(--text-muted);
+      padding: 10px 4px;
+      text-align: center;
+      font-style: italic;
     }
 
     .form-row {
@@ -1790,86 +2009,289 @@
       gap: 8px;
     }
 
-    .recents-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-      gap: 14px;
+    /* ── Pro Projects & Storage Modal ── */
+    .modal-recents-card {
+      max-width: 960px;
+      width: 95vw;
+      height: 85vh;
+      max-height: 720px;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05);
+      overflow: hidden;
     }
 
-    .recent-item {
+    .recents-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--bg-panel-sub);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .recents-search-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0 8px;
+      height: 28px;
+      flex: 1;
+      min-width: 180px;
+      max-width: 320px;
+      transition: border-color 0.15s ease;
+    }
+
+    .recents-search-box:focus-within {
+      border-color: var(--primary);
+    }
+
+    .recents-search-box input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-bright);
+      font-size: 11px;
+      width: 100%;
+    }
+
+    .recents-filter-pills {
+      display: inline-flex;
+      background: var(--bg-dark);
+      padding: 2px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      gap: 2px;
+    }
+
+    .recents-pill {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-xs);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .recents-pill.active {
+      background: var(--bg-panel-sub);
+      color: var(--text-bright);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .recents-pill:hover:not(.active) {
+      color: var(--text-main);
+    }
+
+    .recents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px;
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      align-content: start;
+    }
+
+    .recents-list-view {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 12px 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .recent-card {
       background: var(--bg-panel-sub);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       overflow: hidden;
       display: flex;
       flex-direction: column;
-      transition: border-color 0.15s ease, background 0.15s ease;
+      transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      position: relative;
     }
 
-    .recent-item:hover {
-      border-color: var(--border-bright);
+    .recent-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.4);
     }
 
-    .recent-thumb {
+    .recent-card-thumb-wrap {
       width: 100%;
-      height: 120px;
-      background: #141617;
+      height: 125px;
+      background: #111314;
+      background-image: linear-gradient(45deg, #181a1b 25%, transparent 25%), linear-gradient(-45deg, #181a1b 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #181a1b 75%), linear-gradient(-45deg, transparent 75%, #181a1b 75%);
+      background-size: 16px 16px;
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
       display: flex;
       align-items: center;
       justify-content: center;
       border-bottom: 1px solid var(--border);
       overflow: hidden;
       cursor: pointer;
+      position: relative;
     }
 
-    .recent-thumb img, .recent-thumb svg {
+    .recent-card-thumb-wrap img, .recent-card-thumb-wrap svg {
       max-width: 90%;
       max-height: 90%;
       object-fit: contain;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5));
     }
 
-    .recent-meta {
-      padding: 10px 12px;
+    .recent-card-hover-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      backdrop-filter: blur(2px);
+    }
+
+    .recent-card:hover .recent-card-hover-overlay {
+      opacity: 1;
+    }
+
+    .recent-type-badge {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+
+    .recent-type-vector {
+      background: rgba(250, 189, 47, 0.2);
+      color: var(--primary);
+      border: 1px solid rgba(250, 189, 47, 0.4);
+    }
+
+    .recent-type-raster {
+      background: rgba(142, 192, 124, 0.2);
+      color: var(--accent);
+      border: 1px solid rgba(142, 192, 124, 0.4);
+    }
+
+    .recent-card-body {
+      padding: 8px 10px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
       flex: 1;
     }
 
-    .recent-title-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-
-    .recent-title {
-      font-size: 12px;
+    .recent-card-title {
+      font-size: 11.5px;
       font-weight: 600;
-      color: var(--text-main);
+      color: var(--text-bright);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
       cursor: pointer;
     }
 
-    .recent-title:hover {
+    .recent-card-title:hover {
       color: var(--primary);
     }
 
-    .recent-sub {
-      font-size: 10px;
+    .recent-card-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9.5px;
       color: var(--text-muted);
       font-family: var(--font-mono);
     }
 
-    .recent-actions {
+    .recent-card-actions {
       display: flex;
       align-items: center;
-      gap: 6px;
-      margin-top: 6px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
+      gap: 3px;
+      margin-top: 4px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .recent-card-actions .btn-sm {
+      padding: 2px 5px;
+      font-size: 9.5px;
+      height: 22px;
+    }
+
+    /* List Row View */
+    .recent-list-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      background: var(--bg-panel-sub);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      transition: background 0.1s ease, border-color 0.1s ease;
+      cursor: pointer;
+    }
+
+    .recent-list-row:hover {
+      background: rgba(255,255,255,0.04);
+      border-color: var(--border-bright);
+    }
+
+    .recent-list-thumb {
+      width: 36px;
+      height: 36px;
+      border-radius: 2px;
+      background: #111;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+
+    .recent-list-thumb img, .recent-list-thumb svg {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+    }
+
+    .recent-list-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .recent-list-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
     }
   </style>
 </head>
@@ -1908,32 +2330,32 @@
   <footer id="vscode-statusbar" class="vscode-statusbar" role="contentinfo">
     <div class="statusbar-left">
       <div class="statusbar-item" id="status-tool-badge" title="Active Tool">
-        <span class="statusbar-icon">🛠</span>
+        <span class="statusbar-icon">⎇</span>
         <span id="status-tool">Select</span>
       </div>
       <div class="statusbar-item" id="status-coords-badge" title="Cursor Coordinates (Doc X, Y)">
-        <span class="statusbar-icon">📍</span>
+        <span class="statusbar-icon">⌖</span>
         <span id="status-coords">0, 0</span>
       </div>
       <div class="statusbar-item" id="status-objects-badge" title="Total Objects in Scene">
-        <span class="statusbar-icon">📦</span>
+        <span class="statusbar-icon">▤</span>
         <span id="status-objects">0 objects</span>
       </div>
       <div class="statusbar-item" id="status-doc-size-badge" title="Document Dimensions">
-        <span class="statusbar-icon">📐</span>
+        <span class="statusbar-icon">⤢</span>
         <span id="status-doc-size">800 × 600 px</span>
       </div>
     </div>
     <div class="statusbar-right">
       <div class="statusbar-item" id="status-render-mode" title="Click to Toggle Quadro WASM / Direct SVG Renderer" style="cursor: pointer;">
-        <span id="status-renderer-text">⚡ Quadro WASM</span>
+        <span id="status-renderer-text">◈ Quadro WASM</span>
       </div>
       <div class="statusbar-item" id="status-rotation-badge" title="Viewport Rotation (Click to Reset)" style="cursor: pointer;">
-        <span class="statusbar-icon">↻</span>
+        <span class="statusbar-icon">⟳</span>
         <span id="status-rotation">0°</span>
       </div>
       <div class="statusbar-item" id="status-zoom-badge" title="Viewport Zoom (Click to Reset 100%)" style="cursor: pointer;">
-        <span class="statusbar-icon">🔍</span>
+        <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
     </div>
@@ -2733,225 +3155,223 @@
     <!-- Dock Panel 4: Transform & Geometry -->
     <div id="dock-panel-inspect" class="dock-panel-content">
       <!-- 5. Transform & Geometry -->
-      <details open class="section-accordion" id="card-geometry">
-        <summary>
-          <span>Transform &amp; Geometry</span>
+      <div class="section-card" id="card-geometry">
+        <div class="section-header">
+          <span>Properties &amp; Geometry</span>
           <span id="prop-geom-type" class="badge">None</span>
-        </summary>
-        <div class="accordion-body">
-          <!-- Object Name / Label Field -->
-          <div class="form-row" id="geom-name-row" style="margin-bottom: 6px;">
-            <label>Name / Label</label>
-            <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px;">
-          </div>
+        </div>
+        <!-- Object Name / Label Field -->
+        <div class="form-row" id="geom-name-row" style="margin-bottom: 6px;">
+          <label>Name / Label</label>
+          <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px;">
+        </div>
 
-          <!-- Rect Fields -->
-          <div id="geom-rect-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Position (X, Y)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
-                <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size (W × H)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
-                <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Corner Radius</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
-                <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
-              </div>
+        <!-- Rect Fields -->
+        <div id="geom-rect-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Position (X, Y)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
+              <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
             </div>
           </div>
-
-          <!-- Circle Fields -->
-          <div id="geom-circle-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Center (CX, CY)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
-                <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Radius (R)</label>
-              <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+          <div class="form-row">
+            <label>Size (W × H)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
+              <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
             </div>
           </div>
-
-          <!-- Ellipse Fields -->
-          <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Center (CX, CY)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
-                <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Radii (RX × RY)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
-                <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
-              </div>
+          <div class="form-row">
+            <label>Corner Radius</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
+              <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
             </div>
           </div>
+        </div>
 
-          <!-- Line Fields -->
-          <div id="geom-line-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Start (X1, Y1)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
-                <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>End (X2, Y2)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-line-x2" step="1" title="End X (px)">
-                <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
-              </div>
+        <!-- Circle Fields -->
+        <div id="geom-circle-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Center (CX, CY)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
+              <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
             </div>
           </div>
+          <div class="form-row">
+            <label>Radius (R)</label>
+            <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+          </div>
+        </div>
 
-          <!-- Path / Group Bounds -->
-          <div id="geom-path-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Bounds (X, Y)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-path-x" step="1" title="Min X (px)">
-                <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size (W × H)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
-                <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Path Info</label>
-              <input type="text" id="prop-path-info" readonly style="color: var(--text-dim); font-size: 10px;">
-            </div>
-
-            <!-- Selected Anchor Point Inspector -->
-            <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
-              <div class="form-row" style="justify-content: space-between; align-items: center;">
-                <label style="font-weight: 600; color: var(--accent);">Anchor Node</label>
-                <span id="node-editor-index" class="badge">#0</span>
-              </div>
-              <div class="form-row">
-                <label>Anchor (X, Y)</label>
-                <div class="grid-2" style="width: 100%;">
-                  <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
-                  <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
-                </div>
-              </div>
-              <div class="form-row">
-                <label>Node Type</label>
-                <select id="prop-node-type">
-                  <option value="smooth">Smooth (Aligned Handles)</option>
-                  <option value="corner">Corner (Sharp)</option>
-                  <option value="cusp">Cusp (Independent Handles)</option>
-                  <option value="symmetric">Symmetric</option>
-                </select>
-              </div>
-              <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Remove Selected Anchor</button>
+        <!-- Ellipse Fields -->
+        <div id="geom-ellipse-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Center (CX, CY)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
+              <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
             </div>
           </div>
-
-          <!-- Image Fields & Actions -->
-          <div id="geom-image-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Position (X, Y)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-img-x" step="1" title="Position X (px)">
-                <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Size (W × H)</label>
-              <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
-                <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
-              </div>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
-              <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">Edit Raster in Painter</button>
-              <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
-              <button id="btn-save-img-texture" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Texture Asset</button>
-              <button id="btn-save-img-tip" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Brush Tip Shape</button>
+          <div class="form-row">
+            <label>Radii (RX × RY)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
+              <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
             </div>
           </div>
+        </div>
 
-          <!-- Text Fields -->
-          <div id="geom-text-fields" class="geom-group" style="display: none;">
-            <div class="form-row">
-              <label>Text</label>
-              <input type="text" id="prop-text-content" value="Wesenho Text">
-            </div>
-            <div class="form-row">
-              <label>Font</label>
-              <select id="prop-text-font">
-                <option value="sans-serif">Sans-Serif</option>
-                <option value="serif">Serif</option>
-                <option value="monospace">Monospace</option>
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="'Courier New', monospace">Courier New</option>
-                <option value="'Times New Roman', serif">Times New Roman</option>
-                <option value="Georgia, serif">Georgia</option>
-                <option value="Impact, sans-serif">Impact</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Size (px)</label>
-              <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
-            </div>
-            <div class="form-row">
-              <label>Align</label>
-              <select id="prop-text-align">
-                <option value="left">Left</option>
-                <option value="center">Center</option>
-                <option value="right">Right</option>
-              </select>
-            </div>
-            <div class="form-row">
-              <label>Spacing</label>
-              <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+        <!-- Line Fields -->
+        <div id="geom-line-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Start (X1, Y1)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
+              <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
             </div>
           </div>
+          <div class="form-row">
+            <label>End (X2, Y2)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-line-x2" step="1" title="End X (px)">
+              <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
+            </div>
+          </div>
+        </div>
 
-          <!-- Object Transform: Rotation & Anchor -->
-          <div id="geom-transform-fields" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: none;">
-            <div class="form-row">
-              <label>Rotation (°)</label>
-              <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-                <input type="number" id="prop-obj-rotation" min="-360" max="360" step="1" value="0" style="flex: 1;" title="Rotation in degrees">
-                <button type="button" id="btn-rot-90" class="btn-sm" style="padding: 0 6px;" title="Rotate +90°">+90°</button>
-                <button type="button" id="btn-rot-reset" class="btn-sm" style="padding: 0 6px;" title="Reset Rotation to 0°">0°</button>
-              </div>
+        <!-- Path / Group Bounds -->
+        <div id="geom-path-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Bounds (X, Y)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-path-x" step="1" title="Min X (px)">
+              <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Size (W × H)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
+              <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Path Info</label>
+            <input type="text" id="prop-path-info" readonly style="color: var(--text-dim); font-size: 10px;">
+          </div>
+
+          <!-- Selected Anchor Point Inspector -->
+          <div id="node-editor-section" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border); display: none;">
+            <div class="form-row" style="justify-content: space-between; align-items: center;">
+              <label style="font-weight: 600; color: var(--accent);">Anchor Node</label>
+              <span id="node-editor-index" class="badge">#0</span>
             </div>
             <div class="form-row">
               <label>Anchor (X, Y)</label>
               <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-obj-origin-x" step="1" title="Anchor Origin X">
-                <input type="number" id="prop-obj-origin-y" step="1" title="Anchor Origin Y">
+                <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
+                <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
               </div>
             </div>
-            <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
+            <div class="form-row">
+              <label>Node Type</label>
+              <select id="prop-node-type">
+                <option value="smooth">Smooth (Aligned Handles)</option>
+                <option value="corner">Corner (Sharp)</option>
+                <option value="cusp">Cusp (Independent Handles)</option>
+                <option value="symmetric">Symmetric</option>
+              </select>
+            </div>
+            <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Remove Selected Anchor</button>
           </div>
-
-          <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
         </div>
-      </details>
+
+        <!-- Image Fields & Actions -->
+        <div id="geom-image-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Position (X, Y)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-img-x" step="1" title="Position X (px)">
+              <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Size (W × H)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
+              <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
+            <button id="btn-edit-raster" style="width: 100%; border-color: var(--accent); color: var(--accent);">Edit Raster in Painter</button>
+            <button id="btn-trace-vector" style="width: 100%; border-color: var(--primary); color: var(--primary);">☡ Trace Image to Vector</button>
+            <button id="btn-save-img-texture" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Texture Asset</button>
+            <button id="btn-save-img-tip" style="width: 100%; border-color: var(--border-color); color: var(--text-main);">+ Save as Brush Tip Shape</button>
+          </div>
+        </div>
+
+        <!-- Text Fields -->
+        <div id="geom-text-fields" class="geom-group" style="display: none;">
+          <div class="form-row">
+            <label>Text</label>
+            <input type="text" id="prop-text-content" value="Wesenho Text">
+          </div>
+          <div class="form-row">
+            <label>Font</label>
+            <select id="prop-text-font">
+              <option value="sans-serif">Sans-Serif</option>
+              <option value="serif">Serif</option>
+              <option value="monospace">Monospace</option>
+              <option value="Arial, sans-serif">Arial</option>
+              <option value="'Courier New', monospace">Courier New</option>
+              <option value="'Times New Roman', serif">Times New Roman</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="Impact, sans-serif">Impact</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Size (px)</label>
+            <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
+          </div>
+          <div class="form-row">
+            <label>Align</label>
+            <select id="prop-text-align">
+              <option value="left">Left</option>
+              <option value="center">Center</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Spacing</label>
+            <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+          </div>
+        </div>
+
+        <!-- Object Transform: Rotation & Anchor -->
+        <div id="geom-transform-fields" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); display: none;">
+          <div class="form-row">
+            <label>Rotation (°)</label>
+            <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
+              <input type="number" id="prop-obj-rotation" min="-360" max="360" step="1" value="0" style="flex: 1;" title="Rotation in degrees">
+              <button type="button" id="btn-rot-90" class="btn-sm" style="padding: 0 6px;" title="Rotate +90°">+90°</button>
+              <button type="button" id="btn-rot-reset" class="btn-sm" style="padding: 0 6px;" title="Reset Rotation to 0°">0°</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Anchor (X, Y)</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-obj-origin-x" step="1" title="Anchor Origin X">
+              <input type="number" id="prop-obj-origin-y" step="1" title="Anchor Origin Y">
+            </div>
+          </div>
+          <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
+        </div>
+
+        <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
+      </div>
     </div>
 
     <!-- Dock Panel 5: Scene (Object Hierarchy Tree) -->
@@ -2995,43 +3415,37 @@
 
     <!-- Dock Panel 7: Keyframe Animation & Object Events -->
     <div id="dock-panel-animation" class="dock-panel-content">
-      <!-- Scene Animation Bar -->
-      <div class="section-card" id="card-scene-anim">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-          <span style="font-weight: 700; color: var(--text-dim); font-size: 10px; text-transform: uppercase;">Playback Controls</span>
-          <div style="display: flex; gap: 2px; align-items: center;">
-            <button id="scene-anim-btn-prev" class="btn-icon" title="Jump to Previous Keyframe ([ or Alt+Left)" style="font-size: 9px; padding: 2px 4px;">⏮</button>
-            <button id="scene-anim-btn-step-prev" class="btn-icon" title="Step 1 Frame Back (Left)" style="font-size: 9px; padding: 2px 4px;">◀</button>
-            <button id="scene-anim-btn-play" class="btn-icon" title="Play / Pause Animation (Space)" style="font-size: 10px; padding: 2px 7px; background: var(--primary); color: #000; font-weight: bold; border-radius: 3px;">▶</button>
-            <button id="scene-anim-btn-step-next" class="btn-icon" title="Step 1 Frame Forward (Right)" style="font-size: 9px; padding: 2px 4px;">▶</button>
-            <button id="scene-anim-btn-next" class="btn-icon" title="Jump to Next Keyframe (] or Alt+Right)" style="font-size: 9px; padding: 2px 4px;">⏭</button>
-            <button id="scene-anim-btn-loop" class="btn-sm" title="Toggle Loop" style="font-size: 9px; padding: 1px 5px; color: var(--accent); font-weight: 600;">Loop</button>
+      <!-- Scene Animation Controls Toolbar -->
+      <div id="card-scene-anim" class="anim-toolbar-card">
+        <!-- Line 1: Playback Controls + Scrubbing -->
+        <div class="anim-row-primary">
+          <div class="anim-btn-group">
+            <button id="scene-anim-btn-prev" class="btn-icon" title="Jump to Previous Keyframe ([ or Alt+Left)">⏮</button>
+            <button id="scene-anim-btn-step-prev" class="btn-icon" title="Step 1 Frame Back (Left)">◀</button>
+            <button id="scene-anim-btn-play" class="btn-icon btn-play" title="Play / Pause Animation (Space)">▶</button>
+            <button id="scene-anim-btn-step-next" class="btn-icon" title="Step 1 Frame Forward (Right)">▶</button>
+            <button id="scene-anim-btn-next" class="btn-icon" title="Jump to Next Keyframe (] or Alt+Right)">⏭</button>
+            <button id="scene-anim-btn-loop" class="btn-sm btn-loop" title="Toggle Loop">Loop</button>
+          </div>
+          <div class="anim-scrubber-wrap">
+            <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" title="Scrub Timeline">
+            <span id="scene-anim-time-badge">F 1/60</span>
           </div>
         </div>
 
-        <!-- Scrubbing & Frame Control -->
-        <div style="display: flex; flex-direction: column; gap: 5px; margin-top: 4px;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" style="flex: 1; cursor: pointer; accent-color: var(--primary);">
-            <span id="scene-anim-time-badge" style="font-family: var(--font-mono); font-size: 10px; color: var(--primary); font-weight: bold; min-width: 44px; text-align: right;">F 1/60</span>
+        <!-- Line 2: Frame Inputs + Curve Easing + Quick Actions -->
+        <div class="anim-row-secondary">
+          <div class="anim-frame-inputs">
+            <span class="anim-label">F</span>
+            <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" title="Current Frame">
+            <span class="anim-slash">/</span>
+            <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" title="Total Frames">
+            <span class="anim-slash">|</span>
+            <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" title="Frames Per Second" style="width: 32px;">
+            <span class="anim-unit">fps</span>
           </div>
-
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-muted);">
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <span>Frame:</span>
-              <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-              <span>/</span>
-              <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" style="width: 40px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-            </div>
-            <div style="display: flex; align-items: center; gap: 4px;">
-              <span>FPS:</span>
-              <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" style="width: 36px; padding: 1px 3px; font-size: 10px; text-align: center; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
-            </div>
-          </div>
-
-          <div class="form-row" style="margin-top: 2px; align-items: center;">
-            <label style="font-size: 10px; color: var(--text-muted); width: 42px;">Curve</label>
-            <select id="scene-anim-select-easing" title="Easing Curve for Keyframes" style="flex: 1; padding: 2px 4px; font-size: 10px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright); border-radius: 2px;">
+          <div class="anim-actions-wrap">
+            <select id="scene-anim-select-easing" title="Easing Curve for Keyframes">
               <option value="linear">Linear</option>
               <option value="easeInQuad">Ease In (Quad)</option>
               <option value="easeOutQuad">Ease Out (Quad)</option>
@@ -3045,24 +3459,21 @@
               <option value="step">Step (Hold)</option>
               <option value="custom">Custom Bézier...</option>
             </select>
-          </div>
-
-          <div style="display: flex; gap: 4px; margin-top: 2px;">
-            <button id="scene-btn-add-event" class="btn-sm btn-primary" style="flex: 1; font-size: 10px;" title="Record current object state at current frame">◆ Record State</button>
-            <button id="scene-btn-autokf" class="btn-sm" style="flex: 1; font-size: 10px;" title="Auto-record property changes into keyframe events">● Auto-Record</button>
+            <button id="scene-btn-add-event" class="btn-sm btn-primary" title="Record current object state at current frame">◆ Record</button>
+            <button id="scene-btn-autokf" class="btn-sm" title="Auto-record property changes into keyframe events">● Auto</button>
           </div>
         </div>
       </div>
 
-      <!-- Selected Object Animation Events Card -->
-      <div class="section-card" id="card-selected-events" style="flex: 1; display: flex; flex-direction: column;">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-weight: bold; color: var(--accent);" id="selected-events-title">Object Events</span>
-          <span id="selected-events-badge" class="badge" style="font-size: 9px;">No selection</span>
+      <!-- Selected Object Animation Events Section -->
+      <div id="card-selected-events" class="anim-events-card">
+        <div class="section-header">
+          <span id="selected-events-title" style="color: var(--accent);">Object Events</span>
+          <span id="selected-events-badge" class="badge">No selection</span>
         </div>
 
-        <div id="selected-events-container" style="margin-top: 4px; display: flex; flex-direction: column; gap: 4px; overflow-y: auto; flex: 1;">
-          <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
+        <div id="selected-events-container">
+          <div class="anim-empty-state">
             Select an object to inspect or record keyframe states
           </div>
         </div>
@@ -3256,25 +3667,73 @@
   <!-- Monaco / VS Code Context View Container -->
   <div id="monaco-context-view" class="monaco-context-view"></div>
 
-  <!-- Modal: Recent Projects -->
+  <!-- Modal: Recent Projects & Storage Center -->
   <div id="modal-recents" class="modal-backdrop" style="display: none;">
-    <div class="modal-card" style="max-width: 820px; width: 92%;">
-      <div class="modal-header">
+    <div class="modal-card modal-recents-card">
+      <!-- Modal Header -->
+      <div class="modal-header" style="padding: 12px 16px; border-bottom: 1px solid var(--border);">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span style="font-size: 15px; color: var(--primary);">📁</span>
+          <div>
+            <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: var(--text-bright); display: flex; align-items: center; gap: 6px;">
+              Projects &amp; Storage Center
+              <span id="recents-count-badge" class="badge">0 projects</span>
+            </h3>
+            <div style="font-size: 10px; color: var(--text-muted); margin-top: 1px;">Manage browser-stored vector projects, raster paintings, and offline caches</div>
+          </div>
+        </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-          <h3>Projects &amp; Storage</h3>
-          <span id="recents-count-badge" class="badge">0 projects</span>
-        </div>
-        <button class="modal-close" id="btn-close-recents">✕</button>
-      </div>
-      <div class="modal-body" style="padding: 16px; max-height: 70vh; overflow-y: auto;">
-        <div id="recents-grid" class="recents-grid">
-          <div class="empty-state" style="padding: 24px; text-align: center; color: var(--text-muted);">Loading stored projects...</div>
+          <button type="button" id="btn-recents-import-file" class="btn-sm" title="Import .esen or .svg file into storage">📥 Import File</button>
+          <input type="file" id="inp-recents-import-file" accept=".esen,.svg,.json" style="display: none;">
+          <button type="button" id="btn-modal-new-proj" class="btn-sm btn-primary">+ New Project</button>
+          <button class="modal-close" id="btn-close-recents">✕</button>
         </div>
       </div>
-      <div class="modal-footer" style="padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
-        <button id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);">Clear All Memory</button>
-        <div style="display: flex; gap: 8px;">
-          <button id="btn-modal-new-proj" class="btn btn-primary">+ New Project</button>
+
+      <!-- Toolbar: Search, Filter Tabs, Sort & View Mode -->
+      <div class="recents-toolbar">
+        <div class="recents-search-box">
+          <span style="color: var(--text-muted); font-size: 11px;">🔍</span>
+          <input type="text" id="recents-search-input" placeholder="Search by name, size or date..." autocomplete="off">
+          <button type="button" id="btn-recents-clear-search" class="btn-icon" style="display: none; font-size: 9px; padding: 1px 3px;">✕</button>
+        </div>
+
+        <div class="recents-filter-pills">
+          <button type="button" class="recents-pill active" data-filter="all" id="pill-filter-all">All</button>
+          <button type="button" class="recents-pill" data-filter="vector" id="pill-filter-vector">∿ Vector</button>
+          <button type="button" class="recents-pill" data-filter="raster" id="pill-filter-raster">◫ Raster</button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <select id="recents-sort-select" style="font-size: 10px; padding: 2px 4px; height: 26px;">
+            <option value="updated-desc">Latest Modified</option>
+            <option value="updated-asc">Oldest Modified</option>
+            <option value="name-asc">Name (A → Z)</option>
+            <option value="name-desc">Name (Z → A)</option>
+            <option value="size-desc">Size (Large → Small)</option>
+          </select>
+
+          <div style="display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
+            <button type="button" id="btn-recents-view-grid" class="btn-icon active" title="Grid View" style="padding: 3px 6px; font-size: 11px; background: var(--bg-panel-sub);">⊞</button>
+            <button type="button" id="btn-recents-view-list" class="btn-icon" title="List View" style="padding: 3px 6px; font-size: 11px;">☰</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Project Area -->
+      <div id="recents-grid" class="recents-grid">
+        <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
+      </div>
+
+      <!-- Modal Footer / Storage Statistics & Actions -->
+      <div class="modal-footer" style="padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub);">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--text-dim);">
+          <span style="font-size: 12px;">💾</span>
+          <span id="recents-storage-info">IndexedDB Storage Active</span>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" id="btn-modal-bundle-backup" class="btn-sm" title="Export complete archive of all projects and assets">📦 Backup All</button>
+          <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete all stored projects from local browser memory">🗑 Clear Storage</button>
         </div>
       </div>
     </div>
@@ -3400,6 +3859,31 @@
 
       const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
 
+      // ── Persistent User Settings (localStorage) ──
+      const STUDIO_SETTINGS_KEY = 'esenho_studio_settings_v1';
+
+      function loadStudioSettings() {
+        try {
+          const raw = localStorage.getItem(STUDIO_SETTINGS_KEY);
+          if (!raw) return {};
+          return JSON.parse(raw) || {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function saveStudioSettings(partial) {
+        try {
+          const current = loadStudioSettings();
+          const merged = { ...current, ...partial };
+          localStorage.setItem(STUDIO_SETTINGS_KEY, JSON.stringify(merged));
+        } catch (e) {
+          console.warn('Failed to save studio settings:', e);
+        }
+      }
+
+      const initialStudioSettings = loadStudioSettings();
+
       // ── Document State ──
       const doc = new SvgDocument(800, 600);
       window.doc = doc;
@@ -3436,10 +3920,11 @@
       let resizeStartPoint = { x: 0, y: 0 };
       let resizeStartLocalPoint = { x: 0, y: 0 };
       let hoveredObj = null;
-      let groupSelectMode = true; // When true, clicking an element selects its root group. When false, selects individual objects directly.
+      let groupSelectMode = initialStudioSettings.groupSelectMode !== undefined ? Boolean(initialStudioSettings.groupSelectMode) : true;
 
       function setGroupSelectMode(enabled, notify = false) {
         groupSelectMode = Boolean(enabled);
+        saveStudioSettings({ groupSelectMode });
         const btn = document.getElementById('top-toggle-group-select');
         if (btn) {
           btn.classList.toggle('active', groupSelectMode);
@@ -3637,7 +4122,7 @@
       }
 
       // ── Snapping & Guides State ──
-      let snapEnabled = true;
+      let snapEnabled = initialStudioSettings.snapEnabled !== undefined ? Boolean(initialStudioSettings.snapEnabled) : true;
       let snapToGrid = false;
       let gridSize = 20;
       let userGuides = { horizontal: [], vertical: [] };
@@ -3665,8 +4150,8 @@
       }
 
       // ── Rulers System ──
-      let showRulers = true;
-      let rulerThickness = 18; // default thickness in px (14, 18, 24)
+      let showRulers = initialStudioSettings.showRulers !== undefined ? Boolean(initialStudioSettings.showRulers) : true;
+      let rulerThickness = initialStudioSettings.rulerThickness ? Number(initialStudioSettings.rulerThickness) : 18;
       const rulerCornerEl = document.getElementById('ruler-corner');
       const rulerTopCanvas = document.getElementById('ruler-top');
       const rulerLeftCanvas = document.getElementById('ruler-left');
@@ -3698,6 +4183,7 @@
 
       function toggleRulers() {
         showRulers = !showRulers;
+        saveStudioSettings({ showRulers });
         updateRulerLayout();
         showNotification(showRulers ? 'Rulers Visible' : 'Rulers Hidden');
       }
@@ -3706,10 +4192,14 @@
       function setRulerThickness(size) {
         rulerThickness = Math.max(10, Math.min(48, Number(size) || 18));
         showRulers = true;
+        saveStudioSettings({ showRulers: true, rulerThickness });
         updateRulerLayout();
         showNotification(`Ruler size: ${rulerThickness}px`);
       }
       window.setRulerThickness = setRulerThickness;
+
+      // Apply initial ruler layout on load
+      updateRulerLayout();
 
       function drawRulers() {
         if (!rulerTopCanvas || !rulerLeftCanvas || !showRulers) return;
@@ -3982,7 +4472,12 @@
           quadroRenderer = new QuadroSvgRenderer(actor);
           document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
           await preloadWasmPlugins();
-          viewportRenderMode = 'quadro';
+          const currentSettings = loadStudioSettings();
+          if (currentSettings.viewportRenderMode) {
+            viewportRenderMode = currentSettings.viewportRenderMode;
+          } else {
+            viewportRenderMode = 'quadro';
+          }
           if (typeof updateRendererMenuUi === 'function') updateRendererMenuUi();
           render();
         } catch (err) {
@@ -3991,8 +4486,8 @@
       }
 
       const quadroCanvas = document.getElementById('quadro-canvas');
-      let viewportRenderMode = 'svg'; // 'svg' | 'quadro'
-      let quadroRenderScale = 1.0;
+      let viewportRenderMode = initialStudioSettings.viewportRenderMode || 'svg'; // 'svg' | 'quadro'
+      let quadroRenderScale = initialStudioSettings.quadroRenderScale ? Number(initialStudioSettings.quadroRenderScale) : 1.0;
 
       // ── Stage & Viewport Updates ──
       function updateStageSize() {
@@ -4737,15 +5232,59 @@
         const badgeEl = document.getElementById('selected-events-badge');
         if (!container) return;
 
+        const currentFrame = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
+        const totalFrames = window.dopeSheet ? (window.dopeSheet.totalFrames || 60) : 60;
         const selected = doc.getSelectedObjects();
+
         if (selected.length === 0) {
-          if (titleEl) titleEl.textContent = 'Object Events';
-          if (badgeEl) badgeEl.textContent = 'No selection';
-          container.innerHTML = `
-            <div style="font-size: 10px; color: var(--text-muted); padding: 8px 4px; text-align: center; font-style: italic;">
-              Select an object to inspect or record keyframe states
-            </div>
-          `;
+          if (titleEl) titleEl.textContent = 'Scene Keyframe Overview';
+          
+          // Find all animated objects in the scene
+          const allObjs = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
+          const animatedList = [];
+          for (const obj of allObjs) {
+            const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
+              ? window.dopeSheet.getObject(obj.id)
+              : (window.dopeSheet?.objects?.get(obj.id));
+            const count = dObj ? dObj.getKeyframeFrames().length : 0;
+            if (count > 0) {
+              animatedList.push({ id: obj.id, name: obj.name || `${obj.type} ${obj.id}`, count, type: obj.type });
+            }
+          }
+
+          if (badgeEl) badgeEl.textContent = `${animatedList.length} animated`;
+
+          if (animatedList.length === 0) {
+            container.innerHTML = `
+              <div class="anim-empty-state">
+                No keyframes recorded in scene yet.<br>
+                Select an object or record state below.
+              </div>
+              <button class="btn-sm btn-primary" data-action="record-all-scene" style="width: 100%; margin-top: 4px; font-size: 9.5px;">
+                ◆ Record State for All Objects at F${currentFrame}
+              </button>
+            `;
+          } else {
+            let html = `
+              <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto;">
+                <div style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; padding: 2px 0;">Animated Objects:</div>
+            `;
+            for (const item of animatedList) {
+              html += `
+                <div data-action="select-obj" data-object-id="${item.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 2px; cursor: pointer; font-size: 9.5px; transition: background 0.1s ease;">
+                  <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</span>
+                  <span class="badge" style="font-size: 8.5px; color: var(--primary);">🎬 ${item.count}</span>
+                </div>
+              `;
+            }
+            html += `
+              </div>
+              <button class="btn-sm btn-primary" data-action="record-all-scene" style="width: 100%; margin-top: 6px; font-size: 9.5px;">
+                ◆ Record State for All Objects at F${currentFrame}
+              </button>
+            `;
+            container.innerHTML = html;
+          }
           return;
         }
 
@@ -4758,40 +5297,54 @@
         const events = (dObj && typeof dObj.getEventList === 'function') ? dObj.getEventList() : [];
         if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
 
-        const currentFrame = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
+        // Timeline mini-track ribbon
+        const playheadPct = Math.max(0, Math.min(100, ((currentFrame - 1) / Math.max(1, totalFrames - 1)) * 100));
+        let ribbonDiamonds = '';
+        for (const ev of events) {
+          const evPct = Math.max(0, Math.min(100, ((ev.frame - 1) / Math.max(1, totalFrames - 1)) * 100));
+          const isCurrent = ev.frame === currentFrame;
+          ribbonDiamonds += `<div class="anim-keyframe-diamond" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to Keyframe F${ev.frame}" style="left: calc(${evPct}% - 4px); background: ${isCurrent ? 'var(--primary)' : 'var(--accent)'}; box-shadow: ${isCurrent ? '0 0 4px var(--primary)' : 'none'};"></div>`;
+        }
+
+        const ribbonHtml = `
+          <div class="anim-track-ribbon" data-action="seek-ribbon" title="Click anywhere to scrub timeline">
+            <div class="anim-playhead-line" style="left: ${playheadPct}%;"></div>
+            ${ribbonDiamonds}
+          </div>
+        `;
 
         if (events.length === 0) {
           container.innerHTML = `
-            <div style="font-size: 10px; color: var(--text-muted); padding: 6px 4px; text-align: center; font-style: italic;">
+            ${ribbonHtml}
+            <div class="anim-empty-state">
               No keyframe states recorded for this object
             </div>
-            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 10px;">
+            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 9.5px;">
               + Record State at F${currentFrame}
             </button>
           `;
         } else {
           const easings = ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'spring', 'bounce', 'elastic'];
-          let rowsHtml = '';
+          let rowsHtml = `${ribbonHtml}<div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto;">`;
           for (const ev of events) {
             const easingOptions = easings.map(e => `<option value="${e}" ${ev.tweenType === e ? 'selected' : ''}>${e}</option>`).join('');
             rowsHtml += `
-              <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 3px;">
+              <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 2px; padding: 1px 4px;">
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <button class="event-frame-btn" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to frame ${ev.frame}">◆ F${ev.frame}</button>
-                  <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 9px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px;">
+                  <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 8.5px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px; height: 18px;">
                     ${easingOptions}
                   </select>
                 </div>
                 <div style="display: flex; align-items: center; gap: 2px;">
-                  <button class="btn-icon" data-action="update-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Update keyframe with current live properties" style="font-size: 10px; color: var(--text-muted); padding: 1px 3px;">⟳</button>
-                  <button class="btn-icon" data-action="delete-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Delete keyframe state" style="font-size: 9px; color: var(--danger); padding: 1px 3px;">✕</button>
+                  <button class="btn-icon" data-action="update-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Update keyframe with current live properties" style="font-size: 9.5px; color: var(--text-muted); padding: 1px 3px;">⟳</button>
+                  <button class="btn-icon" data-action="delete-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Delete keyframe state" style="font-size: 8.5px; color: var(--danger); padding: 1px 3px;">✕</button>
                 </div>
               </div>
             `;
           }
-
-          rowsHtml += `
-            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 6px; font-size: 10px;">
+          rowsHtml += `</div>
+            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 9.5px;">
               + Record State at F${currentFrame}
             </button>
           `;
@@ -4799,50 +5352,88 @@
         }
 
         container.onclick = (e) => {
-          const actionBtn = e.target.closest('[data-action]');
-          if (!actionBtn) return;
-          const action = actionBtn.dataset.action;
-          const frame = parseInt(actionBtn.dataset.frame, 10);
-          const objId = actionBtn.dataset.objectId;
+          const diamondOrBtn = e.target.closest('[data-action]');
+          if (diamondOrBtn) {
+            const action = diamondOrBtn.dataset.action;
+            const frame = parseInt(diamondOrBtn.dataset.frame, 10);
+            const objId = diamondOrBtn.dataset.objectId;
 
-          if (action === 'seek-frame' && !isNaN(frame)) {
-            if (typeof window.seekSceneFrame === 'function') {
-              window.seekSceneFrame(frame);
+            if (action === 'seek-frame' && !isNaN(frame)) {
+              if (typeof window.seekSceneFrame === 'function') {
+                window.seekSceneFrame(frame);
+              }
+              return;
             }
-          } else if (action === 'update-event') {
-            const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
-            if (targetObj && window.dopeSheet) {
-              recordObjectAnimationState(targetObj, frame);
+            if (action === 'select-obj' && objId) {
+              doc.select(objId);
+              render();
+              updateObjectList();
+              updateInspector();
+              updateSelectedObjectEventsUI();
+              return;
+            }
+            if (action === 'record-all-scene') {
+              const curF = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
+              const all = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
+              for (const o of all) {
+                recordObjectAnimationState(o, curF);
+              }
+              doc.pushHistory(`Record All Objects F${curF}`);
               if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-              doc.pushHistory(`Update Event F${frame}`);
               updateSelectedObjectEventsUI();
               updateObjectList();
+              showNotification(`Recorded scene state on Frame ${curF}`);
+              return;
             }
-          } else if (action === 'delete-event') {
-            if (window.dopeSheet) {
-              const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
-              if (targetDObj) {
-                if (typeof targetDObj.removeEventState === 'function') {
-                  targetDObj.removeEventState(frame);
-                } else if (typeof targetDObj.removeKeyframesAtFrame === 'function') {
-                  targetDObj.removeKeyframesAtFrame(frame);
-                }
-                if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') window.dopeSheetUI.updateGrid();
-                doc.pushHistory(`Delete Event F${frame}`);
+            if (action === 'update-event') {
+              const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
+              if (targetObj && window.dopeSheet) {
+                recordObjectAnimationState(targetObj, frame);
+                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                doc.pushHistory(`Update Event F${frame}`);
                 updateSelectedObjectEventsUI();
                 updateObjectList();
               }
+              return;
             }
-          } else if (action === 'add-event') {
-            const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
-            if (targetObj && window.dopeSheet) {
-              const curF = window.dopeSheet.currentFrame || 1;
-              recordObjectAnimationState(targetObj, curF);
-              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-              doc.pushHistory(`Record Event F${curF}`);
-              updateSelectedObjectEventsUI();
-              updateObjectList();
+            if (action === 'delete-event') {
+              if (window.dopeSheet) {
+                const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
+                if (targetDObj) {
+                  if (typeof targetDObj.removeEventState === 'function') {
+                    targetDObj.removeEventState(frame);
+                  } else if (typeof targetDObj.removeKeyframesAtFrame === 'function') {
+                    targetDObj.removeKeyframesAtFrame(frame);
+                  }
+                  if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') window.dopeSheetUI.updateGrid();
+                  doc.pushHistory(`Delete Event F${frame}`);
+                  updateSelectedObjectEventsUI();
+                  updateObjectList();
+                }
+              }
+              return;
             }
+            if (action === 'add-event') {
+              const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
+              if (targetObj && window.dopeSheet) {
+                const curF = window.dopeSheet.currentFrame || 1;
+                recordObjectAnimationState(targetObj, curF);
+                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                doc.pushHistory(`Record Event F${curF}`);
+                updateSelectedObjectEventsUI();
+                updateObjectList();
+              }
+              return;
+            }
+          }
+
+          const ribbon = e.target.closest('.anim-track-ribbon');
+          if (ribbon && typeof window.seekSceneFrame === 'function') {
+            const rect = ribbon.getBoundingClientRect();
+            const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+            const total = window.dopeSheet ? (window.dopeSheet.totalFrames || 60) : 60;
+            const targetFrame = Math.max(1, Math.min(total, Math.round(relX * (total - 1) + 1)));
+            window.seekSceneFrame(targetFrame);
           }
         };
 
@@ -4998,6 +5589,9 @@
               render();
               updateObjectList();
               return;
+            }
+            if (isGroup) {
+              obj.collapsed = !obj.collapsed;
             }
             doc.select(obj.id, e.shiftKey);
             render();
@@ -7471,13 +8065,13 @@
             clearTimeout(this.showTimer);
             this.showTimer = setTimeout(() => {
               this.openSubmenu(index, false);
-            }, 120);
+            }, 40);
           } else {
             clearTimeout(this.showTimer);
             if (this.activeSubmenu) {
               this.hideTimer = setTimeout(() => {
                 this.closeSubmenu();
-              }, 100);
+              }, 40);
             }
           }
         }
@@ -7893,14 +8487,16 @@
             hitObj = doc.hitTestDeep(pt.x, pt.y);
           }
           if (hitObj) {
-            expandObjectInTree(hitObj);
             if (!doc.selectedIds.has(hitObj.id)) {
               if (!e.shiftKey) doc.selectedIds.clear();
               doc.selectedIds.add(hitObj.id);
               render();
               drawOverlay();
-              updateInspector();
-              updateObjectList();
+              requestAnimationFrame(() => {
+                expandObjectInTree(hitObj);
+                updateInspector();
+                updateObjectList();
+              });
             }
           }
         }
@@ -8180,6 +8776,7 @@
           zoomToFit();
         } else if (key === 's') {
           snapEnabled = !snapEnabled;
+          saveStudioSettings({ snapEnabled });
           const snapBtn = document.getElementById('btn-toggle-snap');
           if (snapBtn) {
             snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
@@ -8985,9 +9582,10 @@
       });
 
       // Viewport Render Mode & Engine Switcher
-      let viewportBilinear = true;
+      let viewportBilinear = initialStudioSettings.viewportBilinear !== undefined ? Boolean(initialStudioSettings.viewportBilinear) : true;
       function setViewportBilinear(enable, notify = false) {
         viewportBilinear = Boolean(enable);
+        saveStudioSettings({ viewportBilinear });
         const mode = viewportBilinear ? 'auto' : 'pixelated';
         if (quadroCanvas) quadroCanvas.style.imageRendering = mode;
         if (svgStage) svgStage.style.imageRendering = mode;
@@ -9039,12 +9637,13 @@
 
         const statusRendererText = document.getElementById('status-renderer-text');
         if (statusRendererText) {
-          statusRendererText.textContent = (viewportRenderMode === 'svg') ? '🌐 Direct SVG' : '⚡ Quadro WASM';
+          statusRendererText.textContent = (viewportRenderMode === 'svg') ? '◇ Direct SVG' : '◈ Quadro WASM';
         }
       }
 
       const syncRenderMode = (val) => {
         viewportRenderMode = val;
+        saveStudioSettings({ viewportRenderMode: val });
         updateRendererMenuUi();
         render();
       };
@@ -9067,6 +9666,7 @@
           e.stopPropagation();
           const s = parseFloat(btn.dataset.scale) || 1.0;
           quadroRenderScale = s;
+          saveStudioSettings({ quadroRenderScale: s });
           const propScale = document.getElementById('prop-quadro-scale');
           if (propScale) propScale.value = String(s);
           updateStageSize();
@@ -9521,9 +10121,15 @@
         });
       });
 
+      if (btnToggleSnap) {
+        btnToggleSnap.textContent = snapEnabled ? 'ON' : 'OFF';
+        btnToggleSnap.style.color = snapEnabled ? '#fabd2f' : '#a89984';
+      }
+
       btnToggleSnap?.addEventListener('click', (e) => {
         e.stopPropagation();
         snapEnabled = !snapEnabled;
+        saveStudioSettings({ snapEnabled });
         btnToggleSnap.textContent = snapEnabled ? 'ON' : 'OFF';
         btnToggleSnap.style.color = snapEnabled ? '#fabd2f' : '#a89984';
         activeSnapLines = [];
@@ -10075,12 +10681,12 @@
 
         return [
           { type: 'header', title: 'Dock Panels & Views' },
-          { type: 'item', label: (isFillOpen ? '✓ ' : '') + 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => { if (isFillOpen) switchLeftTab('fill'); else openDockPanel('fill'); } },
-          { type: 'item', label: (isStrokeOpen ? '✓ ' : '') + 'Stroke & Brush Dock', action: () => { if (isStrokeOpen) switchLeftTab('stroke'); else openDockPanel('stroke'); } },
-          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => { if (isInspectOpen) switchTab('inspect'); else openDockPanel('inspect'); } },
-          { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => { if (isSceneOpen) switchTab('scene'); else openDockPanel('scene'); } },
-          { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => { if (isDocOpen) switchTab('document'); else openDockPanel('document'); } },
-          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation & Events Dock', action: () => { if (isAnimOpen) switchTab('animation'); else openDockPanel('animation'); } },
+          { type: 'item', label: (isFillOpen ? '✓ ' : '') + 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => toggleDockPanel('fill') },
+          { type: 'item', label: (isStrokeOpen ? '✓ ' : '') + 'Stroke & Brush Dock', action: () => toggleDockPanel('stroke') },
+          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
+          { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
+          { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => toggleDockPanel('document') },
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation & Events Dock', action: () => toggleDockPanel('animation') },
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
           { type: 'sep' },
@@ -10130,9 +10736,7 @@
           }},
           { type: 'sep' },
           { type: 'item', label: 'Go to First Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = 1; render(); } },
-          { type: 'item', label: 'Go to Last Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = window.dopeSheet.totalFrames || 60; render(); } },
-          { type: 'sep' },
-          { type: 'item', label: 'Onion Skinning Settings...', action: () => openDockPanel('animation') }
+          { type: 'item', label: 'Go to Last Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = window.dopeSheet.totalFrames || 60; render(); } }
         ];
       }
 
@@ -12619,64 +13223,255 @@
         }
       }
 
-      async function openRecentsModal() {
-        if (!modalRecents || typeof EsenhoStore === 'undefined') return;
-        menuDropdown?.classList.remove('active');
-        btnMenuLogo?.classList.remove('active');
-        modalRecents.style.display = 'flex';
-        recentsGrid.innerHTML = '<div style="padding: 32px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
+      // ── Pro Projects & Storage Center Logic ──
+      let recentsCachedList = [];
+      let recentsFilterType = 'all'; // 'all' | 'vector' | 'raster'
+      let recentsSearchQuery = '';
+      let recentsSortMode = 'updated-desc'; // 'updated-desc' | 'updated-asc' | 'name-asc' | 'name-desc' | 'size-desc'
+      let recentsViewMode = 'grid'; // 'grid' | 'list'
+
+      function formatRelativeTime(dateStr) {
+        if (!dateStr) return 'Unknown';
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        const diffMs = Date.now() - d.getTime();
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHour = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHour / 24);
+
+        if (diffSec < 45) return 'Just now';
+        if (diffMin < 60) return `${diffMin}m ago`;
+        if (diffHour < 24) return `${diffHour}h ago`;
+        if (diffDay === 1) return 'Yesterday';
+        if (diffDay < 7) return `${diffDay}d ago`;
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+      }
+
+      async function updateRecentsStorageBadge() {
+        const infoEl = document.getElementById('recents-storage-info');
+        if (!infoEl) return;
         try {
-          const list = await EsenhoStore.listProjects();
-          const countBadge = document.getElementById('recents-count-badge');
-          if (countBadge) countBadge.textContent = `${list ? list.length : 0} projects`;
-          if (!list || list.length === 0) {
+          if (navigator.storage && navigator.storage.estimate) {
+            const est = await navigator.storage.estimate();
+            const usageMB = (est.usage / (1024 * 1024)).toFixed(1);
+            infoEl.textContent = `IndexedDB Storage: ~${usageMB} MB used (Local Device)`;
+          } else {
+            infoEl.textContent = `IndexedDB Storage Active • ${recentsCachedList.length} items`;
+          }
+        } catch (_) {
+          infoEl.textContent = `IndexedDB Storage Active • ${recentsCachedList.length} items`;
+        }
+      }
+
+      function renderRecentsView() {
+        if (!recentsGrid) return;
+        const countBadge = document.getElementById('recents-count-badge');
+        
+        let filtered = recentsCachedList.slice();
+        if (recentsFilterType !== 'all') {
+          filtered = filtered.filter(p => p.type === recentsFilterType);
+        }
+
+        if (recentsSearchQuery) {
+          const q = recentsSearchQuery.toLowerCase();
+          filtered = filtered.filter(p => {
+            const name = (p.name || '').toLowerCase();
+            const dims = `${p.width}x${p.height}`;
+            return name.includes(q) || dims.includes(q);
+          });
+        }
+
+        // Sorting
+        filtered.sort((a, b) => {
+          if (recentsSortMode === 'updated-desc') return new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+          if (recentsSortMode === 'updated-asc') return new Date(a.updatedAt || 0) - new Date(b.updatedAt || 0);
+          if (recentsSortMode === 'name-asc') return (a.name || '').localeCompare(b.name || '');
+          if (recentsSortMode === 'name-desc') return (b.name || '').localeCompare(a.name || '');
+          if (recentsSortMode === 'size-desc') {
+            const areaA = (a.width || 0) * (a.height || 0);
+            const areaB = (b.width || 0) * (b.height || 0);
+            return areaB - areaA;
+          }
+          return 0;
+        });
+
+        if (countBadge) {
+          countBadge.textContent = `${filtered.length} project${filtered.length === 1 ? '' : 's'}`;
+        }
+
+        if (filtered.length === 0) {
+          if (recentsCachedList.length === 0) {
+            recentsGrid.className = 'recents-grid';
             recentsGrid.innerHTML = `
-              <div style="padding: 40px 20px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
-                </svg>
-                <div style="font-size: 13px; font-weight: 600; color: var(--text-main);">No saved projects yet</div>
-                <div style="font-size: 11px; color: var(--text-muted); max-width: 260px; line-height: 1.4;">Projects saved in browser memory will appear here.</div>
-                <button type="button" class="btn btn-primary" style="margin-top: 4px;" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
+              <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--bg-panel-sub); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary);">📁</div>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-bright);">No saved projects in memory</div>
+                <div style="font-size: 11px; color: var(--text-muted); max-width: 320px; line-height: 1.5;">Start creating new vector graphics, raster artwork, or import existing files from your device.</div>
+                <div style="display: flex; gap: 8px; margin-top: 4px;">
+                  <button type="button" class="btn btn-primary" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
+                  <button type="button" class="btn" onclick="document.getElementById('inp-recents-import-file').click();">📥 Import .esen File</button>
+                </div>
               </div>
             `;
-            return;
+          } else {
+            recentsGrid.className = 'recents-grid';
+            recentsGrid.innerHTML = `
+              <div style="padding: 40px 20px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+                <div style="font-size: 18px;">🔍</div>
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-bright);">No matching projects found</div>
+                <div style="font-size: 11px; color: var(--text-muted);">No projects matched "${recentsSearchQuery || recentsFilterType}".</div>
+                <button type="button" class="btn-sm" style="margin-top: 4px;" onclick="document.getElementById('recents-search-input').value=''; recentsSearchQuery=''; document.getElementById('pill-filter-all').click();">Clear Search Filter</button>
+              </div>
+            `;
           }
-          recentsGrid.innerHTML = list.map(p => {
-            const dateStr = new Date(p.updatedAt).toLocaleDateString() + ' ' + new Date(p.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return;
+        }
+
+        if (recentsViewMode === 'grid') {
+          recentsGrid.className = 'recents-grid';
+          recentsGrid.innerHTML = filtered.map(p => {
             const isVec = p.type === 'vector';
-            const icon = isVec ? '∿' : '◫';
-            const badge = isVec
-              ? `<span class="badge" style="color: var(--primary); border-color: var(--primary-dim);"><span style="font-size: 11px; margin-right: 3px;">∿</span>Vector</span>`
-              : `<span class="badge" style="color: var(--accent); border-color: var(--accent-dim);"><span style="font-size: 11px; margin-right: 3px;">◫</span>Raster</span>`;
+            const relTime = formatRelativeTime(p.updatedAt);
+            const badgeClass = isVec ? 'recent-type-badge recent-type-vector' : 'recent-type-badge recent-type-raster';
+            const badgeLabel = isVec ? '∿ Vector' : '◫ Raster';
             const thumbHtml = p.thumbnail 
-              ? (p.thumbnail.startsWith('data:image/svg+xml') ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:8px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` : `<img src="${p.thumbnail}" alt="Thumbnail">`)
-              : `<div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 10px; color: var(--text-muted);">No Preview</div>`;
+              ? (p.thumbnail.startsWith('data:image/svg+xml') 
+                  ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` 
+                  : `<img src="${p.thumbnail}" alt="Preview" loading="lazy">`)
+              : `<div style="font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px;"><span style="font-size: 18px; opacity: 0.4;">${isVec ? '∿' : '◫'}</span>No Preview</div>`;
+
             return `
-              <div class="recent-item">
-                <div class="recent-thumb" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${thumbHtml}</div>
-                <div class="recent-meta">
-                  <div class="recent-title-row">
-                    <div class="recent-title" title="${p.name}" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${p.name}</div>
-                    ${badge}
+              <div class="recent-card" data-project-id="${p.id}">
+                <div class="recent-card-thumb-wrap" onclick="window.handleOpenRecent('${p.id}', '${p.type}')" title="Click to open ${p.name}">
+                  ${thumbHtml}
+                  <span class="${badgeClass}">${badgeLabel}</span>
+                  <div class="recent-card-hover-overlay">
+                    <button type="button" class="btn-sm btn-primary" style="box-shadow: 0 4px 12px rgba(0,0,0,0.5);">▶ Open</button>
                   </div>
-                  <div class="recent-sub">${p.width} × ${p.height} px • ${dateStr}</div>
-                  <div class="recent-actions" onclick="event.stopPropagation();">
+                </div>
+                <div class="recent-card-body">
+                  <div class="recent-card-title" title="${p.name}" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">${p.name}</div>
+                  <div class="recent-card-info">
+                    <span>${p.width} × ${p.height} px</span>
+                    <span title="${new Date(p.updatedAt).toLocaleString()}">${relTime}</span>
+                  </div>
+                  <div class="recent-card-actions" onclick="event.stopPropagation();">
                     <button type="button" class="btn-sm btn-primary" style="flex: 1; justify-content: center;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
-                    <button type="button" class="btn-sm" title="Rename" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">Rename</button>
-                    ${!isVec ? `<button type="button" class="btn-sm" title="Insert as layer" style="color: var(--accent); border-color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Layer</button>` : ''}
-                    <button type="button" class="btn-sm" title="Delete" style="color: var(--danger); border-color: var(--danger-dim);" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
+                    <button type="button" class="btn-sm btn-icon" title="Export .esen project file" onclick="window.handleExportRecentFile('${p.id}')">📥</button>
+                    <button type="button" class="btn-sm btn-icon" title="Duplicate project" onclick="window.handleDuplicateRecent('${p.id}')">⧉</button>
+                    <button type="button" class="btn-sm btn-icon" title="Rename project" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">✎</button>
+                    ${!isVec ? `<button type="button" class="btn-sm" title="Insert as layer into current stage" style="color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Layer</button>` : ''}
+                    <button type="button" class="btn-sm btn-icon" title="Delete project" style="color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
                   </div>
                 </div>
               </div>
             `;
           }).join('');
+        } else {
+          // List view
+          recentsGrid.className = 'recents-list-view';
+          recentsGrid.innerHTML = filtered.map(p => {
+            const isVec = p.type === 'vector';
+            const relTime = formatRelativeTime(p.updatedAt);
+            const badgeClass = isVec ? 'recent-type-badge recent-type-vector' : 'recent-type-badge recent-type-raster';
+            const badgeLabel = isVec ? '∿ Vector' : '◫ Raster';
+            const thumbHtml = p.thumbnail 
+              ? (p.thumbnail.startsWith('data:image/svg+xml') 
+                  ? decodeURIComponent(p.thumbnail.split(',')[1] || '') 
+                  : `<img src="${p.thumbnail}" alt="Thumb" loading="lazy">`)
+              : `<span style="font-size: 14px; opacity: 0.4;">${isVec ? '∿' : '◫'}</span>`;
+
+            return `
+              <div class="recent-list-row" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
+                <div class="recent-list-thumb">${thumbHtml}</div>
+                <div class="recent-list-main">
+                  <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-weight: 600; font-size: 11.5px; color: var(--text-bright);">${p.name}</span>
+                    <span class="${badgeClass}" style="position: static; padding: 1px 4px; font-size: 8.5px;">${badgeLabel}</span>
+                  </div>
+                  <div class="recent-list-meta">
+                    <span>${p.width} × ${p.height} px</span>
+                    <span title="${new Date(p.updatedAt).toLocaleString()}">Updated ${relTime}</span>
+                  </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 4px;" onclick="event.stopPropagation();">
+                  <button type="button" class="btn-sm btn-primary" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
+                  <button type="button" class="btn-sm btn-icon" title="Export .esen" onclick="window.handleExportRecentFile('${p.id}')">📥</button>
+                  <button type="button" class="btn-sm btn-icon" title="Duplicate" onclick="window.handleDuplicateRecent('${p.id}')">⧉</button>
+                  <button type="button" class="btn-sm btn-icon" title="Rename" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">✎</button>
+                  <button type="button" class="btn-sm btn-icon" title="Delete" style="color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      async function openRecentsModal() {
+        if (!modalRecents || typeof EsenhoStore === 'undefined') return;
+        menuDropdown?.classList.remove('active');
+        btnMenuLogo?.classList.remove('active');
+        modalRecents.style.display = 'flex';
+        recentsGrid.innerHTML = '<div style="padding: 40px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects &amp; storage telemetry...</div>';
+        
+        // Reset or sync search box
+        const searchInput = document.getElementById('recents-search-input');
+        if (searchInput) searchInput.value = recentsSearchQuery;
+        const btnClear = document.getElementById('btn-recents-clear-search');
+        if (btnClear) btnClear.style.display = recentsSearchQuery ? 'inline-flex' : 'none';
+
+        try {
+          recentsCachedList = (await EsenhoStore.listProjects()) || [];
+          renderRecentsView();
+          updateRecentsStorageBadge();
         } catch (e) {
           recentsGrid.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading projects: ${e.message}</div>`;
         }
       }
+
+      window.handleDuplicateRecent = async function(id) {
+        try {
+          const proj = await EsenhoStore.getProject(id);
+          if (!proj) return alert('Project not found');
+          const cloneId = 'proj_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+          const clone = {
+            ...proj,
+            id: cloneId,
+            name: (proj.name || 'Project') + ' (Copy)',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          await EsenhoStore.saveProject(clone);
+          showNotification(`Project duplicated: ${clone.name}`);
+          await openRecentsModal();
+          updateRecentProjectsMenu();
+        } catch (err) {
+          alert('Failed to duplicate project: ' + err.message);
+        }
+      };
+
+      window.handleExportRecentFile = async function(id) {
+        try {
+          const proj = await EsenhoStore.getProject(id);
+          if (!proj) return alert('Project not found');
+          if (typeof EsenhoStore.exportEsenFile === 'function') {
+            EsenhoStore.exportEsenFile(proj, `${proj.name || 'project'}.esen`);
+            showNotification(`Exported ${proj.name || 'project'}.esen`);
+          } else {
+            const json = JSON.stringify(proj, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${proj.name || 'project'}.esen`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showNotification(`Exported ${proj.name || 'project'}.esen`);
+          }
+        } catch (err) {
+          alert('Failed to export project: ' + err.message);
+        }
+      };
 
       window.handleRenameRecent = async function(id, currentName) {
         const newName = prompt('Rename project:', currentName || '');
@@ -12752,9 +13547,89 @@
       window.handleDeleteRecent = async function(id) {
         if (!confirm('Delete this project from local memory?')) return;
         await EsenhoStore.deleteProject(id);
-        openRecentsModal();
+        await openRecentsModal();
         updateRecentProjectsMenu();
       };
+
+      // ── Search & Filter Listeners for Recents Modal ──
+      document.getElementById('recents-search-input')?.addEventListener('input', (e) => {
+        recentsSearchQuery = e.target.value.trim();
+        const btnClear = document.getElementById('btn-recents-clear-search');
+        if (btnClear) btnClear.style.display = recentsSearchQuery ? 'inline-flex' : 'none';
+        renderRecentsView();
+      });
+
+      document.getElementById('btn-recents-clear-search')?.addEventListener('click', () => {
+        const searchInput = document.getElementById('recents-search-input');
+        if (searchInput) {
+          searchInput.value = '';
+          recentsSearchQuery = '';
+        }
+        document.getElementById('btn-recents-clear-search').style.display = 'none';
+        renderRecentsView();
+      });
+
+      document.querySelectorAll('.recents-pill').forEach(pill => {
+        pill.addEventListener('click', () => {
+          document.querySelectorAll('.recents-pill').forEach(p => p.classList.remove('active'));
+          pill.classList.add('active');
+          recentsFilterType = pill.dataset.filter || 'all';
+          renderRecentsView();
+        });
+      });
+
+      document.getElementById('recents-sort-select')?.addEventListener('change', (e) => {
+        recentsSortMode = e.target.value;
+        renderRecentsView();
+      });
+
+      document.getElementById('btn-recents-view-grid')?.addEventListener('click', () => {
+        recentsViewMode = 'grid';
+        document.getElementById('btn-recents-view-grid')?.classList.add('active');
+        document.getElementById('btn-recents-view-grid')?.style.setProperty('background', 'var(--bg-panel-sub)');
+        document.getElementById('btn-recents-view-list')?.classList.remove('active');
+        document.getElementById('btn-recents-view-list')?.style.setProperty('background', 'transparent');
+        renderRecentsView();
+      });
+
+      document.getElementById('btn-recents-view-list')?.addEventListener('click', () => {
+        recentsViewMode = 'list';
+        document.getElementById('btn-recents-view-list')?.classList.add('active');
+        document.getElementById('btn-recents-view-list')?.style.setProperty('background', 'var(--bg-panel-sub)');
+        document.getElementById('btn-recents-view-grid')?.classList.remove('active');
+        document.getElementById('btn-recents-view-grid')?.style.setProperty('background', 'transparent');
+        renderRecentsView();
+      });
+
+      document.getElementById('btn-recents-import-file')?.addEventListener('click', () => {
+        document.getElementById('inp-recents-import-file')?.click();
+      });
+
+      document.getElementById('inp-recents-import-file')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+          if (typeof EsenhoStore.importEsenFile === 'function') {
+            const imported = await EsenhoStore.importEsenFile(file);
+            showNotification(`Imported project: ${imported.name || file.name}`);
+            await openRecentsModal();
+            updateRecentProjectsMenu();
+          }
+        } catch (err) {
+          alert('Failed to import file: ' + err.message);
+        }
+        e.target.value = '';
+      });
+
+      document.getElementById('btn-modal-bundle-backup')?.addEventListener('click', () => {
+        closeRecentsModal();
+        if (typeof openAssetBundleModal === 'function') {
+          openAssetBundleModal('export');
+        } else if (modalBundle) {
+          modalBundle.style.display = 'flex';
+          switchBundleTab('export');
+        }
+      });
 
       document.getElementById('btn-new-project')?.addEventListener('click', () => {
         menuDropdown?.classList.remove('active');
