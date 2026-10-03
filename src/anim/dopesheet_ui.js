@@ -69,14 +69,14 @@ export class DopeSheetUI {
 
           <div style="display: flex; align-items: center; gap: 3px;">
             <span style="color: var(--text-dim); font-size: 10.5px;">Frame:</span>
-            <input id="ds-input-frame" type="number" min="1" max="${this.ds.totalFrames}" value="${this.ds.currentFrame}" style="width: 40px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-weight: bold; font-size: 11px;">
+            <input id="ds-input-frame" type="number" min="1" max="${this.ds.totalFrames}" value="${this.ds.currentFrame}" style="width: 52px; min-width: 48px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; text-align: center; font-weight: bold; font-size: 11px; font-family: var(--font-mono); box-sizing: border-box;">
             <span style="color: var(--text-muted);">/</span>
-            <input id="ds-input-total" type="number" min="1" max="9999" value="${this.ds.totalFrames}" style="width: 40px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 11px;">
+            <input id="ds-input-total" type="number" min="1" max="9999" value="${this.ds.totalFrames}" style="width: 52px; min-width: 48px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; text-align: center; font-size: 11px; font-family: var(--font-mono); box-sizing: border-box;">
           </div>
 
           <div style="display: flex; align-items: center; gap: 3px;">
             <span style="color: var(--text-dim); font-size: 10.5px;">FPS:</span>
-            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 36px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 11px;">
+            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 46px; min-width: 42px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; text-align: center; font-size: 11px; font-family: var(--font-mono); box-sizing: border-box;">
           </div>
 
           <div style="display: flex; align-items: center; gap: 3px;">
@@ -1457,7 +1457,7 @@ export class DopeSheetUI {
       return '●';
     };
 
-    // 1. Build List of Display Rows (Objects and their active/modified Channel sub-tracks in Hierarchy order)
+    // 1. Build List of Display Rows (Filtered strictly to SELECTED objects only)
     const displayRows = [];
     const processedIds = new Set();
 
@@ -1479,7 +1479,6 @@ export class DopeSheetUI {
 
       const activeChannels = Array.from(obj.channels.values()).filter(ch => ch.keyframes.length > 0);
       const isTracksCollapsed = (obj.collapsed === true);
-      const isGroupCollapsed = live ? (live.collapsed === true) : (obj.groupCollapsed === true);
 
       displayRows.push({
         type: 'object',
@@ -1488,14 +1487,13 @@ export class DopeSheetUI {
         id: obj.id,
         label,
         objType,
-        depth,
+        depth: 0,
         activeChannels,
         tracksCollapsed: isTracksCollapsed,
-        groupCollapsed: isGroupCollapsed,
         height: 26
       });
 
-      // 1. Channel sub-tracks of THIS object (if tracks are expanded)
+      // Channel sub-tracks of THIS object (if tracks are expanded)
       if (!isTracksCollapsed && activeChannels.length > 0) {
         for (const ch of activeChannels) {
           displayRows.push({
@@ -1505,38 +1503,25 @@ export class DopeSheetUI {
             paramKey: ch.paramKey,
             id: `${obj.id}:${ch.paramKey}`,
             label: ch.label || ch.paramKey,
-            depth: depth + 1,
+            depth: 1,
             height: 22
           });
         }
       }
-
-      // 2. Child objects if this is a group (if group hierarchy is expanded)
-      if (live && live.type === 'group' && Array.isArray(live.children)) {
-        if (!isGroupCollapsed) {
-          for (const child of live.children) {
-            const childDObj = this.ds.getOrCreateObject(child.id, child.name || `${child.type} ${child.id}`, child.type === 'group' ? 'group' : 'vector');
-            addObjectRow(childDObj, child, depth + 1);
-          }
-        }
-      }
     };
 
-    if (typeof window !== 'undefined' && window.doc && Array.isArray(window.doc.objects)) {
-      for (const live of window.doc.objects) {
-        const dObj = this.ds.getOrCreateObject(live.id, live.name || `${live.type} ${live.id}`, live.type === 'group' ? 'group' : 'vector');
-        addObjectRow(dObj, live, 0);
-      }
+    let selectedObjs = [];
+    if (typeof window !== 'undefined' && window.doc && typeof window.doc.getSelectedObjects === 'function') {
+      selectedObjs = window.doc.getSelectedObjects();
+    } else if (this.selectedObjectId) {
+      const dObj = this.ds.objects.get(this.selectedObjectId);
+      if (dObj) selectedObjs = [dObj];
     }
 
-    // Add any remaining objects in this.ds.objects (e.g. camera, audio, or external tracks)
-    for (const obj of this.ds.objects.values()) {
-      if (!processedIds.has(obj.id)) {
-        let live = null;
-        if (typeof window !== 'undefined' && window.doc) {
-          live = window.doc.findObject ? window.doc.findObject(obj.id) : null;
-        }
-        addObjectRow(obj, live, 0);
+    if (selectedObjs.length > 0) {
+      for (const live of selectedObjs) {
+        const dObj = this.ds.getOrCreateObject(live.id, live.name || `${live.type} ${live.id}`, live.type === 'group' ? 'group' : 'vector');
+        addObjectRow(dObj, live, 0);
       }
     }
 
@@ -1551,263 +1536,157 @@ export class DopeSheetUI {
 
     // 2. Render Left Sidebar DOM Rows
     treeRowsEl.innerHTML = '';
-    displayRows.forEach((r, idx) => {
-      const rowEl = document.createElement('div');
-      rowEl.style.height = `${r.height}px`;
-      rowEl.style.display = 'flex';
-      rowEl.style.alignItems = 'center';
-      rowEl.style.borderBottom = '1px solid #32302f';
-      rowEl.style.boxSizing = 'border-box';
-      rowEl.style.cursor = 'pointer';
-
-      if (r.type === 'object') {
-        let liveObj = r.liveObj || null;
-        if (!liveObj && typeof window !== 'undefined' && window.doc) {
-          liveObj = window.doc.findObject ? window.doc.findObject(r.object.id) : null;
-        }
-        const isVisible = liveObj ? (liveObj.visible !== false) : true;
-        const isLocked = liveObj ? (liveObj.locked === true) : false;
-
-        const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
-        const depthPad = r.depth ? (r.depth * 14) : 0;
-        rowEl.style.padding = `0 6px 0 ${6 + depthPad}px`;
+    if (displayRows.length === 0) {
+      treeRowsEl.innerHTML = `
+        <div style="padding: 18px 12px; text-align: center; color: var(--text-muted); font-size: 10.5px; line-height: 1.4;">
+          No selection<br>
+          <span style="font-size: 9.5px; color: var(--text-dim);">Select an object in Scene or Canvas to view its tracks</span>
+        </div>
+      `;
+    } else {
+      displayRows.forEach((r, idx) => {
+        const rowEl = document.createElement('div');
+        rowEl.style.height = `${r.height}px`;
+        rowEl.style.display = 'flex';
+        rowEl.style.alignItems = 'center';
         rowEl.style.borderBottom = '1px solid var(--border-subtle, rgba(255,255,255,0.05))';
-        if (isSelected) {
-          rowEl.style.background = 'var(--primary-dim, rgba(250, 189, 47, 0.16))';
-          rowEl.style.borderLeft = '3px solid var(--primary)';
-        } else {
-          rowEl.style.background = (idx % 2 === 0 ? 'var(--bg-panel)' : 'var(--bg-panel-sub)');
-          rowEl.style.borderLeft = '3px solid transparent';
-        }
+        rowEl.style.boxSizing = 'border-box';
+        rowEl.style.cursor = 'pointer';
 
-        const kfFrames = r.object.getKeyframeFrames();
-        const kfCount = kfFrames.length;
-
-        const getIcon = (type) => {
-          switch (type) {
-            case 'rect': return '▭';
-            case 'circle': return '○';
-            case 'ellipse': return '⬭';
-            case 'star': return '★';
-            case 'polygon': return '⬡';
-            case 'path': return '∿';
-            case 'text': return 'T';
-            case 'image': return '🖼';
-            case 'camera': return '📷';
-            case 'brush_preset': return '🖌';
-            case 'group': return '⊞';
-            default: return '◈';
+        if (r.type === 'object') {
+          const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
+          rowEl.style.padding = '0 8px 0 8px';
+          if (isSelected) {
+            rowEl.style.background = 'var(--primary-dim, rgba(250, 189, 47, 0.16))';
+            rowEl.style.borderLeft = '3px solid var(--primary)';
+          } else {
+            rowEl.style.background = (idx % 2 === 0 ? 'var(--bg-panel)' : 'var(--bg-panel-sub)');
+            rowEl.style.borderLeft = '3px solid transparent';
           }
-        };
 
-        const icon = getIcon(r.objType);
-        const isGroup = (r.objType === 'group');
-        const hasSubtracks = r.activeChannels.length > 0;
-
-        const groupToggleHtml = isGroup
-          ? `<span class="ds-group-toggle" title="${r.groupCollapsed ? 'Expand Group (Show child objects)' : 'Collapse Group (Hide child objects)'}" style="font-size: 9px; width: 12px; text-align: center; color: var(--text-muted); cursor: pointer; margin-right: 2px;">${r.groupCollapsed ? '▶' : '▼'}</span>`
-          : `<span class="ds-group-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-right: 2px;"></span>`;
-
-        const tracksToggleHtml = hasSubtracks
-          ? `<span class="ds-tracks-toggle" title="${r.tracksCollapsed ? 'Expand Parameter Tracks' : 'Collapse Parameter Tracks'}" style="font-size: 9px; width: 12px; text-align: center; color: var(--primary); cursor: pointer; margin-left: 2px; margin-right: 4px;">${r.tracksCollapsed ? '▶' : '▼'}</span>`
-          : `<span class="ds-tracks-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-left: 2px; margin-right: 4px;"></span>`;
-
-        rowEl.innerHTML = `
-          ${groupToggleHtml}
-          <span style="font-size: 11px; margin-right: 4px; color: ${isGroup ? 'var(--primary)' : 'var(--accent)'}; width: 14px; text-align: center;">${icon}</span>
-          <span class="ds-obj-name" style="font-weight: 600; color: ${isSelected ? 'var(--primary)' : 'var(--text)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10.5px;" title="${r.label} (Click to select, double-click to rename)">${r.label}</span>
-          ${tracksToggleHtml}
-          <span class="ds-vis-btn" title="Toggle Visibility" style="font-size: 10px; margin-right: 3px; opacity: ${isVisible ? '0.9' : '0.3'}; cursor: pointer; padding: 0 2px;">${isVisible ? '👁' : '👁‍🗨'}</span>
-          <span class="ds-lock-btn" title="Toggle Lock" style="font-size: 10px; margin-right: 3px; opacity: ${isLocked ? '1.0' : '0.3'}; color: ${isLocked ? 'var(--danger)' : 'inherit'}; cursor: pointer; padding: 0 2px;">${isLocked ? '🔒' : '🔓'}</span>
-          <span class="ds-add-param-btn" title="Add Parameter Track (+)" style="font-size: 11px; margin-right: 3px; color: var(--primary); font-weight: bold; cursor: pointer; padding: 0 2px;">＋</span>
-          <span style="font-size: 8px; color: ${kfCount > 0 ? 'var(--success)' : 'var(--text-muted)'}; margin-right: 4px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
-          <span class="ds-del-track-btn" title="Clear Keyframes for Object" style="color: var(--text-muted); font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
-        `;
-
-        const groupToggleBtn = rowEl.querySelector('.ds-group-toggle');
-        if (groupToggleBtn && isGroup) {
-          groupToggleBtn.onclick = (e) => {
-            e.stopPropagation();
-            const newCollapsed = !r.groupCollapsed;
-            r.object.groupCollapsed = newCollapsed;
-            if (liveObj) liveObj.collapsed = newCollapsed;
-            this.updateGrid();
-          };
-        }
-
-        const tracksToggleBtn = rowEl.querySelector('.ds-tracks-toggle');
-        if (tracksToggleBtn && hasSubtracks) {
-          tracksToggleBtn.onclick = (e) => {
-            e.stopPropagation();
-            r.object.collapsed = !r.tracksCollapsed;
-            this.updateGrid();
-          };
-        }
-
-        const visBtn = rowEl.querySelector('.ds-vis-btn');
-        if (visBtn) {
-          visBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (liveObj) {
-              liveObj.visible = !liveObj.visible;
-              if (window.render) window.render();
-              if (window.updateInspector) window.updateInspector();
-              this.updateGrid();
+          const getIcon = (type) => {
+            switch (type) {
+              case 'rect': return '▭';
+              case 'circle': return '○';
+              case 'ellipse': return '⬭';
+              case 'star': return '★';
+              case 'polygon': return '⬡';
+              case 'path': return '∿';
+              case 'text': return 'T';
+              case 'image': return '🖼';
+              case 'camera': return '📷';
+              case 'brush_preset': return '🖌';
+              case 'group': return '⊞';
+              default: return '◈';
             }
           };
-        }
 
-        const lockBtn = rowEl.querySelector('.ds-lock-btn');
-        if (lockBtn) {
-          lockBtn.onclick = (e) => {
-            e.stopPropagation();
-            if (liveObj) {
-              liveObj.locked = !liveObj.locked;
-              if (window.render) window.render();
-              if (window.updateInspector) window.updateInspector();
-              this.updateGrid();
-            }
-          };
-        }
+          const icon = getIcon(r.objType);
+          const isGroup = (r.objType === 'group');
+          const hasSubtracks = r.activeChannels.length > 0;
 
-        const addParamBtn = rowEl.querySelector('.ds-add-param-btn');
-        if (addParamBtn) {
-          addParamBtn.onclick = (e) => {
-            e.stopPropagation();
-            this.openAddParameterMenu(r.object, e.clientX, e.clientY);
-          };
-        }
+          const tracksToggleHtml = hasSubtracks
+            ? `<span class="ds-tracks-toggle" title="${r.tracksCollapsed ? 'Expand Parameter Tracks' : 'Collapse Parameter Tracks'}" style="font-size: 9px; width: 12px; text-align: center; color: var(--primary); cursor: pointer; margin-right: 4px;">${r.tracksCollapsed ? '▶' : '▼'}</span>`
+            : `<span class="ds-tracks-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-right: 4px;"></span>`;
 
-        // Inline double-click to rename
-        const nameSpan = rowEl.querySelector('.ds-obj-name');
-        if (nameSpan) {
-          nameSpan.ondblclick = (e) => {
-            e.stopPropagation();
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = r.label;
-            input.style.fontSize = '10px';
-            input.style.width = '80px';
-            input.style.background = 'var(--bg-input)';
-            input.style.color = 'var(--text-bright)';
-            input.style.border = '1px solid var(--border-focus)';
-            input.style.borderRadius = '2px';
-            input.style.padding = '0 2px';
+          rowEl.innerHTML = `
+            ${tracksToggleHtml}
+            <span style="font-size: 11px; margin-right: 4px; color: ${isGroup ? 'var(--primary)' : 'var(--accent)'}; width: 14px; text-align: center;">${icon}</span>
+            <span class="ds-obj-name" style="font-weight: 600; color: ${isSelected ? 'var(--primary)' : 'var(--text)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10.5px;" title="${r.label}">${r.label}</span>
+            <span class="ds-del-track-btn" title="Clear Keyframes for Object" style="color: var(--text-muted); font-size: 11px; cursor: pointer; padding: 0 4px; margin-left: 4px;">✕</span>
+          `;
 
-            const saveName = () => {
-              const val = input.value.trim();
-              if (val && val !== r.label) {
-                r.object.name = val;
-                if (liveObj) {
-                  liveObj.name = val;
-                  if (typeof window !== 'undefined' && window.doc && window.doc.pushHistory) {
-                    window.doc.pushHistory(`Rename to ${val}`);
-                  }
-                }
-                this.ds.renameObject(r.object.id, val);
-                if (window.updateInspector) window.updateInspector();
-                if (window.updateObjectList) window.updateObjectList();
-              }
+          const tracksToggleBtn = rowEl.querySelector('.ds-tracks-toggle');
+          if (tracksToggleBtn && hasSubtracks) {
+            tracksToggleBtn.onclick = (e) => {
+              e.stopPropagation();
+              r.object.collapsed = !r.tracksCollapsed;
               this.updateGrid();
             };
-
-            input.onblur = saveName;
-            input.onkeydown = (ev) => {
-              if (ev.key === 'Enter') saveName();
-              if (ev.key === 'Escape') this.updateGrid();
-            };
-
-            nameSpan.replaceWith(input);
-            input.focus();
-            input.select();
-          };
-        }
-
-        rowEl.onclick = () => {
-          this.selectedObjectId = r.object.id;
-          this.selectedParamKey = null;
-          if (typeof window !== 'undefined' && window.doc) {
-            if (window.doc.select) window.doc.select(r.object.id);
-            if (window.render) window.render();
-            if (window.updateInspector) window.updateInspector();
-            if (window.drawOverlay) window.drawOverlay();
           }
-          this.syncEasingUI();
-          this.updateGrid();
-        };
 
-        const delBtn = rowEl.querySelector('.ds-del-track-btn');
-        if (delBtn) {
-          delBtn.onmouseenter = () => delBtn.style.color = 'var(--danger)';
-          delBtn.onmouseleave = () => delBtn.style.color = 'var(--text-muted)';
-          delBtn.onclick = (e) => {
-            e.stopPropagation();
-            r.object.channels.clear();
-            if (this.selectedObjectId === r.object.id) {
-              this.selectedParamKey = null;
-            }
-            if (typeof window !== 'undefined') {
+          rowEl.onclick = () => {
+            this.selectedObjectId = r.object.id;
+            this.selectedParamKey = null;
+            if (typeof window !== 'undefined' && window.doc) {
+              if (window.doc.select) window.doc.select(r.object.id);
               if (window.render) window.render();
               if (window.updateInspector) window.updateInspector();
               if (window.drawOverlay) window.drawOverlay();
             }
+            this.syncEasingUI();
             this.updateGrid();
           };
-        }
-      } else {
-        // Channel sub-track row
-        const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
-        const depthPad = r.depth ? ((r.depth - 1) * 14) : 0;
-        rowEl.style.padding = `0 6px 0 ${24 + depthPad}px`;
-        rowEl.style.borderBottom = '1px solid var(--border-subtle, rgba(255,255,255,0.05))';
-        if (isSelected) {
-          rowEl.style.background = 'var(--accent-dim, rgba(131, 165, 152, 0.16))';
-          rowEl.style.borderLeft = '3px solid var(--accent)';
-        } else {
-          rowEl.style.background = 'var(--bg-panel-sub)';
-          rowEl.style.borderLeft = '3px solid transparent';
-        }
 
-        const kfCount = r.channel.keyframes.length;
-        const pIcon = getParamIcon(r.paramKey);
-
-        rowEl.innerHTML = `
-          <span style="font-size: 10px; margin-right: 4px; color: var(--text-muted); width: 12px; text-align: center;">${pIcon}</span>
-          <span style="color: ${isSelected ? 'var(--primary)' : 'var(--text-dim)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10px;" title="${r.label}">${r.label}</span>
-          <span style="font-size: 8px; color: ${kfCount > 0 ? 'var(--success)' : 'var(--text-muted)'}; margin-right: 6px;" title="${kfCount} keyframes">${kfCount} kf</span>
-          <span class="ds-del-channel-btn" title="Remove parameter track" style="color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 0 2px;">✕</span>
-        `;
-
-        rowEl.onclick = () => {
-          this.selectedObjectId = r.object.id;
-          this.selectedParamKey = r.paramKey;
-          if (typeof window !== 'undefined' && window.doc) {
-            if (window.doc.select) window.doc.select(r.object.id);
-            if (window.render) window.render();
-            if (window.updateInspector) window.updateInspector();
-            if (window.drawOverlay) window.drawOverlay();
+          const delBtn = rowEl.querySelector('.ds-del-track-btn');
+          if (delBtn) {
+            delBtn.onmouseenter = () => delBtn.style.color = 'var(--danger)';
+            delBtn.onmouseleave = () => delBtn.style.color = 'var(--text-muted)';
+            delBtn.onclick = (e) => {
+              e.stopPropagation();
+              r.object.channels.clear();
+              if (this.selectedObjectId === r.object.id) {
+                this.selectedParamKey = null;
+              }
+              if (typeof window !== 'undefined') {
+                if (window.render) window.render();
+                if (window.updateInspector) window.updateInspector();
+                if (window.drawOverlay) window.drawOverlay();
+              }
+              this.updateGrid();
+            };
           }
-          this.syncEasingUI();
-          this.updateGrid();
-        };
+        } else {
+          // Channel sub-track row
+          const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
+          rowEl.style.padding = '0 8px 0 24px';
+          if (isSelected) {
+            rowEl.style.background = 'var(--accent-dim, rgba(131, 165, 152, 0.16))';
+            rowEl.style.borderLeft = '3px solid var(--accent)';
+          } else {
+            rowEl.style.background = 'var(--bg-panel-sub)';
+            rowEl.style.borderLeft = '3px solid transparent';
+          }
 
-        const delChanBtn = rowEl.querySelector('.ds-del-channel-btn');
-        if (delChanBtn) {
-          delChanBtn.onmouseenter = () => delChanBtn.style.color = 'var(--danger)';
-          delChanBtn.onmouseleave = () => delChanBtn.style.color = 'var(--text-muted)';
-          delChanBtn.onclick = (e) => {
-            e.stopPropagation();
-            r.object.removeChannel(r.paramKey);
-            if (this.selectedParamKey === r.paramKey) {
-              this.selectedParamKey = null;
+          const pIcon = getParamIcon(r.paramKey);
+
+          rowEl.innerHTML = `
+            <span style="font-size: 10px; margin-right: 4px; color: var(--text-muted); width: 12px; text-align: center;">${pIcon}</span>
+            <span style="color: ${isSelected ? 'var(--primary)' : 'var(--text-dim)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10px;" title="${r.label}">${r.label}</span>
+            <span class="ds-del-channel-btn" title="Remove parameter track" style="color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 0 4px; margin-left: 4px;">✕</span>
+          `;
+
+          rowEl.onclick = () => {
+            this.selectedObjectId = r.object.id;
+            this.selectedParamKey = r.paramKey;
+            if (typeof window !== 'undefined' && window.doc) {
+              if (window.doc.select) window.doc.select(r.object.id);
+              if (window.render) window.render();
+              if (window.updateInspector) window.updateInspector();
+              if (window.drawOverlay) window.drawOverlay();
             }
+            this.syncEasingUI();
             this.updateGrid();
           };
-        }
-      }
 
-      treeRowsEl.appendChild(rowEl);
-    });
+          const delChanBtn = rowEl.querySelector('.ds-del-channel-btn');
+          if (delChanBtn) {
+            delChanBtn.onmouseenter = () => delChanBtn.style.color = 'var(--danger)';
+            delChanBtn.onmouseleave = () => delChanBtn.style.color = 'var(--text-muted)';
+            delChanBtn.onclick = (e) => {
+              e.stopPropagation();
+              r.object.removeChannel(r.paramKey);
+              if (this.selectedParamKey === r.paramKey) {
+                this.selectedParamKey = null;
+              }
+              this.updateGrid();
+            };
+          }
+        }
+
+        treeRowsEl.appendChild(rowEl);
+      });
+    }
 
     // 3. Render Ruler Canvas
     const computedStyles = typeof window !== 'undefined' ? getComputedStyle(document.body) : null;

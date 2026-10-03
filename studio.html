@@ -69,6 +69,33 @@
       color-scheme: light;
     }
 
+    [data-theme="ableton"], body.theme-ableton {
+      --bg-dark: #292929;
+      --bg-canvas: #1f1f1f;
+      --bg-panel: #3b3b3b;
+      --bg-panel-sub: #303030;
+      --bg-input: #232323;
+      --bg-input-focus: #181818;
+      --border: #222222;
+      --border-bright: #4e4e4e;
+      --border-focus: #ff764d;
+      --border-subtle: rgba(0, 0, 0, 0.25);
+      --text: #c8c8c8;
+      --text-bright: #f0f0f0;
+      --text-dim: #909090;
+      --text-muted: #707070;
+      --primary: #ff764d;
+      --primary-hover: #ff916e;
+      --primary-dim: rgba(255, 118, 77, 0.18);
+      --accent: #ffd700;
+      --accent-hover: #ffe24d;
+      --accent-dim: rgba(255, 215, 0, 0.18);
+      --danger: #e24a4a;
+      --danger-dim: rgba(226, 74, 74, 0.18);
+      --success: #60c57b;
+      color-scheme: dark;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -1050,7 +1077,7 @@
       pointer-events: none;
     }
 
-    /* ── Dockview Layout Engine & Gruvbox Theme ── */
+    /* ── Dockview Layout Engine & Gruvbox / Light / Ableton Theme ── */
     #dockview-container {
       width: 100%;
       height: 100%;
@@ -1061,9 +1088,9 @@
     }
 
     .dockview-theme-dark {
-      --dv-drag-over-background-color: rgba(250, 189, 47, 0.18);
+      --dv-drag-over-background-color: var(--primary-dim);
       --dv-drag-over-border-color: var(--primary);
-      --dv-tabs-and-actions-container-background-color: #161819;
+      --dv-tabs-and-actions-container-background-color: var(--bg-panel-sub);
       --dv-activegroup-visiblepanel-tab-background-color: var(--bg-panel);
       --dv-activegroup-visiblepanel-tab-color: var(--primary);
       --dv-activegroup-hiddenpanel-tab-background-color: transparent;
@@ -1083,29 +1110,14 @@
       --dv-tabs-and-actions-container-height: 25px;
     }
 
-    /* Never show close buttons, tab action chevrons or overflow dropdowns */
-    .dv-default-tab-action,
-    .dv-tab-close-btn,
-    [class*="close-btn"],
-    [class*="tab-close"],
-    .dv-group-action-close,
-    .dv-right-actions-container,
-    .dv-actions-container,
-    .dv-tabs-overflow-dropdown-root,
-    .dv-tabs-overflow-dropdown-default,
-    .dv-tabs-overflow-container,
-    [class*="tabs-overflow"],
-    .dockview-theme-dark .dv-default-tab-action,
+    /* Hide Dockview tab close buttons, group close buttons and right-side overflow/dropdown actions */
     .dockview-theme-dark .dv-tab-close-btn,
-    .dockview-theme-dark [class*="close-btn"],
-    .dockview-theme-dark [class*="tab-close"],
+    .dockview-theme-dark .dv-default-tab-action,
     .dockview-theme-dark .dv-group-action-close,
     .dockview-theme-dark .dv-right-actions-container,
-    .dockview-theme-dark .dv-actions-container,
     .dockview-theme-dark .dv-tabs-overflow-dropdown-root,
     .dockview-theme-dark .dv-tabs-overflow-dropdown-default,
-    .dockview-theme-dark .dv-tabs-overflow-container,
-    .dockview-theme-dark [class*="tabs-overflow"] {
+    .dockview-theme-dark .dv-tabs-overflow-container {
       display: none !important;
     }
 
@@ -1119,17 +1131,19 @@
       cursor: pointer !important;
       user-select: none;
       transition: color 0.12s ease, background-color 0.12s ease;
+      color: var(--text-muted);
+      background: transparent;
     }
 
     .dockview-theme-dark .dv-tab.dv-active-tab {
       color: var(--primary) !important;
       box-shadow: inset 0 -2px 0 var(--primary);
-      background: var(--bg-panel);
+      background: var(--bg-panel) !important;
     }
 
     .dockview-theme-dark .dv-tab:hover:not(.dv-active-tab) {
       color: var(--text-bright) !important;
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.04);
     }
 
     .dockview-theme-dark .dv-tab * {
@@ -1140,44 +1154,6 @@
       height: 25px;
       border-bottom: 1px solid var(--border);
       background: var(--bg-panel-sub);
-    }
-
-    /* Dockview Light Theme Overrides */
-    [data-theme="light"] .dockview-theme-dark,
-    body.theme-light .dockview-theme-dark {
-      --dv-tabs-and-actions-container-background-color: var(--bg-panel-sub);
-      --dv-activegroup-visiblepanel-tab-background-color: var(--bg-panel);
-      --dv-activegroup-visiblepanel-tab-color: var(--primary);
-      --dv-activegroup-hiddenpanel-tab-background-color: transparent;
-      --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
-      --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-panel);
-      --dv-inactivegroup-visiblepanel-tab-color: var(--text);
-      --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
-      --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
-      --dv-tab-divider-color: var(--border);
-      --dv-separator-border: 1px solid var(--border);
-      --dv-defaulttab-hover-background-color: rgba(0, 0, 0, 0.05);
-      --dv-group-view-background-color: var(--bg-panel);
-      --dv-background-color: var(--bg-panel);
-    }
-
-    [data-theme="light"] .dockview-theme-dark .dv-tabs-and-actions-container,
-    body.theme-light .dockview-theme-dark .dv-tabs-and-actions-container {
-      background: var(--bg-panel-sub);
-      border-bottom: 1px solid var(--border);
-    }
-
-    [data-theme="light"] .dockview-theme-dark .dv-tab.dv-active-tab,
-    body.theme-light .dockview-theme-dark .dv-tab.dv-active-tab {
-      background: var(--bg-panel);
-      color: var(--primary) !important;
-      box-shadow: inset 0 -2px 0 var(--primary);
-    }
-
-    [data-theme="light"] .dockview-theme-dark .dv-tab:hover:not(.dv-active-tab),
-    body.theme-light .dockview-theme-dark .dv-tab:hover:not(.dv-active-tab) {
-      color: var(--text-bright) !important;
-      background: rgba(0, 0, 0, 0.05);
     }
 
     .dock-panel-content {
@@ -2396,6 +2372,7 @@
         <button class="menubar-item" id="menu-btn-selection" role="menuitem" tabindex="0">Selection</button>
         <button class="menubar-item" id="menu-btn-view" role="menuitem" tabindex="0">View</button>
         <button class="menubar-item" id="menu-btn-animation" role="menuitem" tabindex="0">Animation</button>
+        <button class="menubar-item" id="menu-btn-about" role="menuitem" tabindex="0">About</button>
       </nav>
     </div>
   </header>
@@ -3503,125 +3480,230 @@
     <div id="dock-panel-animation" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel);">
       <div id="timeline-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
     </div>
-  </div>
 
-  <!-- Export Modal (Static Image & Video / Animation Center) -->
-  <div id="modal-export" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 10000; align-items: center; justify-content: center;">
-    <div style="background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; width: 380px; max-width: 95vw; box-shadow: 0 4px 16px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 10px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
-        <h3 style="margin: 0; font-size: 13px; color: var(--primary); font-weight: 600;">Export Center</h3>
-        <button id="btn-close-export" class="btn-icon" style="font-size: 12px;">✕</button>
+    <!-- Dock Panel 8: Unified Projects, Asset Bundle & Export Center Hub -->
+    <div id="dock-panel-hub" class="dock-panel-content" style="padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-panel);">
+      <!-- Hub Top Subtabs -->
+      <div style="display: flex; gap: 3px; padding: 4px 8px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); flex-shrink: 0;">
+        <button id="hub-tab-btn-projects" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer;">Projects &amp; Storage</button>
+        <button id="hub-tab-btn-assets" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer;">Asset Bundle</button>
+        <button id="hub-tab-btn-export" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600; padding: 4px 6px; cursor: pointer;">Export Center</button>
       </div>
 
-      <!-- Export Mode Tab Switcher -->
-      <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-        <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">📷 Static Image</button>
-        <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">🎬 Animation &amp; Video</button>
-      </div>
+      <!-- Hub Content Panes Area -->
+      <div style="flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;">
+        <!-- Sub-pane 1: Projects & Storage -->
+        <div id="hub-pane-projects" style="display: flex; flex-direction: column; height: 100%;">
+          <!-- Projects Toolbar -->
+          <div class="recents-toolbar" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <div class="recents-search-box" style="flex: 1; min-width: 140px; display: flex; align-items: center; gap: 4px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 6px;">
+              <input type="text" id="recents-search-input" placeholder="Search projects..." autocomplete="off" style="border: none; background: transparent; color: var(--text); font-size: 11px; width: 100%; outline: none;">
+              <button type="button" id="btn-recents-clear-search" class="btn-icon" style="display: none; font-size: 9px; padding: 1px 3px;">✕</button>
+            </div>
 
-      <!-- Tab 1: Static Image Export -->
-      <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
-        <div class="form-row">
-          <label>Format</label>
-          <select id="export-format">
-            <option value="image/png" selected>PNG (Lossless)</option>
-            <option value="image/webp">WebP</option>
-            <option value="image/jpeg">JPEG</option>
-            <option value="image/svg+xml">SVG Vector</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Scale Factor</label>
-          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-            <span style="font-size: 11px; color: var(--text-dim);">×</span>
-            <div style="display: flex; gap: 2px;">
-              <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-              <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-              <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
-              <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+            <div class="recents-filter-pills" style="display: flex; gap: 2px;">
+              <button type="button" class="recents-pill active btn-sm" data-filter="all" id="pill-filter-all" style="padding: 2px 6px; font-size: 10px;">All</button>
+              <button type="button" class="recents-pill btn-sm" data-filter="vector" id="pill-filter-vector" style="padding: 2px 6px; font-size: 10px;">Vector</button>
+              <button type="button" class="recents-pill btn-sm" data-filter="raster" id="pill-filter-raster" style="padding: 2px 6px; font-size: 10px;">Raster</button>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <button type="button" id="btn-recents-import-file" class="btn-sm" title="Import .esen or .svg file into storage" style="font-size: 10px; padding: 2px 6px;">Import</button>
+              <input type="file" id="inp-recents-import-file" accept=".esen,.svg,.json" style="display: none;">
+              <button type="button" id="btn-modal-new-proj" class="btn-sm btn-primary" style="font-size: 10px; padding: 2px 6px;">+ New</button>
+            </div>
+          </div>
+
+          <!-- Stored Projects Grid / List -->
+          <div id="recents-grid" class="recents-grid" style="flex: 1; padding: 10px; overflow-y: auto;">
+            <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
+          </div>
+
+          <!-- Projects Footer -->
+          <div style="padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub); font-size: 10px; color: var(--text-dim);">
+            <span id="recents-storage-info">IndexedDB Storage</span>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" id="btn-modal-bundle-backup" class="btn-sm" style="font-size: 10px; padding: 2px 6px;">Backup All</button>
+              <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear</button>
             </div>
           </div>
         </div>
-        <div class="form-row">
-          <label>Dimensions</label>
-          <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
-        </div>
-        <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
-      </div>
 
-      <!-- Tab 2: Animation & Video Export -->
-      <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
-        <div class="form-row">
-          <label>Format</label>
-          <select id="export-anim-format">
-            <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
-            <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
-            <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
-            <option value="spritesheet">Sprite Sheet Grid (.png)</option>
-            <option value="html5">Interactive Standalone Player (.html)</option>
-            <option value="animated-svg">Animated Vector SVG (.svg)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Frame Range</label>
-          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
-            <span style="font-size: 11px; color: var(--text-muted);">to</span>
-            <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
+        <!-- Sub-pane 2: Asset Bundle -->
+        <div id="hub-pane-assets" style="display: none; flex-direction: column; padding: 12px; gap: 10px;">
+          <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
+            <button id="tab-btn-bundle-export" class="tab-btn active btn-sm" style="font-weight: bold; cursor: pointer;">Export Bundle</button>
+            <button id="tab-btn-bundle-import" class="tab-btn btn-sm" style="color: var(--text-muted); cursor: pointer;">Import Bundle</button>
           </div>
-        </div>
-        <div class="form-row">
-          <label>Framerate</label>
-          <select id="export-anim-fps">
-            <option value="12">12 FPS (Stylized / 2D Anime)</option>
-            <option value="24" selected>24 FPS (Cinematic standard)</option>
-            <option value="30">30 FPS (Smooth 30Hz)</option>
-            <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Scale Factor</label>
-          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-            <span style="font-size: 11px; color: var(--text-dim);">×</span>
-            <div style="display: flex; gap: 2px;">
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+
+          <!-- Bundle Export -->
+          <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="form-row">
+              <label>Bundle Title</label>
+              <input type="text" id="inp-bundle-title" value="Wesenho Assets">
+            </div>
+            <div class="form-row">
+              <label>Author</label>
+              <input type="text" id="inp-bundle-author" value="User">
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
+              <span style="font-size: 11px; font-weight: bold; color: var(--text-muted);">Assets to include:</span>
+              <div style="display: flex; gap: 4px;">
+                <button type="button" id="btn-bundle-select-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Select All</button>
+                <button type="button" id="btn-bundle-deselect-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Deselect All</button>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+              <div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes</div>
+              <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+              
+              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">WASM Plugins</div>
+              <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+
+              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Textures</div>
+              <div id="bundle-export-textures-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+
+              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Brush Tip Shapes</div>
+              <div id="bundle-export-tip-shapes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+
+              <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Projects</div>
+              <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
+            </div>
+
+            <button id="btn-do-bundle-export" class="btn-primary" style="width: 100%; padding: 7px; margin-top: 4px; font-weight: 600;">Download Asset Bundle (.wesenbundle)</button>
+          </div>
+
+          <!-- Bundle Import -->
+          <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 10px;">
+            <div style="border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 20px; text-align: center; background: var(--bg-dark);">
+              <p style="margin: 0 0 8px 0; font-size: 11px; color: var(--text-dim);">Select a .wesenbundle file to install</p>
+              <input type="file" id="inp-bundle-file" accept=".wesenbundle,.json" style="display: none;">
+              <button type="button" id="btn-choose-bundle-file" class="btn-sm" style="padding: 4px 10px;">Choose Bundle File...</button>
+            </div>
+            <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 8px;">
+              <h4 id="bundle-import-title" style="margin: 0; font-size: 12px; color: var(--text-bright);"></h4>
+              <div id="bundle-import-summary" style="font-size: 11px; color: var(--text-dim);"></div>
+              <button id="btn-do-bundle-import" class="btn-primary" style="width: 100%; padding: 6px; font-weight: bold;">Install Bundle</button>
             </div>
           </div>
         </div>
-        <div class="form-row">
-          <label>Background</label>
-          <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
-          </label>
-        </div>
-        <div class="form-row">
-          <label>Output Info</label>
-          <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
-        </div>
 
-        <!-- Progress Bar during Animation Render -->
-        <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
-          <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
-            <span id="export-anim-status-text">Recording frames...</span>
-            <span id="export-anim-pct-text">0%</span>
+        <!-- Sub-pane 3: Export Center -->
+        <div id="hub-pane-export" style="display: none; flex-direction: column; padding: 12px; gap: 10px;">
+          <!-- Export Mode Switcher -->
+          <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">Static Image</button>
+            <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">Animation &amp; Video</button>
           </div>
-          <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
-            <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
-          </div>
-        </div>
 
-        <div style="display: flex; gap: 6px; margin-top: 4px;">
-          <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
-          <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
+          <!-- Static Image Export Pane -->
+          <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
+            <div class="form-row">
+              <label>Format</label>
+              <select id="export-format">
+                <option value="image/png" selected>PNG (Lossless)</option>
+                <option value="image/webp">WebP</option>
+                <option value="image/jpeg">JPEG</option>
+                <option value="image/svg+xml">SVG Vector</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Scale Factor</label>
+              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+                <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+                <span style="font-size: 11px; color: var(--text-dim);">×</span>
+                <div style="display: flex; gap: 2px;">
+                  <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+                  <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+                  <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
+                  <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Dimensions</label>
+              <span id="export-dim-preview" style="font-size: 11px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px</span>
+            </div>
+            <button id="btn-do-export" style="width: 100%; margin-top: 4px; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Export Image File</button>
+          </div>
+
+          <!-- Animation & Video Export Pane -->
+          <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
+            <div class="form-row">
+              <label>Format</label>
+              <select id="export-anim-format">
+                <option value="image/gif" selected>Animated GIF (.gif - Universal)</option>
+                <option value="video/webm">WebM Video (.webm - VP9/VP8)</option>
+                <option value="video/mp4">MP4 Video (.mp4 - H.264/AVC)</option>
+                <option value="spritesheet">Sprite Sheet Grid (.png)</option>
+                <option value="html5">Interactive Standalone Player (.html)</option>
+                <option value="animated-svg">Animated Vector SVG (.svg)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Frame Range</label>
+              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+                <input type="number" id="export-anim-start" min="1" max="9999" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="Start Frame">
+                <span style="font-size: 11px; color: var(--text-muted);">to</span>
+                <input type="number" id="export-anim-end" min="1" max="9999" value="60" style="flex: 1; padding: 2px 4px; font-size: 11px;" title="End Frame">
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Framerate</label>
+              <select id="export-anim-fps">
+                <option value="12">12 FPS (Stylized / 2D Anime)</option>
+                <option value="24" selected>24 FPS (Cinematic standard)</option>
+                <option value="30">30 FPS (Smooth 30Hz)</option>
+                <option value="60">60 FPS (Ultra Smooth 60Hz)</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>Scale Factor</label>
+              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+                <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+                <span style="font-size: 11px; color: var(--text-dim);">×</span>
+                <div style="display: flex; gap: 2px;">
+                  <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
+                  <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
+                  <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
+                  <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <label>Background</label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
+                <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
+              </label>
+            </div>
+            <div class="form-row">
+              <label>Output Info</label>
+              <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
+            </div>
+
+            <!-- Progress Bar during Animation Render -->
+            <div id="export-anim-progress-wrap" style="display: none; flex-direction: column; gap: 4px; margin-top: 4px;">
+              <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+                <span id="export-anim-status-text">Recording frames...</span>
+                <span id="export-anim-pct-text">0%</span>
+              </div>
+              <div style="width: 100%; height: 6px; background: var(--bg-dark); border-radius: 3px; overflow: hidden; border: 1px solid var(--border);">
+                <div id="export-anim-progress-bar" style="width: 0%; height: 100%; background: var(--primary); transition: width 0.05s ease;"></div>
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; margin-top: 4px;">
+              <button id="btn-do-export-anim" style="flex: 1; padding: 8px; background: var(--primary); color: #000; font-weight: 700; border-radius: var(--radius-sm); border: none; cursor: pointer;">Render &amp; Export Video</button>
+              <button id="btn-cancel-export-anim" class="btn-sm" style="display: none; padding: 8px; border-color: var(--danger); color: var(--danger); cursor: pointer;">Cancel</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
+
+
 
 
 
@@ -3691,77 +3773,7 @@
   <!-- Monaco / VS Code Context View Container -->
   <div id="monaco-context-view" class="monaco-context-view"></div>
 
-  <!-- Modal: Recent Projects & Storage Center -->
-  <div id="modal-recents" class="modal-backdrop" style="display: none;">
-    <div class="modal-card modal-recents-card">
-      <!-- Modal Header -->
-      <div class="modal-header" style="padding: 12px 16px; border-bottom: 1px solid var(--border);">
-        <div style="display: flex; align-items: center; gap: 10px;">
-          <span style="font-size: 15px; color: var(--primary);">📁</span>
-          <div>
-            <h3 style="margin: 0; font-size: 13px; font-weight: 700; color: var(--text-bright); display: flex; align-items: center; gap: 6px;">
-              Projects &amp; Storage Center
-              <span id="recents-count-badge" class="badge">0 projects</span>
-            </h3>
-            <div style="font-size: 10px; color: var(--text-muted); margin-top: 1px;">Manage browser-stored vector projects, raster paintings, and offline caches</div>
-          </div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <button type="button" id="btn-recents-import-file" class="btn-sm" title="Import .esen or .svg file into storage">📥 Import File</button>
-          <input type="file" id="inp-recents-import-file" accept=".esen,.svg,.json" style="display: none;">
-          <button type="button" id="btn-modal-new-proj" class="btn-sm btn-primary">+ New Project</button>
-          <button class="modal-close" id="btn-close-recents">✕</button>
-        </div>
-      </div>
 
-      <!-- Toolbar: Search, Filter Tabs, Sort & View Mode -->
-      <div class="recents-toolbar">
-        <div class="recents-search-box">
-          <span style="color: var(--text-muted); font-size: 11px;">🔍</span>
-          <input type="text" id="recents-search-input" placeholder="Search by name, size or date..." autocomplete="off">
-          <button type="button" id="btn-recents-clear-search" class="btn-icon" style="display: none; font-size: 9px; padding: 1px 3px;">✕</button>
-        </div>
-
-        <div class="recents-filter-pills">
-          <button type="button" class="recents-pill active" data-filter="all" id="pill-filter-all">All</button>
-          <button type="button" class="recents-pill" data-filter="vector" id="pill-filter-vector">∿ Vector</button>
-          <button type="button" class="recents-pill" data-filter="raster" id="pill-filter-raster">◫ Raster</button>
-        </div>
-
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <select id="recents-sort-select" style="font-size: 10px; padding: 2px 4px; height: 26px;">
-            <option value="updated-desc">Latest Modified</option>
-            <option value="updated-asc">Oldest Modified</option>
-            <option value="name-asc">Name (A → Z)</option>
-            <option value="name-desc">Name (Z → A)</option>
-            <option value="size-desc">Size (Large → Small)</option>
-          </select>
-
-          <div style="display: inline-flex; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;">
-            <button type="button" id="btn-recents-view-grid" class="btn-icon active" title="Grid View" style="padding: 3px 6px; font-size: 11px; background: var(--bg-panel-sub);">⊞</button>
-            <button type="button" id="btn-recents-view-list" class="btn-icon" title="List View" style="padding: 3px 6px; font-size: 11px;">☰</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Main Project Area -->
-      <div id="recents-grid" class="recents-grid">
-        <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
-      </div>
-
-      <!-- Modal Footer / Storage Statistics & Actions -->
-      <div class="modal-footer" style="padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub);">
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 10.5px; color: var(--text-dim);">
-          <span style="font-size: 12px;">💾</span>
-          <span id="recents-storage-info">IndexedDB Storage Active</span>
-        </div>
-        <div style="display: flex; gap: 6px;">
-          <button type="button" id="btn-modal-bundle-backup" class="btn-sm" title="Export complete archive of all projects and assets">📦 Backup All</button>
-          <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); border-color: var(--danger-dim);" title="Delete all stored projects from local browser memory">🗑 Clear Storage</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <!-- Modal: New Project -->
   <div id="modal-new-project" class="modal-backdrop" style="display: none;">
@@ -3801,73 +3813,7 @@
     </div>
   </div>
 
-  <!-- Modal: Asset Bundle -->
-  <div id="modal-asset-bundle" class="modal-backdrop" style="display: none;">
-    <div class="modal-card" style="max-width: 650px; width: 90%;">
-      <div class="modal-header">
-        <h3>Asset Bundle</h3>
-        <button class="modal-close" id="btn-close-asset-bundle">✕</button>
-      </div>
-      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border-color); padding: 0 16px;">
-        <button id="tab-btn-bundle-export" class="tab-btn active" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-main); font-weight: bold; cursor: pointer; border-bottom: 2px solid var(--accent);">Export</button>
-        <button id="tab-btn-bundle-import" class="tab-btn" style="padding: 8px 16px; border: none; background: transparent; color: var(--text-muted); cursor: pointer;">Import</button>
-      </div>
-      <div class="modal-body" style="padding: 16px; max-height: 60vh; overflow-y: auto;">
-        <!-- Export Pane -->
-        <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 12px;">
-          <div class="form-row">
-            <label>Title</label>
-            <input type="text" id="inp-bundle-title" value="Wesenho Assets">
-          </div>
-          <div class="form-row">
-            <label>Author</label>
-            <input type="text" id="inp-bundle-author" value="User">
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-            <span style="font-size: 12px; font-weight: bold; color: var(--text-muted);">Assets</span>
-            <div style="display: flex; gap: 6px;">
-              <button type="button" id="btn-bundle-select-all" class="btn-sm">Select All</button>
-              <button type="button" id="btn-bundle-deselect-all" class="btn-sm">Deselect All</button>
-            </div>
-          </div>
-          
-          <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent);">Brushes</div>
-            <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
-            
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">WASM Plugins</div>
-            <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
 
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Textures</div>
-            <div id="bundle-export-textures-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
-
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Brush Tip Shapes</div>
-            <div id="bundle-export-tip-shapes-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
-
-            <div style="font-weight: bold; font-size: 12px; color: var(--accent); margin-top: 6px;">Projects</div>
-            <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 4px; padding-left: 8px;"></div>
-          </div>
-        </div>
-
-        <!-- Import Pane -->
-        <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 12px;">
-          <div id="drop-zone-bundle" style="border: 2px dashed var(--border-color); border-radius: var(--radius-lg); padding: 24px; text-align: center; cursor: pointer; background: var(--bg-dark);">
-            <div style="font-size: 13px; font-weight: bold; color: var(--text-main);">Click or drag & drop SVG asset bundle here</div>
-            <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Supports any valid Wesenho bundle SVG</div>
-            <input type="file" id="inp-bundle-file" accept=".svg" style="display: none;">
-          </div>
-
-          <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 10px; background: var(--bg-dark); padding: 12px; border-radius: var(--radius-md); border: 1px solid var(--border-color);">
-            <div id="bundle-preview-header" style="font-weight: bold; font-size: 13px; color: var(--accent);"></div>
-            <div id="bundle-preview-items" style="display: flex; flex-direction: column; gap: 6px; padding-left: 8px;"></div>
-          </div>
-        </div>
-      </div>
-      <div class="modal-footer" style="padding: 12px 16px; display: flex; justify-content: flex-end; gap: 8px;">
-        <button id="btn-action-bundle" class="btn-primary" style="padding: 6px 16px;">Export Bundle</button>
-      </div>
-    </div>
-  </div>
 
   <!-- Scripts -->
   <script src="vendor/dockview-core.js"></script>
@@ -3910,13 +3856,15 @@
 
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
+      if (!['dark', 'light', 'ableton'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
-        currentTheme = (theme === 'light') ? 'light' : 'dark';
+        currentTheme = ['light', 'ableton', 'dark'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-light', currentTheme === 'light');
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
+        document.body.classList.toggle('theme-ableton', currentTheme === 'ableton');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -3925,7 +3873,9 @@
 
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
-          themeText.textContent = currentTheme === 'light' ? '☀ Light Gray' : '☾ Gruvbox';
+          if (currentTheme === 'light') themeText.textContent = '☀ Light Gray';
+          else if (currentTheme === 'ableton') themeText.textContent = '◼ Ableton Gray';
+          else themeText.textContent = '☾ Gruvbox Dark';
         }
 
         saveStudioSettings({ theme: currentTheme });
@@ -3946,12 +3896,15 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          showNotification(currentTheme === 'light' ? 'Theme: Light Gray (Cinza Claro)' : 'Theme: Gruvbox Dark');
+          const names = { dark: 'Gruvbox Dark', light: 'Light Gray', ableton: 'Ableton Mid Gray' };
+          showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        setTheme(currentTheme === 'light' ? 'dark' : 'light', true);
+        const order = ['dark', 'light', 'ableton'];
+        const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
+        setTheme(order[nextIdx], true);
       }
 
       window.setTheme = setTheme;
@@ -10246,8 +10199,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v3';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'animation'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v4';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'document', 'animation', 'hub'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -10289,7 +10242,8 @@
           inspect: 'Transform',
           scene: 'Scene',
           document: 'Document',
-          animation: 'Timeline'
+          animation: 'Timeline',
+          hub: 'Project & Assets'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -10303,13 +10257,13 @@
           }
         } else if (id === 'animation') {
           dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
-        } else if (['inspect', 'scene', 'document'].includes(id)) {
-          const rightGroup = ['inspect', 'scene', 'document'];
+        } else if (['inspect', 'scene', 'document', 'hub'].includes(id)) {
+          const rightGroup = ['inspect', 'scene', 'document', 'hub'];
           const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
           if (otherRight) {
             dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
           } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 270 });
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 290 });
           }
         }
         const p = dockviewApi.getPanel(id);
@@ -10319,6 +10273,40 @@
         return p;
       }
       window.openDockPanel = openDockPanel;
+
+      function switchHubTab(tabName) {
+        const btnProj = document.getElementById('hub-tab-btn-projects');
+        const btnAssets = document.getElementById('hub-tab-btn-assets');
+        const btnExport = document.getElementById('hub-tab-btn-export');
+        const paneProj = document.getElementById('hub-pane-projects');
+        const paneAssets = document.getElementById('hub-pane-assets');
+        const paneExport = document.getElementById('hub-pane-export');
+
+        if (btnProj) btnProj.classList.toggle('active', tabName === 'projects');
+        if (btnAssets) btnAssets.classList.toggle('active', tabName === 'assets');
+        if (btnExport) btnExport.classList.toggle('active', tabName === 'export');
+
+        if (paneProj) paneProj.style.display = (tabName === 'projects') ? 'flex' : 'none';
+        if (paneAssets) paneAssets.style.display = (tabName === 'assets') ? 'flex' : 'none';
+        if (paneExport) paneExport.style.display = (tabName === 'export') ? 'flex' : 'none';
+
+        if (tabName === 'projects') {
+          if (typeof loadProjectsFromStorage === 'function') loadProjectsFromStorage();
+          else if (typeof openRecentsModal === 'function') openRecentsModal();
+        } else if (tabName === 'assets') {
+          if (typeof refreshAssetBundleLists === 'function') refreshAssetBundleLists();
+          else if (typeof populateBundleExportList === 'function') populateBundleExportList();
+        } else if (tabName === 'export') {
+          if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
+        }
+      }
+      window.switchHubTab = switchHubTab;
+
+      function openHubTab(tabName = 'projects') {
+        openDockPanel('hub');
+        switchHubTab(tabName);
+      }
+      window.openHubTab = openHubTab;
 
       function closeDockPanel(id) {
         if (id === 'canvas' || !dockviewApi) return;
@@ -10358,7 +10346,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'document'];
+        const rightIds = ['inspect', 'scene', 'document', 'hub'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -10371,7 +10359,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
-        const hasRight = ['inspect', 'scene', 'document'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'document', 'hub'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -10434,7 +10422,15 @@
           position: { referencePanel: 'inspect' }
         });
 
-        // 7. Bottom Timeline panel
+        // 7. Right Project & Assets Hub panel (tabbed with Inspect)
+        dockviewApi.addPanel({
+          id: 'hub',
+          component: 'hub',
+          title: 'Project & Assets',
+          position: { referencePanel: 'inspect' }
+        });
+
+        // 8. Bottom Timeline panel
         dockviewApi.addPanel({
           id: 'animation',
           component: 'animation',
@@ -10540,6 +10536,8 @@
               updateSceneAnimUI();
             } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
               updateInspector();
+            } else if (id === 'hub') {
+              if (typeof refreshProjectsList === 'function') refreshProjectsList();
             }
             if (typeof drawOverlay === 'function') drawOverlay();
             if (typeof drawRulers === 'function') drawRulers();
@@ -10638,7 +10636,7 @@
       function getFileMenuActions() {
         return [
           { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
-          { type: 'item', label: 'Recent Projects & Storage...', action: () => openRecentsModal() },
+          { type: 'item', label: 'Project & Assets...', hotkey: 'Ctrl+E', action: () => openHubTab('projects') },
           { type: 'sep' },
           { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
           { type: 'item', label: 'Import Image Layer...', action: () => document.getElementById('file-import-img')?.click() },
@@ -10646,12 +10644,6 @@
           { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
           { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
           { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
-          { type: 'sep' },
-          { type: 'item', label: 'Export Video (.webm / .mp4)', action: () => document.getElementById('btn-quick-export-video')?.click() },
-          { type: 'item', label: 'Export Spritesheet (.png)', action: () => document.getElementById('btn-quick-export-spritesheet')?.click() },
-          { type: 'sep' },
-          { type: 'item', label: 'Export Center (Video / Image)...', hotkey: 'Ctrl+E', action: () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; } },
-          { type: 'item', label: 'Asset Bundle...', action: () => document.getElementById('btn-menu-asset-bundle')?.click() },
           { type: 'sep' },
           { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
         ];
@@ -10767,6 +10759,7 @@
         const isSceneOpen = !!dockviewApi?.getPanel('scene');
         const isDocOpen = !!dockviewApi?.getPanel('document');
         const isAnimOpen = !!dockviewApi?.getPanel('animation');
+        const isHubOpen = !!dockviewApi?.getPanel('hub');
 
         return [
           { type: 'header', title: 'Dock Panels & Views' },
@@ -10776,10 +10769,12 @@
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
           { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => toggleDockPanel('document') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'item', label: (isHubOpen ? '✓ ' : '') + 'Project & Assets Hub Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('hub') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'light' ? '✓ ' : '') + 'Light Gray (Cinza Claro)', action: () => setTheme('light') }
+            { type: 'item', label: (currentTheme === 'light' ? '✓ ' : '') + 'Light Gray', action: () => setTheme('light') },
+            { type: 'item', label: (currentTheme === 'ableton' ? '✓ ' : '') + 'Ableton Mid Gray', action: () => setTheme('ableton') }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
@@ -10837,15 +10832,6 @@
         ];
       }
 
-      function getHelpMenuActions() {
-        return [
-          { type: 'item', label: 'Keyboard Shortcuts', hotkey: '?', action: () => openHelpModal() },
-          { type: 'item', label: 'Command Palette / Quick Open', hotkey: 'Ctrl+P', action: () => openRecentsModal() },
-          { type: 'sep' },
-          { type: 'item', label: 'About Wesenho Studio 2026', action: () => showNotification('Wesenho Studio 2026 — Quadro Engine v3') }
-        ];
-      }
-
       function toggleFullscreen() {
         if (!document.fullscreenElement) {
           document.documentElement.requestFullscreen().catch(() => {});
@@ -10866,7 +10852,7 @@
         else if (menuKey === 'selection') actions = getSelectionMenuActions();
         else if (menuKey === 'view') actions = getViewMenuActions();
         else if (menuKey === 'animation') actions = getAnimationMenuActions();
-        else if (menuKey === 'help') actions = getHelpMenuActions();
+        else if (menuKey === 'about') actions = [{ type: 'item', label: 'esenho 0.10.127', action: () => showNotification('esenho 0.10.127') }];
 
         const rect = buttonEl.getBoundingClientRect();
         window.contextMenuService.showContextMenu({
@@ -10884,7 +10870,8 @@
         { id: 'menu-btn-edit', key: 'edit' },
         { id: 'menu-btn-selection', key: 'selection' },
         { id: 'menu-btn-view', key: 'view' },
-        { id: 'menu-btn-animation', key: 'animation' }
+        { id: 'menu-btn-animation', key: 'animation' },
+        { id: 'menu-btn-about', key: 'about' }
       ];
 
       menubarButtons.forEach(({ id, key }) => {
@@ -13197,9 +13184,7 @@
         scheduleAutosave();
       });
 
-      // ── Recent Projects & Menu Submenu ──
-      const modalRecents = document.getElementById('modal-recents');
-      const recentsGrid = document.getElementById('recents-grid');
+      // ── Recent Projects & Hub Project Manager ──
       const modalNewProject = document.getElementById('modal-new-project');
 
       function openNewProjectModal() {
@@ -13209,7 +13194,7 @@
         if (modalNewProject) modalNewProject.style.display = 'none';
       }
       function closeRecentsModal() {
-        if (modalRecents) modalRecents.style.display = 'none';
+        closeDockPanel('hub');
       }
 
       async function updateRecentProjectsMenu() {
@@ -13224,8 +13209,7 @@
           const top6 = list.slice(0, 6);
           listEl.innerHTML = top6.map(p => {
             const isVec = p.type === 'vector';
-            const icon = isVec ? '∿' : '◫';
-            const badge = `<span style="font-size: 11px; color: ${isVec ? 'var(--primary)' : 'var(--accent)'}; width: 14px; text-align: center; flex-shrink: 0;" title="${isVec ? 'Vector' : 'Raster'}">${icon}</span>`;
+            const badge = `<span style="font-size: 8.5px; font-weight: 700; color: ${isVec ? 'var(--primary)' : 'var(--accent)'}; width: 14px; text-align: center; flex-shrink: 0;" title="${isVec ? 'Vector' : 'Raster'}">${isVec ? 'V' : 'R'}</span>`;
             const dateStr = new Date(p.updatedAt).toLocaleDateString();
             return `
               <button type="button" class="menu-item" style="padding: 5px 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
@@ -13242,7 +13226,7 @@
         }
       }
 
-      // ── Pro Projects & Storage Center Logic ──
+      // ── Projects & Storage Center Logic ──
       let recentsCachedList = [];
       let recentsFilterType = 'all'; // 'all' | 'vector' | 'raster'
       let recentsSearchQuery = '';
@@ -13284,7 +13268,8 @@
       }
 
       function renderRecentsView() {
-        if (!recentsGrid) return;
+        const grid = document.getElementById('recents-grid');
+        if (!grid) return;
         const countBadge = document.getElementById('recents-count-badge');
         
         let filtered = recentsCachedList.slice();
@@ -13321,23 +13306,21 @@
 
         if (filtered.length === 0) {
           if (recentsCachedList.length === 0) {
-            recentsGrid.className = 'recents-grid';
-            recentsGrid.innerHTML = `
-              <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
-                <div style="width: 48px; height: 48px; border-radius: 50%; background: var(--bg-panel-sub); display: flex; align-items: center; justify-content: center; font-size: 22px; color: var(--primary);">📁</div>
-                <div style="font-size: 14px; font-weight: 600; color: var(--text-bright);">No saved projects in memory</div>
+            grid.className = 'recents-grid';
+            grid.innerHTML = `
+              <div style="padding: 48px 24px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+                <div style="font-size: 13px; font-weight: 600; color: var(--text-bright);">No saved projects in memory</div>
                 <div style="font-size: 11px; color: var(--text-muted); max-width: 320px; line-height: 1.5;">Start creating new vector graphics, raster artwork, or import existing files from your device.</div>
                 <div style="display: flex; gap: 8px; margin-top: 4px;">
-                  <button type="button" class="btn btn-primary" onclick="document.getElementById('modal-recents').style.display='none'; document.getElementById('modal-new-project').style.display='flex';">+ New Project</button>
-                  <button type="button" class="btn" onclick="document.getElementById('inp-recents-import-file').click();">📥 Import .esen File</button>
+                  <button type="button" class="btn btn-primary" onclick="openNewProjectModal();">+ New Project</button>
+                  <button type="button" class="btn" onclick="document.getElementById('inp-recents-import-file').click();">Import File</button>
                 </div>
               </div>
             `;
           } else {
-            recentsGrid.className = 'recents-grid';
-            recentsGrid.innerHTML = `
+            grid.className = 'recents-grid';
+            grid.innerHTML = `
               <div style="padding: 40px 20px; text-align: center; color: var(--text-muted); grid-column: 1/-1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
-                <div style="font-size: 18px;">🔍</div>
                 <div style="font-size: 13px; font-weight: 600; color: var(--text-bright);">No matching projects found</div>
                 <div style="font-size: 11px; color: var(--text-muted);">No projects matched "${recentsSearchQuery || recentsFilterType}".</div>
                 <button type="button" class="btn-sm" style="margin-top: 4px;" onclick="document.getElementById('recents-search-input').value=''; recentsSearchQuery=''; document.getElementById('pill-filter-all').click();">Clear Search Filter</button>
@@ -13348,17 +13331,17 @@
         }
 
         if (recentsViewMode === 'grid') {
-          recentsGrid.className = 'recents-grid';
-          recentsGrid.innerHTML = filtered.map(p => {
+          grid.className = 'recents-grid';
+          grid.innerHTML = filtered.map(p => {
             const isVec = p.type === 'vector';
             const relTime = formatRelativeTime(p.updatedAt);
             const badgeClass = isVec ? 'recent-type-badge recent-type-vector' : 'recent-type-badge recent-type-raster';
-            const badgeLabel = isVec ? '∿ Vector' : '◫ Raster';
+            const badgeLabel = isVec ? 'Vector' : 'Raster';
             const thumbHtml = p.thumbnail 
               ? (p.thumbnail.startsWith('data:image/svg+xml') 
                   ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` 
                   : `<img src="${p.thumbnail}" alt="Preview" loading="lazy">`)
-              : `<div style="font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px;"><span style="font-size: 18px; opacity: 0.4;">${isVec ? '∿' : '◫'}</span>No Preview</div>`;
+              : `<div style="font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px;">No Preview</div>`;
 
             return `
               <div class="recent-card" data-project-id="${p.id}">
@@ -13366,7 +13349,7 @@
                   ${thumbHtml}
                   <span class="${badgeClass}">${badgeLabel}</span>
                   <div class="recent-card-hover-overlay">
-                    <button type="button" class="btn-sm btn-primary" style="box-shadow: 0 4px 12px rgba(0,0,0,0.5);">▶ Open</button>
+                    <button type="button" class="btn-sm btn-primary" style="box-shadow: 0 4px 12px rgba(0,0,0,0.5);">Open</button>
                   </div>
                 </div>
                 <div class="recent-card-body">
@@ -13377,9 +13360,9 @@
                   </div>
                   <div class="recent-card-actions" onclick="event.stopPropagation();">
                     <button type="button" class="btn-sm btn-primary" style="flex: 1; justify-content: center;" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
-                    <button type="button" class="btn-sm btn-icon" title="Export .esen project file" onclick="window.handleExportRecentFile('${p.id}')">📥</button>
-                    <button type="button" class="btn-sm btn-icon" title="Duplicate project" onclick="window.handleDuplicateRecent('${p.id}')">⧉</button>
-                    <button type="button" class="btn-sm btn-icon" title="Rename project" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">✎</button>
+                    <button type="button" class="btn-sm btn-icon" title="Export project file" onclick="window.handleExportRecentFile('${p.id}')">Export</button>
+                    <button type="button" class="btn-sm btn-icon" title="Duplicate project" onclick="window.handleDuplicateRecent('${p.id}')">Copy</button>
+                    <button type="button" class="btn-sm btn-icon" title="Rename project" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">Rename</button>
                     ${!isVec ? `<button type="button" class="btn-sm" title="Insert as layer into current stage" style="color: var(--accent);" onclick="window.handleInsertPainterImage('${p.id}')">+ Layer</button>` : ''}
                     <button type="button" class="btn-sm btn-icon" title="Delete project" style="color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
                   </div>
@@ -13389,17 +13372,17 @@
           }).join('');
         } else {
           // List view
-          recentsGrid.className = 'recents-list-view';
-          recentsGrid.innerHTML = filtered.map(p => {
+          grid.className = 'recents-list-view';
+          grid.innerHTML = filtered.map(p => {
             const isVec = p.type === 'vector';
             const relTime = formatRelativeTime(p.updatedAt);
             const badgeClass = isVec ? 'recent-type-badge recent-type-vector' : 'recent-type-badge recent-type-raster';
-            const badgeLabel = isVec ? '∿ Vector' : '◫ Raster';
+            const badgeLabel = isVec ? 'Vector' : 'Raster';
             const thumbHtml = p.thumbnail 
               ? (p.thumbnail.startsWith('data:image/svg+xml') 
                   ? decodeURIComponent(p.thumbnail.split(',')[1] || '') 
                   : `<img src="${p.thumbnail}" alt="Thumb" loading="lazy">`)
-              : `<span style="font-size: 14px; opacity: 0.4;">${isVec ? '∿' : '◫'}</span>`;
+              : `<span style="font-size: 11px; opacity: 0.5;">${badgeLabel}</span>`;
 
             return `
               <div class="recent-list-row" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">
@@ -13416,9 +13399,9 @@
                 </div>
                 <div style="display: flex; align-items: center; gap: 4px;" onclick="event.stopPropagation();">
                   <button type="button" class="btn-sm btn-primary" onclick="window.handleOpenRecent('${p.id}', '${p.type}')">Open</button>
-                  <button type="button" class="btn-sm btn-icon" title="Export .esen" onclick="window.handleExportRecentFile('${p.id}')">📥</button>
-                  <button type="button" class="btn-sm btn-icon" title="Duplicate" onclick="window.handleDuplicateRecent('${p.id}')">⧉</button>
-                  <button type="button" class="btn-sm btn-icon" title="Rename" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">✎</button>
+                  <button type="button" class="btn-sm btn-icon" title="Export file" onclick="window.handleExportRecentFile('${p.id}')">Export</button>
+                  <button type="button" class="btn-sm btn-icon" title="Duplicate" onclick="window.handleDuplicateRecent('${p.id}')">Copy</button>
+                  <button type="button" class="btn-sm btn-icon" title="Rename" onclick="window.handleRenameRecent('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')">Rename</button>
                   <button type="button" class="btn-sm btn-icon" title="Delete" style="color: var(--danger);" onclick="window.handleDeleteRecent('${p.id}')">✕</button>
                 </div>
               </div>
@@ -13427,12 +13410,12 @@
         }
       }
 
-      async function openRecentsModal() {
-        if (!modalRecents || typeof EsenhoStore === 'undefined') return;
-        menuDropdown?.classList.remove('active');
-        btnMenuLogo?.classList.remove('active');
-        modalRecents.style.display = 'flex';
-        recentsGrid.innerHTML = '<div style="padding: 40px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects &amp; storage telemetry...</div>';
+      async function refreshProjectsList() {
+        if (typeof EsenhoStore === 'undefined') return;
+        const grid = document.getElementById('recents-grid');
+        if (grid && recentsCachedList.length === 0) {
+          grid.innerHTML = '<div style="padding: 40px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
+        }
         
         // Reset or sync search box
         const searchInput = document.getElementById('recents-search-input');
@@ -13445,9 +13428,17 @@
           renderRecentsView();
           updateRecentsStorageBadge();
         } catch (e) {
-          recentsGrid.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading projects: ${e.message}</div>`;
+          if (grid) grid.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--danger); grid-column: 1/-1;">Error loading projects: ${e.message}</div>`;
         }
       }
+      window.refreshProjectsList = refreshProjectsList;
+      window.loadProjectsFromStorage = refreshProjectsList;
+
+      function openRecentsModal() {
+        openHubTab('projects');
+        refreshProjectsList();
+      }
+      window.openRecentsModal = openRecentsModal;
 
       window.handleDuplicateRecent = async function(id) {
         try {
@@ -13668,47 +13659,33 @@
         openNewProjectModal();
       });
 
-      // ── Asset Bundle Modal (Export & Import) ──
-      const modalBundle = document.getElementById('modal-asset-bundle');
-      const tabBtnBundleExport = document.getElementById('tab-btn-bundle-export');
-      const tabBtnBundleImport = document.getElementById('tab-btn-bundle-import');
-      const paneBundleExport = document.getElementById('pane-bundle-export');
-      const paneBundleImport = document.getElementById('pane-bundle-import');
-      const btnActionBundle = document.getElementById('btn-action-bundle');
+      // ── Asset Bundle Controller (Export & Import in Hub) ──
       let bundleMode = 'export';
       let parsedImportBundle = null;
 
       function switchBundleTab(mode) {
         bundleMode = mode;
+        const tabBtnExport = document.getElementById('tab-btn-bundle-export');
+        const tabBtnImport = document.getElementById('tab-btn-bundle-import');
+        const paneExport = document.getElementById('pane-bundle-export');
+        const paneImport = document.getElementById('pane-bundle-import');
+
         if (mode === 'export') {
-          tabBtnBundleExport.style.borderBottom = '2px solid var(--accent)';
-          tabBtnBundleExport.style.color = 'var(--text-main)';
-          tabBtnBundleExport.style.fontWeight = 'bold';
-          tabBtnBundleImport.style.borderBottom = 'none';
-          tabBtnBundleImport.style.color = '#a89984';
-          tabBtnBundleImport.style.fontWeight = 'normal';
-          paneBundleExport.style.display = 'flex';
-          paneBundleImport.style.display = 'none';
-          btnActionBundle.textContent = 'Export Bundle (.svg)';
+          if (tabBtnExport) tabBtnExport.classList.add('active');
+          if (tabBtnImport) tabBtnImport.classList.remove('active');
+          if (paneExport) paneExport.style.display = 'flex';
+          if (paneImport) paneImport.style.display = 'none';
           populateBundleExportList();
         } else {
-          tabBtnBundleImport.style.borderBottom = '2px solid var(--accent)';
-          tabBtnBundleImport.style.color = 'var(--text-main)';
-          tabBtnBundleImport.style.fontWeight = 'bold';
-          tabBtnBundleExport.style.borderBottom = 'none';
-          tabBtnBundleExport.style.color = '#a89984';
-          tabBtnBundleExport.style.fontWeight = 'normal';
-          paneBundleExport.style.display = 'none';
-          paneBundleImport.style.display = 'flex';
-          btnActionBundle.textContent = 'Import Selected Assets';
+          if (tabBtnImport) tabBtnImport.classList.add('active');
+          if (tabBtnExport) tabBtnExport.classList.remove('active');
+          if (paneExport) paneExport.style.display = 'none';
+          if (paneImport) paneImport.style.display = 'flex';
         }
       }
 
-      tabBtnBundleExport?.addEventListener('click', () => switchBundleTab('export'));
-      tabBtnBundleImport?.addEventListener('click', () => switchBundleTab('import'));
-      document.getElementById('btn-close-asset-bundle')?.addEventListener('click', () => {
-        if (modalBundle) modalBundle.style.display = 'none';
-      });
+      document.getElementById('tab-btn-bundle-export')?.addEventListener('click', () => switchBundleTab('export'));
+      document.getElementById('tab-btn-bundle-import')?.addEventListener('click', () => switchBundleTab('import'));
 
       async function populateBundleExportList() {
         const brushesListEl = document.getElementById('bundle-export-brushes-list');
@@ -13789,75 +13766,47 @@
       }
 
       document.getElementById('btn-bundle-select-all')?.addEventListener('click', () => {
-        modalBundle?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
+        const pane = document.getElementById('hub-pane-assets');
+        pane?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
       });
       document.getElementById('btn-bundle-deselect-all')?.addEventListener('click', () => {
-        modalBundle?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
+        const pane = document.getElementById('hub-pane-assets');
+        pane?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
       });
 
       document.getElementById('btn-menu-asset-bundle')?.addEventListener('click', () => {
         menuDropdown?.classList.remove('active');
         btnMenuLogo?.classList.remove('active');
-        if (modalBundle) {
-          modalBundle.style.display = 'flex';
-          switchBundleTab('export');
-        }
+        openHubTab('assets');
+        switchBundleTab('export');
       });
 
-      const dropZoneBundle = document.getElementById('drop-zone-bundle');
       const inpBundleFile = document.getElementById('inp-bundle-file');
-      dropZoneBundle?.addEventListener('click', () => inpBundleFile?.click());
+      document.getElementById('btn-choose-bundle-file')?.addEventListener('click', () => inpBundleFile?.click());
       
       async function handleBundleFile(file) {
         if (!file) return;
         const text = await file.text();
         const parsed = (typeof EsenhoBundle !== 'undefined') ? EsenhoBundle.parseBundle(text) : null;
         if (!parsed) {
-          alert('Invalid Wesenho Asset Bundle SVG file.');
+          alert('Invalid Wesenho Asset Bundle file.');
           return;
         }
         parsedImportBundle = parsed;
         const previewBox = document.getElementById('bundle-import-preview');
-        const headerEl = document.getElementById('bundle-preview-header');
-        const itemsEl = document.getElementById('bundle-preview-items');
-        if (previewBox && headerEl && itemsEl) {
+        const titleEl = document.getElementById('bundle-import-title');
+        const summaryEl = document.getElementById('bundle-import-summary');
+        if (previewBox) {
           previewBox.style.display = 'flex';
-          headerEl.textContent = `${parsed.title} (by ${parsed.author})`;
-          let html = '';
-          const brushKeys = Object.keys(parsed.brushes || {});
-          if (brushKeys.length > 0) {
-            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes (${brushKeys.length}):</div>`;
-            brushKeys.forEach(k => {
-              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-brush" value="${k}" checked><span>${parsed.brushes[k].name || k}</span></label>`;
-            });
+          if (titleEl) titleEl.textContent = `${parsed.title} (by ${parsed.author})`;
+          const bCount = Object.keys(parsed.brushes || {}).length;
+          const pCount = (parsed.plugins || []).length;
+          const tCount = Object.keys(parsed.textures || {}).length;
+          const sCount = Object.keys(parsed.tipShapes || {}).length;
+          const prCount = (parsed.projects || []).length;
+          if (summaryEl) {
+            summaryEl.textContent = `Includes: ${bCount} brushes, ${pCount} plugins, ${tCount} textures, ${sCount} tip shapes, ${prCount} projects.`;
           }
-          if (parsed.plugins && parsed.plugins.length > 0) {
-            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Plugins (${parsed.plugins.length}):</div>`;
-            parsed.plugins.forEach(p => {
-              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-plugin" value="${p.name}" checked><span>${p.name}.wasm</span></label>`;
-            });
-          }
-          const texKeys = Object.keys(parsed.textures || {});
-          if (texKeys.length > 0) {
-            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Textures (${texKeys.length}):</div>`;
-            texKeys.forEach(k => {
-              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-texture" value="${k}" checked><span>${parsed.textures[k].name || k}</span></label>`;
-            });
-          }
-          const tipKeys = Object.keys(parsed.tipShapes || {});
-          if (tipKeys.length > 0) {
-            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Tip Shapes (${tipKeys.length}):</div>`;
-            tipKeys.forEach(k => {
-              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-tip" value="${k}" checked><span>${parsed.tipShapes[k].name || k}</span></label>`;
-            });
-          }
-          if (parsed.projects && parsed.projects.length > 0) {
-            html += `<div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top:4px;">Projects (${parsed.projects.length}):</div>`;
-            parsed.projects.forEach(p => {
-              html += `<label style="display:flex;align-items:center;gap:6px;font-size:12px;"><input type="checkbox" class="chk-import-project" value="${p.id}" checked><span>${p.name || p.id}</span></label>`;
-            });
-          }
-          itemsEl.innerHTML = html;
         }
       }
 
@@ -13866,104 +13815,100 @@
         if (file) handleBundleFile(file);
       });
 
-      btnActionBundle?.addEventListener('click', async () => {
-        if (bundleMode === 'export') {
-          const title = document.getElementById('inp-bundle-title')?.value || 'My Wesenho Assets';
-          const author = document.getElementById('inp-bundle-author')?.value || 'User';
-          
-          const selectedBrushKeys = Array.from(modalBundle.querySelectorAll('.chk-bundle-brush:checked')).map(c => c.value);
-          const selectedPluginNames = Array.from(modalBundle.querySelectorAll('.chk-bundle-plugin:checked')).map(c => c.value);
-          const selectedTextureIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-texture:checked')).map(c => c.value);
-          const selectedTipIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-tip:checked')).map(c => c.value);
-          const selectedProjectIds = Array.from(modalBundle.querySelectorAll('.chk-bundle-project:checked')).map(c => c.value);
+      async function doExportBundle() {
+        const title = document.getElementById('inp-bundle-title')?.value || 'Wesenho Assets';
+        const author = document.getElementById('inp-bundle-author')?.value || 'User';
+        const pane = document.getElementById('hub-pane-assets');
+        if (!pane) return;
 
-          const allCustomBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
-          const brushesToPack = {};
-          selectedBrushKeys.forEach(k => { if (allCustomBrushes[k]) brushesToPack[k] = allCustomBrushes[k]; });
+        const selectedBrushKeys = Array.from(pane.querySelectorAll('.chk-bundle-brush:checked')).map(c => c.value);
+        const selectedPluginNames = Array.from(pane.querySelectorAll('.chk-bundle-plugin:checked')).map(c => c.value);
+        const selectedTextureIds = Array.from(pane.querySelectorAll('.chk-bundle-texture:checked')).map(c => c.value);
+        const selectedTipIds = Array.from(pane.querySelectorAll('.chk-bundle-tip:checked')).map(c => c.value);
+        const selectedProjectIds = Array.from(pane.querySelectorAll('.chk-bundle-project:checked')).map(c => c.value);
 
-          const allPlugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
-          const pluginsToPack = allPlugins.filter(p => selectedPluginNames.includes(p.name));
+        const allCustomBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
+        const brushesToPack = {};
+        selectedBrushKeys.forEach(k => { if (allCustomBrushes[k]) brushesToPack[k] = allCustomBrushes[k]; });
 
-          const texturesToPack = {};
-          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTexture) {
-            for (const tid of selectedTextureIds) {
-              const tex = await EsenhoStore.getCustomTexture(tid);
-              if (tex) texturesToPack[tid] = tex;
-            }
+        const allPlugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
+        const pluginsToPack = allPlugins.filter(p => selectedPluginNames.includes(p.name));
+
+        const texturesToPack = {};
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTexture) {
+          for (const tid of selectedTextureIds) {
+            const tex = await EsenhoStore.getCustomTexture(tid);
+            if (tex) texturesToPack[tid] = tex;
           }
-
-          const tipShapesToPack = {};
-          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTipShape) {
-            for (const tid of selectedTipIds) {
-              const tip = await EsenhoStore.getCustomTipShape(tid);
-              if (tip) tipShapesToPack[tid] = tip;
-            }
-          }
-
-          const projectsToPack = [];
-          if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getProject) {
-            for (const pid of selectedProjectIds) {
-              const proj = await EsenhoStore.getProject(pid);
-              if (proj) projectsToPack.push(proj);
-            }
-          }
-
-          const bundleSvg = EsenhoBundle.createBundle({
-            title,
-            author,
-            brushes: brushesToPack,
-            plugins: pluginsToPack,
-            textures: texturesToPack,
-            tipShapes: tipShapesToPack,
-            projects: projectsToPack
-          });
-
-          const blob = new Blob([bundleSvg], { type: 'image/svg+xml' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          const safeName = title.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-          a.download = `${safeName}.bundle.svg`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          showNotification('Asset Bundle exported successfully');
-          modalBundle.style.display = 'none';
-        } else {
-          if (!parsedImportBundle) {
-            alert('Please select or drop an asset bundle first.');
-            return;
-          }
-          const chosenBrushes = Array.from(modalBundle.querySelectorAll('.chk-import-brush:checked')).map(c => c.value);
-          const chosenPlugins = Array.from(modalBundle.querySelectorAll('.chk-import-plugin:checked')).map(c => c.value);
-          const chosenTextures = Array.from(modalBundle.querySelectorAll('.chk-import-texture:checked')).map(c => c.value);
-          const chosenTips = Array.from(modalBundle.querySelectorAll('.chk-import-tip:checked')).map(c => c.value);
-          const chosenProjects = Array.from(modalBundle.querySelectorAll('.chk-import-project:checked')).map(c => c.value);
-
-          const res = await EsenhoBundle.importBundle(parsedImportBundle, {
-            brushes: chosenBrushes,
-            plugins: chosenPlugins,
-            textures: chosenTextures,
-            tipShapes: chosenTips,
-            projects: chosenProjects,
-            palettes: true
-          });
-
-          if (parsedImportBundle.plugins) {
-            for (const p of parsedImportBundle.plugins) {
-              if (chosenPlugins.includes(p.name)) {
-                if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(p.name, p.bytes);
-                if (doc && doc.wasmPlugins) doc.wasmPlugins.set(p.name, p.bytes);
-              }
-            }
-          }
-
-          updateInspector();
-          showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.textures} textures, ${res.tipShapes} tips, ${res.projects} projects`);
-          modalBundle.style.display = 'none';
         }
-      });
+
+        const tipShapesToPack = {};
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTipShape) {
+          for (const tid of selectedTipIds) {
+            const tip = await EsenhoStore.getCustomTipShape(tid);
+            if (tip) tipShapesToPack[tid] = tip;
+          }
+        }
+
+        const projectsToPack = [];
+        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getProject) {
+          for (const pid of selectedProjectIds) {
+            const proj = await EsenhoStore.getProject(pid);
+            if (proj) projectsToPack.push(proj);
+          }
+        }
+
+        const bundleSvg = EsenhoBundle.createBundle({
+          title,
+          author,
+          brushes: brushesToPack,
+          plugins: pluginsToPack,
+          textures: texturesToPack,
+          tipShapes: tipShapesToPack,
+          projects: projectsToPack
+        });
+
+        const blob = new Blob([bundleSvg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeName = title.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+        a.download = `${safeName}.bundle.svg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showNotification('Asset Bundle exported successfully');
+      }
+
+      async function doImportBundle() {
+        if (!parsedImportBundle) {
+          alert('Please select or drop an asset bundle first.');
+          return;
+        }
+
+        const res = await EsenhoBundle.importBundle(parsedImportBundle, {
+          brushes: Object.keys(parsedImportBundle.brushes || {}),
+          plugins: (parsedImportBundle.plugins || []).map(p => p.name),
+          textures: Object.keys(parsedImportBundle.textures || {}),
+          tipShapes: Object.keys(parsedImportBundle.tipShapes || {}),
+          projects: (parsedImportBundle.projects || []).map(p => p.id),
+          palettes: true
+        });
+
+        if (parsedImportBundle.plugins) {
+          for (const p of parsedImportBundle.plugins) {
+            if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(p.name, p.bytes);
+            if (doc && doc.wasmPlugins) doc.wasmPlugins.set(p.name, p.bytes);
+          }
+        }
+
+        updateInspector();
+        showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.textures} textures, ${res.tipShapes} tips, ${res.projects} projects`);
+      }
+
+      document.getElementById('btn-do-bundle-export')?.addEventListener('click', doExportBundle);
+      document.getElementById('btn-do-bundle-import')?.addEventListener('click', doImportBundle);
 
       // Window Drag & Drop for Asset Bundle SVGs
       window.addEventListener('dragover', (e) => {
@@ -13971,22 +13916,20 @@
       });
       window.addEventListener('drop', async (e) => {
         const file = e.dataTransfer?.files?.[0];
-        if (file && file.name.toLowerCase().endsWith('.svg')) {
+        if (file && (file.name.toLowerCase().endsWith('.svg') || file.name.toLowerCase().endsWith('.wesenbundle'))) {
           const text = await file.text();
           if (text.includes('data-esenho-bundle') || text.includes('<esenho-manifest>')) {
             e.preventDefault();
             e.stopPropagation();
-            if (modalBundle) {
-              modalBundle.style.display = 'flex';
-              switchBundleTab('import');
-              handleBundleFile(file);
-            }
+            openHubTab('assets');
+            switchBundleTab('import');
+            handleBundleFile(file);
           }
         }
       });
 
       // Close modals on backdrop click
-      [modalRecents, modalNewProject, modalExport, modalBundle, document.getElementById('modal-trace')].forEach(modal => {
+      [modalNewProject, document.getElementById('modal-trace')].forEach(modal => {
         if (!modal) return;
         modal.addEventListener('click', (e) => {
           if (e.target === modal) {
@@ -14041,6 +13984,22 @@
         closeNewProjectModal();
       });
 
+      // ── Hub Subtab Switcher Events ──
+      document.getElementById('hub-tab-btn-projects')?.addEventListener('click', () => switchHubTab('projects'));
+      document.getElementById('hub-tab-btn-assets')?.addEventListener('click', () => switchHubTab('assets'));
+      document.getElementById('hub-tab-btn-export')?.addEventListener('click', () => switchHubTab('export'));
+
+      function openAssetBundleModal(mode = 'export') {
+        openHubTab('assets');
+        switchBundleTab(mode);
+      }
+      window.openAssetBundleModal = openAssetBundleModal;
+
+      function openExportModal() {
+        openHubTab('export');
+      }
+      window.openExportModal = openExportModal;
+
       // ── Bootstrapping ──
       const urlParams = new URLSearchParams(window.location.search);
       const paramProj = urlParams.get('project');
@@ -14081,6 +14040,7 @@
         }
 
         updateRecentProjectsMenu();
+        if (typeof refreshProjectsList === 'function') refreshProjectsList();
         updateRendererMenuUi();
         initQuadro();
         await initStudioDopeSheet();
