@@ -763,41 +763,38 @@ export class DopeSheetUI {
     }
 
     container.innerHTML = `
-      <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; box-sizing: border-box;">
-        <!-- Compact Header Info -->
-        <div style="display: flex; justify-content: flex-end; align-items: center;">
-          <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 10px; overflow: hidden; text-overflow: ellipsis; max-width: 260px; white-space: nowrap;">...</span>
-        </div>
-
+      <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 5px; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 4px 6px; box-sizing: border-box;">
         <!-- Mode Switcher Tabs -->
-        <div style="display: flex; gap: 3px; background: var(--bg-input); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-          <button id="tab-mode-bezier" class="ds-ce-tab" style="flex: 1; background: var(--bg-panel-sub); color: var(--primary); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Bézier</button>
-          <button id="tab-mode-bounce" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Bounce</button>
-          <button id="tab-mode-spring" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Spring</button>
-          <button id="tab-mode-spline" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 10px; padding: 4px; cursor: pointer;">Spline</button>
+        <div style="display: flex; gap: 2px; background: var(--bg-input); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
+          <button id="tab-mode-bezier" class="ds-ce-tab" style="flex: 1; background: var(--bg-panel-sub); color: var(--primary); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Bézier</button>
+          <button id="tab-mode-bounce" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Bounce</button>
+          <button id="tab-mode-spring" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Spring</button>
+          <button id="tab-mode-spline" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Spline</button>
         </div>
 
         <!-- Sub-controls container -->
-        <div id="ds-ce-controls-container"></div>
+        <div id="ds-ce-controls-container" style="flex-shrink: 0;"></div>
 
         <!-- Canvas Graph Area -->
-        <div style="background: var(--bg-canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px; display: flex; justify-content: center; position: relative;">
-          <canvas id="ds-ce-canvas" width="300" height="190" style="cursor: crosshair; touch-action: none; border-radius: 3px; max-width: 100%; display: block;"></canvas>
+        <div style="background: var(--bg-canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px; display: flex; justify-content: center; position: relative; flex-shrink: 0;">
+          <canvas id="ds-ce-canvas" width="260" height="110" style="cursor: crosshair; touch-action: none; border-radius: 2px; width: 100%; max-width: 260px; height: 110px; display: block;"></canvas>
         </div>
 
         <!-- Motion Preview Indicator -->
-        <div style="padding: 5px 8px; background: var(--bg-panel-sub); border-radius: var(--radius-sm); border: 1px solid var(--border);">
-          <div style="font-size: 9.5px; color: var(--text-muted); display: flex; justify-content: space-between; margin-bottom: 3px;">
-            <span>Live Motion Preview:</span>
-          </div>
-          <div style="height: 10px; background: var(--bg-input); border-radius: 5px; position: relative; overflow: hidden; border: 1px solid var(--border);">
-            <div id="ds-ce-preview-dot" style="position: absolute; top: 1px; left: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 5px var(--success);"></div>
+        <div style="padding: 3px 6px; background: var(--bg-panel-sub); border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <span style="font-size: 9px; color: var(--text-muted); white-space: nowrap;">Live:</span>
+          <div style="flex: 1; height: 6px; background: var(--bg-input); border-radius: 3px; position: relative; overflow: hidden; border: 1px solid var(--border);">
+            <div id="ds-ce-preview-dot" style="position: absolute; top: 0px; left: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 4px var(--success);"></div>
           </div>
         </div>
 
-        <!-- Actions Footer -->
-        <div style="margin-top: auto; padding-top: 6px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px;">
-          <button id="ds-ce-apply" class="btn-primary" style="width: 100%; padding: 6px 12px; font-weight: 700; font-size: 11px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 6px;">
+        <!-- Actions & Status Footer -->
+        <div style="margin-top: auto; padding-top: 4px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 2px;">
+            <span style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Easing:</span>
+            <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; max-width: 200px; white-space: nowrap; text-align: right;">...</span>
+          </div>
+          <button id="ds-ce-apply" class="btn-primary" style="width: 100%; padding: 4px 8px; font-weight: 700; font-size: 10.5px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;">
             <span>Apply to Keyframe</span>
           </button>
         </div>
@@ -808,13 +805,23 @@ export class DopeSheetUI {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    const padX = 28, padY = 28;
+    const padX = 20, padY = 16;
     let yMin = -0.3, yMax = 1.3;
 
     const toPixelX = (x) => padX + x * (W - 2 * padX);
     const toPixelY = (y) => H - padY - ((y - yMin) / (yMax - yMin)) * (H - 2 * padY);
     const fromPixelX = (px) => Math.max(0, Math.min(1, (px - padX) / (W - 2 * padX)));
     const fromPixelY = (py) => Math.max(yMin, Math.min(yMax, yMin + (H - padY - py) / (H - 2 * padY) * (yMax - yMin)));
+
+    const getCanvasCoords = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / (rect.width || canvas.width);
+      const scaleY = canvas.height / (rect.height || canvas.height);
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    };
 
     const controlsContainer = container.querySelector('#ds-ce-controls-container');
     const strLabel = container.querySelector('#ds-ce-curve-str');
@@ -827,7 +834,7 @@ export class DopeSheetUI {
       if (!inputEl) return;
       const valStr = String(inputEl.value ?? '');
       const charLen = Math.max(valStr.length, 3);
-      inputEl.style.width = `${Math.max(40, charLen * 8.5 + 16)}px`;
+      inputEl.style.width = `${Math.max(34, charLen * 7.5 + 12)}px`;
     };
 
     const updateControlsUI = () => {
@@ -845,25 +852,25 @@ export class DopeSheetUI {
       if (currentMode === 'bezier') {
         yMin = -0.3; yMax = 1.3;
         controlsContainer.innerHTML = `
-          <div style="display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 6px;">
-            <button class="ds-ce-preset" data-vals="0,0,1,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Linear</button>
-            <button class="ds-ce-preset" data-vals="0.42,0,1,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Ease In</button>
-            <button class="ds-ce-preset" data-vals="0,0,0.58,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Ease Out</button>
-            <button class="ds-ce-preset" data-vals="0.42,0,0.58,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Ease In-Out</button>
-            <button class="ds-ce-preset" data-vals="0.1,0.9,0.2,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Fast-Slow</button>
-            <button class="ds-ce-preset" data-vals="0.34,1.56,0.64,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Spring Overshoot</button>
-            <button class="ds-ce-preset" data-vals="0.36,0,0.66,-0.56" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 4px; cursor: pointer;">Anticipate</button>
+          <div style="display: flex; flex-wrap: wrap; gap: 2px; margin-bottom: 4px;">
+            <button class="ds-ce-preset" data-vals="0,0,1,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Linear</button>
+            <button class="ds-ce-preset" data-vals="0.42,0,1,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Ease In</button>
+            <button class="ds-ce-preset" data-vals="0,0,0.58,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Ease Out</button>
+            <button class="ds-ce-preset" data-vals="0.42,0,0.58,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Ease In-Out</button>
+            <button class="ds-ce-preset" data-vals="0.1,0.9,0.2,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Fast-Slow</button>
+            <button class="ds-ce-preset" data-vals="0.34,1.56,0.64,1" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Overshoot</button>
+            <button class="ds-ce-preset" data-vals="0.36,0,0.66,-0.56" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Anticipate</button>
           </div>
-          <div style="display: flex; flex-wrap: wrap; gap: 6px; justify-content: space-between; align-items: center; font-size: 11px; background: var(--bg-panel-sub); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-            <div style="display: flex; align-items: center; gap: 3px;">
-              <span style="color: var(--accent); font-weight: bold; font-size: 10px;">P1:</span>
-              <input id="ds-ce-x1" type="number" step="0.01" value="${Math.round(p1.x * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
-              <input id="ds-ce-y1" type="number" step="0.01" value="${Math.round(p1.y * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
+          <div style="display: flex; flex-wrap: wrap; gap: 4px; justify-content: space-between; align-items: center; font-size: 10px; background: var(--bg-panel-sub); padding: 3px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 2px;">
+              <span style="color: var(--accent); font-weight: bold; font-size: 9.5px;">P1:</span>
+              <input id="ds-ce-x1" type="number" step="0.01" value="${Math.round(p1.x * 100) / 100}" style="min-width: 34px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 2px; text-align: center; font-size: 9.5px; font-family: var(--font-mono); box-sizing: border-box;">
+              <input id="ds-ce-y1" type="number" step="0.01" value="${Math.round(p1.y * 100) / 100}" style="min-width: 34px; background: var(--bg-input); color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: 1px 2px; text-align: center; font-size: 9.5px; font-family: var(--font-mono); box-sizing: border-box;">
             </div>
-            <div style="display: flex; align-items: center; gap: 3px;">
-              <span style="color: var(--primary); font-weight: bold; font-size: 10px;">P2:</span>
-              <input id="ds-ce-x2" type="number" step="0.01" value="${Math.round(p2.x * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
-              <input id="ds-ce-y2" type="number" step="0.01" value="${Math.round(p2.y * 100) / 100}" style="min-width: 40px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 10px; font-family: var(--font-mono); box-sizing: border-box;">
+            <div style="display: flex; align-items: center; gap: 2px;">
+              <span style="color: var(--primary); font-weight: bold; font-size: 9.5px;">P2:</span>
+              <input id="ds-ce-x2" type="number" step="0.01" value="${Math.round(p2.x * 100) / 100}" style="min-width: 34px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 2px; text-align: center; font-size: 9.5px; font-family: var(--font-mono); box-sizing: border-box;">
+              <input id="ds-ce-y2" type="number" step="0.01" value="${Math.round(p2.y * 100) / 100}" style="min-width: 34px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 2px; text-align: center; font-size: 9.5px; font-family: var(--font-mono); box-sizing: border-box;">
             </div>
           </div>
         `;
@@ -892,20 +899,20 @@ export class DopeSheetUI {
       } else if (currentMode === 'bounce') {
         yMin = -0.1; yMax = 1.1;
         controlsContainer.innerHTML = `
-          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 10px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span>Bounces: <b id="lbl-bounce-cnt" style="color: var(--primary);">${bounceCount}</b></span>
-              <input id="slider-bounce-cnt" type="range" min="1" max="6" step="1" value="${bounceCount}" style="width: 150px;">
+              <input id="slider-bounce-cnt" type="range" min="1" max="6" step="1" value="${bounceCount}" style="width: 120px;">
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span>Decay / Restitution: <b id="lbl-bounce-dec" style="color: var(--primary);">${Math.round(bounceDecay * 100)}%</b></span>
-              <input id="slider-bounce-dec" type="range" min="0.15" max="0.80" step="0.05" value="${bounceDecay}" style="width: 150px;">
+              <span>Decay: <b id="lbl-bounce-dec" style="color: var(--primary);">${Math.round(bounceDecay * 100)}%</b></span>
+              <input id="slider-bounce-dec" type="range" min="0.15" max="0.80" step="0.05" value="${bounceDecay}" style="width: 120px;">
             </div>
-            <div style="display: flex; gap: 4px; margin-top: 2px;">
-              <button class="ds-ce-b-preset" data-b="2" data-d="0.4" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">2 Soft</button>
-              <button class="ds-ce-b-preset" data-b="3" data-d="0.45" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">3 Standard</button>
-              <button class="ds-ce-b-preset" data-b="4" data-d="0.55" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">4 Active</button>
-              <button class="ds-ce-b-preset" data-b="5" data-d="0.65" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">5 Rubbery</button>
+            <div style="display: flex; gap: 3px; margin-top: 1px;">
+              <button class="ds-ce-b-preset" data-b="2" data-d="0.4" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">2 Soft</button>
+              <button class="ds-ce-b-preset" data-b="3" data-d="0.45" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">3 Standard</button>
+              <button class="ds-ce-b-preset" data-b="4" data-d="0.55" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">4 Active</button>
+              <button class="ds-ce-b-preset" data-b="5" data-d="0.65" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">5 Rubbery</button>
             </div>
           </div>
         `;
@@ -927,19 +934,19 @@ export class DopeSheetUI {
       } else if (currentMode === 'spring') {
         yMin = -0.4; yMax = 1.6;
         controlsContainer.innerHTML = `
-          <div style="display: flex; flex-direction: column; gap: 4px; font-size: 11px;">
+          <div style="display: flex; flex-direction: column; gap: 3px; font-size: 10px;">
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span>Oscillations: <b id="lbl-spring-osc" style="color: var(--primary);">${springOsc}</b></span>
-              <input id="slider-spring-osc" type="range" min="1" max="8" step="1" value="${springOsc}" style="width: 150px;">
+              <input id="slider-spring-osc" type="range" min="1" max="8" step="1" value="${springOsc}" style="width: 120px;">
             </div>
             <div style="display: flex; align-items: center; justify-content: space-between;">
               <span>Damping: <b id="lbl-spring-damp" style="color: var(--primary);">${Math.round(springDamp * 100)}%</b></span>
-              <input id="slider-spring-damp" type="range" min="0.10" max="0.90" step="0.05" value="${springDamp}" style="width: 150px;">
+              <input id="slider-spring-damp" type="range" min="0.10" max="0.90" step="0.05" value="${springDamp}" style="width: 120px;">
             </div>
-            <div style="display: flex; gap: 4px; margin-top: 2px;">
-              <button class="ds-ce-s-preset" data-o="2" data-d="0.7" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">Subtle</button>
-              <button class="ds-ce-s-preset" data-o="3" data-d="0.5" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">Standard</button>
-              <button class="ds-ce-s-preset" data-o="5" data-d="0.3" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 9px; padding: 2px 5px; cursor: pointer;">Wild Jiggle</button>
+            <div style="display: flex; gap: 3px; margin-top: 1px;">
+              <button class="ds-ce-s-preset" data-o="2" data-d="0.7" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Subtle</button>
+              <button class="ds-ce-s-preset" data-o="3" data-d="0.5" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Standard</button>
+              <button class="ds-ce-s-preset" data-o="5" data-d="0.3" style="background: var(--bg-input); color: var(--text-dim); border: 1px solid var(--border); border-radius: 3px; font-size: 8.5px; padding: 1px 4px; cursor: pointer;">Wild Jiggle</button>
             </div>
           </div>
         `;
@@ -961,14 +968,14 @@ export class DopeSheetUI {
       } else if (currentMode === 'spline') {
         yMin = -0.3; yMax = 1.3;
         controlsContainer.innerHTML = `
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; background: var(--bg-panel-sub); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-            <div style="display: flex; align-items: center; gap: 6px;">
-              <span style="color: var(--text-dim); font-size: 10px;">Freeform Nodes:</span>
-              <b style="color: var(--primary); font-size: 11px;">${splineNodes.length} pts</b>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 10px; background: var(--bg-panel-sub); padding: 3px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
+            <div style="display: flex; align-items: center; gap: 4px;">
+              <span style="color: var(--text-dim); font-size: 9.5px;">Nodes:</span>
+              <b style="color: var(--primary); font-size: 10px;">${splineNodes.length} pts</b>
             </div>
-            <button id="btn-add-spline-node" class="btn-sm" style="font-size: 10px; padding: 2px 8px; font-weight: 600; cursor: pointer; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright);">+ node</button>
+            <button id="btn-add-spline-node" class="btn-sm" style="font-size: 9.5px; padding: 1px 6px; font-weight: 600; cursor: pointer; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-bright);">+ node</button>
           </div>
-          <div style="font-size: 9.5px; color: var(--text-muted); margin-top: 2px; padding: 0 2px;">Click &amp; drag nodes on graph. Double-click canvas to insert.</div>
+          <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px; padding: 0 1px;">Click &amp; drag nodes. Double-click canvas to insert.</div>
         `;
         controlsContainer.querySelector('#btn-add-spline-node').onclick = () => {
           const midX = 0.5;
@@ -1051,22 +1058,22 @@ export class DopeSheetUI {
         ctx.moveTo(x0, y0);
         ctx.bezierCurveTo(px1, py1, px2, py2, x1, y1);
         ctx.strokeStyle = colSuccess;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.stroke();
 
         ctx.fillStyle = colText;
-        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x1, y1, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x0, y0, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x1, y1, 3, 0, Math.PI * 2); ctx.fill();
 
         ctx.fillStyle = colAccent;
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(px1, py1, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(px1, py1, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
 
         ctx.fillStyle = colPrimary;
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(px2, py2, 6, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.beginPath(); ctx.arc(px2, py2, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
       } else if (currentMode === 'bounce' || currentMode === 'spring') {
         ctx.beginPath();
         const steps = 150;
@@ -1079,12 +1086,12 @@ export class DopeSheetUI {
           else ctx.lineTo(px, py);
         }
         ctx.strokeStyle = currentMode === 'bounce' ? colPrimary : colAccent;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.stroke();
 
         ctx.fillStyle = colText;
-        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.arc(x1, y1, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x0, y0, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x1, y1, 3, 0, Math.PI * 2); ctx.fill();
       } else if (currentMode === 'spline') {
         ctx.beginPath();
         const steps = 150;
@@ -1097,7 +1104,7 @@ export class DopeSheetUI {
           else ctx.lineTo(px, py);
         }
         ctx.strokeStyle = colSuccess;
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 2;
         ctx.stroke();
 
         splineNodes.forEach((node, idx) => {
@@ -1106,7 +1113,7 @@ export class DopeSheetUI {
           ctx.strokeStyle = colBgCanvas;
           ctx.lineWidth = 1.5;
           ctx.beginPath();
-          ctx.arc(nx, ny, 5.5, 0, Math.PI * 2);
+          ctx.arc(nx, ny, 4.5, 0, Math.PI * 2);
           ctx.fill();
           ctx.stroke();
         });
@@ -1125,9 +1132,9 @@ export class DopeSheetUI {
     });
 
     const onPointerDown = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
+      const coords = getCanvasCoords(e);
+      const mx = coords.x;
+      const my = coords.y;
 
       if (currentMode === 'bezier') {
         const px1 = toPixelX(p1.x), py1 = toPixelY(p1.y);
@@ -1137,8 +1144,8 @@ export class DopeSheetUI {
 
         if (d1 <= 14) draggingTarget = 'p1';
         else if (d2 <= 14) draggingTarget = 'p2';
-        else if (d1 < d2 && d1 < 30) draggingTarget = 'p1';
-        else if (d2 <= d1 && d2 < 30) draggingTarget = 'p2';
+        else if (d1 < d2 && d1 < 25) draggingTarget = 'p1';
+        else if (d2 <= d1 && d2 < 25) draggingTarget = 'p2';
       } else if (currentMode === 'spline') {
         for (let i = 0; i < splineNodes.length; i++) {
           const nx = toPixelX(splineNodes[i].x);
@@ -1159,11 +1166,9 @@ export class DopeSheetUI {
 
     const onPointerMove = (e) => {
       if (draggingTarget === null) return;
-      const rect = canvas.getBoundingClientRect();
-      const mx = e.clientX - rect.left;
-      const my = e.clientY - rect.top;
-      const nx = fromPixelX(mx);
-      const ny = fromPixelY(my);
+      const coords = getCanvasCoords(e);
+      const nx = fromPixelX(coords.x);
+      const ny = fromPixelY(coords.y);
 
       if (currentMode === 'bezier') {
         if (draggingTarget === 'p1') { p1.x = nx; p1.y = ny; }
@@ -1201,9 +1206,9 @@ export class DopeSheetUI {
 
     canvas.addEventListener('dblclick', (e) => {
       if (currentMode === 'spline') {
-        const rect = canvas.getBoundingClientRect();
-        const nx = fromPixelX(e.clientX - rect.left);
-        const ny = fromPixelY(e.clientY - rect.top);
+        const coords = getCanvasCoords(e);
+        const nx = fromPixelX(coords.x);
+        const ny = fromPixelY(coords.y);
         splineNodes.push({ x: nx, y: ny, cpIn: { x: -0.06, y: 0 }, cpOut: { x: 0.06, y: 0 } });
         splineNodes.sort((a, b) => a.x - b.x);
         syncGraph();

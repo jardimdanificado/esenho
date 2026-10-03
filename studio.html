@@ -45,7 +45,7 @@
 
 
 
-    [data-theme="gray"], [data-theme="ableton"], body.theme-gray, body.theme-ableton {
+    [data-theme="gray"], body.theme-gray {
       --bg-dark: #222528;
       --bg-canvas: #1a1c1e;
       --bg-panel: #2e3236;
@@ -1054,7 +1054,7 @@
       pointer-events: none;
     }
 
-    /* ── Dockview Layout Engine & Gruvbox Dark / Ableton Gray Themes ── */
+    /* ── Dockview Layout Engine & Gruvbox Dark / Gray Themes ── */
     #dockview-container {
       width: 100%;
       height: 100%;
@@ -1065,7 +1065,6 @@
     }
 
     .dockview-theme-dark,
-    .dockview-theme-ableton,
     #dockview-container {
       --dv-drag-over-background-color: var(--primary-dim);
       --dv-drag-over-border-color: var(--primary);
@@ -2398,9 +2397,9 @@
         <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
-      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Ableton Gray)" style="cursor: pointer;">
+      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray)" style="cursor: pointer;">
         <span class="statusbar-icon">☀</span>
-        <span id="status-theme-text">☾ Gruvbox</span>
+        <span id="status-theme-text">☾ Dark</span>
       </div>
     </div>
   </footer>
@@ -3461,7 +3460,10 @@
         </div>
         <div class="form-row" style="margin-bottom: 0;">
           <label style="flex: 0 0 50px;">Color</label>
-          <input type="text" id="prop-doc-bg" value="#1d2021" style="font-size: 11px;">
+          <div style="display: flex; gap: 6px; width: 100%;">
+            <input type="color" id="prop-doc-bg-picker" value="#1d2021" style="width: 28px; height: 24px; padding: 1px 2px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input);">
+            <input type="text" id="prop-doc-bg" value="#1d2021" style="font-size: 11px; flex: 1;">
+          </div>
         </div>
       </div>
 
@@ -3530,73 +3532,12 @@
       <div style="padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub); font-size: 10px; color: var(--text-dim);">
         <span id="recents-storage-info">IndexedDB Storage</span>
         <div style="display: flex; gap: 4px;">
-          <button type="button" id="btn-modal-bundle-backup" class="btn-sm" style="font-size: 10px; padding: 2px 6px;">Backup All</button>
-          <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear</button>
+          <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear Storage</button>
         </div>
       </div>
     </div>
 
-    <!-- Dock Panel 9: Asset Bundle -->
-    <div id="dock-panel-assets" class="dock-panel-content" style="padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: var(--bg-panel); height: 100%;">
-      <div style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px;">
-        <button id="tab-btn-bundle-export" class="tab-btn active btn-sm" style="font-weight: bold; cursor: pointer;">Export Bundle</button>
-        <button id="tab-btn-bundle-import" class="tab-btn btn-sm" style="color: var(--text-muted); cursor: pointer;">Import Bundle</button>
-      </div>
-
-      <!-- Bundle Export -->
-      <div id="pane-bundle-export" style="display: flex; flex-direction: column; gap: 10px;">
-        <div class="form-row">
-          <label>Bundle Title</label>
-          <input type="text" id="inp-bundle-title" value="Wesenho Assets">
-        </div>
-        <div class="form-row">
-          <label>Author</label>
-          <input type="text" id="inp-bundle-author" value="User">
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px;">
-          <span style="font-size: 11px; font-weight: bold; color: var(--text-muted);">Assets to include:</span>
-          <div style="display: flex; gap: 4px;">
-            <button type="button" id="btn-bundle-select-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Select All</button>
-            <button type="button" id="btn-bundle-deselect-all" class="btn-sm" style="font-size: 10px; padding: 1px 5px;">Deselect All</button>
-          </div>
-        </div>
-
-        <div style="display: flex; flex-direction: column; gap: 8px; background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-          <div style="font-weight: bold; font-size: 11px; color: var(--accent);">Brushes</div>
-          <div id="bundle-export-brushes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-          
-          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">WASM Plugins</div>
-          <div id="bundle-export-plugins-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-
-          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Textures</div>
-          <div id="bundle-export-textures-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-
-          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Brush Tip Shapes</div>
-          <div id="bundle-export-tip-shapes-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-
-          <div style="font-weight: bold; font-size: 11px; color: var(--accent); margin-top: 4px;">Projects</div>
-          <div id="bundle-export-projects-list" style="display: flex; flex-direction: column; gap: 3px; padding-left: 6px;"></div>
-        </div>
-
-        <button id="btn-do-bundle-export" class="btn-primary" style="width: 100%; padding: 7px; margin-top: 4px; font-weight: 600;">Download Asset Bundle (.wesenbundle)</button>
-      </div>
-
-      <!-- Bundle Import -->
-      <div id="pane-bundle-import" style="display: none; flex-direction: column; gap: 10px;">
-        <div style="border: 2px dashed var(--border); border-radius: var(--radius-md); padding: 20px; text-align: center; background: var(--bg-dark);">
-          <p style="margin: 0 0 8px 0; font-size: 11px; color: var(--text-dim);">Select a .wesenbundle file to install</p>
-          <input type="file" id="inp-bundle-file" accept=".wesenbundle,.json" style="display: none;">
-          <button type="button" id="btn-choose-bundle-file" class="btn-sm" style="padding: 4px 10px;">Choose Bundle File...</button>
-        </div>
-        <div id="bundle-import-preview" style="display: none; flex-direction: column; gap: 8px;">
-          <h4 id="bundle-import-title" style="margin: 0; font-size: 12px; color: var(--text-bright);"></h4>
-          <div id="bundle-import-summary" style="font-size: 11px; color: var(--text-dim);"></div>
-          <button id="btn-do-bundle-import" class="btn-primary" style="width: 100%; padding: 6px; font-weight: bold;">Install Bundle</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Dock Panel 10: Export Center -->
+    <!-- Dock Panel 9: Export Center -->
     <div id="dock-panel-export" class="dock-panel-content" style="padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: var(--bg-panel); height: 100%;">
       <!-- Export Mode Switcher -->
       <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
@@ -3767,8 +3708,8 @@
     </div>
 
     <!-- Dock Panel 12: Curve Editor -->
-    <div id="dock-panel-curves" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel); display: flex; flex-direction: column; width: 100%; height: 100%;">
-      <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
+    <div id="dock-panel-curves" class="dock-panel-content" style="padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; background: var(--bg-panel); display: flex; flex-direction: column; width: 100%; height: 100%; box-sizing: border-box;">
+      <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; box-sizing: border-box;"></div>
     </div>
   </div>
 
@@ -3784,7 +3725,6 @@
   <script src="src/version.js"></script>
   <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
-  <script src="src/asset_bundle.js"></script>
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
   <script src="src/svg/svg_engine.js"></script>
@@ -3832,7 +3772,6 @@
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.toggle('theme-ableton', currentTheme === 'gray');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -3863,7 +3802,7 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Ableton Gray' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
@@ -5968,9 +5907,9 @@
         setVal('prop-doc-w', doc.width);
         setVal('prop-doc-h', doc.height);
         setVal('prop-doc-bg', doc.backgroundColor || '#1d2021');
-        const propDocBgColor = document.getElementById('prop-doc-bg-color');
-        if (propDocBgColor && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) {
-          propDocBgColor.value = doc.backgroundColor;
+        const propDocBgPicker = document.getElementById('prop-doc-bg-picker') || document.getElementById('prop-doc-bg-color');
+        if (propDocBgPicker && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) {
+          propDocBgPicker.value = doc.backgroundColor;
         }
 
         const statusDocSize = document.getElementById('status-doc-size');
@@ -7755,7 +7694,7 @@
             { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
             { type: 'item', label: 'Transform & Geometry Dock', action: () => switchTab('inspect') },
             { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
-            { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
+            { type: 'item', label: 'Projects & Document Dock', action: () => switchTab('projects') },
             { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
             { type: 'sep' },
             { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
@@ -7860,7 +7799,7 @@
             { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
             { type: 'item', label: 'Transform & Geometry Dock', action: () => switchTab('inspect') },
             { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
-            { type: 'item', label: 'Document Settings Dock', action: () => switchTab('document') },
+            { type: 'item', label: 'Projects & Document Dock', action: () => switchTab('projects') },
             { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
             { type: 'sep' },
             { type: 'item', label: 'Reset Dock Layout', action: () => resetDockviewLayout() },
@@ -9874,10 +9813,18 @@
         render();
       });
 
-      document.getElementById('prop-doc-bg')?.addEventListener('change', (e) => {
-        doc.backgroundColor = e.target.value;
+      const updateDocBackground = (colorVal) => {
+        doc.backgroundColor = colorVal;
+        const picker = document.getElementById('prop-doc-bg-picker');
+        const text = document.getElementById('prop-doc-bg');
+        if (picker && colorVal && colorVal.startsWith('#') && colorVal.length === 7) picker.value = colorVal;
+        if (text && text.value !== colorVal) text.value = colorVal;
         render();
-      });
+      };
+      document.getElementById('prop-doc-bg')?.addEventListener('input', (e) => updateDocBackground(e.target.value));
+      document.getElementById('prop-doc-bg')?.addEventListener('change', (e) => updateDocBackground(e.target.value));
+      document.getElementById('prop-doc-bg-picker')?.addEventListener('input', (e) => updateDocBackground(e.target.value));
+      document.getElementById('prop-doc-bg-picker')?.addEventListener('change', (e) => updateDocBackground(e.target.value));
 
       document.getElementById('prop-zoom-val')?.addEventListener('change', (e) => {
         const zPct = Number(e.target.value) || 100;
@@ -10168,8 +10115,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v8';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'tracer', 'projects', 'assets', 'export', 'animation', 'curves'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v12';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -10222,7 +10169,6 @@
           curves: 'Curves',
           tracer: 'Vectorizer',
           projects: 'Projects',
-          assets: 'Asset Bundle',
           export: 'Export'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
@@ -10244,8 +10190,8 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
             }
-          } else if (['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'];
+          } else if (['inspect', 'scene', 'tracer', 'projects', 'export'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -10301,8 +10247,7 @@
       window.updateTracerUI = updateTracerUI;
 
       function openHubTab(tabName = 'projects') {
-        if (tabName === 'assets') openDockPanel('assets');
-        else if (tabName === 'export') openDockPanel('export');
+        if (tabName === 'export') openDockPanel('export');
         else openDockPanel('projects');
       }
       window.openHubTab = openHubTab;
@@ -10345,7 +10290,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'];
+        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -10358,7 +10303,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
-        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'assets', 'export'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -10430,15 +10375,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 8. Right Asset Bundle panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'assets',
-            component: 'assets',
-            title: 'Asset Bundle',
-            position: { referencePanel: 'inspect' }
-          });
-
-          // 9. Right Export panel (tabbed with Inspect)
+          // 8. Right Export panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'export',
             component: 'export',
@@ -10446,7 +10383,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 10. Bottom Timeline panel
+          // 9. Bottom Timeline panel
           dockviewApi.addPanel({
             id: 'animation',
             component: 'animation',
@@ -10455,7 +10392,7 @@
             initialHeight: 210
           });
 
-          // 12. Bottom Curves panel (tabbed with Timeline)
+          // 10. Bottom Curves panel (tabbed with Timeline)
           dockviewApi.addPanel({
             id: 'curves',
             component: 'curves',
@@ -10494,6 +10431,12 @@
         const container = document.getElementById('dockview-container');
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
+        // Clean up any stale old dock layout keys from previous versions
+        for (let i = 1; i <= 11; i++) {
+          try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
+        }
+        try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
+
         // Pre-cache all panel DOM elements so they are never lost during DOM mutations/clearing
         REQUIRED_PANEL_IDS.forEach(id => getPanelElement(id));
 
@@ -10503,6 +10446,18 @@
             defaultRenderer: 'always',
             createComponent: (options) => {
               const panelId = options.id || options.name;
+              if (panelId === 'assets' || panelId === 'document' || !REQUIRED_PANEL_IDS.includes(panelId)) {
+                return {
+                  element: document.createElement('div'),
+                  init: (params) => {
+                    setTimeout(() => {
+                      try { params?.api?.close(); } catch (_) {}
+                    }, 0);
+                  },
+                  update: () => {},
+                  dispose: () => {}
+                };
+              }
               const el = getPanelElement(panelId);
               return {
                 element: el || document.createElement('div'),
@@ -10525,10 +10480,21 @@
           const savedLayoutRaw = localStorage.getItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
           if (savedLayoutRaw) {
             const savedLayout = JSON.parse(savedLayoutRaw);
+            if (savedLayout && savedLayout.panels) {
+              delete savedLayout.panels['assets'];
+              delete savedLayout.panels['document'];
+            }
             if (savedLayout && savedLayout.grid && savedLayout.panels && savedLayout.panels['canvas']) {
               dockviewApi.fromJSON(savedLayout);
               if (dockviewApi.panels && dockviewApi.panels.length >= 2 && dockviewApi.getPanel('canvas')) {
                 restored = true;
+                // Close any obsolete panel if restored
+                ['assets', 'document'].forEach(obsoleteId => {
+                  const p = dockviewApi.getPanel(obsoleteId);
+                  if (p) {
+                    try { p.api.close(); } catch (_) {}
+                  }
+                });
               } else {
                 console.warn('Restored layout is incomplete, resetting to default');
                 try { dockviewApi.clear(); } catch (_) {}
@@ -10573,16 +10539,16 @@
               const wEl = document.getElementById('prop-doc-w');
               const hEl = document.getElementById('prop-doc-h');
               const bgEl = document.getElementById('prop-doc-bg');
+              const bgPickerEl = document.getElementById('prop-doc-bg-picker');
               const nameEl = document.getElementById('prop-project-name');
               const sizeBadge = document.getElementById('doc-size-badge');
               if (wEl) wEl.value = doc.width;
               if (hEl) hEl.value = doc.height;
               if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+              if (bgPickerEl && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) bgPickerEl.value = doc.backgroundColor;
               if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
               if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height}`;
               if (typeof refreshProjectsList === 'function') refreshProjectsList();
-            } else if (id === 'assets') {
-              if (typeof populateBundleExportList === 'function') populateBundleExportList();
             } else if (id === 'export') {
               if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
             } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
@@ -10650,11 +10616,13 @@
           const wEl = document.getElementById('prop-doc-w');
           const hEl = document.getElementById('prop-doc-h');
           const bgEl = document.getElementById('prop-doc-bg');
+          const bgPickerEl = document.getElementById('prop-doc-bg-picker');
           const nameEl = document.getElementById('prop-project-name');
           const sizeBadge = document.getElementById('doc-size-badge');
           if (wEl) wEl.value = doc.width;
           if (hEl) hEl.value = doc.height;
           if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
+          if (bgPickerEl && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) bgPickerEl.value = doc.backgroundColor;
           if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
           if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height}`;
           if (typeof refreshProjectsList === 'function') refreshProjectsList();
@@ -10689,7 +10657,6 @@
         return [
           { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
           { type: 'item', label: 'Projects & Storage...', hotkey: 'Ctrl+E', action: () => openDockPanel('projects') },
-          { type: 'item', label: 'Asset Bundle...', action: () => openDockPanel('assets') },
           { type: 'item', label: 'Export Center...', action: () => openDockPanel('export') },
           { type: 'sep' },
           { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
@@ -10814,7 +10781,6 @@
         const isSceneOpen = !!dockviewApi?.getPanel('scene');
         const isTracerOpen = !!dockviewApi?.getPanel('tracer');
         const isProjectsOpen = !!dockviewApi?.getPanel('projects');
-        const isAssetsOpen = !!dockviewApi?.getPanel('assets');
         const isExportOpen = !!dockviewApi?.getPanel('export');
         const isAnimOpen = !!dockviewApi?.getPanel('animation');
         const isCurvesOpen = !!dockviewApi?.getPanel('curves');
@@ -10827,14 +10793,13 @@
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
           { type: 'item', label: (isTracerOpen ? '✓ ' : '') + 'Vectorizer Dock', action: () => toggleDockPanel('tracer') },
           { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + 'Projects & Document Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
-          { type: 'item', label: (isAssetsOpen ? '✓ ' : '') + 'Asset Bundle Dock', action: () => toggleDockPanel('assets') },
           { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Ableton Gray', action: () => setTheme('gray') }
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
@@ -13711,16 +13676,6 @@
         e.target.value = '';
       });
 
-      document.getElementById('btn-modal-bundle-backup')?.addEventListener('click', () => {
-        closeRecentsModal();
-        if (typeof openAssetBundleModal === 'function') {
-          openAssetBundleModal('export');
-        } else if (modalBundle) {
-          modalBundle.style.display = 'flex';
-          switchBundleTab('export');
-        }
-      });
-
       document.getElementById('btn-new-project')?.addEventListener('click', () => {
         menuDropdown?.classList.remove('active');
         btnMenuLogo?.classList.remove('active');
@@ -13738,275 +13693,6 @@
 
       document.getElementById('btn-modal-new-proj')?.addEventListener('click', () => {
         openNewProjectModal();
-      });
-
-      // ── Asset Bundle Controller (Export & Import in Hub) ──
-      let bundleMode = 'export';
-      let parsedImportBundle = null;
-
-      function switchBundleTab(mode) {
-        bundleMode = mode;
-        const tabBtnExport = document.getElementById('tab-btn-bundle-export');
-        const tabBtnImport = document.getElementById('tab-btn-bundle-import');
-        const paneExport = document.getElementById('pane-bundle-export');
-        const paneImport = document.getElementById('pane-bundle-import');
-
-        if (mode === 'export') {
-          if (tabBtnExport) tabBtnExport.classList.add('active');
-          if (tabBtnImport) tabBtnImport.classList.remove('active');
-          if (paneExport) paneExport.style.display = 'flex';
-          if (paneImport) paneImport.style.display = 'none';
-          populateBundleExportList();
-        } else {
-          if (tabBtnImport) tabBtnImport.classList.add('active');
-          if (tabBtnExport) tabBtnExport.classList.remove('active');
-          if (paneExport) paneExport.style.display = 'none';
-          if (paneImport) paneImport.style.display = 'flex';
-        }
-      }
-
-      document.getElementById('tab-btn-bundle-export')?.addEventListener('click', () => switchBundleTab('export'));
-      document.getElementById('tab-btn-bundle-import')?.addEventListener('click', () => switchBundleTab('import'));
-
-      async function populateBundleExportList() {
-        const brushesListEl = document.getElementById('bundle-export-brushes-list');
-        if (brushesListEl) {
-          const customBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
-          const keys = Object.keys(customBrushes);
-          if (keys.length === 0) {
-            brushesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom brush presets found)</div>';
-          } else {
-            brushesListEl.innerHTML = keys.map(k => `
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" class="chk-bundle-brush" value="${k}" checked>
-                <span>${customBrushes[k].name || k}</span>
-              </label>
-            `).join('');
-          }
-        }
-
-        const pluginsListEl = document.getElementById('bundle-export-plugins-list');
-        if (pluginsListEl) {
-          const plugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
-          if (plugins.length === 0) {
-            pluginsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom WASM plugins in store)</div>';
-          } else {
-            pluginsListEl.innerHTML = plugins.map(p => `
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" class="chk-bundle-plugin" value="${p.name}" checked>
-                <span>${p.name}.wasm</span>
-              </label>
-            `).join('');
-          }
-        }
-
-        const texturesListEl = document.getElementById('bundle-export-textures-list');
-        if (texturesListEl) {
-          const textures = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTextures) ? await EsenhoStore.listCustomTextures() : [];
-          if (textures.length === 0) {
-            texturesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom textures found)</div>';
-          } else {
-            texturesListEl.innerHTML = textures.map(t => `
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" class="chk-bundle-texture" value="${t.id}" checked>
-                <span>${t.name || t.id} (${t.width || 256}×${t.height || 256})</span>
-              </label>
-            `).join('');
-          }
-        }
-
-        const tipShapesListEl = document.getElementById('bundle-export-tip-shapes-list');
-        if (tipShapesListEl) {
-          const tips = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listCustomTipShapes) ? await EsenhoStore.listCustomTipShapes() : [];
-          if (tips.length === 0) {
-            tipShapesListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No custom tip shapes found)</div>';
-          } else {
-            tipShapesListEl.innerHTML = tips.map(t => `
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" class="chk-bundle-tip" value="${t.id}" checked>
-                <span>${t.name || t.id} (${t.width || 256}×${t.height || 256})</span>
-              </label>
-            `).join('');
-          }
-        }
-
-        const projectsListEl = document.getElementById('bundle-export-projects-list');
-        if (projectsListEl) {
-          const projects = (typeof EsenhoStore !== 'undefined' && EsenhoStore.listProjects) ? await EsenhoStore.listProjects() : [];
-          if (projects.length === 0) {
-            projectsListEl.innerHTML = '<div style="font-size: 11px; color: var(--text-muted);">(No saved projects found)</div>';
-          } else {
-            projectsListEl.innerHTML = projects.map(p => `
-              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; cursor: pointer;">
-                <input type="checkbox" class="chk-bundle-project" value="${p.id}" checked>
-                <span>${p.name || p.id} (${p.type || 'vector'})</span>
-              </label>
-            `).join('');
-          }
-        }
-      }
-
-      document.getElementById('btn-bundle-select-all')?.addEventListener('click', () => {
-        const pane = document.getElementById('hub-pane-assets');
-        pane?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = true);
-      });
-      document.getElementById('btn-bundle-deselect-all')?.addEventListener('click', () => {
-        const pane = document.getElementById('hub-pane-assets');
-        pane?.querySelectorAll('input[type="checkbox"]').forEach(c => c.checked = false);
-      });
-
-      document.getElementById('btn-menu-asset-bundle')?.addEventListener('click', () => {
-        menuDropdown?.classList.remove('active');
-        btnMenuLogo?.classList.remove('active');
-        openHubTab('assets');
-        switchBundleTab('export');
-      });
-
-      const inpBundleFile = document.getElementById('inp-bundle-file');
-      document.getElementById('btn-choose-bundle-file')?.addEventListener('click', () => inpBundleFile?.click());
-      
-      async function handleBundleFile(file) {
-        if (!file) return;
-        const text = await file.text();
-        const parsed = (typeof EsenhoBundle !== 'undefined') ? EsenhoBundle.parseBundle(text) : null;
-        if (!parsed) {
-          alert('Invalid Wesenho Asset Bundle file.');
-          return;
-        }
-        parsedImportBundle = parsed;
-        const previewBox = document.getElementById('bundle-import-preview');
-        const titleEl = document.getElementById('bundle-import-title');
-        const summaryEl = document.getElementById('bundle-import-summary');
-        if (previewBox) {
-          previewBox.style.display = 'flex';
-          if (titleEl) titleEl.textContent = `${parsed.title} (by ${parsed.author})`;
-          const bCount = Object.keys(parsed.brushes || {}).length;
-          const pCount = (parsed.plugins || []).length;
-          const tCount = Object.keys(parsed.textures || {}).length;
-          const sCount = Object.keys(parsed.tipShapes || {}).length;
-          const prCount = (parsed.projects || []).length;
-          if (summaryEl) {
-            summaryEl.textContent = `Includes: ${bCount} brushes, ${pCount} plugins, ${tCount} textures, ${sCount} tip shapes, ${prCount} projects.`;
-          }
-        }
-      }
-
-      inpBundleFile?.addEventListener('change', (e) => {
-        const file = e.target.files?.[0];
-        if (file) handleBundleFile(file);
-      });
-
-      async function doExportBundle() {
-        const title = document.getElementById('inp-bundle-title')?.value || 'Wesenho Assets';
-        const author = document.getElementById('inp-bundle-author')?.value || 'User';
-        const pane = document.getElementById('hub-pane-assets');
-        if (!pane) return;
-
-        const selectedBrushKeys = Array.from(pane.querySelectorAll('.chk-bundle-brush:checked')).map(c => c.value);
-        const selectedPluginNames = Array.from(pane.querySelectorAll('.chk-bundle-plugin:checked')).map(c => c.value);
-        const selectedTextureIds = Array.from(pane.querySelectorAll('.chk-bundle-texture:checked')).map(c => c.value);
-        const selectedTipIds = Array.from(pane.querySelectorAll('.chk-bundle-tip:checked')).map(c => c.value);
-        const selectedProjectIds = Array.from(pane.querySelectorAll('.chk-bundle-project:checked')).map(c => c.value);
-
-        const allCustomBrushes = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomBrushPresets) ? EsenhoStore.getCustomBrushPresets() : {};
-        const brushesToPack = {};
-        selectedBrushKeys.forEach(k => { if (allCustomBrushes[k]) brushesToPack[k] = allCustomBrushes[k]; });
-
-        const allPlugins = (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) ? await EsenhoStore.getAllPlugins() : [];
-        const pluginsToPack = allPlugins.filter(p => selectedPluginNames.includes(p.name));
-
-        const texturesToPack = {};
-        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTexture) {
-          for (const tid of selectedTextureIds) {
-            const tex = await EsenhoStore.getCustomTexture(tid);
-            if (tex) texturesToPack[tid] = tex;
-          }
-        }
-
-        const tipShapesToPack = {};
-        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getCustomTipShape) {
-          for (const tid of selectedTipIds) {
-            const tip = await EsenhoStore.getCustomTipShape(tid);
-            if (tip) tipShapesToPack[tid] = tip;
-          }
-        }
-
-        const projectsToPack = [];
-        if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getProject) {
-          for (const pid of selectedProjectIds) {
-            const proj = await EsenhoStore.getProject(pid);
-            if (proj) projectsToPack.push(proj);
-          }
-        }
-
-        const bundleSvg = EsenhoBundle.createBundle({
-          title,
-          author,
-          brushes: brushesToPack,
-          plugins: pluginsToPack,
-          textures: texturesToPack,
-          tipShapes: tipShapesToPack,
-          projects: projectsToPack
-        });
-
-        const blob = new Blob([bundleSvg], { type: 'image/svg+xml' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        const safeName = title.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
-        a.download = `${safeName}.bundle.svg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        showNotification('Asset Bundle exported successfully');
-      }
-
-      async function doImportBundle() {
-        if (!parsedImportBundle) {
-          alert('Please select or drop an asset bundle first.');
-          return;
-        }
-
-        const res = await EsenhoBundle.importBundle(parsedImportBundle, {
-          brushes: Object.keys(parsedImportBundle.brushes || {}),
-          plugins: (parsedImportBundle.plugins || []).map(p => p.name),
-          textures: Object.keys(parsedImportBundle.textures || {}),
-          tipShapes: Object.keys(parsedImportBundle.tipShapes || {}),
-          projects: (parsedImportBundle.projects || []).map(p => p.id),
-          palettes: true
-        });
-
-        if (parsedImportBundle.plugins) {
-          for (const p of parsedImportBundle.plugins) {
-            if (typeof SvgEngine !== 'undefined' && SvgEngine.wasmPlugins) SvgEngine.wasmPlugins.set(p.name, p.bytes);
-            if (doc && doc.wasmPlugins) doc.wasmPlugins.set(p.name, p.bytes);
-          }
-        }
-
-        updateInspector();
-        showNotification(`Imported: ${res.brushes} brushes, ${res.plugins} plugins, ${res.textures} textures, ${res.tipShapes} tips, ${res.projects} projects`);
-      }
-
-      document.getElementById('btn-do-bundle-export')?.addEventListener('click', doExportBundle);
-      document.getElementById('btn-do-bundle-import')?.addEventListener('click', doImportBundle);
-
-      // Window Drag & Drop for Asset Bundle SVGs
-      window.addEventListener('dragover', (e) => {
-        e.preventDefault();
-      });
-      window.addEventListener('drop', async (e) => {
-        const file = e.dataTransfer?.files?.[0];
-        if (file && (file.name.toLowerCase().endsWith('.svg') || file.name.toLowerCase().endsWith('.wesenbundle'))) {
-          const text = await file.text();
-          if (text.includes('data-esenho-bundle') || text.includes('<esenho-manifest>')) {
-            e.preventDefault();
-            e.stopPropagation();
-            openHubTab('assets');
-            switchBundleTab('import');
-            handleBundleFile(file);
-          }
-        }
       });
 
       // Close modals on backdrop click
@@ -14067,14 +13753,7 @@
 
       // ── Hub Subtab Switcher Events ──
       document.getElementById('hub-tab-btn-projects')?.addEventListener('click', () => switchHubTab('projects'));
-      document.getElementById('hub-tab-btn-assets')?.addEventListener('click', () => switchHubTab('assets'));
       document.getElementById('hub-tab-btn-export')?.addEventListener('click', () => switchHubTab('export'));
-
-      function openAssetBundleModal(mode = 'export') {
-        openHubTab('assets');
-        switchBundleTab(mode);
-      }
-      window.openAssetBundleModal = openAssetBundleModal;
 
       function openExportModal() {
         openHubTab('export');
