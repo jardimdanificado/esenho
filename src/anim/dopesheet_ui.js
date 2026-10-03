@@ -49,39 +49,39 @@ export class DopeSheetUI {
 
   render() {
     this.container.innerHTML = `
-      <div class="dopesheet-panel" style="display: flex; flex-direction: column; height: 100%; width: 100%; background: #1d2021; color: #ebdbb2; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace; font-size: 11px; border-top: 2px solid #3c3836; user-select: none; box-sizing: border-box; position: relative;">
+      <div class="dopesheet-panel" style="display: flex; flex-direction: column; height: 100%; width: 100%; background: var(--bg-panel); color: var(--text); font-family: var(--font-sans); font-size: 11px; border-top: 1px solid var(--border); user-select: none; box-sizing: border-box; position: relative;">
         
         <!-- Top Invisible Resize Hit-area -->
         <div id="ds-resize-handle" title="Drag vertically to resize Timeline height" style="position: absolute; top: -6px; left: 0; right: 0; height: 10px; cursor: ns-resize; z-index: 100; background: transparent;"></div>
 
         <!-- Header Toolbar -->
-        <div class="ds-toolbar" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: #282828; border-bottom: 1px solid #3c3836; flex-wrap: wrap; z-index: 30;">
+        <div class="ds-toolbar" style="display: flex; align-items: center; gap: 5px; padding: 4px 8px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); flex-wrap: wrap; z-index: 30; min-height: 28px; box-sizing: border-box;">
+          <div style="display: flex; align-items: center; gap: 2px;">
+            <button id="ds-btn-prev-key" class="ds-btn" title="Jump to Previous Keyframe ([ or Alt+Left)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">⏮</button>
+            <button id="ds-btn-step-prev" class="ds-btn" title="Step 1 Frame Back (Left)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">◀</button>
+            <button id="ds-btn-play" class="ds-btn" title="Play / Pause (Space)" style="background: var(--primary); color: var(--bg-dark); font-weight: 700; border: 1px solid var(--primary); border-radius: 3px; padding: 2px 10px; cursor: pointer; font-size: 11px;">▶</button>
+            <button id="ds-btn-step-next" class="ds-btn" title="Step 1 Frame Forward (Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">▶</button>
+            <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">⏭</button>
+            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? 'var(--accent)' : 'var(--bg-panel)'}; color: ${this.ds.loop ? '#fff' : 'var(--text)'}; border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
+          </div>
+
+          <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
+
           <div style="display: flex; align-items: center; gap: 3px;">
-            <button id="ds-btn-prev-key" class="ds-btn" title="Jump to Previous Keyframe ([ or Alt+Left)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">⏮</button>
-            <button id="ds-btn-step-prev" class="ds-btn" title="Step 1 Frame Back (Left)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">◀</button>
-            <button id="ds-btn-play" class="ds-btn" title="Play / Pause (Space)" style="background: #d79921; color: #282828; font-weight: bold; border: 1px solid #fabd2f; border-radius: 4px; padding: 3px 12px; cursor: pointer;">▶</button>
-            <button id="ds-btn-step-next" class="ds-btn" title="Step 1 Frame Forward (Right)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">▶</button>
-            <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 6px; cursor: pointer; font-size: 10px;">⏭</button>
-            <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#458588' : '#3c3836'}; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-weight: 600; font-size: 10px; cursor: pointer;">Loop</button>
+            <span style="color: var(--text-dim); font-size: 10.5px;">Frame:</span>
+            <input id="ds-input-frame" type="number" min="1" max="${this.ds.totalFrames}" value="${this.ds.currentFrame}" style="width: 40px; background: var(--bg-input); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-weight: bold; font-size: 11px;">
+            <span style="color: var(--text-muted);">/</span>
+            <input id="ds-input-total" type="number" min="1" max="9999" value="${this.ds.totalFrames}" style="width: 40px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 11px;">
           </div>
 
-          <div style="height: 16px; width: 1px; background: #504945; margin: 0 2px;"></div>
-
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <span>Frame:</span>
-            <input id="ds-input-frame" type="number" min="1" max="${this.ds.totalFrames}" value="${this.ds.currentFrame}" style="width: 44px; background: #1d2021; color: #fabd2f; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center; font-weight: bold;">
-            <span style="color: #928374;">/</span>
-            <input id="ds-input-total" type="number" min="1" max="9999" value="${this.ds.totalFrames}" style="width: 44px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
+          <div style="display: flex; align-items: center; gap: 3px;">
+            <span style="color: var(--text-dim); font-size: 10.5px;">FPS:</span>
+            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 36px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; text-align: center; font-size: 11px;">
           </div>
 
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <span>FPS:</span>
-            <input id="ds-input-fps" type="number" min="1" max="240" step="1" value="${this.ds.fps}" style="width: 40px; background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; text-align: center;">
-          </div>
-
-          <div style="display: flex; align-items: center; gap: 4px;">
-            <span>Curve:</span>
-            <select id="ds-select-easing" title="Easing Curve for Keyframe(s)" style="background: #1d2021; color: #ebdbb2; border: 1px solid #504945; border-radius: 3px; padding: 2px 4px; font-size: 11px;">
+          <div style="display: flex; align-items: center; gap: 3px;">
+            <span style="color: var(--text-dim); font-size: 10.5px;">Curve:</span>
+            <select id="ds-select-easing" title="Easing Curve for Keyframe(s)" style="background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 3px; font-size: 10.5px; height: 21px;">
               <option value="linear">Linear</option>
               <option value="easeInQuad">Ease In (Quad)</option>
               <option value="easeOutQuad">Ease Out (Quad)</option>
@@ -95,38 +95,38 @@ export class DopeSheetUI {
               <option value="step">Step (Hold)</option>
               <option value="custom">Custom Bézier...</option>
             </select>
-            <button id="ds-btn-custom-curve" class="ds-btn" title="Open Bézier Curve Visual Graph Editor" style="background: #3c3836; color: #fabd2f; border: 1px solid #504945; border-radius: 3px; padding: 2px 6px; font-size: 11px; cursor: pointer; display: flex; align-items: center; gap: 3px;">
-              <span>Edit</span>
+            <button id="ds-btn-custom-curve" class="ds-btn" title="Open Bézier Curve Visual Graph Editor" style="background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 10.5px; cursor: pointer; display: flex; align-items: center; gap: 2px;">
+              <span>Curve</span>
             </button>
           </div>
 
-          <div style="height: 16px; width: 1px; background: #504945; margin: 0 2px;"></div>
+          <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
 
-          <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: #b8bb26; color: #282828; font-weight: bold; border: 1px solid #b8bb26; border-radius: 4px; padding: 3px 8px; cursor: pointer;">◆ Add Key</button>
-          <button id="ds-btn-del-kf" class="ds-btn" title="Remove Keyframe" style="background: #ea6962; color: #282828; font-weight: bold; border: 1px solid #ea6962; border-radius: 4px; padding: 3px 8px; cursor: pointer;">◇ Remove</button>
+          <button id="ds-btn-add-kf" class="ds-btn" title="Add Keyframe at Current Frame" style="background: var(--success); color: #fff; font-weight: 600; border: 1px solid var(--success); border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10.5px;">◆ Add Key</button>
+          <button id="ds-btn-del-kf" class="ds-btn" title="Remove Keyframe" style="background: var(--danger); color: #fff; font-weight: 600; border: 1px solid var(--danger); border-radius: 3px; padding: 2px 6px; cursor: pointer; font-size: 10.5px;">◇ Remove</button>
           
-          <button id="ds-btn-autokf" class="ds-btn" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? '#cc241d' : '#3c3836'}; color: ${this.ds.autoKeyframe ? '#ffffff' : '#ebdbb2'}; border: 1px solid ${this.ds.autoKeyframe ? '#fb4934' : '#504945'}; border-radius: 4px; padding: 3px 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-weight: bold; margin-left: auto;">
-            <span id="ds-autokf-dot" style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: ${this.ds.autoKeyframe ? '#fb4934' : '#7c6f64'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 6px #fb4934' : 'none'};"></span>
-            Auto-Keyframe
+          <button id="ds-btn-autokf" class="ds-btn" title="Toggle Auto-Keyframe Recording" style="background: ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--bg-panel)'}; color: ${this.ds.autoKeyframe ? '#ffffff' : 'var(--text)'}; border: 1px solid ${this.ds.autoKeyframe ? 'var(--danger)' : 'var(--border)'}; border-radius: 3px; padding: 2px 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; font-weight: 600; font-size: 10.5px;">
+            <span id="ds-autokf-dot" style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${this.ds.autoKeyframe ? '#fb4934' : 'var(--text-muted)'}; box-shadow: ${this.ds.autoKeyframe ? '0 0 5px #fb4934' : 'none'};"></span>
+            Auto
           </button>
 
-          <button id="ds-btn-collapse-timeline" class="ds-btn" title="Collapse Timeline (Shift+T)" style="background: #3c3836; color: #ebdbb2; border: 1px solid #504945; border-radius: 4px; padding: 3px 7px; font-size: 10px; cursor: pointer; margin-left: 2px;">▼</button>
+          <!-- Timeline Zoom Controls -->
+          <div style="display: flex; align-items: center; gap: 2px; margin-left: auto;">
+            <span style="font-size: 10px; color: var(--text-muted);">Zoom:</span>
+            <button id="ds-btn-zoom-out" class="ds-btn" title="Zoom Out Timeline" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 11px; cursor: pointer;">−</button>
+            <button id="ds-btn-zoom-in" class="ds-btn" title="Zoom In Timeline" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 11px; cursor: pointer;">＋</button>
+          </div>
         </div>
 
         <!-- Main Body: Split View (Object Tracks List on Left, Timeline Grid on Right) -->
         <div id="ds-body" style="display: flex; flex: 1; min-height: 0; position: relative; overflow: hidden;">
           
-          <!-- Left: Objects / Layers Sidebar -->
-          <div id="ds-tree-sidebar" style="width: 290px; min-width: 230px; max-width: 420px; background: #282828; border-right: 1px solid #3c3836; display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;">
+          <!-- Left: Objects / Animation Tracks Sidebar -->
+          <div id="ds-tree-sidebar" style="width: 270px; min-width: 200px; max-width: 400px; background: var(--bg-panel-sub); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;">
             <!-- Tree Header (Matches 24px ruler height exactly) -->
-            <div style="height: 24px; min-height: 24px; padding: 0 6px; background: #32302f; border-bottom: 1px solid #3c3836; font-weight: bold; color: #a89984; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
-              <span style="font-size: 10px; font-weight: bold; color: #ebdbb2;">OBJECTS &amp; LAYERS</span>
-              <div style="display: flex; align-items: center; gap: 3px;">
-                <button id="ds-btn-hdr-group" title="Group Selected (Ctrl+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">Group</button>
-                <button id="ds-btn-hdr-ungroup" title="Ungroup Selected (Ctrl+Shift+G)" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 4px; cursor: pointer;">Ungroup</button>
-                <button id="ds-btn-hdr-top" title="Bring to Front" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 3px; cursor: pointer;">⬆</button>
-                <button id="ds-btn-hdr-bot" title="Send to Bottom" style="background: #282828; color: #ebdbb2; border: 1px solid #504945; border-radius: 2px; font-size: 9px; padding: 1px 3px; cursor: pointer;">⬇</button>
-              </div>
+            <div style="height: 24px; min-height: 24px; padding: 0 8px; background: var(--bg-panel); border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between; box-sizing: border-box;">
+              <span style="font-size: 10px; font-weight: 700; color: var(--text); letter-spacing: 0.5px;">ANIMATION TRACKS</span>
+              <span id="ds-tracks-summary" style="font-size: 9.5px; color: var(--text-muted);"></span>
             </div>
             <!-- Scrollable Track Labels Container -->
             <div id="ds-tree-scroll" style="flex: 1; overflow-y: hidden; overflow-x: hidden; position: relative;">
@@ -135,10 +135,10 @@ export class DopeSheetUI {
           </div>
 
           <!-- Right: Timeline Grid & Ruler Scrollable View -->
-          <div id="ds-timeline-scroll" style="flex: 1; overflow: auto; position: relative; background: #1d2021;">
+          <div id="ds-timeline-scroll" style="flex: 1; overflow: auto; position: relative; background: var(--bg-dark);">
             
             <!-- Timeline Ruler (Top Sticky) -->
-            <div id="ds-ruler-container" style="position: sticky; top: 0; left: 0; height: 24px; background: #32302f; border-bottom: 1px solid #3c3836; z-index: 10; cursor: pointer; width: max-content;">
+            <div id="ds-ruler-container" style="position: sticky; top: 0; left: 0; height: 24px; background: var(--bg-panel); border-bottom: 1px solid var(--border); z-index: 10; cursor: pointer; width: max-content;">
               <canvas id="ds-ruler-canvas" style="display: block; height: 24px;"></canvas>
             </div>
 
@@ -148,8 +148,8 @@ export class DopeSheetUI {
             </div>
 
             <!-- Playhead Vertical Bar -->
-            <div id="ds-playhead" style="position: absolute; top: 0; bottom: 0; width: 2px; background: #fb4934; z-index: 20; pointer-events: none; left: 0;">
-              <div style="position: absolute; top: 0; left: -5px; width: 12px; height: 14px; background: #fb4934; clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);"></div>
+            <div id="ds-playhead" style="position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); z-index: 20; pointer-events: none; left: 0;">
+              <div style="position: absolute; top: 0; left: -5px; width: 12px; height: 14px; background: var(--danger); clip-path: polygon(0 0, 100% 0, 100% 60%, 50% 100%, 0 60%);"></div>
             </div>
 
           </div>
@@ -296,8 +296,25 @@ export class DopeSheetUI {
     }
     loopBtn.onclick = () => {
       this.ds.loop = !this.ds.loop;
-      loopBtn.style.background = this.ds.loop ? '#458588' : '#3c3836';
+      loopBtn.style.background = this.ds.loop ? 'var(--accent)' : 'var(--bg-panel)';
+      loopBtn.style.color = this.ds.loop ? '#fff' : 'var(--text)';
     };
+    const zoomInBtn = this.container.querySelector('#ds-btn-zoom-in');
+    if (zoomInBtn) {
+      zoomInBtn.onclick = () => {
+        this.frameWidth = Math.min(48, this.frameWidth + 3);
+        this.updateGrid();
+        this.updatePlayhead();
+      };
+    }
+    const zoomOutBtn = this.container.querySelector('#ds-btn-zoom-out');
+    if (zoomOutBtn) {
+      zoomOutBtn.onclick = () => {
+        this.frameWidth = Math.max(6, this.frameWidth - 3);
+        this.updateGrid();
+        this.updatePlayhead();
+      };
+    }
     if (collapseBtn) {
       collapseBtn.onclick = (e) => {
         e.stopPropagation();
@@ -415,64 +432,6 @@ export class DopeSheetUI {
           if (typeof window !== 'undefined' && window.renderDoc) window.renderDoc();
         }
       }
-    };
-
-    const btnHdrGroup = this.container.querySelector('#ds-btn-hdr-group');
-    if (btnHdrGroup) {
-      btnHdrGroup.onclick = (e) => {
-        e.stopPropagation();
-        if (typeof window !== 'undefined' && window.doc && window.doc.groupSelected) {
-          window.doc.groupSelected();
-          if (window.render) window.render();
-          if (window.updateInspector) window.updateInspector();
-          this.updateGrid();
-        }
-      };
-    }
-
-    const btnHdrUngroup = this.container.querySelector('#ds-btn-hdr-ungroup');
-    if (btnHdrUngroup) {
-      btnHdrUngroup.onclick = (e) => {
-        e.stopPropagation();
-        if (typeof window !== 'undefined' && window.doc && window.doc.ungroupSelected) {
-          window.doc.ungroupSelected();
-          if (window.render) window.render();
-          if (window.updateInspector) window.updateInspector();
-          this.updateGrid();
-        }
-      };
-    }
-
-    const btnHdrTop = this.container.querySelector('#ds-btn-hdr-top');
-    if (btnHdrTop) {
-      btnHdrTop.onclick = (e) => {
-        e.stopPropagation();
-        if (typeof window !== 'undefined' && window.doc) {
-          const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects()[0] : null;
-          if (sel && window.doc.bringToFront) {
-            window.doc.bringToFront(sel.id);
-            if (window.render) window.render();
-            if (window.updateInspector) window.updateInspector();
-            this.updateGrid();
-          }
-        }
-      };
-    }
-
-    const btnHdrBot = this.container.querySelector('#ds-btn-hdr-bot');
-    if (btnHdrBot) {
-      btnHdrBot.onclick = (e) => {
-        e.stopPropagation();
-        if (typeof window !== 'undefined' && window.doc) {
-          const sel = window.doc.getSelectedObjects ? window.doc.getSelectedObjects()[0] : null;
-          if (sel && window.doc.sendToBack) {
-            window.doc.sendToBack(sel.id);
-            if (window.render) window.render();
-            if (window.updateInspector) window.updateInspector();
-            this.updateGrid();
-          }
-        }
-      };
     };
 
     // ── Scrubbing and Keyframe Selection / Dragging on Timeline Grid & Ruler ──
@@ -1612,11 +1571,12 @@ export class DopeSheetUI {
         const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
         const depthPad = r.depth ? (r.depth * 14) : 0;
         rowEl.style.padding = `0 6px 0 ${6 + depthPad}px`;
+        rowEl.style.borderBottom = '1px solid var(--border-subtle, rgba(255,255,255,0.05))';
         if (isSelected) {
-          rowEl.style.background = '#3c3836';
-          rowEl.style.borderLeft = '3px solid #fabd2f';
+          rowEl.style.background = 'var(--primary-dim, rgba(250, 189, 47, 0.16))';
+          rowEl.style.borderLeft = '3px solid var(--primary)';
         } else {
-          rowEl.style.background = (idx % 2 === 0 ? '#282828' : '#242424');
+          rowEl.style.background = (idx % 2 === 0 ? 'var(--bg-panel)' : 'var(--bg-panel-sub)');
           rowEl.style.borderLeft = '3px solid transparent';
         }
 
@@ -1645,23 +1605,23 @@ export class DopeSheetUI {
         const hasSubtracks = r.activeChannels.length > 0;
 
         const groupToggleHtml = isGroup
-          ? `<span class="ds-group-toggle" title="${r.groupCollapsed ? 'Expand Group (Show child objects)' : 'Collapse Group (Hide child objects)'}" style="font-size: 9px; width: 12px; text-align: center; color: #a89984; cursor: pointer; margin-right: 2px;">${r.groupCollapsed ? '▶' : '▼'}</span>`
+          ? `<span class="ds-group-toggle" title="${r.groupCollapsed ? 'Expand Group (Show child objects)' : 'Collapse Group (Hide child objects)'}" style="font-size: 9px; width: 12px; text-align: center; color: var(--text-muted); cursor: pointer; margin-right: 2px;">${r.groupCollapsed ? '▶' : '▼'}</span>`
           : `<span class="ds-group-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-right: 2px;"></span>`;
 
         const tracksToggleHtml = hasSubtracks
-          ? `<span class="ds-tracks-toggle" title="${r.tracksCollapsed ? 'Expand Parameter Tracks' : 'Collapse Parameter Tracks'}" style="font-size: 9px; width: 12px; text-align: center; color: #fabd2f; cursor: pointer; margin-left: 2px; margin-right: 4px;">${r.tracksCollapsed ? '▶' : '▼'}</span>`
+          ? `<span class="ds-tracks-toggle" title="${r.tracksCollapsed ? 'Expand Parameter Tracks' : 'Collapse Parameter Tracks'}" style="font-size: 9px; width: 12px; text-align: center; color: var(--primary); cursor: pointer; margin-left: 2px; margin-right: 4px;">${r.tracksCollapsed ? '▶' : '▼'}</span>`
           : `<span class="ds-tracks-toggle" style="font-size: 9px; width: 12px; text-align: center; color: transparent; cursor: default; margin-left: 2px; margin-right: 4px;"></span>`;
 
         rowEl.innerHTML = `
           ${groupToggleHtml}
-          <span style="font-size: 11px; margin-right: 4px; color: ${isGroup ? '#fabd2f' : '#83a598'}; width: 14px; text-align: center;">${icon}</span>
-          <span class="ds-obj-name" style="font-weight: bold; color: ${isSelected ? '#fabd2f' : (isGroup ? '#ebdbb2' : '#d5c4a1')}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 11px;" title="${r.label} (Double-click to rename)">${r.label}</span>
+          <span style="font-size: 11px; margin-right: 4px; color: ${isGroup ? 'var(--primary)' : 'var(--accent)'}; width: 14px; text-align: center;">${icon}</span>
+          <span class="ds-obj-name" style="font-weight: 600; color: ${isSelected ? 'var(--primary)' : 'var(--text)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10.5px;" title="${r.label} (Click to select, double-click to rename)">${r.label}</span>
           ${tracksToggleHtml}
           <span class="ds-vis-btn" title="Toggle Visibility" style="font-size: 10px; margin-right: 3px; opacity: ${isVisible ? '0.9' : '0.3'}; cursor: pointer; padding: 0 2px;">${isVisible ? '👁' : '👁‍🗨'}</span>
-          <span class="ds-lock-btn" title="Toggle Lock" style="font-size: 10px; margin-right: 3px; opacity: ${isLocked ? '1.0' : '0.3'}; color: ${isLocked ? '#ea6962' : 'inherit'}; cursor: pointer; padding: 0 2px;">${isLocked ? '🔒' : '🔓'}</span>
-          <span class="ds-add-param-btn" title="Add Parameter Track (+)" style="font-size: 11px; margin-right: 3px; color: #fabd2f; font-weight: bold; cursor: pointer; padding: 0 2px;">＋</span>
-          <span style="font-size: 8px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 4px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
-          <span class="ds-del-track-btn" title="Delete Object" style="color: #7c6f64; font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
+          <span class="ds-lock-btn" title="Toggle Lock" style="font-size: 10px; margin-right: 3px; opacity: ${isLocked ? '1.0' : '0.3'}; color: ${isLocked ? 'var(--danger)' : 'inherit'}; cursor: pointer; padding: 0 2px;">${isLocked ? '🔒' : '🔓'}</span>
+          <span class="ds-add-param-btn" title="Add Parameter Track (+)" style="font-size: 11px; margin-right: 3px; color: var(--primary); font-weight: bold; cursor: pointer; padding: 0 2px;">＋</span>
+          <span style="font-size: 8px; color: ${kfCount > 0 ? 'var(--success)' : 'var(--text-muted)'}; margin-right: 4px; font-weight: ${kfCount > 0 ? 'bold' : 'normal'};" title="${kfCount} keyframes across ${r.activeChannels.length} track(s)">${hasSubtracks ? `${r.activeChannels.length} trk` : (kfCount > 0 ? `${kfCount} kf` : '')}</span>
+          <span class="ds-del-track-btn" title="Clear Keyframes for Object" style="color: var(--text-muted); font-size: 11px; cursor: pointer; padding: 0 2px;">✕</span>
         `;
 
         const groupToggleBtn = rowEl.querySelector('.ds-group-toggle');
@@ -1728,9 +1688,9 @@ export class DopeSheetUI {
             input.value = r.label;
             input.style.fontSize = '10px';
             input.style.width = '80px';
-            input.style.background = '#1d2021';
-            input.style.color = '#fabd2f';
-            input.style.border = '1px solid #fabd2f';
+            input.style.background = 'var(--bg-input)';
+            input.style.color = 'var(--text-bright)';
+            input.style.border = '1px solid var(--border-focus)';
             input.style.borderRadius = '2px';
             input.style.padding = '0 2px';
 
@@ -1746,6 +1706,7 @@ export class DopeSheetUI {
                 }
                 this.ds.renameObject(r.object.id, val);
                 if (window.updateInspector) window.updateInspector();
+                if (window.updateObjectList) window.updateObjectList();
               }
               this.updateGrid();
             };
@@ -1762,61 +1723,6 @@ export class DopeSheetUI {
           };
         }
 
-        // Drag & Drop reordering
-        rowEl.draggable = true;
-        rowEl.ondragstart = (e) => {
-          this._dragSourceId = r.object.id;
-          rowEl.style.opacity = '0.5';
-          e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('text/plain', r.object.id);
-        };
-        rowEl.ondragend = () => {
-          this._dragSourceId = null;
-          rowEl.style.opacity = '1.0';
-          this.container.querySelectorAll('.ds-drop-top, .ds-drop-bottom, .ds-drop-inside').forEach(el => {
-            el.classList.remove('ds-drop-top', 'ds-drop-bottom', 'ds-drop-inside');
-          });
-        };
-        rowEl.ondragover = (e) => {
-          e.preventDefault();
-          if (!this._dragSourceId || this._dragSourceId === r.object.id) return;
-          const rect = rowEl.getBoundingClientRect();
-          const relY = (e.clientY - rect.top) / rect.height;
-          rowEl.classList.remove('ds-drop-top', 'ds-drop-bottom', 'ds-drop-inside');
-          if (r.objType === 'group') {
-            if (relY < 0.25) rowEl.classList.add('ds-drop-top');
-            else if (relY > 0.75) rowEl.classList.add('ds-drop-bottom');
-            else rowEl.classList.add('ds-drop-inside');
-          } else {
-            if (relY < 0.5) rowEl.classList.add('ds-drop-top');
-            else rowEl.classList.add('ds-drop-bottom');
-          }
-        };
-        rowEl.ondragleave = () => {
-          rowEl.classList.remove('ds-drop-top', 'ds-drop-bottom', 'ds-drop-inside');
-        };
-        rowEl.ondrop = (e) => {
-          e.preventDefault();
-          if (!this._dragSourceId || this._dragSourceId === r.object.id) return;
-          const rect = rowEl.getBoundingClientRect();
-          const relY = (e.clientY - rect.top) / rect.height;
-          let dropPos = 'above';
-          if (r.objType === 'group') {
-            if (relY < 0.25) dropPos = 'above';
-            else if (relY > 0.75) dropPos = 'below';
-            else dropPos = 'inside';
-          } else {
-            dropPos = relY < 0.5 ? 'above' : 'below';
-          }
-          if (typeof window !== 'undefined' && window.doc && window.doc.reorderTreeItem) {
-            window.doc.reorderTreeItem(this._dragSourceId, r.object.id, dropPos);
-            if (window.render) window.render();
-            if (window.updateInspector) window.updateInspector();
-          }
-          this._dragSourceId = null;
-          this.updateGrid();
-        };
-
         rowEl.onclick = () => {
           this.selectedObjectId = r.object.id;
           this.selectedParamKey = null;
@@ -1832,16 +1738,12 @@ export class DopeSheetUI {
 
         const delBtn = rowEl.querySelector('.ds-del-track-btn');
         if (delBtn) {
-          delBtn.onmouseenter = () => delBtn.style.color = '#ea6962';
-          delBtn.onmouseleave = () => delBtn.style.color = '#7c6f64';
+          delBtn.onmouseenter = () => delBtn.style.color = 'var(--danger)';
+          delBtn.onmouseleave = () => delBtn.style.color = 'var(--text-muted)';
           delBtn.onclick = (e) => {
             e.stopPropagation();
-            if (liveObj && typeof window !== 'undefined' && window.doc && window.doc.removeObject) {
-              window.doc.removeObject(liveObj.id);
-            }
-            this.ds.removeObject(r.object.id);
+            r.object.channels.clear();
             if (this.selectedObjectId === r.object.id) {
-              this.selectedObjectId = null;
               this.selectedParamKey = null;
             }
             if (typeof window !== 'undefined') {
@@ -1857,11 +1759,12 @@ export class DopeSheetUI {
         const isSelected = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
         const depthPad = r.depth ? ((r.depth - 1) * 14) : 0;
         rowEl.style.padding = `0 6px 0 ${24 + depthPad}px`;
+        rowEl.style.borderBottom = '1px solid var(--border-subtle, rgba(255,255,255,0.05))';
         if (isSelected) {
-          rowEl.style.background = '#32302f';
-          rowEl.style.borderLeft = '3px solid #83a598';
+          rowEl.style.background = 'var(--accent-dim, rgba(131, 165, 152, 0.16))';
+          rowEl.style.borderLeft = '3px solid var(--accent)';
         } else {
-          rowEl.style.background = '#1d2021';
+          rowEl.style.background = 'var(--bg-panel-sub)';
           rowEl.style.borderLeft = '3px solid transparent';
         }
 
@@ -1869,10 +1772,10 @@ export class DopeSheetUI {
         const pIcon = getParamIcon(r.paramKey);
 
         rowEl.innerHTML = `
-          <span style="font-size: 10px; margin-right: 4px; color: #a89984; width: 12px; text-align: center;">${pIcon}</span>
-          <span style="color: ${isSelected ? '#fabd2f' : '#d5c4a1'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10px;" title="${r.label}">${r.label}</span>
-          <span style="font-size: 8px; color: ${kfCount > 0 ? '#b8bb26' : '#7c6f64'}; margin-right: 6px;" title="${kfCount} keyframes">${kfCount} kf</span>
-          <span class="ds-del-channel-btn" title="Remove parameter track" style="color: #665c54; font-size: 10px; cursor: pointer; padding: 0 2px;">✕</span>
+          <span style="font-size: 10px; margin-right: 4px; color: var(--text-muted); width: 12px; text-align: center;">${pIcon}</span>
+          <span style="color: ${isSelected ? 'var(--primary)' : 'var(--text-dim)'}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; font-size: 10px;" title="${r.label}">${r.label}</span>
+          <span style="font-size: 8px; color: ${kfCount > 0 ? 'var(--success)' : 'var(--text-muted)'}; margin-right: 6px;" title="${kfCount} keyframes">${kfCount} kf</span>
+          <span class="ds-del-channel-btn" title="Remove parameter track" style="color: var(--text-muted); font-size: 10px; cursor: pointer; padding: 0 2px;">✕</span>
         `;
 
         rowEl.onclick = () => {
@@ -1890,8 +1793,8 @@ export class DopeSheetUI {
 
         const delChanBtn = rowEl.querySelector('.ds-del-channel-btn');
         if (delChanBtn) {
-          delChanBtn.onmouseenter = () => delChanBtn.style.color = '#ea6962';
-          delChanBtn.onmouseleave = () => delChanBtn.style.color = '#665c54';
+          delChanBtn.onmouseenter = () => delChanBtn.style.color = 'var(--danger)';
+          delChanBtn.onmouseleave = () => delChanBtn.style.color = 'var(--text-muted)';
           delChanBtn.onclick = (e) => {
             e.stopPropagation();
             r.object.removeChannel(r.paramKey);
@@ -1907,13 +1810,24 @@ export class DopeSheetUI {
     });
 
     // 3. Render Ruler Canvas
+    const computedStyles = typeof window !== 'undefined' ? getComputedStyle(document.body) : null;
+    const colBgPanel = computedStyles ? (computedStyles.getPropertyValue('--bg-panel').trim() || '#1e2021') : '#1e2021';
+    const colBgPanelSub = computedStyles ? (computedStyles.getPropertyValue('--bg-panel-sub').trim() || '#252829') : '#252829';
+    const colBgDark = computedStyles ? (computedStyles.getPropertyValue('--bg-dark').trim() || '#141617') : '#141617';
+    const colBorder = computedStyles ? (computedStyles.getPropertyValue('--border').trim() || '#2e3234') : '#2e3234';
+    const colBorderBright = computedStyles ? (computedStyles.getPropertyValue('--border-bright').trim() || '#484d50') : '#484d50';
+    const colTextMuted = computedStyles ? (computedStyles.getPropertyValue('--text-muted').trim() || '#928374') : '#928374';
+    const colPrimary = computedStyles ? (computedStyles.getPropertyValue('--primary').trim() || '#fabd2f') : '#fabd2f';
+    const colAccent = computedStyles ? (computedStyles.getPropertyValue('--accent').trim() || '#83a598') : '#83a598';
+    const colDanger = computedStyles ? (computedStyles.getPropertyValue('--danger').trim() || '#fb4934') : '#fb4934';
+
     rulerCanvas.width = totalW;
     rulerCanvas.height = 24;
     const rctx = rulerCanvas.getContext('2d');
-    rctx.fillStyle = '#32302f';
+    rctx.fillStyle = colBgPanelSub;
     rctx.fillRect(0, 0, totalW, 24);
-    rctx.strokeStyle = '#504945';
-    rctx.fillStyle = '#a89984';
+    rctx.strokeStyle = colBorder;
+    rctx.fillStyle = colTextMuted;
     rctx.font = '9px monospace';
 
     for (let f = 1; f <= this.ds.totalFrames; f++) {
@@ -1932,44 +1846,44 @@ export class DopeSheetUI {
     gridCanvas.width = totalW;
     gridCanvas.height = totalH;
     const gctx = gridCanvas.getContext('2d');
-    gctx.fillStyle = '#1d2021';
+    gctx.fillStyle = colBgDark;
     gctx.fillRect(0, 0, totalW, totalH);
 
     // Helper for easing curve diamond colors
     const getEasingColor = (tweenType) => {
-      if (!tweenType || tweenType === 'linear') return '#83a598'; // teal
+      if (!tweenType || tweenType === 'linear') return colAccent;
       if (typeof tweenType === 'string' && (tweenType.startsWith('cubic-bezier') || tweenType.startsWith('custom:'))) {
-        return '#fabd2f'; // custom curve gold
+        return colPrimary;
       }
       switch (tweenType) {
         case 'easeIn':
         case 'easeInQuad':
         case 'easeInCubic':
-        case 'easeInSine': return '#fabd2f'; // yellow
+        case 'easeInSine': return colPrimary;
         case 'easeOut':
         case 'easeOutQuad':
         case 'easeOutCubic':
-        case 'easeOutSine': return '#b8bb26'; // bright green
+        case 'easeOutSine': return '#b8bb26';
         case 'easeInOut':
         case 'easeInOutQuad':
         case 'easeInOutCubic':
-        case 'easeInOutSine': return '#fe8019'; // vivid orange
+        case 'easeInOutSine': return '#fe8019';
         case 'bounce':
         case 'easeOutBounce':
         case 'easeInOutBounce':
         case 'elastic':
         case 'easeInElastic':
-        case 'easeOutElastic': return '#d3869b'; // magenta
+        case 'easeOutElastic': return '#d3869b';
         case 'step':
-        case 'none': return '#8ec07c'; // aqua
+        case 'none': return '#8ec07c';
         default:
-          return '#83a598'; // teal
+          return colAccent;
       }
     };
 
     // Grid vertical frame dividers
-    gctx.strokeStyle = '#282828';
-    gctx.lineWidth = 1;
+    gctx.strokeStyle = colBorder;
+    gctx.lineWidth = 0.75;
     for (let f = 1; f <= this.ds.totalFrames; f++) {
       const x = (f - 1) * this.frameWidth;
       gctx.beginPath();
@@ -1985,9 +1899,9 @@ export class DopeSheetUI {
 
       if (r.type === 'object') {
         const isSelectedObj = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
-        gctx.fillStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.08)' : (idx % 2 === 0 ? 'rgba(40,40,40,0.3)' : 'rgba(29,32,33,0.3)');
+        gctx.fillStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.08)' : (idx % 2 === 0 ? 'rgba(128,128,128,0.03)' : 'rgba(128,128,128,0.07)');
         gctx.fillRect(0, y, totalW, rH);
-        gctx.strokeStyle = '#32302f';
+        gctx.strokeStyle = colBorder;
         gctx.strokeRect(0, y, totalW, rH);
 
         const kfFrames = r.object.getKeyframeFrames();
@@ -2015,8 +1929,8 @@ export class DopeSheetUI {
             const tween = r.object.getKeyframeTweenAt(f);
             const isSelectedKf = r.object.isKeyframeSelectedAt(f);
 
-            gctx.fillStyle = isSelectedKf ? '#fb4934' : getEasingColor(tween);
-            gctx.strokeStyle = isSelectedKf ? '#ffffff' : '#1d2021';
+            gctx.fillStyle = isSelectedKf ? colDanger : getEasingColor(tween);
+            gctx.strokeStyle = isSelectedKf ? '#ffffff' : colBgDark;
             gctx.lineWidth = isSelectedKf ? 1.8 : 1.2;
 
             gctx.beginPath();
@@ -2032,9 +1946,9 @@ export class DopeSheetUI {
       } else {
         // Channel sub-track row
         const isSelectedChan = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
-        gctx.fillStyle = isSelectedChan ? 'rgba(250, 189, 47, 0.12)' : 'rgba(20, 22, 23, 0.6)';
+        gctx.fillStyle = isSelectedChan ? 'rgba(250, 189, 47, 0.12)' : (idx % 2 === 0 ? 'rgba(128,128,128,0.02)' : 'rgba(128,128,128,0.05)');
         gctx.fillRect(0, y, totalW, rH);
-        gctx.strokeStyle = '#282828';
+        gctx.strokeStyle = colBorder;
         gctx.strokeRect(0, y, totalW, rH);
 
         const chKeyframes = r.channel.keyframes;
@@ -2062,8 +1976,8 @@ export class DopeSheetUI {
             const tween = kf.tweenType || 'linear';
             const isSelectedKf = !!kf.selected;
 
-            gctx.fillStyle = isSelectedKf ? '#fb4934' : getEasingColor(tween);
-            gctx.strokeStyle = isSelectedKf ? '#ffffff' : '#1d2021';
+            gctx.fillStyle = isSelectedKf ? colDanger : getEasingColor(tween);
+            gctx.strokeStyle = isSelectedKf ? '#ffffff' : colBgDark;
             gctx.lineWidth = isSelectedKf ? 1.6 : 1.0;
 
             gctx.beginPath();

@@ -42,6 +42,33 @@
       --bg-secondary: var(--bg-panel-sub);
     }
 
+    [data-theme="light"], body.theme-light {
+      --bg-dark: #d8dcde;
+      --bg-canvas: #cfd4d8;
+      --bg-panel: #eceff1;
+      --bg-panel-sub: #e0e4e7;
+      --bg-input: #ffffff;
+      --bg-input-focus: #f8fafc;
+      --border: #c4c9cd;
+      --border-bright: #a4abb2;
+      --border-focus: #d78206;
+      --border-subtle: rgba(0, 0, 0, 0.08);
+      --text: #2c3238;
+      --text-bright: #14181c;
+      --text-dim: #4c545c;
+      --text-muted: #75808a;
+      --primary: #d78206;
+      --primary-hover: #fe8019;
+      --primary-dim: rgba(215, 130, 6, 0.15);
+      --accent: #0d8096;
+      --accent-hover: #0b6678;
+      --accent-dim: rgba(13, 128, 150, 0.15);
+      --danger: #cc241d;
+      --danger-dim: rgba(204, 36, 29, 0.15);
+      --success: #79740e;
+      color-scheme: light;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -1056,12 +1083,29 @@
       --dv-tabs-and-actions-container-height: 25px;
     }
 
-    /* Never show close buttons on tabs/groups - docks cannot be closed */
+    /* Never show close buttons, tab action chevrons or overflow dropdowns */
+    .dv-default-tab-action,
+    .dv-tab-close-btn,
+    [class*="close-btn"],
+    [class*="tab-close"],
+    .dv-group-action-close,
+    .dv-right-actions-container,
+    .dv-actions-container,
+    .dv-tabs-overflow-dropdown-root,
+    .dv-tabs-overflow-dropdown-default,
+    .dv-tabs-overflow-container,
+    [class*="tabs-overflow"],
     .dockview-theme-dark .dv-default-tab-action,
     .dockview-theme-dark .dv-tab-close-btn,
     .dockview-theme-dark [class*="close-btn"],
     .dockview-theme-dark [class*="tab-close"],
-    .dockview-theme-dark .dv-group-action-close {
+    .dockview-theme-dark .dv-group-action-close,
+    .dockview-theme-dark .dv-right-actions-container,
+    .dockview-theme-dark .dv-actions-container,
+    .dockview-theme-dark .dv-tabs-overflow-dropdown-root,
+    .dockview-theme-dark .dv-tabs-overflow-dropdown-default,
+    .dockview-theme-dark .dv-tabs-overflow-container,
+    .dockview-theme-dark [class*="tabs-overflow"] {
       display: none !important;
     }
 
@@ -1095,7 +1139,45 @@
     .dockview-theme-dark .dv-tabs-and-actions-container {
       height: 25px;
       border-bottom: 1px solid var(--border);
-      background: #161819;
+      background: var(--bg-panel-sub);
+    }
+
+    /* Dockview Light Theme Overrides */
+    [data-theme="light"] .dockview-theme-dark,
+    body.theme-light .dockview-theme-dark {
+      --dv-tabs-and-actions-container-background-color: var(--bg-panel-sub);
+      --dv-activegroup-visiblepanel-tab-background-color: var(--bg-panel);
+      --dv-activegroup-visiblepanel-tab-color: var(--primary);
+      --dv-activegroup-hiddenpanel-tab-background-color: transparent;
+      --dv-activegroup-hiddenpanel-tab-color: var(--text-muted);
+      --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-panel);
+      --dv-inactivegroup-visiblepanel-tab-color: var(--text);
+      --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
+      --dv-inactivegroup-hiddenpanel-tab-color: var(--text-muted);
+      --dv-tab-divider-color: var(--border);
+      --dv-separator-border: 1px solid var(--border);
+      --dv-defaulttab-hover-background-color: rgba(0, 0, 0, 0.05);
+      --dv-group-view-background-color: var(--bg-panel);
+      --dv-background-color: var(--bg-panel);
+    }
+
+    [data-theme="light"] .dockview-theme-dark .dv-tabs-and-actions-container,
+    body.theme-light .dockview-theme-dark .dv-tabs-and-actions-container {
+      background: var(--bg-panel-sub);
+      border-bottom: 1px solid var(--border);
+    }
+
+    [data-theme="light"] .dockview-theme-dark .dv-tab.dv-active-tab,
+    body.theme-light .dockview-theme-dark .dv-tab.dv-active-tab {
+      background: var(--bg-panel);
+      color: var(--primary) !important;
+      box-shadow: inset 0 -2px 0 var(--primary);
+    }
+
+    [data-theme="light"] .dockview-theme-dark .dv-tab:hover:not(.dv-active-tab),
+    body.theme-light .dockview-theme-dark .dv-tab:hover:not(.dv-active-tab) {
+      color: var(--text-bright) !important;
+      background: rgba(0, 0, 0, 0.05);
     }
 
     .dock-panel-content {
@@ -2358,6 +2440,10 @@
         <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
+      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Light Gray)" style="cursor: pointer;">
+        <span class="statusbar-icon">☀</span>
+        <span id="status-theme-text">☾ Gruvbox</span>
+      </div>
     </div>
   </footer>
 
@@ -3413,71 +3499,9 @@
       </div>
     </div>
 
-    <!-- Dock Panel 7: Keyframe Animation & Object Events -->
-    <div id="dock-panel-animation" class="dock-panel-content">
-      <!-- Scene Animation Controls Toolbar -->
-      <div id="card-scene-anim" class="anim-toolbar-card">
-        <!-- Line 1: Playback Controls + Scrubbing -->
-        <div class="anim-row-primary">
-          <div class="anim-btn-group">
-            <button id="scene-anim-btn-prev" class="btn-icon" title="Jump to Previous Keyframe ([ or Alt+Left)">⏮</button>
-            <button id="scene-anim-btn-step-prev" class="btn-icon" title="Step 1 Frame Back (Left)">◀</button>
-            <button id="scene-anim-btn-play" class="btn-icon btn-play" title="Play / Pause Animation (Space)">▶</button>
-            <button id="scene-anim-btn-step-next" class="btn-icon" title="Step 1 Frame Forward (Right)">▶</button>
-            <button id="scene-anim-btn-next" class="btn-icon" title="Jump to Next Keyframe (] or Alt+Right)">⏭</button>
-            <button id="scene-anim-btn-loop" class="btn-sm btn-loop" title="Toggle Loop">Loop</button>
-          </div>
-          <div class="anim-scrubber-wrap">
-            <input type="range" id="scene-anim-scrubber" min="1" max="60" value="1" title="Scrub Timeline">
-            <span id="scene-anim-time-badge">F 1/60</span>
-          </div>
-        </div>
-
-        <!-- Line 2: Frame Inputs + Curve Easing + Quick Actions -->
-        <div class="anim-row-secondary">
-          <div class="anim-frame-inputs">
-            <span class="anim-label">F</span>
-            <input type="number" id="scene-anim-input-frame" min="1" max="60" value="1" title="Current Frame">
-            <span class="anim-slash">/</span>
-            <input type="number" id="scene-anim-input-total" min="1" max="9999" value="60" title="Total Frames">
-            <span class="anim-slash">|</span>
-            <input type="number" id="scene-anim-input-fps" min="1" max="240" value="24" title="Frames Per Second" style="width: 32px;">
-            <span class="anim-unit">fps</span>
-          </div>
-          <div class="anim-actions-wrap">
-            <select id="scene-anim-select-easing" title="Easing Curve for Keyframes">
-              <option value="linear">Linear</option>
-              <option value="easeInQuad">Ease In (Quad)</option>
-              <option value="easeOutQuad">Ease Out (Quad)</option>
-              <option value="easeInOutQuad">Ease In/Out (Quad)</option>
-              <option value="easeInCubic">Ease In (Cubic)</option>
-              <option value="easeOutCubic">Ease Out (Cubic)</option>
-              <option value="easeInOutCubic">Ease In/Out (Cubic)</option>
-              <option value="easeInElastic">Elastic In</option>
-              <option value="easeOutElastic">Elastic Out</option>
-              <option value="easeOutBounce">Bounce Out</option>
-              <option value="step">Step (Hold)</option>
-              <option value="custom">Custom Bézier...</option>
-            </select>
-            <button id="scene-btn-add-event" class="btn-sm btn-primary" title="Record current object state at current frame">◆ Record</button>
-            <button id="scene-btn-autokf" class="btn-sm" title="Auto-record property changes into keyframe events">● Auto</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Selected Object Animation Events Section -->
-      <div id="card-selected-events" class="anim-events-card">
-        <div class="section-header">
-          <span id="selected-events-title" style="color: var(--accent);">Object Events</span>
-          <span id="selected-events-badge" class="badge">No selection</span>
-        </div>
-
-        <div id="selected-events-container">
-          <div class="anim-empty-state">
-            Select an object to inspect or record keyframe states
-          </div>
-        </div>
-      </div>
+    <!-- Dock Panel 7: Conventional Animation Timeline -->
+    <div id="dock-panel-animation" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel);">
+      <div id="timeline-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
     </div>
   </div>
 
@@ -3884,6 +3908,56 @@
 
       const initialStudioSettings = loadStudioSettings();
 
+      // ── Theme State & Management ──
+      let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
+
+      function setTheme(theme, notify = false) {
+        currentTheme = (theme === 'light') ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', currentTheme);
+        document.body.setAttribute('data-theme', currentTheme);
+        document.body.classList.toggle('theme-light', currentTheme === 'light');
+        document.body.classList.toggle('theme-dark', currentTheme === 'dark');
+
+        const dvContainer = document.getElementById('dockview-container');
+        if (dvContainer) {
+          dvContainer.classList.toggle('dockview-theme-light', currentTheme === 'light');
+        }
+
+        const themeText = document.getElementById('status-theme-text');
+        if (themeText) {
+          themeText.textContent = currentTheme === 'light' ? '☀ Light Gray' : '☾ Gruvbox';
+        }
+
+        saveStudioSettings({ theme: currentTheme });
+        try {
+          localStorage.setItem('esenho_theme', currentTheme);
+        } catch (_) {}
+
+        try {
+          if (typeof drawRulers === 'function') {
+            drawRulers();
+          }
+        } catch (_) {}
+
+        try {
+          if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') {
+            window.dopeSheetUI.updateGrid();
+          }
+        } catch (_) {}
+
+        if (notify && typeof showNotification === 'function') {
+          showNotification(currentTheme === 'light' ? 'Theme: Light Gray (Cinza Claro)' : 'Theme: Gruvbox Dark');
+        }
+      }
+
+      function toggleTheme() {
+        setTheme(currentTheme === 'light' ? 'dark' : 'light', true);
+      }
+
+      window.setTheme = setTheme;
+      window.toggleTheme = toggleTheme;
+      setTheme(currentTheme, false);
+
       // ── Document State ──
       const doc = new SvgDocument(800, 600);
       window.doc = doc;
@@ -4202,24 +4276,27 @@
       updateRulerLayout();
 
       function drawRulers() {
-        if (!rulerTopCanvas || !rulerLeftCanvas || !showRulers) return;
+        const topCanvas = document.getElementById('ruler-top');
+        const leftCanvas = document.getElementById('ruler-left');
+        if (!topCanvas || !leftCanvas || !showRulers) return;
         const dpr = window.devicePixelRatio || 1;
-        const topW = rulerTopCanvas.clientWidth || 800;
+        const topW = topCanvas.clientWidth || 800;
         const topH = rulerThickness;
         const leftW = rulerThickness;
-        const leftH = rulerLeftCanvas.clientHeight || 600;
+        const leftH = leftCanvas.clientHeight || 600;
 
-        if (rulerTopCanvas.width !== Math.round(topW * dpr) || rulerTopCanvas.height !== Math.round(topH * dpr)) {
-          rulerTopCanvas.width = Math.round(topW * dpr);
-          rulerTopCanvas.height = Math.round(topH * dpr);
+        if (topCanvas.width !== Math.round(topW * dpr) || topCanvas.height !== Math.round(topH * dpr)) {
+          topCanvas.width = Math.round(topW * dpr);
+          topCanvas.height = Math.round(topH * dpr);
         }
-        if (rulerLeftCanvas.width !== Math.round(leftW * dpr) || rulerLeftCanvas.height !== Math.round(leftH * dpr)) {
-          rulerLeftCanvas.width = Math.round(leftW * dpr);
-          rulerLeftCanvas.height = Math.round(leftH * dpr);
+        if (leftCanvas.width !== Math.round(leftW * dpr) || leftCanvas.height !== Math.round(leftH * dpr)) {
+          leftCanvas.width = Math.round(leftW * dpr);
+          leftCanvas.height = Math.round(leftH * dpr);
         }
 
-        const ctxTop = rulerTopCanvas.getContext('2d');
-        const ctxLeft = rulerLeftCanvas.getContext('2d');
+        const ctxTop = topCanvas.getContext('2d');
+        const ctxLeft = leftCanvas.getContext('2d');
+        if (!ctxTop || !ctxLeft) return;
         ctxTop.save();
         ctxLeft.save();
         ctxTop.setTransform(1, 0, 0, 1, 0, 0);
@@ -4227,9 +4304,14 @@
         ctxTop.scale(dpr, dpr);
         ctxLeft.scale(dpr, dpr);
 
-        ctxTop.fillStyle = '#32302f';
+        const rulerStyles = getComputedStyle(document.body);
+        const colRulerBg = rulerStyles.getPropertyValue('--bg-panel-sub').trim() || '#32302f';
+        const colRulerBorder = rulerStyles.getPropertyValue('--border').trim() || '#504945';
+        const colRulerText = rulerStyles.getPropertyValue('--text-muted').trim() || '#928374';
+
+        ctxTop.fillStyle = colRulerBg;
         ctxTop.fillRect(0, 0, topW, topH);
-        ctxLeft.fillStyle = '#32302f';
+        ctxLeft.fillStyle = colRulerBg;
         ctxLeft.fillRect(0, 0, leftW, leftH);
 
         let step = 100;
@@ -4239,8 +4321,8 @@
         else if (zoom > 0.25) step = 100;
         else step = 200;
 
-        ctxTop.strokeStyle = '#504945';
-        ctxTop.fillStyle = '#928374';
+        ctxTop.strokeStyle = colRulerBorder;
+        ctxTop.fillStyle = colRulerText;
         ctxTop.font = '8px monospace';
         ctxTop.lineWidth = 1;
 
@@ -4268,8 +4350,8 @@
           }
         }
 
-        ctxLeft.strokeStyle = '#504945';
-        ctxLeft.fillStyle = '#928374';
+        ctxLeft.strokeStyle = colRulerBorder;
+        ctxLeft.fillStyle = colRulerText;
         ctxLeft.font = '8px monospace';
         ctxLeft.lineWidth = 1;
 
@@ -9924,6 +10006,10 @@
         showNotification(viewportRenderMode === 'quadro' ? 'Renderer: Quadro WASM' : 'Renderer: Direct SVG');
       });
 
+      document.getElementById('status-theme-toggle')?.addEventListener('click', () => {
+        toggleTheme();
+      });
+
       document.getElementById('prop-quadro-scale')?.addEventListener('change', (e) => {
         quadroRenderScale = Number(e.target.value) || 1.0;
         updateStageSize();
@@ -10203,7 +10289,7 @@
           inspect: 'Transform',
           scene: 'Scene',
           document: 'Document',
-          animation: 'Animation'
+          animation: 'Timeline'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -10213,15 +10299,17 @@
           if (ref) {
             dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherLeft } });
           } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 280 });
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
           }
-        } else if (['inspect', 'scene', 'document', 'animation'].includes(id)) {
-          const rightGroup = ['inspect', 'scene', 'document', 'animation'];
+        } else if (id === 'animation') {
+          dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
+        } else if (['inspect', 'scene', 'document'].includes(id)) {
+          const rightGroup = ['inspect', 'scene', 'document'];
           const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
           if (otherRight) {
             dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
           } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 280 });
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 270 });
           }
         }
         const p = dockviewApi.getPanel(id);
@@ -10270,7 +10358,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'document', 'animation'];
+        const rightIds = ['inspect', 'scene', 'document'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -10283,7 +10371,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
-        const hasRight = ['inspect', 'scene', 'document', 'animation'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'document'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -10310,7 +10398,7 @@
           component: 'fill',
           title: 'Fill',
           position: { direction: 'left', referencePanel: 'canvas' },
-          initialWidth: 280
+          initialWidth: 260
         });
 
         // 3. Left Stroke panel (tabbed with Fill)
@@ -10327,7 +10415,7 @@
           component: 'inspect',
           title: 'Transform',
           position: { direction: 'right', referencePanel: 'canvas' },
-          initialWidth: 280
+          initialWidth: 270
         });
 
         // 5. Right Scene panel (tabbed with Inspect)
@@ -10346,12 +10434,13 @@
           position: { referencePanel: 'inspect' }
         });
 
-        // 7. Right Animation panel (tabbed with Inspect)
+        // 7. Bottom Timeline panel
         dockviewApi.addPanel({
           id: 'animation',
           component: 'animation',
-          title: 'Animation',
-          position: { referencePanel: 'inspect' }
+          title: 'Timeline',
+          position: { direction: 'below', referencePanel: 'canvas' },
+          initialHeight: 210
         });
 
         // Activate default panels
@@ -10686,7 +10775,12 @@
           { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
           { type: 'item', label: (isDocOpen ? '✓ ' : '') + 'Document Settings Dock', action: () => toggleDockPanel('document') },
-          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation & Events Dock', action: () => toggleDockPanel('animation') },
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'sep' },
+          { type: 'submenu', label: 'Theme & Appearance', items: [
+            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
+            { type: 'item', label: (currentTheme === 'light' ? '✓ ' : '') + 'Light Gray (Cinza Claro)', action: () => setTheme('light') }
+          ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
           { type: 'sep' },
@@ -10720,23 +10814,26 @@
 
       function getAnimationMenuActions() {
         const selectedObjs = doc.getSelectedObjects();
+        const isAnimOpen = !!dockviewApi?.getPanel('animation');
         return [
-          { type: 'item', label: 'Record Animation State', hotkey: '◆', disabled: selectedObjs.length === 0, action: () => {
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Show Animation Timeline', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'sep' },
+          { type: 'item', label: 'Record Animation Keyframe', hotkey: '◆', disabled: selectedObjs.length === 0, action: () => {
             if (window.dopeSheet) {
               const curF = window.dopeSheet.currentFrame || 1;
               for (const o of selectedObjs) recordObjectAnimationState(o, curF);
               doc.pushHistory(`Record State F${curF}`);
-              updateSelectedObjectEventsUI();
+              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
               updateObjectList();
-              showNotification(`Recorded state at Frame ${curF}`);
+              showNotification(`Recorded keyframe at Frame ${curF}`);
             }
           }},
           { type: 'item', label: 'Play / Pause Timeline', hotkey: 'Space', action: () => {
-            document.getElementById('btn-play-timeline')?.click() || document.getElementById('btn-anim-play')?.click();
+            toggleScenePlay();
           }},
           { type: 'sep' },
-          { type: 'item', label: 'Go to First Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = 1; render(); } },
-          { type: 'item', label: 'Go to Last Frame', action: () => { if (window.dopeSheet) window.dopeSheet.currentFrame = window.dopeSheet.totalFrames || 60; render(); } }
+          { type: 'item', label: 'Go to First Frame', action: () => { seekSceneFrame(1); } },
+          { type: 'item', label: 'Go to Last Frame', action: () => { seekSceneFrame(window.dopeSheet?.totalFrames || 60); } }
         ];
       }
 
@@ -12815,10 +12912,12 @@
         if (dopeSheet) return dopeSheet;
         try {
           const { DopeSheet, extractLiveObjectProperties } = await import('./src/anim/dopesheet.js');
+          const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
           if (extractLiveObjectProperties) {
             window.extractLiveObjectProperties = extractLiveObjectProperties;
           }
           window.DopeSheet = DopeSheet;
+          window.DopeSheetUI = DopeSheetUI;
 
           if (doc && doc.animation) {
             dopeSheet = DopeSheet.fromJSON(doc.animation);
@@ -12837,98 +12936,18 @@
           window.syncObjectsToDopeSheet = syncObjectsToDopeSheet;
           syncObjectsToDopeSheet();
 
-          // Wire Scene Tab Animation Controls (Animator Fácil)
-          document.getElementById('scene-anim-btn-play')?.addEventListener('click', (e) => {
-            if (e && e.target && typeof e.target.blur === 'function') e.target.blur();
-            toggleScenePlay();
-          });
-          document.getElementById('scene-anim-btn-prev')?.addEventListener('click', () => {
-            if (window.dopeSheet) {
-              const selectedObjs = doc.getSelectedObjects();
-              const selId = selectedObjs[0]?.id || null;
-              const prevF = window.dopeSheet.prevKeyframe(selId);
-              seekSceneFrame(prevF);
-            }
-          });
-          document.getElementById('scene-anim-btn-step-prev')?.addEventListener('click', () => {
-            if (window.dopeSheet) {
-              seekSceneFrame(Math.max(1, (window.dopeSheet.currentFrame || 1) - 1));
-            }
-          });
-          document.getElementById('scene-anim-btn-step-next')?.addEventListener('click', () => {
-            if (window.dopeSheet) {
-              const total = window.dopeSheet.totalFrames || 60;
-              seekSceneFrame(Math.min(total, (window.dopeSheet.currentFrame || 1) + 1));
-            }
-          });
-          document.getElementById('scene-anim-btn-next')?.addEventListener('click', () => {
-            if (window.dopeSheet) {
-              const selectedObjs = doc.getSelectedObjects();
-              const selId = selectedObjs[0]?.id || null;
-              const nextF = window.dopeSheet.nextKeyframe(selId);
-              seekSceneFrame(nextF);
-            }
-          });
-          document.getElementById('scene-anim-btn-loop')?.addEventListener('click', () => {
-            isSceneLooping = !isSceneLooping;
-            updateSceneAnimUI();
-          });
-          document.getElementById('scene-anim-select-easing')?.addEventListener('change', (e) => {
-            const curve = e.target.value;
-            if (window.dopeSheet) {
-              const selectedObjs = doc.getSelectedObjects();
-              const curFrame = window.dopeSheet.currentFrame || 1;
-              for (const obj of selectedObjs) {
-                const dObj = window.dopeSheet.getObject(obj.id);
-                if (dObj) dObj.setKeyframeTweenAt(curFrame, curve);
-              }
-              updateSceneAnimUI();
-              updateSelectedObjectEventsUI();
-            }
-          });
-          document.getElementById('scene-anim-scrubber')?.addEventListener('input', (e) => {
-            seekSceneFrame(parseInt(e.target.value, 10));
-          });
-          document.getElementById('scene-anim-input-frame')?.addEventListener('change', (e) => {
-            seekSceneFrame(parseInt(e.target.value, 10));
-          });
-          document.getElementById('scene-anim-input-total')?.addEventListener('change', (e) => {
-            const val = Math.max(1, parseInt(e.target.value, 10) || 60);
-            if (window.dopeSheet) window.dopeSheet.totalFrames = val;
-            updateSceneAnimUI();
-          });
-          document.getElementById('scene-anim-input-fps')?.addEventListener('change', (e) => {
-            const val = Math.max(1, parseInt(e.target.value, 10) || 24);
-            if (window.dopeSheet) window.dopeSheet.fps = val;
-            if (isScenePlaying) {
-              clearInterval(scenePlayInterval);
-              startScenePlay();
-            }
-            updateSceneAnimUI();
-          });
-          document.getElementById('scene-btn-add-event')?.addEventListener('click', () => {
-            if (!window.dopeSheet) return;
-            const currentFrame = window.dopeSheet.currentFrame || 1;
-            const selectedObjs = (doc.getSelectedObjects && doc.getSelectedObjects().length > 0) ? doc.getSelectedObjects() : doc.objects;
-            for (const t of selectedObjs) {
-              recordObjectAnimationState(t, currentFrame);
-            }
-            doc.pushHistory(`Record Event on Frame ${currentFrame}`);
-            updateSelectedObjectEventsUI();
-            updateObjectList();
-          });
-          document.getElementById('scene-btn-autokf')?.addEventListener('click', () => {
-            if (window.dopeSheet) {
-              window.dopeSheet.autoKeyframe = !window.dopeSheet.autoKeyframe;
-              updateSceneAnimUI();
-            }
-          });
+          const timelineContainer = document.getElementById('timeline-container');
+          if (timelineContainer && !window.dopeSheetUI) {
+            window.dopeSheetUI = new DopeSheetUI(timelineContainer, dopeSheet, (frame) => {
+              seekSceneFrame(frame);
+            });
+          }
 
           updateSceneAnimUI();
           updateObjectList();
           return dopeSheet;
         } catch (err) {
-          console.error('Failed to initialize Animator:', err);
+          console.warn('Failed to load animation dope sheet engine:', err);
           return null;
         }
       }
