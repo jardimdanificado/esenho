@@ -1137,8 +1137,24 @@
       const rotatedPolys = transformPolys(rawPolys);
 
       // Check Non-Destructive WASM Filter Plugins (Separate for Fill/Lens and Stroke)
-      const effFillFilter = (obj.fillFilter && obj.fillFilter.enabled && obj.fillFilter.plugin) ? obj.fillFilter : (obj.fillTexture?.wasmFilter?.enabled ? obj.fillTexture.wasmFilter : (obj.wasmFilter?.enabled && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop' || !obj.wasmFilter.target) ? obj.wasmFilter : null));
-      const effStrokeFilter = (obj.strokeFilter && obj.strokeFilter.enabled && obj.strokeFilter.plugin) ? obj.strokeFilter : (obj.brushConfig?.wasmFilter?.enabled ? obj.brushConfig.wasmFilter : (obj.wasmFilter?.enabled && obj.wasmFilter.target === 'stroke' ? obj.wasmFilter : null));
+      let effFillFilter = null;
+      if (obj.fillFilter && typeof obj.fillFilter.enabled === 'boolean') {
+        effFillFilter = (obj.fillFilter.enabled && obj.fillFilter.plugin) ? obj.fillFilter : null;
+      } else if (obj.fillTexture?.wasmFilter && typeof obj.fillTexture.wasmFilter.enabled === 'boolean') {
+        effFillFilter = (obj.fillTexture.wasmFilter.enabled && obj.fillTexture.wasmFilter.plugin) ? obj.fillTexture.wasmFilter : null;
+      } else if (obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop' || !obj.wasmFilter.target)) {
+        effFillFilter = obj.wasmFilter;
+      }
+
+      let effStrokeFilter = null;
+      if (obj.strokeFilter && typeof obj.strokeFilter.enabled === 'boolean') {
+        effStrokeFilter = (obj.strokeFilter.enabled && obj.strokeFilter.plugin) ? obj.strokeFilter : null;
+      } else if (obj.brushConfig?.wasmFilter && typeof obj.brushConfig.wasmFilter.enabled === 'boolean') {
+        effStrokeFilter = (obj.brushConfig.wasmFilter.enabled && obj.brushConfig.wasmFilter.plugin) ? obj.brushConfig.wasmFilter : null;
+      } else if (obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin && obj.wasmFilter.target === 'stroke') {
+        effStrokeFilter = obj.wasmFilter;
+      }
+
       const effObjectFilter = (obj.wasmFilter && obj.wasmFilter.enabled && obj.wasmFilter.plugin && obj.wasmFilter.target === 'object') ? obj.wasmFilter : null;
 
       const exp = this.actor.exports;

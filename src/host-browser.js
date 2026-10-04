@@ -3786,9 +3786,12 @@ async function main() {
   const touchSliderH = document.getElementById('touch-slider-h');
   const touchSliderS = document.getElementById('touch-slider-s');
   const touchSliderV = document.getElementById('touch-slider-v');
+  const touchSliderL = document.getElementById('touch-slider-l');
   const touchValH = document.getElementById('touch-val-h');
   const touchValS = document.getElementById('touch-val-s');
   const touchValV = document.getElementById('touch-val-v');
+  const touchValL = document.getElementById('touch-val-l');
+  const btnTouchOpenStudio = document.getElementById('btn-touch-open-studio');
 
   // Tab 4: Palettes & Swatches elements
   const touchPaletteSelect = document.getElementById('touch-palette-select');
@@ -3953,6 +3956,10 @@ async function main() {
     if (name === 'custom') {
       return getCustomSwatches();
     }
+    if (typeof ColorStudio !== 'undefined' && ColorStudio.getPalette) {
+      const pal = ColorStudio.getPalette(name);
+      if (pal && pal.colors) return pal.colors;
+    }
     return PALETTE_PRESETS[name] || PALETTE_PRESETS.gruvbox;
   }
 
@@ -3961,7 +3968,7 @@ async function main() {
   }
 
   function setActivePalette(name) {
-    if (name !== 'custom' && !PALETTE_PRESETS[name]) name = 'gruvbox';
+    if (name !== 'custom' && !PALETTE_PRESETS[name] && (typeof ColorStudio === 'undefined' || !ColorStudio.getPalette(name))) name = 'gruvbox';
     activePaletteName = name;
     localStorage.setItem('esenho_active_palette', name);
     if (touchPaletteSelect && touchPaletteSelect.value !== name) {
@@ -4182,6 +4189,15 @@ async function main() {
     if (touchValS) touchValS.textContent = `${Math.round(s * 100)}%`;
     if (touchValV) touchValV.textContent = `${Math.round(v * 100)}%`;
 
+    if (touchSliderL || touchValL) {
+      const hsl = (typeof ColorStudio !== 'undefined' && ColorStudio.rgbToHsl)
+        ? ColorStudio.rgbToHsl(r, g, b)
+        : null;
+      const l = hsl ? hsl.l : Math.round((Math.max(r, g, b) + Math.min(r, g, b)) / (2 * 255) * 100);
+      if (touchSliderL) touchSliderL.value = l;
+      if (touchValL) touchValL.textContent = `${l}%`;
+    }
+
     if (studioActiveMode === 'wheel') drawTouchHsvWheel();
     if (studioActiveMode === 'box') drawTouchSvBox();
 
@@ -4335,6 +4351,34 @@ async function main() {
   [touchSliderH, touchSliderS, touchSliderV].forEach(sl => {
     if (sl) sl.addEventListener('input', syncFromHsvSliders);
   });
+
+  if (touchSliderL) {
+    touchSliderL.addEventListener('input', () => {
+      const h = parseInt(touchSliderH?.value || 0, 10);
+      const s = parseInt(touchSliderS?.value || 0, 10);
+      const l = parseInt(touchSliderL.value, 10);
+      if (touchValL) touchValL.textContent = `${l}%`;
+      if (typeof ColorStudio !== 'undefined' && ColorStudio.hslToRgb) {
+        const rgb = ColorStudio.hslToRgb(h, s, l);
+        applyColorFromStudio(rgbToHex(rgb.r, rgb.g, rgb.b));
+      }
+    });
+  }
+
+  if (btnTouchOpenStudio) {
+    btnTouchOpenStudio.addEventListener('click', () => {
+      if (typeof ColorStudio !== 'undefined') {
+        const cur = touchColorHexInput ? touchColorHexInput.value : '#EBDBB2';
+        ColorStudio.openPicker({
+          title: 'Color Studio (Painter)',
+          color: cur,
+          onApply: (hex) => {
+            applyColorFromStudio(hex);
+          }
+        });
+      }
+    });
+  }
 
   // Direct Hex Input
   if (touchColorHexInput) {
