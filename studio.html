@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>esenho</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <meta name="theme-color" content="#1d2021">
@@ -1903,69 +1903,489 @@
       z-index: 1000;
     }
 
-    /* ── Responsive Media Queries ── */
-    @media (max-width: 860px) {
-      .mobile-only {
-        display: inline-flex;
+    /* ── Mobile Layout & UI System ── */
+    :root {
+      --mobile-top-height: 44px;
+      --mobile-bottom-height: 52px;
+    }
+
+    /* Base mobile controls hidden on desktop */
+    .mobile-top-bar,
+    .mobile-tools-bar,
+    .mobile-bottom-bar,
+    .mobile-panel-drawer,
+    .mobile-drawer-backdrop,
+    .mobile-shapes-popover {
+      display: none;
+    }
+
+    @media (max-width: 768px) {
+      /* Hide desktop titlebar and statusbar */
+      #vscode-titlebar {
+        display: none !important;
+      }
+      #vscode-statusbar {
+        display: none !important;
       }
 
-      .brand h1 {
-        display: none;
+      /* Workspace full height between mobile top and bottom bars */
+      #workspace {
+        top: calc(var(--mobile-top-height) + env(safe-area-inset-top, 0px)) !important;
+        bottom: calc(var(--mobile-bottom-height) + env(safe-area-inset-bottom, 0px)) !important;
+        height: auto !important;
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 10;
       }
 
-      header {
-        justify-content: space-between;
-        padding: 0 8px;
-        gap: 6px;
-        overflow: visible;
+      /* Hide dockview tab headers so viewport gets full height */
+      #dockview-container .dv-tabs-and-actions-container {
+        display: none !important;
       }
 
-      #left-sidebar {
+      /* Ensure canvas panel is always visible and interactive */
+      #dock-panel-canvas {
+        display: flex !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+
+      /* ── 1. Mobile Top Bar ── */
+      .mobile-top-bar {
+        display: flex !important;
         position: fixed;
         top: 0;
         left: 0;
-        bottom: 0;
-        width: 270px;
-        max-width: calc(100vw - 16px);
-        box-shadow: 2px 0 8px rgba(0, 0, 0, 0.4);
-        z-index: 1001;
+        right: 0;
+        height: var(--mobile-top-height);
+        padding-top: env(safe-area-inset-top, 0px);
+        background: var(--bg-panel);
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+        justify-content: space-between;
+        padding-left: 8px;
+        padding-right: 8px;
+        z-index: 1200;
+        user-select: none;
       }
 
-      #sidebar {
+      .mobile-top-left {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .mobile-top-right {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .mobile-brand-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text-bright);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+        cursor: pointer;
+      }
+
+      .mobile-icon-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-md);
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        transition: all 0.15s ease;
+        touch-action: manipulation;
+      }
+
+      .mobile-icon-btn:hover, .mobile-icon-btn:active {
+        background: var(--bg-panel-sub);
+        color: var(--text-bright);
+        border-color: var(--border);
+      }
+
+      .mobile-icon-btn.mobile-btn-highlight {
+        color: var(--primary);
+      }
+
+      /* ── 2. Mobile Floating Tools Bar ── */
+      .mobile-tools-bar {
+        display: flex !important;
+        flex-direction: column;
+        gap: 6px;
+        position: fixed;
+        left: 8px;
+        top: calc(var(--mobile-top-height) + env(safe-area-inset-top, 0px) + 10px);
+        z-index: 1000;
+        background: rgba(30, 32, 33, 0.92);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 5px;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        touch-action: none;
+      }
+
+      .mobile-tool-btn {
+        width: 38px;
+        height: 38px;
+        border-radius: var(--radius-md);
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-dim);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0;
+        transition: all 0.15s ease;
+        touch-action: manipulation;
+        position: relative;
+      }
+
+      .mobile-tool-btn:hover {
+        background: var(--bg-panel-sub);
+        color: var(--text);
+      }
+
+      .mobile-tool-btn.active {
+        background: var(--primary);
+        color: #141617;
+        border-color: var(--primary);
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(250, 189, 47, 0.35);
+      }
+
+      /* Shapes Popover */
+      .mobile-shapes-popover {
+        position: fixed;
+        left: 56px;
+        top: calc(var(--mobile-top-height) + env(safe-area-inset-top, 0px) + 130px);
+        background: var(--bg-panel);
+        border: 1px solid var(--border-bright);
+        border-radius: var(--radius-md);
+        padding: 6px;
+        display: none;
+        flex-direction: column;
+        gap: 4px;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+        z-index: 1100;
+      }
+
+      .mobile-shapes-popover.open {
+        display: flex !important;
+      }
+
+      .mobile-shape-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-size: 12px;
+        cursor: pointer;
+        white-space: nowrap;
+        text-align: left;
+      }
+
+      .mobile-shape-option:hover, .mobile-shape-option:active {
+        background: var(--primary-dim);
+        color: var(--primary);
+      }
+
+      /* ── 3. Mobile Bottom Bar ── */
+      .mobile-bottom-bar {
+        display: flex !important;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: var(--mobile-bottom-height);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: var(--bg-panel);
+        border-top: 1px solid var(--border);
+        align-items: center;
+        justify-content: space-around;
+        z-index: 1300;
+        user-select: none;
+      }
+
+      .mobile-bottom-item {
+        flex: 1;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 4px 2px;
+        transition: all 0.15s ease;
+        touch-action: manipulation;
+      }
+
+      .mobile-bottom-item span {
+        font-size: 10px;
+        font-weight: 500;
+        line-height: 1;
+      }
+
+      .mobile-bottom-item.active {
+        color: var(--primary);
+      }
+
+      .mobile-bottom-item.active svg {
+        stroke: var(--primary);
+      }
+
+      .mobile-color-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid var(--border-bright);
+        box-sizing: border-box;
+      }
+
+      /* ── 4. Mobile Sheet Drawer ── */
+      .mobile-drawer-backdrop {
         position: fixed;
         top: 0;
+        left: 0;
         right: 0;
         bottom: 0;
-        width: 260px;
-        max-width: 85vw;
-        transform: translateX(100%);
-        box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
-        z-index: 1001;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 1400;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.25s ease;
+        backdrop-filter: blur(2px);
+        -webkit-backdrop-filter: blur(2px);
       }
 
-      #sidebar.mobile-open {
-        transform: translateX(0);
+      .mobile-drawer-backdrop.open {
+        opacity: 1;
+        pointer-events: auto;
       }
 
-      .sidebar-backdrop {
-        z-index: 1000;
+      .mobile-panel-drawer {
+        display: flex !important;
+        flex-direction: column;
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: calc(var(--mobile-bottom-height) + env(safe-area-inset-bottom, 0px));
+        height: 62vh;
+        max-height: calc(100vh - var(--mobile-top-height) - env(safe-area-inset-top, 0px) - 20px);
+        background: var(--bg-panel);
+        border-top: 1px solid var(--border-bright);
+        border-radius: 16px 16px 0 0;
+        box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6);
+        z-index: 1500;
+        transform: translateY(115%);
+        transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), height 0.2s ease;
+        overflow: hidden;
       }
 
-      .sidebar-backdrop.active {
-        display: block;
+      .mobile-panel-drawer.open {
+        transform: translateY(0);
       }
 
-      .menu-container {
+      .mobile-panel-drawer.expanded {
+        height: calc(100vh - var(--mobile-top-height) - env(safe-area-inset-top, 0px) - 10px);
+        max-height: calc(100vh - var(--mobile-top-height) - env(safe-area-inset-top, 0px) - 10px);
+      }
+
+      .mobile-drawer-handle-bar {
+        width: 100%;
+        padding: 8px 0 4px;
+        display: flex;
+        justify-content: center;
+        cursor: grab;
+        touch-action: none;
+      }
+
+      .mobile-drawer-handle-pill {
+        width: 42px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--border-bright);
+      }
+
+      .mobile-drawer-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 10px 8px;
+        border-bottom: 1px solid var(--border);
+        gap: 8px;
+      }
+
+      .mobile-drawer-nav-pills {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        flex: 1;
+      }
+
+      .mobile-drawer-nav-pills::-webkit-scrollbar {
+        display: none;
+      }
+
+      .mobile-drawer-pill {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--bg-panel-sub);
+        border: 1px solid var(--border);
+        color: var(--text-dim);
+        white-space: nowrap;
+        cursor: pointer;
+        transition: all 0.15s ease;
         flex-shrink: 0;
       }
 
-      #btn-toggle-sidebar {
+      .mobile-drawer-pill.active {
+        background: var(--primary);
+        color: #141617;
+        border-color: var(--primary);
+      }
+
+      .mobile-drawer-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
         flex-shrink: 0;
       }
 
-      button {
-        padding: 4px 6px;
+      .mobile-icon-btn-sm {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-sm);
+        background: transparent;
+        border: 1px solid transparent;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+      }
+
+      .mobile-icon-btn-sm:hover, .mobile-icon-btn-sm:active {
+        background: var(--bg-panel-sub);
+        color: var(--text-bright);
+      }
+
+      .mobile-drawer-body {
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* Make inputs and buttons comfortable for mobile thumbs inside drawer */
+      .mobile-drawer-body .form-row {
+        margin-bottom: 10px;
+      }
+
+      .mobile-drawer-body input[type="text"],
+      .mobile-drawer-body input[type="number"],
+      .mobile-drawer-body select {
+        min-height: 36px;
+        font-size: 13px;
+        border-radius: var(--radius-md);
+      }
+
+      .mobile-drawer-body button {
+        min-height: 34px;
+        font-size: 12px;
+      }
+
+      /* ── 5. Mobile Full Menu Sheet ── */
+      .mobile-menu-modal .modal-card {
+        max-height: 90vh;
+        overflow: hidden;
+      }
+
+      .mobile-menu-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+        padding: 12px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .mobile-menu-section {
+        background: var(--bg-panel-sub);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        padding: 10px;
+      }
+
+      .mobile-menu-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--primary);
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .mobile-menu-item-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 13px;
+        color: var(--text);
+        background: transparent;
+        border: none;
+        width: 100%;
+        text-align: left;
+        transition: background 0.15s ease;
+      }
+
+      .mobile-menu-item-row:hover, .mobile-menu-item-row:active {
+        background: var(--primary-dim);
+        color: var(--primary);
+      }
+
+      .mobile-menu-item-hotkey {
         font-size: 10px;
+        color: var(--text-muted);
+        font-family: var(--font-mono);
       }
     }
 
@@ -2334,6 +2754,219 @@
   </style>
 </head>
 <body>
+
+  <!-- ── Mobile Layout UI Components ── -->
+  <!-- 1. Mobile Top App Bar -->
+  <header id="mobile-top-bar" class="mobile-top-bar">
+    <div class="mobile-top-left">
+      <button type="button" class="mobile-icon-btn" id="mobile-btn-menu" title="Menu" aria-label="Open Studio Menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="mobile-brand-title" id="mobile-brand-title" title="Current Project">esenho</div>
+    </div>
+    <div class="mobile-top-right">
+      <button type="button" class="mobile-icon-btn" id="mobile-btn-undo" title="Undo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </button>
+      <button type="button" class="mobile-icon-btn" id="mobile-btn-redo" title="Redo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3l3 2.7"/></svg>
+      </button>
+      <button type="button" class="mobile-icon-btn" id="mobile-btn-play" title="Play / Pause Animation">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 18 12 6 20 6 4"/></svg>
+      </button>
+      <button type="button" class="mobile-icon-btn" id="mobile-btn-zoom-fit" title="Zoom to Fit Canvas">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+      </button>
+      <button type="button" class="mobile-icon-btn mobile-btn-highlight" id="mobile-btn-export" title="Export Artwork">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- 2. Mobile Floating Tools Bar -->
+  <div id="mobile-tools-bar" class="mobile-tools-bar">
+    <button type="button" class="mobile-tool-btn active" data-tool="select" title="Select (V)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7 18 3-7 7-3L3 3z"/></svg>
+    </button>
+    <button type="button" class="mobile-tool-btn" data-tool="node" title="Direct Node (A)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>
+    </button>
+    <button type="button" class="mobile-tool-btn" data-tool="pen" title="Pen (P)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+    </button>
+    <button type="button" class="mobile-tool-btn" data-tool="brush" title="Brush (B)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11l-8-8a2.828 2.828 0 0 0-4 4l8 8"/><path d="M2 22l6-6"/><path d="M6 18c0 1.5-1 3.5-3 4 2.5 0 4-1.5 4-4"/></svg>
+    </button>
+    <button type="button" class="mobile-tool-btn" data-tool="rect" id="mobile-tool-shapes" title="Shapes (Rect / Ellipse / Line)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+    </button>
+    <button type="button" class="mobile-tool-btn" data-tool="text" title="Text (T)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg>
+    </button>
+    <button type="button" class="mobile-tool-btn" data-tool="hand" title="Pan Canvas (H)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v7M10 10.5V6a2 2 0 0 0-4 0v8a7 7 0 0 0 14 0v-4a2 2 0 0 0-4 0"/></svg>
+    </button>
+  </div>
+
+  <!-- Shapes Floating Selector -->
+  <div id="mobile-shapes-popover" class="mobile-shapes-popover">
+    <button type="button" class="mobile-shape-option" data-shape="rect">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      <span>Rectangle</span>
+    </button>
+    <button type="button" class="mobile-shape-option" data-shape="ellipse">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>
+      <span>Ellipse / Circle</span>
+    </button>
+    <button type="button" class="mobile-shape-option" data-shape="line">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="19" x2="19" y2="5"/></svg>
+      <span>Line Segment</span>
+    </button>
+  </div>
+
+  <!-- 3. Mobile Bottom Navigation Bar -->
+  <nav id="mobile-bottom-bar" class="mobile-bottom-bar">
+    <button type="button" class="mobile-bottom-item" data-panel="color" id="mobile-tab-color">
+      <div class="mobile-color-dot" id="mobile-active-color-dot" style="background-color: #fabd2f;"></div>
+      <span>Color</span>
+    </button>
+    <button type="button" class="mobile-bottom-item" data-panel="fill" id="mobile-tab-fill">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 11l-8-8a2.828 2.828 0 0 0-4 4l8 8"/><path d="M2 22l6-6"/><path d="M6 18c0 1.5-1 3.5-3 4 2.5 0 4-1.5 4-4"/></svg>
+      <span>Fill</span>
+    </button>
+    <button type="button" class="mobile-bottom-item" data-panel="stroke" id="mobile-tab-stroke">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><line x1="3" y1="12" x2="21" y2="12"/></svg>
+      <span>Stroke</span>
+    </button>
+    <button type="button" class="mobile-bottom-item" data-panel="inspect" id="mobile-tab-inspect">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 3H3v18h18V3z"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/></svg>
+      <span>Transform</span>
+    </button>
+    <button type="button" class="mobile-bottom-item" data-panel="scene" id="mobile-tab-scene">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <span>Layers</span>
+    </button>
+    <button type="button" class="mobile-bottom-item" data-panel="animation" id="mobile-tab-animation">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Timeline</span>
+    </button>
+    <button type="button" class="mobile-bottom-item" data-panel="more" id="mobile-tab-more">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      <span>More</span>
+    </button>
+  </nav>
+
+  <!-- 4. Mobile Sheet Drawer -->
+  <div id="mobile-drawer-backdrop" class="mobile-drawer-backdrop"></div>
+  <div id="mobile-panel-drawer" class="mobile-panel-drawer">
+    <div class="mobile-drawer-handle-bar" id="mobile-drawer-handle" title="Drag to close or tap">
+      <div class="mobile-drawer-handle-pill"></div>
+    </div>
+    <div class="mobile-drawer-header">
+      <div class="mobile-drawer-nav-pills">
+        <button type="button" class="mobile-drawer-pill" data-panel="color">Color</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="fill">Fill</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="stroke">Stroke</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="inspect">Transform</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="scene">Layers</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="animation">Timeline</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="curves">Curves</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="tracer">Vectorizer</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="projects">Projects</button>
+        <button type="button" class="mobile-drawer-pill" data-panel="export">Export</button>
+      </div>
+      <div class="mobile-drawer-actions">
+        <button type="button" class="mobile-icon-btn-sm" id="mobile-drawer-btn-expand" title="Expand / Collapse Drawer">⤢</button>
+        <button type="button" class="mobile-icon-btn-sm" id="mobile-drawer-btn-close" title="Close Panel">✕</button>
+      </div>
+    </div>
+    <div id="mobile-drawer-body" class="mobile-drawer-body"></div>
+  </div>
+
+  <!-- 5. Mobile Menu Full Sheet / Modal -->
+  <div id="mobile-menu-modal" class="modal-backdrop mobile-menu-modal" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2" fill="var(--primary)" stroke="var(--primary)"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          <span style="font-weight: 700; color: var(--text-bright); font-size: 14px;">Studio Menu</span>
+        </div>
+        <button type="button" class="modal-close" id="mobile-menu-close">✕</button>
+      </div>
+      <div class="mobile-menu-grid">
+        <!-- Project & Files -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">📁 File & Storage</div>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-new-project"><span>New Project...</span><span class="mobile-menu-item-hotkey">Ctrl+N</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-open-svg"><span>Open SVG File...</span><span class="mobile-menu-item-hotkey">Ctrl+O</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-import-img"><span>Import Image Layer...</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-projects"><span>Projects Library...</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-export-center"><span>Export Center...</span><span class="mobile-menu-item-hotkey">Ctrl+E</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-clear-storage" style="color: var(--danger);"><span>Clear Storage / Reset</span></button>
+        </div>
+
+        <!-- Edit & Clipboard -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">✂️ Edit & Clipboard</div>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-undo"><span>Undo</span><span class="mobile-menu-item-hotkey">2-finger</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-redo"><span>Redo</span><span class="mobile-menu-item-hotkey">3-finger</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-cut"><span>Cut</span><span class="mobile-menu-item-hotkey">Ctrl+X</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-copy"><span>Copy</span><span class="mobile-menu-item-hotkey">Ctrl+C</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-paste"><span>Paste</span><span class="mobile-menu-item-hotkey">Ctrl+V</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-duplicate"><span>Duplicate</span><span class="mobile-menu-item-hotkey">Ctrl+D</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-delete" style="color: var(--danger);"><span>Delete Selected</span><span class="mobile-menu-item-hotkey">Del</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-select-all"><span>Select All</span><span class="mobile-menu-item-hotkey">Ctrl+A</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-deselect-all"><span>Deselect All</span></button>
+        </div>
+
+        <!-- Selection & Path Ops -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">🎯 Selection & Geometry</div>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-conv-path"><span>Convert Shape to Path</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-conv-text"><span>Convert Text to Outlines</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-outline-stroke"><span>Outline Stroke</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-group"><span>Group Selection</span><span class="mobile-menu-item-hotkey">Ctrl+G</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-ungroup"><span>Ungroup</span><span class="mobile-menu-item-hotkey">Ctrl+Shift+G</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-mask-create"><span>Make Clipping Mask</span><span class="mobile-menu-item-hotkey">Ctrl+7</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-mask-release"><span>Release Clipping Mask</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-bool-union"><span>Pathfinder: Union (Unite)</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-bool-sub"><span>Pathfinder: Subtract</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-bool-intersect"><span>Pathfinder: Intersect</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-bool-exclude"><span>Pathfinder: Exclude</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-flip-h"><span>Flip Horizontal</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-flip-v"><span>Flip Vertical</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-rot-cw"><span>Rotate 90° CW</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-rot-reset"><span>Reset Rotation</span></button>
+        </div>
+
+        <!-- Viewport & Engine -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">👁️ Viewport & Engine</div>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-renderer-toggle"><span>Toggle Quadro WASM / SVG</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-filter-bilinear"><span>Toggle Bilinear Smooth Filter</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-zoom-fit"><span>Zoom to Fit Canvas</span><span class="mobile-menu-item-hotkey">0</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-zoom-reset"><span>Reset Viewport (100%)</span><span class="mobile-menu-item-hotkey">Ctrl+1</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-fullscreen"><span>Toggle Fullscreen</span><span class="mobile-menu-item-hotkey">F11</span></button>
+        </div>
+
+        <!-- Animation -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">🎬 Animation</div>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-keyframe"><span>Record Keyframe</span><span class="mobile-menu-item-hotkey">◆</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-anim-play"><span>Play / Pause Timeline</span><span class="mobile-menu-item-hotkey">Space</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-anim-start"><span>Go to First Frame</span></button>
+        </div>
+
+        <!-- Appearance -->
+        <div class="mobile-menu-section">
+          <div class="mobile-menu-section-title">🎨 Theme & System</div>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-theme-dark"><span>Gruvbox Dark Theme</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-theme-gray"><span>Gray Theme</span></button>
+          <button type="button" class="mobile-menu-item-row" id="mob-act-about"><span>About Wesenho Studio</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- VS Code Custom Titlebar & Menu System -->
   <header id="vscode-titlebar" class="vscode-titlebar">
@@ -6304,6 +6937,15 @@
             strokePreview.style.backgroundImage = 'none';
           }
         }
+
+        const mobDot = document.getElementById('mobile-active-color-dot');
+        if (mobDot) {
+          if (!fillVal || fillVal === 'none') {
+            mobDot.style.backgroundColor = 'transparent';
+          } else {
+            mobDot.style.backgroundColor = fillVal;
+          }
+        }
       }
 
       // ── Pointer & Tool Event Handlers ──
@@ -8385,6 +9027,14 @@
       }
       window.clearAllGuides = clearAllGuides;
 
+      function updateMobileToolsUI(toolName) {
+        document.querySelectorAll('.mobile-tool-btn').forEach(b => {
+          const isShape = ['rect', 'ellipse', 'line'].includes(toolName) && b.id === 'mobile-tool-shapes';
+          b.classList.toggle('active', b.dataset.tool === toolName || isShape);
+        });
+      }
+      window.updateMobileToolsUI = updateMobileToolsUI;
+
       function selectTool(toolName) {
         if (toolName === 'rect' || toolName === 'ellipse' || toolName === 'line') {
           setShapeTool(toolName);
@@ -8397,6 +9047,7 @@
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if (btn) btn.classList.add('active');
         activeTool = toolName;
+        updateMobileToolsUI(toolName);
         if (activeTool === 'hand') {
           viewportContainer.classList.add('panning');
         } else {
@@ -8495,6 +9146,7 @@
           commitPenPath();
         }
         activeTool = type;
+        updateMobileToolsUI(type);
         const titleMap = {
           rect: 'Rectangle Shape',
           ellipse: 'Ellipse / Circle Shape',
@@ -10322,7 +10974,7 @@
       }
 
       function scheduleSaveDockviewLayout() {
-        if (!dockviewApi) return;
+        if (!dockviewApi || isMobile()) return;
         if (saveDockviewLayoutTimeout) clearTimeout(saveDockviewLayoutTimeout);
         saveDockviewLayoutTimeout = setTimeout(() => {
           try {
@@ -10337,7 +10989,342 @@
       }
       window.scheduleSaveDockviewLayout = scheduleSaveDockviewLayout;
 
+      // ── Mobile UI Layout & Responsive Manager ──
+      const isMobile = () => window.innerWidth <= 768;
+      let currentMobilePanel = null;
+
+      const panelOriginalHostMap = new Map();
+      function openMobileDrawer(panelId) {
+        const drawer = document.getElementById('mobile-panel-drawer');
+        const drawerBody = document.getElementById('mobile-drawer-body');
+        const backdrop = document.getElementById('mobile-drawer-backdrop');
+        if (!drawer || !drawerBody) return;
+
+        const el = getPanelElement(panelId);
+        if (!el) return;
+
+        // Remember original container so desktop restoration works seamlessly
+        if (!panelOriginalHostMap.has(panelId) && el.parentElement && el.parentElement !== drawerBody) {
+          panelOriginalHostMap.set(panelId, el.parentElement);
+        }
+
+        // Return currently active panel in drawer back to its host if switching panels
+        if (currentMobilePanel && currentMobilePanel !== panelId) {
+          const curEl = getPanelElement(currentMobilePanel);
+          const origHost = panelOriginalHostMap.get(currentMobilePanel);
+          if (curEl && origHost && curEl.parentElement === drawerBody) {
+            origHost.appendChild(curEl);
+          }
+        }
+
+        // Ensure element is visible and takes full height in mobile drawer
+        drawerBody.innerHTML = '';
+        drawerBody.appendChild(el);
+        el.style.display = 'flex';
+        el.style.height = '100%';
+        el.style.width = '100%';
+        el.style.boxSizing = 'border-box';
+
+        // Update drawer nav pills
+        document.querySelectorAll('.mobile-drawer-pill').forEach(pill => {
+          pill.classList.toggle('active', pill.dataset.panel === panelId);
+        });
+
+        // Update bottom bar items
+        document.querySelectorAll('.mobile-bottom-item').forEach(item => {
+          item.classList.toggle('active', item.dataset.panel === panelId);
+        });
+
+        currentMobilePanel = panelId;
+        drawer.classList.add('open');
+        if (backdrop) backdrop.classList.add('open');
+
+        // Scroll pill into view
+        const activePill = document.querySelector(`.mobile-drawer-pill[data-panel="${panelId}"]`);
+        if (activePill) activePill.scrollIntoView({ inline: 'center', behavior: 'smooth' });
+
+        // Trigger panel specific refreshes
+        if (panelId === 'color') {
+          if (!studioColorWidget) initStudioColorTab();
+          syncStudioColorTab();
+        } else if (panelId === 'animation') {
+          if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') {
+            window.dopeSheetUI.updateGrid();
+          }
+        } else if (panelId === 'curves') {
+          if (window.dopeSheetUI && typeof window.dopeSheetUI.mountCurveEditor === 'function') {
+            window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
+          }
+        } else if (panelId === 'tracer') {
+          if (typeof updateTracerUI === 'function') updateTracerUI();
+        } else if (panelId === 'projects') {
+          if (typeof refreshProjectsList === 'function') refreshProjectsList();
+        }
+      }
+
+      function closeMobileDrawer() {
+        const drawer = document.getElementById('mobile-panel-drawer');
+        const drawerBody = document.getElementById('mobile-drawer-body');
+        const backdrop = document.getElementById('mobile-drawer-backdrop');
+        if (drawer) {
+          drawer.classList.remove('open');
+          drawer.classList.remove('expanded');
+        }
+        if (backdrop) backdrop.classList.remove('open');
+        document.querySelectorAll('.mobile-bottom-item').forEach(item => item.classList.remove('active'));
+
+        // Return drawer element back to its Dockview host
+        if (currentMobilePanel) {
+          const el = getPanelElement(currentMobilePanel);
+          const origHost = panelOriginalHostMap.get(currentMobilePanel);
+          if (el && origHost && el.parentElement === drawerBody) {
+            origHost.appendChild(el);
+          }
+        }
+        currentMobilePanel = null;
+      }
+
+      function toggleMobileDrawer(panelId) {
+        const drawer = document.getElementById('mobile-panel-drawer');
+        if (drawer && drawer.classList.contains('open') && currentMobilePanel === panelId) {
+          closeMobileDrawer();
+        } else {
+          openMobileDrawer(panelId);
+        }
+      }
+
+      function openMobileMenu() {
+        const menu = document.getElementById('mobile-menu-modal');
+        if (menu) menu.style.display = 'flex';
+      }
+
+      function closeMobileMenu() {
+        const menu = document.getElementById('mobile-menu-modal');
+        if (menu) menu.style.display = 'none';
+      }
+
+      let lastMobileState = null;
+      function applyMobileLayoutMode() {
+        const mobile = isMobile();
+        if (lastMobileState === mobile) return;
+        lastMobileState = mobile;
+
+        if (mobile) {
+          document.body.classList.add('mobile-layout');
+          if (dockviewApi) {
+            dockviewApi.getPanel('canvas')?.api?.setActive();
+          }
+        } else {
+          document.body.classList.remove('mobile-layout');
+          closeMobileDrawer();
+          closeMobileMenu();
+          if (dockviewApi && dockviewApi.panels && dockviewApi.panels.length <= 1) {
+            createDefaultDockPanels();
+          }
+        }
+      }
+
+      function initMobileUI() {
+        // 1. Mobile Tool Buttons
+        document.querySelectorAll('.mobile-tool-btn[data-tool]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const tool = btn.dataset.tool;
+            if (btn.id === 'mobile-tool-shapes') {
+              const pop = document.getElementById('mobile-shapes-popover');
+              pop?.classList.toggle('open');
+              return;
+            }
+            document.getElementById('mobile-shapes-popover')?.classList.remove('open');
+            selectTool(tool);
+          });
+        });
+
+        // 2. Shapes Popover Options
+        document.querySelectorAll('.mobile-shape-option').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const shape = btn.dataset.shape;
+            setShapeTool(shape);
+            document.getElementById('mobile-shapes-popover')?.classList.remove('open');
+            updateMobileToolsUI(shape);
+          });
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!e.target.closest('#mobile-tool-shapes') && !e.target.closest('#mobile-shapes-popover')) {
+            document.getElementById('mobile-shapes-popover')?.classList.remove('open');
+          }
+        });
+
+        // 3. Mobile Top Bar Actions
+        document.getElementById('mobile-btn-menu')?.addEventListener('click', openMobileMenu);
+        document.getElementById('mobile-menu-close')?.addEventListener('click', closeMobileMenu);
+        document.getElementById('mobile-menu-modal')?.addEventListener('click', (e) => {
+          if (e.target.id === 'mobile-menu-modal') closeMobileMenu();
+        });
+
+        document.getElementById('mobile-brand-title')?.addEventListener('click', () => {
+          openMobileDrawer('projects');
+        });
+
+        document.getElementById('mobile-btn-undo')?.addEventListener('click', () => {
+          handleUndo();
+        });
+
+        document.getElementById('mobile-btn-redo')?.addEventListener('click', () => {
+          doc.redo();
+          render();
+          drawOverlay();
+          updateInspector();
+          updateObjectList();
+        });
+
+        document.getElementById('mobile-btn-play')?.addEventListener('click', async () => {
+          if (typeof toggleScenePlay === 'function') {
+            await toggleScenePlay();
+          } else if (typeof window.toggleScenePlay === 'function') {
+            await window.toggleScenePlay();
+          }
+          const playBtn = document.getElementById('mobile-btn-play');
+          const isPlaying = (typeof isScenePlaying !== 'undefined' && isScenePlaying) || (window.dopeSheet && window.dopeSheet.isPlaying);
+          if (playBtn) {
+            playBtn.innerHTML = isPlaying
+              ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+              : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 18 12 6 20 6 4"/></svg>';
+          }
+        });
+
+        document.getElementById('mobile-btn-zoom-fit')?.addEventListener('click', () => {
+          zoomToFit();
+        });
+
+        document.getElementById('mobile-btn-export')?.addEventListener('click', () => {
+          updateExportDimPreview();
+          if (modalExport) modalExport.style.display = 'flex';
+        });
+
+        // 4. Mobile Bottom Bar Items
+        ['color', 'fill', 'stroke', 'inspect', 'scene', 'animation'].forEach(panelId => {
+          document.getElementById(`mobile-tab-${panelId}`)?.addEventListener('click', () => {
+            toggleMobileDrawer(panelId);
+          });
+        });
+
+        document.getElementById('mobile-tab-more')?.addEventListener('click', () => {
+          if (currentMobilePanel === 'projects') {
+            closeMobileDrawer();
+          } else {
+            openMobileDrawer('projects');
+          }
+        });
+
+        // 5. Drawer Nav Pills
+        document.querySelectorAll('.mobile-drawer-pill[data-panel]').forEach(pill => {
+          pill.addEventListener('click', () => {
+            openMobileDrawer(pill.dataset.panel);
+          });
+        });
+
+        // 6. Drawer Actions
+        document.getElementById('mobile-drawer-btn-close')?.addEventListener('click', closeMobileDrawer);
+        document.getElementById('mobile-drawer-backdrop')?.addEventListener('click', closeMobileDrawer);
+        document.getElementById('mobile-drawer-handle')?.addEventListener('click', () => {
+          document.getElementById('mobile-panel-drawer')?.classList.toggle('expanded');
+        });
+        document.getElementById('mobile-drawer-btn-expand')?.addEventListener('click', () => {
+          document.getElementById('mobile-panel-drawer')?.classList.toggle('expanded');
+        });
+
+        // 7. Mobile Menu Modal Action Rows
+        const bindMobAct = (id, fn) => {
+          document.getElementById(id)?.addEventListener('click', () => {
+            closeMobileMenu();
+            fn();
+          });
+        };
+
+        // File & Storage
+        bindMobAct('mob-act-new-project', () => openNewProjectModal());
+        bindMobAct('mob-act-open-svg', () => document.getElementById('file-input-svg')?.click());
+        bindMobAct('mob-act-import-img', () => document.getElementById('file-import-img')?.click());
+        bindMobAct('mob-act-projects', () => openMobileDrawer('projects'));
+        bindMobAct('mob-act-export-center', () => { updateExportDimPreview(); if (modalExport) modalExport.style.display = 'flex'; });
+        bindMobAct('mob-act-clear-storage', () => document.getElementById('btn-clear-storage')?.click());
+
+        // Edit
+        bindMobAct('mob-act-undo', () => handleUndo());
+        bindMobAct('mob-act-redo', () => { doc.redo(); render(); drawOverlay(); updateInspector(); updateObjectList(); });
+        bindMobAct('mob-act-cut', () => {
+          const s = doc.getSelectedObjects();
+          if (s.length > 0) { doc.copySelected(); for (const o of s) doc.removeObject(o.id); render(); drawOverlay(); updateInspector(); updateObjectList(); }
+        });
+        bindMobAct('mob-act-copy', () => { if (doc.getSelectedObjects().length > 0) { doc.copySelected(); showNotification('Copied to clipboard'); } });
+        bindMobAct('mob-act-paste', () => { doc.paste(); render(); drawOverlay(); updateInspector(); updateObjectList(); });
+        bindMobAct('mob-act-duplicate', () => { doc.duplicateSelected(); render(); drawOverlay(); updateInspector(); updateObjectList(); });
+        bindMobAct('mob-act-delete', () => { for (const o of doc.getSelectedObjects()) doc.removeObject(o.id); render(); drawOverlay(); updateInspector(); updateObjectList(); });
+        bindMobAct('mob-act-select-all', () => { doc.selectAll(); render(); drawOverlay(); updateInspector(); });
+        bindMobAct('mob-act-deselect-all', () => { doc.selectedIds.clear(); render(); drawOverlay(); updateInspector(); });
+
+        // Selection & Path
+        bindMobAct('mob-act-conv-path', () => { if (doc.convertSelectedToPath()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Converted to editable path'); } });
+        bindMobAct('mob-act-conv-text', () => { if (doc.convertSelectedToPath()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Converted text to outlines'); } });
+        bindMobAct('mob-act-outline-stroke', () => { if (doc.outlineStrokeSelected()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Strokes outlined to filled paths'); } });
+        bindMobAct('mob-act-group', () => { doc.groupSelected(); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+        bindMobAct('mob-act-ungroup', () => { doc.ungroupSelected(); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+        bindMobAct('mob-act-mask-create', () => handleMaskCreate());
+        bindMobAct('mob-act-mask-release', () => handleMaskRelease());
+        bindMobAct('mob-act-bool-union', () => { doc.booleanOperation('union'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+        bindMobAct('mob-act-bool-sub', () => { doc.booleanOperation('subtract'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+        bindMobAct('mob-act-bool-intersect', () => { doc.booleanOperation('intersect'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+        bindMobAct('mob-act-bool-exclude', () => { doc.booleanOperation('exclude'); updateObjectList(); updateInspector(); render(); drawOverlay(); });
+        bindMobAct('mob-act-flip-h', () => { doc.flipSelected('horizontal'); render(); drawOverlay(); updateInspector(); });
+        bindMobAct('mob-act-flip-v', () => { doc.flipSelected('vertical'); render(); drawOverlay(); updateInspector(); });
+        bindMobAct('mob-act-rot-cw', () => document.getElementById('btn-rot-90')?.click());
+        bindMobAct('mob-act-rot-reset', () => document.getElementById('btn-rot-reset')?.click());
+
+        // Viewport & Engine
+        bindMobAct('mob-act-renderer-toggle', () => syncRenderMode(viewportRenderMode === 'quadro' ? 'svg' : 'quadro'));
+        bindMobAct('mob-act-filter-bilinear', () => setViewportBilinear(!viewportBilinear, true));
+        bindMobAct('mob-act-zoom-fit', () => zoomToFit());
+        bindMobAct('mob-act-zoom-reset', () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); });
+        bindMobAct('mob-act-fullscreen', () => toggleFullscreen());
+
+        // Animation
+        bindMobAct('mob-act-keyframe', () => {
+          const selectedObjs = doc.getSelectedObjects();
+          if (window.dopeSheet && selectedObjs.length > 0) {
+            const curF = window.dopeSheet.currentFrame || 1;
+            for (const o of selectedObjs) recordObjectAnimationState(o, curF);
+            doc.pushHistory(`Record State F${curF}`);
+            if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+            updateObjectList();
+            showNotification(`Recorded keyframe at Frame ${curF}`);
+          }
+        });
+        bindMobAct('mob-act-anim-play', () => toggleScenePlay());
+        bindMobAct('mob-act-anim-start', () => seekSceneFrame(1));
+
+        // Appearance
+        bindMobAct('mob-act-theme-dark', () => setTheme('dark'));
+        bindMobAct('mob-act-theme-gray', () => setTheme('gray'));
+        bindMobAct('mob-act-about', () => {
+          const vStr = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.10.132';
+          alert(`Wesenho Studio v${vStr}\nNative Vector Engine, Quadro WASM & Animation Suite.`);
+        });
+
+        // 8. Responsive Resize Listener
+        window.addEventListener('resize', () => {
+          applyMobileLayoutMode();
+        });
+
+        applyMobileLayoutMode();
+      }
+      window.initMobileUI = initMobileUI;
+
       function openDockPanel(id) {
+        if (isMobile() && id !== 'canvas') {
+          openMobileDrawer(id);
+          return;
+        }
         if (!dockviewApi) return;
         if (id === 'document') id = 'projects';
         const existing = dockviewApi.getPanel(id);
@@ -10854,8 +11841,12 @@
       function updateTitlebarProjectName(name, isDirty = false) {
         const label = document.getElementById('titlebar-proj-label');
         const dirty = document.getElementById('titlebar-dirty-indicator');
+        const mobTitle = document.getElementById('mobile-brand-title');
         if (label) {
           label.textContent = `esenho — ${name || 'Untitled Artwork'}`;
+        }
+        if (mobTitle) {
+          mobTitle.textContent = name || 'Untitled Artwork';
         }
         if (dirty) {
           dirty.style.display = isDirty ? 'inline-block' : 'none';
@@ -13008,6 +13999,12 @@
           btnPlay.textContent = isPlaying ? '⏸' : '▶';
           btnPlay.style.background = isPlaying ? 'var(--accent)' : 'var(--primary)';
         }
+        const mobPlayBtn = document.getElementById('mobile-btn-play');
+        if (mobPlayBtn) {
+          mobPlayBtn.innerHTML = isPlaying
+            ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>'
+            : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 18 12 6 20 6 4"/></svg>';
+        }
 
         const btnAutoKf = document.getElementById('scene-btn-autokf');
         if (btnAutoKf) {
@@ -14019,6 +15016,7 @@
         initQuadro();
         await initStudioDopeSheet();
         if (typeof initStudioColorTab === 'function') initStudioColorTab();
+        if (typeof initMobileUI === 'function') initMobileUI();
         updateInspector();
         setTimeout(zoomToFit, 50);
       })();
