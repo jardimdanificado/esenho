@@ -2421,9 +2421,10 @@
           <div id="solid-fill-controls">
             <div class="form-row">
               <label>Color</label>
-              <div style="display: flex; gap: 6px; width: 100%;">
+              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
                 <input type="color" id="prop-fill-color" value="#fabd2f">
                 <input type="text" id="prop-fill-text" value="#fabd2f">
+                <button type="button" id="btn-open-fill-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 7px; font-size: 11px;">🎨</button>
               </div>
             </div>
             <div class="form-row">
@@ -2777,9 +2778,10 @@
         <div class="section-card">
           <div class="form-row">
             <label>Color</label>
-            <div style="display: flex; gap: 6px; width: 100%;">
+            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
               <input type="color" id="prop-stroke-color" value="#1d2021">
               <input type="text" id="prop-stroke-text" value="#1d2021">
+              <button type="button" id="btn-open-stroke-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 7px; font-size: 11px;">🎨</button>
             </div>
           </div>
           <div class="form-row">
@@ -3174,6 +3176,11 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Dock Panel: Color Studio -->
+    <div id="dock-panel-color" class="dock-panel-content" style="padding: 6px; overflow-y: auto; overflow-x: hidden; background: var(--bg-panel); display: flex; flex-direction: column; gap: 6px; height: 100%; box-sizing: border-box;">
+      <div id="color-studio-mount"></div>
     </div>
 
     <!-- Dock Panel 3: Canvas / Viewport -->
@@ -3725,6 +3732,7 @@
   <script src="src/version.js"></script>
   <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
+  <script src="src/color_studio.js"></script>
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
   <script src="src/svg/svg_engine.js"></script>
@@ -6263,6 +6271,9 @@
 
         updateSelectedObjectEventsUI();
         updateSwatches();
+        if (typeof ColorStudio !== 'undefined' && typeof ColorStudio.syncFromSelection === 'function') {
+          ColorStudio.syncFromSelection();
+        }
         if (typeof updateTracerUI === 'function') updateTracerUI();
       }
       window.updateInspector = updateInspector;
@@ -9223,6 +9234,20 @@
         scheduleAutosave();
       });
 
+      document.getElementById('btn-open-fill-color-studio')?.addEventListener('click', () => {
+        openDockPanel('color');
+        if (typeof ColorStudio !== 'undefined' && ColorStudio.getInstance()) {
+          ColorStudio.getInstance().setTarget('fill');
+        }
+      });
+
+      document.getElementById('btn-open-stroke-color-studio')?.addEventListener('click', () => {
+        openDockPanel('color');
+        if (typeof ColorStudio !== 'undefined' && ColorStudio.getInstance()) {
+          ColorStudio.getInstance().setTarget('stroke');
+        }
+      });
+
       document.getElementById('prop-fill-opacity')?.addEventListener('input', (e) => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.fillOpacity = Number(e.target.value);
@@ -10115,8 +10140,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v12';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v13';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -10156,6 +10181,12 @@
             if (typeof refreshProjectsList === 'function') refreshProjectsList();
           } else if (id === 'tracer') {
             if (typeof updateTracerUI === 'function') updateTracerUI();
+          } else if (id === 'color') {
+            if (typeof ColorStudio !== 'undefined') {
+              const mount = document.getElementById('color-studio-mount');
+              if (mount) ColorStudio.mountColorTab(mount);
+              ColorStudio.onPanelActivated();
+            }
           }
           updateTitlebarLayoutButtons();
           return existing;
@@ -10163,6 +10194,7 @@
         const titleMap = {
           fill: 'Fill',
           stroke: 'Stroke',
+          color: 'Color',
           inspect: 'Transform',
           scene: 'Scene',
           animation: 'Timeline',
@@ -10174,11 +10206,11 @@
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
         try {
-          if (id === 'fill' || id === 'stroke') {
-            const otherLeft = (id === 'fill' ? 'stroke' : 'fill');
-            const ref = dockviewApi.getPanel(otherLeft);
+          if (id === 'fill' || id === 'stroke' || id === 'color') {
+            const leftGroup = ['fill', 'stroke', 'color'];
+            const ref = leftGroup.find(l => l !== id && !!dockviewApi.getPanel(l));
             if (ref) {
-              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherLeft } });
+              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
             }
@@ -10217,6 +10249,12 @@
           if (typeof refreshProjectsList === 'function') refreshProjectsList();
         } else if (id === 'tracer') {
           if (typeof updateTracerUI === 'function') updateTracerUI();
+        } else if (id === 'color') {
+          if (typeof ColorStudio !== 'undefined') {
+            const mount = document.getElementById('color-studio-mount');
+            if (mount) ColorStudio.mountColorTab(mount);
+            ColorStudio.onPanelActivated();
+          }
         }
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
@@ -10276,13 +10314,15 @@
 
       function toggleLeftSidebar() {
         if (!dockviewApi) return;
-        const hasLeft = !!dockviewApi.getPanel('fill') || !!dockviewApi.getPanel('stroke');
+        const hasLeft = !!dockviewApi.getPanel('fill') || !!dockviewApi.getPanel('stroke') || !!dockviewApi.getPanel('color');
         if (hasLeft) {
           closeDockPanel('fill');
           closeDockPanel('stroke');
+          closeDockPanel('color');
         } else {
           openDockPanel('fill');
           openDockPanel('stroke');
+          openDockPanel('color');
           dockviewApi.getPanel('fill')?.api?.setActive();
         }
       }
@@ -10302,7 +10342,7 @@
       window.toggleRightSidebar = toggleRightSidebar;
 
       function updateTitlebarLayoutButtons() {
-        const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
+        const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke') || !!dockviewApi?.getPanel('color');
         const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
@@ -10342,7 +10382,15 @@
             position: { referencePanel: 'fill' }
           });
 
-          // 4. Right Transform panel
+          // 4. Left Color panel (tabbed with Fill)
+          dockviewApi.addPanel({
+            id: 'color',
+            component: 'color',
+            title: 'Color',
+            position: { referencePanel: 'fill' }
+          });
+
+          // 5. Right Transform panel
           dockviewApi.addPanel({
             id: 'inspect',
             component: 'inspect',
@@ -10432,7 +10480,7 @@
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
         // Clean up any stale old dock layout keys from previous versions
-        for (let i = 1; i <= 11; i++) {
+        for (let i = 1; i <= 12; i++) {
           try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
         }
         try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
@@ -10551,6 +10599,12 @@
               if (typeof refreshProjectsList === 'function') refreshProjectsList();
             } else if (id === 'export') {
               if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
+            } else if (id === 'color') {
+              if (typeof ColorStudio !== 'undefined') {
+                const mount = document.getElementById('color-studio-mount');
+                if (mount) ColorStudio.mountColorTab(mount);
+                ColorStudio.onPanelActivated();
+              }
             } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
               updateInspector();
             }
@@ -13804,6 +13858,10 @@
         updateRendererMenuUi();
         initQuadro();
         await initStudioDopeSheet();
+        if (typeof ColorStudio !== 'undefined') {
+          const mount = document.getElementById('color-studio-mount');
+          if (mount) ColorStudio.mountColorTab(mount);
+        }
         updateInspector();
         setTimeout(zoomToFit, 50);
       })();
