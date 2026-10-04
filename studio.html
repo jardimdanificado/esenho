@@ -2406,11 +2406,6 @@
 
   <!-- Dock Panel Template Pool (Dockview moves panels into its layout container dynamically) -->
   <div id="dock-panel-pool" style="display: none;">
-    <!-- Dock Panel: Color Studio (RGB / HSL / Palettes) -->
-    <div id="dock-panel-color" class="dock-panel-content" style="padding: 10px; overflow-y: auto; background: var(--bg-panel); display: flex; flex-direction: column; gap: 8px; height: 100%; box-sizing: border-box;">
-      <div id="color-studio-mount-container" style="width: 100%;"></div>
-    </div>
-
     <!-- Dock Panel 1: Fill & Fill Dynamics -->
     <div id="dock-panel-fill" class="dock-panel-content">
       <!-- 1. Fill Surface & Colors -->
@@ -2426,10 +2421,9 @@
           <div id="solid-fill-controls">
             <div class="form-row">
               <label>Color</label>
-              <div style="display: flex; gap: 4px; width: 100%; align-items: center;">
+              <div style="display: flex; gap: 6px; width: 100%;">
                 <input type="color" id="prop-fill-color" value="#fabd2f">
-                <input type="text" id="prop-fill-text" value="#fabd2f" style="flex: 1;">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-open-fill-color-studio" title="Open Color Studio Tab (RGB, HSL, Palettes)" style="padding: 2px 6px; font-size: 10px; font-weight: 600; white-space: nowrap;">🎨 Color</button>
+                <input type="text" id="prop-fill-text" value="#fabd2f">
               </div>
             </div>
             <div class="form-row">
@@ -2454,10 +2448,9 @@
 
             <div class="form-row">
               <label style="width: 50px;">Color</label>
-              <div style="display: flex; gap: 4px; width: 100%; align-items: center;">
+              <div style="display: flex; gap: 6px; width: 100%;">
                 <input type="color" id="prop-grad-stop-color" value="#fe8019">
-                <input type="text" id="prop-grad-stop-color-text" value="#fe8019" style="flex: 1;">
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-open-grad-color-studio" title="Open Color Studio" style="padding: 2px 6px; font-size: 10px;">🎨</button>
+                <input type="text" id="prop-grad-stop-color-text" value="#fe8019">
               </div>
             </div>
 
@@ -2784,10 +2777,9 @@
         <div class="section-card">
           <div class="form-row">
             <label>Color</label>
-            <div style="display: flex; gap: 4px; width: 100%; align-items: center;">
+            <div style="display: flex; gap: 6px; width: 100%;">
               <input type="color" id="prop-stroke-color" value="#1d2021">
-              <input type="text" id="prop-stroke-text" value="#1d2021" style="flex: 1;">
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-open-stroke-color-studio" title="Open Color Studio Tab (RGB, HSL, Palettes)" style="padding: 2px 6px; font-size: 10px; font-weight: 600; white-space: nowrap;">🎨 Color</button>
+              <input type="text" id="prop-stroke-text" value="#1d2021">
             </div>
           </div>
           <div class="form-row">
@@ -3468,10 +3460,9 @@
         </div>
         <div class="form-row" style="margin-bottom: 0;">
           <label style="flex: 0 0 50px;">Color</label>
-          <div style="display: flex; gap: 4px; width: 100%; align-items: center;">
+          <div style="display: flex; gap: 6px; width: 100%;">
             <input type="color" id="prop-doc-bg-picker" value="#1d2021" style="width: 28px; height: 24px; padding: 1px 2px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input);">
             <input type="text" id="prop-doc-bg" value="#1d2021" style="font-size: 11px; flex: 1;">
-            <button type="button" class="btn btn-secondary btn-sm" id="btn-open-doc-bg-studio" title="Open Color Studio" style="padding: 2px 6px; font-size: 10px;">🎨</button>
           </div>
         </div>
       </div>
@@ -3735,7 +3726,6 @@
   <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
   <script src="src/esenho.js"></script>
-  <script src="src/color_studio.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
   <script src="src/svg/svg_engine.js"></script>
   <script src="src/svg/quadro_svg_renderer.js"></script>
@@ -6273,7 +6263,6 @@
 
         updateSelectedObjectEventsUI();
         updateSwatches();
-        if (typeof syncStudioColorTab === 'function') syncStudioColorTab();
         if (typeof updateTracerUI === 'function') updateTracerUI();
       }
       window.updateInspector = updateInspector;
@@ -8631,13 +8620,6 @@
           return;
         }
 
-        // Color Studio Shortcut
-        if (e.shiftKey && (key === 'c' || e.code === 'KeyC')) {
-          e.preventDefault();
-          window.openStudioColorStudio?.();
-          return;
-        }
-
         // Single key shortcuts (no Ctrl / Meta)
         if (key === 'escape') {
           let closedSomething = false;
@@ -9113,30 +9095,14 @@
       // ── Inspector & Property Binding ──
       const applyFillToSelected = (val) => {
         const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          obj.fill = val;
-          // Prevent lingering bloom / wasm filter on solid fills unless explicitly enabled
-          if (obj.wasmFilter && (!obj.fillFilter?.enabled) && (!obj.strokeFilter?.enabled)) {
-            if (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop' || !obj.wasmFilter.target) {
-              obj.wasmFilter.enabled = false;
-            }
-          }
-        }
+        for (const obj of selected) obj.fill = val;
         updateSwatches();
         render();
       };
 
       const applyStrokeToSelected = (val) => {
         const selected = doc.getSelectedObjects();
-        for (const obj of selected) {
-          obj.stroke = val;
-          // Prevent lingering bloom / wasm filter on strokes unless explicitly enabled
-          if (obj.wasmFilter && (!obj.strokeFilter?.enabled) && (!obj.brushConfig?.wasmFilter?.enabled)) {
-            if (obj.wasmFilter.target === 'stroke') {
-              obj.wasmFilter.enabled = false;
-            }
-          }
-        }
+        for (const obj of selected) obj.stroke = val;
         updateSwatches();
         render();
       };
@@ -9147,147 +9113,6 @@
         render();
       };
 
-      // ── Color Studio Tab & Palette Integration ──
-      let studioColorWidget = null;
-
-      function initStudioColorTab() {
-        const mount = document.getElementById('color-studio-mount-container');
-        if (!mount || typeof ColorStudio === 'undefined' || !ColorStudio.mountColorTab) return;
-        if (studioColorWidget) return;
-
-        const getFillHex = () => document.getElementById('prop-fill-text')?.value || '#fabd2f';
-        const getStrokeHex = () => document.getElementById('prop-stroke-text')?.value || '#1d2021';
-
-        studioColorWidget = ColorStudio.mountColorTab(mount, {
-          target: 'fill',
-          fillColor: getFillHex(),
-          strokeColor: getStrokeHex(),
-          onChange: (hex, colorObj, target) => {
-            if (target === 'fill') {
-              const textEl = document.getElementById('prop-fill-text');
-              const colorEl = document.getElementById('prop-fill-color');
-              if (textEl) textEl.value = hex;
-              if (colorEl && hex.startsWith('#') && hex.length === 7) colorEl.value = hex;
-              applyFillToSelected(hex);
-            } else {
-              const textEl = document.getElementById('prop-stroke-text');
-              const colorEl = document.getElementById('prop-stroke-color');
-              if (textEl) textEl.value = hex;
-              if (colorEl && hex.startsWith('#') && hex.length === 7) colorEl.value = hex;
-              applyStrokeToSelected(hex);
-            }
-          },
-          onCommit: (hex, colorObj, target) => {
-            doc.pushHistory(target === 'fill' ? 'Change Fill Color' : 'Change Stroke Color');
-            scheduleAutosave();
-          },
-          onTargetChange: () => {
-            syncStudioColorTab();
-          },
-          onSwap: (fHex, sHex) => {
-            const selected = doc.getSelectedObjects();
-            for (const obj of selected) {
-              const tmp = obj.fill || '#fabd2f';
-              obj.fill = obj.stroke || '#1d2021';
-              obj.stroke = tmp;
-            }
-            const ft = document.getElementById('prop-fill-text');
-            const fc = document.getElementById('prop-fill-color');
-            const st = document.getElementById('prop-stroke-text');
-            const sc = document.getElementById('prop-stroke-color');
-            if (ft) ft.value = sHex;
-            if (fc && sHex.startsWith('#') && sHex.length === 7) fc.value = sHex;
-            if (st) st.value = fHex;
-            if (sc && fHex.startsWith('#') && fHex.length === 7) sc.value = fHex;
-            doc.pushHistory('Swap Fill and Stroke');
-            render();
-            updateInspector();
-            scheduleAutosave();
-          }
-        });
-        window.studioColorWidget = studioColorWidget;
-      }
-
-      function syncStudioColorTab() {
-        if (!studioColorWidget) return;
-        const fillVal = document.getElementById('prop-fill-text')?.value || '#fabd2f';
-        const strokeVal = document.getElementById('prop-stroke-text')?.value || '#1d2021';
-        const target = (typeof studioColorWidget.getTarget === 'function') ? studioColorWidget.getTarget() : 'fill';
-        const activeHex = (target === 'stroke' ? strokeVal : fillVal);
-        studioColorWidget.sync(target, activeHex, target === 'stroke' ? fillVal : strokeVal);
-      }
-
-      function openColorTabFor(target = 'fill') {
-        openDockPanel('color');
-        if (!studioColorWidget) initStudioColorTab();
-        if (studioColorWidget) {
-          if (typeof studioColorWidget.setTarget === 'function') studioColorWidget.setTarget(target);
-          syncStudioColorTab();
-        }
-      }
-
-      window.openStudioColorStudio = (target = 'fill') => openColorTabFor(target);
-
-      function openGradColorStudio() {
-        if (typeof ColorStudio === 'undefined') return;
-        const textEl = document.getElementById('prop-grad-stop-color-text');
-        const colorEl = document.getElementById('prop-grad-stop-color');
-        const cur = textEl?.value || '#fe8019';
-        ColorStudio.openPicker({
-          title: 'Gradient Stop Color',
-          color: cur,
-          onChange: (hex) => {
-            if (textEl) textEl.value = hex;
-            if (colorEl) colorEl.value = hex;
-            if (typeof updateActiveGradientStop === 'function') updateActiveGradientStop({ color: hex });
-            render();
-          },
-          onConfirm: (hex) => {
-            if (textEl) textEl.value = hex;
-            if (colorEl) colorEl.value = hex;
-            if (typeof updateActiveGradientStop === 'function') updateActiveGradientStop({ color: hex });
-            doc.pushHistory('Change Gradient Stop Color');
-            render();
-            scheduleAutosave();
-            if (typeof syncStudioColorTab === 'function') syncStudioColorTab();
-          },
-          onCancel: (prev) => {
-            if (textEl) textEl.value = prev;
-            if (colorEl && prev.startsWith('#') && prev.length === 7) colorEl.value = prev;
-            if (typeof updateActiveGradientStop === 'function') updateActiveGradientStop({ color: prev });
-            render();
-          }
-        });
-      }
-
-      function openDocBgStudio() {
-        if (typeof ColorStudio === 'undefined') return;
-        const cur = doc.backgroundColor || '#1d2021';
-        ColorStudio.openPicker({
-          title: 'Canvas Background Color',
-          color: cur,
-          onChange: (hex) => {
-            doc.backgroundColor = hex;
-            const bgText = document.getElementById('prop-doc-bg');
-            const bgPick = document.getElementById('prop-doc-bg-picker');
-            if (bgText) bgText.value = hex;
-            if (bgPick) bgPick.value = hex;
-            render();
-          },
-          onConfirm: (hex) => {
-            doc.backgroundColor = hex;
-            doc.pushHistory('Change Canvas Background');
-            render();
-            scheduleAutosave();
-            if (typeof syncStudioColorTab === 'function') syncStudioColorTab();
-          },
-          onCancel: (prev) => {
-            doc.backgroundColor = prev;
-            render();
-          }
-        });
-      }
-
       const handleFillColorClick = (e) => {
         const textEl = document.getElementById('prop-fill-text');
         if (textEl && (!textEl.value || textEl.value === 'none')) {
@@ -9296,16 +9121,8 @@
           applyFillToSelected(val);
           doc.pushHistory('Change Fill Color');
           scheduleAutosave();
-          syncStudioColorTab();
         }
       };
-
-      document.getElementById('btn-open-fill-color-studio')?.addEventListener('click', () => openColorTabFor('fill'));
-      document.getElementById('btn-open-stroke-color-studio')?.addEventListener('click', () => openColorTabFor('stroke'));
-      document.getElementById('btn-open-grad-color-studio')?.addEventListener('click', openGradColorStudio);
-      document.getElementById('btn-open-doc-bg-studio')?.addEventListener('click', openDocBgStudio);
-      document.getElementById('swatch-fill-preview')?.addEventListener('click', () => openColorTabFor('fill'));
-      document.getElementById('swatch-stroke-preview')?.addEventListener('click', () => openColorTabFor('stroke'));
 
       document.getElementById('prop-fill-color')?.addEventListener('pointerdown', handleFillColorClick);
       document.getElementById('prop-fill-color')?.addEventListener('click', handleFillColorClick);
@@ -9354,7 +9171,6 @@
           applyStrokeToSelected(val);
           doc.pushHistory('Change Stroke Color');
           scheduleAutosave();
-          syncStudioColorTab();
         }
       };
 
@@ -9438,7 +9254,7 @@
               if (!obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter = {};
               Object.assign(obj.fillTexture.wasmFilter, preset.wasmFilter);
               obj.wasmFilter = JSON.parse(JSON.stringify(preset.wasmFilter));
-            } else {
+            } else if (val === 'default') {
               if (obj.fillFilter) obj.fillFilter.enabled = false;
               if (obj.fillTexture?.wasmFilter) obj.fillTexture.wasmFilter.enabled = false;
               if (obj.wasmFilter && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop')) obj.wasmFilter.enabled = false;
@@ -9538,9 +9354,6 @@
             if (!obj.fillTexture.wasmFilter) obj.fillTexture.wasmFilter = { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
             obj.fillTexture.wasmFilter.enabled = enabled;
           }
-          if (obj.wasmFilter && (obj.wasmFilter.target === 'fill' || obj.wasmFilter.target === 'backdrop')) {
-            obj.wasmFilter.enabled = enabled;
-          }
         }
         render();
       });
@@ -9621,9 +9434,6 @@
           if (obj.brushConfig) {
             if (!obj.brushConfig.wasmFilter) obj.brushConfig.wasmFilter = { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
             obj.brushConfig.wasmFilter.enabled = enabled;
-          }
-          if (obj.wasmFilter && obj.wasmFilter.target === 'stroke') {
-            obj.wasmFilter.enabled = enabled;
           }
         }
         render();
@@ -9844,9 +9654,6 @@
             } else {
               obj.strokeFilter = null;
               obj.brushConfig.wasmFilter = null;
-              if (obj.wasmFilter && obj.wasmFilter.target === 'stroke') {
-                obj.wasmFilter.enabled = false;
-              }
             }
             if (!obj.strokeTexture) obj.strokeTexture = {};
             const texName = preset.texture || 'none';
@@ -10308,8 +10115,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v13';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v12';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -10349,9 +10156,6 @@
             if (typeof refreshProjectsList === 'function') refreshProjectsList();
           } else if (id === 'tracer') {
             if (typeof updateTracerUI === 'function') updateTracerUI();
-          } else if (id === 'color') {
-            if (!studioColorWidget) initStudioColorTab();
-            syncStudioColorTab();
           }
           updateTitlebarLayoutButtons();
           return existing;
@@ -10359,7 +10163,6 @@
         const titleMap = {
           fill: 'Fill',
           stroke: 'Stroke',
-          color: 'Color',
           inspect: 'Transform',
           scene: 'Scene',
           animation: 'Timeline',
@@ -10371,11 +10174,11 @@
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
         try {
-          if (id === 'fill' || id === 'stroke' || id === 'color') {
-            const leftGroup = ['fill', 'stroke', 'color'];
-            const refLeft = leftGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
-            if (refLeft) {
-              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: refLeft } });
+          if (id === 'fill' || id === 'stroke') {
+            const otherLeft = (id === 'fill' ? 'stroke' : 'fill');
+            const ref = dockviewApi.getPanel(otherLeft);
+            if (ref) {
+              dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherLeft } });
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 260 });
             }
@@ -10414,9 +10217,6 @@
           if (typeof refreshProjectsList === 'function') refreshProjectsList();
         } else if (id === 'tracer') {
           if (typeof updateTracerUI === 'function') updateTracerUI();
-        } else if (id === 'color') {
-          if (!studioColorWidget) initStudioColorTab();
-          syncStudioColorTab();
         }
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
@@ -10476,15 +10276,13 @@
 
       function toggleLeftSidebar() {
         if (!dockviewApi) return;
-        const hasLeft = !!dockviewApi.getPanel('fill') || !!dockviewApi.getPanel('stroke') || !!dockviewApi.getPanel('color');
+        const hasLeft = !!dockviewApi.getPanel('fill') || !!dockviewApi.getPanel('stroke');
         if (hasLeft) {
           closeDockPanel('fill');
           closeDockPanel('stroke');
-          closeDockPanel('color');
         } else {
           openDockPanel('fill');
           openDockPanel('stroke');
-          openDockPanel('color');
           dockviewApi.getPanel('fill')?.api?.setActive();
         }
       }
@@ -10504,7 +10302,7 @@
       window.toggleRightSidebar = toggleRightSidebar;
 
       function updateTitlebarLayoutButtons() {
-        const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke') || !!dockviewApi?.getPanel('color');
+        const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke');
         const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
@@ -10544,15 +10342,7 @@
             position: { referencePanel: 'fill' }
           });
 
-          // 4. Left Color Studio panel (tabbed with Stroke & Fill)
-          dockviewApi.addPanel({
-            id: 'color',
-            component: 'color',
-            title: 'Color',
-            position: { referencePanel: 'stroke' }
-          });
-
-          // 5. Right Transform panel
+          // 4. Right Transform panel
           dockviewApi.addPanel({
             id: 'inspect',
             component: 'inspect',
@@ -10561,7 +10351,7 @@
             initialWidth: 270
           });
 
-          // 6. Right Scene panel (tabbed with Inspect)
+          // 5. Right Scene panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'scene',
             component: 'scene',
@@ -10569,7 +10359,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 7. Right Vectorizer panel (tabbed with Inspect)
+          // 6. Right Vectorizer panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'tracer',
             component: 'tracer',
@@ -10577,7 +10367,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 8. Right Projects panel (tabbed with Inspect)
+          // 7. Right Projects panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'projects',
             component: 'projects',
@@ -10585,7 +10375,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 9. Right Export panel (tabbed with Inspect)
+          // 8. Right Export panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'export',
             component: 'export',
@@ -10593,7 +10383,7 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 10. Bottom Timeline panel
+          // 9. Bottom Timeline panel
           dockviewApi.addPanel({
             id: 'animation',
             component: 'animation',
@@ -10602,7 +10392,7 @@
             initialHeight: 210
           });
 
-          // 11. Bottom Curves panel (tabbed with Timeline)
+          // 10. Bottom Curves panel (tabbed with Timeline)
           dockviewApi.addPanel({
             id: 'curves',
             component: 'curves',
@@ -10642,7 +10432,7 @@
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
         // Clean up any stale old dock layout keys from previous versions
-        for (let i = 1; i <= 12; i++) {
+        for (let i = 1; i <= 11; i++) {
           try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
         }
         try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
@@ -10916,9 +10706,7 @@
           }},
           { type: 'item', label: 'Deselect All', hotkey: 'Esc', action: () => {
             doc.selectedIds.clear(); render(); drawOverlay(); updateInspector();
-          }},
-          { type: 'sep' },
-          { type: 'item', label: 'Color Studio Tab (RGB / HSL / Palettes)', hotkey: 'Shift+C', action: () => window.openStudioColorStudio?.() }
+          }}
         ];
       }
 
@@ -10987,7 +10775,6 @@
       }
 
       function getViewMenuActions() {
-        const isColorOpen = !!dockviewApi?.getPanel('color');
         const isFillOpen = !!dockviewApi?.getPanel('fill');
         const isStrokeOpen = !!dockviewApi?.getPanel('stroke');
         const isInspectOpen = !!dockviewApi?.getPanel('inspect');
@@ -11000,7 +10787,6 @@
 
         return [
           { type: 'header', title: 'Dock Panels & Views' },
-          { type: 'item', label: (isColorOpen ? '✓ ' : '') + 'Color Studio Dock', hotkey: 'Shift+C', action: () => toggleDockPanel('color') },
           { type: 'item', label: (isFillOpen ? '✓ ' : '') + 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => toggleDockPanel('fill') },
           { type: 'item', label: (isStrokeOpen ? '✓ ' : '') + 'Stroke & Brush Dock', action: () => toggleDockPanel('stroke') },
           { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
@@ -14018,7 +13804,6 @@
         updateRendererMenuUi();
         initQuadro();
         await initStudioDopeSheet();
-        if (typeof initStudioColorTab === 'function') initStudioColorTab();
         updateInspector();
         setTimeout(zoomToFit, 50);
       })();
