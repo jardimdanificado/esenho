@@ -6305,6 +6305,7 @@
           }
         }
       }
+      window.updateSwatches = updateSwatches;
 
       // ── Pointer & Tool Event Handlers ──
       viewportContainer.addEventListener('pointerdown', (e) => {
@@ -9106,23 +9107,50 @@
       // ── Inspector & Property Binding ──
       const applyFillToSelected = (val) => {
         const selected = doc.getSelectedObjects();
-        for (const obj of selected) obj.fill = val;
+        for (const obj of selected) {
+          obj.fill = val;
+          if (val !== 'none' && obj.fillType && obj.fillType !== 'solid') obj.fillType = 'solid';
+          if (obj.type === 'group' && Array.isArray(obj.children)) {
+            for (const child of obj.children) {
+              child.fill = val;
+              if (val !== 'none' && child.fillType && child.fillType !== 'solid') child.fillType = 'solid';
+            }
+          }
+        }
+        if (selected.length > 0 && val !== 'none') {
+          const pft = document.getElementById('prop-fill-type');
+          if (pft) pft.value = 'solid';
+          const sc = document.getElementById('solid-fill-controls');
+          if (sc) sc.style.display = 'block';
+          const gc = document.getElementById('gradient-controls');
+          if (gc) gc.style.display = 'none';
+        }
         updateSwatches();
         render();
+        if (typeof drawOverlay === 'function') drawOverlay();
       };
+      window.applyFillToSelected = applyFillToSelected;
 
       const applyStrokeToSelected = (val) => {
         const selected = doc.getSelectedObjects();
-        for (const obj of selected) obj.stroke = val;
+        for (const obj of selected) {
+          obj.stroke = val;
+          if (obj.type === 'group' && Array.isArray(obj.children)) {
+            for (const child of obj.children) child.stroke = val;
+          }
+        }
         updateSwatches();
         render();
+        if (typeof drawOverlay === 'function') drawOverlay();
       };
+      window.applyStrokeToSelected = applyStrokeToSelected;
 
       const applyStrokeWidthToSelected = (val) => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) obj.strokeWidth = Number(val);
         render();
       };
+      window.applyStrokeWidthToSelected = applyStrokeWidthToSelected;
 
       const handleFillColorClick = (e) => {
         const textEl = document.getElementById('prop-fill-text');
@@ -13216,6 +13244,7 @@
           }
         }, 600);
       }
+      window.scheduleAutosave = scheduleAutosave;
 
       async function loadProjectFromStorage(projId) {
         if (!projId || typeof EsenhoStore === 'undefined') return false;

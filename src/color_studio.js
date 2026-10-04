@@ -17,6 +17,10 @@
 
   // ── 1. Color Math & Conversions (Zero allocations & branch-optimized) ──
 
+  function getDomEl(id) {
+    return typeof document !== 'undefined' ? document.getElementById(id) : null;
+  }
+
   function clamp(val, min, max) {
     return val < min ? min : (val > max ? max : val);
   }
@@ -703,7 +707,7 @@
       }
 
       // 2. Hex input & preview chip
-      if (d.hexInput && document.activeElement !== d.hexInput) {
+      if (d.hexInput && (typeof document === 'undefined' || document.activeElement !== d.hexInput)) {
         d.hexInput.value = this.isTargetNone ? 'NONE' : this.currentHex;
       }
       if (d.currentPreview) {
@@ -734,8 +738,8 @@
     }
 
     updateTargetChips() {
-      const fillEl = document.getElementById('prop-fill-text');
-      const strokeEl = document.getElementById('prop-stroke-text');
+      const fillEl = getDomEl('prop-fill-text');
+      const strokeEl = getDomEl('prop-stroke-text');
       const fVal = fillEl ? fillEl.value : '#fabd2f';
       const sVal = strokeEl ? strokeEl.value : '#1d2021';
 
@@ -761,36 +765,86 @@
       if (this._isSyncing) return; // STRICT SAFETY: Never apply when syncing from selection!
 
       const val = this.isTargetNone ? 'none' : this.currentHex;
+      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+      const activeDoc = getDoc();
+
       if (this.activeTarget === 'fill') {
-        const textEl = document.getElementById('prop-fill-text');
-        const colorEl = document.getElementById('prop-fill-color');
-        const opEl = document.getElementById('prop-fill-opacity');
+        const textEl = getDomEl('prop-fill-text');
+        const colorEl = getDomEl('prop-fill-color');
+        const opEl = getDomEl('prop-fill-opacity');
         if (textEl) textEl.value = val;
-        if (colorEl && !this.isTargetNone) colorEl.value = val;
+        if (colorEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) colorEl.value = val;
         if (opEl) opEl.value = this.currentA;
 
-        if (typeof applyFillToSelected === 'function') {
+        // 1. Delegate to window.applyFillToSelected if available
+        if (typeof window !== 'undefined' && typeof window.applyFillToSelected === 'function') {
+          window.applyFillToSelected(val);
+        } else if (typeof applyFillToSelected === 'function') {
           applyFillToSelected(val);
         }
+
+        // 2. Direct fallback application if objects are selected
+        if (activeDoc && typeof activeDoc.getSelectedObjects === 'function') {
+          const selected = activeDoc.getSelectedObjects();
+          if (selected.length > 0) {
+            for (const obj of selected) {
+              obj.fill = val;
+              if (val !== 'none' && obj.fillType && obj.fillType !== 'solid') obj.fillType = 'solid';
+              if (this.currentA !== undefined && this.currentA < 1.0) obj.fillOpacity = this.currentA;
+              if (obj.type === 'group' && Array.isArray(obj.children)) {
+                for (const child of obj.children) {
+                  child.fill = val;
+                  if (val !== 'none' && child.fillType && child.fillType !== 'solid') child.fillType = 'solid';
+                }
+              }
+            }
+            if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+            if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+          }
+        }
+
         if (commit) {
-          if (typeof doc !== 'undefined' && doc.pushHistory) doc.pushHistory('Change Fill Color');
-          if (typeof scheduleAutosave === 'function') scheduleAutosave();
+          if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Fill Color');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
         }
       } else {
-        const textEl = document.getElementById('prop-stroke-text');
-        const colorEl = document.getElementById('prop-stroke-color');
+        const textEl = getDomEl('prop-stroke-text');
+        const colorEl = getDomEl('prop-stroke-color');
         if (textEl) textEl.value = val;
-        if (colorEl && !this.isTargetNone) colorEl.value = val;
+        if (colorEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) colorEl.value = val;
 
-        if (typeof applyStrokeToSelected === 'function') {
+        // 1. Delegate to window.applyStrokeToSelected if available
+        if (typeof window !== 'undefined' && typeof window.applyStrokeToSelected === 'function') {
+          window.applyStrokeToSelected(val);
+        } else if (typeof applyStrokeToSelected === 'function') {
           applyStrokeToSelected(val);
         }
+
+        // 2. Direct fallback application if objects are selected
+        if (activeDoc && typeof activeDoc.getSelectedObjects === 'function') {
+          const selected = activeDoc.getSelectedObjects();
+          if (selected.length > 0) {
+            for (const obj of selected) {
+              obj.stroke = val;
+              if (obj.type === 'group' && Array.isArray(obj.children)) {
+                for (const child of obj.children) child.stroke = val;
+              }
+            }
+            if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+            if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+          }
+        }
+
         if (commit) {
-          if (typeof doc !== 'undefined' && doc.pushHistory) doc.pushHistory('Change Stroke Color');
-          if (typeof scheduleAutosave === 'function') scheduleAutosave();
+          if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Stroke Color');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
         }
       }
+
       this.updateTargetChips();
+      if (typeof window !== 'undefined' && typeof window.updateSwatches === 'function') {
+        window.updateSwatches();
+      }
     }
 
     commitToHistory() {
@@ -798,17 +852,26 @@
     }
 
     swapColors() {
-      if (typeof doc === 'undefined' || !doc.getSelectedObjects) return;
-      const selected = doc.getSelectedObjects();
+      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+      const activeDoc = getDoc();
+      if (!activeDoc || !activeDoc.getSelectedObjects) return;
+      const selected = activeDoc.getSelectedObjects();
       for (const obj of selected) {
         const tmp = obj.fill || '#fabd2f';
         obj.fill = obj.stroke || '#1d2021';
         obj.stroke = tmp;
+        if (obj.type === 'group' && Array.isArray(obj.children)) {
+          for (const child of obj.children) {
+            const childTmp = child.fill || '#fabd2f';
+            child.fill = child.stroke || '#1d2021';
+            child.stroke = childTmp;
+          }
+        }
       }
-      const ft = document.getElementById('prop-fill-text');
-      const fc = document.getElementById('prop-fill-color');
-      const st = document.getElementById('prop-stroke-text');
-      const sc = document.getElementById('prop-stroke-color');
+      const ft = getDomEl('prop-fill-text');
+      const fc = getDomEl('prop-fill-color');
+      const st = getDomEl('prop-stroke-text');
+      const sc = getDomEl('prop-stroke-color');
       if (ft && st) {
         const tmpF = ft.value;
         ft.value = st.value;
@@ -816,10 +879,11 @@
         if (fc && ft.value.startsWith('#') && ft.value.length === 7) fc.value = ft.value;
         if (sc && st.value.startsWith('#') && st.value.length === 7) sc.value = st.value;
       }
-      doc.pushHistory('Swap Fill and Stroke');
-      if (typeof render === 'function') render();
-      if (typeof updateInspector === 'function') updateInspector();
-      if (typeof scheduleAutosave === 'function') scheduleAutosave();
+      if (activeDoc.pushHistory) activeDoc.pushHistory('Swap Fill and Stroke');
+      if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+      if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+      if (typeof window !== 'undefined' && typeof window.updateInspector === 'function') window.updateInspector();
+      if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
       this.syncFromSelection(true);
     }
 
@@ -895,7 +959,9 @@
     }
 
     extractDocumentColors() {
-      if (typeof doc === 'undefined' || !doc.objects) return [];
+      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+      const activeDoc = getDoc();
+      if (!activeDoc || !activeDoc.objects) return [];
       const set = new Set();
       const traverse = (objs) => {
         for (const o of objs) {
@@ -904,7 +970,7 @@
           if (o.children && Array.isArray(o.children)) traverse(o.children);
         }
       };
-      traverse(doc.objects);
+      traverse(activeDoc.objects);
       return Array.from(set);
     }
 
@@ -922,11 +988,29 @@
         }
       }
 
-      // 2. Read values from existing DOM inputs
-      const fillEl = document.getElementById('prop-fill-text');
-      const strokeEl = document.getElementById('prop-stroke-text');
-      const fillVal = fillEl ? fillEl.value : '#fabd2f';
-      const strokeVal = strokeEl ? strokeEl.value : '#1d2021';
+      // 2. Read values from selected object or DOM inputs
+      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+      const activeDoc = getDoc();
+      const selected = (activeDoc && activeDoc.getSelectedObjects) ? activeDoc.getSelectedObjects() : [];
+
+      let fillVal = '#fabd2f';
+      let strokeVal = '#1d2021';
+      let fillOp = 1.0;
+      let strokeOp = 1.0;
+
+      if (selected.length > 0) {
+        fillVal = selected[0].fill || 'none';
+        strokeVal = selected[0].stroke || 'none';
+        fillOp = selected[0].fillOpacity !== undefined ? selected[0].fillOpacity : 1.0;
+        strokeOp = selected[0].strokeOpacity !== undefined ? selected[0].strokeOpacity : 1.0;
+      } else {
+        const fillEl = getDomEl('prop-fill-text');
+        const strokeEl = getDomEl('prop-stroke-text');
+        fillVal = fillEl ? fillEl.value : '#fabd2f';
+        strokeVal = strokeEl ? strokeEl.value : '#1d2021';
+        const opEl = getDomEl('prop-fill-opacity');
+        fillOp = opEl ? Number(opEl.value) || 1.0 : 1.0;
+      }
 
       // 3. FAST PATH: If values have not changed at all, DO NOTHING (0ms)
       if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal) {
@@ -939,8 +1023,7 @@
       this._isSyncing = true;
       try {
         const activeColorVal = (this.activeTarget === 'stroke' ? strokeVal : fillVal);
-        const opEl = document.getElementById(this.activeTarget === 'stroke' ? 'prop-stroke-opacity' : 'prop-fill-opacity');
-        if (opEl) this.currentA = Number(opEl.value) || 1.0;
+        this.currentA = (this.activeTarget === 'stroke' ? strokeOp : fillOp);
 
         this.setColorFromExternal(activeColorVal);
         this.updateTargetChips();
@@ -963,6 +1046,7 @@
   // ── 4. Inject CSS Styles ──
 
   function injectStyles() {
+    if (typeof document === 'undefined') return;
     if (document.getElementById('cs-styles')) return;
     const style = document.createElement('style');
     style.id = 'cs-styles';

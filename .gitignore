@@ -3,3 +3,6 @@ node_modules
 #roms/*.wasm
 #plugins/*.wasm
 /bin
+dist
+src-tauri
+scripts/build-dist.js
