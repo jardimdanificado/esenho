@@ -499,7 +499,119 @@ const sampleF15 = grpDopeSheet.evaluate(15);
 assert.ok(sampleF15.grp_main.x > 0 && sampleF15.grp_main.x < 200, 'Sampled group X at frame 15 should be between 0 and 200');
 assert.ok(sampleF15.grp_main.y > 0 && sampleF15.grp_main.y < 100, 'Sampled group Y at frame 15 should be between 0 and 100');
 
-console.log('✔ SvgGroup Animation & Scene Graph Hierarchy passed');
+// ── 18. Testing Multi-Clip Animation Support in DopeSheet and SvgDocument ──
+console.log('18. Testing Multi-Clip Animation Support in DopeSheet & SvgDocument...');
+
+// A. DopeSheet constructor metadata, clone, clearAllKeyframes
+const clipA = new DopeSheet(60, 24, 'Walk Cycle', 'anim_walk');
+assert.strictEqual(clipA.name, 'Walk Cycle');
+assert.strictEqual(clipA.id, 'anim_walk');
+const objA = clipA.getOrCreateObject('hero', 'Hero Character', 'group');
+objA.setKeyframe('x', 1, 0);
+objA.setKeyframe('x', 30, 100);
+
+const clipAClone = clipA.clone('Run Cycle', 'anim_run');
+assert.strictEqual(clipAClone.name, 'Run Cycle');
+assert.strictEqual(clipAClone.id, 'anim_run');
+assert.strictEqual(clipAClone.totalFrames, 60);
+assert.strictEqual(clipAClone.fps, 24);
+assert.strictEqual(clipAClone.evaluate(30).hero.x, 100, 'Cloned clip should preserve keyframes');
+
+// Modify clone, verify original is untouched
+const cloneHero = clipAClone.getObject('hero');
+cloneHero.setKeyframe('x', 30, 250);
+assert.strictEqual(clipA.evaluate(30).hero.x, 100, 'Original clip keyframes should not change when clone is modified');
+assert.strictEqual(clipAClone.evaluate(30).hero.x, 250, 'Clone keyframes should reflect changes');
+
+// Test clearAllKeyframes
+clipAClone.clearAllKeyframes();
+assert.strictEqual(clipAClone.getObject('hero').channels.get('x').keyframes.length, 0, 'Keyframes should be cleared');
+
+// B. SvgDocument Multi-Clip Management
+const multiDoc = new SvgDocument({ width: 800, height: 600 });
+const dsIdle = new DopeSheet(60, 24, 'Idle');
+const dHeroIdle = dsIdle.getOrCreateObject('hero', 'Hero', 'rect');
+dHeroIdle.setKeyframe('rotation', 1, 0);
+dHeroIdle.setKeyframe('rotation', 30, 5);
+const idleClip = multiDoc.addAnimation(dsIdle);
+
+assert.strictEqual(multiDoc.getAnimations().length, 1);
+assert.strictEqual(multiDoc.getActiveAnimation().name, 'Idle');
+assert.strictEqual(multiDoc.activeAnimationId, idleClip.id);
+
+// Add Walk clip
+const dsWalk = new DopeSheet(60, 24, 'Walk');
+const dHeroWalk = dsWalk.getOrCreateObject('hero', 'Hero', 'rect');
+dHeroWalk.setKeyframe('rotation', 1, 0);
+dHeroWalk.setKeyframe('rotation', 30, 45);
+const walkClip = multiDoc.addAnimation(dsWalk);
+
+assert.strictEqual(multiDoc.getAnimations().length, 2);
+assert.strictEqual(multiDoc.switchAnimation(walkClip.id).name, 'Walk');
+assert.strictEqual(multiDoc.activeAnimationId, walkClip.id);
+
+// Verify clips have independent animation evaluation
+const evalIdle = DopeSheet.fromJSON(multiDoc.switchAnimation(idleClip.id)).evaluate(30);
+const evalWalk = DopeSheet.fromJSON(multiDoc.switchAnimation(walkClip.id)).evaluate(30);
+assert.strictEqual(evalIdle.hero.rotation, 5);
+assert.strictEqual(evalWalk.hero.rotation, 45);
+
+// Duplicate clip
+const attackClip = multiDoc.duplicateAnimation(walkClip.id, 'Attack');
+assert.strictEqual(multiDoc.getAnimations().length, 3);
+assert.strictEqual(attackClip.name, 'Attack');
+assert.strictEqual(DopeSheet.fromJSON(attackClip).evaluate(30).hero.rotation, 45);
+
+// Rename clip
+multiDoc.renameAnimation(attackClip.id, 'Special Attack');
+assert.strictEqual(multiDoc.getAnimations().find(a => a.id === attackClip.id).name, 'Special Attack');
+
+// Remove clip
+multiDoc.removeAnimation(walkClip.id);
+assert.strictEqual(multiDoc.getAnimations().length, 2);
+assert.strictEqual(multiDoc.getAnimations().some(a => a.id === walkClip.id), false);
+
+// C. Document Serialization and Deserialization with Multiple Clips
+const savedDocJSON = multiDoc.toJSON();
+assert.ok(Array.isArray(savedDocJSON.animations), 'toJSON must include animations array');
+assert.strictEqual(savedDocJSON.animations.length, 2, 'Serialized doc must contain 2 clips');
+assert.strictEqual(savedDocJSON.activeAnimationId, multiDoc.activeAnimationId, 'Serialized activeAnimationId must match');
+
+const multiLoadedDoc = new SvgDocument();
+multiLoadedDoc.loadJSON(savedDocJSON);
+assert.strictEqual(multiLoadedDoc.getAnimations().length, 2);
+assert.strictEqual(multiLoadedDoc.activeAnimationId, multiDoc.activeAnimationId);
+assert.strictEqual(multiLoadedDoc.getActiveAnimation().name, multiDoc.getActiveAnimation().name);
+
+// D. Backward Compatibility: loading legacy document with single data.animation
+const legacyDocJSON = {
+  version: 1,
+  width: 500,
+  height: 500,
+  objects: [],
+  animation: {
+    totalFrames: 120,
+    fps: 30,
+    objects: {
+      ball: {
+        id: 'ball',
+        name: 'Ball',
+        channels: {
+          x: { keyframes: [{ frame: 1, value: 0 }, { frame: 60, value: 300 }] }
+        }
+      }
+    }
+  }
+};
+
+const legacyDoc = new SvgDocument();
+legacyDoc.loadJSON(legacyDocJSON);
+assert.strictEqual(legacyDoc.getAnimations().length, 1, 'Legacy single animation should be migrated into animations array');
+assert.ok(legacyDoc.activeAnimationId, 'Active animation ID should be assigned');
+assert.strictEqual(legacyDoc.getActiveAnimation().totalFrames, 120);
+assert.strictEqual(DopeSheet.fromJSON(legacyDoc.getActiveAnimation()).evaluate(60).ball.x, 300);
+
+console.log('✔ Multi-Clip Animation Support in DopeSheet & SvgDocument passed');
 
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
 

@@ -5336,7 +5336,7 @@
           for (const obj of allObjs) {
             const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
               ? window.dopeSheet.getObject(obj.id)
-              : (window.dopeSheet?.objects?.get(obj.id));
+              : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(obj.id) : null);
             const count = dObj ? dObj.getKeyframeFrames().length : 0;
             if (count > 0) {
               animatedList.push({ id: obj.id, name: obj.name || `${obj.type} ${obj.id}`, count, type: obj.type });
@@ -5384,7 +5384,7 @@
 
         const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
           ? window.dopeSheet.getObject(mainTarget.id)
-          : (window.dopeSheet?.objects?.get(mainTarget.id));
+          : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(mainTarget.id) : null);
         const events = (dObj && typeof dObj.getEventList === 'function') ? dObj.getEventList() : [];
         if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
 
@@ -5489,7 +5489,9 @@
             }
             if (action === 'delete-event') {
               if (window.dopeSheet) {
-                const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
+                const targetDObj = (typeof window.dopeSheet.getObject === 'function')
+                  ? window.dopeSheet.getObject(objId)
+                  : (window.dopeSheet.objects instanceof Map ? window.dopeSheet.objects.get(objId) : null);
                 if (targetDObj) {
                   if (typeof targetDObj.removeEventState === 'function') {
                     targetDObj.removeEventState(frame);
@@ -5533,7 +5535,9 @@
             const frame = parseInt(e.target.dataset.frame, 10);
             const objId = e.target.dataset.objectId;
             if (window.dopeSheet) {
-              const targetDObj = (typeof window.dopeSheet.getObject === 'function') ? window.dopeSheet.getObject(objId) : window.dopeSheet.objects?.get(objId);
+              const targetDObj = (typeof window.dopeSheet.getObject === 'function')
+                ? window.dopeSheet.getObject(objId)
+                : (window.dopeSheet.objects instanceof Map ? window.dopeSheet.objects.get(objId) : null);
               if (targetDObj) {
                 targetDObj.setKeyframeTweenAt(frame, e.target.value);
                 if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
@@ -5597,7 +5601,7 @@
 
           const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
             ? window.dopeSheet.getObject(obj.id)
-            : (window.dopeSheet?.objects?.get(obj.id));
+            : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(obj.id) : null);
           const eventCount = dObj ? dObj.getKeyframeFrames().length : 0;
           const animBadge = eventCount > 0 ? `<span title="${eventCount} keyframe states" style="font-size: 8px; color: var(--primary); margin-left: auto; margin-right: 4px; padding: 1px 3px; background: rgba(250, 189, 47, 0.15); border-radius: 2px; font-weight: bold;">🎬 ${eventCount}</span>` : '';
 
@@ -11059,8 +11063,60 @@
       function getAnimationMenuActions() {
         const selectedObjs = doc.getSelectedObjects();
         const isAnimOpen = !!dockviewApi?.getPanel('animation');
+        const clips = window.getAnimationClips ? window.getAnimationClips() : (window.animationClips || []);
+        const activeClip = window.getActiveAnimation ? window.getActiveAnimation() : window.dopeSheet;
+        const activeId = activeClip ? activeClip.id : null;
+
+        const clipSubmenuItems = [];
+        if (clips.length > 0) {
+          clips.forEach(clip => {
+            const isCurrent = clip.id === activeId;
+            clipSubmenuItems.push({
+              type: 'item',
+              label: (isCurrent ? '✓ ' : '   ') + clip.name,
+              action: () => {
+                if (window.switchAnimation) window.switchAnimation(clip.id);
+              }
+            });
+          });
+          clipSubmenuItems.push({ type: 'sep' });
+        }
+        clipSubmenuItems.push(
+          {
+            type: 'item',
+            label: '+ New Animation Clip',
+            action: () => {
+              if (window.createAnimation) window.createAnimation();
+            }
+          },
+          {
+            type: 'item',
+            label: 'Duplicate Active Clip',
+            action: () => {
+              if (window.duplicateAnimation) window.duplicateAnimation();
+            }
+          },
+          {
+            type: 'item',
+            label: 'Rename Active Clip...',
+            action: () => {
+              if (window.renameAnimation) window.renameAnimation();
+            }
+          },
+          {
+            type: 'item',
+            label: 'Delete Active Clip',
+            danger: true,
+            disabled: clips.length <= 1,
+            action: () => {
+              if (window.deleteAnimation) window.deleteAnimation();
+            }
+          }
+        );
+
         return [
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Show Animation Timeline', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'submenu', label: 'Animation Clips', items: clipSubmenuItems },
           { type: 'sep' },
           { type: 'item', label: 'Record Animation Keyframe', hotkey: '◆', disabled: selectedObjs.length === 0, action: () => {
             if (window.dopeSheet) {
@@ -13150,8 +13206,167 @@
         updateObjectList();
       };
 
+      // ── Multi-Animation Clips Management ──
+      window.animationClips = [];
+
+      window.getAnimationClips = function() {
+        return window.animationClips;
+      };
+
+      window.getActiveAnimation = function() {
+        return window.dopeSheet;
+      };
+
+      window.switchAnimation = function(clipId) {
+        if (!clipId || !window.animationClips || window.animationClips.length === 0) return;
+        const target = window.animationClips.find(c => c.id === clipId);
+        if (!target) return;
+        if (window.dopeSheet && window.dopeSheet.id === clipId) return;
+
+        if (window.dopeSheet && window.dopeSheet.isPlaying) {
+          pauseScenePlay();
+        }
+
+        // Save current clip in doc
+        if (doc && window.dopeSheet) {
+          doc.animation = window.dopeSheet.toJSON();
+        }
+
+        dopeSheet = target;
+        window.dopeSheet = target;
+
+        if (doc) {
+          doc.activeAnimationId = target.id;
+          doc.animation = target.toJSON();
+          doc.animations = window.animationClips.map(c => c.toJSON());
+        }
+
+        if (typeof window.syncObjectsToDopeSheet === 'function') {
+          window.syncObjectsToDopeSheet();
+        }
+
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.setDopeSheet(target);
+        }
+
+        window.seekSceneFrame(target.currentFrame || 1);
+        updateSceneAnimUI();
+        updateObjectList();
+        showNotification(`Switched animation: "${target.name}"`);
+        scheduleAutosave();
+      };
+
+      window.createAnimation = function(name = null, totalFrames = 60, fps = 24) {
+        if (!window.DopeSheet) return null;
+        let animName = name;
+        if (!animName) {
+          animName = prompt('Enter new animation clip name:', `Animation ${(window.animationClips?.length || 0) + 1}`);
+          if (!animName) return null;
+          animName = animName.trim();
+        }
+        const newClip = new window.DopeSheet(totalFrames, fps, animName);
+        if (!window.animationClips) window.animationClips = [];
+        window.animationClips.push(newClip);
+
+        if (doc) {
+          const all = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
+          for (const obj of all) {
+            newClip.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, obj.type === 'group' ? 'group' : 'vector');
+          }
+          doc.animations = window.animationClips.map(c => c.toJSON());
+        }
+
+        window.switchAnimation(newClip.id);
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.updateAnimationClipsDropdown();
+        }
+        showNotification(`Created animation: "${newClip.name}"`);
+        scheduleAutosave();
+        return newClip;
+      };
+
+      window.duplicateAnimation = function(clipId, newName = null) {
+        if (!clipId || !window.animationClips) return null;
+        const source = window.animationClips.find(c => c.id === clipId) || window.dopeSheet;
+        if (!source) return null;
+
+        const defaultName = newName || `${source.name} (Copy)`;
+        const cloned = source.clone(defaultName);
+        window.animationClips.push(cloned);
+
+        if (doc) {
+          doc.animations = window.animationClips.map(c => c.toJSON());
+        }
+
+        window.switchAnimation(cloned.id);
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.updateAnimationClipsDropdown();
+        }
+        showNotification(`Duplicated animation: "${cloned.name}"`);
+        scheduleAutosave();
+        return cloned;
+      };
+
+      window.renameAnimation = function(clipId, newName = null) {
+        if (!clipId || !window.animationClips) return false;
+        const clip = window.animationClips.find(c => c.id === clipId) || window.dopeSheet;
+        if (!clip) return false;
+
+        let name = newName;
+        if (!name) {
+          name = prompt('Rename animation clip:', clip.name);
+          if (!name) return false;
+          name = name.trim();
+        }
+        clip.name = name;
+        if (doc) {
+          doc.animations = window.animationClips.map(c => c.toJSON());
+          if (doc.animation && doc.animation.id === clip.id) {
+            doc.animation.name = name;
+          }
+        }
+        if (window.dopeSheetUI) {
+          window.dopeSheetUI.updateAnimationClipsDropdown();
+        }
+        showNotification(`Renamed animation to "${name}"`);
+        scheduleAutosave();
+        return true;
+      };
+
+      window.deleteAnimation = function(clipId) {
+        if (!clipId || !window.animationClips) return false;
+        if (window.animationClips.length <= 1) {
+          showNotification('Cannot delete the only animation clip in the project', 2600);
+          return false;
+        }
+        const clip = window.animationClips.find(c => c.id === clipId);
+        if (!clip) return false;
+
+        if (!confirm(`Delete animation clip "${clip.name}"?`)) return false;
+
+        const idx = window.animationClips.findIndex(c => c.id === clipId);
+        if (idx !== -1) {
+          window.animationClips.splice(idx, 1);
+        }
+
+        if (doc) {
+          doc.animations = window.animationClips.map(c => c.toJSON());
+        }
+
+        if (window.dopeSheet && window.dopeSheet.id === clipId) {
+          const nextClip = window.animationClips[0];
+          window.switchAnimation(nextClip.id);
+        } else if (window.dopeSheetUI) {
+          window.dopeSheetUI.updateAnimationClipsDropdown();
+        }
+
+        showNotification('Animation clip deleted');
+        scheduleAutosave();
+        return true;
+      };
+
       async function initStudioDopeSheet() {
-        if (dopeSheet) return dopeSheet;
+        if (window.dopeSheet && window.dopeSheetUI && window.DopeSheet) return window.dopeSheet;
         try {
           const { DopeSheet, extractLiveObjectProperties } = await import('./src/anim/dopesheet.js');
           const { DopeSheetUI } = await import('./src/anim/dopesheet_ui.js');
@@ -13161,18 +13376,34 @@
           window.DopeSheet = DopeSheet;
           window.DopeSheetUI = DopeSheetUI;
 
-          if (doc && doc.animation) {
-            dopeSheet = DopeSheet.fromJSON(doc.animation);
-          } else {
-            dopeSheet = new DopeSheet(60, 24);
+          if (!window.animationClips || window.animationClips.length === 0) {
+            window.animationClips = [];
+            if (doc && Array.isArray(doc.animations) && doc.animations.length > 0) {
+              window.animationClips = doc.animations.map(aData => (typeof aData?.toJSON === 'function' ? aData : DopeSheet.fromJSON(aData)));
+            } else if (doc && doc.animation) {
+              const initialAnim = (typeof doc.animation?.toJSON === 'function') ? doc.animation : DopeSheet.fromJSON(doc.animation);
+              window.animationClips = [initialAnim];
+            } else {
+              window.animationClips = [new DopeSheet(60, 24, 'Animation 1', 'anim_default')];
+            }
           }
+
+          const activeId = doc?.activeAnimationId;
+          dopeSheet = window.animationClips.find(a => a.id === activeId) || window.animationClips[0];
           window.dopeSheet = dopeSheet;
+          if (doc) {
+            doc.activeAnimationId = dopeSheet.id;
+            doc.animation = dopeSheet.toJSON();
+            doc.animations = window.animationClips.map(a => a.toJSON());
+          }
 
           function syncObjectsToDopeSheet() {
-            if (!doc || !dopeSheet) return;
+            if (!doc || !window.animationClips) return;
             const all = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
-            for (const obj of all) {
-              dopeSheet.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, obj.type === 'group' ? 'group' : 'vector');
+            for (const clip of window.animationClips) {
+              for (const obj of all) {
+                clip.getOrCreateObject(obj.id, obj.name || `${obj.type} ${obj.id}`, obj.type === 'group' ? 'group' : 'vector');
+              }
             }
           }
           window.syncObjectsToDopeSheet = syncObjectsToDopeSheet;
@@ -13183,8 +13414,12 @@
             window.dopeSheetUI = new DopeSheetUI(timelineContainer, dopeSheet, (frame) => {
               seekSceneFrame(frame);
             });
+          } else if (window.dopeSheetUI && dopeSheet) {
+            window.dopeSheetUI.setDopeSheet(dopeSheet);
           }
+
           if (window.dopeSheetUI) {
+            window.dopeSheetUI.updateAnimationClipsDropdown();
             const curvesEl = document.getElementById('dock-panel-curves') || document.getElementById('curve-editor-dock-mount');
             if (curvesEl) {
               window.dopeSheetUI.mountCurveEditor(curvesEl);
@@ -13364,6 +13599,10 @@
               if (window.dopeSheet) {
                 doc.animation = window.dopeSheet.toJSON();
               }
+              if (Array.isArray(window.animationClips) && window.animationClips.length > 0) {
+                doc.animations = window.animationClips.map(c => c.toJSON());
+                doc.activeAnimationId = window.dopeSheet ? window.dopeSheet.id : (doc.animations[0]?.id || null);
+              }
               const svgXml = doc.toSVGString();
               const jsonDoc = doc.toJSON();
               const thumb = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgXml);
@@ -13376,6 +13615,8 @@
                 svgData: svgXml,
                 jsonDoc: jsonDoc,
                 animation: window.dopeSheet ? window.dopeSheet.toJSON() : (doc.animation || null),
+                animations: doc.animations || null,
+                activeAnimationId: doc.activeAnimationId || null,
                 thumbnail: thumb
               });
               localStorage.setItem('esenho_current_vector_project_id', currentProjectId);
@@ -13391,6 +13632,10 @@
       async function loadProjectFromStorage(projId) {
         if (!projId || typeof EsenhoStore === 'undefined') return false;
         try {
+          if (typeof initStudioDopeSheet === 'function' && (!window.DopeSheet || !window.dopeSheetUI)) {
+            await initStudioDopeSheet();
+          }
+
           const proj = await EsenhoStore.getProject(projId);
           if (proj) {
             if (proj.type === 'raster' || (Array.isArray(proj.layers) && !proj.jsonDoc && !proj.svgData)) {
@@ -13409,15 +13654,47 @@
             } else if (proj.svgData) {
               doc.fromSVGString(proj.svgData);
             }
-            const animData = doc.animation || proj.animation || (proj.jsonDoc && proj.jsonDoc.animation);
-            if (animData) {
-              doc.animation = animData;
+
+            const rawClips = (doc.animations && doc.animations.length > 0)
+              ? doc.animations
+              : (proj.animations || (proj.jsonDoc && proj.jsonDoc.animations));
+            const activeId = doc.activeAnimationId || proj.activeAnimationId || (proj.jsonDoc && proj.jsonDoc.activeAnimationId);
+            const legacyAnim = doc.animation || proj.animation || (proj.jsonDoc && proj.jsonDoc.animation);
+
+            if (Array.isArray(rawClips) && rawClips.length > 0) {
+              window.animationClips = rawClips.map(c => {
+                if (window.DopeSheet && typeof c?.toJSON !== 'function') {
+                  return window.DopeSheet.fromJSON(c);
+                }
+                return c;
+              });
+              let activeClip = window.animationClips.find(c => c && c.id === activeId) || window.animationClips[0];
+              if (window.DopeSheet && activeClip && typeof activeClip.toJSON !== 'function') {
+                activeClip = window.DopeSheet.fromJSON(activeClip);
+              }
+              window.dopeSheet = activeClip;
+              dopeSheet = activeClip;
+              doc.animation = (activeClip && typeof activeClip.toJSON === 'function') ? activeClip.toJSON() : activeClip;
+              doc.animations = window.animationClips.map(c => (c && typeof c.toJSON === 'function' ? c.toJSON() : c));
+              doc.activeAnimationId = activeClip ? activeClip.id : null;
+              if (typeof syncObjectsToDopeSheet === 'function') syncObjectsToDopeSheet();
+              if (window.dopeSheetUI && activeClip && typeof activeClip.toJSON === 'function') {
+                window.dopeSheetUI.setDopeSheet(activeClip);
+                window.dopeSheetUI.updateAnimationClipsDropdown();
+              }
+            } else if (legacyAnim) {
+              doc.animation = (legacyAnim && typeof legacyAnim.toJSON === 'function') ? legacyAnim.toJSON() : legacyAnim;
               if (window.DopeSheet) {
-                window.dopeSheet = window.DopeSheet.fromJSON(animData);
-                dopeSheet = window.dopeSheet;
+                const animInst = (typeof legacyAnim.toJSON === 'function') ? legacyAnim : window.DopeSheet.fromJSON(legacyAnim);
+                window.dopeSheet = animInst;
+                dopeSheet = animInst;
+                window.animationClips = [animInst];
+                doc.animations = [animInst.toJSON()];
+                doc.activeAnimationId = animInst.id;
+                if (typeof syncObjectsToDopeSheet === 'function') syncObjectsToDopeSheet();
                 if (window.dopeSheetUI) {
-                  window.dopeSheetUI.ds = window.dopeSheet;
-                  window.dopeSheetUI.updateGrid();
+                  window.dopeSheetUI.setDopeSheet(animInst);
+                  window.dopeSheetUI.updateAnimationClipsDropdown();
                 }
               }
             }
@@ -14007,6 +14284,8 @@
           } catch (_) {}
         }
 
+        await initStudioDopeSheet();
+
         let loaded = false;
         if (paramProj) {
           loaded = await loadProjectFromStorage(paramProj);
@@ -14028,7 +14307,6 @@
         if (typeof refreshProjectsList === 'function') refreshProjectsList();
         updateRendererMenuUi();
         initQuadro();
-        await initStudioDopeSheet();
         if (typeof ColorStudio !== 'undefined') {
           const mount = document.getElementById('color-studio-mount');
           if (mount) ColorStudio.mountColorTab(mount);

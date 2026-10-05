@@ -3540,6 +3540,9 @@
       this.undoStack = [];
       this.redoStack = [];
       this.maxHistory = 50;
+      this.animations = [];
+      this.activeAnimationId = null;
+      this.animation = null;
     }
 
     clear() {
@@ -5361,6 +5364,10 @@
         backgroundColor: this.backgroundColor,
         objects: this.objects.map(o => o.toJSON())
       };
+      if (Array.isArray(this.animations) && this.animations.length > 0) {
+        data.animations = this.animations;
+        data.activeAnimationId = this.activeAnimationId;
+      }
       if (this.animation) {
         data.animation = this.animation;
       }
@@ -5376,8 +5383,22 @@
       this.height = data.height || 600;
       this.viewBox = data.viewBox || `0 0 ${this.width} ${this.height}`;
       this.backgroundColor = data.backgroundColor || '#1d2021';
-      if (data.animation) {
-        this.animation = data.animation;
+      if (Array.isArray(data.animations) && data.animations.length > 0) {
+        this.animations = data.animations;
+        this.activeAnimationId = data.activeAnimationId || (this.animations[0] ? this.animations[0].id : null);
+        const activeAnim = this.animations.find(a => a.id === this.activeAnimationId) || this.animations[0];
+        this.animation = activeAnim;
+      } else if (data.animation) {
+        const anim = { ...data.animation };
+        if (!anim.id) anim.id = 'anim_1';
+        if (!anim.name) anim.name = 'Animation 1';
+        this.animations = [anim];
+        this.activeAnimationId = anim.id;
+        this.animation = anim;
+      } else {
+        this.animations = [];
+        this.activeAnimationId = null;
+        this.animation = null;
       }
       this.objects = (data.objects || []).map(o => {
         const node = SvgNode.fromJSON(o);
@@ -5394,6 +5415,86 @@
         return node;
       });
       this.selectedIds.clear();
+    }
+
+    getAnimations() {
+      return this.animations || [];
+    }
+
+    getActiveAnimation() {
+      if (!this.animations || this.animations.length === 0) return null;
+      return this.animations.find(a => a.id === this.activeAnimationId) || this.animations[0];
+    }
+
+    addAnimation(animData) {
+      if (!this.animations) this.animations = [];
+      let anim;
+      if (typeof animData === 'string') {
+        anim = { name: animData };
+      } else if (animData && typeof animData.toJSON === 'function') {
+        anim = animData.toJSON();
+      } else if (animData && typeof animData === 'object') {
+        anim = { ...animData };
+      } else {
+        anim = {};
+      }
+      if (!anim.id) anim.id = 'anim_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      if (!anim.name) anim.name = `Animation ${this.animations.length + 1}`;
+      this.animations.push(anim);
+      if (!this.activeAnimationId) {
+        this.activeAnimationId = anim.id;
+        this.animation = anim;
+      }
+      return anim;
+    }
+
+    switchAnimation(id) {
+      if (!this.animations) return null;
+      const found = this.animations.find(a => a.id === id);
+      if (found) {
+        this.activeAnimationId = found.id;
+        this.animation = found;
+        return found;
+      }
+      return null;
+    }
+
+    duplicateAnimation(id, newName = null) {
+      if (!this.animations) return null;
+      const source = this.animations.find(a => a.id === id);
+      if (!source) return null;
+      const clone = JSON.parse(JSON.stringify(source));
+      clone.id = 'anim_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      clone.name = newName || `${source.name} (Copy)`;
+      this.animations.push(clone);
+      return clone;
+    }
+
+    renameAnimation(id, newName) {
+      if (!this.animations || !newName) return false;
+      const anim = this.animations.find(a => a.id === id);
+      if (anim) {
+        anim.name = newName;
+        if (this.animation && this.animation.id === id) {
+          this.animation.name = newName;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    removeAnimation(id) {
+      if (!this.animations || this.animations.length <= 1) return false;
+      const idx = this.animations.findIndex(a => a.id === id);
+      if (idx !== -1) {
+        this.animations.splice(idx, 1);
+        if (this.activeAnimationId === id) {
+          this.activeAnimationId = this.animations[0].id;
+          this.animation = this.animations[0];
+        }
+        return true;
+      }
+      return false;
     }
   }
 

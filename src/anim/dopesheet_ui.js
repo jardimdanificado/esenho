@@ -39,7 +39,7 @@ export class DopeSheetUI {
       const curvesEl = document.getElementById('curve-editor-dock-mount') || document.getElementById('dock-panel-curves');
       if (curvesEl) this.mountCurveEditor(curvesEl);
     }
-    this.ds.subscribe((event, payload) => {
+    this._unsubscribe = this.ds.subscribe((event, payload) => {
       if (event === 'frameChanged') {
         this.updatePlayhead();
         if (this.onFrameChange) this.onFrameChange(this.ds.currentFrame, this.ds.sampleAll(this.ds.currentFrame));
@@ -63,6 +63,18 @@ export class DopeSheetUI {
             <button id="ds-btn-step-next" class="ds-btn" title="Step 1 Frame Forward (Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">▶</button>
             <button id="ds-btn-next-key" class="ds-btn" title="Jump to Next Keyframe (] or Alt+Right)" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; cursor: pointer; font-size: 10px;">⏭</button>
             <button id="ds-btn-loop" class="ds-btn" title="Toggle Loop" style="background: ${this.ds.loop ? '#b16286' : 'var(--bg-input)'}; color: ${this.ds.loop ? '#ffffff' : 'var(--text-muted)'}; border: 1px solid ${this.ds.loop ? '#d3869b' : 'var(--border)'}; border-radius: 3px; padding: 2px 8px; font-weight: ${this.ds.loop ? '700' : '600'}; font-size: 10px; cursor: pointer;">Loop</button>
+          </div>
+
+          <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
+
+          <!-- Animation Clip Selector & Management -->
+          <div id="ds-anim-clip-group" style="display: flex; align-items: center; gap: 3px;">
+            <span style="color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.3px;">CLIP:</span>
+            <select id="ds-select-clip" title="Active Animation Clip" style="background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px; font-size: 11px; font-weight: 600; height: 22px; max-width: 130px; cursor: pointer;"></select>
+            <button id="ds-btn-add-clip" class="ds-btn" title="Create New Animation Clip (+)" style="background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 2px 6px; font-size: 11px; font-weight: bold; cursor: pointer;">＋</button>
+            <button id="ds-btn-clone-clip" class="ds-btn" title="Duplicate Active Clip" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; font-size: 10.5px; cursor: pointer;">⧉</button>
+            <button id="ds-btn-rename-clip" class="ds-btn" title="Rename Active Clip" style="background: var(--bg-panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; font-size: 10.5px; cursor: pointer;">✎</button>
+            <button id="ds-btn-del-clip" class="ds-btn" title="Delete Active Clip" style="background: var(--bg-panel); color: var(--danger); border: 1px solid var(--border); border-radius: 3px; padding: 2px 5px; font-size: 10.5px; cursor: pointer;">✕</button>
           </div>
 
           <div style="height: 14px; width: 1px; background: var(--border); margin: 0 2px;"></div>
@@ -632,10 +644,130 @@ export class DopeSheetUI {
       };
     }
 
+    // Clip Manager Controls
+    const selectClip = this.container.querySelector('#ds-select-clip');
+    const addClipBtn = this.container.querySelector('#ds-btn-add-clip');
+    const cloneClipBtn = this.container.querySelector('#ds-btn-clone-clip');
+    const renameClipBtn = this.container.querySelector('#ds-btn-rename-clip');
+    const delClipBtn = this.container.querySelector('#ds-btn-del-clip');
+
+    if (selectClip) {
+      selectClip.onchange = (e) => {
+        if (typeof window !== 'undefined' && typeof window.switchAnimation === 'function') {
+          window.switchAnimation(e.target.value);
+        }
+      };
+    }
+    if (addClipBtn) {
+      addClipBtn.onclick = () => {
+        if (typeof window !== 'undefined' && typeof window.createAnimation === 'function') {
+          window.createAnimation();
+        }
+      };
+    }
+    if (cloneClipBtn) {
+      cloneClipBtn.onclick = () => {
+        if (typeof window !== 'undefined' && typeof window.duplicateAnimation === 'function') {
+          window.duplicateAnimation(this.ds.id);
+        }
+      };
+    }
+    if (renameClipBtn) {
+      renameClipBtn.onclick = () => {
+        if (typeof window !== 'undefined' && typeof window.renameAnimation === 'function') {
+          window.renameAnimation(this.ds.id);
+        }
+      };
+    }
+    if (delClipBtn) {
+      delClipBtn.onclick = () => {
+        if (typeof window !== 'undefined' && typeof window.deleteAnimation === 'function') {
+          window.deleteAnimation(this.ds.id);
+        }
+      };
+    }
+
+    this.updateAnimationClipsDropdown();
+
     // Dismiss active popup menus on outside click
     window.addEventListener('pointerdown', () => {
       this.closeActiveMenu();
     });
+  }
+
+  updateAnimationClipsDropdown() {
+    const selectClip = this.container?.querySelector('#ds-select-clip');
+    if (!selectClip) return;
+    const clips = (typeof window !== 'undefined' && typeof window.getAnimationClips === 'function')
+      ? window.getAnimationClips()
+      : ((typeof window !== 'undefined' && window.animationClips) ? window.animationClips : [this.ds]);
+
+    selectClip.innerHTML = '';
+    for (const clip of clips) {
+      const opt = document.createElement('option');
+      opt.value = clip.id;
+      opt.textContent = `🎬 ${clip.name} (${clip.totalFrames}f)`;
+      if (clip.id === this.ds.id) {
+        opt.selected = true;
+      }
+      selectClip.appendChild(opt);
+    }
+    selectClip.value = this.ds.id;
+  }
+
+  setDopeSheet(newDopeSheet) {
+    if (!newDopeSheet) return;
+    if (this._unsubscribe) {
+      try { this._unsubscribe(); } catch (_) {}
+    }
+    this.ds = newDopeSheet;
+    this._unsubscribe = this.ds.subscribe((event, payload) => {
+      if (event === 'frameChanged') {
+        this.updatePlayhead();
+        if (this.onFrameChange) this.onFrameChange(this.ds.currentFrame, this.ds.sampleAll(this.ds.currentFrame));
+      } else if (event === 'playStateChanged') {
+        this.updatePlayButton();
+      } else {
+        this.updateGrid();
+      }
+    });
+
+    const frameInput = this.container?.querySelector('#ds-input-frame');
+    const totalInput = this.container?.querySelector('#ds-input-total');
+    const fpsInput = this.container?.querySelector('#ds-input-fps');
+    const loopBtn = this.container?.querySelector('#ds-btn-loop');
+    const autoKfBtn = this.container?.querySelector('#ds-btn-autokf');
+    const autoKfDot = this.container?.querySelector('#ds-autokf-dot');
+
+    if (frameInput) frameInput.value = this.ds.currentFrame || 1;
+    if (totalInput) totalInput.value = this.ds.totalFrames || 60;
+    if (fpsInput) fpsInput.value = this.ds.fps || 24;
+    if (loopBtn) {
+      loopBtn.style.background = this.ds.loop ? '#b16286' : 'var(--bg-input)';
+      loopBtn.style.color = this.ds.loop ? '#ffffff' : 'var(--text-muted)';
+      loopBtn.style.border = this.ds.loop ? '1px solid #d3869b' : '1px solid var(--border)';
+      loopBtn.style.fontWeight = this.ds.loop ? '700' : '600';
+    }
+    if (autoKfBtn && autoKfDot) {
+      const active = !!this.ds.autoKeyframe;
+      autoKfBtn.style.background = active ? '#cc241d' : '#3c3836';
+      autoKfBtn.style.color = active ? '#ffffff' : '#ebdbb2';
+      autoKfBtn.style.borderColor = active ? '#fb4934' : '#504945';
+      autoKfDot.style.background = active ? '#fb4934' : '#7c6f64';
+      autoKfDot.style.boxShadow = active ? '0 0 6px #fb4934' : 'none';
+    }
+
+    this.updateAnimationClipsDropdown();
+    this.updateGrid();
+    this.updatePlayhead();
+    this.updatePlayButton();
+    if (this.curveEditor) {
+      const activeObj = this.selectedObjectId ? this.ds.getObject(this.selectedObjectId) : null;
+      if (activeObj && this.selectedParamKey) {
+        const ch = activeObj.channels.get(this.selectedParamKey);
+        if (ch) this.curveEditor.setKeyframes(ch.keyframes);
+      }
+    }
   }
 
   updateAutoKeyframeUI() {

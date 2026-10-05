@@ -1191,6 +1191,12 @@ export class DopeSheetObject {
         const ch = DopeSheetChannel.fromJSON(chData);
         obj.channels.set(ch.paramKey, ch);
       }
+    } else if (data.channels && typeof data.channels === 'object') {
+      for (const [paramKey, chData] of Object.entries(data.channels)) {
+        const payload = (chData && typeof chData === 'object' && !chData.paramKey) ? { paramKey, ...chData } : chData;
+        const ch = DopeSheetChannel.fromJSON(payload);
+        obj.channels.set(ch.paramKey, ch);
+      }
     }
     return obj;
   }
@@ -1201,7 +1207,9 @@ export class DopeSheetObject {
  * Manages timeline, all animated objects, keyframe selections, and real-time evaluation.
  */
 export class DopeSheet {
-  constructor(totalFrames = 60, fps = 24) {
+  constructor(totalFrames = 60, fps = 24, name = 'Animation 1', id = null) {
+    this.id = id || ('anim_' + Date.now() + '_' + Math.floor(Math.random() * 1000));
+    this.name = name || 'Animation 1';
     this.totalFrames = totalFrames;
     this.fps = fps;
     this.currentFrame = 1;
@@ -1431,6 +1439,22 @@ export class DopeSheet {
     this.notify('keyframesMoved', { deltaFrames });
   }
 
+  clone(newName = null, newId = null) {
+    const json = this.toJSON();
+    json.id = newId || ('anim_' + Date.now() + '_' + Math.floor(Math.random() * 1000));
+    json.name = newName || `${this.name} (Copy)`;
+    return DopeSheet.fromJSON(json);
+  }
+
+  clearAllKeyframes() {
+    for (const obj of this.objects.values()) {
+      for (const ch of obj.channels.values()) {
+        ch.keyframes = [];
+      }
+    }
+    this.notify('keyframesCleared');
+  }
+
   toJSON() {
     const objsArr = [];
     for (const obj of this.objects.values()) {
@@ -1438,6 +1462,8 @@ export class DopeSheet {
     }
     return {
       version: 1,
+      id: this.id,
+      name: this.name,
       totalFrames: this.totalFrames,
       fps: this.fps,
       loop: this.loop,
@@ -1446,11 +1472,20 @@ export class DopeSheet {
   }
 
   static fromJSON(data) {
-    const ds = new DopeSheet(data.totalFrames || 60, data.fps || 24);
+    if (!data) return new DopeSheet(60, 24);
+    const id = data.id || ('anim_' + Date.now() + '_' + Math.floor(Math.random() * 1000));
+    const name = data.name || 'Animation 1';
+    const ds = new DopeSheet(data.totalFrames || 60, data.fps || 24, name, id);
     ds.loop = data.loop !== undefined ? data.loop : true;
     if (Array.isArray(data.objects)) {
       for (const objData of data.objects) {
         const obj = DopeSheetObject.fromJSON(objData);
+        ds.objects.set(obj.id, obj);
+      }
+    } else if (data.objects && typeof data.objects === 'object') {
+      for (const [id, objData] of Object.entries(data.objects)) {
+        const payload = (objData && typeof objData === 'object' && !objData.id) ? { id, ...objData } : objData;
+        const obj = DopeSheetObject.fromJSON(payload);
         ds.objects.set(obj.id, obj);
       }
     }
