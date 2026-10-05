@@ -2139,7 +2139,28 @@
       padding: 16px;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
       align-content: start;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .recents-grid::-webkit-scrollbar,
+    .recents-list-view::-webkit-scrollbar {
+      width: 4px;
+    }
+    .recents-grid::-webkit-scrollbar-track,
+    .recents-list-view::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .recents-grid::-webkit-scrollbar-thumb,
+    .recents-list-view::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+    .recents-grid::-webkit-scrollbar-thumb:hover,
+    .recents-list-view::-webkit-scrollbar-thumb:hover {
+      background: var(--border-bright);
     }
 
     .recents-list-view {
@@ -2149,6 +2170,9 @@
       padding: 12px 16px;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
     }
 
     .recent-card {
@@ -3434,9 +3458,9 @@
     </div>
 
     <!-- Dock Panel 8: Projects & Storage Manager -->
-    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow: hidden; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%;">
+    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%; box-sizing: border-box; min-height: 0;">
       <!-- Active Document & Canvas Settings -->
-      <div class="section-card" id="card-doc-project" style="margin: 8px 10px 4px 10px; padding: 8px 10px; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm);">
+      <div class="section-card" id="card-doc-project" style="margin: 8px 10px 4px 10px; padding: 8px 10px; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); flex-shrink: 0;">
         <div style="font-size: 10.5px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
           <span>Active Canvas</span>
           <span id="doc-size-badge" class="badge" style="font-size: 9.5px;">800 × 600</span>
@@ -3475,7 +3499,7 @@
       </div>
 
       <!-- Inline New Project Card (Replaces Modal) -->
-      <div id="hub-new-project-card" style="display: none; padding: 10px 12px; background: var(--bg-panel-sub); border-bottom: 2px solid var(--primary); flex-direction: column; gap: 8px;">
+      <div id="hub-new-project-card" style="display: none; padding: 10px 12px; background: var(--bg-panel-sub); border-bottom: 2px solid var(--primary); flex-direction: column; gap: 8px; flex-shrink: 0;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
           <span style="font-size: 11px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px;">New Canvas / Project</span>
           <button type="button" id="btn-cancel-new-proj-card" class="btn-icon" style="font-size: 10px; padding: 1px 4px;">✕</button>
@@ -3511,7 +3535,7 @@
       </div>
 
       <!-- Projects Toolbar -->
-      <div class="recents-toolbar" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+      <div class="recents-toolbar" style="padding: 6px 10px; border-bottom: 1px solid var(--border); background: var(--bg-panel); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex-shrink: 0; position: sticky; top: 0; z-index: 10;">
         <div class="recents-search-box" style="flex: 1; min-width: 140px; display: flex; align-items: center; gap: 4px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 6px;">
           <input type="text" id="recents-search-input" placeholder="Search projects..." autocomplete="off" style="border: none; background: transparent; color: var(--text); font-size: 11px; width: 100%; outline: none;">
           <button type="button" id="btn-recents-clear-search" class="btn-icon" style="display: none; font-size: 9px; padding: 1px 3px;">✕</button>
@@ -3531,12 +3555,12 @@
       </div>
 
       <!-- Stored Projects Grid / List -->
-      <div id="recents-grid" class="recents-grid" style="flex: 1; padding: 10px; overflow-y: auto;">
+      <div id="recents-grid" class="recents-grid" style="flex: 1 0 auto; padding: 10px; min-height: 0;">
         <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
       </div>
 
       <!-- Projects Footer -->
-      <div style="padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub); font-size: 10px; color: var(--text-dim);">
+      <div style="padding: 6px 10px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); background: var(--bg-panel-sub); font-size: 10px; color: var(--text-dim); flex-shrink: 0; margin-top: auto;">
         <span id="recents-storage-info">IndexedDB Storage</span>
         <div style="display: flex; gap: 4px;">
           <button type="button" id="btn-modal-clear-storage" class="btn-sm" style="color: var(--danger); font-size: 10px; padding: 2px 6px;">Clear Storage</button>
