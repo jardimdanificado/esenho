@@ -3872,6 +3872,7 @@
       let selectedNodeIndices = new Set();
       let isNodeMarqueeSelecting = false;
       let nodeMarqueeBox = null;
+      let nodeMarqueeBaseSelected = null;
       let nodeDragStartPositions = null;
       let activeHandleType = null; // 'in', 'out', 'anchor'
       let activeResizeHandle = null; // 'nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'
@@ -5388,7 +5389,7 @@
               html += `
                 <div data-action="select-obj" data-object-id="${item.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 2px; cursor: pointer; font-size: 9.5px; transition: background 0.1s ease;">
                   <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</span>
-                  <span class="badge" style="font-size: 8.5px; color: var(--primary);">🎬 ${item.count}</span>
+                  <span class="badge" style="font-size: 8.5px; color: var(--primary);">◆ ${item.count}</span>
                 </div>
               `;
             }
@@ -5627,7 +5628,7 @@
             ? window.dopeSheet.getObject(obj.id)
             : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(obj.id) : null);
           const eventCount = dObj ? dObj.getKeyframeFrames().length : 0;
-          const animBadge = eventCount > 0 ? `<span title="${eventCount} keyframe states" style="font-size: 8px; color: var(--primary); margin-left: auto; margin-right: 4px; padding: 1px 3px; background: rgba(250, 189, 47, 0.15); border-radius: 2px; font-weight: bold;">🎬 ${eventCount}</span>` : '';
+          const animBadge = eventCount > 0 ? `<span title="${eventCount} keyframe states" style="font-size: 8px; color: var(--primary); margin-left: auto; margin-right: 4px; padding: 1px 3px; background: rgba(250, 189, 47, 0.15); border-radius: 2px; font-weight: bold;">◆ ${eventCount}</span>` : '';
 
           item.innerHTML = `
             <div class="obj-info" style="display: flex; align-items: center; gap: 4px; overflow: hidden; flex: 1; user-select: none;">
@@ -6765,6 +6766,7 @@
           }
 
           if (!hitAnyNode) {
+            nodeMarqueeBaseSelected = e.shiftKey ? new Set(selectedNodeIndices) : new Set();
             if (!e.shiftKey) {
               selectedNodeIndices.clear();
               activeNodeIdx = -1;
@@ -6772,6 +6774,10 @@
             // Start Node Marquee Box Selection
             isNodeMarqueeSelecting = true;
             nodeMarqueeBox = { startX: pt.x, startY: pt.y, endX: pt.x, endY: pt.y };
+            isDragging = true;
+            dragStartX = pt.x;
+            dragStartY = pt.y;
+            drawOverlay();
           }
           render();
           updateInspector();
@@ -7282,7 +7288,52 @@
               scheduleFastRender();
             }
           }
-        } else if (activeTool === 'node' && (activeNodeIdx !== -1 || selectedNodeIndices.size > 0)) {
+        } else if (activeTool === 'node') {
+          if (isNodeMarqueeSelecting && nodeMarqueeBox) {
+            nodeMarqueeBox.endX = pt.x;
+            nodeMarqueeBox.endY = pt.y;
+
+            const minX = Math.min(nodeMarqueeBox.startX, nodeMarqueeBox.endX);
+            const maxX = Math.max(nodeMarqueeBox.startX, nodeMarqueeBox.endX);
+            const minY = Math.min(nodeMarqueeBox.startY, nodeMarqueeBox.endY);
+            const maxY = Math.max(nodeMarqueeBox.startY, nodeMarqueeBox.endY);
+
+            let paths = getSelectedPaths();
+            // If no path was selected when marquee started, try to select any unlocked path that has nodes inside marquee
+            if (paths.length === 0) {
+              const cand = doc.objects.find(o => !o.locked && o.visible !== false && (o.type === 'path' || o.type === 'compoundPath') && o.nodes && o.nodes.some(n => n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY));
+              if (cand) {
+                doc.select(cand.id);
+                expandObjectInTree(cand);
+                paths = getSelectedPaths();
+              }
+            }
+
+            const newSelection = nodeMarqueeBaseSelected ? new Set(nodeMarqueeBaseSelected) : new Set();
+            let lastFoundIdx = -1;
+            for (const path of paths) {
+              if (!path.nodes) continue;
+              for (let i = 0; i < path.nodes.length; i++) {
+                const n = path.nodes[i];
+                if (n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY) {
+                  newSelection.add(i);
+                  lastFoundIdx = i;
+                }
+              }
+            }
+
+            selectedNodeIndices = newSelection;
+            if (lastFoundIdx !== -1) {
+              activeNodeIdx = lastFoundIdx;
+            } else if (selectedNodeIndices.size === 0) {
+              activeNodeIdx = -1;
+            }
+            drawOverlay();
+            updateInspector();
+            return;
+          }
+
+          if (activeNodeIdx !== -1 || selectedNodeIndices.size > 0) {
           const { path, node } = getActivePathAndNode();
           if (path && (node || selectedNodeIndices.size > 0)) {
             const forceIndep = e.altKey || (node && node.type === 'cusp');
@@ -7315,6 +7366,7 @@
             }
             if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
             scheduleFastRender();
+          }
           }
         } else if (activeTool === 'pen' && isPenDraggingAnchor && currentPenPath && activeNodeIdx !== -1) {
           const node = currentPenPath.nodes[activeNodeIdx];
@@ -7426,6 +7478,7 @@
         if (isNodeMarqueeSelecting) {
           isNodeMarqueeSelecting = false;
           nodeMarqueeBox = null;
+          nodeMarqueeBaseSelected = null;
           render();
           updateInspector();
           drawOverlay();
@@ -13389,6 +13442,38 @@
         return true;
       };
 
+      function resetAnimationClips() {
+        const id = 'anim_' + Date.now();
+        const initialClip = window.DopeSheet
+          ? new window.DopeSheet(60, 24, 'Animation 1', id)
+          : { id, name: 'Animation 1', totalFrames: 60, fps: 24, objects: new Map() };
+        window.animationClips = [initialClip];
+        window.dopeSheet = initialClip;
+        dopeSheet = initialClip;
+        if (doc) {
+          doc.activeAnimationId = initialClip.id;
+          doc.animation = (typeof initialClip.toJSON === 'function') ? initialClip.toJSON() : initialClip;
+          doc.animations = [doc.animation];
+        }
+        if (typeof syncObjectsToDopeSheet === 'function') {
+          syncObjectsToDopeSheet();
+        }
+        if (window.dopeSheetUI) {
+          if (typeof initialClip.toJSON === 'function') {
+            window.dopeSheetUI.setDopeSheet(initialClip);
+          }
+          window.dopeSheetUI.updateAnimationClipsDropdown();
+        }
+        if (typeof seekSceneFrame === 'function') {
+          seekSceneFrame(1);
+        }
+        if (typeof updateSceneAnimUI === 'function') {
+          updateSceneAnimUI();
+        }
+        return initialClip;
+      }
+      window.resetAnimationClips = resetAnimationClips;
+
       async function initStudioDopeSheet() {
         if (window.dopeSheet && window.dopeSheetUI && window.DopeSheet) return window.dopeSheet;
         try {
@@ -14268,6 +14353,7 @@
         doc.clear();
         doc.width = w;
         doc.height = h;
+        resetAnimationClips();
         updateStageSize();
         updateObjectList();
         updateInspector();
@@ -14319,6 +14405,7 @@
 
         if (!loaded) {
           initSampleScene();
+          resetAnimationClips();
           updateStageSize();
           scheduleAutosave();
           const propProjName = document.getElementById('prop-project-name');

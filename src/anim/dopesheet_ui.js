@@ -706,7 +706,7 @@ export class DopeSheetUI {
     for (const clip of clips) {
       const opt = document.createElement('option');
       opt.value = clip.id;
-      opt.textContent = `🎬 ${clip.name} (${clip.totalFrames}f)`;
+      opt.textContent = `${clip.name} (${clip.totalFrames}f)`;
       if (clip.id === this.ds.id) {
         opt.selected = true;
       }

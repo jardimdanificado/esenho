@@ -3550,6 +3550,9 @@
       this.objects = [];
       this.defs.clear();
       this.selectedIds.clear();
+      this.animations = [];
+      this.activeAnimationId = null;
+      this.animation = null;
     }
 
     addObject(obj, pushHistory = true) {

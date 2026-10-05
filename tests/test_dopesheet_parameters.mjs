@@ -611,6 +611,12 @@ assert.ok(legacyDoc.activeAnimationId, 'Active animation ID should be assigned')
 assert.strictEqual(legacyDoc.getActiveAnimation().totalFrames, 120);
 assert.strictEqual(DopeSheet.fromJSON(legacyDoc.getActiveAnimation()).evaluate(60).ball.x, 300);
 
+// E. SvgDocument.clear() resets animation tracks and clips
+multiDoc.clear();
+assert.strictEqual(multiDoc.getAnimations().length, 0, 'SvgDocument.clear should reset all animation clips');
+assert.strictEqual(multiDoc.activeAnimationId, null, 'SvgDocument.clear should reset activeAnimationId');
+assert.strictEqual(multiDoc.animation, null, 'SvgDocument.clear should reset active animation snapshot');
+
 console.log('✔ Multi-Clip Animation Support in DopeSheet & SvgDocument passed');
 
 console.log('--- ALL DOPESHEET & UNIVERSAL PARAMETER TESTS PASSED ---');
