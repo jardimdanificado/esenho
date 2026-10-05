@@ -4064,12 +4064,116 @@
 
       // ── Snapping & Guides State ──
       let snapEnabled = initialStudioSettings.snapEnabled !== undefined ? Boolean(initialStudioSettings.snapEnabled) : true;
-      let snapToGrid = false;
-      let gridSize = 20;
+      let snapToGrid = initialStudioSettings.snapToGrid !== undefined ? Boolean(initialStudioSettings.snapToGrid) : false;
+      let snapToCanvas = initialStudioSettings.snapToCanvas !== undefined ? Boolean(initialStudioSettings.snapToCanvas) : true;
+      let snapToGuides = initialStudioSettings.snapToGuides !== undefined ? Boolean(initialStudioSettings.snapToGuides) : true;
+      let snapToObjects = initialStudioSettings.snapToObjects !== undefined ? Boolean(initialStudioSettings.snapToObjects) : true;
+      let gridSize = initialStudioSettings.gridSize ? Number(initialStudioSettings.gridSize) : 20;
+      let snapTolerance = initialStudioSettings.snapTolerance ? Number(initialStudioSettings.snapTolerance) : 6;
       let userGuides = { horizontal: [], vertical: [] };
       let activeGuideDrag = null;
       let selectedGuide = null;
       let activeSnapLines = [];
+
+      function toggleSnap() {
+        snapEnabled = !snapEnabled;
+        saveStudioSettings({ snapEnabled });
+        const snapBtn = document.getElementById('btn-toggle-snap');
+        if (snapBtn) {
+          snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
+          snapBtn.style.color = snapEnabled ? '#fabd2f' : '#a89984';
+        }
+        activeSnapLines = [];
+        drawOverlay();
+        showNotification(snapEnabled ? 'Snapping enabled' : 'Snapping disabled');
+      }
+
+      function getSnapMenuItems() {
+        return [
+          {
+            type: 'item',
+            label: (snapEnabled ? '✓ ' : '') + 'Enable Snapping',
+            hotkey: 'S',
+            action: () => toggleSnap()
+          },
+          { type: 'sep' },
+          {
+            type: 'item',
+            label: (snapToObjects ? '✓ ' : '') + 'Snap to Objects',
+            action: () => {
+              snapToObjects = !snapToObjects;
+              saveStudioSettings({ snapToObjects });
+              const cb = document.getElementById('snap-opt-objects');
+              if (cb) cb.checked = snapToObjects;
+              activeSnapLines = [];
+              drawOverlay();
+              showNotification(`Snap to Objects: ${snapToObjects ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            type: 'item',
+            label: (snapToCanvas ? '✓ ' : '') + 'Snap to Canvas Bounds',
+            action: () => {
+              snapToCanvas = !snapToCanvas;
+              saveStudioSettings({ snapToCanvas });
+              const cb = document.getElementById('snap-opt-canvas');
+              if (cb) cb.checked = snapToCanvas;
+              activeSnapLines = [];
+              drawOverlay();
+              showNotification(`Snap to Canvas: ${snapToCanvas ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            type: 'item',
+            label: (snapToGuides ? '✓ ' : '') + 'Snap to Guides',
+            action: () => {
+              snapToGuides = !snapToGuides;
+              saveStudioSettings({ snapToGuides });
+              const cb = document.getElementById('snap-opt-guides');
+              if (cb) cb.checked = snapToGuides;
+              activeSnapLines = [];
+              drawOverlay();
+              showNotification(`Snap to Guides: ${snapToGuides ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          {
+            type: 'item',
+            label: (snapToGrid ? '✓ ' : '') + 'Snap to Grid',
+            action: () => {
+              snapToGrid = !snapToGrid;
+              saveStudioSettings({ snapToGrid });
+              const cb = document.getElementById('snap-opt-grid');
+              if (cb) cb.checked = snapToGrid;
+              activeSnapLines = [];
+              drawOverlay();
+              showNotification(`Snap to Grid: ${snapToGrid ? 'Enabled' : 'Disabled'}`);
+            }
+          },
+          { type: 'sep' },
+          {
+            type: 'submenu',
+            label: 'Grid Size',
+            items: [
+              { type: 'item', label: (gridSize === 10 ? '✓ ' : '') + '10 px', action: () => { gridSize = 10; saveStudioSettings({ gridSize }); drawOverlay(); showNotification('Grid Size: 10px'); } },
+              { type: 'item', label: (gridSize === 20 ? '✓ ' : '') + '20 px (Default)', action: () => { gridSize = 20; saveStudioSettings({ gridSize }); drawOverlay(); showNotification('Grid Size: 20px'); } },
+              { type: 'item', label: (gridSize === 40 ? '✓ ' : '') + '40 px', action: () => { gridSize = 40; saveStudioSettings({ gridSize }); drawOverlay(); showNotification('Grid Size: 40px'); } },
+              { type: 'item', label: (gridSize === 50 ? '✓ ' : '') + '50 px', action: () => { gridSize = 50; saveStudioSettings({ gridSize }); drawOverlay(); showNotification('Grid Size: 50px'); } },
+              { type: 'item', label: (gridSize === 100 ? '✓ ' : '') + '100 px', action: () => { gridSize = 100; saveStudioSettings({ gridSize }); drawOverlay(); showNotification('Grid Size: 100px'); } }
+            ]
+          },
+          {
+            type: 'submenu',
+            label: 'Snap Tolerance',
+            items: [
+              { type: 'item', label: (snapTolerance === 4 ? '✓ ' : '') + '4 px (Strict)', action: () => { snapTolerance = 4; saveStudioSettings({ snapTolerance }); showNotification('Snap Tolerance: 4px'); } },
+              { type: 'item', label: (snapTolerance === 6 ? '✓ ' : '') + '6 px (Normal)', action: () => { snapTolerance = 6; saveStudioSettings({ snapTolerance }); showNotification('Snap Tolerance: 6px'); } },
+              { type: 'item', label: (snapTolerance === 10 ? '✓ ' : '') + '10 px (Strong)', action: () => { snapTolerance = 10; saveStudioSettings({ snapTolerance }); showNotification('Snap Tolerance: 10px'); } },
+              { type: 'item', label: (snapTolerance === 16 ? '✓ ' : '') + '16 px (Magnetic)', action: () => { snapTolerance = 16; saveStudioSettings({ snapTolerance }); showNotification('Snap Tolerance: 16px'); } }
+            ]
+          }
+        ];
+      }
+
 
       function findGuideAt(pt, thresholdPx = 6) {
         const threshold = thresholdPx / zoom;
@@ -4648,37 +4752,59 @@
       }
 
       function snapAnchorPoint(pt, excludeNodes = []) {
-        const snapTol = 8 / zoom;
+        if (!snapEnabled) {
+          activeSnapLines = [];
+          return pt;
+        }
+        const snapTol = snapTolerance / zoom;
         let bestX = pt.x;
         let bestY = pt.y;
         let minDx = snapTol;
         let minDy = snapTol;
         activeSnapLines = [];
 
-        // 1. Snap to other anchor points in document
-        for (const obj of doc.objects) {
-          if (obj.nodes && Array.isArray(obj.nodes)) {
-            for (let i = 0; i < obj.nodes.length; i++) {
-              const other = obj.nodes[i];
-              if (excludeNodes.includes(other)) continue;
-              const dx = Math.abs(pt.x - other.x);
-              if (dx < minDx) {
-                minDx = dx;
-                bestX = other.x;
-                activeSnapLines.push({ type: 'v', pos: other.x });
-              }
-              const dy = Math.abs(pt.y - other.y);
-              if (dy < minDy) {
-                minDy = dy;
-                bestY = other.y;
-                activeSnapLines.push({ type: 'h', pos: other.y });
+        // 1. Grid Snap
+        if (snapToGrid && gridSize > 0) {
+          const gx = Math.round(pt.x / gridSize) * gridSize;
+          const gy = Math.round(pt.y / gridSize) * gridSize;
+          if (Math.abs(gx - pt.x) < minDx) {
+            minDx = Math.abs(gx - pt.x);
+            bestX = gx;
+            activeSnapLines.push({ type: 'v', pos: gx });
+          }
+          if (Math.abs(gy - pt.y) < minDy) {
+            minDy = Math.abs(gy - pt.y);
+            bestY = gy;
+            activeSnapLines.push({ type: 'h', pos: gy });
+          }
+        }
+
+        // 2. Snap to other anchor points in document
+        if (snapToObjects) {
+          for (const obj of doc.objects) {
+            if (obj.nodes && Array.isArray(obj.nodes)) {
+              for (let i = 0; i < obj.nodes.length; i++) {
+                const other = obj.nodes[i];
+                if (excludeNodes.includes(other)) continue;
+                const dx = Math.abs(pt.x - other.x);
+                if (dx < minDx) {
+                  minDx = dx;
+                  bestX = other.x;
+                  activeSnapLines.push({ type: 'v', pos: other.x });
+                }
+                const dy = Math.abs(pt.y - other.y);
+                if (dy < minDy) {
+                  minDy = dy;
+                  bestY = other.y;
+                  activeSnapLines.push({ type: 'h', pos: other.y });
+                }
               }
             }
           }
         }
 
-        // 2. Snap to user guides
-        if (userGuides) {
+        // 3. Snap to user guides
+        if (snapToGuides && userGuides) {
           if (userGuides.vertical) {
             for (const gx of userGuides.vertical) {
               const dx = Math.abs(pt.x - gx);
@@ -4701,25 +4827,27 @@
           }
         }
 
-        // 3. Snap to canvas bounds
-        const canvasBounds = [
-          { type: 'v', pos: 0 }, { type: 'v', pos: doc.width / 2 }, { type: 'v', pos: doc.width },
-          { type: 'h', pos: 0 }, { type: 'h', pos: doc.height / 2 }, { type: 'h', pos: doc.height }
-        ];
-        for (const b of canvasBounds) {
-          if (b.type === 'v') {
-            const dx = Math.abs(pt.x - b.pos);
-            if (dx < minDx) {
-              minDx = dx;
-              bestX = b.pos;
-              activeSnapLines.push(b);
-            }
-          } else {
-            const dy = Math.abs(pt.y - b.pos);
-            if (dy < minDy) {
-              minDy = dy;
-              bestY = b.pos;
-              activeSnapLines.push(b);
+        // 4. Snap to canvas bounds
+        if (snapToCanvas) {
+          const canvasBounds = [
+            { type: 'v', pos: 0 }, { type: 'v', pos: doc.width / 2 }, { type: 'v', pos: doc.width },
+            { type: 'h', pos: 0 }, { type: 'h', pos: doc.height / 2 }, { type: 'h', pos: doc.height }
+          ];
+          for (const b of canvasBounds) {
+            if (b.type === 'v') {
+              const dx = Math.abs(pt.x - b.pos);
+              if (dx < minDx) {
+                minDx = dx;
+                bestX = b.pos;
+                activeSnapLines.push(b);
+              }
+            } else {
+              const dy = Math.abs(pt.y - b.pos);
+              if (dy < minDy) {
+                minDy = dy;
+                bestY = b.pos;
+                activeSnapLines.push(b);
+              }
             }
           }
         }
@@ -7466,6 +7594,9 @@
               updateInspector();
             });
           }
+
+          addSep();
+          addSubmenu('Snapping', getSnapMenuItems());
         } else if (selectedObjs.length > 0) {
           // Case B: Object Selection Context
           addItem('Record Animation State', '◆', () => {
@@ -7757,6 +7888,9 @@
           });
 
           addSep();
+          addSubmenu('Snapping', getSnapMenuItems());
+
+          addSep();
           addItem('Cut', 'Ctrl+X', () => {
             doc.copySelected();
             for (const o of selectedObjs) doc.removeObject(o.id);
@@ -7861,6 +7995,7 @@
             { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
           );
           addSubmenu('Rulers & Guides', emptyGuideItems);
+          addSubmenu('Snapping', getSnapMenuItems());
         }
 
         // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
@@ -8730,14 +8865,7 @@
         } else if (key === '0') {
           zoomToFit();
         } else if (key === 's') {
-          snapEnabled = !snapEnabled;
-          saveStudioSettings({ snapEnabled });
-          const snapBtn = document.getElementById('btn-toggle-snap');
-          if (snapBtn) {
-            snapBtn.textContent = snapEnabled ? 'ON' : 'OFF';
-            snapBtn.style.color = snapEnabled ? '#fabd2f' : '#a89984';
-          }
-          drawOverlay();
+          toggleSnap();
         } else if (e.key === 'F2') {
           e.preventDefault();
           triggerRenameSelected();
@@ -10103,30 +10231,48 @@
         const guidesCb = document.getElementById('snap-opt-guides');
         const objectsCb = document.getElementById('snap-opt-objects');
         const intensityInput = document.getElementById('snap-intensity');
-        const intensity = intensityInput ? (parseFloat(intensityInput.value) || 6) : 6;
+        const intensity = intensityInput ? (parseFloat(intensityInput.value) || snapTolerance) : snapTolerance;
 
         return {
-          snapToGrid: gridCb ? gridCb.checked : false,
-          snapToCanvas: canvasCb ? canvasCb.checked : true,
-          snapToGuides: guidesCb ? guidesCb.checked : true,
-          snapToObjects: objectsCb ? objectsCb.checked : true,
+          snapToGrid: gridCb ? gridCb.checked : snapToGrid,
+          snapToCanvas: canvasCb ? canvasCb.checked : snapToCanvas,
+          snapToGuides: guidesCb ? guidesCb.checked : snapToGuides,
+          snapToObjects: objectsCb ? objectsCb.checked : snapToObjects,
           userGuides: userGuides,
-          gridSize: 20,
+          gridSize: gridSize,
           threshold: intensity / zoom
         };
       }
 
       const snapIntensityInput = document.getElementById('snap-intensity');
       const lblSnapIntensity = document.getElementById('lbl-snap-intensity');
-      snapIntensityInput?.addEventListener('input', () => {
-        if (lblSnapIntensity) lblSnapIntensity.textContent = snapIntensityInput.value + 'px';
-      });
+      if (snapIntensityInput) {
+        snapIntensityInput.value = snapTolerance;
+        if (lblSnapIntensity) lblSnapIntensity.textContent = snapTolerance + 'px';
+        snapIntensityInput.addEventListener('input', () => {
+          snapTolerance = parseFloat(snapIntensityInput.value) || 6;
+          saveStudioSettings({ snapTolerance });
+          if (lblSnapIntensity) lblSnapIntensity.textContent = snapIntensityInput.value + 'px';
+        });
+      }
 
       ['snap-opt-grid', 'snap-opt-canvas', 'snap-opt-guides', 'snap-opt-objects'].forEach(id => {
-        document.getElementById(id)?.addEventListener('change', () => {
-          activeSnapLines = [];
-          drawOverlay();
-        });
+        const el = document.getElementById(id);
+        if (el) {
+          if (id === 'snap-opt-grid') el.checked = snapToGrid;
+          if (id === 'snap-opt-canvas') el.checked = snapToCanvas;
+          if (id === 'snap-opt-guides') el.checked = snapToGuides;
+          if (id === 'snap-opt-objects') el.checked = snapToObjects;
+          el.addEventListener('change', (e) => {
+            if (id === 'snap-opt-grid') snapToGrid = e.target.checked;
+            if (id === 'snap-opt-canvas') snapToCanvas = e.target.checked;
+            if (id === 'snap-opt-guides') snapToGuides = e.target.checked;
+            if (id === 'snap-opt-objects') snapToObjects = e.target.checked;
+            saveStudioSettings({ snapToGrid, snapToCanvas, snapToGuides, snapToObjects });
+            activeSnapLines = [];
+            drawOverlay();
+          });
+        }
       });
 
       if (btnToggleSnap) {
@@ -10136,12 +10282,7 @@
 
       btnToggleSnap?.addEventListener('click', (e) => {
         e.stopPropagation();
-        snapEnabled = !snapEnabled;
-        saveStudioSettings({ snapEnabled });
-        btnToggleSnap.textContent = snapEnabled ? 'ON' : 'OFF';
-        btnToggleSnap.style.color = snapEnabled ? '#fabd2f' : '#a89984';
-        activeSnapLines = [];
-        drawOverlay();
+        toggleSnap();
       });
 
       // ── Left Toolbar Popover Flyouts (Node & Curves, Align, Pathfinder, Snap, Fill, Stroke) ──
@@ -10896,6 +11037,7 @@
             { type: 'sep' },
             { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
           ]},
+          { type: 'submenu', label: 'Snapping', items: getSnapMenuItems() },
           { type: 'submenu', label: 'Viewport & Engine', items: [
             { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
             { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
