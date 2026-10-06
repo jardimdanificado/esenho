@@ -103,4 +103,11 @@ assert(historyActions.includes('Change Stroke Color'), 'pushHistory should have 
 widget.setNone();
 assert.strictEqual(mockObj.stroke, 'none', 'mockObj.stroke should be set to none');
 
+// Test Background Target Mutation
+widget.setTarget('bg');
+widget.setColorFromExternal('#282828');
+widget.applyToSelected(true);
+assert.strictEqual(global.window.doc.backgroundColor, '#282828', 'doc.backgroundColor should be updated to #282828');
+assert(historyActions.includes('Change Background Color'), 'pushHistory should have been called for background');
+
 console.log('--- ALL COLOR STUDIO TESTS PASSED ---');

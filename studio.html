@@ -2174,17 +2174,20 @@
     }
 
     .section-header {
-      font-size: 9.5px;
-      font-weight: 700;
-      color: var(--text-dim);
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--text-bright);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 3px 0;
+      padding: 3px 6px;
       border-bottom: 1px solid var(--border-subtle);
-      margin-bottom: 3px;
-      letter-spacing: 0.5px;
+      border-left: 2px solid var(--primary);
+      margin-bottom: 5px;
+      letter-spacing: 0.65px;
       text-transform: uppercase;
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, transparent 100%);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     }
 
     .section-header .section-icon {
@@ -2446,8 +2449,9 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 4px;
+      gap: 5px;
       min-height: 22px;
+      margin-bottom: 5px;
     }
 
     .form-row label {
@@ -2490,6 +2494,76 @@
       width: 100%;
       outline: none;
       transition: border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    input[type="number"] {
+      padding-right: 2px;
+    }
+
+    /* ── Themed Number Spinners / Steppers ── */
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 0.65;
+      cursor: pointer;
+      height: 100%;
+      filter: invert(0.8) brightness(1.2);
+      transition: opacity 0.12s ease, filter 0.12s ease;
+    }
+    input[type="number"]:hover::-webkit-inner-spin-button,
+    input[type="number"]:hover::-webkit-outer-spin-button {
+      opacity: 1;
+    }
+    [data-theme="skeuo"] input[type="number"]::-webkit-inner-spin-button,
+    body.theme-skeuo input[type="number"]::-webkit-inner-spin-button {
+      filter: invert(0.65) sepia(0.4) saturate(2.5) hue-rotate(170deg) brightness(1.15) !important;
+      opacity: 0.85 !important;
+    }
+
+    /* ── Badges & Resolution Readouts ── */
+    .badge-type-indicator {
+      font-size: 9px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 1px 6px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+    }
+    [data-theme="skeuo"] .badge-type-indicator,
+    body.theme-skeuo .badge-type-indicator {
+      background: #0d0f12 !important;
+      color: #38bdf8 !important;
+      border: 1px solid #000 !important;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8), 0 1px 0 rgba(255,255,255,0.1) !important;
+      text-shadow: 0 0 3px rgba(56, 189, 248, 0.4) !important;
+    }
+
+    .canvas-res-readout {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      font-weight: 700;
+      color: var(--primary);
+      background: var(--bg-input);
+      padding: 2px 7px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      letter-spacing: 0.5px;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+    }
+    [data-theme="skeuo"] .canvas-res-readout,
+    body.theme-skeuo .canvas-res-readout {
+      background: #0a0c0e !important;
+      color: #38bdf8 !important;
+      border: 1px solid #000 !important;
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.9), 0 1px 0 rgba(255,255,255,0.12) !important;
+      text-shadow: 0 0 4px rgba(56, 189, 248, 0.6) !important;
     }
 
     input[type="text"]:focus, input[type="number"]:focus, select:focus {
@@ -3361,7 +3435,15 @@
               <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
                 <input type="color" id="prop-fill-color" value="#fabd2f">
                 <input type="text" id="prop-fill-text" value="#fabd2f">
-                <button type="button" id="btn-open-fill-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 7px; font-size: 11px;">🎨</button>
+                <button type="button" id="btn-open-fill-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 6px; display: inline-flex; align-items: center; justify-content: center;">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+                    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+                    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+                    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/>
+                  </svg>
+                </button>
               </div>
             </div>
             <div class="form-row">
@@ -3718,7 +3800,15 @@
             <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
               <input type="color" id="prop-stroke-color" value="#1d2021">
               <input type="text" id="prop-stroke-text" value="#1d2021">
-              <button type="button" id="btn-open-stroke-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 7px; font-size: 11px;">🎨</button>
+              <button type="button" id="btn-open-stroke-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 6px; display: inline-flex; align-items: center; justify-content: center;">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
+                  <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
+                  <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
+                  <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
+                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/>
+                </svg>
+              </button>
             </div>
           </div>
           <div class="form-row">
@@ -4143,13 +4233,13 @@
     <div id="dock-panel-inspect" class="dock-panel-content">
       <!-- 5. Transform & Geometry -->
       <div class="section-card" id="card-geometry">
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 6px;">
-          <span id="prop-geom-type" class="badge">None</span>
-        </div>
-        <!-- Object Name / Label Field -->
-        <div class="form-row" id="geom-name-row" style="margin-bottom: 6px;">
-          <label>Name / Label</label>
-          <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px;">
+        <!-- Object Name / Label Field with Integrated Type Badge -->
+        <div class="form-row" id="geom-name-row">
+          <label>Name</label>
+          <div style="display: flex; gap: 5px; width: 100%; align-items: center;">
+            <input type="text" id="prop-obj-name" placeholder="Object name" style="font-size: 11px; flex: 1;">
+            <span id="prop-geom-type" class="badge-type-indicator">None</span>
+          </div>
         </div>
 
         <!-- Rect Fields -->
@@ -4374,9 +4464,9 @@
     <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%; box-sizing: border-box; min-height: 0;">
       <!-- Active Document & Canvas Settings -->
       <div class="section-card" id="card-doc-project" style="margin: 8px 10px 4px 10px; padding: 8px 10px; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); flex-shrink: 0;">
-        <div style="font-size: 10.5px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="section-header" style="margin-bottom: 6px;">
           <span>Active Canvas</span>
-          <span id="doc-size-badge" class="badge" style="font-size: 9.5px;">800 × 600</span>
+          <span id="doc-size-badge" class="canvas-res-readout">800 × 600 px</span>
         </div>
         <div class="form-row" style="margin-bottom: 4px;">
           <label style="flex: 0 0 50px;">Title</label>
@@ -4482,15 +4572,17 @@
     </div>
 
     <!-- Dock Panel 9: Export Center -->
-    <div id="dock-panel-export" class="dock-panel-content" style="padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: var(--bg-panel); height: 100%;">
-      <!-- Export Mode Switcher -->
-      <div style="display: flex; gap: 4px; background: var(--bg-dark); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-        <button id="tab-btn-export-static" class="btn-sm active" style="flex: 1; font-size: 11px; font-weight: 600;">Static Image</button>
-        <button id="tab-btn-export-anim" class="btn-sm" style="flex: 1; font-size: 11px; font-weight: 600;">Animation &amp; Video</button>
+    <div id="dock-panel-export" class="dock-panel-content" style="padding: 12px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: var(--bg-panel); height: 100%;">
+      <!-- Export Mode Checkbox Toggle -->
+      <div class="form-row" style="margin-bottom: 4px; padding-bottom: 6px; border-bottom: 1px solid var(--border);">
+        <label style="flex: 0 0 68px;">Mode</label>
+        <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none; color: var(--text-bright); font-weight: 600;">
+          <input type="checkbox" id="export-is-animated" style="cursor: pointer; width: 14px; height: 14px; accent-color: var(--primary);"> Export as Animation / Video
+        </label>
       </div>
 
       <!-- Static Image Export Pane -->
-      <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 10px;">
+      <div id="pane-export-static" style="display: flex; flex-direction: column; gap: 8px;">
         <div class="form-row">
           <label>Format</label>
           <select id="export-format">
@@ -4503,14 +4595,8 @@
         <div class="form-row">
           <label>Scale Factor</label>
           <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-scale" min="0.01" max="100" step="any" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-            <span style="font-size: 11px; color: var(--text-dim);">×</span>
-            <div style="display: flex; gap: 2px;">
-              <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-              <button type="button" class="btn-sm preset-static-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-              <button type="button" class="btn-sm preset-static-scale" data-scale="3" style="padding: 2px 5px; font-size: 10px;">3×</button>
-              <button type="button" class="btn-sm preset-static-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
-            </div>
+            <input type="number" id="export-scale" min="0.01" max="100" step="any" value="2" style="flex: 1; padding: 2px 6px; font-size: 11px;">
+            <span style="font-size: 11px; color: var(--text-dim); font-weight: 600;">×</span>
           </div>
         </div>
         <div class="form-row">
@@ -4521,7 +4607,7 @@
       </div>
 
       <!-- Animation & Video Export Pane -->
-      <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 10px;">
+      <div id="pane-export-anim" style="display: none; flex-direction: column; gap: 8px;">
         <div class="form-row">
           <label>Format</label>
           <select id="export-anim-format">
@@ -4553,14 +4639,8 @@
         <div class="form-row">
           <label>Scale Factor</label>
           <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-anim-scale" min="0.01" max="100" step="any" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
-            <span style="font-size: 11px; color: var(--text-dim);">×</span>
-            <div style="display: flex; gap: 2px;">
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="2" style="padding: 2px 5px; font-size: 10px;">2×</button>
-              <button type="button" class="btn-sm preset-anim-scale" data-scale="4" style="padding: 2px 5px; font-size: 10px;">4×</button>
-            </div>
+            <input type="number" id="export-anim-scale" min="0.01" max="100" step="any" value="1" style="flex: 1; padding: 2px 6px; font-size: 11px;">
+            <span style="font-size: 11px; color: var(--text-dim); font-weight: 600;">×</span>
           </div>
         </div>
         <div class="form-row">
@@ -4594,9 +4674,7 @@
 
     <!-- Dock Panel 11: Image Tracer / Vectorizer -->
     <div id="dock-panel-tracer" class="dock-panel-content" style="padding: 12px; overflow-y: auto; background: var(--bg-panel); display: flex; flex-direction: column; gap: 10px; height: 100%;">
-      <div id="tracer-source-info" style="font-size: 11px; color: var(--text-muted); background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-        Select a raster image on the canvas to vectorize.
-      </div>
+      <div id="tracer-source-info" style="display: none; font-size: 11px; color: var(--text-muted); background: var(--bg-dark); padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border);"></div>
 
       <div class="form-row">
         <label>Mode</label>
@@ -11412,18 +11490,19 @@
         const selected = (typeof doc !== 'undefined' && doc.getSelectedObjects) ? doc.getSelectedObjects() : [];
         const imgObj = selected.find(o => o.type === 'image');
         if (imgObj) {
+          sourceInfo.style.display = 'block';
           sourceInfo.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
               <div style="overflow: hidden; flex: 1;">
                 <div style="color: var(--text-bright); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${imgObj.name || 'Raster Image'}</div>
-                <div style="font-size: 10px; color: var(--text-muted);">${Math.round(imgObj.width)} × ${Math.round(imgObj.height)} px</div>
+                <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);">${Math.round(imgObj.width)} × ${Math.round(imgObj.height)} px</div>
               </div>
             </div>
           `;
           sourceInfo.style.borderColor = 'var(--primary)';
         } else {
-          sourceInfo.innerHTML = '<span style="color: var(--text-muted);">Select a raster image on the canvas to vectorize.</span>';
-          sourceInfo.style.borderColor = 'var(--border)';
+          sourceInfo.style.display = 'none';
+          sourceInfo.innerHTML = '';
         }
       }
       window.updateTracerUI = updateTracerUI;
@@ -11739,7 +11818,7 @@
               if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
               if (bgPickerEl && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) bgPickerEl.value = doc.backgroundColor;
               if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
-              if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height}`;
+              if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height} px`;
               if (typeof refreshProjectsList === 'function') refreshProjectsList();
             } else if (id === 'export') {
               if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
@@ -11822,7 +11901,7 @@
           if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
           if (bgPickerEl && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) bgPickerEl.value = doc.backgroundColor;
           if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
-          if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height}`;
+          if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height} px`;
           if (typeof refreshProjectsList === 'function') refreshProjectsList();
         } else if (panelId === 'scene') {
           updateObjectList();
@@ -12287,8 +12366,14 @@
       let currentExportTab = 'static';
       let isAnimExportCancelled = false;
 
+      const exportIsAnimated = document.getElementById('export-is-animated');
+      exportIsAnimated?.addEventListener('change', (e) => {
+        switchExportTab(e.target.checked ? 'anim' : 'static');
+      });
+
       function switchExportTab(tabName) {
         currentExportTab = tabName;
+        if (exportIsAnimated) exportIsAnimated.checked = (tabName === 'anim');
         if (tabName === 'anim') {
           if (paneExportStatic) paneExportStatic.style.display = 'none';
           if (paneExportAnim) paneExportAnim.style.display = 'flex';

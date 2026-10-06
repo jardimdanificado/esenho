@@ -294,6 +294,10 @@
               <span class="cs-chip" id="cs-target-stroke-chip"></span>
               <span class="cs-target-lbl">Stroke</span>
             </button>
+            <button type="button" class="cs-target-btn" id="cs-target-bg" title="Active Target: Canvas Background">
+              <span class="cs-chip" id="cs-target-bg-chip"></span>
+              <span class="cs-target-lbl">Back</span>
+            </button>
             <button type="button" class="cs-icon-btn" id="cs-btn-swap" title="Swap Fill and Stroke (⇄)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M7 16V4M7 4L3 8M7 4L11 8M17 8v12M17 20l4-4M17 20l-4-4"/>
@@ -413,8 +417,10 @@
       this.dom = {
         targetFill: this.container.querySelector('#cs-target-fill'),
         targetStroke: this.container.querySelector('#cs-target-stroke'),
+        targetBg: this.container.querySelector('#cs-target-bg'),
         targetFillChip: this.container.querySelector('#cs-target-fill-chip'),
         targetStrokeChip: this.container.querySelector('#cs-target-stroke-chip'),
+        targetBgChip: this.container.querySelector('#cs-target-bg-chip'),
         btnSwap: this.container.querySelector('#cs-btn-swap'),
         btnNone: this.container.querySelector('#cs-btn-none'),
         modeBtns: this.container.querySelectorAll('.cs-mode-btn'),
@@ -454,9 +460,10 @@
     bindEvents() {
       const d = this.dom;
 
-      // 1. Target Switcher (Fill vs Stroke)
+      // 1. Target Switcher (Fill vs Stroke vs Background)
       d.targetFill?.addEventListener('click', () => this.setTarget('fill'));
       d.targetStroke?.addEventListener('click', () => this.setTarget('stroke'));
+      d.targetBg?.addEventListener('click', () => this.setTarget('bg'));
 
       // 2. Swap Target Colors
       d.btnSwap?.addEventListener('click', () => this.swapColors());
@@ -653,6 +660,7 @@
       this.activeTarget = target;
       this.dom.targetFill?.classList.toggle('active', target === 'fill');
       this.dom.targetStroke?.classList.toggle('active', target === 'stroke');
+      this.dom.targetBg?.classList.toggle('active', target === 'bg');
       this.syncFromSelection(true);
     }
 
@@ -738,10 +746,14 @@
     }
 
     updateTargetChips() {
+      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+      const activeDoc = getDoc();
       const fillEl = getDomEl('prop-fill-text');
       const strokeEl = getDomEl('prop-stroke-text');
+      const bgEl = getDomEl('prop-doc-bg');
       const fVal = fillEl ? fillEl.value : '#fabd2f';
       const sVal = strokeEl ? strokeEl.value : '#1d2021';
+      const bVal = bgEl ? bgEl.value : (activeDoc?.backgroundColor || '#1d2021');
 
       if (this.dom.targetFillChip) {
         this.dom.targetFillChip.style.background = (fVal && fVal !== 'none') ? fVal : 'transparent';
@@ -750,6 +762,10 @@
       if (this.dom.targetStrokeChip) {
         this.dom.targetStrokeChip.style.background = (sVal && sVal !== 'none') ? sVal : 'transparent';
         this.dom.targetStrokeChip.classList.toggle('is-none', !sVal || sVal === 'none');
+      }
+      if (this.dom.targetBgChip) {
+        this.dom.targetBgChip.style.background = (bVal && bVal !== 'none') ? bVal : 'transparent';
+        this.dom.targetBgChip.classList.toggle('is-none', !bVal || bVal === 'none');
       }
     }
 
@@ -805,6 +821,21 @@
 
         if (commit) {
           if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Fill Color');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+        }
+      } else if (this.activeTarget === 'bg') {
+        const bgTextEl = getDomEl('prop-doc-bg');
+        const bgPickerEl = getDomEl('prop-doc-bg-picker');
+        if (bgTextEl) bgTextEl.value = val;
+        if (bgPickerEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) bgPickerEl.value = val;
+
+        if (activeDoc) {
+          activeDoc.backgroundColor = val;
+          if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+          if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+        }
+        if (commit) {
+          if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Background Color');
           if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
         }
       } else {
@@ -1012,18 +1043,30 @@
         fillOp = opEl ? Number(opEl.value) || 1.0 : 1.0;
       }
 
+      let bgVal = (activeDoc && activeDoc.backgroundColor) ? activeDoc.backgroundColor : (getDomEl('prop-doc-bg')?.value || '#1d2021');
+
       // 3. FAST PATH: If values have not changed at all, DO NOTHING (0ms)
-      if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal) {
+      if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal && this._lastBgVal === bgVal) {
         return;
       }
       this._lastFillVal = fillVal;
       this._lastStrokeVal = strokeVal;
+      this._lastBgVal = bgVal;
 
       // 4. Update the widget UI under a strict guard
       this._isSyncing = true;
       try {
-        const activeColorVal = (this.activeTarget === 'stroke' ? strokeVal : fillVal);
-        this.currentA = (this.activeTarget === 'stroke' ? strokeOp : fillOp);
+        let activeColorVal = fillVal;
+        if (this.activeTarget === 'stroke') {
+          activeColorVal = strokeVal;
+          this.currentA = strokeOp;
+        } else if (this.activeTarget === 'bg') {
+          activeColorVal = bgVal;
+          this.currentA = 1.0;
+        } else {
+          activeColorVal = fillVal;
+          this.currentA = fillOp;
+        }
 
         this.setColorFromExternal(activeColorVal);
         this.updateTargetChips();

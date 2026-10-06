@@ -895,38 +895,41 @@ export class DopeSheetUI {
     }
 
     container.innerHTML = `
-      <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 5px; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 4px 6px; box-sizing: border-box;">
-        <!-- Mode Switcher Tabs -->
-        <div style="display: flex; gap: 2px; background: var(--bg-input); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
-          <button id="tab-mode-bezier" class="ds-ce-tab" style="flex: 1; background: var(--bg-panel-sub); color: var(--primary); font-weight: bold; border: 1px solid var(--border); border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Bézier</button>
-          <button id="tab-mode-bounce" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Bounce</button>
-          <button id="tab-mode-spring" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Spring</button>
-          <button id="tab-mode-spline" class="ds-ce-tab" style="flex: 1; background: transparent; color: var(--text-muted); border: 1px solid transparent; border-radius: 3px; font-size: 9.5px; padding: 2px 4px; cursor: pointer;">Spline</button>
+      <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 4px 6px; box-sizing: border-box;">
+        <!-- Mode Switcher Dropdown -->
+        <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-panel-sub); padding: 2px 5px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
+          <label style="font-size: 10px; font-weight: 700; color: var(--text-muted); flex: 0 0 38px;">Type</label>
+          <select id="ds-ce-mode-select" style="flex: 1; height: 21px; font-size: 10.5px; padding: 1px 4px; background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-bright); font-weight: 600; font-family: var(--font-sans);">
+            <option value="bezier">Bézier (Cubic)</option>
+            <option value="bounce">Physics (Bounce)</option>
+            <option value="spring">Physics (Spring)</option>
+            <option value="spline">Catmull-Rom (Spline)</option>
+          </select>
         </div>
 
         <!-- Sub-controls container -->
         <div id="ds-ce-controls-container" style="flex-shrink: 0;"></div>
 
         <!-- Canvas Graph Area -->
-        <div style="background: var(--bg-canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px; display: flex; justify-content: center; position: relative; flex-shrink: 0;">
-          <canvas id="ds-ce-canvas" width="260" height="110" style="cursor: crosshair; touch-action: none; border-radius: 2px; width: 100%; max-width: 260px; height: 110px; display: block;"></canvas>
+        <div style="background: var(--bg-canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1px; display: flex; justify-content: center; position: relative; flex-shrink: 0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+          <canvas id="ds-ce-canvas" width="260" height="72" style="cursor: crosshair; touch-action: none; border-radius: 2px; width: 100%; max-width: 260px; height: 72px; display: block;"></canvas>
         </div>
 
         <!-- Motion Preview Indicator -->
-        <div style="padding: 3px 6px; background: var(--bg-panel-sub); border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+        <div style="padding: 2px 5px; background: var(--bg-panel-sub); border-radius: var(--radius-sm); border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
           <span style="font-size: 9px; color: var(--text-muted); white-space: nowrap;">Live:</span>
-          <div style="flex: 1; height: 6px; background: var(--bg-input); border-radius: 3px; position: relative; overflow: hidden; border: 1px solid var(--border);">
-            <div id="ds-ce-preview-dot" style="position: absolute; top: 0px; left: 0; width: 6px; height: 6px; border-radius: 50%; background: var(--success); box-shadow: 0 0 4px var(--success);"></div>
+          <div style="flex: 1; height: 5px; background: var(--bg-input); border-radius: 3px; position: relative; overflow: hidden; border: 1px solid var(--border);">
+            <div id="ds-ce-preview-dot" style="position: absolute; top: 0px; left: 0; width: 5px; height: 5px; border-radius: 50%; background: var(--success); box-shadow: 0 0 4px var(--success);"></div>
           </div>
         </div>
 
         <!-- Actions & Status Footer -->
-        <div style="margin-top: auto; padding-top: 4px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; flex-shrink: 0;">
+        <div style="margin-top: auto; padding-top: 3px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 3px; flex-shrink: 0;">
           <div style="display: flex; justify-content: space-between; align-items: center; padding: 0 2px;">
-            <span style="font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Easing:</span>
-            <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 9.5px; overflow: hidden; text-overflow: ellipsis; max-width: 200px; white-space: nowrap; text-align: right;">...</span>
+            <span style="font-size: 8.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Easing:</span>
+            <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; overflow: hidden; text-overflow: ellipsis; max-width: 200px; white-space: nowrap; text-align: right;">...</span>
           </div>
-          <button id="ds-ce-apply" class="btn-primary" style="width: 100%; padding: 4px 8px; font-weight: 700; font-size: 10.5px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;">
+          <button id="ds-ce-apply" class="btn-primary" style="width: 100%; padding: 3px 6px; font-weight: 700; font-size: 10px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;">
             <span>Apply to Keyframe</span>
           </button>
         </div>
@@ -937,7 +940,7 @@ export class DopeSheetUI {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    const padX = 20, padY = 16;
+    const padX = 16, padY = 8;
     let yMin = -0.3, yMax = 1.3;
 
     const toPixelX = (x) => padX + x * (W - 2 * padX);
@@ -969,17 +972,18 @@ export class DopeSheetUI {
       inputEl.style.width = `${Math.max(34, charLen * 7.5 + 12)}px`;
     };
 
+    const modeSelect = container.querySelector('#ds-ce-mode-select');
+    if (modeSelect) {
+      modeSelect.value = currentMode;
+      modeSelect.onchange = (e) => {
+        currentMode = e.target.value;
+        updateControlsUI();
+        syncGraph();
+      };
+    }
+
     const updateControlsUI = () => {
-      ['bezier', 'bounce', 'spring', 'spline'].forEach(m => {
-        const tab = container.querySelector(`#tab-mode-${m}`);
-        if (tab) {
-          const active = currentMode === m;
-          tab.style.background = active ? 'var(--bg-panel-sub)' : 'transparent';
-          tab.style.color = active ? 'var(--primary)' : 'var(--text-muted)';
-          tab.style.borderColor = active ? 'var(--border)' : 'transparent';
-          tab.style.fontWeight = active ? 'bold' : 'normal';
-        }
-      });
+      if (modeSelect) modeSelect.value = currentMode;
 
       if (currentMode === 'bezier') {
         yMin = -0.3; yMax = 1.3;
@@ -1139,6 +1143,7 @@ export class DopeSheetUI {
 
     const drawCanvas = () => {
       const computedStyles = typeof window !== 'undefined' ? getComputedStyle(document.body) : null;
+      const isSkeuo = typeof document !== 'undefined' && document.body && (document.body.getAttribute('data-theme') === 'skeuo' || document.body.classList.contains('theme-skeuo'));
       const colBgCanvas = computedStyles ? (computedStyles.getPropertyValue('--bg-canvas').trim() || '#17191a') : '#17191a';
       const colBorder = computedStyles ? (computedStyles.getPropertyValue('--border').trim() || '#2e3234') : '#2e3234';
       const colBorderBright = computedStyles ? (computedStyles.getPropertyValue('--border-bright').trim() || '#484d50') : '#484d50';
@@ -1147,22 +1152,22 @@ export class DopeSheetUI {
       const colText = computedStyles ? (computedStyles.getPropertyValue('--text').trim() || '#ebdbb2') : '#ebdbb2';
       const colSuccess = computedStyles ? (computedStyles.getPropertyValue('--success').trim() || '#b8bb26') : '#b8bb26';
 
-      ctx.fillStyle = colBgCanvas;
+      ctx.fillStyle = isSkeuo ? '#0a0c0f' : colBgCanvas;
       ctx.fillRect(0, 0, W, H);
 
       const x0 = toPixelX(0), y0 = toPixelY(0);
       const x1 = toPixelX(1), y1 = toPixelY(1);
 
       // Box 0..1
-      const isLight = document.body && (document.body.getAttribute('data-theme') === 'light' || document.body.classList.contains('theme-light'));
-      ctx.fillStyle = isLight ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.02)';
+      const isLight = typeof document !== 'undefined' && document.body && (document.body.getAttribute('data-theme') === 'light' || document.body.classList.contains('theme-light'));
+      ctx.fillStyle = isLight ? 'rgba(255,255,255,0.7)' : (isSkeuo ? 'rgba(56, 189, 248, 0.03)' : 'rgba(255,255,255,0.02)');
       ctx.fillRect(x0, y1, x1 - x0, y0 - y1);
-      ctx.strokeStyle = colBorder;
+      ctx.strokeStyle = isSkeuo ? 'rgba(56, 189, 248, 0.25)' : colBorder;
       ctx.lineWidth = 1;
       ctx.strokeRect(x0, y1, x1 - x0, y0 - y1);
 
       // Grid dividers
-      ctx.strokeStyle = colBorder;
+      ctx.strokeStyle = isSkeuo ? 'rgba(56, 189, 248, 0.12)' : colBorder;
       [0.25, 0.5, 0.75].forEach(v => {
         const gx = toPixelX(v), gy = toPixelY(v);
         ctx.beginPath(); ctx.moveTo(gx, y1); ctx.lineTo(gx, y0); ctx.stroke();
@@ -1170,7 +1175,7 @@ export class DopeSheetUI {
       });
 
       // Linear reference line
-      ctx.strokeStyle = colBorderBright;
+      ctx.strokeStyle = isSkeuo ? 'rgba(255, 255, 255, 0.18)' : colBorderBright;
       ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
       ctx.setLineDash([]);
@@ -1180,18 +1185,23 @@ export class DopeSheetUI {
         const px2 = toPixelX(p2.x), py2 = toPixelY(p2.y);
 
         ctx.lineWidth = 1.5;
-        ctx.strokeStyle = colAccent;
+        ctx.strokeStyle = isSkeuo ? '#fabd2f' : colAccent;
         ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(px1, py1); ctx.stroke();
 
-        ctx.strokeStyle = colPrimary;
+        ctx.strokeStyle = isSkeuo ? '#38bdf8' : colPrimary;
         ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(px2, py2); ctx.stroke();
 
         ctx.beginPath();
         ctx.moveTo(x0, y0);
         ctx.bezierCurveTo(px1, py1, px2, py2, x1, y1);
-        ctx.strokeStyle = colSuccess;
+        ctx.strokeStyle = isSkeuo ? '#38bdf8' : colSuccess;
         ctx.lineWidth = 2;
+        if (isSkeuo) {
+          ctx.shadowColor = '#38bdf8';
+          ctx.shadowBlur = 4;
+        }
         ctx.stroke();
+        ctx.shadowBlur = 0;
 
         ctx.fillStyle = colText;
         ctx.beginPath(); ctx.arc(x0, y0, 3, 0, Math.PI * 2); ctx.fill();
