@@ -2482,33 +2482,33 @@
             <div class="form-row">
               <label style="width: 50px;">Pos</label>
               <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                <input type="range" id="prop-grad-stop-pos-slider" min="0" max="100" step="1" value="0" style="flex: 1;">
-                <input type="number" id="prop-grad-stop-pos" min="0" max="100" step="1" value="0" style="width: 48px;">
+                <input type="range" id="prop-grad-stop-pos-slider" min="0" max="100" step="any" value="0" style="flex: 1;">
+                <input type="number" id="prop-grad-stop-pos" min="0" max="100" step="any" value="0" style="width: 48px;">
                 <span style="font-size: 10px; color: var(--text-muted);">%</span>
               </div>
             </div>
 
             <div class="form-row">
               <label style="width: 50px;">Opacity</label>
-              <input type="number" id="prop-grad-stop-opacity" min="0" max="1" step="0.05" value="1.0">
+              <input type="number" id="prop-grad-stop-opacity" min="0" max="1" step="any" value="1.0">
             </div>
 
             <div class="form-row">
               <label style="width: 50px;">Intensity</label>
-              <input type="number" id="prop-grad-stop-intensity" min="0" max="5" step="0.1" value="1.0">
+              <input type="number" id="prop-grad-stop-intensity" min="0" max="10" step="any" value="1.0">
             </div>
 
             <div class="form-row" id="grad-angle-row">
               <label style="width: 50px;">Angle</label>
               <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-                <input type="number" id="prop-grad-angle" min="0" max="360" step="1" value="0" style="flex: 1;">
+                <input type="number" id="prop-grad-angle" min="0" max="360" step="any" value="0" style="flex: 1;">
                 <span style="font-size: 10px; color: var(--text-muted);">°</span>
               </div>
             </div>
 
             <div class="form-row" id="grad-radius-row" style="display: none;">
               <label style="width: 50px;">Radius</label>
-              <input type="number" id="prop-grad-radius" min="0.05" max="5" step="0.05" value="0.5">
+              <input type="number" id="prop-grad-radius" min="0.01" max="10" step="any" value="0.5">
             </div>
           </div>
         </div>
@@ -2565,26 +2565,26 @@
           </div>
           <div class="form-row">
             <label>Hardness %</label>
-            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="5" value="100">
+            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Soft Reach</label>
-            <input type="number" id="prop-fill-tex-hardnessIntensity" min="1" max="500" step="5" value="50" title="Feather softness reach (radius in pixels)">
+            <input type="number" id="prop-fill-tex-hardnessIntensity" min="0.1" max="1000" step="any" value="50" title="Feather softness reach (radius in pixels)">
           </div>
           <div class="form-row">
             <label>Warp Wave</label>
             <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="100" step="5" value="0" style="width: 50%;" title="Warp Strength">
-              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="1" max="100" step="5" value="20" style="width: 50%;" title="Warp Frequency">
+              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="500" step="any" value="0" style="width: 50%;" title="Warp Strength">
+              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="0.01" max="500" step="any" value="20" style="width: 50%;" title="Warp Frequency">
             </div>
           </div>
           <div class="form-row">
             <label>Noise Jitter</label>
-            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="500" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Swirl Vortex</label>
-            <input type="number" id="prop-fill-tex-pinchSwirl" min="-100" max="100" step="5" value="0">
+            <input type="number" id="prop-fill-tex-pinchSwirl" min="-500" max="500" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Posterize</label>
@@ -2692,19 +2692,19 @@
           </div>
           <div class="form-row">
             <label>Scale %</label>
-            <input type="number" id="prop-fill-tex-scale" min="10" max="500" step="5" value="100">
+            <input type="number" id="prop-fill-tex-scale" min="0.01" max="1000" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Angle °</label>
-            <input type="number" id="prop-fill-tex-angle" min="0" max="360" step="5" value="0">
+            <input type="number" id="prop-fill-tex-angle" min="-360" max="360" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Contrast %</label>
-            <input type="number" id="prop-fill-tex-contrast" min="0" max="200" step="5" value="100">
+            <input type="number" id="prop-fill-tex-contrast" min="0" max="500" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Grain / Grit</label>
-            <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Origin</label>
@@ -2716,8 +2716,8 @@
           <div class="form-row">
             <label>Offset X/Y</label>
             <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-tex-offsetX" placeholder="X" step="5" value="0" style="width: 50%;">
-              <input type="number" id="prop-fill-tex-offsetY" placeholder="Y" step="5" value="0" style="width: 50%;">
+              <input type="number" id="prop-fill-tex-offsetX" placeholder="X" step="any" value="0" style="width: 50%;">
+              <input type="number" id="prop-fill-tex-offsetY" placeholder="Y" step="any" value="0" style="width: 50%;">
             </div>
           </div>
         </div>
@@ -2774,13 +2774,13 @@
           <div class="form-row">
             <label>P1 / P2</label>
             <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-filter-p1" placeholder="P1" value="0" style="width: 50%;">
-              <input type="number" id="prop-fill-filter-p2" placeholder="P2" value="0" style="width: 50%;">
+              <input type="number" id="prop-fill-filter-p1" placeholder="P1" step="any" value="0" style="width: 50%;">
+              <input type="number" id="prop-fill-filter-p2" placeholder="P2" step="any" value="0" style="width: 50%;">
             </div>
           </div>
           <div class="form-row">
             <label>Opacity</label>
-            <input type="number" id="prop-fill-filter-opacity" min="0" max="1" step="0.05" value="1.0">
+            <input type="number" id="prop-fill-filter-opacity" min="0" max="1" step="any" value="1.0">
           </div>
         </div>
 
@@ -2791,7 +2791,7 @@
           </div>
           <div class="form-row">
             <label>Opacity</label>
-            <input type="number" id="prop-obj-opacity" min="0" max="1" step="0.05" value="1.0">
+            <input type="number" id="prop-obj-opacity" min="0" max="1" step="any" value="1.0">
           </div>
         </div>
     </div>
@@ -2810,7 +2810,7 @@
           </div>
           <div class="form-row">
             <label>Width</label>
-            <input type="number" id="prop-stroke-width" min="0" max="100" step="1" value="2">
+            <input type="number" id="prop-stroke-width" min="0" max="1000" step="any" value="2">
           </div>
           <div class="form-row">
             <label>Linecap</label>
@@ -2830,7 +2830,7 @@
           </div>
           <div class="form-row">
             <label>Hardness %</label>
-            <input type="number" id="prop-stroke-hardness" min="0" max="100" step="5" value="95">
+            <input type="number" id="prop-stroke-hardness" min="0" max="100" step="any" value="95">
           </div>
           <div class="form-row">
             <label>No Stroke</label>
@@ -2941,27 +2941,27 @@
           </div>
           <div class="form-row">
             <label>Flow %</label>
-            <input type="number" id="prop-brush-flow" min="1" max="100" step="5" value="100">
+            <input type="number" id="prop-brush-flow" min="0" max="100" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Hardness %</label>
-            <input type="number" id="prop-brush-hardness" min="0" max="100" step="5" value="100">
+            <input type="number" id="prop-brush-hardness" min="0" max="100" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Spacing %</label>
-            <input type="number" id="prop-brush-spacing" min="1" max="100" step="1" value="5">
+            <input type="number" id="prop-brush-spacing" min="0.01" max="100" step="any" value="5">
           </div>
           <div class="form-row">
             <label>Scatter</label>
-            <input type="number" id="prop-brush-scatter" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-scatter" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Roundness %</label>
-            <input type="number" id="prop-brush-roundness" min="1" max="100" step="5" value="100">
+            <input type="number" id="prop-brush-roundness" min="1" max="100" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Angle °</label>
-            <input type="number" id="prop-brush-angle" min="0" max="360" step="5" value="0">
+            <input type="number" id="prop-brush-angle" min="0" max="360" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Dab Shape</label>
@@ -2997,21 +2997,21 @@
           <div class="form-row">
             <label>Taper In / Out</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-brush-taper-in" min="0" max="100" step="5" value="0" title="Taper In %">
-              <input type="number" id="prop-brush-taper-out" min="0" max="100" step="5" value="0" title="Taper Out %">
+              <input type="number" id="prop-brush-taper-in" min="0" max="100" step="any" value="0" title="Taper In %">
+              <input type="number" id="prop-brush-taper-out" min="0" max="100" step="any" value="0" title="Taper Out %">
             </div>
           </div>
           <div class="form-row">
             <label>Size Jitter %</label>
-            <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Angle Jitter %</label>
-            <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Opacity Jitter</label>
-            <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="any" value="0">
           </div>
         </div>
 
@@ -3022,19 +3022,19 @@
           </div>
           <div class="form-row">
             <label>Wetness %</label>
-            <input type="number" id="prop-brush-wetness" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-wetness" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Color Pickup</label>
-            <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Depletion %</label>
-            <input type="number" id="prop-brush-depletion" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-depletion" min="0" max="100" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Smudge %</label>
-            <input type="number" id="prop-brush-smudge" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-brush-smudge" min="0" max="100" step="any" value="0">
           </div>
         </div>
 
@@ -3122,19 +3122,19 @@
           </div>
           <div class="form-row">
             <label>Scale %</label>
-            <input type="number" id="prop-stroke-tex-scale" min="10" max="500" step="5" value="100">
+            <input type="number" id="prop-stroke-tex-scale" min="0.01" max="1000" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Angle °</label>
-            <input type="number" id="prop-stroke-tex-angle" min="0" max="360" step="5" value="0">
+            <input type="number" id="prop-stroke-tex-angle" min="-360" max="360" step="any" value="0">
           </div>
           <div class="form-row">
             <label>Contrast %</label>
-            <input type="number" id="prop-stroke-tex-contrast" min="0" max="200" step="5" value="100">
+            <input type="number" id="prop-stroke-tex-contrast" min="0" max="500" step="any" value="100">
           </div>
           <div class="form-row">
             <label>Grain / Grit</label>
-            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="5" value="0">
+            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="any" value="0">
           </div>
         </div>
 
@@ -3190,13 +3190,13 @@
           <div class="form-row">
             <label>P1 / P2</label>
             <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-stroke-filter-p1" placeholder="P1" value="0" style="width: 50%;">
-              <input type="number" id="prop-stroke-filter-p2" placeholder="P2" value="0" style="width: 50%;">
+              <input type="number" id="prop-stroke-filter-p1" placeholder="P1" step="any" value="0" style="width: 50%;">
+              <input type="number" id="prop-stroke-filter-p2" placeholder="P2" step="any" value="0" style="width: 50%;">
             </div>
           </div>
           <div class="form-row">
             <label>Opacity</label>
-            <input type="number" id="prop-stroke-filter-opacity" min="0" max="1" step="0.05" value="1.0">
+            <input type="number" id="prop-stroke-filter-opacity" min="0" max="1" step="any" value="1.0">
           </div>
         </div>
       </div>
@@ -3244,22 +3244,22 @@
           <div class="form-row">
             <label>Position (X, Y)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-rect-x" step="1" title="Position X (px)">
-              <input type="number" id="prop-rect-y" step="1" title="Position Y (px)">
+              <input type="number" id="prop-rect-x" step="any" title="Position X (px)">
+              <input type="number" id="prop-rect-y" step="any" title="Position Y (px)">
             </div>
           </div>
           <div class="form-row">
             <label>Size (W × H)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-rect-w" min="1" step="1" title="Width (px)">
-              <input type="number" id="prop-rect-h" min="1" step="1" title="Height (px)">
+              <input type="number" id="prop-rect-w" min="0.001" step="any" title="Width (px)">
+              <input type="number" id="prop-rect-h" min="0.001" step="any" title="Height (px)">
             </div>
           </div>
           <div class="form-row">
             <label>Corner Radius</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-rect-rx" min="0" step="1" placeholder="rx" title="Corner Radius X (px)">
-              <input type="number" id="prop-rect-ry" min="0" step="1" placeholder="ry" title="Corner Radius Y (px)">
+              <input type="number" id="prop-rect-rx" min="0" step="any" placeholder="rx" title="Corner Radius X (px)">
+              <input type="number" id="prop-rect-ry" min="0" step="any" placeholder="ry" title="Corner Radius Y (px)">
             </div>
           </div>
         </div>
@@ -3269,13 +3269,13 @@
           <div class="form-row">
             <label>Center (CX, CY)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-circle-cx" step="1" title="Center X (px)">
-              <input type="number" id="prop-circle-cy" step="1" title="Center Y (px)">
+              <input type="number" id="prop-circle-cx" step="any" title="Center X (px)">
+              <input type="number" id="prop-circle-cy" step="any" title="Center Y (px)">
             </div>
           </div>
           <div class="form-row">
             <label>Radius (R)</label>
-            <input type="number" id="prop-circle-r" min="1" step="1" title="Radius (px)">
+            <input type="number" id="prop-circle-r" min="0.001" step="any" title="Radius (px)">
           </div>
         </div>
 
@@ -3284,15 +3284,15 @@
           <div class="form-row">
             <label>Center (CX, CY)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-ellipse-cx" step="1" title="Center X (px)">
-              <input type="number" id="prop-ellipse-cy" step="1" title="Center Y (px)">
+              <input type="number" id="prop-ellipse-cx" step="any" title="Center X (px)">
+              <input type="number" id="prop-ellipse-cy" step="any" title="Center Y (px)">
             </div>
           </div>
           <div class="form-row">
             <label>Radii (RX × RY)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-ellipse-rx" min="1" step="1" title="Radius X (px)">
-              <input type="number" id="prop-ellipse-ry" min="1" step="1" title="Radius Y (px)">
+              <input type="number" id="prop-ellipse-rx" min="0.001" step="any" title="Radius X (px)">
+              <input type="number" id="prop-ellipse-ry" min="0.001" step="any" title="Radius Y (px)">
             </div>
           </div>
         </div>
@@ -3302,15 +3302,15 @@
           <div class="form-row">
             <label>Start (X1, Y1)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-line-x1" step="1" title="Start X (px)">
-              <input type="number" id="prop-line-y1" step="1" title="Start Y (px)">
+              <input type="number" id="prop-line-x1" step="any" title="Start X (px)">
+              <input type="number" id="prop-line-y1" step="any" title="Start Y (px)">
             </div>
           </div>
           <div class="form-row">
             <label>End (X2, Y2)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-line-x2" step="1" title="End X (px)">
-              <input type="number" id="prop-line-y2" step="1" title="End Y (px)">
+              <input type="number" id="prop-line-x2" step="any" title="End X (px)">
+              <input type="number" id="prop-line-y2" step="any" title="End Y (px)">
             </div>
           </div>
         </div>
@@ -3320,15 +3320,15 @@
           <div class="form-row">
             <label>Bounds (X, Y)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-path-x" step="1" title="Min X (px)">
-              <input type="number" id="prop-path-y" step="1" title="Min Y (px)">
+              <input type="number" id="prop-path-x" step="any" title="Min X (px)">
+              <input type="number" id="prop-path-y" step="any" title="Min Y (px)">
             </div>
           </div>
           <div class="form-row">
             <label>Size (W × H)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-path-w" min="1" step="1" title="Width (px)">
-              <input type="number" id="prop-path-h" min="1" step="1" title="Height (px)">
+              <input type="number" id="prop-path-w" min="0.001" step="any" title="Width (px)">
+              <input type="number" id="prop-path-h" min="0.001" step="any" title="Height (px)">
             </div>
           </div>
           <div class="form-row">
@@ -3345,8 +3345,8 @@
             <div class="form-row">
               <label>Anchor (X, Y)</label>
               <div class="grid-2" style="width: 100%;">
-                <input type="number" id="prop-node-x" step="1" title="Anchor Point X">
-                <input type="number" id="prop-node-y" step="1" title="Anchor Point Y">
+                <input type="number" id="prop-node-x" step="any" title="Anchor Point X">
+                <input type="number" id="prop-node-y" step="any" title="Anchor Point Y">
               </div>
             </div>
             <div class="form-row">
@@ -3367,15 +3367,15 @@
           <div class="form-row">
             <label>Position (X, Y)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-img-x" step="1" title="Position X (px)">
-              <input type="number" id="prop-img-y" step="1" title="Position Y (px)">
+              <input type="number" id="prop-img-x" step="any" title="Position X (px)">
+              <input type="number" id="prop-img-y" step="any" title="Position Y (px)">
             </div>
           </div>
           <div class="form-row">
             <label>Size (W × H)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-img-w" min="1" step="1" title="Width (px)">
-              <input type="number" id="prop-img-h" min="1" step="1" title="Height (px)">
+              <input type="number" id="prop-img-w" min="0.001" step="any" title="Width (px)">
+              <input type="number" id="prop-img-h" min="0.001" step="any" title="Height (px)">
             </div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border);">
@@ -3407,7 +3407,7 @@
           </div>
           <div class="form-row">
             <label>Size (px)</label>
-            <input type="number" id="prop-text-size" min="6" max="256" step="2" value="36">
+            <input type="number" id="prop-text-size" min="0.1" max="2048" step="any" value="36">
           </div>
           <div class="form-row">
             <label>Align</label>
@@ -3419,7 +3419,7 @@
           </div>
           <div class="form-row">
             <label>Spacing</label>
-            <input type="number" id="prop-text-spacing" min="-10" max="50" step="1" value="0">
+            <input type="number" id="prop-text-spacing" min="-100" max="500" step="any" value="0">
           </div>
         </div>
 
@@ -3428,7 +3428,7 @@
           <div class="form-row">
             <label>Rotation (°)</label>
             <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-              <input type="number" id="prop-obj-rotation" min="-360" max="360" step="1" value="0" style="flex: 1;" title="Rotation in degrees">
+              <input type="number" id="prop-obj-rotation" min="-360" max="360" step="any" value="0" style="flex: 1;" title="Rotation in degrees">
               <button type="button" id="btn-rot-90" class="btn-sm" style="padding: 0 6px;" title="Rotate +90°">+90°</button>
               <button type="button" id="btn-rot-reset" class="btn-sm" style="padding: 0 6px;" title="Reset Rotation to 0°">0°</button>
             </div>
@@ -3436,8 +3436,8 @@
           <div class="form-row">
             <label>Anchor (X, Y)</label>
             <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-obj-origin-x" step="1" title="Anchor Origin X">
-              <input type="number" id="prop-obj-origin-y" step="1" title="Anchor Origin Y">
+              <input type="number" id="prop-obj-origin-x" step="any" title="Anchor Origin X">
+              <input type="number" id="prop-obj-origin-y" step="any" title="Anchor Origin Y">
             </div>
           </div>
           <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
@@ -3485,8 +3485,8 @@
         <div class="form-row" style="margin-bottom: 4px;">
           <label style="flex: 0 0 50px;">Size</label>
           <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-doc-w" value="800" min="16" max="8192" step="10" title="Document Width (px)" style="font-size: 11px;">
-            <input type="number" id="prop-doc-h" value="600" min="16" max="8192" step="10" title="Document Height (px)" style="font-size: 11px;">
+            <input type="number" id="prop-doc-w" value="800" min="1" max="65536" step="any" title="Document Width (px)" style="font-size: 11px;">
+            <input type="number" id="prop-doc-h" value="600" min="1" max="65536" step="any" title="Document Height (px)" style="font-size: 11px;">
           </div>
         </div>
         <div class="form-row" style="margin-bottom: 0;">
@@ -3511,11 +3511,11 @@
         <div class="grid-2">
           <div class="form-row">
             <label style="flex: 0 0 50px;">Width</label>
-            <input type="number" id="inp-new-w" value="1280" min="64" max="8192" style="font-size: 11px;">
+            <input type="number" id="inp-new-w" value="1280" min="1" max="65536" step="any" style="font-size: 11px;">
           </div>
           <div class="form-row">
             <label style="flex: 0 0 50px;">Height</label>
-            <input type="number" id="inp-new-h" value="720" min="64" max="8192" style="font-size: 11px;">
+            <input type="number" id="inp-new-h" value="720" min="1" max="65536" step="any" style="font-size: 11px;">
           </div>
         </div>
         <div class="form-row" style="align-items: center;">
@@ -3590,7 +3590,7 @@
         <div class="form-row">
           <label>Scale Factor</label>
           <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-scale" min="0.01" max="100" step="0.25" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+            <input type="number" id="export-scale" min="0.01" max="100" step="any" value="2" style="flex: 1; padding: 2px 4px; font-size: 11px;">
             <span style="font-size: 11px; color: var(--text-dim);">×</span>
             <div style="display: flex; gap: 2px;">
               <button type="button" class="btn-sm preset-static-scale" data-scale="1" style="padding: 2px 5px; font-size: 10px;">1×</button>
@@ -3640,7 +3640,7 @@
         <div class="form-row">
           <label>Scale Factor</label>
           <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="number" id="export-anim-scale" min="0.01" max="100" step="0.25" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
+            <input type="number" id="export-anim-scale" min="0.01" max="100" step="any" value="1" style="flex: 1; padding: 2px 4px; font-size: 11px;">
             <span style="font-size: 11px; color: var(--text-dim);">×</span>
             <div style="display: flex; gap: 2px;">
               <button type="button" class="btn-sm preset-anim-scale" data-scale="0.5" style="padding: 2px 5px; font-size: 10px;">0.5×</button>
@@ -6137,54 +6137,57 @@
           propObjName.disabled = false;
         }
 
+        // Helper for formatting float coordinates and dimensions
+        const fmtF = (v, d = 3) => (v === undefined || v === null || isNaN(v)) ? 0 : Number(Number(v).toFixed(d));
+
         // Geometry & Dimensions Sync
         if (obj.type === 'rect') {
           setDisplay('geom-rect-fields', 'block');
-          setVal('prop-rect-x', Math.round(obj.x));
-          setVal('prop-rect-y', Math.round(obj.y));
-          setVal('prop-rect-w', Math.round(obj.width));
-          setVal('prop-rect-h', Math.round(obj.height));
-          setVal('prop-rect-rx', obj.rx || 0);
-          setVal('prop-rect-ry', obj.ry || 0);
+          setVal('prop-rect-x', fmtF(obj.x));
+          setVal('prop-rect-y', fmtF(obj.y));
+          setVal('prop-rect-w', fmtF(obj.width));
+          setVal('prop-rect-h', fmtF(obj.height));
+          setVal('prop-rect-rx', fmtF(obj.rx || 0));
+          setVal('prop-rect-ry', fmtF(obj.ry || 0));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Rect to Bézier Path';
           }
         } else if (obj.type === 'circle') {
           setDisplay('geom-circle-fields', 'block');
-          setVal('prop-circle-cx', Math.round(obj.cx));
-          setVal('prop-circle-cy', Math.round(obj.cy));
-          setVal('prop-circle-r', Math.round(obj.r || obj.rx));
+          setVal('prop-circle-cx', fmtF(obj.cx));
+          setVal('prop-circle-cy', fmtF(obj.cy));
+          setVal('prop-circle-r', fmtF(obj.r || obj.rx));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Circle to Bézier Path';
           }
         } else if (obj.type === 'ellipse') {
           setDisplay('geom-ellipse-fields', 'block');
-          setVal('prop-ellipse-cx', Math.round(obj.cx));
-          setVal('prop-ellipse-cy', Math.round(obj.cy));
-          setVal('prop-ellipse-rx', Math.round(obj.rx));
-          setVal('prop-ellipse-ry', Math.round(obj.ry));
+          setVal('prop-ellipse-cx', fmtF(obj.cx));
+          setVal('prop-ellipse-cy', fmtF(obj.cy));
+          setVal('prop-ellipse-rx', fmtF(obj.rx));
+          setVal('prop-ellipse-ry', fmtF(obj.ry));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Ellipse to Bézier Path';
           }
         } else if (obj.type === 'line') {
           setDisplay('geom-line-fields', 'block');
-          setVal('prop-line-x1', Math.round(obj.x1));
-          setVal('prop-line-y1', Math.round(obj.y1));
-          setVal('prop-line-x2', Math.round(obj.x2));
-          setVal('prop-line-y2', Math.round(obj.y2));
+          setVal('prop-line-x1', fmtF(obj.x1));
+          setVal('prop-line-y1', fmtF(obj.y1));
+          setVal('prop-line-x2', fmtF(obj.x2));
+          setVal('prop-line-y2', fmtF(obj.y2));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '☡ Convert Line to Bézier Path';
           }
         } else if (obj.type === 'image') {
           setDisplay('geom-image-fields', 'block');
-          setVal('prop-img-x', Math.round(obj.x));
-          setVal('prop-img-y', Math.round(obj.y));
-          setVal('prop-img-w', Math.round(obj.width));
-          setVal('prop-img-h', Math.round(obj.height));
+          setVal('prop-img-x', fmtF(obj.x));
+          setVal('prop-img-y', fmtF(obj.y));
+          setVal('prop-img-w', fmtF(obj.width));
+          setVal('prop-img-h', fmtF(obj.height));
           if (btnConvertPath) {
             btnConvertPath.style.display = 'none';
           }
@@ -6192,9 +6195,9 @@
           setDisplay('geom-text-fields', 'block');
           setVal('prop-text-content', obj.text || '');
           setVal('prop-text-font', obj.fontFamily || 'sans-serif');
-          setVal('prop-text-size', obj.fontSize || 36);
+          setVal('prop-text-size', obj.fontSize !== undefined ? fmtF(obj.fontSize) : 36);
           setVal('prop-text-align', obj.textAlign || 'left');
-          setVal('prop-text-spacing', obj.letterSpacing || 0);
+          setVal('prop-text-spacing', obj.letterSpacing !== undefined ? fmtF(obj.letterSpacing) : 0);
           if (btnConvertPath) {
             btnConvertPath.style.display = 'block';
             btnConvertPath.textContent = '📐 Convert Text to Bézier Path';
@@ -6202,20 +6205,20 @@
         } else if (obj.type === 'compoundPath') {
           setDisplay('geom-path-fields', 'block');
           const b = obj.getBounds();
-          setVal('prop-path-x', Math.round(b.minX));
-          setVal('prop-path-y', Math.round(b.minY));
-          setVal('prop-path-w', Math.round(b.width));
-          setVal('prop-path-h', Math.round(b.height));
+          setVal('prop-path-x', fmtF(b.minX));
+          setVal('prop-path-y', fmtF(b.minY));
+          setVal('prop-path-w', fmtF(b.width));
+          setVal('prop-path-h', fmtF(b.height));
           setVal('prop-path-info', `${obj.subPaths ? obj.subPaths.length : 0} sub-paths (${obj.fillRule || 'evenodd'})`);
           setDisplay('path-simplify-section', 'block');
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'path') {
           setDisplay('geom-path-fields', 'block');
           const b = obj.getBounds();
-          setVal('prop-path-x', Math.round(b.minX));
-          setVal('prop-path-y', Math.round(b.minY));
-          setVal('prop-path-w', Math.round(b.width));
-          setVal('prop-path-h', Math.round(b.height));
+          setVal('prop-path-x', fmtF(b.minX));
+          setVal('prop-path-y', fmtF(b.minY));
+          setVal('prop-path-w', fmtF(b.width));
+          setVal('prop-path-h', fmtF(b.height));
           setVal('prop-path-info', `${obj.nodes ? obj.nodes.length : 0} nodes (${obj.closed ? 'closed' : 'open'})`);
           setDisplay('path-simplify-section', 'block');
 
@@ -6225,8 +6228,8 @@
             if (activeTool === 'node' && activeNodeIdx >= 0 && node && path) {
               nodeSec.style.display = 'block';
               setText('node-editor-index', `#${activeNodeIdx + 1} of ${path.nodes.length}`);
-              setVal('prop-node-x', Math.round(node.x));
-              setVal('prop-node-y', Math.round(node.y));
+              setVal('prop-node-x', fmtF(node.x));
+              setVal('prop-node-y', fmtF(node.y));
               setVal('prop-node-type', node.type || 'smooth');
             } else {
               nodeSec.style.display = 'none';
@@ -6236,10 +6239,10 @@
         } else if (obj.type === 'group') {
           setDisplay('geom-path-fields', 'block');
           const b = obj.getBounds();
-          setVal('prop-path-x', Math.round(b.minX));
-          setVal('prop-path-y', Math.round(b.minY));
-          setVal('prop-path-w', Math.round(b.width));
-          setVal('prop-path-h', Math.round(b.height));
+          setVal('prop-path-x', fmtF(b.minX));
+          setVal('prop-path-y', fmtF(b.minY));
+          setVal('prop-path-w', fmtF(b.width));
+          setVal('prop-path-h', fmtF(b.height));
           setVal('prop-path-info', `${obj.children ? obj.children.length : 0} objects inside`);
           setDisplay('path-simplify-section', 'none');
           if (btnConvertPath) btnConvertPath.style.display = 'none';
@@ -6250,9 +6253,9 @@
         if (geomTransform) {
           geomTransform.style.display = 'block';
           const origin = (typeof obj.getOrigin === 'function') ? obj.getOrigin() : { x: obj.x + (obj.width || 0) / 2, y: obj.y + (obj.height || 0) / 2 };
-          setVal('prop-obj-rotation', Math.round(obj.rotation || 0));
-          setVal('prop-obj-origin-x', Math.round(origin.x));
-          setVal('prop-obj-origin-y', Math.round(origin.y));
+          setVal('prop-obj-rotation', fmtF(obj.rotation || 0));
+          setVal('prop-obj-origin-x', fmtF(origin.x));
+          setVal('prop-obj-origin-y', fmtF(origin.y));
         }
 
         if (obj.fill && obj.fill.startsWith('#') && obj.fill.length === 7) {
@@ -12037,13 +12040,21 @@
         const el = document.getElementById(`prop-${idSuffix}`);
         if (!el) return;
         el.addEventListener('input', (e) => {
-          const val = Number(e.target.value);
+          const val = parseFloat(e.target.value);
+          if (isNaN(val)) return;
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (obj.locked) continue;
             if (obj.type === 'rect') obj[propKey] = val;
           }
           render();
+          drawOverlay();
+        });
+        el.addEventListener('change', () => {
+          doc.pushHistory(`Edit Rect ${propKey}`);
+          updateInspector();
+          render();
+          drawOverlay();
         });
       });
 
@@ -12052,7 +12063,8 @@
         const el = document.getElementById(`prop-${idSuffix}`);
         if (!el) return;
         el.addEventListener('input', (e) => {
-          const val = Number(e.target.value);
+          const val = parseFloat(e.target.value);
+          if (isNaN(val)) return;
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (obj.locked) continue;
@@ -12062,6 +12074,13 @@
             }
           }
           render();
+          drawOverlay();
+        });
+        el.addEventListener('change', () => {
+          doc.pushHistory(`Edit Circle ${propKey}`);
+          updateInspector();
+          render();
+          drawOverlay();
         });
       });
 
@@ -12070,13 +12089,21 @@
         const el = document.getElementById(`prop-${idSuffix}`);
         if (!el) return;
         el.addEventListener('input', (e) => {
-          const val = Number(e.target.value);
+          const val = parseFloat(e.target.value);
+          if (isNaN(val)) return;
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (obj.locked) continue;
             if (obj.type === 'ellipse') obj[propKey] = val;
           }
           render();
+          drawOverlay();
+        });
+        el.addEventListener('change', () => {
+          doc.pushHistory(`Edit Ellipse ${propKey}`);
+          updateInspector();
+          render();
+          drawOverlay();
         });
       });
 
@@ -12085,13 +12112,21 @@
         const el = document.getElementById(`prop-${idSuffix}`);
         if (!el) return;
         el.addEventListener('input', (e) => {
-          const val = Number(e.target.value);
+          const val = parseFloat(e.target.value);
+          if (isNaN(val)) return;
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (obj.locked) continue;
             if (obj.type === 'line') obj[propKey] = val;
           }
           render();
+          drawOverlay();
+        });
+        el.addEventListener('change', () => {
+          doc.pushHistory(`Edit Line ${propKey}`);
+          updateInspector();
+          render();
+          drawOverlay();
         });
       });
 
@@ -12100,25 +12135,40 @@
         const el = document.getElementById(`prop-${idSuffix}`);
         if (!el) return;
         el.addEventListener('input', (e) => {
-          const val = Number(e.target.value);
+          const val = parseFloat(e.target.value);
+          if (isNaN(val)) return;
           const selected = doc.getSelectedObjects();
           for (const obj of selected) {
             if (obj.locked) continue;
             if (obj.type === 'image') obj[propKey] = val;
           }
           render();
+          drawOverlay();
+        });
+        el.addEventListener('change', () => {
+          doc.pushHistory(`Edit Image ${propKey}`);
+          updateInspector();
+          render();
+          drawOverlay();
         });
       });
 
       // Object Transform (Rotation & Anchor) Bindings
       document.getElementById('prop-obj-rotation')?.addEventListener('input', (e) => {
-        const val = Number(e.target.value) || 0;
+        const val = parseFloat(e.target.value) || 0;
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
           if (obj.locked) continue;
           obj.rotation = val;
         }
         render();
+        drawOverlay();
+      });
+      document.getElementById('prop-obj-rotation')?.addEventListener('change', () => {
+        doc.pushHistory('Rotate Object');
+        updateInspector();
+        render();
+        drawOverlay();
       });
 
       document.getElementById('btn-rot-90')?.addEventListener('click', () => {
@@ -12144,7 +12194,7 @@
       });
 
       document.getElementById('prop-obj-origin-x')?.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
+        const val = parseFloat(e.target.value);
         if (isNaN(val)) return;
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
@@ -12158,9 +12208,15 @@
         render();
         drawOverlay();
       });
+      document.getElementById('prop-obj-origin-x')?.addEventListener('change', () => {
+        doc.pushHistory('Set Origin X');
+        updateInspector();
+        render();
+        drawOverlay();
+      });
 
       document.getElementById('prop-obj-origin-y')?.addEventListener('input', (e) => {
-        const val = Number(e.target.value);
+        const val = parseFloat(e.target.value);
         if (isNaN(val)) return;
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
@@ -12174,13 +12230,19 @@
         render();
         drawOverlay();
       });
+      document.getElementById('prop-obj-origin-y')?.addEventListener('change', () => {
+        doc.pushHistory('Set Origin Y');
+        updateInspector();
+        render();
+        drawOverlay();
+      });
 
       document.getElementById('btn-anchor-center')?.addEventListener('click', () => {
         const selected = doc.getSelectedObjects();
         for (const obj of selected) {
           const b = obj.getBounds();
-          const cx = Math.round(b.minX + b.width / 2);
-          const cy = Math.round(b.minY + b.height / 2);
+          const cx = b.minX + b.width / 2;
+          const cy = b.minY + b.height / 2;
           if (typeof obj.setOrigin === 'function') {
             obj.setOrigin(cx, cy, true);
           } else {
