@@ -4672,13 +4672,14 @@
   <script src="src/color_studio.js"></script>
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
+  <script src="src/svg/svg_rigging.js"></script>
   <script src="src/svg/svg_engine.js"></script>
   <script src="src/svg/quadro_svg_renderer.js"></script>
   <script>
     (function () {
       'use strict';
 
-      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
+      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer, SvgBone, SvgSkeleton, RagdollSimulation, bakeRagdollToDopeSheet } = SvgEngine;
 
       // ── Persistent User Settings (localStorage) ──
       const STUDIO_SETTINGS_KEY = 'esenho_studio_settings_v1';

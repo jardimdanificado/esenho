@@ -9,11 +9,13 @@
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) {
     const SvgBoolean = require('./svg_boolean.js');
-    module.exports = factory(SvgBoolean);
+    let SvgRigging = null;
+    try { SvgRigging = require('./svg_rigging.js'); } catch (_) {}
+    module.exports = factory(SvgBoolean, SvgRigging);
   } else {
-    root.SvgEngine = factory(root.SvgBoolean);
+    root.SvgEngine = factory(root.SvgBoolean, root.SvgRigging);
   }
-}(typeof self !== 'undefined' ? self : this, function (SvgBoolean) {
+}(typeof self !== 'undefined' ? self : this, function (SvgBoolean, SvgRigging) {
   'use strict';
 
   let nextId = 1;
@@ -5943,7 +5945,12 @@
     generateId,
     wasmPlugins: globalWasmPlugins,
     encodeBase64,
-    decodeBase64
+    decodeBase64,
+    SvgBone: SvgRigging ? SvgRigging.SvgBone : null,
+    SvgSkeleton: SvgRigging ? SvgRigging.SvgSkeleton : null,
+    RagdollSimulation: SvgRigging ? SvgRigging.RagdollSimulation : null,
+    bakeRagdollToDopeSheet: SvgRigging ? SvgRigging.bakeRagdollToDopeSheet : null,
+    SvgRigging
   };
 }));
 
