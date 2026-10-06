@@ -73,6 +73,501 @@
       color-scheme: dark;
     }
 
+    /* ═══════════════════════════════════════════════════════════════════
+       ── COMPLETELY SKEUOMORPHIC ANALOG STUDIO THEME ──
+       Real tactile materials: brushed dark alloys, milled aluminum panels,
+       sunken inset wells, 3D beveled buttons, analog fader knobs with
+       specular sheen, glowing warm amber/ruby LEDs, debossed lettering,
+       and authentic hardware depth.
+       ═══════════════════════════════════════════════════════════════════ */
+    [data-theme="skeuo"], body.theme-skeuo,
+    [data-theme="skeuomorphic"], body.theme-skeuomorphic {
+      --bg-dark: #191c20;
+      --bg-canvas: #121417;
+      --bg-panel: #292d33;
+      --bg-panel-sub: #212429;
+      --bg-input: #101215;
+      --bg-input-focus: #15181c;
+      --border: #16181b;
+      --border-bright: #444b54;
+      --border-focus: #f59e0b;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --text: #e2e8f0;
+      --text-bright: #ffffff;
+      --text-dim: #cbd5e1;
+      --text-muted: #8893a2;
+      --primary: #f59e0b;
+      --primary-hover: #fbbf24;
+      --primary-dim: rgba(245, 158, 11, 0.22);
+      --primary-text: #1a0f02;
+      --accent: #38bdf8;
+      --accent-hover: #7dd3fc;
+      --accent-dim: rgba(56, 189, 248, 0.2);
+      --danger: #ef4444;
+      --danger-dim: rgba(239, 68, 68, 0.2);
+      --success: #10b981;
+      color-scheme: dark;
+    }
+
+    /* ── Skeuomorphic Global Elements & Canvas ── */
+    body.theme-skeuo, [data-theme="skeuo"] {
+      background: radial-gradient(circle at 50% 0%, #262a30 0%, #17191d 100%);
+    }
+
+    [data-theme="skeuo"] #dock-panel-canvas,
+    [data-theme="skeuo"] #viewport-container {
+      background-color: #121417 !important;
+      background-image:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.02) 0%, transparent 80%),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px) !important;
+      background-size: 100% 100%, 20px 20px, 20px 20px !important;
+    }
+
+    [data-theme="skeuo"] #stage-wrapper {
+      box-shadow:
+        0 14px 40px rgba(0, 0, 0, 0.9),
+        0 4px 12px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(255, 255, 255, 0.12) !important;
+      border-radius: 3px !important;
+    }
+
+    /* ── Skeuomorphic Titlebar & Header ── */
+    [data-theme="skeuo"] .vscode-titlebar {
+      background: linear-gradient(180deg, #3d434a 0%, #2e333a 50%, #23272c 100%) !important;
+      border-bottom: 1px solid #121416 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 3px 6px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] .titlebar-command-center {
+      background: linear-gradient(180deg, #0e1012 0%, #16191d 100%) !important;
+      border: 1px solid #0a0b0d !important;
+      border-radius: 4px !important;
+      box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.9),
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    }
+
+    [data-theme="skeuo"] .titlebar-command-center:hover {
+      background: linear-gradient(180deg, #13161a 0%, #1c2026 100%) !important;
+      border-color: #0e1013 !important;
+    }
+
+    [data-theme="skeuo"] .menubar-item,
+    [data-theme="skeuo"] .titlebar-btn {
+      background: linear-gradient(180deg, #383e46 0%, #2a2e34 100%) !important;
+      border: 1px solid #181a1d !important;
+      border-radius: 4px !important;
+      color: #cbd5e1 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 1px 2px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] .menubar-item:hover,
+    [data-theme="skeuo"] .titlebar-btn:hover {
+      background: linear-gradient(180deg, #464d56 0%, #343a42 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 2px 4px rgba(0, 0, 0, 0.45) !important;
+    }
+
+    [data-theme="skeuo"] .menubar-item:active,
+    [data-theme="skeuo"] .titlebar-btn:active,
+    [data-theme="skeuo"] .menubar-item.active {
+      background: linear-gradient(180deg, #181a1d 0%, #23272c 100%) !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      transform: translateY(1px);
+    }
+
+    [data-theme="skeuo"] .titlebar-btn.primary-action {
+      background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
+      color: #180f02 !important;
+      border-color: #92400e !important;
+      font-weight: 700 !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        0 2px 5px rgba(245, 158, 11, 0.4) !important;
+    }
+
+    [data-theme="skeuo"] .titlebar-btn.primary-action:hover {
+      background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.6),
+        0 3px 8px rgba(245, 158, 11, 0.5) !important;
+    }
+
+    /* ── Skeuomorphic Statusbar ── */
+    [data-theme="skeuo"] .vscode-statusbar {
+      background: linear-gradient(180deg, #272b30 0%, #1c1f23 50%, #151719 100%) !important;
+      border-top: 1px solid #0f1113 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 -1px 3px rgba(0, 0, 0, 0.3) !important;
+      color: #94a3b8 !important;
+    }
+
+    [data-theme="skeuo"] .vscode-statusbar .statusbar-item:hover {
+      background: linear-gradient(180deg, #383e46 0%, #282c32 100%) !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 1px 2px rgba(0, 0, 0, 0.4) !important;
+      color: #ffffff !important;
+    }
+
+    /* ── Skeuomorphic Left Toolbar ── */
+    [data-theme="skeuo"] #toolbar {
+      background: linear-gradient(90deg, #2e3339 0%, #24272d 100%) !important;
+      border-right: 1px solid #131517 !important;
+      box-shadow:
+        inset -1px 0 0 rgba(255, 255, 255, 0.07),
+        2px 0 8px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn {
+      background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #23272c 100%) !important;
+      border: 1px solid #151719 !important;
+      border-radius: 5px !important;
+      color: #94a3b8 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        0 2px 4px rgba(0, 0, 0, 0.45) !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn:hover {
+      background: linear-gradient(180deg, #484f58 0%, #343941 60%, #292d33 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.3),
+        0 3px 6px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] .tool-btn.active {
+      background: linear-gradient(180deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%) !important;
+      color: #170f02 !important;
+      border-color: #78350f !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.4),
+        0 0 10px rgba(245, 158, 11, 0.55),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.5) !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+      transform: translateY(1px);
+    }
+
+    [data-theme="skeuo"] .tool-btn.active span.hotkey {
+      color: #170f02 !important;
+      font-weight: 700;
+    }
+
+    [data-theme="skeuo"] .toolbar-sep {
+      background: #151719 !important;
+      box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* ── Skeuomorphic Dockview & Tabs ── */
+    [data-theme="skeuo"] #dockview-container {
+      --dv-tabs-and-actions-container-background-color: #202428;
+      --dv-activegroup-visiblepanel-tab-background-color: #2d3238;
+      --dv-activegroup-visiblepanel-tab-color: #ffc848;
+      --dv-inactivegroup-visiblepanel-tab-background-color: #272b30;
+      --dv-inactivegroup-visiblepanel-tab-color: #cbd5e1;
+      --dv-group-view-background-color: #282c32;
+      --dv-background-color: #282c32;
+      --dv-tab-divider-color: #15171a;
+      --dv-separator-border: 1px solid #15171a;
+      --dv-sash-hover-color: #f59e0b;
+    }
+
+    [data-theme="skeuo"] .dock-panel-content {
+      background: linear-gradient(180deg, #2c3036 0%, #24282e 100%) !important;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tabs-and-actions-container {
+      background: linear-gradient(180deg, #22262b 0%, #1a1d21 100%) !important;
+      border-bottom: 1px solid #131518 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        inset 0 -1px 3px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab {
+      background: linear-gradient(180deg, #2d3238 0%, #212429 100%) !important;
+      border: 1px solid #15171a !important;
+      border-bottom: none !important;
+      border-radius: 4px 4px 0 0 !important;
+      margin-right: 2px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        0 -1px 2px rgba(0, 0, 0, 0.25) !important;
+      color: #94a3b8 !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab.dv-active-tab {
+      background: linear-gradient(180deg, #3d434c 0%, #2d3238 100%) !important;
+      color: #ffc848 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 0 #f59e0b,
+        0 -2px 6px rgba(0, 0, 0, 0.45) !important;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.9),
+        0 0 8px rgba(245, 158, 11, 0.4) !important;
+    }
+
+    [data-theme="skeuo"] #dockview-container .dv-tab:hover:not(.dv-active-tab) {
+      background: linear-gradient(180deg, #373d45 0%, #292d33 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.25),
+        0 -1px 3px rgba(0, 0, 0, 0.35) !important;
+    }
+
+    /* ── Skeuomorphic Form Controls, Recessed Wells & Inputs ── */
+    [data-theme="skeuo"] input[type="text"],
+    [data-theme="skeuo"] input[type="number"],
+    [data-theme="skeuo"] select,
+    [data-theme="skeuo"] textarea,
+    [data-theme="skeuo"] #svg-code-editor {
+      background: linear-gradient(180deg, #101215 0%, #17191d 100%) !important;
+      border: 1px solid #0c0e10 !important;
+      border-radius: 4px !important;
+      color: #e2e8f0 !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.85),
+        inset 0 1px 1px rgba(0, 0, 0, 0.6),
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] input[type="text"]:focus,
+    [data-theme="skeuo"] input[type="number"]:focus,
+    [data-theme="skeuo"] select:focus,
+    [data-theme="skeuo"] textarea:focus,
+    [data-theme="skeuo"] #svg-code-editor:focus {
+      border-color: #f59e0b !important;
+      background: linear-gradient(180deg, #13161a 0%, #1a1e23 100%) !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.85),
+        0 0 0 1px #f59e0b,
+        0 0 8px rgba(245, 158, 11, 0.45),
+        0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    }
+
+    /* ── Skeuomorphic Buttons ── */
+    [data-theme="skeuo"] button,
+    [data-theme="skeuo"] .top-tool-btn {
+      background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%) !important;
+      border: 1px solid #141618 !important;
+      border-radius: 4px !important;
+      color: #cbd5e1 !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 2px 4px rgba(0, 0, 0, 0.4),
+        0 1px 1px rgba(0, 0, 0, 0.3) !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] button:hover,
+    [data-theme="skeuo"] .top-tool-btn:hover {
+      background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%) !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        0 2px 6px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] button:active,
+    [data-theme="skeuo"] .top-tool-btn:active {
+      background: linear-gradient(180deg, #181a1d 0%, #23272c 100%) !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      transform: translateY(1px);
+    }
+
+    [data-theme="skeuo"] button.btn-primary {
+      background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%) !important;
+      border: 1px solid #92400e !important;
+      color: #1a0f02 !important;
+      font-weight: 700 !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        0 2px 6px rgba(245, 158, 11, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] button.btn-primary:hover {
+      background: linear-gradient(180deg, #fcd34d 0%, #fbbf24 50%, #f59e0b 100%) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.65),
+        0 3px 9px rgba(245, 158, 11, 0.55) !important;
+    }
+
+    /* ── Skeuomorphic Range Faders ── */
+    [data-theme="skeuo"] input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    [data-theme="skeuo"] input[type="range"]::-webkit-slider-runnable-track {
+      background: linear-gradient(180deg, #0c0d10 0%, #191c20 100%) !important;
+      border: 1px solid #08090a !important;
+      border-radius: 4px !important;
+      height: 7px !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.9),
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    }
+
+    [data-theme="skeuo"] input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px !important;
+      height: 18px !important;
+      margin-top: -6px !important;
+      background: linear-gradient(180deg, #f1f5f9 0%, #b8c1cb 45%, #717b86 100%) !important;
+      border: 1px solid #23272b !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+        0 2px 5px rgba(0, 0, 0, 0.75),
+        0 1px 2px rgba(0, 0, 0, 0.5) !important;
+      position: relative;
+    }
+
+    [data-theme="skeuo"] input[type="range"]:hover::-webkit-slider-thumb {
+      background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 45%, #8893a0 100%) !important;
+      box-shadow:
+        inset 0 1px 0 #ffffff,
+        0 3px 7px rgba(0, 0, 0, 0.85) !important;
+    }
+
+    /* ── Skeuomorphic Menus, Popovers, Modals ── */
+    [data-theme="skeuo"] .dropdown-menu,
+    [data-theme="skeuo"] .menu-submenu,
+    [data-theme="skeuo"] .monaco-menu-container,
+    [data-theme="skeuo"] .tool-flyout,
+    [data-theme="skeuo"] .tool-submenu,
+    [data-theme="skeuo"] .modal-card {
+      background: linear-gradient(180deg, #32373e 0%, #25282e 100%) !important;
+      border: 1px solid #484f58 !important;
+      border-radius: 6px !important;
+      box-shadow:
+        0 14px 32px rgba(0, 0, 0, 0.75),
+        0 4px 10px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+    }
+
+    [data-theme="skeuo"] .monaco-menu .action-item.focused > .action-menu-item,
+    [data-theme="skeuo"] .monaco-menu .action-item:hover > .action-menu-item,
+    [data-theme="skeuo"] .menu-item:hover {
+      background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%) !important;
+      color: #1a0f02 !important;
+      text-shadow: 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.4),
+        0 1px 3px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    /* ── Skeuomorphic Object & Layer Hierarchy List ── */
+    [data-theme="skeuo"] #object-list {
+      background: linear-gradient(180deg, #0f1114 0%, #16191d 100%) !important;
+      border: 1px solid #0c0e10 !important;
+      border-radius: 6px !important;
+      box-shadow:
+        inset 0 2px 6px rgba(0, 0, 0, 0.9),
+        0 1px 0 rgba(255, 255, 255, 0.12) !important;
+    }
+
+    [data-theme="skeuo"] .object-item {
+      border-radius: 4px !important;
+      transition: all 0.1s ease;
+    }
+
+    [data-theme="skeuo"] .object-item:hover {
+      background: linear-gradient(180deg, #353b43 0%, #272b31 100%) !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    [data-theme="skeuo"] .object-item.selected {
+      background: linear-gradient(180deg, #3d444d 0%, #2a2f36 100%) !important;
+      border: 1px solid #f59e0b !important;
+      color: #ffffff !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 0 8px rgba(245, 158, 11, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.4) !important;
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9) !important;
+    }
+
+    /* ── Skeuomorphic Analog Transport (Animation Timeline) ── */
+    [data-theme="skeuo"] .anim-toolbar-card,
+    [data-theme="skeuo"] .anim-events-card {
+      background: linear-gradient(180deg, #282c32 0%, #1e2126 100%) !important;
+      border: 1px solid #141619 !important;
+      border-radius: 6px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 2px 5px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    [data-theme="skeuo"] .anim-scrubber-wrap {
+      background: linear-gradient(180deg, #0d0e11 0%, #16191c 100%) !important;
+      border: 1px solid #090a0c !important;
+      border-radius: 4px !important;
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.9),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    }
+
+    /* ── Skeuomorphic Scrollbars ── */
+    [data-theme="skeuo"] ::-webkit-scrollbar-track {
+      background: #121417 !important;
+      box-shadow: inset 0 0 3px rgba(0, 0, 0, 0.8) !important;
+    }
+
+    [data-theme="skeuo"] ::-webkit-scrollbar-thumb {
+      background: linear-gradient(180deg, #495058 0%, #2f343a 100%) !important;
+      border: 1px solid #1c1f23 !important;
+      border-radius: 3px !important;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    [data-theme="skeuo"] ::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #5b646e 0%, #3e444b 100%) !important;
+    }
+
+    /* ── Skeuomorphic Badges & Toolchips ── */
+    [data-theme="skeuo"] .badge {
+      background: linear-gradient(180deg, #0e1012 0%, #17191d 100%) !important;
+      border: 1px solid #0a0c0e !important;
+      border-radius: 3px !important;
+      color: #38bdf8 !important;
+      box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.8),
+        0 1px 0 rgba(255, 255, 255, 0.1) !important;
+      text-shadow: 0 0 4px rgba(56, 189, 248, 0.4) !important;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -2421,7 +2916,7 @@
         <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
-      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray)" style="cursor: pointer;">
+      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray / Skeuomorphic)" style="cursor: pointer;">
         <span class="statusbar-icon">☀</span>
         <span id="status-theme-text">☾ Dark</span>
       </div>
@@ -3795,15 +4290,18 @@
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
+      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
+        if (theme === 'skeuomorphic') theme = 'skeuo';
+        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
+        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -3813,6 +4311,7 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
+          else if (currentTheme === 'skeuo') themeText.textContent = '🎛 Skeuo';
           else themeText.textContent = '☾ Dark';
         }
 
@@ -3834,13 +4333,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray'];
+        const order = ['dark', 'gray', 'skeuo'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -11079,7 +11578,8 @@
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') },
+            { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic', action: () => setTheme('skeuo') }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },

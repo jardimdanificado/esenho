@@ -12,6 +12,14 @@
     if (new URLSearchParams(window.location.search).get('embedded') === 'true') {
       document.documentElement.classList.add('is-embedded');
     }
+    const savedTheme = localStorage.getItem('esenho_theme');
+    if (savedTheme) {
+      document.documentElement.setAttribute('data-theme', savedTheme);
+      window.addEventListener('DOMContentLoaded', () => {
+        document.body.setAttribute('data-theme', savedTheme);
+        document.body.classList.add('theme-' + savedTheme);
+      });
+    }
   </script>
   <style>
     :root {
@@ -43,6 +51,61 @@
       --radius-md: 5px;
       --radius-lg: 8px;
     }
+
+    [data-theme="skeuo"], body.theme-skeuo,
+    [data-theme="skeuomorphic"], body.theme-skeuomorphic {
+      --bg-dark: #191c20;
+      --bg-canvas: #121417;
+      --bg-panel: #292d33;
+      --bg-panel-sub: #212429;
+      --bg-input: #101215;
+      --bg-input-focus: #15181c;
+      --border: #16181b;
+      --border-bright: #444b54;
+      --border-focus: #f59e0b;
+      --text: #e2e8f0;
+      --text-bright: #ffffff;
+      --text-muted: #8893a2;
+      --text-dim: #cbd5e1;
+      --primary: #f59e0b;
+      --primary-hover: #fbbf24;
+      --primary-dim: rgba(245, 158, 11, 0.22);
+      --accent: #38bdf8;
+      --danger: #ef4444;
+      --danger-dark: #b91c1c;
+      --success: #10b981;
+      color-scheme: dark;
+    }
+
+    [data-theme="skeuo"] button,
+    body.theme-skeuo button {
+      background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%);
+      border: 1px solid #141618;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.4);
+      text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
+    }
+    [data-theme="skeuo"] button:hover,
+    body.theme-skeuo button:hover {
+      background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%);
+      color: #ffffff;
+    }
+    [data-theme="skeuo"] button:active,
+    body.theme-skeuo button:active {
+      background: linear-gradient(180deg, #181a1d 0%, #23272c 100%);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+      transform: translateY(1px);
+    }
+    [data-theme="skeuo"] input,
+    [data-theme="skeuo"] select,
+    [data-theme="skeuo"] textarea,
+    body.theme-skeuo input,
+    body.theme-skeuo select,
+    body.theme-skeuo textarea {
+      background: linear-gradient(180deg, #101215 0%, #17191d 100%);
+      border: 1px solid #0c0e10;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.12);
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     ::selection {
@@ -2850,7 +2913,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.10.148 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.10.149 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
