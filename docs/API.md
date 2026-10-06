@@ -3,11 +3,12 @@
 ## 1. System Architecture
 
 Esenho is an extensible digital painting engine built on WebAssembly and high-performance raster algorithms:
-- **Core WASM Engine (`plugins/canvas.wasm`)**: Written in C99, compiled to WebAssembly without libc dependencies. Manages linear memory, unified multi-layer framebuffers, parametric dab rendering, procedural grain sampling, integer math, and dirty-rect composite generation.
-- **Header & ABI (`include/quadro.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, and filter ABI.
+- **Core WASM Engine (`plugins/canvas.wasm`)**: Written in C99, compiled to WebAssembly without libc dependencies. Manages linear memory, unified multi-layer framebuffers, parametric dab rendering, procedural grain sampling, integer math, dirty-rect composite generation, native vector path rasterization, font glyph rendering, and polyphonic audio DSP.
+- **Header & ABI (`include/quadro.h`)**: Universal interface defining brush engine parameters, layer structures, color conversions, audio DSP, and filter ABI.
 - **Host & Runtime Actor (`src/esenho.js`)**: Executes in Node.js and modern browsers. Implements `EsenhoScreenHost`, `EsenhoModule`, state management, undo/redo snapshot trees, clipboard, and the `papagaio` pattern-matching CLI compiler.
-- **Filter Plugins (`plugins/*.wasm`)**: Standalone WASM modules implementing image processing kernels (`blur`, `brightness`, `contrast`, `dither`, `edge`, `grayscale`, `invert`, `noise`, `pixelate`, `sepia`, `threshold`).
-- **Browser Host (`src/host-browser.js`)**: Glues the canvas element, multitouch gesture recognition, direct WebGL/2D blitting (`desynchronized: true`), and UI controls to the WASM core.
+- **Universal Scripting Platform (`src/script/*`)**: Unified SDK exposing `esenho.*` across raster, vector, animation, audio, and UI domains with an atomic command bus.
+- **Filter Plugins (`plugins/*.wasm`)**: 29 standalone WASM modules implementing image processing kernels (`bloom`, `blur`, `brightness`, `chromatic`, `contrast`, `dither`, `duotone`, `edge`, `emboss`, `fisheye`, `frosted_glass`, `glitch`, `grayscale`, `halftone_dot`, `invert`, `kaleidoscope`, `kuwahara`, `noise`, `pixelate`, `ripple`, `scanline`, `sepia`, `sharpen`, `solarize`, `swirl`, `thermal`, `threshold`, `vignette`).
+- **Browser Host (`src/host-browser.js`)**: Glues canvas elements, multitouch gestures, direct WebGL/2D blitting (`desynchronized: true`), and Dockview UI controls to the WASM core.
 
 ---
 
@@ -59,7 +60,11 @@ typedef struct {
 - `0` (`W_SHAPE_CIRCLE`): 64x64 circle mask.
 - `1` (`W_SHAPE_SQUARE`): 64x64 square mask.
 - `2` (`W_SHAPE_CHISEL`): 64x64 horizontal ribbon calligraphic mask.
-- `>= 3`: Any layer index mapped as tip mask via alpha channel.
+- `3` (`W_SHAPE_STAR`): 5-pointed star procedural tip.
+- `4` (`W_SHAPE_DIAMOND`): Rhombus diamond procedural tip.
+- `5` (`W_SHAPE_TRIANGLE`): Equilateral triangle procedural tip.
+- `6` (`W_SHAPE_HEART`): Stylized heart procedural tip.
+- `>= 7`: Any layer index mapped as tip mask via alpha channel.
 
 #### Parameter IDs (`W_PARAM_*`)
 | ID | Constant | Range / Type | Description |
@@ -77,7 +82,7 @@ typedef struct {
 | 11 | `W_PARAM_WETNESS` | 0..100 | Wet paint blending ratio |
 | 12 | `W_PARAM_GRAIN` | 0..100 | Procedural grain intensity |
 | 13 | `W_PARAM_TEX_MODE` | 0..7 | Procedural texture pattern ID (0=off, 1=paper, 2=canvas, 3=noise, 4=dots, 5=grid, 6=grunge, 7=hatch) |
-| 14 | `W_PARAM_SHAPE` | int32 | Tip shape index (0..2 or layer index) |
+| 14 | `W_PARAM_SHAPE` | int32 | Tip shape index (0..6 or layer index) |
 | 15 | `W_PARAM_MODE` | 0..9 | Tool operating mode index |
 | 16 | `W_PARAM_TEX_ANGLE` | 0..359 | Texture angle in degrees |
 | 17 | `W_PARAM_TEX_SCALE` | 10..400 | Texture scale percentage |
@@ -154,19 +159,6 @@ uint8_t   w_layer_get_opacity(int32_t layer_idx);
 void      w_layer_set_pixels(int32_t layer_idx, uint32_t *pixels, int32_t width, int32_t height);
 ```
 
-#### Textures & Tip Masks
-```c
-int32_t   w_texture_create(int32_t width, int32_t height);
-void      w_texture_set_pixels(int32_t tex_id, uint32_t *pixels, int32_t width, int32_t height);
-uint32_t* w_texture_get_pixels(int32_t tex_id);
-int32_t   w_texture_get_width(int32_t tex_id);
-int32_t   w_texture_get_height(int32_t tex_id);
-int32_t   w_layer_add_texture(int32_t tex_id);
-int32_t   w_layer_get_texture(int32_t layer_idx);
-void      w_set_layer(uint32_t *pixels, int32_t width, int32_t height);
-void      w_set_texture(uint32_t *pixels, int32_t width, int32_t height);
-```
-
 #### Brush Engine & Stroke Execution
 ```c
 void w_brush_set_type(int32_t type);
@@ -177,21 +169,52 @@ void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y
 void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
 ```
 
-#### Primitives & Pixel Operations
+#### Native Vector Path & Bézier Rasterizer ABI
 ```c
-void w_draw_line(int x0, int y0, int x1, int y1, uint32_t color);
-void w_draw_rect(int x, int y, int w, int h, uint32_t color);
-void w_draw_circle(int cx, int cy, int r, uint32_t color);
-void w_draw_ellipse(int cx, int cy, int rx, int ry, uint32_t color);
-void w_draw_grid(int step, uint32_t color);
-void w_draw_image(uint32_t *src_pixels, int src_w, int src_h, int dst_x, int dst_y, int dst_w, int dst_h, uint32_t opacity);
-void w_layer_adjust_hsv(int32_t layer_idx, int32_t d_hue, int32_t d_sat, int32_t d_val);
+void    w_path_begin(void);
+void    w_path_move_to(float x, float y);
+void    w_path_line_to(float x, float y);
+void    w_path_quad_to(float cx, float cy, float x, float y);
+void    w_path_cubic_to(float c1x, float c1y, float c2x, float c2y, float x, float y);
+void    w_path_close(void);
+int32_t w_path_fill(int32_t layer_idx, uint32_t color, int32_t fill_rule);
+int32_t w_path_stroke(int32_t layer_idx, uint32_t color, float line_width, int32_t cap_style, int32_t join_style);
+int32_t w_path_stroke_brush(int32_t layer_idx, uint32_t color, float base_size);
+```
+
+#### Native Font & Glyph Engine ABI
+```c
+int32_t w_font_draw_text(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height);
+int32_t w_font_draw_text_transform(int32_t layer_idx, float x, float y, const char *text, float size, uint32_t color, float tracking, float line_height, float rotation_deg, float scale_x, float scale_y, float pivot_x, float pivot_y, int32_t alignment);
+void    w_font_measure_text(const char *text, float size, float tracking, float *out_w_h);
+```
+
+#### Native Audio DSP Engine ABI
+```c
+void     w_audio_init(uint32_t sample_rate);
+void     w_audio_set_bpm(float bpm);
+float    w_audio_get_bpm(void);
+void     w_audio_set_master_vol(float vol);
+float    w_audio_get_master_vol(void);
+void     w_audio_set_track_synth(uint32_t track_idx, uint32_t wave_type, float attack_s, float decay_s, float sustain_lvl, float release_s, float pulse_width);
+void     w_audio_set_track_filter(uint32_t track_idx, uint32_t filter_type, float cutoff_hz, float resonance, float gain_db);
+void     w_audio_set_track_fx(uint32_t track_idx, float delay_s, float delay_fb, float delay_mix, float reverb_size, float reverb_mix, float crush_bits, float dist_drive);
+void     w_audio_set_track_vol_pan(uint32_t track_idx, float volume, float pan);
+void     w_audio_note_on(uint32_t track_idx, uint32_t midi_note, float velocity);
+void     w_audio_note_off(uint32_t track_idx, uint32_t midi_note);
+void     w_audio_all_notes_off(uint32_t track_idx);
+void     w_audio_trigger_sfxr(uint32_t preset_type, float volume);
+void     w_audio_render_block(uint32_t num_frames);
+float*   w_audio_get_buffer_l(void);
+float*   w_audio_get_buffer_r(void);
+uint32_t w_audio_export_wav(uint8_t *out_wav_buffer, uint32_t max_bytes, uint32_t total_frames);
 ```
 
 #### Selection & Clipping
 ```c
 uint8_t* w_get_clip_mask_buffer(uint32_t size);
 void     w_set_clip(int32_t active, int32_t x, int32_t y, int32_t w, int32_t h, int32_t has_mask);
+int32_t  w_get_selection_scratch_layer(void);
 ```
 
 #### Compositing & Sampling
@@ -201,59 +224,22 @@ uint32_t* w_render(void);
 uint32_t  w_pick_color(int32_t x, int32_t y, int32_t sample_composite);
 ```
 
-#### Vector Path, Shapes & Scene Graph Engine
-```c
-void    w_vector_set_recording(int32_t enabled);
-int32_t w_vector_get_recording(void);
-int32_t w_vector_stroke_begin(uint32_t color, int32_t eraser);
-void    w_vector_stroke_add_point(int32_t x, int32_t y, int32_t pressure, int32_t tilt_x, int32_t tilt_y);
-void    w_vector_stroke_end(int32_t closed);
-int32_t w_vector_create_shape(int32_t type, int32_t x, int32_t y, int32_t w, int32_t h, uint32_t stroke_color, uint32_t fill_color);
-int32_t w_vector_hit_test_object(int32_t layer_idx, int32_t x, int32_t y, int32_t tolerance);
-int32_t w_vector_hit_test_node(int32_t layer_idx, int32_t obj_id, int32_t x, int32_t y, int32_t radius);
-int32_t w_vector_set_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx, int32_t x, int32_t y, int32_t pressure);
-int32_t w_vector_insert_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx, int32_t x, int32_t y, int32_t pressure);
-int32_t w_vector_delete_point(int32_t layer_idx, int32_t obj_id, int32_t pt_idx);
-int32_t w_vector_transform_object(int32_t layer_idx, int32_t obj_id, int32_t dx, int32_t dy, int32_t scale_pct, int32_t rot_deg);
-int32_t w_vector_delete_object(int32_t layer_idx, int32_t obj_id);
-int32_t w_vector_set_object_style(int32_t layer_idx, int32_t obj_id, uint32_t stroke_color, uint32_t fill_color, int32_t stroke_width);
-int32_t w_vector_get_count(int32_t layer_idx);
-void    w_vector_clear_layer(int32_t layer_idx);
-void    w_vector_clear_all(void);
-void    w_vector_replay_layer(int32_t layer_idx, int32_t scale_pct, int32_t off_x, int32_t off_y);
-void    w_vector_replay_all(int32_t scale_pct, int32_t off_x, int32_t off_y);
-int32_t w_vector_get_stroke_point_count(int32_t layer_idx, int32_t stroke_idx);
-int32_t w_vector_get_stroke_info(int32_t layer_idx, int32_t stroke_idx, int32_t *out_info);
-int32_t w_vector_get_stroke_point(int32_t layer_idx, int32_t stroke_idx, int32_t pt_idx, int32_t *out_pt);
-```
-
 ---
-
 
 ## 3. Filter Plugin ABI
 
-Every filter plugin (`plugins/*.wasm`) exports a standard interface invoked on the active layer:
+Every filter plugin (`plugins/*.wasm`) exports a standard interface:
 
 ```c
 #include "quadro.h"
 
-W_EXPORT void w_filter_apply(int32_t p1, int32_t p2);
+W_EXPORT const char* w_plugin_get_info(void);
+W_EXPORT void        w_filter_apply(int32_t p1, int32_t p2);
 ```
 
 The host sets the active layer buffer via `w_set_layer()` prior to execution. The plugin accesses the target framebuffer via `w_get_layer()`.
 
-Available plugins:
-- `blur`: Box / Gaussian low-pass spatial blur (`p1` = radius, 1..25).
-- `brightness`: Linear luma bias (`p1` = offset, -100..100).
-- `contrast`: Non-linear contrast curve steepness (`p1` = scale, 0..200).
-- `dither`: Floyd-Steinberg / threshold error diffusion.
-- `edge`: Sobel / Laplacian high-pass edge gradient kernel.
-- `grayscale`: ITU-R BT.601 weighted luminance conversion.
-- `invert`: Bitwise/channel arithmetic color inversion.
-- `noise`: Pseudorandom noise injection (`p1` = intensity, 0..100).
-- `pixelate`: Block quantization filter (`p1` = block size in pixels, 1..64).
-- `sepia`: Photochemical sepia toning matrix.
-- `threshold`: Binary luminance thresholding (`p1` = cutoff value, 0..255).
+Catalog of 29 available plugins: `bloom`, `blur`, `brightness`, `chromatic`, `contrast`, `dither`, `duotone`, `edge`, `emboss`, `fisheye`, `frosted_glass`, `glitch`, `grayscale`, `halftone_dot`, `invert`, `kaleidoscope`, `kuwahara`, `noise`, `pixelate`, `ripple`, `scanline`, `sepia`, `sharpen`, `solarize`, `swirl`, `thermal`, `threshold`, `vignette`.
 
 ---
 
@@ -261,151 +247,63 @@ Available plugins:
 
 Esenho includes a full command-line parser implemented through the `papagaio` pattern compiler. Commands run in the browser console (`Ctrl+\``) or automated script batches.
 
-### System & Inspection
-- `status` / `info`: Print canvas resolution, layer count, active layer, and tool parameters.
-- `list [all|layers|brushes|textures|filters]`: List registered system entities.
-- `get surface [width|height|size]`: Query document dimensions.
-- `get layer [id|opacity|visible|alpha_lock|clipping|blend]`: Query layer properties.
-- `get tool` / `get mode` / `get shape` / `get brush`: Query active tool configuration.
-
-### Math & Scripting
-- `eval <expr>`: Evaluate a mathematical expression and print result (e.g. `eval 2+2`, `eval 512*0.75`).
-- `(<expr>)`: Inline math shorthand — any parenthesised expression is evaluated as math (e.g. `(100/3)`).
-- `log <msg>`: Print an arbitrary message to the console (useful inside scripts).
-
-### Canvas & Document
-- `resize <w> <h>`: Resize document canvas.
-- `set resolution <w> <h>`: Alias for `resize`.
-- `set width <w>` / `set height <h>`: Set single dimension.
-- `grid [on|off]` / `set grid <on|off>`: Toggle pixel grid overlay for >= 4x zoom.
-- `set ui_scale <auto|0.75|0.85|1.0|1.15|1.25|1.5|1.75|2.0>`: Adjust UI zoom scale.
-
-### Layer Stack & Operations
-- `new layer [name]` / `layer add [name]`: Allocate new transparent layer (optional name).
-- `layer select <id>` / `set layer <id>` / `layer <id>`: Set active drawing layer.
-- `delete layer [id]` / `remove layer [id]`: Delete specified or active layer.
-- `duplicate layer [id]` / `layer dup [id]` / `dup layer [id]`: Clone layer.
-- `toggle layer [id]` / `hide layer` / `show layer`: Toggle layer visibility.
-- `opacity layer [id] <0..100>`: Set layer opacity percentage.
-- `layer alpha_lock [id] <on|off>`: Toggle alpha preservation lock.
-- `layer clipping [id] <on|off>`: Toggle clipping mask to layer below.
-- `layer blend [id] <normal|multiply|screen|overlay|dodge|add>`: Set blend mode.
-- `layer resize [id] <w> <h> [scale|crop]`: Resize single layer buffer.
-- `layer move up [id]`: Move layer up in render order.
-- `layer move down [id]`: Move layer down in render order.
-- `layer merge down [id]`: Merge layer down into layer below.
-- `clear layer [id]`: Clear layer pixels to transparent black.
-- `layer to texture [name]`: Convert layer pixels into named grain/tip texture.
-
-### Layer Folders / Groups
-- `group new [name]`: Create layer folder.
-- `group add <group_name> <layer_id>`: Move layer into folder.
-- `group remove <layer_id>`: Remove layer from folder.
-- `group toggle <group_name>`: Toggle visibility of entire folder.
-- `group delete <group_name>`: Delete folder without deleting member layers.
-
-### Brush & Tool Configuration
-- `set tool <brush|eraser|smudge|blend|fill|lasso_fill|picker|line|rect|ellipse|select>`: Set active tool.
-- `set mode <draw|smudge|blend|fill|lasso_fill>`: Set stroke execution mode.
-- `set action_mode <mode>` / `action mode <mode>`: Set raw action mode integer directly.
-- `set shape <circle|square|chisel|layer_name>`: Set brush tip shape.
-- `set texture <paper|canvas|noise|dots|grid|grunge|hatch|none|layer_name>`: Set grain texture.
-- `set color <#hex|r g b>`: Set active color (supports `#rrggbb`, `#aarrggbb`, `r g b`).
-- `set <param_name> <val>`: Configure any parameter (`size`, `opacity`, `hardness`, `flow`, `spacing`, `smooth`, `angle`, `roundness`, `scatter`, `smudge`, `wetness`, `depletion`, `color_pickup`, `taper_in`, `taper_out`, `fade`, `size_jitter`, `angle_jitter`, `opacity_jitter`, `color_jitter`, `dab_blend`, `symmetry`, `subpixel`).
+### Core Brush & Canvas Commands
+- `size <N>`: Set brush diameter (1..500).
+- `opacity <N>`: Set brush opacity percentage (0..100).
+- `hardness <N>`: Set brush hardness percentage (0..100).
+- `flow <N>`: Set brush flow rate (1..100).
+- `spacing <N>`: Set dab spacing percentage (1..200).
+- `color <hex>`: Set foreground brush color (`#RGB`, `#RRGGBB`, `#RRGGBBAA`).
+- `color rgb <r> <g> <b>`: Set brush color from 0..255 channel values.
+- `tool <draw|smudge|blend|fill|picker|line|rect|ellipse|select>`: Switch active tool.
+- `clear [layer]`: Fill layer with transparent zeroes.
 - `dump brush` / `export brush`: Dump current brush configuration as executable CLI script.
-- `reset tool` / `tool reset` / `reset brush` / `brush reset`: Reset brush and tool parameters to defaults.
 
-#### Brush Presets
-Apply a named preset with `brush <preset>` or `set brush <preset>`:
+### Layer Stack Commands
+- `layer new` / `layer add`: Create empty layer above active layer.
+- `layer delete [idx]` / `layer del [idx]`: Delete layer.
+- `layer select <idx>`: Switch active drawing layer.
+- `layer opacity <idx> <val>`: Set layer opacity (0..100).
+- `layer visible <idx> <0|1>`: Toggle layer visibility.
+- `layer merge down`: Merge active layer down.
+- `layer up` / `layer down`: Move layer up or down in stack.
+- `layer lock [idx] <0|1>`: Toggle layer alpha lock.
+- `layer clip [idx] <0|1>`: Toggle clipping mask.
+- `layer blend <idx> <normal|multiply|screen|overlay|dodge|add>`: Set layer blend mode.
 
-| Preset | Description |
-|---|---|
-| `round` | Classic soft-edge round brush |
-| `airbrush` | Low opacity, soft spray |
-| `pixel` | 1px hard square, no anti-aliasing |
-| `square` | Hard square tip |
-| `calligraphy` / `chisel` | 45° chisel nib |
-| `charcoal` | Grainy, high-scatter charcoal stroke |
-| `hatch` | Wide-spaced chisel for cross-hatching |
-| `scatter` | Random scattered dabs |
-| `smudge` | Smudge mode preset |
-| `blend` | Wet-media blend preset |
-| `fill` | Flood fill mode (tolerance 32) |
-| `flood_fill` | Alias for `fill` |
-| `lasso_fill` | Lasso solid fill preset |
-| `lasso` | Alias for `lasso_fill` |
-
-### Drawing Primitives
-- `brush <x> <y>` / `dab <x> <y>`: Paint single dab at coordinate.
-- `stroke <x0> <y0> <x1> <y1>`: Render continuous stroke segment.
-- `draw line <x0> <y0> <x1> <y1> [color]`
-- `draw rect <x> <y> <w> <h> [color]`
-- `draw circle <cx> <cy> <r> [color]`
-- `draw ellipse <cx> <cy> <rx> <ry> [color]`
-- `draw grid <step> [color]`
-- `draw image <name> <x> <y> [w] [h] [opacity]`
-- `stamp <name> <x> <y>`: Alias for `draw image`.
-- `pick <x> <y>` / `picker <x> <y>` / `eyedropper <x> <y>`: Sample color at document coordinates and set as active color.
-
-### Selection, Clipboard & Transform
-- `select rect <x> <y> <w> <h>`: Select rectangular area.
+### Selection, Clipboard & Transforms
 - `select all`: Select entire canvas.
 - `select none` / `select clear` / `deselect`: Clear active selection.
 - `select lasso`: Enter freehand polygon selection mode.
 - `select wand [tolerance]`: Enter color flood selection mode.
-- `wand tolerance <tol>`: Set magic wand color tolerance (0..255).
 - `copy`: Copy selected region to clipboard.
 - `cut`: Cut selected region to clipboard.
-- `paste [x y]`: Paste clipboard contents onto active layer.
-- `transform apply`: Bake active floating transform into layer pixels.
-- `transform cancel`: Cancel floating transform.
+- `paste [x y]`: Paste clipboard contents.
+- `transform apply`: Commit active transform.
+- `transform cancel`: Discard active transform.
 
-### Color Adjustments & Filters
-- `adjust hsv <h> <s> <v>`: Shift hue (-180..180), saturation (-100..100), and value (-100..100).
-- `adjust hue <h>`, `adjust sat <s>`, `adjust val <v>` / `adjust brightness <v>` / `adjust light <v>`.
-- `filter <filter_name> [p1] [p2]`: Apply WASM filter plugin.
+### Audio & Sound Commands
+- `audio play` / `audio stop`: Start or pause audio DAW transport.
+- `audio bpm <bpm>`: Set audio beats-per-minute tempo (20..300).
+- `audio sfxr <preset> [vol]`: Trigger procedural sound effect (0=laser, 1=explosion, 2=powerup, 3=hit, 4=jump, 5=blip).
+- `audio note <track> <midi> [vel]`: Trigger MIDI note on track.
 
-### Viewport Navigation
-- `zoom <in|out|fit|reset>`: Adjust zoom scale.
-- `zoom <N>` / `zoom <N>%`: Set zoom to exact percentage (e.g. `zoom 200` → 200%).
-- `pan reset` / `pan center`: Re-center canvas.
-- `rotate reset` / `rot 0` / `rotate 0`: Reset canvas rotation angle.
-- `flip canvas` / `flip h` / `flip` / `flip horizontal`: Flip viewport horizontally (mirror view).
-- `flip v` / `flip vertical`: Flip viewport vertically.
-- `flip reset`: Reset view flipping.
-
-### History & I/O
-- `undo` / `redo`: Step through snapshot stack.
-- `history`: Print undo/redo stack entries.
-- `history clear`: Empty history stack.
-- `save canvas <filename>` / `export <filename>`: Save composite image as PNG.
-- `save layer <filename>`: Save active layer as PNG.
-- `load image <filename> [name]`: Import image file as new layer/texture.
-- `save project [file]` / `export project [file]`: Serialize entire project (all layers, history, settings) to `.esen` JSON file.
-- `load project <file>` / `open project <file>`: Load a `.esen` project file (Node.js / CLI only; use file picker in browser).
-
-### Vector Path & Spine Commands
-- `vector status`: Print vector recording status, active layer stroke count, and total strokes.
+### Vector Path & SVG Commands
 - `vector recording <on|off>`: Enable or disable real-time vector spine recording.
 - `vector clear [all]`: Clear vector strokes for the active layer or all layers.
-- `vector replay [scale_pct]`: Re-rasterize all vector strokes using the exact original brush physics at specified percentage scale (e.g. `vector replay 200`).
-- `vector export svg [filename]`: Export recorded vector strokes as a standard resolution-independent SVG file.
+- `vector replay [scale_pct]`: Re-rasterize all vector strokes using original brush physics.
+- `vector export svg [filename]`: Export recorded vector strokes as a standard SVG file.
 
-### Animation, Rigging & Multiplane Camera Commands
-- `anim init <frames> [fps]`: Initialize the animation timeline with total frames and frame rate.
-- `anim frame <f>` / `anim goto <f>`: Jump to specific frame on timeline with active interpolation.
-- `anim next` / `anim prev`: Step forward/backward one frame.
-- `anim play` / `anim stop`: Start or halt real-time playback loop.
-- `anim onion <on|off> [prev] [next]`: Configure multi-frame onion skinning buffer.
-- `anim track add <type> <layer>`: Add track (0=Raster, 1=Vector, 2=Bone, 3=Camera, 4=Symbol).
-- `anim kf add <track> <frame> <tween>`: Add keyframe with tween type (0=None, 1=Linear, 2=Ease-In-Out, 3=Shape).
-- `anim bone add <armature> <parent> <len> <angle>`: Create bone in 2D armature hierarchy.
-- `anim ik solve <armature> <effector> <x> <y>`: Solve 2D Inverse Kinematics using CCD towards target coordinates.
-- `anim camera set <x> <y> <z> <zoom> <rot>`: Set 2.5D multiplane camera position, depth, zoom percentage, and rotation.
+### Animation Timeline Commands
+- `anim init <frames> [fps]`: Initialize timeline frames and FPS.
+- `anim frame <f>` / `anim goto <f>`: Jump to specific frame.
+- `anim play` / `anim stop`: Play or halt timeline playback.
+- `anim onion <on|off> [prev] [next]`: Configure onion skinning.
+- `anim ik solve <armature> <effector> <x> <y>`: Solve 2D CCD-IK towards target.
+- `anim camera set <x> <y> <z> <zoom> <rot>`: Position 2.5D multiplane camera.
 
-### Cache & Maintenance
-- `reset cache` / `cache reset` / `clear cache`: Delete all service worker caches and reload the page (browser only).
-- `reset data` / `data reset` / `clear data`: Delete all persistent client storage (`IndexedDB` + `LocalStorage` + `SessionStorage`) and return to launcher.
-
-
-
+### Maintenance & History
+- `undo` / `redo`: Step through snapshot stack.
+- `save project [file]`: Serialize entire project to `.esen` savefile.
+- `reset cache`: Purge ServiceWorker caches and reload.
+- `reset data`: Clear all IndexedDB/LocalStorage databases.
