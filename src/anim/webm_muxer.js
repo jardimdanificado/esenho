@@ -133,8 +133,8 @@ export class WebmMuxer {
     // 2. Segment Info
     const info = makeEbmlElement([0x15, 0x49, 0xa9, 0x66], concatUint8Arrays([
       makeUintElement([0x2a, 0xd7, 0xb1], 1000000), // TimecodeScale: 1,000,000 ns = 1 ms
-      makeStringElement([0x4d, 0x80], 'Wesenho WebM Muxer'), // MuxingApp
-      makeStringElement([0x57, 0x41], 'Wesenho Studio'),     // WritingApp
+      makeStringElement([0x4d, 0x80], 'Esenho WebM Muxer'), // MuxingApp
+      makeStringElement([0x57, 0x41], 'Esenho Studio'),     // WritingApp
       makeFloatElement([0x44, 0x89], durationMs)             // Duration in ms
     ]));
 

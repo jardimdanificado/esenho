@@ -2363,7 +2363,7 @@
   <header id="vscode-titlebar" class="vscode-titlebar">
     <!-- Left: App Icon + Menu Bar -->
     <div class="titlebar-left">
-      <div class="titlebar-app-icon" id="titlebar-brand-icon" title="Wesenho Studio">
+      <div class="titlebar-app-icon" id="titlebar-brand-icon" title="Esenho Studio">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <polygon points="12 2 2 7 12 12 22 7 12 2" fill="var(--primary)" stroke="var(--primary)"></polygon>
           <polyline points="2 17 12 22 22 17"></polyline>
@@ -3390,7 +3390,7 @@
         <div id="geom-text-fields" class="geom-group" style="display: none;">
           <div class="form-row">
             <label>Text</label>
-            <input type="text" id="prop-text-content" value="Wesenho Text">
+            <input type="text" id="prop-text-content" value="Esenho Text">
           </div>
           <div class="form-row">
             <label>Font</label>
@@ -6863,7 +6863,7 @@
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
         } else if (activeTool === 'text') {
-          const textVal = prompt('Enter text for vector typography:', 'Wesenho Vector');
+          const textVal = prompt('Enter text for vector typography:', 'Esenho Vector');
           if (textVal) {
             let fillVal = document.getElementById('prop-fill-text')?.value;
             if (!fillVal || fillVal === 'none') {
@@ -7912,18 +7912,6 @@
             { type: 'item', label: 'Send to Back', hotkey: 'Ctrl+Shift+[', action: () => { for (const o of selectedObjs) doc.sendToBack(o.id); render(); drawOverlay(); updateObjectList(); } }
           ]);
 
-          // Workspace & Panels Submenu
-          addSubmenu('Panels & Viewport', [
-            { type: 'item', label: 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => switchLeftTab('fill') },
-            { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
-            { type: 'item', label: 'Transform & Geometry Dock', action: () => switchTab('inspect') },
-            { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
-            { type: 'item', label: 'Projects & Document Dock', action: () => switchTab('projects') },
-            { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
-            { type: 'sep' },
-            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
-            { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
-          ]);
 
           // Rulers & Guides Submenu
           const rulerGuideItems = [
@@ -8020,23 +8008,8 @@
             { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => { doc.selectAll(); render(); drawOverlay(); updateInspector(); } }
           ]);
 
-          // Workspace & Panels Submenu
-          addSubmenu('Panels & Viewport', [
-            { type: 'item', label: 'Fill & Dynamics Dock', hotkey: 'Shift+F', action: () => switchLeftTab('fill') },
-            { type: 'item', label: 'Stroke & Brush Dock', action: () => switchLeftTab('stroke') },
-            { type: 'item', label: 'Transform & Geometry Dock', action: () => switchTab('inspect') },
-            { type: 'item', label: 'Scene & Hierarchy Dock', action: () => switchTab('scene') },
-            { type: 'item', label: 'Projects & Document Dock', action: () => switchTab('projects') },
-            { type: 'item', label: 'Animation & Events Dock', action: () => switchTab('animation') },
-            { type: 'sep' },
-            { type: 'item', label: 'Reset Dock Layout', action: () => resetDockviewLayout() },
-            { type: 'sep' },
-            { type: 'item', label: 'Zoom to Fit Canvas', hotkey: '0', action: () => zoomToFit() },
-            { type: 'item', label: 'Reset Viewport (100%)', hotkey: 'Ctrl+1', action: () => { zoom = 1.0; panX = 0; panY = 0; applyViewportTransform(); render(); } }
-          ]);
-
-          // Viewport & Engine Submenu
-          addSubmenu('Viewport & Engine', [
+          // Viewport Submenu
+          addSubmenu('Viewport', [
             { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
             { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
             { type: 'sep' },
@@ -11119,7 +11092,7 @@
             { type: 'item', label: 'Clear All Guides', danger: true, action: () => clearAllGuides() }
           ]},
           { type: 'submenu', label: 'Snapping', items: getSnapMenuItems() },
-          { type: 'submenu', label: 'Viewport & Engine', items: [
+          { type: 'submenu', label: 'Viewport', items: [
             { type: 'item', label: viewportRenderMode === 'quadro' ? '✓ Renderer: Quadro WASM' : 'Renderer: Quadro WASM', action: () => syncRenderMode('quadro') },
             { type: 'item', label: viewportRenderMode === 'svg' ? '✓ Renderer: Direct SVG' : 'Renderer: Direct SVG', action: () => syncRenderMode('svg') },
             { type: 'sep' },
@@ -11526,7 +11499,7 @@
 
       async function performExport(format = 'image/png', scale = 1) {
         const ext = format === 'image/jpeg' ? 'jpg' : (format === 'image/webp' ? 'webp' : (format === 'image/svg+xml' ? 'svg' : 'png'));
-        const safeTitle = (currentProjectTitle || 'wesenho').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'wesenho';
+        const safeTitle = (currentProjectTitle || 'esenho').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'esenho';
         const filename = `${safeTitle}_${scale}x_${Date.now()}.${ext}`;
 
         if (format === 'image/svg+xml') {
@@ -11643,7 +11616,7 @@
         const fps = Math.max(1, parseInt(exportAnimFps?.value, 10) || (window.dopeSheet.fps || 24));
         const scale = parseFloat(exportAnimScale?.value || 1.0);
         const includeBg = exportAnimBg ? exportAnimBg.checked : true;
-        const safeTitle = (currentProjectTitle || 'wesenho_anim').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'wesenho_anim';
+        const safeTitle = (currentProjectTitle || 'esenho_anim').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'esenho_anim';
 
         const totalFramesToRender = endFrame - startFrame + 1;
         isAnimExportCancelled = false;
@@ -11721,7 +11694,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>${safeTitle} — Wesenho Player</title>
+  <title>${safeTitle} — Esenho Player</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     :root {
@@ -13755,7 +13728,7 @@
             currentProjectTitle = proj.name || 'Untitled Vector';
             const propProjName = document.getElementById('prop-project-name');
             if (propProjName) propProjName.value = currentProjectTitle;
-            document.title = `${currentProjectTitle} — Wesenho Studio`;
+            document.title = `${currentProjectTitle} — Esenho Studio`;
             updateTitlebarProjectName(currentProjectTitle);
             if (proj.jsonDoc) {
               if (typeof doc.loadJSON === 'function') doc.loadJSON(proj.jsonDoc);
@@ -13824,7 +13797,7 @@
       const propProjectName = document.getElementById('prop-project-name');
       propProjectName?.addEventListener('input', (e) => {
         currentProjectTitle = e.target.value.trim() || 'Untitled Vector';
-        document.title = `${currentProjectTitle} — Wesenho Studio`;
+        document.title = `${currentProjectTitle} — Esenho Studio`;
         updateTitlebarProjectName(currentProjectTitle);
         if (currentProjectId && typeof EsenhoStore !== 'undefined') {
           EsenhoStore.renameProject(currentProjectId, currentProjectTitle).catch(() => {});
@@ -14148,7 +14121,7 @@
             currentProjectTitle = newName.trim();
             const propProjName = document.getElementById('prop-project-name');
             if (propProjName) propProjName.value = currentProjectTitle;
-            document.title = `${currentProjectTitle} — Wesenho Studio`;
+            document.title = `${currentProjectTitle} — Esenho Studio`;
             updateTitlebarProjectName(currentProjectTitle);
           }
           await openRecentsModal();
@@ -14348,7 +14321,7 @@
         currentProjectTitle = title;
         const propProjName = document.getElementById('prop-project-name');
         if (propProjName) propProjName.value = currentProjectTitle;
-        document.title = `${currentProjectTitle} — Wesenho Studio`;
+        document.title = `${currentProjectTitle} — Esenho Studio`;
         updateTitlebarProjectName(currentProjectTitle);
         doc.clear();
         doc.width = w;
@@ -14410,7 +14383,7 @@
           scheduleAutosave();
           const propProjName = document.getElementById('prop-project-name');
           if (propProjName) propProjName.value = currentProjectTitle;
-          document.title = `${currentProjectTitle} — Wesenho Studio`;
+          document.title = `${currentProjectTitle} — Esenho Studio`;
           updateTitlebarProjectName(currentProjectTitle);
         }
 

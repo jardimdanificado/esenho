@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Raster Scripting Domain (src/script/domains/raster_domain.js)
+ * Esenho Raster Scripting Domain (src/script/domains/raster_domain.js)
  * Deep programmatic control over Quadro C/WASM pixel engine, brush dynamics,
  * layer stack, selections, transforms, and procedural filters.
  * =========================================================================

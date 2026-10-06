@@ -2,9 +2,9 @@ const assert = require('assert');
 const path = require('path');
 
 async function runUniversalScriptingTests() {
-  console.log('--- Testing Universal Wesenho Deep Scripting Platform (wesenho.*) ---');
+  console.log('--- Testing Universal Esenho Deep Scripting Platform (esenho.*) ---');
 
-  const { WesenhoSDK } = await import('../src/script/wesenho_sdk.js');
+  const { EsenhoSDK } = await import('../src/script/esenho_sdk.js');
 
   // Mock platform context
   const mockHost = {
@@ -13,7 +13,7 @@ async function runUniversalScriptingTests() {
     layers: [{ id: 'l1', name: 'Background' }]
   };
 
-  const sdk = new WesenhoSDK({
+  const sdk = new EsenhoSDK({
     context: { host: mockHost }
   });
 
@@ -73,8 +73,8 @@ async function runUniversalScriptingTests() {
   const recordedScript = sdk.commands.stopMacroRecording();
 
   console.log('[sdk] Recorded Macro Script:\n' + recordedScript);
-  assert(recordedScript.includes('wesenho.raster.brush.size = 35;'), 'Macro should contain size assignment');
-  assert(recordedScript.includes('wesenho.raster.brush.color = 4294945280;'), 'Macro should contain color assignment');
+  assert(recordedScript.includes('esenho.raster.brush.size = 35;'), 'Macro should contain size assignment');
+  assert(recordedScript.includes('esenho.raster.brush.color = 4294945280;'), 'Macro should contain color assignment');
 
   // 6. Test Pipeline Hook Registry (Priority & Waterfall)
   let hookContextPassed = false;
@@ -105,14 +105,14 @@ async function runUniversalScriptingTests() {
   assert.strictEqual(sdk.audio.bpm, 140, 'BPM should update to 140');
   console.log('[sdk] Audio DAW domain verified');
 
-  // 8. Test Dynamic Script Evaluation (wesenho.eval)
+  // 8. Test Dynamic Script Evaluation (esenho.eval)
   sdk.eval(`
     raster.brush.size = 77;
     audio.setBpm(160);
   `);
   assert.strictEqual(mockHost.brushParams.size, 77, 'eval() should mutate raster brush size to 77');
   assert.strictEqual(sdk.audio.bpm, 160, 'eval() should mutate audio bpm to 160');
-  console.log('[sdk] wesenho.eval() dynamic runtime script evaluation verified');
+  console.log('[sdk] esenho.eval() dynamic runtime script evaluation verified');
 
   console.log('--- ALL UNIVERSAL SCRIPTING PLATFORM TESTS PASSED ---');
 }

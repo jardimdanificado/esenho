@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Universal Wesenho Scripting Platform SDK (src/script/wesenho_sdk.js)
+ * Universal Esenho Scripting Platform SDK (src/script/esenho_sdk.js)
  * Complete, inspectable, zero-copy JavaScript API controlling Painter,
  * SVG Studio, Animator, and Audio DAW.
  * =========================================================================
@@ -15,7 +15,7 @@ import { AnimDomain } from './domains/anim_domain.js';
 import { AudioDomain } from './domains/audio_domain.js';
 import { UIDomain } from './domains/ui_domain.js';
 
-export class WesenhoSDK {
+export class EsenhoSDK {
   constructor(options = {}) {
     this.context = options.context || {};
 
@@ -40,10 +40,10 @@ export class WesenhoSDK {
   }
 
   /**
-   * Execute arbitrary JavaScript script with 'wesenho' in scope.
+   * Execute arbitrary JavaScript script with 'esenho' in scope.
    */
   eval(scriptCode) {
-    const fn = new Function('wesenho', 'commands', 'raster', 'vector', 'anim', 'audio', 'ui', 'memory', 'hooks', `
+    const fn = new Function('esenho', 'commands', 'raster', 'vector', 'anim', 'audio', 'ui', 'memory', 'hooks', `
       ${scriptCode}
     `);
     return fn.call(
@@ -83,7 +83,7 @@ export class WesenhoSDK {
           }
         }
       },
-      toScript: p => `wesenho.raster.brush.${p.key} = ${JSON.stringify(p.value)};`
+      toScript: p => `esenho.raster.brush.${p.key} = ${JSON.stringify(p.value)};`
     });
 
     this.commands.register('raster.setColor', {
@@ -101,7 +101,7 @@ export class WesenhoSDK {
           ctx.host.brushColor = undoData.prevColor;
         }
       },
-      toScript: p => `wesenho.raster.brush.color = ${JSON.stringify(p.color)};`
+      toScript: p => `esenho.raster.brush.color = ${JSON.stringify(p.color)};`
     });
 
     this.commands.register('raster.createLayer', {
@@ -118,7 +118,7 @@ export class WesenhoSDK {
           ctx.host.removeLayer(undoData.layerId);
         }
       },
-      toScript: p => `wesenho.raster.layers.create(${JSON.stringify(p.name)}, ${JSON.stringify(p.options || {})});`
+      toScript: p => `esenho.raster.layers.create(${JSON.stringify(p.name)}, ${JSON.stringify(p.options || {})});`
     });
 
     // ── Vector Commands ──
@@ -136,7 +136,7 @@ export class WesenhoSDK {
           doc.removeObject(undoData.id);
         }
       },
-      toScript: p => `wesenho.vector.create${p.type.charAt(0).toUpperCase() + p.type.slice(1)}(${p.x}, ${p.y}, ${p.width || p.rx}, ${p.height || p.ry});`
+      toScript: p => `esenho.vector.create${p.type.charAt(0).toUpperCase() + p.type.slice(1)}(${p.x}, ${p.y}, ${p.width || p.rx}, ${p.height || p.ry});`
     });
 
     this.commands.register('vector.setStyle', {
@@ -196,7 +196,7 @@ export class WesenhoSDK {
           }
         }
       },
-      toScript: p => `wesenho.vector.setStyle(${JSON.stringify(p.id)}, ${JSON.stringify(p.style)});`
+      toScript: p => `esenho.vector.setStyle(${JSON.stringify(p.id)}, ${JSON.stringify(p.style)});`
     });
 
     // ── Animation Commands ──
@@ -215,13 +215,13 @@ export class WesenhoSDK {
           ctx.animStage.currentFrame = undoData.prevFrame;
         }
       },
-      toScript: p => `wesenho.anim.gotoAndStop(${p.frame});`
+      toScript: p => `esenho.anim.gotoAndStop(${p.frame});`
     });
   }
 }
 
 // Global Singleton creation
-export const wesenho = new WesenhoSDK();
+export const esenho = new EsenhoSDK();
 if (typeof globalThis !== 'undefined') {
-  globalThis.wesenho = wesenho;
+  globalThis.esenho = esenho;
 }

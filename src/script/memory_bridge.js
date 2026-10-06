@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Memory Bridge (src/script/memory_bridge.js)
+ * Esenho Memory Bridge (src/script/memory_bridge.js)
  * Zero-copy typed buffer accessors to WASM linear memory, raster framebuffers,
  * selection alpha masks, audio PCM streams, and mesh vertex skinning arrays.
  * =========================================================================

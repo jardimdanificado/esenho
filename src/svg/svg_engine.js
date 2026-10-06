@@ -1568,7 +1568,7 @@
   class SvgText extends SvgNode {
     constructor(attributes = {}) {
       super('text', attributes);
-      this.text = attributes.text || 'Wesenho Text';
+      this.text = attributes.text || 'Esenho Text';
       this.fontFamily = attributes.fontFamily || 'sans-serif';
       this.fontSize = Number(attributes.fontSize || 36);
       this.fontWeight = attributes.fontWeight || 'normal';
@@ -4920,8 +4920,8 @@
       collectDefs(this.objects);
 
       if (this.animation) {
-        defsMap.set('wesenho-animation', {
-          toSVGElement: () => `<script type="application/json" id="wesenho-animation">\n    ${JSON.stringify(this.animation)}\n  </script>`
+        defsMap.set('esenho-animation', {
+          toSVGElement: () => `<script type="application/json" id="esenho-animation">\n    ${JSON.stringify(this.animation)}\n  </script>`
         });
       }
 
@@ -4982,7 +4982,7 @@
         if (svgEl.getAttribute('viewBox')) this.viewBox = svgEl.getAttribute('viewBox');
 
         // Extract embedded animation metadata
-        const animScript = svgEl.querySelector('script[type="application/json"]#wesenho-animation') || svgEl.querySelector('script#wesenho-animation');
+        const animScript = svgEl.querySelector('script[type="application/json"]#esenho-animation') || svgEl.querySelector('script#esenho-animation');
         if (animScript) {
           try {
             this.animation = JSON.parse(animScript.textContent.trim());
@@ -5172,7 +5172,7 @@
         }
       } else {
         // Fallback RegEx Parser for Node.js
-        const animRegex = /<script\b[^>]*id="wesenho-animation"[^>]*>([\s\S]*?)<\/script>/i;
+        const animRegex = /<script\b[^>]*id="esenho-animation"[^>]*>([\s\S]*?)<\/script>/i;
         const animMatch = animRegex.exec(svgString);
         if (animMatch && animMatch[1]) {
           try {

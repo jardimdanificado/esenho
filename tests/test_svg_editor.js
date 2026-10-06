@@ -424,7 +424,7 @@ async function runSvgEngineTests() {
   const textObj = new SvgText({
     x: 100,
     y: 200,
-    text: 'WESENHO',
+    text: 'ESENHO',
     fontFamily: 'sans-serif',
     fontSize: 48,
     fill: '#fabd2f'
@@ -434,7 +434,7 @@ async function runSvgEngineTests() {
 
   const textSvgXml = textDoc.toSVGString();
   assert(textSvgXml.includes('<text'), 'SVG export should contain <text> tag');
-  assert(textSvgXml.includes('WESENHO'), 'SVG export should contain text string');
+  assert(textSvgXml.includes('ESENHO'), 'SVG export should contain text string');
   assert(textSvgXml.includes('font-size="48"'), 'SVG export should contain font size');
 
   textDoc.select(textObj.id);

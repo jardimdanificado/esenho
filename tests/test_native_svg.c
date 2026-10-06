@@ -16,7 +16,7 @@ static void test_svg_parser_and_shapes(void) {
         "    <line id=\"l1\" x1=\"0\" y1=\"150\" x2=\"300\" y2=\"150\" stroke=\"#d3869b\" stroke-width=\"2\" />\n"
         "    <polygon id=\"p1\" points=\"50,180 80,240 20,240\" fill=\"#8ec07c\" />\n"
         "    <path id=\"pth1\" d=\"M 120 200 C 140 180, 160 240, 180 200 S 220 240, 240 200\" stroke=\"#ebdbb2\" stroke-width=\"4\" fill=\"none\" />\n"
-        "    <text id=\"t1\" x=\"50\" y=\"280\" font-size=\"20\" fill=\"#fbf1c7\">WESENHO SVG</text>\n"
+        "    <text id=\"t1\" x=\"50\" y=\"280\" font-size=\"20\" fill=\"#fbf1c7\">ESENHO SVG</text>\n"
         "  </g>\n"
         "</svg>";
 
@@ -56,7 +56,7 @@ static void test_svg_parser_and_shapes(void) {
 
     ch = ch->next;
     assert(ch != NULL && ch->type == QUADRO_SVG_TEXT);
-    assert(ch->text_content != NULL && strcmp(ch->text_content, "WESENHO SVG") == 0);
+    assert(ch->text_content != NULL && strcmp(ch->text_content, "ESENHO SVG") == 0);
 
     printf("✔ SVG scene graph and element hierarchy verified successfully!\n");
     quadro_svg_doc_free(doc);
@@ -284,7 +284,7 @@ static void test_svg_file_export(void) {
 
 int main(void) {
     printf("==================================================\n");
-    printf("  Wesenho Quadro Native C SVG Runtime Test Suite  \n");
+    printf("  Esenho Quadro Native C SVG Runtime Test Suite  \n");
     printf("==================================================\n");
 
     test_svg_parser_and_shapes();

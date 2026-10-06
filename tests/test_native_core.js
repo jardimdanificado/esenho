@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Native Core Test Suite (tests/test_native_core.js)
+ * Esenho Native Core Test Suite (tests/test_native_core.js)
  * Tests Audio DSP, Vector Bézier Rasterizer, and Font Engine in WASM.
  * =========================================================================
  */
@@ -9,10 +9,10 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const { EsenhoModule } = require('../src/esenho.js');
-const { WesenhoSDK } = require('../src/script/wesenho_sdk.js');
+const { EsenhoSDK } = require('../src/script/esenho_sdk.js');
 
 async function runNativeCoreTests() {
-  console.log('--- Testing Wesenho Native Core Expansions (WASM) ---');
+  console.log('--- Testing Esenho Native Core Expansions (WASM) ---');
 
   const canvasWasmPath = path.resolve(__dirname, '../plugins/canvas.wasm');
   assert(fs.existsSync(canvasWasmPath), 'plugins/canvas.wasm must exist');
@@ -110,7 +110,7 @@ async function runNativeCoreTests() {
    * ======================================================================= */
   console.log('--- 3. Testing Native Font & Glyph Engine ---');
   
-  const text = 'Wesenho Studio 2026';
+  const text = 'Esenho Studio 2026';
   const metrics = canvas.fontMeasureText(text, 24, 2);
   assert(metrics.width > 100, `Text width must be measured (>100px, got ${metrics.width})`);
   assert(metrics.height > 20, `Text height must be measured (>20px, got ${metrics.height})`);
@@ -124,7 +124,7 @@ async function runNativeCoreTests() {
    * 4. Test Universal SDK Domain Integrations
    * ======================================================================= */
   console.log('--- 4. Testing Universal SDK Domain Bindings ---');
-  const sdk = new WesenhoSDK();
+  const sdk = new EsenhoSDK();
   sdk.audio.bindWasm(canvas);
   sdk.vector.bindWasm(canvas);
 

@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Vector Scripting Domain (src/script/domains/vector_domain.js)
+ * Esenho Vector Scripting Domain (src/script/domains/vector_domain.js)
  * Programmatic creation and manipulation of SVG shapes, Bézier paths,
  * boolean operations, node edits, and SVG tree traversal.
  * =========================================================================

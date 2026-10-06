@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Audio Scripting Domain (src/script/domains/audio_domain.js)
+ * Esenho Audio Scripting Domain (src/script/domains/audio_domain.js)
  * Programmatic control over DAW tracks, synths, piano roll MIDI events,
  * mixer channels, DSP effect racks, and audio buffer export.
  * =========================================================================

@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho DopeSheet UI Widget (src/anim/dopesheet_ui.js)
+ * Esenho DopeSheet UI Widget (src/anim/dopesheet_ui.js)
  * Interactive Bottom Dock for Frame Scrubbing, Playback, Auto-Keyframing
  * and Parameter Tracks across all Quadro engine subsystems.
  * =========================================================================

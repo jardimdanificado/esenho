@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Animation Scripting Domain (src/script/domains/anim_domain.js)
+ * Esenho Animation Scripting Domain (src/script/domains/anim_domain.js)
  * Programmatic control over Stage, MovieClips, Timeline tracks, keyframes,
  * tweens, bone armatures, IK solver, camera, and ActionScript hooks.
  * =========================================================================

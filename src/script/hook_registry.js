@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Hook & Pipeline Interceptor Registry (src/script/hook_registry.js)
+ * Esenho Hook & Pipeline Interceptor Registry (src/script/hook_registry.js)
  * Low-level execution hooks per-dab, per-audio-block, per-node, and per-frame.
  * =========================================================================
  */

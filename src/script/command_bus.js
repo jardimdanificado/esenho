@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Command & Transaction Bus (src/script/command_bus.js)
+ * Esenho Command & Transaction Bus (src/script/command_bus.js)
  * Atomic, reversible, interceptable command execution, macro recording,
  * and history graph management across the entire creative platform.
  * =========================================================================
@@ -37,7 +37,7 @@ export class Command {
     if (this.handler && typeof this.handler.toScript === 'function') {
       return this.handler.toScript(this.payload);
     }
-    return `wesenho.commands.dispatch('${this.name}', ${JSON.stringify(this.payload)});`;
+    return `esenho.commands.dispatch('${this.name}', ${JSON.stringify(this.payload)});`;
   }
 }
 

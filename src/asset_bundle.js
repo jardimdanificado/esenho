@@ -70,7 +70,7 @@
      */
     createBundle(options = {}) {
       const title = options.title || "Esenho Asset Bundle";
-      const author = options.author || "Wesenho User";
+      const author = options.author || "Esenho User";
       const createdAt = new Date().toISOString();
       const brushes = options.brushes || {};
       const plugins = options.plugins || [];
@@ -140,7 +140,7 @@ ${defsXml}
   <circle cx="50" cy="45" r="22" fill="#8ec07c" />
   <text x="50" y="52" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="bold" fill="#18191c" text-anchor="middle">E</text>
   <text x="88" y="42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="22" font-weight="bold" fill="#fbf1c7">${escapeXml(title)}</text>
-  <text x="88" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#928374">Wesenho Universal Asset Bundle • ${escapeXml(createdAt.slice(0, 10))}</text>
+  <text x="88" y="65" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="13" fill="#928374">Esenho Universal Asset Bundle • ${escapeXml(createdAt.slice(0, 10))}</text>
 
   <!-- Statistics Badges (Row 1: 4 boxes) -->
   <g transform="translate(30, 110)">
@@ -191,11 +191,11 @@ ${defsXml}
     <text x="24" y="110" font-family="monospace" font-size="11" fill="#a89984">Textures: ${escapeXml(Object.keys(textures).join(', ') || '(none)')}</text>
     <text x="24" y="134" font-family="monospace" font-size="11" fill="#a89984">Tip Shapes: ${escapeXml(Object.keys(tipShapes).join(', ') || '(none)')}</text>
     <text x="24" y="158" font-family="monospace" font-size="11" fill="#a89984">Projects: ${escapeXml(projects.map(p => p.name || p.id).join(', ') || '(none)')}</text>
-    <text x="24" y="195" font-family="monospace" font-size="11" fill="#665c54">Drag &amp; drop this SVG into Wesenho Studio or Painter to unpack.</text>
+    <text x="24" y="195" font-family="monospace" font-size="11" fill="#665c54">Drag &amp; drop this SVG into Esenho Studio or Painter to unpack.</text>
   </g>
 
   <!-- Footer -->
-  <text x="400" y="495" font-family="sans-serif" font-size="11" fill="#504945" text-anchor="middle">Wesenho Universal Vector &amp; Raster Graphics Environment</text>
+  <text x="400" y="495" font-family="sans-serif" font-size="11" fill="#504945" text-anchor="middle">Esenho Universal Vector &amp; Raster Graphics Environment</text>
 </svg>`;
 
       return svg;

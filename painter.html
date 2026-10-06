@@ -2850,7 +2850,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.10.146 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.10.147 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -3917,7 +3917,7 @@
 <input type="file" id="ui-file-input" accept=".esen,.json,image/*" style="display: none;">
 
 <script type="module" src="src/version.js"></script>
-<script type="module" src="src/script/wesenho_sdk.js"></script>
+<script type="module" src="src/script/esenho_sdk.js"></script>
 <script src="src/project_store.js"></script>
 <script src="src/asset_bundle.js"></script>
 <script src="src/gpu/shaders.js"></script>
@@ -4015,7 +4015,7 @@
       }
     });
 
-    window.addEventListener('wesenho:ready', () => {
+    window.addEventListener('esenho:ready', () => {
       if (pendingInitEdit) {
         const d = pendingInitEdit;
         pendingInitEdit = null;

@@ -2798,8 +2798,8 @@ async function main() {
     history.push(raw); hl.i = -1;
     log(`> ${raw}`, 'cmd');
 
-    const isJS = window.wesenho && (
-      raw.startsWith('wesenho') ||
+    const isJS = window.esenho && (
+      raw.startsWith('esenho') ||
       raw.startsWith('raster') ||
       raw.startsWith('vector') ||
       raw.startsWith('anim') ||
@@ -2818,7 +2818,7 @@ async function main() {
 
     if (isJS) {
       try {
-        const result = window.wesenho.eval(raw);
+        const result = window.esenho.eval(raw);
         if (result !== undefined) {
           log(typeof result === 'object' ? JSON.stringify(result) : String(result), 'ok');
         } else {
@@ -3274,9 +3274,9 @@ async function main() {
     if (!code) return;
     log('--- Running Script ---', 'cmd');
 
-    if (window.wesenho) {
+    if (window.esenho) {
       try {
-        const result = window.wesenho.eval(code);
+        const result = window.esenho.eval(code);
         if (result !== undefined) {
           log(`Result: ${typeof result === 'object' ? JSON.stringify(result) : String(result)}`, 'ok');
         }
@@ -3338,7 +3338,7 @@ async function main() {
       if (scriptSel) scriptSel.value = '';
       if (scriptNameInp) scriptNameInp.value = 'untitled.js';
       if (scriptEditor) {
-        scriptEditor.value = `// Wesenho JavaScript Script\nraster.brush.size = 25;\nraster.brush.color = 0xfffabd2f;\nraster.brush.hardness = 100;\n`;
+        scriptEditor.value = `// Esenho JavaScript Script\nraster.brush.size = 25;\nraster.brush.color = 0xfffabd2f;\nraster.brush.hardness = 100;\n`;
         scriptEditor.focus();
       }
     });
@@ -10476,10 +10476,10 @@ async function main() {
   syncUiFromHost();
   window.host = host;
   window.W = host.canvasActor;
-  if (window.wesenho) {
-    window.wesenho.setContext({ host, actor: host.canvasActor });
+  if (window.esenho) {
+    window.esenho.setContext({ host, actor: host.canvasActor });
   }
-  window.dispatchEvent(new CustomEvent('wesenho:ready', { detail: { host } }));
+  window.dispatchEvent(new CustomEvent('esenho:ready', { detail: { host } }));
   if (window.parent && window.parent !== window) {
     try {
       window.parent.postMessage({ type: 'PAINTER_READY' }, '*');

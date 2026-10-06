@@ -3,7 +3,7 @@ const path = require('path');
 
 // Dynamically import ESM animator_engine.js
 async function runAnimatorRuntimeTests() {
-  console.log('--- Testing Flash-like Wesenho Animator Runtime & Scripting Engine ---');
+  console.log('--- Testing Flash-like Esenho Animator Runtime & Scripting Engine ---');
 
   const {
     Stage,

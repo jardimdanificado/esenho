@@ -1498,7 +1498,7 @@ static void parse_node_attributes(quadro_svg_node_t *node, const char *tag_str) 
         free(mix);
     }
 
-    /* Wesenho Custom Data Attributes */
+    /* Esenho Custom Data Attributes */
     char *brush = extract_attr(tag_str, "data-brush");
     if (brush) {
         parse_brush_attribute(&node->style.brush, brush);
@@ -1606,7 +1606,7 @@ void quadro_svg_doc_free(quadro_svg_doc_t *doc) {
     free(doc);
 }
 
-static void parse_wesenho_animation(quadro_svg_doc_t *doc, const char *json_str) {
+static void parse_esenho_animation(quadro_svg_doc_t *doc, const char *json_str) {
     if (!doc || !json_str) return;
     if (!doc->animation) {
         doc->animation = (quadro_svg_animation_t*)malloc(sizeof(quadro_svg_animation_t));
@@ -2058,12 +2058,12 @@ quadro_svg_doc_t *quadro_svg_parse_string(const char *xml_str, size_t length) {
             const char *content_start = tag_end + 1;
             const char *content_end = strstr(content_start, "</script>");
             if (content_end) {
-                if (sid && strcmp(sid, "wesenho-animation") == 0) {
+                if (sid && strcmp(sid, "esenho-animation") == 0) {
                     size_t slen = content_end - content_start;
                     char *json_buf = (char*)malloc(slen + 1);
                     memcpy(json_buf, content_start, slen);
                     json_buf[slen] = 0;
-                    parse_wesenho_animation(doc, json_buf);
+                    parse_esenho_animation(doc, json_buf);
                     free(json_buf);
                 }
                 p = content_end + 9;

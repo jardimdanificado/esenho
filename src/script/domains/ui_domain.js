@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho UI Scripting Domain (src/script/domains/ui_domain.js)
+ * Esenho UI Scripting Domain (src/script/domains/ui_domain.js)
  * Scriptable keymaps, custom dockable panels, HUD overlays, and tool extensions.
  * =========================================================================
  */

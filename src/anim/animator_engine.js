@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho Animator Engine (src/anim/animator_engine.js)
+ * Esenho Animator Engine (src/anim/animator_engine.js)
  * Flash-style ActionScript / JavaScript animation runtime, MovieClip
  * display hierarchy, interactive timeline, tweens & script sandbox.
  * =========================================================================
@@ -926,7 +926,7 @@ export class Stage extends MovieClip {
 }
 
 /* ── Interactive Standalone HTML5 Bundle Exporter ── */
-export function exportStandaloneHTML5(stage, title = 'Wesenho Animation') {
+export function exportStandaloneHTML5(stage, title = 'Esenho Animation') {
   const jsonProject = JSON.stringify(serializeStage(stage));
   return `<!DOCTYPE html>
 <html lang="en">
@@ -978,7 +978,7 @@ export function exportStandaloneHTML5(stage, title = 'Wesenho Animation') {
   </div>
   <script>
     const projectData = ${jsonProject};
-    console.log("Loading Wesenho Animator Runtime...", projectData);
+    console.log("Loading Esenho Animator Runtime...", projectData);
     // Standalone Player initializes stage & loop
   </script>
 </body>

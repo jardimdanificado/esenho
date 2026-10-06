@@ -1,6 +1,6 @@
 /**
  * =========================================================================
- * Wesenho DopeSheet & Universal Parameter Animation System (src/anim/dopesheet.js)
+ * Esenho DopeSheet & Universal Parameter Animation System (src/anim/dopesheet.js)
  * Full keyframe interpolation for all Quadro Engine parameters:
  * Transform, Brush Dynamics, Material/Fill, Multiplane Camera & FX.
  * =========================================================================
@@ -365,7 +365,7 @@ export const PARAMETER_REGISTRY = {
   innerRadius: { label: 'Inner Radius', group: 'Geometry', type: 'number', default: 25, min: 1, max: 1000, unit: 'px', step: 1 },
 
   // ── Typography & Text Group ──
-  text: { label: 'Text Content', group: 'Typography', type: 'step', default: 'Wesenho Text' },
+  text: { label: 'Text Content', group: 'Typography', type: 'step', default: 'Esenho Text' },
   fontSize: { label: 'Font Size', group: 'Typography', type: 'number', default: 36, min: 6, max: 500, unit: 'px', step: 1 },
   fontFamily: { label: 'Font Family', group: 'Typography', type: 'step', default: 'sans-serif' },
   fontWeight: { label: 'Font Weight', group: 'Typography', type: 'step', default: 'normal' },

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.10.146';
+const CACHE_NAME = 'esenho-v0.10.147';
 
 const PRECACHE_ASSETS = [
   './',
@@ -8,7 +8,7 @@ const PRECACHE_ASSETS = [
   './manifest.webmanifest',
   './icon.svg',
   './src/version.js',
-  './src/script/wesenho_sdk.js',
+  './src/script/esenho_sdk.js',
   './src/script/command_bus.js',
   './src/script/memory_bridge.js',
   './src/script/hook_registry.js',

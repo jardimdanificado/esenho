@@ -372,19 +372,19 @@ assert(loadedDoc.animation, 'Loaded Document should restore animation data');
 assert.strictEqual(loadedDoc.animation.objects.length, 1);
 assert.strictEqual(loadedDoc.animation.objects[0].id, 'obj_hero');
 
-// Verify SVG XML roundtrip with <script type="application/json" id="wesenho-animation">
+// Verify SVG XML roundtrip with <script type="application/json" id="esenho-animation">
 const svgXml = persistDoc.toSVGString();
-assert(svgXml.includes('id="wesenho-animation"'), 'SVG XML should embed wesenho-animation metadata script');
+assert(svgXml.includes('id="esenho-animation"'), 'SVG XML should embed esenho-animation metadata script');
 
 const fromSvgDoc = new SvgDocument();
 fromSvgDoc.fromSVGString(svgXml);
-assert(fromSvgDoc.animation, 'fromSVGString should parse embedded wesenho-animation script');
+assert(fromSvgDoc.animation, 'fromSVGString should parse embedded esenho-animation script');
 assert.strictEqual(fromSvgDoc.animation.objects[0].id, 'obj_hero');
 assert.strictEqual(fromSvgDoc.animation.fps, 60);
 // 15. Test SvgText Texture & Brush Dynamics Forwarding to Path
 console.log('15. Testing SvgText Texture & Brush Dynamics Forwarding to Path...');
 const testTxt = new SvgText({
-  text: 'Wesenho Vector',
+  text: 'Esenho Vector',
   fillTexture: { enabled: true, mode: 3, contrast: 150, scale: 200 },
   strokeTexture: { enabled: true, mode: 5, angle: 45 },
   brushType: 'rake',
