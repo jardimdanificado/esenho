@@ -3417,795 +3417,260 @@
 
   <!-- Dock Panel Template Pool (Dockview moves panels into its layout container dynamically) -->
   <div id="dock-panel-pool" style="display: none;">
-    <!-- Dock Panel 1: Fill & Fill Dynamics -->
+    <!-- Dock Panel 1: Fill Surface -->
     <div id="dock-panel-fill" class="dock-panel-content">
-      <!-- 1. Fill Surface & Colors -->
-        <div class="section-card">
-          <div class="form-row">
-            <label>Fill Type</label>
-            <select id="prop-fill-type">
-              <option value="solid" selected>Solid Color</option>
-              <option value="linear">Linear Gradient</option>
-              <option value="radial">Radial Gradient</option>
-            </select>
-          </div>
-          <div id="solid-fill-controls">
-            <div class="form-row">
-              <label>Color</label>
-              <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-                <input type="color" id="prop-fill-color" value="#fabd2f">
-                <input type="text" id="prop-fill-text" value="#fabd2f">
-                <button type="button" id="btn-open-fill-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 6px; display: inline-flex; align-items: center; justify-content: center;">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
-                    <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
-                    <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
-                    <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
-                    <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div class="form-row">
-              <label>Fill Alpha</label>
-              <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
-            </div>
-            <div class="form-row">
-              <label>No Fill</label>
-              <button id="btn-fill-none" class="btn-sm" style="flex: 1;">Set None</button>
-            </div>
-          </div>
-          <div id="gradient-controls" style="display: none; flex-direction: column; gap: 6px;">
-            <div style="font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; margin-top: 2px;">Gradient Configuration</div>
-            <div id="grad-preview-bar" style="height: 20px; border-radius: 4px; border: 1px solid var(--border-color); background: linear-gradient(90deg, #fe8019 0%, #fabd2f 100%); cursor: pointer; box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);" title="Click to add stop at position"></div>
-            
-            <div class="form-row" style="align-items: center; gap: 4px;">
-              <label style="width: 50px;">Stop</label>
-              <select id="prop-grad-stop-select" style="flex: 1;"></select>
-              <button id="btn-grad-add-stop" class="btn-sm" title="Add stop" style="padding: 2px 8px; font-weight: bold; color: var(--primary);">+</button>
-              <button id="btn-grad-del-stop" class="btn-sm" title="Remove active stop" style="padding: 2px 8px; color: var(--danger);">✕</button>
-            </div>
-
-            <div class="form-row">
-              <label style="width: 50px;">Color</label>
-              <div style="display: flex; gap: 6px; width: 100%;">
-                <input type="color" id="prop-grad-stop-color" value="#fe8019">
-                <input type="text" id="prop-grad-stop-color-text" value="#fe8019">
-              </div>
-            </div>
-
-            <div class="form-row">
-              <label style="width: 50px;">Pos</label>
-              <div style="display: flex; gap: 6px; align-items: center; width: 100%;">
-                <input type="range" id="prop-grad-stop-pos-slider" min="0" max="100" step="any" value="0" style="flex: 1;">
-                <input type="number" id="prop-grad-stop-pos" min="0" max="100" step="any" value="0" style="width: 48px;">
-                <span style="font-size: 10px; color: var(--text-muted);">%</span>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <label style="width: 50px;">Opacity</label>
-              <input type="number" id="prop-grad-stop-opacity" min="0" max="1" step="any" value="1.0">
-            </div>
-
-            <div class="form-row">
-              <label style="width: 50px;">Intensity</label>
-              <input type="number" id="prop-grad-stop-intensity" min="0" max="10" step="any" value="1.0">
-            </div>
-
-            <div class="form-row" id="grad-angle-row">
-              <label style="width: 50px;">Angle</label>
-              <div style="display: flex; gap: 4px; align-items: center; width: 100%;">
-                <input type="number" id="prop-grad-angle" min="0" max="360" step="any" value="0" style="flex: 1;">
-                <span style="font-size: 10px; color: var(--text-muted);">°</span>
-              </div>
-            </div>
-
-            <div class="form-row" id="grad-radius-row" style="display: none;">
-              <label style="width: 50px;">Radius</label>
-              <input type="number" id="prop-grad-radius" min="0.01" max="10" step="any" value="0.5">
-            </div>
+      <!-- 1. Fill Surface & Quick Material Access -->
+      <div class="section-card">
+        <div class="section-header">
+          <span>Fill Surface</span>
+        </div>
+        <div class="form-row">
+          <label>Color</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="color" id="prop-fill-color" value="#fabd2f">
+            <input type="text" id="prop-fill-text" value="#fabd2f">
+            <button type="button" id="btn-open-fill-color-studio" class="btn-sm" title="Open Materials Studio" style="padding: 2px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+              <span style="font-size: 11px;">⬡</span>
+              <span style="font-size: 10px;">Materials</span>
+            </button>
           </div>
         </div>
-
-        <!-- 2. Fill Dynamics & Presets -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Fill Dynamics &amp; Distortion</span>
-          </div>
-          <div class="form-row">
-            <label>Preset</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <select id="prop-fill-preset" style="flex: 1;">
-                <option value="custom">-- Custom Settings --</option>
-                <option value="default">Solid Flat Color (Default)</option>
-                <optgroup id="grp-custom-fill-presets" label="Custom Fill Presets"></optgroup>
-                <optgroup label="WASM Optical Lenses &amp; Filters">
-                  <option value="fisheye_lens">Fisheye Spherical Lens</option>
-                  <option value="swirl_vortex_lens">Swirl Vortex Whirlpool Lens</option>
-                  <option value="water_ripple_lens">Water Caustic Ripple Lens</option>
-                  <option value="kaleidoscope_prism_lens">Kaleidoscope Symmetrical Lens</option>
-                  <option value="crt_monitor_lens">Retro CRT Monitor Lens</option>
-                  <option value="cyberpunk_duotone_lens">Cyberpunk Duotone Lens</option>
-                  <option value="thermal_predator_lens">Infrared Thermal Heat Lens</option>
-                  <option value="kuwahara_oil_canvas">Kuwahara Oil Painting Canvas</option>
-                  <option value="chromatic_aberration_lens">Chromatic RGB Split Lens</option>
-                  <option value="vhs_glitch_lens">VHS Glitch Tear Lens</option>
-                  <option value="frosted_glass_lens">Frosted Glass Distortion Lens</option>
-                  <option value="solarized_dream_lens">Solarized Sabattier Lens</option>
-                  <option value="neon_bloom_lens">Neon Bloom Glow Lens</option>
-                </optgroup>
-                <optgroup label="Artistic &amp; Media Fills">
-                  <option value="soft_watercolor">Soft Watercolor Wash</option>
-                  <option value="manga_screentone">Manga Screentone Cel</option>
-                  <option value="comic_cel">4-Level Cel Shading</option>
-                  <option value="vintage_engraving">Vintage Engraved Fills</option>
-                  <option value="denim_fabric">Denim Twill Weave</option>
-                </optgroup>
-                <optgroup label="Distortion &amp; Dynamics">
-                  <option value="warped_marble">Warped Liquid Marble</option>
-                  <option value="noise_dissolve">Noise Dissolve / Sand</option>
-                  <option value="black_hole_vortex">Cosmic Vortex Swirl</option>
-                  <option value="cracked_earth">Cracked Mud Fissures</option>
-                  <option value="glitch_heatwave">Glitch Heatwave</option>
-                </optgroup>
-                <optgroup label="Sci-Fi &amp; Fantasy">
-                  <option value="circuit_tech">Cyber Circuit Board</option>
-                  <option value="dragon_scales">Mythic Dragon Scales</option>
-                  <option value="inverted_negative">Inverted Texture Mask</option>
-                </optgroup>
-              </select>
-              <button id="btn-save-fill-preset" class="btn btn-secondary btn-sm" title="Save Current Fill as Custom Preset" style="padding: 2px 6px; font-size: 10px;">Save</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Hardness %</label>
-            <input type="number" id="prop-fill-tex-hardness" min="0" max="100" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Soft Reach</label>
-            <input type="number" id="prop-fill-tex-hardnessIntensity" min="0.1" max="1000" step="any" value="50" title="Feather softness reach (radius in pixels)">
-          </div>
-          <div class="form-row">
-            <label>Warp Wave</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-tex-warpStrength" placeholder="Str" min="0" max="500" step="any" value="0" style="width: 50%;" title="Warp Strength">
-              <input type="number" id="prop-fill-tex-warpFreq" placeholder="Freq" min="0.01" max="500" step="any" value="20" style="width: 50%;" title="Warp Frequency">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Noise Jitter</label>
-            <input type="number" id="prop-fill-tex-noiseDistort" min="0" max="500" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Swirl Vortex</label>
-            <input type="number" id="prop-fill-tex-pinchSwirl" min="-500" max="500" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Posterize</label>
-            <select id="prop-fill-tex-posterize">
-              <option value="0">0: Smooth / Off</option>
-              <option value="2">2 Levels (B&amp;W)</option>
-              <option value="3">3 Levels</option>
-              <option value="4">4 Levels (Cel)</option>
-              <option value="6">6 Levels</option>
-              <option value="8">8 Levels</option>
-              <option value="12">12 Levels</option>
-              <option value="16">16 Levels</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Invert Mask</label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="checkbox" id="prop-fill-tex-invert">
-              <span style="font-size: 11px; color: var(--text-muted);">Invert Texture</span>
-            </label>
-          </div>
+        <div class="form-row">
+          <label>Fill Alpha</label>
+          <input type="number" id="prop-fill-opacity" min="0" max="1" step="0.05" value="1.0">
         </div>
-
-        <!-- 3. Fill Texture Generator -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Fill Procedural Texture</span>
-          </div>
-          <div class="form-row">
-            <label>Mode</label>
-            <select id="prop-fill-tex-mode">
-              <option value="0">0: None / Solid</option>
-              <option value="1">1: Paper Grain</option>
-              <option value="2">2: Canvas Weave</option>
-              <option value="3">3: Noise Scatter</option>
-              <option value="4">4: Halftone Dots</option>
-              <option value="5">5: Grid Pattern</option>
-              <option value="6">6: Grunge / Distress</option>
-              <option value="7">7: Hatch Lines</option>
-              <option value="8">8: Watercolor Cold Press</option>
-              <option value="9">9: Charcoal Tooth</option>
-              <option value="10">10: Wood Grain</option>
-              <option value="11">11: Leather Pores</option>
-              <option value="12">12: Dense Linen</option>
-              <option value="13">13: Marble Veins</option>
-              <option value="14">14: Perlin Cloud</option>
-              <option value="15">15: Basket Weave</option>
-              <option value="16">16: Sandpaper Grit</option>
-              <option value="17">17: Radial Halftone</option>
-              <option value="18">18: Crackle Fissures</option>
-              <option value="19">19: Washi Fiber</option>
-              <option value="20">20: Concrete Stone</option>
-              <option value="21">21: Antique Parchment</option>
-              <option value="22">22: Stipple Noise</option>
-              <option value="23">23: Spatter Drops</option>
-              <option value="24">24: Raw Fiber Pulp</option>
-              <option value="25">25: Coarse Halftone</option>
-              <option value="26">26: Fine Crosshatch</option>
-              <option value="27">27: Distressed Rust</option>
-              <option value="28">28: Dry Bristle Scrape</option>
-              <option value="29">29: Pastel Honeycomb</option>
-              <option value="30">30: Tree Bark</option>
-              <option value="31">31: Manga Screen Dots</option>
-              <option value="32">32: Manga Sandtone</option>
-              <option value="33">33: Sea Sponge</option>
-              <option value="34">34: Stucco Plaster</option>
-              <option value="35">35: Denim Twill</option>
-              <option value="36">36: Impasto Knife Peaks</option>
-              <option value="37">37: Dusty Chalk Tooth</option>
-              <option value="38">38: Engraving Lines</option>
-              <option value="39">39: Granite Mineral</option>
-              <option value="40">40: Salt Bloom</option>
-              <option value="41">41: Coarse Burlap</option>
-              <option value="42">42: Cracked Earth</option>
-              <option value="43">43: Cyber Circuit Board</option>
-              <option value="44">44: Foliage &amp; Leaves</option>
-              <option value="45">45: Grass Blades Lawn</option>
-              <option value="46">46: Butterfly Wings Motif</option>
-              <option value="47">47: Mystic Surreal Eyes</option>
-              <option value="48">48: Steampunk Gears &amp; Cogs</option>
-              <option value="49">49: Kitty Paw Prints</option>
-              <option value="50">50: Dragon Armor Scales</option>
-              <option value="51">51: Starry Cosmos &amp; Galaxies</option>
-              <option value="52">52: Sci-Fi Hex Tech</option>
-              <option value="53">53: Bubble Soap Foam</option>
-              <option value="54">54: Celtic Knot Braids</option>
-              <option value="55">55: Skulls &amp; Crossbones</option>
-              <option value="56">56: Sweet Hearts Motif</option>
-              <option value="57">57: Seigaiha Ocean Waves</option>
-              <option value="58">58: Musical Staff &amp; Notes</option>
-              <option value="59">59: Classic Houndstooth</option>
-              <option value="60">60: Bird Feathers Plumage</option>
-              <option value="61">61: Chainmail Ringmesh</option>
-              <option value="62">62: Damask Floral Paisley</option>
-              <option value="63">63: Argyle Diamond Plaid</option>
-              <option value="64">64: Masonry Brick Wall</option>
-              <option value="65">65: Molten Magma Lava</option>
-              <option value="66">66: Labyrinth Geometric Maze</option>
-              <option value="67">67: Lightning Electric Arcs</option>
-              <option value="68">68: Radial Spiderweb</option>
-              <option value="69">69: Crystal Gemstone Facets</option>
-              <option value="70">70: 8-Bit Space Invaders</option>
-              <optgroup id="grp-custom-fill-textures" label="Custom Textures"></optgroup>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Scale %</label>
-            <input type="number" id="prop-fill-tex-scale" min="0.01" max="1000" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Angle °</label>
-            <input type="number" id="prop-fill-tex-angle" min="-360" max="360" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Contrast %</label>
-            <input type="number" id="prop-fill-tex-contrast" min="0" max="500" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Grain / Grit</label>
-            <input type="number" id="prop-fill-tex-grain" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Origin</label>
-            <select id="prop-fill-tex-relative">
-              <option value="0">Fixed / World</option>
-              <option value="1">Relative / Object</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Offset X/Y</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-tex-offsetX" placeholder="X" step="any" value="0" style="width: 50%;">
-              <input type="number" id="prop-fill-tex-offsetY" placeholder="Y" step="any" value="0" style="width: 50%;">
-            </div>
-          </div>
+        <div class="form-row">
+          <label>No Fill</label>
+          <button id="btn-fill-none" class="btn-sm" style="flex: 1;">Set None</button>
         </div>
+      </div>
 
-        <!-- 4. Fill WASM Plugin & Lens -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Fill WASM Plugin &amp; Lens</span>
-          </div>
-          <div class="form-row">
-            <label>Enable</label>
-            <input type="checkbox" id="prop-fill-filter-enabled">
-          </div>
-          <div class="form-row">
-            <label>Target</label>
-            <select id="prop-fill-filter-target">
-              <option value="fill" selected>Fill Surface</option>
-              <option value="backdrop">Backdrop Lens</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Plugin</label>
-            <select id="prop-fill-filter-plugin">
-              <option value="bloom">Bloom Glow</option>
-              <option value="blur">Box Blur</option>
-              <option value="brightness">Brightness</option>
-              <option value="chromatic">Chromatic Aberration</option>
-              <option value="contrast">Contrast</option>
-              <option value="dither">Ordered Dither</option>
-              <option value="duotone">Duotone Gradient</option>
-              <option value="edge">Edge Detection</option>
-              <option value="emboss">3D Emboss</option>
-              <option value="fisheye">Fisheye Lens</option>
-              <option value="frosted_glass">Frosted Glass</option>
-              <option value="glitch">VHS Glitch</option>
-              <option value="grayscale">Grayscale</option>
-              <option value="halftone_dot">Halftone Screen Dots</option>
-              <option value="invert">Invert</option>
-              <option value="kaleidoscope">Kaleidoscope Lens</option>
-              <option value="kuwahara">Oil Painting (Kuwahara)</option>
-              <option value="noise">Film Grain / Noise</option>
-              <option value="pixelate">Pixelate Mosaic</option>
-              <option value="ripple">Water Ripple Lens</option>
-              <option value="scanline">CRT Scanlines</option>
-              <option value="sepia">Sepia Vintage</option>
-              <option value="sharpen">Sharpen (Unsharp Mask)</option>
-              <option value="solarize">Solarize (Sabattier)</option>
-              <option value="swirl">Swirl Vortex</option>
-              <option value="thermal">Thermal Vision</option>
-              <option value="threshold">Binary Threshold</option>
-              <option value="vignette">Vignette Lens</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>P1 / P2</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-fill-filter-p1" placeholder="P1" step="any" value="0" style="width: 50%;">
-              <input type="number" id="prop-fill-filter-p2" placeholder="P2" step="any" value="0" style="width: 50%;">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Opacity</label>
-            <input type="number" id="prop-fill-filter-opacity" min="0" max="1" step="any" value="1.0">
-          </div>
+      <!-- Quick Materials Link & Overview -->
+      <div class="section-card">
+        <div style="font-size: 10.5px; color: var(--text-muted); line-height: 1.4; margin-bottom: 6px;">
+          Gradients, 70+ procedural surface textures, and WASM optical lenses are now in the <strong>Materials</strong> tab.
         </div>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-goto-fill-materials" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 5px;">
+          <span>⬡ Open Material Studio</span>
+        </button>
+      </div>
 
-        <!-- 5. Blend & Opacity -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Blend &amp; Opacity</span>
-          </div>
-          <div class="form-row">
-            <label>Opacity</label>
-            <input type="number" id="prop-obj-opacity" min="0" max="1" step="any" value="1.0">
-          </div>
+      <!-- 2. Blend & Opacity -->
+      <div class="section-card">
+        <div class="section-header">
+          <span>Blend &amp; Opacity</span>
         </div>
+        <div class="form-row">
+          <label>Opacity</label>
+          <input type="number" id="prop-obj-opacity" min="0" max="1" step="any" value="1.0">
+        </div>
+      </div>
     </div>
 
     <!-- Dock Panel 2: Stroke & Brush Dynamics -->
     <div id="dock-panel-stroke" class="dock-panel-content">
       <!-- 1. Stroke Properties -->
-        <div class="section-card">
-          <div class="form-row">
-            <label>Color</label>
-            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-              <input type="color" id="prop-stroke-color" value="#1d2021">
-              <input type="text" id="prop-stroke-text" value="#1d2021">
-              <button type="button" id="btn-open-stroke-color-studio" class="btn-sm" title="Open Color Studio" style="padding: 2px 6px; display: inline-flex; align-items: center; justify-content: center;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/>
-                  <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/>
-                  <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/>
-                  <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/>
-                  <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.563-2.512 5.563-5.563C22 6.5 17.5 2 12 2z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Width</label>
-            <input type="number" id="prop-stroke-width" min="0" max="1000" step="any" value="2">
-          </div>
-          <div class="form-row">
-            <label>Linecap</label>
-            <select id="prop-stroke-cap">
-              <option value="round">Round</option>
-              <option value="butt">Butt</option>
-              <option value="square">Square</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Linejoin</label>
-            <select id="prop-stroke-join">
-              <option value="round">Round</option>
-              <option value="miter">Miter</option>
-              <option value="bevel">Bevel</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Hardness %</label>
-            <input type="number" id="prop-stroke-hardness" min="0" max="100" step="any" value="95">
-          </div>
-          <div class="form-row">
-            <label>No Stroke</label>
-            <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
+      <div class="section-card">
+        <div class="form-row">
+          <label>Color</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="color" id="prop-stroke-color" value="#1d2021">
+            <input type="text" id="prop-stroke-text" value="#1d2021">
+            <button type="button" id="btn-open-stroke-color-studio" class="btn-sm" title="Open Materials Studio" style="padding: 2px 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px;">
+              <span style="font-size: 11px;">⬡</span>
+              <span style="font-size: 10px;">Materials</span>
+            </button>
           </div>
         </div>
+        <div class="form-row">
+          <label>Width</label>
+          <input type="number" id="prop-stroke-width" min="0" max="1000" step="any" value="2">
+        </div>
+        <div class="form-row">
+          <label>Linecap</label>
+          <select id="prop-stroke-cap">
+            <option value="round">Round</option>
+            <option value="butt">Butt</option>
+            <option value="square">Square</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Linejoin</label>
+          <select id="prop-stroke-join">
+            <option value="round">Round</option>
+            <option value="miter">Miter</option>
+            <option value="bevel">Bevel</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Hardness %</label>
+          <input type="number" id="prop-stroke-hardness" min="0" max="100" step="any" value="95">
+        </div>
+        <div class="form-row">
+          <label>No Stroke</label>
+          <button id="btn-stroke-none" class="btn-sm" style="flex: 1;">Set None</button>
+        </div>
+      </div>
 
-        <!-- 2. Brush Dynamics & Presets -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Brush Dynamics &amp; Presets</span>
-          </div>
-          <div class="form-row">
-            <label>Preset</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <select id="prop-brush-preset" style="flex: 1;">
-                <option value="custom">-- Custom Settings --</option>
-                <option value="default">Solid Vector (Default)</option>
-                <optgroup label="WASM FX &amp; Lens Brushes">
-                  <option value="neon_glow_brush">Neon Glow Stroke (Bloom)</option>
-                  <option value="glitch_vhs_pen">VHS Glitch Tear Pen</option>
-                  <option value="comic_halftone_ink">Halftone Screen Dots</option>
-                  <option value="chromatic_prism_brush">Chromatic Aberration Prism</option>
-                  <option value="kuwahara_oil_brush">Kuwahara Painterly Oil</option>
-                  <option value="thermal_heat_pen">Thermal Heatmap Sensor</option>
-                  <option value="crt_pixel_pen">Retro CRT Scanline Pen</option>
-                  <option value="frosted_highlighter">Frosted Glass Diffuse</option>
-                  <option value="dither_retro_pen">1-Bit Bayer Dither Pen</option>
-                  <option value="emboss_relief_pen">3D Emboss Bas-Relief</option>
-                </optgroup>
-                <optgroup label="Pencils &amp; Sketching">
-                  <option value="pencil">HB Graphite Pencil</option>
-                  <option value="soft_pencil">6B Soft Graphite</option>
-                  <option value="mech_pencil">0.5mm Mechanical</option>
-                  <option value="blue_pencil">Blue Col-Erase</option>
-                  <option value="tech_pen">Technical Drafting Pen</option>
-                </optgroup>
-                <optgroup label="Inkers &amp; Line Art">
-                  <option value="inker">Studio Inker</option>
-                  <option value="gpen">Manga G-Pen</option>
-                  <option value="dry_ink">Dry Ink Bristle</option>
-                  <option value="fountain">Calligraphy Chisel</option>
-                  <option value="brush_pen">Sumi-e Brush Pen</option>
-                </optgroup>
-                <optgroup label="Markers &amp; Lettering">
-                  <option value="marker">Art Chisel Marker</option>
-                  <option value="brush_marker">Flexible Brush Marker</option>
-                  <option value="highlighter">Highlighter</option>
-                </optgroup>
-                <optgroup label="Paint &amp; Wet Media">
-                  <option value="oil">Oil Impasto (Wet)</option>
-                  <option value="acrylic">Wet Acrylic</option>
-                  <option value="watercolor">Watercolor Wash</option>
-                  <option value="gouache">Matte Gouache</option>
-                  <option value="palette_knife">Palette Knife</option>
-                </optgroup>
-                <optgroup label="Charcoal &amp; Pastels">
-                  <option value="charcoal">Vine Dusty Charcoal</option>
-                  <option value="hard_charcoal">Compressed Charcoal</option>
-                  <option value="pastel">Chalk Pastel</option>
-                  <option value="conte">Conté Crayon</option>
-                </optgroup>
-                <optgroup label="Airbrush &amp; Sprays">
-                  <option value="airbrush">Soft Airbrush</option>
-                  <option value="hard_airbrush">Flow Airbrush</option>
-                  <option value="spray">Aerosol Splatter Spray</option>
-                </optgroup>
-                <optgroup label="Blenders &amp; Smudgers">
-                  <option value="smudge">Finger Smudge</option>
-                  <option value="blend">Paint Blender</option>
-                  <option value="rake_blend">Bristle Smear</option>
-                </optgroup>
-                <optgroup label="Special FX">
-                  <option value="pixel">Pixel 1px Pencil</option>
-                  <option value="halftone">Manga Screentone</option>
-                  <option value="crosshatch">Crosshatch Texture</option>
-                </optgroup>
-                <optgroup label="Textured &amp; Media Grain">
-                  <option value="paper_texture">Paper Grain Brush</option>
-                  <option value="canvas_texture">Canvas Weave Brush</option>
-                  <option value="watercolor_paper">Watercolor Wash Brush</option>
-                  <option value="charcoal_tooth_brush">Charcoal Tooth Brush</option>
-                  <option value="noise_grain">Perlin Noise Grain</option>
-                  <option value="grunge_distress">Grunge Distress Brush</option>
-                  <option value="wood_grain">Wood Grain Brush</option>
-                  <option value="sandpaper_grit">Sandpaper Grit Brush</option>
-                  <option value="crackle_fissure">Crackle Fissure Brush</option>
-                  <option value="marble_veins">Marble Veins Brush</option>
-                  <option value="halftone_screentone">Halftone Screentone</option>
-                  <option value="crosshatch_screentone">Crosshatch Screentone</option>
-                  <option value="pastel_honeycomb">Honeycomb Pastel</option>
-                  <option value="impasto_oil">Impasto Knife Crests</option>
-                  <option value="sponge_fx">Sea Sponge Porous</option>
-                  <option value="manga_sand_screentone">Manga Sandtone</option>
-                  <option value="stucco_plaster">Stucco Plaster Wall</option>
-                  <option value="salt_bloom_wash">Salt Bloom Wash</option>
-                  <option value="tree_bark_brush">Tree Bark Grain</option>
-                  <option value="vintage_engraving">Vintage Engraving</option>
-                  <option value="granite_rock">Granite Rock Flecks</option>
-                  <option value="coarse_burlap">Coarse Burlap Jute</option>
-                  <option value="cracked_mud">Cracked Mud Earth</option>
-                  <option value="denim_fabric">Denim Twill Fabric</option>
-                </optgroup>
-                <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
-              </select>
-              <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Flow %</label>
-            <input type="number" id="prop-brush-flow" min="0" max="100" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Hardness %</label>
-            <input type="number" id="prop-brush-hardness" min="0" max="100" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Spacing %</label>
-            <input type="number" id="prop-brush-spacing" min="0.01" max="100" step="any" value="5">
-          </div>
-          <div class="form-row">
-            <label>Scatter</label>
-            <input type="number" id="prop-brush-scatter" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Roundness %</label>
-            <input type="number" id="prop-brush-roundness" min="1" max="100" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Angle °</label>
-            <input type="number" id="prop-brush-angle" min="0" max="360" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Dab Shape</label>
-            <select id="prop-brush-shape">
-              <option value="0">Round</option>
-              <option value="1">Square</option>
-              <option value="2">Ellipse</option>
-              <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
+      <!-- 2. Brush Dynamics & Presets -->
+      <div class="section-card">
+        <div class="section-header">
+          <span>Brush Dynamics &amp; Presets</span>
+        </div>
+        <div class="form-row">
+          <label>Preset</label>
+          <div style="display: flex; gap: 4px; width: 100%;">
+            <select id="prop-brush-preset" style="flex: 1;">
+              <option value="custom">-- Custom Settings --</option>
+              <option value="default">Solid Vector (Default)</option>
+              <optgroup label="Pencils &amp; Sketching">
+                <option value="pencil">HB Graphite Pencil</option>
+                <option value="soft_pencil">6B Soft Graphite</option>
+                <option value="mech_pencil">0.5mm Mechanical</option>
+                <option value="blue_pencil">Blue Col-Erase</option>
+                <option value="tech_pen">Technical Drafting Pen</option>
+              </optgroup>
+              <optgroup label="Inkers &amp; Line Art">
+                <option value="inker">Studio Inker</option>
+                <option value="gpen">Manga G-Pen</option>
+                <option value="dry_ink">Dry Ink Bristle</option>
+                <option value="fountain">Calligraphy Chisel</option>
+                <option value="brush_pen">Sumi-e Brush Pen</option>
+              </optgroup>
+              <optgroup label="Markers &amp; Lettering">
+                <option value="marker">Art Chisel Marker</option>
+                <option value="brush_marker">Flexible Brush Marker</option>
+                <option value="highlighter">Highlighter</option>
+              </optgroup>
+              <optgroup label="Paint &amp; Wet Media">
+                <option value="oil">Oil Impasto (Wet)</option>
+                <option value="acrylic">Wet Acrylic</option>
+                <option value="watercolor">Watercolor Wash</option>
+                <option value="gouache">Matte Gouache</option>
+                <option value="palette_knife">Palette Knife</option>
+              </optgroup>
+              <optgroup label="Charcoal &amp; Pastels">
+                <option value="charcoal">Vine Dusty Charcoal</option>
+                <option value="hard_charcoal">Compressed Charcoal</option>
+                <option value="pastel">Chalk Pastel</option>
+                <option value="conte">Conté Crayon</option>
+              </optgroup>
+              <optgroup label="Airbrush &amp; Sprays">
+                <option value="airbrush">Soft Airbrush</option>
+                <option value="hard_airbrush">Flow Airbrush</option>
+                <option value="spray">Aerosol Splatter Spray</option>
+              </optgroup>
+              <optgroup label="Blenders &amp; Smudgers">
+                <option value="smudge">Finger Smudge</option>
+                <option value="blend">Paint Blender</option>
+                <option value="rake_blend">Bristle Smear</option>
+              </optgroup>
+              <optgroup id="grp-custom-brush-presets" label="Custom Presets"></optgroup>
             </select>
-          </div>
-          <div class="form-row">
-            <label>Dab Blend</label>
-            <select id="prop-brush-dab-blend">
-              <option value="0">Normal (Direct)</option>
-              <option value="1">Smudge</option>
-              <option value="2">Wet / Glaze</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Auto-Rotate</label>
-            <select id="prop-brush-autorotate">
-              <option value="0">Fixed Angle</option>
-              <option value="1">Follow Stroke Direction</option>
-            </select>
+            <button id="btn-save-brush-preset" title="Save current brush settings as shared preset" style="padding: 2px 8px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--bg-panel-sub); color: var(--text); border-radius: 3px;">+ Save</button>
           </div>
         </div>
+        <div class="form-row">
+          <label>Flow %</label>
+          <input type="number" id="prop-brush-flow" min="0" max="100" step="any" value="100">
+        </div>
+        <div class="form-row">
+          <label>Hardness %</label>
+          <input type="number" id="prop-brush-hardness" min="0" max="100" step="any" value="100">
+        </div>
+        <div class="form-row">
+          <label>Spacing %</label>
+          <input type="number" id="prop-brush-spacing" min="0.01" max="100" step="any" value="5">
+        </div>
+        <div class="form-row">
+          <label>Scatter</label>
+          <input type="number" id="prop-brush-scatter" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Roundness %</label>
+          <input type="number" id="prop-brush-roundness" min="1" max="100" step="any" value="100">
+        </div>
+        <div class="form-row">
+          <label>Angle °</label>
+          <input type="number" id="prop-brush-angle" min="0" max="360" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Dab Shape</label>
+          <select id="prop-brush-shape">
+            <option value="0">Round</option>
+            <option value="1">Square</option>
+            <option value="2">Ellipse</option>
+            <optgroup id="grp-custom-tip-shapes" label="Custom Tip Shapes"></optgroup>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Dab Blend</label>
+          <select id="prop-brush-dab-blend">
+            <option value="0">Normal (Direct)</option>
+            <option value="1">Smudge</option>
+            <option value="2">Wet / Glaze</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Auto-Rotate</label>
+          <select id="prop-brush-autorotate">
+            <option value="0">Fixed Angle</option>
+            <option value="1">Follow Stroke Direction</option>
+          </select>
+        </div>
+      </div>
 
-        <!-- 3. Taper & Jitters -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Taper &amp; Jitters</span>
-          </div>
-          <div class="form-row">
-            <label>Taper In / Out</label>
-            <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-brush-taper-in" min="0" max="100" step="any" value="0" title="Taper In %">
-              <input type="number" id="prop-brush-taper-out" min="0" max="100" step="any" value="0" title="Taper Out %">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Size Jitter %</label>
-            <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Angle Jitter %</label>
-            <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Opacity Jitter</label>
-            <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="any" value="0">
+      <!-- 3. Taper & Jitters -->
+      <div class="section-card">
+        <div class="section-header">
+          <span>Taper &amp; Jitters</span>
+        </div>
+        <div class="form-row">
+          <label>Taper In / Out</label>
+          <div class="grid-2" style="width: 100%;">
+            <input type="number" id="prop-brush-taper-in" min="0" max="100" step="any" value="0" title="Taper In %">
+            <input type="number" id="prop-brush-taper-out" min="0" max="100" step="any" value="0" title="Taper Out %">
           </div>
         </div>
-
-        <!-- 4. Wet Media & Smudge -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Wet Media &amp; Smudge</span>
-          </div>
-          <div class="form-row">
-            <label>Wetness %</label>
-            <input type="number" id="prop-brush-wetness" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Color Pickup</label>
-            <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Depletion %</label>
-            <input type="number" id="prop-brush-depletion" min="0" max="100" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Smudge %</label>
-            <input type="number" id="prop-brush-smudge" min="0" max="100" step="any" value="0">
-          </div>
+        <div class="form-row">
+          <label>Size Jitter %</label>
+          <input type="number" id="prop-brush-size-jitter" min="0" max="100" step="any" value="0">
         </div>
-
-        <!-- 5. Stroke Texture -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Stroke Texture</span>
-          </div>
-          <div class="form-row">
-            <label>Mode</label>
-            <select id="prop-stroke-tex-mode">
-              <option value="0">0: None / Solid</option>
-              <option value="1">1: Paper Grain</option>
-              <option value="2">2: Canvas Weave</option>
-              <option value="3">3: Noise Scatter</option>
-              <option value="4">4: Halftone Dots</option>
-              <option value="5">5: Grid Pattern</option>
-              <option value="6">6: Grunge / Distress</option>
-              <option value="7">7: Hatch Lines</option>
-              <option value="8">8: Watercolor Cold Press</option>
-              <option value="9">9: Charcoal Tooth</option>
-              <option value="10">10: Wood Grain</option>
-              <option value="11">11: Leather Pores</option>
-              <option value="12">12: Dense Linen</option>
-              <option value="13">13: Marble Veins</option>
-              <option value="14">14: Perlin Cloud</option>
-              <option value="15">15: Basket Weave</option>
-              <option value="16">16: Sandpaper Grit</option>
-              <option value="17">17: Radial Halftone</option>
-              <option value="18">18: Crackle Fissures</option>
-              <option value="19">19: Washi Fiber</option>
-              <option value="20">20: Concrete Stone</option>
-              <option value="21">21: Antique Parchment</option>
-              <option value="22">22: Stipple Noise</option>
-              <option value="23">23: Spatter Drops</option>
-              <option value="24">24: Raw Fiber Pulp</option>
-              <option value="25">25: Coarse Halftone</option>
-              <option value="26">26: Fine Crosshatch</option>
-              <option value="27">27: Distressed Rust</option>
-              <option value="28">28: Dry Bristle Scrape</option>
-              <option value="29">29: Pastel Honeycomb</option>
-              <option value="30">30: Tree Bark</option>
-              <option value="31">31: Manga Screen Dots</option>
-              <option value="32">32: Manga Sandtone</option>
-              <option value="33">33: Sea Sponge</option>
-              <option value="34">34: Stucco Plaster</option>
-              <option value="35">35: Denim Twill</option>
-              <option value="36">36: Impasto Knife Peaks</option>
-              <option value="37">37: Dusty Chalk Tooth</option>
-              <option value="38">38: Engraving Lines</option>
-              <option value="39">39: Granite Mineral</option>
-              <option value="40">40: Salt Bloom</option>
-              <option value="41">41: Coarse Burlap</option>
-              <option value="42">42: Cracked Earth</option>
-              <option value="43">43: Cyber Circuit Board</option>
-              <option value="44">44: Foliage &amp; Leaves</option>
-              <option value="45">45: Grass Blades Lawn</option>
-              <option value="46">46: Butterfly Wings Motif</option>
-              <option value="47">47: Mystic Surreal Eyes</option>
-              <option value="48">48: Steampunk Gears &amp; Cogs</option>
-              <option value="49">49: Kitty Paw Prints</option>
-              <option value="50">50: Dragon Armor Scales</option>
-              <option value="51">51: Starry Cosmos &amp; Galaxies</option>
-              <option value="52">52: Sci-Fi Hex Tech</option>
-              <option value="53">53: Bubble Soap Foam</option>
-              <option value="54">54: Celtic Knot Braids</option>
-              <option value="55">55: Skulls &amp; Crossbones</option>
-              <option value="56">56: Sweet Hearts Motif</option>
-              <option value="57">57: Seigaiha Ocean Waves</option>
-              <option value="58">58: Musical Staff &amp; Notes</option>
-              <option value="59">59: Classic Houndstooth</option>
-              <option value="60">60: Bird Feathers Plumage</option>
-              <option value="61">61: Chainmail Ringmesh</option>
-              <option value="62">62: Damask Floral Paisley</option>
-              <option value="63">63: Argyle Diamond Plaid</option>
-              <option value="64">64: Masonry Brick Wall</option>
-              <option value="65">65: Molten Magma Lava</option>
-              <option value="66">66: Labyrinth Geometric Maze</option>
-              <option value="67">67: Lightning Electric Arcs</option>
-              <option value="68">68: Radial Spiderweb</option>
-              <option value="69">69: Crystal Gemstone Facets</option>
-              <option value="70">70: 8-Bit Space Invaders</option>
-              <optgroup id="grp-custom-stroke-textures" label="Custom Textures"></optgroup>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Scale %</label>
-            <input type="number" id="prop-stroke-tex-scale" min="0.01" max="1000" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Angle °</label>
-            <input type="number" id="prop-stroke-tex-angle" min="-360" max="360" step="any" value="0">
-          </div>
-          <div class="form-row">
-            <label>Contrast %</label>
-            <input type="number" id="prop-stroke-tex-contrast" min="0" max="500" step="any" value="100">
-          </div>
-          <div class="form-row">
-            <label>Grain / Grit</label>
-            <input type="number" id="prop-stroke-tex-grain" min="0" max="100" step="any" value="0">
-          </div>
+        <div class="form-row">
+          <label>Angle Jitter %</label>
+          <input type="number" id="prop-brush-angle-jitter" min="0" max="100" step="any" value="0">
         </div>
+        <div class="form-row">
+          <label>Opacity Jitter</label>
+          <input type="number" id="prop-brush-opacity-jitter" min="0" max="100" step="any" value="0">
+        </div>
+      </div>
 
-        <!-- 6. Stroke WASM Plugin & Lens -->
-        <div class="section-card">
-          <div class="section-header">
-            <span>Stroke WASM Plugin &amp; Lens</span>
-          </div>
-          <div class="form-row">
-            <label>Enable</label>
-            <input type="checkbox" id="prop-stroke-filter-enabled">
-          </div>
-          <div class="form-row">
-            <label>Target</label>
-            <select id="prop-stroke-filter-target">
-              <option value="stroke" selected>Stroke Outline</option>
-              <option value="backdrop">Backdrop Lens</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Plugin</label>
-            <select id="prop-stroke-filter-plugin">
-              <option value="bloom">Bloom Glow</option>
-              <option value="blur">Box Blur</option>
-              <option value="brightness">Brightness</option>
-              <option value="chromatic">Chromatic Aberration</option>
-              <option value="contrast">Contrast</option>
-              <option value="dither">Ordered Dither</option>
-              <option value="duotone">Duotone Gradient</option>
-              <option value="edge">Edge Detection</option>
-              <option value="emboss">3D Emboss</option>
-              <option value="fisheye">Fisheye Lens</option>
-              <option value="frosted_glass">Frosted Glass</option>
-              <option value="glitch">VHS Glitch</option>
-              <option value="grayscale">Grayscale</option>
-              <option value="halftone_dot">Halftone Screen Dots</option>
-              <option value="invert">Invert</option>
-              <option value="kaleidoscope">Kaleidoscope Lens</option>
-              <option value="kuwahara">Oil Painting (Kuwahara)</option>
-              <option value="noise">Film Grain / Noise</option>
-              <option value="pixelate">Pixelate Mosaic</option>
-              <option value="ripple">Water Ripple Lens</option>
-              <option value="scanline">CRT Scanlines</option>
-              <option value="sepia">Sepia Vintage</option>
-              <option value="sharpen">Sharpen (Unsharp Mask)</option>
-              <option value="solarize">Solarize (Sabattier)</option>
-              <option value="swirl">Swirl Vortex</option>
-              <option value="thermal">Thermal Vision</option>
-              <option value="threshold">Binary Threshold</option>
-              <option value="vignette">Vignette Lens</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>P1 / P2</label>
-            <div style="display: flex; gap: 4px; width: 100%;">
-              <input type="number" id="prop-stroke-filter-p1" placeholder="P1" step="any" value="0" style="width: 50%;">
-              <input type="number" id="prop-stroke-filter-p2" placeholder="P2" step="any" value="0" style="width: 50%;">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Opacity</label>
-            <input type="number" id="prop-stroke-filter-opacity" min="0" max="1" step="any" value="1.0">
-          </div>
+      <!-- 4. Wet Media & Smudge -->
+      <div class="section-card">
+        <div class="section-header">
+          <span>Wet Media &amp; Smudge</span>
+        </div>
+        <div class="form-row">
+          <label>Wetness %</label>
+          <input type="number" id="prop-brush-wetness" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Color Pickup</label>
+          <input type="number" id="prop-brush-color-pickup" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Depletion %</label>
+          <input type="number" id="prop-brush-depletion" min="0" max="100" step="any" value="0">
+        </div>
+        <div class="form-row">
+          <label>Smudge %</label>
+          <input type="number" id="prop-brush-smudge" min="0" max="100" step="any" value="0">
         </div>
       </div>
     </div>
 
-    <!-- Dock Panel: Color Studio -->
+    <!-- Dock Panel: Materials Studio -->
     <div id="dock-panel-color" class="dock-panel-content" style="padding: 6px; overflow-y: auto; overflow-x: hidden; background: var(--bg-panel); display: flex; flex-direction: column; gap: 6px; height: 100%; box-sizing: border-box;">
       <div id="color-studio-mount"></div>
     </div>
@@ -4734,172 +4199,6 @@
       <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; box-sizing: border-box;"></div>
     </div>
 
-    <!-- Dock Panel 13: Rigging & Ragdoll Physics -->
-    <div id="dock-panel-rigging" class="dock-panel-content" style="padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: var(--bg-panel); height: 100%; box-sizing: border-box;">
-      <!-- Card 1: Skeleton Management & Tool -->
-      <div class="section-card">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span>Armature &amp; Bones</span>
-          <button type="button" id="btn-rig-tool" class="btn-sm" title="Activate Bone Tool (Hotkey: K)" style="background: var(--primary-dim); color: var(--primary); font-weight: 700; cursor: pointer;">Bone Tool (K)</button>
-        </div>
-        <div class="form-row">
-          <label>Skeleton</label>
-          <div style="display: flex; gap: 5px; width: 100%;">
-            <input type="text" id="prop-rig-skel-name" placeholder="Skeleton Name" value="Main Rig" style="flex: 1; font-size: 11px;">
-            <button type="button" id="btn-rig-create-skel" class="btn-sm" title="Create New Skeleton">+ New</button>
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Examples</label>
-          <div style="display: flex; gap: 5px; width: 100%;">
-            <select id="prop-rig-preset-select" style="flex: 1; font-size: 11px;">
-              <option value="ragdoll_man">Ragdoll Stickman (Full Physics)</option>
-              <option value="ik_arm">IK Robotic Arm (CCD-IK)</option>
-              <option value="spring_tail">Cat Tail (Spring Jiggle)</option>
-              <option value="spine_worm">Tentacle / Spine (Bézier Skinning)</option>
-            </select>
-            <button type="button" id="btn-rig-load-preset" class="btn-sm btn-primary" title="Load Rigging Demo Scene">Load</button>
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Bones</label>
-          <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
-            <select id="prop-rig-bone-list" size="5" style="width: 100%; font-size: 11px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px;"></select>
-            <div style="display: flex; gap: 4px;">
-              <button type="button" id="btn-rig-add-bone" class="btn-sm" style="flex: 1;">+ Add Bone</button>
-              <button type="button" id="btn-rig-delete-bone" class="btn-sm" style="flex: 1; color: var(--danger);">Delete</button>
-            </div>
-          </div>
-        </div>
-        <!-- Bone Details -->
-        <div id="rig-bone-details" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px;">
-          <div class="form-row">
-            <label>Bone Name</label>
-            <input type="text" id="prop-rig-bone-name" placeholder="Bone name" style="width: 100%; font-size: 11px;">
-          </div>
-          <div class="form-row">
-            <label>Length / Angle</label>
-            <div class="grid-2" style="width: 100%;">
-              <input type="number" id="prop-rig-bone-length" min="5" max="2000" step="1" title="Length (px)">
-              <input type="number" id="prop-rig-bone-angle" min="-360" max="360" step="1" title="Local Angle (deg)">
-            </div>
-          </div>
-          <div class="form-row">
-            <label>Parent Bone</label>
-            <select id="prop-rig-bone-parent" style="width: 100%; font-size: 11px;"></select>
-          </div>
-        </div>
-      </div>
-
-      <!-- Card 2: Binding (Skinning) -->
-      <div class="section-card">
-        <div class="section-header" style="margin-bottom: 6px;">Shape &amp; Path Skinning</div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <button type="button" id="btn-rig-bind-cutout" class="btn-sm" title="Bind selected shape or group to active bone" style="width: 100%;">Bind Selected Object (Cutout)</button>
-          <div style="display: flex; gap: 4px;">
-            <button type="button" id="btn-rig-bind-path-smooth" class="btn-sm" title="Bind path with multi-bone Gaussian blend skinning (LBS)" style="flex: 1; font-weight: 600;">Smooth LBS Skinning</button>
-            <button type="button" id="btn-rig-bind-path" class="btn-sm" title="Bind path nodes to nearest bones" style="flex: 1;">Rigid Skinning</button>
-          </div>
-          <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);" id="rig-bindings-count">0 active bindings</div>
-          <button type="button" id="btn-rig-clear-bindings" class="btn-sm" style="color: var(--text-muted); font-size: 10px;">Clear Bindings</button>
-        </div>
-      </div>
-
-      <!-- Card 3: Kinematic Constraints -->
-      <div class="section-card">
-        <div class="section-header" style="margin-bottom: 6px;">Bone Constraints Engine</div>
-        <div style="display: flex; flex-direction: column; gap: 5px;">
-          <div class="form-row">
-            <label>Type</label>
-            <select id="prop-rig-constraint-type" style="width: 100%; font-size: 11px;">
-              <option value="aim">Aim (Look-At Target)</option>
-              <option value="copy_rotation">Copy Rotation</option>
-              <option value="ik">IK Chain with Pole Bend</option>
-            </select>
-          </div>
-          <div class="form-row">
-            <label>Target Bone</label>
-            <select id="prop-rig-constraint-target" style="width: 100%; font-size: 11px;"></select>
-          </div>
-          <div class="form-row" id="row-rig-pole-target" style="display: none;">
-            <label>Pole Hint</label>
-            <select id="prop-rig-constraint-pole" style="width: 100%; font-size: 11px;"></select>
-          </div>
-          <div class="form-row">
-            <label>Weight</label>
-            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-              <input type="range" id="prop-rig-constraint-weight" min="0" max="1" step="0.05" value="1.0" style="flex: 1;">
-              <span id="prop-rig-constraint-weight-val" style="font-size: 10px; font-family: var(--font-mono); width: 28px; text-align: right;">1.0</span>
-            </div>
-          </div>
-          <button type="button" id="btn-rig-add-constraint" class="btn-sm" style="width: 100%; font-weight: 600;">+ Add Constraint to Bone</button>
-          <div id="rig-constraints-list" style="display: flex; flex-direction: column; gap: 3px; max-height: 100px; overflow-y: auto; font-size: 10px; font-family: var(--font-mono); margin-top: 4px;"></div>
-        </div>
-      </div>
-
-      <!-- Card 4: Ragdoll & Physics -->
-      <div class="section-card">
-        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span>Ragdoll &amp; Physics</span>
-          <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer;">
-            <input type="checkbox" id="prop-rig-physics-enabled"> Enabled
-          </label>
-        </div>
-        <div class="form-row">
-          <label>Physics Mode</label>
-          <select id="prop-rig-physics-mode" style="width: 100%; font-size: 11px;">
-            <option value="ragdoll">Ragdoll (Full Dynamic)</option>
-            <option value="secondary">Secondary (Spring / Jiggle)</option>
-            <option value="kinematic">Kinematic (Manual Keyframe)</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label>Gravity Y</label>
-          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="range" id="prop-rig-gravity" min="0" max="2000" step="10" value="980" style="flex: 1;">
-            <span id="prop-rig-gravity-val" style="font-size: 10px; font-family: var(--font-mono); width: 40px; text-align: right;">980</span>
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Wind X / Turb</label>
-          <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-rig-wind-x" value="0" step="50" placeholder="Wind X (px/s²)" title="Wind Force X">
-            <input type="number" id="prop-rig-wind-turb" min="0" max="1" step="0.1" value="0" placeholder="Turbulence (0-1)" title="Wind Turbulence">
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Damping</label>
-          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
-            <input type="range" id="prop-rig-damping" min="0.80" max="0.99" step="0.01" value="0.96" style="flex: 1;">
-            <span id="prop-rig-damping-val" style="font-size: 10px; font-family: var(--font-mono); width: 40px; text-align: right;">0.96</span>
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Angle Limits</label>
-          <div class="grid-2" style="width: 100%;">
-            <input type="number" id="prop-rig-min-angle" value="-120" title="Min Angle (deg)">
-            <input type="number" id="prop-rig-max-angle" value="120" title="Max Angle (deg)">
-          </div>
-        </div>
-        <div class="form-row">
-          <label>Floor Y (px)</label>
-          <input type="number" id="prop-rig-floor-y" value="550" title="Collision Floor Height">
-        </div>
-      </div>
-
-      <!-- Card 5: Simulation & Timeline Baking -->
-      <div class="section-card">
-        <div class="section-header" style="margin-bottom: 6px;">Simulation &amp; Bake</div>
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <div style="display: flex; gap: 4px;">
-            <button type="button" id="btn-rig-sim-play" class="btn-sm btn-primary" style="flex: 1;">Simulate (Live)</button>
-            <button type="button" id="btn-rig-reset-pose" class="btn-sm" style="flex: 1;">Rest Pose</button>
-          </div>
-          <button type="button" id="btn-rig-bake-dopesheet" class="btn-sm" style="width: 100%; font-weight: 700; color: var(--primary);" title="Simulate physics and bake keyframes into active DopeSheet animation clip">Bake Physics to Timeline</button>
-          <div style="font-size: 10px; color: var(--text-muted); font-style: italic;">Grab &amp; throw bones in real-time during simulation</div>
-        </div>
-      </div>
-    </div>
   </div>
 
   <!-- Hidden File Input for SVG Import -->
@@ -4917,7 +4216,6 @@
   <script src="src/color_studio.js"></script>
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
-  <script src="src/svg/svg_rigging.js"></script>
   <script src="src/svg/svg_engine.js"></script>
   <script src="src/svg/quadro_svg_renderer.js"></script>
   <script>
@@ -4925,10 +4223,6 @@
       'use strict';
 
       const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
-      const SvgBone = SvgEngine?.SvgBone || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null);
-      const SvgSkeleton = SvgEngine?.SvgSkeleton || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null);
-      const RagdollSimulation = SvgEngine?.RagdollSimulation || (typeof SvgRigging !== 'undefined' ? SvgRigging.RagdollSimulation : null);
-      const bakeRagdollToDopeSheet = SvgEngine?.bakeRagdollToDopeSheet || (typeof SvgRigging !== 'undefined' ? SvgRigging.bakeRagdollToDopeSheet : null);
 
       // ── Persistent User Settings (localStorage) ──
       const STUDIO_SETTINGS_KEY = 'esenho_studio_settings_v1';
@@ -6496,10 +5790,6 @@
             ctx.restore();
           }
         }
-
-        if (typeof renderBonesOverlay === 'function') {
-          renderBonesOverlay(ctx, zoom);
-        }
       }
 
       // ── Object Hierarchy UI List (Hierarchical Tree with Drag & Drop / Touch Reordering) ──
@@ -7656,16 +6946,6 @@
         dragStartY = pt.y;
         isDragging = true;
 
-        if (typeof isRagdollLiveSimulating !== 'undefined' && isRagdollLiveSimulating && typeof activeRagdollSim !== 'undefined' && activeRagdollSim) {
-          const grabbed = activeRagdollSim.startDrag(pt.x, pt.y, 40 / (zoom || 1));
-          if (grabbed) {
-            isRagdollDragging = true;
-            ragdollLastPos = { x: pt.x, y: pt.y };
-            ragdollVelocity = { x: 0, y: 0 };
-            return;
-          }
-        }
-
         if (activeTool === 'select') {
           activeResizeHandle = null;
           activeTransformMode = null;
@@ -8069,10 +7349,6 @@
             updateInspector();
             updateObjectList();
           }
-        } else if (activeTool === 'bone') {
-          if (typeof handleBonePointerDown === 'function') {
-            handleBonePointerDown(pt, e);
-          }
         }
       });
 
@@ -8081,13 +7357,6 @@
 
         const pt = screenToDoc(e.clientX, e.clientY);
         statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
-
-        if (typeof isRagdollLiveSimulating !== 'undefined' && isRagdollLiveSimulating && typeof isRagdollDragging !== 'undefined' && isRagdollDragging && typeof activeRagdollSim !== 'undefined' && activeRagdollSim) {
-          ragdollVelocity = { x: (pt.x - ragdollLastPos.x) * 30, y: (pt.y - ragdollLastPos.y) * 30 };
-          ragdollLastPos = { x: pt.x, y: pt.y };
-          activeRagdollSim.updateDrag(pt.x, pt.y);
-          return;
-        }
 
         if (activeGuideDrag) {
           if (activeGuideDrag.type === 'horizontal') {
@@ -8601,21 +7870,11 @@
             currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
             scheduleFastRender();
           }
-        } else if (activeTool === 'bone') {
-          if (typeof handleBonePointerMove === 'function') {
-            handleBonePointerMove(pt, e);
-          }
         }
       });
 
       window.addEventListener('pointerup', (e) => {
         if (isTouchPinching) return;
-
-        if (typeof isRagdollLiveSimulating !== 'undefined' && isRagdollLiveSimulating && typeof isRagdollDragging !== 'undefined' && isRagdollDragging && typeof activeRagdollSim !== 'undefined' && activeRagdollSim) {
-          isRagdollDragging = false;
-          activeRagdollSim.endDrag(ragdollVelocity.x, ragdollVelocity.y);
-          return;
-        }
 
         if (activeGuideDrag) {
           const rulerTopRect = rulerTopCanvas ? rulerTopCanvas.getBoundingClientRect() : null;
@@ -8689,12 +7948,6 @@
           drawOverlay();
         }
         nodeDragStartPositions = null;
-
-        if (activeTool === 'bone') {
-          if (typeof handleBonePointerUp === 'function') {
-            handleBonePointerUp(pt, e);
-          }
-        }
 
         if (isDragging) {
           isDragging = false;
@@ -9208,8 +8461,7 @@
             { type: 'item', label: 'Rectangle Shape', hotkey: 'R', action: () => selectTool('rect') },
             { type: 'item', label: 'Ellipse / Circle', hotkey: 'O', action: () => selectTool('ellipse') },
             { type: 'item', label: 'Line Segment', hotkey: 'L', action: () => selectTool('line') },
-            { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') },
-            { type: 'item', label: 'Bone / Rigging Tool', hotkey: 'K', action: () => selectTool('bone') }
+            { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') }
           ]);
 
           addSubmenu('Edit & History', [
@@ -9810,12 +9062,8 @@
           node: 'Bézier Node Editor',
           pen: 'Bézier Pen',
           brush: 'Freehand Vector Brush',
-          text: 'Vector Typography',
-          bone: 'Bone / Rigging Tool (K)'
+          text: 'Vector Typography'
         };
-        if (toolName === 'bone' && typeof openDockPanel === 'function') {
-          openDockPanel('rigging');
-        }
         if (statusTool) statusTool.textContent = toolTitles[toolName] || (btn?.title ? btn.title.split('(')[0].trim() : toolName);
         render();
         drawOverlay();
@@ -10109,13 +9357,6 @@
           selectTool('pen');
         } else if (key === 'b') {
           selectTool('brush');
-        } else if (key === 'k') {
-          if (e.shiftKey) {
-            e.preventDefault();
-            if (typeof openDockPanel === 'function') openDockPanel('rigging');
-          } else {
-            selectTool('bone');
-          }
         } else if (key === 'r') {
           if (e.shiftKey) {
             e.preventDefault();
@@ -10668,6 +9909,13 @@
       });
 
       document.getElementById('btn-open-fill-color-studio')?.addEventListener('click', () => {
+        openDockPanel('color');
+        if (typeof ColorStudio !== 'undefined' && ColorStudio.getInstance()) {
+          ColorStudio.getInstance().setTarget('fill');
+        }
+      });
+
+      document.getElementById('btn-goto-fill-materials')?.addEventListener('click', () => {
         openDockPanel('color');
         if (typeof ColorStudio !== 'undefined' && ColorStudio.getInstance()) {
           ColorStudio.getInstance().setTarget('fill');
@@ -11586,13 +10834,14 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v14';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves', 'rigging'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v15';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'materials', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
       const panelElementMap = new Map();
       function getPanelElement(id) {
+        if (id === 'materials') id = 'color';
         if (panelElementMap.has(id)) return panelElementMap.get(id);
         const el = document.getElementById('dock-panel-' + id);
         if (el) panelElementMap.set(id, el);
@@ -11618,6 +10867,7 @@
       function openDockPanel(id) {
         if (!dockviewApi) return;
         if (id === 'document') id = 'projects';
+        if (id === 'materials') id = 'color';
         const existing = dockviewApi.getPanel(id);
         if (existing) {
           existing.api.setActive();
@@ -11633,8 +10883,6 @@
               if (mount) ColorStudio.mountColorTab(mount);
               ColorStudio.onPanelActivated();
             }
-          } else if (id === 'rigging') {
-            if (typeof updateRiggingUI === 'function') updateRiggingUI();
           }
           updateTitlebarLayoutButtons();
           return existing;
@@ -11642,15 +10890,15 @@
         const titleMap = {
           fill: 'Fill',
           stroke: 'Stroke',
-          color: 'Color',
+          color: 'Materials',
+          materials: 'Materials',
           inspect: 'Transform',
           scene: 'Scene',
           animation: 'Timeline',
           curves: 'Curves',
           tracer: 'Vectorizer',
           projects: 'Projects',
-          export: 'Export',
-          rigging: 'Rigging'
+          export: 'Export'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -11671,8 +10919,8 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
             }
-          } else if (['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'];
+          } else if (['inspect', 'scene', 'tracer', 'projects', 'export'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -11704,8 +10952,6 @@
             if (mount) ColorStudio.mountColorTab(mount);
             ColorStudio.onPanelActivated();
           }
-        } else if (id === 'rigging') {
-          if (typeof updateRiggingUI === 'function') updateRiggingUI();
         }
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
@@ -11782,7 +11028,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'];
+        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -11795,7 +11041,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke') || !!dockviewApi?.getPanel('color');
-        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -11834,11 +11080,11 @@
             position: { referencePanel: 'fill' }
           });
 
-          // 4. Left Color panel (tabbed with Fill)
+          // 4. Left Materials panel (tabbed with Fill)
           dockviewApi.addPanel({
             id: 'color',
             component: 'color',
-            title: 'Color',
+            title: 'Materials',
             position: { referencePanel: 'fill' }
           });
 
@@ -11880,14 +11126,6 @@
             id: 'export',
             component: 'export',
             title: 'Export',
-            position: { referencePanel: 'inspect' }
-          });
-
-          // 8b. Right Rigging & Ragdoll panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'rigging',
-            component: 'rigging',
-            title: 'Rigging',
             position: { referencePanel: 'inspect' }
           });
 
@@ -11940,7 +11178,7 @@
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
         // Clean up any stale old dock layout keys from previous versions
-        for (let i = 1; i <= 13; i++) {
+        for (let i = 1; i <= 14; i++) {
           try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
         }
         try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
@@ -12065,8 +11303,6 @@
                 if (mount) ColorStudio.mountColorTab(mount);
                 ColorStudio.onPanelActivated();
               }
-            } else if (id === 'rigging') {
-              if (typeof updateRiggingUI === 'function') updateRiggingUI();
             } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
               updateInspector();
             }
@@ -12126,8 +11362,6 @@
           panelId = 'projects';
         } else if (targetTabId === 'tab-animation' || targetTabId === 'animation') {
           panelId = 'animation';
-        } else if (targetTabId === 'tab-rigging' || targetTabId === 'rigging') {
-          panelId = 'rigging';
         }
         openDockPanel(panelId);
         if (panelId === 'projects') {
@@ -12183,17 +11417,6 @@
           { type: 'item', label: 'Export SVG (.svg)', action: () => performExport('image/svg+xml', 1) },
           { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
           { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
-          { type: 'sep' },
-          {
-            type: 'submenu',
-            label: 'Rigging & Physics Demos',
-            items: [
-              { type: 'item', label: 'Ragdoll Stickman (Full Physics)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('ragdoll_man'); } },
-              { type: 'item', label: 'Robotic Arm (CCD-IK)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('ik_arm'); } },
-              { type: 'item', label: 'Cat Tail (Spring Jiggle)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('spring_tail'); } },
-              { type: 'item', label: 'Tentacle Spine (Bézier Skinning)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('spine_worm'); } }
-            ]
-          },
           { type: 'sep' },
           { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
         ];
@@ -12325,7 +11548,6 @@
           { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
-          { type: 'item', label: (!!dockviewApi?.getPanel('rigging') ? '✓ ' : '') + 'Rigging & Ragdoll Dock', hotkey: 'Shift+K', action: () => toggleDockPanel('rigging') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
@@ -12435,8 +11657,6 @@
           { type: 'item', label: 'Play / Pause Timeline', hotkey: 'Space', action: () => {
             toggleScenePlay();
           }},
-          { type: 'sep' },
-          { type: 'item', label: 'Rigging & Ragdoll Physics...', hotkey: 'Shift+K', action: () => openDockPanel('rigging') },
           { type: 'sep' },
           { type: 'item', label: 'Go to First Frame', action: () => { seekSceneFrame(1); } },
           { type: 'item', label: 'Go to Last Frame', action: () => { seekSceneFrame(window.dopeSheet?.totalFrames || 60); } }
@@ -14373,32 +13593,6 @@
             if (state.fxSat !== undefined) obj.filterSat = state.fxSat;
           }
         }
-        if (activeSkeleton) {
-          let skelChanged = false;
-          if (samples[activeSkeleton.id]) {
-            const skelState = samples[activeSkeleton.id];
-            if (skelState.x !== undefined) { activeSkeleton.x = skelState.x; skelChanged = true; }
-            if (skelState.y !== undefined) { activeSkeleton.y = skelState.y; skelChanged = true; }
-            if (skelState.rotation !== undefined) { activeSkeleton.rotation = skelState.rotation; skelChanged = true; }
-          }
-          for (const bone of activeSkeleton.bones) {
-            if (samples[bone.id]) {
-              const bState = samples[bone.id];
-              if (bState.rotation !== undefined) {
-                bone.localAngle = bState.rotation;
-                skelChanged = true;
-              }
-              if (bState.length !== undefined) {
-                bone.length = bState.length;
-                skelChanged = true;
-              }
-            }
-          }
-          if (skelChanged) {
-            activeSkeleton.updateWorldTransforms();
-            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-          }
-        }
         const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
         if (isPlaying) {
           renderFast(false);
@@ -15692,1177 +14886,6 @@
       }
       window.openExportModal = openExportModal;
 
-      // =========================================================================
-      // ── Vector Studio Rigging & Ragdoll Physics UI Engine ──
-      // =========================================================================
-      let activeSkeleton = null;
-      let selectedBoneId = null;
-      let activeRagdollSim = null;
-      let isRagdollLiveSimulating = false;
-      let ragdollAnimFrameId = null;
-      let boneInteractionState = null;
-      let isRagdollDragging = false;
-      let ragdollLastPos = { x: 0, y: 0 };
-      let ragdollVelocity = { x: 0, y: 0 };
-
-      function normAngle(deg) {
-        while (deg > 180) deg -= 360;
-        while (deg < -180) deg += 360;
-        return deg;
-      }
-
-      function distPtToSeg(px, py, x1, y1, x2, y2) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        const lenSq = dx * dx + dy * dy;
-        if (lenSq < 1e-6) return Math.hypot(px - x1, py - y1);
-        let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
-        t = Math.max(0, Math.min(1, t));
-        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
-      }
-
-      function ensureActiveSkeleton() {
-        if (!doc) return null;
-        const SkeletonClass = SvgSkeleton || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgSkeleton : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgSkeleton : null);
-        if (!SkeletonClass) return null;
-        if (doc.skeleton && doc.skeleton instanceof SkeletonClass) {
-          activeSkeleton = doc.skeleton;
-          return activeSkeleton;
-        }
-        if (!activeSkeleton) {
-          const skelName = document.getElementById('prop-rig-skel-name')?.value || 'Main Rig';
-          try {
-            activeSkeleton = new SkeletonClass('skel_main', skelName, {
-              x: Math.round(doc.width / 2),
-              y: Math.round(doc.height / 3)
-            });
-            doc.skeleton = activeSkeleton;
-          } catch (e) {
-            console.warn('Failed to construct SvgSkeleton:', e);
-            return null;
-          }
-        }
-        return activeSkeleton;
-      }
-
-      function updateRiggingUI() {
-        ensureActiveSkeleton();
-        if (!activeSkeleton) return;
-
-        const skelNameInp = document.getElementById('prop-rig-skel-name');
-        if (skelNameInp && document.activeElement !== skelNameInp) {
-          skelNameInp.value = activeSkeleton.name || 'Main Rig';
-        }
-
-        const boneListEl = document.getElementById('prop-rig-bone-list');
-        const parentSelEl = document.getElementById('prop-rig-bone-parent');
-        const cTargetSel = document.getElementById('prop-rig-constraint-target');
-        const cPoleSel = document.getElementById('prop-rig-constraint-pole');
-
-        if (boneListEl) {
-          const oldVal = boneListEl.value;
-          boneListEl.innerHTML = '';
-          for (const b of activeSkeleton.bones) {
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = `${b.parentId ? '└ ' : '◆ '}${b.name || b.id} (${Math.round(b.length)}px, ${Math.round(b.localAngle)}°)`;
-            if (b.id === selectedBoneId) opt.selected = true;
-            boneListEl.appendChild(opt);
-          }
-          if (!selectedBoneId && activeSkeleton.bones.length > 0) {
-            selectedBoneId = activeSkeleton.bones[0].id;
-            boneListEl.value = selectedBoneId;
-          }
-        }
-
-        if (parentSelEl) {
-          parentSelEl.innerHTML = '<option value="">(None - Root Bone)</option>';
-          for (const b of activeSkeleton.bones) {
-            if (b.id === selectedBoneId) continue;
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.name || b.id;
-            parentSelEl.appendChild(opt);
-          }
-        }
-
-        if (cTargetSel) {
-          cTargetSel.innerHTML = '<option value="">Select target bone...</option>';
-          for (const b of activeSkeleton.bones) {
-            if (b.id === selectedBoneId) continue;
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.name || b.id;
-            cTargetSel.appendChild(opt);
-          }
-        }
-
-        if (cPoleSel) {
-          cPoleSel.innerHTML = '<option value="">(None)</option>';
-          for (const b of activeSkeleton.bones) {
-            if (b.id === selectedBoneId) continue;
-            const opt = document.createElement('option');
-            opt.value = b.id;
-            opt.textContent = b.name || b.id;
-            cPoleSel.appendChild(opt);
-          }
-        }
-
-        const constraintsListEl = document.getElementById('rig-constraints-list');
-        if (constraintsListEl) {
-          constraintsListEl.innerHTML = '';
-          const activeConstraints = activeSkeleton.constraints || [];
-          if (activeConstraints.length === 0) {
-            constraintsListEl.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">No active constraints</span>';
-          } else {
-            for (const c of activeConstraints) {
-              const b = activeSkeleton.getBone(c.boneId);
-              const t = activeSkeleton.getBone(c.targetBoneId);
-              const row = document.createElement('div');
-              row.style.display = 'flex';
-              row.style.alignItems = 'center';
-              row.style.justifyContent = 'space-between';
-              row.style.padding = '2px 4px';
-              row.style.background = 'var(--bg-input)';
-              row.style.borderRadius = 'var(--radius-sm)';
-              row.style.border = '1px solid var(--border)';
-              
-              const label = document.createElement('span');
-              label.textContent = `${c.type.toUpperCase()}: ${b?.name || c.boneId} -> ${t?.name || c.targetBoneId} (${Math.round((c.weight !== undefined ? c.weight : 1) * 100)}%)`;
-              label.style.overflow = 'hidden';
-              label.style.textOverflow = 'ellipsis';
-              label.style.whiteSpace = 'nowrap';
-              label.style.flex = '1';
-
-              const delBtn = document.createElement('button');
-              delBtn.type = 'button';
-              delBtn.textContent = 'x';
-              delBtn.style.background = 'transparent';
-              delBtn.style.border = 'none';
-              delBtn.style.color = 'var(--danger)';
-              delBtn.style.cursor = 'pointer';
-              delBtn.style.fontWeight = 'bold';
-              delBtn.style.padding = '0 4px';
-              delBtn.onclick = () => {
-                activeSkeleton.removeConstraint(c.id);
-                activeSkeleton.updateWorldTransforms();
-                activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-                updateRiggingUI();
-                render();
-                drawOverlay();
-              };
-
-              row.appendChild(label);
-              row.appendChild(delBtn);
-              constraintsListEl.appendChild(row);
-            }
-          }
-        }
-
-        const boneDetailsCard = document.getElementById('rig-bone-details');
-        const curBone = selectedBoneId ? activeSkeleton.getBone(selectedBoneId) : null;
-
-        if (curBone) {
-          if (boneDetailsCard) boneDetailsCard.style.display = 'flex';
-          const nameInp = document.getElementById('prop-rig-bone-name');
-          const lenInp = document.getElementById('prop-rig-bone-length');
-          const angInp = document.getElementById('prop-rig-bone-angle');
-
-          if (nameInp && document.activeElement !== nameInp) nameInp.value = curBone.name || curBone.id;
-          if (lenInp && document.activeElement !== lenInp) lenInp.value = Math.round(curBone.length);
-          if (angInp && document.activeElement !== angInp) angInp.value = Math.round(curBone.localAngle);
-          if (parentSelEl) parentSelEl.value = curBone.parentId || '';
-
-          const physEn = document.getElementById('prop-rig-physics-enabled');
-          const physMode = document.getElementById('prop-rig-physics-mode');
-          const minAng = document.getElementById('prop-rig-min-angle');
-          const maxAng = document.getElementById('prop-rig-max-angle');
-
-          if (physEn) physEn.checked = !!curBone.physics.enabled;
-          if (physMode) physMode.value = curBone.physics.mode || 'ragdoll';
-          if (minAng && document.activeElement !== minAng) minAng.value = curBone.physics.minAngle !== undefined ? curBone.physics.minAngle : -120;
-          if (maxAng && document.activeElement !== maxAng) maxAng.value = curBone.physics.maxAngle !== undefined ? curBone.physics.maxAngle : 120;
-        } else {
-          if (boneDetailsCard) boneDetailsCard.style.display = 'none';
-        }
-
-        const bindCountEl = document.getElementById('rig-bindings-count');
-        if (bindCountEl) {
-          const num = activeSkeleton.bindings ? activeSkeleton.bindings.length : 0;
-          bindCountEl.textContent = `${num} active binding${num === 1 ? '' : 's'}`;
-        }
-      }
-
-      function renderBonesOverlay(ctx, z) {
-        if (!activeSkeleton || !activeSkeleton.bones || activeSkeleton.bones.length === 0) return;
-
-        ctx.save();
-        const floorInp = document.getElementById('prop-rig-floor-y');
-        const floorY = floorInp ? Number(floorInp.value) : 550;
-        if (!isNaN(floorY) && (activeTool === 'bone' || isRagdollLiveSimulating)) {
-          ctx.strokeStyle = 'rgba(251, 73, 52, 0.45)';
-          ctx.lineWidth = 1 / z;
-          ctx.setLineDash([6 / z, 4 / z]);
-          ctx.beginPath();
-          ctx.moveTo(-10000, floorY);
-          ctx.lineTo(10000, floorY);
-          ctx.stroke();
-          ctx.setLineDash([]);
-          ctx.fillStyle = 'rgba(251, 73, 52, 0.7)';
-          ctx.font = `${10 / z}px monospace`;
-          ctx.fillText(`Floor Y: ${floorY}px`, 12 / z, floorY - 5 / z);
-        }
-
-        for (const bone of activeSkeleton.bones) {
-          const isSelected = bone.id === selectedBoneId;
-          const isRagdoll = bone.physics && bone.physics.enabled && bone.physics.mode === 'ragdoll';
-          const isSecondary = bone.physics && bone.physics.enabled && bone.physics.mode === 'secondary';
-
-          const x0 = bone.worldX0;
-          const y0 = bone.worldY0;
-          const x1 = bone.worldX1;
-          const y1 = bone.worldY1;
-          const len = bone.length;
-
-          const dx = x1 - x0;
-          const dy = y1 - y0;
-          const angleRad = Math.atan2(dy, dx);
-          const cosA = Math.cos(angleRad);
-          const sinA = Math.sin(angleRad);
-          const nx = -sinA;
-          const ny = cosA;
-
-          const wingDist = Math.min(len * 0.22, 18 / z);
-          const wingW = Math.max(3.5 / z, Math.min(len * 0.18, 12 / z));
-          const wx1 = x0 + dx * (wingDist / len) + nx * wingW;
-          const wy1 = y0 + dy * (wingDist / len) + ny * wingW;
-          const wx2 = x0 + dx * (wingDist / len) - nx * wingW;
-          const wy2 = y0 + dy * (wingDist / len) - ny * wingW;
-
-          ctx.beginPath();
-          ctx.moveTo(x0, y0);
-          ctx.lineTo(wx1, wy1);
-          ctx.lineTo(x1, y1);
-          ctx.lineTo(wx2, wy2);
-          ctx.closePath();
-
-          if (isSelected) {
-            ctx.fillStyle = 'rgba(250, 189, 47, 0.45)';
-            ctx.strokeStyle = '#fabd2f';
-            ctx.lineWidth = 2.0 / z;
-          } else if (isRagdoll) {
-            ctx.fillStyle = 'rgba(251, 73, 52, 0.35)';
-            ctx.strokeStyle = '#fb4934';
-            ctx.lineWidth = 1.4 / z;
-          } else if (isSecondary) {
-            ctx.fillStyle = 'rgba(142, 192, 124, 0.35)';
-            ctx.strokeStyle = '#8ec07c';
-            ctx.lineWidth = 1.4 / z;
-          } else {
-            ctx.fillStyle = 'rgba(131, 165, 152, 0.28)';
-            ctx.strokeStyle = '#83a598';
-            ctx.lineWidth = 1.2 / z;
-          }
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.strokeStyle = isSelected ? '#fabd2f' : 'rgba(255, 255, 255, 0.25)';
-          ctx.lineWidth = 0.8 / z;
-          ctx.beginPath();
-          ctx.moveTo(x0, y0);
-          ctx.lineTo(x1, y1);
-          ctx.stroke();
-
-          const baseR = (isSelected ? 6.5 : 5.0) / z;
-          ctx.fillStyle = isSelected ? '#fabd2f' : '#ebdbb2';
-          ctx.strokeStyle = '#1d2021';
-          ctx.lineWidth = 1.2 / z;
-          ctx.beginPath();
-          ctx.arc(x0, y0, baseR, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          const tipR = (isSelected ? 4.5 : 3.5) / z;
-          ctx.fillStyle = isSelected ? '#fe8019' : (isRagdoll ? '#fb4934' : '#83a598');
-          ctx.beginPath();
-          ctx.arc(x1, y1, tipR, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          ctx.fillStyle = isSelected ? '#fabd2f' : '#ebdbb2';
-          ctx.font = `${Math.max(9, 10 / z)}px monospace`;
-          ctx.fillText(bone.name || bone.id, wx1 + 4 / z, wy1 - 2 / z);
-        }
-
-        if (boneInteractionState && boneInteractionState.mode === 'create' && boneInteractionState.startPt && boneInteractionState.currentPt) {
-          const s = boneInteractionState.startPt;
-          const c = boneInteractionState.currentPt;
-          ctx.strokeStyle = '#fabd2f';
-          ctx.lineWidth = 1.6 / z;
-          ctx.setLineDash([4 / z, 3 / z]);
-          ctx.beginPath();
-          ctx.moveTo(s.x, s.y);
-          ctx.lineTo(c.x, c.y);
-          ctx.stroke();
-          ctx.setLineDash([]);
-
-          ctx.fillStyle = '#fabd2f';
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, 5 / z, 0, Math.PI * 2);
-          ctx.arc(c.x, c.y, 4 / z, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        ctx.restore();
-      }
-
-      function handleBonePointerDown(pt, e) {
-        ensureActiveSkeleton();
-        const z = zoom || 1;
-
-        for (let i = activeSkeleton.bones.length - 1; i >= 0; i--) {
-          const b = activeSkeleton.bones[i];
-          if (Math.hypot(pt.x - b.worldX1, pt.y - b.worldY1) <= 12 / z) {
-            selectedBoneId = b.id;
-            const isIK = e.shiftKey;
-            boneInteractionState = {
-              mode: isIK ? 'ik' : 'rotate_fk',
-              bone: b,
-              startPt: { ...pt },
-              currentPt: { ...pt }
-            };
-            updateRiggingUI();
-            drawOverlay();
-            return;
-          }
-        }
-
-        for (let i = activeSkeleton.bones.length - 1; i >= 0; i--) {
-          const b = activeSkeleton.bones[i];
-          const segDist = distPtToSeg(pt.x, pt.y, b.worldX0, b.worldY0, b.worldX1, b.worldY1);
-          if (segDist <= 10 / z) {
-            selectedBoneId = b.id;
-            boneInteractionState = {
-              mode: 'select_only',
-              bone: b,
-              startPt: { ...pt },
-              currentPt: { ...pt }
-            };
-            updateRiggingUI();
-            drawOverlay();
-            return;
-          }
-        }
-
-        let parentBone = selectedBoneId ? activeSkeleton.getBone(selectedBoneId) : null;
-        let startX = pt.x;
-        let startY = pt.y;
-        if (parentBone && Math.hypot(pt.x - parentBone.worldX1, pt.y - parentBone.worldY1) <= 24 / z) {
-          startX = parentBone.worldX1;
-          startY = parentBone.worldY1;
-        } else if (!parentBone && activeSkeleton.bones.length === 0) {
-          activeSkeleton.x = pt.x;
-          activeSkeleton.y = pt.y;
-        }
-
-        boneInteractionState = {
-          mode: 'create',
-          parentBoneId: parentBone ? parentBone.id : null,
-          startPt: { x: startX, y: startY },
-          currentPt: { ...pt }
-        };
-        drawOverlay();
-      }
-
-      function handleBonePointerMove(pt, e) {
-        if (!boneInteractionState) return;
-
-        if (boneInteractionState.mode === 'create') {
-          boneInteractionState.currentPt = { ...pt };
-          drawOverlay();
-        } else if (boneInteractionState.mode === 'rotate_fk') {
-          const b = boneInteractionState.bone;
-          const dx = pt.x - b.worldX0;
-          const dy = pt.y - b.worldY0;
-          const targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
-
-          let parentAngle = activeSkeleton.rotation;
-          if (b.parentId) {
-            const p = activeSkeleton.getBone(b.parentId);
-            if (p) parentAngle = p.worldAngle;
-          }
-          b.localAngle = normAngle(targetAngle - parentAngle);
-          activeSkeleton.updateWorldTransforms();
-          activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-          render();
-          drawOverlay();
-          updateRiggingUI();
-        } else if (boneInteractionState.mode === 'ik') {
-          const b = boneInteractionState.bone;
-          activeSkeleton.solveIK(b.id, pt.x, pt.y, { maxIterations: 15, tolerance: 0.5 });
-          activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-          render();
-          drawOverlay();
-          updateRiggingUI();
-        }
-      }
-
-      function handleBonePointerUp(pt, e) {
-        if (!boneInteractionState) return;
-
-        if (boneInteractionState.mode === 'create') {
-          const s = boneInteractionState.startPt;
-          const len = Math.hypot(pt.x - s.x, pt.y - s.y);
-          if (len >= 8 / (zoom || 1)) {
-            const angle = Math.atan2(pt.y - s.y, pt.x - s.x) * 180 / Math.PI;
-            let localAngle = angle;
-            if (boneInteractionState.parentBoneId) {
-              const parent = activeSkeleton.getBone(boneInteractionState.parentBoneId);
-              if (parent) {
-                localAngle = normAngle(angle - parent.worldAngle);
-              }
-            }
-
-            const count = activeSkeleton.bones.length + 1;
-            const BoneClass = SvgBone || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgBone : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgBone : null);
-            if (BoneClass) {
-              const newBone = new BoneClass(`bone_${count}`, `Bone ${count}`, Math.round(len), Math.round(localAngle), {
-                parentId: boneInteractionState.parentBoneId
-              });
-              activeSkeleton.addBone(newBone);
-              selectedBoneId = newBone.id;
-              doc.pushHistory(`Add Bone ${newBone.name}`);
-              showNotification(`Created bone "${newBone.name}"`);
-            }
-          }
-        }
-
-        boneInteractionState = null;
-        updateRiggingUI();
-        render();
-        drawOverlay();
-      }
-
-      function bindSelectedObjectToActiveBone() {
-        ensureActiveSkeleton();
-        if (!selectedBoneId) {
-          showNotification('Select a bone first before binding');
-          return;
-        }
-        const selected = doc.getSelectedObjects();
-        if (selected.length === 0) {
-          showNotification('Select a vector object or group in the scene to bind');
-          return;
-        }
-        const target = selected[0];
-        const bone = activeSkeleton.getBone(selectedBoneId);
-        activeSkeleton.bindCutout(target, selectedBoneId);
-        doc.pushHistory(`Bind ${target.name} to ${bone.name}`);
-        showNotification(`Bound "${target.name}" to bone "${bone.name}"`);
-        updateRiggingUI();
-      }
-
-      function bindSelectedPathToArmature() {
-        ensureActiveSkeleton();
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (!selectedPath) {
-          showNotification('Select an editable SvgPath to bind with curve skinning');
-          return;
-        }
-        activeSkeleton.bindPath(selectedPath);
-        doc.pushHistory(`Bind Path ${selectedPath.name} to Skeleton`);
-        showNotification(`Bound path "${selectedPath.name}" to skeleton with rigid skinning`);
-        updateRiggingUI();
-      }
-
-      function bindSelectedPathSmoothToArmature() {
-        ensureActiveSkeleton();
-        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
-        if (!selectedPath) {
-          showNotification('Select an editable SvgPath to bind with smooth skinning');
-          return;
-        }
-        if (typeof activeSkeleton.bindPathSmooth === 'function') {
-          activeSkeleton.bindPathSmooth(selectedPath, activeSkeleton.bones.map(b => b.id), { radius: 120, maxWeightsPerNode: 3 });
-        } else {
-          activeSkeleton.bindPath(selectedPath);
-        }
-        doc.pushHistory(`Smooth Bind Path ${selectedPath.name} to Skeleton`);
-        showNotification(`Bound path "${selectedPath.name}" to skeleton with Linear Blend Skinning (LBS)`);
-        updateRiggingUI();
-      }
-
-      function toggleLiveRagdoll() {
-        ensureActiveSkeleton();
-        if (!activeSkeleton) return;
-        const RagdollClass = RagdollSimulation || (typeof SvgEngine !== 'undefined' ? SvgEngine.RagdollSimulation : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.RagdollSimulation : null) || (typeof window !== 'undefined' ? window.SvgRigging?.RagdollSimulation : null);
-        if (!RagdollClass) {
-          showNotification('Ragdoll physics engine not available');
-          return;
-        }
-        const playBtn = document.getElementById('btn-rig-sim-play');
-
-        if (isRagdollLiveSimulating) {
-          isRagdollLiveSimulating = false;
-          if (ragdollAnimFrameId) cancelAnimationFrame(ragdollAnimFrameId);
-          ragdollAnimFrameId = null;
-          if (playBtn) playBtn.textContent = 'Simulate (Live)';
-          showNotification('Simulation stopped');
-          return;
-        }
-
-        const grav = Number(document.getElementById('prop-rig-gravity')?.value) || 980;
-        const damp = Number(document.getElementById('prop-rig-damping')?.value) || 0.96;
-        const floorY = Number(document.getElementById('prop-rig-floor-y')?.value) || 550;
-        const windX = Number(document.getElementById('prop-rig-wind-x')?.value) || 0;
-        const windTurb = Number(document.getElementById('prop-rig-wind-turb')?.value) || 0;
-
-        try {
-          activeRagdollSim = new RagdollClass(activeSkeleton, {
-            gravity: { x: 0, y: grav },
-            wind: { x: windX, y: 0, turbulence: windTurb },
-            damping: damp,
-            floorY: floorY,
-            iterations: 10
-          });
-        } catch (e) {
-          console.warn('Failed to start RagdollSimulation:', e);
-          return;
-        }
-
-        isRagdollLiveSimulating = true;
-        if (playBtn) playBtn.textContent = 'Stop Simulation';
-        showNotification('Ragdoll physics active');
-
-        let lastTime = performance.now();
-        function simLoop(now) {
-          if (!isRagdollLiveSimulating) return;
-          const dt = Math.min((now - lastTime) / 1000, 0.033);
-          lastTime = now;
-
-          activeRagdollSim.step(dt);
-          activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-          render();
-          drawOverlay();
-
-          ragdollAnimFrameId = requestAnimationFrame(simLoop);
-        }
-        ragdollAnimFrameId = requestAnimationFrame(simLoop);
-      }
-
-      function resetSkeletonPose() {
-        ensureActiveSkeleton();
-        if (isRagdollLiveSimulating) toggleLiveRagdoll();
-        if (!activeSkeleton) return;
-
-        for (const b of activeSkeleton.bones) {
-          b.localAngle = b.restAngle;
-          b.length = b.restLength;
-        }
-        activeSkeleton.updateWorldTransforms();
-        activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-        render();
-        drawOverlay();
-        updateRiggingUI();
-        showNotification('Pose reset to rest / bind pose');
-      }
-
-      function bakeRagdollToActiveClip() {
-        ensureActiveSkeleton();
-        if (!activeSkeleton) return;
-        const dopeSheet = window.getActiveAnimation ? window.getActiveAnimation() : window.dopeSheet;
-        if (!dopeSheet) {
-          showNotification('No active timeline clip found');
-          return;
-        }
-
-        const RagdollClass = RagdollSimulation || (typeof SvgEngine !== 'undefined' ? SvgEngine.RagdollSimulation : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.RagdollSimulation : null) || (typeof window !== 'undefined' ? window.SvgRigging?.RagdollSimulation : null);
-        const bakeFn = bakeRagdollToDopeSheet || (typeof SvgEngine !== 'undefined' ? SvgEngine.bakeRagdollToDopeSheet : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.bakeRagdollToDopeSheet : null) || (typeof window !== 'undefined' ? window.SvgRigging?.bakeRagdollToDopeSheet : null);
-        if (!RagdollClass || typeof bakeFn !== 'function') {
-          showNotification('Physics baking engine not available');
-          return;
-        }
-
-        const grav = Number(document.getElementById('prop-rig-gravity')?.value) || 980;
-        const damp = Number(document.getElementById('prop-rig-damping')?.value) || 0.96;
-        const floorY = Number(document.getElementById('prop-rig-floor-y')?.value) || 550;
-        const windX = Number(document.getElementById('prop-rig-wind-x')?.value) || 0;
-        const windTurb = Number(document.getElementById('prop-rig-wind-turb')?.value) || 0;
-
-        try {
-          const tempSim = new RagdollClass(activeSkeleton, {
-            gravity: { x: 0, y: grav },
-            wind: { x: windX, y: 0, turbulence: windTurb },
-            damping: damp,
-            floorY: floorY,
-            iterations: 12
-          });
-
-          bakeFn(activeSkeleton, tempSim, dopeSheet, {
-            totalFrames: dopeSheet.totalFrames || 60,
-            fps: dopeSheet.fps || 24
-          });
-
-          if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') {
-            window.dopeSheetUI.updateGrid();
-          }
-          doc.pushHistory('Bake Ragdoll Physics');
-          showNotification(`Baked ${dopeSheet.totalFrames} frames of ragdoll physics to DopeSheet!`);
-        } catch (bakeErr) {
-          console.error('Failed to bake ragdoll physics:', bakeErr);
-          showNotification('Failed to bake physics: ' + bakeErr.message);
-        }
-      }
-
-      function initStudioRigging() {
-        document.getElementById('btn-rig-tool')?.addEventListener('click', () => {
-          selectTool('bone');
-        });
-
-        document.getElementById('btn-rig-create-skel')?.addEventListener('click', () => {
-          const SkeletonClass = SvgSkeleton || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgSkeleton : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgSkeleton : null);
-          if (!SkeletonClass) return;
-          const name = prompt('Skeleton Armature Name:', 'Character Rig') || 'Character Rig';
-          try {
-            activeSkeleton = new SkeletonClass('skel_' + Date.now(), name, { x: doc.width / 2, y: doc.height / 3 });
-            doc.skeleton = activeSkeleton;
-            selectedBoneId = null;
-            updateRiggingUI();
-            render();
-            drawOverlay();
-            showNotification(`Created skeleton "${name}"`);
-          } catch (e) {
-            console.warn('Failed to create skeleton:', e);
-          }
-        });
-
-        document.getElementById('btn-rig-add-bone')?.addEventListener('click', () => {
-          ensureActiveSkeleton();
-          if (!activeSkeleton) return;
-          const BoneClass = SvgBone || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgBone : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgBone : null);
-          if (!BoneClass) return;
-          const parent = selectedBoneId ? activeSkeleton.getBone(selectedBoneId) : null;
-          const count = activeSkeleton.bones.length + 1;
-          try {
-            const b = new BoneClass(`bone_${count}`, `Bone ${count}`, 60, parent ? 30 : 90, {
-              parentId: parent ? parent.id : null
-            });
-            activeSkeleton.addBone(b);
-            selectedBoneId = b.id;
-            doc.pushHistory(`Add ${b.name}`);
-            updateRiggingUI();
-            render();
-            drawOverlay();
-          } catch (e) {
-            console.warn('Failed to add bone:', e);
-          }
-        });
-
-        document.getElementById('btn-rig-delete-bone')?.addEventListener('click', () => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          activeSkeleton.removeBone(selectedBoneId);
-          selectedBoneId = activeSkeleton.bones.length > 0 ? activeSkeleton.bones[0].id : null;
-          doc.pushHistory(`Delete ${b?.name || 'Bone'}`);
-          updateRiggingUI();
-          render();
-          drawOverlay();
-        });
-
-        document.getElementById('prop-rig-bone-list')?.addEventListener('change', (e) => {
-          selectedBoneId = e.target.value;
-          updateRiggingUI();
-          drawOverlay();
-        });
-
-        document.getElementById('prop-rig-bone-name')?.addEventListener('input', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.name = e.target.value;
-            drawOverlay();
-          }
-        });
-
-        document.getElementById('prop-rig-bone-length')?.addEventListener('input', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.length = Math.max(5, Number(e.target.value) || 50);
-            b.restLength = b.length;
-            activeSkeleton.updateWorldTransforms();
-            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-            render();
-            drawOverlay();
-          }
-        });
-
-        document.getElementById('prop-rig-bone-angle')?.addEventListener('input', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.localAngle = Number(e.target.value) || 0;
-            b.restAngle = b.localAngle;
-            activeSkeleton.updateWorldTransforms();
-            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-            render();
-            drawOverlay();
-          }
-        });
-
-        document.getElementById('prop-rig-bone-parent')?.addEventListener('change', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.parentId = e.target.value || null;
-            activeSkeleton.updateWorldTransforms();
-            render();
-            drawOverlay();
-          }
-        });
-
-        document.getElementById('prop-rig-physics-enabled')?.addEventListener('change', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.physics.enabled = e.target.checked;
-            if (!b.physics.enabled && b.physics.mode !== 'kinematic') {
-              // Keep settings
-            } else if (b.physics.enabled && b.physics.mode === 'kinematic') {
-              b.physics.mode = 'ragdoll';
-              const modeSel = document.getElementById('prop-rig-physics-mode');
-              if (modeSel) modeSel.value = 'ragdoll';
-            }
-            if (activeRagdollSim) {
-              activeRagdollSim.initFromSkeleton(activeSkeleton);
-            }
-            drawOverlay();
-            render();
-          }
-        });
-
-        document.getElementById('prop-rig-physics-mode')?.addEventListener('change', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.physics.mode = e.target.value;
-            const physEn = document.getElementById('prop-rig-physics-enabled');
-            if (e.target.value === 'ragdoll' || e.target.value === 'secondary') {
-              b.physics.enabled = true;
-              if (physEn) physEn.checked = true;
-            } else if (e.target.value === 'kinematic') {
-              b.physics.enabled = false;
-              if (physEn) physEn.checked = false;
-            }
-            if (activeRagdollSim) {
-              activeRagdollSim.initFromSkeleton(activeSkeleton);
-            }
-            drawOverlay();
-            render();
-          }
-        });
-
-        document.getElementById('prop-rig-min-angle')?.addEventListener('input', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.physics.minAngle = Number(e.target.value);
-            if (activeRagdollSim) activeRagdollSim.initFromSkeleton(activeSkeleton);
-          }
-        });
-
-        document.getElementById('prop-rig-max-angle')?.addEventListener('input', (e) => {
-          if (!activeSkeleton || !selectedBoneId) return;
-          const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) {
-            b.physics.maxAngle = Number(e.target.value);
-            if (activeRagdollSim) activeRagdollSim.initFromSkeleton(activeSkeleton);
-          }
-        });
-
-        const gravSlider = document.getElementById('prop-rig-gravity');
-        const gravVal = document.getElementById('prop-rig-gravity-val');
-        gravSlider?.addEventListener('input', (e) => {
-          if (gravVal) gravVal.textContent = e.target.value;
-          if (activeRagdollSim) activeRagdollSim.gravity.y = Number(e.target.value);
-        });
-
-        const dampSlider = document.getElementById('prop-rig-damping');
-        const dampVal = document.getElementById('prop-rig-damping-val');
-        dampSlider?.addEventListener('input', (e) => {
-          if (dampVal) dampVal.textContent = e.target.value;
-          if (activeRagdollSim) activeRagdollSim.damping = Number(e.target.value);
-        });
-
-        document.getElementById('prop-rig-wind-x')?.addEventListener('input', (e) => {
-          if (activeRagdollSim) activeRagdollSim.wind.x = Number(e.target.value) || 0;
-        });
-
-        document.getElementById('prop-rig-wind-turb')?.addEventListener('input', (e) => {
-          if (activeRagdollSim) activeRagdollSim.wind.turbulence = Number(e.target.value) || 0;
-        });
-
-        document.getElementById('prop-rig-floor-y')?.addEventListener('input', (e) => {
-          if (activeRagdollSim) activeRagdollSim.floorY = Number(e.target.value);
-          drawOverlay();
-        });
-
-        // ── Constraints UI Event Wiring ──
-        document.getElementById('prop-rig-constraint-type')?.addEventListener('change', (e) => {
-          const poleRow = document.getElementById('row-rig-pole-target');
-          if (poleRow) {
-            poleRow.style.display = e.target.value === 'ik' ? 'flex' : 'none';
-          }
-        });
-
-        document.getElementById('prop-rig-constraint-weight')?.addEventListener('input', (e) => {
-          const wVal = document.getElementById('prop-rig-constraint-weight-val');
-          if (wVal) wVal.textContent = e.target.value;
-        });
-
-        document.getElementById('btn-rig-add-constraint')?.addEventListener('click', () => {
-          ensureActiveSkeleton();
-          if (!activeSkeleton || !selectedBoneId) {
-            showNotification('Select an active bone first');
-            return;
-          }
-          const cType = document.getElementById('prop-rig-constraint-type')?.value || 'aim';
-          const targetId = document.getElementById('prop-rig-constraint-target')?.value;
-          const poleId = document.getElementById('prop-rig-constraint-pole')?.value || null;
-          const weight = Number(document.getElementById('prop-rig-constraint-weight')?.value) || 1.0;
-
-          if (!targetId) {
-            showNotification('Select a target bone for the constraint');
-            return;
-          }
-
-          if (typeof activeSkeleton.addConstraint === 'function') {
-            activeSkeleton.addConstraint({
-              type: cType,
-              boneId: selectedBoneId,
-              targetBoneId: targetId,
-              poleTargetBoneId: poleId,
-              weight: weight
-            });
-            activeSkeleton.updateWorldTransforms();
-            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
-            doc.pushHistory(`Add ${cType.toUpperCase()} Constraint`);
-            updateRiggingUI();
-            render();
-            drawOverlay();
-            showNotification(`Added ${cType.toUpperCase()} constraint to bone`);
-          }
-        });
-
-        document.getElementById('btn-rig-bind-cutout')?.addEventListener('click', bindSelectedObjectToActiveBone);
-        document.getElementById('btn-rig-bind-path')?.addEventListener('click', bindSelectedPathToArmature);
-        document.getElementById('btn-rig-bind-path-smooth')?.addEventListener('click', bindSelectedPathSmoothToArmature);
-        document.getElementById('btn-rig-clear-bindings')?.addEventListener('click', () => {
-          if (activeSkeleton) {
-            activeSkeleton.bindings = [];
-            updateRiggingUI();
-            showNotification('Cleared all armature bindings');
-          }
-        });
-
-        document.getElementById('btn-rig-sim-play')?.addEventListener('click', toggleLiveRagdoll);
-        document.getElementById('btn-rig-reset-pose')?.addEventListener('click', resetSkeletonPose);
-        document.getElementById('btn-rig-bake-dopesheet')?.addEventListener('click', bakeRagdollToActiveClip);
-        document.getElementById('btn-rig-load-preset')?.addEventListener('click', () => {
-          const sel = document.getElementById('prop-rig-preset-select');
-          if (sel) loadRiggingDemoPreset(sel.value);
-        });
-      }
-
-      function loadRiggingDemoPreset(presetKey) {
-        const SkeletonClass = SvgSkeleton || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgSkeleton : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgSkeleton : null);
-        const BoneClass = SvgBone || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgBone : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgBone : null);
-        if (!SkeletonClass || !BoneClass) {
-          showNotification('Rigging system not available');
-          return;
-        }
-
-        if (isRagdollLiveSimulating) toggleLiveRagdoll();
-        doc.objects = [];
-        doc.selectedIds.clear();
-
-        if (presetKey === 'ragdoll_man') {
-          // ── Preset 1: Full Physics Ragdoll Stickman with Cutout Limbs ──
-          const cx = Math.round(doc.width / 2);
-          const cy = 220;
-
-          activeSkeleton = new SkeletonClass('skel_ragdoll_man', 'Ragdoll Stickman', { x: cx, y: cy });
-          doc.skeleton = activeSkeleton;
-
-          // Single Root Bone: Torso starting at pelvis (cx, cy) and pointing UP to neck
-          const bTorso = activeSkeleton.addBone(new BoneClass('b_torso', 'Torso', 100, -90, {
-            physics: { mode: 'ragdoll', mass: 3.0, minAngle: -45, maxAngle: 45 }
-          }));
-
-          // Head attaches to tip of torso (neck)
-          const bHead = activeSkeleton.addBone(new BoneClass('b_head', 'Head', 45, 0, {
-            parentId: 'b_torso',
-            physics: { mode: 'ragdoll', mass: 1.5, minAngle: -35, maxAngle: 35 }
-          }));
-          
-          // Arms attach to tip of torso (shoulders)
-          const bArmL1 = activeSkeleton.addBone(new BoneClass('b_arm_l1', 'Upper Arm L', 65, 50, {
-            parentId: 'b_torso',
-            physics: { mode: 'ragdoll', mass: 0.8, minAngle: 10, maxAngle: 120 }
-          }));
-          const bArmL2 = activeSkeleton.addBone(new BoneClass('b_arm_l2', 'Forearm L', 55, 30, {
-            parentId: 'b_arm_l1',
-            physics: { mode: 'ragdoll', mass: 0.5, minAngle: 0, maxAngle: 130 }
-          }));
-          
-          const bArmR1 = activeSkeleton.addBone(new BoneClass('b_arm_r1', 'Upper Arm R', 65, -50, {
-            parentId: 'b_torso',
-            physics: { mode: 'ragdoll', mass: 0.8, minAngle: -120, maxAngle: -10 }
-          }));
-          const bArmR2 = activeSkeleton.addBone(new BoneClass('b_arm_r2', 'Forearm R', 55, -30, {
-            parentId: 'b_arm_r1',
-            physics: { mode: 'ragdoll', mass: 0.5, minAngle: -130, maxAngle: 0 }
-          }));
-
-          // Legs attach to base of torso (pelvis / hips)
-          const bLegL1 = activeSkeleton.addBone(new BoneClass('b_leg_l1', 'Thigh L', 85, 170, {
-            parentId: 'b_torso',
-            attachTo: 'base',
-            physics: { mode: 'ragdoll', mass: 1.5, minAngle: 130, maxAngle: 210 }
-          }));
-          const bLegL2 = activeSkeleton.addBone(new BoneClass('b_leg_l2', 'Shin L', 80, 15, {
-            parentId: 'b_leg_l1',
-            physics: { mode: 'ragdoll', mass: 1.0, minAngle: -10, maxAngle: 130 }
-          }));
-
-          const bLegR1 = activeSkeleton.addBone(new BoneClass('b_leg_r1', 'Thigh R', 85, -170, {
-            parentId: 'b_torso',
-            attachTo: 'base',
-            physics: { mode: 'ragdoll', mass: 1.5, minAngle: -210, maxAngle: -130 }
-          }));
-          const bLegR2 = activeSkeleton.addBone(new BoneClass('b_leg_r2', 'Shin R', 80, -15, {
-            parentId: 'b_leg_r1',
-            physics: { mode: 'ragdoll', mass: 1.0, minAngle: -130, maxAngle: 10 }
-          }));
-
-          activeSkeleton.updateWorldTransforms();
-
-          function makeLimbCapsule(bone, thickness, fill, stroke, name) {
-            const midX = (bone.worldX0 + bone.worldX1) / 2;
-            const midY = (bone.worldY0 + bone.worldY1) / 2;
-            const rect = new SvgRect({
-              x: midX - bone.length / 2,
-              y: midY - thickness / 2,
-              width: bone.length,
-              height: thickness,
-              rx: thickness / 2,
-              ry: thickness / 2,
-              rotation: bone.worldAngle,
-              fill,
-              stroke,
-              strokeWidth: 2.5
-            });
-            rect.name = name;
-            return rect;
-          }
-
-          const headCirc = new SvgCircle({ cx: bHead.worldX1, cy: bHead.worldY1, r: 26, fill: '#fabd2f', stroke: '#d79921', strokeWidth: 3 });
-          headCirc.name = 'Head Cutout';
-
-          const torsoRect = makeLimbCapsule(bTorso, 32, '#83a598', '#458588', 'Torso');
-          const armL1Rect = makeLimbCapsule(bArmL1, 16, '#fe8019', '#d65d0e', 'Upper Arm L');
-          const armL2Rect = makeLimbCapsule(bArmL2, 14, '#fe8019', '#d65d0e', 'Forearm L');
-          const armR1Rect = makeLimbCapsule(bArmR1, 16, '#fe8019', '#d65d0e', 'Upper Arm R');
-          const armR2Rect = makeLimbCapsule(bArmR2, 14, '#fe8019', '#d65d0e', 'Forearm R');
-          const legL1Rect = makeLimbCapsule(bLegL1, 20, '#b8bb26', '#98971a', 'Thigh L');
-          const legL2Rect = makeLimbCapsule(bLegL2, 16, '#b8bb26', '#98971a', 'Shin L');
-          const legR1Rect = makeLimbCapsule(bLegR1, 20, '#b8bb26', '#98971a', 'Thigh R');
-          const legR2Rect = makeLimbCapsule(bLegR2, 16, '#b8bb26', '#98971a', 'Shin R');
-
-          doc.addObject(legL2Rect, false);
-          doc.addObject(legL1Rect, false);
-          doc.addObject(legR2Rect, false);
-          doc.addObject(legR1Rect, false);
-          doc.addObject(torsoRect, false);
-          doc.addObject(headCirc, false);
-          doc.addObject(armL2Rect, false);
-          doc.addObject(armL1Rect, false);
-          doc.addObject(armR2Rect, false);
-          doc.addObject(armR1Rect, false);
-
-          activeSkeleton.bindCutout(headCirc, 'b_head');
-          activeSkeleton.bindCutout(torsoRect, 'b_torso');
-          activeSkeleton.bindCutout(armL1Rect, 'b_arm_l1');
-          activeSkeleton.bindCutout(armL2Rect, 'b_arm_l2');
-          activeSkeleton.bindCutout(armR1Rect, 'b_arm_r1');
-          activeSkeleton.bindCutout(armR2Rect, 'b_arm_r2');
-          activeSkeleton.bindCutout(legL1Rect, 'b_leg_l1');
-          activeSkeleton.bindCutout(legL2Rect, 'b_leg_l2');
-          activeSkeleton.bindCutout(legR1Rect, 'b_leg_r1');
-          activeSkeleton.bindCutout(legR2Rect, 'b_leg_r2');
-
-          document.getElementById('prop-rig-floor-y').value = 520;
-          showNotification('Loaded Ragdoll Stickman Demo! Click "Simulate (Live)" and grab/toss limbs in real-time!');
-
-        } else if (presetKey === 'ik_arm') {
-          // ── Preset 2: 3-Segment Robotic Arm with Inverse Kinematics (CCD-IK) ──
-          const bx = 180;
-          const by = 420;
-
-          activeSkeleton = new SkeletonClass('skel_ik_arm', 'Robotic Arm (IK)', { x: bx, y: by });
-          doc.skeleton = activeSkeleton;
-
-          const baseBone = activeSkeleton.addBone(new BoneClass('b_base', 'Base Turret', 80, -90));
-          const arm1 = activeSkeleton.addBone(new BoneClass('b_shoulder', 'Upper Arm', 120, 45, { parentId: 'b_base' }));
-          const arm2 = activeSkeleton.addBone(new BoneClass('b_elbow', 'Forearm', 110, -75, { parentId: 'b_shoulder' }));
-          const claw = activeSkeleton.addBone(new BoneClass('b_wrist', 'Claw Effector', 50, 30, { parentId: 'b_elbow' }));
-
-          activeSkeleton.updateWorldTransforms();
-
-          const basePedestal = new SvgRect({ x: bx - 40, y: by, width: 80, height: 40, rx: 6, ry: 6, fill: '#3c3836', stroke: '#504945', strokeWidth: 3 });
-          basePedestal.name = 'Base Stand';
-          doc.addObject(basePedestal, false);
-
-          function makeArmSegment(bone, thickness, fill, stroke, name) {
-            const midX = (bone.worldX0 + bone.worldX1) / 2;
-            const midY = (bone.worldY0 + bone.worldY1) / 2;
-            const rect = new SvgRect({
-              x: midX - bone.length / 2,
-              y: midY - thickness / 2,
-              width: bone.length,
-              height: thickness,
-              rx: thickness / 2,
-              ry: thickness / 2,
-              rotation: bone.worldAngle,
-              fill,
-              stroke,
-              strokeWidth: 2.5
-            });
-            rect.name = name;
-            return rect;
-          }
-
-          const segBase = makeArmSegment(baseBone, 28, '#504945', '#3c3836', 'Turret Post');
-          const seg1 = makeArmSegment(arm1, 24, '#458588', '#076678', 'Upper Arm Segment');
-          const seg2 = makeArmSegment(arm2, 18, '#83a598', '#458588', 'Forearm Segment');
-          const segClaw = makeArmSegment(claw, 14, '#fabd2f', '#d79921', 'Claw Wrist');
-
-          doc.addObject(segBase, false);
-          doc.addObject(seg1, false);
-          doc.addObject(seg2, false);
-          doc.addObject(segClaw, false);
-
-          activeSkeleton.bindCutout(segBase, 'b_base');
-          activeSkeleton.bindCutout(seg1, 'b_shoulder');
-          activeSkeleton.bindCutout(seg2, 'b_elbow');
-          activeSkeleton.bindCutout(segClaw, 'b_wrist');
-
-          showNotification('Loaded Robotic Arm IK Demo! Shift+Drag the tip bone (or Claw) to test CCD-IK.');
-
-        } else if (presetKey === 'spring_tail') {
-          // ── Preset 3: Dynamic Secondary Spring Jiggle (Cat Tail / Whip) ──
-          const startX = 220;
-          const startY = 280;
-
-          activeSkeleton = new SkeletonClass('skel_cat_tail', 'Secondary Spring Tail', { x: startX, y: startY });
-          doc.skeleton = activeSkeleton;
-
-          const rootPelvis = activeSkeleton.addBone(new BoneClass('b_root', 'Hip / Pelvis', 70, 0));
-          
-          let lastParent = 'b_root';
-          for (let i = 1; i <= 6; i++) {
-            const tailSeg = activeSkeleton.addBone(new BoneClass(`b_tail_${i}`, `Tail Seg ${i}`, 40, -15, {
-              parentId: lastParent,
-              physics: { mode: 'secondary', stiffness: 0.35 - (i * 0.04), damping: 0.92, mass: 0.8 }
-            }));
-            lastParent = tailSeg.id;
-          }
-
-          activeSkeleton.updateWorldTransforms();
-
-          // Body Oval
-          const catBody = new SvgEllipse({ cx: startX - 30, cy: startY, rx: 65, ry: 45, fill: '#d3869b', stroke: '#b16286', strokeWidth: 3 });
-          catBody.name = 'Cat Body';
-          doc.addObject(catBody, false);
-          activeSkeleton.bindCutout(catBody, 'b_root');
-
-          // Tail Segments Cutout
-          for (let i = 1; i <= 6; i++) {
-            const b = activeSkeleton.getBone(`b_tail_${i}`);
-            if (b) {
-              const midX = (b.worldX0 + b.worldX1) / 2;
-              const midY = (b.worldY0 + b.worldY1) / 2;
-              const thick = Math.max(8, 20 - i * 2);
-              const tailRect = new SvgRect({
-                x: midX - b.length / 2,
-                y: midY - thick / 2,
-                width: b.length,
-                height: thick,
-                rx: thick / 2,
-                ry: thick / 2,
-                rotation: b.worldAngle,
-                fill: '#b16286',
-                stroke: '#8f3f71',
-                strokeWidth: 2
-              });
-              tailRect.name = `Tail Capsule ${i}`;
-              doc.addObject(tailRect, false);
-              activeSkeleton.bindCutout(tailRect, b.id);
-            }
-          }
-
-          showNotification('Loaded Spring Tail Demo! Click "Simulate (Live)" and drag the hip bone.');
-
-        } else if (presetKey === 'spine_worm') {
-          // ── Preset 4: Organic Tentacle / Bézier Path Smooth Skinning ──
-          const originX = 180;
-          const originY = 320;
-
-          activeSkeleton = new SkeletonClass('skel_worm', 'Organic Tentacle Rig', { x: originX, y: originY });
-          doc.skeleton = activeSkeleton;
-
-          const s1 = activeSkeleton.addBone(new BoneClass('b_seg_1', 'Spine 1', 90, 0));
-          const s2 = activeSkeleton.addBone(new BoneClass('b_seg_2', 'Spine 2', 90, 0, { parentId: 'b_seg_1' }));
-          const s3 = activeSkeleton.addBone(new BoneClass('b_seg_3', 'Spine 3', 90, 0, { parentId: 'b_seg_2' }));
-          const s4 = activeSkeleton.addBone(new BoneClass('b_seg_4', 'Spine 4', 90, 0, { parentId: 'b_seg_3' }));
-
-          activeSkeleton.updateWorldTransforms();
-
-          // Continuous organic Bézier Path
-          const tentaclePath = new SvgPath({ stroke: '#8ec07c', strokeWidth: 18, strokeLinecap: 'round', fill: 'none' });
-          tentaclePath.name = 'Organic Skin Path';
-          tentaclePath.addNode(originX, originY, null, { x: 30, y: 0 }, 'smooth');
-          tentaclePath.addNode(originX + 90, originY, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
-          tentaclePath.addNode(originX + 180, originY, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
-          tentaclePath.addNode(originX + 270, originY, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
-          tentaclePath.addNode(originX + 360, originY, { x: -30, y: 0 }, null, 'smooth');
-
-          doc.addObject(tentaclePath, false);
-          if (typeof activeSkeleton.bindPathSmooth === 'function') {
-            activeSkeleton.bindPathSmooth(tentaclePath, ['b_seg_1', 'b_seg_2', 'b_seg_3', 'b_seg_4'], { radius: 140 });
-          } else {
-            activeSkeleton.bindPath(tentaclePath, ['b_seg_1', 'b_seg_2', 'b_seg_3', 'b_seg_4']);
-          }
-
-          showNotification('Loaded Organic Smooth Skinning Demo! Rotate bones or activate Bone Tool (K) to deform the curve smoothly.');
-        }
-
-        selectedBoneId = activeSkeleton.bones.length > 0 ? activeSkeleton.bones[0].id : null;
-        updateRiggingUI();
-        updateObjectList();
-        updateInspector();
-        render();
-        drawOverlay();
-        doc.pushHistory(`Load Preset ${presetKey}`);
-      }
-
-      window.initStudioRigging = initStudioRigging;
-      window.renderBonesOverlay = renderBonesOverlay;
-      window.handleBonePointerDown = handleBonePointerDown;
-      window.handleBonePointerMove = handleBonePointerMove;
-      window.handleBonePointerUp = handleBonePointerUp;
-      window.updateRiggingUI = updateRiggingUI;
-      window.loadRiggingDemoPreset = loadRiggingDemoPreset;
 
       // ── Bootstrapping ──
       const urlParams = new URLSearchParams(window.location.search);
@@ -16910,12 +14933,7 @@
         if (typeof refreshProjectsList === 'function') refreshProjectsList();
         updateRendererMenuUi();
         initQuadro();
-        try {
-          initStudioRigging();
-          updateRiggingUI();
-        } catch (rigErr) {
-          console.warn('Non-blocking rigging init warning:', rigErr);
-        }
+
         if (typeof ColorStudio !== 'undefined') {
           const mount = document.getElementById('color-studio-mount');
           if (mount) ColorStudio.mountColorTab(mount);

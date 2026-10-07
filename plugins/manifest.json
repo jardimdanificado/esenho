@@ -26,5 +26,6 @@
   "swirl.wasm",
   "thermal.wasm",
   "threshold.wasm",
-  "vignette.wasm"
+  "vignette.wasm",
+  "water_foam.wasm"
 ]

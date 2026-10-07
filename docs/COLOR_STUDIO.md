@@ -1,12 +1,23 @@
-# Color Studio Engine & Widget
+# Material & Color Studio Engine & Widget
 
-The **Color Studio** (`src/color_studio.js`) is an ultra-high-performance, zero-lag color management and selection subsystem built for Esenho. It provides pure GPU/CSS-accelerated visual picking, multi-color-space conversions, live object mutation, palette swatches, and headless-safe operation.
+The **Material & Color Studio** (`src/color_studio.js`) is an ultra-high-performance, zero-lag material management, procedural generation, and color subsystem built for Esenho. It unifies solid flat colors, linear and radial multi-stop gradients, procedural surface textures (70+ modes), WASM optical lenses and filters (28+ plugins), and material preset libraries into a single dedicated dockview studio.
 
 ---
 
-## 1. Color Math & Spaces
+## 1. Unified Material Architecture
 
-Color Studio is built with zero memory allocation paths and branch-optimized algorithms to ensure 60fps responsiveness during color scrubbing.
+Materials in Esenho encapsulate all visual surface properties of an object or layer:
+1. **Color (Flat/Solid)**: Pure GPU/CSS-accelerated visual picking, HSV/RGB/HSL sliders, document color swatches, and palettes (Gruvbox, Material Design, Nord, Cyberpunk, Monochrome).
+2. **Gradient**: Multi-stop Linear and Radial gradients with HDR intensity multipliers, angle/radius controls, and interactive color stop editing.
+3. **Texture**: 70+ built-in procedural texture modes (paper, canvas, halftone, wood, marble, clouds, cyber circuits, manga tones, etc.) with grain, relative/world origin, warp wave, noise jitter, swirl vortex, and cel posterization.
+4. **WASM FX**: 28+ optical lenses and image kernels (Bloom, Kuwahara oil painting, VHS glitch, Frosted Glass, CRT scanlines, chromatic aberration, etc.) targeted directly to fill surface, stroke outline, or backdrop lenses.
+5. **Presets**: 1-click material styles with instant preview chips and custom user preset saving (`localStorage`).
+
+---
+
+## 2. Color Math & Spaces
+
+Color Studio is built with zero memory allocation paths and branch-optimized algorithms to ensure 60fps responsiveness during scrubbing.
 
 ### Supported Conversions
 - **RGB (`0..255`) <—> HEX (`#RRGGBB` / `#RRGGBBAA`)**
@@ -15,7 +26,7 @@ Color Studio is built with zero memory allocation paths and branch-optimized alg
 - **Named & Special States**: `none`, `transparent`.
 
 ```javascript
-import ColorStudio from './src/color_studio.js';
+import { ColorStudio, MaterialsStudio } from './src/color_studio.js';
 
 // RGB to Hex
 ColorStudio.rgbToHex(250, 189, 47); // Returns '#fabd2f'
@@ -24,55 +35,48 @@ ColorStudio.rgbToHex(250, 189, 47); // Returns '#fabd2f'
 ColorStudio.hexToRgb('#fabd2f');    // Returns { r: 250, g: 189, b: 47, a: 1.0 }
 
 // RGB to HSV
-ColorStudio.rgbToHsv(250, 189, 47); // Returns { h: 42, s: 81.2, v: 98.0 }
-
-// Universal parser
-const parsed = ColorStudio.parseColor('transparent');
-// parsed.isNone === true
+ColorStudio.rgbToHsv(250, 189, 47); // Returns { h: 42, s: 81, v: 98 }
 ```
 
 ---
 
-## 2. Interactive ColorStudioWidget
+## 3. Interactive Material & Color Studio Widget
 
-The visual interface embeds directly into the Dockview workspace under the **Color Studio** panel.
+The visual interface embeds directly into the Dockview workspace under the **Materials** panel.
 
-### Features
-1. **Interactive 2D Saturation-Value Canvas**: GPU/CSS gradient-backed picking field with responsive cursor tracker.
-2. **Hue & Alpha Sliders**: Smooth continuous spectrum scrubbers.
-3. **Target Switcher (`Fill` vs `Stroke`)**:
-   - `fill`: Mutates the interior color, solid fill, or gradient stops of the selected vector shapes or raster layer tint.
-   - `stroke`: Mutates the outline stroke color.
-4. **None / Clear Button**: Quickly clears fill or stroke (`fill = 'none'`).
-5. **Document Swatches & Palette**:
-   - Palette bar displaying recently used document colors.
-   - Click to assign; right-click or toggle delete mode to remove swatches.
+### Target Switcher
+- `Fill`: Mutates interior fill color, gradient, procedural texture, or WASM filter.
+- `Stroke`: Mutates outline stroke color, texture, or brush filter.
+- `Back`: Mutates canvas backdrop background color.
+- `Swap (⇄)`: Instantly swaps fill and stroke attributes.
+- `None (⊘)`: Sets target fill or stroke to transparent/none.
 
 ### Mounting the Widget
 ```javascript
-const container = document.getElementById('color-studio-dock-mount');
-const widget = ColorStudio.mountColorTab(container);
+const container = document.getElementById('materials-studio-dock-mount');
+const widget = MaterialsStudio.mountMaterialsTab(container);
 
 // Programmatically update active color
 widget.setColorFromExternal('#fe8019');
 
 // Target stroke or fill
-widget.setTarget('stroke');
+widget.setTarget('fill');
+widget.switchMode('gradient');
 widget.applyToSelected(/* pushHistory */ true);
 ```
 
 ---
 
-## 3. Reactive Selection Synchronization
+## 4. Reactive Selection Synchronization
 
-Color Studio continuously listens to viewport selection changes:
-- When a user selects a vector shape or switches active layers, `ColorStudio.syncFromSelection()` samples the active fill and stroke properties.
-- When an object color is modified in the widget, it commits changes into the undo/redo history (`pushHistory('Change Fill Color')`) and triggers immediate viewport redraws.
+Material Studio continuously listens to viewport selection changes:
+- When selecting objects or switching active layers, `syncFromSelection()` samples the active fill, stroke, gradient, texture, and filter properties with zero lag.
+- When any property is scrubbed or modified in the widget, it updates the viewport in real time and commits to undo/redo history (`pushHistory`).
 
 ---
 
-## 4. Headless Safety & Testability
+## 5. Headless Safety & Testability
 
-Color Studio is engineered to run safely across headless environments (Node.js CI test suites and automated script batches):
-- If `window` or `document` is missing, UI event listeners and DOM styling mutations are bypassed.
-- Pure mathematical conversions and color mutations continue to function without throwing exceptions.
+Material Studio is engineered to run safely across headless environments (Node.js CI test suites):
+- DOM manipulations are safely guarded when running in non-browser runtimes.
+- Math conversions, material state management, and direct object mutations run without errors.

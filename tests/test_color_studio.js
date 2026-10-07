@@ -1,7 +1,7 @@
 const assert = require('assert');
 const ColorStudio = require('../src/color_studio.js');
 
-console.log('--- Testing ColorStudio High-Performance Engine ---');
+console.log('--- Testing Material & Color Studio High-Performance Engine ---');
 
 // 1. Math & Conversions
 console.log('1. Testing RGB <-> HEX conversions...');
@@ -45,8 +45,8 @@ console.log('5. Testing headless sync safety...');
 ColorStudio.syncFromSelection();
 ColorStudio.onPanelActivated();
 
-// 6. Direct Object Color Mutation
-console.log('6. Testing direct object color mutation in ColorStudioWidget...');
+// 6. Direct Object Color & Material Mutation
+console.log('6. Testing direct object color & material mutation in MaterialStudioWidget...');
 
 // Setup mock window & document environment
 const mockObj = {
@@ -54,7 +54,9 @@ const mockObj = {
   type: 'rect',
   fill: '#fabd2f',
   stroke: '#1d2021',
-  fillType: 'solid'
+  fillType: 'solid',
+  fillTexture: {},
+  strokeTexture: {}
 };
 
 let renderCount = 0;
@@ -110,4 +112,61 @@ widget.applyToSelected(true);
 assert.strictEqual(global.window.doc.backgroundColor, '#282828', 'doc.backgroundColor should be updated to #282828');
 assert(historyActions.includes('Change Background Color'), 'pushHistory should have been called for background');
 
-console.log('--- ALL COLOR STUDIO TESTS PASSED ---');
+// 7. Testing Material Gradient Engine
+console.log('7. Testing Material Gradient application...');
+widget.setTarget('fill');
+widget.gradientType = 'linear';
+widget.gradientStops = [
+  { offset: 0, color: '#fe8019', opacity: 1.0, intensity: 1.0 },
+  { offset: 1, color: '#fabd2f', opacity: 1.0, intensity: 1.0 }
+];
+widget.gradientAngle = 45;
+widget.applyGradientToSelected(true);
+
+assert.strictEqual(mockObj.fillType, 'linear', 'fillType should be linear');
+assert.strictEqual(mockObj.fillGradient.stops.length, 2, 'stops count should be 2');
+assert(historyActions.includes('Change Material Gradient'), 'history should record gradient change');
+
+// 8. Testing Material Procedural Texture Engine
+console.log('8. Testing Material Procedural Texture application...');
+widget.setTarget('fill');
+widget.textureMode = 36; // Impasto Knife Peaks
+widget.textureScale = 120;
+widget.textureContrast = 140;
+widget.textureGrain = 55;
+widget.applyTextureToSelected(true);
+
+assert.strictEqual(mockObj.fillTexture.mode, 36, 'Texture mode should be 36');
+assert.strictEqual(mockObj.fillTexture.scale, 120, 'Texture scale should be 120');
+assert.strictEqual(mockObj.fillTexture.contrast, 140, 'Texture contrast should be 140');
+assert(historyActions.includes('Change Material Texture'), 'history should record texture change');
+
+// 9. Testing WASM Filter Engine in Materials
+console.log('9. Testing Material WASM Filter application...');
+widget.setTarget('fill');
+widget.filterEnabled = true;
+widget.filterPlugin = 'kuwahara';
+widget.filterTarget = 'fill';
+widget.filterP1 = 3;
+widget.filterOpacity = 1.0;
+widget.applyFilterToSelected(true);
+
+assert.strictEqual(mockObj.fillFilter.enabled, true, 'WASM filter should be enabled');
+assert.strictEqual(mockObj.fillFilter.plugin, 'kuwahara', 'WASM filter plugin should be kuwahara');
+assert.strictEqual(mockObj.fillFilter.p1, 3, 'WASM filter P1 should be 3');
+assert(historyActions.includes('Change WASM Filter'), 'history should record WASM filter change');
+
+// 10. Testing Material Preset Application
+console.log('10. Testing Material Preset application...');
+widget.applyMaterialPreset({
+  name: 'Cyberpunk Neon Matrix',
+  color: '#00ffcc',
+  texture: { mode: 43, scale: 100, contrast: 150 },
+  filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 100, opacity: 1.0 }
+});
+
+assert.strictEqual(mockObj.fill.toLowerCase(), '#00ffcc', 'Color should be #00ffcc');
+assert.strictEqual(mockObj.fillTexture.mode, 43, 'Texture mode should be 43');
+assert.strictEqual(mockObj.fillFilter.plugin, 'bloom', 'Filter should be bloom');
+
+console.log('--- ALL MATERIAL & COLOR STUDIO TESTS PASSED ---');
