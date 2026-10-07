@@ -1,4 +1,4 @@
-const CACHE_NAME = 'esenho-v0.10.155';
+const CACHE_NAME = 'esenho-v0.10.158';
 
 const PRECACHE_ASSETS = [
   './',
@@ -7,6 +7,7 @@ const PRECACHE_ASSETS = [
   './painter.html',
   './manifest.webmanifest',
   './icon.svg',
+  './vendor/dockview-core.js',
   './src/version.js',
   './src/script/esenho_sdk.js',
   './src/script/command_bus.js',
@@ -25,6 +26,10 @@ const PRECACHE_ASSETS = [
   './src/gpu/gpu_renderer.js',
   './src/color_studio.js',
   './src/esenho.js',
+  './src/svg/svg_boolean.js',
+  './src/svg/svg_rigging.js',
+  './src/svg/svg_engine.js',
+  './src/svg/quadro_svg_renderer.js',
   './src/host-browser.js',
   './src/image_io.js',
   './plugins/canvas.wasm',

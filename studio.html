@@ -4733,6 +4733,118 @@
     <div id="dock-panel-curves" class="dock-panel-content" style="padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; background: var(--bg-panel); display: flex; flex-direction: column; width: 100%; height: 100%; box-sizing: border-box;">
       <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; box-sizing: border-box;"></div>
     </div>
+
+    <!-- Dock Panel 13: Rigging & Ragdoll Physics -->
+    <div id="dock-panel-rigging" class="dock-panel-content" style="padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: var(--bg-panel); height: 100%; box-sizing: border-box;">
+      <!-- Card 1: Skeleton Management & Tool -->
+      <div class="section-card">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span>🦴 Armature &amp; Bones</span>
+          <button type="button" id="btn-rig-tool" class="btn-sm" title="Activate Bone Tool (Hotkey: K)" style="background: var(--primary-dim); color: var(--primary); font-weight: 700; cursor: pointer;">Bone Tool (K)</button>
+        </div>
+        <div class="form-row">
+          <label>Skeleton</label>
+          <div style="display: flex; gap: 5px; width: 100%;">
+            <input type="text" id="prop-rig-skel-name" placeholder="Skeleton Name" value="Main Rig" style="flex: 1; font-size: 11px;">
+            <button type="button" id="btn-rig-create-skel" class="btn-sm" title="Create New Skeleton">+ New</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Bones</label>
+          <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+            <select id="prop-rig-bone-list" size="5" style="width: 100%; font-size: 11px; background: var(--bg-input); color: var(--text); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 4px;"></select>
+            <div style="display: flex; gap: 4px;">
+              <button type="button" id="btn-rig-add-bone" class="btn-sm" style="flex: 1;">+ Add Bone</button>
+              <button type="button" id="btn-rig-delete-bone" class="btn-sm" style="flex: 1; color: var(--danger);">Delete</button>
+            </div>
+          </div>
+        </div>
+        <!-- Bone Details -->
+        <div id="rig-bone-details" style="display: flex; flex-direction: column; gap: 4px; margin-top: 4px; border-top: 1px solid var(--border); padding-top: 4px;">
+          <div class="form-row">
+            <label>Bone Name</label>
+            <input type="text" id="prop-rig-bone-name" placeholder="Bone name" style="width: 100%; font-size: 11px;">
+          </div>
+          <div class="form-row">
+            <label>Length / Angle</label>
+            <div class="grid-2" style="width: 100%;">
+              <input type="number" id="prop-rig-bone-length" min="5" max="2000" step="1" title="Length (px)">
+              <input type="number" id="prop-rig-bone-angle" min="-360" max="360" step="1" title="Local Angle (deg)">
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Parent Bone</label>
+            <select id="prop-rig-bone-parent" style="width: 100%; font-size: 11px;"></select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Binding (Skinning) -->
+      <div class="section-card">
+        <div class="section-header" style="margin-bottom: 6px;">🔗 Shape &amp; Path Binding</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <button type="button" id="btn-rig-bind-cutout" class="btn-sm" title="Bind selected shape or group to active bone" style="width: 100%;">Bind Selected Object (Cutout)</button>
+          <button type="button" id="btn-rig-bind-path" class="btn-sm" title="Bind path nodes to armature with smooth skinning" style="width: 100%;">Bind Path to Bones (Skinning)</button>
+          <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);" id="rig-bindings-count">0 active bindings</div>
+          <button type="button" id="btn-rig-clear-bindings" class="btn-sm" style="color: var(--text-muted); font-size: 10px;">Clear Bindings</button>
+        </div>
+      </div>
+
+      <!-- Card 3: Ragdoll & Physics -->
+      <div class="section-card">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span>⚡ Ragdoll &amp; Physics</span>
+          <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer;">
+            <input type="checkbox" id="prop-rig-physics-enabled"> Enabled
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Physics Mode</label>
+          <select id="prop-rig-physics-mode" style="width: 100%; font-size: 11px;">
+            <option value="ragdoll">Ragdoll (Full Dynamic)</option>
+            <option value="secondary">Secondary (Spring / Jiggle)</option>
+            <option value="kinematic">Kinematic (Manual Keyframe)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>Gravity Y</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="range" id="prop-rig-gravity" min="0" max="2000" step="10" value="980" style="flex: 1;">
+            <span id="prop-rig-gravity-val" style="font-size: 10px; font-family: var(--font-mono); width: 40px; text-align: right;">980</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Damping</label>
+          <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+            <input type="range" id="prop-rig-damping" min="0.80" max="0.99" step="0.01" value="0.96" style="flex: 1;">
+            <span id="prop-rig-damping-val" style="font-size: 10px; font-family: var(--font-mono); width: 40px; text-align: right;">0.96</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Angle Limits</label>
+          <div class="grid-2" style="width: 100%;">
+            <input type="number" id="prop-rig-min-angle" value="-120" title="Min Angle (deg)">
+            <input type="number" id="prop-rig-max-angle" value="120" title="Max Angle (deg)">
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Floor Y (px)</label>
+          <input type="number" id="prop-rig-floor-y" value="550" title="Collision Floor Height">
+        </div>
+      </div>
+
+      <!-- Card 4: Simulation & Timeline Baking -->
+      <div class="section-card">
+        <div class="section-header" style="margin-bottom: 6px;">🎬 Simulation &amp; Bake</div>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <div style="display: flex; gap: 4px;">
+            <button type="button" id="btn-rig-sim-play" class="btn-sm btn-primary" style="flex: 1;">▶ Simulate (Live)</button>
+            <button type="button" id="btn-rig-reset-pose" class="btn-sm" style="flex: 1;">↺ Rest Pose</button>
+          </div>
+          <button type="button" id="btn-rig-bake-dopesheet" class="btn-sm" style="width: 100%; font-weight: 700; color: var(--primary);" title="Simulate physics and bake keyframes into active DopeSheet animation clip">🎬 Bake Physics to Timeline</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Hidden File Input for SVG Import -->
@@ -4757,7 +4869,11 @@
     (function () {
       'use strict';
 
-      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer, SvgBone, SvgSkeleton, RagdollSimulation, bakeRagdollToDopeSheet } = SvgEngine;
+      const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
+      const SvgBone = SvgEngine?.SvgBone || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null);
+      const SvgSkeleton = SvgEngine?.SvgSkeleton || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null);
+      const RagdollSimulation = SvgEngine?.RagdollSimulation || (typeof SvgRigging !== 'undefined' ? SvgRigging.RagdollSimulation : null);
+      const bakeRagdollToDopeSheet = SvgEngine?.bakeRagdollToDopeSheet || (typeof SvgRigging !== 'undefined' ? SvgRigging.bakeRagdollToDopeSheet : null);
 
       // ── Persistent User Settings (localStorage) ──
       const STUDIO_SETTINGS_KEY = 'esenho_studio_settings_v1';
@@ -6325,6 +6441,10 @@
             ctx.restore();
           }
         }
+
+        if (typeof renderBonesOverlay === 'function') {
+          renderBonesOverlay(ctx, zoom);
+        }
       }
 
       // ── Object Hierarchy UI List (Hierarchical Tree with Drag & Drop / Touch Reordering) ──
@@ -7884,6 +8004,10 @@
             updateInspector();
             updateObjectList();
           }
+        } else if (activeTool === 'bone') {
+          if (typeof handleBonePointerDown === 'function') {
+            handleBonePointerDown(pt, e);
+          }
         }
       });
 
@@ -8405,6 +8529,10 @@
             currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
             scheduleFastRender();
           }
+        } else if (activeTool === 'bone') {
+          if (typeof handleBonePointerMove === 'function') {
+            handleBonePointerMove(pt, e);
+          }
         }
       });
 
@@ -8483,6 +8611,12 @@
           drawOverlay();
         }
         nodeDragStartPositions = null;
+
+        if (activeTool === 'bone') {
+          if (typeof handleBonePointerUp === 'function') {
+            handleBonePointerUp(pt, e);
+          }
+        }
 
         if (isDragging) {
           isDragging = false;
@@ -8996,7 +9130,8 @@
             { type: 'item', label: 'Rectangle Shape', hotkey: 'R', action: () => selectTool('rect') },
             { type: 'item', label: 'Ellipse / Circle', hotkey: 'O', action: () => selectTool('ellipse') },
             { type: 'item', label: 'Line Segment', hotkey: 'L', action: () => selectTool('line') },
-            { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') }
+            { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') },
+            { type: 'item', label: 'Bone / Rigging Tool', hotkey: 'K', action: () => selectTool('bone') }
           ]);
 
           addSubmenu('Edit & History', [
@@ -9597,8 +9732,12 @@
           node: 'Bézier Node Editor',
           pen: 'Bézier Pen',
           brush: 'Freehand Vector Brush',
-          text: 'Vector Typography'
+          text: 'Vector Typography',
+          bone: 'Bone / Rigging Tool (K)'
         };
+        if (toolName === 'bone' && typeof openDockPanel === 'function') {
+          openDockPanel('rigging');
+        }
         if (statusTool) statusTool.textContent = toolTitles[toolName] || (btn?.title ? btn.title.split('(')[0].trim() : toolName);
         render();
         drawOverlay();
@@ -9892,6 +10031,13 @@
           selectTool('pen');
         } else if (key === 'b') {
           selectTool('brush');
+        } else if (key === 'k') {
+          if (e.shiftKey) {
+            e.preventDefault();
+            if (typeof openDockPanel === 'function') openDockPanel('rigging');
+          } else {
+            selectTool('bone');
+          }
         } else if (key === 'r') {
           if (e.shiftKey) {
             e.preventDefault();
@@ -11362,8 +11508,8 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v13';
-      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
+      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v14';
+      const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves', 'rigging'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
@@ -11409,6 +11555,8 @@
               if (mount) ColorStudio.mountColorTab(mount);
               ColorStudio.onPanelActivated();
             }
+          } else if (id === 'rigging') {
+            if (typeof updateRiggingUI === 'function') updateRiggingUI();
           }
           updateTitlebarLayoutButtons();
           return existing;
@@ -11423,7 +11571,8 @@
           curves: 'Curves',
           tracer: 'Vectorizer',
           projects: 'Projects',
-          export: 'Export'
+          export: 'Export',
+          rigging: 'Rigging'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -11444,8 +11593,8 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
             }
-          } else if (['inspect', 'scene', 'tracer', 'projects', 'export'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export'];
+          } else if (['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -11477,6 +11626,8 @@
             if (mount) ColorStudio.mountColorTab(mount);
             ColorStudio.onPanelActivated();
           }
+        } else if (id === 'rigging') {
+          if (typeof updateRiggingUI === 'function') updateRiggingUI();
         }
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
@@ -11553,7 +11704,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export'];
+        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -11566,7 +11717,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('fill') || !!dockviewApi?.getPanel('stroke') || !!dockviewApi?.getPanel('color');
-        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export', 'rigging'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -11654,6 +11805,14 @@
             position: { referencePanel: 'inspect' }
           });
 
+          // 8b. Right Rigging & Ragdoll panel (tabbed with Inspect)
+          dockviewApi.addPanel({
+            id: 'rigging',
+            component: 'rigging',
+            title: 'Rigging',
+            position: { referencePanel: 'inspect' }
+          });
+
           // 9. Bottom Timeline panel
           dockviewApi.addPanel({
             id: 'animation',
@@ -11703,7 +11862,7 @@
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
         // Clean up any stale old dock layout keys from previous versions
-        for (let i = 1; i <= 12; i++) {
+        for (let i = 1; i <= 13; i++) {
           try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
         }
         try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
@@ -11828,6 +11987,8 @@
                 if (mount) ColorStudio.mountColorTab(mount);
                 ColorStudio.onPanelActivated();
               }
+            } else if (id === 'rigging') {
+              if (typeof updateRiggingUI === 'function') updateRiggingUI();
             } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
               updateInspector();
             }
@@ -11887,6 +12048,8 @@
           panelId = 'projects';
         } else if (targetTabId === 'tab-animation' || targetTabId === 'animation') {
           panelId = 'animation';
+        } else if (targetTabId === 'tab-rigging' || targetTabId === 'rigging') {
+          panelId = 'rigging';
         }
         openDockPanel(panelId);
         if (panelId === 'projects') {
@@ -12073,6 +12236,7 @@
           { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
+          { type: 'item', label: (!!dockviewApi?.getPanel('rigging') ? '✓ ' : '') + 'Rigging & Ragdoll Dock', hotkey: 'Shift+K', action: () => toggleDockPanel('rigging') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
@@ -12182,6 +12346,8 @@
           { type: 'item', label: 'Play / Pause Timeline', hotkey: 'Space', action: () => {
             toggleScenePlay();
           }},
+          { type: 'sep' },
+          { type: 'item', label: 'Rigging & Ragdoll Physics...', hotkey: 'Shift+K', action: () => openDockPanel('rigging') },
           { type: 'sep' },
           { type: 'item', label: 'Go to First Frame', action: () => { seekSceneFrame(1); } },
           { type: 'item', label: 'Go to Last Frame', action: () => { seekSceneFrame(window.dopeSheet?.totalFrames || 60); } }
@@ -15411,6 +15577,695 @@
       }
       window.openExportModal = openExportModal;
 
+      // =========================================================================
+      // ── Vector Studio Rigging & Ragdoll Physics UI Engine ──
+      // =========================================================================
+      let activeSkeleton = null;
+      let selectedBoneId = null;
+      let activeRagdollSim = null;
+      let isRagdollLiveSimulating = false;
+      let ragdollAnimFrameId = null;
+      let boneInteractionState = null;
+
+      function normAngle(deg) {
+        while (deg > 180) deg -= 360;
+        while (deg < -180) deg += 360;
+        return deg;
+      }
+
+      function distPtToSeg(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq < 1e-6) return Math.hypot(px - x1, py - y1);
+        let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+      }
+
+      function ensureActiveSkeleton() {
+        if (!doc) return null;
+        const SkeletonClass = SvgSkeleton || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgSkeleton : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgSkeleton : null);
+        if (!SkeletonClass) return null;
+        if (doc.skeleton && doc.skeleton instanceof SkeletonClass) {
+          activeSkeleton = doc.skeleton;
+          return activeSkeleton;
+        }
+        if (!activeSkeleton) {
+          const skelName = document.getElementById('prop-rig-skel-name')?.value || 'Main Rig';
+          try {
+            activeSkeleton = new SkeletonClass('skel_main', skelName, {
+              x: Math.round(doc.width / 2),
+              y: Math.round(doc.height / 3)
+            });
+            doc.skeleton = activeSkeleton;
+          } catch (e) {
+            console.warn('Failed to construct SvgSkeleton:', e);
+            return null;
+          }
+        }
+        return activeSkeleton;
+      }
+
+      function updateRiggingUI() {
+        ensureActiveSkeleton();
+        if (!activeSkeleton) return;
+
+        const skelNameInp = document.getElementById('prop-rig-skel-name');
+        if (skelNameInp && document.activeElement !== skelNameInp) {
+          skelNameInp.value = activeSkeleton.name || 'Main Rig';
+        }
+
+        const boneListEl = document.getElementById('prop-rig-bone-list');
+        const parentSelEl = document.getElementById('prop-rig-bone-parent');
+
+        if (boneListEl) {
+          const oldVal = boneListEl.value;
+          boneListEl.innerHTML = '';
+          for (const b of activeSkeleton.bones) {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = `${b.parentId ? '└ ' : '◆ '}${b.name || b.id} (${Math.round(b.length)}px, ${Math.round(b.localAngle)}°)`;
+            if (b.id === selectedBoneId) opt.selected = true;
+            boneListEl.appendChild(opt);
+          }
+          if (!selectedBoneId && activeSkeleton.bones.length > 0) {
+            selectedBoneId = activeSkeleton.bones[0].id;
+            boneListEl.value = selectedBoneId;
+          }
+        }
+
+        if (parentSelEl) {
+          parentSelEl.innerHTML = '<option value="">(None - Root Bone)</option>';
+          for (const b of activeSkeleton.bones) {
+            if (b.id === selectedBoneId) continue;
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = b.name || b.id;
+            parentSelEl.appendChild(opt);
+          }
+        }
+
+        const boneDetailsCard = document.getElementById('rig-bone-details');
+        const curBone = selectedBoneId ? activeSkeleton.getBone(selectedBoneId) : null;
+
+        if (curBone) {
+          if (boneDetailsCard) boneDetailsCard.style.display = 'flex';
+          const nameInp = document.getElementById('prop-rig-bone-name');
+          const lenInp = document.getElementById('prop-rig-bone-length');
+          const angInp = document.getElementById('prop-rig-bone-angle');
+
+          if (nameInp && document.activeElement !== nameInp) nameInp.value = curBone.name || curBone.id;
+          if (lenInp && document.activeElement !== lenInp) lenInp.value = Math.round(curBone.length);
+          if (angInp && document.activeElement !== angInp) angInp.value = Math.round(curBone.localAngle);
+          if (parentSelEl) parentSelEl.value = curBone.parentId || '';
+
+          const physEn = document.getElementById('prop-rig-physics-enabled');
+          const physMode = document.getElementById('prop-rig-physics-mode');
+          const minAng = document.getElementById('prop-rig-min-angle');
+          const maxAng = document.getElementById('prop-rig-max-angle');
+
+          if (physEn) physEn.checked = !!curBone.physics.enabled;
+          if (physMode) physMode.value = curBone.physics.mode || 'ragdoll';
+          if (minAng && document.activeElement !== minAng) minAng.value = curBone.physics.minAngle !== undefined ? curBone.physics.minAngle : -120;
+          if (maxAng && document.activeElement !== maxAng) maxAng.value = curBone.physics.maxAngle !== undefined ? curBone.physics.maxAngle : 120;
+        } else {
+          if (boneDetailsCard) boneDetailsCard.style.display = 'none';
+        }
+
+        const bindCountEl = document.getElementById('rig-bindings-count');
+        if (bindCountEl) {
+          const num = activeSkeleton.bindings ? activeSkeleton.bindings.length : 0;
+          bindCountEl.textContent = `${num} active binding${num === 1 ? '' : 's'}`;
+        }
+      }
+
+      function renderBonesOverlay(ctx, z) {
+        if (!activeSkeleton || !activeSkeleton.bones || activeSkeleton.bones.length === 0) return;
+
+        ctx.save();
+        const floorInp = document.getElementById('prop-rig-floor-y');
+        const floorY = floorInp ? Number(floorInp.value) : 550;
+        if (!isNaN(floorY) && (activeTool === 'bone' || isRagdollLiveSimulating)) {
+          ctx.strokeStyle = 'rgba(251, 73, 52, 0.45)';
+          ctx.lineWidth = 1 / z;
+          ctx.setLineDash([6 / z, 4 / z]);
+          ctx.beginPath();
+          ctx.moveTo(-10000, floorY);
+          ctx.lineTo(10000, floorY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.fillStyle = 'rgba(251, 73, 52, 0.7)';
+          ctx.font = `${10 / z}px monospace`;
+          ctx.fillText(`Floor Y: ${floorY}px`, 12 / z, floorY - 5 / z);
+        }
+
+        for (const bone of activeSkeleton.bones) {
+          const isSelected = bone.id === selectedBoneId;
+          const isRagdoll = bone.physics && bone.physics.enabled && bone.physics.mode === 'ragdoll';
+          const isSecondary = bone.physics && bone.physics.enabled && bone.physics.mode === 'secondary';
+
+          const x0 = bone.worldX0;
+          const y0 = bone.worldY0;
+          const x1 = bone.worldX1;
+          const y1 = bone.worldY1;
+          const len = bone.length;
+
+          const dx = x1 - x0;
+          const dy = y1 - y0;
+          const angleRad = Math.atan2(dy, dx);
+          const cosA = Math.cos(angleRad);
+          const sinA = Math.sin(angleRad);
+          const nx = -sinA;
+          const ny = cosA;
+
+          const wingDist = Math.min(len * 0.22, 18 / z);
+          const wingW = Math.max(3.5 / z, Math.min(len * 0.18, 12 / z));
+          const wx1 = x0 + dx * (wingDist / len) + nx * wingW;
+          const wy1 = y0 + dy * (wingDist / len) + ny * wingW;
+          const wx2 = x0 + dx * (wingDist / len) - nx * wingW;
+          const wy2 = y0 + dy * (wingDist / len) - ny * wingW;
+
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(wx1, wy1);
+          ctx.lineTo(x1, y1);
+          ctx.lineTo(wx2, wy2);
+          ctx.closePath();
+
+          if (isSelected) {
+            ctx.fillStyle = 'rgba(250, 189, 47, 0.45)';
+            ctx.strokeStyle = '#fabd2f';
+            ctx.lineWidth = 2.0 / z;
+          } else if (isRagdoll) {
+            ctx.fillStyle = 'rgba(251, 73, 52, 0.35)';
+            ctx.strokeStyle = '#fb4934';
+            ctx.lineWidth = 1.4 / z;
+          } else if (isSecondary) {
+            ctx.fillStyle = 'rgba(142, 192, 124, 0.35)';
+            ctx.strokeStyle = '#8ec07c';
+            ctx.lineWidth = 1.4 / z;
+          } else {
+            ctx.fillStyle = 'rgba(131, 165, 152, 0.28)';
+            ctx.strokeStyle = '#83a598';
+            ctx.lineWidth = 1.2 / z;
+          }
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.strokeStyle = isSelected ? '#fabd2f' : 'rgba(255, 255, 255, 0.25)';
+          ctx.lineWidth = 0.8 / z;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0);
+          ctx.lineTo(x1, y1);
+          ctx.stroke();
+
+          const baseR = (isSelected ? 6.5 : 5.0) / z;
+          ctx.fillStyle = isSelected ? '#fabd2f' : '#ebdbb2';
+          ctx.strokeStyle = '#1d2021';
+          ctx.lineWidth = 1.2 / z;
+          ctx.beginPath();
+          ctx.arc(x0, y0, baseR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          const tipR = (isSelected ? 4.5 : 3.5) / z;
+          ctx.fillStyle = isSelected ? '#fe8019' : (isRagdoll ? '#fb4934' : '#83a598');
+          ctx.beginPath();
+          ctx.arc(x1, y1, tipR, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = isSelected ? '#fabd2f' : '#ebdbb2';
+          ctx.font = `${Math.max(9, 10 / z)}px monospace`;
+          ctx.fillText(bone.name || bone.id, wx1 + 4 / z, wy1 - 2 / z);
+        }
+
+        if (boneInteractionState && boneInteractionState.mode === 'create' && boneInteractionState.startPt && boneInteractionState.currentPt) {
+          const s = boneInteractionState.startPt;
+          const c = boneInteractionState.currentPt;
+          ctx.strokeStyle = '#fabd2f';
+          ctx.lineWidth = 1.6 / z;
+          ctx.setLineDash([4 / z, 3 / z]);
+          ctx.beginPath();
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(c.x, c.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = '#fabd2f';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, 5 / z, 0, Math.PI * 2);
+          ctx.arc(c.x, c.y, 4 / z, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+
+      function handleBonePointerDown(pt, e) {
+        ensureActiveSkeleton();
+        const z = zoom || 1;
+
+        for (let i = activeSkeleton.bones.length - 1; i >= 0; i--) {
+          const b = activeSkeleton.bones[i];
+          if (Math.hypot(pt.x - b.worldX1, pt.y - b.worldY1) <= 12 / z) {
+            selectedBoneId = b.id;
+            const isIK = e.shiftKey;
+            boneInteractionState = {
+              mode: isIK ? 'ik' : 'rotate_fk',
+              bone: b,
+              startPt: { ...pt },
+              currentPt: { ...pt }
+            };
+            updateRiggingUI();
+            drawOverlay();
+            return;
+          }
+        }
+
+        for (let i = activeSkeleton.bones.length - 1; i >= 0; i--) {
+          const b = activeSkeleton.bones[i];
+          const segDist = distPtToSeg(pt.x, pt.y, b.worldX0, b.worldY0, b.worldX1, b.worldY1);
+          if (segDist <= 10 / z) {
+            selectedBoneId = b.id;
+            boneInteractionState = {
+              mode: 'select_only',
+              bone: b,
+              startPt: { ...pt },
+              currentPt: { ...pt }
+            };
+            updateRiggingUI();
+            drawOverlay();
+            return;
+          }
+        }
+
+        let parentBone = selectedBoneId ? activeSkeleton.getBone(selectedBoneId) : null;
+        let startX = pt.x;
+        let startY = pt.y;
+        if (parentBone && Math.hypot(pt.x - parentBone.worldX1, pt.y - parentBone.worldY1) <= 24 / z) {
+          startX = parentBone.worldX1;
+          startY = parentBone.worldY1;
+        } else if (!parentBone && activeSkeleton.bones.length === 0) {
+          activeSkeleton.x = pt.x;
+          activeSkeleton.y = pt.y;
+        }
+
+        boneInteractionState = {
+          mode: 'create',
+          parentBoneId: parentBone ? parentBone.id : null,
+          startPt: { x: startX, y: startY },
+          currentPt: { ...pt }
+        };
+        drawOverlay();
+      }
+
+      function handleBonePointerMove(pt, e) {
+        if (!boneInteractionState) return;
+
+        if (boneInteractionState.mode === 'create') {
+          boneInteractionState.currentPt = { ...pt };
+          drawOverlay();
+        } else if (boneInteractionState.mode === 'rotate_fk') {
+          const b = boneInteractionState.bone;
+          const dx = pt.x - b.worldX0;
+          const dy = pt.y - b.worldY0;
+          const targetAngle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+          let parentAngle = activeSkeleton.rotation;
+          if (b.parentId) {
+            const p = activeSkeleton.getBone(b.parentId);
+            if (p) parentAngle = p.worldAngle;
+          }
+          b.localAngle = normAngle(targetAngle - parentAngle);
+          activeSkeleton.updateWorldTransforms();
+          activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+          render();
+          drawOverlay();
+          updateRiggingUI();
+        } else if (boneInteractionState.mode === 'ik') {
+          const b = boneInteractionState.bone;
+          activeSkeleton.solveIK(b.id, pt.x, pt.y, { maxIterations: 15, tolerance: 0.5 });
+          activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+          render();
+          drawOverlay();
+          updateRiggingUI();
+        }
+      }
+
+      function handleBonePointerUp(pt, e) {
+        if (!boneInteractionState) return;
+
+        if (boneInteractionState.mode === 'create') {
+          const s = boneInteractionState.startPt;
+          const len = Math.hypot(pt.x - s.x, pt.y - s.y);
+          if (len >= 8 / (zoom || 1)) {
+            const angle = Math.atan2(pt.y - s.y, pt.x - s.x) * 180 / Math.PI;
+            let localAngle = angle;
+            if (boneInteractionState.parentBoneId) {
+              const parent = activeSkeleton.getBone(boneInteractionState.parentBoneId);
+              if (parent) {
+                localAngle = normAngle(angle - parent.worldAngle);
+              }
+            }
+
+            const count = activeSkeleton.bones.length + 1;
+            const newBone = new SvgBone(`bone_${count}`, `Bone ${count}`, Math.round(len), Math.round(localAngle), {
+              parentId: boneInteractionState.parentBoneId
+            });
+            activeSkeleton.addBone(newBone);
+            selectedBoneId = newBone.id;
+            doc.pushHistory(`Add Bone ${newBone.name}`);
+            showNotification(`Created bone "${newBone.name}"`);
+          }
+        }
+
+        boneInteractionState = null;
+        updateRiggingUI();
+        render();
+        drawOverlay();
+      }
+
+      function bindSelectedObjectToActiveBone() {
+        ensureActiveSkeleton();
+        if (!selectedBoneId) {
+          showNotification('Select a bone first before binding');
+          return;
+        }
+        const selected = doc.getSelectedObjects();
+        if (selected.length === 0) {
+          showNotification('Select a vector object or group in the scene to bind');
+          return;
+        }
+        const target = selected[0];
+        const bone = activeSkeleton.getBone(selectedBoneId);
+        activeSkeleton.bindCutout(target, selectedBoneId);
+        doc.pushHistory(`Bind ${target.name} to ${bone.name}`);
+        showNotification(`Bound "${target.name}" to bone "${bone.name}"`);
+        updateRiggingUI();
+      }
+
+      function bindSelectedPathToArmature() {
+        ensureActiveSkeleton();
+        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+        if (!selectedPath) {
+          showNotification('Select an editable SvgPath to bind with curve skinning');
+          return;
+        }
+        activeSkeleton.bindPath(selectedPath);
+        doc.pushHistory(`Bind Path ${selectedPath.name} to Skeleton`);
+        showNotification(`Bound path "${selectedPath.name}" to skeleton with smooth skinning`);
+        updateRiggingUI();
+      }
+
+      function toggleLiveRagdoll() {
+        ensureActiveSkeleton();
+        if (!activeSkeleton) return;
+        const RagdollClass = RagdollSimulation || (typeof SvgEngine !== 'undefined' ? SvgEngine.RagdollSimulation : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.RagdollSimulation : null) || (typeof window !== 'undefined' ? window.SvgRigging?.RagdollSimulation : null);
+        if (!RagdollClass) {
+          showNotification('Ragdoll physics engine not available');
+          return;
+        }
+        const playBtn = document.getElementById('btn-rig-sim-play');
+
+        if (isRagdollLiveSimulating) {
+          isRagdollLiveSimulating = false;
+          if (ragdollAnimFrameId) cancelAnimationFrame(ragdollAnimFrameId);
+          ragdollAnimFrameId = null;
+          if (playBtn) playBtn.textContent = '▶ Simulate (Live)';
+          showNotification('Simulation stopped');
+          return;
+        }
+
+        const grav = Number(document.getElementById('prop-rig-gravity')?.value) || 980;
+        const damp = Number(document.getElementById('prop-rig-damping')?.value) || 0.96;
+        const floorY = Number(document.getElementById('prop-rig-floor-y')?.value) || 550;
+
+        try {
+          activeRagdollSim = new RagdollClass(activeSkeleton, {
+            gravity: { x: 0, y: grav },
+            damping: damp,
+            floorY: floorY,
+            iterations: 10
+          });
+        } catch (e) {
+          console.warn('Failed to start RagdollSimulation:', e);
+          return;
+        }
+
+        isRagdollLiveSimulating = true;
+        if (playBtn) playBtn.textContent = '⏸ Stop Simulation';
+        showNotification('Ragdoll physics active');
+
+        let lastTime = performance.now();
+        function simLoop(now) {
+          if (!isRagdollLiveSimulating) return;
+          const dt = Math.min((now - lastTime) / 1000, 0.033);
+          lastTime = now;
+
+          activeRagdollSim.step(dt);
+          activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+          render();
+          drawOverlay();
+
+          ragdollAnimFrameId = requestAnimationFrame(simLoop);
+        }
+        ragdollAnimFrameId = requestAnimationFrame(simLoop);
+      }
+
+      function resetSkeletonPose() {
+        ensureActiveSkeleton();
+        if (isRagdollLiveSimulating) toggleLiveRagdoll();
+        if (!activeSkeleton) return;
+
+        for (const b of activeSkeleton.bones) {
+          b.localAngle = b.restAngle;
+          b.length = b.restLength;
+        }
+        activeSkeleton.updateWorldTransforms();
+        activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+        render();
+        drawOverlay();
+        updateRiggingUI();
+        showNotification('Pose reset to rest / bind pose');
+      }
+
+      function bakeRagdollToActiveClip() {
+        ensureActiveSkeleton();
+        if (!activeSkeleton) return;
+        const dopeSheet = window.getActiveAnimation ? window.getActiveAnimation() : window.dopeSheet;
+        if (!dopeSheet) {
+          showNotification('No active timeline clip found');
+          return;
+        }
+
+        const RagdollClass = RagdollSimulation || (typeof SvgEngine !== 'undefined' ? SvgEngine.RagdollSimulation : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.RagdollSimulation : null) || (typeof window !== 'undefined' ? window.SvgRigging?.RagdollSimulation : null);
+        const bakeFn = bakeRagdollToDopeSheet || (typeof SvgEngine !== 'undefined' ? SvgEngine.bakeRagdollToDopeSheet : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.bakeRagdollToDopeSheet : null) || (typeof window !== 'undefined' ? window.SvgRigging?.bakeRagdollToDopeSheet : null);
+        if (!RagdollClass || typeof bakeFn !== 'function') {
+          showNotification('Physics baking engine not available');
+          return;
+        }
+
+        const grav = Number(document.getElementById('prop-rig-gravity')?.value) || 980;
+        const damp = Number(document.getElementById('prop-rig-damping')?.value) || 0.96;
+        const floorY = Number(document.getElementById('prop-rig-floor-y')?.value) || 550;
+
+        try {
+          const tempSim = new RagdollClass(activeSkeleton, {
+            gravity: { x: 0, y: grav },
+            damping: damp,
+            floorY: floorY,
+            iterations: 12
+          });
+
+          bakeFn(activeSkeleton, tempSim, dopeSheet, {
+            totalFrames: dopeSheet.totalFrames || 60,
+            fps: dopeSheet.fps || 24
+          });
+
+          if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') {
+            window.dopeSheetUI.updateGrid();
+          }
+          doc.pushHistory('Bake Ragdoll Physics');
+          showNotification(`Baked ${dopeSheet.totalFrames} frames of ragdoll physics to DopeSheet!`);
+        } catch (bakeErr) {
+          console.error('Failed to bake ragdoll physics:', bakeErr);
+          showNotification('Failed to bake physics: ' + bakeErr.message);
+        }
+      }
+
+      function initStudioRigging() {
+        document.getElementById('btn-rig-tool')?.addEventListener('click', () => {
+          selectTool('bone');
+        });
+
+        document.getElementById('btn-rig-create-skel')?.addEventListener('click', () => {
+          const SkeletonClass = SvgSkeleton || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgSkeleton : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgSkeleton : null);
+          if (!SkeletonClass) return;
+          const name = prompt('Skeleton Armature Name:', 'Character Rig') || 'Character Rig';
+          try {
+            activeSkeleton = new SkeletonClass('skel_' + Date.now(), name, { x: doc.width / 2, y: doc.height / 3 });
+            doc.skeleton = activeSkeleton;
+            selectedBoneId = null;
+            updateRiggingUI();
+            render();
+            drawOverlay();
+            showNotification(`Created skeleton "${name}"`);
+          } catch (e) {
+            console.warn('Failed to create skeleton:', e);
+          }
+        });
+
+        document.getElementById('btn-rig-add-bone')?.addEventListener('click', () => {
+          ensureActiveSkeleton();
+          if (!activeSkeleton) return;
+          const BoneClass = SvgBone || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgBone : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgBone : null);
+          if (!BoneClass) return;
+          const parent = selectedBoneId ? activeSkeleton.getBone(selectedBoneId) : null;
+          const count = activeSkeleton.bones.length + 1;
+          try {
+            const b = new BoneClass(`bone_${count}`, `Bone ${count}`, 60, parent ? 30 : 90, {
+              parentId: parent ? parent.id : null
+            });
+            activeSkeleton.addBone(b);
+            selectedBoneId = b.id;
+            doc.pushHistory(`Add ${b.name}`);
+            updateRiggingUI();
+            render();
+            drawOverlay();
+          } catch (e) {
+            console.warn('Failed to add bone:', e);
+          }
+        });
+
+        document.getElementById('btn-rig-delete-bone')?.addEventListener('click', () => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          activeSkeleton.removeBone(selectedBoneId);
+          selectedBoneId = activeSkeleton.bones.length > 0 ? activeSkeleton.bones[0].id : null;
+          doc.pushHistory(`Delete ${b?.name || 'Bone'}`);
+          updateRiggingUI();
+          render();
+          drawOverlay();
+        });
+
+        document.getElementById('prop-rig-bone-list')?.addEventListener('change', (e) => {
+          selectedBoneId = e.target.value;
+          updateRiggingUI();
+          drawOverlay();
+        });
+
+        document.getElementById('prop-rig-bone-name')?.addEventListener('input', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) {
+            b.name = e.target.value;
+            drawOverlay();
+          }
+        });
+
+        document.getElementById('prop-rig-bone-length')?.addEventListener('input', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) {
+            b.length = Math.max(5, Number(e.target.value) || 50);
+            b.restLength = b.length;
+            activeSkeleton.updateWorldTransforms();
+            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+            render();
+            drawOverlay();
+          }
+        });
+
+        document.getElementById('prop-rig-bone-angle')?.addEventListener('input', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) {
+            b.localAngle = Number(e.target.value) || 0;
+            b.restAngle = b.localAngle;
+            activeSkeleton.updateWorldTransforms();
+            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+            render();
+            drawOverlay();
+          }
+        });
+
+        document.getElementById('prop-rig-bone-parent')?.addEventListener('change', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) {
+            b.parentId = e.target.value || null;
+            activeSkeleton.updateWorldTransforms();
+            render();
+            drawOverlay();
+          }
+        });
+
+        document.getElementById('prop-rig-physics-enabled')?.addEventListener('change', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) {
+            b.physics.enabled = e.target.checked;
+            drawOverlay();
+          }
+        });
+
+        document.getElementById('prop-rig-physics-mode')?.addEventListener('change', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) {
+            b.physics.mode = e.target.value;
+            drawOverlay();
+          }
+        });
+
+        document.getElementById('prop-rig-min-angle')?.addEventListener('input', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) b.physics.minAngle = Number(e.target.value);
+        });
+
+        document.getElementById('prop-rig-max-angle')?.addEventListener('input', (e) => {
+          if (!activeSkeleton || !selectedBoneId) return;
+          const b = activeSkeleton.getBone(selectedBoneId);
+          if (b) b.physics.maxAngle = Number(e.target.value);
+        });
+
+        const gravSlider = document.getElementById('prop-rig-gravity');
+        const gravVal = document.getElementById('prop-rig-gravity-val');
+        gravSlider?.addEventListener('input', (e) => {
+          if (gravVal) gravVal.textContent = e.target.value;
+        });
+
+        const dampSlider = document.getElementById('prop-rig-damping');
+        const dampVal = document.getElementById('prop-rig-damping-val');
+        dampSlider?.addEventListener('input', (e) => {
+          if (dampVal) dampVal.textContent = e.target.value;
+        });
+
+        document.getElementById('btn-rig-bind-cutout')?.addEventListener('click', bindSelectedObjectToActiveBone);
+        document.getElementById('btn-rig-bind-path')?.addEventListener('click', bindSelectedPathToArmature);
+        document.getElementById('btn-rig-clear-bindings')?.addEventListener('click', () => {
+          if (activeSkeleton) {
+            activeSkeleton.bindings = [];
+            updateRiggingUI();
+            showNotification('Cleared all armature bindings');
+          }
+        });
+
+        document.getElementById('btn-rig-sim-play')?.addEventListener('click', toggleLiveRagdoll);
+        document.getElementById('btn-rig-reset-pose')?.addEventListener('click', resetSkeletonPose);
+        document.getElementById('btn-rig-bake-dopesheet')?.addEventListener('click', bakeRagdollToActiveClip);
+      }
+
+      window.initStudioRigging = initStudioRigging;
+      window.renderBonesOverlay = renderBonesOverlay;
+      window.handleBonePointerDown = handleBonePointerDown;
+      window.handleBonePointerMove = handleBonePointerMove;
+      window.handleBonePointerUp = handleBonePointerUp;
+      window.updateRiggingUI = updateRiggingUI;
+
       // ── Bootstrapping ──
       const urlParams = new URLSearchParams(window.location.search);
       const paramProj = urlParams.get('project');
@@ -15457,6 +16312,12 @@
         if (typeof refreshProjectsList === 'function') refreshProjectsList();
         updateRendererMenuUi();
         initQuadro();
+        try {
+          initStudioRigging();
+          updateRiggingUI();
+        } catch (rigErr) {
+          console.warn('Non-blocking rigging init warning:', rigErr);
+        }
         if (typeof ColorStudio !== 'undefined') {
           const mount = document.getElementById('color-studio-mount');
           if (mount) ColorStudio.mountColorTab(mount);
