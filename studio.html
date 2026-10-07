@@ -3948,12 +3948,9 @@
         </div>
       </div>
 
-      <!-- Inline New Project Card (Replaces Modal) -->
+      <!-- Inline New Project Card -->
       <div id="hub-new-project-card" style="display: none; padding: 10px 12px; background: var(--bg-panel-sub); border-bottom: 2px solid var(--primary); flex-direction: column; gap: 8px; flex-shrink: 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="font-size: 11px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px;">New Canvas / Project</span>
-          <button type="button" id="btn-cancel-new-proj-card" class="btn-icon" style="font-size: 10px; padding: 1px 4px;">✕</button>
-        </div>
+        <span style="font-size: 11px; font-weight: 700; color: var(--text-bright); text-transform: uppercase; letter-spacing: 0.5px;">New Canvas</span>
         <div class="form-row">
           <label style="flex: 0 0 50px;">Title</label>
           <input type="text" id="inp-new-title" value="Untitled Vector" style="font-size: 11px;">
@@ -11798,6 +11795,7 @@
 
       // ── Multi-Scale & Video / Animation Export Modal ──
       const modalExport = document.getElementById('modal-export');
+      const modalRecents = document.getElementById('modal-recents');
       const exportFormatSelect = document.getElementById('export-format');
       const exportScaleInput = document.getElementById('export-scale');
       const exportDimPreview = document.getElementById('export-dim-preview');
