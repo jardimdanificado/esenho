@@ -44,6 +44,7 @@
       this.id = id || `bone_${Math.random().toString(36).substr(2, 6)}`;
       this.name = name || this.id;
       this.parentId = options.parentId || null;
+      this.attachTo = options.attachTo || 'tip'; // 'tip' (parent worldX1/Y1) | 'base' (parent worldX0/Y0)
       this.length = Math.max(1, Number(length));
       this.localAngle = Number(localAngle) || 0; // Relative to parent (degrees)
       
@@ -63,8 +64,9 @@
       this.worldAngle = 0; // Global angle (degrees)
 
       // Physical & Ragdoll Properties
+      const hasPhysMode = options.physics && (options.physics.mode === 'ragdoll' || options.physics.mode === 'secondary');
       this.physics = {
-        enabled: options.physics?.enabled ?? false,
+        enabled: options.physics?.enabled ?? !!hasPhysMode,
         mode: options.physics?.mode || 'kinematic', // 'kinematic' | 'ragdoll' | 'secondary'
         mass: options.physics?.mass !== undefined ? Number(options.physics.mass) : 1.0,
         minAngle: options.physics?.minAngle !== undefined ? Number(options.physics.minAngle) : -135,
@@ -78,6 +80,7 @@
     clone() {
       const copy = new SvgBone(this.id + '_copy', this.name, this.length, this.localAngle, {
         parentId: this.parentId,
+        attachTo: this.attachTo,
         localX: this.localX,
         localY: this.localY,
         physics: { ...this.physics }
@@ -92,6 +95,7 @@
         id: this.id,
         name: this.name,
         parentId: this.parentId,
+        attachTo: this.attachTo,
         length: this.length,
         localAngle: this.localAngle,
         localX: this.localX,
@@ -105,6 +109,7 @@
     static fromJSON(data) {
       const b = new SvgBone(data.id, data.name, data.length, data.localAngle, {
         parentId: data.parentId,
+        attachTo: data.attachTo,
         localX: data.localX,
         localY: data.localY,
         physics: data.physics
@@ -132,9 +137,13 @@
       this.boneMap = new Map();
       
       // Bindings to scene nodes:
-      // Cutout bindings: { type: 'cutout', targetId, boneId, offsetAngle, offsetX, offsetY }
-      // Path bindings: { type: 'path', targetId, weights: [{ nodeIndex, boneId, dist, angle, weight, cpInDist, cpInAngle, cpOutDist, cpOutAngle }] }
+      // Cutout bindings: { type: 'cutout', targetId, boneId, offsetAngle, offsetX, offsetY, halfW, halfH }
+      // Path bindings: { type: 'path', targetId, weights: [...] }
+      // Smooth LBS bindings: { type: 'smooth_path', targetId, nodeWeights: [...] }
       this.bindings = [];
+
+      // Bone Constraints (IK, Aim / Look-At, Copy Rotation)
+      this.constraints = [];
     }
 
     addBone(boneConfig) {
@@ -163,17 +172,45 @@
       for (const b of this.bones) {
         if (b.parentId === boneId) b.parentId = null;
       }
-      // Clean bindings
+      // Clean bindings & constraints
       this.bindings = this.bindings.filter(bind => bind.boneId !== boneId);
+      this.constraints = this.constraints.filter(c => c.boneId !== boneId && c.sourceBoneId !== boneId);
       this.updateWorldTransforms();
       return true;
     }
 
-    /**
-     * Compute World Transforms (Forward Kinematics) for all bones.
-     */
-    updateWorldTransforms() {
-      // Process root bones first, then children
+    addConstraint(config) {
+      const c = {
+        id: config.id || `const_${Math.random().toString(36).substr(2, 6)}`,
+        name: config.name || config.id || 'Constraint',
+        type: config.type || 'aim', // 'ik' | 'aim' | 'copy_rotation'
+        enabled: config.enabled !== false,
+        boneId: config.boneId || config.effectorBoneId,
+        sourceBoneId: config.sourceBoneId || config.targetBoneId || null,
+        targetBoneId: config.targetBoneId || config.sourceBoneId || null,
+        targetX: config.targetX !== undefined ? Number(config.targetX) : 0,
+        targetY: config.targetY !== undefined ? Number(config.targetY) : 0,
+        poleTargetBoneId: config.poleTargetBoneId || null,
+        poleTarget: config.poleTarget || null, // { x, y }
+        chainLength: Number(config.chainLength || 0),
+        weight: config.weight !== undefined ? clamp(Number(config.weight), 0, 1) : 1.0,
+        ratio: config.ratio !== undefined ? Number(config.ratio) : 1.0,
+        offsetAngle: Number(config.offsetAngle || 0)
+      };
+      this.constraints.push(c);
+      this.updateWorldTransforms();
+      return c;
+    }
+
+    removeConstraint(constraintId) {
+      const idx = this.constraints.findIndex(c => c.id === constraintId);
+      if (idx === -1) return false;
+      this.constraints.splice(idx, 1);
+      this.updateWorldTransforms();
+      return true;
+    }
+
+    _computeFK() {
       const processed = new Set();
       
       const processBone = (bone) => {
@@ -190,12 +227,11 @@
               processBone(parent);
             }
             parentAngle = parent.worldAngle;
-            baseX = parent.worldX1;
-            baseY = parent.worldY1;
+            baseX = (bone.attachTo === 'base') ? parent.worldX0 : parent.worldX1;
+            baseY = (bone.attachTo === 'base') ? parent.worldY0 : parent.worldY1;
           }
         }
 
-        // Apply local offset if any, rotated by parent angle
         const pRad = parentAngle * DEG2RAD;
         const cosP = Math.cos(pRad);
         const sinP = Math.sin(pRad);
@@ -219,13 +255,91 @@
     }
 
     /**
-     * Cyclic Coordinate Descent (CCD-IK) Solver.
-     * Rotates bones in the chain from effector up to reach (targetX, targetY).
+     * Compute World Transforms (FK + Bone Constraints evaluation).
+     */
+    updateWorldTransforms() {
+      this._computeFK();
+
+      // Evaluate active bone constraints
+      if (this.constraints && this.constraints.length > 0) {
+        let changed = false;
+        for (const c of this.constraints) {
+          if (!c.enabled || c.weight <= 0) continue;
+
+          if (c.type === 'copy_rotation') {
+            const bone = this.getBone(c.boneId);
+            const src = this.getBone(c.targetBoneId || c.sourceBoneId);
+            if (bone && src) {
+              const targetAngle = normalizeAngleDeg(src.localAngle * c.ratio + c.offsetAngle);
+              bone.localAngle = normalizeAngleDeg(bone.localAngle * (1 - c.weight) + targetAngle * c.weight);
+              changed = true;
+            }
+          } else if (c.type === 'aim') {
+            const bone = this.getBone(c.boneId);
+            if (bone) {
+              let tgtX = c.targetX;
+              let tgtY = c.targetY;
+              if (c.targetBoneId) {
+                const tgtBone = this.getBone(c.targetBoneId);
+                if (tgtBone) {
+                  tgtX = tgtBone.worldX0;
+                  tgtY = tgtBone.worldY0;
+                }
+              }
+              const dx = tgtX - bone.worldX0;
+              const dy = tgtY - bone.worldY0;
+              if (Math.hypot(dx, dy) > 1e-3) {
+                const aimWorld = Math.atan2(dy, dx) * RAD2DEG + c.offsetAngle;
+                let parentAngle = this.rotation;
+                if (bone.parentId) {
+                  const p = this.getBone(bone.parentId);
+                  if (p) parentAngle = p.worldAngle;
+                }
+                const targetLocal = normalizeAngleDeg(aimWorld - parentAngle);
+                bone.localAngle = normalizeAngleDeg(bone.localAngle * (1 - c.weight) + targetLocal * c.weight);
+                changed = true;
+              }
+            }
+          } else if (c.type === 'ik') {
+            let tgtX = c.targetX;
+            let tgtY = c.targetY;
+            if (c.targetBoneId) {
+              const tgtBone = this.getBone(c.targetBoneId);
+              if (tgtBone) {
+                tgtX = tgtBone.worldX0;
+                tgtY = tgtBone.worldY0;
+              }
+            }
+            let pole = c.poleTarget;
+            if (c.poleTargetBoneId) {
+              const poleBone = this.getBone(c.poleTargetBoneId);
+              if (poleBone) {
+                pole = { x: poleBone.worldX0, y: poleBone.worldY0 };
+              }
+            }
+            this.solveIK(c.boneId, tgtX, tgtY, {
+              chainLength: c.chainLength,
+              poleTarget: pole,
+              weight: c.weight
+            });
+            changed = true;
+          }
+        }
+        if (changed) {
+          this._computeFK();
+        }
+      }
+    }
+
+    /**
+     * Cyclic Coordinate Descent (CCD-IK) Solver with Pole Target and Weight Blending.
      */
     solveIK(effectorBoneId, targetX, targetY, options = {}) {
       const maxIterations = options.maxIterations || 15;
       const tolerance = options.tolerance || 0.5;
       const chainLength = options.chainLength || 0; // 0 = all the way to root
+      const weight = options.weight !== undefined ? clamp(Number(options.weight), 0, 1) : 1.0;
+      const poleTarget = options.poleTarget || null;
 
       const effector = this.getBone(effectorBoneId);
       if (!effector) return false;
@@ -239,34 +353,32 @@
         curr = curr.parentId ? this.getBone(curr.parentId) : null;
       }
 
+      const initAngles = chain.map(b => b.localAngle);
+
       for (let iter = 0; iter < maxIterations; iter++) {
-        this.updateWorldTransforms();
+        this._computeFK();
         const curDist = Math.hypot(effector.worldX1 - targetX, effector.worldY1 - targetY);
         if (curDist <= tolerance) break;
 
         for (let i = 0; i < chain.length; i++) {
           const bone = chain[i];
-          this.updateWorldTransforms();
+          this._computeFK();
 
-          // Vector from bone joint to effector tip
           const effX = effector.worldX1 - bone.worldX0;
           const effY = effector.worldY1 - bone.worldY0;
           const effLen = Math.hypot(effX, effY);
           if (effLen < 1e-4) continue;
 
-          // Vector from bone joint to target
           const tgtX = targetX - bone.worldX0;
           const tgtY = targetY - bone.worldY0;
           const tgtLen = Math.hypot(tgtX, tgtY);
           if (tgtLen < 1e-4) continue;
 
-          // Calculate angle delta
           const effAngle = Math.atan2(effY, effX);
           const tgtAngle = Math.atan2(tgtY, tgtX);
           let deltaDeg = (tgtAngle - effAngle) * RAD2DEG;
           deltaDeg = normalizeAngleDeg(deltaDeg);
 
-          // Apply rotation
           let newAngle = bone.localAngle + deltaDeg;
           if (bone.physics.minAngle !== undefined && bone.physics.maxAngle !== undefined) {
             newAngle = clamp(newAngle, bone.physics.minAngle, bone.physics.maxAngle);
@@ -275,12 +387,34 @@
         }
       }
 
-      this.updateWorldTransforms();
+      // Apply pole target bend hint if present
+      if (poleTarget && chain.length >= 2) {
+        const rootBone = chain[chain.length - 1];
+        const midBone = chain[chain.length - 2];
+        this._computeFK();
+        const armVecX = effector.worldX1 - rootBone.worldX0;
+        const armVecY = effector.worldY1 - rootBone.worldY0;
+        const poleVecX = poleTarget.x - rootBone.worldX0;
+        const poleVecY = poleTarget.y - rootBone.worldY0;
+        const cross = armVecX * poleVecY - armVecY * poleVecX;
+        const midCross = armVecX * (midBone.worldY1 - rootBone.worldY0) - armVecY * (midBone.worldX1 - rootBone.worldX0);
+        if ((cross > 0 && midCross < 0) || (cross < 0 && midCross > 0)) {
+          midBone.localAngle = normalizeAngleDeg(-midBone.localAngle);
+        }
+      }
+
+      // Blend between initial FK angles and IK solved angles
+      if (weight < 1.0) {
+        for (let i = 0; i < chain.length; i++) {
+          chain[i].localAngle = normalizeAngleDeg(initAngles[i] * (1 - weight) + chain[i].localAngle * weight);
+        }
+      }
+
+      this._computeFK();
       const finalDist = Math.hypot(effector.worldX1 - targetX, effector.worldY1 - targetY);
       return finalDist <= tolerance;
     }
 
-    /* ── Cutout Binding ── */
     bindCutout(targetNode, boneId) {
       const bone = this.getBone(boneId);
       if (!bone || !targetNode) return null;
@@ -288,9 +422,29 @@
       this.updateWorldTransforms();
       const targetId = targetNode.id;
 
-      // Calculate relative offset between target node and bone joint
-      const dx = targetNode.x - bone.worldX0;
-      const dy = targetNode.y - bone.worldY0;
+      // Determine center / anchor of the node
+      let posX = 0;
+      let posY = 0;
+      let halfW = 0;
+      let halfH = 0;
+
+      if (targetNode.cx !== undefined && targetNode.cy !== undefined) {
+        posX = targetNode.cx;
+        posY = targetNode.cy;
+      } else if (typeof targetNode.getBounds === 'function') {
+        const b = targetNode.getBounds();
+        posX = b.minX + b.width / 2;
+        posY = b.minY + b.height / 2;
+        halfW = b.width / 2;
+        halfH = b.height / 2;
+      } else {
+        posX = targetNode.x || 0;
+        posY = targetNode.y || 0;
+      }
+
+      // Relative offset between target node anchor and bone joint in bone local space
+      const dx = posX - bone.worldX0;
+      const dy = posY - bone.worldY0;
       const bRad = -bone.worldAngle * DEG2RAD;
       const offsetX = dx * Math.cos(bRad) - dy * Math.sin(bRad);
       const offsetY = dx * Math.sin(bRad) + dy * Math.cos(bRad);
@@ -305,7 +459,9 @@
         boneId,
         offsetX,
         offsetY,
-        offsetAngle
+        offsetAngle,
+        halfW,
+        halfH
       };
       this.bindings.push(binding);
       return binding;
@@ -327,12 +483,10 @@
 
       for (let i = 0; i < pNodes.length; i++) {
         const node = pNodes[i];
-        // Find best bone or compute inverse-distance weights
         let bestBone = candidateBones[0];
         let bestDist = Infinity;
 
         for (const b of candidateBones) {
-          // Distance to bone segment
           const segDist = distancePointToSegment(node.x, node.y, b.worldX0, b.worldY0, b.worldX1, b.worldY1);
           if (segDist < bestDist) {
             bestDist = segDist;
@@ -340,7 +494,6 @@
           }
         }
 
-        // Relative transform to the best bone
         const bRad = -bestBone.worldAngle * DEG2RAD;
         const cosB = Math.cos(bRad);
         const sinB = Math.sin(bRad);
@@ -390,6 +543,99 @@
       return binding;
     }
 
+    /* ── Smooth Multi-Bone Linear Blend Skinning (LBS) ── */
+    bindPathSmooth(pathNode, boneIds = [], options = {}) {
+      if (!pathNode || !Array.isArray(pathNode.nodes) || pathNode.nodes.length === 0) return null;
+      this.updateWorldTransforms();
+
+      const candidateBones = (boneIds.length > 0 ? boneIds : this.bones.map(b => b.id))
+        .map(id => this.getBone(id))
+        .filter(Boolean);
+
+      if (candidateBones.length === 0) return null;
+
+      const radius = options.radius || 150;
+      const maxInfluences = options.maxInfluences || 3;
+      const nodeWeights = [];
+
+      for (let i = 0; i < pathNode.nodes.length; i++) {
+        const pNode = pathNode.nodes[i];
+        const rawInfluences = [];
+
+        for (const b of candidateBones) {
+          const dist = distancePointToSegment(pNode.x, pNode.y, b.worldX0, b.worldY0, b.worldX1, b.worldY1);
+          if (dist <= radius) {
+            const w = Math.exp(-Math.pow(dist / (radius * 0.5), 2));
+            rawInfluences.push({ bone: b, dist, weight: w });
+          }
+        }
+
+        rawInfluences.sort((a, b) => b.weight - a.weight);
+        const topInfluences = rawInfluences.slice(0, maxInfluences);
+
+        if (topInfluences.length === 0) {
+          let closest = candidateBones[0];
+          let minDist = Infinity;
+          for (const b of candidateBones) {
+            const d = distancePointToSegment(pNode.x, pNode.y, b.worldX0, b.worldY0, b.worldX1, b.worldY1);
+            if (d < minDist) { minDist = d; closest = b; }
+          }
+          topInfluences.push({ bone: closest, dist: minDist, weight: 1.0 });
+        }
+
+        const totalW = topInfluences.reduce((sum, inf) => sum + inf.weight, 0);
+        const vertexBones = topInfluences.map(inf => {
+          const b = inf.bone;
+          const normW = inf.weight / (totalW || 1);
+          const bRad = -b.worldAngle * DEG2RAD;
+          const cosB = Math.cos(bRad);
+          const sinB = Math.sin(bRad);
+
+          const dx = pNode.x - b.worldX0;
+          const dy = pNode.y - b.worldY0;
+          const localX = dx * cosB - dy * sinB;
+          const localY = dx * sinB + dy * cosB;
+
+          let cpInLocal = null;
+          if (pNode.cpIn) {
+            const cidx = pNode.cpIn.x - b.worldX0;
+            const cidy = pNode.cpIn.y - b.worldY0;
+            cpInLocal = { x: cidx * cosB - cidy * sinB, y: cidx * sinB + cidy * cosB };
+          }
+
+          let cpOutLocal = null;
+          if (pNode.cpOut) {
+            const codx = pNode.cpOut.x - b.worldX0;
+            const cody = pNode.cpOut.y - b.worldY0;
+            cpOutLocal = { x: codx * cosB - cody * sinB, y: codx * sinB + cody * cosB };
+          }
+
+          return {
+            boneId: b.id,
+            weight: normW,
+            localX,
+            localY,
+            cpInLocal,
+            cpOutLocal
+          };
+        });
+
+        nodeWeights.push({
+          nodeIndex: i,
+          influences: vertexBones
+        });
+      }
+
+      this.bindings = this.bindings.filter(b => b.targetId !== pathNode.id);
+      const binding = {
+        type: 'smooth_path',
+        targetId: pathNode.id,
+        nodeWeights
+      };
+      this.bindings.push(binding);
+      return binding;
+    }
+
     /**
      * Apply all bindings to scene nodes (Cutout transform or Path deformation).
      * @param {Map<string, SvgNode> | Object | Function} nodeResolver
@@ -417,11 +663,23 @@
           const cosR = Math.cos(rad);
           const sinR = Math.sin(rad);
 
-          node.x = bone.worldX0 + (b.offsetX * cosR - b.offsetY * sinR);
-          node.y = bone.worldY0 + (b.offsetX * sinR + b.offsetY * cosR);
-          node.rotation = normalizeAngleDeg(bone.worldAngle + b.offsetAngle);
-          node.originX = bone.worldX0;
-          node.originY = bone.worldY0;
+          const newCenterX = bone.worldX0 + (b.offsetX * cosR - b.offsetY * sinR);
+          const newCenterY = bone.worldY0 + (b.offsetX * sinR + b.offsetY * cosR);
+          const newRot = normalizeAngleDeg(bone.worldAngle + b.offsetAngle);
+
+          if (node.cx !== undefined && node.cy !== undefined) {
+            node.cx = newCenterX;
+            node.cy = newCenterY;
+            node.x = newCenterX;
+            node.y = newCenterY;
+          } else {
+            node.x = newCenterX - (b.halfW || 0);
+            node.y = newCenterY - (b.halfH || 0);
+          }
+
+          node.rotation = newRot;
+          node.originX = newCenterX;
+          node.originY = newCenterY;
         } else if (b.type === 'path') {
           if (!Array.isArray(node.nodes)) continue;
 
@@ -448,6 +706,54 @@
               pNode.cpOut.y = bone.worldY0 + (w.cpOutLocal.x * sinR + w.cpOutLocal.y * cosR);
             }
           }
+        } else if (b.type === 'smooth_path') {
+          if (!Array.isArray(node.nodes)) continue;
+
+          for (const nw of b.nodeWeights) {
+            const pNode = node.nodes[nw.nodeIndex];
+            if (!pNode) continue;
+
+            let blendX = 0;
+            let blendY = 0;
+            let blendCpInX = 0;
+            let blendCpInY = 0;
+            let blendCpOutX = 0;
+            let blendCpOutY = 0;
+            let hasCpIn = false;
+            let hasCpOut = false;
+
+            for (const inf of nw.influences) {
+              const bone = this.getBone(inf.boneId);
+              if (!bone) continue;
+
+              const rad = bone.worldAngle * DEG2RAD;
+              const cosR = Math.cos(rad);
+              const sinR = Math.sin(rad);
+
+              const wx = bone.worldX0 + (inf.localX * cosR - inf.localY * sinR);
+              const wy = bone.worldY0 + (inf.localX * sinR + inf.localY * cosR);
+
+              blendX += wx * inf.weight;
+              blendY += wy * inf.weight;
+
+              if (inf.cpInLocal && pNode.cpIn) {
+                hasCpIn = true;
+                blendCpInX += (bone.worldX0 + (inf.cpInLocal.x * cosR - inf.cpInLocal.y * sinR)) * inf.weight;
+                blendCpInY += (bone.worldY0 + (inf.cpInLocal.x * sinR + inf.cpInLocal.y * cosR)) * inf.weight;
+              }
+
+              if (inf.cpOutLocal && pNode.cpOut) {
+                hasCpOut = true;
+                blendCpOutX += (bone.worldX0 + (inf.cpOutLocal.x * cosR - inf.cpOutLocal.y * sinR)) * inf.weight;
+                blendCpOutY += (bone.worldY0 + (inf.cpOutLocal.x * sinR + inf.cpOutLocal.y * cosR)) * inf.weight;
+              }
+            }
+
+            pNode.x = blendX;
+            pNode.y = blendY;
+            if (hasCpIn && pNode.cpIn) { pNode.cpIn.x = blendCpInX; pNode.cpIn.y = blendCpInY; }
+            if (hasCpOut && pNode.cpOut) { pNode.cpOut.x = blendCpOutX; pNode.cpOut.y = blendCpOutY; }
+          }
         }
       }
     }
@@ -462,7 +768,8 @@
         scaleX: this.scaleX,
         scaleY: this.scaleY,
         bones: this.bones.map(b => b.toJSON()),
-        bindings: this.bindings
+        bindings: this.bindings,
+        constraints: this.constraints
       };
     }
 
@@ -481,6 +788,9 @@
       }
       if (Array.isArray(data.bindings)) {
         skel.bindings = data.bindings;
+      }
+      if (Array.isArray(data.constraints)) {
+        skel.constraints = data.constraints;
       }
       skel.updateWorldTransforms();
       return skel;
@@ -508,6 +818,11 @@
       this.floorFriction = options.floorFriction !== undefined ? Number(options.floorFriction) : 0.85;
       this.damping = options.damping !== undefined ? Number(options.damping) : 0.96;
       this.iterations = options.iterations || 8; // Constraint relaxation solver iterations
+      this.wind = options.wind || { x: 0, y: 0, turbulence: 0 };
+      this.time = 0;
+
+      this.draggedParticle = null;
+      this.wasPinnedBeforeDrag = false;
 
       this.particles = [];
       this.particleMap = new Map();
@@ -531,14 +846,20 @@
       skeleton.updateWorldTransforms();
 
       // 1. Create particles for joint positions (worldX0, worldY0) and tips (worldX1, worldY1)
-      // Share particles where child.worldX0 == parent.worldX1 to enforce continuous articulation
       for (const bone of skeleton.bones) {
+        const isPhys = !!(bone.physics && bone.physics.enabled && bone.physics.mode !== 'kinematic');
+        const isRagdoll = isPhys && bone.physics.mode === 'ragdoll';
+        const isSecondary = isPhys && bone.physics.mode === 'secondary';
+
         let pJoint = null;
         if (bone.parentId) {
-          pJoint = this.particleMap.get(`tip_${bone.parentId}`);
+          pJoint = (bone.attachTo === 'base')
+            ? this.particleMap.get(`joint_${bone.parentId}`)
+            : this.particleMap.get(`tip_${bone.parentId}`);
         }
 
         if (!pJoint) {
+          const isJointPinned = !isRagdoll || bone.parentId !== null;
           pJoint = {
             id: `joint_${bone.id}`,
             boneId: bone.id,
@@ -546,14 +867,15 @@
             y: bone.worldY0,
             prevX: bone.worldX0,
             prevY: bone.worldY0,
-            isPinned: bone.parentId === null && bone.physics.mode !== 'ragdoll',
+            isPinned: isJointPinned,
             mass: bone.physics.mass || 1.0,
-            invMass: (bone.parentId === null && bone.physics.mode !== 'ragdoll') ? 0 : 1.0 / (bone.physics.mass || 1.0)
+            invMass: isJointPinned ? 0 : 1.0 / (bone.physics.mass || 1.0)
           };
           this.particles.push(pJoint);
           this.particleMap.set(pJoint.id, pJoint);
         }
 
+        const isTipPinned = !isPhys;
         const pTip = {
           id: `tip_${bone.id}`,
           boneId: bone.id,
@@ -561,9 +883,9 @@
           y: bone.worldY1,
           prevX: bone.worldX1,
           prevY: bone.worldY1,
-          isPinned: false,
+          isPinned: isTipPinned,
           mass: bone.physics.mass || 1.0,
-          invMass: 1.0 / (bone.physics.mass || 1.0)
+          invMass: isTipPinned ? 0 : 1.0 / (bone.physics.mass || 1.0)
         };
         this.particles.push(pTip);
         this.particleMap.set(pTip.id, pTip);
@@ -577,17 +899,18 @@
           boneId: bone.id
         });
 
-        // 3. Angular Joint Limit Constraint
-        if (bone.parentId) {
+        // 3. Angular Joint Limit Constraint (dynamic bones only)
+        if (bone.parentId && isPhys) {
           const parent = skeleton.getBone(bone.parentId);
           if (parent) {
-            const pParentJoint = this.particleMap.get(`joint_${parent.id}`) ||
-              (parent.parentId ? this.particleMap.get(`tip_${parent.parentId}`) : null);
+            const pParentJoint = this.particleMap.get(`joint_${parent.id}`);
+            const pParentTip = this.particleMap.get(`tip_${parent.id}`);
 
-            if (pParentJoint) {
+            if (pParentJoint && pParentTip && pJoint) {
               this.angleConstraints.push({
                 p0: pParentJoint,
-                p1: pJoint,
+                p1: pParentTip,
+                pChildJoint: pJoint,
                 p2: pTip,
                 minAngle: (bone.physics.minAngle !== undefined ? bone.physics.minAngle : -135) * DEG2RAD,
                 maxAngle: (bone.physics.maxAngle !== undefined ? bone.physics.maxAngle : 135) * DEG2RAD,
@@ -598,7 +921,7 @@
         }
 
         // 4. Secondary Physics Spring Setup
-        if (bone.physics.mode === 'secondary') {
+        if (isSecondary) {
           this.secondarySprings.push({
             boneId: bone.id,
             pJoint,
@@ -627,14 +950,89 @@
       }
     }
 
+    findNearestParticle(x, y, maxDistance = 40) {
+      let closest = null;
+      let minD = maxDistance;
+      for (const p of this.particles) {
+        const d = Math.hypot(p.x - x, p.y - y);
+        if (d < minD) {
+          minD = d;
+          closest = p;
+        }
+      }
+      return closest;
+    }
+
+    startDrag(x, y, maxDistance = 40) {
+      const p = this.findNearestParticle(x, y, maxDistance);
+      if (p) {
+        this.draggedParticle = p;
+        this.wasPinnedBeforeDrag = p.isPinned;
+        p.isPinned = true;
+        p.invMass = 0;
+        p.x = x;
+        p.y = y;
+        p.prevX = x;
+        p.prevY = y;
+        return p;
+      }
+      return null;
+    }
+
+    updateDrag(x, y) {
+      if (this.draggedParticle) {
+        this.draggedParticle.x = x;
+        this.draggedParticle.y = y;
+      }
+    }
+
+    endDrag(vx = 0, vy = 0) {
+      if (this.draggedParticle) {
+        const p = this.draggedParticle;
+        if (!this.wasPinnedBeforeDrag) {
+          p.isPinned = false;
+          p.invMass = 1.0 / (p.mass || 1.0);
+        }
+        // Impart release velocity into Verlet integration
+        const dt = 1 / 60;
+        p.prevX = p.x - (vx || 0) * dt;
+        p.prevY = p.y - (vy || 0) * dt;
+        this.draggedParticle = null;
+      }
+    }
+
     /**
      * Advance simulation by dt seconds using Verlet Integration + Relaxations.
      */
     step(dt = 1 / 60) {
       if (dt <= 0) return;
       const dtSq = dt * dt;
+      this.time += dt;
 
-      // 1. Verlet Integration: update positions based on velocity and gravity
+      // Keep kinematic bones anchored to their FK world transforms
+      if (this.skeleton) {
+        for (const bone of this.skeleton.bones) {
+          const isPhys = !!(bone.physics && bone.physics.enabled && bone.physics.mode !== 'kinematic');
+          if (!isPhys) {
+            const pJ = this.particleMap.get(`joint_${bone.id}`);
+            if (pJ && pJ.isPinned) {
+              pJ.x = bone.worldX0;
+              pJ.y = bone.worldY0;
+              pJ.prevX = bone.worldX0;
+              pJ.prevY = bone.worldY0;
+            }
+            const pT = this.particleMap.get(`tip_${bone.id}`);
+            if (pT && pT.isPinned) {
+              pT.x = bone.worldX1;
+              pT.y = bone.worldY1;
+              pT.prevX = bone.worldX1;
+              pT.prevY = bone.worldY1;
+            }
+          }
+        }
+      }
+
+      // 1. Verlet Integration: update positions based on velocity, gravity and wind forces
       for (const p of this.particles) {
         if (p.isPinned) continue;
 
@@ -648,8 +1046,15 @@
         p.prevX = p.x;
         p.prevY = p.y;
 
-        p.x += vx + (this.gravity.x * gravScale) * dtSq;
-        p.y += vy + (this.gravity.y * gravScale) * dtSq;
+        // Environmental Wind & Turbulence Force
+        const windBaseX = this.wind?.x || 0;
+        const windBaseY = this.wind?.y || 0;
+        const turb = this.wind?.turbulence || 0;
+        const turbX = turb ? Math.sin(this.time * 3.8 + p.y * 0.02) * turb * 180 : 0;
+        const turbY = turb ? Math.cos(this.time * 2.9 + p.x * 0.02) * turb * 90 : 0;
+
+        p.x += vx + (this.gravity.x * gravScale + windBaseX + turbX) * dtSq;
+        p.y += vy + (this.gravity.y * gravScale + windBaseY + turbY) * dtSq;
       }
 
       // 2. Secondary Springs: add elastic forces pulling secondary bones towards their local target angle
@@ -701,8 +1106,9 @@
         for (const ac of this.angleConstraints) {
           // Angle of parent bone: p0 -> p1
           const aParent = Math.atan2(ac.p1.y - ac.p0.y, ac.p1.x - ac.p0.x);
-          // Angle of child bone: p1 -> p2
-          const aChild = Math.atan2(ac.p2.y - ac.p1.y, ac.p2.x - ac.p1.x);
+          // Angle of child bone: pChildJoint -> p2
+          const pJ = ac.pChildJoint || ac.p1;
+          const aChild = Math.atan2(ac.p2.y - pJ.y, ac.p2.x - pJ.x);
 
           let rel = aChild - aParent;
           while (rel > Math.PI) rel -= 2 * Math.PI;
@@ -714,16 +1120,44 @@
 
           if (clamped !== rel && !ac.p2.isPinned) {
             const desiredChildAngle = aParent + clamped;
-            const len = Math.hypot(ac.p2.x - ac.p1.x, ac.p2.y - ac.p1.y);
-            const targetX = ac.p1.x + len * Math.cos(desiredChildAngle);
-            const targetY = ac.p1.y + len * Math.sin(desiredChildAngle);
+            const len = Math.hypot(ac.p2.x - pJ.x, ac.p2.y - pJ.y);
+            const targetX = pJ.x + len * Math.cos(desiredChildAngle);
+            const targetY = pJ.y + len * Math.sin(desiredChildAngle);
 
             ac.p2.x += (targetX - ac.p2.x) * ac.stiffness;
             ac.p2.y += (targetY - ac.p2.y) * ac.stiffness;
           }
         }
 
-        // C. Floor Collision with friction
+        // C. Particle-to-Particle Self-Collision Repulsion
+        const minParticleDist = 14;
+        const minParticleDistSq = minParticleDist * minParticleDist;
+        for (let i = 0; i < this.particles.length; i++) {
+          const p1 = this.particles[i];
+          for (let j = i + 1; j < this.particles.length; j++) {
+            const p2 = this.particles[j];
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq < minParticleDistSq && distSq > 1e-6) {
+              const dist = Math.sqrt(distSq);
+              const overlap = (minParticleDist - dist) / dist * 0.5;
+              const wTotal = p1.invMass + p2.invMass;
+              if (wTotal > 0) {
+                if (!p1.isPinned) {
+                  p1.x -= dx * overlap * (p1.invMass / wTotal);
+                  p1.y -= dy * overlap * (p1.invMass / wTotal);
+                }
+                if (!p2.isPinned) {
+                  p2.x += dx * overlap * (p2.invMass / wTotal);
+                  p2.y += dy * overlap * (p2.invMass / wTotal);
+                }
+              }
+            }
+          }
+        }
+
+        // D. Floor Collision with friction
         if (this.floorY !== null) {
           for (const p of this.particles) {
             if (p.y > this.floorY) {
@@ -735,7 +1169,7 @@
         }
       }
 
-      // 4. Propagate physical positions back to SvgSkeleton bones
+      // 4. Propagate physical positions back to SvgSkeleton dynamic bones
       this.syncToSkeleton();
     }
 
@@ -743,9 +1177,14 @@
       if (!this.skeleton) return;
 
       for (const bone of this.skeleton.bones) {
+        const isPhys = !!(bone.physics && bone.physics.enabled && bone.physics.mode !== 'kinematic');
+        if (!isPhys) continue;
+
         let pJoint = null;
         if (bone.parentId) {
-          pJoint = this.particleMap.get(`tip_${bone.parentId}`);
+          pJoint = (bone.attachTo === 'base')
+            ? this.particleMap.get(`joint_${bone.parentId}`)
+            : this.particleMap.get(`tip_${bone.parentId}`);
         } else {
           pJoint = this.particleMap.get(`joint_${bone.id}`);
         }

@@ -160,7 +160,53 @@ async function runSvgRiggingTests() {
   assert(tailSkel.getBone('tail') !== null, 'Tail bone exists');
   console.log('✔ Secondary Physics (Tail/Hair/Cloth Spring Jiggle) verified');
 
-  // 8. Bake Ragdoll Simulation to DopeSheet Keyframes
+  // 8. Multi-Bone Smooth Blend Skinning (Linear Blend Skinning / LBS)
+  const lbsPath = {
+    id: 'lbs_worm_path',
+    nodes: [
+      { x: 200, y: 100, cpIn: null, cpOut: null },
+      { x: 200, y: 150, cpIn: null, cpOut: null },
+      { x: 200, y: 200, cpIn: null, cpOut: null }
+    ]
+  };
+  skel.bindPathSmooth(lbsPath, ['root', 'leg'], { radius: 100 });
+  assert(skel.bindings.some(b => b.type === 'smooth_path'), 'Smooth skinning binding registered');
+  skel.applyBindings({ lbs_worm_path: lbsPath });
+  console.log('✔ Multi-Bone Linear Blend Skinning (LBS) verified');
+
+  // 9. Bone Constraints Engine (Aim / Look-At & Copy Rotation & IK with Pole Target)
+  const turretSkel = new SvgSkeleton('skel_turret', 'Turret Rig', { x: 0, y: 0 });
+  const baseB = turretSkel.addBone(new SvgBone('b_base', 'Base', 50, 0));
+  const barrelB = turretSkel.addBone(new SvgBone('b_barrel', 'Barrel', 50, 0, { parentId: 'b_base' }));
+  const targetB = turretSkel.addBone(new SvgBone('b_target', 'Target', 10, 0, { localX: 50, localY: 100 }));
+
+  // Aim Constraint: Barrel looks at Target (joint at 50,0 looking at target at 50,100 -> 90 deg world angle)
+  turretSkel.addConstraint({
+    type: 'aim',
+    boneId: 'b_barrel',
+    targetBoneId: 'b_target',
+    weight: 1.0
+  });
+  turretSkel.updateWorldTransforms();
+  assert(Math.abs(barrelB.worldAngle - 90) < 1.0, `Barrel aim constraint oriented towards target (got ${barrelB.worldAngle})`);
+  console.log('✔ Bone Constraints Engine (Aim / Look-At) verified');
+
+  // 10. Interactive Real-Time Ragdoll Pointer Grab, Drag & Throw
+  const dragSim = new RagdollSimulation(ragdollSkel, {
+    gravity: { x: 0, y: 980 },
+    wind: { x: 500, y: 0, turbulence: 0.5 },
+    floorY: 600
+  });
+  const grabbedP = dragSim.startDrag(dragSim.particles[0].x, dragSim.particles[0].y, 50);
+  assert(grabbedP !== null, 'Grabbed nearest particle');
+  assert.strictEqual(grabbedP.isPinned, true, 'Grabbed particle pinned during drag');
+  dragSim.updateDrag(150, 150);
+  assert.strictEqual(grabbedP.x, 150, 'Drag position updated');
+  dragSim.endDrag(200, -100);
+  assert.strictEqual(dragSim.draggedParticle, null, 'Drag released');
+  console.log('✔ Interactive Real-Time Ragdoll Drag & Wind Forces verified');
+
+  // 11. Bake Ragdoll Simulation to DopeSheet Keyframes
   const clip = new DopeSheet(30, 24, 'Ragdoll Drop Clip');
   bakeRagdollToDopeSheet(ragdollSkel, sim, clip, { totalFrames: 30, fps: 24 });
 

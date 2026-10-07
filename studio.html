@@ -4739,7 +4739,7 @@
       <!-- Card 1: Skeleton Management & Tool -->
       <div class="section-card">
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span>🦴 Armature &amp; Bones</span>
+          <span>Armature &amp; Bones</span>
           <button type="button" id="btn-rig-tool" class="btn-sm" title="Activate Bone Tool (Hotkey: K)" style="background: var(--primary-dim); color: var(--primary); font-weight: 700; cursor: pointer;">Bone Tool (K)</button>
         </div>
         <div class="form-row">
@@ -4747,6 +4747,18 @@
           <div style="display: flex; gap: 5px; width: 100%;">
             <input type="text" id="prop-rig-skel-name" placeholder="Skeleton Name" value="Main Rig" style="flex: 1; font-size: 11px;">
             <button type="button" id="btn-rig-create-skel" class="btn-sm" title="Create New Skeleton">+ New</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Examples</label>
+          <div style="display: flex; gap: 5px; width: 100%;">
+            <select id="prop-rig-preset-select" style="flex: 1; font-size: 11px;">
+              <option value="ragdoll_man">Ragdoll Stickman (Full Physics)</option>
+              <option value="ik_arm">IK Robotic Arm (CCD-IK)</option>
+              <option value="spring_tail">Cat Tail (Spring Jiggle)</option>
+              <option value="spine_worm">Tentacle / Spine (Bézier Skinning)</option>
+            </select>
+            <button type="button" id="btn-rig-load-preset" class="btn-sm btn-primary" title="Load Rigging Demo Scene">Load</button>
           </div>
         </div>
         <div class="form-row">
@@ -4781,19 +4793,54 @@
 
       <!-- Card 2: Binding (Skinning) -->
       <div class="section-card">
-        <div class="section-header" style="margin-bottom: 6px;">🔗 Shape &amp; Path Binding</div>
+        <div class="section-header" style="margin-bottom: 6px;">Shape &amp; Path Skinning</div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <button type="button" id="btn-rig-bind-cutout" class="btn-sm" title="Bind selected shape or group to active bone" style="width: 100%;">Bind Selected Object (Cutout)</button>
-          <button type="button" id="btn-rig-bind-path" class="btn-sm" title="Bind path nodes to armature with smooth skinning" style="width: 100%;">Bind Path to Bones (Skinning)</button>
+          <div style="display: flex; gap: 4px;">
+            <button type="button" id="btn-rig-bind-path-smooth" class="btn-sm" title="Bind path with multi-bone Gaussian blend skinning (LBS)" style="flex: 1; font-weight: 600;">Smooth LBS Skinning</button>
+            <button type="button" id="btn-rig-bind-path" class="btn-sm" title="Bind path nodes to nearest bones" style="flex: 1;">Rigid Skinning</button>
+          </div>
           <div style="font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);" id="rig-bindings-count">0 active bindings</div>
           <button type="button" id="btn-rig-clear-bindings" class="btn-sm" style="color: var(--text-muted); font-size: 10px;">Clear Bindings</button>
         </div>
       </div>
 
-      <!-- Card 3: Ragdoll & Physics -->
+      <!-- Card 3: Kinematic Constraints -->
+      <div class="section-card">
+        <div class="section-header" style="margin-bottom: 6px;">Bone Constraints Engine</div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <div class="form-row">
+            <label>Type</label>
+            <select id="prop-rig-constraint-type" style="width: 100%; font-size: 11px;">
+              <option value="aim">Aim (Look-At Target)</option>
+              <option value="copy_rotation">Copy Rotation</option>
+              <option value="ik">IK Chain with Pole Bend</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label>Target Bone</label>
+            <select id="prop-rig-constraint-target" style="width: 100%; font-size: 11px;"></select>
+          </div>
+          <div class="form-row" id="row-rig-pole-target" style="display: none;">
+            <label>Pole Hint</label>
+            <select id="prop-rig-constraint-pole" style="width: 100%; font-size: 11px;"></select>
+          </div>
+          <div class="form-row">
+            <label>Weight</label>
+            <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
+              <input type="range" id="prop-rig-constraint-weight" min="0" max="1" step="0.05" value="1.0" style="flex: 1;">
+              <span id="prop-rig-constraint-weight-val" style="font-size: 10px; font-family: var(--font-mono); width: 28px; text-align: right;">1.0</span>
+            </div>
+          </div>
+          <button type="button" id="btn-rig-add-constraint" class="btn-sm" style="width: 100%; font-weight: 600;">+ Add Constraint to Bone</button>
+          <div id="rig-constraints-list" style="display: flex; flex-direction: column; gap: 3px; max-height: 100px; overflow-y: auto; font-size: 10px; font-family: var(--font-mono); margin-top: 4px;"></div>
+        </div>
+      </div>
+
+      <!-- Card 4: Ragdoll & Physics -->
       <div class="section-card">
         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <span>⚡ Ragdoll &amp; Physics</span>
+          <span>Ragdoll &amp; Physics</span>
           <label style="display: flex; align-items: center; gap: 4px; font-size: 10px; cursor: pointer;">
             <input type="checkbox" id="prop-rig-physics-enabled"> Enabled
           </label>
@@ -4811,6 +4858,13 @@
           <div style="display: flex; gap: 6px; width: 100%; align-items: center;">
             <input type="range" id="prop-rig-gravity" min="0" max="2000" step="10" value="980" style="flex: 1;">
             <span id="prop-rig-gravity-val" style="font-size: 10px; font-family: var(--font-mono); width: 40px; text-align: right;">980</span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Wind X / Turb</label>
+          <div class="grid-2" style="width: 100%;">
+            <input type="number" id="prop-rig-wind-x" value="0" step="50" placeholder="Wind X (px/s²)" title="Wind Force X">
+            <input type="number" id="prop-rig-wind-turb" min="0" max="1" step="0.1" value="0" placeholder="Turbulence (0-1)" title="Wind Turbulence">
           </div>
         </div>
         <div class="form-row">
@@ -4833,15 +4887,16 @@
         </div>
       </div>
 
-      <!-- Card 4: Simulation & Timeline Baking -->
+      <!-- Card 5: Simulation & Timeline Baking -->
       <div class="section-card">
-        <div class="section-header" style="margin-bottom: 6px;">🎬 Simulation &amp; Bake</div>
+        <div class="section-header" style="margin-bottom: 6px;">Simulation &amp; Bake</div>
         <div style="display: flex; flex-direction: column; gap: 6px;">
           <div style="display: flex; gap: 4px;">
-            <button type="button" id="btn-rig-sim-play" class="btn-sm btn-primary" style="flex: 1;">▶ Simulate (Live)</button>
-            <button type="button" id="btn-rig-reset-pose" class="btn-sm" style="flex: 1;">↺ Rest Pose</button>
+            <button type="button" id="btn-rig-sim-play" class="btn-sm btn-primary" style="flex: 1;">Simulate (Live)</button>
+            <button type="button" id="btn-rig-reset-pose" class="btn-sm" style="flex: 1;">Rest Pose</button>
           </div>
-          <button type="button" id="btn-rig-bake-dopesheet" class="btn-sm" style="width: 100%; font-weight: 700; color: var(--primary);" title="Simulate physics and bake keyframes into active DopeSheet animation clip">🎬 Bake Physics to Timeline</button>
+          <button type="button" id="btn-rig-bake-dopesheet" class="btn-sm" style="width: 100%; font-weight: 700; color: var(--primary);" title="Simulate physics and bake keyframes into active DopeSheet animation clip">Bake Physics to Timeline</button>
+          <div style="font-size: 10px; color: var(--text-muted); font-style: italic;">Grab &amp; throw bones in real-time during simulation</div>
         </div>
       </div>
     </div>
@@ -7601,6 +7656,16 @@
         dragStartY = pt.y;
         isDragging = true;
 
+        if (typeof isRagdollLiveSimulating !== 'undefined' && isRagdollLiveSimulating && typeof activeRagdollSim !== 'undefined' && activeRagdollSim) {
+          const grabbed = activeRagdollSim.startDrag(pt.x, pt.y, 40 / (zoom || 1));
+          if (grabbed) {
+            isRagdollDragging = true;
+            ragdollLastPos = { x: pt.x, y: pt.y };
+            ragdollVelocity = { x: 0, y: 0 };
+            return;
+          }
+        }
+
         if (activeTool === 'select') {
           activeResizeHandle = null;
           activeTransformMode = null;
@@ -8016,6 +8081,13 @@
 
         const pt = screenToDoc(e.clientX, e.clientY);
         statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
+
+        if (typeof isRagdollLiveSimulating !== 'undefined' && isRagdollLiveSimulating && typeof isRagdollDragging !== 'undefined' && isRagdollDragging && typeof activeRagdollSim !== 'undefined' && activeRagdollSim) {
+          ragdollVelocity = { x: (pt.x - ragdollLastPos.x) * 30, y: (pt.y - ragdollLastPos.y) * 30 };
+          ragdollLastPos = { x: pt.x, y: pt.y };
+          activeRagdollSim.updateDrag(pt.x, pt.y);
+          return;
+        }
 
         if (activeGuideDrag) {
           if (activeGuideDrag.type === 'horizontal') {
@@ -8538,6 +8610,12 @@
 
       window.addEventListener('pointerup', (e) => {
         if (isTouchPinching) return;
+
+        if (typeof isRagdollLiveSimulating !== 'undefined' && isRagdollLiveSimulating && typeof isRagdollDragging !== 'undefined' && isRagdollDragging && typeof activeRagdollSim !== 'undefined' && activeRagdollSim) {
+          isRagdollDragging = false;
+          activeRagdollSim.endDrag(ragdollVelocity.x, ragdollVelocity.y);
+          return;
+        }
 
         if (activeGuideDrag) {
           const rulerTopRect = rulerTopCanvas ? rulerTopCanvas.getBoundingClientRect() : null;
@@ -12106,6 +12184,17 @@
           { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
           { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
           { type: 'sep' },
+          {
+            type: 'submenu',
+            label: 'Rigging & Physics Demos',
+            items: [
+              { type: 'item', label: 'Ragdoll Stickman (Full Physics)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('ragdoll_man'); } },
+              { type: 'item', label: 'Robotic Arm (CCD-IK)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('ik_arm'); } },
+              { type: 'item', label: 'Cat Tail (Spring Jiggle)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('spring_tail'); } },
+              { type: 'item', label: 'Tentacle Spine (Bézier Skinning)', action: () => { openDockPanel('rigging'); if (typeof window.loadRiggingDemoPreset === 'function') window.loadRiggingDemoPreset('spine_worm'); } }
+            ]
+          },
+          { type: 'sep' },
           { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
         ];
       }
@@ -14284,6 +14373,32 @@
             if (state.fxSat !== undefined) obj.filterSat = state.fxSat;
           }
         }
+        if (activeSkeleton) {
+          let skelChanged = false;
+          if (samples[activeSkeleton.id]) {
+            const skelState = samples[activeSkeleton.id];
+            if (skelState.x !== undefined) { activeSkeleton.x = skelState.x; skelChanged = true; }
+            if (skelState.y !== undefined) { activeSkeleton.y = skelState.y; skelChanged = true; }
+            if (skelState.rotation !== undefined) { activeSkeleton.rotation = skelState.rotation; skelChanged = true; }
+          }
+          for (const bone of activeSkeleton.bones) {
+            if (samples[bone.id]) {
+              const bState = samples[bone.id];
+              if (bState.rotation !== undefined) {
+                bone.localAngle = bState.rotation;
+                skelChanged = true;
+              }
+              if (bState.length !== undefined) {
+                bone.length = bState.length;
+                skelChanged = true;
+              }
+            }
+          }
+          if (skelChanged) {
+            activeSkeleton.updateWorldTransforms();
+            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+          }
+        }
         const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
         if (isPlaying) {
           renderFast(false);
@@ -15586,6 +15701,9 @@
       let isRagdollLiveSimulating = false;
       let ragdollAnimFrameId = null;
       let boneInteractionState = null;
+      let isRagdollDragging = false;
+      let ragdollLastPos = { x: 0, y: 0 };
+      let ragdollVelocity = { x: 0, y: 0 };
 
       function normAngle(deg) {
         while (deg > 180) deg -= 360;
@@ -15638,6 +15756,8 @@
 
         const boneListEl = document.getElementById('prop-rig-bone-list');
         const parentSelEl = document.getElementById('prop-rig-bone-parent');
+        const cTargetSel = document.getElementById('prop-rig-constraint-target');
+        const cPoleSel = document.getElementById('prop-rig-constraint-pole');
 
         if (boneListEl) {
           const oldVal = boneListEl.value;
@@ -15663,6 +15783,79 @@
             opt.value = b.id;
             opt.textContent = b.name || b.id;
             parentSelEl.appendChild(opt);
+          }
+        }
+
+        if (cTargetSel) {
+          cTargetSel.innerHTML = '<option value="">Select target bone...</option>';
+          for (const b of activeSkeleton.bones) {
+            if (b.id === selectedBoneId) continue;
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = b.name || b.id;
+            cTargetSel.appendChild(opt);
+          }
+        }
+
+        if (cPoleSel) {
+          cPoleSel.innerHTML = '<option value="">(None)</option>';
+          for (const b of activeSkeleton.bones) {
+            if (b.id === selectedBoneId) continue;
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = b.name || b.id;
+            cPoleSel.appendChild(opt);
+          }
+        }
+
+        const constraintsListEl = document.getElementById('rig-constraints-list');
+        if (constraintsListEl) {
+          constraintsListEl.innerHTML = '';
+          const activeConstraints = activeSkeleton.constraints || [];
+          if (activeConstraints.length === 0) {
+            constraintsListEl.innerHTML = '<span style="color: var(--text-muted); font-style: italic;">No active constraints</span>';
+          } else {
+            for (const c of activeConstraints) {
+              const b = activeSkeleton.getBone(c.boneId);
+              const t = activeSkeleton.getBone(c.targetBoneId);
+              const row = document.createElement('div');
+              row.style.display = 'flex';
+              row.style.alignItems = 'center';
+              row.style.justifyContent = 'space-between';
+              row.style.padding = '2px 4px';
+              row.style.background = 'var(--bg-input)';
+              row.style.borderRadius = 'var(--radius-sm)';
+              row.style.border = '1px solid var(--border)';
+              
+              const label = document.createElement('span');
+              label.textContent = `${c.type.toUpperCase()}: ${b?.name || c.boneId} -> ${t?.name || c.targetBoneId} (${Math.round((c.weight !== undefined ? c.weight : 1) * 100)}%)`;
+              label.style.overflow = 'hidden';
+              label.style.textOverflow = 'ellipsis';
+              label.style.whiteSpace = 'nowrap';
+              label.style.flex = '1';
+
+              const delBtn = document.createElement('button');
+              delBtn.type = 'button';
+              delBtn.textContent = 'x';
+              delBtn.style.background = 'transparent';
+              delBtn.style.border = 'none';
+              delBtn.style.color = 'var(--danger)';
+              delBtn.style.cursor = 'pointer';
+              delBtn.style.fontWeight = 'bold';
+              delBtn.style.padding = '0 4px';
+              delBtn.onclick = () => {
+                activeSkeleton.removeConstraint(c.id);
+                activeSkeleton.updateWorldTransforms();
+                activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+                updateRiggingUI();
+                render();
+                drawOverlay();
+              };
+
+              row.appendChild(label);
+              row.appendChild(delBtn);
+              constraintsListEl.appendChild(row);
+            }
           }
         }
 
@@ -15931,13 +16124,16 @@
             }
 
             const count = activeSkeleton.bones.length + 1;
-            const newBone = new SvgBone(`bone_${count}`, `Bone ${count}`, Math.round(len), Math.round(localAngle), {
-              parentId: boneInteractionState.parentBoneId
-            });
-            activeSkeleton.addBone(newBone);
-            selectedBoneId = newBone.id;
-            doc.pushHistory(`Add Bone ${newBone.name}`);
-            showNotification(`Created bone "${newBone.name}"`);
+            const BoneClass = SvgBone || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgBone : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgBone : null);
+            if (BoneClass) {
+              const newBone = new BoneClass(`bone_${count}`, `Bone ${count}`, Math.round(len), Math.round(localAngle), {
+                parentId: boneInteractionState.parentBoneId
+              });
+              activeSkeleton.addBone(newBone);
+              selectedBoneId = newBone.id;
+              doc.pushHistory(`Add Bone ${newBone.name}`);
+              showNotification(`Created bone "${newBone.name}"`);
+            }
           }
         }
 
@@ -15975,7 +16171,24 @@
         }
         activeSkeleton.bindPath(selectedPath);
         doc.pushHistory(`Bind Path ${selectedPath.name} to Skeleton`);
-        showNotification(`Bound path "${selectedPath.name}" to skeleton with smooth skinning`);
+        showNotification(`Bound path "${selectedPath.name}" to skeleton with rigid skinning`);
+        updateRiggingUI();
+      }
+
+      function bindSelectedPathSmoothToArmature() {
+        ensureActiveSkeleton();
+        const selectedPath = doc.getSelectedObjects().find(o => o.type === 'path');
+        if (!selectedPath) {
+          showNotification('Select an editable SvgPath to bind with smooth skinning');
+          return;
+        }
+        if (typeof activeSkeleton.bindPathSmooth === 'function') {
+          activeSkeleton.bindPathSmooth(selectedPath, activeSkeleton.bones.map(b => b.id), { radius: 120, maxWeightsPerNode: 3 });
+        } else {
+          activeSkeleton.bindPath(selectedPath);
+        }
+        doc.pushHistory(`Smooth Bind Path ${selectedPath.name} to Skeleton`);
+        showNotification(`Bound path "${selectedPath.name}" to skeleton with Linear Blend Skinning (LBS)`);
         updateRiggingUI();
       }
 
@@ -15993,7 +16206,7 @@
           isRagdollLiveSimulating = false;
           if (ragdollAnimFrameId) cancelAnimationFrame(ragdollAnimFrameId);
           ragdollAnimFrameId = null;
-          if (playBtn) playBtn.textContent = '▶ Simulate (Live)';
+          if (playBtn) playBtn.textContent = 'Simulate (Live)';
           showNotification('Simulation stopped');
           return;
         }
@@ -16001,10 +16214,13 @@
         const grav = Number(document.getElementById('prop-rig-gravity')?.value) || 980;
         const damp = Number(document.getElementById('prop-rig-damping')?.value) || 0.96;
         const floorY = Number(document.getElementById('prop-rig-floor-y')?.value) || 550;
+        const windX = Number(document.getElementById('prop-rig-wind-x')?.value) || 0;
+        const windTurb = Number(document.getElementById('prop-rig-wind-turb')?.value) || 0;
 
         try {
           activeRagdollSim = new RagdollClass(activeSkeleton, {
             gravity: { x: 0, y: grav },
+            wind: { x: windX, y: 0, turbulence: windTurb },
             damping: damp,
             floorY: floorY,
             iterations: 10
@@ -16015,7 +16231,7 @@
         }
 
         isRagdollLiveSimulating = true;
-        if (playBtn) playBtn.textContent = '⏸ Stop Simulation';
+        if (playBtn) playBtn.textContent = 'Stop Simulation';
         showNotification('Ragdoll physics active');
 
         let lastTime = performance.now();
@@ -16070,10 +16286,13 @@
         const grav = Number(document.getElementById('prop-rig-gravity')?.value) || 980;
         const damp = Number(document.getElementById('prop-rig-damping')?.value) || 0.96;
         const floorY = Number(document.getElementById('prop-rig-floor-y')?.value) || 550;
+        const windX = Number(document.getElementById('prop-rig-wind-x')?.value) || 0;
+        const windTurb = Number(document.getElementById('prop-rig-wind-turb')?.value) || 0;
 
         try {
           const tempSim = new RagdollClass(activeSkeleton, {
             gravity: { x: 0, y: grav },
+            wind: { x: windX, y: 0, turbulence: windTurb },
             damping: damp,
             floorY: floorY,
             iterations: 12
@@ -16207,7 +16426,18 @@
           const b = activeSkeleton.getBone(selectedBoneId);
           if (b) {
             b.physics.enabled = e.target.checked;
+            if (!b.physics.enabled && b.physics.mode !== 'kinematic') {
+              // Keep settings
+            } else if (b.physics.enabled && b.physics.mode === 'kinematic') {
+              b.physics.mode = 'ragdoll';
+              const modeSel = document.getElementById('prop-rig-physics-mode');
+              if (modeSel) modeSel.value = 'ragdoll';
+            }
+            if (activeRagdollSim) {
+              activeRagdollSim.initFromSkeleton(activeSkeleton);
+            }
             drawOverlay();
+            render();
           }
         });
 
@@ -16216,36 +16446,117 @@
           const b = activeSkeleton.getBone(selectedBoneId);
           if (b) {
             b.physics.mode = e.target.value;
+            const physEn = document.getElementById('prop-rig-physics-enabled');
+            if (e.target.value === 'ragdoll' || e.target.value === 'secondary') {
+              b.physics.enabled = true;
+              if (physEn) physEn.checked = true;
+            } else if (e.target.value === 'kinematic') {
+              b.physics.enabled = false;
+              if (physEn) physEn.checked = false;
+            }
+            if (activeRagdollSim) {
+              activeRagdollSim.initFromSkeleton(activeSkeleton);
+            }
             drawOverlay();
+            render();
           }
         });
 
         document.getElementById('prop-rig-min-angle')?.addEventListener('input', (e) => {
           if (!activeSkeleton || !selectedBoneId) return;
           const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) b.physics.minAngle = Number(e.target.value);
+          if (b) {
+            b.physics.minAngle = Number(e.target.value);
+            if (activeRagdollSim) activeRagdollSim.initFromSkeleton(activeSkeleton);
+          }
         });
 
         document.getElementById('prop-rig-max-angle')?.addEventListener('input', (e) => {
           if (!activeSkeleton || !selectedBoneId) return;
           const b = activeSkeleton.getBone(selectedBoneId);
-          if (b) b.physics.maxAngle = Number(e.target.value);
+          if (b) {
+            b.physics.maxAngle = Number(e.target.value);
+            if (activeRagdollSim) activeRagdollSim.initFromSkeleton(activeSkeleton);
+          }
         });
 
         const gravSlider = document.getElementById('prop-rig-gravity');
         const gravVal = document.getElementById('prop-rig-gravity-val');
         gravSlider?.addEventListener('input', (e) => {
           if (gravVal) gravVal.textContent = e.target.value;
+          if (activeRagdollSim) activeRagdollSim.gravity.y = Number(e.target.value);
         });
 
         const dampSlider = document.getElementById('prop-rig-damping');
         const dampVal = document.getElementById('prop-rig-damping-val');
         dampSlider?.addEventListener('input', (e) => {
           if (dampVal) dampVal.textContent = e.target.value;
+          if (activeRagdollSim) activeRagdollSim.damping = Number(e.target.value);
+        });
+
+        document.getElementById('prop-rig-wind-x')?.addEventListener('input', (e) => {
+          if (activeRagdollSim) activeRagdollSim.wind.x = Number(e.target.value) || 0;
+        });
+
+        document.getElementById('prop-rig-wind-turb')?.addEventListener('input', (e) => {
+          if (activeRagdollSim) activeRagdollSim.wind.turbulence = Number(e.target.value) || 0;
+        });
+
+        document.getElementById('prop-rig-floor-y')?.addEventListener('input', (e) => {
+          if (activeRagdollSim) activeRagdollSim.floorY = Number(e.target.value);
+          drawOverlay();
+        });
+
+        // ── Constraints UI Event Wiring ──
+        document.getElementById('prop-rig-constraint-type')?.addEventListener('change', (e) => {
+          const poleRow = document.getElementById('row-rig-pole-target');
+          if (poleRow) {
+            poleRow.style.display = e.target.value === 'ik' ? 'flex' : 'none';
+          }
+        });
+
+        document.getElementById('prop-rig-constraint-weight')?.addEventListener('input', (e) => {
+          const wVal = document.getElementById('prop-rig-constraint-weight-val');
+          if (wVal) wVal.textContent = e.target.value;
+        });
+
+        document.getElementById('btn-rig-add-constraint')?.addEventListener('click', () => {
+          ensureActiveSkeleton();
+          if (!activeSkeleton || !selectedBoneId) {
+            showNotification('Select an active bone first');
+            return;
+          }
+          const cType = document.getElementById('prop-rig-constraint-type')?.value || 'aim';
+          const targetId = document.getElementById('prop-rig-constraint-target')?.value;
+          const poleId = document.getElementById('prop-rig-constraint-pole')?.value || null;
+          const weight = Number(document.getElementById('prop-rig-constraint-weight')?.value) || 1.0;
+
+          if (!targetId) {
+            showNotification('Select a target bone for the constraint');
+            return;
+          }
+
+          if (typeof activeSkeleton.addConstraint === 'function') {
+            activeSkeleton.addConstraint({
+              type: cType,
+              boneId: selectedBoneId,
+              targetBoneId: targetId,
+              poleTargetBoneId: poleId,
+              weight: weight
+            });
+            activeSkeleton.updateWorldTransforms();
+            activeSkeleton.applyBindings((id) => doc.findObject ? doc.findObject(id) : doc.objects.find(o => o.id === id));
+            doc.pushHistory(`Add ${cType.toUpperCase()} Constraint`);
+            updateRiggingUI();
+            render();
+            drawOverlay();
+            showNotification(`Added ${cType.toUpperCase()} constraint to bone`);
+          }
         });
 
         document.getElementById('btn-rig-bind-cutout')?.addEventListener('click', bindSelectedObjectToActiveBone);
         document.getElementById('btn-rig-bind-path')?.addEventListener('click', bindSelectedPathToArmature);
+        document.getElementById('btn-rig-bind-path-smooth')?.addEventListener('click', bindSelectedPathSmoothToArmature);
         document.getElementById('btn-rig-clear-bindings')?.addEventListener('click', () => {
           if (activeSkeleton) {
             activeSkeleton.bindings = [];
@@ -16257,6 +16568,292 @@
         document.getElementById('btn-rig-sim-play')?.addEventListener('click', toggleLiveRagdoll);
         document.getElementById('btn-rig-reset-pose')?.addEventListener('click', resetSkeletonPose);
         document.getElementById('btn-rig-bake-dopesheet')?.addEventListener('click', bakeRagdollToActiveClip);
+        document.getElementById('btn-rig-load-preset')?.addEventListener('click', () => {
+          const sel = document.getElementById('prop-rig-preset-select');
+          if (sel) loadRiggingDemoPreset(sel.value);
+        });
+      }
+
+      function loadRiggingDemoPreset(presetKey) {
+        const SkeletonClass = SvgSkeleton || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgSkeleton : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgSkeleton : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgSkeleton : null);
+        const BoneClass = SvgBone || (typeof SvgEngine !== 'undefined' ? SvgEngine.SvgBone : null) || (typeof SvgRigging !== 'undefined' ? SvgRigging.SvgBone : null) || (typeof window !== 'undefined' ? window.SvgRigging?.SvgBone : null);
+        if (!SkeletonClass || !BoneClass) {
+          showNotification('Rigging system not available');
+          return;
+        }
+
+        if (isRagdollLiveSimulating) toggleLiveRagdoll();
+        doc.objects = [];
+        doc.selectedIds.clear();
+
+        if (presetKey === 'ragdoll_man') {
+          // ── Preset 1: Full Physics Ragdoll Stickman with Cutout Limbs ──
+          const cx = Math.round(doc.width / 2);
+          const cy = 220;
+
+          activeSkeleton = new SkeletonClass('skel_ragdoll_man', 'Ragdoll Stickman', { x: cx, y: cy });
+          doc.skeleton = activeSkeleton;
+
+          // Single Root Bone: Torso starting at pelvis (cx, cy) and pointing UP to neck
+          const bTorso = activeSkeleton.addBone(new BoneClass('b_torso', 'Torso', 100, -90, {
+            physics: { mode: 'ragdoll', mass: 3.0, minAngle: -45, maxAngle: 45 }
+          }));
+
+          // Head attaches to tip of torso (neck)
+          const bHead = activeSkeleton.addBone(new BoneClass('b_head', 'Head', 45, 0, {
+            parentId: 'b_torso',
+            physics: { mode: 'ragdoll', mass: 1.5, minAngle: -35, maxAngle: 35 }
+          }));
+          
+          // Arms attach to tip of torso (shoulders)
+          const bArmL1 = activeSkeleton.addBone(new BoneClass('b_arm_l1', 'Upper Arm L', 65, 50, {
+            parentId: 'b_torso',
+            physics: { mode: 'ragdoll', mass: 0.8, minAngle: 10, maxAngle: 120 }
+          }));
+          const bArmL2 = activeSkeleton.addBone(new BoneClass('b_arm_l2', 'Forearm L', 55, 30, {
+            parentId: 'b_arm_l1',
+            physics: { mode: 'ragdoll', mass: 0.5, minAngle: 0, maxAngle: 130 }
+          }));
+          
+          const bArmR1 = activeSkeleton.addBone(new BoneClass('b_arm_r1', 'Upper Arm R', 65, -50, {
+            parentId: 'b_torso',
+            physics: { mode: 'ragdoll', mass: 0.8, minAngle: -120, maxAngle: -10 }
+          }));
+          const bArmR2 = activeSkeleton.addBone(new BoneClass('b_arm_r2', 'Forearm R', 55, -30, {
+            parentId: 'b_arm_r1',
+            physics: { mode: 'ragdoll', mass: 0.5, minAngle: -130, maxAngle: 0 }
+          }));
+
+          // Legs attach to base of torso (pelvis / hips)
+          const bLegL1 = activeSkeleton.addBone(new BoneClass('b_leg_l1', 'Thigh L', 85, 170, {
+            parentId: 'b_torso',
+            attachTo: 'base',
+            physics: { mode: 'ragdoll', mass: 1.5, minAngle: 130, maxAngle: 210 }
+          }));
+          const bLegL2 = activeSkeleton.addBone(new BoneClass('b_leg_l2', 'Shin L', 80, 15, {
+            parentId: 'b_leg_l1',
+            physics: { mode: 'ragdoll', mass: 1.0, minAngle: -10, maxAngle: 130 }
+          }));
+
+          const bLegR1 = activeSkeleton.addBone(new BoneClass('b_leg_r1', 'Thigh R', 85, -170, {
+            parentId: 'b_torso',
+            attachTo: 'base',
+            physics: { mode: 'ragdoll', mass: 1.5, minAngle: -210, maxAngle: -130 }
+          }));
+          const bLegR2 = activeSkeleton.addBone(new BoneClass('b_leg_r2', 'Shin R', 80, -15, {
+            parentId: 'b_leg_r1',
+            physics: { mode: 'ragdoll', mass: 1.0, minAngle: -130, maxAngle: 10 }
+          }));
+
+          activeSkeleton.updateWorldTransforms();
+
+          function makeLimbCapsule(bone, thickness, fill, stroke, name) {
+            const midX = (bone.worldX0 + bone.worldX1) / 2;
+            const midY = (bone.worldY0 + bone.worldY1) / 2;
+            const rect = new SvgRect({
+              x: midX - bone.length / 2,
+              y: midY - thickness / 2,
+              width: bone.length,
+              height: thickness,
+              rx: thickness / 2,
+              ry: thickness / 2,
+              rotation: bone.worldAngle,
+              fill,
+              stroke,
+              strokeWidth: 2.5
+            });
+            rect.name = name;
+            return rect;
+          }
+
+          const headCirc = new SvgCircle({ cx: bHead.worldX1, cy: bHead.worldY1, r: 26, fill: '#fabd2f', stroke: '#d79921', strokeWidth: 3 });
+          headCirc.name = 'Head Cutout';
+
+          const torsoRect = makeLimbCapsule(bTorso, 32, '#83a598', '#458588', 'Torso');
+          const armL1Rect = makeLimbCapsule(bArmL1, 16, '#fe8019', '#d65d0e', 'Upper Arm L');
+          const armL2Rect = makeLimbCapsule(bArmL2, 14, '#fe8019', '#d65d0e', 'Forearm L');
+          const armR1Rect = makeLimbCapsule(bArmR1, 16, '#fe8019', '#d65d0e', 'Upper Arm R');
+          const armR2Rect = makeLimbCapsule(bArmR2, 14, '#fe8019', '#d65d0e', 'Forearm R');
+          const legL1Rect = makeLimbCapsule(bLegL1, 20, '#b8bb26', '#98971a', 'Thigh L');
+          const legL2Rect = makeLimbCapsule(bLegL2, 16, '#b8bb26', '#98971a', 'Shin L');
+          const legR1Rect = makeLimbCapsule(bLegR1, 20, '#b8bb26', '#98971a', 'Thigh R');
+          const legR2Rect = makeLimbCapsule(bLegR2, 16, '#b8bb26', '#98971a', 'Shin R');
+
+          doc.addObject(legL2Rect, false);
+          doc.addObject(legL1Rect, false);
+          doc.addObject(legR2Rect, false);
+          doc.addObject(legR1Rect, false);
+          doc.addObject(torsoRect, false);
+          doc.addObject(headCirc, false);
+          doc.addObject(armL2Rect, false);
+          doc.addObject(armL1Rect, false);
+          doc.addObject(armR2Rect, false);
+          doc.addObject(armR1Rect, false);
+
+          activeSkeleton.bindCutout(headCirc, 'b_head');
+          activeSkeleton.bindCutout(torsoRect, 'b_torso');
+          activeSkeleton.bindCutout(armL1Rect, 'b_arm_l1');
+          activeSkeleton.bindCutout(armL2Rect, 'b_arm_l2');
+          activeSkeleton.bindCutout(armR1Rect, 'b_arm_r1');
+          activeSkeleton.bindCutout(armR2Rect, 'b_arm_r2');
+          activeSkeleton.bindCutout(legL1Rect, 'b_leg_l1');
+          activeSkeleton.bindCutout(legL2Rect, 'b_leg_l2');
+          activeSkeleton.bindCutout(legR1Rect, 'b_leg_r1');
+          activeSkeleton.bindCutout(legR2Rect, 'b_leg_r2');
+
+          document.getElementById('prop-rig-floor-y').value = 520;
+          showNotification('Loaded Ragdoll Stickman Demo! Click "Simulate (Live)" and grab/toss limbs in real-time!');
+
+        } else if (presetKey === 'ik_arm') {
+          // ── Preset 2: 3-Segment Robotic Arm with Inverse Kinematics (CCD-IK) ──
+          const bx = 180;
+          const by = 420;
+
+          activeSkeleton = new SkeletonClass('skel_ik_arm', 'Robotic Arm (IK)', { x: bx, y: by });
+          doc.skeleton = activeSkeleton;
+
+          const baseBone = activeSkeleton.addBone(new BoneClass('b_base', 'Base Turret', 80, -90));
+          const arm1 = activeSkeleton.addBone(new BoneClass('b_shoulder', 'Upper Arm', 120, 45, { parentId: 'b_base' }));
+          const arm2 = activeSkeleton.addBone(new BoneClass('b_elbow', 'Forearm', 110, -75, { parentId: 'b_shoulder' }));
+          const claw = activeSkeleton.addBone(new BoneClass('b_wrist', 'Claw Effector', 50, 30, { parentId: 'b_elbow' }));
+
+          activeSkeleton.updateWorldTransforms();
+
+          const basePedestal = new SvgRect({ x: bx - 40, y: by, width: 80, height: 40, rx: 6, ry: 6, fill: '#3c3836', stroke: '#504945', strokeWidth: 3 });
+          basePedestal.name = 'Base Stand';
+          doc.addObject(basePedestal, false);
+
+          function makeArmSegment(bone, thickness, fill, stroke, name) {
+            const midX = (bone.worldX0 + bone.worldX1) / 2;
+            const midY = (bone.worldY0 + bone.worldY1) / 2;
+            const rect = new SvgRect({
+              x: midX - bone.length / 2,
+              y: midY - thickness / 2,
+              width: bone.length,
+              height: thickness,
+              rx: thickness / 2,
+              ry: thickness / 2,
+              rotation: bone.worldAngle,
+              fill,
+              stroke,
+              strokeWidth: 2.5
+            });
+            rect.name = name;
+            return rect;
+          }
+
+          const segBase = makeArmSegment(baseBone, 28, '#504945', '#3c3836', 'Turret Post');
+          const seg1 = makeArmSegment(arm1, 24, '#458588', '#076678', 'Upper Arm Segment');
+          const seg2 = makeArmSegment(arm2, 18, '#83a598', '#458588', 'Forearm Segment');
+          const segClaw = makeArmSegment(claw, 14, '#fabd2f', '#d79921', 'Claw Wrist');
+
+          doc.addObject(segBase, false);
+          doc.addObject(seg1, false);
+          doc.addObject(seg2, false);
+          doc.addObject(segClaw, false);
+
+          activeSkeleton.bindCutout(segBase, 'b_base');
+          activeSkeleton.bindCutout(seg1, 'b_shoulder');
+          activeSkeleton.bindCutout(seg2, 'b_elbow');
+          activeSkeleton.bindCutout(segClaw, 'b_wrist');
+
+          showNotification('Loaded Robotic Arm IK Demo! Shift+Drag the tip bone (or Claw) to test CCD-IK.');
+
+        } else if (presetKey === 'spring_tail') {
+          // ── Preset 3: Dynamic Secondary Spring Jiggle (Cat Tail / Whip) ──
+          const startX = 220;
+          const startY = 280;
+
+          activeSkeleton = new SkeletonClass('skel_cat_tail', 'Secondary Spring Tail', { x: startX, y: startY });
+          doc.skeleton = activeSkeleton;
+
+          const rootPelvis = activeSkeleton.addBone(new BoneClass('b_root', 'Hip / Pelvis', 70, 0));
+          
+          let lastParent = 'b_root';
+          for (let i = 1; i <= 6; i++) {
+            const tailSeg = activeSkeleton.addBone(new BoneClass(`b_tail_${i}`, `Tail Seg ${i}`, 40, -15, {
+              parentId: lastParent,
+              physics: { mode: 'secondary', stiffness: 0.35 - (i * 0.04), damping: 0.92, mass: 0.8 }
+            }));
+            lastParent = tailSeg.id;
+          }
+
+          activeSkeleton.updateWorldTransforms();
+
+          // Body Oval
+          const catBody = new SvgEllipse({ cx: startX - 30, cy: startY, rx: 65, ry: 45, fill: '#d3869b', stroke: '#b16286', strokeWidth: 3 });
+          catBody.name = 'Cat Body';
+          doc.addObject(catBody, false);
+          activeSkeleton.bindCutout(catBody, 'b_root');
+
+          // Tail Segments Cutout
+          for (let i = 1; i <= 6; i++) {
+            const b = activeSkeleton.getBone(`b_tail_${i}`);
+            if (b) {
+              const midX = (b.worldX0 + b.worldX1) / 2;
+              const midY = (b.worldY0 + b.worldY1) / 2;
+              const thick = Math.max(8, 20 - i * 2);
+              const tailRect = new SvgRect({
+                x: midX - b.length / 2,
+                y: midY - thick / 2,
+                width: b.length,
+                height: thick,
+                rx: thick / 2,
+                ry: thick / 2,
+                rotation: b.worldAngle,
+                fill: '#b16286',
+                stroke: '#8f3f71',
+                strokeWidth: 2
+              });
+              tailRect.name = `Tail Capsule ${i}`;
+              doc.addObject(tailRect, false);
+              activeSkeleton.bindCutout(tailRect, b.id);
+            }
+          }
+
+          showNotification('Loaded Spring Tail Demo! Click "Simulate (Live)" and drag the hip bone.');
+
+        } else if (presetKey === 'spine_worm') {
+          // ── Preset 4: Organic Tentacle / Bézier Path Smooth Skinning ──
+          const originX = 180;
+          const originY = 320;
+
+          activeSkeleton = new SkeletonClass('skel_worm', 'Organic Tentacle Rig', { x: originX, y: originY });
+          doc.skeleton = activeSkeleton;
+
+          const s1 = activeSkeleton.addBone(new BoneClass('b_seg_1', 'Spine 1', 90, 0));
+          const s2 = activeSkeleton.addBone(new BoneClass('b_seg_2', 'Spine 2', 90, 0, { parentId: 'b_seg_1' }));
+          const s3 = activeSkeleton.addBone(new BoneClass('b_seg_3', 'Spine 3', 90, 0, { parentId: 'b_seg_2' }));
+          const s4 = activeSkeleton.addBone(new BoneClass('b_seg_4', 'Spine 4', 90, 0, { parentId: 'b_seg_3' }));
+
+          activeSkeleton.updateWorldTransforms();
+
+          // Continuous organic Bézier Path
+          const tentaclePath = new SvgPath({ stroke: '#8ec07c', strokeWidth: 18, strokeLinecap: 'round', fill: 'none' });
+          tentaclePath.name = 'Organic Skin Path';
+          tentaclePath.addNode(originX, originY, null, { x: 30, y: 0 }, 'smooth');
+          tentaclePath.addNode(originX + 90, originY, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
+          tentaclePath.addNode(originX + 180, originY, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
+          tentaclePath.addNode(originX + 270, originY, { x: -30, y: 0 }, { x: 30, y: 0 }, 'smooth');
+          tentaclePath.addNode(originX + 360, originY, { x: -30, y: 0 }, null, 'smooth');
+
+          doc.addObject(tentaclePath, false);
+          if (typeof activeSkeleton.bindPathSmooth === 'function') {
+            activeSkeleton.bindPathSmooth(tentaclePath, ['b_seg_1', 'b_seg_2', 'b_seg_3', 'b_seg_4'], { radius: 140 });
+          } else {
+            activeSkeleton.bindPath(tentaclePath, ['b_seg_1', 'b_seg_2', 'b_seg_3', 'b_seg_4']);
+          }
+
+          showNotification('Loaded Organic Smooth Skinning Demo! Rotate bones or activate Bone Tool (K) to deform the curve smoothly.');
+        }
+
+        selectedBoneId = activeSkeleton.bones.length > 0 ? activeSkeleton.bones[0].id : null;
+        updateRiggingUI();
+        updateObjectList();
+        updateInspector();
+        render();
+        drawOverlay();
+        doc.pushHistory(`Load Preset ${presetKey}`);
       }
 
       window.initStudioRigging = initStudioRigging;
@@ -16265,6 +16862,7 @@
       window.handleBonePointerMove = handleBonePointerMove;
       window.handleBonePointerUp = handleBonePointerUp;
       window.updateRiggingUI = updateRiggingUI;
+      window.loadRiggingDemoPreset = loadRiggingDemoPreset;
 
       // ── Bootstrapping ──
       const urlParams = new URLSearchParams(window.location.search);
