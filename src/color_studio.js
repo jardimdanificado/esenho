@@ -458,6 +458,479 @@
     }
   };
 
+  // ── 2.2. Comprehensive Built-in Material Presets Library ──
+
+  const BUILTIN_MATERIALS = [
+    // ── 1. Artistic & Traditional Media ──
+    {
+      id: 'art_watercolor',
+      name: 'Soft Watercolor Wash',
+      category: 'artistic',
+      desc: 'Organic translucent watercolor with paper bleeding',
+      color: '#83a598',
+      alpha: 0.85,
+      texture: { mode: 8, scale: 120, angle: 0, contrast: 110, grain: 40, hardness: 25, hardnessIntensity: 80, warpStrength: 10, warpFreq: 15, noiseDistort: 5 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'art_impasto',
+      name: 'Kuwahara Impasto Oil',
+      category: 'artistic',
+      desc: 'Thick painterly brushwork with Kuwahara filter',
+      color: '#fabd2f',
+      texture: { mode: 36, scale: 100, contrast: 120, grain: 45, hardness: 100 },
+      filter: { enabled: true, plugin: 'kuwahara', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
+    },
+    {
+      id: 'art_manga_cel',
+      name: 'Manga Screentone Cel',
+      category: 'artistic',
+      desc: 'Authentic 45° dot screentone with cel threshold',
+      color: '#ebdbb2',
+      texture: { mode: 31, scale: 80, angle: 45, contrast: 200, grain: 0, hardness: 100, posterize: 3 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'art_comic_cel',
+      name: '4-Level Comic Cel Shading',
+      category: 'artistic',
+      desc: 'Sharp stepped cel shading bands for pop art',
+      color: '#fe8019',
+      texture: { mode: 0, scale: 100, angle: 0, contrast: 150, hardness: 100, posterize: 4 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'art_engraving',
+      name: 'Vintage Copper Engraving',
+      category: 'artistic',
+      desc: 'Fine hatched antique parchment etching',
+      color: '#ebdbb2',
+      texture: { mode: 38, scale: 110, angle: 45, contrast: 180, grain: 10, hardness: 100, warpStrength: 5, warpFreq: 20 },
+      filter: { enabled: true, plugin: 'sepia', target: 'fill', p1: 80, p2: 0, opacity: 0.9 }
+    },
+    {
+      id: 'art_crosshatch',
+      name: 'Crosshatch Ink Sketch',
+      category: 'artistic',
+      desc: 'Dense multi-directional pen hatching',
+      color: '#282828',
+      texture: { mode: 38, scale: 90, angle: 0, contrast: 160, grain: 20 },
+      filter: { enabled: true, plugin: 'crosshatch', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
+    },
+    {
+      id: 'art_palette_knife',
+      name: 'Oil Paint Palette Knife',
+      category: 'artistic',
+      desc: 'Expressive knife ridges with rich specular relief',
+      color: '#d79921',
+      texture: { mode: 36, scale: 130, angle: 25, contrast: 140, grain: 50, hardness: 95 },
+      filter: { enabled: true, plugin: 'oil_paint', target: 'fill', p1: 6, p2: 12, opacity: 1.0 }
+    },
+    {
+      id: 'art_sumie',
+      name: 'Sumi-e Charcoal Ink Wash',
+      category: 'artistic',
+      desc: 'Japanese zen ink dispersion on raw rice paper',
+      color: '#1d2021',
+      alpha: 0.9,
+      texture: { mode: 8, scale: 110, contrast: 160, grain: 30, hardness: 40, hardnessIntensity: 70 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'art_pastel',
+      name: 'Chalk & Pastel Grain',
+      category: 'artistic',
+      desc: 'Dry crumbly chalkboard pastel pigment',
+      color: '#fbf1c7',
+      texture: { mode: 32, scale: 90, contrast: 130, grain: 75, hardness: 60, noiseDistort: 30 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'art_denim',
+      name: 'Heavy Denim Twill Weave',
+      category: 'artistic',
+      desc: 'Diagonal textile weave with cotton slub texture',
+      color: '#458588',
+      texture: { mode: 35, scale: 90, angle: 45, contrast: 120, grain: 30, hardness: 95 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'art_burlap',
+      name: 'Coarse Jute Burlap',
+      category: 'artistic',
+      desc: 'Rough woven fiber sackcloth texture',
+      color: '#a89984',
+      texture: { mode: 41, scale: 100, contrast: 135, grain: 55, hardness: 90 },
+      filter: { enabled: false }
+    },
+
+    // ── 2. Optical Glass & Lens (WASM Backdrop FX) ──
+    {
+      id: 'lens_fisheye',
+      name: 'Fisheye Barrel Lens',
+      category: 'lenses',
+      desc: 'Ultra-wide curved optical sphere refraction',
+      color: '#83a598',
+      alpha: 0.9,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'fisheye', target: 'backdrop', isLens: true, p1: 35, p2: 110, opacity: 1.0 }
+    },
+    {
+      id: 'lens_vortex',
+      name: 'Cosmic Vortex Swirl Lens',
+      category: 'lenses',
+      desc: 'Gravitational whirlpool light bending',
+      color: '#b16286',
+      alpha: 0.9,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'swirl', target: 'backdrop', isLens: true, p1: 120, p2: 85, opacity: 1.0 }
+    },
+    {
+      id: 'lens_ripple',
+      name: 'Water Ripple Caustics Lens',
+      category: 'lenses',
+      desc: 'Dynamic undulating liquid pool refraction',
+      color: '#458588',
+      alpha: 0.85,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'ripple', target: 'backdrop', isLens: true, p1: 25, p2: 10, opacity: 1.0 }
+    },
+    {
+      id: 'lens_kaleidoscope',
+      name: 'Kaleidoscope Octa-Prism Lens',
+      category: 'lenses',
+      desc: '8-fold radial symmetry mirror lens',
+      color: '#d3869b',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'kaleidoscope', target: 'backdrop', isLens: true, p1: 8, p2: 30, opacity: 1.0 }
+    },
+    {
+      id: 'lens_frosted',
+      name: 'Frosted Gaussian Glass Lens',
+      category: 'lenses',
+      desc: 'Translucent architectural blurred glass',
+      color: '#83a598',
+      alpha: 0.75,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'frosted_glass', target: 'backdrop', isLens: true, p1: 15, p2: 3, opacity: 1.0 }
+    },
+    {
+      id: 'lens_scanline',
+      name: 'Retro CRT Scanlines Lens',
+      category: 'lenses',
+      desc: 'Phosphor cathode tube raster scanlines',
+      color: '#8ec07c',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'scanline', target: 'backdrop', isLens: true, p1: 50, p2: 1, opacity: 1.0 }
+    },
+    {
+      id: 'lens_glitch',
+      name: 'VHS Magnetic Glitch Lens',
+      category: 'lenses',
+      desc: 'Analog video sync tear and tracking jitter',
+      color: '#fe8019',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'glitch', target: 'backdrop', isLens: true, p1: 25, p2: 12, opacity: 1.0 }
+    },
+    {
+      id: 'lens_duotone',
+      name: 'Cyberpunk Duotone Lens',
+      category: 'lenses',
+      desc: 'High-contrast neon two-tone color gradient map',
+      color: '#00ffcc',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'duotone', target: 'backdrop', isLens: true, p1: 0, p2: 120, opacity: 1.0 }
+    },
+    {
+      id: 'lens_thermal',
+      name: 'Thermal Predator Infrared Lens',
+      category: 'lenses',
+      desc: 'Heat spectrum infrared night-vision lens',
+      color: '#cc241d',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'thermal', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
+    },
+    {
+      id: 'lens_solarize',
+      name: 'Solarized Dream Lens',
+      category: 'lenses',
+      desc: 'Sabattier photographic tone reversal lens',
+      color: '#d65d0e',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'solarize', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
+    },
+    {
+      id: 'lens_bloom',
+      name: 'Neon Bloom Dispersion Lens',
+      category: 'lenses',
+      desc: 'Anamorphic light diffusion flare lens',
+      color: '#fabd2f',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'bloom', target: 'backdrop', isLens: true, p1: 140, p2: 10, opacity: 1.0 }
+    },
+    {
+      id: 'lens_chromatic',
+      name: 'Chromatic Fringe Prism Lens',
+      category: 'lenses',
+      desc: 'RGB spectral dispersion optic fringe',
+      color: '#ebdbb2',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'chromatic', target: 'backdrop', isLens: true, p1: 14, p2: 0, opacity: 1.0 }
+    },
+    {
+      id: 'lens_foam',
+      name: 'Tropical Shore Foam Lens',
+      category: 'lenses',
+      desc: 'Dynamic coastal ocean foam dispersion',
+      color: '#4eb8a8',
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: true, plugin: 'water_foam', target: 'backdrop', isLens: true, p1: 20, p2: 8, opacity: 1.0 }
+    },
+
+    // ── 3. Nature, Earth & Organics ──
+    {
+      id: 'nat_magma',
+      name: 'Molten Magma Volcano',
+      category: 'nature',
+      desc: 'Glowing volcanic fissures with turbulent heat',
+      color: '#fe8019',
+      gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
+      gradientType: 'linear',
+      texture: { mode: 65, scale: 120, warpStrength: 45, warpFreq: 25, noiseDistort: 20 },
+      filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 100, opacity: 1.0 }
+    },
+    {
+      id: 'nat_marble',
+      name: 'Warped Liquid Marble',
+      category: 'nature',
+      desc: 'Hand-swirled mineral stone veins with liquid marble',
+      color: '#ebdbb2',
+      texture: { mode: 8, scale: 150, angle: 30, contrast: 140, grain: 15, hardness: 95, warpStrength: 55, warpFreq: 25, pinchSwirl: 20 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'nat_mud',
+      name: 'Cracked Mud Fissures',
+      category: 'nature',
+      desc: 'Arid desert earth cracks and drought polygon tiles',
+      color: '#d79921',
+      texture: { mode: 42, scale: 140, contrast: 160, grain: 20, hardness: 85, warpStrength: 20, warpFreq: 20, noiseDistort: 15 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'nat_dragon',
+      name: 'Mythic Dragon Scales',
+      category: 'nature',
+      desc: 'Reptilian armored scales with specular sheen',
+      color: '#8ec07c',
+      texture: { mode: 50, scale: 130, contrast: 150, grain: 15, hardness: 95, warpStrength: 10, warpFreq: 20, pinchSwirl: 15 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'nat_granite',
+      name: 'Granite Bedrock',
+      category: 'nature',
+      desc: 'Speckled quartz, feldspar and mica volcanic stone',
+      color: '#928374',
+      texture: { mode: 39, scale: 100, contrast: 120, grain: 65, hardness: 85 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'nat_abyss',
+      name: 'Deep Oceanic Abyss',
+      category: 'nature',
+      desc: 'Midnight trench water with gentle caustics',
+      color: '#0f084b',
+      gradientStops: [{ offset: 0, color: '#076678' }, { offset: 1, color: '#0f084b' }],
+      gradientType: 'linear',
+      texture: { mode: 8, scale: 140, contrast: 120, warpStrength: 25, warpFreq: 20 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'nat_wood',
+      name: 'Walnut Wood Grain',
+      category: 'nature',
+      desc: 'Natural concentric timber rings with wood pores',
+      color: '#7c6f64',
+      texture: { mode: 38, scale: 140, angle: 15, contrast: 135, grain: 25, warpStrength: 15, warpFreq: 15 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'nat_emerald',
+      name: 'Emerald Geode Crystal',
+      category: 'nature',
+      desc: 'Faceted beryl crystal cluster with jewel refraction',
+      color: '#8ec07c',
+      gradientStops: [{ offset: 0, color: '#98971a' }, { offset: 1, color: '#8ec07c' }],
+      gradientType: 'radial',
+      texture: { mode: 51, scale: 110, contrast: 150, grain: 20, hardness: 90 },
+      filter: { enabled: false }
+    },
+
+    // ── 4. Metals, Tech & Sci-Fi ──
+    {
+      id: 'sci_circuit',
+      name: 'Cyber Circuit Motherboard',
+      category: 'scifi',
+      desc: 'Copper PCB traces, microchips and gold pads',
+      color: '#00ffcc',
+      texture: { mode: 43, scale: 120, contrast: 170, grain: 0, hardness: 100, posterize: 4 },
+      filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 90, opacity: 0.9 }
+    },
+    {
+      id: 'sci_gold',
+      name: 'Brushed Gold Ingot',
+      category: 'scifi',
+      desc: 'Anisotropic metallic gold polish with specular grain',
+      color: '#d79921',
+      gradientStops: [{ offset: 0, color: '#d79921' }, { offset: 0.5, color: '#fbf1c7' }, { offset: 1, color: '#b57614' }],
+      gradientType: 'linear',
+      texture: { mode: 38, scale: 80, angle: 90, contrast: 110, grain: 20, hardness: 95 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_chrome',
+      name: 'Liquid Chrome Mercury',
+      category: 'scifi',
+      desc: 'Molten reflective mirror metal with heavy warp',
+      color: '#ebdbb2',
+      gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ffffff' }, { offset: 1, color: '#00ffcc' }],
+      gradientType: 'linear',
+      texture: { mode: 8, scale: 160, contrast: 160, warpStrength: 60, warpFreq: 30, pinchSwirl: 40 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_carbon',
+      name: 'Carbon Fiber Twill Weave',
+      category: 'scifi',
+      desc: 'High-tensile motorsport composite honeycomb',
+      color: '#282828',
+      texture: { mode: 43, scale: 75, contrast: 160, grain: 15, hardness: 100 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_holo_foil',
+      name: 'Holographic Rainbow Foil',
+      category: 'scifi',
+      desc: 'Iridescent diffraction grating with shimmering spectrum',
+      color: '#ff0080',
+      gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ff0080' }, { offset: 1, color: '#00ffcc' }],
+      gradientType: 'linear',
+      texture: { mode: 67, scale: 100, contrast: 150, grain: 25, warpStrength: 40, warpFreq: 35 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_black_hole',
+      name: 'Black Hole Event Horizon',
+      category: 'scifi',
+      desc: 'Singularity vortex with extreme spacetime warping',
+      color: '#141617',
+      texture: { mode: 51, scale: 130, contrast: 160, grain: 20, hardness: 90, warpStrength: 25, warpFreq: 30, pinchSwirl: 85 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_glitch_matrix',
+      name: 'Glitch Heatwave Matrix',
+      category: 'scifi',
+      desc: 'Digital displacement wave with pixel noise',
+      color: '#83a598',
+      texture: { mode: 67, scale: 100, contrast: 160, grain: 35, hardness: 80, hardnessIntensity: 60, warpStrength: 80, warpFreq: 45, noiseDistort: 55, pinchSwirl: -40, posterize: 6 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_xray',
+      name: 'Inverted X-Ray Negative',
+      category: 'scifi',
+      desc: 'High-contrast radiograph bone density negative',
+      color: '#ebdbb2',
+      texture: { mode: 47, scale: 120, contrast: 150, grain: 20, hardness: 90, warpStrength: 30, warpFreq: 25, pinchSwirl: 25, invert: true },
+      filter: { enabled: false }
+    },
+    {
+      id: 'sci_damask',
+      name: 'Royal Damask Jacquard',
+      category: 'scifi',
+      desc: 'Rich crimson baroque patterned velvet',
+      color: '#cc241d',
+      texture: { mode: 35, scale: 100, contrast: 140, grain: 20, hardness: 95 },
+      filter: { enabled: false }
+    },
+
+    // ── 5. Signature Gradients & Lighting ──
+    {
+      id: 'grad_sunset',
+      name: 'Sunset Amber Glow',
+      category: 'gradients',
+      desc: 'Golden hour sunset gradient from amber to honey',
+      color: '#fe8019',
+      gradientStops: [{ offset: 0, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
+      gradientType: 'linear',
+      gradientAngle: 45,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'grad_cyberpunk',
+      name: 'Cyberpunk Neon Matrix',
+      category: 'gradients',
+      desc: 'Electric magenta into glowing cyan pulse',
+      color: '#00ffcc',
+      gradientStops: [{ offset: 0, color: '#ff0055' }, { offset: 1, color: '#00ffcc' }],
+      gradientType: 'linear',
+      gradientAngle: 135,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'grad_aurora',
+      name: 'Aurora Borealis Mystic',
+      category: 'gradients',
+      desc: 'Northern lights neon veil in polar night',
+      color: '#00ffcc',
+      gradientStops: [{ offset: 0, color: '#00ffcc' }, { offset: 0.5, color: '#7928ca' }, { offset: 1, color: '#98971a' }],
+      gradientType: 'linear',
+      gradientAngle: 90,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'grad_fire',
+      name: 'Fire Flame Core',
+      category: 'gradients',
+      desc: 'Combustion core radiating from crimson to blazing yellow',
+      color: '#fe8019',
+      gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
+      gradientType: 'linear',
+      gradientAngle: 90,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'grad_emerald',
+      name: 'Deep Royal Emerald',
+      category: 'gradients',
+      desc: 'Spherical jewel radiance from sage to petroleum teal',
+      color: '#8ec07c',
+      gradientStops: [{ offset: 0, color: '#8ec07c' }, { offset: 1, color: '#076678' }],
+      gradientType: 'radial',
+      gradientRadius: 0.6,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: false }
+    },
+    {
+      id: 'grad_vignette',
+      name: 'Smoky Vignette Monochrome',
+      category: 'gradients',
+      desc: 'Cinematic radial vignette for dramatic contrast',
+      color: '#1d2021',
+      gradientStops: [{ offset: 0, color: '#a89984' }, { offset: 1, color: '#1d2021' }],
+      gradientType: 'radial',
+      gradientRadius: 0.7,
+      texture: { mode: 0, hardness: 100 },
+      filter: { enabled: false }
+    }
+  ];
+
   // ── 3. High-Performance Materials Studio Component ──
 
   class ColorStudioWidget {
@@ -570,13 +1043,20 @@
             </button>
           </div>
 
+          <!-- Preset Selector Bar directly below target switcher -->
+          <div class="cs-preset-bar" style="display: flex; gap: 4px; align-items: center; margin-bottom: 6px;">
+            <select id="cs-material-preset-select" class="cs-select" style="flex: 1;">
+              <option value="" disabled selected>Preset: Select Material</option>
+            </select>
+            <button type="button" id="cs-btn-save-material-preset" class="cs-btn-mini" style="padding: 3px 8px; flex-shrink: 0;" title="Save current appearance as preset">Save</button>
+          </div>
+
           <!-- Main Material Section Pills -->
           <div class="cs-mode-tabs">
             <button type="button" class="cs-mode-btn active" data-mode="color" title="Flat Static Color & Transparency">Color</button>
             <button type="button" class="cs-mode-btn" data-mode="gradient" title="Linear & Radial Multi-Stop Gradients">Gradient</button>
             <button type="button" class="cs-mode-btn" data-mode="texture" title="70+ Procedural Surface Textures & Distortion">Texture</button>
             <button type="button" class="cs-mode-btn" data-mode="filter" title="WASM Image Processing & Optical Lenses">WASM FX</button>
-            <button type="button" class="cs-mode-btn" data-mode="presets" title="Pre-made Material Styles">Presets</button>
           </div>
 
           <!-- SECTION 1: COLOR (Static Solid Color + Sub-modes) -->
@@ -945,17 +1425,6 @@
               </div>
             </div>
           </div>
-
-          <!-- SECTION 5: READY-TO-USE MATERIAL PRESETS -->
-          <div class="cs-panel cs-panel-presets" id="cs-panel-presets">
-            <div class="cs-card">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <span class="cs-card-title" style="margin: 0;">Material Presets</span>
-                <button type="button" id="cs-btn-save-material-preset" class="cs-btn-mini" style="padding: 2px 8px;" title="Save current appearance as reusable material">+ Save</button>
-              </div>
-              <div class="cs-material-presets-list" id="cs-material-presets-list"></div>
-            </div>
-          </div>
         </div>
       `;
 
@@ -975,7 +1444,6 @@
         panelGradient: this.container.querySelector('#cs-panel-gradient'),
         panelTexture: this.container.querySelector('#cs-panel-texture'),
         panelFilter: this.container.querySelector('#cs-panel-filter'),
-        panelPresets: this.container.querySelector('#cs-panel-presets'),
         // Submode tabs in Color
         submodeBtns: this.container.querySelectorAll('.cs-submode-btn'),
         subpanelPicker: this.container.querySelector('#cs-subpanel-picker'),
@@ -1052,8 +1520,8 @@
         filterParamsContainer: this.container.querySelector('#cs-filter-params-container'),
         filterOpacitySlider: this.container.querySelector('#cs-filter-opacity-slider'),
         filterOpacity: this.container.querySelector('#cs-filter-opacity'),
-        // Presets List
-        materialPresetsList: this.container.querySelector('#cs-material-presets-list'),
+        // Presets Select
+        materialPresetSelect: this.container.querySelector('#cs-material-preset-select'),
         btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset')
       };
 
@@ -1451,6 +1919,14 @@
       });
 
       // ── Material Presets Events ──
+      d.materialPresetSelect?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const preset = this.findMaterialPreset(val);
+        if (preset) {
+          this.applyMaterialPreset(preset);
+        }
+      });
+
       d.btnSaveMaterialPreset?.addEventListener('click', () => {
         this.saveCurrentAsMaterialPreset();
       });
@@ -1472,14 +1948,11 @@
       this.dom.panelGradient?.classList.toggle('active', mode === 'gradient');
       this.dom.panelTexture?.classList.toggle('active', mode === 'texture');
       this.dom.panelFilter?.classList.toggle('active', mode === 'filter');
-      this.dom.panelPresets?.classList.toggle('active', mode === 'presets');
 
       if (mode === 'gradient') {
         this.updateGradientUI();
       } else if (mode === 'color' && this.colorSubMode === 'palettes') {
         this.renderPalettes();
-      } else if (mode === 'presets') {
-        this.renderMaterialPresetsList();
       }
     }
 
@@ -2404,466 +2877,20 @@
       this.syncFromSelection(true);
     }
 
-    renderMaterialPresetsList() {
-      if (typeof document === 'undefined') return;
-      const listContainer = this.dom.materialPresetsList;
-      if (!listContainer) return;
-      listContainer.innerHTML = '';
+    populateMaterialPresetsSelect() {
+      if (typeof document === 'undefined' || !this.dom.materialPresetSelect) return;
+      const sel = this.dom.materialPresetSelect;
+      const currentVal = sel.value;
+      sel.innerHTML = '';
 
-      if (!this._matPresetCategory) this._matPresetCategory = 'all';
+      const defOption = document.createElement('option');
+      defOption.value = '';
+      defOption.disabled = true;
+      defOption.selected = !currentVal;
+      defOption.textContent = 'Preset: Select Material';
+      sel.appendChild(defOption);
 
-      // Category filter bar
-      const catBar = document.createElement('div');
-      catBar.className = 'cs-mat-cat-bar';
-      catBar.style.cssText = 'display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--border);';
-      
-      const categories = [
-        { id: 'all', label: 'All' },
-        { id: 'artistic', label: '🎨 Artistic' },
-        { id: 'lenses', label: '🔍 Lenses' },
-        { id: 'nature', label: '🌿 Nature' },
-        { id: 'scifi', label: '⚡ Sci-Fi & Metals' },
-        { id: 'gradients', label: '🌈 Gradients' }
-      ];
-
-      categories.forEach(cat => {
-        const btn = document.createElement('button');
-        btn.className = `cs-mat-cat-btn ${this._matPresetCategory === cat.id ? 'active' : ''}`;
-        btn.textContent = cat.label;
-        btn.style.cssText = `font-size: 10px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border); background: ${this._matPresetCategory === cat.id ? 'var(--primary)' : 'var(--bg-input)'}; color: ${this._matPresetCategory === cat.id ? '#141617' : 'var(--text)'}; cursor: pointer; white-space: nowrap; font-weight: 500;`;
-        btn.addEventListener('click', () => {
-          this._matPresetCategory = cat.id;
-          this.renderMaterialPresetsList();
-        });
-        catBar.appendChild(btn);
-      });
-      listContainer.appendChild(catBar);
-
-      const builtInMaterials = [
-        // ── 1. Artistic & Traditional Media ──
-        {
-          name: 'Soft Watercolor Wash',
-          category: 'artistic',
-          desc: 'Organic translucent watercolor with paper bleeding',
-          color: '#83a598',
-          alpha: 0.85,
-          texture: { mode: 8, scale: 120, angle: 0, contrast: 110, grain: 40, hardness: 25, hardnessIntensity: 80, warpStrength: 10, warpFreq: 15, noiseDistort: 5 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Kuwahara Impasto Oil',
-          category: 'artistic',
-          desc: 'Thick painterly brushwork with Kuwahara filter',
-          color: '#fabd2f',
-          texture: { mode: 36, scale: 100, contrast: 120, grain: 45, hardness: 100 },
-          filter: { enabled: true, plugin: 'kuwahara', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
-        },
-        {
-          name: 'Manga Screentone Cel',
-          category: 'artistic',
-          desc: 'Authentic 45° dot screentone with cel threshold',
-          color: '#ebdbb2',
-          texture: { mode: 31, scale: 80, angle: 45, contrast: 200, grain: 0, hardness: 100, posterize: 3 },
-          filter: { enabled: false }
-        },
-        {
-          name: '4-Level Comic Cel Shading',
-          category: 'artistic',
-          desc: 'Sharp stepped cel shading bands for pop art',
-          color: '#fe8019',
-          texture: { mode: 0, scale: 100, angle: 0, contrast: 150, hardness: 100, posterize: 4 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Vintage Copper Engraving',
-          category: 'artistic',
-          desc: 'Fine hatched antique parchment etching',
-          color: '#ebdbb2',
-          texture: { mode: 38, scale: 110, angle: 45, contrast: 180, grain: 10, hardness: 100, warpStrength: 5, warpFreq: 20 },
-          filter: { enabled: true, plugin: 'sepia', target: 'fill', p1: 80, p2: 0, opacity: 0.9 }
-        },
-        {
-          name: 'Crosshatch Ink Sketch',
-          category: 'artistic',
-          desc: 'Dense multi-directional pen hatching',
-          color: '#282828',
-          texture: { mode: 38, scale: 90, angle: 0, contrast: 160, grain: 20 },
-          filter: { enabled: true, plugin: 'crosshatch', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
-        },
-        {
-          name: 'Oil Paint Palette Knife',
-          category: 'artistic',
-          desc: 'Expressive knife ridges with rich specular relief',
-          color: '#d79921',
-          texture: { mode: 36, scale: 130, angle: 25, contrast: 140, grain: 50, hardness: 95 },
-          filter: { enabled: true, plugin: 'oil_paint', target: 'fill', p1: 6, p2: 12, opacity: 1.0 }
-        },
-        {
-          name: 'Sumi-e Charcoal Ink Wash',
-          category: 'artistic',
-          desc: 'Japanese zen ink dispersion on raw rice paper',
-          color: '#1d2021',
-          alpha: 0.9,
-          texture: { mode: 8, scale: 110, contrast: 160, grain: 30, hardness: 40, hardnessIntensity: 70 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Chalk & Pastel Grain',
-          category: 'artistic',
-          desc: 'Dry crumbly chalkboard pastel pigment',
-          color: '#fbf1c7',
-          texture: { mode: 32, scale: 90, contrast: 130, grain: 75, hardness: 60, noiseDistort: 30 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Heavy Denim Twill Weave',
-          category: 'artistic',
-          desc: 'Diagonal textile weave with cotton slub texture',
-          color: '#458588',
-          texture: { mode: 35, scale: 90, angle: 45, contrast: 120, grain: 30, hardness: 95 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Coarse Jute Burlap',
-          category: 'artistic',
-          desc: 'Rough woven fiber sackcloth texture',
-          color: '#a89984',
-          texture: { mode: 41, scale: 100, contrast: 135, grain: 55, hardness: 90 },
-          filter: { enabled: false }
-        },
-
-        // ── 2. Optical Glass & Lens (WASM Backdrop FX) ──
-        {
-          name: 'Fisheye Barrel Lens',
-          category: 'lenses',
-          desc: 'Ultra-wide curved optical sphere refraction',
-          color: '#83a598',
-          alpha: 0.9,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'fisheye', target: 'backdrop', isLens: true, p1: 35, p2: 110, opacity: 1.0 }
-        },
-        {
-          name: 'Cosmic Vortex Swirl Lens',
-          category: 'lenses',
-          desc: 'Gravitational whirlpool light bending',
-          color: '#b16286',
-          alpha: 0.9,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'swirl', target: 'backdrop', isLens: true, p1: 120, p2: 85, opacity: 1.0 }
-        },
-        {
-          name: 'Water Ripple Caustics Lens',
-          category: 'lenses',
-          desc: 'Dynamic undulating liquid pool refraction',
-          color: '#458588',
-          alpha: 0.85,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'ripple', target: 'backdrop', isLens: true, p1: 25, p2: 10, opacity: 1.0 }
-        },
-        {
-          name: 'Kaleidoscope Octa-Prism Lens',
-          category: 'lenses',
-          desc: '8-fold radial symmetry mirror lens',
-          color: '#d3869b',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'kaleidoscope', target: 'backdrop', isLens: true, p1: 8, p2: 30, opacity: 1.0 }
-        },
-        {
-          name: 'Frosted Gaussian Glass Lens',
-          category: 'lenses',
-          desc: 'Translucent architectural blurred glass',
-          color: '#83a598',
-          alpha: 0.75,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'frosted_glass', target: 'backdrop', isLens: true, p1: 15, p2: 3, opacity: 1.0 }
-        },
-        {
-          name: 'Retro CRT Scanlines Lens',
-          category: 'lenses',
-          desc: 'Phosphor cathode tube raster scanlines',
-          color: '#8ec07c',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'scanline', target: 'backdrop', isLens: true, p1: 50, p2: 1, opacity: 1.0 }
-        },
-        {
-          name: 'VHS Magnetic Glitch Lens',
-          category: 'lenses',
-          desc: 'Analog video sync tear and tracking jitter',
-          color: '#fe8019',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'glitch', target: 'backdrop', isLens: true, p1: 25, p2: 12, opacity: 1.0 }
-        },
-        {
-          name: 'Cyberpunk Duotone Lens',
-          category: 'lenses',
-          desc: 'High-contrast neon two-tone color gradient map',
-          color: '#00ffcc',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'duotone', target: 'backdrop', isLens: true, p1: 0, p2: 120, opacity: 1.0 }
-        },
-        {
-          name: 'Thermal Predator Infrared Lens',
-          category: 'lenses',
-          desc: 'Heat spectrum infrared night-vision lens',
-          color: '#cc241d',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'thermal', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
-        },
-        {
-          name: 'Solarized Dream Lens',
-          category: 'lenses',
-          desc: 'Sabattier photographic tone reversal lens',
-          color: '#d65d0e',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'solarize', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
-        },
-        {
-          name: 'Neon Bloom Dispersion Lens',
-          category: 'lenses',
-          desc: 'Anamorphic light diffusion flare lens',
-          color: '#fabd2f',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'bloom', target: 'backdrop', isLens: true, p1: 140, p2: 10, opacity: 1.0 }
-        },
-        {
-          name: 'Chromatic Fringe Prism Lens',
-          category: 'lenses',
-          desc: 'RGB spectral dispersion optic fringe',
-          color: '#ebdbb2',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'chromatic', target: 'backdrop', isLens: true, p1: 14, p2: 0, opacity: 1.0 }
-        },
-        {
-          name: 'Tropical Shore Foam Lens',
-          category: 'lenses',
-          desc: 'Dynamic coastal ocean foam dispersion',
-          color: '#4eb8a8',
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: true, plugin: 'water_foam', target: 'backdrop', isLens: true, p1: 20, p2: 8, opacity: 1.0 }
-        },
-
-        // ── 3. Nature, Earth & Organics ──
-        {
-          name: 'Molten Magma Volcano',
-          category: 'nature',
-          desc: 'Glowing volcanic fissures with turbulent heat',
-          color: '#fe8019',
-          gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
-          gradientType: 'linear',
-          texture: { mode: 65, scale: 120, warpStrength: 45, warpFreq: 25, noiseDistort: 20 },
-          filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 100, opacity: 1.0 }
-        },
-        {
-          name: 'Warped Liquid Marble',
-          category: 'nature',
-          desc: 'Hand-swirled mineral stone veins with liquid marble',
-          color: '#ebdbb2',
-          texture: { mode: 8, scale: 150, angle: 30, contrast: 140, grain: 15, hardness: 95, warpStrength: 55, warpFreq: 25, pinchSwirl: 20 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Cracked Mud Fissures',
-          category: 'nature',
-          desc: 'Arid desert earth cracks and drought polygon tiles',
-          color: '#d79921',
-          texture: { mode: 42, scale: 140, contrast: 160, grain: 20, hardness: 85, warpStrength: 20, warpFreq: 20, noiseDistort: 15 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Mythic Dragon Scales',
-          category: 'nature',
-          desc: 'Reptilian armored scales with specular sheen',
-          color: '#8ec07c',
-          texture: { mode: 50, scale: 130, contrast: 150, grain: 15, hardness: 95, warpStrength: 10, warpFreq: 20, pinchSwirl: 15 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Granite Bedrock',
-          category: 'nature',
-          desc: 'Speckled quartz, feldspar and mica volcanic stone',
-          color: '#928374',
-          texture: { mode: 39, scale: 100, contrast: 120, grain: 65, hardness: 85 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Deep Oceanic Abyss',
-          category: 'nature',
-          desc: 'Midnight trench water with gentle caustics',
-          color: '#0f084b',
-          gradientStops: [{ offset: 0, color: '#076678' }, { offset: 1, color: '#0f084b' }],
-          gradientType: 'linear',
-          texture: { mode: 8, scale: 140, contrast: 120, warpStrength: 25, warpFreq: 20 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Walnut Wood Grain',
-          category: 'nature',
-          desc: 'Natural concentric timber rings with wood pores',
-          color: '#7c6f64',
-          texture: { mode: 38, scale: 140, angle: 15, contrast: 135, grain: 25, warpStrength: 15, warpFreq: 15 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Emerald Geode Crystal',
-          category: 'nature',
-          desc: 'Faceted beryl crystal cluster with jewel refraction',
-          color: '#8ec07c',
-          gradientStops: [{ offset: 0, color: '#98971a' }, { offset: 1, color: '#8ec07c' }],
-          gradientType: 'radial',
-          texture: { mode: 51, scale: 110, contrast: 150, grain: 20, hardness: 90 },
-          filter: { enabled: false }
-        },
-
-        // ── 4. Metals, Tech & Sci-Fi ──
-        {
-          name: 'Cyber Circuit Motherboard',
-          category: 'scifi',
-          desc: 'Copper PCB traces, microchips and gold pads',
-          color: '#00ffcc',
-          texture: { mode: 43, scale: 120, contrast: 170, grain: 0, hardness: 100, posterize: 4 },
-          filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 90, opacity: 0.9 }
-        },
-        {
-          name: 'Brushed Gold Ingot',
-          category: 'scifi',
-          desc: 'Anisotropic metallic gold polish with specular grain',
-          color: '#d79921',
-          gradientStops: [{ offset: 0, color: '#d79921' }, { offset: 0.5, color: '#fbf1c7' }, { offset: 1, color: '#b57614' }],
-          gradientType: 'linear',
-          texture: { mode: 38, scale: 80, angle: 90, contrast: 110, grain: 20, hardness: 95 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Liquid Chrome Mercury',
-          category: 'scifi',
-          desc: 'Molten reflective mirror metal with heavy warp',
-          color: '#ebdbb2',
-          gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ffffff' }, { offset: 1, color: '#00ffcc' }],
-          gradientType: 'linear',
-          texture: { mode: 8, scale: 160, contrast: 160, warpStrength: 60, warpFreq: 30, pinchSwirl: 40 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Carbon Fiber Twill Weave',
-          category: 'scifi',
-          desc: 'High-tensile motorsport composite honeycomb',
-          color: '#282828',
-          texture: { mode: 43, scale: 75, contrast: 160, grain: 15, hardness: 100 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Holographic Rainbow Foil',
-          category: 'scifi',
-          desc: 'Iridescent diffraction grating with shimmering spectrum',
-          color: '#ff0080',
-          gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ff0080' }, { offset: 1, color: '#00ffcc' }],
-          gradientType: 'linear',
-          texture: { mode: 67, scale: 100, contrast: 150, grain: 25, warpStrength: 40, warpFreq: 35 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Black Hole Event Horizon',
-          category: 'scifi',
-          desc: 'Singularity vortex with extreme spacetime warping',
-          color: '#141617',
-          texture: { mode: 51, scale: 130, contrast: 160, grain: 20, hardness: 90, warpStrength: 25, warpFreq: 30, pinchSwirl: 85 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Glitch Heatwave Matrix',
-          category: 'scifi',
-          desc: 'Digital displacement wave with pixel noise',
-          color: '#83a598',
-          texture: { mode: 67, scale: 100, contrast: 160, grain: 35, hardness: 80, hardnessIntensity: 60, warpStrength: 80, warpFreq: 45, noiseDistort: 55, pinchSwirl: -40, posterize: 6 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Inverted X-Ray Negative',
-          category: 'scifi',
-          desc: 'High-contrast radiograph bone density negative',
-          color: '#ebdbb2',
-          texture: { mode: 47, scale: 120, contrast: 150, grain: 20, hardness: 90, warpStrength: 30, warpFreq: 25, pinchSwirl: 25, invert: true },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Royal Damask Jacquard',
-          category: 'scifi',
-          desc: 'Rich crimson baroque patterned velvet',
-          color: '#cc241d',
-          texture: { mode: 35, scale: 100, contrast: 140, grain: 20, hardness: 95 },
-          filter: { enabled: false }
-        },
-
-        // ── 5. Signature Gradients & Lighting ──
-        {
-          name: 'Sunset Amber Glow',
-          category: 'gradients',
-          desc: 'Golden hour sunset gradient from amber to honey',
-          color: '#fe8019',
-          gradientStops: [{ offset: 0, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
-          gradientType: 'linear',
-          gradientAngle: 45,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Cyberpunk Neon Matrix',
-          category: 'gradients',
-          desc: 'Electric magenta into glowing cyan pulse',
-          color: '#00ffcc',
-          gradientStops: [{ offset: 0, color: '#ff0055' }, { offset: 1, color: '#00ffcc' }],
-          gradientType: 'linear',
-          gradientAngle: 135,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Aurora Borealis Mystic',
-          category: 'gradients',
-          desc: 'Northern lights neon veil in polar night',
-          color: '#00ffcc',
-          gradientStops: [{ offset: 0, color: '#00ffcc' }, { offset: 0.5, color: '#7928ca' }, { offset: 1, color: '#98971a' }],
-          gradientType: 'linear',
-          gradientAngle: 90,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Fire Flame Core',
-          category: 'gradients',
-          desc: 'Combustion core radiating from crimson to blazing yellow',
-          color: '#fe8019',
-          gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
-          gradientType: 'linear',
-          gradientAngle: 90,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Deep Royal Emerald',
-          category: 'gradients',
-          desc: 'Spherical jewel radiance from sage to petroleum teal',
-          color: '#8ec07c',
-          gradientStops: [{ offset: 0, color: '#8ec07c' }, { offset: 1, color: '#076678' }],
-          gradientType: 'radial',
-          gradientRadius: 0.6,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: false }
-        },
-        {
-          name: 'Smoky Vignette Monochrome',
-          category: 'gradients',
-          desc: 'Cinematic radial vignette for dramatic contrast',
-          color: '#1d2021',
-          gradientStops: [{ offset: 0, color: '#a89984' }, { offset: 1, color: '#1d2021' }],
-          gradientType: 'radial',
-          gradientRadius: 0.7,
-          texture: { mode: 0, hardness: 100 },
-          filter: { enabled: false }
-        }
-      ];
-
-      // Read custom saved presets
+      // 1. Custom presets
       let customMaterials = [];
       try {
         if (typeof localStorage !== 'undefined') {
@@ -2872,29 +2899,64 @@
         }
       } catch (_) {}
 
-      const all = [...customMaterials.map(m => ({ ...m, category: 'custom' })), ...builtInMaterials];
-      const filtered = (this._matPresetCategory === 'all')
-        ? all
-        : all.filter(m => m.category === this._matPresetCategory);
-
-      filtered.forEach(mat => {
-        const row = document.createElement('div');
-        row.className = 'cs-mat-preset-row';
-        const gradCss = (mat.gradientStops && mat.gradientStops.length >= 2)
-          ? `linear-gradient(135deg, ${mat.gradientStops.map(s => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')})`
-          : (mat.color || '#fabd2f');
-        row.innerHTML = `
-          <div class="cs-mat-chip" style="background: ${gradCss};"></div>
-          <div class="cs-mat-info">
-            <div class="cs-mat-name">${mat.name}</div>
-            <div class="cs-mat-desc">${mat.desc || 'Custom material'}</div>
-          </div>
-        `;
-        row.addEventListener('click', () => {
-          this.applyMaterialPreset(mat);
+      if (customMaterials.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Custom Materials';
+        customMaterials.forEach((mat, idx) => {
+          const opt = document.createElement('option');
+          opt.value = `custom_${idx}`;
+          opt.textContent = mat.name;
+          if (currentVal === opt.value) opt.selected = true;
+          grp.appendChild(opt);
         });
-        listContainer.appendChild(row);
+        sel.appendChild(grp);
+      }
+
+      // 2. Categorized Built-in Materials
+      const categories = [
+        { id: 'artistic', label: 'Artistic & Traditional' },
+        { id: 'lenses', label: 'Optical Lenses (WASM FX)' },
+        { id: 'nature', label: 'Nature & Textures' },
+        { id: 'scifi', label: 'Sci-Fi & Metals' },
+        { id: 'gradients', label: 'Gradients & Lighting' }
+      ];
+
+      categories.forEach(cat => {
+        const items = BUILTIN_MATERIALS.filter(m => m.category === cat.id);
+        if (items.length > 0) {
+          const grp = document.createElement('optgroup');
+          grp.label = cat.label;
+          items.forEach(mat => {
+            const opt = document.createElement('option');
+            opt.value = mat.id || mat.name;
+            opt.textContent = mat.name;
+            if (currentVal === opt.value) opt.selected = true;
+            grp.appendChild(opt);
+          });
+          sel.appendChild(grp);
+        }
       });
+    }
+
+    findMaterialPreset(idOrName) {
+      if (!idOrName) return null;
+      if (typeof idOrName === 'string' && idOrName.startsWith('custom_')) {
+        const idx = parseInt(idOrName.replace('custom_', ''), 10);
+        try {
+          if (typeof localStorage !== 'undefined') {
+            const raw = localStorage.getItem(CUSTOM_MATERIALS_KEY);
+            if (raw) {
+              const list = JSON.parse(raw);
+              return list[idx];
+            }
+          }
+        } catch (_) {}
+      }
+      return BUILTIN_MATERIALS.find(m => m.id === idOrName || m.name === idOrName) || null;
+    }
+
+    renderMaterialPresetsList() {
+      this.populateMaterialPresetsSelect();
     }
 
     renderPalettes() {
@@ -3592,54 +3654,11 @@
         transform: scale(1.05);
         border-color: #ffffff;
       }
-      .cs-material-presets-list {
+      .cs-preset-bar {
         display: flex;
-        flex-direction: column;
         gap: 4px;
-        max-height: 220px;
-        overflow-y: auto;
-      }
-      .cs-mat-preset-row {
-        display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 4px 6px;
-        background: var(--bg-input, #121314);
-        border: 1px solid var(--border, #2e3234);
-        border-radius: 3px;
-        cursor: pointer;
-        transition: all 0.1s;
-      }
-      .cs-mat-preset-row:hover {
-        border-color: var(--primary, #fabd2f);
-        background: rgba(250, 189, 47, 0.08);
-      }
-      .cs-mat-chip {
-        width: 18px;
-        height: 18px;
-        border-radius: 2px;
-        border: 1px solid rgba(255,255,255,0.2);
-        flex-shrink: 0;
-      }
-      .cs-mat-info {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-      }
-      .cs-mat-name {
-        font-weight: 600;
-        font-size: 10.5px;
-        color: var(--text-bright, #fbf1c7);
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
-      }
-      .cs-mat-desc {
-        font-size: 9px;
-        color: var(--text-muted, #928374);
-        white-space: nowrap;
-        text-overflow: ellipsis;
-        overflow: hidden;
+        margin-bottom: 6px;
       }
     `;
     document.head.appendChild(style);
