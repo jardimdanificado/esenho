@@ -4192,6 +4192,7 @@
   <script src="src/version.js"></script>
   <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
+  <script src="src/brush_fill_engine.js"></script>
   <script src="src/color_studio.js"></script>
   <script src="src/esenho.js"></script>
   <script src="src/svg/svg_boolean.js"></script>
@@ -14702,7 +14703,8 @@
           return;
         }
         await loadProjectFromStorage(id);
-        if (modalRecents) modalRecents.style.display = 'none';
+        const modal = document.getElementById('modal-recents');
+        if (modal) modal.style.display = 'none';
       };
 
       window.handleDeleteRecent = async function(id) {

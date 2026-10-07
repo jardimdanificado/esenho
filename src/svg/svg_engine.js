@@ -604,6 +604,9 @@
       this.fillFilter = attributes.fillFilter ? { ...attributes.fillFilter } : { enabled: false, plugin: 'dither', target: 'fill', p1: 0, p2: 0, opacity: 1.0 };
       this.strokeFilter = attributes.strokeFilter ? { ...attributes.strokeFilter } : { enabled: false, plugin: 'dither', target: 'stroke', p1: 0, p2: 0, opacity: 1.0 };
 
+      // Procedural Brush Fill & Hatching Configuration
+      this.brushFill = attributes.brushFill ? { ...attributes.brushFill } : null;
+
       // Transform
       this.x = Number(attributes.x || 0);
       this.y = Number(attributes.y || 0);
@@ -675,17 +678,48 @@
       if (this.strokeFilter && this.strokeFilter.enabled) {
         attrs += ` data-stroke-filter="${encodeURIComponent(JSON.stringify(this.strokeFilter))}"`;
       }
+      if (this.brushFill && (this.brushFill.enabled || this.fillType === 'brush')) {
+        attrs += ` data-brush-fill="${encodeURIComponent(JSON.stringify(this.brushFill))}"`;
+      }
       return attrs;
     }
 
+    getBrushFillSVG() {
+      if (!this.brushFill || (!this.brushFill.enabled && this.fillType !== 'brush')) return '';
+      let Engine = (typeof BrushFillEngine !== 'undefined' ? BrushFillEngine : (typeof globalThis !== 'undefined' ? globalThis.BrushFillEngine : null));
+      if (!Engine && typeof require === 'function') {
+        try {
+          const mod = require('../brush_fill_engine.js');
+          Engine = (mod && mod.BrushFillEngine) ? mod.BrushFillEngine : mod;
+        } catch (_) {}
+      }
+      if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
+      if (!Engine || typeof Engine.generateStrokes !== 'function') return '';
+      let polylines = [];
+      if (typeof this.toPolylines === 'function') {
+        polylines = this.toPolylines(0.4);
+      } else if (typeof this.toPolyline === 'function') {
+        const p = this.toPolyline(0.4);
+        if (p && p.length > 0) polylines = [p];
+      }
+      if (!polylines || polylines.length === 0) return '';
+      const strokes = Engine.generateStrokes(polylines, this.brushFill);
+      return Engine.toSVGGroup(strokes, this.clipPathId, this.brushFill.clipMode || 'bleed');
+    }
+
     wrapClipPath(svgEl) {
+      const brushSvg = this.getBrushFillSVG();
+      let combined = svgEl;
+      if (brushSvg) {
+        combined = `<g id="group_${this.id}">\n    ${svgEl}\n    ${brushSvg}\n  </g>`;
+      }
       if (this.clipPathId) {
         const hasMask = (this.doc ? !!this.doc.findObject(this.clipPathId) : true);
         if (hasMask) {
-          return `<g clip-path="url(#clip_${this.clipPathId})">\n    ${svgEl}\n  </g>`;
+          return `<g clip-path="url(#clip_${this.clipPathId})">\n    ${combined}\n  </g>`;
         }
       }
-      return svgEl;
+      return combined;
     }
 
     getSvgFillAttribute() {
@@ -828,6 +862,7 @@
         wasmFilter: { ...this.wasmFilter },
         fillFilter: { ...this.fillFilter },
         strokeFilter: { ...this.strokeFilter },
+        brushFill: this.brushFill ? { ...this.brushFill } : null,
         x: this.x,
         y: this.y,
         rotation: this.rotation,
@@ -1924,6 +1959,10 @@
 
   class SvgRect extends SvgNode {
     constructor(attributes = {}) {
+      if (typeof arguments[0] === 'number') {
+        const [x, y, width, height, extra = {}] = arguments;
+        attributes = { x, y, width, height, ...extra };
+      }
       super('rect', attributes);
       this.width = Number(attributes.width || 100);
       this.height = Number(attributes.height || 60);
@@ -2008,6 +2047,10 @@
 
   class SvgEllipse extends SvgNode {
     constructor(attributes = {}) {
+      if (typeof arguments[0] === 'number') {
+        const [cx, cy, rx, ry, extra = {}] = arguments;
+        attributes = { cx, cy, rx, ry, ...extra };
+      }
       super('ellipse', attributes);
       this.cx = Number(attributes.cx !== undefined ? attributes.cx : this.x);
       this.cy = Number(attributes.cy !== undefined ? attributes.cy : this.y);
@@ -2098,6 +2141,10 @@
 
   class SvgCircle extends SvgEllipse {
     constructor(attributes = {}) {
+      if (typeof arguments[0] === 'number') {
+        const [cx, cy, r, extra = {}] = arguments;
+        attributes = { cx, cy, r, ...extra };
+      }
       const r = Number(attributes.r || 40);
       super({ ...attributes, rx: r, ry: r });
       this.type = 'circle';

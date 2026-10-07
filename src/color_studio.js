@@ -458,6 +458,240 @@
     }
   };
 
+  // ── 2.15. Procedural Brush Fill & Hatching Configurations ──
+  const CUSTOM_BRUSH_FILL_PRESETS_KEY = 'esenho_custom_brush_fill_presets';
+
+  const DEFAULT_BRUSH_FILL_CONFIG = {
+    enabled: true,
+    pattern: 'linear',
+    spacing: 8,
+    angle: 45,
+    angle2: 135,
+    angle3: 90,
+    strokesPerLine: 1,
+    strokeLength: 0,
+    strokeGap: 4,
+    brushList: ['pencil'],
+    brushPickMode: 'cycle',
+    colorMode: 'palette',
+    colorPalette: ['#fabd2f'],
+    colorPickMode: 'cycle',
+    strokeWidth: 2,
+    strokeOpacity: 0.9,
+    flow: 100,
+    hardness: 95,
+    curvature: 0,
+    angleJitter: 0,
+    lengthJitter: 0,
+    widthJitter: 0,
+    opacityJitter: 0,
+    positionJitter: 0,
+    curvatureJitter: 0,
+    colorJitter: 0,
+    clipMode: 'bleed',
+    bleedDistance: 0,
+    bleedJitter: 50,
+    bleedProbability: 100,
+    seed: 42
+  };
+
+  const BUILTIN_BF_PRESETS = [
+    {
+      id: 'hatch_classic_pen',
+      name: 'Classic Ink Crosshatch',
+      config: {
+        enabled: true,
+        pattern: 'crosshatch',
+        spacing: 6,
+        angle: 45,
+        angle2: 135,
+        strokeWidth: 1.2,
+        strokeOpacity: 0.85,
+        colorPalette: ['#1d2021'],
+        brushList: ['tech_pen'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'hatch_loose_sketch',
+      name: 'Loose Sketch Overshoot',
+      config: {
+        enabled: true,
+        pattern: 'linear',
+        spacing: 8,
+        angle: 35,
+        strokesPerLine: 2,
+        strokeGap: 3,
+        strokeWidth: 2,
+        strokeOpacity: 0.8,
+        angleJitter: 6,
+        lengthJitter: 20,
+        widthJitter: 15,
+        positionJitter: 2,
+        clipMode: 'bleed',
+        bleedDistance: 8,
+        bleedJitter: 50,
+        bleedProbability: 100,
+        colorPalette: ['#282828'],
+        brushList: ['pencil', 'soft_pencil']
+      }
+    },
+    {
+      id: 'hatch_color_stipple',
+      name: 'Pointillist Color Stippling',
+      config: {
+        enabled: true,
+        pattern: 'stipple',
+        spacing: 5,
+        strokeWidth: 3,
+        strokeOpacity: 0.9,
+        colorMode: 'palette',
+        colorPalette: ['#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'],
+        colorPickMode: 'random',
+        colorJitter: 10,
+        widthJitter: 30,
+        opacityJitter: 20,
+        brushList: ['spray', 'dry_ink'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'hatch_woodcut',
+      name: 'Woodcut Vintage Engraving',
+      config: {
+        enabled: true,
+        pattern: 'wave',
+        spacing: 7,
+        angle: 15,
+        strokeWidth: 2.5,
+        strokeOpacity: 0.95,
+        widthJitter: 40,
+        colorPalette: ['#282828'],
+        brushList: ['gpen', 'dry_ink'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'hatch_pastel_scribble',
+      name: 'Pastel Chalk Scribble',
+      config: {
+        enabled: true,
+        pattern: 'scribble',
+        spacing: 6,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.75,
+        colorPalette: ['#d79921', '#fe8019'],
+        colorPickMode: 'cycle',
+        widthJitter: 25,
+        clipMode: 'bleed',
+        bleedDistance: 4,
+        brushList: ['soft_pastel', 'charcoal']
+      }
+    },
+    {
+      id: 'hatch_sci_flow',
+      name: 'Cyber Flow Vector Grid',
+      config: {
+        enabled: true,
+        pattern: 'zigzag',
+        spacing: 10,
+        angle: 90,
+        strokeWidth: 1.8,
+        strokeOpacity: 0.95,
+        colorMode: 'palette',
+        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict',
+        brushList: ['marker', 'tech_pen']
+      }
+    },
+    {
+      id: 'hatch_triple',
+      name: 'Mechanical Triple Hatch',
+      config: {
+        enabled: true,
+        pattern: 'triple_hatch',
+        spacing: 8,
+        angle: 0,
+        angle2: 60,
+        angle3: 120,
+        strokeWidth: 1.5,
+        strokeOpacity: 0.85,
+        colorPalette: ['#1d2021'],
+        brushList: ['tech_pen'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'hatch_contour_rings',
+      name: 'Concentric Topographic Rings',
+      config: {
+        enabled: true,
+        pattern: 'contour',
+        spacing: 6,
+        strokeWidth: 1.8,
+        strokeOpacity: 0.9,
+        colorPalette: ['#458588', '#83a598'],
+        brushList: ['fountain'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'hatch_spiral_vortex',
+      name: 'Spiral Field Vortex',
+      config: {
+        enabled: true,
+        pattern: 'spiral',
+        spacing: 6,
+        strokeWidth: 2.0,
+        strokeOpacity: 0.85,
+        colorPalette: ['#b16286'],
+        brushList: ['pencil'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'hatch_watercolor_wash',
+      name: 'Watercolor Wet Flow',
+      config: {
+        enabled: true,
+        pattern: 'wave',
+        spacing: 9,
+        angle: 25,
+        strokeWidth: 4,
+        strokeOpacity: 0.65,
+        colorMode: 'palette',
+        colorPalette: ['#83a598', '#458588', '#8ec07c'],
+        colorPickMode: 'cycle',
+        brushList: ['watercolor', 'gouache'],
+        widthJitter: 30,
+        opacityJitter: 25,
+        clipMode: 'bleed',
+        bleedDistance: 6
+      }
+    },
+    {
+      id: 'hatch_charcoal_cross',
+      name: 'Charcoal Rough Shading',
+      config: {
+        enabled: true,
+        pattern: 'crosshatch',
+        spacing: 7,
+        angle: 30,
+        angle2: 120,
+        strokeWidth: 2.8,
+        strokeOpacity: 0.85,
+        colorPalette: ['#1d2021', '#3c3836'],
+        brushList: ['charcoal', 'soft_pencil'],
+        angleJitter: 4,
+        widthJitter: 25,
+        lengthJitter: 15,
+        clipMode: 'bleed',
+        bleedDistance: 5
+      }
+    }
+  ];
+
   // ── 2.2. Comprehensive Built-in Material Presets Library ──
 
   const BUILTIN_MATERIALS = [
@@ -998,6 +1232,9 @@
       this._needsSyncWhenVisible = false;
       this._isDragging = false;
 
+      // Procedural Brush Fill State
+      this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG };
+
       // DOM Elements Cache
       this.dom = {};
     }
@@ -1056,6 +1293,7 @@
             <button type="button" class="cs-mode-btn active" data-mode="color" title="Flat Static Color & Transparency">Color</button>
             <button type="button" class="cs-mode-btn" data-mode="gradient" title="Linear & Radial Multi-Stop Gradients">Gradient</button>
             <button type="button" class="cs-mode-btn" data-mode="texture" title="70+ Procedural Surface Textures & Distortion">Texture</button>
+            <button type="button" class="cs-mode-btn" data-mode="brushfill" title="Procedural Brush Hatching & Multi-Stroke Fills">Brush Fill</button>
             <button type="button" class="cs-mode-btn" data-mode="filter" title="WASM Image Processing & Optical Lenses">WASM FX</button>
           </div>
 
@@ -1425,6 +1663,287 @@
               </div>
             </div>
           </div>
+
+          <!-- SECTION 5: BRUSH FILL & PROCEDURAL HATCHING -->
+          <div class="cs-panel cs-panel-brushfill" id="cs-panel-brushfill">
+            <div class="cs-card">
+              <div class="cs-card-title">Brush Fill Mode & Presets</div>
+              <div class="cs-form-row">
+                <label>Enable Fill</label>
+                <input type="checkbox" id="cs-bf-enabled" style="accent-color: var(--primary, #fabd2f);">
+              </div>
+
+              <div class="cs-form-row" style="margin-top: 2px;">
+                <label>Preset</label>
+                <div style="display: flex; gap: 4px; flex: 1;">
+                  <select id="cs-bf-preset-select" class="cs-select" style="font-size: 10px;"></select>
+                  <button type="button" id="cs-btn-save-bf-preset" class="cs-btn-mini" style="padding: 2px 6px; font-size: 9.5px;" title="Save current brush fill preset">Save</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pattern & Mesh Layout Card -->
+            <div class="cs-card">
+              <div class="cs-card-title">Mesh & Trajectory</div>
+              <div class="cs-form-row">
+                <label>Pattern</label>
+                <select id="cs-bf-pattern" class="cs-select">
+                  <option value="linear">Parallel Hatch</option>
+                  <option value="crosshatch">Crosshatch</option>
+                  <option value="triple_hatch">Triple Hatch</option>
+                  <option value="contour">Concentric Contour</option>
+                  <option value="stipple">Pointillist Stipple</option>
+                  <option value="scribble">Wandering Scribble</option>
+                  <option value="zigzag">Zig-Zag Mesh</option>
+                  <option value="wave">Wavy Flow Field</option>
+                  <option value="spiral">Archimedean Spiral</option>
+                </select>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Spacing</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-spacing-slider" min="1" max="80" step="1" value="8" class="cs-mini-range">
+                  <input type="number" id="cs-bf-spacing" min="1" max="200" step="1" value="8" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Angle</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-angle-slider" min="0" max="360" step="1" value="45" class="cs-mini-range">
+                  <input type="number" id="cs-bf-angle" min="0" max="360" step="1" value="45" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row" id="cs-bf-row-angle2">
+                <label>Cross Angle</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-angle2-slider" min="0" max="360" step="1" value="135" class="cs-mini-range">
+                  <input type="number" id="cs-bf-angle2" min="0" max="360" step="1" value="135" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row" id="cs-bf-row-angle3">
+                <label>Triple Angle</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-angle3-slider" min="0" max="360" step="1" value="90" class="cs-mini-range">
+                  <input type="number" id="cs-bf-angle3" min="0" max="360" step="1" value="90" class="cs-mini-num">
+                </div>
+              </div>
+            </div>
+
+            <!-- Strokes Per Line & Density -->
+            <div class="cs-card">
+              <div class="cs-card-title">Strokes Per Line & Segmentation</div>
+              <div class="cs-form-row">
+                <label>Per Line</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-strokes-per-line-slider" min="1" max="20" step="1" value="1" class="cs-mini-range">
+                  <input type="number" id="cs-bf-strokes-per-line" min="1" max="50" step="1" value="1" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Max Length</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-stroke-length-slider" min="0" max="300" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-stroke-length" min="0" max="1000" step="1" value="0" class="cs-mini-num" title="0 = Full span">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Stroke Gap</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-stroke-gap-slider" min="0" max="50" step="1" value="4" class="cs-mini-range">
+                  <input type="number" id="cs-bf-stroke-gap" min="0" max="200" step="1" value="4" class="cs-mini-num">
+                </div>
+              </div>
+            </div>
+
+            <!-- Multi-Brush Tips Selection -->
+            <div class="cs-card">
+              <div class="cs-card-title">Multi-Brush Tips</div>
+              <div class="cs-form-row">
+                <label>Pick Mode</label>
+                <select id="cs-bf-brush-pick-mode" class="cs-select">
+                  <option value="cycle">Cycle in Sequence</option>
+                  <option value="random">Random Dab Selection</option>
+                  <option value="alternate">Alternate (1 & 2)</option>
+                </select>
+              </div>
+              <div style="font-size: 10px; color: var(--text-muted, #928374); margin-top: 2px;">Active Brush Tips:</div>
+              <div id="cs-bf-brush-tips-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; max-height: 120px; overflow-y: auto;"></div>
+            </div>
+
+            <!-- Multi-Color Palette -->
+            <div class="cs-card">
+              <div class="cs-card-title">Multi-Color Palette</div>
+              <div class="cs-form-row">
+                <label>Color Mode</label>
+                <select id="cs-bf-color-mode" class="cs-select">
+                  <option value="palette">Multi-Color Palette</option>
+                  <option value="solid">Single Solid</option>
+                  <option value="gradient">Gradient Projection</option>
+                </select>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Color Pick</label>
+                <select id="cs-bf-color-pick-mode" class="cs-select">
+                  <option value="cycle">Cycle Colors</option>
+                  <option value="random">Random Color</option>
+                  <option value="gradient">Spatial Gradient</option>
+                </select>
+              </div>
+
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+                <span style="font-size: 10px; color: var(--text-muted, #928374);">Palette Swatches:</span>
+                <button type="button" id="cs-btn-add-bf-color" class="cs-btn-mini" style="padding: 1px 6px; font-size: 9.5px;">+ Add Color</button>
+              </div>
+              <div id="cs-bf-palette-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; min-height: 24px; align-items: center;"></div>
+            </div>
+
+            <!-- Stroke Geometry & Properties -->
+            <div class="cs-card">
+              <div class="cs-card-title">Stroke Dynamics</div>
+              <div class="cs-form-row">
+                <label>Width</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-stroke-width-slider" min="0.5" max="30" step="0.5" value="2" class="cs-mini-range">
+                  <input type="number" id="cs-bf-stroke-width" min="0.5" max="100" step="0.5" value="2" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Opacity</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-stroke-opacity-slider" min="0" max="1" step="0.02" value="0.9" class="cs-mini-range">
+                  <input type="number" id="cs-bf-stroke-opacity" min="0" max="1" step="0.01" value="0.9" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Flow</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-flow-slider" min="1" max="100" step="1" value="100" class="cs-mini-range">
+                  <input type="number" id="cs-bf-flow" min="1" max="100" step="1" value="100" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Hardness</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-hardness-slider" min="0" max="100" step="1" value="95" class="cs-mini-range">
+                  <input type="number" id="cs-bf-hardness" min="0" max="100" step="1" value="95" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Curvature</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-curvature-slider" min="-100" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-curvature" min="-100" max="100" step="1" value="0" class="cs-mini-num">
+                </div>
+              </div>
+            </div>
+
+            <!-- Variance & Jitters -->
+            <div class="cs-card">
+              <div class="cs-card-title">Variance & Parameter Jitters</div>
+              <div class="cs-form-row">
+                <label>Angle Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-angle-jitter-slider" min="0" max="90" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-angle-jitter" min="0" max="90" step="1" value="0" class="cs-mini-num" title="Max ± degrees">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Length Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-length-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-length-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± %">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Width Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-width-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-width-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± %">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Opacity Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-opacity-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-opacity-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± %">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Position Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-position-jitter-slider" min="0" max="50" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-position-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± px">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Curve Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-curvature-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-curvature-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Color Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-color-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-color-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
+                </div>
+              </div>
+            </div>
+
+            <!-- Boundary Bleed & Overshoot -->
+            <div class="cs-card">
+              <div class="cs-card-title">Boundary Bleed & Overshoot</div>
+              <div class="cs-form-row">
+                <label>Clip Mode</label>
+                <select id="cs-bf-clip-mode" class="cs-select">
+                  <option value="bleed">Bleed Overshoot (Loose Sketch)</option>
+                  <option value="strict">Strict Contour Boundary</option>
+                </select>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Bleed Dist</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-bleed-distance-slider" min="0" max="60" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-bleed-distance" min="0" max="200" step="1" value="0" class="cs-mini-num" title="Max px beyond border">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Bleed Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-bleed-jitter-slider" min="0" max="100" step="1" value="50" class="cs-mini-range">
+                  <input type="number" id="cs-bf-bleed-jitter" min="0" max="100" step="1" value="50" class="cs-mini-num" title="Max ± %">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Bleed Prob</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-bleed-probability-slider" min="0" max="100" step="1" value="100" class="cs-mini-range">
+                  <input type="number" id="cs-bf-bleed-probability" min="0" max="100" step="1" value="100" class="cs-mini-num" title="% of strokes that bleed">
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       `;
 
@@ -1444,6 +1963,7 @@
         panelGradient: this.container.querySelector('#cs-panel-gradient'),
         panelTexture: this.container.querySelector('#cs-panel-texture'),
         panelFilter: this.container.querySelector('#cs-panel-filter'),
+        panelBrushFill: this.container.querySelector('#cs-panel-brushfill'),
         // Submode tabs in Color
         submodeBtns: this.container.querySelectorAll('.cs-submode-btn'),
         subpanelPicker: this.container.querySelector('#cs-subpanel-picker'),
@@ -1522,13 +2042,76 @@
         filterOpacity: this.container.querySelector('#cs-filter-opacity'),
         // Presets Select
         materialPresetSelect: this.container.querySelector('#cs-material-preset-select'),
-        btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset')
+        btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset'),
+        // Brush Fill Controls
+        bfEnabled: this.container.querySelector('#cs-bf-enabled'),
+        bfPresetSelect: this.container.querySelector('#cs-bf-preset-select'),
+        btnSaveBfPreset: this.container.querySelector('#cs-btn-save-bf-preset'),
+        bfPattern: this.container.querySelector('#cs-bf-pattern'),
+        bfSpacingSlider: this.container.querySelector('#cs-bf-spacing-slider'),
+        bfSpacing: this.container.querySelector('#cs-bf-spacing'),
+        bfAngleSlider: this.container.querySelector('#cs-bf-angle-slider'),
+        bfAngle: this.container.querySelector('#cs-bf-angle'),
+        bfRowAngle2: this.container.querySelector('#cs-bf-row-angle2'),
+        bfAngle2Slider: this.container.querySelector('#cs-bf-angle2-slider'),
+        bfAngle2: this.container.querySelector('#cs-bf-angle2'),
+        bfRowAngle3: this.container.querySelector('#cs-bf-row-angle3'),
+        bfAngle3Slider: this.container.querySelector('#cs-bf-angle3-slider'),
+        bfAngle3: this.container.querySelector('#cs-bf-angle3'),
+        bfStrokesPerLineSlider: this.container.querySelector('#cs-bf-strokes-per-line-slider'),
+        bfStrokesPerLine: this.container.querySelector('#cs-bf-strokes-per-line'),
+        bfStrokeLengthSlider: this.container.querySelector('#cs-bf-stroke-length-slider'),
+        bfStrokeLength: this.container.querySelector('#cs-bf-stroke-length'),
+        bfStrokeGapSlider: this.container.querySelector('#cs-bf-stroke-gap-slider'),
+        bfStrokeGap: this.container.querySelector('#cs-bf-stroke-gap'),
+        bfBrushPickMode: this.container.querySelector('#cs-bf-brush-pick-mode'),
+        bfBrushTipsContainer: this.container.querySelector('#cs-bf-brush-tips-container'),
+        bfColorMode: this.container.querySelector('#cs-bf-color-mode'),
+        bfColorPickMode: this.container.querySelector('#cs-bf-color-pick-mode'),
+        btnAddBfColor: this.container.querySelector('#cs-btn-add-bf-color'),
+        bfPaletteContainer: this.container.querySelector('#cs-bf-palette-container'),
+        bfStrokeWidthSlider: this.container.querySelector('#cs-bf-stroke-width-slider'),
+        bfStrokeWidth: this.container.querySelector('#cs-bf-stroke-width'),
+        bfStrokeOpacitySlider: this.container.querySelector('#cs-bf-stroke-opacity-slider'),
+        bfStrokeOpacity: this.container.querySelector('#cs-bf-stroke-opacity'),
+        bfFlowSlider: this.container.querySelector('#cs-bf-flow-slider'),
+        bfFlow: this.container.querySelector('#cs-bf-flow'),
+        bfHardnessSlider: this.container.querySelector('#cs-bf-hardness-slider'),
+        bfHardness: this.container.querySelector('#cs-bf-hardness'),
+        bfCurvatureSlider: this.container.querySelector('#cs-bf-curvature-slider'),
+        bfCurvature: this.container.querySelector('#cs-bf-curvature'),
+        bfAngleJitterSlider: this.container.querySelector('#cs-bf-angle-jitter-slider'),
+        bfAngleJitter: this.container.querySelector('#cs-bf-angle-jitter'),
+        bfLengthJitterSlider: this.container.querySelector('#cs-bf-length-jitter-slider'),
+        bfLengthJitter: this.container.querySelector('#cs-bf-length-jitter'),
+        bfWidthJitterSlider: this.container.querySelector('#cs-bf-width-jitter-slider'),
+        bfWidthJitter: this.container.querySelector('#cs-bf-width-jitter'),
+        bfOpacityJitterSlider: this.container.querySelector('#cs-bf-opacity-jitter-slider'),
+        bfOpacityJitter: this.container.querySelector('#cs-bf-opacity-jitter'),
+        bfPositionJitterSlider: this.container.querySelector('#cs-bf-position-jitter-slider'),
+        bfPositionJitter: this.container.querySelector('#cs-bf-position-jitter'),
+        bfCurvatureJitterSlider: this.container.querySelector('#cs-bf-curvature-jitter-slider'),
+        bfCurvatureJitter: this.container.querySelector('#cs-bf-curvature-jitter'),
+        bfColorJitterSlider: this.container.querySelector('#cs-bf-color-jitter-slider'),
+        bfColorJitter: this.container.querySelector('#cs-bf-color-jitter'),
+        bfClipMode: this.container.querySelector('#cs-bf-clip-mode'),
+        bfBleedDistanceSlider: this.container.querySelector('#cs-bf-bleed-distance-slider'),
+        bfBleedDistance: this.container.querySelector('#cs-bf-bleed-distance'),
+        bfBleedJitterSlider: this.container.querySelector('#cs-bf-bleed-jitter-slider'),
+        bfBleedJitter: this.container.querySelector('#cs-bf-bleed-jitter'),
+        bfBleedProbabilitySlider: this.container.querySelector('#cs-bf-bleed-probability-slider'),
+        bfBleedProbability: this.container.querySelector('#cs-bf-bleed-probability'),
+        bfBrushTipsContainer: this.container.querySelector('#cs-bf-brush-tips-container')
       };
 
       this.populateFilterPluginSelect();
       this.renderFilterParams();
       this.renderGradientPresets();
       this.renderMaterialPresetsList();
+      this.populateBrushFillPresetsSelect();
+      this.renderBrushTipChips();
+      this.renderBrushFillPalette();
+      this.syncBrushFillInputs();
     }
 
     bindEvents() {
@@ -1930,6 +2513,108 @@
       d.btnSaveMaterialPreset?.addEventListener('click', () => {
         this.saveCurrentAsMaterialPreset();
       });
+
+      // ── Brush Fill Controls & Presets Events ──
+      d.bfEnabled?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+
+      d.bfPresetSelect?.addEventListener('change', (e) => {
+        const val = e.target.value;
+        const preset = this.findBrushFillPreset(val);
+        if (preset) {
+          this.applyBrushFillPreset(preset);
+        }
+      });
+
+      d.btnSaveBfPreset?.addEventListener('click', () => {
+        this.saveCurrentAsBrushFillPreset();
+      });
+
+      d.bfPattern?.addEventListener('change', () => {
+        this.updateBrushFillPatternVisibility();
+        this.applyBrushFillToSelected(true);
+      });
+
+      const bindBfPair = (sliderEl, numEl) => {
+        if (!sliderEl || !numEl) return;
+        sliderEl.addEventListener('input', (e) => {
+          numEl.value = e.target.value;
+          this.applyBrushFillToSelected(false);
+        });
+        sliderEl.addEventListener('change', (e) => {
+          numEl.value = e.target.value;
+          this.applyBrushFillToSelected(true);
+        });
+        numEl.addEventListener('input', (e) => {
+          sliderEl.value = e.target.value;
+          this.applyBrushFillToSelected(false);
+        });
+        numEl.addEventListener('change', (e) => {
+          sliderEl.value = e.target.value;
+          this.applyBrushFillToSelected(true);
+        });
+      };
+
+      bindBfPair(d.bfSpacingSlider, d.bfSpacing);
+      bindBfPair(d.bfAngleSlider, d.bfAngle);
+      bindBfPair(d.bfAngle2Slider, d.bfAngle2);
+      bindBfPair(d.bfAngle3Slider, d.bfAngle3);
+      bindBfPair(d.bfStrokesPerLineSlider, d.bfStrokesPerLine);
+      bindBfPair(d.bfStrokeLengthSlider, d.bfStrokeLength);
+      bindBfPair(d.bfStrokeGapSlider, d.bfStrokeGap);
+      bindBfPair(d.bfStrokeWidthSlider, d.bfStrokeWidth);
+      bindBfPair(d.bfStrokeOpacitySlider, d.bfStrokeOpacity);
+      bindBfPair(d.bfFlowSlider, d.bfFlow);
+      bindBfPair(d.bfHardnessSlider, d.bfHardness);
+      bindBfPair(d.bfCurvatureSlider, d.bfCurvature);
+      bindBfPair(d.bfAngleJitterSlider, d.bfAngleJitter);
+      bindBfPair(d.bfLengthJitterSlider, d.bfLengthJitter);
+      bindBfPair(d.bfWidthJitterSlider, d.bfWidthJitter);
+      bindBfPair(d.bfOpacityJitterSlider, d.bfOpacityJitter);
+      bindBfPair(d.bfPositionJitterSlider, d.bfPositionJitter);
+      bindBfPair(d.bfCurvatureJitterSlider, d.bfCurvatureJitter);
+      bindBfPair(d.bfColorJitterSlider, d.bfColorJitter);
+      bindBfPair(d.bfBleedDistanceSlider, d.bfBleedDistance);
+      bindBfPair(d.bfBleedJitterSlider, d.bfBleedJitter);
+      bindBfPair(d.bfBleedProbabilitySlider, d.bfBleedProbability);
+
+      d.bfBrushPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfColorMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfColorPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfClipMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+
+      // Multi-Brush Tip Chips (Event Delegation)
+      d.bfBrushTipsContainer?.addEventListener('click', (e) => {
+        const chip = e.target.closest('.cs-chip-btn');
+        if (!chip) return;
+        e.preventDefault();
+        const brush = chip.dataset.brush;
+        if (!brush) return;
+        if (!Array.isArray(this.brushFillConfig.brushList)) {
+          this.brushFillConfig.brushList = ['pencil'];
+        }
+        const idx = this.brushFillConfig.brushList.indexOf(brush);
+        if (idx >= 0) {
+          if (this.brushFillConfig.brushList.length > 1) {
+            this.brushFillConfig.brushList.splice(idx, 1);
+            chip.classList.remove('active');
+          }
+        } else {
+          this.brushFillConfig.brushList.push(brush);
+          chip.classList.add('active');
+        }
+        this.applyBrushFillToSelected(true);
+      });
+
+      // Add Color to Palette
+      d.btnAddBfColor?.addEventListener('click', () => {
+        const col = this.currentHex || '#fabd2f';
+        if (!Array.isArray(this.brushFillConfig.colorPalette)) {
+          this.brushFillConfig.colorPalette = ['#fabd2f'];
+        }
+        this.brushFillConfig.colorPalette.push(col);
+        this.renderBrushFillPalette();
+        this.applyBrushFillToSelected(true);
+      });
     }
 
     setTarget(target) {
@@ -1948,9 +2633,12 @@
       this.dom.panelGradient?.classList.toggle('active', mode === 'gradient');
       this.dom.panelTexture?.classList.toggle('active', mode === 'texture');
       this.dom.panelFilter?.classList.toggle('active', mode === 'filter');
+      this.dom.panelBrushFill?.classList.toggle('active', mode === 'brushfill');
 
       if (mode === 'gradient') {
         this.updateGradientUI();
+      } else if (mode === 'brushfill') {
+        this.updateBrushFillUI();
       } else if (mode === 'color' && this.colorSubMode === 'palettes') {
         this.renderPalettes();
       }
@@ -3013,6 +3701,372 @@
       return Array.from(set);
     }
 
+    // ── Brush Fill Application & Management ──
+
+    updateBrushFillUI() {
+      this.updateBrushFillPatternVisibility();
+      this.renderBrushFillPalette();
+      this.populateBrushFillPresetsSelect();
+      this.syncBrushFillInputs();
+    }
+
+    updateBrushFillPatternVisibility() {
+      const d = this.dom;
+      const pattern = d.bfPattern ? d.bfPattern.value : 'linear';
+      if (d.bfRowAngle2) {
+        d.bfRowAngle2.style.display = (pattern === 'crosshatch' || pattern === 'triple_hatch') ? 'flex' : 'none';
+      }
+      if (d.bfRowAngle3) {
+        d.bfRowAngle3.style.display = (pattern === 'triple_hatch') ? 'flex' : 'none';
+      }
+    }
+
+    getBrushFillConfigFromInputs() {
+      const d = this.dom;
+      return {
+        enabled: d.bfEnabled ? d.bfEnabled.checked : true,
+        pattern: d.bfPattern ? d.bfPattern.value : 'linear',
+        spacing: d.bfSpacing ? Number(d.bfSpacing.value) || 8 : 8,
+        angle: d.bfAngle ? Number(d.bfAngle.value) || 0 : 45,
+        angle2: d.bfAngle2 ? Number(d.bfAngle2.value) || 0 : 135,
+        angle3: d.bfAngle3 ? Number(d.bfAngle3.value) || 0 : 90,
+        strokesPerLine: d.bfStrokesPerLine ? Number(d.bfStrokesPerLine.value) || 1 : 1,
+        strokeLength: d.bfStrokeLength ? Number(d.bfStrokeLength.value) || 0 : 0,
+        strokeGap: d.bfStrokeGap ? Number(d.bfStrokeGap.value) || 0 : 4,
+        brushList: (this.brushFillConfig.brushList && this.brushFillConfig.brushList.length > 0) ? [...this.brushFillConfig.brushList] : ['round'],
+        brushPickMode: d.bfBrushPickMode ? d.bfBrushPickMode.value : 'cycle',
+        colorMode: d.bfColorMode ? d.bfColorMode.value : 'palette',
+        colorPalette: (this.brushFillConfig.colorPalette && this.brushFillConfig.colorPalette.length > 0) ? [...this.brushFillConfig.colorPalette] : ['#fabd2f'],
+        colorPickMode: d.bfColorPickMode ? d.bfColorPickMode.value : 'cycle',
+        strokeWidth: d.bfStrokeWidth ? Number(d.bfStrokeWidth.value) || 2 : 2,
+        strokeOpacity: d.bfStrokeOpacity ? Number(d.bfStrokeOpacity.value) || 0.9 : 0.9,
+        flow: d.bfFlow ? Number(d.bfFlow.value) || 100 : 100,
+        hardness: d.bfHardness ? Number(d.bfHardness.value) || 95 : 95,
+        curvature: d.bfCurvature ? Number(d.bfCurvature.value) || 0 : 0,
+        angleJitter: d.bfAngleJitter ? Number(d.bfAngleJitter.value) || 0 : 0,
+        lengthJitter: d.bfLengthJitter ? Number(d.bfLengthJitter.value) || 0 : 0,
+        widthJitter: d.bfWidthJitter ? Number(d.bfWidthJitter.value) || 0 : 0,
+        opacityJitter: d.bfOpacityJitter ? Number(d.bfOpacityJitter.value) || 0 : 0,
+        positionJitter: d.bfPositionJitter ? Number(d.bfPositionJitter.value) || 0 : 0,
+        curvatureJitter: d.bfCurvatureJitter ? Number(d.bfCurvatureJitter.value) || 0 : 0,
+        colorJitter: d.bfColorJitter ? Number(d.bfColorJitter.value) || 0 : 0,
+        clipMode: d.bfClipMode ? d.bfClipMode.value : 'bleed',
+        bleedDistance: d.bfBleedDistance ? Number(d.bfBleedDistance.value) || 0 : 0,
+        bleedJitter: d.bfBleedJitter ? Number(d.bfBleedJitter.value) || 0 : 50,
+        bleedProbability: d.bfBleedProbability ? Number(d.bfBleedProbability.value) || 0 : 100,
+        seed: this.brushFillConfig.seed || 42
+      };
+    }
+
+    syncBrushFillInputs() {
+      const d = this.dom;
+      const c = this.brushFillConfig || DEFAULT_BRUSH_FILL_CONFIG;
+
+      if (d.bfEnabled) d.bfEnabled.checked = (c.enabled !== undefined ? c.enabled : true);
+      if (d.bfPattern) d.bfPattern.value = c.pattern || 'linear';
+      if (d.bfSpacing) d.bfSpacing.value = c.spacing !== undefined ? c.spacing : 8;
+      if (d.bfSpacingSlider) d.bfSpacingSlider.value = c.spacing !== undefined ? c.spacing : 8;
+      if (d.bfAngle) d.bfAngle.value = c.angle !== undefined ? c.angle : 45;
+      if (d.bfAngleSlider) d.bfAngleSlider.value = c.angle !== undefined ? c.angle : 45;
+      if (d.bfAngle2) d.bfAngle2.value = c.angle2 !== undefined ? c.angle2 : 135;
+      if (d.bfAngle2Slider) d.bfAngle2Slider.value = c.angle2 !== undefined ? c.angle2 : 135;
+      if (d.bfAngle3) d.bfAngle3.value = c.angle3 !== undefined ? c.angle3 : 90;
+      if (d.bfAngle3Slider) d.bfAngle3Slider.value = c.angle3 !== undefined ? c.angle3 : 90;
+      if (d.bfStrokesPerLine) d.bfStrokesPerLine.value = c.strokesPerLine !== undefined ? c.strokesPerLine : 1;
+      if (d.bfStrokesPerLineSlider) d.bfStrokesPerLineSlider.value = c.strokesPerLine !== undefined ? c.strokesPerLine : 1;
+      if (d.bfStrokeLength) d.bfStrokeLength.value = c.strokeLength !== undefined ? c.strokeLength : 0;
+      if (d.bfStrokeLengthSlider) d.bfStrokeLengthSlider.value = c.strokeLength !== undefined ? c.strokeLength : 0;
+      if (d.bfStrokeGap) d.bfStrokeGap.value = c.strokeGap !== undefined ? c.strokeGap : 4;
+      if (d.bfStrokeGapSlider) d.bfStrokeGapSlider.value = c.strokeGap !== undefined ? c.strokeGap : 4;
+      if (d.bfBrushPickMode) d.bfBrushPickMode.value = c.brushPickMode || 'cycle';
+      if (d.bfColorMode) d.bfColorMode.value = c.colorMode || 'palette';
+      if (d.bfColorPickMode) d.bfColorPickMode.value = c.colorPickMode || 'cycle';
+      if (d.bfStrokeWidth) d.bfStrokeWidth.value = c.strokeWidth !== undefined ? c.strokeWidth : 2;
+      if (d.bfStrokeWidthSlider) d.bfStrokeWidthSlider.value = c.strokeWidth !== undefined ? c.strokeWidth : 2;
+      if (d.bfStrokeOpacity) d.bfStrokeOpacity.value = c.strokeOpacity !== undefined ? c.strokeOpacity : 0.9;
+      if (d.bfStrokeOpacitySlider) d.bfStrokeOpacitySlider.value = c.strokeOpacity !== undefined ? c.strokeOpacity : 0.9;
+      if (d.bfFlow) d.bfFlow.value = c.flow !== undefined ? c.flow : 100;
+      if (d.bfFlowSlider) d.bfFlowSlider.value = c.flow !== undefined ? c.flow : 100;
+      if (d.bfHardness) d.bfHardness.value = c.hardness !== undefined ? c.hardness : 95;
+      if (d.bfHardnessSlider) d.bfHardnessSlider.value = c.hardness !== undefined ? c.hardness : 95;
+      if (d.bfCurvature) d.bfCurvature.value = c.curvature !== undefined ? c.curvature : 0;
+      if (d.bfCurvatureSlider) d.bfCurvatureSlider.value = c.curvature !== undefined ? c.curvature : 0;
+      if (d.bfAngleJitter) d.bfAngleJitter.value = c.angleJitter !== undefined ? c.angleJitter : 0;
+      if (d.bfAngleJitterSlider) d.bfAngleJitterSlider.value = c.angleJitter !== undefined ? c.angleJitter : 0;
+      if (d.bfLengthJitter) d.bfLengthJitter.value = c.lengthJitter !== undefined ? c.lengthJitter : 0;
+      if (d.bfLengthJitterSlider) d.bfLengthJitterSlider.value = c.lengthJitter !== undefined ? c.lengthJitter : 0;
+      if (d.bfWidthJitter) d.bfWidthJitter.value = c.widthJitter !== undefined ? c.widthJitter : 0;
+      if (d.bfWidthJitterSlider) d.bfWidthJitterSlider.value = c.widthJitter !== undefined ? c.widthJitter : 0;
+      if (d.bfOpacityJitter) d.bfOpacityJitter.value = c.opacityJitter !== undefined ? c.opacityJitter : 0;
+      if (d.bfOpacityJitterSlider) d.bfOpacityJitterSlider.value = c.opacityJitter !== undefined ? c.opacityJitter : 0;
+      if (d.bfPositionJitter) d.bfPositionJitter.value = c.positionJitter !== undefined ? c.positionJitter : 0;
+      if (d.bfPositionJitterSlider) d.bfPositionJitterSlider.value = c.positionJitter !== undefined ? c.positionJitter : 0;
+      if (d.bfCurvatureJitter) d.bfCurvatureJitter.value = c.curvatureJitter !== undefined ? c.curvatureJitter : 0;
+      if (d.bfCurvatureJitterSlider) d.bfCurvatureJitterSlider.value = c.curvatureJitter !== undefined ? c.curvatureJitter : 0;
+      if (d.bfColorJitter) d.bfColorJitter.value = c.colorJitter !== undefined ? c.colorJitter : 0;
+      if (d.bfColorJitterSlider) d.bfColorJitterSlider.value = c.colorJitter !== undefined ? c.colorJitter : 0;
+      if (d.bfClipMode) d.bfClipMode.value = c.clipMode || 'bleed';
+      if (d.bfBleedDistance) d.bfBleedDistance.value = c.bleedDistance !== undefined ? c.bleedDistance : 0;
+      if (d.bfBleedDistanceSlider) d.bfBleedDistanceSlider.value = c.bleedDistance !== undefined ? c.bleedDistance : 0;
+      if (d.bfBleedJitter) d.bfBleedJitter.value = c.bleedJitter !== undefined ? c.bleedJitter : 50;
+      if (d.bfBleedJitterSlider) d.bfBleedJitterSlider.value = c.bleedJitter !== undefined ? c.bleedJitter : 50;
+      if (d.bfBleedProbability) d.bfBleedProbability.value = c.bleedProbability !== undefined ? c.bleedProbability : 100;
+      if (d.bfBleedProbabilitySlider) d.bfBleedProbabilitySlider.value = c.bleedProbability !== undefined ? c.bleedProbability : 100;
+
+      // Update brush chips active class
+      const activeBrushes = Array.isArray(c.brushList) && c.brushList.length > 0 ? c.brushList : ['pencil'];
+      const tipChips = this.container.querySelectorAll('#cs-bf-brush-tips-container .cs-chip-btn');
+      if (tipChips.length === 0) {
+        this.renderBrushTipChips();
+      } else {
+        tipChips.forEach(chip => {
+          chip.classList.toggle('active', activeBrushes.includes(chip.dataset.brush));
+        });
+      }
+
+      this.updateBrushFillPatternVisibility();
+      this.renderBrushFillPalette();
+    }
+
+    renderBrushTipChips() {
+      if (typeof document === 'undefined' || !this.dom.bfBrushTipsContainer) return;
+      const container = this.dom.bfBrushTipsContainer;
+      container.innerHTML = '';
+
+      let allPresets = {};
+      if (typeof BrushFillEngine !== 'undefined' && typeof BrushFillEngine.getNativeBrushPresets === 'function') {
+        allPresets = BrushFillEngine.getNativeBrushPresets();
+      } else if (typeof BRUSH_PRESETS !== 'undefined') {
+        allPresets = { ...BRUSH_PRESETS };
+      } else if (typeof window !== 'undefined' && window.BRUSH_PRESETS) {
+        allPresets = { ...window.BRUSH_PRESETS };
+      }
+
+      if (!allPresets || Object.keys(allPresets).length === 0) {
+        allPresets = {
+          pencil: { name: 'HB Pencil', category: 'sketch' },
+          soft_pencil: { name: '6B Graphite', category: 'sketch' },
+          tech_pen: { name: 'Technical Pen', category: 'sketch' },
+          gpen: { name: 'Manga G-Pen', category: 'ink' },
+          dry_ink: { name: 'Dry Ink', category: 'ink' },
+          marker: { name: 'Art Marker', category: 'marker' },
+          oil: { name: 'Oil Impasto', category: 'paint' },
+          acrylic: { name: 'Wet Acrylic', category: 'paint' },
+          watercolor: { name: 'Watercolor', category: 'paint' },
+          charcoal: { name: 'Charcoal', category: 'charcoal' },
+          soft_pastel: { name: 'Soft Pastel', category: 'charcoal' },
+          spray: { name: 'Spray Can', category: 'airbrush' }
+        };
+      }
+
+      const activeBrushes = Array.isArray(this.brushFillConfig.brushList) && this.brushFillConfig.brushList.length > 0
+        ? this.brushFillConfig.brushList
+        : ['pencil'];
+
+      Object.entries(allPresets).forEach(([key, preset]) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'cs-chip-btn' + (activeBrushes.includes(key) ? ' active' : '');
+        chip.dataset.brush = key;
+        chip.textContent = preset.name || key;
+        chip.title = `${preset.name || key}: ${preset.desc || 'Native authentic brush dynamics'}`;
+        container.appendChild(chip);
+      });
+    }
+
+    renderBrushFillPalette() {
+      if (typeof document === 'undefined' || !this.dom.bfPaletteContainer) return;
+      const container = this.dom.bfPaletteContainer;
+      container.innerHTML = '';
+      const colors = (this.brushFillConfig.colorPalette && this.brushFillConfig.colorPalette.length > 0)
+        ? this.brushFillConfig.colorPalette
+        : ['#fabd2f'];
+
+      colors.forEach((col, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'cs-palette-chip';
+        chip.style.backgroundColor = col;
+        chip.title = `Color #${idx + 1}: ${col} (Click to edit, Double-click to remove)`;
+
+        chip.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const newColor = prompt(`Edit color #${idx + 1}:`, col);
+          if (newColor && /^#[0-9a-fA-F]{3,8}$/.test(newColor.trim())) {
+            this.brushFillConfig.colorPalette[idx] = newColor.trim();
+            this.renderBrushFillPalette();
+            this.applyBrushFillToSelected(true);
+          }
+        });
+
+        chip.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          if (this.brushFillConfig.colorPalette.length > 1) {
+            this.brushFillConfig.colorPalette.splice(idx, 1);
+            this.renderBrushFillPalette();
+            this.applyBrushFillToSelected(true);
+          }
+        });
+
+        chip.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          if (this.brushFillConfig.colorPalette.length > 1) {
+            this.brushFillConfig.colorPalette.splice(idx, 1);
+            this.renderBrushFillPalette();
+            this.applyBrushFillToSelected(true);
+          }
+        });
+
+        container.appendChild(chip);
+      });
+    }
+
+    populateBrushFillPresetsSelect() {
+      if (typeof document === 'undefined' || !this.dom.bfPresetSelect) return;
+      const sel = this.dom.bfPresetSelect;
+      const currentVal = sel.value;
+      sel.innerHTML = '';
+
+      const defOption = document.createElement('option');
+      defOption.value = '';
+      defOption.disabled = true;
+      defOption.selected = !currentVal;
+      defOption.textContent = 'Preset: Select Brush Fill';
+      sel.appendChild(defOption);
+
+      // Custom presets
+      let customList = [];
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const raw = localStorage.getItem(CUSTOM_BRUSH_FILL_PRESETS_KEY);
+          if (raw) customList = JSON.parse(raw);
+        }
+      } catch (_) {}
+
+      if (customList.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Custom Presets';
+        customList.forEach((p, idx) => {
+          const opt = document.createElement('option');
+          opt.value = `custom_${idx}`;
+          opt.textContent = p.name;
+          if (currentVal === opt.value) opt.selected = true;
+          grp.appendChild(opt);
+        });
+        sel.appendChild(grp);
+      }
+
+      // Built-in presets
+      const builtins = (typeof BrushFillEngine !== 'undefined' && BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS)
+        ? BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS
+        : BUILTIN_BF_PRESETS;
+
+      const grp = document.createElement('optgroup');
+      grp.label = 'Hatch & Multi-Stroke Presets';
+      builtins.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id || p.name;
+        opt.textContent = p.name;
+        if (currentVal === opt.value) opt.selected = true;
+        grp.appendChild(opt);
+      });
+      sel.appendChild(grp);
+    }
+
+    findBrushFillPreset(idOrName) {
+      if (!idOrName) return null;
+      if (typeof idOrName === 'string' && idOrName.startsWith('custom_')) {
+        const idx = parseInt(idOrName.replace('custom_', ''), 10);
+        try {
+          if (typeof localStorage !== 'undefined') {
+            const raw = localStorage.getItem(CUSTOM_BRUSH_FILL_PRESETS_KEY);
+            if (raw) {
+              const list = JSON.parse(raw);
+              return list[idx];
+            }
+          }
+        } catch (_) {}
+      }
+      const builtins = (typeof BrushFillEngine !== 'undefined' && BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS)
+        ? BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS
+        : BUILTIN_BF_PRESETS;
+      return builtins.find(p => p.id === idOrName || p.name === idOrName) || null;
+    }
+
+    applyBrushFillPreset(preset) {
+      if (!preset || !preset.config) return;
+      this.brushFillConfig = { ...this.brushFillConfig, ...preset.config, enabled: true };
+      this.syncBrushFillInputs();
+      this.applyBrushFillToSelected(true);
+    }
+
+    saveCurrentAsBrushFillPreset() {
+      const name = prompt('Enter a name for the new brush fill preset:');
+      if (!name || !name.trim()) return;
+      const cleanName = name.trim();
+      const newPreset = {
+        id: 'custom_' + Date.now(),
+        name: cleanName,
+        config: { ...this.getBrushFillConfigFromInputs() }
+      };
+
+      try {
+        if (typeof localStorage !== 'undefined') {
+          let list = [];
+          const raw = localStorage.getItem(CUSTOM_BRUSH_FILL_PRESETS_KEY);
+          if (raw) list = JSON.parse(raw);
+          list.push(newPreset);
+          localStorage.setItem(CUSTOM_BRUSH_FILL_PRESETS_KEY, JSON.stringify(list));
+        }
+      } catch (err) {
+        console.error('Failed to save brush fill preset:', err);
+      }
+
+      this.populateBrushFillPresetsSelect();
+    }
+
+    applyBrushFillToSelected(commit = false) {
+      if (this._isSyncing) return;
+      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+      const activeDoc = getDoc();
+      if (!activeDoc) return;
+
+      const cfg = this.getBrushFillConfigFromInputs();
+      this.brushFillConfig = { ...cfg };
+
+      if (this.activeTarget === 'bg') {
+        activeDoc.backgroundBrushFill = { ...cfg };
+        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+        if (commit) {
+          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Brush Fill');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+        }
+        return;
+      }
+
+      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
+      if (selected.length === 0) {
+        activeDoc.defaultBrushFill = { ...cfg };
+      }
+
+      for (const obj of selected) {
+        obj.brushFill = { ...cfg };
+        if (cfg.enabled) {
+          obj.fillType = 'brush';
+        } else if (obj.fillType === 'brush') {
+          obj.fillType = 'solid';
+        }
+      }
+
+      if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+      if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+
+      if (commit && selected.length > 0) {
+        if (activeDoc.pushHistory) activeDoc.pushHistory('Apply Brush Fill');
+        if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+      }
+    }
+
     // ── Zero-Lag Sync from Viewport Selection ──
 
     syncFromSelection(force = false) {
@@ -3190,6 +4244,18 @@
           if (this.dom.filterOpacity) this.dom.filterOpacity.value = String(this.filterOpacity);
           if (this.dom.filterOpacitySlider) this.dom.filterOpacitySlider.value = String(this.filterOpacity);
           this.renderFilterParams();
+        }
+
+        // Sync Brush Fill
+        const bfObj = this.activeTarget === 'bg'
+          ? (activeDoc?.backgroundBrushFill || DEFAULT_BRUSH_FILL_CONFIG)
+          : (primary?.brushFill || activeDoc?.defaultBrushFill || DEFAULT_BRUSH_FILL_CONFIG);
+        if (bfObj) {
+          this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...bfObj };
+          if (primary && primary.fillType === 'brush') {
+            this.brushFillConfig.enabled = true;
+          }
+          this.syncBrushFillInputs();
         }
 
         this.updateTargetChips();
@@ -3466,6 +4532,43 @@
       .cs-btn-mini.danger:hover {
         border-color: #fb4934;
         color: #fb4934;
+      }
+      .cs-chip-btn {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 7px;
+        font-size: 9.5px;
+        background: var(--bg-input, #121314);
+        border: 1px solid var(--border, #2e3234);
+        color: var(--text-dim, #d5c4a1);
+        border-radius: 3px;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.12s ease;
+      }
+      .cs-chip-btn:hover {
+        border-color: var(--border-bright, #484d50);
+        color: var(--text-bright, #fbf1c7);
+      }
+      .cs-chip-btn.active {
+        background: var(--primary-dim, rgba(250, 189, 47, 0.16));
+        border-color: var(--primary, #fabd2f);
+        color: var(--primary, #fabd2f);
+        font-weight: 600;
+      }
+      .cs-palette-chip {
+        width: 18px;
+        height: 18px;
+        border-radius: 3px;
+        border: 1px solid var(--border, #2e3234);
+        cursor: pointer;
+        position: relative;
+        flex-shrink: 0;
+        transition: transform 0.1s ease, border-color 0.1s ease;
+      }
+      .cs-palette-chip:hover {
+        border-color: #ffffff;
+        transform: scale(1.15);
       }
       /* SV Box */
       .cs-sv-box {

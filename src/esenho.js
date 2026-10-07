@@ -10331,6 +10331,7 @@ EsenhoScreenHost.COMMAND_RULES = COMMAND_RULES;
 const _exports = {
   EsenhoModule,
   EsenhoScreenHost,
+  BRUSH_PRESETS,
   PARAM_IDS,
   COMMAND_RULES,
   getPapagaio,

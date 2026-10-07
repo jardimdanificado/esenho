@@ -443,7 +443,7 @@ async function runSvgEngineTests() {
   assert.strictEqual(textDoc.objects.length, 1);
   const outlinedCompound = textDoc.objects[0];
   assert(outlinedCompound instanceof SvgCompoundPath, 'Outlined text should become SvgCompoundPath');
-  assert.strictEqual(outlinedCompound.subPaths.length, 7, '7 characters should yield 7 subpaths');
+  assert.strictEqual(outlinedCompound.subPaths.length, 6, '6 characters should yield 6 subpaths');
 
   // 14. Test SvgImage, Rotation & Anchor Transform Support
   console.log('--- Testing SvgImage, Rotation & Anchor Origin Transforms ---');

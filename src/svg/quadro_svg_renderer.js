@@ -10,11 +10,12 @@
   if (typeof module === 'object' && module.exports) {
     const { EsenhoModule } = require('../esenho.js');
     const SvgEngine = require('./svg_engine.js');
-    module.exports = factory(EsenhoModule, SvgEngine);
+    const BrushFillEngine = require('../brush_fill_engine.js');
+    module.exports = factory(EsenhoModule, SvgEngine, BrushFillEngine);
   } else {
-    root.QuadroSvgRenderer = factory(root.EsenhoModule, root.SvgEngine);
+    root.QuadroSvgRenderer = factory(root.EsenhoModule, root.SvgEngine, root.BrushFillEngine || (root.esenho && root.esenho.BrushFillEngine));
   }
-}(typeof self !== 'undefined' ? self : this, function (EsenhoModule, SvgEngine) {
+}(typeof self !== 'undefined' ? self : this, function (EsenhoModule, SvgEngine, BrushFillEngine) {
   'use strict';
 
   function parseCssColorToArgb(colorStr, alphaMultiplier = 1.0) {
@@ -1352,13 +1353,79 @@
     }
 
     _renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity) {
-      const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid');
+      const isBrushFill = obj.fillType === 'brush' || (obj.brushFill && obj.brushFill.enabled);
+      const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid') || isBrushFill;
       if (!hasFill) return;
 
       const fillAlpha = (obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0) * totalOpacity;
       const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
       const gradient = (obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null;
 
+      // 1. Procedural Brush Fill / Multi-Stroke Hatching
+      if (isBrushFill && rotatedPolys && rotatedPolys.length > 0) {
+        // If there's a non-empty solid base background under the brush fill, render it first
+        if (obj.fill && obj.fill !== 'none' && obj.fill !== 'transparent' && fillAlpha > 0 && obj.fillType !== 'brush') {
+          this.fillCompoundPolygons(rotatedPolys, pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
+        }
+
+        let Engine = BrushFillEngine || (typeof window !== 'undefined' && (window.BrushFillEngine || (window.esenho && window.esenho.BrushFillEngine))) || (typeof globalThis !== 'undefined' && globalThis.BrushFillEngine);
+        if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
+        if (Engine && typeof Engine.generateStrokes === 'function') {
+          const brushFillCfg = obj.brushFill || {};
+          const strokes = Engine.generateStrokes(rotatedPolys, brushFillCfg);
+          for (let sIdx = 0; sIdx < strokes.length; sIdx++) {
+            const stroke = strokes[sIdx];
+            const strokeA = (stroke.opacity !== undefined ? stroke.opacity : 1.0) * totalOpacity;
+            const strokeColor = stroke.color || obj.fill || '#fabd2f';
+            const sArgb = parseCssColorToArgb(strokeColor, strokeA);
+            if ((sArgb >>> 24) === 0) continue;
+
+            const sWidth = Math.max(1, Math.round((stroke.width || 2) * scale));
+            const strokeBrushConfig = (stroke.brushTip && stroke.brushTip.brushConfig) ? stroke.brushTip.brushConfig : {};
+            const shapeName = (strokeBrushConfig.shape || (stroke.brushTip && stroke.brushTip.shape)) ? String(strokeBrushConfig.shape || stroke.brushTip.shape).toLowerCase() : 'round';
+            const shapeMap = { round: 0, circle: 0, square: 1, ellipse: 2, oval: 2, pencil: 3, charcoal: 4, acrylic: 5, watercolor: 6, chisel: 1, fan: 5, bristle: 5, dry_brush: 4, dagger: 2 };
+            const shapeId = typeof strokeBrushConfig.shape === 'number' ? strokeBrushConfig.shape : (shapeMap[shapeName] !== undefined ? shapeMap[shapeName] : 0);
+
+            const bConfig = {
+              hardness: stroke.brushTip?.hardness !== undefined ? stroke.brushTip.hardness : (stroke.hardness !== undefined ? stroke.hardness : 95),
+              flow: stroke.brushTip?.flow !== undefined ? stroke.brushTip.flow : (stroke.flow !== undefined ? stroke.flow : 100),
+              spacing: strokeBrushConfig.spacing || 5,
+              shape: shapeId,
+              roundness: strokeBrushConfig.roundness !== undefined ? strokeBrushConfig.roundness : 100,
+              ...strokeBrushConfig
+            };
+            const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : obj.strokeTexture;
+
+            if (stroke.type === 'curve' && stroke.cp) {
+              // Subdivide quadratic curve into small polyline
+              const p0 = stroke.p0;
+              const cp = stroke.cp;
+              const p1 = stroke.p1;
+              const curvePoly = [];
+              const steps = 6;
+              for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const it = 1 - t;
+                curvePoly.push({
+                  x: it * it * p0.x + 2 * it * t * cp.x + t * t * p1.x,
+                  y: it * it * p0.y + 2 * it * t * cp.y + t * t * p1.y
+                });
+              }
+              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            } else if (stroke.type === 'dot') {
+              const dabPt = stroke.p0 || { x: stroke.cx || 0, y: stroke.cy || 0 };
+              this.strokePolyline([dabPt], sArgb, Math.max(1, Math.round((stroke.width || 2) * scale)), false, bConfig, strokeTex, scale);
+            } else {
+              // Standard straight line stroke
+              const linePoly = [stroke.p0, stroke.p1];
+              this.strokePolyline(linePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            }
+          }
+          return;
+        }
+      }
+
+      // 2. Standard solid/gradient/texture fill
       if (rotatedPolys && rotatedPolys.length > 0) {
         this.fillCompoundPolygons(rotatedPolys, pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
       }
