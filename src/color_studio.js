@@ -254,6 +254,210 @@
     } catch (_) {}
   }
 
+  // ── 2.1. Built-in WASM Filter Plugin Metadata ──
+
+  const BUILTIN_FILTER_METADATA = {
+    bloom: {
+      title: 'Bloom Glow',
+      params: [
+        { name: 'Luma Threshold', min: 80, max: 240, default: 160 },
+        { name: 'Glow Radius', min: 2, max: 30, default: 8, unit: 'px' }
+      ]
+    },
+    blur: {
+      title: 'Box Blur',
+      params: [
+        { name: 'Radius', min: 1, max: 40, default: 5, unit: 'px' },
+        { name: 'Passes', min: 1, max: 5, default: 1 }
+      ]
+    },
+    brightness: {
+      title: 'Brightness',
+      params: [
+        { name: 'Delta', min: -100, max: 100, default: 30 }
+      ]
+    },
+    chromatic: {
+      title: 'Chromatic Aberration',
+      params: [
+        { name: 'Shift Radius', min: 1, max: 40, default: 8, unit: 'px' },
+        { name: 'Mode (0=Radial, 1=Hori)', min: 0, max: 1, default: 0 }
+      ]
+    },
+    contrast: {
+      title: 'Contrast',
+      params: [
+        { name: 'Factor', min: -80, max: 80, default: 30 }
+      ]
+    },
+    dither: {
+      title: 'Ordered Dither',
+      params: [
+        { name: 'Luma Bias', min: -64, max: 64, default: 0 },
+        { name: 'Invert', min: 0, max: 1, default: 0 }
+      ]
+    },
+    duotone: {
+      title: 'Duotone Gradient',
+      params: [
+        { name: 'Palette (0=Cyber, 1=Synth, 2=Matrix, 3=Gold)', min: 0, max: 3, default: 0 },
+        { name: 'Contrast', min: 50, max: 200, default: 110 }
+      ]
+    },
+    edge: {
+      title: 'Edge Detection',
+      params: [
+        { name: 'Sensitivity', min: 5, max: 150, default: 30 },
+        { name: 'Paper Sketch', min: 0, max: 1, default: 0 }
+      ]
+    },
+    emboss: {
+      title: '3D Emboss',
+      params: [
+        { name: 'Relief Depth', min: 1, max: 10, default: 2 },
+        { name: 'Light Angle (0..3)', min: 0, max: 3, default: 0 }
+      ]
+    },
+    fisheye: {
+      title: 'Fisheye Lens',
+      params: [
+        { name: 'Lens Power', min: -50, max: 50, default: 25 },
+        { name: 'Zoom %', min: 50, max: 200, default: 100, unit: '%' }
+      ]
+    },
+    frosted_glass: {
+      title: 'Frosted Glass',
+      params: [
+        { name: 'Refraction Jitter', min: 2, max: 25, default: 8, unit: 'px' },
+        { name: 'Dispersion Softness', min: 1, max: 5, default: 2 }
+      ]
+    },
+    glitch: {
+      title: 'VHS Glitch',
+      params: [
+        { name: 'Jitter Intensity', min: 5, max: 50, default: 20 },
+        { name: 'Chroma Split', min: 1, max: 30, default: 10, unit: 'px' }
+      ]
+    },
+    grayscale: {
+      title: 'Grayscale',
+      params: [
+        { name: 'Intensity', min: 0, max: 100, default: 100, unit: '%' },
+        { name: 'Mode (0=Luma, 1=Avg, 2=Light)', min: 0, max: 2, default: 0 }
+      ]
+    },
+    halftone_dot: {
+      title: 'Halftone Screen Dots',
+      params: [
+        { name: 'Dot Cell Size', min: 3, max: 24, default: 6, unit: 'px' },
+        { name: 'Invert (0=Dark, 1=Light)', min: 0, max: 1, default: 0 }
+      ]
+    },
+    invert: {
+      title: 'Invert',
+      params: [
+        { name: 'Intensity', min: 0, max: 100, default: 100, unit: '%' },
+        { name: 'Channel (0=All, 1=R, 2=G, 3=B)', min: 0, max: 3, default: 0 }
+      ]
+    },
+    kaleidoscope: {
+      title: 'Kaleidoscope Lens',
+      params: [
+        { name: 'Sectors', min: 3, max: 12, default: 6 },
+        { name: 'Angle Offset', min: 0, max: 180, default: 0, unit: '°' }
+      ]
+    },
+    kuwahara: {
+      title: 'Oil Painting (Kuwahara)',
+      params: [
+        { name: 'Brush Size', min: 2, max: 8, default: 3, unit: 'px' },
+        { name: 'Variance Bias', min: 0, max: 10, default: 0 }
+      ]
+    },
+    noise: {
+      title: 'Film Grain / Noise',
+      params: [
+        { name: 'Amount', min: 1, max: 100, default: 25 },
+        { name: 'Monochrome', min: 0, max: 1, default: 0 }
+      ]
+    },
+    pixelate: {
+      title: 'Pixelate Mosaic',
+      params: [
+        { name: 'Block Size', min: 2, max: 64, default: 8, unit: 'px' }
+      ]
+    },
+    ripple: {
+      title: 'Water Ripple Lens',
+      params: [
+        { name: 'Wave Frequency', min: 5, max: 60, default: 20 },
+        { name: 'Amplitude', min: 1, max: 30, default: 8, unit: 'px' }
+      ]
+    },
+    scanline: {
+      title: 'CRT Scanlines',
+      params: [
+        { name: 'Scanline Darkness %', min: 10, max: 80, default: 40, unit: '%' },
+        { name: 'RGB Phosphor Mask', min: 0, max: 1, default: 1 }
+      ]
+    },
+    sepia: {
+      title: 'Sepia Vintage',
+      params: [
+        { name: 'Intensity', min: 0, max: 100, default: 100, unit: '%' }
+      ]
+    },
+    sharpen: {
+      title: 'Sharpen (Unsharp Mask)',
+      params: [
+        { name: 'Amount %', min: 10, max: 200, default: 80, unit: '%' },
+        { name: 'Threshold', min: 0, max: 50, default: 5 }
+      ]
+    },
+    solarize: {
+      title: 'Solarize (Sabattier)',
+      params: [
+        { name: 'Inflection Level', min: 30, max: 220, default: 128 },
+        { name: 'Mode (0=RGB, 1=Luma)', min: 0, max: 1, default: 0 }
+      ]
+    },
+    swirl: {
+      title: 'Swirl Vortex',
+      params: [
+        { name: 'Twist Angle', min: -360, max: 360, default: 90, unit: '°' },
+        { name: 'Radius %', min: 10, max: 100, default: 80, unit: '%' }
+      ]
+    },
+    thermal: {
+      title: 'Thermal Vision',
+      params: [
+        { name: 'Contrast Boost', min: 50, max: 200, default: 100 },
+        { name: 'Palette (0=Ironbow, 1=Neon)', min: 0, max: 1, default: 0 }
+      ]
+    },
+    threshold: {
+      title: 'Binary Threshold',
+      params: [
+        { name: 'Cutoff Level', min: 1, max: 255, default: 128 },
+        { name: 'Invert', min: 0, max: 1, default: 0 }
+      ]
+    },
+    vignette: {
+      title: 'Vignette Lens',
+      params: [
+        { name: 'Inner Radius %', min: 10, max: 90, default: 50, unit: '%' },
+        { name: 'Darkness %', min: 10, max: 100, default: 70, unit: '%' }
+      ]
+    },
+    water_foam: {
+      title: 'Water & Shore Foam',
+      params: [
+        { name: 'Foam Reach', min: 2, max: 35, default: 12, unit: 'px' },
+        { name: 'Wave Distortion', min: 1, max: 25, default: 6, unit: 'px' }
+      ]
+    }
+  };
+
   // ── 3. High-Performance Materials Studio Component ──
 
   class ColorStudioWidget {
@@ -305,10 +509,12 @@
 
       // WASM FX State
       this.filterEnabled = false;
+      this.filterIsLens = false;
       this.filterTarget = 'fill';
       this.filterPlugin = 'bloom';
       this.filterP1 = 0;
       this.filterP2 = 0;
+      this.filterParams = [];
       this.filterOpacity = 1.0;
 
       // Caches for zero-lag diffing
@@ -507,12 +713,12 @@
 
               <div class="cs-form-row">
                 <label>Opacity</label>
-                <input type="number" id="cs-grad-stop-opacity" min="0" max="1" step="0.05" value="1.0" class="cs-text-input">
+                <input type="number" id="cs-grad-stop-opacity" min="0" max="1" step="any" value="1.0" class="cs-text-input">
               </div>
 
               <div class="cs-form-row">
                 <label>Intensity</label>
-                <input type="number" id="cs-grad-stop-intensity" min="0.1" max="10" step="0.1" value="1.0" title="HDR / Bloom Multiplier" class="cs-text-input">
+                <input type="number" id="cs-grad-stop-intensity" min="0.1" max="10" step="any" value="1.0" title="HDR / Bloom Multiplier" class="cs-text-input">
               </div>
 
               <div class="cs-form-row" id="cs-grad-angle-row">
@@ -525,7 +731,7 @@
 
               <div class="cs-form-row" id="cs-grad-radius-row" style="display: none;">
                 <label>Radius</label>
-                <input type="number" id="cs-grad-radius" min="0.01" max="10" step="0.05" value="0.5" class="cs-text-input">
+                <input type="number" id="cs-grad-radius" min="0.01" max="10" step="any" value="0.5" class="cs-text-input">
               </div>
             </div>
 
@@ -718,59 +924,24 @@
               </div>
 
               <div class="cs-form-row">
-                <label>Target</label>
-                <select id="cs-filter-target" class="cs-select">
-                  <option value="fill">Fill Surface</option>
-                  <option value="stroke">Stroke Outline</option>
-                  <option value="backdrop">Backdrop Lens</option>
-                </select>
+                <label>Backdrop Lens</label>
+                <input type="checkbox" id="cs-filter-is-lens" style="accent-color: var(--primary, #fabd2f);">
               </div>
 
               <div class="cs-form-row">
                 <label>Plugin</label>
-                <select id="cs-filter-plugin" class="cs-select">
-                  <option value="bloom">Bloom Glow</option>
-                  <option value="blur">Box Blur</option>
-                  <option value="brightness">Brightness</option>
-                  <option value="chromatic">Chromatic Aberration</option>
-                  <option value="contrast">Contrast</option>
-                  <option value="dither">Ordered Dither</option>
-                  <option value="duotone">Duotone Gradient</option>
-                  <option value="edge">Edge Detection</option>
-                  <option value="emboss">3D Emboss</option>
-                  <option value="fisheye">Fisheye Lens</option>
-                  <option value="frosted_glass">Frosted Glass</option>
-                  <option value="glitch">VHS Glitch</option>
-                  <option value="grayscale">Grayscale</option>
-                  <option value="halftone_dot">Halftone Screen Dots</option>
-                  <option value="invert">Invert</option>
-                  <option value="kaleidoscope">Kaleidoscope Lens</option>
-                  <option value="kuwahara">Oil Painting (Kuwahara)</option>
-                  <option value="noise">Film Grain / Noise</option>
-                  <option value="pixelate">Pixelate Mosaic</option>
-                  <option value="ripple">Water Ripple Lens</option>
-                  <option value="scanline">CRT Scanlines</option>
-                  <option value="sepia">Sepia Vintage</option>
-                  <option value="sharpen">Sharpen (Unsharp Mask)</option>
-                  <option value="solarize">Solarize (Sabattier)</option>
-                  <option value="swirl">Swirl Vortex</option>
-                  <option value="thermal">Thermal Vision</option>
-                  <option value="threshold">Binary Threshold</option>
-                  <option value="vignette">Vignette Lens</option>
-                </select>
+                <select id="cs-filter-plugin" class="cs-select"></select>
               </div>
 
-              <div class="cs-form-row">
-                <label>P1 / P2</label>
-                <div style="display: flex; gap: 4px; flex: 1;">
-                  <input type="number" id="cs-filter-p1" placeholder="P1" step="any" value="0" class="cs-text-input" style="width: 50%;">
-                  <input type="number" id="cs-filter-p2" placeholder="P2" step="any" value="0" class="cs-text-input" style="width: 50%;">
-                </div>
-              </div>
+              <!-- Dynamic Plugin Parameters Container -->
+              <div id="cs-filter-params-container" style="display: flex; flex-direction: column; gap: 5px;"></div>
 
               <div class="cs-form-row">
                 <label>FX Opacity</label>
-                <input type="number" id="cs-filter-opacity" min="0" max="1" step="0.05" value="1.0" class="cs-text-input">
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-filter-opacity-slider" min="0" max="1" step="0.01" value="1.0" class="cs-mini-range">
+                  <input type="number" id="cs-filter-opacity" min="0" max="1" step="any" value="1.0" class="cs-mini-num">
+                </div>
               </div>
             </div>
           </div>
@@ -876,16 +1047,18 @@
         texInvert: this.container.querySelector('#cs-tex-invert'),
         // Filter Controls
         filterEnabled: this.container.querySelector('#cs-filter-enabled'),
-        filterTarget: this.container.querySelector('#cs-filter-target'),
+        filterIsLens: this.container.querySelector('#cs-filter-is-lens'),
         filterPlugin: this.container.querySelector('#cs-filter-plugin'),
-        filterP1: this.container.querySelector('#cs-filter-p1'),
-        filterP2: this.container.querySelector('#cs-filter-p2'),
+        filterParamsContainer: this.container.querySelector('#cs-filter-params-container'),
+        filterOpacitySlider: this.container.querySelector('#cs-filter-opacity-slider'),
         filterOpacity: this.container.querySelector('#cs-filter-opacity'),
         // Presets List
         materialPresetsList: this.container.querySelector('#cs-material-presets-list'),
         btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset')
       };
 
+      this.populateFilterPluginSelect();
+      this.renderFilterParams();
       this.renderGradientPresets();
       this.renderMaterialPresetsList();
     }
@@ -958,11 +1131,18 @@
       });
       d.sliderHue?.addEventListener('change', () => this.commitToHistory());
 
+      d.sliderAlpha?.addEventListener('pointerdown', () => { this._isDragging = true; });
       d.sliderAlpha?.addEventListener('input', (e) => {
+        this._isDragging = true;
         this.currentA = Number(e.target.value) / 100;
         this.applyToSelected(false);
       });
-      d.sliderAlpha?.addEventListener('change', () => this.commitToHistory());
+      d.sliderAlpha?.addEventListener('change', () => {
+        this._isDragging = false;
+        this.commitToHistory();
+      });
+      d.sliderAlpha?.addEventListener('pointerup', () => { this._isDragging = false; });
+      d.sliderAlpha?.addEventListener('pointercancel', () => { this._isDragging = false; });
 
       // 8. RGB Sliders
       const bindRgb = (sl, num, channel) => {
@@ -1232,30 +1412,43 @@
         this.applyFilterToSelected(true);
       });
 
-      d.filterTarget?.addEventListener('change', (e) => {
-        this.filterTarget = e.target.value;
+      d.filterIsLens?.addEventListener('change', (e) => {
+        this.filterIsLens = e.target.checked;
         this.applyFilterToSelected(true);
       });
 
       d.filterPlugin?.addEventListener('change', (e) => {
         this.filterPlugin = e.target.value;
+        const info = this.getPluginInfo(this.filterPlugin);
+        const params = (info && Array.isArray(info.params)) ? info.params : [];
+        this.filterP1 = params[0]?.default !== undefined ? params[0].default : (params[0]?.min || 0);
+        this.filterP2 = params[1]?.default !== undefined ? params[1].default : (params[1]?.min || 0);
+        this.filterParams = params.map(p => p.default !== undefined ? p.default : (p.min || 0));
+        this.renderFilterParams();
         this.applyFilterToSelected(true);
       });
 
-      ['P1', 'P2'].forEach(param => {
-        const el = d[`filter${param}`];
-        el?.addEventListener('input', (e) => {
-          this[`filter${param}`] = Number(e.target.value);
-          this.applyFilterToSelected(false);
-        });
-        el?.addEventListener('change', () => this.applyFilterToSelected(true));
+      d.filterOpacitySlider?.addEventListener('input', (e) => {
+        this.filterOpacity = Number(e.target.value);
+        if (d.filterOpacity) d.filterOpacity.value = String(this.filterOpacity);
+        this.applyFilterToSelected(false);
+      });
+      d.filterOpacitySlider?.addEventListener('change', (e) => {
+        this.filterOpacity = Number(e.target.value);
+        if (d.filterOpacity) d.filterOpacity.value = String(this.filterOpacity);
+        this.applyFilterToSelected(true);
       });
 
       d.filterOpacity?.addEventListener('input', (e) => {
         this.filterOpacity = Number(e.target.value);
+        if (d.filterOpacitySlider) d.filterOpacitySlider.value = String(this.filterOpacity);
         this.applyFilterToSelected(false);
       });
-      d.filterOpacity?.addEventListener('change', () => this.applyFilterToSelected(true));
+      d.filterOpacity?.addEventListener('change', (e) => {
+        this.filterOpacity = Number(e.target.value);
+        if (d.filterOpacitySlider) d.filterOpacitySlider.value = String(this.filterOpacity);
+        this.applyFilterToSelected(true);
+      });
 
       // ── Material Presets Events ──
       d.btnSaveMaterialPreset?.addEventListener('click', () => {
@@ -1339,7 +1532,9 @@
         d.sliderHue.value = this.currentH;
       }
       if (d.sliderAlpha) {
-        d.sliderAlpha.value = Math.round(this.currentA * 100);
+        const aVal = (this.currentA !== undefined) ? this.currentA : 1.0;
+        d.sliderAlpha.value = Math.round(aVal * 100);
+        d.sliderAlpha.style.background = `linear-gradient(to right, transparent, ${this.currentHex || '#fabd2f'}), repeating-conic-gradient(#3c3836 0% 25%, #282828 0% 50%) 50% / 8px 8px`;
       }
       if (d.hexInput && (typeof document === 'undefined' || document.activeElement !== d.hexInput)) {
         d.hexInput.value = this.isTargetNone ? 'NONE' : this.currentHex;
@@ -1397,97 +1592,110 @@
 
     applyToSelected(commit = false) {
       if (this._isSyncing) return;
-      const val = this.isTargetNone ? 'none' : this.currentHex;
-      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
-      const activeDoc = getDoc();
+      this._isApplying = true;
+      try {
+        const val = this.isTargetNone ? 'none' : this.currentHex;
+        const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
+        const activeDoc = getDoc();
 
-      if (this.activeTarget === 'fill') {
-        const textEl = getDomEl('prop-fill-text');
-        const colorEl = getDomEl('prop-fill-color');
-        const opEl = getDomEl('prop-fill-opacity');
-        if (textEl) textEl.value = val;
-        if (colorEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) colorEl.value = val;
-        if (opEl) opEl.value = this.currentA;
+        if (this.activeTarget === 'fill') {
+          const textEl = getDomEl('prop-fill-text');
+          const colorEl = getDomEl('prop-fill-color');
+          const opEl = getDomEl('prop-fill-opacity');
+          if (textEl) textEl.value = val;
+          if (colorEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) colorEl.value = val;
+          if (opEl && this.currentA !== undefined) opEl.value = this.currentA;
 
-        if (typeof window !== 'undefined' && typeof window.applyFillToSelected === 'function') {
-          window.applyFillToSelected(val);
-        } else if (typeof applyFillToSelected === 'function') {
-          applyFillToSelected(val);
-        }
-
-        if (activeDoc && typeof activeDoc.getSelectedObjects === 'function') {
-          const selected = activeDoc.getSelectedObjects();
-          if (selected.length > 0) {
-            for (const obj of selected) {
-              obj.fill = val;
-              if (val !== 'none' && obj.fillType && obj.fillType !== 'solid') obj.fillType = 'solid';
-              if (this.currentA !== undefined && this.currentA < 1.0) obj.fillOpacity = this.currentA;
-              if (obj.type === 'group' && Array.isArray(obj.children)) {
-                for (const child of obj.children) {
-                  child.fill = val;
-                  if (val !== 'none' && child.fillType && child.fillType !== 'solid') child.fillType = 'solid';
+          if (activeDoc && typeof activeDoc.getSelectedObjects === 'function') {
+            const selected = activeDoc.getSelectedObjects();
+            if (selected.length > 0) {
+              for (const obj of selected) {
+                obj.fill = val;
+                if (val !== 'none' && obj.fillType && obj.fillType !== 'solid') obj.fillType = 'solid';
+                if (this.currentA !== undefined) obj.fillOpacity = this.currentA;
+                if (obj.type === 'group' && Array.isArray(obj.children)) {
+                  for (const child of obj.children) {
+                    child.fill = val;
+                    if (val !== 'none' && child.fillType && child.fillType !== 'solid') child.fillType = 'solid';
+                    if (this.currentA !== undefined) child.fillOpacity = this.currentA;
+                  }
                 }
               }
+            } else {
+              activeDoc.defaultFill = val;
+              if (this.currentA !== undefined) activeDoc.defaultFillOpacity = this.currentA;
             }
             if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
             if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
           }
-        }
 
-        if (commit) {
-          if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Fill Color');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-        }
-      } else if (this.activeTarget === 'bg') {
-        const bgTextEl = getDomEl('prop-doc-bg');
-        const bgPickerEl = getDomEl('prop-doc-bg-picker');
-        if (bgTextEl) bgTextEl.value = val;
-        if (bgPickerEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) bgPickerEl.value = val;
+          if (commit) {
+            if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Fill Color');
+            if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+          }
+        } else if (this.activeTarget === 'bg') {
+          const bgTextEl = getDomEl('prop-doc-bg');
+          const bgPickerEl = getDomEl('prop-doc-bg-picker');
+          if (bgTextEl) bgTextEl.value = val;
+          if (bgPickerEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) bgPickerEl.value = val;
 
-        if (activeDoc) {
-          activeDoc.backgroundColor = val;
-          if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-          if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-        }
-        if (commit) {
-          if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Background Color');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-        }
-      } else {
-        const textEl = getDomEl('prop-stroke-text');
-        const colorEl = getDomEl('prop-stroke-color');
-        if (textEl) textEl.value = val;
-        if (colorEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) colorEl.value = val;
+          if (activeDoc) {
+            activeDoc.backgroundColor = val;
+            activeDoc.backgroundType = 'solid';
+            if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+            if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+          }
+          if (commit) {
+            if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Background Color');
+            if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+          }
+        } else {
+          const textEl = getDomEl('prop-stroke-text');
+          const colorEl = getDomEl('prop-stroke-color');
+          const opEl = getDomEl('prop-stroke-opacity');
+          if (textEl) textEl.value = val;
+          if (colorEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) colorEl.value = val;
+          if (opEl && this.currentA !== undefined) opEl.value = this.currentA;
 
-        if (typeof window !== 'undefined' && typeof window.applyStrokeToSelected === 'function') {
-          window.applyStrokeToSelected(val);
-        } else if (typeof applyStrokeToSelected === 'function') {
-          applyStrokeToSelected(val);
-        }
-
-        if (activeDoc && typeof activeDoc.getSelectedObjects === 'function') {
-          const selected = activeDoc.getSelectedObjects();
-          if (selected.length > 0) {
-            for (const obj of selected) {
-              obj.stroke = val;
-              if (obj.type === 'group' && Array.isArray(obj.children)) {
-                for (const child of obj.children) child.stroke = val;
+          if (activeDoc && typeof activeDoc.getSelectedObjects === 'function') {
+            const selected = activeDoc.getSelectedObjects();
+            if (selected.length > 0) {
+              for (const obj of selected) {
+                obj.stroke = val;
+                if (this.currentA !== undefined) {
+                  obj.strokeOpacity = this.currentA;
+                  if (obj.brushConfig) obj.brushConfig.opacity = this.currentA;
+                }
+                if (obj.type === 'group' && Array.isArray(obj.children)) {
+                  for (const child of obj.children) {
+                    child.stroke = val;
+                    if (this.currentA !== undefined) {
+                      child.strokeOpacity = this.currentA;
+                      if (child.brushConfig) child.brushConfig.opacity = this.currentA;
+                    }
+                  }
+                }
               }
+            } else {
+              activeDoc.defaultStroke = val;
+              if (this.currentA !== undefined) activeDoc.defaultStrokeOpacity = this.currentA;
             }
             if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
             if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
           }
+
+          if (commit) {
+            if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Stroke Color');
+            if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+          }
         }
 
-        if (commit) {
-          if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Stroke Color');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+        this.updateTargetChips();
+        if (typeof window !== 'undefined' && typeof window.updateSwatches === 'function') {
+          window.updateSwatches();
         }
-      }
-
-      this.updateTargetChips();
-      if (typeof window !== 'undefined' && typeof window.updateSwatches === 'function') {
-        window.updateSwatches();
+      } finally {
+        this._isApplying = false;
       }
     }
 
@@ -1541,9 +1749,12 @@
       this.updateVisualControls();
     }
 
-    setColorFromExternal(hex) {
+    setColorFromExternal(hex, alpha = undefined) {
       if (!hex || hex === 'none' || hex === 'transparent') {
         this.isTargetNone = true;
+        if (alpha !== undefined) {
+          this.currentA = Number(alpha);
+        }
         this.updateVisualControls();
         return;
       }
@@ -1552,7 +1763,11 @@
       this.currentR = rgb.r;
       this.currentG = rgb.g;
       this.currentB = rgb.b;
-      this.currentA = rgb.a !== undefined ? rgb.a : 1.0;
+      if (alpha !== undefined) {
+        this.currentA = Number(alpha);
+      } else if (rgb.a !== undefined && (hex.trim().startsWith('#') && (hex.trim().length === 5 || hex.trim().length === 9))) {
+        this.currentA = rgb.a;
+      }
       const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
       this.currentH = hsv.h;
       this.currentS = hsv.s;
@@ -1638,21 +1853,65 @@
       if (this._isSyncing) return;
       const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
       const activeDoc = getDoc();
-      if (!activeDoc || !activeDoc.getSelectedObjects) return;
+      if (!activeDoc) return;
 
-      const selected = activeDoc.getSelectedObjects();
+      const SvgLinearGrad = (typeof window !== 'undefined' && window.SvgLinearGradient) || (typeof SvgLinearGradient !== 'undefined' ? SvgLinearGradient : null);
+      const SvgRadialGrad = (typeof window !== 'undefined' && window.SvgRadialGradient) || (typeof SvgRadialGradient !== 'undefined' ? SvgRadialGradient : null);
+
+      const stopsCopy = this.gradientStops.map(s => ({
+        offset: s.offset,
+        color: s.color,
+        opacity: s.opacity !== undefined ? s.opacity : 1.0,
+        intensity: s.intensity !== undefined ? s.intensity : 1.0
+      }));
+
+      if (this.activeTarget === 'bg') {
+        activeDoc.backgroundType = this.gradientType;
+        if (this.gradientType === 'linear') {
+          if (SvgLinearGrad) {
+            activeDoc.backgroundGradient = new SvgLinearGrad({ stops: stopsCopy });
+            activeDoc.backgroundGradient.angle = this.gradientAngle;
+          } else {
+            activeDoc.backgroundGradient = { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
+          }
+        } else {
+          if (SvgRadialGrad) {
+            activeDoc.backgroundGradient = new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
+          } else {
+            activeDoc.backgroundGradient = { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
+          }
+        }
+
+        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+        if (commit) {
+          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Gradient');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+        }
+        return;
+      }
+
+      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
+      if (selected.length === 0) {
+        activeDoc.defaultFillType = this.gradientType;
+        if (this.gradientType === 'linear') {
+          if (SvgLinearGrad) {
+            activeDoc.defaultFillGradient = new SvgLinearGrad({ stops: stopsCopy });
+            activeDoc.defaultFillGradient.angle = this.gradientAngle;
+          } else {
+            activeDoc.defaultFillGradient = { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
+          }
+        } else {
+          if (SvgRadialGrad) {
+            activeDoc.defaultFillGradient = new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
+          } else {
+            activeDoc.defaultFillGradient = { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
+          }
+        }
+      }
+
       for (const obj of selected) {
         obj.fillType = this.gradientType;
-        const SvgLinearGrad = (typeof window !== 'undefined' && window.SvgLinearGradient) || (typeof SvgLinearGradient !== 'undefined' ? SvgLinearGradient : null);
-        const SvgRadialGrad = (typeof window !== 'undefined' && window.SvgRadialGradient) || (typeof SvgRadialGradient !== 'undefined' ? SvgRadialGradient : null);
-
-        const stopsCopy = this.gradientStops.map(s => ({
-          offset: s.offset,
-          color: s.color,
-          opacity: s.opacity !== undefined ? s.opacity : 1.0,
-          intensity: s.intensity !== undefined ? s.intensity : 1.0
-        }));
-
         if (this.gradientType === 'linear') {
           if (SvgLinearGrad) {
             obj.fillGradient = new SvgLinearGrad({ stops: stopsCopy });
@@ -1672,7 +1931,7 @@
       if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
       if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
 
-      if (commit) {
+      if (commit && selected.length > 0) {
         if (activeDoc.pushHistory) activeDoc.pushHistory('Change Material Gradient');
         if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
       }
@@ -1717,9 +1976,8 @@
       if (this._isSyncing) return;
       const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
       const activeDoc = getDoc();
-      if (!activeDoc || !activeDoc.getSelectedObjects) return;
+      if (!activeDoc) return;
 
-      const selected = activeDoc.getSelectedObjects();
       const isEnabled = (
         (this.textureMode !== 0 && this.textureMode !== '0') ||
         (this.textureHardness < 100) ||
@@ -1731,44 +1989,246 @@
         (this.textureInvert)
       );
 
+      const texConfig = {
+        enabled: isEnabled,
+        mode: this.textureMode,
+        scale: this.textureScale,
+        angle: this.textureAngle,
+        contrast: this.textureContrast,
+        grain: this.textureGrain,
+        relative: this.textureRelative,
+        offsetX: this.textureOffsetX,
+        offsetY: this.textureOffsetY,
+        hardness: this.textureHardness,
+        hardnessIntensity: this.textureHardnessIntensity,
+        warpStrength: this.textureWarpStrength,
+        warpFreq: this.textureWarpFreq,
+        noiseDistort: this.textureNoiseDistort,
+        pinchSwirl: this.texturePinchSwirl,
+        posterize: this.texturePosterize,
+        invert: this.textureInvert
+      };
+
+      if (this.activeTarget === 'bg') {
+        activeDoc.backgroundTexture = { ...texConfig };
+        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+        if (commit) {
+          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Texture');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+        }
+        return;
+      }
+
+      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
+      if (selected.length === 0) {
+        if (this.activeTarget === 'stroke') {
+          activeDoc.defaultStrokeTexture = { ...texConfig };
+        } else {
+          activeDoc.defaultFillTexture = { ...texConfig };
+        }
+      }
+
       for (const obj of selected) {
         if (this.activeTarget === 'stroke') {
           if (!obj.strokeTexture) obj.strokeTexture = {};
-          obj.strokeTexture.enabled = isEnabled;
-          obj.strokeTexture.mode = this.textureMode;
-          obj.strokeTexture.scale = this.textureScale;
-          obj.strokeTexture.angle = this.textureAngle;
-          obj.strokeTexture.contrast = this.textureContrast;
-          obj.strokeTexture.grain = this.textureGrain;
+          Object.assign(obj.strokeTexture, texConfig);
+          if (obj.brushConfig) {
+            if (!obj.brushConfig.texture) obj.brushConfig.texture = {};
+            Object.assign(obj.brushConfig.texture, texConfig);
+          }
         } else {
           if (!obj.fillTexture) obj.fillTexture = {};
-          obj.fillTexture.enabled = isEnabled;
-          obj.fillTexture.mode = this.textureMode;
-          obj.fillTexture.scale = this.textureScale;
-          obj.fillTexture.angle = this.textureAngle;
-          obj.fillTexture.contrast = this.textureContrast;
-          obj.fillTexture.grain = this.textureGrain;
-          obj.fillTexture.relative = this.textureRelative;
-          obj.fillTexture.offsetX = this.textureOffsetX;
-          obj.fillTexture.offsetY = this.textureOffsetY;
-          obj.fillTexture.hardness = this.textureHardness;
-          obj.fillTexture.hardnessIntensity = this.textureHardnessIntensity;
-          obj.fillTexture.warpStrength = this.textureWarpStrength;
-          obj.fillTexture.warpFreq = this.textureWarpFreq;
-          obj.fillTexture.noiseDistort = this.textureNoiseDistort;
-          obj.fillTexture.pinchSwirl = this.texturePinchSwirl;
-          obj.fillTexture.posterize = this.texturePosterize;
-          obj.fillTexture.invert = this.textureInvert;
+          Object.assign(obj.fillTexture, texConfig);
         }
       }
 
       if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
       if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
 
-      if (commit) {
+      if (commit && selected.length > 0) {
         if (activeDoc.pushHistory) activeDoc.pushHistory('Change Material Texture');
         if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
       }
+    }
+
+    // ── WASM FX Engine & Metadata Helpers ──
+
+    getPluginInfo(pluginName) {
+      if (!pluginName) return null;
+      if (typeof window !== 'undefined') {
+        if (window.host && window.host.plugins) {
+          const p = window.host.plugins.get(pluginName);
+          if (p && p.module && typeof p.module.getInfo === 'function') {
+            try {
+              const info = p.module.getInfo();
+              if (info) return info;
+            } catch (_) {}
+          }
+        }
+        if (window.esenho && window.esenho.plugins) {
+          const p = window.esenho.plugins.get(pluginName);
+          if (p && typeof p.getInfo === 'function') {
+            try {
+              const info = p.getInfo();
+              if (info) return info;
+            } catch (_) {}
+          }
+        }
+      }
+      if (typeof BUILTIN_FILTER_METADATA !== 'undefined' && BUILTIN_FILTER_METADATA[pluginName]) {
+        return BUILTIN_FILTER_METADATA[pluginName];
+      }
+      return {
+        title: pluginName.charAt(0).toUpperCase() + pluginName.slice(1),
+        params: [
+          { name: 'Parameter 1', min: 0, max: 255, default: 0 },
+          { name: 'Parameter 2', min: 0, max: 255, default: 0 }
+        ]
+      };
+    }
+
+    populateFilterPluginSelect() {
+      if (typeof document === 'undefined' || !this.dom.filterPlugin) return;
+      const currentVal = this.dom.filterPlugin.value || this.filterPlugin || 'bloom';
+      this.dom.filterPlugin.innerHTML = '';
+
+      const pluginMap = new Map();
+
+      // 1. Built-in plugins
+      if (typeof BUILTIN_FILTER_METADATA !== 'undefined') {
+        for (const [key, meta] of Object.entries(BUILTIN_FILTER_METADATA)) {
+          pluginMap.set(key, meta.title || key);
+        }
+      }
+
+      // 2. Runtime loaded plugins
+      if (typeof window !== 'undefined') {
+        if (window.host && window.host.plugins) {
+          for (const [name, p] of window.host.plugins.entries()) {
+            if (p.type !== 'filter' && typeof p.module?.exports?.w_filter_apply !== 'function' && typeof p.module?.exports?.w_plugin_filter !== 'function') continue;
+            let label = name.charAt(0).toUpperCase() + name.slice(1);
+            try {
+              const info = p.module?.getInfo ? p.module.getInfo() : null;
+              if (info && (info.title || info.name)) label = info.title || info.name;
+            } catch (_) {}
+            pluginMap.set(name, label);
+          }
+        }
+        if (window.esenho && window.esenho.plugins) {
+          for (const [name, p] of window.esenho.plugins.entries()) {
+            if (typeof p.exports?.w_filter_apply !== 'function') continue;
+            let label = name.charAt(0).toUpperCase() + name.slice(1);
+            try {
+              const info = p.getInfo ? p.getInfo() : null;
+              if (info && (info.title || info.name)) label = info.title || info.name;
+            } catch (_) {}
+            pluginMap.set(name, label);
+          }
+        }
+      }
+
+      const entries = Array.from(pluginMap.entries()).sort((a, b) => a[1].localeCompare(b[1]));
+      for (const [key, label] of entries) {
+        const opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = label;
+        this.dom.filterPlugin.appendChild(opt);
+      }
+
+      if (pluginMap.has(currentVal)) {
+        this.dom.filterPlugin.value = currentVal;
+      } else if (entries.length > 0) {
+        this.dom.filterPlugin.value = entries[0][0];
+      }
+    }
+
+    renderFilterParams() {
+      if (typeof document === 'undefined' || !this.dom.filterParamsContainer) return;
+      this.dom.filterParamsContainer.innerHTML = '';
+
+      const pluginName = this.filterPlugin || 'bloom';
+      const info = this.getPluginInfo(pluginName);
+      const params = (info && Array.isArray(info.params)) ? info.params : [];
+
+      if (params.length === 0) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.style.fontSize = '10.5px';
+        emptyDiv.style.color = 'var(--text-muted, #928374)';
+        emptyDiv.style.fontStyle = 'italic';
+        emptyDiv.style.padding = '4px 2px';
+        emptyDiv.textContent = 'No dynamic parameters needed for this optical lens.';
+        this.dom.filterParamsContainer.appendChild(emptyDiv);
+        return;
+      }
+
+      params.forEach((param, idx) => {
+        const row = document.createElement('div');
+        row.className = 'cs-form-row';
+
+        const label = document.createElement('label');
+        const unit = param.unit ? ` (${param.unit})` : '';
+        const paramLabel = (param.name || `Param ${idx + 1}`) + unit;
+        label.textContent = paramLabel;
+        label.title = paramLabel;
+
+        const valWrap = document.createElement('div');
+        valWrap.style.display = 'flex';
+        valWrap.style.gap = '6px';
+        valWrap.style.flex = '1';
+        valWrap.style.alignItems = 'center';
+
+        let currentVal = idx === 0 ? this.filterP1 : (idx === 1 ? this.filterP2 : (this.filterParams ? this.filterParams[idx] : undefined));
+        if (currentVal === undefined || isNaN(currentVal)) {
+          currentVal = param.default !== undefined ? param.default : (param.min || 0);
+          if (idx === 0) this.filterP1 = currentVal;
+          if (idx === 1) this.filterP2 = currentVal;
+        }
+
+        const min = param.min !== undefined ? param.min : 0;
+        const max = param.max !== undefined ? param.max : 100;
+        const step = param.step !== undefined ? param.step : (max - min > 20 ? 1 : 'any');
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'cs-mini-range';
+        slider.min = String(min);
+        slider.max = String(max);
+        slider.step = String(step);
+        slider.value = String(currentVal);
+
+        const numInput = document.createElement('input');
+        numInput.type = 'number';
+        numInput.className = 'cs-mini-num';
+        numInput.min = String(min);
+        numInput.max = String(max);
+        numInput.step = 'any';
+        numInput.value = String(currentVal);
+
+        const updateParam = (val, commit) => {
+          const numVal = Number(val);
+          if (idx === 0) this.filterP1 = numVal;
+          else if (idx === 1) this.filterP2 = numVal;
+          else {
+            if (!this.filterParams) this.filterParams = [];
+            this.filterParams[idx] = numVal;
+          }
+          slider.value = String(numVal);
+          numInput.value = String(numVal);
+          this.applyFilterToSelected(commit);
+        };
+
+        slider.addEventListener('input', (e) => updateParam(e.target.value, false));
+        slider.addEventListener('change', (e) => updateParam(e.target.value, true));
+        numInput.addEventListener('input', (e) => updateParam(e.target.value, false));
+        numInput.addEventListener('change', (e) => updateParam(e.target.value, true));
+
+        valWrap.appendChild(slider);
+        valWrap.appendChild(numInput);
+        row.appendChild(label);
+        row.appendChild(valWrap);
+        this.dom.filterParamsContainer.appendChild(row);
+      });
     }
 
     // ── WASM FX Application ──
@@ -1777,20 +2237,45 @@
       if (this._isSyncing) return;
       const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
       const activeDoc = getDoc();
-      if (!activeDoc || !activeDoc.getSelectedObjects) return;
+      if (!activeDoc) return;
 
-      const selected = activeDoc.getSelectedObjects();
+      const target = (this.activeTarget === 'stroke')
+        ? 'stroke'
+        : (this.activeTarget === 'bg' ? 'bg' : (this.filterIsLens ? 'backdrop' : 'fill'));
+
       const filterConfig = {
         enabled: this.filterEnabled,
-        target: this.filterTarget,
+        target: target,
+        isLens: this.filterIsLens,
         plugin: this.filterPlugin,
         p1: this.filterP1,
         p2: this.filterP2,
+        params: this.filterParams || [this.filterP1, this.filterP2],
         opacity: this.filterOpacity
       };
 
+      if (this.activeTarget === 'bg') {
+        activeDoc.backgroundFilter = { ...filterConfig };
+        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
+        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
+        if (commit) {
+          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Filter');
+          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+        }
+        return;
+      }
+
+      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
+      if (selected.length === 0) {
+        if (this.activeTarget === 'stroke') {
+          activeDoc.defaultStrokeFilter = { ...filterConfig };
+        } else {
+          activeDoc.defaultFillFilter = { ...filterConfig };
+        }
+      }
+
       for (const obj of selected) {
-        if (this.filterTarget === 'stroke') {
+        if (this.activeTarget === 'stroke') {
           obj.strokeFilter = { ...filterConfig };
           if (obj.brushConfig) {
             obj.brushConfig.wasmFilter = { ...filterConfig };
@@ -1806,7 +2291,7 @@
       if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
       if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
 
-      if (commit) {
+      if (commit && selected.length > 0) {
         if (activeDoc.pushHistory) activeDoc.pushHistory('Change WASM Filter');
         if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
       }
@@ -1847,7 +2332,8 @@
         },
         filter: {
           enabled: this.filterEnabled,
-          target: this.filterTarget,
+          target: this.activeTarget === 'stroke' ? 'stroke' : (this.filterIsLens ? 'backdrop' : 'fill'),
+          isLens: this.filterIsLens,
           plugin: this.filterPlugin,
           p1: this.filterP1,
           p2: this.filterP2,
@@ -1901,7 +2387,8 @@
 
       if (preset.filter) {
         this.filterEnabled = !!preset.filter.enabled;
-        this.filterTarget = preset.filter.target || 'fill';
+        this.filterIsLens = (preset.filter.target === 'backdrop' || !!preset.filter.isLens);
+        this.filterTarget = preset.filter.target || (this.filterIsLens ? 'backdrop' : 'fill');
         this.filterPlugin = preset.filter.plugin || 'bloom';
         this.filterP1 = preset.filter.p1 || 0;
         this.filterP2 = preset.filter.p2 || 0;
@@ -1923,73 +2410,456 @@
       if (!listContainer) return;
       listContainer.innerHTML = '';
 
+      if (!this._matPresetCategory) this._matPresetCategory = 'all';
+
+      // Category filter bar
+      const catBar = document.createElement('div');
+      catBar.className = 'cs-mat-cat-bar';
+      catBar.style.cssText = 'display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px; border-bottom: 1px solid var(--border);';
+      
+      const categories = [
+        { id: 'all', label: 'All' },
+        { id: 'artistic', label: '🎨 Artistic' },
+        { id: 'lenses', label: '🔍 Lenses' },
+        { id: 'nature', label: '🌿 Nature' },
+        { id: 'scifi', label: '⚡ Sci-Fi & Metals' },
+        { id: 'gradients', label: '🌈 Gradients' }
+      ];
+
+      categories.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = `cs-mat-cat-btn ${this._matPresetCategory === cat.id ? 'active' : ''}`;
+        btn.textContent = cat.label;
+        btn.style.cssText = `font-size: 10px; padding: 2px 7px; border-radius: 3px; border: 1px solid var(--border); background: ${this._matPresetCategory === cat.id ? 'var(--primary)' : 'var(--bg-input)'}; color: ${this._matPresetCategory === cat.id ? '#141617' : 'var(--text)'}; cursor: pointer; white-space: nowrap; font-weight: 500;`;
+        btn.addEventListener('click', () => {
+          this._matPresetCategory = cat.id;
+          this.renderMaterialPresetsList();
+        });
+        catBar.appendChild(btn);
+      });
+      listContainer.appendChild(catBar);
+
       const builtInMaterials = [
+        // ── 1. Artistic & Traditional Media ──
         {
-          name: 'Solid Gruvbox Gold',
-          desc: 'Clean flat vector fill',
+          name: 'Soft Watercolor Wash',
+          category: 'artistic',
+          desc: 'Organic translucent watercolor with paper bleeding',
+          color: '#83a598',
+          alpha: 0.85,
+          texture: { mode: 8, scale: 120, angle: 0, contrast: 110, grain: 40, hardness: 25, hardnessIntensity: 80, warpStrength: 10, warpFreq: 15, noiseDistort: 5 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Kuwahara Impasto Oil',
+          category: 'artistic',
+          desc: 'Thick painterly brushwork with Kuwahara filter',
           color: '#fabd2f',
+          texture: { mode: 36, scale: 100, contrast: 120, grain: 45, hardness: 100 },
+          filter: { enabled: true, plugin: 'kuwahara', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
+        },
+        {
+          name: 'Manga Screentone Cel',
+          category: 'artistic',
+          desc: 'Authentic 45° dot screentone with cel threshold',
+          color: '#ebdbb2',
+          texture: { mode: 31, scale: 80, angle: 45, contrast: 200, grain: 0, hardness: 100, posterize: 3 },
+          filter: { enabled: false }
+        },
+        {
+          name: '4-Level Comic Cel Shading',
+          category: 'artistic',
+          desc: 'Sharp stepped cel shading bands for pop art',
+          color: '#fe8019',
+          texture: { mode: 0, scale: 100, angle: 0, contrast: 150, hardness: 100, posterize: 4 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Vintage Copper Engraving',
+          category: 'artistic',
+          desc: 'Fine hatched antique parchment etching',
+          color: '#ebdbb2',
+          texture: { mode: 38, scale: 110, angle: 45, contrast: 180, grain: 10, hardness: 100, warpStrength: 5, warpFreq: 20 },
+          filter: { enabled: true, plugin: 'sepia', target: 'fill', p1: 80, p2: 0, opacity: 0.9 }
+        },
+        {
+          name: 'Crosshatch Ink Sketch',
+          category: 'artistic',
+          desc: 'Dense multi-directional pen hatching',
+          color: '#282828',
+          texture: { mode: 38, scale: 90, angle: 0, contrast: 160, grain: 20 },
+          filter: { enabled: true, plugin: 'crosshatch', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
+        },
+        {
+          name: 'Oil Paint Palette Knife',
+          category: 'artistic',
+          desc: 'Expressive knife ridges with rich specular relief',
+          color: '#d79921',
+          texture: { mode: 36, scale: 130, angle: 25, contrast: 140, grain: 50, hardness: 95 },
+          filter: { enabled: true, plugin: 'oil_paint', target: 'fill', p1: 6, p2: 12, opacity: 1.0 }
+        },
+        {
+          name: 'Sumi-e Charcoal Ink Wash',
+          category: 'artistic',
+          desc: 'Japanese zen ink dispersion on raw rice paper',
+          color: '#1d2021',
+          alpha: 0.9,
+          texture: { mode: 8, scale: 110, contrast: 160, grain: 30, hardness: 40, hardnessIntensity: 70 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Chalk & Pastel Grain',
+          category: 'artistic',
+          desc: 'Dry crumbly chalkboard pastel pigment',
+          color: '#fbf1c7',
+          texture: { mode: 32, scale: 90, contrast: 130, grain: 75, hardness: 60, noiseDistort: 30 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Heavy Denim Twill Weave',
+          category: 'artistic',
+          desc: 'Diagonal textile weave with cotton slub texture',
+          color: '#458588',
+          texture: { mode: 35, scale: 90, angle: 45, contrast: 120, grain: 30, hardness: 95 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Coarse Jute Burlap',
+          category: 'artistic',
+          desc: 'Rough woven fiber sackcloth texture',
+          color: '#a89984',
+          texture: { mode: 41, scale: 100, contrast: 135, grain: 55, hardness: 90 },
+          filter: { enabled: false }
+        },
+
+        // ── 2. Optical Glass & Lens (WASM Backdrop FX) ──
+        {
+          name: 'Fisheye Barrel Lens',
+          category: 'lenses',
+          desc: 'Ultra-wide curved optical sphere refraction',
+          color: '#83a598',
+          alpha: 0.9,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'fisheye', target: 'backdrop', isLens: true, p1: 35, p2: 110, opacity: 1.0 }
+        },
+        {
+          name: 'Cosmic Vortex Swirl Lens',
+          category: 'lenses',
+          desc: 'Gravitational whirlpool light bending',
+          color: '#b16286',
+          alpha: 0.9,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'swirl', target: 'backdrop', isLens: true, p1: 120, p2: 85, opacity: 1.0 }
+        },
+        {
+          name: 'Water Ripple Caustics Lens',
+          category: 'lenses',
+          desc: 'Dynamic undulating liquid pool refraction',
+          color: '#458588',
+          alpha: 0.85,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'ripple', target: 'backdrop', isLens: true, p1: 25, p2: 10, opacity: 1.0 }
+        },
+        {
+          name: 'Kaleidoscope Octa-Prism Lens',
+          category: 'lenses',
+          desc: '8-fold radial symmetry mirror lens',
+          color: '#d3869b',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'kaleidoscope', target: 'backdrop', isLens: true, p1: 8, p2: 30, opacity: 1.0 }
+        },
+        {
+          name: 'Frosted Gaussian Glass Lens',
+          category: 'lenses',
+          desc: 'Translucent architectural blurred glass',
+          color: '#83a598',
+          alpha: 0.75,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'frosted_glass', target: 'backdrop', isLens: true, p1: 15, p2: 3, opacity: 1.0 }
+        },
+        {
+          name: 'Retro CRT Scanlines Lens',
+          category: 'lenses',
+          desc: 'Phosphor cathode tube raster scanlines',
+          color: '#8ec07c',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'scanline', target: 'backdrop', isLens: true, p1: 50, p2: 1, opacity: 1.0 }
+        },
+        {
+          name: 'VHS Magnetic Glitch Lens',
+          category: 'lenses',
+          desc: 'Analog video sync tear and tracking jitter',
+          color: '#fe8019',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'glitch', target: 'backdrop', isLens: true, p1: 25, p2: 12, opacity: 1.0 }
+        },
+        {
+          name: 'Cyberpunk Duotone Lens',
+          category: 'lenses',
+          desc: 'High-contrast neon two-tone color gradient map',
+          color: '#00ffcc',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'duotone', target: 'backdrop', isLens: true, p1: 0, p2: 120, opacity: 1.0 }
+        },
+        {
+          name: 'Thermal Predator Infrared Lens',
+          category: 'lenses',
+          desc: 'Heat spectrum infrared night-vision lens',
+          color: '#cc241d',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'thermal', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
+        },
+        {
+          name: 'Solarized Dream Lens',
+          category: 'lenses',
+          desc: 'Sabattier photographic tone reversal lens',
+          color: '#d65d0e',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'solarize', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
+        },
+        {
+          name: 'Neon Bloom Dispersion Lens',
+          category: 'lenses',
+          desc: 'Anamorphic light diffusion flare lens',
+          color: '#fabd2f',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'bloom', target: 'backdrop', isLens: true, p1: 140, p2: 10, opacity: 1.0 }
+        },
+        {
+          name: 'Chromatic Fringe Prism Lens',
+          category: 'lenses',
+          desc: 'RGB spectral dispersion optic fringe',
+          color: '#ebdbb2',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'chromatic', target: 'backdrop', isLens: true, p1: 14, p2: 0, opacity: 1.0 }
+        },
+        {
+          name: 'Tropical Shore Foam Lens',
+          category: 'lenses',
+          desc: 'Dynamic coastal ocean foam dispersion',
+          color: '#4eb8a8',
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: true, plugin: 'water_foam', target: 'backdrop', isLens: true, p1: 20, p2: 8, opacity: 1.0 }
+        },
+
+        // ── 3. Nature, Earth & Organics ──
+        {
+          name: 'Molten Magma Volcano',
+          category: 'nature',
+          desc: 'Glowing volcanic fissures with turbulent heat',
+          color: '#fe8019',
+          gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
+          gradientType: 'linear',
+          texture: { mode: 65, scale: 120, warpStrength: 45, warpFreq: 25, noiseDistort: 20 },
+          filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 100, opacity: 1.0 }
+        },
+        {
+          name: 'Warped Liquid Marble',
+          category: 'nature',
+          desc: 'Hand-swirled mineral stone veins with liquid marble',
+          color: '#ebdbb2',
+          texture: { mode: 8, scale: 150, angle: 30, contrast: 140, grain: 15, hardness: 95, warpStrength: 55, warpFreq: 25, pinchSwirl: 20 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Cracked Mud Fissures',
+          category: 'nature',
+          desc: 'Arid desert earth cracks and drought polygon tiles',
+          color: '#d79921',
+          texture: { mode: 42, scale: 140, contrast: 160, grain: 20, hardness: 85, warpStrength: 20, warpFreq: 20, noiseDistort: 15 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Mythic Dragon Scales',
+          category: 'nature',
+          desc: 'Reptilian armored scales with specular sheen',
+          color: '#8ec07c',
+          texture: { mode: 50, scale: 130, contrast: 150, grain: 15, hardness: 95, warpStrength: 10, warpFreq: 20, pinchSwirl: 15 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Granite Bedrock',
+          category: 'nature',
+          desc: 'Speckled quartz, feldspar and mica volcanic stone',
+          color: '#928374',
+          texture: { mode: 39, scale: 100, contrast: 120, grain: 65, hardness: 85 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Deep Oceanic Abyss',
+          category: 'nature',
+          desc: 'Midnight trench water with gentle caustics',
+          color: '#0f084b',
+          gradientStops: [{ offset: 0, color: '#076678' }, { offset: 1, color: '#0f084b' }],
+          gradientType: 'linear',
+          texture: { mode: 8, scale: 140, contrast: 120, warpStrength: 25, warpFreq: 20 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Walnut Wood Grain',
+          category: 'nature',
+          desc: 'Natural concentric timber rings with wood pores',
+          color: '#7c6f64',
+          texture: { mode: 38, scale: 140, angle: 15, contrast: 135, grain: 25, warpStrength: 15, warpFreq: 15 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Emerald Geode Crystal',
+          category: 'nature',
+          desc: 'Faceted beryl crystal cluster with jewel refraction',
+          color: '#8ec07c',
+          gradientStops: [{ offset: 0, color: '#98971a' }, { offset: 1, color: '#8ec07c' }],
+          gradientType: 'radial',
+          texture: { mode: 51, scale: 110, contrast: 150, grain: 20, hardness: 90 },
+          filter: { enabled: false }
+        },
+
+        // ── 4. Metals, Tech & Sci-Fi ──
+        {
+          name: 'Cyber Circuit Motherboard',
+          category: 'scifi',
+          desc: 'Copper PCB traces, microchips and gold pads',
+          color: '#00ffcc',
+          texture: { mode: 43, scale: 120, contrast: 170, grain: 0, hardness: 100, posterize: 4 },
+          filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 90, opacity: 0.9 }
+        },
+        {
+          name: 'Brushed Gold Ingot',
+          category: 'scifi',
+          desc: 'Anisotropic metallic gold polish with specular grain',
+          color: '#d79921',
+          gradientStops: [{ offset: 0, color: '#d79921' }, { offset: 0.5, color: '#fbf1c7' }, { offset: 1, color: '#b57614' }],
+          gradientType: 'linear',
+          texture: { mode: 38, scale: 80, angle: 90, contrast: 110, grain: 20, hardness: 95 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Liquid Chrome Mercury',
+          category: 'scifi',
+          desc: 'Molten reflective mirror metal with heavy warp',
+          color: '#ebdbb2',
+          gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ffffff' }, { offset: 1, color: '#00ffcc' }],
+          gradientType: 'linear',
+          texture: { mode: 8, scale: 160, contrast: 160, warpStrength: 60, warpFreq: 30, pinchSwirl: 40 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Carbon Fiber Twill Weave',
+          category: 'scifi',
+          desc: 'High-tensile motorsport composite honeycomb',
+          color: '#282828',
+          texture: { mode: 43, scale: 75, contrast: 160, grain: 15, hardness: 100 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Holographic Rainbow Foil',
+          category: 'scifi',
+          desc: 'Iridescent diffraction grating with shimmering spectrum',
+          color: '#ff0080',
+          gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ff0080' }, { offset: 1, color: '#00ffcc' }],
+          gradientType: 'linear',
+          texture: { mode: 67, scale: 100, contrast: 150, grain: 25, warpStrength: 40, warpFreq: 35 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Black Hole Event Horizon',
+          category: 'scifi',
+          desc: 'Singularity vortex with extreme spacetime warping',
+          color: '#141617',
+          texture: { mode: 51, scale: 130, contrast: 160, grain: 20, hardness: 90, warpStrength: 25, warpFreq: 30, pinchSwirl: 85 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Glitch Heatwave Matrix',
+          category: 'scifi',
+          desc: 'Digital displacement wave with pixel noise',
+          color: '#83a598',
+          texture: { mode: 67, scale: 100, contrast: 160, grain: 35, hardness: 80, hardnessIntensity: 60, warpStrength: 80, warpFreq: 45, noiseDistort: 55, pinchSwirl: -40, posterize: 6 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Inverted X-Ray Negative',
+          category: 'scifi',
+          desc: 'High-contrast radiograph bone density negative',
+          color: '#ebdbb2',
+          texture: { mode: 47, scale: 120, contrast: 150, grain: 20, hardness: 90, warpStrength: 30, warpFreq: 25, pinchSwirl: 25, invert: true },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Royal Damask Jacquard',
+          category: 'scifi',
+          desc: 'Rich crimson baroque patterned velvet',
+          color: '#cc241d',
+          texture: { mode: 35, scale: 100, contrast: 140, grain: 20, hardness: 95 },
+          filter: { enabled: false }
+        },
+
+        // ── 5. Signature Gradients & Lighting ──
+        {
+          name: 'Sunset Amber Glow',
+          category: 'gradients',
+          desc: 'Golden hour sunset gradient from amber to honey',
+          color: '#fe8019',
+          gradientStops: [{ offset: 0, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
+          gradientType: 'linear',
+          gradientAngle: 45,
           texture: { mode: 0, hardness: 100 },
           filter: { enabled: false }
         },
         {
-          name: 'Kuwahara Oil Canvas',
-          desc: 'Rich painterly oil texture with Kuwahara filter',
-          color: '#fabd2f',
-          texture: { mode: 36, scale: 100, contrast: 120, grain: 45 },
-          filter: { enabled: true, plugin: 'kuwahara', target: 'fill', p1: 3, p2: 0, opacity: 1.0 }
-        },
-        {
-          name: 'Cyberpunk Neon Hologram',
-          desc: 'Chromatic aberration scanlines with bloom',
+          name: 'Cyberpunk Neon Matrix',
+          category: 'gradients',
+          desc: 'Electric magenta into glowing cyan pulse',
           color: '#00ffcc',
-          gradientStops: [{ offset: 0, color: '#ff0080' }, { offset: 1, color: '#00ffcc' }],
+          gradientStops: [{ offset: 0, color: '#ff0055' }, { offset: 1, color: '#00ffcc' }],
           gradientType: 'linear',
-          texture: { mode: 43, scale: 120, contrast: 150 },
-          filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 25, p2: 120, opacity: 1.0 }
-        },
-        {
-          name: 'Manga Halftone Cel',
-          desc: '4-level posterized screentone dots',
-          color: '#ebdbb2',
-          texture: { mode: 4, scale: 85, contrast: 180, posterize: 4, grain: 60 },
+          gradientAngle: 135,
+          texture: { mode: 0, hardness: 100 },
           filter: { enabled: false }
         },
         {
-          name: 'Vintage Engraved Parchment',
-          desc: 'Fine hatched antique parchment with sepia filter',
-          color: '#ebdbb2',
-          texture: { mode: 38, scale: 90, contrast: 130, grain: 40 },
-          filter: { enabled: true, plugin: 'sepia', target: 'fill', p1: 80, p2: 0, opacity: 0.9 }
+          name: 'Aurora Borealis Mystic',
+          category: 'gradients',
+          desc: 'Northern lights neon veil in polar night',
+          color: '#00ffcc',
+          gradientStops: [{ offset: 0, color: '#00ffcc' }, { offset: 0.5, color: '#7928ca' }, { offset: 1, color: '#98971a' }],
+          gradientType: 'linear',
+          gradientAngle: 90,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: false }
         },
         {
-          name: 'Frosted Glass Diffuse',
-          desc: 'Soft feathering and optical frosted glass lens',
-          color: '#83a598',
-          texture: { mode: 12, hardness: 40, hardnessIntensity: 80 },
-          filter: { enabled: true, plugin: 'frosted_glass', target: 'fill', p1: 30, p2: 50, opacity: 1.0 }
-        },
-        {
-          name: 'Molten Magma Lava',
-          desc: 'Vortex liquid marble with amber glow',
+          name: 'Fire Flame Core',
+          category: 'gradients',
+          desc: 'Combustion core radiating from crimson to blazing yellow',
           color: '#fe8019',
-          gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.7, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
+          gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
           gradientType: 'linear',
-          texture: { mode: 65, scale: 120, warpStrength: 45, warpFreq: 25 },
-          filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 100, opacity: 1.0 }
-        },
-        {
-          name: 'Dragon Armor Scales',
-          desc: 'Mythic scales with metallic specular grain',
-          color: '#8ec07c',
-          texture: { mode: 50, scale: 100, contrast: 140, grain: 35 },
+          gradientAngle: 90,
+          texture: { mode: 0, hardness: 100 },
           filter: { enabled: false }
         },
         {
-          name: 'Retro CRT Monitor',
-          desc: 'Horizontal scanlines with VHS glitch distortion',
-          color: '#83a598',
-          texture: { mode: 5, scale: 50, contrast: 100 },
-          filter: { enabled: true, plugin: 'scanline', target: 'fill', p1: 50, p2: 1, opacity: 1.0 }
+          name: 'Deep Royal Emerald',
+          category: 'gradients',
+          desc: 'Spherical jewel radiance from sage to petroleum teal',
+          color: '#8ec07c',
+          gradientStops: [{ offset: 0, color: '#8ec07c' }, { offset: 1, color: '#076678' }],
+          gradientType: 'radial',
+          gradientRadius: 0.6,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: false }
+        },
+        {
+          name: 'Smoky Vignette Monochrome',
+          category: 'gradients',
+          desc: 'Cinematic radial vignette for dramatic contrast',
+          color: '#1d2021',
+          gradientStops: [{ offset: 0, color: '#a89984' }, { offset: 1, color: '#1d2021' }],
+          gradientType: 'radial',
+          gradientRadius: 0.7,
+          texture: { mode: 0, hardness: 100 },
+          filter: { enabled: false }
         }
       ];
 
@@ -2002,12 +2872,19 @@
         }
       } catch (_) {}
 
-      const all = [...customMaterials, ...builtInMaterials];
-      all.forEach(mat => {
+      const all = [...customMaterials.map(m => ({ ...m, category: 'custom' })), ...builtInMaterials];
+      const filtered = (this._matPresetCategory === 'all')
+        ? all
+        : all.filter(m => m.category === this._matPresetCategory);
+
+      filtered.forEach(mat => {
         const row = document.createElement('div');
         row.className = 'cs-mat-preset-row';
+        const gradCss = (mat.gradientStops && mat.gradientStops.length >= 2)
+          ? `linear-gradient(135deg, ${mat.gradientStops.map(s => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ')})`
+          : (mat.color || '#fabd2f');
         row.innerHTML = `
-          <div class="cs-mat-chip" style="background: ${mat.color || '#fabd2f'};"></div>
+          <div class="cs-mat-chip" style="background: ${gradCss};"></div>
           <div class="cs-mat-info">
             <div class="cs-mat-name">${mat.name}</div>
             <div class="cs-mat-desc">${mat.desc || 'Custom material'}</div>
@@ -2078,6 +2955,7 @@
 
     syncFromSelection(force = false) {
       if (!this.initialized) return;
+      if (this._isSyncing || this._isApplying || this._isDragging) return;
 
       if (!force && typeof window !== 'undefined' && window.dockviewApi) {
         const panel = window.dockviewApi.getPanel('color') || window.dockviewApi.getPanel('materials');
@@ -2100,7 +2978,8 @@
       if (primary) {
         fillVal = primary.fill || 'none';
         strokeVal = primary.stroke || 'none';
-        fillOp = primary.fillOpacity !== undefined ? primary.fillOpacity : 1.0;
+        fillOp = primary.fillOpacity !== undefined ? Number(primary.fillOpacity) : (primary.opacity !== undefined ? Number(primary.opacity) : 1.0);
+        strokeOp = primary.strokeOpacity !== undefined ? Number(primary.strokeOpacity) : (primary.brushConfig?.opacity !== undefined ? Number(primary.brushConfig.opacity) : (primary.opacity !== undefined ? Number(primary.opacity) : 1.0));
       } else {
         const fillEl = getDomEl('prop-fill-text');
         const strokeEl = getDomEl('prop-stroke-text');
@@ -2108,36 +2987,56 @@
         strokeVal = strokeEl ? strokeEl.value : '#1d2021';
         const opEl = getDomEl('prop-fill-opacity');
         fillOp = opEl ? Number(opEl.value) || 1.0 : 1.0;
+        const strokeOpEl = getDomEl('prop-stroke-opacity');
+        strokeOp = strokeOpEl ? Number(strokeOpEl.value) || 1.0 : 1.0;
       }
 
       let bgVal = (activeDoc && activeDoc.backgroundColor) ? activeDoc.backgroundColor : (getDomEl('prop-doc-bg')?.value || '#1d2021');
 
-      if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal && this._lastBgVal === bgVal && !primary) {
+      if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal && this._lastBgVal === bgVal && !primary && this._lastTarget === this.activeTarget) {
         return;
       }
 
       this._lastFillVal = fillVal;
       this._lastStrokeVal = strokeVal;
       this._lastBgVal = bgVal;
+      this._lastTarget = this.activeTarget;
 
       this._isSyncing = true;
       try {
         let activeColorVal = fillVal;
+        let activeAlpha = fillOp;
         if (this.activeTarget === 'stroke') {
           activeColorVal = strokeVal;
-          this.currentA = strokeOp;
+          activeAlpha = strokeOp;
         } else if (this.activeTarget === 'bg') {
           activeColorVal = bgVal;
-          this.currentA = 1.0;
+          activeAlpha = 1.0;
         } else {
           activeColorVal = fillVal;
-          this.currentA = fillOp;
+          activeAlpha = fillOp;
         }
 
-        this.setColorFromExternal(activeColorVal);
+        this.currentA = (activeAlpha !== undefined) ? Number(activeAlpha) : 1.0;
+        this.setColorFromExternal(activeColorVal, this.currentA);
 
-        // Sync Gradients if object has gradient
-        if (primary && primary.fillType && primary.fillType !== 'solid' && primary.fillGradient) {
+        // Sync Gradients
+        if (this.activeTarget === 'bg') {
+          if (activeDoc && activeDoc.backgroundType && activeDoc.backgroundType !== 'solid' && activeDoc.backgroundGradient) {
+            this.gradientType = activeDoc.backgroundType;
+            if (Array.isArray(activeDoc.backgroundGradient.stops) && activeDoc.backgroundGradient.stops.length > 0) {
+              this.gradientStops = activeDoc.backgroundGradient.stops.map(s => ({
+                offset: s.offset,
+                color: s.color,
+                opacity: s.opacity !== undefined ? s.opacity : 1.0,
+                intensity: s.intensity !== undefined ? s.intensity : 1.0
+              }));
+            }
+            this.gradientAngle = activeDoc.backgroundGradient.angle !== undefined ? activeDoc.backgroundGradient.angle : 0;
+            this.gradientRadius = parseFloat(activeDoc.backgroundGradient.r) || 0.5;
+            this.updateGradientUI();
+          }
+        } else if (primary && primary.fillType && primary.fillType !== 'solid' && primary.fillGradient) {
           this.gradientType = primary.fillType;
           if (Array.isArray(primary.fillGradient.stops) && primary.fillGradient.stops.length > 0) {
             this.gradientStops = primary.fillGradient.stops.map(s => ({
@@ -2150,10 +3049,27 @@
           this.gradientAngle = primary.fillGradient.angle !== undefined ? primary.fillGradient.angle : 0;
           this.gradientRadius = parseFloat(primary.fillGradient.r) || 0.5;
           this.updateGradientUI();
+        } else if (!primary && activeDoc && activeDoc.defaultFillType && activeDoc.defaultFillType !== 'solid' && activeDoc.defaultFillGradient) {
+          this.gradientType = activeDoc.defaultFillType;
+          if (Array.isArray(activeDoc.defaultFillGradient.stops) && activeDoc.defaultFillGradient.stops.length > 0) {
+            this.gradientStops = activeDoc.defaultFillGradient.stops.map(s => ({
+              offset: s.offset,
+              color: s.color,
+              opacity: s.opacity !== undefined ? s.opacity : 1.0,
+              intensity: s.intensity !== undefined ? s.intensity : 1.0
+            }));
+          }
+          this.gradientAngle = activeDoc.defaultFillGradient.angle !== undefined ? activeDoc.defaultFillGradient.angle : 0;
+          this.gradientRadius = parseFloat(activeDoc.defaultFillGradient.r) || 0.5;
+          this.updateGradientUI();
         }
 
         // Sync Texture
-        const texObj = this.activeTarget === 'stroke' ? (primary?.strokeTexture || {}) : (primary?.fillTexture || {});
+        const texObj = this.activeTarget === 'bg'
+          ? (activeDoc?.backgroundTexture || {})
+          : (this.activeTarget === 'stroke'
+              ? (primary?.strokeTexture || activeDoc?.defaultStrokeTexture || {})
+              : (primary?.fillTexture || activeDoc?.defaultFillTexture || {}));
         this.textureMode = texObj.mode !== undefined ? texObj.mode : 0;
         this.textureScale = texObj.scale !== undefined ? texObj.scale : 100;
         this.textureAngle = texObj.angle !== undefined ? texObj.angle : 0;
@@ -2189,21 +3105,29 @@
         if (this.dom.texInvert) this.dom.texInvert.checked = this.textureInvert;
 
         // Sync WASM Filter
-        const filterObj = this.activeTarget === 'stroke' ? (primary?.strokeFilter || primary?.brushConfig?.wasmFilter) : (primary?.fillFilter || primary?.fillTexture?.wasmFilter || primary?.wasmFilter);
+        const filterObj = this.activeTarget === 'bg'
+          ? (activeDoc?.backgroundFilter || {})
+          : (this.activeTarget === 'stroke'
+              ? (primary?.strokeFilter || primary?.brushConfig?.wasmFilter || activeDoc?.defaultStrokeFilter)
+              : (primary?.fillFilter || primary?.fillTexture?.wasmFilter || primary?.wasmFilter || activeDoc?.defaultFillFilter));
         if (filterObj) {
           this.filterEnabled = !!filterObj.enabled;
-          this.filterTarget = filterObj.target || (this.activeTarget === 'stroke' ? 'stroke' : 'fill');
+          this.filterIsLens = (filterObj.target === 'backdrop' || !!filterObj.isLens);
           this.filterPlugin = filterObj.plugin || 'bloom';
           this.filterP1 = filterObj.p1 !== undefined ? filterObj.p1 : 0;
           this.filterP2 = filterObj.p2 !== undefined ? filterObj.p2 : 0;
-          this.filterOpacity = filterObj.opacity !== undefined ? filterObj.opacity : 1.0;
+          this.filterParams = filterObj.params || [this.filterP1, this.filterP2];
+          this.filterOpacity = filterObj.opacity !== undefined ? Number(filterObj.opacity) : 1.0;
 
           if (this.dom.filterEnabled) this.dom.filterEnabled.checked = this.filterEnabled;
-          if (this.dom.filterTarget) this.dom.filterTarget.value = this.filterTarget;
-          if (this.dom.filterPlugin) this.dom.filterPlugin.value = this.filterPlugin;
-          if (this.dom.filterP1) this.dom.filterP1.value = this.filterP1;
-          if (this.dom.filterP2) this.dom.filterP2.value = this.filterP2;
-          if (this.dom.filterOpacity) this.dom.filterOpacity.value = this.filterOpacity;
+          if (this.dom.filterIsLens) this.dom.filterIsLens.checked = this.filterIsLens;
+          if (this.dom.filterPlugin) {
+            this.populateFilterPluginSelect();
+            this.dom.filterPlugin.value = this.filterPlugin;
+          }
+          if (this.dom.filterOpacity) this.dom.filterOpacity.value = String(this.filterOpacity);
+          if (this.dom.filterOpacitySlider) this.dom.filterOpacitySlider.value = String(this.filterOpacity);
+          this.renderFilterParams();
         }
 
         this.updateTargetChips();
@@ -2249,12 +3173,24 @@
         padding: 4px;
         border-radius: var(--radius-sm, 3px);
         border: 1px solid var(--border, #2e3234);
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        scrollbar-width: thin;
+      }
+      .cs-target-bar::-webkit-scrollbar {
+        height: 3px;
+      }
+      .cs-target-bar::-webkit-scrollbar-thumb {
+        background: var(--border, #2e3234);
+        border-radius: 2px;
       }
       .cs-target-btn {
         display: flex;
         align-items: center;
         gap: 6px;
-        flex: 1;
+        flex: 1 0 auto;
+        min-width: max-content;
         padding: 4px 6px;
         border-radius: var(--radius-sm, 3px);
         background: transparent;
@@ -2264,6 +3200,7 @@
         font-size: 11px;
         font-weight: 500;
         transition: all 0.12s ease;
+        white-space: nowrap;
       }
       .cs-target-btn:hover {
         background: rgba(255,255,255,0.04);
@@ -2310,10 +3247,23 @@
         padding: 2px;
         gap: 2px;
         border: 1px solid var(--border, #2e3234);
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
+      .cs-mode-tabs::-webkit-scrollbar {
+        height: 3px;
+      }
+      .cs-mode-tabs::-webkit-scrollbar-thumb {
+        background: var(--border, #2e3234);
+        border-radius: 2px;
       }
       .cs-mode-btn {
-        flex: 1;
-        padding: 4px 2px;
+        flex: 1 0 auto;
+        min-width: max-content;
+        padding: 4px 6px;
         text-align: center;
         font-size: 10px;
         font-weight: 600;
@@ -2324,6 +3274,7 @@
         border-radius: 2px;
         cursor: pointer;
         transition: all 0.12s ease;
+        white-space: nowrap;
       }
       .cs-mode-btn:hover {
         color: var(--text-bright, #fbf1c7);
@@ -2339,10 +3290,23 @@
         padding: 2px;
         gap: 2px;
         border: 1px solid var(--border, #2e3234);
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
+      .cs-submode-tabs::-webkit-scrollbar {
+        height: 3px;
+      }
+      .cs-submode-tabs::-webkit-scrollbar-thumb {
+        background: var(--border, #2e3234);
+        border-radius: 2px;
       }
       .cs-submode-btn {
-        flex: 1;
-        padding: 3px;
+        flex: 1 0 auto;
+        min-width: max-content;
+        padding: 3px 6px;
         text-align: center;
         font-size: 9.5px;
         font-weight: 600;
@@ -2352,6 +3316,7 @@
         color: var(--text-muted, #928374);
         border-radius: 2px;
         cursor: pointer;
+        white-space: nowrap;
       }
       .cs-submode-btn.active {
         background: var(--bg-input, #121314);
@@ -2398,8 +3363,11 @@
       .cs-form-row label {
         font-size: 10.5px;
         color: var(--text-dim, #d5c4a1);
-        width: 72px;
+        width: 84px;
         flex-shrink: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
       .cs-select, .cs-text-input {
         flex: 1;
@@ -2712,6 +3680,7 @@
     parseColor,
     mountColorTab,
     mountMaterialsTab: mountColorTab,
+    mountMaterialTab: mountColorTab,
     syncFromSelection,
     onPanelActivated,
     getInstance: () => instance

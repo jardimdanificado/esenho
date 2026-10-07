@@ -105,6 +105,26 @@ assert(historyActions.includes('Change Stroke Color'), 'pushHistory should have 
 widget.setNone();
 assert.strictEqual(mockObj.stroke, 'none', 'mockObj.stroke should be set to none');
 
+// Test Alpha & Opacity Mutation
+widget.setTarget('fill');
+widget.currentA = 0.42;
+widget.applyToSelected(true);
+assert.strictEqual(mockObj.fillOpacity, 0.42, 'mockObj.fillOpacity should be updated to 0.42');
+
+widget.setTarget('stroke');
+widget.currentA = 0.75;
+widget.applyToSelected(true);
+assert.strictEqual(mockObj.strokeOpacity, 0.75, 'mockObj.strokeOpacity should be updated to 0.75');
+
+// Test Alpha Sync from Selection
+widget.setTarget('fill');
+widget.syncFromSelection(true);
+assert.strictEqual(widget.currentA, 0.42, 'widget.currentA should sync correctly from primary.fillOpacity');
+
+widget.setTarget('stroke');
+widget.syncFromSelection(true);
+assert.strictEqual(widget.currentA, 0.75, 'widget.currentA should sync correctly from primary.strokeOpacity');
+
 // Test Background Target Mutation
 widget.setTarget('bg');
 widget.setColorFromExternal('#282828');
@@ -145,6 +165,7 @@ assert(historyActions.includes('Change Material Texture'), 'history should recor
 console.log('9. Testing Material WASM Filter application...');
 widget.setTarget('fill');
 widget.filterEnabled = true;
+widget.filterIsLens = false;
 widget.filterPlugin = 'kuwahara';
 widget.filterTarget = 'fill';
 widget.filterP1 = 3;
@@ -153,8 +174,15 @@ widget.applyFilterToSelected(true);
 
 assert.strictEqual(mockObj.fillFilter.enabled, true, 'WASM filter should be enabled');
 assert.strictEqual(mockObj.fillFilter.plugin, 'kuwahara', 'WASM filter plugin should be kuwahara');
+assert.strictEqual(mockObj.fillFilter.target, 'fill', 'WASM filter target should be fill when isLens is false');
 assert.strictEqual(mockObj.fillFilter.p1, 3, 'WASM filter P1 should be 3');
 assert(historyActions.includes('Change WASM Filter'), 'history should record WASM filter change');
+
+// Test Lens FX (Backdrop Lens)
+widget.filterIsLens = true;
+widget.applyFilterToSelected(true);
+assert.strictEqual(mockObj.fillFilter.target, 'backdrop', 'WASM filter target should be backdrop when filterIsLens is true');
+assert.strictEqual(mockObj.fillFilter.isLens, true, 'isLens should be true on filter config');
 
 // 10. Testing Material Preset Application
 console.log('10. Testing Material Preset application...');
@@ -168,5 +196,52 @@ widget.applyMaterialPreset({
 assert.strictEqual(mockObj.fill.toLowerCase(), '#00ffcc', 'Color should be #00ffcc');
 assert.strictEqual(mockObj.fillTexture.mode, 43, 'Texture mode should be 43');
 assert.strictEqual(mockObj.fillFilter.plugin, 'bloom', 'Filter should be bloom');
+
+// 11. Testing Background Material Suite (with and without selection)
+console.log('11. Testing Background Material workflow with selected object...');
+widget.setTarget('bg');
+widget.gradientType = 'linear';
+widget.gradientStops = [
+  { offset: 0, color: '#1d2021', opacity: 1.0, intensity: 1.0 },
+  { offset: 1, color: '#3c3836', opacity: 1.0, intensity: 1.0 }
+];
+widget.gradientAngle = 90;
+widget.applyGradientToSelected(true);
+
+assert.strictEqual(global.window.doc.backgroundType, 'linear', 'doc.backgroundType should be linear');
+assert.strictEqual(global.window.doc.backgroundGradient.stops.length, 2, 'doc.backgroundGradient should have 2 stops');
+assert.strictEqual(mockObj.fill.toLowerCase(), '#00ffcc', 'mockObj.fill must NOT be modified when target is bg');
+
+widget.textureMode = 32; // Noise Dissolve
+widget.textureGrain = 80;
+widget.applyTextureToSelected(true);
+assert.strictEqual(global.window.doc.backgroundTexture.mode, 32, 'doc.backgroundTexture.mode should be 32');
+
+widget.filterEnabled = true;
+widget.filterPlugin = 'dither';
+widget.applyFilterToSelected(true);
+assert.strictEqual(global.window.doc.backgroundFilter.plugin, 'dither', 'doc.backgroundFilter.plugin should be dither');
+assert.strictEqual(global.window.doc.backgroundFilter.target, 'bg', 'doc.backgroundFilter.target should be bg');
+
+console.log('12. Testing Material workflows when NO object is selected...');
+global.window.doc.getSelectedObjects = () => []; // Deselect all
+
+widget.setTarget('bg');
+widget.setColorFromExternal('#504945');
+widget.applyToSelected(true);
+assert.strictEqual(global.window.doc.backgroundColor, '#504945', 'doc.backgroundColor should update even with 0 selection');
+
+widget.setTarget('fill');
+widget.gradientType = 'radial';
+widget.gradientStops = [
+  { offset: 0, color: '#b8bb26', opacity: 1.0, intensity: 1.0 },
+  { offset: 1, color: '#98971a', opacity: 1.0, intensity: 1.0 }
+];
+widget.applyGradientToSelected(true);
+assert.strictEqual(global.window.doc.defaultFillType, 'radial', 'doc.defaultFillType should be set when nothing is selected');
+
+widget.textureMode = 12;
+widget.applyTextureToSelected(true);
+assert.strictEqual(global.window.doc.defaultFillTexture.mode, 12, 'doc.defaultFillTexture should be set when nothing is selected');
 
 console.log('--- ALL MATERIAL & COLOR STUDIO TESTS PASSED ---');

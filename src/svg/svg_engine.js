@@ -4927,6 +4927,21 @@
         });
       }
 
+      if (this.backgroundType && this.backgroundType !== 'solid' && this.backgroundGradient) {
+        let bgGradEl = this.backgroundGradient;
+        if (this.backgroundType === 'radial') {
+          if (!(bgGradEl instanceof SvgRadialGradient)) {
+            bgGradEl = new SvgRadialGradient(this.backgroundGradient);
+          }
+        } else {
+          if (!(bgGradEl instanceof SvgLinearGradient)) {
+            bgGradEl = new SvgLinearGradient(this.backgroundGradient);
+          }
+        }
+        bgGradEl.id = 'doc_bg_gradient';
+        defsMap.set('doc_bg_gradient', bgGradEl);
+      }
+
       let defsXml = '';
       if (defsMap.size > 0) {
         const items = Array.from(defsMap.values()).map(d => d.toSVGElement()).join('\n    ');
@@ -4934,7 +4949,9 @@
       }
       let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
       svg += `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">${defsXml}\n`;
-      if (this.backgroundColor && this.backgroundColor !== 'none') {
+      if (this.backgroundType && this.backgroundType !== 'solid' && this.backgroundGradient) {
+        svg += `  <rect width="100%" height="100%" fill="url(#doc_bg_gradient)" />\n`;
+      } else if (this.backgroundColor && this.backgroundColor !== 'none') {
         svg += `  <rect width="100%" height="100%" fill="${this.backgroundColor}" />\n`;
       }
 
@@ -5367,6 +5384,10 @@
         height: this.height,
         viewBox: this.viewBox,
         backgroundColor: this.backgroundColor,
+        backgroundType: this.backgroundType || 'solid',
+        backgroundGradient: this.backgroundGradient ? (this.backgroundGradient.toJSON ? this.backgroundGradient.toJSON() : this.backgroundGradient) : null,
+        backgroundTexture: this.backgroundTexture || null,
+        backgroundFilter: this.backgroundFilter || null,
         objects: this.objects.map(o => o.toJSON())
       };
       if (Array.isArray(this.animations) && this.animations.length > 0) {
@@ -5388,6 +5409,10 @@
       this.height = data.height || 600;
       this.viewBox = data.viewBox || `0 0 ${this.width} ${this.height}`;
       this.backgroundColor = data.backgroundColor || '#1d2021';
+      this.backgroundType = data.backgroundType || 'solid';
+      this.backgroundGradient = data.backgroundGradient || null;
+      this.backgroundTexture = data.backgroundTexture || null;
+      this.backgroundFilter = data.backgroundFilter || null;
       if (Array.isArray(data.animations) && data.animations.length > 0) {
         this.animations = data.animations;
         this.activeAnimationId = data.activeAnimationId || (this.animations[0] ? this.animations[0].id : null);
