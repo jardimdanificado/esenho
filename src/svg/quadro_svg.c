@@ -292,6 +292,50 @@ static void parse_brush_attribute(quadro_svg_brush_config_t *b, const char *str)
     if (decoded) free(decoded);
 }
 
+static void parse_shadow_attribute(quadro_svg_shadow_config_t *sh, const char *str) {
+    if (!str || !*str) return;
+    char *decoded = url_decode(str);
+    const char *p = decoded ? decoded : str;
+    sh->enabled = 1;
+    sh->blur = 4.0f;
+    sh->dx = 0.0f;
+    sh->dy = 0.0f;
+    sh->opacity = 1.0f;
+    sh->color = 0xFF000000;
+
+    while (*p) {
+        while (*p == ' ' || *p == '{' || *p == '}' || *p == '"' || *p == '\'' || *p == ',' || *p == ';') p++;
+        if (!*p) break;
+
+        char key[32] = {0};
+        int ki = 0;
+        while (*p && *p != ':' && *p != '=' && *p != '"' && *p != '\'' && !isspace(*p) && ki < 31) key[ki++] = *p++;
+        while (*p == ':' || *p == '=' || *p == ' ' || *p == '"' || *p == '\'') p++;
+
+        if (strcmp(key, "color") == 0) {
+            char col_str[64] = {0};
+            int ci = 0;
+            while (*p && *p != ',' && *p != ';' && *p != '}' && *p != '"' && *p != '\'' && !isspace(*p) && ci < 63) {
+                col_str[ci++] = *p++;
+            }
+            int dummy = 1;
+            sh->color = parse_color(col_str, &dummy);
+        } else if (strcmp(key, "enabled") == 0) {
+            sh->enabled = parse_bool_val(p);
+        } else {
+            float val = (float)atof(p);
+            if (strcmp(key, "blur") == 0) sh->blur = val;
+            else if (strcmp(key, "dx") == 0 || strcmp(key, "offsetX") == 0) sh->dx = val;
+            else if (strcmp(key, "dy") == 0 || strcmp(key, "offsetY") == 0) sh->dy = val;
+            else if (strcmp(key, "opacity") == 0) sh->opacity = val;
+        }
+
+        while (*p && *p != ',' && *p != ';' && *p != '}') p++;
+    }
+    if (decoded) free(decoded);
+}
+
+
 
 static void apply_style_property(quadro_svg_style_t *st, const char *key, const char *val) {
     if (strcmp(key, "fill") == 0) {
@@ -1355,6 +1399,48 @@ static void render_node_recursive(const quadro_svg_doc_t *doc, const quadro_svg_
                 }
             }
 
+            /* 3.5. Render Drop Shadow if enabled */
+            if (node->style.shadow.enabled && node->style.shadow.blur >= 0.0f) {
+                uint8_t *src_a = (uint8_t*)malloc(total_pixels);
+                uint8_t *dst_a = (uint8_t*)malloc(total_pixels);
+                if (src_a && dst_a) {
+                    for (int i = 0; i < total_pixels; i++) {
+                        src_a[i] = (scratch[i] >> 24) & 0xFF;
+                    }
+                    if (node->style.shadow.blur > 0.0f) {
+                        gaussian_box_blur_alpha(src_a, dst_a, canvas_w, canvas_h, node->style.shadow.blur);
+                    } else {
+                        memcpy(dst_a, src_a, total_pixels);
+                    }
+
+                    int off_x = (int)roundf(node->style.shadow.dx);
+                    int off_y = (int)roundf(node->style.shadow.dy);
+                    uint32_t scol = node->style.shadow.color ? node->style.shadow.color : 0xFF000000;
+                    uint8_t base_sa = (scol >> 24) & 0xFF;
+                    float s_op = node->style.shadow.opacity > 0.0f ? node->style.shadow.opacity : 1.0f;
+
+                    for (int y = 0; y < canvas_h; y++) {
+                        int sy = y - off_y;
+                        if (sy < 0 || sy >= canvas_h) continue;
+                        for (int x = 0; x < canvas_w; x++) {
+                            int sx = x - off_x;
+                            if (sx < 0 || sx >= canvas_w) continue;
+
+                            uint8_t a = dst_a[sy * canvas_w + sx];
+                            if (a == 0) continue;
+
+                            uint8_t final_a = (uint8_t)(base_sa * (a / 255.0f) * s_op * cur_opacity);
+                            if (final_a > 0) {
+                                uint32_t spix = (scol & 0x00FFFFFF) | ((uint32_t)final_a << 24);
+                                layer_pixels[y * canvas_w + x] = blend_pixels(layer_pixels[y * canvas_w + x], spix, 0);
+                            }
+                        }
+                    }
+                }
+                if (src_a) free(src_a);
+                if (dst_a) free(dst_a);
+            }
+
             /* 4. Composite Scratch Buffer onto Target Canvas */
             for (int i = 0; i < total_pixels; i++) {
                 if ((scratch[i] & 0xFF000000) != 0) {
@@ -1515,6 +1601,12 @@ static void parse_node_attributes(quadro_svg_node_t *node, const char *tag_str) 
     if (strk_tex) {
         parse_texture_attribute(&node->style.stroke_texture, strk_tex);
         free(strk_tex);
+    }
+
+    char *shadow = extract_attr(tag_str, "data-shadow");
+    if (shadow) {
+        parse_shadow_attribute(&node->style.shadow, shadow);
+        free(shadow);
     }
 
     char *style = extract_attr(tag_str, "style");

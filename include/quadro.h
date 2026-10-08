@@ -605,7 +605,8 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int m1 = w_pos_mod(tx * 31 + ty * 17, 47);
         int m2 = w_pos_mod(tx * 13 - ty * 29, 37);
         int pat = 180 + m1 - m2;
-        if (pat < 0) pat = 0; if (pat > 255) pat = 255;
+        if (pat < 0) pat = 0;
+        if (pat > 255) pat = 255;
         mod_a = DIV255(base_a * pat);
     } else if (mode == 22) { /* Stipple Noise */
         uint32_t r = (((uint32_t)tx * 499u + (uint32_t)ty * 883u) ^ 0x3d3d3d3du) & 0xFF;
@@ -655,7 +656,8 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int fissure = (xPerturb > 16) ? (32 - xPerturb) : xPerturb;
         int fiber = (w_pos_mod(tx * 47 + ty * 13, 17) < 3) ? -35 : 20;
         int pat = fissure * 14 + fiber + 60;
-        if (pat < 0) pat = 0; if (pat > 255) pat = 255;
+        if (pat < 0) pat = 0;
+        if (pat > 255) pat = 255;
         mod_a = DIV255(base_a * pat);
     } else if (mode == 31) { /* Manga 60L Screen Dots */
         int u = w_pos_mod(((tx + ty) * 707) / 1000, 8);
@@ -942,7 +944,8 @@ static inline uint32_t w_sample_texture(int mode, int x, int y, int tex_angle, i
         int diff = cx_abs - cy_abs; if (diff < 0) diff = -diff;
         int is_edge = (diff <= 1 || cx_abs == 11 || cy_abs == 11);
         int pat = is_edge ? 30 : (175 + cx * 4 - cy * 3);
-        if (pat > 255) pat = 255; if (pat < 0) pat = 0;
+        if (pat > 255) pat = 255;
+        if (pat < 0) pat = 0;
         mod_a = DIV255(base_a * pat);
     } else if (mode == 70) { /* 8-Bit Space Pixel Invaders */
         int bx = w_pos_div(w_pos_mod(tx, 24), 3);

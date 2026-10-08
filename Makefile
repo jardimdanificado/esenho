@@ -38,10 +38,11 @@ bin/test_brush_dynamics: tests/test_brush_dynamics.c src/quadro_brush_dynamics.c
 	mkdir -p bin
 	$(NATIVE_CC) $(NATIVE_CFLAGS) -o $@ tests/test_brush_dynamics.c src/quadro_brush_dynamics.c -lm
 
-native: bin/quadro-svg bin/test_brush_dynamics
+native: bin/quadro-svg bin/test_brush_dynamics bin/test_native_svg
 
-test-native: bin/test_brush_dynamics
+test-native: bin/test_brush_dynamics bin/test_native_svg
 	./bin/test_brush_dynamics
+	./bin/test_native_svg
 
 test-brush-dyn: bin/test_brush_dynamics
 	./bin/test_brush_dynamics

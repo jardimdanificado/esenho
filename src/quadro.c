@@ -550,14 +550,9 @@ static void resize_surface(uint32_t new_w, uint32_t new_h) {
     if (new_w < 1 || new_h < 1) return;
     if (new_w == doc_width && new_h == doc_height) return;
 
-    uint32_t old_w = doc_width;
-    uint32_t old_h = doc_height;
     uint32_t new_pixels = new_w * new_h;
 
     out_pixels = (uint32_t*)canvas_alloc(new_pixels * sizeof(uint32_t));
-
-    uint32_t copy_w = old_w < new_w ? old_w : new_w;
-    uint32_t copy_h = old_h < new_h ? old_h : new_h;
 
     for (int l = 0; l < layer_count; l++) {
         if (!layers[l].in_use) continue;
@@ -923,9 +918,6 @@ static int32_t qy[MAX_QUEUE];
 static int poly_x[MAX_POLY];
 static int poly_y[MAX_POLY];
 static int poly_count = 0;
-
-#define MAX_SAMPLE 8192
-static uint32_t sample_buf[MAX_SAMPLE];
 
 static inline int color_match(uint32_t c1, uint32_t c2, int tol) {
     if (c1 == c2) return 1;
@@ -1666,10 +1658,14 @@ W_EXPORT int32_t w_layer_resize(int32_t layer_idx, int32_t new_w, int32_t new_h,
                 int b = (int)(((c00 >> 16) & 0xFF) * w00 + (((c10 >> 16) & 0xFF) * w10) + (((c01 >> 16) & 0xFF) * w01) + (((c11 >> 16) & 0xFF) * w11));
                 int a = (int)(((c00 >> 24) & 0xFF) * w00 + (((c10 >> 24) & 0xFF) * w10) + (((c01 >> 24) & 0xFF) * w01) + (((c11 >> 24) & 0xFF) * w11));
 
-                if (r < 0) r = 0; if (r > 255) r = 255;
-                if (g < 0) g = 0; if (g > 255) g = 255;
-                if (b < 0) b = 0; if (b > 255) b = 255;
-                if (a < 0) a = 0; if (a > 255) a = 255;
+                if (r < 0) r = 0;
+                if (r > 255) r = 255;
+                if (g < 0) g = 0;
+                if (g > 255) g = 255;
+                if (b < 0) b = 0;
+                if (b > 255) b = 255;
+                if (a < 0) a = 0;
+                if (a > 255) a = 255;
 
                 new_pix[y * new_w + x] = (uint32_t)((a << 24) | (b << 16) | (g << 8) | r);
             }
