@@ -2547,16 +2547,16 @@
 
             <!-- Native Brush Pool Selection -->
             <div class="cs-card">
-              <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
                 <div class="cs-card-title" style="margin: 0;">Brush Pool</div>
-                <span id="cs-bf-brush-count-label" style="font-size: 10px; color: var(--text-muted, #928374);">1 brush</span>
+                <span id="cs-bf-brush-count-label" style="font-size: 9.5px; color: var(--text-muted, #928374); font-weight: 600;">1 brush</span>
               </div>
-              <div id="cs-bf-brush-pool-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 28px; padding: 4px; background: var(--bg-deep, #1d2021); border-radius: 4px; border: 1px solid var(--border-color, #3c3836); align-items: center;"></div>
-              <div class="cs-form-row" style="gap: 6px;">
+              <div id="cs-bf-brush-pool-container" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--bg-input, #121314); border-radius: var(--radius-sm, 3px); border: 1px solid var(--border, #2e3234); min-height: 28px; align-items: center;"></div>
+              <div class="cs-form-row" style="gap: 4px;">
                 <select id="cs-bf-brush-add-select" class="cs-select" style="flex: 1;"></select>
-                <button type="button" id="cs-btn-add-bf-brush" class="cs-btn cs-btn-secondary" style="white-space: nowrap; padding: 4px 8px; font-size: 11px;">+ Add</button>
+                <button type="button" id="cs-btn-add-bf-brush" class="cs-btn-mini" style="white-space: nowrap; padding: 3px 8px;">+ Add</button>
               </div>
-              <div class="cs-form-row" id="cs-bf-brush-pick-row" style="margin-top: 6px;">
+              <div class="cs-form-row" id="cs-bf-brush-pick-row">
                 <label>Brush Pick</label>
                 <select id="cs-bf-brush-pick-mode" class="cs-select">
                   <option value="cycle">Cycle in Sequence</option>
@@ -5429,22 +5429,26 @@
 
       brushes.forEach((brushKey, idx) => {
         const preset = allPresets[brushKey] || allPresets[brushKey?.toLowerCase()] || {};
-        const chip = document.createElement('div');
-        chip.className = 'cs-chip';
-        chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 11px; background: var(--bg-surface, #282828); border: 1px solid var(--border-color, #504945); border-radius: 3px; color: var(--text, #ebdbb2); user-select: none;';
+        const tag = document.createElement('div');
+        tag.className = 'cs-bf-brush-tag';
 
-        const label = document.createElement('span');
-        label.textContent = `${idx + 1}. ${preset.name || brushKey}`;
-        chip.appendChild(label);
+        const num = document.createElement('span');
+        num.className = 'cs-bf-brush-num';
+        num.textContent = `${idx + 1}.`;
+        tag.appendChild(num);
+
+        const name = document.createElement('span');
+        name.className = 'cs-bf-brush-name';
+        name.textContent = preset.name || brushKey;
+        name.title = `${idx + 1}. ${preset.name || brushKey} (${brushKey})`;
+        tag.appendChild(name);
 
         if (brushes.length > 1) {
-          const removeBtn = document.createElement('span');
-          removeBtn.textContent = 'x';
-          removeBtn.style.cssText = 'cursor: pointer; opacity: 0.6; padding: 0 2px; font-weight: bold; line-height: 1;';
-          removeBtn.title = 'Remove brush from pool';
-          removeBtn.addEventListener('mouseenter', () => { removeBtn.style.opacity = '1'; removeBtn.style.color = 'var(--accent, #fb4934)'; });
-          removeBtn.addEventListener('mouseleave', () => { removeBtn.style.opacity = '0.6'; removeBtn.style.color = ''; });
-          removeBtn.addEventListener('click', (e) => {
+          const delBtn = document.createElement('span');
+          delBtn.className = 'cs-bf-brush-del';
+          delBtn.textContent = '×';
+          delBtn.title = `Remove ${preset.name || brushKey} from pool`;
+          delBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             this.brushFillConfig.brushes.splice(idx, 1);
             this.brushFillConfig.brushList = [...this.brushFillConfig.brushes];
@@ -5453,10 +5457,10 @@
             this.renderBrushPool();
             this.applyBrushFillToSelected(true);
           });
-          chip.appendChild(removeBtn);
+          tag.appendChild(delBtn);
         }
 
-        container.appendChild(chip);
+        container.appendChild(tag);
       });
     }
 
@@ -6267,6 +6271,45 @@
       .cs-palette-chip:hover {
         border-color: #ffffff;
         transform: scale(1.15);
+      }
+      /* Brush Pool Tags */
+      .cs-bf-brush-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 6px;
+        font-size: 10.5px;
+        background: var(--bg-surface, #282828);
+        border: 1px solid var(--border, #3c3836);
+        border-radius: var(--radius-sm, 3px);
+        color: var(--text, #ebdbb2);
+        user-select: none;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .cs-bf-brush-tag .cs-bf-brush-num {
+        color: var(--primary, #fabd2f);
+        font-weight: 600;
+        font-size: 9.5px;
+      }
+      .cs-bf-brush-tag .cs-bf-brush-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+      }
+      .cs-bf-brush-tag .cs-bf-brush-del {
+        cursor: pointer;
+        color: var(--text-muted, #928374);
+        padding: 0 2px;
+        font-size: 13px;
+        font-weight: bold;
+        line-height: 1;
+        transition: color 0.12s ease;
+      }
+      .cs-bf-brush-tag .cs-bf-brush-del:hover {
+        color: #fb4934;
       }
       /* SV Box */
       .cs-sv-box {
