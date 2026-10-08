@@ -219,7 +219,10 @@
   // ── 1.5. Native Brush Preset Resolution ──
   function getNativeBrushPresets() {
     let presets = {};
-    if (typeof BRUSH_PRESETS !== 'undefined') {
+    if (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.getDict === 'function') {
+      const dict = EsenhoRegistry.getDict('brush');
+      if (dict && Object.keys(dict).length > 0) presets = { ...dict };
+    } else if (typeof BRUSH_PRESETS !== 'undefined') {
       presets = { ...BRUSH_PRESETS };
     } else if (typeof window !== 'undefined' && window.BRUSH_PRESETS) {
       presets = { ...window.BRUSH_PRESETS };
@@ -227,9 +230,18 @@
       presets = { ...globalThis.BRUSH_PRESETS };
     } else if (typeof require === 'function') {
       try {
-        const es = require('./esenho.js');
-        if (es && es.BRUSH_PRESETS) presets = { ...es.BRUSH_PRESETS };
+        const reg = require('./resource_registry.js');
+        if (reg && reg.getDict) {
+          const dict = reg.getDict('brush');
+          if (dict && Object.keys(dict).length > 0) presets = { ...dict };
+        }
       } catch (_) {}
+      if (Object.keys(presets).length === 0) {
+        try {
+          const es = require('./esenho.js');
+          if (es && es.BRUSH_PRESETS) presets = { ...es.BRUSH_PRESETS };
+        } catch (_) {}
+      }
     }
 
     try {
@@ -1463,389 +1475,33 @@
 
   // ── 3. Preset Library for Brush / Hatch Fills ──
 
-  const BUILTIN_BRUSH_FILL_PRESETS = [
-    {
-      id: 'pencil_hatch',
-      name: 'HB Pencil — Linear Hatch',
-      brush: 'pencil',
-      desc: 'Natural graphite hatching with paper grain and sketch bleed',
-      config: {
-        enabled: true,
-        brush: 'pencil',
-        brushes: ['pencil'],
-        brushList: ['pencil'],
-        pattern: 'linear',
-        spacing: 8,
-        angle: 35,
-        strokesPerLine: 2,
-        strokeGap: 3,
-        strokeWidth: 2,
-        strokeOpacity: 0.8,
-        angleJitter: 6,
-        lengthJitter: 20,
-        widthJitter: 15,
-        positionJitter: 2,
-        clipMode: 'bleed',
-        bleedDistance: 8,
-        bleedJitter: 50,
-        colorPalette: ['#282828']
-      }
-    },
-    {
-      id: 'inker_crosshatch',
-      name: 'Studio Inker — Crosshatch',
-      brush: 'inker',
-      desc: 'Comic cross-hatching with dynamic inker line weight',
-      config: {
-        enabled: true,
-        brush: 'inker',
-        brushes: ['inker'],
-        brushList: ['inker'],
-        pattern: 'crosshatch',
-        spacing: 6,
-        angle: 45,
-        angle2: 135,
-        strokeWidth: 1.5,
-        strokeOpacity: 0.9,
-        colorPalette: ['#1d2021'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'techpen_triple',
-      name: 'Technical Pen — Triple Hatch',
-      brush: 'tech_pen',
-      desc: 'Crisp drafting pen with mechanical triple-hatch angle grid',
-      config: {
-        enabled: true,
-        brush: 'tech_pen',
-        brushes: ['tech_pen'],
-        brushList: ['tech_pen'],
-        pattern: 'triple_hatch',
-        spacing: 7,
-        angle: 0,
-        angle2: 60,
-        angle3: 120,
-        strokeWidth: 1.2,
-        strokeOpacity: 0.95,
-        colorPalette: ['#1d2021'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'gpen_woodcut',
-      name: 'Manga G-Pen — Woodcut Wave',
-      brush: 'gpen',
-      desc: 'Expressive dip pen undulating timber engraving',
-      config: {
-        enabled: true,
-        brush: 'gpen',
-        brushes: ['gpen'],
-        brushList: ['gpen'],
-        pattern: 'wave',
-        spacing: 7,
-        angle: 15,
-        strokeWidth: 2.4,
-        strokeOpacity: 0.95,
-        widthJitter: 35,
-        colorPalette: ['#282828'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'charcoal_shading',
-      name: 'Charcoal — Cross Shading',
-      brush: 'charcoal',
-      desc: 'Rough charcoal tooth with pressure depth and bleed',
-      config: {
-        enabled: true,
-        brush: 'charcoal',
-        brushSecondary: 'soft_pencil',
-        brushes: ['charcoal', 'soft_pencil'],
-        brushList: ['charcoal', 'soft_pencil'],
-        brushPickMode: 'alternate',
-        pattern: 'crosshatch',
-        spacing: 7,
-        angle: 30,
-        angle2: 120,
-        strokeWidth: 2.8,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021', '#3c3836'],
-        angleJitter: 4,
-        widthJitter: 25,
-        lengthJitter: 15,
-        clipMode: 'bleed',
-        bleedDistance: 5
-      }
-    },
-    {
-      id: 'spray_stipple',
-      name: 'Spray Can — Pointillist Stipple',
-      brush: 'spray',
-      desc: 'Multi-color dispersed paint splatter and aerosol dabs',
-      config: {
-        enabled: true,
-        brush: 'spray',
-        brushes: ['spray'],
-        brushList: ['spray'],
-        pattern: 'stipple',
-        spacing: 5,
-        strokeWidth: 3,
-        strokeOpacity: 0.9,
-        colorMode: 'palette',
-        colorPalette: ['#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'],
-        colorPickMode: 'random',
-        colorJitter: 10,
-        widthJitter: 30,
-        opacityJitter: 20,
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'watercolor_wash',
-      name: 'Watercolor — Fluid Wash',
-      brush: 'watercolor',
-      desc: 'Fluid watercolor wash flow with soft bleeding edges',
-      config: {
-        enabled: true,
-        brush: 'watercolor',
-        brushes: ['watercolor'],
-        brushList: ['watercolor'],
-        pattern: 'wave',
-        spacing: 9,
-        angle: 25,
-        strokeWidth: 4,
-        strokeOpacity: 0.65,
-        colorMode: 'palette',
-        colorPalette: ['#83a598', '#458588', '#8ec07c'],
-        colorPickMode: 'cycle',
-        widthJitter: 30,
-        opacityJitter: 25,
-        clipMode: 'bleed',
-        bleedDistance: 6
-      }
-    },
-    {
-      id: 'marker_zigzag',
-      name: 'Art Marker — Cyber Flow',
-      brush: 'marker',
-      desc: 'Broad chisel marker flow field with palette cycling',
-      config: {
-        enabled: true,
-        brush: 'marker',
-        brushes: ['marker'],
-        brushList: ['marker'],
-        pattern: 'zigzag',
-        spacing: 10,
-        angle: 90,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.9,
-        colorMode: 'palette',
-        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'pastel_scribble',
-      name: 'Soft Pastel — Wandering Scribble',
-      brush: 'soft_pastel',
-      desc: 'Chalk scribble wandering flow across vector contours',
-      config: {
-        enabled: true,
-        brush: 'soft_pastel',
-        brushes: ['soft_pastel'],
-        brushList: ['soft_pastel'],
-        pattern: 'scribble',
-        spacing: 6,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.75,
-        colorPalette: ['#d79921', '#fe8019'],
-        colorPickMode: 'cycle',
-        widthJitter: 25,
-        clipMode: 'bleed',
-        bleedDistance: 4
-      }
-    },
-    {
-      id: 'oil_spiral',
-      name: 'Oil Impasto — Spiral Vortex',
-      brush: 'oil',
-      desc: 'Thick wet impasto paint swirling in Archimedean spiral',
-      config: {
-        enabled: true,
-        brush: 'oil',
-        brushes: ['oil'],
-        brushList: ['oil'],
-        pattern: 'spiral',
-        spacing: 6,
-        strokeWidth: 2.5,
-        strokeOpacity: 0.9,
-        colorPalette: ['#d79921', '#b57614'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'fountain_contour',
-      name: 'Calligraphy Chisel — Topographic Contour',
-      brush: 'fountain',
-      desc: 'Angled chisel fountain pen following concentric contour insets',
-      config: {
-        enabled: true,
-        brush: 'fountain',
-        brushes: ['fountain'],
-        brushList: ['fountain'],
-        pattern: 'contour',
-        spacing: 6,
-        strokeWidth: 2.0,
-        strokeOpacity: 0.9,
-        colorPalette: ['#458588', '#83a598'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'herringbone_tweed',
-      name: 'Mechanical Pencil — Herringbone Tweed',
-      brush: 'mech_pencil',
-      desc: 'Classic architectural herringbone chevron hatching',
-      config: {
-        enabled: true,
-        brush: 'mech_pencil',
-        brushes: ['mech_pencil'],
-        brushList: ['mech_pencil'],
-        pattern: 'herringbone',
-        spacing: 8,
-        angle: 45,
-        strokeWidth: 1.5,
-        strokeOpacity: 0.9,
-        colorPalette: ['#504945', '#3c3836'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'woven_basket',
-      name: 'Washi Graphite — Woven Basketweave',
-      brush: 'washi_sketch',
-      desc: 'Interlocking woven perpendicular fiber strokes',
-      config: {
-        enabled: true,
-        brush: 'washi_sketch',
-        brushes: ['washi_sketch'],
-        brushList: ['washi_sketch'],
-        pattern: 'woven',
-        spacing: 8,
-        angle: 0,
-        strokeWidth: 1.8,
-        strokeOpacity: 0.85,
-        colorPalette: ['#665c54', '#7c6f64'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'cross_contour_3d',
-      name: '6B Graphite — Cross-Contour 3D',
-      brush: 'soft_pencil',
-      desc: 'Michelangelo style cross-contour volume shading',
-      config: {
-        enabled: true,
-        brush: 'soft_pencil',
-        brushes: ['soft_pencil'],
-        brushList: ['soft_pencil'],
-        pattern: 'cross_contour',
-        spacing: 8,
-        angle: 30,
-        curvature: 30,
-        curvatureMode: 'arch',
-        strokeWidth: 2.2,
-        strokeOpacity: 0.8,
-        colorPalette: ['#282828', '#3c3836'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'radial_sunburst',
-      name: 'Technical Pen — Radial Sunburst',
-      brush: 'tech_pen',
-      desc: 'Precision drafting rays radiating outward from center',
-      config: {
-        enabled: true,
-        brush: 'tech_pen',
-        brushes: ['tech_pen'],
-        brushList: ['tech_pen'],
-        pattern: 'radial',
-        spacing: 6,
-        originX: 50,
-        originY: 50,
-        strokeWidth: 1.2,
-        strokeOpacity: 0.95,
-        colorPalette: ['#d65d0e', '#fabd2f', '#fe8019'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'concentric_zen',
-      name: 'Studio Inker — Concentric Zen Rings',
-      brush: 'inker',
-      desc: 'Harmonic concentric circular ripple arcs',
-      config: {
-        enabled: true,
-        brush: 'inker',
-        brushes: ['inker'],
-        brushList: ['inker'],
-        pattern: 'concentric',
-        spacing: 7,
-        originX: 50,
-        originY: 50,
-        strokeWidth: 2.0,
-        strokeOpacity: 0.9,
-        colorPalette: ['#076678', '#458588', '#83a598'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'flow_stream',
-      name: 'Wet Acrylic — Van Gogh Flow Field',
-      brush: 'acrylic',
-      desc: 'Expressive swirling streamline curves following curl vector noise',
-      config: {
-        enabled: true,
-        brush: 'acrylic',
-        brushSecondary: 'oil',
-        brushes: ['acrylic', 'oil'],
-        brushList: ['acrylic', 'oil'],
-        brushPickMode: 'alternate',
-        pattern: 'flow_field',
-        spacing: 9,
-        waveFrequency: 10,
-        strokeWidth: 3.5,
-        strokeOpacity: 0.88,
-        colorPalette: ['#458588', '#fabd2f', '#fe8019', '#b8bb26'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'voronoi_facets',
-      name: 'Dry Ink — Voronoi Cellular Mesh',
-      brush: 'dry_ink',
-      desc: 'Organic cellular crystal partitions with rough dry brush edges',
-      config: {
-        enabled: true,
-        brush: 'dry_ink',
-        brushes: ['dry_ink'],
-        brushList: ['dry_ink'],
-        pattern: 'voronoi',
-        spacing: 12,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.9,
-        colorPalette: ['#1d2021', '#282828'],
-        clipMode: 'strict'
-      }
+  function getRegistry() {
+    if (typeof EsenhoRegistry !== 'undefined' && EsenhoRegistry) return EsenhoRegistry;
+    if (typeof globalThis !== 'undefined' && globalThis.EsenhoRegistry) return globalThis.EsenhoRegistry;
+    if (typeof require === 'function') {
+      try {
+        return require('./resource_registry.js');
+      } catch (_) {}
     }
-  ];
+    return null;
+  }
+
+  const BUILTIN_BRUSH_FILL_PRESETS = new Proxy([], {
+    get(target, prop) {
+      const reg = getRegistry();
+      const list = (reg && typeof reg.list === 'function')
+        ? reg.list('material').filter(m => m.category === 'brushfills' || m.mode === 'brushfill')
+        : [];
+      if (prop === 'length') return list.length;
+      if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+        return list[Number(prop)];
+      }
+      if (typeof list[prop] === 'function') {
+        return list[prop].bind(list);
+      }
+      return list[prop] || target[prop];
+    }
+  });
 
   // ── 4. Export & Environment Bindings ──
 

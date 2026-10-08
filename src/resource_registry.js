@@ -1,13 +1,14 @@
 /**
- * Esenho Universal Resource Registry v1.0
- * Unified Schema, Registry & Evaluation Engine for the 7 Core Standard Asset Types:
- *   1. Brush    (.ebrush) - Dynamic universal brush configuration
- *   2. Tip      (.etip)   - Stamp / tip geometry (procedural, bitmap, svg)
- *   3. Texture  (.etex)   - Seamless grain, paper tooth & procedural noise
- *   4. Curve    (.ecurve) - Bézier transfer functions (stylus, velocity, easing)
- *   5. Material (.emat)   - Fill appearance, gradients, textures & WASM FX
- *   6. Palette  (.epal)   - Swatch sets & color ramp gradients
- *   7. Mesh     (.emesh)  - Procedural hatching meshes & stroke layouts
+ * Esenho Universal Resource Registry & Runner v2.0
+ * Decoupled Data & Runner Architecture for the 8 Standard Asset Types:
+ *   1. Brush Presets (.ebrush) - Dynamic universal brush configurations
+ *   2. Brush Tips    (.etip)   - Stamp / tip geometries (procedural, bitmap, svg)
+ *   3. Textures      (.etex)   - Seamless grains, paper tooth, canvas, noise & procedural textures
+ *   4. Materials     (.emat)   - Fill appearances, gradients, textures, WASM FX & procedural brush fills
+ *   5. Curves        (.ecurve) - Bézier transfer functions (stylus pressure, velocity, dynamics, easing)
+ *   6. Meshes        (.emesh)  - Procedural hatching meshes, trajectories & stroke fill layouts
+ *   7. WASM FX       (.ewasm)  - WebAssembly filter plugins, backdrop lenses & image processing shaders
+ *   8. Palettes      (.epal)   - Swatch sets, color ramps & multi-stop gradients
  */
 
 (function(root, factory) {
@@ -21,12 +22,45 @@
 
   const SCHEMAS = {
     brush: "esenho/brush/v1",
+    brushPresets: "esenho/brush/v1",
     tip: "esenho/tip/v1",
+    brushTips: "esenho/tip/v1",
     texture: "esenho/texture/v1",
+    textures: "esenho/texture/v1",
     curve: "esenho/curve/v1",
+    curves: "esenho/curve/v1",
     material: "esenho/material/v1",
+    materials: "esenho/material/v1",
     palette: "esenho/palette/v1",
-    mesh: "esenho/mesh/v1"
+    palettes: "esenho/palette/v1",
+    mesh: "esenho/mesh/v1",
+    meshes: "esenho/mesh/v1",
+    wasm_fx: "esenho/wasm_fx/v1",
+    wasmFx: "esenho/wasm_fx/v1",
+    data: "esenho/data/v1"
+  };
+
+  const TYPE_ALIASES = {
+    brushPresets: "brush",
+    brush: "brush",
+    brushes: "brush",
+    brushTips: "tip",
+    tip: "tip",
+    tips: "tip",
+    textures: "texture",
+    texture: "texture",
+    materials: "material",
+    material: "material",
+    curves: "curve",
+    curve: "curve",
+    meshes: "mesh",
+    mesh: "mesh",
+    wasmFx: "wasm_fx",
+    wasm_fx: "wasm_fx",
+    wasm: "wasm_fx",
+    plugins: "wasm_fx",
+    palettes: "palette",
+    palette: "palette"
   };
 
   const EXTENSIONS = {
@@ -36,253 +70,46 @@
     curve: ".ecurve",
     material: ".emat",
     palette: ".epal",
-    mesh: ".emesh"
+    mesh: ".emesh",
+    wasm_fx: ".ewasm"
   };
 
-  /* ── Built-in Standard Curves ── */
-  const BUILTIN_CURVES = [
-    {
-      $schema: SCHEMAS.curve,
-      id: "linear",
-      name: "Linear 1:1",
-      builtin: true,
-      type: "cubic_bezier",
-      points: [[0, 0], [0.333, 0.333], [0.667, 0.667], [1, 1]]
-    },
-    {
-      $schema: SCHEMAS.curve,
-      id: "stylus_pressure_soft",
-      name: "Soft Stylus Response",
-      builtin: true,
-      type: "cubic_bezier",
-      points: [[0, 0], [0.15, 0.45], [0.4, 0.85], [1, 1]]
-    },
-    {
-      $schema: SCHEMAS.curve,
-      id: "stylus_pressure_hard",
-      name: "Hard Stylus Response",
-      builtin: true,
-      type: "cubic_bezier",
-      points: [[0, 0], [0.65, 0.15], [0.85, 0.55], [1, 1]]
-    },
-    {
-      $schema: SCHEMAS.curve,
-      id: "ease_in_out",
-      name: "Smooth Sigmoid S-Curve",
-      builtin: true,
-      type: "cubic_bezier",
-      points: [[0, 0], [0.42, 0.0], [0.58, 1.0], [1, 1]]
-    },
-    {
-      $schema: SCHEMAS.curve,
-      id: "taper_sharp",
-      name: "Sharp Taper",
-      builtin: true,
-      type: "cubic_bezier",
-      points: [[0, 0], [0.05, 0.8], [0.2, 1.0], [1, 1]]
+  function normalizeType(type) {
+    if (!type || typeof type !== "string") return "";
+    return TYPE_ALIASES[type] || type;
+  }
+
+  function base64ToBytes(b64) {
+    if (!b64 || typeof b64 !== "string") return new Uint8Array(0);
+    if (typeof Buffer !== "undefined") {
+      const buf = Buffer.from(b64, "base64");
+      return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
     }
-  ];
-
-  /* ── Built-in Standard Tips ── */
-  const BUILTIN_TIPS = [
-    { $schema: SCHEMAS.tip, id: "round", name: "Circle / Round", builtin: true, type: "procedural", hardness: 100, aspectRatio: 1.0, angle: 0 },
-    { $schema: SCHEMAS.tip, id: "soft_round", name: "Soft Airbrush", builtin: true, type: "procedural", hardness: 0, aspectRatio: 1.0, angle: 0 },
-    { $schema: SCHEMAS.tip, id: "square", name: "Square Block", builtin: true, type: "procedural", hardness: 100, aspectRatio: 1.0, angle: 0 },
-    { $schema: SCHEMAS.tip, id: "chisel", name: "Chisel Flat", builtin: true, type: "procedural", hardness: 100, aspectRatio: 0.35, angle: 45 },
-    { $schema: SCHEMAS.tip, id: "bristle", name: "3-Strand Bristle", builtin: true, type: "procedural", hardness: 85, aspectRatio: 0.9, angle: 0 },
-    { $schema: SCHEMAS.tip, id: "rake", name: "5-Strand Rake", builtin: true, type: "procedural", hardness: 90, aspectRatio: 0.8, angle: 0 },
-    { $schema: SCHEMAS.tip, id: "charcoal", name: "Charcoal Grit", builtin: true, type: "procedural", hardness: 80, aspectRatio: 0.85, angle: 30 },
-    { $schema: SCHEMAS.tip, id: "dagger", name: "Dagger / Teardrop", builtin: true, type: "procedural", hardness: 95, aspectRatio: 0.4, angle: 90 },
-    { $schema: SCHEMAS.tip, id: "splatter", name: "Splatter Drops", builtin: true, type: "procedural", hardness: 95, aspectRatio: 1.0, angle: 0 },
-    { $schema: SCHEMAS.tip, id: "oval", name: "Oval Calligraphy", builtin: true, type: "procedural", hardness: 95, aspectRatio: 0.5, angle: 45 },
-    { $schema: SCHEMAS.tip, id: "star", name: "5-Point Star", builtin: true, type: "procedural", hardness: 100, aspectRatio: 1.0, angle: 0 }
-  ];
-
-  /* ── Built-in Standard Textures ── */
-  const BUILTIN_TEXTURES = [
-    { $schema: SCHEMAS.texture, id: "none", name: "None (Smooth)", builtin: true, generator: "none", scale: 100, contrast: 100, brightness: 100, depth: 0, mode: "multiply" },
-    { $schema: SCHEMAS.texture, id: "paper", name: "Paper Grain", builtin: true, generator: "paper", scale: 100, contrast: 100, brightness: 100, depth: 50, mode: "multiply" },
-    { $schema: SCHEMAS.texture, id: "canvas", name: "Canvas Weave", builtin: true, generator: "canvas", scale: 100, contrast: 120, brightness: 100, depth: 60, mode: "multiply" },
-    { $schema: SCHEMAS.texture, id: "noise", name: "Fine Noise", builtin: true, generator: "noise", scale: 80, contrast: 90, brightness: 100, depth: 40, mode: "multiply" },
-    { $schema: SCHEMAS.texture, id: "watercolor", name: "Watercolor Coldpress", builtin: true, generator: "watercolor", scale: 120, contrast: 110, brightness: 100, depth: 70, mode: "multiply" },
-    { $schema: SCHEMAS.texture, id: "grunge", name: "Rough Grunge", builtin: true, generator: "grunge", scale: 150, contrast: 130, brightness: 95, depth: 80, mode: "multiply" },
-    { $schema: SCHEMAS.texture, id: "charcoal_tooth", name: "Charcoal Tooth", builtin: true, generator: "charcoal_tooth", scale: 100, contrast: 140, brightness: 100, depth: 75, mode: "multiply" }
-  ];
-
-  /* ── Built-in Standard Mesh Patterns ── */
-  const BUILTIN_MESHES = [
-    { $schema: SCHEMAS.mesh, id: "linear", name: "Parallel Hatch", builtin: true, pattern: "linear", spacing: 6, angle: 45, curvature: 0, density: 100, direction: "bidirectional" },
-    { $schema: SCHEMAS.mesh, id: "crosshatch", name: "Crosshatch", builtin: true, pattern: "crosshatch", spacing: 8, angle: 45, curvature: 0, density: 100, direction: "bidirectional" },
-    { $schema: SCHEMAS.mesh, id: "triple_hatch", name: "Triple Hatch", builtin: true, pattern: "triple_hatch", spacing: 8, angle: 30, curvature: 0, density: 100, direction: "bidirectional" },
-    { $schema: SCHEMAS.mesh, id: "flow_field", name: "Fluid Flow Field", builtin: true, pattern: "flow_field", spacing: 6, angle: 0, curvature: 25, density: 100, direction: "forward" },
-    { $schema: SCHEMAS.mesh, id: "radial", name: "Radial Sunburst", builtin: true, pattern: "radial", spacing: 10, angle: 0, curvature: 0, density: 100, direction: "forward" },
-    { $schema: SCHEMAS.mesh, id: "spiral", name: "Archimedean Spiral", builtin: true, pattern: "spiral", spacing: 7, angle: 0, curvature: 50, density: 100, direction: "forward" },
-    { $schema: SCHEMAS.mesh, id: "voronoi", name: "Voronoi Crystals", builtin: true, pattern: "voronoi", spacing: 12, angle: 0, curvature: 0, density: 90, direction: "bidirectional" },
-    { $schema: SCHEMAS.mesh, id: "stipple", name: "Pointillist Stipple", builtin: true, pattern: "stipple", spacing: 4, angle: 0, curvature: 0, density: 80, direction: "forward" }
-  ];
-
-  /* ── Built-in Standard Palettes ── */
-  const BUILTIN_PALETTES = [
-    {
-      $schema: SCHEMAS.palette,
-      id: "gruvbox_dark",
-      name: "Gruvbox Dark",
-      builtin: true,
-      colors: ["#282828", "#fabd2f", "#fb4934", "#b8bb26", "#83a598", "#d3869b", "#ebdbb2", "#fe8019"],
-      gradients: [
-        { id: "gold_fire", type: "linear", stops: [{ offset: 0, color: "#fabd2f" }, { offset: 1, color: "#fb4934" }] },
-        { id: "cyber_teal", type: "linear", stops: [{ offset: 0, color: "#83a598" }, { offset: 1, color: "#b8bb26" }] }
-      ]
-    },
-    {
-      $schema: SCHEMAS.palette,
-      id: "nord_frost",
-      name: "Nord Frost",
-      builtin: true,
-      colors: ["#2e3440", "#3b4252", "#88c0d0", "#81a1c1", "#5e81ac", "#bf616a", "#a3be8c", "#ebcb8b"],
-      gradients: [
-        { id: "aurora", type: "linear", stops: [{ offset: 0, color: "#88c0d0" }, { offset: 1, color: "#5e81ac" }] }
-      ]
+    const binary = atob(b64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
     }
-  ];
+    return bytes;
+  }
 
-  /* ── Built-in Universal Brushes ── */
-  const BUILTIN_BRUSHES = [
-    {
-      $schema: SCHEMAS.brush,
-      id: "solid_vector",
-      name: "Solid Vector (Clean Line)",
-      category: "ink",
-      builtin: true,
-      isVectorPure: true,
-      tip: { ref: "round", size: 3, hardness: 100, roundness: 100, angle: 0 },
-      dynamics: {
-        spacing: 1,
-        stabilizer: { mode: "streamline", smoothing: 0 },
-        pressureSize: false,
-        pressureFlow: false,
-        velocityScaling: 0
-      },
-      texture: { ref: "none" },
-      wet: { wetness: 0, smudge: 0, colorPickup: 0, depletion: 0 },
-      jitter: { size: 0, angle: 0, opacity: 0, scatter: 0 }
-    },
-    {
-      $schema: SCHEMAS.brush,
-      id: "studio_inker",
-      name: "Studio Inker",
-      category: "ink",
-      builtin: true,
-      tip: { ref: "round", size: 6, hardness: 100, roundness: 100, angle: 0 },
-      dynamics: {
-        spacing: 3,
-        stabilizer: { mode: "streamline", smoothing: 25 },
-        pressureSize: true,
-        pressureFlow: false,
-        velocityScaling: 15,
-        taper: { in: 5, out: 15 }
-      },
-      texture: { ref: "none" },
-      wet: { wetness: 0, smudge: 0, colorPickup: 0, depletion: 0 },
-      jitter: { size: 0, angle: 0, opacity: 0, scatter: 0 }
-    },
-    {
-      $schema: SCHEMAS.brush,
-      id: "charcoal_soft",
-      name: "Soft Charcoal Grit",
-      category: "charcoal",
-      builtin: true,
-      tip: { ref: "charcoal", size: 28, hardness: 80, roundness: 85, angle: 30 },
-      dynamics: {
-        spacing: 8,
-        stabilizer: { mode: "streamline", smoothing: 10 },
-        pressureSize: true,
-        pressureFlow: true,
-        tiltAngle: true
-      },
-      texture: { ref: "charcoal_tooth", scale: 100, depth: 70 },
-      wet: { wetness: 0, smudge: 10, colorPickup: 0, depletion: 0 },
-      jitter: { size: 10, angle: 35, opacity: 15, scatter: 4 }
-    },
-    {
-      $schema: SCHEMAS.brush,
-      id: "soft_airbrush",
-      name: "Radial Airbrush",
-      category: "airbrush",
-      builtin: true,
-      tip: { ref: "soft_round", size: 60, hardness: 0, roundness: 100, angle: 0 },
-      dynamics: {
-        spacing: 4,
-        stabilizer: { mode: "streamline", smoothing: 15 },
-        pressureSize: false,
-        pressureFlow: true,
-        buildup: true
-      },
-      texture: { ref: "none" },
-      wet: { wetness: 0, smudge: 0, colorPickup: 0, depletion: 0 },
-      jitter: { size: 0, angle: 0, opacity: 0, scatter: 0 }
-    },
-    {
-      $schema: SCHEMAS.brush,
-      id: "wet_acrylic",
-      name: "Wet Acrylic Paint",
-      category: "paint",
-      builtin: true,
-      tip: { ref: "bristle", size: 32, hardness: 90, roundness: 80, angle: 0 },
-      dynamics: {
-        spacing: 4,
-        stabilizer: { mode: "streamline", smoothing: 20 },
-        pressureSize: true,
-        pressureFlow: true
-      },
-      texture: { ref: "canvas", scale: 100, depth: 50 },
-      wet: { wetness: 65, smudge: 45, colorPickup: 40, depletion: 15 },
-      jitter: { size: 0, angle: 10, opacity: 0, scatter: 0 }
+  function bytesToBase64(u8) {
+    if (!u8 || !(u8 instanceof Uint8Array)) return "";
+    if (typeof Buffer !== "undefined") {
+      return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength).toString("base64");
     }
-  ];
-
-  /* ── Built-in Standard Materials ── */
-  const BUILTIN_MATERIALS = [
-    {
-      $schema: SCHEMAS.material,
-      id: "solid_gold",
-      name: "Solid Gold",
-      builtin: true,
-      color: "#fabd2f",
-      opacity: 1.0,
-      gradient: null,
-      texture: { ref: "none" },
-      brushFill: { enabled: false }
-    },
-    {
-      $schema: SCHEMAS.material,
-      id: "vintage_paper",
-      name: "Vintage Canvas Paper",
-      builtin: true,
-      color: "#ebdbb2",
-      opacity: 1.0,
-      gradient: null,
-      texture: { ref: "paper", scale: 100, depth: 60 },
-      brushFill: { enabled: false }
-    },
-    {
-      $schema: SCHEMAS.material,
-      id: "manga_crosshatch",
-      name: "Manga Crosshatch Fill",
-      builtin: true,
-      color: "#282828",
-      opacity: 0.95,
-      brushFill: {
-        enabled: true,
-        brushRef: "studio_inker",
-        meshRef: "crosshatch",
-        spacing: 7,
-        strokeWidth: 1.8
-      }
+    let binary = "";
+    const len = u8.byteLength;
+    const chunkSize = 0x8000;
+    for (let i = 0; i < len; i += chunkSize) {
+      const chunk = u8.subarray(i, Math.min(i + chunkSize, len));
+      binary += String.fromCharCode.apply(null, chunk);
     }
-  ];
+    return btoa(binary);
+  }
 
-  /* ── In-Memory Registries ── */
+  /* ── In-Memory Registries for all resource types ── */
   const stores = {
     brush: new Map(),
     tip: new Map(),
@@ -290,20 +117,24 @@
     curve: new Map(),
     material: new Map(),
     palette: new Map(),
-    mesh: new Map()
+    mesh: new Map(),
+    wasm_fx: new Map(),
+    wasm_core: new Map()
   };
 
-  function seedDefaults() {
-    BUILTIN_CURVES.forEach(c => stores.curve.set(c.id, { ...c }));
-    BUILTIN_TIPS.forEach(t => stores.tip.set(t.id, { ...t }));
-    BUILTIN_TEXTURES.forEach(tx => stores.texture.set(tx.id, { ...tx }));
-    BUILTIN_MESHES.forEach(m => stores.mesh.set(m.id, { ...m }));
-    BUILTIN_PALETTES.forEach(p => stores.palette.set(p.id, { ...p }));
-    BUILTIN_BRUSHES.forEach(b => stores.brush.set(b.id, { ...b }));
-    BUILTIN_MATERIALS.forEach(mat => stores.material.set(mat.id, { ...mat }));
-  }
+  let initialDataPackage = null;
 
-  seedDefaults();
+  // Try loading default data.json in CommonJS / Node environments
+  if (typeof require === "function") {
+    try {
+      const path = require("path");
+      const fs = require("fs");
+      const rootDataPath = path.join(__dirname, "../data.json");
+      if (fs.existsSync(rootDataPath)) {
+        initialDataPackage = JSON.parse(fs.readFileSync(rootDataPath, "utf8"));
+      }
+    } catch (_) {}
+  }
 
   /* ── Bézier Evaluation Helper: Cubic Bézier Curve [0..1] -> [0..1] ── */
   function evalCubicBezier(p0, p1, p2, p3, t) {
@@ -341,33 +172,177 @@
   const EsenhoRegistry = {
     SCHEMAS,
     EXTENSIONS,
+    TYPE_ALIASES,
 
     /**
-     * Registers or updates a standard asset.
-     * @param {"brush"|"tip"|"texture"|"curve"|"material"|"palette"|"mesh"} type 
+     * Loads a complete standardized data package (data.json).
+     * @param {Object|string} data - Raw JSON string or parsed object
+     * @returns {Object} statistics of loaded items
+     */
+    loadData(data) {
+      if (!data) return { total: 0 };
+      const pkg = typeof data === "string" ? JSON.parse(data) : data;
+
+      const mapping = {
+        brush: pkg.brushPresets || pkg.brushes || pkg.brush,
+        tip: pkg.brushTips || pkg.tips || pkg.tip,
+        texture: pkg.textures || pkg.texture,
+        curve: pkg.curves || pkg.curve,
+        material: pkg.materials || pkg.material,
+        palette: pkg.palettes || pkg.palette,
+        mesh: pkg.meshes || pkg.mesh,
+        wasm_fx: pkg.wasmFx || pkg.wasm_fx || pkg.plugins
+      };
+
+      if (pkg.wasmCore && typeof pkg.wasmCore === "object") {
+        const core = { ...pkg.wasmCore };
+        if (!core.id) core.id = "quadro_canvas";
+        stores.wasm_core.set(core.id, core);
+      }
+
+      const stats = {};
+      for (const [storeKey, items] of Object.entries(mapping)) {
+        if (!items) continue;
+        let count = 0;
+        if (Array.isArray(items)) {
+          for (const item of items) {
+            if (item && item.id) {
+              this.register(storeKey, item);
+              count++;
+            }
+          }
+        } else if (typeof items === "object") {
+          for (const [id, item] of Object.entries(items)) {
+            if (item && typeof item === "object") {
+              const res = { ...item };
+              if (!res.id) res.id = id;
+              this.register(storeKey, res);
+              count++;
+            }
+          }
+        }
+        stats[storeKey] = count;
+      }
+      return stats;
+    },
+
+    /**
+     * Exports the live registry as a standardized data.json object.
+     * @returns {Object} Standardized data package
+     */
+    exportData() {
+      const toObj = (map) => {
+        const obj = {};
+        for (const [k, v] of map.entries()) {
+          obj[k] = JSON.parse(JSON.stringify(v));
+        }
+        return obj;
+      };
+
+      const brushPresets = toObj(stores.brush);
+      const textures = toObj(stores.texture);
+      const brushTips = toObj(stores.tip);
+      const materials = toObj(stores.material);
+      const curves = toObj(stores.curve);
+      const meshes = toObj(stores.mesh);
+      const wasmFx = toObj(stores.wasm_fx);
+      const palettes = toObj(stores.palette);
+      const wasmCore = stores.wasm_core.get("quadro_canvas") ? JSON.parse(JSON.stringify(stores.wasm_core.get("quadro_canvas"))) : null;
+
+      return {
+        $schema: SCHEMAS.data,
+        version: "1.0.0",
+        name: "Esenho Universal Standard Resources",
+        description: "Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, and palettes.",
+        exportedAt: new Date().toISOString(),
+        stats: {
+          brushPresets: Object.keys(brushPresets).length,
+          textures: Object.keys(textures).length,
+          brushTips: Object.keys(brushTips).length,
+          materials: Object.keys(materials).length,
+          curves: Object.keys(curves).length,
+          meshes: Object.keys(meshes).length,
+          wasmFx: Object.keys(wasmFx).length,
+          palettes: Object.keys(palettes).length,
+          hasWasmCore: Boolean(wasmCore)
+        },
+        wasmCore,
+        brushPresets,
+        textures,
+        brushTips,
+        materials,
+        curves,
+        meshes,
+        wasmFx,
+        palettes
+      };
+    },
+
+    /**
+     * Exports all user-defined assets as an archive/bundle manifest.
+     */
+    exportAll() {
+      const manifest = {
+        format: "esenho-resource-manifest",
+        version: "1.0",
+        exportedAt: new Date().toISOString(),
+        resources: {}
+      };
+
+      for (const [type, store] of Object.entries(stores)) {
+        manifest.resources[type] = Array.from(store.values()).filter(it => !it.builtin && !it.isBuiltIn);
+      }
+      return manifest;
+    },
+
+    /**
+     * Imports a manifest or asset bundle into registry.
+     */
+    importManifest(manifest) {
+      if (!manifest || !manifest.resources) return 0;
+      let count = 0;
+      for (const [type, list] of Object.entries(manifest.resources)) {
+        const normType = normalizeType(type);
+        if (stores[normType] && Array.isArray(list)) {
+          for (const item of list) {
+            this.register(normType, item);
+            count++;
+          }
+        }
+      }
+      return count;
+    },
+
+    /**
+     * Registers or updates an asset in the registry.
+     * @param {string} type - Resource category (e.g., 'brush', 'brushPresets', 'texture', 'material', etc.)
      * @param {Object} resource 
      * @returns {Object} registered resource
      */
     register(type, resource) {
-      if (!stores[type]) throw new Error(`Unknown Esenho asset type: "${type}"`);
+      const normType = normalizeType(type);
+      if (!stores[normType]) throw new Error(`Unknown Esenho asset type: "${type}"`);
       if (!resource || !resource.id) throw new Error(`Resource must contain a unique 'id'`);
-      
+
       const resCopy = JSON.parse(JSON.stringify(resource));
-      resCopy.$schema = SCHEMAS[type];
-      resCopy.updatedAt = new Date().toISOString();
-      stores[type].set(resource.id, resCopy);
+      resCopy.$schema = SCHEMAS[normType] || `esenho/${normType}/v1`;
+      if (!resCopy.builtin) {
+        resCopy.updatedAt = new Date().toISOString();
+      }
+      stores[normType].set(resource.id, resCopy);
       return resCopy;
     },
 
     /**
      * Retrieves an asset by ID from the registry.
-     * @param {"brush"|"tip"|"texture"|"curve"|"material"|"palette"|"mesh"} type 
+     * @param {string} type 
      * @param {string} id 
      * @returns {Object|null}
      */
     get(type, id) {
-      if (!stores[type]) return null;
-      const res = stores[type].get(id);
+      const normType = normalizeType(type);
+      if (!stores[normType]) return null;
+      const res = stores[normType].get(id);
       return res ? JSON.parse(JSON.stringify(res)) : null;
     },
 
@@ -375,41 +350,62 @@
      * Checks if an asset exists in registry.
      */
     has(type, id) {
-      return stores[type] ? stores[type].has(id) : false;
+      const normType = normalizeType(type);
+      return stores[normType] ? stores[normType].has(id) : false;
     },
 
     /**
      * Lists all assets of a specified type.
      */
     list(type, options = {}) {
-      if (!stores[type]) return [];
-      const items = Array.from(stores[type].values());
+      const normType = normalizeType(type);
+      if (!stores[normType]) return [];
+      let items = Array.from(stores[normType].values());
       if (options.category) {
-        return items.filter(it => it.category === options.category);
+        items = items.filter(it => it.category === options.category);
+      }
+      if (options.builtInOnly) {
+        items = items.filter(it => Boolean(it.builtin || it.isBuiltIn));
       }
       return items.map(it => JSON.parse(JSON.stringify(it)));
+    },
+
+    /**
+     * Returns an object dictionary mapping id -> resource for a type.
+     */
+    getDict(type) {
+      const normType = normalizeType(type);
+      if (!stores[normType]) return {};
+      const dict = {};
+      for (const [id, item] of stores[normType].entries()) {
+        dict[id] = JSON.parse(JSON.stringify(item));
+      }
+      return dict;
     },
 
     /**
      * Unregisters a user-created asset. (Built-ins cannot be deleted).
      */
     unregister(type, id) {
-      if (!stores[type]) return false;
-      const item = stores[type].get(id);
+      const normType = normalizeType(type);
+      if (!stores[normType]) return false;
+      const item = stores[normType].get(id);
       if (item && item.builtin) return false;
-      return stores[type].delete(id);
+      return stores[normType].delete(id);
     },
 
     /**
      * Clones an asset under a new ID.
      */
     clone(type, sourceId, newId, newName) {
-      const src = this.get(type, sourceId);
+      const normType = normalizeType(type);
+      const src = this.get(normType, sourceId);
       if (!src) return null;
       delete src.builtin;
+      delete src.isBuiltIn;
       src.id = newId;
       src.name = newName || `${src.name} (Copy)`;
-      return this.register(type, src);
+      return this.register(normType, src);
     },
 
     /**
@@ -439,17 +435,34 @@
         baseBrush = brushOrId.ref ? this.get("brush", brushOrId.ref) : brushOrId;
       }
       if (!baseBrush) {
-        baseBrush = this.get("brush", "studio_inker") || BUILTIN_BRUSHES[1];
+        baseBrush = this.get("brush", "studio_inker") || this.get("brush", "pencil") || { name: "Default Brush", size: 6 };
       }
 
       // Deep copy base brush
       const resolved = JSON.parse(JSON.stringify(baseBrush));
+
+      // Ensure tip object is normalized
+      if (!resolved.tip || typeof resolved.tip !== "object") {
+        resolved.tip = {
+          size: resolved.size !== undefined ? resolved.size : 6,
+          hardness: resolved.hardness !== undefined ? resolved.hardness : 100,
+          roundness: resolved.roundness !== undefined ? resolved.roundness : 100,
+          angle: resolved.angle !== undefined ? resolved.angle : 0,
+          shape: resolved.shape || "circle"
+        };
+      }
 
       // Resolve Tip Shape
       if (resolved.tip && resolved.tip.ref) {
         const tipObj = this.get("tip", resolved.tip.ref);
         if (tipObj) {
           resolved.tip = { ...tipObj, ...resolved.tip };
+        }
+      } else if (resolved.shape && typeof resolved.shape === "string") {
+        const tipObj = this.get("tip", resolved.shape);
+        if (tipObj) {
+          resolved.tip = { ...tipObj, ...resolved.tip };
+          resolved.resolvedTip = tipObj;
         }
       }
 
@@ -459,14 +472,25 @@
         if (texObj) {
           resolved.texture = { ...texObj, ...resolved.texture };
         }
+      } else if (resolved.texture && typeof resolved.texture === "string" && resolved.texture !== "none") {
+        const texObj = this.get("texture", resolved.texture);
+        if (texObj) {
+          resolved.resolvedTexture = texObj;
+        }
       }
 
       // Apply Local Stroke Overrides
-      if (overrides.size !== undefined) resolved.tip.size = Number(overrides.size);
+      if (overrides.size !== undefined) {
+        if (resolved.tip && typeof resolved.tip === 'object') resolved.tip.size = Number(overrides.size);
+        resolved.size = Number(overrides.size);
+      }
       if (overrides.color !== undefined) resolved.color = overrides.color;
       if (overrides.opacity !== undefined) resolved.opacity = Number(overrides.opacity);
       if (overrides.flow !== undefined) resolved.flow = Number(overrides.flow);
-      if (overrides.hardness !== undefined) resolved.tip.hardness = Number(overrides.hardness);
+      if (overrides.hardness !== undefined) {
+        if (resolved.tip && typeof resolved.tip === 'object') resolved.tip.hardness = Number(overrides.hardness);
+        resolved.hardness = Number(overrides.hardness);
+      }
 
       return resolved;
     },
@@ -482,7 +506,7 @@
         baseMat = matOrId.ref ? this.get("material", matOrId.ref) : matOrId;
       }
       if (!baseMat) {
-        baseMat = this.get("material", "solid_gold") || BUILTIN_MATERIALS[0];
+        baseMat = this.get("material", "solid_gold") || { id: "default_material", color: "#fabd2f", opacity: 1.0 };
       }
 
       const resolved = JSON.parse(JSON.stringify(baseMat));
@@ -499,51 +523,154 @@
         resolved.brushFill.resolvedMesh = this.get("mesh", resolved.brushFill.meshRef);
       }
 
+      if (resolved.filter && resolved.filter.plugin) {
+        resolved.resolvedWasmFx = this.get("wasm_fx", resolved.filter.plugin);
+      }
+
       return { ...resolved, ...overrides };
     },
 
     /**
-     * Exports all user-defined assets as an archive/bundle manifest.
+     * Resolves a mesh pattern.
      */
-    exportAll() {
-      const manifest = {
-        format: "esenho-resource-manifest",
-        version: "1.0",
-        exportedAt: new Date().toISOString(),
-        resources: {}
-      };
-
-      for (const type of Object.keys(stores)) {
-        manifest.resources[type] = Array.from(stores[type].values()).filter(it => !it.builtin);
+    resolveMesh(meshOrId, overrides = {}) {
+      let baseMesh = null;
+      if (typeof meshOrId === "string") {
+        baseMesh = this.get("mesh", meshOrId);
+      } else if (meshOrId && typeof meshOrId === "object") {
+        baseMesh = meshOrId.ref ? this.get("mesh", meshOrId.ref) : meshOrId;
       }
-      return manifest;
+      if (!baseMesh) {
+        baseMesh = this.get("mesh", "linear") || { id: "linear", pattern: "linear", spacing: 8, angle: 45 };
+      }
+      return { ...JSON.parse(JSON.stringify(baseMesh)), ...overrides };
     },
 
     /**
-     * Imports a manifest or asset bundle into registry.
+     * Resolves a palette by ID or object.
      */
-    importManifest(manifest) {
-      if (!manifest || !manifest.resources) return 0;
-      let count = 0;
-      for (const [type, list] of Object.entries(manifest.resources)) {
-        if (stores[type] && Array.isArray(list)) {
-          for (const item of list) {
-            this.register(type, item);
-            count++;
-          }
-        }
+    resolvePalette(palOrId) {
+      if (typeof palOrId === "string") {
+        return this.get("palette", palOrId);
       }
-      return count;
+      return palOrId;
     },
 
     /**
-     * Resets registry to factory defaults.
+     * Resolves a WASM FX plugin info and parameters.
+     */
+    resolveWasmFx(fxOrId) {
+      const id = typeof fxOrId === "string" ? fxOrId : (fxOrId && fxOrId.id);
+      return this.get("wasm_fx", id);
+    },
+
+    /**
+     * Retrieves the raw WASM binary as a Uint8Array from embedded base64.
+     * @param {string} id - WASM FX plugin ID (or 'canvas' / 'quadro_canvas' for core)
+     * @returns {Uint8Array|null}
+     */
+    getWasmBytes(id) {
+      if (!id) return null;
+      if (id === 'quadro_canvas' || id === 'canvas') {
+        const core = stores.wasm_core ? stores.wasm_core.get('quadro_canvas') : null;
+        if (core && core.wasmBase64) return base64ToBytes(core.wasmBase64);
+      }
+      const fx = this.get("wasm_fx", id);
+      if (fx && fx.wasmBase64) {
+        return base64ToBytes(fx.wasmBase64);
+      }
+      return null;
+    },
+
+    /**
+     * Retrieves the WASM binary base64 string from registry.
+     * @param {string} id
+     * @returns {string|null}
+     */
+    getWasmBase64(id) {
+      if (!id) return null;
+      if (id === 'quadro_canvas' || id === 'canvas') {
+        const core = stores.wasm_core ? stores.wasm_core.get('quadro_canvas') : null;
+        if (core && core.wasmBase64) return core.wasmBase64;
+      }
+      const fx = this.get("wasm_fx", id);
+      return fx ? fx.wasmBase64 || null : null;
+    },
+
+    /**
+     * Compiles a WebAssembly.Module directly from embedded in-memory binary without file or network access.
+     * @param {string} id
+     * @returns {Promise<WebAssembly.Module|null>}
+     */
+    async compileWasmFx(id) {
+      const bytes = this.getWasmBytes(id);
+      if (!bytes || bytes.length === 0) return null;
+      return await WebAssembly.compile(bytes);
+    },
+
+    /**
+     * Instantiates a WebAssembly plugin instance directly from embedded in-memory binary.
+     * @param {string} id
+     * @param {Object} [importObject]
+     * @returns {Promise<WebAssembly.Instance|null>}
+     */
+    async instantiateWasmFx(id, importObject = {}) {
+      const bytes = this.getWasmBytes(id);
+      if (!bytes || bytes.length === 0) return null;
+      const res = await WebAssembly.instantiate(bytes, importObject);
+      return res.instance || res;
+    },
+
+    /**
+     * Loads a Data Pack (alias for loadData).
+     * @param {Object|string} dataPack 
+     */
+    loadDataPack(dataPack) {
+      return this.loadData(dataPack);
+    },
+
+    /**
+     * Asynchronously fetches and activates a Data Pack from a URL.
+     * @param {string} url 
+     */
+    async fetchDataPack(url = "data.json") {
+      if (typeof fetch !== "function") return null;
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        return this.loadDataPack(data);
+      } catch (err) {
+        console.warn(`[EsenhoRegistry] Failed to fetch data pack from "${url}":`, err);
+        return null;
+      }
+    },
+
+    /**
+     * Clears all stores in the registry.
+     */
+    clear() {
+      for (const map of Object.values(stores)) map.clear();
+    },
+
+    /**
+     * Resets registry to initial defaults from data package.
      */
     resetDefaults() {
-      for (const map of Object.values(stores)) map.clear();
-      seedDefaults();
+      this.clear();
+      if (initialDataPackage) {
+        this.loadData(initialDataPackage);
+      }
     }
   };
+
+  // Seed with initial data package if available
+  if (initialDataPackage) {
+    EsenhoRegistry.loadData(initialDataPackage);
+  } else if (typeof window !== "undefined" && typeof fetch === "function") {
+    // Auto-fetch data.json in browser runtime
+    EsenhoRegistry.fetchDataPack("data.json");
+  }
 
   return EsenhoRegistry;
 });

@@ -194,115 +194,52 @@
 
   // ── 2. Comprehensive Color Palette Manager & Presets ──
 
-  const DEFAULT_FACTORY_PALETTES = {
-    gruvbox: {
-      id: 'gruvbox',
-      name: 'Gruvbox',
-      colors: [
-        '#282828', '#928374', '#cc241d', '#98971a', '#d79921', '#458588', '#b16286', '#689d6a', '#a89984',
-        '#1d2021', '#ebdbb2', '#fb4934', '#b8bb26', '#fabd2f', '#83a598', '#d3869b', '#8ec07c', '#fbf1c7'
-      ],
-      isBuiltIn: true
-    },
-    material: {
-      id: 'material',
-      name: 'Material Design',
-      colors: [
-        '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
-        '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722',
-        '#795548', '#9e9e9e', '#607d8b', '#000000', '#ffffff'
-      ],
-      isBuiltIn: true
-    },
-    nord: {
-      id: 'nord',
-      name: 'Nord',
-      colors: [
-        '#2e3440', '#3b4252', '#434c5e', '#4c566a', '#d8dee9', '#e5e9f0', '#eceff4',
-        '#8fbcbb', '#88c0d0', '#81a1c1', '#5e81ac', '#bf616a', '#d08770', '#ebcb8b', '#a3be8c', '#b48ead'
-      ],
-      isBuiltIn: true
-    },
-    cyberpunk: {
-      id: 'cyberpunk',
-      name: 'Cyberpunk',
-      colors: [
-        '#0d0221', '#0f084b', '#26408b', '#a6cfd5', '#c2e7d9', '#ff0055', '#00ffcc', '#ffe600',
-        '#7928ca', '#ff0080', '#0070f3', '#50e3c2', '#f5a623', '#bd10e0', '#4a90e2', '#22eaaa'
-      ],
-      isBuiltIn: true
-    },
-    monochrome: {
-      id: 'monochrome',
-      name: 'Monochrome',
-      colors: [
-        '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777',
-        '#888888', '#999999', '#aaaaaa', '#bbbbbb', '#cccccc', '#dddddd', '#eeeeee', '#ffffff'
-      ],
-      isBuiltIn: true
-    },
-    solarized: {
-      id: 'solarized',
-      name: 'Solarized',
-      colors: [
-        '#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3',
-        '#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'
-      ],
-      isBuiltIn: true
-    },
-    dracula: {
-      id: 'dracula',
-      name: 'Dracula',
-      colors: [
-        '#282a36', '#44475a', '#f8f8f2', '#6272a4', '#8be9fd', '#50fa7b', '#ffb86c', '#ff79c6',
-        '#bd93f9', '#ff5555', '#f1fa8c', '#1e1f29'
-      ],
-      isBuiltIn: true
-    },
-    pastel: {
-      id: 'pastel',
-      name: 'Pastel Dreams',
-      colors: [
-        '#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8c5ff', '#f3b0c3', '#c6dbda',
-        '#fee1e8', '#fed7c3', '#f6eac2', '#ecd5e3'
-      ],
-      isBuiltIn: true
-    },
-    vaporwave: {
-      id: 'vaporwave',
-      name: 'Vaporwave',
-      colors: [
-        '#ff71ce', '#01cdfe', '#05ffa1', '#b967ff', '#fffb96', '#241734', '#2e2157', '#fd3a69',
-        '#fecd1a', '#120052'
-      ],
-      isBuiltIn: true
-    },
-    pico8: {
-      id: 'pico8',
-      name: 'PICO-8',
-      colors: [
-        '#000000', '#1d2b53', '#7e2553', '#008751', '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8',
-        '#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa'
-      ],
-      isBuiltIn: true
-    },
-    gameboy: {
-      id: 'gameboy',
-      name: 'Game Boy',
-      colors: [
-        '#0f380f', '#306230', '#8bac0f', '#9bbc0f'
-      ],
-      isBuiltIn: true
-    },
-    custom: {
-      id: 'custom',
-      name: 'Custom Swatches',
-      colors: [
-        '#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'
-      ],
-      isBuiltIn: true
+  function getRegistry() {
+    if (typeof EsenhoRegistry !== 'undefined' && EsenhoRegistry) return EsenhoRegistry;
+    if (typeof globalThis !== 'undefined' && globalThis.EsenhoRegistry) return globalThis.EsenhoRegistry;
+    if (typeof require === 'function') {
+      try {
+        return require('./resource_registry.js');
+      } catch (_) {}
     }
-  };
+    return null;
+  }
+
+  /**
+   * Dynamic Color Palette Catalog — Sourced exclusively from active Data Pack (EsenhoRegistry).
+   * Zero hardcoded palettes in runtime code.
+   */
+  const DEFAULT_FACTORY_PALETTES = new Proxy({}, {
+    get(target, prop) {
+      if (typeof prop !== 'string' || prop === 'then') return undefined;
+      const reg = getRegistry();
+      if (reg && typeof reg.get === 'function') {
+        const p = reg.get('palette', prop);
+        if (p) return p;
+      }
+      return target[prop];
+    },
+    has(target, prop) {
+      const reg = getRegistry();
+      if (reg && typeof reg.has === 'function') {
+        if (reg.has('palette', prop)) return true;
+      }
+      return prop in target;
+    },
+    ownKeys(target) {
+      const reg = getRegistry();
+      if (reg && typeof reg.list === 'function') {
+        return reg.list('palette').map(p => p.id);
+      }
+      return Object.keys(target);
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      if (this.has(target, prop)) {
+        return { value: this.get(target, prop), writable: true, enumerable: true, configurable: true };
+      }
+      return undefined;
+    }
+  });
 
   const PALETTE_STORE_KEY = 'esenho_color_palettes_v2';
   const LEGACY_CUSTOM_PALETTE_KEY = 'esenho_color_studio_custom_swatches';
@@ -318,7 +255,13 @@
     }
 
     load() {
-      this.palettes = JSON.parse(JSON.stringify(DEFAULT_FACTORY_PALETTES));
+      const reg = getRegistry();
+      let factoryPalettes = {};
+      if (reg && typeof reg.getDict === 'function') {
+        const dict = reg.getDict('palette');
+        if (dict && Object.keys(dict).length > 0) factoryPalettes = dict;
+      }
+      this.palettes = JSON.parse(JSON.stringify(factoryPalettes));
       try {
         if (typeof localStorage !== 'undefined') {
           const rawV2 = localStorage.getItem(PALETTE_STORE_KEY);
@@ -592,8 +535,10 @@
     }
 
     resetPalette(id) {
-      if (DEFAULT_FACTORY_PALETTES[id]) {
-        this.palettes[id] = JSON.parse(JSON.stringify(DEFAULT_FACTORY_PALETTES[id]));
+      const reg = getRegistry();
+      const p = (reg && typeof reg.get === 'function') ? reg.get('palette', id) : DEFAULT_FACTORY_PALETTES[id];
+      if (p) {
+        this.palettes[id] = JSON.parse(JSON.stringify(p));
         this.save();
         return true;
       }
@@ -601,7 +546,9 @@
     }
 
     resetAllToFactory() {
-      this.palettes = JSON.parse(JSON.stringify(DEFAULT_FACTORY_PALETTES));
+      const reg = getRegistry();
+      const factoryPalettes = (reg && typeof reg.getDict === 'function') ? reg.getDict('palette') : {};
+      this.palettes = JSON.parse(JSON.stringify(factoryPalettes));
       this.activePaletteId = 'gruvbox';
       this.save();
     }
@@ -794,209 +741,50 @@
     PaletteManager.setColors('custom', arr);
   }
 
-  // ── 2.1. Built-in WASM Filter Plugin Metadata ──
+  // ── 2.1. Dynamic WASM Filter Plugin Metadata ──
 
-  const BUILTIN_FILTER_METADATA = {
-    bloom: {
-      title: 'Bloom Glow',
-      params: [
-        { name: 'Luma Threshold', min: 80, max: 240, default: 160 },
-        { name: 'Glow Radius', min: 2, max: 30, default: 8, unit: 'px' }
-      ]
+  /**
+   * Dynamic WASM Filter Metadata Proxy — Sourced exclusively from active Data Pack (EsenhoRegistry).
+   * Zero hardcoded filters in runtime code.
+   */
+  const BUILTIN_FILTER_METADATA = new Proxy({}, {
+    get(target, prop) {
+      if (typeof prop !== 'string' || prop === 'then') return undefined;
+      const reg = getRegistry();
+      if (reg && typeof reg.get === 'function') {
+        const fx = reg.get('wasm_fx', prop);
+        if (fx) {
+          return {
+            title: fx.name,
+            params: fx.params || [],
+            target: fx.target,
+            isLens: fx.isLens
+          };
+        }
+      }
+      return target[prop];
     },
-    blur: {
-      title: 'Box Blur',
-      params: [
-        { name: 'Radius', min: 1, max: 40, default: 5, unit: 'px' },
-        { name: 'Passes', min: 1, max: 5, default: 1 }
-      ]
+    has(target, prop) {
+      const reg = getRegistry();
+      if (reg && typeof reg.has === 'function') {
+        if (reg.has('wasm_fx', prop)) return true;
+      }
+      return prop in target;
     },
-    brightness: {
-      title: 'Brightness',
-      params: [
-        { name: 'Delta', min: -100, max: 100, default: 30 }
-      ]
+    ownKeys(target) {
+      const reg = getRegistry();
+      if (reg && typeof reg.list === 'function') {
+        return reg.list('wasm_fx').map(fx => fx.id);
+      }
+      return Object.keys(target);
     },
-    chromatic: {
-      title: 'Chromatic Aberration',
-      params: [
-        { name: 'Shift Radius', min: 1, max: 40, default: 8, unit: 'px' },
-        { name: 'Mode (0=Radial, 1=Hori)', min: 0, max: 1, default: 0 }
-      ]
-    },
-    contrast: {
-      title: 'Contrast',
-      params: [
-        { name: 'Factor', min: -80, max: 80, default: 30 }
-      ]
-    },
-    dither: {
-      title: 'Ordered Dither',
-      params: [
-        { name: 'Luma Bias', min: -64, max: 64, default: 0 },
-        { name: 'Invert', min: 0, max: 1, default: 0 }
-      ]
-    },
-    duotone: {
-      title: 'Duotone Gradient',
-      params: [
-        { name: 'Palette (0=Cyber, 1=Synth, 2=Matrix, 3=Gold)', min: 0, max: 3, default: 0 },
-        { name: 'Contrast', min: 50, max: 200, default: 110 }
-      ]
-    },
-    edge: {
-      title: 'Edge Detection',
-      params: [
-        { name: 'Sensitivity', min: 5, max: 150, default: 30 },
-        { name: 'Paper Sketch', min: 0, max: 1, default: 0 }
-      ]
-    },
-    emboss: {
-      title: '3D Emboss',
-      params: [
-        { name: 'Relief Depth', min: 1, max: 10, default: 2 },
-        { name: 'Light Angle (0..3)', min: 0, max: 3, default: 0 }
-      ]
-    },
-    fisheye: {
-      title: 'Fisheye Lens',
-      params: [
-        { name: 'Lens Power', min: -50, max: 50, default: 25 },
-        { name: 'Zoom %', min: 50, max: 200, default: 100, unit: '%' }
-      ]
-    },
-    frosted_glass: {
-      title: 'Frosted Glass',
-      params: [
-        { name: 'Refraction Jitter', min: 2, max: 25, default: 8, unit: 'px' },
-        { name: 'Dispersion Softness', min: 1, max: 5, default: 2 }
-      ]
-    },
-    glitch: {
-      title: 'VHS Glitch',
-      params: [
-        { name: 'Jitter Intensity', min: 5, max: 50, default: 20 },
-        { name: 'Chroma Split', min: 1, max: 30, default: 10, unit: 'px' }
-      ]
-    },
-    grayscale: {
-      title: 'Grayscale',
-      params: [
-        { name: 'Intensity', min: 0, max: 100, default: 100, unit: '%' },
-        { name: 'Mode (0=Luma, 1=Avg, 2=Light)', min: 0, max: 2, default: 0 }
-      ]
-    },
-    halftone_dot: {
-      title: 'Halftone Screen Dots',
-      params: [
-        { name: 'Dot Cell Size', min: 3, max: 24, default: 6, unit: 'px' },
-        { name: 'Invert (0=Dark, 1=Light)', min: 0, max: 1, default: 0 }
-      ]
-    },
-    invert: {
-      title: 'Invert',
-      params: [
-        { name: 'Intensity', min: 0, max: 100, default: 100, unit: '%' },
-        { name: 'Channel (0=All, 1=R, 2=G, 3=B)', min: 0, max: 3, default: 0 }
-      ]
-    },
-    kaleidoscope: {
-      title: 'Kaleidoscope Lens',
-      params: [
-        { name: 'Sectors', min: 3, max: 12, default: 6 },
-        { name: 'Angle Offset', min: 0, max: 180, default: 0, unit: '°' }
-      ]
-    },
-    kuwahara: {
-      title: 'Oil Painting (Kuwahara)',
-      params: [
-        { name: 'Brush Size', min: 2, max: 8, default: 3, unit: 'px' },
-        { name: 'Variance Bias', min: 0, max: 10, default: 0 }
-      ]
-    },
-    noise: {
-      title: 'Film Grain / Noise',
-      params: [
-        { name: 'Amount', min: 1, max: 100, default: 25 },
-        { name: 'Monochrome', min: 0, max: 1, default: 0 }
-      ]
-    },
-    pixelate: {
-      title: 'Pixelate Mosaic',
-      params: [
-        { name: 'Block Size', min: 2, max: 64, default: 8, unit: 'px' }
-      ]
-    },
-    ripple: {
-      title: 'Water Ripple Lens',
-      params: [
-        { name: 'Wave Frequency', min: 5, max: 60, default: 20 },
-        { name: 'Amplitude', min: 1, max: 30, default: 8, unit: 'px' }
-      ]
-    },
-    scanline: {
-      title: 'CRT Scanlines',
-      params: [
-        { name: 'Scanline Darkness %', min: 10, max: 80, default: 40, unit: '%' },
-        { name: 'RGB Phosphor Mask', min: 0, max: 1, default: 1 }
-      ]
-    },
-    sepia: {
-      title: 'Sepia Vintage',
-      params: [
-        { name: 'Intensity', min: 0, max: 100, default: 100, unit: '%' }
-      ]
-    },
-    sharpen: {
-      title: 'Sharpen (Unsharp Mask)',
-      params: [
-        { name: 'Amount %', min: 10, max: 200, default: 80, unit: '%' },
-        { name: 'Threshold', min: 0, max: 50, default: 5 }
-      ]
-    },
-    solarize: {
-      title: 'Solarize (Sabattier)',
-      params: [
-        { name: 'Inflection Level', min: 30, max: 220, default: 128 },
-        { name: 'Mode (0=RGB, 1=Luma)', min: 0, max: 1, default: 0 }
-      ]
-    },
-    swirl: {
-      title: 'Swirl Vortex',
-      params: [
-        { name: 'Twist Angle', min: -360, max: 360, default: 90, unit: '°' },
-        { name: 'Radius %', min: 10, max: 100, default: 80, unit: '%' }
-      ]
-    },
-    thermal: {
-      title: 'Thermal Vision',
-      params: [
-        { name: 'Contrast Boost', min: 50, max: 200, default: 100 },
-        { name: 'Palette (0=Ironbow, 1=Neon)', min: 0, max: 1, default: 0 }
-      ]
-    },
-    threshold: {
-      title: 'Binary Threshold',
-      params: [
-        { name: 'Cutoff Level', min: 1, max: 255, default: 128 },
-        { name: 'Invert', min: 0, max: 1, default: 0 }
-      ]
-    },
-    vignette: {
-      title: 'Vignette Lens',
-      params: [
-        { name: 'Inner Radius %', min: 10, max: 90, default: 50, unit: '%' },
-        { name: 'Darkness %', min: 10, max: 100, default: 70, unit: '%' }
-      ]
-    },
-    water_foam: {
-      title: 'Water & Shore Foam',
-      params: [
-        { name: 'Foam Reach', min: 2, max: 35, default: 12, unit: 'px' },
-        { name: 'Wave Distortion', min: 1, max: 25, default: 6, unit: 'px' }
-      ]
+    getOwnPropertyDescriptor(target, prop) {
+      if (this.has(target, prop)) {
+        return { value: this.get(target, prop), writable: true, enumerable: true, configurable: true };
+      }
+      return undefined;
     }
-  };
+  });
 
   // ── 2.15. Procedural Brush Fill & Hatching Configurations ──
   const CUSTOM_BRUSH_FILL_PRESETS_KEY = 'esenho_custom_brush_fill_presets';
@@ -1039,1008 +827,54 @@
     seed: 42
   };
 
-  const BUILTIN_BF_PRESETS = [
-    {
-      id: 'pencil_hatch',
-      name: 'HB Pencil — Linear Hatch',
-      brush: 'pencil',
-      desc: 'Natural graphite hatching with paper grain and sketch bleed',
-      config: {
-        enabled: true,
-        brush: 'pencil',
-        brushes: ['pencil'],
-        pattern: 'linear',
-        spacing: 8,
-        angle: 35,
-        strokesPerLine: 2,
-        strokeGap: 3,
-        strokeWidth: 2,
-        strokeOpacity: 0.8,
-        angleJitter: 6,
-        lengthJitter: 20,
-        widthJitter: 15,
-        positionJitter: 2,
-        clipMode: 'bleed',
-        bleedDistance: 8,
-        bleedJitter: 50,
-        colorPalette: ['#282828']
-      }
-    },
-    {
-      id: 'inker_crosshatch',
-      name: 'Studio Inker — Crosshatch',
-      brush: 'inker',
-      desc: 'Comic cross-hatching with dynamic inker line weight',
-      config: {
-        enabled: true,
-        brush: 'inker',
-        brushes: ['inker'],
-        pattern: 'crosshatch',
-        spacing: 6,
-        angle: 45,
-        angle2: 135,
-        strokeWidth: 1.5,
-        strokeOpacity: 0.9,
-        colorPalette: ['#1d2021'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'techpen_triple',
-      name: 'Technical Pen — Triple Hatch',
-      brush: 'tech_pen',
-      desc: 'Crisp drafting pen with mechanical triple-hatch angle grid',
-      config: {
-        enabled: true,
-        brush: 'tech_pen',
-        brushes: ['tech_pen'],
-        pattern: 'triple_hatch',
-        spacing: 7,
-        angle: 0,
-        angle2: 60,
-        angle3: 120,
-        strokeWidth: 1.2,
-        strokeOpacity: 0.95,
-        colorPalette: ['#1d2021'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'gpen_woodcut',
-      name: 'Manga G-Pen — Woodcut Wave',
-      brush: 'gpen',
-      desc: 'Expressive dip pen undulating timber engraving',
-      config: {
-        enabled: true,
-        brush: 'gpen',
-        brushes: ['gpen'],
-        pattern: 'wave',
-        spacing: 7,
-        angle: 15,
-        strokeWidth: 2.4,
-        strokeOpacity: 0.95,
-        widthJitter: 35,
-        colorPalette: ['#282828'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'charcoal_shading',
-      name: 'Charcoal — Cross Shading',
-      brush: 'charcoal',
-      desc: 'Rough charcoal tooth with pressure depth and bleed',
-      config: {
-        enabled: true,
-        brush: 'charcoal',
-        brushSecondary: 'soft_pencil',
-        brushes: ['charcoal', 'soft_pencil'],
-        brushPickMode: 'alternate',
-        pattern: 'crosshatch',
-        spacing: 7,
-        angle: 30,
-        angle2: 120,
-        strokeWidth: 2.8,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021', '#3c3836'],
-        angleJitter: 4,
-        widthJitter: 25,
-        lengthJitter: 15,
-        clipMode: 'bleed',
-        bleedDistance: 5
-      }
-    },
-    {
-      id: 'spray_stipple',
-      name: 'Spray Can — Pointillist Stipple',
-      brush: 'spray',
-      desc: 'Multi-color dispersed paint splatter and aerosol dabs',
-      config: {
-        enabled: true,
-        brush: 'spray',
-        brushes: ['spray'],
-        pattern: 'stipple',
-        spacing: 5,
-        strokeWidth: 3,
-        strokeOpacity: 0.9,
-        colorMode: 'palette',
-        colorPalette: ['#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'],
-        colorPickMode: 'random',
-        colorJitter: 10,
-        widthJitter: 30,
-        opacityJitter: 20,
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'watercolor_wash',
-      name: 'Watercolor — Fluid Wash',
-      brush: 'watercolor',
-      desc: 'Fluid watercolor wash flow with soft bleeding edges',
-      config: {
-        enabled: true,
-        brush: 'watercolor',
-        brushes: ['watercolor'],
-        pattern: 'wave',
-        spacing: 9,
-        angle: 25,
-        strokeWidth: 4,
-        strokeOpacity: 0.65,
-        colorMode: 'palette',
-        colorPalette: ['#83a598', '#458588', '#8ec07c'],
-        colorPickMode: 'cycle',
-        widthJitter: 30,
-        opacityJitter: 25,
-        clipMode: 'bleed',
-        bleedDistance: 6
-      }
-    },
-    {
-      id: 'marker_zigzag',
-      name: 'Art Marker — Cyber Flow',
-      brush: 'marker',
-      desc: 'Broad chisel marker flow field with palette cycling',
-      config: {
-        enabled: true,
-        brush: 'marker',
-        brushes: ['marker'],
-        pattern: 'zigzag',
-        spacing: 10,
-        angle: 90,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.9,
-        colorMode: 'palette',
-        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'pastel_scribble',
-      name: 'Soft Pastel — Wandering Scribble',
-      brush: 'soft_pastel',
-      desc: 'Chalk scribble wandering flow across vector contours',
-      config: {
-        enabled: true,
-        brush: 'soft_pastel',
-        brushes: ['soft_pastel'],
-        pattern: 'scribble',
-        spacing: 6,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.75,
-        colorPalette: ['#d79921', '#fe8019'],
-        colorPickMode: 'cycle',
-        widthJitter: 25,
-        clipMode: 'bleed',
-        bleedDistance: 4
-      }
-    },
-    {
-      id: 'oil_spiral',
-      name: 'Oil Impasto — Spiral Vortex',
-      brush: 'oil',
-      desc: 'Thick wet impasto paint swirling in Archimedean spiral',
-      config: {
-        enabled: true,
-        brush: 'oil',
-        brushes: ['oil'],
-        pattern: 'spiral',
-        spacing: 6,
-        strokeWidth: 2.5,
-        strokeOpacity: 0.9,
-        colorPalette: ['#d79921', '#b57614'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'fountain_contour',
-      name: 'Calligraphy Chisel — Topographic Contour',
-      brush: 'fountain',
-      desc: 'Angled chisel fountain pen following concentric contour insets',
-      config: {
-        enabled: true,
-        brush: 'fountain',
-        brushes: ['fountain'],
-        pattern: 'contour',
-        spacing: 6,
-        strokeWidth: 2.0,
-        strokeOpacity: 0.9,
-        colorPalette: ['#458588', '#83a598'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'herringbone_tweed',
-      name: 'Mechanical Pencil — Herringbone Tweed',
-      brush: 'mech_pencil',
-      desc: 'Classic architectural herringbone chevron hatching',
-      config: {
-        enabled: true,
-        brush: 'mech_pencil',
-        brushes: ['mech_pencil'],
-        pattern: 'herringbone',
-        spacing: 8,
-        angle: 45,
-        strokeWidth: 1.5,
-        strokeOpacity: 0.9,
-        colorPalette: ['#504945', '#3c3836'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'woven_basket',
-      name: 'Washi Graphite — Woven Basketweave',
-      brush: 'washi_sketch',
-      desc: 'Interlocking woven perpendicular fiber strokes',
-      config: {
-        enabled: true,
-        brush: 'washi_sketch',
-        brushes: ['washi_sketch'],
-        pattern: 'woven',
-        spacing: 8,
-        angle: 0,
-        strokeWidth: 1.8,
-        strokeOpacity: 0.85,
-        colorPalette: ['#665c54', '#7c6f64'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'cross_contour_3d',
-      name: '6B Graphite — Cross-Contour 3D',
-      brush: 'soft_pencil',
-      desc: 'Michelangelo style cross-contour volume shading',
-      config: {
-        enabled: true,
-        brush: 'soft_pencil',
-        brushes: ['soft_pencil'],
-        pattern: 'cross_contour',
-        spacing: 8,
-        angle: 30,
-        curvature: 30,
-        curvatureMode: 'arch',
-        strokeWidth: 2.2,
-        strokeOpacity: 0.8,
-        colorPalette: ['#282828', '#3c3836'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'radial_sunburst',
-      name: 'Technical Pen — Radial Sunburst',
-      brush: 'tech_pen',
-      desc: 'Precision drafting rays radiating outward from center',
-      config: {
-        enabled: true,
-        brush: 'tech_pen',
-        brushes: ['tech_pen'],
-        pattern: 'radial',
-        spacing: 6,
-        originX: 50,
-        originY: 50,
-        strokeWidth: 1.2,
-        strokeOpacity: 0.95,
-        colorPalette: ['#d65d0e', '#fabd2f', '#fe8019'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'concentric_zen',
-      name: 'Studio Inker — Concentric Zen Rings',
-      brush: 'inker',
-      desc: 'Harmonic concentric circular ripple arcs',
-      config: {
-        enabled: true,
-        brush: 'inker',
-        brushes: ['inker'],
-        pattern: 'concentric',
-        spacing: 7,
-        originX: 50,
-        originY: 50,
-        strokeWidth: 2.0,
-        strokeOpacity: 0.9,
-        colorPalette: ['#076678', '#458588', '#83a598'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'flow_stream',
-      name: 'Wet Acrylic — Van Gogh Flow Field',
-      brush: 'acrylic',
-      desc: 'Expressive swirling streamline curves following curl vector noise',
-      config: {
-        enabled: true,
-        brush: 'acrylic',
-        brushSecondary: 'oil',
-        brushes: ['acrylic', 'oil'],
-        brushPickMode: 'alternate',
-        pattern: 'flow_field',
-        spacing: 9,
-        waveFrequency: 10,
-        strokeWidth: 3.5,
-        strokeOpacity: 0.88,
-        colorPalette: ['#458588', '#fabd2f', '#fe8019', '#b8bb26'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'voronoi_facets',
-      name: 'Dry Ink — Voronoi Cellular Mesh',
-      brush: 'dry_ink',
-      desc: 'Organic cellular crystal partitions with rough dry brush edges',
-      config: {
-        enabled: true,
-        brush: 'dry_ink',
-        brushes: ['dry_ink'],
-        pattern: 'voronoi',
-        spacing: 12,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.9,
-        colorPalette: ['#1d2021', '#282828'],
-        clipMode: 'strict'
-      }
+    /**
+   * Dynamic Brush Fill & Materials Catalog — Sourced exclusively from active Data Pack (EsenhoRegistry).
+   * Zero hardcoded materials in runtime code.
+   */
+  function getBuiltinBfPresets() {
+    const reg = getRegistry();
+    if (reg && typeof reg.list === 'function') {
+      const mats = reg.list('material');
+      return mats.filter(m => m.category === 'brushfills' || m.mode === 'brushfill');
     }
-  ];
+    return [];
+  }
 
-  // ── 2.2. Comprehensive Built-in Material Presets Library ──
-
-  const BUILTIN_MATERIALS = [
-    // ── 0. Procedural Brush Fills ──
-    {
-      id: 'bf_pencil_hatch',
-      name: 'HB Pencil — Linear Hatch',
-      category: 'brushfills',
-      desc: 'Natural graphite hatching with paper grain and loose bleed',
-      color: '#282828',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[0].config
-    },
-    {
-      id: 'bf_inker_cross',
-      name: 'Studio Inker — Crosshatch',
-      category: 'brushfills',
-      desc: 'Comic cross-hatching with dynamic inker line weight',
-      color: '#1d2021',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[1].config
-    },
-    {
-      id: 'bf_techpen_triple',
-      name: 'Technical Pen — Triple Hatch',
-      category: 'brushfills',
-      desc: 'Crisp drafting pen with mechanical triple-hatch angle grid',
-      color: '#1d2021',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[2].config
-    },
-    {
-      id: 'bf_gpen_woodcut',
-      name: 'Manga G-Pen — Woodcut Wave',
-      category: 'brushfills',
-      desc: 'Expressive dip pen undulating timber engraving',
-      color: '#282828',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[3].config
-    },
-    {
-      id: 'bf_charcoal_cross',
-      name: 'Charcoal — Cross Shading',
-      category: 'brushfills',
-      desc: 'Rough charcoal tooth with pressure depth and bleed',
-      color: '#1d2021',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[4].config
-    },
-    {
-      id: 'bf_spray_stipple',
-      name: 'Spray Can — Pointillist Stipple',
-      category: 'brushfills',
-      desc: 'Multi-color dispersed paint splatter and aerosol dabs',
-      color: '#fabd2f',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[5].config
-    },
-    {
-      id: 'bf_watercolor_wash',
-      name: 'Watercolor — Fluid Wash',
-      category: 'brushfills',
-      desc: 'Fluid watercolor wash flow with soft bleeding edges',
-      color: '#83a598',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[6].config
-    },
-    {
-      id: 'bf_marker_flow',
-      name: 'Art Marker — Cyber Flow',
-      category: 'brushfills',
-      desc: 'Broad chisel marker flow field with palette cycling',
-      color: '#00ffcc',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[7].config
-    },
-    {
-      id: 'bf_pastel_scribble',
-      name: 'Soft Pastel — Wandering Scribble',
-      category: 'brushfills',
-      desc: 'Chalk scribble wandering flow across vector contours',
-      color: '#d79921',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[8].config
-    },
-    {
-      id: 'bf_oil_spiral',
-      name: 'Oil Impasto — Spiral Vortex',
-      category: 'brushfills',
-      desc: 'Thick wet impasto paint swirling in Archimedean spiral',
-      color: '#d79921',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[9].config
-    },
-    {
-      id: 'bf_fountain_contour',
-      name: 'Calligraphy Chisel — Topographic Contour',
-      category: 'brushfills',
-      desc: 'Angled chisel fountain pen following concentric contour insets',
-      color: '#458588',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[10].config
-    },
-    {
-      id: 'bf_herringbone_tweed',
-      name: 'Mechanical Pencil — Herringbone Tweed',
-      category: 'brushfills',
-      desc: 'Classic architectural herringbone chevron hatching',
-      color: '#504945',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[11].config
-    },
-    {
-      id: 'bf_woven_basket',
-      name: 'Washi Graphite — Woven Basketweave',
-      category: 'brushfills',
-      desc: 'Interlocking woven perpendicular fiber strokes',
-      color: '#665c54',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[12].config
-    },
-    {
-      id: 'bf_cross_contour_3d',
-      name: '6B Graphite — Cross-Contour 3D',
-      category: 'brushfills',
-      desc: 'Michelangelo style cross-contour volume shading',
-      color: '#282828',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[13].config
-    },
-    {
-      id: 'bf_radial_sunburst',
-      name: 'Technical Pen — Radial Sunburst',
-      category: 'brushfills',
-      desc: 'Precision drafting rays radiating outward from center',
-      color: '#d65d0e',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[14].config
-    },
-    {
-      id: 'bf_concentric_zen',
-      name: 'Studio Inker — Concentric Zen Rings',
-      category: 'brushfills',
-      desc: 'Harmonic concentric circular ripple arcs',
-      color: '#076678',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[15].config
-    },
-    {
-      id: 'bf_flow_stream',
-      name: 'Wet Acrylic — Van Gogh Flow Field',
-      category: 'brushfills',
-      desc: 'Expressive swirling streamline curves following curl vector noise',
-      color: '#458588',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[16].config
-    },
-    {
-      id: 'bf_voronoi_facets',
-      name: 'Dry Ink — Voronoi Cellular Mesh',
-      category: 'brushfills',
-      desc: 'Organic cellular crystal partitions with rough dry brush edges',
-      color: '#1d2021',
-      mode: 'brushfill',
-      brushFill: BUILTIN_BF_PRESETS[17].config
-    },
-
-    // ── 1. Artistic & Traditional Media ──
-    {
-      id: 'art_watercolor',
-      name: 'Soft Watercolor Wash',
-      category: 'artistic',
-      desc: 'Organic translucent watercolor with paper bleeding',
-      color: '#83a598',
-      alpha: 0.85,
-      texture: { mode: 8, scale: 120, angle: 0, contrast: 110, grain: 40, hardness: 25, hardnessIntensity: 80, warpStrength: 10, warpFreq: 15, noiseDistort: 5 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'art_impasto',
-      name: 'Kuwahara Impasto Oil',
-      category: 'artistic',
-      desc: 'Thick painterly brushwork with Kuwahara filter',
-      color: '#fabd2f',
-      texture: { mode: 36, scale: 100, contrast: 120, grain: 45, hardness: 100 },
-      filter: { enabled: true, plugin: 'kuwahara', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
-    },
-    {
-      id: 'art_manga_cel',
-      name: 'Manga Screentone Cel',
-      category: 'artistic',
-      desc: 'Authentic 45° dot screentone with cel threshold',
-      color: '#ebdbb2',
-      texture: { mode: 31, scale: 80, angle: 45, contrast: 200, grain: 0, hardness: 100, posterize: 3 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'art_comic_cel',
-      name: '4-Level Comic Cel Shading',
-      category: 'artistic',
-      desc: 'Sharp stepped cel shading bands for pop art',
-      color: '#fe8019',
-      texture: { mode: 0, scale: 100, angle: 0, contrast: 150, hardness: 100, posterize: 4 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'art_engraving',
-      name: 'Vintage Copper Engraving',
-      category: 'artistic',
-      desc: 'Fine hatched antique parchment etching',
-      color: '#ebdbb2',
-      texture: { mode: 38, scale: 110, angle: 45, contrast: 180, grain: 10, hardness: 100, warpStrength: 5, warpFreq: 20 },
-      filter: { enabled: true, plugin: 'sepia', target: 'fill', p1: 80, p2: 0, opacity: 0.9 }
-    },
-    {
-      id: 'art_crosshatch',
-      name: 'Crosshatch Ink Sketch',
-      category: 'artistic',
-      desc: 'Dense multi-directional pen hatching',
-      color: '#282828',
-      texture: { mode: 38, scale: 90, angle: 0, contrast: 160, grain: 20 },
-      filter: { enabled: true, plugin: 'crosshatch', target: 'fill', p1: 4, p2: 0, opacity: 1.0 }
-    },
-    {
-      id: 'art_palette_knife',
-      name: 'Oil Paint Palette Knife',
-      category: 'artistic',
-      desc: 'Expressive knife ridges with rich specular relief',
-      color: '#d79921',
-      texture: { mode: 36, scale: 130, angle: 25, contrast: 140, grain: 50, hardness: 95 },
-      filter: { enabled: true, plugin: 'oil_paint', target: 'fill', p1: 6, p2: 12, opacity: 1.0 }
-    },
-    {
-      id: 'art_sumie',
-      name: 'Sumi-e Charcoal Ink Wash',
-      category: 'artistic',
-      desc: 'Japanese zen ink dispersion on raw rice paper',
-      color: '#1d2021',
-      alpha: 0.9,
-      texture: { mode: 8, scale: 110, contrast: 160, grain: 30, hardness: 40, hardnessIntensity: 70 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'art_pastel',
-      name: 'Chalk & Pastel Grain',
-      category: 'artistic',
-      desc: 'Dry crumbly chalkboard pastel pigment',
-      color: '#fbf1c7',
-      texture: { mode: 32, scale: 90, contrast: 130, grain: 75, hardness: 60, noiseDistort: 30 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'art_denim',
-      name: 'Heavy Denim Twill Weave',
-      category: 'artistic',
-      desc: 'Diagonal textile weave with cotton slub texture',
-      color: '#458588',
-      texture: { mode: 35, scale: 90, angle: 45, contrast: 120, grain: 30, hardness: 95 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'art_burlap',
-      name: 'Coarse Jute Burlap',
-      category: 'artistic',
-      desc: 'Rough woven fiber sackcloth texture',
-      color: '#a89984',
-      texture: { mode: 41, scale: 100, contrast: 135, grain: 55, hardness: 90 },
-      filter: { enabled: false }
-    },
-
-    // ── 2. Optical Glass & Lens (WASM Backdrop FX) ──
-    {
-      id: 'lens_fisheye',
-      name: 'Fisheye Barrel Lens',
-      category: 'lenses',
-      desc: 'Ultra-wide curved optical sphere refraction',
-      color: '#83a598',
-      alpha: 0.9,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'fisheye', target: 'backdrop', isLens: true, p1: 35, p2: 110, opacity: 1.0 }
-    },
-    {
-      id: 'lens_vortex',
-      name: 'Cosmic Vortex Swirl Lens',
-      category: 'lenses',
-      desc: 'Gravitational whirlpool light bending',
-      color: '#b16286',
-      alpha: 0.9,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'swirl', target: 'backdrop', isLens: true, p1: 120, p2: 85, opacity: 1.0 }
-    },
-    {
-      id: 'lens_ripple',
-      name: 'Water Ripple Caustics Lens',
-      category: 'lenses',
-      desc: 'Dynamic undulating liquid pool refraction',
-      color: '#458588',
-      alpha: 0.85,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'ripple', target: 'backdrop', isLens: true, p1: 25, p2: 10, opacity: 1.0 }
-    },
-    {
-      id: 'lens_kaleidoscope',
-      name: 'Kaleidoscope Octa-Prism Lens',
-      category: 'lenses',
-      desc: '8-fold radial symmetry mirror lens',
-      color: '#d3869b',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'kaleidoscope', target: 'backdrop', isLens: true, p1: 8, p2: 30, opacity: 1.0 }
-    },
-    {
-      id: 'lens_frosted',
-      name: 'Frosted Gaussian Glass Lens',
-      category: 'lenses',
-      desc: 'Translucent architectural blurred glass',
-      color: '#83a598',
-      alpha: 0.75,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'frosted_glass', target: 'backdrop', isLens: true, p1: 15, p2: 3, opacity: 1.0 }
-    },
-    {
-      id: 'lens_scanline',
-      name: 'Retro CRT Scanlines Lens',
-      category: 'lenses',
-      desc: 'Phosphor cathode tube raster scanlines',
-      color: '#8ec07c',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'scanline', target: 'backdrop', isLens: true, p1: 50, p2: 1, opacity: 1.0 }
-    },
-    {
-      id: 'lens_glitch',
-      name: 'VHS Magnetic Glitch Lens',
-      category: 'lenses',
-      desc: 'Analog video sync tear and tracking jitter',
-      color: '#fe8019',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'glitch', target: 'backdrop', isLens: true, p1: 25, p2: 12, opacity: 1.0 }
-    },
-    {
-      id: 'lens_duotone',
-      name: 'Cyberpunk Duotone Lens',
-      category: 'lenses',
-      desc: 'High-contrast neon two-tone color gradient map',
-      color: '#00ffcc',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'duotone', target: 'backdrop', isLens: true, p1: 0, p2: 120, opacity: 1.0 }
-    },
-    {
-      id: 'lens_thermal',
-      name: 'Thermal Predator Infrared Lens',
-      category: 'lenses',
-      desc: 'Heat spectrum infrared night-vision lens',
-      color: '#cc241d',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'thermal', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
-    },
-    {
-      id: 'lens_solarize',
-      name: 'Solarized Dream Lens',
-      category: 'lenses',
-      desc: 'Sabattier photographic tone reversal lens',
-      color: '#d65d0e',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'solarize', target: 'backdrop', isLens: true, p1: 110, p2: 0, opacity: 1.0 }
-    },
-    {
-      id: 'lens_bloom',
-      name: 'Neon Bloom Dispersion Lens',
-      category: 'lenses',
-      desc: 'Anamorphic light diffusion flare lens',
-      color: '#fabd2f',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'bloom', target: 'backdrop', isLens: true, p1: 140, p2: 10, opacity: 1.0 }
-    },
-    {
-      id: 'lens_chromatic',
-      name: 'Chromatic Fringe Prism Lens',
-      category: 'lenses',
-      desc: 'RGB spectral dispersion optic fringe',
-      color: '#ebdbb2',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'chromatic', target: 'backdrop', isLens: true, p1: 14, p2: 0, opacity: 1.0 }
-    },
-    {
-      id: 'lens_foam',
-      name: 'Tropical Shore Foam Lens',
-      category: 'lenses',
-      desc: 'Dynamic coastal ocean foam dispersion',
-      color: '#4eb8a8',
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: true, plugin: 'water_foam', target: 'backdrop', isLens: true, p1: 20, p2: 8, opacity: 1.0 }
-    },
-
-    // ── 3. Nature, Earth & Organics ──
-    {
-      id: 'nat_magma',
-      name: 'Molten Magma Volcano',
-      category: 'nature',
-      desc: 'Glowing volcanic fissures with turbulent heat',
-      color: '#fe8019',
-      gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
-      gradientType: 'linear',
-      texture: { mode: 65, scale: 120, warpStrength: 45, warpFreq: 25, noiseDistort: 20 },
-      filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 100, opacity: 1.0 }
-    },
-    {
-      id: 'nat_marble',
-      name: 'Warped Liquid Marble',
-      category: 'nature',
-      desc: 'Hand-swirled mineral stone veins with liquid marble',
-      color: '#ebdbb2',
-      texture: { mode: 8, scale: 150, angle: 30, contrast: 140, grain: 15, hardness: 95, warpStrength: 55, warpFreq: 25, pinchSwirl: 20 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'nat_mud',
-      name: 'Cracked Mud Fissures',
-      category: 'nature',
-      desc: 'Arid desert earth cracks and drought polygon tiles',
-      color: '#d79921',
-      texture: { mode: 42, scale: 140, contrast: 160, grain: 20, hardness: 85, warpStrength: 20, warpFreq: 20, noiseDistort: 15 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'nat_dragon',
-      name: 'Mythic Dragon Scales',
-      category: 'nature',
-      desc: 'Reptilian armored scales with specular sheen',
-      color: '#8ec07c',
-      texture: { mode: 50, scale: 130, contrast: 150, grain: 15, hardness: 95, warpStrength: 10, warpFreq: 20, pinchSwirl: 15 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'nat_granite',
-      name: 'Granite Bedrock',
-      category: 'nature',
-      desc: 'Speckled quartz, feldspar and mica volcanic stone',
-      color: '#928374',
-      texture: { mode: 39, scale: 100, contrast: 120, grain: 65, hardness: 85 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'nat_abyss',
-      name: 'Deep Oceanic Abyss',
-      category: 'nature',
-      desc: 'Midnight trench water with gentle caustics',
-      color: '#0f084b',
-      gradientStops: [{ offset: 0, color: '#076678' }, { offset: 1, color: '#0f084b' }],
-      gradientType: 'linear',
-      texture: { mode: 8, scale: 140, contrast: 120, warpStrength: 25, warpFreq: 20 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'nat_wood',
-      name: 'Walnut Wood Grain',
-      category: 'nature',
-      desc: 'Natural concentric timber rings with wood pores',
-      color: '#7c6f64',
-      texture: { mode: 38, scale: 140, angle: 15, contrast: 135, grain: 25, warpStrength: 15, warpFreq: 15 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'nat_emerald',
-      name: 'Emerald Geode Crystal',
-      category: 'nature',
-      desc: 'Faceted beryl crystal cluster with jewel refraction',
-      color: '#8ec07c',
-      gradientStops: [{ offset: 0, color: '#98971a' }, { offset: 1, color: '#8ec07c' }],
-      gradientType: 'radial',
-      texture: { mode: 51, scale: 110, contrast: 150, grain: 20, hardness: 90 },
-      filter: { enabled: false }
-    },
-
-    // ── 4. Metals, Tech & Sci-Fi ──
-    {
-      id: 'sci_circuit',
-      name: 'Cyber Circuit Motherboard',
-      category: 'scifi',
-      desc: 'Copper PCB traces, microchips and gold pads',
-      color: '#00ffcc',
-      texture: { mode: 43, scale: 120, contrast: 170, grain: 0, hardness: 100, posterize: 4 },
-      filter: { enabled: true, plugin: 'bloom', target: 'fill', p1: 20, p2: 90, opacity: 0.9 }
-    },
-    {
-      id: 'sci_gold',
-      name: 'Brushed Gold Ingot',
-      category: 'scifi',
-      desc: 'Anisotropic metallic gold polish with specular grain',
-      color: '#d79921',
-      gradientStops: [{ offset: 0, color: '#d79921' }, { offset: 0.5, color: '#fbf1c7' }, { offset: 1, color: '#b57614' }],
-      gradientType: 'linear',
-      texture: { mode: 38, scale: 80, angle: 90, contrast: 110, grain: 20, hardness: 95 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_chrome',
-      name: 'Liquid Chrome Mercury',
-      category: 'scifi',
-      desc: 'Molten reflective mirror metal with heavy warp',
-      color: '#ebdbb2',
-      gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ffffff' }, { offset: 1, color: '#00ffcc' }],
-      gradientType: 'linear',
-      texture: { mode: 8, scale: 160, contrast: 160, warpStrength: 60, warpFreq: 30, pinchSwirl: 40 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_carbon',
-      name: 'Carbon Fiber Twill Weave',
-      category: 'scifi',
-      desc: 'High-tensile motorsport composite honeycomb',
-      color: '#282828',
-      texture: { mode: 43, scale: 75, contrast: 160, grain: 15, hardness: 100 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_holo_foil',
-      name: 'Holographic Rainbow Foil',
-      category: 'scifi',
-      desc: 'Iridescent diffraction grating with shimmering spectrum',
-      color: '#ff0080',
-      gradientStops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ff0080' }, { offset: 1, color: '#00ffcc' }],
-      gradientType: 'linear',
-      texture: { mode: 67, scale: 100, contrast: 150, grain: 25, warpStrength: 40, warpFreq: 35 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_black_hole',
-      name: 'Black Hole Event Horizon',
-      category: 'scifi',
-      desc: 'Singularity vortex with extreme spacetime warping',
-      color: '#141617',
-      texture: { mode: 51, scale: 130, contrast: 160, grain: 20, hardness: 90, warpStrength: 25, warpFreq: 30, pinchSwirl: 85 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_glitch_matrix',
-      name: 'Glitch Heatwave Matrix',
-      category: 'scifi',
-      desc: 'Digital displacement wave with pixel noise',
-      color: '#83a598',
-      texture: { mode: 67, scale: 100, contrast: 160, grain: 35, hardness: 80, hardnessIntensity: 60, warpStrength: 80, warpFreq: 45, noiseDistort: 55, pinchSwirl: -40, posterize: 6 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_xray',
-      name: 'Inverted X-Ray Negative',
-      category: 'scifi',
-      desc: 'High-contrast radiograph bone density negative',
-      color: '#ebdbb2',
-      texture: { mode: 47, scale: 120, contrast: 150, grain: 20, hardness: 90, warpStrength: 30, warpFreq: 25, pinchSwirl: 25, invert: true },
-      filter: { enabled: false }
-    },
-    {
-      id: 'sci_damask',
-      name: 'Royal Damask Jacquard',
-      category: 'scifi',
-      desc: 'Rich crimson baroque patterned velvet',
-      color: '#cc241d',
-      texture: { mode: 35, scale: 100, contrast: 140, grain: 20, hardness: 95 },
-      filter: { enabled: false }
-    },
-
-    // ── 5. Signature Gradients & Lighting ──
-    {
-      id: 'grad_sunset',
-      name: 'Sunset Amber Glow',
-      category: 'gradients',
-      desc: 'Golden hour sunset gradient from amber to honey',
-      color: '#fe8019',
-      gradientStops: [{ offset: 0, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
-      gradientType: 'linear',
-      gradientAngle: 45,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'grad_cyberpunk',
-      name: 'Cyberpunk Neon Matrix',
-      category: 'gradients',
-      desc: 'Electric magenta into glowing cyan pulse',
-      color: '#00ffcc',
-      gradientStops: [{ offset: 0, color: '#ff0055' }, { offset: 1, color: '#00ffcc' }],
-      gradientType: 'linear',
-      gradientAngle: 135,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'grad_aurora',
-      name: 'Aurora Borealis Mystic',
-      category: 'gradients',
-      desc: 'Northern lights neon veil in polar night',
-      color: '#00ffcc',
-      gradientStops: [{ offset: 0, color: '#00ffcc' }, { offset: 0.5, color: '#7928ca' }, { offset: 1, color: '#98971a' }],
-      gradientType: 'linear',
-      gradientAngle: 90,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'grad_fire',
-      name: 'Fire Flame Core',
-      category: 'gradients',
-      desc: 'Combustion core radiating from crimson to blazing yellow',
-      color: '#fe8019',
-      gradientStops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }],
-      gradientType: 'linear',
-      gradientAngle: 90,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'grad_emerald',
-      name: 'Deep Royal Emerald',
-      category: 'gradients',
-      desc: 'Spherical jewel radiance from sage to petroleum teal',
-      color: '#8ec07c',
-      gradientStops: [{ offset: 0, color: '#8ec07c' }, { offset: 1, color: '#076678' }],
-      gradientType: 'radial',
-      gradientRadius: 0.6,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: false }
-    },
-    {
-      id: 'grad_vignette',
-      name: 'Smoky Vignette Monochrome',
-      category: 'gradients',
-      desc: 'Cinematic radial vignette for dramatic contrast',
-      color: '#1d2021',
-      gradientStops: [{ offset: 0, color: '#a89984' }, { offset: 1, color: '#1d2021' }],
-      gradientType: 'radial',
-      gradientRadius: 0.7,
-      texture: { mode: 0, hardness: 100 },
-      filter: { enabled: false }
+  const BUILTIN_BF_PRESETS = new Proxy([], {
+    get(target, prop) {
+      const list = getBuiltinBfPresets();
+      if (prop === 'length') return list.length;
+      if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+        return list[Number(prop)];
+      }
+      if (typeof list[prop] === 'function') {
+        return list[prop].bind(list);
+      }
+      return list[prop] || target[prop];
     }
-  ];
+  });
+
+  function getBuiltinMaterials() {
+    const reg = getRegistry();
+    if (reg && typeof reg.list === 'function') {
+      return reg.list('material');
+    }
+    return [];
+  }
+
+  const BUILTIN_MATERIALS = new Proxy([], {
+    get(target, prop) {
+      const list = getBuiltinMaterials();
+      if (prop === 'length') return list.length;
+      if (typeof prop === 'string' && /^\d+$/.test(prop)) {
+        return list[Number(prop)];
+      }
+      if (typeof list[prop] === 'function') {
+        return list[prop].bind(list);
+      }
+      return list[prop] || target[prop];
+    }
+  });
 
   // ── 3. High-Performance Materials Studio Component ──
 
@@ -4759,8 +3593,12 @@
         { id: 'gradients', label: 'Gradients & Lighting' }
       ];
 
+      const allMaterials = (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.list === 'function')
+        ? EsenhoRegistry.list('material')
+        : BUILTIN_MATERIALS;
+
       categories.forEach(cat => {
-        const items = BUILTIN_MATERIALS.filter(m => m.category === cat.id);
+        const items = allMaterials.filter(m => m.category === cat.id);
         if (items.length > 0) {
           const grp = document.createElement('optgroup');
           grp.label = cat.label;
@@ -4789,6 +3627,10 @@
             }
           }
         } catch (_) {}
+      }
+      if (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.get === 'function') {
+        const res = EsenhoRegistry.get('material', idOrName);
+        if (res) return res;
       }
       return BUILTIN_MATERIALS.find(m => m.id === idOrName || m.name === idOrName) || null;
     }
