@@ -240,7 +240,16 @@
     try {
       if (typeof localStorage !== 'undefined') {
         const raw = localStorage.getItem(CUSTOM_PALETTE_KEY);
-        if (raw) return JSON.parse(raw);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.colors) ? parsed.colors : []);
+          const normalized = list.map(item => {
+            if (typeof item === 'string') return item.trim();
+            if (item && typeof item === 'object') return (item.hex || item.color || item.value || '').trim();
+            return String(item || '').trim();
+          }).filter(c => typeof c === 'string' && c.length > 0 && c !== '[object Object]');
+          if (normalized.length > 0) return normalized;
+        }
       }
     } catch (_) {}
     return ['#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'];
@@ -249,7 +258,12 @@
   function saveCustomSwatches(arr) {
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(CUSTOM_PALETTE_KEY, JSON.stringify(arr));
+        const sanitized = Array.isArray(arr) ? arr.map(item => {
+          if (typeof item === 'string') return item.trim();
+          if (item && typeof item === 'object') return (item.hex || item.color || item.value || '').trim();
+          return String(item || '').trim();
+        }).filter(c => typeof c === 'string' && c.length > 0 && c !== '[object Object]') : [];
+        localStorage.setItem(CUSTOM_PALETTE_KEY, JSON.stringify(sanitized));
       }
     } catch (_) {}
   }
@@ -2392,13 +2406,18 @@
       // 10. Palette Swatches
       d.palSelect?.addEventListener('change', () => this.renderPalettes());
       d.btnAddSwatch?.addEventListener('click', () => {
+        const currentHex = (this.currentHex || '#000000').toLowerCase();
         const list = getCustomSwatches();
-        if (!list.includes(this.currentHex)) {
-          list.push(this.currentHex);
+        const exists = list.some(c => {
+          const cStr = typeof c === 'object' && c !== null ? (c.hex || c.color || c.value) : c;
+          return String(cStr || '').trim().toLowerCase() === currentHex;
+        });
+        if (!exists) {
+          list.push(this.currentHex || '#000000');
           saveCustomSwatches(list);
-          if (d.palSelect) d.palSelect.value = 'custom';
-          this.renderPalettes();
         }
+        if (d.palSelect) d.palSelect.value = 'custom';
+        this.renderPalettes();
       });
 
       // 11. Hex Input Bar
@@ -3800,19 +3819,30 @@
 
       grid.innerHTML = '';
       colors.forEach(hex => {
+        const colorStr = (typeof hex === 'object' && hex !== null)
+          ? (hex.hex || hex.color || hex.value || '#ffffff')
+          : String(hex || '#ffffff').trim();
+
+        if (!colorStr || colorStr === '[object Object]') return;
+
         const swatch = document.createElement('button');
         swatch.type = 'button';
         swatch.className = 'cs-swatch-item';
-        swatch.style.background = hex;
-        swatch.title = hex;
+        swatch.style.setProperty('background', colorStr, 'important');
+        swatch.style.setProperty('background-color', colorStr, 'important');
+        swatch.style.setProperty('background-image', 'none', 'important');
+        swatch.title = `${colorStr}${palType === 'custom' ? ' (Right-click to remove)' : ''}`;
         swatch.addEventListener('click', () => {
-          this.setColorFromExternal(hex);
+          this.setColorFromExternal(colorStr);
           this.applyToSelected(true);
         });
         if (palType === 'custom') {
           swatch.addEventListener('contextmenu', (e) => {
             e.preventDefault();
-            const list = getCustomSwatches().filter(c => c !== hex);
+            const list = getCustomSwatches().filter(c => {
+              const cStr = typeof c === 'object' && c !== null ? (c.hex || c.color || c.value) : c;
+              return String(cStr || '').trim().toLowerCase() !== colorStr.toLowerCase();
+            });
             saveCustomSwatches(list);
             this.renderPalettes();
           });
@@ -4786,15 +4816,19 @@
         width: 100%;
         aspect-ratio: 1;
         border-radius: 2px;
-        border: 1px solid rgba(255,255,255,0.15);
+        border: 1px solid rgba(255,255,255,0.2) !important;
         cursor: pointer;
-        padding: 0;
-        transition: transform 0.08s ease;
+        padding: 0 !important;
+        transition: transform 0.08s ease, border-color 0.08s ease;
+        background-image: none !important;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.3) !important;
+        box-sizing: border-box;
       }
       .cs-swatch-item:hover {
-        transform: scale(1.15);
-        z-index: 2;
-        border-color: #ffffff;
+        transform: scale(1.18);
+        z-index: 3;
+        border-color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.6) !important;
       }
       .cs-hex-bar {
         display: flex;

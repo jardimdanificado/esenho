@@ -492,7 +492,7 @@
     }
 
     /* ── Skeuomorphic Buttons ── */
-    [data-theme="skeuo"] button,
+    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box),
     [data-theme="skeuo"] .top-tool-btn {
       background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%) !important;
       border: 1px solid #141618 !important;
@@ -507,7 +507,7 @@
       text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.18) !important;
     }
 
-    [data-theme="skeuo"] button:hover,
+    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):hover,
     [data-theme="skeuo"] .top-tool-btn:hover {
       background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%) !important;
       color: #ffffff !important;
@@ -516,7 +516,7 @@
         0 2px 6px rgba(0, 0, 0, 0.5) !important;
     }
 
-    [data-theme="skeuo"] button:active,
+    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):active,
     [data-theme="skeuo"] .top-tool-btn:active {
       background: linear-gradient(180deg, #181a1d 0%, #23272c 100%) !important;
       box-shadow:

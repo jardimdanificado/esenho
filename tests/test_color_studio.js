@@ -244,4 +244,75 @@ widget.textureMode = 12;
 widget.applyTextureToSelected(true);
 assert.strictEqual(global.window.doc.defaultFillTexture.mode, 12, 'doc.defaultFillTexture should be set when nothing is selected');
 
+console.log('13. Testing Palette & Custom Swatches rendering and persistence...');
+let storageMap = {};
+global.localStorage = {
+  getItem: (k) => storageMap[k] || null,
+  setItem: (k, v) => { storageMap[k] = v; },
+  clear: () => { storageMap = {}; }
+};
+
+// Test custom swatches normalization with mixed object/string input
+localStorage.setItem('esenho_color_studio_custom_swatches', JSON.stringify([
+  '#fe8019',
+  { hex: '#fabd2f' },
+  { color: '#b8bb26' },
+  { value: '#83a598' }
+]));
+
+// Mock document for DOM testing
+let createdButtons = [];
+const mockEl = {
+  style: {
+    _props: {},
+    setProperty(prop, val, prio) { this._props[prop] = { val, prio }; },
+    getPropertyValue(prop) { return this._props[prop]?.val || ''; }
+  },
+  classList: { toggle: () => {}, add: () => {}, remove: () => {} },
+  addEventListener: () => {},
+  value: ''
+};
+
+global.document = {
+  getElementById: () => mockEl,
+  querySelector: () => mockEl,
+  querySelectorAll: () => [],
+  createElement: (tag) => {
+    const el = {
+      tagName: tag.toUpperCase(),
+      style: {
+        _props: {},
+        setProperty(prop, val, prio) { this._props[prop] = { val, prio }; },
+        getPropertyValue(prop) { return this._props[prop]?.val || ''; }
+      },
+      classList: { toggle: () => {}, add: () => {}, remove: () => {} },
+      listeners: {},
+      addEventListener(evt, fn) { this.listeners[evt] = fn; }
+    };
+    if (tag === 'button') createdButtons.push(el);
+    return el;
+  }
+};
+
+const mockGrid = {
+  innerHTML: '',
+  appendChild: (child) => {}
+};
+
+widget.dom.swatchesGrid = mockGrid;
+widget.dom.palSelect = { value: 'custom' };
+
+widget.renderPalettes();
+
+assert(createdButtons.length >= 4, `Expected at least 4 swatches, got ${createdButtons.length}`);
+assert.strictEqual(createdButtons[0].style._props['background'].val, '#fe8019');
+assert.strictEqual(createdButtons[0].style._props['background'].prio, 'important');
+assert.strictEqual(createdButtons[1].style._props['background'].val, '#fabd2f');
+assert.strictEqual(createdButtons[2].style._props['background'].val, '#b8bb26');
+assert.strictEqual(createdButtons[3].style._props['background'].val, '#83a598');
+
+// Test click to select
+createdButtons[0].listeners['click']();
+assert.strictEqual(widget.currentHex.toLowerCase(), '#fe8019');
+
 console.log('--- ALL MATERIAL & COLOR STUDIO TESTS PASSED ---');
