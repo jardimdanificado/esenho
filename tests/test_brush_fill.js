@@ -258,4 +258,95 @@ assert.strictEqual(studioRect.brushFill.colorPalette.length, 2);
 
 console.log('✔ ColorStudio Brush Fill workflow passed');
 
+// 11. Resizing & scaleObjectToBox Stability with Brush-Filled Objects
+console.log('11. Testing Object Resizing & scaleObjectToBox with Brush-Filled Paths & Shapes...');
+
+// Function mirroring studio scaleObjectToBox
+function scaleObjectToBox(obj, origState, origBounds, newMinX, newMinY, newW, newH) {
+  if (!obj || !origState || !origBounds) return;
+
+  newW = Math.max(0.5, newW || 0.5);
+  newH = Math.max(0.5, newH || 0.5);
+
+  let sw = 0;
+  if (obj.type === 'rect' || obj.type === 'circle' || obj.type === 'ellipse') {
+    if (origState.stroke && origState.stroke !== 'none' && origState.strokeWidth) {
+      sw = Number(origState.strokeWidth) / 2;
+    }
+  }
+
+  const geomMinX = origBounds.minX + sw;
+  const geomMinY = origBounds.minY + sw;
+  const geomW = Math.max(0.001, origBounds.width - sw * 2);
+  const geomH = Math.max(0.001, origBounds.height - sw * 2);
+
+  const newGeomMinX = newMinX + sw;
+  const newGeomMinY = newMinY + sw;
+  const newGeomW = Math.max(0.001, newW - sw * 2);
+  const newGeomH = Math.max(0.001, newH - sw * 2);
+
+  const rawSx = (origBounds.width > 0.0001) ? newW / origBounds.width : 1;
+  const rawSy = (origBounds.height > 0.0001) ? newH / origBounds.height : 1;
+
+  const sx = (geomW > 0.0001) ? newGeomW / geomW : 1;
+  const sy = (geomH > 0.0001) ? newGeomH / geomH : 1;
+
+  if (obj.type === 'rect') {
+    obj.x = newGeomMinX + ((origState.x !== undefined ? origState.x : geomMinX) - geomMinX) * sx;
+    obj.y = newGeomMinY + ((origState.y !== undefined ? origState.y : geomMinY) - geomMinY) * sy;
+    obj.width = Math.max(0.5, (origState.width !== undefined ? origState.width : geomW) * sx);
+    obj.height = Math.max(0.5, (origState.height !== undefined ? origState.height : geomH) * sy);
+  } else if (obj.type === 'path') {
+    if (obj.nodes && origState.nodes) {
+      for (let i = 0; i < obj.nodes.length; i++) {
+        const orig = origState.nodes[i];
+        obj.nodes[i].x = newMinX + (orig.x - origBounds.minX) * rawSx;
+        obj.nodes[i].y = newMinY + (orig.y - origBounds.minY) * rawSy;
+        if (orig.cpIn) obj.nodes[i].cpIn = { x: orig.cpIn.x * rawSx, y: orig.cpIn.y * rawSy };
+        if (orig.cpOut) obj.nodes[i].cpOut = { x: orig.cpOut.x * rawSx, y: orig.cpOut.y * rawSy };
+      }
+    }
+  }
+}
+
+// Create a brush-filled path with thick stroke and control handles
+const brushPath = new SvgPath({
+  fill: '#fabd2f',
+  fillType: 'brush',
+  stroke: '#1d2021',
+  strokeWidth: 20,
+  brushFill: {
+    enabled: true,
+    pattern: 'crosshatch',
+    spacing: 10,
+    brushList: ['pencil']
+  }
+});
+brushPath.addNode(10, 10, { x: 0, y: 0 }, { x: 15, y: 5 }, 'smooth');
+brushPath.addNode(50, 40, { x: -10, y: -5 }, { x: 10, y: 5 }, 'smooth');
+brushPath.addNode(80, 20, { x: -5, y: -10 }, { x: 0, y: 0 }, 'smooth');
+brushPath.closed = true;
+
+const origState = JSON.parse(JSON.stringify(brushPath.toJSON()));
+const origBounds = brushPath.getBounds();
+
+// Scale the path down to a small box (which previously caused division by near-zero / spaghetti explosion)
+scaleObjectToBox(brushPath, origState, origBounds, 200, 200, 30, 20);
+
+// Validate all nodes and control points are in valid range and finite
+for (const n of brushPath.nodes) {
+  assert.ok(isFinite(n.x) && !isNaN(n.x), `Node x must be finite: ${n.x}`);
+  assert.ok(isFinite(n.y) && !isNaN(n.y), `Node y must be finite: ${n.y}`);
+  assert.ok(n.x >= 190 && n.x <= 240, `Node x should be within scaled bounds, got ${n.x}`);
+  assert.ok(n.y >= 190 && n.y <= 230, `Node y should be within scaled bounds, got ${n.y}`);
+  assert.ok(isFinite(n.cpIn.x) && Math.abs(n.cpIn.x) < 50, `cpIn.x must not explode: ${n.cpIn.x}`);
+  assert.ok(isFinite(n.cpOut.x) && Math.abs(n.cpOut.x) < 50, `cpOut.x must not explode: ${n.cpOut.x}`);
+}
+
+// Verify that strokes can still be generated without errors on the scaled geometry
+const poly = brushPath.toPolyline ? brushPath.toPolyline(0.5) : [];
+const scaledStrokes = BrushFillEngine.generateStrokes([poly], brushPath.brushFill);
+assert.ok(Array.isArray(scaledStrokes), 'generateStrokes should produce array');
+console.log(`✔ Resized brush path generated ${scaledStrokes.length} valid strokes without spaghetti corruption`);
+
 console.log('--- ALL PROCEDURAL BRUSH FILL ENGINE TESTS PASSED ---');
