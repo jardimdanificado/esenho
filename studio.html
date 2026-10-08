@@ -4982,8 +4982,12 @@
 
       async function initQuadro() {
         try {
-          const actor = await EsenhoModule.fromURL('plugins/canvas.wasm', { name: 'canvas' });
+          let actor = (typeof window !== 'undefined' && window.canvasActor) ? window.canvasActor : null;
+          if (!actor) {
+            actor = await EsenhoModule.fromURL('plugins/canvas.wasm', { name: 'canvas' });
+          }
           quadroRenderer = new QuadroSvgRenderer(actor);
+          window.quadroRenderer = quadroRenderer;
           document.getElementById('wasm-badge')?.setAttribute('title', 'Quadro SIMD Ready');
           await preloadWasmPlugins();
           const currentSettings = loadStudioSettings();
@@ -5101,6 +5105,7 @@
           try {
             quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: quadroRenderScale, background: true });
           } catch (err) {
+            console.error('[Quadro Render Error]:', err);
             svgStage.style.display = 'block';
             quadroCanvas.style.display = 'none';
             renderSvgStage();

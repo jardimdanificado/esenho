@@ -883,10 +883,55 @@
       }
       this.filterRunner = new WasmFilterRunner();
       this.customTextureCache = new Map();
+      this._brushParamCache = {};
+      this._currentWidth = 0;
+      this._currentHeight = 0;
     }
 
     setActor(actor) {
       this.actor = actor;
+      this._brushParamCache = {};
+      this._currentWidth = 0;
+      this._currentHeight = 0;
+    }
+
+    ensureMemoryCapacity(requiredBytes) {
+      if (!this.actor || !this.actor.memory) return;
+      try {
+        const curBytes = this.actor.memory.buffer.byteLength;
+        if (curBytes < requiredBytes) {
+          const diff = requiredBytes - curBytes;
+          const pagesNeeded = Math.ceil(diff / 65536) + 4;
+          this.actor.memory.grow(pagesNeeded);
+        }
+      } catch (e) {
+        console.warn('[QuadroSvgRenderer] Memory capacity grow warning:', e);
+      }
+    }
+
+    getLayerBuffer(layerIdx = 3, w = null, h = null) {
+      const exp = this.actor?.exports;
+      if (!exp || !this.actor?.memory) return null;
+      const lw = w || (exp.w_layer_get_width ? exp.w_layer_get_width(layerIdx) : 800);
+      const lh = h || (exp.w_layer_get_height ? exp.w_layer_get_height(layerIdx) : 600);
+      const pixPtr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(layerIdx) : 0;
+      if (!pixPtr) return null;
+
+      const totalPixels = lw * lh;
+      const requiredBytes = pixPtr + totalPixels * 4;
+      this.ensureMemoryCapacity(requiredBytes);
+
+      return new Uint32Array(this.actor.memory.buffer, pixPtr, totalPixels);
+    }
+
+    setBrushParamFast(paramId, val) {
+      if (!this._brushParamCache) this._brushParamCache = {};
+      if (this._brushParamCache[paramId] !== val) {
+        this._brushParamCache[paramId] = val;
+        if (this.actor && this.actor.exports && typeof this.actor.exports.w_brush_set_param === 'function') {
+          this.actor.exports.w_brush_set_param(paramId, val);
+        }
+      }
     }
 
     registerCustomTexture(id, buffer, width, height) {
@@ -910,19 +955,26 @@
 
       this.currentDoc = doc;
       const scale = options.scale || 1.0;
-      const w = Math.round(doc.width * scale);
-      const h = Math.round(doc.height * scale);
+      const w = Math.max(1, Math.round(doc.width * scale));
+      const h = Math.max(1, Math.round(doc.height * scale));
 
-      // Initialize Quadro dimensions
-      this.actor.exports.w_init(w, h);
+      // Initialize Quadro dimensions only when changed
+      if (this._currentWidth !== w || this._currentHeight !== h) {
+        if (typeof this.actor.exports.w_init === 'function') {
+          this.actor.exports.w_init(w, h);
+        }
+        this._currentWidth = w;
+        this._currentHeight = h;
+        this._brushParamCache = {};
+      }
 
-      // Reset brush defaults
-      this.actor.exports.w_brush_set_param(1 /* SIZE */, 2);
-      this.actor.exports.w_brush_set_param(2 /* OPACITY */, 100);
-      this.actor.exports.w_brush_set_param(3 /* HARDNESS */, 100);
-      this.actor.exports.w_brush_set_param(4 /* FLOW */, 100);
-      this.actor.exports.w_brush_set_param(5 /* SPACING */, 5);
-      this.actor.exports.w_brush_set_param(14 /* SHAPE */, 0 /* CIRCLE */);
+      // Reset brush defaults if needed
+      this.setBrushParamFast(1 /* SIZE */, 2);
+      this.setBrushParamFast(2 /* OPACITY */, 100);
+      this.setBrushParamFast(3 /* HARDNESS */, 100);
+      this.setBrushParamFast(4 /* FLOW */, 100);
+      this.setBrushParamFast(5 /* SPACING */, 5);
+      this.setBrushParamFast(14 /* SHAPE */, 0 /* CIRCLE */);
 
       // Render Background (supports Solid Color, Gradients, Procedural/Custom Textures, Brush Fills & WASM FX Filters)
       this.renderBackground(doc, scale, options);
@@ -949,10 +1001,8 @@
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : Math.round(doc.width * scale);
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : Math.round(doc.height * scale);
-      const pixPtr = exp.w_layer_get_pixels(3);
-      if (!pixPtr || !this.actor.memory) return;
-
-      const u32 = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+      const u32 = this.getLayerBuffer(3, lw, lh);
+      if (!u32) return;
 
       if (options.background === false) {
         u32.fill(0);
@@ -1741,12 +1791,18 @@
       const mask = new Uint8Array(bw * bh);
 
       if (typeof document !== 'undefined' && document.createElement) {
-        const off = document.createElement('canvas');
-        off.width = bw;
-        off.height = bh;
-        const ctx = off.getContext('2d');
+        if (!this._poolMaskCanvas) {
+          this._poolMaskCanvas = document.createElement('canvas');
+        }
+        const off = this._poolMaskCanvas;
+        if (off.width !== bw || off.height !== bh) {
+          off.width = bw;
+          off.height = bh;
+        }
+        const ctx = off.getContext('2d', { willReadFrequently: true });
         if (ctx) {
           ctx.save();
+          ctx.clearRect(0, 0, bw, bh);
           ctx.translate(-bx0, -by0);
           if (totalMatrix && !isIdentityMatrix(totalMatrix)) {
             ctx.transform(totalMatrix[0], totalMatrix[1], totalMatrix[2], totalMatrix[3], totalMatrix[4] * scale, totalMatrix[5] * scale);
@@ -2286,12 +2342,26 @@
 
         nodeX.sort((a, b) => a - b);
 
+        const isPlainSolid = (texMode === 0 && !customPixels && texGrain === 0 && !invert && posterize < 2 && warpStrength === 0 && noiseDistort === 0 && pinchSwirl === 0 && featherW === 0 && !gradient);
+
         for (let i = 0; i < nodeX.length; i += 2) {
           if (nodeX[i] >= lw) break;
           if (nodeX[i + 1] > 0) {
             let x0 = nodeX[i] < 0 ? 0 : nodeX[i];
             let x1 = nodeX[i + 1] >= lw ? lw - 1 : nodeX[i + 1];
             const row = y * lw;
+
+            if (isPlainSolid) {
+              if (baseAlpha === 255) {
+                pixels.fill(fillArgb, row + x0, row + x1 + 1);
+              } else if (baseAlpha > 0) {
+                for (let x = x0; x <= x1; x++) {
+                  pixels[row + x] = this.blendFast(fillArgb, pixels[row + x]);
+                }
+              }
+              continue;
+            }
+
             for (let x = x0; x <= x1; x++) {
               let sx = isRelative ? (x - bMinX + offsetX) : (x + offsetX);
               let sy = isRelative ? (y - bMinY + offsetY) : (y + offsetY);
@@ -2401,33 +2471,33 @@
      */
     strokePolyline(poly, argbColor, strokeWidth = 2, closed = false, brushConfig = null, strokeTexture = null, scale = 1.0) {
       const exp = this.actor.exports;
-      exp.w_brush_set_param(1 /* SIZE */, strokeWidth);
-      exp.w_brush_set_param(2 /* OPACITY */, 100);
-      exp.w_brush_set_param(3 /* HARDNESS */, brushConfig?.hardness !== undefined ? brushConfig.hardness : 95);
-      exp.w_brush_set_param(4 /* FLOW */, brushConfig?.flow !== undefined ? brushConfig.flow : 100);
-      exp.w_brush_set_param(5 /* SPACING */, brushConfig?.spacing !== undefined ? brushConfig.spacing : 5);
-      exp.w_brush_set_param(6 /* ANGLE */, brushConfig?.angle !== undefined ? brushConfig.angle : 0);
-      exp.w_brush_set_param(7 /* ROUNDNESS */, brushConfig?.roundness !== undefined ? brushConfig.roundness : 100);
-      exp.w_brush_set_param(8 /* SCATTER */, brushConfig?.scatter !== undefined ? brushConfig.scatter : 0);
-      exp.w_brush_set_param(10 /* SMUDGE */, brushConfig?.smudge !== undefined ? brushConfig.smudge : 0);
-      exp.w_brush_set_param(11 /* WETNESS */, brushConfig?.wetness !== undefined ? brushConfig.wetness : 0);
-      exp.w_brush_set_param(12 /* GRAIN */, strokeTexture?.grain !== undefined ? strokeTexture.grain : (brushConfig?.grain !== undefined ? brushConfig.grain : 0));
-      exp.w_brush_set_param(13 /* TEX_MODE */, strokeTexture?.mode !== undefined ? strokeTexture.mode : (brushConfig?.texture_mode !== undefined ? brushConfig.texture_mode : 0));
-      exp.w_brush_set_param(14 /* SHAPE */, brushConfig?.shape !== undefined ? brushConfig.shape : 0);
-      exp.w_brush_set_param(16 /* TEX_ANGLE */, strokeTexture?.angle !== undefined ? strokeTexture.angle : 0);
+      this.setBrushParamFast(1 /* SIZE */, strokeWidth);
+      this.setBrushParamFast(2 /* OPACITY */, 100);
+      this.setBrushParamFast(3 /* HARDNESS */, brushConfig?.hardness !== undefined ? brushConfig.hardness : 95);
+      this.setBrushParamFast(4 /* FLOW */, brushConfig?.flow !== undefined ? brushConfig.flow : 100);
+      this.setBrushParamFast(5 /* SPACING */, brushConfig?.spacing !== undefined ? brushConfig.spacing : 5);
+      this.setBrushParamFast(6 /* ANGLE */, brushConfig?.angle !== undefined ? brushConfig.angle : 0);
+      this.setBrushParamFast(7 /* ROUNDNESS */, brushConfig?.roundness !== undefined ? brushConfig.roundness : 100);
+      this.setBrushParamFast(8 /* SCATTER */, brushConfig?.scatter !== undefined ? brushConfig.scatter : 0);
+      this.setBrushParamFast(10 /* SMUDGE */, brushConfig?.smudge !== undefined ? brushConfig.smudge : 0);
+      this.setBrushParamFast(11 /* WETNESS */, brushConfig?.wetness !== undefined ? brushConfig.wetness : 0);
+      this.setBrushParamFast(12 /* GRAIN */, strokeTexture?.grain !== undefined ? strokeTexture.grain : (brushConfig?.grain !== undefined ? brushConfig.grain : 0));
+      this.setBrushParamFast(13 /* TEX_MODE */, strokeTexture?.mode !== undefined ? strokeTexture.mode : (brushConfig?.texture_mode !== undefined ? brushConfig.texture_mode : 0));
+      this.setBrushParamFast(14 /* SHAPE */, brushConfig?.shape !== undefined ? brushConfig.shape : 0);
+      this.setBrushParamFast(16 /* TEX_ANGLE */, strokeTexture?.angle !== undefined ? strokeTexture.angle : 0);
       const texScale = Math.round((strokeTexture?.scale !== undefined ? strokeTexture.scale : (brushConfig?.texture_scale !== undefined ? brushConfig.texture_scale : 100)) * scale);
-      exp.w_brush_set_param(17 /* TEX_SCALE */, texScale);
-      exp.w_brush_set_param(21 /* TEX_CONTRAST */, strokeTexture?.contrast !== undefined ? strokeTexture.contrast : 100);
-      exp.w_brush_set_param(22 /* AUTO_ROTATE */, brushConfig?.auto_rotate !== undefined ? brushConfig.auto_rotate : (brushConfig?.autoRotate ? 1 : 0));
-      exp.w_brush_set_param(23 /* VELOCITY */, brushConfig?.velocity !== undefined ? brushConfig.velocity : 0);
-      exp.w_brush_set_param(24 /* TAPER_IN */, brushConfig?.taper_in !== undefined ? brushConfig.taper_in : (brushConfig?.taperIn !== undefined ? brushConfig.taperIn : 0));
-      exp.w_brush_set_param(25 /* TAPER_OUT */, brushConfig?.taper_out !== undefined ? brushConfig.taper_out : (brushConfig?.taperOut !== undefined ? brushConfig.taperOut : 0));
-      exp.w_brush_set_param(27 /* SIZE_JITTER */, brushConfig?.size_jitter !== undefined ? brushConfig.size_jitter : (brushConfig?.sizeJitter !== undefined ? brushConfig.sizeJitter : 0));
-      exp.w_brush_set_param(28 /* ANGLE_JITTER */, brushConfig?.angle_jitter !== undefined ? brushConfig.angle_jitter : (brushConfig?.angleJitter !== undefined ? brushConfig.angleJitter : 0));
-      exp.w_brush_set_param(29 /* OPACITY_JITTER */, brushConfig?.opacity_jitter !== undefined ? brushConfig.opacity_jitter : (brushConfig?.opacityJitter !== undefined ? brushConfig.opacityJitter : 0));
-      exp.w_brush_set_param(31 /* DAB_BLEND */, brushConfig?.dabBlend !== undefined ? brushConfig.dabBlend : (brushConfig?.dab_blend !== undefined ? brushConfig.dab_blend : 0));
-      exp.w_brush_set_param(33 /* DEPLETION */, brushConfig?.depletion !== undefined ? brushConfig.depletion : 0);
-      exp.w_brush_set_param(34 /* COLOR_PICKUP */, brushConfig?.color_pickup !== undefined ? brushConfig.color_pickup : (brushConfig?.colorPickup !== undefined ? brushConfig.colorPickup : 0));
+      this.setBrushParamFast(17 /* TEX_SCALE */, texScale);
+      this.setBrushParamFast(21 /* TEX_CONTRAST */, strokeTexture?.contrast !== undefined ? strokeTexture.contrast : 100);
+      this.setBrushParamFast(22 /* AUTO_ROTATE */, brushConfig?.auto_rotate !== undefined ? brushConfig.auto_rotate : (brushConfig?.autoRotate ? 1 : 0));
+      this.setBrushParamFast(23 /* VELOCITY */, brushConfig?.velocity !== undefined ? brushConfig.velocity : 0);
+      this.setBrushParamFast(24 /* TAPER_IN */, brushConfig?.taper_in !== undefined ? brushConfig.taper_in : (brushConfig?.taperIn !== undefined ? brushConfig.taperIn : 0));
+      this.setBrushParamFast(25 /* TAPER_OUT */, brushConfig?.taper_out !== undefined ? brushConfig.taper_out : (brushConfig?.taperOut !== undefined ? brushConfig.taperOut : 0));
+      this.setBrushParamFast(27 /* SIZE_JITTER */, brushConfig?.size_jitter !== undefined ? brushConfig.size_jitter : (brushConfig?.sizeJitter !== undefined ? brushConfig.sizeJitter : 0));
+      this.setBrushParamFast(28 /* ANGLE_JITTER */, brushConfig?.angle_jitter !== undefined ? brushConfig.angle_jitter : (brushConfig?.angleJitter !== undefined ? brushConfig.angleJitter : 0));
+      this.setBrushParamFast(29 /* OPACITY_JITTER */, brushConfig?.opacity_jitter !== undefined ? brushConfig.opacity_jitter : (brushConfig?.opacityJitter !== undefined ? brushConfig.opacityJitter : 0));
+      this.setBrushParamFast(31 /* DAB_BLEND */, brushConfig?.dabBlend !== undefined ? brushConfig.dabBlend : (brushConfig?.dab_blend !== undefined ? brushConfig.dab_blend : 0));
+      this.setBrushParamFast(33 /* DEPLETION */, brushConfig?.depletion !== undefined ? brushConfig.depletion : 0);
+      this.setBrushParamFast(34 /* COLOR_PICKUP */, brushConfig?.color_pickup !== undefined ? brushConfig.color_pickup : (brushConfig?.colorPickup !== undefined ? brushConfig.colorPickup : 0));
 
       const pts = scale === 1.0 ? poly : poly.map(p => ({ x: Math.round(p.x * scale), y: Math.round(p.y * scale) }));
       const n = pts.length;
@@ -2479,11 +2549,13 @@
       const exp = this.actor.exports;
       const w = exp.get_width ? exp.get_width() : 800;
       const h = exp.get_height ? exp.get_height() : 600;
-      const outPtr = exp.w_layer_get_pixels(3);
+      const outPtr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(3) : 0;
       if (!outPtr || !this.actor.memory) return null;
 
       const totalPixels = w * h;
-      if (!this._cachedRawArray || this._cachedRawArray.length !== totalPixels * 4) {
+      this.ensureMemoryCapacity(outPtr + totalPixels * 4);
+
+      if (!this._cachedRawArray || this._cachedRawArray.length !== totalPixels * 4 || this._cachedRawArray.buffer.byteLength === 0) {
         this._cachedRawArray = new Uint8ClampedArray(totalPixels * 4);
         this._cachedRawU32 = new Uint32Array(this._cachedRawArray.buffer);
       }
@@ -2502,10 +2574,13 @@
       if (!res) return false;
 
       const exp = this.actor.exports;
-      const w = exp.get_width ? exp.get_width() : 800;
-      const h = exp.get_height ? exp.get_height() : 600;
-      const outPtr = exp.w_layer_get_pixels(3);
+      const w = exp.get_width ? exp.get_width() : res.width;
+      const h = exp.get_height ? exp.get_height() : res.height;
+      const outPtr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(3) : 0;
       if (!outPtr || !this.actor.memory) return false;
+
+      const totalPixels = w * h;
+      this.ensureMemoryCapacity(outPtr + totalPixels * 4);
 
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
@@ -2516,14 +2591,14 @@
       if (!ctx2d) return false;
 
       // Reuse cached ImageData to eliminate GC pauses and per-frame memory allocation
-      if (!this._cachedCanvasImageData || this._cachedCanvasWidth !== w || this._cachedCanvasHeight !== h) {
+      const isDetached = this._cachedCanvasImageData && this._cachedCanvasImageData.data.buffer.byteLength === 0;
+      if (!this._cachedCanvasImageData || isDetached || this._cachedCanvasWidth !== w || this._cachedCanvasHeight !== h) {
         this._cachedCanvasImageData = ctx2d.createImageData(w, h);
         this._cachedCanvasU32 = new Uint32Array(this._cachedCanvasImageData.data.buffer);
         this._cachedCanvasWidth = w;
         this._cachedCanvasHeight = h;
       }
 
-      const totalPixels = w * h;
       const srcU32 = new Uint32Array(this.actor.memory.buffer, outPtr, totalPixels);
       this._cachedCanvasU32.set(srcU32);
 
