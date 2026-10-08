@@ -587,46 +587,98 @@
           s1 = rotatePoint(s1.x, s1.y, tiltRad, midX, midY);
         }
 
-        // Curvature & Wobble (hand tremor / organic deviation)
-        let cp = null;
+        // Curvature & Organic Wobble
         const baseCurv = rng.jitter(config.curvature || 0, config.curvatureJitter || 0);
         const wobbleFactor = config.wobble || 0;
+        const curvMode = config.curvatureMode || 'uniform';
+        const hasCurv = Math.abs(baseCurv) > 0.5;
+        const hasWobble = wobbleFactor > 0;
 
-        if (Math.abs(baseCurv) > 0.5 || wobbleFactor > 0) {
-          const curvMode = config.curvatureMode || 'uniform';
-          let curvHeight = baseCurv * currentSegLen * 0.01;
-          if (curvMode === 'arch') curvHeight *= 1.4;
+        let strokeType = 'line';
+        let cp = null;
+        let cp1 = null, cp2 = null;
+        let polyPoints = null;
 
-          let wobbleOffset = 0;
-          if (wobbleFactor > 0) {
-            wobbleOffset = (wobbleFactor / 100) * Math.min(10, currentSegLen * 0.25) * rng.range(-1, 1);
+        if (hasWobble || curvMode === 'wave') {
+          // Multi-point wavy / wobbled polyline with authentic organic tremor
+          strokeType = 'poly';
+          const steps = Math.max(4, Math.min(16, Math.round(currentSegLen / 6)));
+          polyPoints = [];
+          const curvHeight = baseCurv * currentSegLen * 0.02;
+          const wobbleAmp = (wobbleFactor / 100) * Math.min(14, currentSegLen * 0.4);
+
+          for (let step = 0; step <= steps; step++) {
+            const t = step / steps;
+            let px = s0.x + (s1.x - s0.x) * t;
+            let py = s0.y + (s1.y - s0.y) * t;
+
+            let lateralDisplacement = 0;
+            if (curvMode === 'wave') {
+              const freq = (config.waveFrequency || 8) * 0.1;
+              lateralDisplacement += Math.sin(t * Math.PI * 2 * freq) * (curvHeight || (wobbleAmp || 5));
+            } else if (hasCurv) {
+              if (curvMode === 's_curve') {
+                lateralDisplacement += Math.sin(t * Math.PI * 2) * curvHeight;
+              } else {
+                // Parabolic arch
+                lateralDisplacement += Math.sin(t * Math.PI) * curvHeight * (curvMode === 'arch' ? 1.5 : 1.0);
+              }
+            }
+
+            if (hasWobble && step > 0 && step < steps) {
+              const noiseDisp = Math.sin(t * Math.PI * 5 + lineIdx * 1.7) * 0.6 + rng.range(-0.4, 0.4);
+              lateralDisplacement += noiseDisp * wobbleAmp;
+            }
+
+            px += segNx * lateralDisplacement;
+            py += segNy * lateralDisplacement;
+            polyPoints.push({ x: px, y: py });
           }
-
-          const totalH = curvHeight + wobbleOffset;
-          cp = {
-            x: midX + segNx * totalH,
-            y: midY + segNy * totalH
-          };
+        } else if (hasCurv) {
+          const curvHeight = baseCurv * currentSegLen * 0.02;
+          if (curvMode === 's_curve') {
+            strokeType = 'cubic';
+            cp1 = {
+              x: s0.x + (s1.x - s0.x) * 0.33 + segNx * curvHeight,
+              y: s0.y + (s1.y - s0.y) * 0.33 + segNy * curvHeight
+            };
+            cp2 = {
+              x: s0.x + (s1.x - s0.x) * 0.66 - segNx * curvHeight,
+              y: s0.y + (s1.y - s0.y) * 0.66 - segNy * curvHeight
+            };
+          } else {
+            strokeType = 'curve';
+            const h = (curvMode === 'arch') ? curvHeight * 1.5 : curvHeight;
+            cp = {
+              x: midX + segNx * h,
+              y: midY + segNy * h
+            };
+          }
         }
 
         // Multi-Brush & Multi-Color picking
         const strokeIdx = strokes.length;
         const brushTip = this._pickBrushTip(config, strokeIdx, rng);
         const color = this._pickColor(config, strokeIdx, s0, bounds, rng);
-        const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
+        const width = Math.max(0.5, rng.jitter(config.strokeWidth !== undefined ? config.strokeWidth : 2, config.widthJitter || 0, true));
         const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
+        const flow = clamp(config.flow !== undefined ? config.flow : 100, 1, 100);
+        const hardness = clamp(config.hardness !== undefined ? config.hardness : 95, 0, 100);
 
         strokes.push({
-          type: cp ? 'curve' : 'line',
+          type: strokeType,
           p0: s0,
           p1: s1,
           cp: cp,
+          cp1: cp1,
+          cp2: cp2,
+          points: polyPoints,
           width,
           opacity,
           color,
           brushTip,
-          flow: config.flow !== undefined ? config.flow : 100,
-          hardness: config.hardness !== undefined ? config.hardness : 95,
+          flow,
+          hardness,
           lineIdx,
           segmentIdx: k
         });
@@ -660,13 +712,13 @@
 
       const allPresets = getNativeBrushPresets();
       const preset = allPresets[chosenKey] || allPresets[chosenKey?.toLowerCase()] || {};
+      const userHardness = config.hardness !== undefined ? config.hardness : 95;
+      const userFlow = config.flow !== undefined ? config.flow : 100;
 
       const brushConfig = {
         preset: chosenKey,
         name: preset.name || chosenKey,
         shape: preset.shape || 'circle',
-        hardness: preset.hardness !== undefined ? preset.hardness : (config.hardness !== undefined ? config.hardness : 95),
-        flow: preset.flow !== undefined ? preset.flow : (config.flow !== undefined ? config.flow : 100),
         spacing: preset.spacing || 5,
         roundness: preset.roundness !== undefined ? preset.roundness : 100,
         angle: preset.angle || 0,
@@ -688,7 +740,9 @@
         auto_rotate: preset.auto_rotate || 0,
         velocity: preset.velocity || 0,
         smoothing: preset.smoothing || 0,
-        ...preset
+        ...preset,
+        hardness: userHardness,
+        flow: userFlow
       };
 
       return {
@@ -696,8 +750,8 @@
         brush: chosenKey,
         name: preset.name || chosenKey,
         shape: preset.shape || 'circle',
-        hardness: brushConfig.hardness,
-        flow: brushConfig.flow,
+        hardness: userHardness,
+        flow: userFlow,
         brushConfig
       };
     }
@@ -1388,7 +1442,11 @@
       if (!strokes || strokes.length === 0) return '';
       const linesXml = strokes.map(s => {
         let d = '';
-        if (s.type === 'curve' && s.cp) {
+        if (s.type === 'cubic' && s.cp1 && s.cp2) {
+          d = `M ${s.p0.x.toFixed(1)} ${s.p0.y.toFixed(1)} C ${s.cp1.x.toFixed(1)} ${s.cp1.y.toFixed(1)}, ${s.cp2.x.toFixed(1)} ${s.cp2.y.toFixed(1)}, ${s.p1.x.toFixed(1)} ${s.p1.y.toFixed(1)}`;
+        } else if (s.type === 'poly' && s.points && s.points.length > 0) {
+          d = `M ${s.points[0].x.toFixed(1)} ${s.points[0].y.toFixed(1)} ` + s.points.slice(1).map(p => `L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+        } else if (s.type === 'curve' && s.cp) {
           d = `M ${s.p0.x.toFixed(1)} ${s.p0.y.toFixed(1)} Q ${s.cp.x.toFixed(1)} ${s.cp.y.toFixed(1)} ${s.p1.x.toFixed(1)} ${s.p1.y.toFixed(1)}`;
         } else if (s.type === 'dot') {
           return `<circle cx="${s.p0.x.toFixed(1)}" cy="${s.p0.y.toFixed(1)}" r="${(s.width / 2).toFixed(1)}" fill="${s.color}" fill-opacity="${s.opacity.toFixed(2)}" />`;

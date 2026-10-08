@@ -2545,25 +2545,23 @@
               </div>
             </div>
 
-            <!-- Native Brush Selection -->
+            <!-- Native Brush Pool Selection -->
             <div class="cs-card">
-              <div class="cs-card-title">Brush Selection</div>
-              <div class="cs-form-row">
-                <label>Primary Brush</label>
-                <select id="cs-bf-brush-primary" class="cs-select"></select>
+              <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div class="cs-card-title" style="margin: 0;">Brush Pool</div>
+                <span id="cs-bf-brush-count-label" style="font-size: 10px; color: var(--text-muted, #928374);">1 brush</span>
               </div>
-              <div class="cs-form-row">
-                <label>Secondary Brush</label>
-                <select id="cs-bf-brush-secondary" class="cs-select">
-                  <option value="">None (Single Brush)</option>
-                </select>
+              <div id="cs-bf-brush-pool-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; min-height: 28px; padding: 4px; background: var(--bg-deep, #1d2021); border-radius: 4px; border: 1px solid var(--border-color, #3c3836); align-items: center;"></div>
+              <div class="cs-form-row" style="gap: 6px;">
+                <select id="cs-bf-brush-add-select" class="cs-select" style="flex: 1;"></select>
+                <button type="button" id="cs-btn-add-bf-brush" class="cs-btn cs-btn-secondary" style="white-space: nowrap; padding: 4px 8px; font-size: 11px;">+ Add</button>
               </div>
-              <div class="cs-form-row" id="cs-bf-brush-pick-row">
+              <div class="cs-form-row" id="cs-bf-brush-pick-row" style="margin-top: 6px;">
                 <label>Brush Pick</label>
                 <select id="cs-bf-brush-pick-mode" class="cs-select">
                   <option value="cycle">Cycle in Sequence</option>
                   <option value="random">Random Selection</option>
-                  <option value="alternate">Alternate (1 & 2)</option>
+                  <option value="alternate">Alternate (1 &amp; 2)</option>
                 </select>
               </div>
             </div>
@@ -3063,8 +3061,11 @@
         btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset'),
         // Brush Fill Controls
         bfEnabled: this.container.querySelector('#cs-bf-enabled'),
-        bfBrushPrimary: this.container.querySelector('#cs-bf-brush-primary'),
-        bfBrushSecondary: this.container.querySelector('#cs-bf-brush-secondary'),
+        bfBrushAddSelect: this.container.querySelector('#cs-bf-brush-add-select'),
+        btnAddBfBrush: this.container.querySelector('#cs-btn-add-bf-brush'),
+        bfBrushPoolContainer: this.container.querySelector('#cs-bf-brush-pool-container'),
+        bfBrushCountLabel: this.container.querySelector('#cs-bf-brush-count-label'),
+        bfBrushPickRow: this.container.querySelector('#cs-bf-brush-pick-row'),
         bfBrushPickMode: this.container.querySelector('#cs-bf-brush-pick-mode'),
         bfPattern: this.container.querySelector('#cs-bf-pattern'),
         bfStrokeDirection: this.container.querySelector('#cs-bf-stroke-direction'),
@@ -3667,8 +3668,20 @@
       bindBfPair(d.bfBleedJitterSlider, d.bfBleedJitter);
       bindBfPair(d.bfBleedProbabilitySlider, d.bfBleedProbability);
 
-      d.bfBrushPrimary?.addEventListener('change', () => this.applyBrushFillToSelected(true));
-      d.bfBrushSecondary?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      // Brush Pool Add Button
+      d.btnAddBfBrush?.addEventListener('click', () => {
+        const selectedBrush = d.bfBrushAddSelect?.value || 'pencil';
+        if (!Array.isArray(this.brushFillConfig.brushes)) {
+          this.brushFillConfig.brushes = [this.brushFillConfig.brush || 'pencil'];
+        }
+        this.brushFillConfig.brushes.push(selectedBrush);
+        this.brushFillConfig.brushList = [...this.brushFillConfig.brushes];
+        this.brushFillConfig.brush = this.brushFillConfig.brushes[0];
+        this.brushFillConfig.brushSecondary = this.brushFillConfig.brushes[1] || '';
+        this.renderBrushPool();
+        this.applyBrushFillToSelected(true);
+      });
+
       d.bfBrushPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfStrokeDirection?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfCurvatureMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
@@ -5280,6 +5293,7 @@
       this.populateBrushSelects();
       this.populateBrushFillPaletteSelect();
       this.syncBrushFillInputs();
+      this.renderBrushPool();
       this.renderBrushFillPalette();
     }
 
@@ -5308,12 +5322,8 @@
 
     populateBrushSelects() {
       if (typeof document === 'undefined') return;
-      const primarySel = this.dom.bfBrushPrimary;
-      const secondarySel = this.dom.bfBrushSecondary;
-      if (!primarySel || !secondarySel) return;
-
-      const currPrimary = primarySel.value || this.brushFillConfig.brush || 'pencil';
-      const currSecondary = secondarySel.value !== undefined ? secondarySel.value : (this.brushFillConfig.brushSecondary || '');
+      const addSel = this.dom.bfBrushAddSelect;
+      if (!addSel) return;
 
       let allPresets = {};
       if (typeof BrushFillEngine !== 'undefined' && typeof BrushFillEngine.getNativeBrushPresets === 'function') {
@@ -5363,38 +5373,91 @@
         grouped[cat].push({ key, name: preset.name || key, desc: preset.desc || '' });
       });
 
-      const buildOptions = (isSecondary = false) => {
-        const fragment = document.createDocumentFragment();
-        if (isSecondary) {
-          const noneOpt = document.createElement('option');
-          noneOpt.value = '';
-          noneOpt.textContent = 'None (Single Brush)';
-          fragment.appendChild(noneOpt);
-        }
-        Object.entries(grouped).forEach(([catKey, brushes]) => {
-          const optgroup = document.createElement('optgroup');
-          optgroup.label = categoryLabels[catKey] || catKey;
-          brushes.forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b.key;
-            opt.textContent = b.name;
-            optgroup.appendChild(opt);
-          });
-          fragment.appendChild(optgroup);
+      const fragment = document.createDocumentFragment();
+      Object.entries(grouped).forEach(([catKey, brushes]) => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = categoryLabels[catKey] || catKey;
+        brushes.forEach(b => {
+          const opt = document.createElement('option');
+          opt.value = b.key;
+          opt.textContent = b.name;
+          optgroup.appendChild(opt);
         });
-        return fragment;
-      };
+        fragment.appendChild(optgroup);
+      });
 
-      primarySel.innerHTML = '';
-      primarySel.appendChild(buildOptions(false));
-      primarySel.value = currPrimary || 'pencil';
-      if (!primarySel.value && primarySel.options.length > 0) {
-        primarySel.selectedIndex = 0;
+      addSel.innerHTML = '';
+      addSel.appendChild(fragment);
+      if (addSel.options.length > 0 && !addSel.value) {
+        addSel.selectedIndex = 0;
+      }
+    }
+
+    renderBrushPool() {
+      if (typeof document === 'undefined' || !this.dom.bfBrushPoolContainer) return;
+      const container = this.dom.bfBrushPoolContainer;
+      container.innerHTML = '';
+
+      let brushes = [];
+      if (Array.isArray(this.brushFillConfig.brushes) && this.brushFillConfig.brushes.length > 0) {
+        brushes = this.brushFillConfig.brushes;
+      } else if (Array.isArray(this.brushFillConfig.brushList) && this.brushFillConfig.brushList.length > 0) {
+        brushes = this.brushFillConfig.brushList;
+      } else if (this.brushFillConfig.brush) {
+        brushes = [this.brushFillConfig.brush];
+        if (this.brushFillConfig.brushSecondary) brushes.push(this.brushFillConfig.brushSecondary);
+      } else {
+        brushes = ['pencil'];
+      }
+      this.brushFillConfig.brushes = brushes;
+      this.brushFillConfig.brushList = brushes;
+      this.brushFillConfig.brush = brushes[0];
+      this.brushFillConfig.brushSecondary = brushes[1] || '';
+
+      if (this.dom.bfBrushCountLabel) {
+        this.dom.bfBrushCountLabel.textContent = `${brushes.length} ${brushes.length === 1 ? 'brush' : 'brushes'}`;
       }
 
-      secondarySel.innerHTML = '';
-      secondarySel.appendChild(buildOptions(true));
-      secondarySel.value = currSecondary || '';
+      let allPresets = {};
+      if (typeof BrushFillEngine !== 'undefined' && typeof BrushFillEngine.getNativeBrushPresets === 'function') {
+        allPresets = BrushFillEngine.getNativeBrushPresets();
+      } else if (typeof BRUSH_PRESETS !== 'undefined') {
+        allPresets = { ...BRUSH_PRESETS };
+      } else if (typeof window !== 'undefined' && window.BRUSH_PRESETS) {
+        allPresets = { ...window.BRUSH_PRESETS };
+      }
+
+      brushes.forEach((brushKey, idx) => {
+        const preset = allPresets[brushKey] || allPresets[brushKey?.toLowerCase()] || {};
+        const chip = document.createElement('div');
+        chip.className = 'cs-chip';
+        chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 11px; background: var(--bg-surface, #282828); border: 1px solid var(--border-color, #504945); border-radius: 3px; color: var(--text, #ebdbb2); user-select: none;';
+
+        const label = document.createElement('span');
+        label.textContent = `${idx + 1}. ${preset.name || brushKey}`;
+        chip.appendChild(label);
+
+        if (brushes.length > 1) {
+          const removeBtn = document.createElement('span');
+          removeBtn.textContent = 'x';
+          removeBtn.style.cssText = 'cursor: pointer; opacity: 0.6; padding: 0 2px; font-weight: bold; line-height: 1;';
+          removeBtn.title = 'Remove brush from pool';
+          removeBtn.addEventListener('mouseenter', () => { removeBtn.style.opacity = '1'; removeBtn.style.color = 'var(--accent, #fb4934)'; });
+          removeBtn.addEventListener('mouseleave', () => { removeBtn.style.opacity = '0.6'; removeBtn.style.color = ''; });
+          removeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.brushFillConfig.brushes.splice(idx, 1);
+            this.brushFillConfig.brushList = [...this.brushFillConfig.brushes];
+            this.brushFillConfig.brush = this.brushFillConfig.brushes[0] || 'pencil';
+            this.brushFillConfig.brushSecondary = this.brushFillConfig.brushes[1] || '';
+            this.renderBrushPool();
+            this.applyBrushFillToSelected(true);
+          });
+          chip.appendChild(removeBtn);
+        }
+
+        container.appendChild(chip);
+      });
     }
 
     populateBrushFillPaletteSelect() {
@@ -5440,10 +5503,11 @@
 
     getBrushFillConfigFromInputs() {
       const d = this.dom;
-      const brushPrimary = d.bfBrushPrimary ? d.bfBrushPrimary.value : (this.brushFillConfig.brush || 'pencil');
-      const brushSecondary = d.bfBrushSecondary ? d.bfBrushSecondary.value : (this.brushFillConfig.brushSecondary || '');
-      const brushes = [brushPrimary];
-      if (brushSecondary) brushes.push(brushSecondary);
+      const brushes = (Array.isArray(this.brushFillConfig.brushes) && this.brushFillConfig.brushes.length > 0)
+        ? [...this.brushFillConfig.brushes]
+        : [this.brushFillConfig.brush || 'pencil'];
+      const brushPrimary = brushes[0] || 'pencil';
+      const brushSecondary = brushes[1] || '';
 
       return {
         enabled: d.bfEnabled ? d.bfEnabled.checked : true,
@@ -5541,14 +5605,16 @@
       if (d.bfGapJitter) d.bfGapJitter.value = c.gapJitter !== undefined ? c.gapJitter : 0;
       if (d.bfGapJitterSlider) d.bfGapJitterSlider.value = c.gapJitter !== undefined ? c.gapJitter : 0;
 
-      if (d.bfBrushPrimary) {
-        const primary = c.brush || (Array.isArray(c.brushes) && c.brushes[0]) || (Array.isArray(c.brushList) && c.brushList[0]) || 'pencil';
-        d.bfBrushPrimary.value = primary;
-      }
-      if (d.bfBrushSecondary) {
-        const secondary = c.brushSecondary || (Array.isArray(c.brushes) && c.brushes[1]) || (Array.isArray(c.brushList) && c.brushList[1]) || '';
-        d.bfBrushSecondary.value = secondary;
-      }
+      const brushes = Array.isArray(c.brushes) && c.brushes.length > 0
+        ? [...c.brushes]
+        : (Array.isArray(c.brushList) && c.brushList.length > 0
+          ? [...c.brushList]
+          : [c.brush || 'pencil']);
+      this.brushFillConfig.brushes = brushes;
+      this.brushFillConfig.brushList = brushes;
+      this.brushFillConfig.brush = brushes[0] || 'pencil';
+      this.brushFillConfig.brushSecondary = brushes[1] || '';
+
       if (d.bfBrushPickMode) d.bfBrushPickMode.value = c.brushPickMode || 'cycle';
 
       this.populateBrushFillPaletteSelect();
@@ -5601,6 +5667,7 @@
       if (d.bfBleedProbabilitySlider) d.bfBleedProbabilitySlider.value = c.bleedProbability !== undefined ? c.bleedProbability : 100;
 
       this.updateBrushFillPatternVisibility();
+      this.renderBrushPool();
       this.renderBrushFillPalette();
     }
 

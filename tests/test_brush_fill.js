@@ -130,7 +130,74 @@ assert.strictEqual(cycledStrokes[1].brushTip.key, 'charcoal');
 assert.strictEqual(cycledStrokes[2].brushTip.key, 'acrylic');
 assert.strictEqual(cycledStrokes[3].brushTip.key, 'watercolor');
 assert.strictEqual(cycledStrokes[4].brushTip.key, 'pencil', 'Cycle mode should wrap back to first brush');
-console.log('✔ Multi-Brush Tip cycling with native brush dynamics passed');
+
+// 4.1. Testing Flexible N-Brush Pool (`config.brushes`) with Random and Alternate modes
+const fiveBrushPool = ['gpen', 'marker', 'dry_ink', 'tech_pen', 'spray'];
+const poolStrokesCycle = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 10,
+  brushes: fiveBrushPool,
+  brushPickMode: 'cycle',
+  seed: 123
+});
+assert.strictEqual(poolStrokesCycle[0].brushTip.key, 'gpen');
+assert.strictEqual(poolStrokesCycle[1].brushTip.key, 'marker');
+assert.strictEqual(poolStrokesCycle[2].brushTip.key, 'dry_ink');
+assert.strictEqual(poolStrokesCycle[3].brushTip.key, 'tech_pen');
+assert.strictEqual(poolStrokesCycle[4].brushTip.key, 'spray');
+assert.strictEqual(poolStrokesCycle[5].brushTip.key, 'gpen', 'Pool should wrap cleanly after 5 items');
+
+const poolStrokesRandom = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 8,
+  brushes: ['pencil', 'oil'],
+  brushPickMode: 'random',
+  seed: 99
+});
+const randomKeys = new Set(poolStrokesRandom.map(s => s.brushTip.key));
+assert.ok(randomKeys.has('pencil') && randomKeys.has('oil'), 'Random pick mode should include both brushes in the pool');
+
+// 4.2. Testing Stroke Dynamics: Hardness & Flow override
+const dynamicsStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 15,
+  hardness: 42,
+  flow: 67,
+  seed: 42
+});
+assert.strictEqual(dynamicsStrokes[0].hardness, 42, 'Config hardness must be passed to generated strokes');
+assert.strictEqual(dynamicsStrokes[0].flow, 67, 'Config flow must be passed to generated strokes');
+assert.strictEqual(dynamicsStrokes[0].brushTip.hardness, 42, 'Config hardness must be passed to brushTip');
+assert.strictEqual(dynamicsStrokes[0].brushTip.flow, 67, 'Config flow must be passed to brushTip');
+
+// 4.3. Testing S-Curve (cubic) and Wavy Wobble (poly) generation
+const sCurveStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 20,
+  curvature: 25,
+  curvatureMode: 's_curve',
+  seed: 42
+});
+assert.ok(sCurveStrokes.some(s => s.type === 'cubic' && s.cp1 && s.cp2), 'S-Curve must generate cubic Bezier strokes with cp1 and cp2');
+
+const wavyStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 20,
+  curvatureMode: 'wave',
+  waveFrequency: 6,
+  seed: 42
+});
+assert.ok(wavyStrokes.some(s => s.type === 'poly' && s.points && s.points.length > 2), 'Wave curvature mode must generate polyline strokes with multiple points');
+
+const wobbleStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 20,
+  wobble: 50,
+  seed: 42
+});
+assert.ok(wobbleStrokes.some(s => s.type === 'poly' && s.points && s.points.length > 2), 'Wobble factor > 0 must generate polyline strokes with organic hand tremor');
+
+console.log('✔ Multi-Brush Pool & Stroke Dynamics (flow, hardness, wobble, s-curve, wave) passed');
 
 // 5. Multi-Color Palette Assignment
 console.log('5. Testing Multi-Color Palette Assignment...');

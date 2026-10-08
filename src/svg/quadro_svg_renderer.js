@@ -1095,7 +1095,22 @@
             };
             const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : null;
 
-            if (stroke.type === 'curve' && stroke.cp) {
+            if (stroke.type === 'poly' && stroke.points && stroke.points.length > 0) {
+              this.strokePolyline(stroke.points, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            } else if (stroke.type === 'cubic' && stroke.cp1 && stroke.cp2) {
+              const p0 = stroke.p0, cp1 = stroke.cp1, cp2 = stroke.cp2, p1 = stroke.p1;
+              const curvePoly = [];
+              const steps = 8;
+              for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const it = 1 - t;
+                curvePoly.push({
+                  x: it * it * it * p0.x + 3 * it * it * t * cp1.x + 3 * it * t * t * cp2.x + t * t * t * p1.x,
+                  y: it * it * it * p0.y + 3 * it * it * t * cp1.y + 3 * it * t * t * cp2.y + t * t * t * p1.y
+                });
+              }
+              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            } else if (stroke.type === 'curve' && stroke.cp) {
               const p0 = stroke.p0;
               const cp = stroke.cp;
               const p1 = stroke.p1;
@@ -1722,7 +1737,22 @@
             };
             const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : obj.strokeTexture;
 
-            if (stroke.type === 'curve' && stroke.cp) {
+            if (stroke.type === 'poly' && stroke.points && stroke.points.length > 0) {
+              this.strokePolyline(stroke.points, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            } else if (stroke.type === 'cubic' && stroke.cp1 && stroke.cp2) {
+              const p0 = stroke.p0, cp1 = stroke.cp1, cp2 = stroke.cp2, p1 = stroke.p1;
+              const curvePoly = [];
+              const steps = 8;
+              for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const it = 1 - t;
+                curvePoly.push({
+                  x: it * it * it * p0.x + 3 * it * it * t * cp1.x + 3 * it * t * t * cp2.x + t * t * t * p1.x,
+                  y: it * it * it * p0.y + 3 * it * it * t * cp1.y + 3 * it * t * t * cp2.y + t * t * t * p1.y
+                });
+              }
+              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            } else if (stroke.type === 'curve' && stroke.cp) {
               // Subdivide quadratic curve into small polyline
               const p0 = stroke.p0;
               const cp = stroke.cp;
