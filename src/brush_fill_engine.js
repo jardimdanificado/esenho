@@ -248,8 +248,11 @@
     strokeLength: 0,             // 0 = full segment across boundary, >0 = explicit length in px
     strokeGap: 4,                // Gap between successive strokes along a line (px)
 
-    // Multi-Brush Tip Cycling from Native Brush Engine
-    brushList: ['pencil'],       // Array of real native brush presets: ['pencil', 'soft_pencil', 'tech_pen', 'gpen', 'dry_ink', 'oil', 'acrylic', 'watercolor', 'charcoal', 'marker', etc.]
+    // Native Brush Selection
+    brush: 'pencil',             // Primary native brush preset key ('pencil', 'tech_pen', 'gpen', 'inker', 'oil', etc.)
+    brushSecondary: '',          // Secondary native brush preset key (optional for dual/alternating)
+    brushes: ['pencil'],         // Array of native brush keys
+    brushList: ['pencil'],       // Backwards-compat alias for brushes
     brushPickMode: 'cycle',      // 'cycle' | 'random' | 'alternate'
 
     // Multi-Color Palette
@@ -264,7 +267,7 @@
     hardness: 95,                // Hardness %
     curvature: 0,                // Base curvature / bend (-100 to 100)
 
-    // Parameter Jitters & Variance (o quanto cada traço pode variar)
+    // Parameter Jitters & Variance
     angleJitter: 0,              // Max angle variation (± degrees)
     lengthJitter: 0,             // Max stroke length variation (± %)
     widthJitter: 0,              // Max stroke width variation (± %)
@@ -273,8 +276,8 @@
     curvatureJitter: 0,          // Max curvature variation
     colorJitter: 0,              // Max color Hue/Sat/Val variation (± %)
 
-    // Boundary Bleed & Overshoot (o quanto pode ir além das delimitações)
-    clipMode: 'bleed',           // 'strict' (exact clip) | 'bleed' (overshoot beyond contour) | 'soft_clip'
+    // Boundary Bleed & Overshoot
+    clipMode: 'bleed',           // 'strict' (exact clip) | 'bleed' (overshoot beyond contour)
     bleedDistance: 0,            // Max distance (px) strokes can overshoot past the contour
     bleedJitter: 50,             // Random variation in bleed distance (± %)
     bleedProbability: 100,       // % of strokes that are allowed to overshoot
@@ -296,6 +299,16 @@
       if (!polygons || polygons.length === 0) return [];
       const config = { ...DEFAULT_BRUSH_FILL_CONFIG, ...options };
       if (!config.enabled) return [];
+
+      // Reconcile brush options
+      if (options.brushList && !options.brushes) {
+        config.brushes = options.brushList;
+      } else if (options.brushes && !options.brushList) {
+        config.brushList = options.brushes;
+      } else if (options.brush && !options.brushes && !options.brushList) {
+        config.brushes = [options.brush, ...(options.brushSecondary ? [options.brushSecondary] : [])];
+        config.brushList = config.brushes;
+      }
 
       const rng = new FastRandom(config.seed || 42);
       const bounds = getPolygonsBounds(polygons);
@@ -483,18 +496,27 @@
     }
 
     /**
-     * Pick brush tip shape and properties for the current stroke from native brush engine
+     * Pick native brush for the current stroke from native brush engine
      */
     static _pickBrushTip(config, strokeIdx, rng) {
-      const list = (config.brushList && config.brushList.length > 0) ? config.brushList : ['pencil'];
-      let chosenKey = list[0];
+      let list = [];
+      if (Array.isArray(config.brushes) && config.brushes.length > 0) {
+        list = config.brushes;
+      } else if (Array.isArray(config.brushList) && config.brushList.length > 0) {
+        list = config.brushList;
+      } else if (config.brush) {
+        list = [config.brush];
+        if (config.brushSecondary) list.push(config.brushSecondary);
+      } else {
+        list = ['pencil'];
+      }
 
+      let chosenKey = list[0];
       if (config.brushPickMode === 'random') {
         chosenKey = list[Math.floor(rng.next() * list.length)];
       } else if (config.brushPickMode === 'alternate') {
-        chosenKey = list[strokeIdx % 2];
+        chosenKey = list[strokeIdx % Math.min(2, list.length)];
       } else {
-        // 'cycle'
         chosenKey = list[strokeIdx % list.length];
       }
 
@@ -533,6 +555,7 @@
 
       return {
         key: chosenKey,
+        brush: chosenKey,
         name: preset.name || chosenKey,
         shape: preset.shape || 'circle',
         hardness: brushConfig.hardness,
@@ -935,28 +958,15 @@
 
   const BUILTIN_BRUSH_FILL_PRESETS = [
     {
-      id: 'hatch_classic_pen',
-      name: 'Classic Ink Crosshatch',
-      desc: 'Fine mechanical cross-hatching for drafting and engraving',
+      id: 'pencil_hatch',
+      name: 'HB Pencil — Linear Hatch',
+      brush: 'pencil',
+      desc: 'Natural graphite hatching with paper grain and sketch bleed',
       config: {
         enabled: true,
-        pattern: 'crosshatch',
-        spacing: 6,
-        angle: 45,
-        angle2: 135,
-        strokeWidth: 1.2,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021'],
-        brushList: ['tech_pen'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_loose_sketch',
-      name: 'Loose Sketch Overshoot',
-      desc: 'Hand-drawn artist hatching with natural bleed beyond contour',
-      config: {
-        enabled: true,
+        brush: 'pencil',
+        brushes: ['pencil'],
+        brushList: ['pencil'],
         pattern: 'linear',
         spacing: 8,
         angle: 35,
@@ -971,16 +981,106 @@
         clipMode: 'bleed',
         bleedDistance: 8,
         bleedJitter: 50,
-        colorPalette: ['#282828'],
-        brushList: ['pencil', 'soft_pencil']
+        colorPalette: ['#282828']
       }
     },
     {
-      id: 'hatch_color_stipple',
-      name: 'Pointillist Color Stippling',
-      desc: 'Multi-color dispersed particle dabs inspired by Seurat',
+      id: 'inker_crosshatch',
+      name: 'Studio Inker — Crosshatch',
+      brush: 'inker',
+      desc: 'Comic cross-hatching with dynamic inker line weight',
       config: {
         enabled: true,
+        brush: 'inker',
+        brushes: ['inker'],
+        brushList: ['inker'],
+        pattern: 'crosshatch',
+        spacing: 6,
+        angle: 45,
+        angle2: 135,
+        strokeWidth: 1.5,
+        strokeOpacity: 0.9,
+        colorPalette: ['#1d2021'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'techpen_triple',
+      name: 'Technical Pen — Triple Hatch',
+      brush: 'tech_pen',
+      desc: 'Crisp drafting pen with mechanical triple-hatch angle grid',
+      config: {
+        enabled: true,
+        brush: 'tech_pen',
+        brushes: ['tech_pen'],
+        brushList: ['tech_pen'],
+        pattern: 'triple_hatch',
+        spacing: 7,
+        angle: 0,
+        angle2: 60,
+        angle3: 120,
+        strokeWidth: 1.2,
+        strokeOpacity: 0.95,
+        colorPalette: ['#1d2021'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'gpen_woodcut',
+      name: 'Manga G-Pen — Woodcut Wave',
+      brush: 'gpen',
+      desc: 'Expressive dip pen undulating timber engraving',
+      config: {
+        enabled: true,
+        brush: 'gpen',
+        brushes: ['gpen'],
+        brushList: ['gpen'],
+        pattern: 'wave',
+        spacing: 7,
+        angle: 15,
+        strokeWidth: 2.4,
+        strokeOpacity: 0.95,
+        widthJitter: 35,
+        colorPalette: ['#282828'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'charcoal_shading',
+      name: 'Charcoal — Cross Shading',
+      brush: 'charcoal',
+      desc: 'Rough charcoal tooth with pressure depth and bleed',
+      config: {
+        enabled: true,
+        brush: 'charcoal',
+        brushSecondary: 'soft_pencil',
+        brushes: ['charcoal', 'soft_pencil'],
+        brushList: ['charcoal', 'soft_pencil'],
+        brushPickMode: 'alternate',
+        pattern: 'crosshatch',
+        spacing: 7,
+        angle: 30,
+        angle2: 120,
+        strokeWidth: 2.8,
+        strokeOpacity: 0.85,
+        colorPalette: ['#1d2021', '#3c3836'],
+        angleJitter: 4,
+        widthJitter: 25,
+        lengthJitter: 15,
+        clipMode: 'bleed',
+        bleedDistance: 5
+      }
+    },
+    {
+      id: 'spray_stipple',
+      name: 'Spray Can — Pointillist Stipple',
+      brush: 'spray',
+      desc: 'Multi-color dispersed paint splatter and aerosol dabs',
+      config: {
+        enabled: true,
+        brush: 'spray',
+        brushes: ['spray'],
+        brushList: ['spray'],
         pattern: 'stipple',
         spacing: 5,
         strokeWidth: 3,
@@ -991,69 +1091,19 @@
         colorJitter: 10,
         widthJitter: 30,
         opacityJitter: 20,
-        brushList: ['spray', 'dry_ink'],
         clipMode: 'strict'
       }
     },
     {
-      id: 'hatch_woodcut',
-      name: 'Woodcut Vintage Engraving',
-      desc: 'Dense wavy timber lines with expressive weight jitters',
+      id: 'watercolor_wash',
+      name: 'Watercolor — Fluid Wash',
+      brush: 'watercolor',
+      desc: 'Fluid watercolor wash flow with soft bleeding edges',
       config: {
         enabled: true,
-        pattern: 'wave',
-        spacing: 7,
-        angle: 15,
-        strokeWidth: 2.5,
-        strokeOpacity: 0.95,
-        widthJitter: 40,
-        colorPalette: ['#282828'],
-        brushList: ['gpen', 'dry_ink'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_pastel_scribble',
-      name: 'Pastel Chalk Scribble',
-      desc: 'Energetic continuous wandering scribble fill',
-      config: {
-        enabled: true,
-        pattern: 'scribble',
-        spacing: 6,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.75,
-        colorPalette: ['#d79921', '#fe8019'],
-        colorPickMode: 'cycle',
-        widthJitter: 25,
-        brushList: ['soft_pastel', 'charcoal'],
-        clipMode: 'bleed',
-        bleedDistance: 4
-      }
-    },
-    {
-      id: 'hatch_sci_flow',
-      name: 'Cyber Flow Vector Grid',
-      desc: 'Neon-pulsed zig-zag flow field with color cycling',
-      config: {
-        enabled: true,
-        pattern: 'zigzag',
-        spacing: 10,
-        angle: 90,
-        strokeWidth: 1.8,
-        strokeOpacity: 0.95,
-        colorMode: 'palette',
-        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
-        colorPickMode: 'cycle',
-        brushList: ['marker', 'tech_pen'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_watercolor_wash',
-      name: 'Watercolor Wet Flow',
-      desc: 'Gentle undulating fluid wash lines with watercolor edge bleeding',
-      config: {
-        enabled: true,
+        brush: 'watercolor',
+        brushes: ['watercolor'],
+        brushList: ['watercolor'],
         pattern: 'wave',
         spacing: 9,
         angle: 25,
@@ -1062,7 +1112,6 @@
         colorMode: 'palette',
         colorPalette: ['#83a598', '#458588', '#8ec07c'],
         colorPickMode: 'cycle',
-        brushList: ['watercolor', 'gouache'],
         widthJitter: 30,
         opacityJitter: 25,
         clipMode: 'bleed',
@@ -1070,24 +1119,82 @@
       }
     },
     {
-      id: 'hatch_charcoal_cross',
-      name: 'Charcoal Rough Shading',
-      desc: 'Crosshatched grainy charcoal strokes for academic drawing',
+      id: 'marker_zigzag',
+      name: 'Art Marker — Cyber Flow',
+      brush: 'marker',
+      desc: 'Broad chisel marker flow field with palette cycling',
       config: {
         enabled: true,
-        pattern: 'crosshatch',
-        spacing: 7,
-        angle: 30,
-        angle2: 120,
-        strokeWidth: 2.8,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021', '#3c3836'],
-        brushList: ['charcoal', 'soft_pencil'],
-        angleJitter: 4,
+        brush: 'marker',
+        brushes: ['marker'],
+        brushList: ['marker'],
+        pattern: 'zigzag',
+        spacing: 10,
+        angle: 90,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.9,
+        colorMode: 'palette',
+        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'pastel_scribble',
+      name: 'Soft Pastel — Wandering Scribble',
+      brush: 'soft_pastel',
+      desc: 'Chalk scribble wandering flow across vector contours',
+      config: {
+        enabled: true,
+        brush: 'soft_pastel',
+        brushes: ['soft_pastel'],
+        brushList: ['soft_pastel'],
+        pattern: 'scribble',
+        spacing: 6,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.75,
+        colorPalette: ['#d79921', '#fe8019'],
+        colorPickMode: 'cycle',
         widthJitter: 25,
-        lengthJitter: 15,
         clipMode: 'bleed',
-        bleedDistance: 5
+        bleedDistance: 4
+      }
+    },
+    {
+      id: 'oil_spiral',
+      name: 'Oil Impasto — Spiral Vortex',
+      brush: 'oil',
+      desc: 'Thick wet impasto paint swirling in Archimedean spiral',
+      config: {
+        enabled: true,
+        brush: 'oil',
+        brushes: ['oil'],
+        brushList: ['oil'],
+        pattern: 'spiral',
+        spacing: 6,
+        strokeWidth: 2.5,
+        strokeOpacity: 0.9,
+        colorPalette: ['#d79921', '#b57614'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'fountain_contour',
+      name: 'Calligraphy Chisel — Topographic Contour',
+      brush: 'fountain',
+      desc: 'Angled chisel fountain pen following concentric contour insets',
+      config: {
+        enabled: true,
+        brush: 'fountain',
+        brushes: ['fountain'],
+        brushList: ['fountain'],
+        pattern: 'contour',
+        spacing: 6,
+        strokeWidth: 2.0,
+        strokeOpacity: 0.9,
+        colorPalette: ['#458588', '#83a598'],
+        clipMode: 'strict'
       }
     }
   ];

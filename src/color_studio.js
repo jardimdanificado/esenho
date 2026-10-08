@@ -471,6 +471,9 @@
     strokesPerLine: 1,
     strokeLength: 0,
     strokeGap: 4,
+    brush: 'pencil',
+    brushSecondary: '',
+    brushes: ['pencil'],
     brushList: ['pencil'],
     brushPickMode: 'cycle',
     colorMode: 'palette',
@@ -497,26 +500,14 @@
 
   const BUILTIN_BF_PRESETS = [
     {
-      id: 'hatch_classic_pen',
-      name: 'Classic Ink Crosshatch',
+      id: 'pencil_hatch',
+      name: 'HB Pencil — Linear Hatch',
+      brush: 'pencil',
+      desc: 'Natural graphite hatching with paper grain and sketch bleed',
       config: {
         enabled: true,
-        pattern: 'crosshatch',
-        spacing: 6,
-        angle: 45,
-        angle2: 135,
-        strokeWidth: 1.2,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021'],
-        brushList: ['tech_pen'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_loose_sketch',
-      name: 'Loose Sketch Overshoot',
-      config: {
-        enabled: true,
+        brush: 'pencil',
+        brushes: ['pencil'],
         pattern: 'linear',
         spacing: 8,
         angle: 35,
@@ -531,16 +522,101 @@
         clipMode: 'bleed',
         bleedDistance: 8,
         bleedJitter: 50,
-        bleedProbability: 100,
-        colorPalette: ['#282828'],
-        brushList: ['pencil', 'soft_pencil']
+        colorPalette: ['#282828']
       }
     },
     {
-      id: 'hatch_color_stipple',
-      name: 'Pointillist Color Stippling',
+      id: 'inker_crosshatch',
+      name: 'Studio Inker — Crosshatch',
+      brush: 'inker',
+      desc: 'Comic cross-hatching with dynamic inker line weight',
       config: {
         enabled: true,
+        brush: 'inker',
+        brushes: ['inker'],
+        pattern: 'crosshatch',
+        spacing: 6,
+        angle: 45,
+        angle2: 135,
+        strokeWidth: 1.5,
+        strokeOpacity: 0.9,
+        colorPalette: ['#1d2021'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'techpen_triple',
+      name: 'Technical Pen — Triple Hatch',
+      brush: 'tech_pen',
+      desc: 'Crisp drafting pen with mechanical triple-hatch angle grid',
+      config: {
+        enabled: true,
+        brush: 'tech_pen',
+        brushes: ['tech_pen'],
+        pattern: 'triple_hatch',
+        spacing: 7,
+        angle: 0,
+        angle2: 60,
+        angle3: 120,
+        strokeWidth: 1.2,
+        strokeOpacity: 0.95,
+        colorPalette: ['#1d2021'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'gpen_woodcut',
+      name: 'Manga G-Pen — Woodcut Wave',
+      brush: 'gpen',
+      desc: 'Expressive dip pen undulating timber engraving',
+      config: {
+        enabled: true,
+        brush: 'gpen',
+        brushes: ['gpen'],
+        pattern: 'wave',
+        spacing: 7,
+        angle: 15,
+        strokeWidth: 2.4,
+        strokeOpacity: 0.95,
+        widthJitter: 35,
+        colorPalette: ['#282828'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'charcoal_shading',
+      name: 'Charcoal — Cross Shading',
+      brush: 'charcoal',
+      desc: 'Rough charcoal tooth with pressure depth and bleed',
+      config: {
+        enabled: true,
+        brush: 'charcoal',
+        brushSecondary: 'soft_pencil',
+        brushes: ['charcoal', 'soft_pencil'],
+        brushPickMode: 'alternate',
+        pattern: 'crosshatch',
+        spacing: 7,
+        angle: 30,
+        angle2: 120,
+        strokeWidth: 2.8,
+        strokeOpacity: 0.85,
+        colorPalette: ['#1d2021', '#3c3836'],
+        angleJitter: 4,
+        widthJitter: 25,
+        lengthJitter: 15,
+        clipMode: 'bleed',
+        bleedDistance: 5
+      }
+    },
+    {
+      id: 'spray_stipple',
+      name: 'Spray Can — Pointillist Stipple',
+      brush: 'spray',
+      desc: 'Multi-color dispersed paint splatter and aerosol dabs',
+      config: {
+        enabled: true,
+        brush: 'spray',
+        brushes: ['spray'],
         pattern: 'stipple',
         spacing: 5,
         strokeWidth: 3,
@@ -551,110 +627,18 @@
         colorJitter: 10,
         widthJitter: 30,
         opacityJitter: 20,
-        brushList: ['spray', 'dry_ink'],
         clipMode: 'strict'
       }
     },
     {
-      id: 'hatch_woodcut',
-      name: 'Woodcut Vintage Engraving',
+      id: 'watercolor_wash',
+      name: 'Watercolor — Fluid Wash',
+      brush: 'watercolor',
+      desc: 'Fluid watercolor wash flow with soft bleeding edges',
       config: {
         enabled: true,
-        pattern: 'wave',
-        spacing: 7,
-        angle: 15,
-        strokeWidth: 2.5,
-        strokeOpacity: 0.95,
-        widthJitter: 40,
-        colorPalette: ['#282828'],
-        brushList: ['gpen', 'dry_ink'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_pastel_scribble',
-      name: 'Pastel Chalk Scribble',
-      config: {
-        enabled: true,
-        pattern: 'scribble',
-        spacing: 6,
-        strokeWidth: 2.2,
-        strokeOpacity: 0.75,
-        colorPalette: ['#d79921', '#fe8019'],
-        colorPickMode: 'cycle',
-        widthJitter: 25,
-        clipMode: 'bleed',
-        bleedDistance: 4,
-        brushList: ['soft_pastel', 'charcoal']
-      }
-    },
-    {
-      id: 'hatch_sci_flow',
-      name: 'Cyber Flow Vector Grid',
-      config: {
-        enabled: true,
-        pattern: 'zigzag',
-        spacing: 10,
-        angle: 90,
-        strokeWidth: 1.8,
-        strokeOpacity: 0.95,
-        colorMode: 'palette',
-        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
-        colorPickMode: 'cycle',
-        clipMode: 'strict',
-        brushList: ['marker', 'tech_pen']
-      }
-    },
-    {
-      id: 'hatch_triple',
-      name: 'Mechanical Triple Hatch',
-      config: {
-        enabled: true,
-        pattern: 'triple_hatch',
-        spacing: 8,
-        angle: 0,
-        angle2: 60,
-        angle3: 120,
-        strokeWidth: 1.5,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021'],
-        brushList: ['tech_pen'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_contour_rings',
-      name: 'Concentric Topographic Rings',
-      config: {
-        enabled: true,
-        pattern: 'contour',
-        spacing: 6,
-        strokeWidth: 1.8,
-        strokeOpacity: 0.9,
-        colorPalette: ['#458588', '#83a598'],
-        brushList: ['fountain'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_spiral_vortex',
-      name: 'Spiral Field Vortex',
-      config: {
-        enabled: true,
-        pattern: 'spiral',
-        spacing: 6,
-        strokeWidth: 2.0,
-        strokeOpacity: 0.85,
-        colorPalette: ['#b16286'],
-        brushList: ['pencil'],
-        clipMode: 'strict'
-      }
-    },
-    {
-      id: 'hatch_watercolor_wash',
-      name: 'Watercolor Wet Flow',
-      config: {
-        enabled: true,
+        brush: 'watercolor',
+        brushes: ['watercolor'],
         pattern: 'wave',
         spacing: 9,
         angle: 25,
@@ -663,7 +647,6 @@
         colorMode: 'palette',
         colorPalette: ['#83a598', '#458588', '#8ec07c'],
         colorPickMode: 'cycle',
-        brushList: ['watercolor', 'gouache'],
         widthJitter: 30,
         opacityJitter: 25,
         clipMode: 'bleed',
@@ -671,23 +654,78 @@
       }
     },
     {
-      id: 'hatch_charcoal_cross',
-      name: 'Charcoal Rough Shading',
+      id: 'marker_zigzag',
+      name: 'Art Marker — Cyber Flow',
+      brush: 'marker',
+      desc: 'Broad chisel marker flow field with palette cycling',
       config: {
         enabled: true,
-        pattern: 'crosshatch',
-        spacing: 7,
-        angle: 30,
-        angle2: 120,
-        strokeWidth: 2.8,
-        strokeOpacity: 0.85,
-        colorPalette: ['#1d2021', '#3c3836'],
-        brushList: ['charcoal', 'soft_pencil'],
-        angleJitter: 4,
+        brush: 'marker',
+        brushes: ['marker'],
+        pattern: 'zigzag',
+        spacing: 10,
+        angle: 90,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.9,
+        colorMode: 'palette',
+        colorPalette: ['#00ffcc', '#ff0055', '#7928ca'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'pastel_scribble',
+      name: 'Soft Pastel — Wandering Scribble',
+      brush: 'soft_pastel',
+      desc: 'Chalk scribble wandering flow across vector contours',
+      config: {
+        enabled: true,
+        brush: 'soft_pastel',
+        brushes: ['soft_pastel'],
+        pattern: 'scribble',
+        spacing: 6,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.75,
+        colorPalette: ['#d79921', '#fe8019'],
+        colorPickMode: 'cycle',
         widthJitter: 25,
-        lengthJitter: 15,
         clipMode: 'bleed',
-        bleedDistance: 5
+        bleedDistance: 4
+      }
+    },
+    {
+      id: 'oil_spiral',
+      name: 'Oil Impasto — Spiral Vortex',
+      brush: 'oil',
+      desc: 'Thick wet impasto paint swirling in Archimedean spiral',
+      config: {
+        enabled: true,
+        brush: 'oil',
+        brushes: ['oil'],
+        pattern: 'spiral',
+        spacing: 6,
+        strokeWidth: 2.5,
+        strokeOpacity: 0.9,
+        colorPalette: ['#d79921', '#b57614'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'fountain_contour',
+      name: 'Calligraphy Chisel — Topographic Contour',
+      brush: 'fountain',
+      desc: 'Angled chisel fountain pen following concentric contour insets',
+      config: {
+        enabled: true,
+        brush: 'fountain',
+        brushes: ['fountain'],
+        pattern: 'contour',
+        spacing: 6,
+        strokeWidth: 2.0,
+        strokeOpacity: 0.9,
+        colorPalette: ['#458588', '#83a598'],
+        clipMode: 'strict'
       }
     }
   ];
@@ -695,6 +733,107 @@
   // ── 2.2. Comprehensive Built-in Material Presets Library ──
 
   const BUILTIN_MATERIALS = [
+    // ── 0. Procedural Brush Fills ──
+    {
+      id: 'bf_pencil_hatch',
+      name: 'HB Pencil — Linear Hatch',
+      category: 'brushfills',
+      desc: 'Natural graphite hatching with paper grain and loose bleed',
+      color: '#282828',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[0].config
+    },
+    {
+      id: 'bf_inker_cross',
+      name: 'Studio Inker — Crosshatch',
+      category: 'brushfills',
+      desc: 'Comic cross-hatching with dynamic inker line weight',
+      color: '#1d2021',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[1].config
+    },
+    {
+      id: 'bf_techpen_triple',
+      name: 'Technical Pen — Triple Hatch',
+      category: 'brushfills',
+      desc: 'Crisp drafting pen with mechanical triple-hatch angle grid',
+      color: '#1d2021',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[2].config
+    },
+    {
+      id: 'bf_gpen_woodcut',
+      name: 'Manga G-Pen — Woodcut Wave',
+      category: 'brushfills',
+      desc: 'Expressive dip pen undulating timber engraving',
+      color: '#282828',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[3].config
+    },
+    {
+      id: 'bf_charcoal_cross',
+      name: 'Charcoal — Cross Shading',
+      category: 'brushfills',
+      desc: 'Rough charcoal tooth with pressure depth and bleed',
+      color: '#1d2021',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[4].config
+    },
+    {
+      id: 'bf_spray_stipple',
+      name: 'Spray Can — Pointillist Stipple',
+      category: 'brushfills',
+      desc: 'Multi-color dispersed paint splatter and aerosol dabs',
+      color: '#fabd2f',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[5].config
+    },
+    {
+      id: 'bf_watercolor_wash',
+      name: 'Watercolor — Fluid Wash',
+      category: 'brushfills',
+      desc: 'Fluid watercolor wash flow with soft bleeding edges',
+      color: '#83a598',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[6].config
+    },
+    {
+      id: 'bf_marker_flow',
+      name: 'Art Marker — Cyber Flow',
+      category: 'brushfills',
+      desc: 'Broad chisel marker flow field with palette cycling',
+      color: '#00ffcc',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[7].config
+    },
+    {
+      id: 'bf_pastel_scribble',
+      name: 'Soft Pastel — Wandering Scribble',
+      category: 'brushfills',
+      desc: 'Chalk scribble wandering flow across vector contours',
+      color: '#d79921',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[8].config
+    },
+    {
+      id: 'bf_oil_spiral',
+      name: 'Oil Impasto — Spiral Vortex',
+      category: 'brushfills',
+      desc: 'Thick wet impasto paint swirling in Archimedean spiral',
+      color: '#d79921',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[9].config
+    },
+    {
+      id: 'bf_fountain_contour',
+      name: 'Calligraphy Chisel — Topographic Contour',
+      category: 'brushfills',
+      desc: 'Angled chisel fountain pen following concentric contour insets',
+      color: '#458588',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[10].config
+    },
+
     // ── 1. Artistic & Traditional Media ──
     {
       id: 'art_watercolor',
@@ -1667,18 +1806,33 @@
           <!-- SECTION 5: BRUSH FILL & PROCEDURAL HATCHING -->
           <div class="cs-panel cs-panel-brushfill" id="cs-panel-brushfill">
             <div class="cs-card">
-              <div class="cs-card-title">Brush Fill Mode & Presets</div>
+              <div class="cs-card-title">Brush Fill Mode</div>
               <div class="cs-form-row">
                 <label>Enable Fill</label>
                 <input type="checkbox" id="cs-bf-enabled" style="accent-color: var(--primary, #fabd2f);">
               </div>
+            </div>
 
-              <div class="cs-form-row" style="margin-top: 2px;">
-                <label>Preset</label>
-                <div style="display: flex; gap: 4px; flex: 1;">
-                  <select id="cs-bf-preset-select" class="cs-select" style="font-size: 10px;"></select>
-                  <button type="button" id="cs-btn-save-bf-preset" class="cs-btn-mini" style="padding: 2px 6px; font-size: 9.5px;" title="Save current brush fill preset">Save</button>
-                </div>
+            <!-- Native Brush Selection -->
+            <div class="cs-card">
+              <div class="cs-card-title">Brush Selection</div>
+              <div class="cs-form-row">
+                <label>Primary Brush</label>
+                <select id="cs-bf-brush-primary" class="cs-select"></select>
+              </div>
+              <div class="cs-form-row">
+                <label>Secondary Brush</label>
+                <select id="cs-bf-brush-secondary" class="cs-select">
+                  <option value="">None (Single Brush)</option>
+                </select>
+              </div>
+              <div class="cs-form-row" id="cs-bf-brush-pick-row">
+                <label>Brush Pick</label>
+                <select id="cs-bf-brush-pick-mode" class="cs-select">
+                  <option value="cycle">Cycle in Sequence</option>
+                  <option value="random">Random Selection</option>
+                  <option value="alternate">Alternate (1 & 2)</option>
+                </select>
               </div>
             </div>
 
@@ -1759,21 +1913,6 @@
                   <input type="number" id="cs-bf-stroke-gap" min="0" max="200" step="1" value="4" class="cs-mini-num">
                 </div>
               </div>
-            </div>
-
-            <!-- Multi-Brush Tips Selection -->
-            <div class="cs-card">
-              <div class="cs-card-title">Multi-Brush Tips</div>
-              <div class="cs-form-row">
-                <label>Pick Mode</label>
-                <select id="cs-bf-brush-pick-mode" class="cs-select">
-                  <option value="cycle">Cycle in Sequence</option>
-                  <option value="random">Random Dab Selection</option>
-                  <option value="alternate">Alternate (1 & 2)</option>
-                </select>
-              </div>
-              <div style="font-size: 10px; color: var(--text-muted, #928374); margin-top: 2px;">Active Brush Tips:</div>
-              <div id="cs-bf-brush-tips-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; max-height: 120px; overflow-y: auto;"></div>
             </div>
 
             <!-- Multi-Color Palette -->
@@ -2045,8 +2184,9 @@
         btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset'),
         // Brush Fill Controls
         bfEnabled: this.container.querySelector('#cs-bf-enabled'),
-        bfPresetSelect: this.container.querySelector('#cs-bf-preset-select'),
-        btnSaveBfPreset: this.container.querySelector('#cs-btn-save-bf-preset'),
+        bfBrushPrimary: this.container.querySelector('#cs-bf-brush-primary'),
+        bfBrushSecondary: this.container.querySelector('#cs-bf-brush-secondary'),
+        bfBrushPickMode: this.container.querySelector('#cs-bf-brush-pick-mode'),
         bfPattern: this.container.querySelector('#cs-bf-pattern'),
         bfSpacingSlider: this.container.querySelector('#cs-bf-spacing-slider'),
         bfSpacing: this.container.querySelector('#cs-bf-spacing'),
@@ -2064,8 +2204,6 @@
         bfStrokeLength: this.container.querySelector('#cs-bf-stroke-length'),
         bfStrokeGapSlider: this.container.querySelector('#cs-bf-stroke-gap-slider'),
         bfStrokeGap: this.container.querySelector('#cs-bf-stroke-gap'),
-        bfBrushPickMode: this.container.querySelector('#cs-bf-brush-pick-mode'),
-        bfBrushTipsContainer: this.container.querySelector('#cs-bf-brush-tips-container'),
         bfColorMode: this.container.querySelector('#cs-bf-color-mode'),
         bfColorPickMode: this.container.querySelector('#cs-bf-color-pick-mode'),
         btnAddBfColor: this.container.querySelector('#cs-btn-add-bf-color'),
@@ -2100,16 +2238,14 @@
         bfBleedJitterSlider: this.container.querySelector('#cs-bf-bleed-jitter-slider'),
         bfBleedJitter: this.container.querySelector('#cs-bf-bleed-jitter'),
         bfBleedProbabilitySlider: this.container.querySelector('#cs-bf-bleed-probability-slider'),
-        bfBleedProbability: this.container.querySelector('#cs-bf-bleed-probability'),
-        bfBrushTipsContainer: this.container.querySelector('#cs-bf-brush-tips-container')
+        bfBleedProbability: this.container.querySelector('#cs-bf-bleed-probability')
       };
 
       this.populateFilterPluginSelect();
       this.renderFilterParams();
       this.renderGradientPresets();
       this.renderMaterialPresetsList();
-      this.populateBrushFillPresetsSelect();
-      this.renderBrushTipChips();
+      this.populateBrushSelects();
       this.renderBrushFillPalette();
       this.syncBrushFillInputs();
     }
@@ -2577,33 +2713,12 @@
       bindBfPair(d.bfBleedJitterSlider, d.bfBleedJitter);
       bindBfPair(d.bfBleedProbabilitySlider, d.bfBleedProbability);
 
+      d.bfBrushPrimary?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfBrushSecondary?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfBrushPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfColorMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfColorPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfClipMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
-
-      // Multi-Brush Tip Chips (Event Delegation)
-      d.bfBrushTipsContainer?.addEventListener('click', (e) => {
-        const chip = e.target.closest('.cs-chip-btn');
-        if (!chip) return;
-        e.preventDefault();
-        const brush = chip.dataset.brush;
-        if (!brush) return;
-        if (!Array.isArray(this.brushFillConfig.brushList)) {
-          this.brushFillConfig.brushList = ['pencil'];
-        }
-        const idx = this.brushFillConfig.brushList.indexOf(brush);
-        if (idx >= 0) {
-          if (this.brushFillConfig.brushList.length > 1) {
-            this.brushFillConfig.brushList.splice(idx, 1);
-            chip.classList.remove('active');
-          }
-        } else {
-          this.brushFillConfig.brushList.push(brush);
-          chip.classList.add('active');
-        }
-        this.applyBrushFillToSelected(true);
-      });
 
       // Add Color to Palette
       d.btnAddBfColor?.addEventListener('click', () => {
@@ -3474,6 +3589,7 @@
         color: this.currentHex,
         alpha: this.currentA,
         mode: this.activeMode,
+        brushFill: { ...this.brushFillConfig },
         gradientType: this.gradientType,
         gradientStops: this.gradientStops,
         gradientAngle: this.gradientAngle,
@@ -3561,12 +3677,26 @@
         this.filterOpacity = preset.filter.opacity !== undefined ? preset.filter.opacity : 1.0;
       }
 
+      if (preset.brushFill) {
+        this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...preset.brushFill, enabled: true };
+        this.syncBrushFillInputs();
+      }
+
+      if (preset.mode) {
+        this.switchMode(preset.mode);
+      } else if (preset.brushFill && preset.brushFill.enabled) {
+        this.switchMode('brushfill');
+      }
+
       this.applyToSelected(false);
       if (preset.gradientStops && preset.gradientStops.length >= 2) {
         this.applyGradientToSelected(false);
       }
       this.applyTextureToSelected(false);
-      this.applyFilterToSelected(true);
+      this.applyFilterToSelected(false);
+      if (preset.brushFill) {
+        this.applyBrushFillToSelected(true);
+      }
       this.syncFromSelection(true);
     }
 
@@ -3607,6 +3737,7 @@
 
       // 2. Categorized Built-in Materials
       const categories = [
+        { id: 'brushfills', label: 'Procedural Brush Fills' },
         { id: 'artistic', label: 'Artistic & Traditional' },
         { id: 'lenses', label: 'Optical Lenses (WASM FX)' },
         { id: 'nature', label: 'Nature & Textures' },
@@ -3710,8 +3841,8 @@
 
     updateBrushFillUI() {
       this.updateBrushFillPatternVisibility();
+      this.populateBrushSelects();
       this.renderBrushFillPalette();
-      this.populateBrushFillPresetsSelect();
       this.syncBrushFillInputs();
     }
 
@@ -3726,8 +3857,104 @@
       }
     }
 
+    populateBrushSelects() {
+      if (typeof document === 'undefined') return;
+      const primarySel = this.dom.bfBrushPrimary;
+      const secondarySel = this.dom.bfBrushSecondary;
+      if (!primarySel || !secondarySel) return;
+
+      const currPrimary = primarySel.value || this.brushFillConfig.brush || 'pencil';
+      const currSecondary = secondarySel.value !== undefined ? secondarySel.value : (this.brushFillConfig.brushSecondary || '');
+
+      let allPresets = {};
+      if (typeof BrushFillEngine !== 'undefined' && typeof BrushFillEngine.getNativeBrushPresets === 'function') {
+        allPresets = BrushFillEngine.getNativeBrushPresets();
+      } else if (typeof BRUSH_PRESETS !== 'undefined') {
+        allPresets = { ...BRUSH_PRESETS };
+      } else if (typeof window !== 'undefined' && window.BRUSH_PRESETS) {
+        allPresets = { ...window.BRUSH_PRESETS };
+      } else if (typeof globalThis !== 'undefined' && globalThis.BRUSH_PRESETS) {
+        allPresets = { ...globalThis.BRUSH_PRESETS };
+      }
+
+      if (!allPresets || Object.keys(allPresets).length === 0) {
+        allPresets = {
+          pencil: { name: 'HB Pencil', category: 'sketch' },
+          soft_pencil: { name: '6B Graphite', category: 'sketch' },
+          tech_pen: { name: 'Technical Pen', category: 'sketch' },
+          gpen: { name: 'Manga G-Pen', category: 'ink' },
+          inker: { name: 'Studio Inker', category: 'ink' },
+          dry_ink: { name: 'Dry Ink', category: 'ink' },
+          fountain: { name: 'Calligraphy Chisel', category: 'ink' },
+          marker: { name: 'Art Marker', category: 'marker' },
+          oil: { name: 'Oil Impasto', category: 'paint' },
+          acrylic: { name: 'Wet Acrylic', category: 'paint' },
+          watercolor: { name: 'Watercolor', category: 'paint' },
+          charcoal: { name: 'Charcoal', category: 'charcoal' },
+          soft_pastel: { name: 'Soft Pastel', category: 'charcoal' },
+          spray: { name: 'Spray Can', category: 'airbrush' }
+        };
+      }
+
+      const categoryLabels = {
+        sketch: 'Sketch & Pencils',
+        ink: 'Inkers & Line Art',
+        marker: 'Markers & Lettering',
+        paint: 'Wet Media & Paint',
+        charcoal: 'Dry Media & Charcoal',
+        airbrush: 'Airbrush & Spray',
+        special: 'Special FX',
+        custom: 'Custom Brushes'
+      };
+
+      const grouped = {};
+      Object.entries(allPresets).forEach(([key, preset]) => {
+        const cat = preset.category || 'sketch';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push({ key, name: preset.name || key, desc: preset.desc || '' });
+      });
+
+      const buildOptions = (isSecondary = false) => {
+        const fragment = document.createDocumentFragment();
+        if (isSecondary) {
+          const noneOpt = document.createElement('option');
+          noneOpt.value = '';
+          noneOpt.textContent = 'None (Single Brush)';
+          fragment.appendChild(noneOpt);
+        }
+        Object.entries(grouped).forEach(([catKey, brushes]) => {
+          const optgroup = document.createElement('optgroup');
+          optgroup.label = categoryLabels[catKey] || catKey;
+          brushes.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.key;
+            opt.textContent = b.name;
+            optgroup.appendChild(opt);
+          });
+          fragment.appendChild(optgroup);
+        });
+        return fragment;
+      };
+
+      primarySel.innerHTML = '';
+      primarySel.appendChild(buildOptions(false));
+      primarySel.value = currPrimary || 'pencil';
+      if (!primarySel.value && primarySel.options.length > 0) {
+        primarySel.selectedIndex = 0;
+      }
+
+      secondarySel.innerHTML = '';
+      secondarySel.appendChild(buildOptions(true));
+      secondarySel.value = currSecondary || '';
+    }
+
     getBrushFillConfigFromInputs() {
       const d = this.dom;
+      const brushPrimary = d.bfBrushPrimary ? d.bfBrushPrimary.value : (this.brushFillConfig.brush || 'pencil');
+      const brushSecondary = d.bfBrushSecondary ? d.bfBrushSecondary.value : (this.brushFillConfig.brushSecondary || '');
+      const brushes = [brushPrimary];
+      if (brushSecondary) brushes.push(brushSecondary);
+
       return {
         enabled: d.bfEnabled ? d.bfEnabled.checked : true,
         pattern: d.bfPattern ? d.bfPattern.value : 'linear',
@@ -3738,7 +3965,10 @@
         strokesPerLine: d.bfStrokesPerLine ? Number(d.bfStrokesPerLine.value) || 1 : 1,
         strokeLength: d.bfStrokeLength ? Number(d.bfStrokeLength.value) || 0 : 0,
         strokeGap: d.bfStrokeGap ? Number(d.bfStrokeGap.value) || 0 : 4,
-        brushList: (this.brushFillConfig.brushList && this.brushFillConfig.brushList.length > 0) ? [...this.brushFillConfig.brushList] : ['round'],
+        brush: brushPrimary,
+        brushSecondary: brushSecondary,
+        brushes: brushes,
+        brushList: brushes,
         brushPickMode: d.bfBrushPickMode ? d.bfBrushPickMode.value : 'cycle',
         colorMode: d.bfColorMode ? d.bfColorMode.value : 'palette',
         colorPalette: (this.brushFillConfig.colorPalette && this.brushFillConfig.colorPalette.length > 0) ? [...this.brushFillConfig.colorPalette] : ['#fabd2f'],
@@ -3783,7 +4013,17 @@
       if (d.bfStrokeLengthSlider) d.bfStrokeLengthSlider.value = c.strokeLength !== undefined ? c.strokeLength : 0;
       if (d.bfStrokeGap) d.bfStrokeGap.value = c.strokeGap !== undefined ? c.strokeGap : 4;
       if (d.bfStrokeGapSlider) d.bfStrokeGapSlider.value = c.strokeGap !== undefined ? c.strokeGap : 4;
+
+      if (d.bfBrushPrimary) {
+        const primary = c.brush || (Array.isArray(c.brushes) && c.brushes[0]) || (Array.isArray(c.brushList) && c.brushList[0]) || 'pencil';
+        d.bfBrushPrimary.value = primary;
+      }
+      if (d.bfBrushSecondary) {
+        const secondary = c.brushSecondary || (Array.isArray(c.brushes) && c.brushes[1]) || (Array.isArray(c.brushList) && c.brushList[1]) || '';
+        d.bfBrushSecondary.value = secondary;
+      }
       if (d.bfBrushPickMode) d.bfBrushPickMode.value = c.brushPickMode || 'cycle';
+
       if (d.bfColorMode) d.bfColorMode.value = c.colorMode || 'palette';
       if (d.bfColorPickMode) d.bfColorPickMode.value = c.colorPickMode || 'cycle';
       if (d.bfStrokeWidth) d.bfStrokeWidth.value = c.strokeWidth !== undefined ? c.strokeWidth : 2;
@@ -3818,65 +4058,8 @@
       if (d.bfBleedProbability) d.bfBleedProbability.value = c.bleedProbability !== undefined ? c.bleedProbability : 100;
       if (d.bfBleedProbabilitySlider) d.bfBleedProbabilitySlider.value = c.bleedProbability !== undefined ? c.bleedProbability : 100;
 
-      // Update brush chips active class
-      const activeBrushes = Array.isArray(c.brushList) && c.brushList.length > 0 ? c.brushList : ['pencil'];
-      const tipChips = this.container.querySelectorAll('#cs-bf-brush-tips-container .cs-chip-btn');
-      if (tipChips.length === 0) {
-        this.renderBrushTipChips();
-      } else {
-        tipChips.forEach(chip => {
-          chip.classList.toggle('active', activeBrushes.includes(chip.dataset.brush));
-        });
-      }
-
       this.updateBrushFillPatternVisibility();
       this.renderBrushFillPalette();
-    }
-
-    renderBrushTipChips() {
-      if (typeof document === 'undefined' || !this.dom.bfBrushTipsContainer) return;
-      const container = this.dom.bfBrushTipsContainer;
-      container.innerHTML = '';
-
-      let allPresets = {};
-      if (typeof BrushFillEngine !== 'undefined' && typeof BrushFillEngine.getNativeBrushPresets === 'function') {
-        allPresets = BrushFillEngine.getNativeBrushPresets();
-      } else if (typeof BRUSH_PRESETS !== 'undefined') {
-        allPresets = { ...BRUSH_PRESETS };
-      } else if (typeof window !== 'undefined' && window.BRUSH_PRESETS) {
-        allPresets = { ...window.BRUSH_PRESETS };
-      }
-
-      if (!allPresets || Object.keys(allPresets).length === 0) {
-        allPresets = {
-          pencil: { name: 'HB Pencil', category: 'sketch' },
-          soft_pencil: { name: '6B Graphite', category: 'sketch' },
-          tech_pen: { name: 'Technical Pen', category: 'sketch' },
-          gpen: { name: 'Manga G-Pen', category: 'ink' },
-          dry_ink: { name: 'Dry Ink', category: 'ink' },
-          marker: { name: 'Art Marker', category: 'marker' },
-          oil: { name: 'Oil Impasto', category: 'paint' },
-          acrylic: { name: 'Wet Acrylic', category: 'paint' },
-          watercolor: { name: 'Watercolor', category: 'paint' },
-          charcoal: { name: 'Charcoal', category: 'charcoal' },
-          soft_pastel: { name: 'Soft Pastel', category: 'charcoal' },
-          spray: { name: 'Spray Can', category: 'airbrush' }
-        };
-      }
-
-      const activeBrushes = Array.isArray(this.brushFillConfig.brushList) && this.brushFillConfig.brushList.length > 0
-        ? this.brushFillConfig.brushList
-        : ['pencil'];
-
-      Object.entries(allPresets).forEach(([key, preset]) => {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'cs-chip-btn' + (activeBrushes.includes(key) ? ' active' : '');
-        chip.dataset.brush = key;
-        chip.textContent = preset.name || key;
-        chip.title = `${preset.name || key}: ${preset.desc || 'Native authentic brush dynamics'}`;
-        container.appendChild(chip);
-      });
     }
 
     renderBrushFillPalette() {
@@ -3923,110 +4106,6 @@
 
         container.appendChild(chip);
       });
-    }
-
-    populateBrushFillPresetsSelect() {
-      if (typeof document === 'undefined' || !this.dom.bfPresetSelect) return;
-      const sel = this.dom.bfPresetSelect;
-      const currentVal = sel.value;
-      sel.innerHTML = '';
-
-      const defOption = document.createElement('option');
-      defOption.value = '';
-      defOption.disabled = true;
-      defOption.selected = !currentVal;
-      defOption.textContent = 'Preset: Select Brush Fill';
-      sel.appendChild(defOption);
-
-      // Custom presets
-      let customList = [];
-      try {
-        if (typeof localStorage !== 'undefined') {
-          const raw = localStorage.getItem(CUSTOM_BRUSH_FILL_PRESETS_KEY);
-          if (raw) customList = JSON.parse(raw);
-        }
-      } catch (_) {}
-
-      if (customList.length > 0) {
-        const grp = document.createElement('optgroup');
-        grp.label = 'Custom Presets';
-        customList.forEach((p, idx) => {
-          const opt = document.createElement('option');
-          opt.value = `custom_${idx}`;
-          opt.textContent = p.name;
-          if (currentVal === opt.value) opt.selected = true;
-          grp.appendChild(opt);
-        });
-        sel.appendChild(grp);
-      }
-
-      // Built-in presets
-      const builtins = (typeof BrushFillEngine !== 'undefined' && BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS)
-        ? BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS
-        : BUILTIN_BF_PRESETS;
-
-      const grp = document.createElement('optgroup');
-      grp.label = 'Hatch & Multi-Stroke Presets';
-      builtins.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p.id || p.name;
-        opt.textContent = p.name;
-        if (currentVal === opt.value) opt.selected = true;
-        grp.appendChild(opt);
-      });
-      sel.appendChild(grp);
-    }
-
-    findBrushFillPreset(idOrName) {
-      if (!idOrName) return null;
-      if (typeof idOrName === 'string' && idOrName.startsWith('custom_')) {
-        const idx = parseInt(idOrName.replace('custom_', ''), 10);
-        try {
-          if (typeof localStorage !== 'undefined') {
-            const raw = localStorage.getItem(CUSTOM_BRUSH_FILL_PRESETS_KEY);
-            if (raw) {
-              const list = JSON.parse(raw);
-              return list[idx];
-            }
-          }
-        } catch (_) {}
-      }
-      const builtins = (typeof BrushFillEngine !== 'undefined' && BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS)
-        ? BrushFillEngine.BUILTIN_BRUSH_FILL_PRESETS
-        : BUILTIN_BF_PRESETS;
-      return builtins.find(p => p.id === idOrName || p.name === idOrName) || null;
-    }
-
-    applyBrushFillPreset(preset) {
-      if (!preset || !preset.config) return;
-      this.brushFillConfig = { ...this.brushFillConfig, ...preset.config, enabled: true };
-      this.syncBrushFillInputs();
-      this.applyBrushFillToSelected(true);
-    }
-
-    saveCurrentAsBrushFillPreset() {
-      const name = prompt('Enter a name for the new brush fill preset:');
-      if (!name || !name.trim()) return;
-      const cleanName = name.trim();
-      const newPreset = {
-        id: 'custom_' + Date.now(),
-        name: cleanName,
-        config: { ...this.getBrushFillConfigFromInputs() }
-      };
-
-      try {
-        if (typeof localStorage !== 'undefined') {
-          let list = [];
-          const raw = localStorage.getItem(CUSTOM_BRUSH_FILL_PRESETS_KEY);
-          if (raw) list = JSON.parse(raw);
-          list.push(newPreset);
-          localStorage.setItem(CUSTOM_BRUSH_FILL_PRESETS_KEY, JSON.stringify(list));
-        }
-      } catch (err) {
-        console.error('Failed to save brush fill preset:', err);
-      }
-
-      this.populateBrushFillPresetsSelect();
     }
 
     applyBrushFillToSelected(commit = false) {
