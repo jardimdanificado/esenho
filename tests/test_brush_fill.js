@@ -314,9 +314,9 @@ assert.strictEqual(cloned.fillType, 'brush');
 assert.strictEqual(cloned.brushFill.pattern, 'crosshatch');
 
 const svgEl = rect.toSVGElement();
-assert.ok(svgEl.includes('esenho-brush-fill'), 'Generated SVG should contain esenho-brush-fill group');
-assert.ok(svgEl.includes('data-brush-fill'), 'Generated SVG should contain data-brush-fill attribute');
-console.log('✔ SvgEngine Integration passed');
+assert.ok(!svgEl.includes('esenho-brush-fill'), 'Direct SVG element should NOT generate heavy brush fill stroke groups');
+assert.ok(svgEl.includes('data-brush-fill'), 'Direct SVG element must contain data-brush-fill attribute for serialization/renderer');
+console.log('✔ SvgEngine Integration passed (Clean vector output with data-brush-fill attributes)');
 
 // 9. Quadro SVG Renderer Brush Fill Execution
 console.log('9. Testing Quadro WASM Renderer Brush Fill Execution...');

@@ -708,18 +708,13 @@
     }
 
     wrapClipPath(svgEl) {
-      const brushSvg = this.getBrushFillSVG();
-      let combined = svgEl;
-      if (brushSvg) {
-        combined = `<g id="group_${this.id}">\n    ${svgEl}\n    ${brushSvg}\n  </g>`;
-      }
       if (this.clipPathId) {
         const hasMask = (this.doc ? !!this.doc.findObject(this.clipPathId) : true);
         if (hasMask) {
-          return `<g clip-path="url(#clip_${this.clipPathId})">\n    ${combined}\n  </g>`;
+          return `<g clip-path="url(#clip_${this.clipPathId})">\n    ${svgEl}\n  </g>`;
         }
       }
-      return combined;
+      return svgEl;
     }
 
     getSvgFillAttribute() {
