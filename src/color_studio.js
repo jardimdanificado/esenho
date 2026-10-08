@@ -2802,7 +2802,12 @@
 
           if (activeDoc) {
             activeDoc.backgroundColor = val;
-            activeDoc.backgroundType = 'solid';
+            if (this.currentA !== undefined) {
+              activeDoc.backgroundOpacity = this.currentA;
+            }
+            if (activeDoc.backgroundType !== 'linear' && activeDoc.backgroundType !== 'radial' && activeDoc.backgroundType !== 'brush') {
+              activeDoc.backgroundType = 'solid';
+            }
             if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
             if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
           }
@@ -4035,6 +4040,11 @@
 
       if (this.activeTarget === 'bg') {
         activeDoc.backgroundBrushFill = { ...cfg };
+        if (cfg.enabled) {
+          activeDoc.backgroundType = 'brush';
+        } else if (activeDoc.backgroundType === 'brush') {
+          activeDoc.backgroundType = 'solid';
+        }
         if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
         if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
         if (commit) {

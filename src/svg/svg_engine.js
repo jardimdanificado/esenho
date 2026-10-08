@@ -4974,6 +4974,31 @@
         });
       }
 
+      if (this.backgroundFilter && this.backgroundFilter.enabled && this.backgroundFilter.plugin) {
+        const pName = this.backgroundFilter.plugin;
+        const scriptId = `wasm-plugin-${pName}`;
+        if (!defsMap.has(scriptId)) {
+          let bytes = this.wasmPlugins.get(pName) || globalWasmPlugins.get(pName);
+          if (!bytes && typeof require !== 'undefined') {
+            try {
+              const fs = require('fs');
+              const path = require('path');
+              const pluginPath = path.resolve(__dirname, '../../plugins', `${pName}.wasm`);
+              if (fs.existsSync(pluginPath)) {
+                bytes = fs.readFileSync(pluginPath);
+              }
+            } catch (e) {}
+          }
+          if (bytes) {
+            const u8 = (bytes instanceof Uint8Array) ? bytes : new Uint8Array(bytes);
+            const b64 = encodeBase64(u8);
+            defsMap.set(scriptId, {
+              toSVGElement: () => `<script type="application/wasm" id="${scriptId}" data-plugin-name="${pName}">${b64}</script>`
+            });
+          }
+        }
+      }
+
       if (this.backgroundType && this.backgroundType !== 'solid' && this.backgroundGradient) {
         let bgGradEl = this.backgroundGradient;
         if (this.backgroundType === 'radial') {
@@ -4996,10 +5021,22 @@
       }
       let svg = `<?xml version="1.0" encoding="UTF-8"?>\n`;
       svg += `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${this.width}" height="${this.height}" viewBox="${this.viewBox}">${defsXml}\n`;
+
+      let bgAttrs = '';
+      if (this.backgroundFilter && this.backgroundFilter.enabled) {
+        bgAttrs += ` data-wasm-plugin="${this.backgroundFilter.plugin || ''}" data-wasm-p1="${this.backgroundFilter.p1 || 0}" data-wasm-p2="${this.backgroundFilter.p2 || 0}" data-wasm-opacity="${this.backgroundFilter.opacity !== undefined ? this.backgroundFilter.opacity : 1.0}"`;
+      }
+      if (this.backgroundTexture && this.backgroundTexture.enabled) {
+        bgAttrs += ` data-texture-mode="${this.backgroundTexture.mode || 0}" data-texture-scale="${this.backgroundTexture.scale || 100}" data-texture-angle="${this.backgroundTexture.angle || 0}" data-texture-contrast="${this.backgroundTexture.contrast || 100}"`;
+      }
+      if (this.backgroundBrushFill && this.backgroundBrushFill.enabled) {
+        bgAttrs += ` data-brush-fill='${JSON.stringify(this.backgroundBrushFill)}'`;
+      }
+
       if (this.backgroundType && this.backgroundType !== 'solid' && this.backgroundGradient) {
-        svg += `  <rect width="100%" height="100%" fill="url(#doc_bg_gradient)" />\n`;
+        svg += `  <rect id="doc_background" width="100%" height="100%" fill="url(#doc_bg_gradient)"${bgAttrs} />\n`;
       } else if (this.backgroundColor && this.backgroundColor !== 'none') {
-        svg += `  <rect width="100%" height="100%" fill="${this.backgroundColor}" />\n`;
+        svg += `  <rect id="doc_background" width="100%" height="100%" fill="${this.backgroundColor}"${bgAttrs} />\n`;
       }
 
       for (const obj of this.objects) {
@@ -5431,9 +5468,11 @@
         height: this.height,
         viewBox: this.viewBox,
         backgroundColor: this.backgroundColor,
+        backgroundOpacity: this.backgroundOpacity !== undefined ? this.backgroundOpacity : 1.0,
         backgroundType: this.backgroundType || 'solid',
         backgroundGradient: this.backgroundGradient ? (this.backgroundGradient.toJSON ? this.backgroundGradient.toJSON() : this.backgroundGradient) : null,
         backgroundTexture: this.backgroundTexture || null,
+        backgroundBrushFill: this.backgroundBrushFill || null,
         backgroundFilter: this.backgroundFilter || null,
         objects: this.objects.map(o => o.toJSON())
       };
@@ -5456,9 +5495,11 @@
       this.height = data.height || 600;
       this.viewBox = data.viewBox || `0 0 ${this.width} ${this.height}`;
       this.backgroundColor = data.backgroundColor || '#1d2021';
+      this.backgroundOpacity = data.backgroundOpacity !== undefined ? data.backgroundOpacity : 1.0;
       this.backgroundType = data.backgroundType || 'solid';
       this.backgroundGradient = data.backgroundGradient || null;
       this.backgroundTexture = data.backgroundTexture || null;
+      this.backgroundBrushFill = data.backgroundBrushFill || null;
       this.backgroundFilter = data.backgroundFilter || null;
       if (Array.isArray(data.animations) && data.animations.length > 0) {
         this.animations = data.animations;

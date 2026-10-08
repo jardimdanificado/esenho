@@ -792,6 +792,17 @@
         bytes = doc.wasmPlugins.get(name);
       } else if (SvgEngine && SvgEngine.wasmPlugins && SvgEngine.wasmPlugins.has(name)) {
         bytes = SvgEngine.wasmPlugins.get(name);
+      } else if (typeof window !== 'undefined' && window.SvgEngine && window.SvgEngine.wasmPlugins && window.SvgEngine.wasmPlugins.has(name)) {
+        bytes = window.SvgEngine.wasmPlugins.get(name);
+      } else if (typeof window !== 'undefined' && window.doc && window.doc.wasmPlugins && window.doc.wasmPlugins.has(name)) {
+        bytes = window.doc.wasmPlugins.get(name);
+      } else if (typeof window !== 'undefined' && window.host && window.host.plugins && window.host.plugins.has(name)) {
+        const p = window.host.plugins.get(name);
+        if (p && p.bytes) bytes = p.bytes;
+        else if (p && p.module && p.module.bytes) bytes = p.module.bytes;
+      } else if (typeof window !== 'undefined' && window.esenho && window.esenho.plugins && window.esenho.plugins.has(name)) {
+        const p = window.esenho.plugins.get(name);
+        if (p && p.bytes) bytes = p.bytes;
       } else if (typeof require !== 'undefined') {
         try {
           const fs = require('fs');
@@ -913,17 +924,8 @@
       this.actor.exports.w_brush_set_param(5 /* SPACING */, 5);
       this.actor.exports.w_brush_set_param(14 /* SHAPE */, 0 /* CIRCLE */);
 
-      // Set background color
-      const pixPtr = this.actor.exports.w_layer_get_pixels(3);
-      if (pixPtr && this.actor.memory) {
-        const u32 = new Uint32Array(this.actor.memory.buffer, pixPtr, w * h);
-        if (options.background !== false && doc.backgroundColor && doc.backgroundColor !== 'none') {
-          const bgArgb = parseCssColorToArgb(doc.backgroundColor, 1.0);
-          u32.fill(bgArgb);
-        } else {
-          u32.fill(0); // clear to transparent
-        }
-      }
+      // Render Background (supports Solid Color, Gradients, Procedural/Custom Textures, Brush Fills & WASM FX Filters)
+      this.renderBackground(doc, scale, options);
 
       // Render each object in Z-order (bottom to top)
       for (const obj of doc.objects) {
@@ -937,6 +939,280 @@
       }
 
       return { width: w, height: h };
+    }
+
+    /**
+     * Render Document Background (Solid Color, Multi-Stop Gradient, Procedural/Custom Textures,
+     * Procedural Brush Fills & Non-Destructive WASM Filter Plugins).
+     */
+    renderBackground(doc, scale = 1.0, options = {}) {
+      const exp = this.actor.exports;
+      const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : Math.round(doc.width * scale);
+      const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : Math.round(doc.height * scale);
+      const pixPtr = exp.w_layer_get_pixels(3);
+      if (!pixPtr || !this.actor.memory) return;
+
+      const u32 = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+
+      if (options.background === false) {
+        u32.fill(0);
+        return;
+      }
+
+      const hasBgColor = doc.backgroundColor && doc.backgroundColor !== 'none' && doc.backgroundColor !== 'transparent';
+      const hasGradient = (doc.backgroundType === 'linear' || doc.backgroundType === 'radial') && doc.backgroundGradient && Array.isArray(doc.backgroundGradient.stops) && doc.backgroundGradient.stops.length > 0;
+      const gradient = hasGradient ? doc.backgroundGradient : null;
+
+      const texObj = doc.backgroundTexture;
+      const hasTexture = !!(texObj && (
+        texObj.enabled ||
+        (texObj.mode && texObj.mode > 0) ||
+        texObj.customBuffer ||
+        texObj.customId ||
+        texObj.textureId ||
+        (texObj.grain && texObj.grain > 0) ||
+        (texObj.warpStrength && texObj.warpStrength > 0) ||
+        (texObj.noiseDistort && texObj.noiseDistort > 0) ||
+        (texObj.pinchSwirl && texObj.pinchSwirl !== 0) ||
+        (texObj.posterize && texObj.posterize > 0) ||
+        texObj.invert ||
+        (texObj.hardness !== undefined && texObj.hardness < 100)
+      ));
+
+      const isBrushFill = doc.backgroundType === 'brush' || !!(doc.backgroundBrushFill && doc.backgroundBrushFill.enabled);
+      const filterObj = doc.backgroundFilter;
+      const hasFilter = !!(filterObj && filterObj.enabled && filterObj.plugin);
+
+      if (!hasBgColor && !hasGradient && !hasTexture && !isBrushFill && !hasFilter) {
+        u32.fill(0);
+        return;
+      }
+
+      const fillAlpha = (doc.backgroundOpacity !== undefined ? doc.backgroundOpacity : 1.0);
+      const bgHexOrColor = doc.backgroundColor || '#1d2021';
+      const fillArgb = parseCssColorToArgb(bgHexOrColor, fillAlpha);
+
+      // Fast-path: pure solid background without any texture, gradient, brush fill or filter
+      if (!hasGradient && !hasTexture && !isBrushFill && !hasFilter) {
+        u32.fill(fillArgb);
+        return;
+      }
+
+      // Geometry for full background
+      const bgPolys = [[
+        { x: 0, y: 0 },
+        { x: doc.width, y: 0 },
+        { x: doc.width, y: doc.height },
+        { x: 0, y: doc.height }
+      ]];
+      const bgBounds = { minX: 0, minY: 0, maxX: doc.width, maxY: doc.height, width: doc.width, height: doc.height };
+
+      // Clear buffer before rendering background layers
+      u32.fill(0);
+
+      // 1. Procedural Brush Fill on Background
+      if (isBrushFill) {
+        // If there's a solid base / gradient / texture under the brush fill, render base first
+        if ((hasBgColor && fillAlpha > 0 && doc.backgroundType !== 'brush') || hasGradient || hasTexture) {
+          this._fillDirectBackgroundRect(u32, lw, lh, fillArgb, scale, hasTexture ? texObj : null, gradient, bgBounds);
+        }
+
+        let Engine = BrushFillEngine || (typeof window !== 'undefined' && (window.BrushFillEngine || (window.esenho && window.esenho.BrushFillEngine))) || (typeof globalThis !== 'undefined' && globalThis.BrushFillEngine);
+        if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
+        if (Engine && typeof Engine.generateStrokes === 'function') {
+          const brushFillCfg = doc.backgroundBrushFill || {};
+          const strokes = Engine.generateStrokes(bgPolys, brushFillCfg);
+          for (let sIdx = 0; sIdx < strokes.length; sIdx++) {
+            const stroke = strokes[sIdx];
+            const strokeA = stroke.opacity !== undefined ? stroke.opacity : 1.0;
+            const strokeColor = stroke.color || doc.backgroundColor || '#fabd2f';
+            const sArgb = parseCssColorToArgb(strokeColor, strokeA);
+            if ((sArgb >>> 24) === 0) continue;
+
+            const sWidth = Math.max(1, Math.round((stroke.width || 2) * scale));
+            const strokeBrushConfig = (stroke.brushTip && stroke.brushTip.brushConfig) ? stroke.brushTip.brushConfig : {};
+            const shapeName = (strokeBrushConfig.shape || (stroke.brushTip && stroke.brushTip.shape)) ? String(strokeBrushConfig.shape || stroke.brushTip.shape).toLowerCase() : 'round';
+            const shapeMap = { round: 0, circle: 0, square: 1, ellipse: 2, oval: 2, pencil: 3, charcoal: 4, acrylic: 5, watercolor: 6, chisel: 1, fan: 5, bristle: 5, dry_brush: 4, dagger: 2 };
+            const shapeId = typeof strokeBrushConfig.shape === 'number' ? strokeBrushConfig.shape : (shapeMap[shapeName] !== undefined ? shapeMap[shapeName] : 0);
+
+            const bConfig = {
+              hardness: stroke.brushTip?.hardness !== undefined ? stroke.brushTip.hardness : (stroke.hardness !== undefined ? stroke.hardness : 95),
+              flow: stroke.brushTip?.flow !== undefined ? stroke.brushTip.flow : (stroke.flow !== undefined ? stroke.flow : 100),
+              spacing: strokeBrushConfig.spacing || 5,
+              shape: shapeId,
+              roundness: strokeBrushConfig.roundness !== undefined ? strokeBrushConfig.roundness : 100,
+              ...strokeBrushConfig
+            };
+            const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : null;
+
+            if (stroke.type === 'curve' && stroke.cp) {
+              const p0 = stroke.p0;
+              const cp = stroke.cp;
+              const p1 = stroke.p1;
+              const curvePoly = [];
+              const steps = 6;
+              for (let step = 0; step <= steps; step++) {
+                const t = step / steps;
+                const it = 1 - t;
+                curvePoly.push({
+                  x: it * it * p0.x + 2 * it * t * cp.x + t * t * p1.x,
+                  y: it * it * p0.y + 2 * it * t * cp.y + t * t * p1.y
+                });
+              }
+              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            } else if (stroke.type === 'dot') {
+              const dabPt = stroke.p0 || { x: stroke.cx || 0, y: stroke.cy || 0 };
+              this.strokePolyline([dabPt], sArgb, Math.max(1, Math.round((stroke.width || 2) * scale)), false, bConfig, strokeTex, scale);
+            } else {
+              const linePoly = [stroke.p0, stroke.p1];
+              this.strokePolyline(linePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
+            }
+          }
+        }
+      } else {
+        // 2. Standard solid, gradient, and/or textured background
+        this._fillDirectBackgroundRect(u32, lw, lh, fillArgb, scale, hasTexture ? texObj : null, gradient, bgBounds);
+      }
+
+      // 3. Non-destructive WASM FX Filter on Background
+      if (hasFilter) {
+        const p1 = Number(filterObj.p1 || 0);
+        const p2 = Number(filterObj.p2 || 0);
+        const filterOpacity = filterObj.opacity !== undefined ? Number(filterObj.opacity) : 1.0;
+
+        if (filterOpacity > 0) {
+          if (filterOpacity < 1.0) {
+            const savedBuf = new Uint32Array(lw * lh);
+            savedBuf.set(u32);
+            const applied = this.filterRunner.applyFilter(filterObj.plugin, u32, lw, lh, p1, p2, this.currentDoc);
+            if (applied) {
+              for (let i = 0; i < lw * lh; i++) {
+                u32[i] = lerpArgb(savedBuf[i], u32[i], filterOpacity);
+              }
+            }
+          } else {
+            this.filterRunner.applyFilter(filterObj.plugin, u32, lw, lh, p1, p2, this.currentDoc);
+          }
+        }
+      }
+    }
+
+    /**
+     * Direct full-canvas pixel rasterization for background materials
+     */
+    _fillDirectBackgroundRect(u32, lw, lh, fillArgb, scale, fillTexture = null, gradient = null, bgBounds = null) {
+      const cx = lw * 0.5;
+      const cy = lh * 0.5;
+      const maxR = Math.max(1.0, Math.max(lw, lh) * 0.5);
+
+      const texMode = fillTexture ? (fillTexture.mode || 0) : 0;
+      const texAngle = fillTexture ? (fillTexture.angle || 0) : 0;
+      const texScale = Math.round((fillTexture ? (fillTexture.scale || 100) : 100) * scale);
+      const texContrast = fillTexture ? (fillTexture.contrast || 100) : 100;
+      const texGrain = fillTexture ? (fillTexture.grain || 0) : 0;
+
+      const isRelative = !!(fillTexture && (fillTexture.relative || fillTexture.is_relative || fillTexture.origin === 'object'));
+      const offsetX = fillTexture ? (fillTexture.offsetX || fillTexture.offset_x || 0) : 0;
+      const offsetY = fillTexture ? (fillTexture.offsetY || fillTexture.offset_y || 0) : 0;
+      const warpStrength = fillTexture ? (fillTexture.warpStrength || fillTexture.warp_strength || 0) : 0;
+      const warpFreq = fillTexture ? (fillTexture.warpFreq || fillTexture.warp_freq || 20) : 20;
+      const noiseDistort = fillTexture ? (fillTexture.noiseDistort || fillTexture.noise_distort || 0) : 0;
+      const hardness = fillTexture && fillTexture.hardness !== undefined ? fillTexture.hardness : 100;
+      const hardnessIntensity = fillTexture ? (fillTexture.hardnessIntensity !== undefined ? fillTexture.hardnessIntensity : (fillTexture.hardness_intensity !== undefined ? fillTexture.hardness_intensity : (fillTexture.hardnessRadius || 50))) : 50;
+      const invert = !!(fillTexture && (fillTexture.invert || fillTexture.invert_tex));
+      const posterize = fillTexture ? (fillTexture.posterize || 0) : 0;
+      const pinchSwirl = fillTexture ? (fillTexture.pinchSwirl || fillTexture.pinch_swirl || 0) : 0;
+
+      const customBuf = fillTexture ? (fillTexture.customBuffer || fillTexture.buffer || (this.customTextureCache && (this.customTextureCache.get(fillTexture.customId || fillTexture.textureId) || this.customTextureCache.get(fillTexture.id)))) : null;
+      const customW = fillTexture?.customWidth || customBuf?.width || 256;
+      const customH = fillTexture?.customHeight || customBuf?.height || 256;
+      const customPixels = customBuf ? (customBuf.pixels || customBuf) : null;
+
+      const featherW = hardness < 100 ? Math.max(1, ((100 - hardness) * 0.01) * hardnessIntensity) : 0;
+
+      for (let y = 0; y < lh; y++) {
+        const row = y * lw;
+        for (let x = 0; x < lw; x++) {
+          let sx = isRelative ? (x + offsetX) : (x + offsetX);
+          let sy = isRelative ? (y + offsetY) : (y + offsetY);
+
+          if (warpStrength > 0) {
+            const freq = warpFreq > 0 ? warpFreq * 0.01 : 0.2;
+            sx += Math.sin(sy * freq) * (warpStrength * 0.4);
+            sy += Math.cos(sx * freq) * (warpStrength * 0.4);
+          }
+
+          if (noiseDistort > 0) {
+            const isx = Math.floor(sx) | 0;
+            const isy = Math.floor(sy) | 0;
+            const jn = (((Math.imul(isx, 374761393) + Math.imul(isy, 668265263)) ^ 0x5bf03635) >>> 0) & 0xFF;
+            const jitter = (jn - 128) * (noiseDistort * 0.0025);
+            sx += jitter;
+            sy += jitter;
+          }
+
+          if (pinchSwirl !== 0) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const r = Math.sqrt(dx * dx + dy * dy);
+            if (r < maxR) {
+              const factor = (1.0 - r / maxR) * (pinchSwirl * 0.01) * Math.PI;
+              const cosS = Math.cos(factor);
+              const sinS = Math.sin(factor);
+              const nrx = dx * cosS - dy * sinS;
+              const nry = dx * sinS + dy * cosS;
+              sx = cx + nrx + offsetX;
+              sy = cy + nry + offsetY;
+            }
+          }
+
+          let pixColor = fillArgb;
+          if (gradient && bgBounds) {
+            const gradX = (warpStrength > 0 || noiseDistort > 0 || pinchSwirl !== 0) ? (sx - offsetX) : x;
+            const gradY = (warpStrength > 0 || noiseDistort > 0 || pinchSwirl !== 0) ? (sy - offsetY) : y;
+            pixColor = sampleGradient(gradient, gradX, gradY, bgBounds, scale, 1.0);
+          }
+
+          const origA = (pixColor >>> 24) & 0xFF;
+          let sampledA = origA;
+          if (customPixels) {
+            sampledA = sampleCustomTexture(customPixels, customW, customH, sx, sy, texAngle, texScale, texContrast, origA);
+          } else if (texMode > 0) {
+            sampledA = sampleProceduralTexture(texMode, sx, sy, texAngle, texScale, texContrast, origA);
+          }
+
+          if (texGrain > 0) {
+            const isx = Math.floor(sx) | 0;
+            const isy = Math.floor(sy) | 0;
+            const hg = (((Math.imul(isx, 1103515245) + Math.imul(isy, 12345) + 0x654321) ^ 0xDEADBEEF) >>> 0) & 0xFF;
+            const gFactor = 1.0 - (texGrain * 0.01) * ((hg - 128) / 128.0);
+            sampledA = Math.max(0, Math.min(255, Math.round(sampledA * gFactor)));
+          }
+
+          if (invert) {
+            let inv = origA - (sampledA - Math.floor(origA * 40 / 255));
+            sampledA = inv < 0 ? 0 : (inv > 255 ? 255 : inv);
+          }
+
+          if (posterize >= 2) {
+            const step = Math.floor(255 / posterize);
+            sampledA = Math.min(255, Math.floor((sampledA + Math.floor(step / 2)) / step) * step);
+          }
+
+          if (featherW > 0) {
+            const dLeft = x;
+            const dRight = lw - 1 - x;
+            const dTop = y;
+            const dBottom = lh - 1 - y;
+            const edgeDist = Math.min(dLeft, dRight, dTop, dBottom);
+            if (edgeDist < featherW) {
+              sampledA = Math.round(sampledA * (edgeDist / featherW));
+            }
+          }
+
+          u32[row + x] = ((sampledA << 24) | (pixColor & 0x00FFFFFF)) >>> 0;
+        }
+      }
     }
 
     /**
