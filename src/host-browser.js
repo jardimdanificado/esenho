@@ -141,6 +141,8 @@ async function main() {
   host.canvasRotation = 0;
   host.gpuRenderer = gpuRenderer;
   host.viewportFiltering = localStorage.getItem('esenho_viewport_filter') === '1';
+  if (canvasEl) canvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
+  if (uiCanvasEl) uiCanvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
   if (gpuRenderer) gpuRenderer.setFilterMode(host.viewportFiltering);
   host.renderMode = localStorage.getItem('esenho_render_mode') || 'gpu';
   host.render = () => {
@@ -7138,6 +7140,8 @@ async function main() {
     const checkNearest = document.getElementById('check-vfilter-nearest');
     if (checkBilinear) checkBilinear.style.opacity = host.viewportFiltering ? '1' : '0';
     if (checkNearest) checkNearest.style.opacity = host.viewportFiltering ? '0' : '1';
+    if (canvasEl) canvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
+    if (uiCanvasEl) uiCanvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
     localStorage.setItem('esenho_viewport_filter', host.viewportFiltering ? '1' : '0');
     markCanvasDirty();
   };

@@ -51,9 +51,13 @@ assert.strictEqual(Math.round(inters[0]), 0, 'Left intersection at x=0');
 assert.strictEqual(Math.round(inters[1]), 100, 'Right intersection at x=100');
 console.log('✔ FastRandom & Scanline Intersections passed');
 
-// 2. Trajectory Patterns (Linear, Crosshatch, Triple Hatch, Contour, Stipple, Scribble, Zigzag, Wave, Spiral)
-console.log('2. Testing Procedural Trajectory Patterns...');
-const patterns = ['linear', 'crosshatch', 'triple_hatch', 'contour', 'stipple', 'scribble', 'zigzag', 'wave', 'spiral'];
+// 2. Trajectory Patterns (17 total: Linear, Crosshatch, Triple Hatch, Herringbone, Woven, Isometric, Cross Contour, Radial, Concentric, Flow Field, Voronoi, Contour, Stipple, Scribble, Zigzag, Wave, Spiral)
+console.log('2. Testing Procedural Trajectory Patterns (17 patterns)...');
+const patterns = [
+  'linear', 'crosshatch', 'triple_hatch', 'herringbone', 'woven', 'isometric',
+  'cross_contour', 'radial', 'concentric', 'flow_field', 'voronoi',
+  'contour', 'stipple', 'scribble', 'zigzag', 'wave', 'spiral'
+];
 
 for (const pattern of patterns) {
   const strokes = BrushFillEngine.generateStrokes([squarePoly], {
@@ -72,7 +76,20 @@ const crossStrokes = BrushFillEngine.generateStrokes([squarePoly], { pattern: 'c
 const tripleStrokes = BrushFillEngine.generateStrokes([squarePoly], { pattern: 'triple_hatch', spacing: 10, seed: 10 });
 assert.ok(crossStrokes.length > linearStrokes.length, 'Crosshatch should produce more strokes than single linear hatch');
 assert.ok(tripleStrokes.length > crossStrokes.length, 'Triple hatch should produce more strokes than crosshatch');
-console.log('✔ All 9 procedural patterns passed');
+
+// Directional tests (forward, reverse, bidirectional, random)
+const bidiStrokes = BrushFillEngine.generateStrokes([squarePoly], { pattern: 'linear', strokeDirection: 'bidirectional', spacing: 20, seed: 42 });
+const revStrokes = BrushFillEngine.generateStrokes([squarePoly], { pattern: 'linear', strokeDirection: 'reverse', spacing: 20, seed: 42 });
+assert.ok(bidiStrokes.length > 0 && revStrokes.length > 0, 'Direction modes should generate strokes');
+
+// Origin and Wave parameters
+const radialOriginStrokes = BrushFillEngine.generateStrokes([squarePoly], { pattern: 'radial', originX: 25, originY: 25, spacing: 15, seed: 42 });
+assert.ok(radialOriginStrokes.length > 0, 'Radial with custom origin should produce strokes');
+
+const waveTunedStrokes = BrushFillEngine.generateStrokes([squarePoly], { pattern: 'wave', waveFrequency: 2.5, waveAmplitude: 15, spacing: 20, seed: 42 });
+assert.ok(waveTunedStrokes.length > 0, 'Wave with custom freq & amp should produce strokes');
+
+console.log('✔ All 17 procedural patterns and trajectory parameters passed');
 
 // 3. Strokes Per Line, Segmentation, and Gap Controls
 console.log('3. Testing Segmentation and Strokes Per Line...');
@@ -132,7 +149,26 @@ assert.strictEqual(paletteStrokes[0].color, '#ff0000');
 assert.strictEqual(paletteStrokes[1].color, '#00ff00');
 assert.strictEqual(paletteStrokes[2].color, '#0000ff');
 assert.strictEqual(paletteStrokes[3].color, '#ff0000', 'Palette cycling should wrap back to first color');
-console.log('✔ Multi-Color Palette cycling passed');
+
+// 5.1. Testing Saved Palette ID Resolution with PaletteManager
+const customPal = ColorStudio.PaletteManager.createPalette('Test Brush Palette', ['#112233', '#445566', '#778899']);
+assert.ok(customPal && customPal.id, 'PaletteManager should create custom palette');
+const savedPalStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 10,
+  colorMode: 'palette',
+  colorPaletteId: customPal.id,
+  colorPalette: [], // should resolve from colorPaletteId
+  colorPickMode: 'cycle',
+  colorJitter: 0,
+  seed: 42
+});
+assert.strictEqual(savedPalStrokes[0].color, '#112233');
+assert.strictEqual(savedPalStrokes[1].color, '#445566');
+assert.strictEqual(savedPalStrokes[2].color, '#778899');
+assert.strictEqual(savedPalStrokes[3].color, '#112233');
+
+console.log('✔ Multi-Color Palette cycling & Saved Palettes resolution passed');
 
 // 6. Variance, Curvature, and Jitters
 console.log('6. Testing Parameter Variance & Jitters...');
@@ -182,8 +218,8 @@ const bleedStrokes = BrushFillEngine.generateStrokes([squarePoly], {
 });
 
 // In horizontal angle 0: strict strokes span x: 0 to 100 (len 100). Bleed strokes should overshoot by bleedDistance on both ends (span -25 to 125, len 150)
-const strictLen = strictStrokes[0].p1.x - strictStrokes[0].p0.x;
-const bleedLen = bleedStrokes[0].p1.x - bleedStrokes[0].p0.x;
+const strictLen = Math.abs(strictStrokes[0].p1.x - strictStrokes[0].p0.x);
+const bleedLen = Math.abs(bleedStrokes[0].p1.x - bleedStrokes[0].p0.x);
 assert.strictEqual(Math.round(strictLen), 100, 'Strict stroke should match polygon span');
 assert.strictEqual(Math.round(bleedLen), 150, 'Bleed stroke should overshoot polygon boundary by 2x bleedDistance');
 console.log('✔ Boundary Bleed & Overshoot passed');

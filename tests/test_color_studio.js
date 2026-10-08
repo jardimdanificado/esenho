@@ -315,4 +315,101 @@ assert.strictEqual(createdButtons[3].style._props['background'].val, '#83a598');
 createdButtons[0].listeners['click']();
 assert.strictEqual(widget.currentHex.toLowerCase(), '#fe8019');
 
+// 14. Comprehensive Palette Management (Create, Rename, Modify, Harmonies, Import/Export)
+console.log('14. Testing Comprehensive Palette Management Engine...');
+const PM = ColorStudio.PaletteManager;
+assert(PM, 'PaletteManager should be exported');
+
+// 14.1 Create Palette
+const newPal = PM.createPalette('Neon Nights', ['#ff0055', '#00ffcc']);
+assert(newPal, 'New palette should be created');
+assert.strictEqual(newPal.name, 'Neon Nights');
+assert.strictEqual(newPal.colors.length, 2);
+assert.strictEqual(PM.getPalette(newPal.id).name, 'Neon Nights');
+
+// 14.2 Rename Palette
+const renameSuccess = PM.renamePalette(newPal.id, 'Cyber Neon 2026');
+assert.strictEqual(renameSuccess, true);
+assert.strictEqual(PM.getPalette(newPal.id).name, 'Cyber Neon 2026');
+
+// 14.3 Modify Palettes Freely (Add, Edit, Remove, Reorder, Clear)
+PM.addColor(newPal.id, '#ffe600');
+assert.strictEqual(PM.getPalette(newPal.id).colors.length, 3);
+assert.strictEqual(PM.getPalette(newPal.id).colors[2], '#ffe600');
+
+// Insert color at index 1
+PM.addColor(newPal.id, '#7928ca', 1);
+assert.strictEqual(PM.getPalette(newPal.id).colors[1], '#7928ca');
+assert.strictEqual(PM.getPalette(newPal.id).colors.length, 4);
+
+// Edit color
+PM.editColor(newPal.id, 0, '#ff1177');
+assert.strictEqual(PM.getPalette(newPal.id).colors[0], '#ff1177');
+
+// Move color
+PM.moveColor(newPal.id, 0, 2);
+assert.strictEqual(PM.getPalette(newPal.id).colors[2], '#ff1177');
+
+// Remove color
+PM.removeColor(newPal.id, 2);
+assert.strictEqual(PM.getPalette(newPal.id).colors.length, 3);
+
+// 14.4 Sorting & Reversing
+PM.setColors(newPal.id, ['#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff']);
+PM.sortPalette(newPal.id, 'lightness');
+assert.strictEqual(PM.getPalette(newPal.id).colors[0], '#000000');
+assert.strictEqual(PM.getPalette(newPal.id).colors[4], '#ffffff');
+
+PM.reversePalette(newPal.id);
+assert.strictEqual(PM.getPalette(newPal.id).colors[0], '#ffffff');
+assert.strictEqual(PM.getPalette(newPal.id).colors[4], '#000000');
+
+// 14.5 Harmonies Generator
+const analogous = PM.generateHarmony('#fabd2f', 'analogous');
+assert.strictEqual(analogous.length, 5);
+const comp = PM.generateHarmony('#fabd2f', 'complementary');
+assert.strictEqual(comp.length, 5);
+const triadic = PM.generateHarmony('#fabd2f', 'triadic');
+assert.strictEqual(triadic.length, 6);
+const mono = PM.generateHarmony('#fabd2f', 'monochromatic');
+assert.strictEqual(mono.length, 6);
+
+// 14.6 Clone Palette
+const cloned = PM.clonePalette(newPal.id, 'Cloned Neon');
+assert(cloned);
+assert.strictEqual(cloned.name, 'Cloned Neon');
+assert.strictEqual(cloned.colors.length, 5);
+
+// 14.7 Export & Import
+const exportedJson = PM.exportPalette(newPal.id, 'json');
+assert(exportedJson.includes('Cyber Neon 2026'));
+const importedFromJson = PM.importPalette(exportedJson);
+assert(importedFromJson);
+assert.strictEqual(importedFromJson.name, 'Cyber Neon 2026');
+assert.strictEqual(importedFromJson.colors.length, 5);
+
+const exportedGpl = PM.exportPalette(newPal.id, 'gpl');
+assert(exportedGpl.includes('GIMP Palette'));
+const importedFromGpl = PM.importPalette(exportedGpl);
+assert(importedFromGpl);
+assert.strictEqual(importedFromGpl.name, 'Cyber Neon 2026');
+
+const hexList = '#112233\n#445566\n#778899';
+const importedFromHex = PM.importPalette(hexList);
+assert(importedFromHex);
+assert.strictEqual(importedFromHex.colors.length, 3);
+
+// 14.8 Delete Palette
+const delId = importedFromHex.id;
+PM.deletePalette(delId);
+assert.strictEqual(PM.getPalette(delId), null);
+
+// 14.9 Built-in & Factory Presets freely modifiable and resettable
+const gruv = PM.getPalette('gruvbox');
+assert(gruv);
+PM.addColor('gruvbox', '#123456');
+assert(PM.getPalette('gruvbox').colors.includes('#123456'));
+PM.resetPalette('gruvbox');
+assert(!PM.getPalette('gruvbox').colors.includes('#123456'));
+
 console.log('--- ALL MATERIAL & COLOR STUDIO TESTS PASSED ---');

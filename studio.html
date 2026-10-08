@@ -2125,6 +2125,7 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
       background-color: var(--bg-dark);
       border-radius: 2px;
+      image-rendering: pixelated;
     }
 
     #svg-stage {
@@ -2133,6 +2134,7 @@
       height: 100%;
       pointer-events: none;
       overflow: visible !important;
+      image-rendering: pixelated;
     }
 
     #quadro-canvas {
@@ -2143,6 +2145,7 @@
       height: 100%;
       pointer-events: none;
       display: none;
+      image-rendering: pixelated;
     }
 
     #overlay-canvas {
@@ -8475,7 +8478,8 @@
             { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
             { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
             { type: 'sep' },
-            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(!viewportBilinear, true) },
+            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Bilinear (Smooth)', action: () => setViewportBilinear(true, true) },
+            { type: 'item', label: !viewportBilinear ? '✓ Filter: Nearest (Crisp)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(false, true) },
             { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
           ]);
 
@@ -10220,7 +10224,7 @@
       });
 
       // Viewport Render Mode & Engine Switcher
-      let viewportBilinear = initialStudioSettings.viewportBilinear !== undefined ? Boolean(initialStudioSettings.viewportBilinear) : true;
+      let viewportBilinear = initialStudioSettings.viewportBilinear !== undefined ? Boolean(initialStudioSettings.viewportBilinear) : false;
       function setViewportBilinear(enable, notify = false) {
         viewportBilinear = Boolean(enable);
         saveStudioSettings({ viewportBilinear });
@@ -10237,6 +10241,7 @@
           showNotification(`Viewport Filter: ${viewportBilinear ? 'Bilinear (Smooth)' : 'Nearest (Crisp)'}`);
         }
       }
+      setViewportBilinear(viewportBilinear, false);
 
       function updateRendererMenuUi() {
         const checkSvg = document.getElementById('check-renderer-svg');
@@ -11568,7 +11573,8 @@
             { type: 'item', label: Math.abs(quadroRenderScale - 1.0) < 0.01 ? '✓ Scale: 1.0× (Native 1:1)' : 'Scale: 1.0× (Native 1:1)', action: () => { quadroRenderScale = 1.0; updateStageSize(); render(); updateRendererMenuUi(); } },
             { type: 'item', label: Math.abs(quadroRenderScale - 2.0) < 0.01 ? '✓ Scale: 2.0× (Hi-DPI Retina)' : 'Scale: 2.0× (Hi-DPI Retina)', action: () => { quadroRenderScale = 2.0; updateStageSize(); render(); updateRendererMenuUi(); } },
             { type: 'sep' },
-            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(!viewportBilinear, true) },
+            { type: 'item', label: viewportBilinear ? '✓ Filter: Bilinear (Smooth)' : 'Filter: Bilinear (Smooth)', action: () => setViewportBilinear(true, true) },
+            { type: 'item', label: !viewportBilinear ? '✓ Filter: Nearest (Crisp)' : 'Filter: Nearest (Crisp)', action: () => setViewportBilinear(false, true) },
             { type: 'item', label: groupSelectMode ? '✓ Group Select: Enabled' : 'Group Select: Disabled', action: () => setGroupSelectMode(!groupSelectMode, true) }
           ]},
           { type: 'sep' },

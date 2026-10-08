@@ -233,12 +233,13 @@ class EsenhoGPURenderer {
     }
 
     // 6. Create Direct Composite Texture
+    const initialFilter = this.filterMode ? gl.LINEAR : gl.NEAREST;
     this.compositeTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.compositeTex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, initialFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, initialFilter);
 
     this.isSupported = true;
     console.log('[EsenhoGPU] WebGL2 Full GPU Pipeline (Viewport + Multi-Layer Compositor + Instanced Brush Engine) ready.');
@@ -272,8 +273,9 @@ class EsenhoGPURenderer {
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      const fboFilter = this.filterMode ? gl.LINEAR : gl.NEAREST;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, fboFilter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, fboFilter);
 
       const fbo = gl.createFramebuffer();
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
@@ -298,8 +300,8 @@ class EsenhoGPURenderer {
   }
 
   setFilterMode(linear) {
-    if (!this.gl) return;
     this.filterMode = linear ? 1 : 0;
+    if (!this.gl) return;
     const gl = this.gl;
     const filter = linear ? gl.LINEAR : gl.NEAREST;
     if (this.compositeTex) {

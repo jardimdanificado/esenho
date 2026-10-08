@@ -192,54 +192,575 @@
     return { isNone: false, hex: '#fabd2f', r: 250, g: 189, b: 47, a: 1.0 };
   }
 
-  // ── 2. Built-in Palette Presets ──
+  // ── 2. Comprehensive Color Palette Manager & Presets ──
 
-  const PALETTES = {
+  const DEFAULT_FACTORY_PALETTES = {
     gruvbox: {
+      id: 'gruvbox',
       name: 'Gruvbox',
       colors: [
         '#282828', '#928374', '#cc241d', '#98971a', '#d79921', '#458588', '#b16286', '#689d6a', '#a89984',
         '#1d2021', '#ebdbb2', '#fb4934', '#b8bb26', '#fabd2f', '#83a598', '#d3869b', '#8ec07c', '#fbf1c7'
-      ]
+      ],
+      isBuiltIn: true
     },
     material: {
+      id: 'material',
       name: 'Material Design',
       colors: [
         '#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4',
         '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722',
         '#795548', '#9e9e9e', '#607d8b', '#000000', '#ffffff'
-      ]
+      ],
+      isBuiltIn: true
     },
     nord: {
+      id: 'nord',
       name: 'Nord',
       colors: [
         '#2e3440', '#3b4252', '#434c5e', '#4c566a', '#d8dee9', '#e5e9f0', '#eceff4',
         '#8fbcbb', '#88c0d0', '#81a1c1', '#5e81ac', '#bf616a', '#d08770', '#ebcb8b', '#a3be8c', '#b48ead'
-      ]
+      ],
+      isBuiltIn: true
     },
     cyberpunk: {
+      id: 'cyberpunk',
       name: 'Cyberpunk',
       colors: [
         '#0d0221', '#0f084b', '#26408b', '#a6cfd5', '#c2e7d9', '#ff0055', '#00ffcc', '#ffe600',
-        '#7928ca', '#ff0080', '#0070f3', '#50e3c2', '#f5a623', '#bd10e0', '#4a90e2', '#50e3c2'
-      ]
+        '#7928ca', '#ff0080', '#0070f3', '#50e3c2', '#f5a623', '#bd10e0', '#4a90e2', '#22eaaa'
+      ],
+      isBuiltIn: true
     },
     monochrome: {
+      id: 'monochrome',
       name: 'Monochrome',
       colors: [
         '#000000', '#111111', '#222222', '#333333', '#444444', '#555555', '#666666', '#777777',
         '#888888', '#999999', '#aaaaaa', '#bbbbbb', '#cccccc', '#dddddd', '#eeeeee', '#ffffff'
-      ]
+      ],
+      isBuiltIn: true
+    },
+    solarized: {
+      id: 'solarized',
+      name: 'Solarized',
+      colors: [
+        '#002b36', '#073642', '#586e75', '#657b83', '#839496', '#93a1a1', '#eee8d5', '#fdf6e3',
+        '#b58900', '#cb4b16', '#dc322f', '#d33682', '#6c71c4', '#268bd2', '#2aa198', '#859900'
+      ],
+      isBuiltIn: true
+    },
+    dracula: {
+      id: 'dracula',
+      name: 'Dracula',
+      colors: [
+        '#282a36', '#44475a', '#f8f8f2', '#6272a4', '#8be9fd', '#50fa7b', '#ffb86c', '#ff79c6',
+        '#bd93f9', '#ff5555', '#f1fa8c', '#1e1f29'
+      ],
+      isBuiltIn: true
+    },
+    pastel: {
+      id: 'pastel',
+      name: 'Pastel Dreams',
+      colors: [
+        '#ffb3ba', '#ffdfba', '#ffffba', '#baffc9', '#bae1ff', '#e8c5ff', '#f3b0c3', '#c6dbda',
+        '#fee1e8', '#fed7c3', '#f6eac2', '#ecd5e3'
+      ],
+      isBuiltIn: true
+    },
+    vaporwave: {
+      id: 'vaporwave',
+      name: 'Vaporwave',
+      colors: [
+        '#ff71ce', '#01cdfe', '#05ffa1', '#b967ff', '#fffb96', '#241734', '#2e2157', '#fd3a69',
+        '#fecd1a', '#120052'
+      ],
+      isBuiltIn: true
+    },
+    pico8: {
+      id: 'pico8',
+      name: 'PICO-8',
+      colors: [
+        '#000000', '#1d2b53', '#7e2553', '#008751', '#ab5236', '#5f574f', '#c2c3c7', '#fff1e8',
+        '#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#83769c', '#ff77a8', '#ffccaa'
+      ],
+      isBuiltIn: true
+    },
+    gameboy: {
+      id: 'gameboy',
+      name: 'Game Boy',
+      colors: [
+        '#0f380f', '#306230', '#8bac0f', '#9bbc0f'
+      ],
+      isBuiltIn: true
+    },
+    custom: {
+      id: 'custom',
+      name: 'Custom Swatches',
+      colors: [
+        '#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'
+      ],
+      isBuiltIn: true
     }
   };
 
-  const CUSTOM_PALETTE_KEY = 'esenho_color_studio_custom_swatches';
+  const PALETTE_STORE_KEY = 'esenho_color_palettes_v2';
+  const LEGACY_CUSTOM_PALETTE_KEY = 'esenho_color_studio_custom_swatches';
+  const LEGACY_PAINTER_PALETTES_KEY = 'esenho_custom_palettes_v1';
   const CUSTOM_MATERIALS_KEY = 'esenho_materials_custom_presets';
+
+  class PaletteManagerClass {
+    constructor() {
+      this.palettes = {};
+      this.activePaletteId = 'gruvbox';
+      this.listeners = new Set();
+      this.load();
+    }
+
+    load() {
+      this.palettes = JSON.parse(JSON.stringify(DEFAULT_FACTORY_PALETTES));
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const rawV2 = localStorage.getItem(PALETTE_STORE_KEY);
+          if (rawV2) {
+            const data = JSON.parse(rawV2);
+            if (data && data.palettes && typeof data.palettes === 'object') {
+              for (const [id, pal] of Object.entries(data.palettes)) {
+                if (pal && typeof pal === 'object' && pal.name) {
+                  this.palettes[id] = {
+                    id: pal.id || id,
+                    name: String(pal.name || id).trim(),
+                    colors: this.sanitizeColors(pal.colors),
+                    isBuiltIn: Boolean(pal.isBuiltIn && DEFAULT_FACTORY_PALETTES[id])
+                  };
+                }
+              }
+            }
+            if (data && data.activePaletteId && (this.palettes[data.activePaletteId] || data.activePaletteId === 'document')) {
+              this.activePaletteId = data.activePaletteId;
+            }
+          } else {
+            this.migrateLegacy();
+          }
+        }
+      } catch (e) {
+        console.warn('[PaletteManager] Load error, using defaults:', e);
+      }
+    }
+
+    migrateLegacy() {
+      try {
+        if (typeof localStorage === 'undefined') return;
+        const rawCustom = localStorage.getItem(LEGACY_CUSTOM_PALETTE_KEY);
+        if (rawCustom) {
+          const parsed = JSON.parse(rawCustom);
+          const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.colors) ? parsed.colors : []);
+          const sanitized = this.sanitizeColors(list);
+          if (sanitized.length > 0) {
+            this.palettes.custom = {
+              id: 'custom',
+              name: 'Custom Swatches',
+              colors: sanitized,
+              isBuiltIn: true
+            };
+          }
+        }
+        const rawPainter = localStorage.getItem(LEGACY_PAINTER_PALETTES_KEY);
+        if (rawPainter) {
+          const parsed = JSON.parse(rawPainter);
+          if (parsed && typeof parsed === 'object') {
+            for (const [name, colors] of Object.entries(parsed)) {
+              const palId = 'pal_' + name.toLowerCase().replace(/[^a-z0-9_]/g, '_');
+              this.palettes[palId] = {
+                id: palId,
+                name: String(name).trim(),
+                colors: this.sanitizeColors(colors),
+                isBuiltIn: false
+              };
+            }
+          }
+        }
+        this.save();
+      } catch (_) {}
+    }
+
+    save() {
+      try {
+        if (typeof localStorage !== 'undefined') {
+          const serialized = {
+            activePaletteId: this.activePaletteId,
+            palettes: this.palettes
+          };
+          localStorage.setItem(PALETTE_STORE_KEY, JSON.stringify(serialized));
+          if (this.palettes.custom) {
+            localStorage.setItem(LEGACY_CUSTOM_PALETTE_KEY, JSON.stringify(this.palettes.custom.colors));
+          }
+        }
+      } catch (e) {
+        console.warn('[PaletteManager] Save error:', e);
+      }
+      this.notify();
+    }
+
+    notify() {
+      for (const cb of this.listeners) {
+        try { cb(this); } catch (_) {}
+      }
+    }
+
+    subscribe(cb) {
+      this.listeners.add(cb);
+      return () => this.listeners.delete(cb);
+    }
+
+    sanitizeColors(arr) {
+      if (!Array.isArray(arr)) return [];
+      return arr.map(item => {
+        if (typeof item === 'string') return item.trim();
+        if (item && typeof item === 'object') return (item.hex || item.color || item.value || '').trim();
+        return String(item || '').trim();
+      }).filter(c => typeof c === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(c));
+    }
+
+    getAllPalettes() {
+      return Object.values(this.palettes);
+    }
+
+    getPalette(id) {
+      return this.palettes[id] || null;
+    }
+
+    getActivePalette() {
+      return this.palettes[this.activePaletteId] || this.palettes.gruvbox;
+    }
+
+    setActivePalette(id) {
+      if (this.palettes[id] || id === 'document') {
+        this.activePaletteId = id;
+        this.save();
+      }
+    }
+
+    createPalette(name, colors = [], id = null) {
+      const palName = String(name || 'New Palette').trim();
+      const palId = id || ('pal_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7));
+      const sanitized = this.sanitizeColors(colors);
+      this.palettes[palId] = {
+        id: palId,
+        name: palName,
+        colors: sanitized,
+        isBuiltIn: false
+      };
+      this.activePaletteId = palId;
+      this.save();
+      return this.palettes[palId];
+    }
+
+    renamePalette(id, newName) {
+      if (!this.palettes[id]) return false;
+      const cleanName = String(newName || '').trim();
+      if (!cleanName) return false;
+      this.palettes[id].name = cleanName;
+      this.save();
+      return true;
+    }
+
+    deletePalette(id) {
+      if (!this.palettes[id]) return false;
+      delete this.palettes[id];
+      if (this.activePaletteId === id) {
+        this.activePaletteId = Object.keys(this.palettes)[0] || 'gruvbox';
+      }
+      this.save();
+      return true;
+    }
+
+    clonePalette(id, newName = null) {
+      const src = this.getPalette(id);
+      if (!src) return null;
+      const name = newName || `${src.name} (Copy)`;
+      return this.createPalette(name, [...src.colors]);
+    }
+
+    setColors(id, colors) {
+      if (!this.palettes[id]) {
+        if (id === 'custom') {
+          this.palettes.custom = { id: 'custom', name: 'Custom Swatches', colors: [], isBuiltIn: true };
+        } else {
+          return false;
+        }
+      }
+      this.palettes[id].colors = this.sanitizeColors(colors);
+      this.save();
+      return true;
+    }
+
+    addColor(id, color, index = -1) {
+      if (!this.palettes[id]) {
+        if (id === 'custom' || !this.palettes.custom) {
+          this.palettes.custom = { id: 'custom', name: 'Custom Swatches', colors: [], isBuiltIn: true };
+          id = 'custom';
+        } else {
+          return false;
+        }
+      }
+      let clean = String(color || '').trim();
+      if (!clean.startsWith('#')) clean = '#' + clean;
+      if (!/^#[0-9A-Fa-f]{3,8}$/.test(clean)) return false;
+
+      const pal = this.palettes[id];
+      if (index >= 0 && index < pal.colors.length) {
+        pal.colors.splice(index, 0, clean);
+      } else {
+        pal.colors.push(clean);
+      }
+      this.save();
+      return true;
+    }
+
+    removeColor(id, index) {
+      if (!this.palettes[id]) return false;
+      const pal = this.palettes[id];
+      if (index >= 0 && index < pal.colors.length) {
+        pal.colors.splice(index, 1);
+        this.save();
+        return true;
+      }
+      return false;
+    }
+
+    editColor(id, index, newColor) {
+      if (!this.palettes[id]) return false;
+      let clean = String(newColor || '').trim();
+      if (!clean.startsWith('#')) clean = '#' + clean;
+      if (!/^#[0-9A-Fa-f]{3,8}$/.test(clean)) return false;
+
+      const pal = this.palettes[id];
+      if (index >= 0 && index < pal.colors.length) {
+        pal.colors[index] = clean;
+        this.save();
+        return true;
+      }
+      return false;
+    }
+
+    moveColor(id, fromIdx, toIdx) {
+      if (!this.palettes[id]) return false;
+      const pal = this.palettes[id];
+      if (fromIdx < 0 || fromIdx >= pal.colors.length || toIdx < 0 || toIdx >= pal.colors.length) return false;
+      const [item] = pal.colors.splice(fromIdx, 1);
+      pal.colors.splice(toIdx, 0, item);
+      this.save();
+      return true;
+    }
+
+    clearPalette(id) {
+      if (!this.palettes[id]) return false;
+      this.palettes[id].colors = [];
+      this.save();
+      return true;
+    }
+
+    sortPalette(id, criterion = 'hue') {
+      if (!this.palettes[id]) return false;
+      const pal = this.palettes[id];
+      pal.colors.sort((a, b) => {
+        const rgbA = hexToRgb(a);
+        const rgbB = hexToRgb(b);
+        const hsvA = rgbToHsv(rgbA.r, rgbA.g, rgbA.b);
+        const hsvB = rgbToHsv(rgbB.r, rgbB.g, rgbB.b);
+        const hslA = rgbToHsl(rgbA.r, rgbA.g, rgbA.b);
+        const hslB = rgbToHsl(rgbB.r, rgbB.g, rgbB.b);
+        const lumA = 0.299 * rgbA.r + 0.587 * rgbA.g + 0.114 * rgbA.b;
+        const lumB = 0.299 * rgbB.r + 0.587 * rgbB.g + 0.114 * rgbB.b;
+
+        if (criterion === 'hue') return hsvA.h - hsvB.h || hsvA.s - hsvB.s || hsvA.v - hsvB.v;
+        if (criterion === 'saturation') return hsvA.s - hsvB.s || hsvA.v - hsvB.v;
+        if (criterion === 'lightness') return hslA.l - hslB.l;
+        if (criterion === 'luminance') return lumA - lumB;
+        return a.localeCompare(b);
+      });
+      this.save();
+      return true;
+    }
+
+    reversePalette(id) {
+      if (!this.palettes[id]) return false;
+      this.palettes[id].colors.reverse();
+      this.save();
+      return true;
+    }
+
+    resetPalette(id) {
+      if (DEFAULT_FACTORY_PALETTES[id]) {
+        this.palettes[id] = JSON.parse(JSON.stringify(DEFAULT_FACTORY_PALETTES[id]));
+        this.save();
+        return true;
+      }
+      return false;
+    }
+
+    resetAllToFactory() {
+      this.palettes = JSON.parse(JSON.stringify(DEFAULT_FACTORY_PALETTES));
+      this.activePaletteId = 'gruvbox';
+      this.save();
+    }
+
+    generateHarmony(baseHex, type = 'analogous') {
+      const rgb = hexToRgb(baseHex);
+      const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+      const results = [];
+
+      const makeColor = (h, s, v) => {
+        const normH = ((h % 360) + 360) % 360;
+        const normS = clamp(s, 0, 100);
+        const normV = clamp(v, 0, 100);
+        const rgbVal = hsvToRgb(normH, normS, normV);
+        return rgbToHex(rgbVal.r, rgbVal.g, rgbVal.b);
+      };
+
+      if (type === 'analogous') {
+        [-30, -15, 0, 15, 30].forEach(deg => {
+          results.push(makeColor(hsv.h + deg, hsv.s, hsv.v));
+        });
+      } else if (type === 'complementary') {
+        results.push(makeColor(hsv.h, hsv.s, hsv.v));
+        results.push(makeColor(hsv.h, hsv.s * 0.6, hsv.v * 1.1));
+        results.push(makeColor(hsv.h + 180, hsv.s, hsv.v));
+        results.push(makeColor(hsv.h + 180, hsv.s * 0.6, hsv.v * 1.1));
+        results.push(makeColor(hsv.h + 180, hsv.s * 0.8, hsv.v * 0.7));
+      } else if (type === 'split_complementary') {
+        results.push(makeColor(hsv.h, hsv.s, hsv.v));
+        results.push(makeColor(hsv.h + 150, hsv.s, hsv.v));
+        results.push(makeColor(hsv.h + 210, hsv.s, hsv.v));
+        results.push(makeColor(hsv.h + 150, hsv.s * 0.7, hsv.v * 0.8));
+        results.push(makeColor(hsv.h + 210, hsv.s * 0.7, hsv.v * 0.8));
+      } else if (type === 'triadic') {
+        [0, 120, 240].forEach(deg => {
+          results.push(makeColor(hsv.h + deg, hsv.s, hsv.v));
+          results.push(makeColor(hsv.h + deg, hsv.s * 0.7, hsv.v * 0.85));
+        });
+      } else if (type === 'tetradic') {
+        [0, 90, 180, 270].forEach(deg => {
+          results.push(makeColor(hsv.h + deg, hsv.s, hsv.v));
+        });
+      } else if (type === 'monochromatic') {
+        [20, 35, 50, 65, 80, 95].forEach(val => {
+          results.push(makeColor(hsv.h, hsv.s * (val > 50 ? 0.9 : 1.0), val));
+        });
+      }
+      return results;
+    }
+
+    exportPalette(id, format = 'json') {
+      const pal = this.getPalette(id);
+      if (!pal) return null;
+
+      if (format === 'json') {
+        return JSON.stringify({
+          name: pal.name,
+          colors: pal.colors,
+          version: '1.0'
+        }, null, 2);
+      } else if (format === 'hex') {
+        return pal.colors.join('\n');
+      } else if (format === 'gpl') {
+        let lines = [
+          'GIMP Palette',
+          `Name: ${pal.name}`,
+          'Columns: 8',
+          '#'
+        ];
+        pal.colors.forEach((hex, i) => {
+          const rgb = hexToRgb(hex);
+          const r = String(rgb.r).padStart(3, ' ');
+          const g = String(rgb.g).padStart(3, ' ');
+          const b = String(rgb.b).padStart(3, ' ');
+          lines.push(`${r} ${g} ${b} Swatch ${i + 1}`);
+        });
+        return lines.join('\n');
+      }
+      return pal.colors.join('\n');
+    }
+
+    importPalette(content, format = 'auto') {
+      if (!content || typeof content !== 'string') return null;
+      const str = content.trim();
+
+      if (str.startsWith('{') || str.startsWith('[')) {
+        try {
+          const parsed = JSON.parse(str);
+          if (Array.isArray(parsed)) {
+            return this.createPalette('Imported Palette', parsed);
+          } else if (parsed && typeof parsed === 'object') {
+            const name = parsed.name || 'Imported Palette';
+            const colors = parsed.colors || [];
+            return this.createPalette(name, colors);
+          }
+        } catch (_) {}
+      }
+
+      if (str.includes('GIMP Palette')) {
+        const lines = str.split('\n');
+        let name = 'Imported GPL';
+        const colors = [];
+        let inData = false;
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('Name:')) {
+            name = trimmed.slice(5).trim();
+          } else if (trimmed === '#') {
+            inData = true;
+          } else if (inData && trimmed) {
+            const match = trimmed.match(/^(\d+)\s+(\d+)\s+(\d+)/);
+            if (match) {
+              const r = parseInt(match[1], 10);
+              const g = parseInt(match[2], 10);
+              const b = parseInt(match[3], 10);
+              colors.push(rgbToHex(r, g, b));
+            }
+          }
+        }
+        if (colors.length > 0) {
+          return this.createPalette(name, colors);
+        }
+      }
+
+      const hexMatches = str.match(/#?[0-9A-Fa-f]{6}/g);
+      if (hexMatches && hexMatches.length > 0) {
+        const normalized = hexMatches.map(h => h.startsWith('#') ? h : '#' + h);
+        return this.createPalette('Imported Hex Palette', normalized);
+      }
+
+      return null;
+    }
+  }
+
+  const PaletteManager = new PaletteManagerClass();
+
+  // Legacy accessor proxies
+  const PALETTES = new Proxy({}, {
+    get: (_, prop) => PaletteManager.getPalette(prop) || DEFAULT_FACTORY_PALETTES[prop] || null,
+    set: (_, prop, val) => {
+      if (val && val.colors) {
+        PaletteManager.setColors(prop, val.colors);
+      }
+      return true;
+    },
+    has: (_, prop) => Boolean(PaletteManager.getPalette(prop) || DEFAULT_FACTORY_PALETTES[prop]),
+    ownKeys: () => Object.keys(PaletteManager.palettes),
+    getOwnPropertyDescriptor: (target, prop) => ({
+      value: PaletteManager.getPalette(prop),
+      writable: true,
+      enumerable: true,
+      configurable: true
+    })
+  });
 
   function getCustomSwatches() {
     try {
       if (typeof localStorage !== 'undefined') {
-        const raw = localStorage.getItem(CUSTOM_PALETTE_KEY);
+        const raw = localStorage.getItem(LEGACY_CUSTOM_PALETTE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           const list = Array.isArray(parsed) ? parsed : (parsed && Array.isArray(parsed.colors) ? parsed.colors : []);
@@ -252,6 +773,10 @@
         }
       }
     } catch (_) {}
+    const pal = PaletteManager.getPalette('custom');
+    if (pal && Array.isArray(pal.colors) && pal.colors.length > 0) {
+      return pal.colors;
+    }
     return ['#fe8019', '#fabd2f', '#b8bb26', '#8ec07c', '#83a598', '#d3869b'];
   }
 
@@ -263,9 +788,10 @@
           if (item && typeof item === 'object') return (item.hex || item.color || item.value || '').trim();
           return String(item || '').trim();
         }).filter(c => typeof c === 'string' && c.length > 0 && c !== '[object Object]') : [];
-        localStorage.setItem(CUSTOM_PALETTE_KEY, JSON.stringify(sanitized));
+        localStorage.setItem(LEGACY_CUSTOM_PALETTE_KEY, JSON.stringify(sanitized));
       }
     } catch (_) {}
+    PaletteManager.setColors('custom', arr);
   }
 
   // ── 2.1. Built-in WASM Filter Plugin Metadata ──
@@ -491,6 +1017,7 @@
     brushList: ['pencil'],
     brushPickMode: 'cycle',
     colorMode: 'palette',
+    colorPaletteId: 'gruvbox',
     colorPalette: ['#fabd2f'],
     colorPickMode: 'cycle',
     strokeWidth: 2,
@@ -741,6 +1268,140 @@
         colorPalette: ['#458588', '#83a598'],
         clipMode: 'strict'
       }
+    },
+    {
+      id: 'herringbone_tweed',
+      name: 'Mechanical Pencil — Herringbone Tweed',
+      brush: 'mech_pencil',
+      desc: 'Classic architectural herringbone chevron hatching',
+      config: {
+        enabled: true,
+        brush: 'mech_pencil',
+        brushes: ['mech_pencil'],
+        pattern: 'herringbone',
+        spacing: 8,
+        angle: 45,
+        strokeWidth: 1.5,
+        strokeOpacity: 0.9,
+        colorPalette: ['#504945', '#3c3836'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'woven_basket',
+      name: 'Washi Graphite — Woven Basketweave',
+      brush: 'washi_sketch',
+      desc: 'Interlocking woven perpendicular fiber strokes',
+      config: {
+        enabled: true,
+        brush: 'washi_sketch',
+        brushes: ['washi_sketch'],
+        pattern: 'woven',
+        spacing: 8,
+        angle: 0,
+        strokeWidth: 1.8,
+        strokeOpacity: 0.85,
+        colorPalette: ['#665c54', '#7c6f64'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'cross_contour_3d',
+      name: '6B Graphite — Cross-Contour 3D',
+      brush: 'soft_pencil',
+      desc: 'Michelangelo style cross-contour volume shading',
+      config: {
+        enabled: true,
+        brush: 'soft_pencil',
+        brushes: ['soft_pencil'],
+        pattern: 'cross_contour',
+        spacing: 8,
+        angle: 30,
+        curvature: 30,
+        curvatureMode: 'arch',
+        strokeWidth: 2.2,
+        strokeOpacity: 0.8,
+        colorPalette: ['#282828', '#3c3836'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'radial_sunburst',
+      name: 'Technical Pen — Radial Sunburst',
+      brush: 'tech_pen',
+      desc: 'Precision drafting rays radiating outward from center',
+      config: {
+        enabled: true,
+        brush: 'tech_pen',
+        brushes: ['tech_pen'],
+        pattern: 'radial',
+        spacing: 6,
+        originX: 50,
+        originY: 50,
+        strokeWidth: 1.2,
+        strokeOpacity: 0.95,
+        colorPalette: ['#d65d0e', '#fabd2f', '#fe8019'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'concentric_zen',
+      name: 'Studio Inker — Concentric Zen Rings',
+      brush: 'inker',
+      desc: 'Harmonic concentric circular ripple arcs',
+      config: {
+        enabled: true,
+        brush: 'inker',
+        brushes: ['inker'],
+        pattern: 'concentric',
+        spacing: 7,
+        originX: 50,
+        originY: 50,
+        strokeWidth: 2.0,
+        strokeOpacity: 0.9,
+        colorPalette: ['#076678', '#458588', '#83a598'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'flow_stream',
+      name: 'Wet Acrylic — Van Gogh Flow Field',
+      brush: 'acrylic',
+      desc: 'Expressive swirling streamline curves following curl vector noise',
+      config: {
+        enabled: true,
+        brush: 'acrylic',
+        brushSecondary: 'oil',
+        brushes: ['acrylic', 'oil'],
+        brushPickMode: 'alternate',
+        pattern: 'flow_field',
+        spacing: 9,
+        waveFrequency: 10,
+        strokeWidth: 3.5,
+        strokeOpacity: 0.88,
+        colorPalette: ['#458588', '#fabd2f', '#fe8019', '#b8bb26'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'voronoi_facets',
+      name: 'Dry Ink — Voronoi Cellular Mesh',
+      brush: 'dry_ink',
+      desc: 'Organic cellular crystal partitions with rough dry brush edges',
+      config: {
+        enabled: true,
+        brush: 'dry_ink',
+        brushes: ['dry_ink'],
+        pattern: 'voronoi',
+        spacing: 12,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.9,
+        colorPalette: ['#1d2021', '#282828'],
+        clipMode: 'strict'
+      }
     }
   ];
 
@@ -846,6 +1507,69 @@
       color: '#458588',
       mode: 'brushfill',
       brushFill: BUILTIN_BF_PRESETS[10].config
+    },
+    {
+      id: 'bf_herringbone_tweed',
+      name: 'Mechanical Pencil — Herringbone Tweed',
+      category: 'brushfills',
+      desc: 'Classic architectural herringbone chevron hatching',
+      color: '#504945',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[11].config
+    },
+    {
+      id: 'bf_woven_basket',
+      name: 'Washi Graphite — Woven Basketweave',
+      category: 'brushfills',
+      desc: 'Interlocking woven perpendicular fiber strokes',
+      color: '#665c54',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[12].config
+    },
+    {
+      id: 'bf_cross_contour_3d',
+      name: '6B Graphite — Cross-Contour 3D',
+      category: 'brushfills',
+      desc: 'Michelangelo style cross-contour volume shading',
+      color: '#282828',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[13].config
+    },
+    {
+      id: 'bf_radial_sunburst',
+      name: 'Technical Pen — Radial Sunburst',
+      category: 'brushfills',
+      desc: 'Precision drafting rays radiating outward from center',
+      color: '#d65d0e',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[14].config
+    },
+    {
+      id: 'bf_concentric_zen',
+      name: 'Studio Inker — Concentric Zen Rings',
+      category: 'brushfills',
+      desc: 'Harmonic concentric circular ripple arcs',
+      color: '#076678',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[15].config
+    },
+    {
+      id: 'bf_flow_stream',
+      name: 'Wet Acrylic — Van Gogh Flow Field',
+      category: 'brushfills',
+      desc: 'Expressive swirling streamline curves following curl vector noise',
+      color: '#458588',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[16].config
+    },
+    {
+      id: 'bf_voronoi_facets',
+      name: 'Dry Ink — Voronoi Cellular Mesh',
+      category: 'brushfills',
+      desc: 'Organic cellular crystal partitions with rough dry brush edges',
+      color: '#1d2021',
+      mode: 'brushfill',
+      brushFill: BUILTIN_BF_PRESETS[17].config
     },
 
     // ── 1. Artistic & Traditional Media ──
@@ -1509,19 +2233,13 @@
               </div>
             </div>
 
-            <!-- Palettes Picker -->
+            <!-- Palettes Picker & Manager -->
             <div class="cs-subpanel cs-subpanel-palettes" id="cs-subpanel-palettes">
               <div class="cs-palette-toolbar">
-                <select id="cs-palette-select" class="cs-select">
-                  <option value="document">Document Colors</option>
-                  <option value="gruvbox" selected>Gruvbox</option>
-                  <option value="material">Material Design</option>
-                  <option value="nord">Nord</option>
-                  <option value="cyberpunk">Cyberpunk</option>
-                  <option value="monochrome">Monochrome</option>
-                  <option value="custom">Custom Swatches</option>
-                </select>
-                <button type="button" class="cs-icon-btn" id="cs-btn-add-swatch" title="Add current color to palette">+</button>
+                <select id="cs-palette-select" class="cs-select" style="flex: 1;" title="Select Palette"></select>
+                <button type="button" class="cs-icon-btn" id="cs-btn-add-swatch" title="Add active color to palette" style="font-weight: bold; font-size: 13px;">+</button>
+                <button type="button" class="cs-icon-btn" id="cs-btn-new-palette" title="Create new palette" style="font-size: 11px;">★</button>
+                <button type="button" class="cs-icon-btn" id="cs-btn-palette-menu" title="Palette options, harmony & export/import" style="font-weight: bold; font-size: 13px;">⋮</button>
               </div>
               <div class="cs-swatches-grid" id="cs-swatches-grid"></div>
             </div>
@@ -1856,15 +2574,39 @@
               <div class="cs-form-row">
                 <label>Pattern</label>
                 <select id="cs-bf-pattern" class="cs-select">
-                  <option value="linear">Parallel Hatch</option>
-                  <option value="crosshatch">Crosshatch</option>
-                  <option value="triple_hatch">Triple Hatch</option>
-                  <option value="contour">Concentric Contour</option>
-                  <option value="stipple">Pointillist Stipple</option>
-                  <option value="scribble">Wandering Scribble</option>
-                  <option value="zigzag">Zig-Zag Mesh</option>
-                  <option value="wave">Wavy Flow Field</option>
-                  <option value="spiral">Archimedean Spiral</option>
+                  <optgroup label="Linear & Grid Meshes">
+                    <option value="linear">Parallel Hatch</option>
+                    <option value="crosshatch">Crosshatch</option>
+                    <option value="triple_hatch">Triple Hatch</option>
+                    <option value="herringbone">Herringbone / Chevron</option>
+                    <option value="woven">Woven Basketweave</option>
+                    <option value="isometric">Isometric Tri-Mesh</option>
+                  </optgroup>
+                  <optgroup label="Curvature & 3D Forms">
+                    <option value="cross_contour">Cross-Contour 3D</option>
+                    <option value="radial">Radial Rays / Sunburst</option>
+                    <option value="concentric">Concentric Rings</option>
+                    <option value="spiral">Archimedean Spiral</option>
+                    <option value="contour">Concentric Inset</option>
+                  </optgroup>
+                  <optgroup label="Flow, Waves & Organic">
+                    <option value="flow_field">Fluid Flow Field</option>
+                    <option value="wave">Sinusoidal Waves</option>
+                    <option value="zigzag">Zig-Zag Mesh</option>
+                    <option value="voronoi">Voronoi Crystals</option>
+                    <option value="scribble">Wandering Scribble</option>
+                    <option value="stipple">Pointillist Stipple</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Direction</label>
+                <select id="cs-bf-stroke-direction" class="cs-select">
+                  <option value="bidirectional">Bidirectional (Alternating Hand)</option>
+                  <option value="forward">Forward (Unidirectional)</option>
+                  <option value="reverse">Reverse Direction</option>
+                  <option value="random">Random Flip</option>
                 </select>
               </div>
 
@@ -1877,10 +2619,26 @@
               </div>
 
               <div class="cs-form-row">
+                <label>Spacing Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-spacing-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-spacing-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Non-uniform line pitch (0-100%)">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
                 <label>Angle</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-angle-slider" min="0" max="360" step="1" value="45" class="cs-mini-range">
                   <input type="number" id="cs-bf-angle" min="0" max="360" step="1" value="45" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Line Tilt Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-line-angle-jitter-slider" min="0" max="45" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-line-angle-jitter" min="0" max="45" step="1" value="0" class="cs-mini-num" title="Line-by-line tilt variation (± degrees)">
                 </div>
               </div>
 
@@ -1899,6 +2657,46 @@
                   <input type="number" id="cs-bf-angle3" min="0" max="360" step="1" value="90" class="cs-mini-num">
                 </div>
               </div>
+
+              <div class="cs-form-row" id="cs-bf-row-wave-freq">
+                <label>Wave Freq</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-wave-freq-slider" min="1" max="40" step="1" value="8" class="cs-mini-range">
+                  <input type="number" id="cs-bf-wave-freq" min="1" max="100" step="1" value="8" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row" id="cs-bf-row-wave-amp">
+                <label>Wave Amp</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-wave-amp-slider" min="0" max="100" step="1" value="50" class="cs-mini-range">
+                  <input type="number" id="cs-bf-wave-amp" min="0" max="200" step="1" value="50" class="cs-mini-num" title="Wave height % of spacing">
+                </div>
+              </div>
+
+              <div class="cs-form-row" id="cs-bf-row-origin-x">
+                <label>Center X %</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-origin-x-slider" min="0" max="100" step="1" value="50" class="cs-mini-range">
+                  <input type="number" id="cs-bf-origin-x" min="0" max="100" step="1" value="50" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row" id="cs-bf-row-origin-y">
+                <label>Center Y %</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-origin-y-slider" min="0" max="100" step="1" value="50" class="cs-mini-range">
+                  <input type="number" id="cs-bf-origin-y" min="0" max="100" step="1" value="50" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Mesh Phase</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-mesh-phase-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-mesh-phase" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Grid alignment phase shift %">
+                </div>
+              </div>
             </div>
 
             <!-- Strokes Per Line & Density -->
@@ -1908,7 +2706,7 @@
                 <label>Per Line</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-strokes-per-line-slider" min="1" max="20" step="1" value="1" class="cs-mini-range">
-                  <input type="number" id="cs-bf-strokes-per-line" min="1" max="50" step="1" value="1" class="cs-mini-num">
+                  <input type="number" id="cs-bf-strokes-per-line" min="1" max="50" step="1" value="1" class="cs-mini-num" title="Number of strokes per line">
                 </div>
               </div>
 
@@ -1924,7 +2722,23 @@
                 <label>Stroke Gap</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-stroke-gap-slider" min="0" max="50" step="1" value="4" class="cs-mini-range">
-                  <input type="number" id="cs-bf-stroke-gap" min="0" max="200" step="1" value="4" class="cs-mini-num">
+                  <input type="number" id="cs-bf-stroke-gap" min="0" max="200" step="1" value="4" class="cs-mini-num" title="Gap between strokes (px)">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Overlap</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-stroke-overlap-slider" min="0" max="50" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-stroke-overlap" min="0" max="200" step="1" value="0" class="cs-mini-num" title="Overlap between strokes (px)">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Gap Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-gap-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-gap-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± % gap variation">
                 </div>
               </div>
             </div>
@@ -1942,6 +2756,11 @@
               </div>
 
               <div class="cs-form-row">
+                <label>Saved Palette</label>
+                <select id="cs-bf-palette-select" class="cs-select" title="Choose a saved color palette for brush fills"></select>
+              </div>
+
+              <div class="cs-form-row">
                 <label>Color Pick</label>
                 <select id="cs-bf-color-pick-mode" class="cs-select">
                   <option value="cycle">Cycle Colors</option>
@@ -1952,7 +2771,10 @@
 
               <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
                 <span style="font-size: 10px; color: var(--text-muted, #928374);">Palette Swatches:</span>
-                <button type="button" id="cs-btn-add-bf-color" class="cs-btn-mini" style="padding: 1px 6px; font-size: 9.5px;">+ Add Color</button>
+                <div style="display: flex; gap: 4px;">
+                  <button type="button" id="cs-btn-add-bf-color" class="cs-btn-mini" style="padding: 1px 6px; font-size: 9.5px;" title="Add current studio color to palette">+ Add Color</button>
+                  <button type="button" id="cs-btn-save-bf-palette" class="cs-btn-mini" style="padding: 1px 6px; font-size: 9.5px;" title="Save current swatches as a new palette">Save Palette</button>
+                </div>
               </div>
               <div id="cs-bf-palette-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; min-height: 24px; align-items: center;"></div>
             </div>
@@ -1997,6 +2819,23 @@
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-curvature-slider" min="-100" max="100" step="1" value="0" class="cs-mini-range">
                   <input type="number" id="cs-bf-curvature" min="-100" max="100" step="1" value="0" class="cs-mini-num">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Curve Mode</label>
+                <select id="cs-bf-curvature-mode" class="cs-select">
+                  <option value="uniform">Uniform Arc</option>
+                  <option value="arch">Parabolic Arch</option>
+                  <option value="s_curve">Sigmoid S-Curve</option>
+                </select>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Hand Wobble</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-wobble-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-wobble" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Natural hand tremor & roughness %">
                 </div>
               </div>
             </div>
@@ -2053,10 +2892,34 @@
               </div>
 
               <div class="cs-form-row">
-                <label>Color Jitter</label>
+                <label>Hue Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-hue-jitter-slider" min="0" max="180" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-hue-jitter" min="0" max="180" step="1" value="0" class="cs-mini-num" title="Max ± degrees hue shift">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Sat Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-sat-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-sat-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± % saturation shift">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>Light Jitter</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-bf-lightness-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
+                  <input type="number" id="cs-bf-lightness-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± % lightness/value shift">
+                </div>
+              </div>
+
+              <div class="cs-form-row">
+                <label>All Color Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-color-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-color-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
+                  <input type="number" id="cs-bf-color-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Overall random color variance">
                 </div>
               </div>
             </div>
@@ -2145,6 +3008,8 @@
         palSelect: this.container.querySelector('#cs-palette-select'),
         swatchesGrid: this.container.querySelector('#cs-swatches-grid'),
         btnAddSwatch: this.container.querySelector('#cs-btn-add-swatch'),
+        btnNewPalette: this.container.querySelector('#cs-btn-new-palette'),
+        btnPaletteMenu: this.container.querySelector('#cs-btn-palette-menu'),
         // Hex Bar
         currentPreview: this.container.querySelector('#cs-current-preview'),
         hexInput: this.container.querySelector('#cs-hex-input'),
@@ -2202,25 +3067,50 @@
         bfBrushSecondary: this.container.querySelector('#cs-bf-brush-secondary'),
         bfBrushPickMode: this.container.querySelector('#cs-bf-brush-pick-mode'),
         bfPattern: this.container.querySelector('#cs-bf-pattern'),
+        bfStrokeDirection: this.container.querySelector('#cs-bf-stroke-direction'),
         bfSpacingSlider: this.container.querySelector('#cs-bf-spacing-slider'),
         bfSpacing: this.container.querySelector('#cs-bf-spacing'),
+        bfSpacingJitterSlider: this.container.querySelector('#cs-bf-spacing-jitter-slider'),
+        bfSpacingJitter: this.container.querySelector('#cs-bf-spacing-jitter'),
         bfAngleSlider: this.container.querySelector('#cs-bf-angle-slider'),
         bfAngle: this.container.querySelector('#cs-bf-angle'),
+        bfLineAngleJitterSlider: this.container.querySelector('#cs-bf-line-angle-jitter-slider'),
+        bfLineAngleJitter: this.container.querySelector('#cs-bf-line-angle-jitter'),
         bfRowAngle2: this.container.querySelector('#cs-bf-row-angle2'),
         bfAngle2Slider: this.container.querySelector('#cs-bf-angle2-slider'),
         bfAngle2: this.container.querySelector('#cs-bf-angle2'),
         bfRowAngle3: this.container.querySelector('#cs-bf-row-angle3'),
         bfAngle3Slider: this.container.querySelector('#cs-bf-angle3-slider'),
         bfAngle3: this.container.querySelector('#cs-bf-angle3'),
+        bfRowWaveFreq: this.container.querySelector('#cs-bf-row-wave-freq'),
+        bfWaveFreqSlider: this.container.querySelector('#cs-bf-wave-freq-slider'),
+        bfWaveFreq: this.container.querySelector('#cs-bf-wave-freq'),
+        bfRowWaveAmp: this.container.querySelector('#cs-bf-row-wave-amp'),
+        bfWaveAmpSlider: this.container.querySelector('#cs-bf-wave-amp-slider'),
+        bfWaveAmp: this.container.querySelector('#cs-bf-wave-amp'),
+        bfRowOriginX: this.container.querySelector('#cs-bf-row-origin-x'),
+        bfOriginXSlider: this.container.querySelector('#cs-bf-origin-x-slider'),
+        bfOriginX: this.container.querySelector('#cs-bf-origin-x'),
+        bfRowOriginY: this.container.querySelector('#cs-bf-row-origin-y'),
+        bfOriginYSlider: this.container.querySelector('#cs-bf-origin-y-slider'),
+        bfOriginY: this.container.querySelector('#cs-bf-origin-y'),
+        bfMeshPhaseSlider: this.container.querySelector('#cs-bf-mesh-phase-slider'),
+        bfMeshPhase: this.container.querySelector('#cs-bf-mesh-phase'),
         bfStrokesPerLineSlider: this.container.querySelector('#cs-bf-strokes-per-line-slider'),
         bfStrokesPerLine: this.container.querySelector('#cs-bf-strokes-per-line'),
         bfStrokeLengthSlider: this.container.querySelector('#cs-bf-stroke-length-slider'),
         bfStrokeLength: this.container.querySelector('#cs-bf-stroke-length'),
         bfStrokeGapSlider: this.container.querySelector('#cs-bf-stroke-gap-slider'),
         bfStrokeGap: this.container.querySelector('#cs-bf-stroke-gap'),
+        bfStrokeOverlapSlider: this.container.querySelector('#cs-bf-stroke-overlap-slider'),
+        bfStrokeOverlap: this.container.querySelector('#cs-bf-stroke-overlap'),
+        bfGapJitterSlider: this.container.querySelector('#cs-bf-gap-jitter-slider'),
+        bfGapJitter: this.container.querySelector('#cs-bf-gap-jitter'),
         bfColorMode: this.container.querySelector('#cs-bf-color-mode'),
+        bfPaletteSelect: this.container.querySelector('#cs-bf-palette-select'),
         bfColorPickMode: this.container.querySelector('#cs-bf-color-pick-mode'),
         btnAddBfColor: this.container.querySelector('#cs-btn-add-bf-color'),
+        btnSaveBfPalette: this.container.querySelector('#cs-btn-save-bf-palette'),
         bfPaletteContainer: this.container.querySelector('#cs-bf-palette-container'),
         bfStrokeWidthSlider: this.container.querySelector('#cs-bf-stroke-width-slider'),
         bfStrokeWidth: this.container.querySelector('#cs-bf-stroke-width'),
@@ -2232,6 +3122,9 @@
         bfHardness: this.container.querySelector('#cs-bf-hardness'),
         bfCurvatureSlider: this.container.querySelector('#cs-bf-curvature-slider'),
         bfCurvature: this.container.querySelector('#cs-bf-curvature'),
+        bfCurvatureMode: this.container.querySelector('#cs-bf-curvature-mode'),
+        bfWobbleSlider: this.container.querySelector('#cs-bf-wobble-slider'),
+        bfWobble: this.container.querySelector('#cs-bf-wobble'),
         bfAngleJitterSlider: this.container.querySelector('#cs-bf-angle-jitter-slider'),
         bfAngleJitter: this.container.querySelector('#cs-bf-angle-jitter'),
         bfLengthJitterSlider: this.container.querySelector('#cs-bf-length-jitter-slider'),
@@ -2244,6 +3137,12 @@
         bfPositionJitter: this.container.querySelector('#cs-bf-position-jitter'),
         bfCurvatureJitterSlider: this.container.querySelector('#cs-bf-curvature-jitter-slider'),
         bfCurvatureJitter: this.container.querySelector('#cs-bf-curvature-jitter'),
+        bfHueJitterSlider: this.container.querySelector('#cs-bf-hue-jitter-slider'),
+        bfHueJitter: this.container.querySelector('#cs-bf-hue-jitter'),
+        bfSatJitterSlider: this.container.querySelector('#cs-bf-sat-jitter-slider'),
+        bfSatJitter: this.container.querySelector('#cs-bf-sat-jitter'),
+        bfLightnessJitterSlider: this.container.querySelector('#cs-bf-lightness-jitter-slider'),
+        bfLightnessJitter: this.container.querySelector('#cs-bf-lightness-jitter'),
         bfColorJitterSlider: this.container.querySelector('#cs-bf-color-jitter-slider'),
         bfColorJitter: this.container.querySelector('#cs-bf-color-jitter'),
         bfClipMode: this.container.querySelector('#cs-bf-clip-mode'),
@@ -2260,8 +3159,16 @@
       this.renderGradientPresets();
       this.renderMaterialPresetsList();
       this.populateBrushSelects();
+      this.populateBrushFillPaletteSelect();
       this.renderBrushFillPalette();
       this.syncBrushFillInputs();
+
+      if (typeof PaletteManager !== 'undefined' && typeof PaletteManager.subscribe === 'function') {
+        PaletteManager.subscribe(() => {
+          this.populatePalettesSelect();
+          this.populateBrushFillPaletteSelect();
+        });
+      }
     }
 
     bindEvents() {
@@ -2403,21 +3310,36 @@
       };
       bindHsl();
 
-      // 10. Palette Swatches
-      d.palSelect?.addEventListener('change', () => this.renderPalettes());
-      d.btnAddSwatch?.addEventListener('click', () => {
-        const currentHex = (this.currentHex || '#000000').toLowerCase();
-        const list = getCustomSwatches();
-        const exists = list.some(c => {
-          const cStr = typeof c === 'object' && c !== null ? (c.hex || c.color || c.value) : c;
-          return String(cStr || '').trim().toLowerCase() === currentHex;
-        });
-        if (!exists) {
-          list.push(this.currentHex || '#000000');
-          saveCustomSwatches(list);
+      // 10. Palette Swatches & Manager
+      d.palSelect?.addEventListener('change', () => {
+        if (d.palSelect?.value) {
+          PaletteManager.setActivePalette(d.palSelect.value);
         }
-        if (d.palSelect) d.palSelect.value = 'custom';
         this.renderPalettes();
+      });
+
+      d.btnAddSwatch?.addEventListener('click', () => {
+        const palType = d.palSelect?.value || PaletteManager.activePaletteId || 'gruvbox';
+        const targetId = palType === 'document' ? 'custom' : palType;
+        const currentHex = (this.currentHex || '#fabd2f').toLowerCase();
+        PaletteManager.addColor(targetId, currentHex);
+        if (palType === 'document' && d.palSelect) {
+          d.palSelect.value = 'custom';
+          PaletteManager.setActivePalette('custom');
+        }
+        this.renderPalettes();
+        if (typeof showNotification === 'function') {
+          showNotification(`Added ${currentHex} to palette!`);
+        }
+      });
+
+      d.btnNewPalette?.addEventListener('click', () => {
+        this.promptCreatePalette();
+      });
+
+      d.btnPaletteMenu?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.showPaletteMenu(d.btnPaletteMenu);
       });
 
       // 11. Hex Input Bar
@@ -2710,23 +3632,36 @@
       };
 
       bindBfPair(d.bfSpacingSlider, d.bfSpacing);
+      bindBfPair(d.bfSpacingJitterSlider, d.bfSpacingJitter);
       bindBfPair(d.bfAngleSlider, d.bfAngle);
+      bindBfPair(d.bfLineAngleJitterSlider, d.bfLineAngleJitter);
       bindBfPair(d.bfAngle2Slider, d.bfAngle2);
       bindBfPair(d.bfAngle3Slider, d.bfAngle3);
+      bindBfPair(d.bfWaveFreqSlider, d.bfWaveFreq);
+      bindBfPair(d.bfWaveAmpSlider, d.bfWaveAmp);
+      bindBfPair(d.bfOriginXSlider, d.bfOriginX);
+      bindBfPair(d.bfOriginYSlider, d.bfOriginY);
+      bindBfPair(d.bfMeshPhaseSlider, d.bfMeshPhase);
       bindBfPair(d.bfStrokesPerLineSlider, d.bfStrokesPerLine);
       bindBfPair(d.bfStrokeLengthSlider, d.bfStrokeLength);
       bindBfPair(d.bfStrokeGapSlider, d.bfStrokeGap);
+      bindBfPair(d.bfStrokeOverlapSlider, d.bfStrokeOverlap);
+      bindBfPair(d.bfGapJitterSlider, d.bfGapJitter);
       bindBfPair(d.bfStrokeWidthSlider, d.bfStrokeWidth);
       bindBfPair(d.bfStrokeOpacitySlider, d.bfStrokeOpacity);
       bindBfPair(d.bfFlowSlider, d.bfFlow);
       bindBfPair(d.bfHardnessSlider, d.bfHardness);
       bindBfPair(d.bfCurvatureSlider, d.bfCurvature);
+      bindBfPair(d.bfWobbleSlider, d.bfWobble);
       bindBfPair(d.bfAngleJitterSlider, d.bfAngleJitter);
       bindBfPair(d.bfLengthJitterSlider, d.bfLengthJitter);
       bindBfPair(d.bfWidthJitterSlider, d.bfWidthJitter);
       bindBfPair(d.bfOpacityJitterSlider, d.bfOpacityJitter);
       bindBfPair(d.bfPositionJitterSlider, d.bfPositionJitter);
       bindBfPair(d.bfCurvatureJitterSlider, d.bfCurvatureJitter);
+      bindBfPair(d.bfHueJitterSlider, d.bfHueJitter);
+      bindBfPair(d.bfSatJitterSlider, d.bfSatJitter);
+      bindBfPair(d.bfLightnessJitterSlider, d.bfLightnessJitter);
       bindBfPair(d.bfColorJitterSlider, d.bfColorJitter);
       bindBfPair(d.bfBleedDistanceSlider, d.bfBleedDistance);
       bindBfPair(d.bfBleedJitterSlider, d.bfBleedJitter);
@@ -2735,9 +3670,31 @@
       d.bfBrushPrimary?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfBrushSecondary?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfBrushPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfStrokeDirection?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfCurvatureMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfColorMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfColorPickMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
       d.bfClipMode?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+
+      // Saved Palette selection
+      d.bfPaletteSelect?.addEventListener('change', () => {
+        const palId = d.bfPaletteSelect.value;
+        let colors = [];
+        if (palId === 'document') {
+          colors = this.extractDocumentColors();
+        } else {
+          const pal = PaletteManager.getPalette(palId);
+          if (pal && pal.colors && pal.colors.length > 0) {
+            colors = [...pal.colors];
+          }
+        }
+        if (colors.length > 0) {
+          this.brushFillConfig.colorPalette = colors;
+          this.brushFillConfig.colorPaletteId = palId;
+          this.renderBrushFillPalette();
+          this.applyBrushFillToSelected(true);
+        }
+      });
 
       // Add Color to Palette
       d.btnAddBfColor?.addEventListener('click', () => {
@@ -2748,6 +3705,31 @@
         this.brushFillConfig.colorPalette.push(col);
         this.renderBrushFillPalette();
         this.applyBrushFillToSelected(true);
+      });
+
+      // Save Palette
+      d.btnSaveBfPalette?.addEventListener('click', () => {
+        const swatches = this.brushFillConfig.colorPalette || [];
+        if (swatches.length === 0) {
+          if (typeof showNotification === 'function') {
+            showNotification('No colors in brush fill palette to save.');
+          }
+          return;
+        }
+        const name = prompt('Enter a name for this new color palette:', 'Brush Palette');
+        if (name && name.trim()) {
+          const newPal = PaletteManager.createPalette(name.trim(), swatches);
+          if (newPal) {
+            this.brushFillConfig.colorPaletteId = newPal.id;
+            this.populateBrushFillPaletteSelect();
+            this.populatePalettesSelect();
+            if (d.bfPaletteSelect) d.bfPaletteSelect.value = newPal.id;
+            this.renderPalettes();
+            if (typeof showNotification === 'function') {
+              showNotification(`Saved palette "${newPal.name}"!`);
+            }
+          }
+        }
       });
     }
 
@@ -3802,23 +4784,93 @@
       this.populateMaterialPresetsSelect();
     }
 
+    populatePalettesSelect() {
+      if (!this.dom.palSelect || typeof document === 'undefined' || typeof this.dom.palSelect.appendChild !== 'function') return;
+      const curVal = this.dom.palSelect.value || PaletteManager.activePaletteId || 'gruvbox';
+      this.dom.palSelect.innerHTML = '';
+
+      // 1. Live Document Colors
+      const optDoc = document.createElement('option');
+      optDoc.value = 'document';
+      optDoc.textContent = '📄 Document Colors (Live)';
+      this.dom.palSelect.appendChild(optDoc);
+
+      // 2. Palettes
+      const allPalettes = PaletteManager.getAllPalettes();
+      const grpBuiltIn = document.createElement('optgroup');
+      grpBuiltIn.label = 'Built-in Presets';
+      const grpCustom = document.createElement('optgroup');
+      grpCustom.label = 'Custom & User Palettes';
+
+      allPalettes.forEach(pal => {
+        const opt = document.createElement('option');
+        opt.value = pal.id;
+        opt.textContent = `${pal.name} (${pal.colors ? pal.colors.length : 0})`;
+        if (pal.isBuiltIn && pal.id !== 'custom') {
+          grpBuiltIn.appendChild(opt);
+        } else {
+          grpCustom.appendChild(opt);
+        }
+      });
+
+      if (grpCustom.children && grpCustom.children.length > 0) {
+        this.dom.palSelect.appendChild(grpCustom);
+      }
+      if (grpBuiltIn.children && grpBuiltIn.children.length > 0) {
+        this.dom.palSelect.appendChild(grpBuiltIn);
+      }
+
+      if (curVal) {
+        this.dom.palSelect.value = curVal;
+      }
+    }
+
     renderPalettes() {
       if (typeof document === 'undefined') return;
+      this.populatePalettesSelect();
       const grid = this.dom.swatchesGrid;
       if (!grid) return;
-      const palType = this.dom.palSelect?.value || 'gruvbox';
+      const palType = this.dom.palSelect?.value || PaletteManager.activePaletteId || 'gruvbox';
+      PaletteManager.activePaletteId = palType;
+
       let colors = [];
+      let currentPal = null;
 
       if (palType === 'document') {
         colors = this.extractDocumentColors();
       } else if (palType === 'custom') {
         colors = getCustomSwatches();
-      } else if (PALETTES[palType]) {
-        colors = PALETTES[palType].colors;
+        currentPal = PaletteManager.getPalette('custom');
+        if (currentPal) currentPal.colors = colors;
+      } else {
+        currentPal = PaletteManager.getPalette(palType);
+        if (currentPal) {
+          colors = currentPal.colors;
+        } else if (DEFAULT_FACTORY_PALETTES[palType]) {
+          colors = DEFAULT_FACTORY_PALETTES[palType].colors;
+        }
       }
 
       grid.innerHTML = '';
-      colors.forEach(hex => {
+
+      if (!colors || colors.length === 0) {
+        const emptyEl = document.createElement('div');
+        emptyEl.style.cssText = 'grid-column: 1 / -1; padding: 12px; text-align: center; color: var(--text-dim, #a89984); font-size: 10px; font-style: italic; display: flex; flex-direction: column; gap: 6px; align-items: center; justify-content: center;';
+        if (palType === 'document') {
+          emptyEl.innerHTML = '<span>No colors found in document objects.</span>';
+        } else {
+          emptyEl.innerHTML = `<span>Palette "${currentPal ? currentPal.name : palType}" is empty.</span>
+            <button type="button" class="cs-btn-mini" style="font-size: 10px; padding: 2px 8px;">+ Add Current Color</button>`;
+          emptyEl.querySelector('button')?.addEventListener('click', () => {
+            PaletteManager.addColor(palType, this.currentHex);
+            this.renderPalettes();
+          });
+        }
+        grid.appendChild(emptyEl);
+        return;
+      }
+
+      colors.forEach((hex, idx) => {
         const colorStr = (typeof hex === 'object' && hex !== null)
           ? (hex.hex || hex.color || hex.value || '#ffffff')
           : String(hex || '#ffffff').trim();
@@ -3831,24 +4883,378 @@
         swatch.style.setProperty('background', colorStr, 'important');
         swatch.style.setProperty('background-color', colorStr, 'important');
         swatch.style.setProperty('background-image', 'none', 'important');
-        swatch.title = `${colorStr}${palType === 'custom' ? ' (Right-click to remove)' : ''}`;
+        swatch.title = `${colorStr} (Click to apply, right-click for options)`;
+        if (this.currentHex && this.currentHex.toLowerCase() === colorStr.toLowerCase()) {
+          swatch.style.borderColor = '#fabd2f';
+          swatch.style.outline = '1px solid #fabd2f';
+        }
+
+        // Left click: set active color
         swatch.addEventListener('click', () => {
           this.setColorFromExternal(colorStr);
           this.applyToSelected(true);
+          this.renderPalettes();
         });
-        if (palType === 'custom') {
-          swatch.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const list = getCustomSwatches().filter(c => {
-              const cStr = typeof c === 'object' && c !== null ? (c.hex || c.color || c.value) : c;
-              return String(cStr || '').trim().toLowerCase() !== colorStr.toLowerCase();
-            });
-            saveCustomSwatches(list);
-            this.renderPalettes();
-          });
-        }
+
+        // Double click: prompt edit
+        swatch.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          this.promptEditSwatchColor(palType, idx, colorStr);
+        });
+
+        // Context menu (right-click)
+        swatch.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          this.showSwatchContextMenu(e.clientX, e.clientY, palType, idx, colorStr);
+        });
+
         grid.appendChild(swatch);
       });
+    }
+
+    showSwatchContextMenu(x, y, palId, swatchIdx, currentColor) {
+      this.closeAnyPopup();
+      if (typeof document === 'undefined') return;
+      const popup = document.createElement('div');
+      popup.className = 'cs-menu-popup';
+      popup.style.cssText = `position: fixed; left: ${x}px; top: ${y}px; z-index: 10000; background: var(--bg-panel, #282828); border: 1px solid var(--border, #504945); border-radius: 4px; box-shadow: 0 4px 16px rgba(0,0,0,0.6); padding: 4px 0; min-width: 170px; font-size: 11px; font-family: var(--font-main, sans-serif); color: var(--text-bright, #ebdbb2);`;
+
+      const createItem = (label, icon, onClick, isDanger = false) => {
+        const item = document.createElement('div');
+        item.className = 'cs-menu-popup-item';
+        item.style.cssText = `display: flex; align-items: center; gap: 8px; padding: 5px 10px; cursor: pointer; color: ${isDanger ? '#fb4934' : 'inherit'}; user-select: none; transition: background 0.08s;`;
+        item.innerHTML = `<span style="width: 14px; text-align: center; opacity: 0.8;">${icon}</span><span>${label}</span>`;
+        item.addEventListener('mouseenter', () => { item.style.background = isDanger ? 'rgba(251,73,52,0.15)' : 'var(--bg-hover, #3c3836)'; });
+        item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeAnyPopup();
+          onClick();
+        });
+        popup.appendChild(item);
+      };
+
+      const createDivider = () => {
+        const div = document.createElement('div');
+        div.style.cssText = 'height: 1px; background: var(--border, #3c3836); margin: 3px 0;';
+        popup.appendChild(div);
+      };
+
+      createItem('Apply Color', '🎨', () => {
+        this.setColorFromExternal(currentColor);
+        this.applyToSelected(true);
+      });
+
+      createItem(`Replace with Active (${this.currentHex})`, '🔄', () => {
+        if (palId === 'document') {
+          PaletteManager.addColor('custom', this.currentHex);
+          if (this.dom.palSelect) this.dom.palSelect.value = 'custom';
+        } else {
+          PaletteManager.editColor(palId, swatchIdx, this.currentHex);
+        }
+        this.renderPalettes();
+      });
+
+      createItem('Edit Color...', '✏️', () => {
+        this.promptEditSwatchColor(palId, swatchIdx, currentColor);
+      });
+
+      createDivider();
+
+      if (palId !== 'document') {
+        createItem('Move Left', '←', () => {
+          PaletteManager.moveColor(palId, swatchIdx, Math.max(0, swatchIdx - 1));
+          this.renderPalettes();
+        });
+
+        createItem('Move Right', '→', () => {
+          PaletteManager.moveColor(palId, swatchIdx, swatchIdx + 1);
+          this.renderPalettes();
+        });
+
+        createDivider();
+
+        createItem('Delete Swatch', '🗑️', () => {
+          PaletteManager.removeColor(palId, swatchIdx);
+          this.renderPalettes();
+        }, true);
+      }
+
+      document.body.appendChild(popup);
+      this._activePopup = popup;
+
+      if (typeof window !== 'undefined') {
+        const rect = popup.getBoundingClientRect ? popup.getBoundingClientRect() : null;
+        if (rect && rect.right > window.innerWidth) popup.style.left = `${window.innerWidth - rect.width - 8}px`;
+        if (rect && rect.bottom > window.innerHeight) popup.style.top = `${window.innerHeight - rect.height - 8}px`;
+
+        const closeHandler = (e) => {
+          if (!popup.contains(e.target)) {
+            this.closeAnyPopup();
+            window.removeEventListener('pointerdown', closeHandler);
+          }
+        };
+        setTimeout(() => window.addEventListener('pointerdown', closeHandler), 10);
+      }
+    }
+
+    showPaletteMenu(buttonEl) {
+      this.closeAnyPopup();
+      if (typeof document === 'undefined') return;
+      const rect = buttonEl && buttonEl.getBoundingClientRect ? buttonEl.getBoundingClientRect() : { left: 100, bottom: 100, top: 80, height: 20 };
+      const popup = document.createElement('div');
+      popup.className = 'cs-menu-popup';
+      popup.style.cssText = `position: fixed; left: ${Math.max(8, (rect.left || 100) - 120)}px; top: ${(rect.bottom || 100) + 4}px; z-index: 10000; background: var(--bg-panel, #282828); border: 1px solid var(--border, #504945); border-radius: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.65); padding: 4px 0; min-width: 190px; font-size: 11px; font-family: var(--font-main, sans-serif); color: var(--text-bright, #ebdbb2);`;
+
+      const palId = this.dom.palSelect?.value || PaletteManager.activePaletteId || 'gruvbox';
+      const pal = PaletteManager.getPalette(palId);
+      const isDoc = palId === 'document';
+
+      const createItem = (label, icon, onClick, isDanger = false) => {
+        const item = document.createElement('div');
+        item.style.cssText = `display: flex; align-items: center; gap: 8px; padding: 5px 10px; cursor: pointer; color: ${isDanger ? '#fb4934' : 'inherit'}; user-select: none; transition: background 0.08s;`;
+        item.innerHTML = `<span style="width: 14px; text-align: center; opacity: 0.85;">${icon}</span><span>${label}</span>`;
+        item.addEventListener('mouseenter', () => { item.style.background = isDanger ? 'rgba(251,73,52,0.15)' : 'var(--bg-hover, #3c3836)'; });
+        item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeAnyPopup();
+          onClick();
+        });
+        popup.appendChild(item);
+      };
+
+      const createDivider = () => {
+        const div = document.createElement('div');
+        div.style.cssText = 'height: 1px; background: var(--border, #3c3836); margin: 3px 0;';
+        popup.appendChild(div);
+      };
+
+      createItem('New Palette...', '★', () => this.promptCreatePalette());
+      createItem('Clone / Duplicate Palette', '📑', () => {
+        const cloned = PaletteManager.clonePalette(palId);
+        if (cloned) {
+          if (this.dom.palSelect) this.dom.palSelect.value = cloned.id;
+          this.renderPalettes();
+          if (typeof showNotification === 'function') showNotification(`Palette "${cloned.name}" created!`);
+        }
+      });
+
+      if (!isDoc && pal) {
+        createItem(`Rename "${pal.name}"...`, '✏️', () => this.promptRenamePalette(palId));
+      }
+
+      createDivider();
+
+      createItem(`Add Active Color (${this.currentHex})`, '➕', () => {
+        const targetId = isDoc ? 'custom' : palId;
+        PaletteManager.addColor(targetId, this.currentHex);
+        if (isDoc && this.dom.palSelect) this.dom.palSelect.value = 'custom';
+        this.renderPalettes();
+        if (typeof showNotification === 'function') showNotification(`Color ${this.currentHex} added to palette!`);
+      });
+
+      createItem('Extract Colors from Document', '📄', () => {
+        const extracted = this.extractDocumentColors();
+        const targetId = isDoc ? 'custom' : palId;
+        if (extracted.length === 0) {
+          if (typeof showNotification === 'function') showNotification('No colors found in document objects.');
+          return;
+        }
+        let added = 0;
+        const currentColors = new Set((PaletteManager.getPalette(targetId)?.colors || []).map(c => c.toLowerCase()));
+        extracted.forEach(col => {
+          if (!currentColors.has(col.toLowerCase())) {
+            PaletteManager.addColor(targetId, col);
+            added++;
+          }
+        });
+        if (isDoc && this.dom.palSelect) this.dom.palSelect.value = 'custom';
+        this.renderPalettes();
+        if (typeof showNotification === 'function') showNotification(`${added} unique colors extracted from document!`);
+      });
+
+      createItem('Generate Harmony Scheme...', '🌈', () => this.promptGenerateHarmony(palId));
+
+      createDivider();
+
+      if (!isDoc) {
+        createItem('Sort by Hue', '🔀', () => { PaletteManager.sortPalette(palId, 'hue'); this.renderPalettes(); });
+        createItem('Sort by Saturation', '🔀', () => { PaletteManager.sortPalette(palId, 'saturation'); this.renderPalettes(); });
+        createItem('Sort by Lightness', '🔀', () => { PaletteManager.sortPalette(palId, 'lightness'); this.renderPalettes(); });
+        createItem('Sort by Luminance', '🔀', () => { PaletteManager.sortPalette(palId, 'luminance'); this.renderPalettes(); });
+        createItem('Reverse Swatches', '↔️', () => { PaletteManager.reversePalette(palId); this.renderPalettes(); });
+        createDivider();
+      }
+
+      createItem('Import Palette File...', '📥', () => this.triggerImportPaletteFile());
+      if (!isDoc) {
+        createItem('Export as JSON...', '📤', () => this.exportPaletteFile(palId, 'json'));
+        createItem('Export as GPL (GIMP)...', '📤', () => this.exportPaletteFile(palId, 'gpl'));
+        createItem('Export as Hex List...', '📤', () => this.exportPaletteFile(palId, 'hex'));
+        createDivider();
+      }
+
+      if (!isDoc && pal) {
+        createItem('Clear All Swatches', '🗑️', () => {
+          if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Clear all swatches in palette "${pal.name}"?`)) return;
+          PaletteManager.clearPalette(palId);
+          this.renderPalettes();
+        });
+
+        createItem('Delete Palette', '❌', () => {
+          if (typeof window !== 'undefined' && window.confirm && !window.confirm(`Delete palette "${pal.name}"?`)) return;
+          PaletteManager.deletePalette(palId);
+          this.renderPalettes();
+          if (typeof showNotification === 'function') showNotification(`Palette "${pal.name}" deleted.`);
+        }, true);
+      }
+
+      createItem('Restore Factory Defaults', '🔄', () => {
+        if (typeof window !== 'undefined' && window.confirm && !window.confirm('Restore all default palettes to factory swatches?')) return;
+        PaletteManager.resetAllToFactory();
+        this.renderPalettes();
+        if (typeof showNotification === 'function') showNotification('Palettes reset to factory defaults.');
+      });
+
+      document.body.appendChild(popup);
+      this._activePopup = popup;
+
+      if (typeof window !== 'undefined') {
+        const pRect = popup.getBoundingClientRect ? popup.getBoundingClientRect() : null;
+        if (pRect && pRect.right > window.innerWidth) popup.style.left = `${window.innerWidth - pRect.width - 8}px`;
+        if (pRect && pRect.bottom > window.innerHeight) popup.style.top = `${(rect.top || 80) - pRect.height - 4}px`;
+
+        const closeHandler = (e) => {
+          if (!popup.contains(e.target) && (!buttonEl || !buttonEl.contains(e.target))) {
+            this.closeAnyPopup();
+            window.removeEventListener('pointerdown', closeHandler);
+          }
+        };
+        setTimeout(() => window.addEventListener('pointerdown', closeHandler), 10);
+      }
+    }
+
+    promptEditSwatchColor(palId, idx, initialColor) {
+      if (palId === 'document') {
+        if (typeof showNotification === 'function') showNotification('Cannot edit live document color directly.');
+        return;
+      }
+      const val = typeof window !== 'undefined' && window.prompt
+        ? window.prompt(`Edit color for swatch #${idx + 1} (HEX):`, initialColor)
+        : null;
+      if (val) {
+        let clean = val.trim();
+        if (!clean.startsWith('#')) clean = '#' + clean;
+        if (/^#[0-9A-Fa-f]{3,8}$/.test(clean)) {
+          PaletteManager.editColor(palId, idx, clean);
+          this.renderPalettes();
+        } else {
+          if (typeof showNotification === 'function') showNotification('Invalid HEX color code.');
+        }
+      }
+    }
+
+    promptCreatePalette() {
+      const name = typeof window !== 'undefined' && window.prompt
+        ? window.prompt('Enter name for new Palette:', 'My Palette')
+        : 'New Palette';
+      if (!name || !name.trim()) return;
+      const created = PaletteManager.createPalette(name.trim(), [this.currentHex || '#fabd2f']);
+      if (this.dom.palSelect) this.dom.palSelect.value = created.id;
+      this.renderPalettes();
+      if (typeof showNotification === 'function') showNotification(`Palette "${created.name}" created!`);
+    }
+
+    promptRenamePalette(palId) {
+      const pal = PaletteManager.getPalette(palId);
+      if (!pal) return;
+      const newName = typeof window !== 'undefined' && window.prompt
+        ? window.prompt(`Rename palette "${pal.name}":`, pal.name)
+        : null;
+      if (newName && newName.trim()) {
+        PaletteManager.renamePalette(palId, newName.trim());
+        this.renderPalettes();
+        if (typeof showNotification === 'function') showNotification(`Palette renamed to "${newName.trim()}".`);
+      }
+    }
+
+    promptGenerateHarmony(palId) {
+      const chosen = typeof window !== 'undefined' && window.prompt
+        ? window.prompt(`Choose Color Harmony type based on ${this.currentHex}:\n1 = Analogous\n2 = Complementary\n3 = Split-Complementary\n4 = Triadic\n5 = Tetradic\n6 = Monochromatic`, '1')
+        : '1';
+
+      if (!chosen) return;
+      const map = { '1': 'analogous', '2': 'complementary', '3': 'split_complementary', '4': 'triadic', '5': 'tetradic', '6': 'monochromatic' };
+      const type = map[chosen.trim()] || 'analogous';
+      const colors = PaletteManager.generateHarmony(this.currentHex, type);
+
+      const targetId = palId === 'document' ? 'custom' : palId;
+      colors.forEach(c => PaletteManager.addColor(targetId, c));
+      if (palId === 'document' && this.dom.palSelect) this.dom.palSelect.value = 'custom';
+      this.renderPalettes();
+      if (typeof showNotification === 'function') showNotification(`${colors.length} ${type} colors added to palette!`);
+    }
+
+    triggerImportPaletteFile() {
+      if (typeof document === 'undefined') return;
+      let input = document.getElementById('cs-palette-file-importer');
+      if (!input) {
+        input = document.createElement('input');
+        input.type = 'file';
+        input.id = 'cs-palette-file-importer';
+        input.accept = '.json,.gpl,.hex,.txt,.ase';
+        input.style.display = 'none';
+        document.body.appendChild(input);
+      }
+      input.onchange = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          const content = evt.target.result;
+          const created = PaletteManager.importPalette(content);
+          if (created) {
+            if (this.dom.palSelect) this.dom.palSelect.value = created.id;
+            this.renderPalettes();
+            if (typeof showNotification === 'function') showNotification(`Imported palette "${created.name}" with ${created.colors.length} colors!`);
+          } else {
+            if (typeof showNotification === 'function') showNotification('Could not parse palette file.');
+          }
+        };
+        reader.readAsText(file);
+        input.value = '';
+      };
+      input.click();
+    }
+
+    exportPaletteFile(palId, format = 'json') {
+      const pal = PaletteManager.getPalette(palId);
+      if (!pal) return;
+      const data = PaletteManager.exportPalette(palId, format);
+      if (!data) return;
+
+      const ext = format === 'gpl' ? 'gpl' : (format === 'hex' ? 'hex.txt' : 'json');
+      const mime = format === 'json' ? 'application/json' : 'text/plain';
+      if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && typeof document !== 'undefined') {
+        const blob = new Blob([data], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${pal.name.toLowerCase().replace(/[^a-z0-9_]+/g, '_')}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        if (typeof showNotification === 'function') showNotification(`Palette "${pal.name}" exported!`);
+      }
+    }
+
+    closeAnyPopup() {
+      if (this._activePopup && this._activePopup.parentNode) {
+        this._activePopup.parentNode.removeChild(this._activePopup);
+      }
+      this._activePopup = null;
     }
 
     extractDocumentColors() {
@@ -3872,8 +5278,9 @@
     updateBrushFillUI() {
       this.updateBrushFillPatternVisibility();
       this.populateBrushSelects();
-      this.renderBrushFillPalette();
+      this.populateBrushFillPaletteSelect();
       this.syncBrushFillInputs();
+      this.renderBrushFillPalette();
     }
 
     updateBrushFillPatternVisibility() {
@@ -3884,6 +5291,18 @@
       }
       if (d.bfRowAngle3) {
         d.bfRowAngle3.style.display = (pattern === 'triple_hatch') ? 'flex' : 'none';
+      }
+      if (d.bfRowWaveFreq) {
+        d.bfRowWaveFreq.style.display = (pattern === 'wave' || pattern === 'zigzag' || pattern === 'flow_field') ? 'flex' : 'none';
+      }
+      if (d.bfRowWaveAmp) {
+        d.bfRowWaveAmp.style.display = (pattern === 'wave' || pattern === 'zigzag') ? 'flex' : 'none';
+      }
+      if (d.bfRowOriginX) {
+        d.bfRowOriginX.style.display = (pattern === 'radial' || pattern === 'concentric' || pattern === 'spiral' || pattern === 'cross_contour') ? 'flex' : 'none';
+      }
+      if (d.bfRowOriginY) {
+        d.bfRowOriginY.style.display = (pattern === 'radial' || pattern === 'concentric' || pattern === 'spiral' || pattern === 'cross_contour') ? 'flex' : 'none';
       }
     }
 
@@ -3978,6 +5397,47 @@
       secondarySel.value = currSecondary || '';
     }
 
+    populateBrushFillPaletteSelect() {
+      if (!this.dom.bfPaletteSelect || typeof document === 'undefined') return;
+      const curVal = this.dom.bfPaletteSelect.value || this.brushFillConfig.colorPaletteId || PaletteManager.activePaletteId || 'gruvbox';
+      this.dom.bfPaletteSelect.innerHTML = '';
+
+      // 1. Live Document Colors
+      const optDoc = document.createElement('option');
+      optDoc.value = 'document';
+      optDoc.textContent = 'Document Colors (Live)';
+      this.dom.bfPaletteSelect.appendChild(optDoc);
+
+      // 2. Custom & Built-in optgroups
+      const allPalettes = PaletteManager.getAllPalettes();
+      const grpCustom = document.createElement('optgroup');
+      grpCustom.label = 'Custom & User Palettes';
+      const grpBuiltIn = document.createElement('optgroup');
+      grpBuiltIn.label = 'Built-in Presets';
+
+      allPalettes.forEach(pal => {
+        const opt = document.createElement('option');
+        opt.value = pal.id;
+        opt.textContent = `${pal.name} (${pal.colors ? pal.colors.length : 0})`;
+        if (pal.isBuiltIn && pal.id !== 'custom') {
+          grpBuiltIn.appendChild(opt);
+        } else {
+          grpCustom.appendChild(opt);
+        }
+      });
+
+      if (grpCustom.children && grpCustom.children.length > 0) {
+        this.dom.bfPaletteSelect.appendChild(grpCustom);
+      }
+      if (grpBuiltIn.children && grpBuiltIn.children.length > 0) {
+        this.dom.bfPaletteSelect.appendChild(grpBuiltIn);
+      }
+
+      if (curVal && Array.from(this.dom.bfPaletteSelect.options).some(o => o.value === curVal)) {
+        this.dom.bfPaletteSelect.value = curVal;
+      }
+    }
+
     getBrushFillConfigFromInputs() {
       const d = this.dom;
       const brushPrimary = d.bfBrushPrimary ? d.bfBrushPrimary.value : (this.brushFillConfig.brush || 'pencil');
@@ -3988,26 +5448,42 @@
       return {
         enabled: d.bfEnabled ? d.bfEnabled.checked : true,
         pattern: d.bfPattern ? d.bfPattern.value : 'linear',
+        strokeDirection: d.bfStrokeDirection ? d.bfStrokeDirection.value : 'bidirectional',
         spacing: d.bfSpacing ? Number(d.bfSpacing.value) || 8 : 8,
+        spacingJitter: d.bfSpacingJitter ? Number(d.bfSpacingJitter.value) || 0 : 0,
         angle: d.bfAngle ? Number(d.bfAngle.value) || 0 : 45,
+        lineAngleJitter: d.bfLineAngleJitter ? Number(d.bfLineAngleJitter.value) || 0 : 0,
         angle2: d.bfAngle2 ? Number(d.bfAngle2.value) || 0 : 135,
         angle3: d.bfAngle3 ? Number(d.bfAngle3.value) || 0 : 90,
+        waveFrequency: d.bfWaveFreq ? Number(d.bfWaveFreq.value) || 8 : 8,
+        waveAmplitude: d.bfWaveAmp ? Number(d.bfWaveAmp.value) || 50 : 50,
+        originX: d.bfOriginX ? Number(d.bfOriginX.value) || 50 : 50,
+        originY: d.bfOriginY ? Number(d.bfOriginY.value) || 50 : 50,
+        meshPhase: d.bfMeshPhase ? Number(d.bfMeshPhase.value) || 0 : 0,
         strokesPerLine: d.bfStrokesPerLine ? Number(d.bfStrokesPerLine.value) || 1 : 1,
         strokeLength: d.bfStrokeLength ? Number(d.bfStrokeLength.value) || 0 : 0,
         strokeGap: d.bfStrokeGap ? Number(d.bfStrokeGap.value) || 0 : 4,
+        strokeOverlap: d.bfStrokeOverlap ? Number(d.bfStrokeOverlap.value) || 0 : 0,
+        gapJitter: d.bfGapJitter ? Number(d.bfGapJitter.value) || 0 : 0,
         brush: brushPrimary,
         brushSecondary: brushSecondary,
         brushes: brushes,
         brushList: brushes,
         brushPickMode: d.bfBrushPickMode ? d.bfBrushPickMode.value : 'cycle',
         colorMode: d.bfColorMode ? d.bfColorMode.value : 'palette',
+        colorPaletteId: d.bfPaletteSelect ? d.bfPaletteSelect.value : (this.brushFillConfig.colorPaletteId || 'gruvbox'),
         colorPalette: (this.brushFillConfig.colorPalette && this.brushFillConfig.colorPalette.length > 0) ? [...this.brushFillConfig.colorPalette] : ['#fabd2f'],
         colorPickMode: d.bfColorPickMode ? d.bfColorPickMode.value : 'cycle',
+        hueJitter: d.bfHueJitter ? Number(d.bfHueJitter.value) || 0 : 0,
+        satJitter: d.bfSatJitter ? Number(d.bfSatJitter.value) || 0 : 0,
+        lightnessJitter: d.bfLightnessJitter ? Number(d.bfLightnessJitter.value) || 0 : 0,
         strokeWidth: d.bfStrokeWidth ? Number(d.bfStrokeWidth.value) || 2 : 2,
         strokeOpacity: d.bfStrokeOpacity ? Number(d.bfStrokeOpacity.value) || 0.9 : 0.9,
         flow: d.bfFlow ? Number(d.bfFlow.value) || 100 : 100,
         hardness: d.bfHardness ? Number(d.bfHardness.value) || 95 : 95,
         curvature: d.bfCurvature ? Number(d.bfCurvature.value) || 0 : 0,
+        curvatureMode: d.bfCurvatureMode ? d.bfCurvatureMode.value : 'uniform',
+        wobble: d.bfWobble ? Number(d.bfWobble.value) || 0 : 0,
         angleJitter: d.bfAngleJitter ? Number(d.bfAngleJitter.value) || 0 : 0,
         lengthJitter: d.bfLengthJitter ? Number(d.bfLengthJitter.value) || 0 : 0,
         widthJitter: d.bfWidthJitter ? Number(d.bfWidthJitter.value) || 0 : 0,
@@ -4029,20 +5505,41 @@
 
       if (d.bfEnabled) d.bfEnabled.checked = (c.enabled !== undefined ? c.enabled : true);
       if (d.bfPattern) d.bfPattern.value = c.pattern || 'linear';
+      if (d.bfStrokeDirection) d.bfStrokeDirection.value = c.strokeDirection || 'bidirectional';
       if (d.bfSpacing) d.bfSpacing.value = c.spacing !== undefined ? c.spacing : 8;
       if (d.bfSpacingSlider) d.bfSpacingSlider.value = c.spacing !== undefined ? c.spacing : 8;
+      if (d.bfSpacingJitter) d.bfSpacingJitter.value = c.spacingJitter !== undefined ? c.spacingJitter : 0;
+      if (d.bfSpacingJitterSlider) d.bfSpacingJitterSlider.value = c.spacingJitter !== undefined ? c.spacingJitter : 0;
       if (d.bfAngle) d.bfAngle.value = c.angle !== undefined ? c.angle : 45;
       if (d.bfAngleSlider) d.bfAngleSlider.value = c.angle !== undefined ? c.angle : 45;
+      if (d.bfLineAngleJitter) d.bfLineAngleJitter.value = c.lineAngleJitter !== undefined ? c.lineAngleJitter : 0;
+      if (d.bfLineAngleJitterSlider) d.bfLineAngleJitterSlider.value = c.lineAngleJitter !== undefined ? c.lineAngleJitter : 0;
       if (d.bfAngle2) d.bfAngle2.value = c.angle2 !== undefined ? c.angle2 : 135;
       if (d.bfAngle2Slider) d.bfAngle2Slider.value = c.angle2 !== undefined ? c.angle2 : 135;
       if (d.bfAngle3) d.bfAngle3.value = c.angle3 !== undefined ? c.angle3 : 90;
       if (d.bfAngle3Slider) d.bfAngle3Slider.value = c.angle3 !== undefined ? c.angle3 : 90;
+
+      if (d.bfWaveFreq) d.bfWaveFreq.value = c.waveFrequency !== undefined ? c.waveFrequency : 8;
+      if (d.bfWaveFreqSlider) d.bfWaveFreqSlider.value = c.waveFrequency !== undefined ? c.waveFrequency : 8;
+      if (d.bfWaveAmp) d.bfWaveAmp.value = c.waveAmplitude !== undefined ? c.waveAmplitude : 50;
+      if (d.bfWaveAmpSlider) d.bfWaveAmpSlider.value = c.waveAmplitude !== undefined ? c.waveAmplitude : 50;
+      if (d.bfOriginX) d.bfOriginX.value = c.originX !== undefined ? c.originX : 50;
+      if (d.bfOriginXSlider) d.bfOriginXSlider.value = c.originX !== undefined ? c.originX : 50;
+      if (d.bfOriginY) d.bfOriginY.value = c.originY !== undefined ? c.originY : 50;
+      if (d.bfOriginYSlider) d.bfOriginYSlider.value = c.originY !== undefined ? c.originY : 50;
+      if (d.bfMeshPhase) d.bfMeshPhase.value = c.meshPhase !== undefined ? c.meshPhase : 0;
+      if (d.bfMeshPhaseSlider) d.bfMeshPhaseSlider.value = c.meshPhase !== undefined ? c.meshPhase : 0;
+
       if (d.bfStrokesPerLine) d.bfStrokesPerLine.value = c.strokesPerLine !== undefined ? c.strokesPerLine : 1;
       if (d.bfStrokesPerLineSlider) d.bfStrokesPerLineSlider.value = c.strokesPerLine !== undefined ? c.strokesPerLine : 1;
       if (d.bfStrokeLength) d.bfStrokeLength.value = c.strokeLength !== undefined ? c.strokeLength : 0;
       if (d.bfStrokeLengthSlider) d.bfStrokeLengthSlider.value = c.strokeLength !== undefined ? c.strokeLength : 0;
       if (d.bfStrokeGap) d.bfStrokeGap.value = c.strokeGap !== undefined ? c.strokeGap : 4;
       if (d.bfStrokeGapSlider) d.bfStrokeGapSlider.value = c.strokeGap !== undefined ? c.strokeGap : 4;
+      if (d.bfStrokeOverlap) d.bfStrokeOverlap.value = c.strokeOverlap !== undefined ? c.strokeOverlap : 0;
+      if (d.bfStrokeOverlapSlider) d.bfStrokeOverlapSlider.value = c.strokeOverlap !== undefined ? c.strokeOverlap : 0;
+      if (d.bfGapJitter) d.bfGapJitter.value = c.gapJitter !== undefined ? c.gapJitter : 0;
+      if (d.bfGapJitterSlider) d.bfGapJitterSlider.value = c.gapJitter !== undefined ? c.gapJitter : 0;
 
       if (d.bfBrushPrimary) {
         const primary = c.brush || (Array.isArray(c.brushes) && c.brushes[0]) || (Array.isArray(c.brushList) && c.brushList[0]) || 'pencil';
@@ -4054,8 +5551,20 @@
       }
       if (d.bfBrushPickMode) d.bfBrushPickMode.value = c.brushPickMode || 'cycle';
 
+      this.populateBrushFillPaletteSelect();
+      if (d.bfPaletteSelect && c.colorPaletteId) {
+        d.bfPaletteSelect.value = c.colorPaletteId;
+      }
+
       if (d.bfColorMode) d.bfColorMode.value = c.colorMode || 'palette';
       if (d.bfColorPickMode) d.bfColorPickMode.value = c.colorPickMode || 'cycle';
+      if (d.bfHueJitter) d.bfHueJitter.value = c.hueJitter !== undefined ? c.hueJitter : 0;
+      if (d.bfHueJitterSlider) d.bfHueJitterSlider.value = c.hueJitter !== undefined ? c.hueJitter : 0;
+      if (d.bfSatJitter) d.bfSatJitter.value = c.satJitter !== undefined ? c.satJitter : 0;
+      if (d.bfSatJitterSlider) d.bfSatJitterSlider.value = c.satJitter !== undefined ? c.satJitter : 0;
+      if (d.bfLightnessJitter) d.bfLightnessJitter.value = c.lightnessJitter !== undefined ? c.lightnessJitter : 0;
+      if (d.bfLightnessJitterSlider) d.bfLightnessJitterSlider.value = c.lightnessJitter !== undefined ? c.lightnessJitter : 0;
+
       if (d.bfStrokeWidth) d.bfStrokeWidth.value = c.strokeWidth !== undefined ? c.strokeWidth : 2;
       if (d.bfStrokeWidthSlider) d.bfStrokeWidthSlider.value = c.strokeWidth !== undefined ? c.strokeWidth : 2;
       if (d.bfStrokeOpacity) d.bfStrokeOpacity.value = c.strokeOpacity !== undefined ? c.strokeOpacity : 0.9;
@@ -4066,6 +5575,9 @@
       if (d.bfHardnessSlider) d.bfHardnessSlider.value = c.hardness !== undefined ? c.hardness : 95;
       if (d.bfCurvature) d.bfCurvature.value = c.curvature !== undefined ? c.curvature : 0;
       if (d.bfCurvatureSlider) d.bfCurvatureSlider.value = c.curvature !== undefined ? c.curvature : 0;
+      if (d.bfCurvatureMode) d.bfCurvatureMode.value = c.curvatureMode || 'uniform';
+      if (d.bfWobble) d.bfWobble.value = c.wobble !== undefined ? c.wobble : 0;
+      if (d.bfWobbleSlider) d.bfWobbleSlider.value = c.wobble !== undefined ? c.wobble : 0;
       if (d.bfAngleJitter) d.bfAngleJitter.value = c.angleJitter !== undefined ? c.angleJitter : 0;
       if (d.bfAngleJitterSlider) d.bfAngleJitterSlider.value = c.angleJitter !== undefined ? c.angleJitter : 0;
       if (d.bfLengthJitter) d.bfLengthJitter.value = c.lengthJitter !== undefined ? c.lengthJitter : 0;
@@ -4886,6 +6398,13 @@
         align-items: center;
         margin-bottom: 6px;
       }
+      .cs-menu-popup {
+        font-family: var(--font-main, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+        user-select: none;
+      }
+      .cs-menu-popup-item:hover {
+        background: var(--bg-hover, #3c3836) !important;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -4923,6 +6442,10 @@
     rgbToHsl,
     hslToRgb,
     parseColor,
+    PaletteManager,
+    PALETTES,
+    getCustomSwatches,
+    saveCustomSwatches,
     mountColorTab,
     mountMaterialsTab: mountColorTab,
     mountMaterialTab: mountColorTab,

@@ -205,6 +205,17 @@
     return rgbToHex(newRgb.r, newRgb.g, newRgb.b);
   }
 
+  function lineIntersectionDistance(x1, y1, x2, y2, x3, y3, x4, y4) {
+    const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
+    if (Math.abs(denom) < 1e-9) return null;
+    const ua = ((x4 - x3) * (y1 - y3) - (y4 - y3) * (x1 - x3)) / denom;
+    const ub = ((x2 - x1) * (y1 - y3) - (y2 - y1) * (x1 - x3)) / denom;
+    if (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1) {
+      return ua;
+    }
+    return null;
+  }
+
   // ── 1.5. Native Brush Preset Resolution ──
   function getNativeBrushPresets() {
     let presets = {};
@@ -237,16 +248,29 @@
 
   const DEFAULT_BRUSH_FILL_CONFIG = {
     enabled: true,
-    pattern: 'linear',           // 'linear' | 'crosshatch' | 'triple_hatch' | 'contour' | 'stipple' | 'scribble' | 'zigzag' | 'wave' | 'spiral'
+    pattern: 'linear',           // 'linear' | 'crosshatch' | 'triple_hatch' | 'herringbone' | 'woven' | 'isometric' | 'cross_contour' | 'radial' | 'concentric' | 'flow_field' | 'voronoi' | 'contour' | 'stipple' | 'scribble' | 'zigzag' | 'wave' | 'spiral'
     spacing: 8,                  // Spacing / Pitch between lines or grid cells (px)
     angle: 45,                   // Primary angle in degrees (0 - 360)
     angle2: 135,                 // Secondary angle for cross-hatch (0 - 360)
     angle3: 90,                  // Tertiary angle for triple-hatch (0 - 360)
+
+    // Extended Mesh & Trajectory Parameters
+    strokeDirection: 'bidirectional', // 'bidirectional' | 'forward' | 'reverse' | 'random'
+    spacingJitter: 0,                 // Jitter in spacing between scanlines/grid (0 - 100 %)
+    lineAngleJitter: 0,               // Angular jitter between lines (± degrees)
+    waveFrequency: 8,                 // Frequency for wave/zigzag/flow oscillations (cycles per 100px)
+    waveAmplitude: 50,                // Amplitude % of spacing for wave/zigzag
+    originX: 50,                      // Origin center X (0 - 100 % of bounding box)
+    originY: 50,                      // Origin center Y (0 - 100 % of bounding box)
+    curvatureMode: 'uniform',         // 'uniform' | 'arch' | 's_curve' | 'wave'
+    meshPhase: 0,                     // Phase shift / offset (0 - 100 %)
     
     // Strokes per line & segmentation
     strokesPerLine: 1,           // Number of subdivided strokes along each line interval
     strokeLength: 0,             // 0 = full segment across boundary, >0 = explicit length in px
     strokeGap: 4,                // Gap between successive strokes along a line (px)
+    strokeOverlap: 0,            // Overlap distance between strokes when segmented (px)
+    gapJitter: 0,                // Random variation in gap between strokes (± %)
 
     // Native Brush Selection
     brush: 'pencil',             // Primary native brush preset key ('pencil', 'tech_pen', 'gpen', 'inker', 'oil', etc.)
@@ -255,10 +279,14 @@
     brushList: ['pencil'],       // Backwards-compat alias for brushes
     brushPickMode: 'cycle',      // 'cycle' | 'random' | 'alternate'
 
-    // Multi-Color Palette
+    // Multi-Color Palette & Pigment Variation
     colorMode: 'palette',        // 'solid' | 'palette' | 'gradient' | 'random'
+    colorPaletteId: 'gruvbox',   // ID of saved color palette from PaletteManager
     colorPalette: ['#fabd2f'],   // Array of colors for strokes
     colorPickMode: 'cycle',      // 'cycle' | 'random' | 'gradient'
+    hueJitter: 0,                // Fine-grained Hue variation (± degrees)
+    satJitter: 0,                // Fine-grained Saturation variation (± %)
+    lightnessJitter: 0,          // Fine-grained Lightness / Value variation (± %)
 
     // Base Stroke Properties
     strokeWidth: 2,              // Base stroke width in px
@@ -266,6 +294,7 @@
     flow: 100,                   // Flow %
     hardness: 95,                // Hardness %
     curvature: 0,                // Base curvature / bend (-100 to 100)
+    wobble: 0,                   // Organic hand tremor & roughness along stroke trajectory (0 - 100 %)
 
     // Parameter Jitters & Variance
     angleJitter: 0,              // Max angle variation (± degrees)
@@ -274,7 +303,7 @@
     opacityJitter: 0,            // Max opacity variation (± %)
     positionJitter: 0,           // Max spatial position offset (± px)
     curvatureJitter: 0,          // Max curvature variation
-    colorJitter: 0,              // Max color Hue/Sat/Val variation (± %)
+    colorJitter: 0,              // Max overall color Hue/Sat/Val variation (± %)
 
     // Boundary Bleed & Overshoot
     clipMode: 'bleed',           // 'strict' (exact clip) | 'bleed' (overshoot beyond contour)
@@ -326,6 +355,40 @@
           this._generateHatchLayer(polygons, bounds, config, config.angle3 !== undefined ? config.angle3 : (config.angle + 120), strokes, rng);
           break;
 
+        case 'herringbone':
+          this._generateHerringboneFills(polygons, bounds, config, strokes, rng);
+          break;
+
+        case 'woven':
+          this._generateWovenMeshFills(polygons, bounds, config, strokes, rng);
+          break;
+
+        case 'isometric':
+          this._generateHatchLayer(polygons, bounds, config, config.angle, strokes, rng);
+          this._generateHatchLayer(polygons, bounds, config, config.angle + 60, strokes, rng);
+          this._generateHatchLayer(polygons, bounds, config, config.angle + 120, strokes, rng);
+          break;
+
+        case 'cross_contour':
+          this._generateCrossContourFills(polygons, bounds, config, strokes, rng);
+          break;
+
+        case 'radial':
+          this._generateRadialFills(polygons, bounds, config, strokes, rng);
+          break;
+
+        case 'concentric':
+          this._generateConcentricFills(polygons, bounds, config, strokes, rng);
+          break;
+
+        case 'flow_field':
+          this._generateFlowFieldFills(polygons, bounds, config, strokes, rng);
+          break;
+
+        case 'voronoi':
+          this._generateVoronoiFills(polygons, bounds, config, strokes, rng);
+          break;
+
         case 'contour':
           this._generateContourFills(polygons, bounds, config, strokes, rng);
           break;
@@ -363,22 +426,31 @@
      * Generate parallel hatching strokes at a given angle across arbitrary polygons
      */
     static _generateHatchLayer(polygons, bounds, config, angleDeg, strokes, rng) {
-      const rad = degToRad(angleDeg);
+      let currentAngle = angleDeg;
       const spacing = Math.max(1, config.spacing || 8);
       const cx = bounds.minX + bounds.width / 2;
       const cy = bounds.minY + bounds.height / 2;
 
+      const rad = degToRad(currentAngle);
       // Rotate all polygons into scanline alignment space (where hatch lines are horizontal)
       const rotatedPolys = polygons.map(poly =>
         poly.map(p => rotatePoint(p.x, p.y, -rad, cx, cy))
       );
       const rotBounds = getPolygonsBounds(rotatedPolys);
 
-      const yStart = rotBounds.minY - spacing / 2;
+      const phaseOffset = ((config.meshPhase || 0) / 100) * spacing;
+      const yStart = rotBounds.minY - spacing / 2 + phaseOffset;
       const yEnd = rotBounds.maxY + spacing / 2;
 
       let lineIdx = 0;
-      for (let y = yStart; y <= yEnd; y += spacing) {
+      let y = yStart;
+      while (y <= yEnd) {
+        // Line angle jitter if configured
+        let lineRad = rad;
+        if (config.lineAngleJitter > 0) {
+          lineRad += degToRad(rng.range(-config.lineAngleJitter, config.lineAngleJitter));
+        }
+
         // Collect all intersections across all polygon contours
         let allIntersections = [];
         for (const poly of rotatedPolys) {
@@ -393,21 +465,45 @@
           const x1 = allIntersections[i + 1];
           if (x1 - x0 < 0.5) continue;
 
-          this._subdivideAndEmitStroke(x0, x1, y, rad, cx, cy, config, lineIdx, strokes, rng, bounds);
+          const p0 = rotatePoint(x0, y, lineRad, cx, cy);
+          const p1 = rotatePoint(x1, y, lineRad, cx, cy);
+          this._emitStrokeSegment(p0, p1, config, lineIdx, strokes, rng, bounds);
         }
         lineIdx++;
+
+        let stepSpacing = spacing;
+        if (config.spacingJitter > 0) {
+          stepSpacing = spacing * (1 + rng.range(-config.spacingJitter, config.spacingJitter) / 100);
+        }
+        y += Math.max(1, stepSpacing);
       }
     }
 
     /**
-     * Subdivide horizontal interval [x0, x1] into individual brush strokes with jitters & bleed
+     * Backwards-compatible bridge for legacy hatch subdivider
      */
     static _subdivideAndEmitStroke(x0, x1, y, rad, cx, cy, config, lineIdx, strokes, rng, bounds) {
-      const fullSpan = x1 - x0;
-      const count = Math.max(1, config.strokesPerLine || 1);
-      const gap = Math.max(0, config.strokeGap || 0);
+      const p0 = rotatePoint(x0, y, rad, cx, cy);
+      const p1 = rotatePoint(x1, y, rad, cx, cy);
+      this._emitStrokeSegment(p0, p1, config, lineIdx, strokes, rng, bounds);
+    }
 
-      // Bleed / Overshoot calculation
+    /**
+     * Universal Stroke Segment Generator
+     * Emits subdivided, jittered, tapered, wobbled, and textured brush strokes between any two 2D endpoints p0 and p1.
+     */
+    static _emitStrokeSegment(p0, p1, config, lineIdx, strokes, rng, bounds) {
+      let vx = p1.x - p0.x;
+      let vy = p1.y - p0.y;
+      const rawLen = Math.hypot(vx, vy);
+      if (rawLen < 0.2) return;
+
+      const ux = vx / rawLen;
+      const uy = vy / rawLen;
+      const nx = -uy;
+      const ny = ux;
+
+      // 1. Bleed / Overshoot calculation
       let bleed0 = 0, bleed1 = 0;
       if (config.clipMode === 'bleed' && config.bleedDistance > 0) {
         if (rng.range(0, 100) <= (config.bleedProbability !== undefined ? config.bleedProbability : 100)) {
@@ -416,72 +512,114 @@
         }
       }
 
-      const totalX0 = x0 - Math.max(0, bleed0);
-      const totalX1 = x1 + Math.max(0, bleed1);
-      const totalLen = totalX1 - totalX0;
+      const extP0 = { x: p0.x - ux * bleed0, y: p0.y - uy * bleed0 };
+      const extP1 = { x: p1.x + ux * bleed1, y: p1.y + uy * bleed1 };
+      const totalLen = rawLen + bleed0 + bleed1;
 
-      let segmentLen = (totalLen - gap * (count - 1)) / count;
+      // 2. Stroke Direction handling (bidirectional, forward, reverse, random)
+      let shouldFlip = false;
+      if (config.strokeDirection === 'bidirectional') {
+        shouldFlip = (lineIdx % 2 === 1);
+      } else if (config.strokeDirection === 'reverse') {
+        shouldFlip = true;
+      } else if (config.strokeDirection === 'random') {
+        shouldFlip = (rng.next() > 0.5);
+      }
+
+      const startPt = shouldFlip ? extP1 : extP0;
+      const segUx = shouldFlip ? -ux : ux;
+      const segUy = shouldFlip ? -uy : uy;
+      const segNx = shouldFlip ? -nx : nx;
+      const segNy = shouldFlip ? -ny : ny;
+
+      // 3. Subdivide into strokesPerLine / strokeLength
+      const count = Math.max(1, config.strokesPerLine || 1);
+      let gap = Math.max(0, config.strokeGap !== undefined ? config.strokeGap : 4);
+      if (config.gapJitter > 0) {
+        gap = Math.max(0, rng.jitter(gap, config.gapJitter, true));
+      }
+      const overlap = Math.max(0, config.strokeOverlap || 0);
+
+      let segmentLen = (totalLen - gap * (count - 1)) / count + overlap;
       if (config.strokeLength > 0) {
         segmentLen = Math.min(segmentLen, config.strokeLength);
       }
+      segmentLen = Math.max(0.5, segmentLen);
+
+      const stepDist = (count === 1) ? 0 : Math.max(0.1, (totalLen - segmentLen) / (count - 1));
 
       for (let k = 0; k < count; k++) {
-        let sx0 = totalX0 + k * (segmentLen + gap);
-        let sx1 = sx0 + segmentLen;
-        if (sx0 >= totalX1) break;
-        if (sx1 > totalX1) sx1 = totalX1;
-
-        // Length jitter
+        let currentSegLen = segmentLen;
+        // Length Jitter
         if (config.lengthJitter > 0) {
-          const lFactor = rng.jitter(1.0, config.lengthJitter, true);
-          const midX = (sx0 + sx1) / 2;
-          const halfL = ((sx1 - sx0) * lFactor) / 2;
-          sx0 = midX - halfL;
-          sx1 = midX + halfL;
+          currentSegLen *= (1 + rng.range(-config.lengthJitter, config.lengthJitter) / 100);
+          currentSegLen = Math.max(0.5, currentSegLen);
         }
 
-        // Position jitter (perpendicular & parallel offset in rotated space)
-        let offsetY = 0, offsetX = 0;
+        const tStart = (count === 1) ? 0 : k * stepDist;
+        let s0 = {
+          x: startPt.x + segUx * tStart,
+          y: startPt.y + segUy * tStart
+        };
+        let s1 = {
+          x: s0.x + segUx * currentSegLen,
+          y: s0.y + segUy * currentSegLen
+        };
+
+        // Position Jitter (lateral offset and longitudinal stagger)
+        let offsetLat = 0, offsetAx = 0;
         if (config.positionJitter > 0) {
-          offsetY = rng.range(-config.positionJitter, config.positionJitter);
-          offsetX = rng.range(-config.positionJitter / 2, config.positionJitter / 2);
+          offsetLat = rng.range(-config.positionJitter, config.positionJitter);
+          offsetAx = rng.range(-config.positionJitter / 2, config.positionJitter / 2);
         }
 
-        const sy0 = y + offsetY;
-        const sy1 = y + offsetY;
-        sx0 += offsetX;
-        sx1 += offsetX;
+        s0.x += segNx * offsetLat + segUx * offsetAx;
+        s0.y += segNy * offsetLat + segUy * offsetAx;
+        s1.x += segNx * offsetLat + segUx * offsetAx;
+        s1.y += segNy * offsetLat + segUy * offsetAx;
 
-        // Angle Jitter
-        let strokeRad = rad;
+        // Angle Jitter (rotates segment around its OWN midpoint so strokes tilt in place)
+        let midX = (s0.x + s1.x) / 2;
+        let midY = (s0.y + s1.y) / 2;
         if (config.angleJitter > 0) {
-          strokeRad += degToRad(rng.range(-config.angleJitter, config.angleJitter));
+          const tiltRad = degToRad(rng.range(-config.angleJitter, config.angleJitter));
+          s0 = rotatePoint(s0.x, s0.y, tiltRad, midX, midY);
+          s1 = rotatePoint(s1.x, s1.y, tiltRad, midX, midY);
         }
 
-        // Transform stroke back to world coordinates
-        const pt0 = rotatePoint(sx0, sy0, strokeRad, cx, cy);
-        const pt1 = rotatePoint(sx1, sy1, strokeRad, cx, cy);
-
-        // Curvature / Midpoint bend
+        // Curvature & Wobble (hand tremor / organic deviation)
         let cp = null;
         const baseCurv = rng.jitter(config.curvature || 0, config.curvatureJitter || 0);
-        if (Math.abs(baseCurv) > 0.5) {
-          const midX = (sx0 + sx1) / 2;
-          const midY = (sy0 + sy1) / 2 + (baseCurv * (sx1 - sx0) * 0.01);
-          cp = rotatePoint(midX, midY, strokeRad, cx, cy);
+        const wobbleFactor = config.wobble || 0;
+
+        if (Math.abs(baseCurv) > 0.5 || wobbleFactor > 0) {
+          const curvMode = config.curvatureMode || 'uniform';
+          let curvHeight = baseCurv * currentSegLen * 0.01;
+          if (curvMode === 'arch') curvHeight *= 1.4;
+
+          let wobbleOffset = 0;
+          if (wobbleFactor > 0) {
+            wobbleOffset = (wobbleFactor / 100) * Math.min(10, currentSegLen * 0.25) * rng.range(-1, 1);
+          }
+
+          const totalH = curvHeight + wobbleOffset;
+          cp = {
+            x: midX + segNx * totalH,
+            y: midY + segNy * totalH
+          };
         }
 
         // Multi-Brush & Multi-Color picking
         const strokeIdx = strokes.length;
         const brushTip = this._pickBrushTip(config, strokeIdx, rng);
-        const color = this._pickColor(config, strokeIdx, pt0, bounds, rng);
+        const color = this._pickColor(config, strokeIdx, s0, bounds, rng);
         const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
         const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
 
         strokes.push({
           type: cp ? 'curve' : 'line',
-          p0: pt0,
-          p1: pt1,
+          p0: s0,
+          p1: s1,
           cp: cp,
           width,
           opacity,
@@ -568,25 +706,52 @@
      * Pick color for the stroke based on palette, gradient map, or HSL jitter
      */
     static _pickColor(config, strokeIdx, pt, bounds, rng) {
-      const palette = (config.colorPalette && config.colorPalette.length > 0) ? config.colorPalette : ['#fabd2f'];
+      let palette = (config.colorPalette && config.colorPalette.length > 0) ? config.colorPalette : null;
+      if (!palette || palette.length === 0) {
+        if (config.colorPaletteId) {
+          try {
+            let pm = (typeof ColorStudio !== 'undefined' && ColorStudio.PaletteManager)
+              || (typeof window !== 'undefined' && (window.ColorStudio?.PaletteManager || window.PaletteManager))
+              || (typeof global !== 'undefined' && (global.ColorStudio?.PaletteManager || global.PaletteManager))
+              || (typeof PaletteManager !== 'undefined' ? PaletteManager : null);
+            if (!pm && typeof require === 'function') {
+              try {
+                const cs = require('./color_studio.js');
+                if (cs && cs.PaletteManager) pm = cs.PaletteManager;
+              } catch (_) {}
+            }
+            if (pm && typeof pm.getPalette === 'function') {
+              const pal = pm.getPalette(config.colorPaletteId);
+              if (pal && pal.colors && pal.colors.length > 0) {
+                palette = pal.colors;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+      if (!palette || palette.length === 0) {
+        palette = ['#fabd2f'];
+      }
       let baseColor = palette[0];
 
       if (config.colorMode === 'solid') {
         baseColor = palette[0] || '#fabd2f';
       } else if (config.colorMode === 'gradient') {
-        // Map stroke position normalized along bounding box width/height
-        const t = clamp((pt.x - bounds.minX) / bounds.width, 0, 1);
+        const t = clamp((pt.x - bounds.minX) / Math.max(1, bounds.width), 0, 1);
         const palIdx = Math.min(palette.length - 1, Math.floor(t * palette.length));
         baseColor = palette[palIdx];
       } else if (config.colorPickMode === 'random') {
         baseColor = palette[Math.floor(rng.next() * palette.length)];
       } else {
-        // 'cycle'
         baseColor = palette[strokeIdx % palette.length];
       }
 
-      if (config.colorJitter > 0) {
-        return jitterColor(baseColor, config.colorJitter * 1.8, config.colorJitter, config.colorJitter, rng);
+      const hJ = (config.hueJitter || 0) + (config.colorJitter ? config.colorJitter * 1.8 : 0);
+      const sJ = (config.satJitter || 0) + (config.colorJitter || 0);
+      const lJ = (config.lightnessJitter || 0) + (config.colorJitter || 0);
+
+      if (hJ > 0 || sJ > 0 || lJ > 0) {
+        return jitterColor(baseColor, hJ, sJ, lJ, rng);
       }
       return baseColor;
     }
@@ -598,8 +763,8 @@
       const spacing = Math.max(2, config.spacing || 8);
       const maxDist = Math.max(bounds.width, bounds.height) / 2;
 
+      let loopIdx = 0;
       for (let dist = spacing / 2; dist < maxDist; dist += spacing) {
-        // Offset polygons inward by distance `dist`
         for (const poly of polygons) {
           if (poly.length < 3) continue;
           const insetPoly = this._insetPolygon(poly, dist);
@@ -608,26 +773,10 @@
           for (let i = 0; i < insetPoly.length; i++) {
             const p0 = insetPoly[i];
             const p1 = insetPoly[(i + 1) % insetPoly.length];
-
-            const strokeIdx = strokes.length;
-            const brushTip = this._pickBrushTip(config, strokeIdx, rng);
-            const color = this._pickColor(config, strokeIdx, p0, bounds, rng);
-            const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
-            const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
-
-            strokes.push({
-              type: 'line',
-              p0,
-              p1,
-              width,
-              opacity,
-              color,
-              brushTip,
-              flow: config.flow || 100,
-              hardness: config.hardness || 95
-            });
+            this._emitStrokeSegment(p0, p1, config, loopIdx + i, strokes, rng, bounds);
           }
         }
+        loopIdx++;
       }
     }
 
@@ -663,7 +812,7 @@
     }
 
     /**
-     * Stippling / Particle Point Dabs Pattern
+     * Stipple / Pointillism Pattern
      */
     static _generateStippleFills(polygons, bounds, config, strokes, rng) {
       const spacing = Math.max(3, config.spacing || 6);
@@ -692,7 +841,8 @@
         strokes.push({
           type: 'dot',
           p0: { x, y },
-          p1: { x: x + 0.1, y: y + 0.1 },
+          cx: x,
+          cy: y,
           width,
           opacity,
           color,
@@ -704,7 +854,7 @@
     }
 
     /**
-     * Scribble / Meandering Random-Walk Pattern
+     * Scribble / Wandering Continuous Gesture Drawing Pattern
      */
     static _generateScribbleFills(polygons, bounds, config, strokes, rng) {
       const step = Math.max(4, config.spacing || 8);
@@ -728,28 +878,13 @@
         }
 
         if (!inside) {
-          // Bounce or steer toward center
           angle += Math.PI * 0.75;
           continue;
         }
 
-        const strokeIdx = strokes.length;
-        const brushTip = this._pickBrushTip(config, strokeIdx, rng);
-        const color = this._pickColor(config, strokeIdx, { x: currX, y: currY }, bounds, rng);
-        const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
-        const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
-
-        strokes.push({
-          type: 'line',
-          p0: { x: currX, y: currY },
-          p1: { x: nextX, y: nextY },
-          width,
-          opacity,
-          color,
-          brushTip,
-          flow: config.flow || 100,
-          hardness: config.hardness || 95
-        });
+        const p0 = { x: currX, y: currY };
+        const p1 = { x: nextX, y: nextY };
+        this._emitStrokeSegment(p0, p1, config, s, strokes, rng, bounds);
 
         currX = nextX;
         currY = nextY;
@@ -772,9 +907,12 @@
 
       const yStart = rotBounds.minY - spacing / 2;
       const yEnd = rotBounds.maxY + spacing / 2;
-      const amp = spacing * 0.8;
-      const zigStep = Math.max(4, spacing / 2);
+      const ampPct = config.waveAmplitude !== undefined ? config.waveAmplitude : 50;
+      const amp = spacing * (ampPct / 100);
+      const freq = config.waveFrequency || 8;
+      const zigStep = Math.max(3, 100 / Math.max(1, freq));
 
+      let lineIdx = 0;
       for (let y = yStart; y <= yEnd; y += spacing) {
         let allIntersections = [];
         for (const poly of rotatedPolys) {
@@ -796,26 +934,10 @@
 
             const pt0 = rotatePoint(x, sy0, rad, cx, cy);
             const pt1 = rotatePoint(nextX, sy1, rad, cx, cy);
-
-            const strokeIdx = strokes.length;
-            const brushTip = this._pickBrushTip(config, strokeIdx, rng);
-            const color = this._pickColor(config, strokeIdx, pt0, bounds, rng);
-            const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
-            const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
-
-            strokes.push({
-              type: 'line',
-              p0: pt0,
-              p1: pt1,
-              width,
-              opacity,
-              color,
-              brushTip,
-              flow: config.flow || 100,
-              hardness: config.hardness || 95
-            });
+            this._emitStrokeSegment(pt0, pt1, config, lineIdx, strokes, rng, bounds);
           }
         }
+        lineIdx++;
       }
     }
 
@@ -835,10 +957,12 @@
 
       const yStart = rotBounds.minY - spacing / 2;
       const yEnd = rotBounds.maxY + spacing / 2;
-      const waveFreq = 0.08;
-      const waveAmp = spacing * 0.45;
+      const waveFreq = (config.waveFrequency || 8) * 0.01;
+      const ampPct = config.waveAmplitude !== undefined ? config.waveAmplitude : 50;
+      const waveAmp = spacing * (ampPct / 100);
       const step = 4;
 
+      let lineIdx = 0;
       for (let y = yStart; y <= yEnd; y += spacing) {
         let allIntersections = [];
         for (const poly of rotatedPolys) {
@@ -858,25 +982,364 @@
 
             const pt0 = rotatePoint(x, sy0, rad, cx, cy);
             const pt1 = rotatePoint(nextX, sy1, rad, cx, cy);
-
-            const strokeIdx = strokes.length;
-            const brushTip = this._pickBrushTip(config, strokeIdx, rng);
-            const color = this._pickColor(config, strokeIdx, pt0, bounds, rng);
-            const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
-            const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
-
-            strokes.push({
-              type: 'line',
-              p0: pt0,
-              p1: pt1,
-              width,
-              opacity,
-              color,
-              brushTip,
-              flow: config.flow || 100,
-              hardness: config.hardness || 95
-            });
+            this._emitStrokeSegment(pt0, pt1, config, lineIdx, strokes, rng, bounds);
           }
+        }
+        lineIdx++;
+      }
+    }
+
+    /**
+     * Herringbone / Chevron Interlocking Weave Pattern
+     */
+    static _generateHerringboneFills(polygons, bounds, config, strokes, rng) {
+      const rad = degToRad(config.angle || 0);
+      const spacing = Math.max(2, config.spacing || 10);
+      const cx = bounds.minX + bounds.width / 2;
+      const cy = bounds.minY + bounds.height / 2;
+
+      const rotatedPolys = polygons.map(poly =>
+        poly.map(p => rotatePoint(p.x, p.y, -rad, cx, cy))
+      );
+      const rotBounds = getPolygonsBounds(rotatedPolys);
+
+      const yStart = rotBounds.minY - spacing;
+      const yEnd = rotBounds.maxY + spacing;
+      const toothPitch = spacing * 1.5;
+
+      for (let y = yStart; y <= yEnd; y += spacing) {
+        let allIntersections = [];
+        for (const poly of rotatedPolys) {
+          const inters = findScanlineIntersections(poly, y);
+          allIntersections.push(...inters);
+        }
+        allIntersections.sort((a, b) => a - b);
+
+        for (let i = 0; i < allIntersections.length - 1; i += 2) {
+          const x0 = allIntersections[i];
+          const x1 = allIntersections[i + 1];
+
+          for (let x = x0; x < x1; x += toothPitch) {
+            const nextX = Math.min(x1, x + toothPitch);
+            const rowIdx = Math.floor(y / spacing);
+            const colIdx = Math.floor(x / toothPitch);
+            const slant = ((rowIdx + colIdx) % 2 === 0) ? 1 : -1;
+
+            const sy0 = y - slant * (spacing * 0.4);
+            const sy1 = y + slant * (spacing * 0.4);
+
+            const pt0 = rotatePoint(x, sy0, rad, cx, cy);
+            const pt1 = rotatePoint(nextX, sy1, rad, cx, cy);
+            this._emitStrokeSegment(pt0, pt1, config, rowIdx + colIdx, strokes, rng, bounds);
+          }
+        }
+      }
+    }
+
+    /**
+     * Woven Basketweave Interlocking Blocks Pattern
+     */
+    static _generateWovenMeshFills(polygons, bounds, config, strokes, rng) {
+      const rad = degToRad(config.angle || 0);
+      const spacing = Math.max(3, config.spacing || 10);
+      const blockSize = spacing * 2.5;
+      const cx = bounds.minX + bounds.width / 2;
+      const cy = bounds.minY + bounds.height / 2;
+
+      const rotatedPolys = polygons.map(poly =>
+        poly.map(p => rotatePoint(p.x, p.y, -rad, cx, cy))
+      );
+      const rotBounds = getPolygonsBounds(rotatedPolys);
+
+      const threads = 3;
+      const threadStep = blockSize / (threads + 1);
+
+      for (let bx = rotBounds.minX; bx <= rotBounds.maxX; bx += blockSize) {
+        for (let by = rotBounds.minY; by <= rotBounds.maxY; by += blockSize) {
+          const blockCol = Math.floor(bx / blockSize);
+          const blockRow = Math.floor(by / blockSize);
+          const isHorizontal = ((blockCol + blockRow) % 2 === 0);
+
+          for (let t = 1; t <= threads; t++) {
+            let sx0, sy0, sx1, sy1;
+            if (isHorizontal) {
+              sx0 = bx;
+              sx1 = bx + blockSize;
+              sy0 = by + t * threadStep;
+              sy1 = sy0;
+            } else {
+              sx0 = bx + t * threadStep;
+              sx1 = sx0;
+              sy0 = by;
+              sy1 = by + blockSize;
+            }
+
+            const midX = (sx0 + sx1) / 2;
+            const midY = (sy0 + sy1) / 2;
+            const testPt = rotatePoint(midX, midY, rad, cx, cy);
+
+            let inside = false;
+            for (const poly of polygons) {
+              if (isPointInPolygon(testPt.x, testPt.y, poly)) {
+                inside = true;
+                break;
+              }
+            }
+            if (!inside) continue;
+
+            const pt0 = rotatePoint(sx0, sy0, rad, cx, cy);
+            const pt1 = rotatePoint(sx1, sy1, rad, cx, cy);
+            this._emitStrokeSegment(pt0, pt1, config, blockCol + blockRow + t, strokes, rng, bounds);
+          }
+        }
+      }
+    }
+
+    /**
+     * Radial Rays / Sunburst Pattern
+     */
+    static _generateRadialFills(polygons, bounds, config, strokes, rng) {
+      const origX = config.originX !== undefined ? (config.originX / 100) : 0.5;
+      const origY = config.originY !== undefined ? (config.originY / 100) : 0.5;
+      const cx = bounds.minX + bounds.width * origX;
+      const cy = bounds.minY + bounds.height * origY;
+
+      const maxR = Math.hypot(bounds.width, bounds.height) * 1.5;
+      const spacing = Math.max(3, config.spacing || 10);
+      const rayCount = Math.max(12, Math.floor((Math.PI * 2 * (maxR / 3)) / spacing));
+      const dTheta = (Math.PI * 2) / rayCount;
+
+      let centerInside = false;
+      for (const poly of polygons) {
+        if (isPointInPolygon(cx, cy, poly)) {
+          centerInside = true;
+          break;
+        }
+      }
+
+      for (let rIdx = 0; rIdx < rayCount; rIdx++) {
+        let theta = rIdx * dTheta + degToRad(config.angle || 0);
+        if (config.lineAngleJitter > 0) {
+          theta += degToRad(rng.range(-config.lineAngleJitter, config.lineAngleJitter));
+        }
+
+        const cos = Math.cos(theta);
+        const sin = Math.sin(theta);
+        const rayP1 = { x: cx + cos * maxR, y: cy + sin * maxR };
+
+        let interDists = [];
+        if (centerInside) {
+          interDists.push(0);
+        }
+
+        for (const poly of polygons) {
+          const n = poly.length;
+          for (let i = 0; i < n; i++) {
+            const v0 = poly[i];
+            const v1 = poly[(i + 1) % n];
+            const d = lineIntersectionDistance(cx, cy, rayP1.x, rayP1.y, v0.x, v0.y, v1.x, v1.y);
+            if (d !== null && d >= 0.0001 && d <= 1) {
+              interDists.push(d * maxR);
+            }
+          }
+        }
+        interDists.sort((a, b) => a - b);
+
+        for (let i = 0; i < interDists.length - 1; i += 2) {
+          const d0 = interDists[i];
+          const d1 = interDists[i + 1];
+          if (d1 - d0 < 0.5) continue;
+
+          const p0 = { x: cx + cos * d0, y: cy + sin * d0 };
+          const p1 = { x: cx + cos * d1, y: cy + sin * d1 };
+          this._emitStrokeSegment(p0, p1, config, rIdx, strokes, rng, bounds);
+        }
+      }
+    }
+
+    /**
+     * Concentric Rings / Arcs Pattern
+     */
+    static _generateConcentricFills(polygons, bounds, config, strokes, rng) {
+      const origX = config.originX !== undefined ? (config.originX / 100) : 0.5;
+      const origY = config.originY !== undefined ? (config.originY / 100) : 0.5;
+      const cx = bounds.minX + bounds.width * origX;
+      const cy = bounds.minY + bounds.height * origY;
+
+      const maxR = Math.hypot(bounds.width, bounds.height);
+      const spacing = Math.max(3, config.spacing || 8);
+
+      let ringIdx = 0;
+      for (let r = spacing / 2; r <= maxR; r += spacing) {
+        const perimeter = 2 * Math.PI * r;
+        const segments = Math.max(12, Math.floor(perimeter / 10));
+        const dTheta = (Math.PI * 2) / segments;
+
+        let prevPt = null;
+        for (let s = 0; s <= segments; s++) {
+          const theta = s * dTheta;
+          const x = cx + r * Math.cos(theta);
+          const y = cy + r * Math.sin(theta);
+
+          let inside = false;
+          for (const poly of polygons) {
+            if (isPointInPolygon(x, y, poly)) {
+              inside = true;
+              break;
+            }
+          }
+
+          if (inside && prevPt) {
+            this._emitStrokeSegment(prevPt, { x, y }, config, ringIdx + s, strokes, rng, bounds);
+          }
+
+          prevPt = inside ? { x, y } : null;
+        }
+        ringIdx++;
+      }
+    }
+
+    /**
+     * Cross-Contour 3D Surface Pattern
+     */
+    static _generateCrossContourFills(polygons, bounds, config, strokes, rng) {
+      const origX = config.originX !== undefined ? (config.originX / 100) : 0.5;
+      const origY = config.originY !== undefined ? (config.originY / 100) : 0.5;
+      const cx = bounds.minX + bounds.width * origX;
+      const cy = bounds.minY + bounds.height * origY;
+      const spacing = Math.max(3, config.spacing || 10);
+      const rad = degToRad(config.angle || 0);
+
+      const rotatedPolys = polygons.map(poly =>
+        poly.map(p => rotatePoint(p.x, p.y, -rad, cx, cy))
+      );
+      const rotBounds = getPolygonsBounds(rotatedPolys);
+
+      const yStart = rotBounds.minY - spacing / 2;
+      const yEnd = rotBounds.maxY + spacing / 2;
+      const baseCurv = config.curvature !== 0 ? config.curvature : 25;
+
+      let lineIdx = 0;
+      for (let y = yStart; y <= yEnd; y += spacing) {
+        let allIntersections = [];
+        for (const poly of rotatedPolys) {
+          const inters = findScanlineIntersections(poly, y);
+          allIntersections.push(...inters);
+        }
+        allIntersections.sort((a, b) => a - b);
+
+        for (let i = 0; i < allIntersections.length - 1; i += 2) {
+          const x0 = allIntersections[i];
+          const x1 = allIntersections[i + 1];
+          const span = x1 - x0;
+          if (span < 1) continue;
+
+          const p0 = rotatePoint(x0, y, rad, cx, cy);
+          const p1 = rotatePoint(x1, y, rad, cx, cy);
+          this._emitStrokeSegment(p0, p1, { ...config, curvature: baseCurv }, lineIdx, strokes, rng, bounds);
+        }
+        lineIdx++;
+      }
+    }
+
+    /**
+     * Fluid Flow Field / Streamline Curve Pattern
+     */
+    static _generateFlowFieldFills(polygons, bounds, config, strokes, rng) {
+      const spacing = Math.max(4, config.spacing || 10);
+      const baseRad = degToRad(config.angle || 0);
+      const freq = ((config.waveFrequency || 8) * 0.005);
+      const stepLen = spacing * 0.8;
+      const numSteps = 8;
+      const seed = config.seed || 42;
+
+      let streamIdx = 0;
+      for (let gx = bounds.minX + spacing / 2; gx <= bounds.maxX; gx += spacing) {
+        for (let gy = bounds.minY + spacing / 2; gy <= bounds.maxY; gy += spacing) {
+          let currX = gx + rng.range(-spacing / 3, spacing / 3);
+          let currY = gy + rng.range(-spacing / 3, spacing / 3);
+
+          let inside = false;
+          for (const poly of polygons) {
+            if (isPointInPolygon(currX, currY, poly)) {
+              inside = true;
+              break;
+            }
+          }
+          if (!inside) continue;
+
+          let prevPt = { x: currX, y: currY };
+          for (let step = 0; step < numSteps; step++) {
+            const flowAngle = baseRad + (Math.sin(currX * freq + seed) * Math.cos(currY * freq + seed * 0.7)) * Math.PI * 1.5;
+            const nextX = currX + Math.cos(flowAngle) * stepLen;
+            const nextY = currY + Math.sin(flowAngle) * stepLen;
+
+            let stepInside = false;
+            for (const poly of polygons) {
+              if (isPointInPolygon(nextX, nextY, poly)) {
+                stepInside = true;
+                break;
+              }
+            }
+            if (!stepInside) break;
+
+            const p0 = prevPt;
+            const p1 = { x: nextX, y: nextY };
+            this._emitStrokeSegment(p0, p1, config, streamIdx + step, strokes, rng, bounds);
+
+            currX = nextX;
+            currY = nextY;
+            prevPt = { x: currX, y: currY };
+          }
+          streamIdx++;
+        }
+      }
+    }
+
+    /**
+     * Voronoi Cellular Facet Pattern
+     */
+    static _generateVoronoiFills(polygons, bounds, config, strokes, rng) {
+      const spacing = Math.max(6, config.spacing || 12);
+      const cellSize = spacing * 2.2;
+      const seeds = [];
+
+      for (let x = bounds.minX; x <= bounds.maxX; x += cellSize) {
+        for (let y = bounds.minY; y <= bounds.maxY; y += cellSize) {
+          const sx = x + rng.range(cellSize * 0.2, cellSize * 0.8);
+          const sy = y + rng.range(cellSize * 0.2, cellSize * 0.8);
+          seeds.push({ x: sx, y: sy });
+        }
+      }
+
+      for (let i = 0; i < seeds.length; i++) {
+        const s1 = seeds[i];
+        for (let j = i + 1; j < seeds.length; j++) {
+          const s2 = seeds[j];
+          const dist = Math.hypot(s2.x - s1.x, s2.y - s1.y);
+          if (dist > cellSize * 1.5) continue;
+
+          const midX = (s1.x + s2.x) / 2;
+          const midY = (s1.y + s2.y) / 2;
+          const dx = s2.x - s1.x;
+          const dy = s2.y - s1.y;
+          const ridgeLen = cellSize * 0.6;
+          const nx = -dy / dist;
+          const ny = dx / dist;
+
+          const p0 = { x: midX - nx * (ridgeLen / 2), y: midY - ny * (ridgeLen / 2) };
+          const p1 = { x: midX + nx * (ridgeLen / 2), y: midY + ny * (ridgeLen / 2) };
+
+          let inside = false;
+          for (const poly of polygons) {
+            if (isPointInPolygon(midX, midY, poly)) {
+              inside = true;
+              break;
+            }
+          }
+          if (!inside) continue;
+
+          this._emitStrokeSegment(p0, p1, config, i + j, strokes, rng, bounds);
         }
       }
     }
@@ -885,8 +1348,10 @@
      * Archimedean Spiral Pattern
      */
     static _generateSpiralFills(polygons, bounds, config, strokes, rng) {
-      const cx = bounds.minX + bounds.width / 2;
-      const cy = bounds.minY + bounds.height / 2;
+      const origX = config.originX !== undefined ? (config.originX / 100) : 0.5;
+      const origY = config.originY !== undefined ? (config.originY / 100) : 0.5;
+      const cx = bounds.minX + bounds.width * origX;
+      const cy = bounds.minY + bounds.height * origY;
       const spacing = Math.max(3, config.spacing || 8);
       const b = spacing / (2 * Math.PI);
       const maxR = Math.hypot(bounds.width, bounds.height) / 2;
@@ -909,23 +1374,7 @@
         }
 
         if (inside && prevPt) {
-          const strokeIdx = strokes.length;
-          const brushTip = this._pickBrushTip(config, strokeIdx, rng);
-          const color = this._pickColor(config, strokeIdx, prevPt, bounds, rng);
-          const width = Math.max(0.5, rng.jitter(config.strokeWidth || 2, config.widthJitter || 0, true));
-          const opacity = clamp(rng.jitter(config.strokeOpacity !== undefined ? config.strokeOpacity : 0.9, config.opacityJitter || 0, true), 0.01, 1.0);
-
-          strokes.push({
-            type: 'line',
-            p0: prevPt,
-            p1: { x, y },
-            width,
-            opacity,
-            color,
-            brushTip,
-            flow: config.flow || 100,
-            hardness: config.hardness || 95
-          });
+          this._emitStrokeSegment(prevPt, { x, y }, config, Math.floor(theta), strokes, rng, bounds);
         }
 
         prevPt = inside ? { x, y } : null;
@@ -1194,6 +1643,147 @@
         strokeWidth: 2.0,
         strokeOpacity: 0.9,
         colorPalette: ['#458588', '#83a598'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'herringbone_tweed',
+      name: 'Mechanical Pencil — Herringbone Tweed',
+      brush: 'mech_pencil',
+      desc: 'Classic architectural herringbone chevron hatching',
+      config: {
+        enabled: true,
+        brush: 'mech_pencil',
+        brushes: ['mech_pencil'],
+        brushList: ['mech_pencil'],
+        pattern: 'herringbone',
+        spacing: 8,
+        angle: 45,
+        strokeWidth: 1.5,
+        strokeOpacity: 0.9,
+        colorPalette: ['#504945', '#3c3836'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'woven_basket',
+      name: 'Washi Graphite — Woven Basketweave',
+      brush: 'washi_sketch',
+      desc: 'Interlocking woven perpendicular fiber strokes',
+      config: {
+        enabled: true,
+        brush: 'washi_sketch',
+        brushes: ['washi_sketch'],
+        brushList: ['washi_sketch'],
+        pattern: 'woven',
+        spacing: 8,
+        angle: 0,
+        strokeWidth: 1.8,
+        strokeOpacity: 0.85,
+        colorPalette: ['#665c54', '#7c6f64'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'cross_contour_3d',
+      name: '6B Graphite — Cross-Contour 3D',
+      brush: 'soft_pencil',
+      desc: 'Michelangelo style cross-contour volume shading',
+      config: {
+        enabled: true,
+        brush: 'soft_pencil',
+        brushes: ['soft_pencil'],
+        brushList: ['soft_pencil'],
+        pattern: 'cross_contour',
+        spacing: 8,
+        angle: 30,
+        curvature: 30,
+        curvatureMode: 'arch',
+        strokeWidth: 2.2,
+        strokeOpacity: 0.8,
+        colorPalette: ['#282828', '#3c3836'],
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'radial_sunburst',
+      name: 'Technical Pen — Radial Sunburst',
+      brush: 'tech_pen',
+      desc: 'Precision drafting rays radiating outward from center',
+      config: {
+        enabled: true,
+        brush: 'tech_pen',
+        brushes: ['tech_pen'],
+        brushList: ['tech_pen'],
+        pattern: 'radial',
+        spacing: 6,
+        originX: 50,
+        originY: 50,
+        strokeWidth: 1.2,
+        strokeOpacity: 0.95,
+        colorPalette: ['#d65d0e', '#fabd2f', '#fe8019'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'concentric_zen',
+      name: 'Studio Inker — Concentric Zen Rings',
+      brush: 'inker',
+      desc: 'Harmonic concentric circular ripple arcs',
+      config: {
+        enabled: true,
+        brush: 'inker',
+        brushes: ['inker'],
+        brushList: ['inker'],
+        pattern: 'concentric',
+        spacing: 7,
+        originX: 50,
+        originY: 50,
+        strokeWidth: 2.0,
+        strokeOpacity: 0.9,
+        colorPalette: ['#076678', '#458588', '#83a598'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'flow_stream',
+      name: 'Wet Acrylic — Van Gogh Flow Field',
+      brush: 'acrylic',
+      desc: 'Expressive swirling streamline curves following curl vector noise',
+      config: {
+        enabled: true,
+        brush: 'acrylic',
+        brushSecondary: 'oil',
+        brushes: ['acrylic', 'oil'],
+        brushList: ['acrylic', 'oil'],
+        brushPickMode: 'alternate',
+        pattern: 'flow_field',
+        spacing: 9,
+        waveFrequency: 10,
+        strokeWidth: 3.5,
+        strokeOpacity: 0.88,
+        colorPalette: ['#458588', '#fabd2f', '#fe8019', '#b8bb26'],
+        colorPickMode: 'cycle',
+        clipMode: 'strict'
+      }
+    },
+    {
+      id: 'voronoi_facets',
+      name: 'Dry Ink — Voronoi Cellular Mesh',
+      brush: 'dry_ink',
+      desc: 'Organic cellular crystal partitions with rough dry brush edges',
+      config: {
+        enabled: true,
+        brush: 'dry_ink',
+        brushes: ['dry_ink'],
+        brushList: ['dry_ink'],
+        pattern: 'voronoi',
+        spacing: 12,
+        strokeWidth: 2.2,
+        strokeOpacity: 0.9,
+        colorPalette: ['#1d2021', '#282828'],
         clipMode: 'strict'
       }
     }
