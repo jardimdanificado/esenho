@@ -23,8 +23,8 @@ assert(dataPackage.stats && typeof dataPackage.stats === "object", "Stats metada
 
 console.log("  ✔ data.json loaded successfully with stats:", JSON.stringify(dataPackage.stats));
 
-// 2. Validate all 8 Resource Categories in data.json
-console.log("2. Validating 8 Core Standard Resource Domains...");
+// 2. Validate all 9 Resource Categories in data.json
+console.log("2. Validating 9 Core Standard Resource Domains...");
 const requiredCategories = [
   "brushPresets",
   "textures",
@@ -33,7 +33,8 @@ const requiredCategories = [
   "curves",
   "meshes",
   "wasmFx",
-  "palettes"
+  "palettes",
+  "brushFillPresets"
 ];
 
 for (const cat of requiredCategories) {
@@ -44,7 +45,7 @@ for (const cat of requiredCategories) {
 }
 
 // 3. Verify Decoupled Runner (EsenhoRegistry) initializes from data.json
-console.log("3. Verifying EsenhoRegistry Runner initializes all 8 domains...");
+console.log("3. Verifying EsenhoRegistry Runner initializes all 9 domains...");
 assert(EsenhoRegistry.list("brush").length >= 70, "Must load brush presets into registry");
 assert(EsenhoRegistry.list("tip").length >= 10, "Must load tips into registry");
 assert(EsenhoRegistry.list("texture").length >= 15, "Must load textures into registry");
@@ -53,7 +54,8 @@ assert(EsenhoRegistry.list("material").length >= 50, "Must load materials into r
 assert(EsenhoRegistry.list("mesh").length >= 15, "Must load meshes into registry");
 assert(EsenhoRegistry.list("wasm_fx").length === 29, "Must load all 29 WASM FX into registry");
 assert(EsenhoRegistry.list("palette").length >= 10, "Must load palettes into registry");
-console.log("  ✔ All 8 domains verified in live registry stores");
+assert(EsenhoRegistry.list("brush_fill").length >= 25, "Must load brush fill presets into registry");
+console.log("  ✔ All 9 domains verified in live registry stores");
 
 // 4. Test Bézier Curve Evaluation Runner
 console.log("4. Testing Bézier Curve Transfer Function Runner...");

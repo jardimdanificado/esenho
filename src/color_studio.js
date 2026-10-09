@@ -834,6 +834,8 @@
   function getBuiltinBfPresets() {
     const reg = getRegistry();
     if (reg && typeof reg.list === 'function') {
+      const list = reg.list('brush_fill');
+      if (list && list.length > 0) return list;
       const mats = reg.list('material');
       return mats.filter(m => m.category === 'brushfills' || m.mode === 'brushfill');
     }
@@ -1371,6 +1373,15 @@
 
           <!-- SECTION 5: BRUSH FILL & PROCEDURAL HATCHING -->
           <div class="cs-panel cs-panel-brushfill" id="cs-panel-brushfill">
+            <!-- Preset Library Card -->
+            <div class="cs-card">
+              <div class="cs-card-title">Brush Fill Presets</div>
+              <div class="cs-form-row" style="gap: 4px;">
+                <select id="cs-bf-preset-select" class="cs-select" style="flex: 1;"></select>
+                <button type="button" id="cs-btn-save-bf-preset" class="cs-btn-mini" style="white-space: nowrap; padding: 3px 8px;" title="Save current brush fill configuration as preset">Save</button>
+              </div>
+            </div>
+
             <div class="cs-card">
               <div class="cs-card-title">Brush Fill Mode</div>
               <div class="cs-form-row">
@@ -1575,40 +1586,12 @@
               </div>
             </div>
 
-            <!-- Multi-Color Palette -->
+            <!-- Material Color & Gradient Scheme Notice -->
             <div class="cs-card">
-              <div class="cs-card-title">Multi-Color Palette</div>
-              <div class="cs-form-row">
-                <label>Color Mode</label>
-                <select id="cs-bf-color-mode" class="cs-select">
-                  <option value="palette">Multi-Color Palette</option>
-                  <option value="solid">Single Solid</option>
-                  <option value="gradient">Gradient Projection</option>
-                </select>
+              <div class="cs-card-title">Material Color &amp; Gradient</div>
+              <div style="font-size: 10px; color: var(--text-muted, #928374); line-height: 1.4; padding: 2px 0;">
+                Brush strokes directly use the material's active <strong style="color: var(--primary, #fabd2f);">Color</strong> or <strong style="color: var(--primary, #fabd2f);">Gradient</strong>. Configure them directly in the Color or Gradient tabs.
               </div>
-
-              <div class="cs-form-row">
-                <label>Saved Palette</label>
-                <select id="cs-bf-palette-select" class="cs-select" title="Choose a saved color palette for brush fills"></select>
-              </div>
-
-              <div class="cs-form-row">
-                <label>Color Pick</label>
-                <select id="cs-bf-color-pick-mode" class="cs-select">
-                  <option value="cycle">Cycle Colors</option>
-                  <option value="random">Random Color</option>
-                  <option value="gradient">Spatial Gradient</option>
-                </select>
-              </div>
-
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
-                <span style="font-size: 10px; color: var(--text-muted, #928374);">Palette Swatches:</span>
-                <div style="display: flex; gap: 4px;">
-                  <button type="button" id="cs-btn-add-bf-color" class="cs-btn-mini" style="padding: 1px 6px; font-size: 9.5px;" title="Add current studio color to palette">+ Add Color</button>
-                  <button type="button" id="cs-btn-save-bf-palette" class="cs-btn-mini" style="padding: 1px 6px; font-size: 9.5px;" title="Save current swatches as a new palette">Save Palette</button>
-                </div>
-              </div>
-              <div id="cs-bf-palette-container" style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; min-height: 24px; align-items: center;"></div>
             </div>
 
             <!-- Stroke Geometry & Properties -->
@@ -1894,6 +1877,8 @@
         materialPresetSelect: this.container.querySelector('#cs-material-preset-select'),
         btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset'),
         // Brush Fill Controls
+        bfPresetSelect: this.container.querySelector('#cs-bf-preset-select'),
+        btnSaveBfPreset: this.container.querySelector('#cs-btn-save-bf-preset'),
         bfEnabled: this.container.querySelector('#cs-bf-enabled'),
         bfBrushAddSelect: this.container.querySelector('#cs-bf-brush-add-select'),
         btnAddBfBrush: this.container.querySelector('#cs-btn-add-bf-brush'),
@@ -2618,7 +2603,7 @@
 
     switchMode(mode) {
       this.activeMode = mode;
-      this.dom.modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+      this.dom.modeBtns?.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
       this.dom.panelColor?.classList.toggle('active', mode === 'color');
       this.dom.panelGradient?.classList.toggle('active', mode === 'gradient');
       this.dom.panelTexture?.classList.toggle('active', mode === 'texture');
@@ -2636,7 +2621,7 @@
 
     switchColorSubmode(submode) {
       this.colorSubMode = submode;
-      this.dom.submodeBtns.forEach(b => b.classList.toggle('active', b.dataset.submode === submode));
+      this.dom.submodeBtns?.forEach(b => b.classList.toggle('active', b.dataset.submode === submode));
       this.dom.subpanelPicker?.classList.toggle('active', submode === 'picker');
       this.dom.subpanelSliders?.classList.toggle('active', submode === 'sliders');
       this.dom.subpanelPalettes?.classList.toggle('active', submode === 'palettes');
@@ -2762,18 +2747,24 @@
             if (selected.length > 0) {
               for (const obj of selected) {
                 obj.fill = val;
-                if (val !== 'none' && obj.fillType && obj.fillType !== 'solid') obj.fillType = 'solid';
+                delete obj._cachedBfStrokes;
+                delete obj._cachedBfKey;
+                if (val !== 'none' && obj.fillType && obj.fillType !== 'solid' && obj.fillType !== 'brush') obj.fillType = 'solid';
                 if (this.currentA !== undefined) obj.fillOpacity = this.currentA;
                 if (obj.type === 'group' && Array.isArray(obj.children)) {
                   for (const child of obj.children) {
                     child.fill = val;
-                    if (val !== 'none' && child.fillType && child.fillType !== 'solid') child.fillType = 'solid';
+                    delete child._cachedBfStrokes;
+                    delete child._cachedBfKey;
+                    if (val !== 'none' && child.fillType && child.fillType !== 'solid' && child.fillType !== 'brush') child.fillType = 'solid';
                     if (this.currentA !== undefined) child.fillOpacity = this.currentA;
                   }
                 }
               }
             } else {
               activeDoc.defaultFill = val;
+              delete activeDoc._cachedBfStrokes;
+              delete activeDoc._cachedBfKey;
               if (this.currentA !== undefined) activeDoc.defaultFillOpacity = this.currentA;
             }
             if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
@@ -3067,7 +3058,11 @@
       }
 
       for (const obj of selected) {
-        obj.fillType = this.gradientType;
+        if (obj.fillType !== 'brush') {
+          obj.fillType = this.gradientType;
+        }
+        delete obj._cachedBfStrokes;
+        delete obj._cachedBfKey;
         if (this.gradientType === 'linear') {
           if (SvgLinearGrad) {
             obj.fillGradient = new SvgLinearGrad({ stops: stopsCopy });
@@ -3194,6 +3189,12 @@
             Object.assign(obj.brushConfig.texture, texConfig);
           }
         } else {
+          if (isEnabled) {
+            if (obj.brushFill) obj.brushFill.enabled = false;
+            if (obj.fillType === 'brush') {
+              obj.fillType = (obj.fillGradient && (obj.fillGradient.type || obj.fillGradient.stops)) ? (obj.fillGradient.type || 'linear') : 'solid';
+            }
+          }
           if (!obj.fillTexture) obj.fillTexture = {};
           Object.assign(obj.fillTexture, texConfig);
         }
@@ -3459,17 +3460,19 @@
       const name = typeof window !== 'undefined' && window.prompt ? window.prompt('Enter name for new Material preset:') : 'Custom Material';
       if (!name || !name.trim()) return;
 
+      const isBrushFillMode = (this.activeMode === 'brushfill' || (this.brushFillConfig && this.brushFillConfig.enabled));
+
       const presetData = {
         name: name.trim(),
         color: this.currentHex,
         alpha: this.currentA,
-        mode: this.activeMode,
-        brushFill: { ...this.brushFillConfig },
+        mode: isBrushFillMode ? 'brushfill' : 'standard',
         gradientType: this.gradientType,
-        gradientStops: this.gradientStops,
+        gradientStops: (this.gradientStops && this.gradientStops.length >= 2) ? JSON.parse(JSON.stringify(this.gradientStops)) : null,
         gradientAngle: this.gradientAngle,
         gradientRadius: this.gradientRadius,
-        texture: {
+        brushFill: isBrushFillMode ? { ...this.brushFillConfig, enabled: true } : { enabled: false },
+        texture: isBrushFillMode ? { ref: 'none' } : {
           mode: this.textureMode,
           scale: this.textureScale,
           angle: this.textureAngle,
@@ -3487,7 +3490,7 @@
           posterize: this.texturePosterize,
           invert: this.textureInvert
         },
-        filter: {
+        filter: isBrushFillMode ? { enabled: false } : {
           enabled: this.filterEnabled,
           target: this.activeTarget === 'stroke' ? 'stroke' : (this.filterIsLens ? 'backdrop' : 'fill'),
           isLens: this.filterIsLens,
@@ -3516,62 +3519,71 @@
 
     applyMaterialPreset(preset) {
       if (!preset) return;
+      const isBrushFillMat = preset.mode === 'brushfill' || preset.category === 'brushfills' || (preset.brushFill && preset.brushFill.enabled);
+
       if (preset.color) this.setColorFromExternal(preset.color);
       if (preset.alpha !== undefined) this.currentA = preset.alpha;
       if (preset.gradientStops) this.gradientStops = JSON.parse(JSON.stringify(preset.gradientStops));
-      if (preset.gradientType) this.gradientType = preset.gradientType;
-      if (preset.gradientAngle !== undefined) this.gradientAngle = preset.gradientAngle;
-      if (preset.gradientRadius !== undefined) this.gradientRadius = preset.gradientRadius;
+      else if (preset.gradient?.stops) this.gradientStops = JSON.parse(JSON.stringify(preset.gradient.stops));
+      if (preset.gradientType || preset.gradient?.type) this.gradientType = preset.gradientType || preset.gradient?.type;
+      if (preset.gradientAngle !== undefined || preset.gradient?.angle !== undefined) this.gradientAngle = preset.gradientAngle !== undefined ? preset.gradientAngle : (preset.gradient?.angle || 0);
+      if (preset.gradientRadius !== undefined || preset.gradient?.radius !== undefined) this.gradientRadius = preset.gradientRadius !== undefined ? preset.gradientRadius : (preset.gradient?.radius || 0.5);
 
-      if (preset.texture) {
-        this.textureMode = preset.texture.mode !== undefined ? preset.texture.mode : 0;
-        this.textureScale = preset.texture.scale !== undefined ? preset.texture.scale : 100;
-        this.textureAngle = preset.texture.angle !== undefined ? preset.texture.angle : 0;
-        this.textureContrast = preset.texture.contrast !== undefined ? preset.texture.contrast : 100;
-        this.textureGrain = preset.texture.grain !== undefined ? preset.texture.grain : 0;
-        this.textureRelative = !!preset.texture.relative;
-        this.textureOffsetX = preset.texture.offsetX || 0;
-        this.textureOffsetY = preset.texture.offsetY || 0;
-        this.textureHardness = preset.texture.hardness !== undefined ? preset.texture.hardness : 100;
-        this.textureHardnessIntensity = preset.texture.hardnessIntensity !== undefined ? preset.texture.hardnessIntensity : 50;
-        this.textureWarpStrength = preset.texture.warpStrength || 0;
-        this.textureWarpFreq = preset.texture.warpFreq !== undefined ? preset.texture.warpFreq : 20;
-        this.textureNoiseDistort = preset.texture.noiseDistort || 0;
-        this.texturePinchSwirl = preset.texture.pinchSwirl || 0;
-        this.texturePosterize = preset.texture.posterize || 0;
-        this.textureInvert = !!preset.texture.invert;
-      }
+      const hasGradPreset = (preset.gradientStops && preset.gradientStops.length >= 2) || (preset.gradient && preset.gradient.stops && preset.gradient.stops.length >= 2);
 
-      if (preset.filter) {
-        this.filterEnabled = !!preset.filter.enabled;
-        this.filterIsLens = (preset.filter.target === 'backdrop' || !!preset.filter.isLens);
-        this.filterTarget = preset.filter.target || (this.filterIsLens ? 'backdrop' : 'fill');
-        this.filterPlugin = preset.filter.plugin || 'bloom';
-        this.filterP1 = preset.filter.p1 || 0;
-        this.filterP2 = preset.filter.p2 || 0;
-        this.filterOpacity = preset.filter.opacity !== undefined ? preset.filter.opacity : 1.0;
-      }
-
-      if (preset.brushFill) {
-        this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...preset.brushFill, enabled: true };
+      if (isBrushFillMat) {
+        const bf = preset.brushFill ? { ...preset.brushFill } : { ...preset };
+        bf.enabled = true;
+        this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...bf };
         this.syncBrushFillInputs();
-      }
-
-      if (preset.mode) {
-        this.switchMode(preset.mode);
-      } else if (preset.brushFill && preset.brushFill.enabled) {
         this.switchMode('brushfill');
+        this.applyToSelected(false);
+        if (hasGradPreset) {
+          this.applyGradientToSelected(false);
+        }
+        this.applyBrushFillToSelected(true);
+      } else {
+        this.brushFillConfig.enabled = false;
+        if (preset.texture) {
+          this.textureMode = preset.texture.mode !== undefined ? preset.texture.mode : (preset.texture.ref === 'none' ? 0 : 1);
+          this.textureScale = preset.texture.scale !== undefined ? preset.texture.scale : 100;
+          this.textureAngle = preset.texture.angle !== undefined ? preset.texture.angle : 0;
+          this.textureContrast = preset.texture.contrast !== undefined ? preset.texture.contrast : 100;
+          this.textureGrain = preset.texture.grain !== undefined ? preset.texture.grain : 0;
+          this.textureRelative = !!preset.texture.relative;
+          this.textureOffsetX = preset.texture.offsetX || 0;
+          this.textureOffsetY = preset.texture.offsetY || 0;
+          this.textureHardness = preset.texture.hardness !== undefined ? preset.texture.hardness : 100;
+          this.textureHardnessIntensity = preset.texture.hardnessIntensity !== undefined ? preset.texture.hardnessIntensity : 50;
+          this.textureWarpStrength = preset.texture.warpStrength || 0;
+          this.textureWarpFreq = preset.texture.warpFreq !== undefined ? preset.texture.warpFreq : 20;
+          this.textureNoiseDistort = preset.texture.noiseDistort || 0;
+          this.texturePinchSwirl = preset.texture.pinchSwirl || 0;
+          this.texturePosterize = preset.texture.posterize || 0;
+          this.textureInvert = !!preset.texture.invert;
+        } else {
+          this.textureMode = 0;
+        }
+
+        if (preset.filter) {
+          this.filterEnabled = !!preset.filter.enabled;
+          this.filterIsLens = (preset.filter.target === 'backdrop' || !!preset.filter.isLens);
+          this.filterTarget = preset.filter.target || (this.filterIsLens ? 'backdrop' : 'fill');
+          this.filterPlugin = preset.filter.plugin || 'bloom';
+          this.filterP1 = preset.filter.p1 || 0;
+          this.filterP2 = preset.filter.p2 || 0;
+          this.filterOpacity = preset.filter.opacity !== undefined ? preset.filter.opacity : 1.0;
+        }
+
+        this.switchMode(preset.mode || (this.textureMode !== 0 ? 'texture' : (hasGradPreset ? 'gradient' : 'color')));
+        this.applyToSelected(false);
+        if (hasGradPreset) {
+          this.applyGradientToSelected(false);
+        }
+        this.applyTextureToSelected(false);
+        this.applyFilterToSelected(false);
       }
 
-      this.applyToSelected(false);
-      if (preset.gradientStops && preset.gradientStops.length >= 2) {
-        this.applyGradientToSelected(false);
-      }
-      this.applyTextureToSelected(false);
-      this.applyFilterToSelected(false);
-      if (preset.brushFill) {
-        this.applyBrushFillToSelected(true);
-      }
       this.syncFromSelection(true);
     }
 
@@ -4175,12 +4187,60 @@
     // ── Brush Fill Application & Management ──
 
     updateBrushFillUI() {
+      this.populateBrushFillPresetSelect();
       this.updateBrushFillPatternVisibility();
       this.populateBrushSelects();
       this.populateBrushFillPaletteSelect();
       this.syncBrushFillInputs();
       this.renderBrushPool();
       this.renderBrushFillPalette();
+    }
+
+    populateBrushFillPresetSelect() {
+      if (typeof document === 'undefined') return;
+      const sel = this.dom.bfPresetSelect;
+      if (!sel) return;
+
+      const reg = getRegistry();
+      let presets = [];
+      if (reg && typeof reg.list === 'function') {
+        presets = reg.list('brush_fill');
+        if (!presets || presets.length === 0) {
+          presets = reg.list('material').filter(m => m.category === 'brushfills' || m.mode === 'brushfill');
+        }
+      }
+
+      sel.innerHTML = '<option value="">-- Choose Brush Fill Preset --</option>';
+
+      const categoryLabels = {
+        sketch: 'Fine Art — Sketch & Pencil',
+        charcoal: 'Fine Art — Charcoal & Pastel',
+        paint: 'Fine Art — Oil & Watercolor',
+        ink: 'Manga, Comics & Ink',
+        drafting: 'Architecture & Technical Drafting',
+        graphic: 'Modern & Graphic Styles',
+        brushfills: 'Standard Brush Fills',
+        custom: 'Custom User Presets'
+      };
+
+      const grouped = {};
+      presets.forEach(p => {
+        const cat = p.category || (p.builtin ? 'brushfills' : 'custom');
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(p);
+      });
+
+      Object.entries(grouped).forEach(([catKey, list]) => {
+        const groupEl = document.createElement('optgroup');
+        groupEl.label = categoryLabels[catKey] || catKey;
+        list.forEach(p => {
+          const opt = document.createElement('option');
+          opt.value = p.id;
+          opt.textContent = p.name || p.id;
+          groupEl.appendChild(opt);
+        });
+        sel.appendChild(groupEl);
+      });
     }
 
     updateBrushFillPatternVisibility() {
@@ -4618,6 +4678,8 @@
 
       if (this.activeTarget === 'bg') {
         activeDoc.backgroundBrushFill = { ...cfg };
+        delete activeDoc._cachedBfStrokes;
+        delete activeDoc._cachedBfKey;
         if (cfg.enabled) {
           activeDoc.backgroundType = 'brush';
         } else if (activeDoc.backgroundType === 'brush') {
@@ -4635,14 +4697,19 @@
       const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
       if (selected.length === 0) {
         activeDoc.defaultBrushFill = { ...cfg };
+        delete activeDoc._cachedBfStrokes;
+        delete activeDoc._cachedBfKey;
       }
 
       for (const obj of selected) {
         obj.brushFill = { ...cfg };
+        delete obj._cachedBfStrokes;
+        delete obj._cachedBfKey;
         if (cfg.enabled) {
           obj.fillType = 'brush';
+          obj.fillTexture = null;
         } else if (obj.fillType === 'brush') {
-          obj.fillType = 'solid';
+          obj.fillType = (obj.fillGradient && (obj.fillGradient.type || obj.fillGradient.stops)) ? (obj.fillGradient.type || 'linear') : 'solid';
         }
       }
 
@@ -4652,6 +4719,53 @@
       if (commit && selected.length > 0) {
         if (activeDoc.pushHistory) activeDoc.pushHistory('Apply Brush Fill');
         if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
+      }
+    }
+
+    findBrushFillPreset(id) {
+      if (!id) return null;
+      const reg = getRegistry();
+      if (reg) {
+        return reg.get('brush_fill', id) || reg.get('material', id) || null;
+      }
+      return null;
+    }
+
+    applyBrushFillPreset(preset) {
+      if (!preset) return;
+      const bf = preset.brushFill ? { ...preset.brushFill } : { ...preset };
+      bf.enabled = true;
+      this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...bf };
+      this.syncBrushFillInputs();
+      this.applyBrushFillToSelected(true);
+    }
+
+    saveCurrentAsBrushFillPreset() {
+      const name = prompt('Enter a name for this Brush Fill Preset:', 'My Custom Brush Fill');
+      if (!name || !name.trim()) return;
+
+      const id = 'custom_bf_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+      const cfg = this.getBrushFillConfigFromInputs();
+
+      const presetObj = {
+        $schema: 'esenho/brush_fill/v1',
+        id: id,
+        name: name.trim(),
+        category: 'custom',
+        desc: `Custom preset created on ${new Date().toLocaleDateString()}`,
+        color: (cfg.colorPalette && cfg.colorPalette[0]) || '#fabd2f',
+        brushFill: { ...cfg },
+        builtin: false
+      };
+
+      const reg = getRegistry();
+      if (reg && typeof reg.register === 'function') {
+        reg.register('brush_fill', presetObj);
+      }
+
+      this.populateBrushFillPresetSelect();
+      if (this.dom.bfPresetSelect) {
+        this.dom.bfPresetSelect.value = id;
       }
     }
 
@@ -5450,6 +5564,7 @@
     mountMaterialTab: mountColorTab,
     syncFromSelection,
     onPanelActivated,
+    ColorStudioWidget,
     getInstance: () => instance
   };
 }));

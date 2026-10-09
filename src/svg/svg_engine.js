@@ -703,7 +703,12 @@
         if (p && p.length > 0) polylines = [p];
       }
       if (!polylines || polylines.length === 0) return '';
-      const strokes = Engine.generateStrokes(polylines, this.brushFill);
+      const cfg = {
+        ...this.brushFill,
+        color: this.fill || '#fabd2f',
+        gradient: (this.fillType === 'linear' || this.fillType === 'radial' || this.brushFill.gradient) ? (this.fillGradient || this.brushFill.gradient) : null
+      };
+      const strokes = Engine.generateStrokes(polylines, cfg);
       return Engine.toSVGGroup(strokes, this.clipPathId, this.brushFill.clipMode || 'bleed');
     }
 
@@ -718,6 +723,9 @@
     }
 
     getSvgFillAttribute() {
+      if (this.fillType === 'brush') {
+        return 'none';
+      }
       if (this.fillType && this.fillType !== 'solid' && this.fillGradient) {
         return `url(#${this.fillGradient.id || 'grad_' + this.id})`;
       }

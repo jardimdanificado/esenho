@@ -1,14 +1,15 @@
 /**
  * Esenho Universal Resource Registry & Runner v2.0
- * Decoupled Data & Runner Architecture for the 8 Standard Asset Types:
- *   1. Brush Presets (.ebrush) - Dynamic universal brush configurations
- *   2. Brush Tips    (.etip)   - Stamp / tip geometries (procedural, bitmap, svg)
- *   3. Textures      (.etex)   - Seamless grains, paper tooth, canvas, noise & procedural textures
- *   4. Materials     (.emat)   - Fill appearances, gradients, textures, WASM FX & procedural brush fills
- *   5. Curves        (.ecurve) - Bézier transfer functions (stylus pressure, velocity, dynamics, easing)
- *   6. Meshes        (.emesh)  - Procedural hatching meshes, trajectories & stroke fill layouts
- *   7. WASM FX       (.ewasm)  - WebAssembly filter plugins, backdrop lenses & image processing shaders
- *   8. Palettes      (.epal)   - Swatch sets, color ramps & multi-stop gradients
+ * Decoupled Data & Runner Architecture for the 9 Standard Asset Types:
+ *   1. Brush Presets     (.ebrush) - Dynamic universal brush configurations
+ *   2. Brush Tips        (.etip)   - Stamp / tip geometries (procedural, bitmap, svg)
+ *   3. Textures          (.etex)   - Seamless grains, paper tooth, canvas, noise & procedural textures
+ *   4. Materials         (.emat)   - Fill appearances, gradients, textures, WASM FX & procedural brush fills
+ *   5. Curves            (.ecurve) - Bézier transfer functions (stylus pressure, velocity, dynamics, easing)
+ *   6. Meshes            (.emesh)  - Procedural hatching meshes, trajectories & stroke fill layouts
+ *   7. WASM FX           (.ewasm)  - WebAssembly filter plugins, backdrop lenses & image processing shaders
+ *   8. Palettes          (.epal)   - Swatch sets, color ramps & multi-stop gradients
+ *   9. Brush Fill Presets (.ebfill) - Procedural hatching, multi-stroke brush fill configurations, palettes & trajectory patterns
  */
 
 (function(root, factory) {
@@ -37,6 +38,11 @@
     meshes: "esenho/mesh/v1",
     wasm_fx: "esenho/wasm_fx/v1",
     wasmFx: "esenho/wasm_fx/v1",
+    brush_fill: "esenho/brush_fill/v1",
+    brushFillPresets: "esenho/brush_fill/v1",
+    brushFills: "esenho/brush_fill/v1",
+    brushfill: "esenho/brush_fill/v1",
+    brushfills: "esenho/brush_fill/v1",
     data: "esenho/data/v1"
   };
 
@@ -60,7 +66,14 @@
     wasm: "wasm_fx",
     plugins: "wasm_fx",
     palettes: "palette",
-    palette: "palette"
+    palette: "palette",
+    brushFillPresets: "brush_fill",
+    brush_fills: "brush_fill",
+    brushFills: "brush_fill",
+    brush_fill: "brush_fill",
+    brushFill: "brush_fill",
+    brushfills: "brush_fill",
+    brushfill: "brush_fill"
   };
 
   const EXTENSIONS = {
@@ -71,7 +84,8 @@
     material: ".emat",
     palette: ".epal",
     mesh: ".emesh",
-    wasm_fx: ".ewasm"
+    wasm_fx: ".ewasm",
+    brush_fill: ".ebfill"
   };
 
   function normalizeType(type) {
@@ -119,6 +133,7 @@
     palette: new Map(),
     mesh: new Map(),
     wasm_fx: new Map(),
+    brush_fill: new Map(),
     wasm_core: new Map()
   };
 
@@ -193,7 +208,7 @@
     subscribe(fn) {
       if (typeof fn !== "function") return () => {};
       _listeners.add(fn);
-      if (stores.material.size > 0 || stores.brush.size > 0) {
+      if (stores.material.size > 0 || stores.brush.size > 0 || stores.brush_fill.size > 0) {
         try { fn(this.getStats ? this.getStats() : {}); } catch (_) {}
       }
       return () => _listeners.delete(fn);
@@ -216,7 +231,8 @@
         material: pkg.materials || pkg.material,
         palette: pkg.palettes || pkg.palette,
         mesh: pkg.meshes || pkg.mesh,
-        wasm_fx: pkg.wasmFx || pkg.wasm_fx || pkg.plugins
+        wasm_fx: pkg.wasmFx || pkg.wasm_fx || pkg.plugins,
+        brush_fill: pkg.brushFillPresets || pkg.brushFills || pkg.brush_fills || pkg.brushfills || pkg.brushfill
       };
 
       if (pkg.wasmCore && typeof pkg.wasmCore === "object") {
@@ -248,6 +264,27 @@
         }
         stats[storeKey] = count;
       }
+
+      // Auto-populate brush_fill from materials with category 'brushfills' if not already registered
+      if (stores.material.size > 0) {
+        for (const [id, mat] of stores.material.entries()) {
+          if ((mat.category === 'brushfills' || mat.mode === 'brushfill') && !stores.brush_fill.has(id)) {
+            const bfPreset = {
+              $schema: SCHEMAS.brush_fill,
+              id: mat.id,
+              name: mat.name,
+              category: mat.category || 'brushfills',
+              desc: mat.desc || '',
+              color: mat.color || '#282828',
+              brushFill: mat.brushFill ? { ...mat.brushFill } : {},
+              builtin: Boolean(mat.builtin || mat.isBuiltIn)
+            };
+            stores.brush_fill.set(id, bfPreset);
+            stats.brush_fill = (stats.brush_fill || 0) + 1;
+          }
+        }
+      }
+
       notifyListeners(stats);
       return stats;
     },
@@ -273,13 +310,14 @@
       const meshes = toObj(stores.mesh);
       const wasmFx = toObj(stores.wasm_fx);
       const palettes = toObj(stores.palette);
+      const brushFillPresets = toObj(stores.brush_fill);
       const wasmCore = stores.wasm_core.get("quadro_canvas") ? JSON.parse(JSON.stringify(stores.wasm_core.get("quadro_canvas"))) : null;
 
       return {
         $schema: SCHEMAS.data,
         version: "1.0.0",
         name: "Esenho Universal Standard Resources",
-        description: "Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, and palettes.",
+        description: "Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, palettes, and brush fill presets.",
         exportedAt: new Date().toISOString(),
         stats: {
           brushPresets: Object.keys(brushPresets).length,
@@ -290,6 +328,7 @@
           meshes: Object.keys(meshes).length,
           wasmFx: Object.keys(wasmFx).length,
           palettes: Object.keys(palettes).length,
+          brushFillPresets: Object.keys(brushFillPresets).length,
           hasWasmCore: Boolean(wasmCore)
         },
         wasmCore,
@@ -300,7 +339,8 @@
         curves,
         meshes,
         wasmFx,
-        palettes
+        palettes,
+        brushFillPresets
       };
     },
 
@@ -570,6 +610,43 @@
         baseMesh = this.get("mesh", "linear") || { id: "linear", pattern: "linear", spacing: 8, angle: 45 };
       }
       return { ...JSON.parse(JSON.stringify(baseMesh)), ...overrides };
+    },
+
+    /**
+     * Resolves a brush fill preset by ID or config object.
+     * @param {string|Object} bfOrId
+     * @param {Object} [overrides]
+     * @returns {Object} fully resolved brush fill configuration
+     */
+    resolveBrushFill(bfOrId, overrides = {}) {
+      let baseBf = null;
+      if (typeof bfOrId === "string") {
+        baseBf = this.get("brush_fill", bfOrId) || this.get("material", bfOrId);
+      } else if (bfOrId && typeof bfOrId === "object") {
+        baseBf = bfOrId.ref ? (this.get("brush_fill", bfOrId.ref) || this.get("material", bfOrId.ref)) : bfOrId;
+      }
+      if (!baseBf) {
+        baseBf = this.get("brush_fill", "bf_pencil_hatch") || {
+          id: "bf_pencil_hatch",
+          name: "HB Pencil Hatch",
+          brushFill: { enabled: true, brush: "pencil", pattern: "linear", spacing: 8 }
+        };
+      }
+
+      const resolved = JSON.parse(JSON.stringify(baseBf));
+      const bfConfig = resolved.brushFill ? { ...resolved.brushFill } : { ...resolved };
+
+      if (bfConfig.brush) {
+        bfConfig.resolvedBrush = this.resolveBrush(bfConfig.brush);
+      }
+      if (bfConfig.pattern) {
+        bfConfig.resolvedMesh = this.resolveMesh(bfConfig.pattern);
+      }
+      if (bfConfig.colorPaletteId) {
+        bfConfig.resolvedPalette = this.resolvePalette(bfConfig.colorPaletteId);
+      }
+
+      return { ...resolved, brushFill: { ...bfConfig, ...overrides }, ...overrides };
     },
 
     /**

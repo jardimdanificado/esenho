@@ -344,12 +344,701 @@ const meshes = {
   contour: { $schema: 'esenho/mesh/v1', id: 'contour', name: 'Topographic Contour Inset', builtin: true, pattern: 'contour', spacing: 6, angle: 0, curvature: 0, density: 100, direction: 'forward' }
 };
 
+// 8. Brush Fill Presets (.ebfill) - Standard Procedural Brush Fill Library
+const brushFillPresets = existingData.brushFillPresets || {};
+
+const standardBrushFills = {
+  // ── Fine Art & Traditional Media ──
+  bf_pencil_hatch: {
+    id: "bf_pencil_hatch",
+    name: "HB Pencil — Linear Hatch",
+    category: "sketch",
+    desc: "Natural graphite hatching with paper grain and loose bleed",
+    color: "#282828",
+    brushFill: {
+      enabled: true,
+      brush: "pencil",
+      brushes: ["pencil"],
+      pattern: "linear",
+      spacing: 8,
+      angle: 35,
+      strokesPerLine: 2,
+      strokeGap: 3,
+      strokeWidth: 2,
+      strokeOpacity: 0.8,
+      angleJitter: 6,
+      lengthJitter: 20,
+      widthJitter: 15,
+      positionJitter: 2,
+      clipMode: "bleed",
+      bleedDistance: 8,
+      bleedJitter: 50,
+      colorPalette: ["#282828"]
+    }
+  },
+  bf_charcoal_cross: {
+    id: "bf_charcoal_cross",
+    name: "Charcoal — Cross Shading",
+    category: "charcoal",
+    desc: "Rough charcoal tooth with pressure depth and bleed",
+    color: "#1d2021",
+    brushFill: {
+      enabled: true,
+      brush: "charcoal",
+      brushSecondary: "soft_pencil",
+      brushes: ["charcoal", "soft_pencil"],
+      brushPickMode: "alternate",
+      pattern: "crosshatch",
+      spacing: 7,
+      angle: 30,
+      angle2: 120,
+      strokeWidth: 2.8,
+      strokeOpacity: 0.85,
+      colorPalette: ["#1d2021", "#3c3836"],
+      angleJitter: 4,
+      widthJitter: 25,
+      lengthJitter: 15,
+      clipMode: "bleed",
+      bleedDistance: 5
+    }
+  },
+  bf_cross_contour_3d: {
+    id: "bf_cross_contour_3d",
+    name: "6B Graphite — Cross-Contour 3D",
+    category: "sketch",
+    desc: "Michelangelo style cross-contour volume shading",
+    color: "#282828",
+    brushFill: {
+      enabled: true,
+      brush: "soft_pencil",
+      brushes: ["soft_pencil"],
+      pattern: "cross_contour",
+      spacing: 8,
+      angle: 30,
+      curvature: 30,
+      curvatureMode: "arch",
+      strokeWidth: 2.2,
+      strokeOpacity: 0.8,
+      colorPalette: ["#282828", "#3c3836"],
+      clipMode: "strict"
+    }
+  },
+  bf_sanguine_sketch: {
+    id: "bf_sanguine_sketch",
+    name: "Renaissance Sanguine — Da Vinci Sketch",
+    category: "sketch",
+    desc: "Classical terracotta chalk sketch cross-hatching",
+    color: "#8c2d19",
+    brushFill: {
+      enabled: true,
+      brush: "soft_pencil",
+      brushes: ["soft_pencil", "soft_pastel"],
+      brushPickMode: "alternate",
+      pattern: "crosshatch",
+      spacing: 7,
+      angle: 38,
+      angle2: 118,
+      strokeWidth: 2.0,
+      strokeOpacity: 0.82,
+      colorPalette: ["#8c2d19", "#b85d38", "#d65d0e"],
+      colorPickMode: "cycle",
+      angleJitter: 4,
+      widthJitter: 20,
+      clipMode: "bleed",
+      bleedDistance: 4
+    }
+  },
+  bf_watercolor_wash: {
+    id: "bf_watercolor_wash",
+    name: "Watercolor — Fluid Wash",
+    category: "paint",
+    desc: "Fluid watercolor wash flow with soft bleeding edges",
+    color: "#83a598",
+    brushFill: {
+      enabled: true,
+      brush: "watercolor",
+      brushes: ["watercolor"],
+      pattern: "wave",
+      spacing: 9,
+      angle: 25,
+      strokeWidth: 4,
+      strokeOpacity: 0.65,
+      colorMode: "palette",
+      colorPalette: ["#83a598", "#458588", "#8ec07c"],
+      colorPickMode: "cycle",
+      widthJitter: 30,
+      opacityJitter: 25,
+      clipMode: "bleed",
+      bleedDistance: 6
+    }
+  },
+  bf_wet_watercolor: {
+    id: "bf_wet_watercolor",
+    name: "Wet-on-Wet — Watercolor Bloom",
+    category: "paint",
+    desc: "Translucent wet pigments diffusing in organic sine waves",
+    color: "#458588",
+    brushFill: {
+      enabled: true,
+      brush: "watercolor",
+      brushes: ["watercolor"],
+      pattern: "wave",
+      spacing: 11,
+      angle: 15,
+      waveFrequency: 6,
+      waveAmplitude: 60,
+      strokeWidth: 5.5,
+      strokeOpacity: 0.48,
+      colorMode: "palette",
+      colorPalette: ["#458588", "#83a598", "#b16286", "#689d6a"],
+      colorPickMode: "cycle",
+      widthJitter: 35,
+      opacityJitter: 30,
+      clipMode: "bleed",
+      bleedDistance: 10
+    }
+  },
+  bf_oil_spiral: {
+    id: "bf_oil_spiral",
+    name: "Oil Impasto — Spiral Vortex",
+    category: "paint",
+    desc: "Thick wet impasto paint swirling in Archimedean spiral",
+    color: "#d79921",
+    brushFill: {
+      enabled: true,
+      brush: "oil",
+      brushes: ["oil"],
+      pattern: "spiral",
+      spacing: 6,
+      strokeWidth: 2.5,
+      strokeOpacity: 0.9,
+      colorPalette: ["#d79921", "#b57614"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+  bf_oil_impasto_knife: {
+    id: "bf_oil_impasto_knife",
+    name: "Oil Impasto — Palette Knife Strokes",
+    category: "paint",
+    desc: "Heavy, expressive palette knife zig-zag directional strokes",
+    color: "#fabd2f",
+    brushFill: {
+      enabled: true,
+      brush: "oil",
+      brushes: ["oil", "acrylic"],
+      brushPickMode: "alternate",
+      pattern: "zigzag",
+      spacing: 9,
+      angle: 60,
+      strokeWidth: 4.2,
+      strokeOpacity: 0.92,
+      colorPalette: ["#fabd2f", "#d79921", "#fe8019", "#cc241d"],
+      colorPickMode: "cycle",
+      widthJitter: 40,
+      clipMode: "strict"
+    }
+  },
+  bf_flow_stream: {
+    id: "bf_flow_stream",
+    name: "Wet Acrylic — Van Gogh Flow Field",
+    category: "paint",
+    desc: "Expressive swirling streamline curves following curl vector noise",
+    color: "#458588",
+    brushFill: {
+      enabled: true,
+      brush: "acrylic",
+      brushSecondary: "oil",
+      brushes: ["acrylic", "oil"],
+      brushPickMode: "alternate",
+      pattern: "flow_field",
+      spacing: 9,
+      waveFrequency: 10,
+      strokeWidth: 3.5,
+      strokeOpacity: 0.88,
+      colorPalette: ["#458588", "#fabd2f", "#fe8019", "#b8bb26"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+  bf_pastel_scribble: {
+    id: "bf_pastel_scribble",
+    name: "Soft Pastel — Wandering Scribble",
+    category: "charcoal",
+    desc: "Chalk scribble wandering flow across vector contours",
+    color: "#d79921",
+    brushFill: {
+      enabled: true,
+      brush: "soft_pastel",
+      brushes: ["soft_pastel"],
+      pattern: "scribble",
+      spacing: 6,
+      strokeWidth: 2.2,
+      strokeOpacity: 0.75,
+      colorPalette: ["#d79921", "#fe8019"],
+      colorPickMode: "cycle",
+      widthJitter: 25,
+      clipMode: "bleed",
+      bleedDistance: 4
+    }
+  },
+  bf_crayon_rough: {
+    id: "bf_crayon_rough",
+    name: "Wax Crayon — Rough Bleed Scribble",
+    category: "sketch",
+    desc: "Energetic wax crayon scribbling breaking past boundaries",
+    color: "#fb4934",
+    brushFill: {
+      enabled: true,
+      brush: "soft_pastel",
+      brushes: ["soft_pastel"],
+      pattern: "scribble",
+      spacing: 5,
+      strokeWidth: 3.0,
+      strokeOpacity: 0.88,
+      colorPalette: ["#fb4934", "#fe8019", "#fabd2f"],
+      colorPickMode: "cycle",
+      widthJitter: 35,
+      clipMode: "bleed",
+      bleedDistance: 9,
+      bleedJitter: 60
+    }
+  },
+
+  // ── Manga, Comics & Ink ──
+  bf_inker_cross: {
+    id: "bf_inker_cross",
+    name: "Studio Inker — Crosshatch",
+    category: "ink",
+    desc: "Comic cross-hatching with dynamic inker line weight",
+    color: "#1d2021",
+    brushFill: {
+      enabled: true,
+      brush: "inker",
+      brushes: ["inker"],
+      pattern: "crosshatch",
+      spacing: 6,
+      angle: 45,
+      angle2: 135,
+      strokeWidth: 1.5,
+      strokeOpacity: 0.9,
+      colorPalette: ["#1d2021"],
+      clipMode: "strict"
+    }
+  },
+  bf_gpen_woodcut: {
+    id: "bf_gpen_woodcut",
+    name: "Manga G-Pen — Woodcut Wave",
+    category: "ink",
+    desc: "Expressive dip pen undulating timber engraving",
+    color: "#282828",
+    brushFill: {
+      enabled: true,
+      brush: "gpen",
+      brushes: ["gpen"],
+      pattern: "wave",
+      spacing: 7,
+      angle: 15,
+      strokeWidth: 2.4,
+      strokeOpacity: 0.95,
+      widthJitter: 35,
+      colorPalette: ["#282828"],
+      clipMode: "strict"
+    }
+  },
+  bf_vintage_engraving: {
+    id: "bf_vintage_engraving",
+    name: "Copperplate — Vintage Engraving",
+    category: "ink",
+    desc: "Intaglio copperplate etching with triple fine-line crosshatch",
+    color: "#1d2021",
+    brushFill: {
+      enabled: true,
+      brush: "gpen",
+      brushes: ["gpen", "tech_pen"],
+      brushPickMode: "alternate",
+      pattern: "triple_hatch",
+      spacing: 5,
+      angle: 15,
+      angle2: 75,
+      angle3: 135,
+      strokeWidth: 1.1,
+      strokeOpacity: 0.96,
+      colorPalette: ["#1d2021"],
+      clipMode: "strict"
+    }
+  },
+  bf_manga_speedlines: {
+    id: "bf_manga_speedlines",
+    name: "Manga Action — Radial Speedlines",
+    category: "ink",
+    desc: "High-impact radial burst lines focusing inward",
+    color: "#1d2021",
+    brushFill: {
+      enabled: true,
+      brush: "gpen",
+      brushes: ["gpen"],
+      pattern: "radial",
+      spacing: 5,
+      originX: 50,
+      originY: 50,
+      strokeWidth: 1.8,
+      strokeOpacity: 0.98,
+      widthJitter: 40,
+      lengthJitter: 25,
+      colorPalette: ["#1d2021"],
+      clipMode: "strict"
+    }
+  },
+  bf_screentone_stipple: {
+    id: "bf_screentone_stipple",
+    name: "Manga Screentone — Uniform Dot Tone",
+    category: "ink",
+    desc: "Evenly dispersed mechanical stippling for comic tone shading",
+    color: "#3c3836",
+    brushFill: {
+      enabled: true,
+      brush: "tech_pen",
+      brushes: ["tech_pen"],
+      pattern: "stipple",
+      spacing: 4,
+      strokeWidth: 1.6,
+      strokeOpacity: 0.95,
+      colorPalette: ["#3c3836"],
+      clipMode: "strict"
+    }
+  },
+  bf_fountain_contour: {
+    id: "bf_fountain_contour",
+    name: "Calligraphy Chisel — Topographic Contour",
+    category: "ink",
+    desc: "Angled chisel fountain pen following concentric contour insets",
+    color: "#458588",
+    brushFill: {
+      enabled: true,
+      brush: "fountain",
+      brushes: ["fountain"],
+      pattern: "contour",
+      spacing: 6,
+      strokeWidth: 2,
+      strokeOpacity: 0.9,
+      colorPalette: ["#458588", "#83a598"],
+      clipMode: "strict"
+    }
+  },
+  bf_moebius_linework: {
+    id: "bf_moebius_linework",
+    name: "Moebius Sci-Fi — Concentric Linework",
+    category: "ink",
+    desc: "Clean European sci-fi comic organic contour hatching",
+    color: "#076678",
+    brushFill: {
+      enabled: true,
+      brush: "inker",
+      brushes: ["inker"],
+      pattern: "contour",
+      spacing: 5,
+      strokeWidth: 1.4,
+      strokeOpacity: 0.95,
+      colorPalette: ["#076678", "#458588", "#83a598"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+  bf_voronoi_facets: {
+    id: "bf_voronoi_facets",
+    name: "Dry Ink — Voronoi Cellular Mesh",
+    category: "ink",
+    desc: "Organic cellular crystal partitions with rough dry brush edges",
+    color: "#1d2021",
+    brushFill: {
+      enabled: true,
+      brush: "dry_ink",
+      brushes: ["dry_ink"],
+      pattern: "voronoi",
+      spacing: 12,
+      strokeWidth: 2.2,
+      strokeOpacity: 0.9,
+      colorPalette: ["#1d2021", "#282828"],
+      clipMode: "strict"
+    }
+  },
+
+  // ── Architecture & Technical Drafting ──
+  bf_techpen_triple: {
+    id: "bf_techpen_triple",
+    name: "Technical Pen — Triple Hatch",
+    category: "drafting",
+    desc: "Crisp drafting pen with mechanical triple-hatch angle grid",
+    color: "#1d2021",
+    brushFill: {
+      enabled: true,
+      brush: "tech_pen",
+      brushes: ["tech_pen"],
+      pattern: "triple_hatch",
+      spacing: 7,
+      angle: 0,
+      angle2: 60,
+      angle3: 120,
+      strokeWidth: 1.2,
+      strokeOpacity: 0.95,
+      colorPalette: ["#1d2021"],
+      clipMode: "strict"
+    }
+  },
+  bf_herringbone_tweed: {
+    id: "bf_herringbone_tweed",
+    name: "Mechanical Pencil — Herringbone Tweed",
+    category: "drafting",
+    desc: "Classic architectural herringbone chevron hatching",
+    color: "#504945",
+    brushFill: {
+      enabled: true,
+      brush: "mech_pencil",
+      brushes: ["mech_pencil"],
+      pattern: "herringbone",
+      spacing: 8,
+      angle: 45,
+      strokeWidth: 1.5,
+      strokeOpacity: 0.9,
+      colorPalette: ["#504945", "#3c3836"],
+      clipMode: "strict"
+    }
+  },
+  bf_woven_basket: {
+    id: "bf_woven_basket",
+    name: "Washi Graphite — Woven Basketweave",
+    category: "drafting",
+    desc: "Interlocking woven perpendicular fiber strokes",
+    color: "#665c54",
+    brushFill: {
+      enabled: true,
+      brush: "washi_sketch",
+      brushes: ["washi_sketch"],
+      pattern: "woven",
+      spacing: 8,
+      angle: 0,
+      strokeWidth: 1.8,
+      strokeOpacity: 0.85,
+      colorPalette: ["#665c54", "#7c6f64"],
+      clipMode: "strict"
+    }
+  },
+  bf_radial_sunburst: {
+    id: "bf_radial_sunburst",
+    name: "Technical Pen — Radial Sunburst",
+    category: "drafting",
+    desc: "Precision drafting rays radiating outward from center",
+    color: "#d65d0e",
+    brushFill: {
+      enabled: true,
+      brush: "tech_pen",
+      brushes: ["tech_pen"],
+      pattern: "radial",
+      spacing: 6,
+      originX: 50,
+      originY: 50,
+      strokeWidth: 1.2,
+      strokeOpacity: 0.95,
+      colorPalette: ["#d65d0e", "#fabd2f", "#fe8019"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+  bf_concentric_zen: {
+    id: "bf_concentric_zen",
+    name: "Studio Inker — Concentric Zen Rings",
+    category: "drafting",
+    desc: "Harmonic concentric circular ripple arcs",
+    color: "#076678",
+    brushFill: {
+      enabled: true,
+      brush: "inker",
+      brushes: ["inker"],
+      pattern: "concentric",
+      spacing: 7,
+      originX: 50,
+      originY: 50,
+      strokeWidth: 2,
+      strokeOpacity: 0.9,
+      colorPalette: ["#076678", "#458588", "#83a598"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+  bf_arch_concrete: {
+    id: "bf_arch_concrete",
+    name: "Architectural — Porous Concrete Stipple",
+    category: "drafting",
+    desc: "Stochastic micro-stippling simulating porous architectural concrete",
+    color: "#7c6f64",
+    brushFill: {
+      enabled: true,
+      brush: "pencil",
+      brushes: ["pencil", "dry_ink"],
+      brushPickMode: "alternate",
+      pattern: "stipple",
+      spacing: 5,
+      strokeWidth: 2.2,
+      strokeOpacity: 0.85,
+      colorPalette: ["#7c6f64", "#928374", "#504945"],
+      colorPickMode: "random",
+      widthJitter: 35,
+      opacityJitter: 25,
+      clipMode: "strict"
+    }
+  },
+  bf_topo_elevation: {
+    id: "bf_topo_elevation",
+    name: "Cartography — Topographic Elevation Map",
+    category: "drafting",
+    desc: "Smooth elevation contour curves in cartographic terrain palette",
+    color: "#689d6a",
+    brushFill: {
+      enabled: true,
+      brush: "tech_pen",
+      brushes: ["tech_pen"],
+      pattern: "contour",
+      spacing: 7,
+      strokeWidth: 1.4,
+      strokeOpacity: 0.92,
+      colorPalette: ["#689d6a", "#8ec07c", "#d79921", "#b57614"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+
+  // ── Modern, Pop Art & Graphic ──
+  bf_spray_stipple: {
+    id: "bf_spray_stipple",
+    name: "Spray Can — Pointillist Stipple",
+    category: "graphic",
+    desc: "Multi-color dispersed paint splatter and aerosol dabs",
+    color: "#fabd2f",
+    brushFill: {
+      enabled: true,
+      brush: "spray",
+      brushes: ["spray"],
+      pattern: "stipple",
+      spacing: 5,
+      strokeWidth: 3,
+      strokeOpacity: 0.9,
+      colorMode: "palette",
+      colorPalette: ["#fe8019", "#fabd2f", "#b8bb26", "#8ec07c", "#83a598", "#d3869b"],
+      colorPickMode: "random",
+      colorJitter: 10,
+      widthJitter: 30,
+      opacityJitter: 20,
+      clipMode: "strict"
+    }
+  },
+  bf_marker_flow: {
+    id: "bf_marker_flow",
+    name: "Art Marker — Cyber Flow",
+    category: "graphic",
+    desc: "Broad chisel marker flow field with palette cycling",
+    color: "#00ffcc",
+    brushFill: {
+      enabled: true,
+      brush: "marker",
+      brushes: ["marker"],
+      pattern: "zigzag",
+      spacing: 10,
+      angle: 90,
+      strokeWidth: 2.2,
+      strokeOpacity: 0.9,
+      colorMode: "palette",
+      colorPalette: ["#00ffcc", "#ff0055", "#7928ca"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  },
+  bf_cyberpunk_glitch: {
+    id: "bf_cyberpunk_glitch",
+    name: "Cyberpunk Neon — Glitch Scanlines",
+    category: "graphic",
+    desc: "High-contrast neon zigzag scanlines with chromatic offsets",
+    color: "#00f5d4",
+    brushFill: {
+      enabled: true,
+      brush: "marker",
+      brushes: ["marker", "tech_pen"],
+      brushPickMode: "alternate",
+      pattern: "zigzag",
+      spacing: 8,
+      angle: 0,
+      strokeWidth: 2.5,
+      strokeOpacity: 0.95,
+      colorPalette: ["#00f5d4", "#7b2cbf", "#f72585", "#4361ee"],
+      colorPickMode: "cycle",
+      positionJitter: 4,
+      widthJitter: 25,
+      clipMode: "strict"
+    }
+  },
+  bf_vaporwave_sunset: {
+    id: "bf_vaporwave_sunset",
+    name: "Vaporwave Sunset — Harmonic Wave Flow",
+    category: "graphic",
+    desc: "Harmonic undulating sine waves in retro sunset synth palette",
+    color: "#ff007f",
+    brushFill: {
+      enabled: true,
+      brush: "marker",
+      brushes: ["marker"],
+      pattern: "wave",
+      spacing: 9,
+      angle: 0,
+      waveFrequency: 6,
+      waveAmplitude: 45,
+      strokeWidth: 2.8,
+      strokeOpacity: 0.9,
+      colorPalette: ["#ff007f", "#ff7700", "#ffdd00", "#7928ca", "#00f0ff"],
+      colorPickMode: "cycle",
+      clipMode: "strict"
+    }
+  }
+};
+
+for (const [id, item] of Object.entries(standardBrushFills)) {
+  brushFillPresets[id] = {
+    $schema: 'esenho/brush_fill/v1',
+    id: id,
+    name: item.name,
+    category: item.category || 'brushfills',
+    desc: item.desc || '',
+    color: item.color || '#282828',
+    brushFill: item.brushFill,
+    builtin: true
+  };
+
+  // Keep materials synchronized for complete backwards compatibility
+  materials[id] = {
+    $schema: 'esenho/material/v1',
+    id: id,
+    name: item.name,
+    category: 'brushfills',
+    desc: item.desc || '',
+    color: item.color || '#282828',
+    mode: 'brushfill',
+    brushFill: item.brushFill,
+    builtin: true
+  };
+}
+
+// Ensure all materials have explicit mutually exclusive mode ('standard' vs 'brushfill')
+for (const [mId, mObj] of Object.entries(materials)) {
+  if (!mObj.mode) {
+    mObj.mode = (mObj.category === 'brushfills' || (mObj.brushFill && mObj.brushFill.enabled)) ? 'brushfill' : 'standard';
+  }
+}
+
 // Assemble Master Standard Schema
 const dataPackage = {
   $schema: 'esenho/data/v1',
   version: '1.0.0',
   name: 'Esenho Universal Standard Resources',
-  description: 'Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, and palettes.',
+  description: 'Unified single-file resource library for brush presets, textures, brush tips, materials, curves, meshes, wasm fx plugins, palettes, and brush fill presets.',
   exportedAt: new Date().toISOString(),
   stats: {
     brushPresets: Object.keys(brushPresets).length,
@@ -360,6 +1049,7 @@ const dataPackage = {
     meshes: Object.keys(meshes).length,
     wasmFx: Object.keys(wasmFx).length,
     palettes: Object.keys(palettes).length,
+    brushFillPresets: Object.keys(brushFillPresets).length,
     hasWasmCore: Boolean(wasmCore)
   },
   wasmCore,
@@ -370,7 +1060,8 @@ const dataPackage = {
   curves,
   meshes,
   wasmFx,
-  palettes
+  palettes,
+  brushFillPresets
 };
 
 const outPath = path.join(__dirname, '../data.json');

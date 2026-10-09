@@ -205,6 +205,64 @@
     return rgbToHex(newRgb.r, newRgb.g, newRgb.b);
   }
 
+  /**
+   * Sample color at a 2D point from a linear or radial gradient definition.
+   * @param {Object} gradient Gradient object { type: 'linear'|'radial', stops: [{offset, color}], angle?, radius?, cx?, cy? }
+   * @param {{x: number, y: number}} pt Stroke coordinate point
+   * @param {{minX: number, minY: number, width: number, height: number}} bounds Object bounding box
+   * @returns {string} Hex color string
+   */
+  function sampleGradientAtPoint(gradient, pt, bounds) {
+    if (!gradient) return '#fabd2f';
+    const stops = Array.isArray(gradient.stops) ? gradient.stops : [];
+    if (stops.length === 0) return gradient.color || '#fabd2f';
+    if (stops.length === 1) return stops[0].color || '#fabd2f';
+
+    const w = Math.max(1, bounds?.width || 100);
+    const h = Math.max(1, bounds?.height || 100);
+    const minX = bounds?.minX !== undefined ? bounds.minX : 0;
+    const minY = bounds?.minY !== undefined ? bounds.minY : 0;
+    let t = 0;
+
+    if (gradient.type === 'radial') {
+      const cx = minX + w * (gradient.cx !== undefined ? gradient.cx : 0.5);
+      const cy = minY + h * (gradient.cy !== undefined ? gradient.cy : 0.5);
+      const r = (parseFloat(gradient.radius || gradient.r) || 0.5) * Math.max(w, h);
+      const dx = pt.x - cx;
+      const dy = pt.y - cy;
+      t = clamp(Math.hypot(dx, dy) / Math.max(1e-4, r), 0, 1);
+    } else {
+      // Linear gradient
+      const nx = (pt.x - minX) / w;
+      const ny = (pt.y - minY) / h;
+      const rad = degToRad(gradient.angle || 0);
+      const cosA = Math.cos(rad);
+      const sinA = Math.sin(rad);
+      t = 0.5 + (nx - 0.5) * cosA + (ny - 0.5) * sinA;
+      t = clamp(t, 0, 1);
+    }
+
+    const sortedStops = [...stops].sort((a, b) => a.offset - b.offset);
+    if (t <= sortedStops[0].offset) return sortedStops[0].color;
+    if (t >= sortedStops[sortedStops.length - 1].offset) return sortedStops[sortedStops.length - 1].color;
+
+    for (let i = 0; i < sortedStops.length - 1; i++) {
+      const s0 = sortedStops[i];
+      const s1 = sortedStops[i + 1];
+      if (t >= s0.offset && t <= s1.offset) {
+        const span = s1.offset - s0.offset;
+        const localT = span > 1e-6 ? (t - s0.offset) / span : 0;
+        const c0 = hexToRgb(s0.color);
+        const c1 = hexToRgb(s1.color);
+        const r = c0.r + (c1.r - c0.r) * localT;
+        const g = c0.g + (c1.g - c0.g) * localT;
+        const b = c0.b + (c1.b - c0.b) * localT;
+        return rgbToHex(r, g, b);
+      }
+    }
+    return sortedStops[0].color;
+  }
+
   function lineIntersectionDistance(x1, y1, x2, y2, x3, y3, x4, y4) {
     const denom = (y4 - y3) * (x2 - x1) - (x4 - x3) * (y2 - y1);
     if (Math.abs(denom) < 1e-9) return null;
@@ -310,10 +368,13 @@
     brushList: ['pencil'],       // Backwards-compat alias for brushes
     brushPickMode: 'cycle',      // 'cycle' | 'random' | 'alternate'
 
-    // Multi-Color Palette & Pigment Variation
+    // Material Color & Gradient Scheme
+    color: null,                 // Material solid color for brush strokes (e.g. '#fabd2f')
+    gradient: null,              // Material gradient object { type, stops, angle, radius }
+    fillGradient: null,          // Alias for material gradient
     colorMode: 'palette',        // 'solid' | 'palette' | 'gradient' | 'random'
-    colorPaletteId: 'gruvbox',   // ID of saved color palette from PaletteManager
-    colorPalette: ['#fabd2f'],   // Array of colors for strokes
+    colorPaletteId: 'gruvbox',   // ID of saved color palette from PaletteManager (legacy fallback)
+    colorPalette: ['#fabd2f'],   // Array of colors for strokes (legacy fallback)
     colorPickMode: 'cycle',      // 'cycle' | 'random' | 'gradient'
     hueJitter: 0,                // Fine-grained Hue variation (± degrees)
     satJitter: 0,                // Fine-grained Saturation variation (± %)
@@ -894,22 +955,40 @@
     }
 
     /**
-     * Pick color for the stroke based on palette, gradient map, or HSL jitter
+     * Pick color for the stroke based on material gradient, material solid color, or legacy palette with HSL jitter
      */
     static _pickColor(config, strokeIdx, pt, bounds, rng) {
-      const palette = config._preResolvedPalette || (config.colorPalette && config.colorPalette.length > 0 ? config.colorPalette : ['#fabd2f']);
-      let baseColor = palette[0];
+      let baseColor = null;
 
-      if (config.colorMode === 'solid') {
-        baseColor = palette[0] || '#fabd2f';
-      } else if (config.colorMode === 'gradient') {
-        const t = clamp((pt.x - bounds.minX) / Math.max(1, bounds.width), 0, 1);
-        const palIdx = Math.min(palette.length - 1, Math.floor(t * palette.length));
-        baseColor = palette[palIdx];
-      } else if (config.colorPickMode === 'random') {
-        baseColor = palette[Math.floor(rng.next() * palette.length)];
-      } else {
-        baseColor = palette[strokeIdx % palette.length];
+      // 1. Direct Material Gradient (Linear / Radial stops across bounding box)
+      const grad = config.gradient || config.fillGradient;
+      if (grad && Array.isArray(grad.stops) && grad.stops.length > 0) {
+        baseColor = sampleGradientAtPoint(grad, pt, bounds);
+      }
+      // 2. Direct Material Solid Color
+      else if (config.color && typeof config.color === 'string' && config.color !== 'none') {
+        baseColor = config.color;
+      } else if (config.fill && typeof config.fill === 'string' && config.fill !== 'none') {
+        baseColor = config.fill;
+      }
+      // 3. Fallback / Legacy Palette (if passed)
+      else {
+        const palette = config._preResolvedPalette || (config.colorPalette && config.colorPalette.length > 0 ? config.colorPalette : ['#fabd2f']);
+        if (config.colorMode === 'solid') {
+          baseColor = palette[0] || '#fabd2f';
+        } else if (config.colorMode === 'gradient') {
+          const t = clamp((pt.x - (bounds ? bounds.minX : 0)) / Math.max(1, (bounds ? bounds.width : 100)), 0, 1);
+          const palIdx = Math.min(palette.length - 1, Math.floor(t * palette.length));
+          baseColor = palette[palIdx];
+        } else if (config.colorPickMode === 'random') {
+          baseColor = palette[Math.floor(rng.next() * palette.length)];
+        } else {
+          baseColor = palette[strokeIdx % palette.length];
+        }
+      }
+
+      if (!baseColor || baseColor === 'none') {
+        baseColor = '#fabd2f';
       }
 
       if (config._hasColorJitter) {
@@ -1574,6 +1653,62 @@
       const clipAttr = (clipPathId && clipMode === 'strict') ? ` clip-path="url(#${clipPathId})"` : '';
       return `<g class="esenho-brush-fill"${clipAttr}>\n      ${linesXml}\n    </g>`;
     }
+
+    /**
+     * Retrieves all available brush fill presets from registry.
+     * @returns {Array<Object>}
+     */
+    static getPresets(category = null) {
+      const reg = getRegistry();
+      if (!reg || typeof reg.list !== 'function') return [];
+      let list = reg.list('brush_fill');
+      if (!list || list.length === 0) {
+        list = reg.list('material').filter(m => m.category === 'brushfills' || m.mode === 'brushfill');
+      }
+      if (category) {
+        list = list.filter(p => p.category === category);
+      }
+      return list;
+    }
+
+    /**
+     * Retrieves a brush fill preset by ID.
+     * @param {string} id
+     * @returns {Object|null}
+     */
+    static getPreset(id) {
+      if (!id) return null;
+      const reg = getRegistry();
+      if (!reg) return null;
+      return reg.get('brush_fill', id) || reg.get('material', id) || null;
+    }
+
+    /**
+     * Registers a custom brush fill preset.
+     * @param {Object} preset
+     * @returns {Object} registered preset
+     */
+    static registerPreset(preset) {
+      if (!preset || !preset.id) throw new Error('Preset must contain a valid id');
+      const reg = getRegistry();
+      if (!reg || typeof reg.register !== 'function') return preset;
+      return reg.register('brush_fill', preset);
+    }
+
+    /**
+     * Resolves a brush fill configuration with all defaults applied.
+     * @param {string|Object} cfgOrId
+     * @param {Object} [overrides]
+     * @returns {Object}
+     */
+    static resolveConfig(cfgOrId, overrides = {}) {
+      if (typeof cfgOrId === 'string') {
+        const preset = this.getPreset(cfgOrId);
+        const base = preset ? (preset.brushFill || preset) : {};
+        return { ...DEFAULT_BRUSH_FILL_CONFIG, ...base, ...overrides };
+      }
+      return { ...DEFAULT_BRUSH_FILL_CONFIG, ...cfgOrId, ...overrides };
+    }
   }
 
   // ── 3. Preset Library for Brush / Hatch Fills ──
@@ -1592,9 +1727,12 @@
   const BUILTIN_BRUSH_FILL_PRESETS = new Proxy([], {
     get(target, prop) {
       const reg = getRegistry();
-      const list = (reg && typeof reg.list === 'function')
-        ? reg.list('material').filter(m => m.category === 'brushfills' || m.mode === 'brushfill')
-        : [];
+      let list = (reg && typeof reg.list === 'function') ? reg.list('brush_fill') : [];
+      if (!list || list.length === 0) {
+        list = (reg && typeof reg.list === 'function')
+          ? reg.list('material').filter(m => m.category === 'brushfills' || m.mode === 'brushfill')
+          : [];
+      }
       if (prop === 'length') return list.length;
       if (typeof prop === 'string' && /^\d+$/.test(prop)) {
         return list[Number(prop)];
@@ -1614,6 +1752,7 @@
     BUILTIN_BRUSH_FILL_PRESETS,
     getNativeBrushPresets,
     FastRandom,
+    sampleGradientAtPoint,
     isPointInPolygon,
     findScanlineIntersections,
     getPolygonsBounds
@@ -1627,6 +1766,7 @@
     window.DEFAULT_BRUSH_FILL_CONFIG = DEFAULT_BRUSH_FILL_CONFIG;
     window.BUILTIN_BRUSH_FILL_PRESETS = BUILTIN_BRUSH_FILL_PRESETS;
     window.getNativeBrushPresets = getNativeBrushPresets;
+    window.sampleGradientAtPoint = sampleGradientAtPoint;
     if (!window.esenho) window.esenho = {};
     window.esenho.BrushFillEngine = BrushFillEngine;
   }

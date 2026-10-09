@@ -1062,15 +1062,14 @@
 
       // 1. Procedural Brush Fill on Background
       if (isBrushFill) {
-        // If there's a solid base / gradient / texture under the brush fill, render base first
-        if ((hasBgColor && fillAlpha > 0 && doc.backgroundType !== 'brush') || hasGradient || hasTexture) {
-          this._fillDirectBackgroundRect(u32, lw, lh, fillArgb, scale, hasTexture ? texObj : null, gradient, bgBounds);
-        }
-
         let Engine = BrushFillEngine || (typeof window !== 'undefined' && (window.BrushFillEngine || (window.esenho && window.esenho.BrushFillEngine))) || (typeof globalThis !== 'undefined' && globalThis.BrushFillEngine);
         if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
         if (Engine && typeof Engine.generateStrokes === 'function') {
-          const brushFillCfg = doc.backgroundBrushFill || {};
+          const brushFillCfg = {
+            ...(doc.backgroundBrushFill || {}),
+            color: doc.backgroundColor || '#fabd2f',
+            gradient: (doc.backgroundType === 'linear' || doc.backgroundType === 'radial') ? doc.backgroundGradient : null
+          };
           const bgKey = `${JSON.stringify(brushFillCfg)}_${doc.width}_${doc.height}`;
           let strokes = (doc._cachedBgBrushKey === bgKey && doc._cachedBgBrushStrokes) ? doc._cachedBgBrushStrokes : null;
           if (!strokes) {
@@ -1648,17 +1647,16 @@
       const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
       const gradient = (obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null;
 
-      // 1. Procedural Brush Fill / Multi-Stroke Hatching
+      // 1. Procedural Brush Fill / Multi-Stroke Hatching (Mutually Exclusive Material Type)
       if (isBrushFill && rotatedPolys && rotatedPolys.length > 0) {
-        // If there's a non-empty solid base background under the brush fill, render it first
-        if (obj.fill && obj.fill !== 'none' && obj.fill !== 'transparent' && fillAlpha > 0 && obj.fillType !== 'brush') {
-          this.fillCompoundPolygons(rotatedPolys, pathObj.fillRule || 'evenodd', fillArgb, scale, obj.fillTexture, gradient, bounds, totalOpacity);
-        }
-
         let Engine = BrushFillEngine || (typeof window !== 'undefined' && (window.BrushFillEngine || (window.esenho && window.esenho.BrushFillEngine))) || (typeof globalThis !== 'undefined' && globalThis.BrushFillEngine);
         if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
         if (Engine && typeof Engine.generateStrokes === 'function') {
-          const brushFillCfg = obj.brushFill || {};
+          const brushFillCfg = {
+            ...(obj.brushFill || {}),
+            color: obj.fill || '#fabd2f',
+            gradient: (obj.fillType === 'linear' || obj.fillType === 'radial' || obj.brushFill?.gradient) ? (obj.fillGradient || obj.brushFill?.gradient) : null
+          };
           const objKey = `${JSON.stringify(brushFillCfg)}_${scale}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
           let strokes = (obj._cachedBfKey === objKey && obj._cachedBfStrokes) ? obj._cachedBfStrokes : null;
           if (!strokes) {

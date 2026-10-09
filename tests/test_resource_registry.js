@@ -5,11 +5,11 @@
 const assert = require("assert");
 const EsenhoRegistry = require("../src/resource_registry.js");
 
-console.log("--- Testing Esenho Universal Resource Registry (7 Standard Asset Types) ---");
+console.log("--- Testing Esenho Universal Resource Registry (9 Standard Asset Types) ---");
 
 // 1. Check schemas & default catalogs
-console.log("1. Verifying Built-in Catalogs for 7 Types...");
-const types = ["brush", "tip", "texture", "curve", "material", "palette", "mesh"];
+console.log("1. Verifying Built-in Catalogs for 9 Types...");
+const types = ["brush", "tip", "texture", "curve", "material", "palette", "mesh", "wasm_fx", "brush_fill"];
 for (const type of types) {
   const list = EsenhoRegistry.list(type);
   assert(list.length > 0, `Type ${type} must have default built-in items`);
@@ -49,10 +49,25 @@ const customBrush = EsenhoRegistry.register("brush", {
   texture: { ref: "paper" }
 });
 assert.strictEqual(customBrush.id, "my_custom_splatter_brush");
-console.log("  ✔ Custom Tip and Custom Brush registered successfully");
 
-// 4. Test Unified Brush Resolution with Local Stroke Overrides
-console.log("4. Testing Brush Resolution & Local Overrides...");
+const customBrushFill = EsenhoRegistry.register("brush_fill", {
+  id: "my_custom_cross_fill",
+  name: "Custom Neon Cross Fill",
+  category: "custom",
+  brushFill: {
+    enabled: true,
+    pattern: "crosshatch",
+    brush: "marker",
+    spacing: 10,
+    colorPalette: ["#00f5d4", "#f72585"]
+  }
+});
+assert.strictEqual(customBrushFill.$schema, "esenho/brush_fill/v1");
+assert.strictEqual(EsenhoRegistry.get("brush_fill", "my_custom_cross_fill").name, "Custom Neon Cross Fill");
+console.log("  ✔ Custom Tip, Brush, and Brush Fill Preset registered successfully");
+
+// 4. Test Unified Brush & Brush Fill Resolution with Local Stroke Overrides
+console.log("4. Testing Brush & Brush Fill Resolution & Local Overrides...");
 const resolved = EsenhoRegistry.resolveBrush("my_custom_splatter_brush", {
   size: 80,
   color: "#ff0055",
@@ -63,7 +78,16 @@ assert.strictEqual(resolved.tip.hardness, 90, "Tip reference parameters must be 
 assert.strictEqual(resolved.texture.depth, 50, "Texture reference parameters must be resolved");
 assert.strictEqual(resolved.color, "#ff0055", "Color override must be applied");
 assert.strictEqual(resolved.opacity, 0.75, "Opacity override must be applied");
-console.log("  ✔ Brush resolution and stroke overrides verified 100%");
+
+const resolvedBf = EsenhoRegistry.resolveBrushFill("bf_pencil_hatch", {
+  spacing: 12,
+  strokeWidth: 3
+});
+assert.strictEqual(resolvedBf.id, "bf_pencil_hatch");
+assert.strictEqual(resolvedBf.brushFill.spacing, 12, "Spacing override must apply");
+assert.strictEqual(resolvedBf.brushFill.strokeWidth, 3, "Stroke width override must apply");
+assert(resolvedBf.brushFill.resolvedBrush, "Brush reference must be resolved");
+console.log("  ✔ Brush and Brush Fill resolution verified 100%");
 
 // 5. Test Cloning & User Unregistering
 console.log("5. Testing Cloning & Unregistering...");
@@ -77,6 +101,10 @@ assert(!EsenhoRegistry.has("brush", "my_inker_copy"), "Deleted item must no long
 
 const cannotDeleteBuiltin = EsenhoRegistry.unregister("brush", "studio_inker");
 assert(cannotDeleteBuiltin === false, "Builtin item must not be deletable");
+
+const clonedBf = EsenhoRegistry.clone("brush_fill", "bf_pencil_hatch", "my_pencil_hatch_copy", "My Pencil Hatch Copy");
+assert.strictEqual(clonedBf.id, "my_pencil_hatch_copy");
+assert(!clonedBf.builtin, "Cloned brush fill must not be marked as built-in");
 console.log("  ✔ Cloning and safety constraints verified");
 
 // 6. Test Export & Import Manifest
@@ -84,13 +112,17 @@ console.log("6. Testing Export & Import Manifest...");
 const manifest = EsenhoRegistry.exportAll();
 assert(manifest.resources.tip.some(t => t.id === "my_custom_splatter"), "Manifest must include user tips");
 assert(manifest.resources.brush.some(b => b.id === "my_custom_splatter_brush"), "Manifest must include user brushes");
+assert(manifest.resources.brush_fill.some(bf => bf.id === "my_custom_cross_fill"), "Manifest must include user brush fills");
 
 EsenhoRegistry.resetDefaults();
 assert(!EsenhoRegistry.has("brush", "my_custom_splatter_brush"), "Reset must clear user assets");
+assert(!EsenhoRegistry.has("brush_fill", "my_custom_cross_fill"), "Reset must clear user brush fills");
 
 const importedCount = EsenhoRegistry.importManifest(manifest);
-assert(importedCount >= 2, "Import must restore user assets");
+assert(importedCount >= 3, "Import must restore user assets");
 assert(EsenhoRegistry.has("brush", "my_custom_splatter_brush"), "Imported brush must exist");
+assert(EsenhoRegistry.has("brush_fill", "my_custom_cross_fill"), "Imported brush fill must exist");
 console.log(`  ✔ Manifest export & import verified (${importedCount} assets restored)`);
 
-console.log("\nALL RESOURCE REGISTRY TESTS PASSED (7 ASSET SCHEMAS VERIFIED 100%)!");
+console.log("\nALL RESOURCE REGISTRY TESTS PASSED (9 ASSET SCHEMAS VERIFIED 100%)!");
+

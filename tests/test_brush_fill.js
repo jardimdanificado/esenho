@@ -14,7 +14,7 @@ const {
   findScanlineIntersections
 } = require('../src/brush_fill_engine.js');
 const SvgEngine = require('../src/svg/svg_engine.js');
-const { SvgPath, SvgRect, SvgCircle, SvgCompoundPath } = SvgEngine;
+const { SvgDocument, SvgPath, SvgRect, SvgCircle, SvgCompoundPath } = SvgEngine;
 const QuadroSvgRenderer = require('../src/svg/quadro_svg_renderer.js');
 const ColorStudio = require('../src/color_studio.js');
 
@@ -452,4 +452,122 @@ const scaledStrokes = BrushFillEngine.generateStrokes([poly], brushPath.brushFil
 assert.ok(Array.isArray(scaledStrokes), 'generateStrokes should produce array');
 console.log(`✔ Resized brush path generated ${scaledStrokes.length} valid strokes without spaghetti corruption`);
 
+// 12. Testing First-Class Brush Fill Preset Library API
+console.log('12. Testing First-Class Brush Fill Preset Library API...');
+const allPresets = BrushFillEngine.getPresets();
+assert.ok(allPresets.length >= 25, `Should load at least 25 built-in presets (got ${allPresets.length})`);
+
+const engravingPreset = BrushFillEngine.getPreset('bf_vintage_engraving');
+assert.ok(engravingPreset, 'bf_vintage_engraving must exist in preset library');
+assert.strictEqual(engravingPreset.brushFill.pattern, 'triple_hatch');
+
+const daVinciPreset = BrushFillEngine.getPreset('bf_sanguine_sketch');
+assert.ok(daVinciPreset, 'bf_sanguine_sketch must exist');
+assert.strictEqual(daVinciPreset.category, 'sketch');
+
+const customRegistered = BrushFillEngine.registerPreset({
+  id: 'bf_custom_synth',
+  name: 'Synthwave Neon Wave',
+  category: 'custom',
+  brushFill: {
+    enabled: true,
+    pattern: 'wave',
+    brush: 'marker',
+    spacing: 12
+  }
+});
+assert.strictEqual(customRegistered.id, 'bf_custom_synth');
+assert.strictEqual(BrushFillEngine.getPreset('bf_custom_synth').name, 'Synthwave Neon Wave');
+
+const resolvedConfig = BrushFillEngine.resolveConfig('bf_custom_synth', { spacing: 18 });
+assert.strictEqual(resolvedConfig.pattern, 'wave');
+assert.strictEqual(resolvedConfig.spacing, 18, 'Override spacing must apply');
+assert.strictEqual(resolvedConfig.brush, 'marker');
+console.log(`✔ BrushFillEngine Preset Library API verified (${allPresets.length} presets loaded)`);
+
+// 13. Testing Material Color & Gradient Scheme (Linear & Radial Gradient Mapping)
+console.log('13. Testing Material Solid Color & Gradient Mapping in Brush Fill...');
+// 13.1. Direct Solid Material Color
+const solidMaterialStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 10,
+  color: '#e78a4e',
+  seed: 42
+});
+assert.ok(solidMaterialStrokes.length > 0);
+assert.strictEqual(solidMaterialStrokes[0].color, '#e78a4e', 'Brush stroke must use material solid color');
+
+// 13.2. Linear Gradient Mapping
+const linearGradStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  angle: 90, // vertical lines from left to right
+  spacing: 10,
+  gradient: {
+    type: 'linear',
+    angle: 0, // left to right gradient
+    stops: [
+      { offset: 0, color: '#ff0000' },
+      { offset: 1, color: '#0000ff' }
+    ]
+  },
+  seed: 42
+});
+assert.ok(linearGradStrokes.length >= 5);
+const gradColors = linearGradStrokes.map(s => s.color.toLowerCase());
+assert.ok(gradColors.some(c => c.startsWith('#f') || c.startsWith('#e') || c.startsWith('#d')), 'Should contain red-dominant strokes');
+assert.ok(gradColors.some(c => c.startsWith('#0') || c.startsWith('#1') || c.startsWith('#2')), 'Should contain blue-dominant strokes');
+assert.notStrictEqual(gradColors[0], gradColors[gradColors.length - 1], 'Strokes must transition from start to end of gradient');
+
+// 13.3. Radial Gradient Mapping
+const radialGradStrokes = BrushFillEngine.generateStrokes([squarePoly], {
+  pattern: 'linear',
+  spacing: 10,
+  gradient: {
+    type: 'radial',
+    cx: 0.5,
+    cy: 0.5,
+    radius: 0.5,
+    stops: [
+      { offset: 0, color: '#ffffff' },
+      { offset: 1, color: '#000000' }
+    ]
+  },
+  seed: 42
+});
+assert.ok(radialGradStrokes.length > 0);
+console.log('✔ Material Solid Color & Linear/Radial Gradient Mapping passed');
+
+// 14. Testing Mutual Exclusivity of Material Modes
+console.log('14. Testing Material Mutually Exclusive Types (Standard vs BrushFill)...');
+const testDoc = new SvgDocument();
+const testRect = new SvgRect({ x: 10, y: 10, width: 80, height: 80, fill: '#fe8019' });
+testDoc.addObject(testRect);
+testDoc.selectedIds.add(testRect.id);
+global.doc = testDoc;
+
+const widget = new ColorStudio.ColorStudioWidget();
+
+// Mode A: Standard Material with Texture
+widget.applyMaterialPreset({
+  mode: 'standard',
+  color: '#ebdbb2',
+  texture: { mode: 1, scale: 50 }
+});
+assert.strictEqual(testRect.fillType, 'solid');
+assert.ok(!testRect.brushFill || testRect.brushFill.enabled === false, 'Standard material must disable brush fill');
+assert.ok(testRect.fillTexture, 'Standard material should have fillTexture');
+
+// Mode B: Brush Fill Material
+widget.applyMaterialPreset({
+  mode: 'brushfill',
+  color: '#83a598',
+  brushFill: { enabled: true, pattern: 'crosshatch' }
+});
+assert.strictEqual(testRect.fillType, 'brush', 'BrushFill material must set fillType to brush');
+assert.strictEqual(testRect.brushFill.enabled, true, 'BrushFill material must enable brush fill');
+assert.strictEqual(testRect.fillTexture, null, 'BrushFill material must disable standard fill texture');
+console.log('✔ Mutual Exclusivity of Standard vs BrushFill Material passed');
+
 console.log('--- ALL PROCEDURAL BRUSH FILL ENGINE TESTS PASSED ---');
+
+
