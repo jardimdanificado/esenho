@@ -122,6 +122,17 @@
     wasm_core: new Map()
   };
 
+  const _listeners = new Set();
+  function notifyListeners(stats) {
+    for (const fn of _listeners) {
+      try { fn(stats); } catch (e) { console.warn('[EsenhoRegistry] Listener error:', e); }
+    }
+    if (typeof window !== "undefined" && typeof window.dispatchEvent === "function") {
+      window.dispatchEvent(new CustomEvent("esenho:data-loaded", { detail: stats }));
+      window.dispatchEvent(new CustomEvent("esenho:registry-updated", { detail: stats }));
+    }
+  }
+
   let initialDataPackage = null;
 
   // Try loading default data.json in CommonJS / Node environments
@@ -175,6 +186,20 @@
     TYPE_ALIASES,
 
     /**
+     * Subscribes a callback to registry updates and data pack loads.
+     * @param {Function} fn 
+     * @returns {Function} Unsubscribe function
+     */
+    subscribe(fn) {
+      if (typeof fn !== "function") return () => {};
+      _listeners.add(fn);
+      if (stores.material.size > 0 || stores.brush.size > 0) {
+        try { fn(this.getStats ? this.getStats() : {}); } catch (_) {}
+      }
+      return () => _listeners.delete(fn);
+    },
+
+    /**
      * Loads a complete standardized data package (data.json).
      * @param {Object|string} data - Raw JSON string or parsed object
      * @returns {Object} statistics of loaded items
@@ -223,6 +248,7 @@
         }
         stats[storeKey] = count;
       }
+      notifyListeners(stats);
       return stats;
     },
 
@@ -635,15 +661,18 @@
      */
     async fetchDataPack(url = "data.json") {
       if (typeof fetch !== "function") return null;
-      try {
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const data = await resp.json();
-        return this.loadDataPack(data);
-      } catch (err) {
-        console.warn(`[EsenhoRegistry] Failed to fetch data pack from "${url}":`, err);
-        return null;
+      const candidates = [url, "./data.json", "/data.json", "../data.json"].filter((v, i, a) => a.indexOf(v) === i);
+      for (const u of candidates) {
+        try {
+          const resp = await fetch(u);
+          if (resp.ok) {
+            const data = await resp.json();
+            return this.loadDataPack(data);
+          }
+        } catch (_) {}
       }
+      console.warn(`[EsenhoRegistry] Could not fetch data pack from any candidate:`, candidates);
+      return null;
     },
 
     /**

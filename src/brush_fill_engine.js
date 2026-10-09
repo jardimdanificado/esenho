@@ -216,43 +216,62 @@
     return null;
   }
 
-  // ── 1.5. Native Brush Preset Resolution ──
+  // ── 1.5. Native Brush Preset Resolution with Fast Memory Cache ──
+  let _cachedNativePresets = null;
+  let _lastStoredPresetsRaw = null;
+
   function getNativeBrushPresets() {
+    // Check if localStorage has updated custom presets
+    let customUpdated = false;
+    let stored = null;
+    try {
+      if (typeof localStorage !== 'undefined') {
+        stored = localStorage.getItem('esenho_custom_brush_presets_v1');
+        if (stored !== _lastStoredPresetsRaw) {
+          _lastStoredPresetsRaw = stored;
+          customUpdated = true;
+        }
+      }
+    } catch (_) {}
+
+    if (_cachedNativePresets && !customUpdated) {
+      return _cachedNativePresets;
+    }
+
     let presets = {};
     if (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.getDict === 'function') {
       const dict = EsenhoRegistry.getDict('brush');
-      if (dict && Object.keys(dict).length > 0) presets = { ...dict };
+      if (dict && Object.keys(dict).length > 0) Object.assign(presets, dict);
     } else if (typeof BRUSH_PRESETS !== 'undefined') {
-      presets = { ...BRUSH_PRESETS };
+      Object.assign(presets, BRUSH_PRESETS);
     } else if (typeof window !== 'undefined' && window.BRUSH_PRESETS) {
-      presets = { ...window.BRUSH_PRESETS };
+      Object.assign(presets, window.BRUSH_PRESETS);
     } else if (typeof globalThis !== 'undefined' && globalThis.BRUSH_PRESETS) {
-      presets = { ...globalThis.BRUSH_PRESETS };
+      Object.assign(presets, globalThis.BRUSH_PRESETS);
     } else if (typeof require === 'function') {
       try {
         const reg = require('./resource_registry.js');
         if (reg && reg.getDict) {
           const dict = reg.getDict('brush');
-          if (dict && Object.keys(dict).length > 0) presets = { ...dict };
+          if (dict && Object.keys(dict).length > 0) Object.assign(presets, dict);
         }
       } catch (_) {}
       if (Object.keys(presets).length === 0) {
         try {
           const es = require('./esenho.js');
-          if (es && es.BRUSH_PRESETS) presets = { ...es.BRUSH_PRESETS };
+          if (es && es.BRUSH_PRESETS) Object.assign(presets, es.BRUSH_PRESETS);
         } catch (_) {}
       }
     }
 
-    try {
-      if (typeof localStorage !== 'undefined') {
-        const stored = localStorage.getItem('esenho_custom_brush_presets_v1');
-        if (stored) {
-          const custom = JSON.parse(stored);
-          Object.assign(presets, custom);
-        }
-      }
-    } catch (_) {}
+    if (stored) {
+      try {
+        const custom = JSON.parse(stored);
+        Object.assign(presets, custom);
+      } catch (_) {}
+    }
+
+    _cachedNativePresets = presets;
     return presets;
   }
 
@@ -350,6 +369,101 @@
         config.brushes = [options.brush, ...(options.brushSecondary ? [options.brushSecondary] : [])];
         config.brushList = config.brushes;
       }
+
+      // Pre-resolve native brush tips pool once for O(1) stroke picking
+      const allPresets = getNativeBrushPresets();
+      let brushList = [];
+      if (Array.isArray(config.brushes) && config.brushes.length > 0) {
+        brushList = config.brushes;
+      } else if (Array.isArray(config.brushList) && config.brushList.length > 0) {
+        brushList = config.brushList;
+      } else if (config.brush) {
+        brushList = [config.brush, ...(config.brushSecondary ? [config.brushSecondary] : [])];
+      } else {
+        brushList = ['pencil'];
+      }
+
+      const userHardness = config.hardness !== undefined ? config.hardness : 95;
+      const userFlow = config.flow !== undefined ? config.flow : 100;
+      const preResolvedTips = brushList.map(chosenKey => {
+        const preset = allPresets[chosenKey] || allPresets[chosenKey?.toLowerCase()] || {};
+        const brushConfig = {
+          preset: chosenKey,
+          name: preset.name || chosenKey,
+          shape: preset.shape || 'circle',
+          spacing: preset.spacing || 5,
+          roundness: preset.roundness !== undefined ? preset.roundness : 100,
+          angle: preset.angle || 0,
+          grain: preset.grain || 0,
+          texture: preset.texture || 'none',
+          texture_contrast: preset.texture_contrast || 100,
+          texture_scale: preset.texture_scale || 100,
+          dabBlend: preset.dab_blend || 0,
+          scatter: preset.scatter || 0,
+          wetness: preset.wetness || 0,
+          color_pickup: preset.color_pickup || 0,
+          depletion: preset.depletion || 0,
+          smudge: preset.smudge || 0,
+          taper_in: preset.taper_in || 0,
+          taper_out: preset.taper_out || 0,
+          size_jitter: preset.size_jitter || 0,
+          angle_jitter: preset.angle_jitter || 0,
+          opacity_jitter: preset.opacity_jitter || 0,
+          auto_rotate: preset.auto_rotate || 0,
+          velocity: preset.velocity || 0,
+          smoothing: preset.smoothing || 0,
+          ...preset,
+          hardness: userHardness,
+          flow: userFlow
+        };
+        return {
+          key: chosenKey,
+          brush: chosenKey,
+          name: preset.name || chosenKey,
+          shape: preset.shape || 'circle',
+          hardness: userHardness,
+          flow: userFlow,
+          brushConfig
+        };
+      });
+      config._preResolvedTips = preResolvedTips;
+
+      // Pre-resolve Color Palette
+      let palette = (config.colorPalette && config.colorPalette.length > 0) ? config.colorPalette : null;
+      if (!palette || palette.length === 0) {
+        if (config.colorPaletteId) {
+          try {
+            let pm = (typeof ColorStudio !== 'undefined' && ColorStudio.PaletteManager)
+              || (typeof window !== 'undefined' && (window.ColorStudio?.PaletteManager || window.PaletteManager))
+              || (typeof global !== 'undefined' && (global.ColorStudio?.PaletteManager || global.PaletteManager))
+              || (typeof PaletteManager !== 'undefined' ? PaletteManager : null);
+            if (!pm && typeof require === 'function') {
+              try {
+                const cs = require('./color_studio.js');
+                if (cs && cs.PaletteManager) pm = cs.PaletteManager;
+              } catch (_) {}
+            }
+            if (pm && typeof pm.getPalette === 'function') {
+              const pal = pm.getPalette(config.colorPaletteId);
+              if (pal && pal.colors && pal.colors.length > 0) {
+                palette = pal.colors;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+      if (!palette || palette.length === 0) {
+        palette = ['#fabd2f'];
+      }
+      config._preResolvedPalette = palette;
+
+      const hJ = (config.hueJitter || 0) + (config.colorJitter ? config.colorJitter * 1.8 : 0);
+      const sJ = (config.satJitter || 0) + (config.colorJitter || 0);
+      const lJ = (config.lightnessJitter || 0) + (config.colorJitter || 0);
+      config._hasColorJitter = (hJ > 0 || sJ > 0 || lJ > 0);
+      config._hJ = hJ;
+      config._sJ = sJ;
+      config._lJ = lJ;
 
       const rng = new FastRandom(config.seed || 42);
       const bounds = getPolygonsBounds(polygons);
@@ -701,6 +815,17 @@
      * Pick native brush for the current stroke from native brush engine
      */
     static _pickBrushTip(config, strokeIdx, rng) {
+      if (config._preResolvedTips && config._preResolvedTips.length > 0) {
+        const list = config._preResolvedTips;
+        if (config.brushPickMode === 'random') {
+          return list[Math.floor(rng.next() * list.length)];
+        } else if (config.brushPickMode === 'alternate') {
+          return list[strokeIdx % Math.min(2, list.length)];
+        } else {
+          return list[strokeIdx % list.length];
+        }
+      }
+
       let list = [];
       if (Array.isArray(config.brushes) && config.brushes.length > 0) {
         list = config.brushes;
@@ -772,32 +897,7 @@
      * Pick color for the stroke based on palette, gradient map, or HSL jitter
      */
     static _pickColor(config, strokeIdx, pt, bounds, rng) {
-      let palette = (config.colorPalette && config.colorPalette.length > 0) ? config.colorPalette : null;
-      if (!palette || palette.length === 0) {
-        if (config.colorPaletteId) {
-          try {
-            let pm = (typeof ColorStudio !== 'undefined' && ColorStudio.PaletteManager)
-              || (typeof window !== 'undefined' && (window.ColorStudio?.PaletteManager || window.PaletteManager))
-              || (typeof global !== 'undefined' && (global.ColorStudio?.PaletteManager || global.PaletteManager))
-              || (typeof PaletteManager !== 'undefined' ? PaletteManager : null);
-            if (!pm && typeof require === 'function') {
-              try {
-                const cs = require('./color_studio.js');
-                if (cs && cs.PaletteManager) pm = cs.PaletteManager;
-              } catch (_) {}
-            }
-            if (pm && typeof pm.getPalette === 'function') {
-              const pal = pm.getPalette(config.colorPaletteId);
-              if (pal && pal.colors && pal.colors.length > 0) {
-                palette = pal.colors;
-              }
-            }
-          } catch (_) {}
-        }
-      }
-      if (!palette || palette.length === 0) {
-        palette = ['#fabd2f'];
-      }
+      const palette = config._preResolvedPalette || (config.colorPalette && config.colorPalette.length > 0 ? config.colorPalette : ['#fabd2f']);
       let baseColor = palette[0];
 
       if (config.colorMode === 'solid') {
@@ -812,12 +912,15 @@
         baseColor = palette[strokeIdx % palette.length];
       }
 
-      const hJ = (config.hueJitter || 0) + (config.colorJitter ? config.colorJitter * 1.8 : 0);
-      const sJ = (config.satJitter || 0) + (config.colorJitter || 0);
-      const lJ = (config.lightnessJitter || 0) + (config.colorJitter || 0);
-
-      if (hJ > 0 || sJ > 0 || lJ > 0) {
-        return jitterColor(baseColor, hJ, sJ, lJ, rng);
+      if (config._hasColorJitter) {
+        return jitterColor(baseColor, config._hJ, config._sJ, config._lJ, rng);
+      } else if (!config._preResolvedPalette) {
+        const hJ = (config.hueJitter || 0) + (config.colorJitter ? config.colorJitter * 1.8 : 0);
+        const sJ = (config.satJitter || 0) + (config.colorJitter || 0);
+        const lJ = (config.lightnessJitter || 0) + (config.colorJitter || 0);
+        if (hJ > 0 || sJ > 0 || lJ > 0) {
+          return jitterColor(baseColor, hJ, sJ, lJ, rng);
+        }
       }
       return baseColor;
     }

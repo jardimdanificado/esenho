@@ -2004,6 +2004,33 @@
           this.populateBrushFillPaletteSelect();
         });
       }
+
+      if (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.subscribe === 'function') {
+        EsenhoRegistry.subscribe(() => {
+          this.renderMaterialPresetsList();
+          this.populateFilterPluginSelect();
+          this.populateBrushSelects();
+          this.populateBrushFillPaletteSelect();
+          this.populatePalettesSelect();
+        });
+      }
+
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        window.addEventListener('esenho:data-loaded', () => {
+          this.renderMaterialPresetsList();
+          this.populateFilterPluginSelect();
+          this.populateBrushSelects();
+          this.populateBrushFillPaletteSelect();
+          this.populatePalettesSelect();
+        });
+        window.addEventListener('esenho:registry-updated', () => {
+          this.renderMaterialPresetsList();
+          this.populateFilterPluginSelect();
+          this.populateBrushSelects();
+          this.populateBrushFillPaletteSelect();
+          this.populatePalettesSelect();
+        });
+      }
     }
 
     bindEvents() {
@@ -3589,7 +3616,8 @@
         { id: 'artistic', label: 'Artistic & Traditional' },
         { id: 'lenses', label: 'Optical Lenses (WASM FX)' },
         { id: 'nature', label: 'Nature & Textures' },
-        { id: 'scifi', label: 'Sci-Fi & Metals' },
+        { id: 'scifi', label: 'Sci-Fi & Cyber' },
+        { id: 'metal', label: 'Metals & Shaders' },
         { id: 'gradients', label: 'Gradients & Lighting' }
       ];
 
@@ -3597,12 +3625,14 @@
         ? EsenhoRegistry.list('material')
         : BUILTIN_MATERIALS;
 
+      const assignedIds = new Set();
       categories.forEach(cat => {
         const items = allMaterials.filter(m => m.category === cat.id);
         if (items.length > 0) {
           const grp = document.createElement('optgroup');
           grp.label = cat.label;
           items.forEach(mat => {
+            assignedIds.add(mat.id || mat.name);
             const opt = document.createElement('option');
             opt.value = mat.id || mat.name;
             opt.textContent = mat.name;
@@ -3612,6 +3642,20 @@
           sel.appendChild(grp);
         }
       });
+
+      const otherItems = allMaterials.filter(m => !assignedIds.has(m.id || m.name));
+      if (otherItems.length > 0) {
+        const grp = document.createElement('optgroup');
+        grp.label = 'Other Materials';
+        otherItems.forEach(mat => {
+          const opt = document.createElement('option');
+          opt.value = mat.id || mat.name;
+          opt.textContent = mat.name;
+          if (currentVal === opt.value) opt.selected = true;
+          grp.appendChild(opt);
+        });
+        sel.appendChild(grp);
+      }
     }
 
     findMaterialPreset(idOrName) {
@@ -4812,6 +4856,8 @@
     }
 
     onPanelActivated() {
+      this.renderMaterialPresetsList();
+      this.populateBrushSelects();
       if (this._needsSyncWhenVisible) {
         this._needsSyncWhenVisible = false;
         this.syncFromSelection(true);
@@ -5371,6 +5417,7 @@
       instance = new ColorStudioWidget();
     }
     instance.init(containerEl);
+    instance.renderMaterialPresetsList();
     return instance;
   }
 

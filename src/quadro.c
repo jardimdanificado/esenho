@@ -1075,10 +1075,22 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
         w_sincos_deg(eff_angle, &sin_val, &cos_val);
     }
 
-    int min_x = cx - bound_r; if (min_x < 0) min_x = 0;
-    int max_x = cx + bound_r; if (max_x >= w) max_x = w - 1;
-    int min_y = cy - bound_r; if (min_y < 0) min_y = 0;
-    int max_y = cy + bound_r; if (max_y >= h) max_y = h - 1;
+    int min_x = cx - bound_r;
+    int max_x = cx + bound_r;
+    int min_y = cy - bound_r;
+    int max_y = cy + bound_r;
+
+    if (min_x < 0) min_x = 0;
+    if (min_x >= w) return;
+    if (max_x < 0) return;
+    if (max_x >= w) max_x = w - 1;
+
+    if (min_y < 0) min_y = 0;
+    if (min_y >= h) return;
+    if (max_y < 0) return;
+    if (max_y >= h) max_y = h - 1;
+
+    if (min_x > max_x || min_y > max_y) return;
 
     int eff_flow = (brush_config.flow * dab_flow_pct) / 100;
     uint32_t dab_flow_a = (255 * eff_flow) / 100;
@@ -1088,13 +1100,13 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
     if (max_stroke_a < 1 && brush_config.opacity > 0) max_stroke_a = 1;
 
     int shape_id = brush_config.shape;
-    if (shape_id < 0 || shape_id >= layer_count || !layers[shape_id].in_use) {
+    if (shape_id < 0 || shape_id >= 3 || !layers[shape_id].in_use) {
         shape_id = 0;
     }
     layer_t *stex = &layers[shape_id];
     int is_builtin_circle = (shape_id == 0);
     int is_builtin_square = (shape_id == 1);
-    int has_dual = (brush_config.dual_shape >= 0 && brush_config.dual_shape < layer_count && layers[brush_config.dual_shape].in_use);
+    int has_dual = (brush_config.dual_shape >= 0 && brush_config.dual_shape < 3 && layers[brush_config.dual_shape].in_use);
     layer_t *dtex = has_dual ? &layers[brush_config.dual_shape] : 0;
     int dual_r = has_dual ? ((r * brush_config.dual_size) / 100) : 1;
     if (dual_r < 1) dual_r = 1;
@@ -1123,6 +1135,10 @@ static void render_parametric_dab(uint32_t *pix, int w, int h, int cx, int cy, u
                 if (cx + span_u < row_max_x) row_max_x = cx + span_u;
             }
         }
+
+        if (row_min_x < 0) row_min_x = 0;
+        if (row_max_x >= w) row_max_x = w - 1;
+        if (row_min_x > row_max_x) continue;
 
         for (int x = row_min_x; x <= row_max_x; x++) {
             if (is_pixel_clipped(x, y)) continue;
@@ -2067,6 +2083,7 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
     if (!pix || w <= 0 || h <= 0) return;
+    ensure_stroke_buffers((uint32_t)(w * h));
 
     if (state == 0) {
         stroke_generation++;

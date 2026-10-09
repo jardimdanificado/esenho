@@ -1071,68 +1071,14 @@
         if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
         if (Engine && typeof Engine.generateStrokes === 'function') {
           const brushFillCfg = doc.backgroundBrushFill || {};
-          const strokes = Engine.generateStrokes(bgPolys, brushFillCfg);
-          for (let sIdx = 0; sIdx < strokes.length; sIdx++) {
-            const stroke = strokes[sIdx];
-            const strokeA = stroke.opacity !== undefined ? stroke.opacity : 1.0;
-            const strokeColor = stroke.color || doc.backgroundColor || '#fabd2f';
-            const sArgb = parseCssColorToArgb(strokeColor, strokeA);
-            if ((sArgb >>> 24) === 0) continue;
-
-            const sWidth = Math.max(1, Math.round((stroke.width || 2) * scale));
-            const strokeBrushConfig = (stroke.brushTip && stroke.brushTip.brushConfig) ? stroke.brushTip.brushConfig : {};
-            const shapeName = (strokeBrushConfig.shape || (stroke.brushTip && stroke.brushTip.shape)) ? String(strokeBrushConfig.shape || stroke.brushTip.shape).toLowerCase() : 'round';
-            const shapeMap = { round: 0, circle: 0, square: 1, ellipse: 2, oval: 2, pencil: 3, charcoal: 4, acrylic: 5, watercolor: 6, chisel: 1, fan: 5, bristle: 5, dry_brush: 4, dagger: 2 };
-            const shapeId = typeof strokeBrushConfig.shape === 'number' ? strokeBrushConfig.shape : (shapeMap[shapeName] !== undefined ? shapeMap[shapeName] : 0);
-
-            const bConfig = {
-              hardness: stroke.brushTip?.hardness !== undefined ? stroke.brushTip.hardness : (stroke.hardness !== undefined ? stroke.hardness : 95),
-              flow: stroke.brushTip?.flow !== undefined ? stroke.brushTip.flow : (stroke.flow !== undefined ? stroke.flow : 100),
-              spacing: strokeBrushConfig.spacing || 5,
-              shape: shapeId,
-              roundness: strokeBrushConfig.roundness !== undefined ? strokeBrushConfig.roundness : 100,
-              ...strokeBrushConfig
-            };
-            const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : null;
-
-            if (stroke.type === 'poly' && stroke.points && stroke.points.length > 0) {
-              this.strokePolyline(stroke.points, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            } else if (stroke.type === 'cubic' && stroke.cp1 && stroke.cp2) {
-              const p0 = stroke.p0, cp1 = stroke.cp1, cp2 = stroke.cp2, p1 = stroke.p1;
-              const curvePoly = [];
-              const steps = 8;
-              for (let step = 0; step <= steps; step++) {
-                const t = step / steps;
-                const it = 1 - t;
-                curvePoly.push({
-                  x: it * it * it * p0.x + 3 * it * it * t * cp1.x + 3 * it * t * t * cp2.x + t * t * t * p1.x,
-                  y: it * it * it * p0.y + 3 * it * it * t * cp1.y + 3 * it * t * t * cp2.y + t * t * t * p1.y
-                });
-              }
-              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            } else if (stroke.type === 'curve' && stroke.cp) {
-              const p0 = stroke.p0;
-              const cp = stroke.cp;
-              const p1 = stroke.p1;
-              const curvePoly = [];
-              const steps = 6;
-              for (let step = 0; step <= steps; step++) {
-                const t = step / steps;
-                const it = 1 - t;
-                curvePoly.push({
-                  x: it * it * p0.x + 2 * it * t * cp.x + t * t * p1.x,
-                  y: it * it * p0.y + 2 * it * t * cp.y + t * t * p1.y
-                });
-              }
-              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            } else if (stroke.type === 'dot') {
-              const dabPt = stroke.p0 || { x: stroke.cx || 0, y: stroke.cy || 0 };
-              this.strokePolyline([dabPt], sArgb, Math.max(1, Math.round((stroke.width || 2) * scale)), false, bConfig, strokeTex, scale);
-            } else {
-              const linePoly = [stroke.p0, stroke.p1];
-              this.strokePolyline(linePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            }
+          const bgKey = `${JSON.stringify(brushFillCfg)}_${doc.width}_${doc.height}`;
+          let strokes = (doc._cachedBgBrushKey === bgKey && doc._cachedBgBrushStrokes) ? doc._cachedBgBrushStrokes : null;
+          if (!strokes) {
+            strokes = Engine.generateStrokes(bgPolys, brushFillCfg);
+            doc._cachedBgBrushStrokes = strokes;
+            doc._cachedBgBrushKey = bgKey;
           }
+          this._renderBrushFillStrokesFast(strokes, scale, 1.0, doc.backgroundColor || '#fabd2f', null);
         }
       } else {
         // 2. Standard solid, gradient, and/or textured background
@@ -1713,70 +1659,14 @@
         if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
         if (Engine && typeof Engine.generateStrokes === 'function') {
           const brushFillCfg = obj.brushFill || {};
-          const strokes = Engine.generateStrokes(rotatedPolys, brushFillCfg);
-          for (let sIdx = 0; sIdx < strokes.length; sIdx++) {
-            const stroke = strokes[sIdx];
-            const strokeA = (stroke.opacity !== undefined ? stroke.opacity : 1.0) * totalOpacity;
-            const strokeColor = stroke.color || obj.fill || '#fabd2f';
-            const sArgb = parseCssColorToArgb(strokeColor, strokeA);
-            if ((sArgb >>> 24) === 0) continue;
-
-            const sWidth = Math.max(1, Math.round((stroke.width || 2) * scale));
-            const strokeBrushConfig = (stroke.brushTip && stroke.brushTip.brushConfig) ? stroke.brushTip.brushConfig : {};
-            const shapeName = (strokeBrushConfig.shape || (stroke.brushTip && stroke.brushTip.shape)) ? String(strokeBrushConfig.shape || stroke.brushTip.shape).toLowerCase() : 'round';
-            const shapeMap = { round: 0, circle: 0, square: 1, ellipse: 2, oval: 2, pencil: 3, charcoal: 4, acrylic: 5, watercolor: 6, chisel: 1, fan: 5, bristle: 5, dry_brush: 4, dagger: 2 };
-            const shapeId = typeof strokeBrushConfig.shape === 'number' ? strokeBrushConfig.shape : (shapeMap[shapeName] !== undefined ? shapeMap[shapeName] : 0);
-
-            const bConfig = {
-              hardness: stroke.brushTip?.hardness !== undefined ? stroke.brushTip.hardness : (stroke.hardness !== undefined ? stroke.hardness : 95),
-              flow: stroke.brushTip?.flow !== undefined ? stroke.brushTip.flow : (stroke.flow !== undefined ? stroke.flow : 100),
-              spacing: strokeBrushConfig.spacing || 5,
-              shape: shapeId,
-              roundness: strokeBrushConfig.roundness !== undefined ? strokeBrushConfig.roundness : 100,
-              ...strokeBrushConfig
-            };
-            const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : obj.strokeTexture;
-
-            if (stroke.type === 'poly' && stroke.points && stroke.points.length > 0) {
-              this.strokePolyline(stroke.points, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            } else if (stroke.type === 'cubic' && stroke.cp1 && stroke.cp2) {
-              const p0 = stroke.p0, cp1 = stroke.cp1, cp2 = stroke.cp2, p1 = stroke.p1;
-              const curvePoly = [];
-              const steps = 8;
-              for (let step = 0; step <= steps; step++) {
-                const t = step / steps;
-                const it = 1 - t;
-                curvePoly.push({
-                  x: it * it * it * p0.x + 3 * it * it * t * cp1.x + 3 * it * t * t * cp2.x + t * t * t * p1.x,
-                  y: it * it * it * p0.y + 3 * it * it * t * cp1.y + 3 * it * t * t * cp2.y + t * t * t * p1.y
-                });
-              }
-              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            } else if (stroke.type === 'curve' && stroke.cp) {
-              // Subdivide quadratic curve into small polyline
-              const p0 = stroke.p0;
-              const cp = stroke.cp;
-              const p1 = stroke.p1;
-              const curvePoly = [];
-              const steps = 6;
-              for (let step = 0; step <= steps; step++) {
-                const t = step / steps;
-                const it = 1 - t;
-                curvePoly.push({
-                  x: it * it * p0.x + 2 * it * t * cp.x + t * t * p1.x,
-                  y: it * it * p0.y + 2 * it * t * cp.y + t * t * p1.y
-                });
-              }
-              this.strokePolyline(curvePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            } else if (stroke.type === 'dot') {
-              const dabPt = stroke.p0 || { x: stroke.cx || 0, y: stroke.cy || 0 };
-              this.strokePolyline([dabPt], sArgb, Math.max(1, Math.round((stroke.width || 2) * scale)), false, bConfig, strokeTex, scale);
-            } else {
-              // Standard straight line stroke
-              const linePoly = [stroke.p0, stroke.p1];
-              this.strokePolyline(linePoly, sArgb, sWidth, false, bConfig, strokeTex, scale);
-            }
+          const objKey = `${JSON.stringify(brushFillCfg)}_${scale}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
+          let strokes = (obj._cachedBfKey === objKey && obj._cachedBfStrokes) ? obj._cachedBfStrokes : null;
+          if (!strokes) {
+            strokes = Engine.generateStrokes(rotatedPolys, brushFillCfg);
+            obj._cachedBfStrokes = strokes;
+            obj._cachedBfKey = objKey;
           }
+          this._renderBrushFillStrokesFast(strokes, scale, totalOpacity, obj.fill || '#fabd2f', obj.strokeTexture);
           return;
         }
       }
@@ -2496,16 +2386,207 @@
       }
     }
 
+    _applyBrushConfigFast(bConfig, strokeWidth, strokeTex, scale) {
+      const rawShape = bConfig?.shape;
+      let safeShape = 0;
+      if (rawShape === 1 || rawShape === 2) safeShape = rawShape;
+      else if (typeof rawShape === 'string') {
+        const s = rawShape.toLowerCase();
+        if (s === 'square' || s === 'rect') safeShape = 1;
+        else if (s === 'chisel' || s === 'flat') safeShape = 2;
+      }
+
+      this.setBrushParamFast(1 /* SIZE */, Math.max(1, strokeWidth));
+      this.setBrushParamFast(2 /* OPACITY */, 100);
+      this.setBrushParamFast(3 /* HARDNESS */, bConfig?.hardness !== undefined ? bConfig.hardness : 95);
+      this.setBrushParamFast(4 /* FLOW */, bConfig?.flow !== undefined ? bConfig.flow : 100);
+      this.setBrushParamFast(5 /* SPACING */, Math.max(1, bConfig?.spacing !== undefined ? bConfig.spacing : 5));
+      this.setBrushParamFast(6 /* ANGLE */, bConfig?.angle !== undefined ? bConfig.angle : 0);
+      this.setBrushParamFast(7 /* ROUNDNESS */, bConfig?.roundness !== undefined ? bConfig.roundness : 100);
+      this.setBrushParamFast(8 /* SCATTER */, bConfig?.scatter !== undefined ? bConfig.scatter : 0);
+      this.setBrushParamFast(10 /* SMUDGE */, bConfig?.smudge !== undefined ? bConfig.smudge : 0);
+      this.setBrushParamFast(11 /* WETNESS */, bConfig?.wetness !== undefined ? bConfig.wetness : 0);
+      this.setBrushParamFast(12 /* GRAIN */, strokeTex?.grain !== undefined ? strokeTex.grain : (bConfig?.grain !== undefined ? bConfig.grain : 0));
+      this.setBrushParamFast(13 /* TEX_MODE */, strokeTex?.mode !== undefined ? strokeTex.mode : (bConfig?.texture_mode !== undefined ? bConfig.texture_mode : 0));
+      this.setBrushParamFast(14 /* SHAPE */, safeShape);
+      this.setBrushParamFast(16 /* TEX_ANGLE */, strokeTex?.angle !== undefined ? strokeTex.angle : 0);
+      const texScale = Math.round((strokeTex?.scale !== undefined ? strokeTex.scale : (bConfig?.texture_scale !== undefined ? bConfig.texture_scale : 100)) * scale);
+      this.setBrushParamFast(17 /* TEX_SCALE */, texScale);
+      this.setBrushParamFast(21 /* TEX_CONTRAST */, strokeTex?.contrast !== undefined ? strokeTex.contrast : 100);
+      this.setBrushParamFast(22 /* AUTO_ROTATE */, bConfig?.auto_rotate !== undefined ? bConfig.auto_rotate : (bConfig?.autoRotate ? 1 : 0));
+      this.setBrushParamFast(23 /* VELOCITY */, bConfig?.velocity !== undefined ? bConfig.velocity : 0);
+      this.setBrushParamFast(24 /* TAPER_IN */, bConfig?.taper_in !== undefined ? bConfig.taper_in : (bConfig?.taperIn !== undefined ? bConfig.taperIn : 0));
+      this.setBrushParamFast(25 /* TAPER_OUT */, bConfig?.taper_out !== undefined ? bConfig.taper_out : (bConfig?.taperOut !== undefined ? bConfig.taperOut : 0));
+      this.setBrushParamFast(27 /* SIZE_JITTER */, bConfig?.size_jitter !== undefined ? bConfig.size_jitter : (bConfig?.sizeJitter !== undefined ? bConfig.sizeJitter : 0));
+      this.setBrushParamFast(28 /* ANGLE_JITTER */, bConfig?.angle_jitter !== undefined ? bConfig.angle_jitter : (bConfig?.angleJitter !== undefined ? bConfig.angleJitter : 0));
+      this.setBrushParamFast(29 /* OPACITY_JITTER */, bConfig?.opacity_jitter !== undefined ? bConfig.opacity_jitter : (bConfig?.opacityJitter !== undefined ? bConfig.opacityJitter : 0));
+      this.setBrushParamFast(31 /* DAB_BLEND */, bConfig?.dabBlend !== undefined ? bConfig.dabBlend : (bConfig?.dab_blend !== undefined ? bConfig.dab_blend : 0));
+      this.setBrushParamFast(33 /* DEPLETION */, bConfig?.depletion !== undefined ? bConfig.depletion : 0);
+      this.setBrushParamFast(34 /* COLOR_PICKUP */, bConfig?.color_pickup !== undefined ? bConfig.color_pickup : (bConfig?.colorPickup !== undefined ? bConfig.colorPickup : 0));
+      this.setBrushParamFast(35 /* DUAL_SHAPE */, -1);
+    }
+
+    /**
+     * Highly optimized batch rasterization for procedural brush fill strokes
+     */
+    _renderBrushFillStrokesFast(strokes, scale, totalOpacity, defaultColor = '#fabd2f', defaultTex = null) {
+      if (!strokes || strokes.length === 0) return;
+      const exp = this.actor.exports;
+      let lastBrushConfig = null;
+      let lastWidth = -1;
+      let lastTex = undefined;
+
+      const shapeMap = { circle: 0, round: 0, square: 1, rect: 1, chisel: 2, flat: 2 };
+
+      for (let sIdx = 0; sIdx < strokes.length; sIdx++) {
+        const stroke = strokes[sIdx];
+        if (!stroke) continue;
+        const strokeA = (stroke.opacity !== undefined ? stroke.opacity : 1.0) * totalOpacity;
+        const strokeColor = stroke.color || defaultColor;
+        const sArgb = parseCssColorToArgb(strokeColor, strokeA);
+        if ((sArgb >>> 24) === 0) continue;
+
+        const sWidth = Math.max(1, Math.round((stroke.width || 2) * scale));
+        const strokeBrushConfig = (stroke.brushTip && stroke.brushTip.brushConfig) ? stroke.brushTip.brushConfig : {};
+        const strokeTex = (strokeBrushConfig.texture && strokeBrushConfig.texture !== 'none') ? strokeBrushConfig.texture : defaultTex;
+
+        if (strokeBrushConfig !== lastBrushConfig || sWidth !== lastWidth || strokeTex !== lastTex) {
+          const rawShape = strokeBrushConfig.shape !== undefined ? strokeBrushConfig.shape : (stroke.brushTip && stroke.brushTip.shape);
+          let shapeId = 0;
+          if (rawShape === 1 || rawShape === 2) {
+            shapeId = rawShape;
+          } else if (typeof rawShape === 'string' && shapeMap[rawShape.toLowerCase()] !== undefined) {
+            shapeId = shapeMap[rawShape.toLowerCase()];
+          }
+
+          const bConfig = {
+            ...strokeBrushConfig,
+            hardness: stroke.brushTip?.hardness !== undefined ? stroke.brushTip.hardness : (stroke.hardness !== undefined ? stroke.hardness : 95),
+            flow: stroke.brushTip?.flow !== undefined ? stroke.brushTip.flow : (stroke.flow !== undefined ? stroke.flow : 100),
+            spacing: strokeBrushConfig.spacing || 5,
+            roundness: strokeBrushConfig.roundness !== undefined ? strokeBrushConfig.roundness : 100,
+            shape: shapeId
+          };
+          this._applyBrushConfigFast(bConfig, sWidth, strokeTex, scale);
+          lastBrushConfig = strokeBrushConfig;
+          lastWidth = sWidth;
+          lastTex = strokeTex;
+        }
+
+        if (stroke.type === 'poly' && stroke.points && stroke.points.length > 0) {
+          const pts = stroke.points;
+          const n = pts.length;
+          if (n === 1) {
+            const x0 = Math.round((pts[0].x || 0) * scale);
+            const y0 = Math.round((pts[0].y || 0) * scale);
+            if (isFinite(x0) && isFinite(y0)) {
+              exp.w_brush_stroke_ext(0, x0, y0, x0, y0, sArgb, 0, 1000, 0, 0);
+              exp.w_brush_stroke_ext(2, x0, y0, x0, y0, sArgb, 0, 1000, 0, 0);
+            }
+          } else {
+            let px0 = Math.round((pts[0].x || 0) * scale);
+            let py0 = Math.round((pts[0].y || 0) * scale);
+            let px1 = Math.round((pts[1].x || 0) * scale);
+            let py1 = Math.round((pts[1].y || 0) * scale);
+            if (isFinite(px0) && isFinite(py0) && isFinite(px1) && isFinite(py1)) {
+              exp.w_brush_stroke_ext(0, px0, py0, px1, py1, sArgb, 0, 1000, 0, 0);
+              for (let i = 2; i < n; i++) {
+                const cx = Math.round((pts[i].x || 0) * scale);
+                const cy = Math.round((pts[i].y || 0) * scale);
+                const px = Math.round((pts[i - 1].x || 0) * scale);
+                const py = Math.round((pts[i - 1].y || 0) * scale);
+                if (isFinite(cx) && isFinite(cy) && isFinite(px) && isFinite(py)) {
+                  exp.w_brush_stroke_ext(1, cx, cy, px, py, sArgb, 0, 1000, 0, 0);
+                }
+              }
+              const lastX = Math.round((pts[n - 1].x || 0) * scale);
+              const lastY = Math.round((pts[n - 1].y || 0) * scale);
+              const prevX = Math.round((pts[n - 2].x || 0) * scale);
+              const prevY = Math.round((pts[n - 2].y || 0) * scale);
+              if (isFinite(lastX) && isFinite(lastY) && isFinite(prevX) && isFinite(prevY)) {
+                exp.w_brush_stroke_ext(2, lastX, lastY, prevX, prevY, sArgb, 0, 1000, 0, 0);
+              }
+            }
+          }
+        } else if (stroke.type === 'cubic' && stroke.cp1 && stroke.cp2 && stroke.p0 && stroke.p1) {
+          const p0 = stroke.p0, cp1 = stroke.cp1, cp2 = stroke.cp2, p1 = stroke.p1;
+          const steps = 8;
+          const poly = [];
+          for (let step = 0; step <= steps; step++) {
+            const t = step / steps;
+            const it = 1 - t;
+            poly.push({
+              x: Math.round((it * it * it * p0.x + 3 * it * it * t * cp1.x + 3 * it * t * t * cp2.x + t * t * t * p1.x) * scale),
+              y: Math.round((it * it * it * p0.y + 3 * it * it * t * cp1.y + 3 * it * t * t * cp2.y + t * t * t * p1.y) * scale)
+            });
+          }
+          if (poly.every(pt => isFinite(pt.x) && isFinite(pt.y))) {
+            exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[1].x, poly[1].y, sArgb, 0, 1000, 0, 0);
+            for (let i = 2; i <= steps; i++) {
+              exp.w_brush_stroke_ext(1, poly[i].x, poly[i].y, poly[i - 1].x, poly[i - 1].y, sArgb, 0, 1000, 0, 0);
+            }
+            exp.w_brush_stroke_ext(2, poly[steps].x, poly[steps].y, poly[steps - 1].x, poly[steps - 1].y, sArgb, 0, 1000, 0, 0);
+          }
+        } else if (stroke.type === 'curve' && stroke.cp && stroke.p0 && stroke.p1) {
+          const p0 = stroke.p0, cp = stroke.cp, p1 = stroke.p1;
+          const steps = 6;
+          const poly = [];
+          for (let step = 0; step <= steps; step++) {
+            const t = step / steps;
+            const it = 1 - t;
+            poly.push({
+              x: Math.round((it * it * p0.x + 2 * it * t * cp.x + t * t * p1.x) * scale),
+              y: Math.round((it * it * p0.y + 2 * it * t * cp.y + t * t * p1.y) * scale)
+            });
+          }
+          if (poly.every(pt => isFinite(pt.x) && isFinite(pt.y))) {
+            exp.w_brush_stroke_ext(0, poly[0].x, poly[0].y, poly[1].x, poly[1].y, sArgb, 0, 1000, 0, 0);
+            for (let i = 2; i <= steps; i++) {
+              exp.w_brush_stroke_ext(1, poly[i].x, poly[i].y, poly[i - 1].x, poly[i - 1].y, sArgb, 0, 1000, 0, 0);
+            }
+            exp.w_brush_stroke_ext(2, poly[steps].x, poly[steps].y, poly[steps - 1].x, poly[steps - 1].y, sArgb, 0, 1000, 0, 0);
+          }
+        } else if (stroke.type === 'dot') {
+          const pt = stroke.p0 || { x: stroke.cx || 0, y: stroke.cy || 0 };
+          const x0 = Math.round((pt.x || 0) * scale);
+          const y0 = Math.round((pt.y || 0) * scale);
+          if (isFinite(x0) && isFinite(y0)) {
+            exp.w_brush_stroke_ext(0, x0, y0, x0, y0, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(2, x0, y0, x0, y0, sArgb, 0, 1000, 0, 0);
+          }
+        } else if (stroke.p0 && stroke.p1) {
+          // Standard straight line stroke
+          const x0 = Math.round(stroke.p0.x * scale);
+          const y0 = Math.round(stroke.p0.y * scale);
+          const x1 = Math.round(stroke.p1.x * scale);
+          const y1 = Math.round(stroke.p1.y * scale);
+          if (isFinite(x0) && isFinite(y0) && isFinite(x1) && isFinite(y1)) {
+            exp.w_brush_stroke_ext(0, x0, y0, x1, y1, sArgb, 0, 1000, 0, 0);
+            exp.w_brush_stroke_ext(2, x1, y1, x0, y0, sArgb, 0, 1000, 0, 0);
+          }
+        }
+      }
+    }
+
     /**
      * Anti-aliased stroke drawing via Quadro brush engine with dynamics and textures
      */
     strokePolyline(poly, argbColor, strokeWidth = 2, closed = false, brushConfig = null, strokeTexture = null, scale = 1.0) {
       const exp = this.actor.exports;
-      this.setBrushParamFast(1 /* SIZE */, strokeWidth);
+      const rawShape = brushConfig?.shape;
+      let safeShape = 0;
+      if (rawShape === 1 || rawShape === 2) safeShape = rawShape;
+      else if (typeof rawShape === 'string') {
+        const s = rawShape.toLowerCase();
+        if (s === 'square' || s === 'rect') safeShape = 1;
+        else if (s === 'chisel' || s === 'flat') safeShape = 2;
+      }
+
+      this.setBrushParamFast(1 /* SIZE */, Math.max(1, strokeWidth));
       this.setBrushParamFast(2 /* OPACITY */, 100);
       this.setBrushParamFast(3 /* HARDNESS */, brushConfig?.hardness !== undefined ? brushConfig.hardness : 95);
       this.setBrushParamFast(4 /* FLOW */, brushConfig?.flow !== undefined ? brushConfig.flow : 100);
-      this.setBrushParamFast(5 /* SPACING */, brushConfig?.spacing !== undefined ? brushConfig.spacing : 5);
+      this.setBrushParamFast(5 /* SPACING */, Math.max(1, brushConfig?.spacing !== undefined ? brushConfig.spacing : 5));
       this.setBrushParamFast(6 /* ANGLE */, brushConfig?.angle !== undefined ? brushConfig.angle : 0);
       this.setBrushParamFast(7 /* ROUNDNESS */, brushConfig?.roundness !== undefined ? brushConfig.roundness : 100);
       this.setBrushParamFast(8 /* SCATTER */, brushConfig?.scatter !== undefined ? brushConfig.scatter : 0);
@@ -2513,7 +2594,7 @@
       this.setBrushParamFast(11 /* WETNESS */, brushConfig?.wetness !== undefined ? brushConfig.wetness : 0);
       this.setBrushParamFast(12 /* GRAIN */, strokeTexture?.grain !== undefined ? strokeTexture.grain : (brushConfig?.grain !== undefined ? brushConfig.grain : 0));
       this.setBrushParamFast(13 /* TEX_MODE */, strokeTexture?.mode !== undefined ? strokeTexture.mode : (brushConfig?.texture_mode !== undefined ? brushConfig.texture_mode : 0));
-      this.setBrushParamFast(14 /* SHAPE */, brushConfig?.shape !== undefined ? brushConfig.shape : 0);
+      this.setBrushParamFast(14 /* SHAPE */, safeShape);
       this.setBrushParamFast(16 /* TEX_ANGLE */, strokeTexture?.angle !== undefined ? strokeTexture.angle : 0);
       const texScale = Math.round((strokeTexture?.scale !== undefined ? strokeTexture.scale : (brushConfig?.texture_scale !== undefined ? brushConfig.texture_scale : 100)) * scale);
       this.setBrushParamFast(17 /* TEX_SCALE */, texScale);
@@ -2528,6 +2609,7 @@
       this.setBrushParamFast(31 /* DAB_BLEND */, brushConfig?.dabBlend !== undefined ? brushConfig.dabBlend : (brushConfig?.dab_blend !== undefined ? brushConfig.dab_blend : 0));
       this.setBrushParamFast(33 /* DEPLETION */, brushConfig?.depletion !== undefined ? brushConfig.depletion : 0);
       this.setBrushParamFast(34 /* COLOR_PICKUP */, brushConfig?.color_pickup !== undefined ? brushConfig.color_pickup : (brushConfig?.colorPickup !== undefined ? brushConfig.colorPickup : 0));
+      this.setBrushParamFast(35 /* DUAL_SHAPE */, -1);
 
       const pts = scale === 1.0 ? poly : poly.map(p => ({ x: Math.round(p.x * scale), y: Math.round(p.y * scale) }));
       const n = pts.length;
