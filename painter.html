@@ -77,20 +77,20 @@
       color-scheme: dark;
     }
 
-    [data-theme="skeuo"] button,
-    body.theme-skeuo button {
+    [data-theme="skeuo"] button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip),
+    body.theme-skeuo button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip) {
       background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%);
       border: 1px solid #141618;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.4);
       text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8);
     }
-    [data-theme="skeuo"] button:hover,
-    body.theme-skeuo button:hover {
+    [data-theme="skeuo"] button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):hover,
+    body.theme-skeuo button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):hover {
       background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%);
       color: #ffffff;
     }
-    [data-theme="skeuo"] button:active,
-    body.theme-skeuo button:active {
+    [data-theme="skeuo"] button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):active,
+    body.theme-skeuo button:not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):not(.cs-swatch-item):not(.cs-palette-chip):active {
       background: linear-gradient(180deg, #181a1d 0%, #23272c 100%);
       box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
       transform: translateY(1px);
@@ -2913,7 +2913,7 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.11.18 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.11.22 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->

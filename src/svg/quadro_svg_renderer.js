@@ -1676,11 +1676,40 @@
     }
 
     _renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity) {
-      if (!obj.stroke || obj.stroke === 'none' || !(obj.strokeWidth > 0)) return;
+      const isStrokeBrushFill = obj.strokeType === 'brush' || !!(obj.strokeBrushFill && obj.strokeBrushFill.enabled);
+      const hasStroke = (obj.stroke && obj.stroke !== 'none' && (obj.strokeWidth > 0)) || isStrokeBrushFill;
+      if (!hasStroke) return;
 
       const strokeAlpha = (obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1.0) * totalOpacity;
       const strokeArgb = parseCssColorToArgb(obj.stroke, strokeAlpha);
 
+      // 1. Procedural Brush Fill on Stroke (Outlines the stroke to path ribbon and fills it)
+      if (isStrokeBrushFill && rotatedPolys && rotatedPolys.length > 0) {
+        let Engine = BrushFillEngine || (typeof window !== 'undefined' && (window.BrushFillEngine || (window.esenho && window.esenho.BrushFillEngine))) || (typeof globalThis !== 'undefined' && globalThis.BrushFillEngine);
+        if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
+        if (Engine && typeof Engine.generateStrokes === 'function') {
+          const strokeWidth = Math.max(1, (obj.strokeWidth || 1) * scale);
+          const strokeRibbons = this._convertPolylinesToStrokeRibbons(rotatedPolys, pathObj, strokeWidth);
+          if (strokeRibbons && strokeRibbons.length > 0) {
+            const brushFillCfg = {
+              ...(obj.strokeBrushFill || {}),
+              color: obj.stroke || '#fabd2f',
+              gradient: (obj.strokeType === 'linear' || obj.strokeType === 'radial' || obj.strokeBrushFill?.gradient) ? (obj.strokeGradient || obj.strokeBrushFill?.gradient) : null
+            };
+            const objKey = `stroke_${JSON.stringify(brushFillCfg)}_${scale}_${strokeWidth}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
+            let strokes = (obj._cachedStrokeBfKey === objKey && obj._cachedStrokeBfStrokes) ? obj._cachedStrokeBfStrokes : null;
+            if (!strokes) {
+              strokes = Engine.generateStrokes(strokeRibbons, brushFillCfg);
+              obj._cachedStrokeBfStrokes = strokes;
+              obj._cachedStrokeBfKey = objKey;
+            }
+            this._renderBrushFillStrokesFast(strokes, scale, totalOpacity, obj.stroke || '#fabd2f', obj.strokeTexture);
+            return;
+          }
+        }
+      }
+
+      // 2. Standard solid / brush-dynamic stroke
       if ((strokeArgb >>> 24) > 0 && rotatedPolys && rotatedPolys.length > 0) {
         const strokeWidth = Math.max(1, Math.round(obj.strokeWidth * scale));
         const subPaths = pathObj.subPaths || [];
@@ -1700,6 +1729,58 @@
           }
         }
       }
+    }
+
+    _convertPolylinesToStrokeRibbons(rotatedPolys, pathObj, strokeWidth) {
+      if (!rotatedPolys || rotatedPolys.length === 0) return [];
+      const ribbons = [];
+      const hw = Math.max(0.5, strokeWidth / 2);
+      const subPaths = pathObj?.subPaths || [];
+
+      for (let pIdx = 0; pIdx < rotatedPolys.length; pIdx++) {
+        const poly = rotatedPolys[pIdx];
+        if (!poly || poly.length < 2) continue;
+        const n = poly.length;
+        const isClosed = subPaths[pIdx] ? subPaths[pIdx].closed : (pathObj?.closed !== undefined ? pathObj.closed : (n > 2 && Math.hypot(poly[0].x - poly[n-1].x, poly[0].y - poly[n-1].y) < 1e-3));
+
+        if (isClosed) {
+          const outerPts = [];
+          const innerPts = [];
+          for (let i = 0; i < n; i++) {
+            const prev = poly[(i - 1 + n) % n];
+            const next = poly[(i + 1) % n];
+            let dx = next.x - prev.x;
+            let dy = next.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            outerPts.push({ x: poly[i].x + nx * hw, y: poly[i].y + ny * hw });
+            innerPts.push({ x: poly[i].x - nx * hw, y: poly[i].y - ny * hw });
+          }
+          ribbons.push(outerPts);
+          ribbons.push(innerPts);
+        } else {
+          const leftPts = [];
+          const rightPts = [];
+          for (let i = 0; i < n; i++) {
+            const prev = poly[Math.max(0, i - 1)];
+            const next = poly[Math.min(n - 1, i + 1)];
+            let dx = next.x - prev.x;
+            let dy = next.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            leftPts.push({ x: poly[i].x + nx * hw, y: poly[i].y + ny * hw });
+            rightPts.push({ x: poly[i].x - nx * hw, y: poly[i].y - ny * hw });
+          }
+          const ribbon = [...leftPts];
+          for (let k = rightPts.length - 1; k >= 0; k--) {
+            ribbon.push(rightPts[k]);
+          }
+          ribbons.push(ribbon);
+        }
+      }
+      return ribbons;
     }
 
     /**

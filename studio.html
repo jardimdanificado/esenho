@@ -492,7 +492,7 @@
     }
 
     /* ── Skeuomorphic Buttons ── */
-    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box),
+    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn),
     [data-theme="skeuo"] .top-tool-btn {
       background: linear-gradient(180deg, #3c424a 0%, #2b3036 60%, #22262a 100%) !important;
       border: 1px solid #141618 !important;
@@ -507,7 +507,7 @@
       text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.18) !important;
     }
 
-    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):hover,
+    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):hover,
     [data-theme="skeuo"] .top-tool-btn:hover {
       background: linear-gradient(180deg, #484f58 0%, #343a41 60%, #282c31 100%) !important;
       color: #ffffff !important;
@@ -516,7 +516,7 @@
         0 2px 6px rgba(0, 0, 0, 0.5) !important;
     }
 
-    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):active,
+    [data-theme="skeuo"] button:not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn):active,
     [data-theme="skeuo"] .top-tool-btn:active {
       background: linear-gradient(180deg, #181a1d 0%, #23272c 100%) !important;
       box-shadow:
@@ -3935,18 +3935,11 @@
             <option value="512x512">512 × 512 (Icon)</option>
           </select>
         </div>
-        <div class="form-row" style="margin-bottom: 4px;">
+        <div class="form-row" style="margin-bottom: 0;">
           <label style="flex: 0 0 50px;">Size</label>
           <div class="grid-2" style="width: 100%;">
             <input type="number" id="prop-doc-w" value="800" min="1" max="65536" step="any" title="Document Width (px)" style="font-size: 11px;">
             <input type="number" id="prop-doc-h" value="600" min="1" max="65536" step="any" title="Document Height (px)" style="font-size: 11px;">
-          </div>
-        </div>
-        <div class="form-row" style="margin-bottom: 0;">
-          <label style="flex: 0 0 50px;">Color</label>
-          <div style="display: flex; gap: 6px; width: 100%;">
-            <input type="color" id="prop-doc-bg-picker" value="#1d2021" style="width: 28px; height: 24px; padding: 1px 2px; cursor: pointer; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input);">
-            <input type="text" id="prop-doc-bg" value="#1d2021" style="font-size: 11px; flex: 1;">
           </div>
         </div>
       </div>

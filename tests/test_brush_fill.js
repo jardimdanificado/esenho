@@ -14,7 +14,7 @@ const {
   findScanlineIntersections
 } = require('../src/brush_fill_engine.js');
 const SvgEngine = require('../src/svg/svg_engine.js');
-const { SvgDocument, SvgPath, SvgRect, SvgCircle, SvgCompoundPath } = SvgEngine;
+const { SvgDocument, SvgPath, SvgRect, SvgCircle, SvgCompoundPath, SvgLine, SvgNode } = SvgEngine;
 const QuadroSvgRenderer = require('../src/svg/quadro_svg_renderer.js');
 const ColorStudio = require('../src/color_studio.js');
 
@@ -567,6 +567,60 @@ assert.strictEqual(testRect.fillType, 'brush', 'BrushFill material must set fill
 assert.strictEqual(testRect.brushFill.enabled, true, 'BrushFill material must enable brush fill');
 assert.strictEqual(testRect.fillTexture, null, 'BrushFill material must disable standard fill texture');
 console.log('✔ Mutual Exclusivity of Standard vs BrushFill Material passed');
+
+// 15. Testing Stroke Brush Fill on Outlined Stroke Paths
+console.log('15. Testing Stroke Brush Fill on Vector Strokes...');
+const strokeLine = new SvgLine({ x1: 10, y1: 50, x2: 190, y2: 50, stroke: '#fb4934', strokeWidth: 30 });
+const strokeCircle = new SvgCircle({ cx: 100, cy: 100, r: 40, fill: 'none', stroke: '#b8bb26', strokeWidth: 20 });
+testDoc.addObject(strokeLine);
+testDoc.addObject(strokeCircle);
+
+// 15.1. Color Studio Target Stroke Brush Fill Application
+testDoc.selectedIds.clear();
+testDoc.selectedIds.add(strokeLine.id);
+widget.setTarget('stroke');
+widget.applyBrushFillPreset({
+  brushFill: {
+    enabled: true,
+    pattern: 'linear',
+    spacing: 8,
+    angle: 45,
+    brushes: ['pencil']
+  }
+});
+
+assert.strictEqual(strokeLine.strokeType, 'brush', 'strokeLine.strokeType should be brush');
+assert.strictEqual(strokeLine.strokeBrushFill.enabled, true, 'strokeLine.strokeBrushFill.enabled should be true');
+assert.strictEqual(strokeLine.strokeBrushFill.pattern, 'linear', 'pattern should be linear');
+
+// 15.2. SVG serialization of stroke-brush-fill
+const strokeExtra = strokeLine.getExtraSVGAttributes();
+assert.ok(strokeExtra.includes('data-stroke-brush-fill'), 'Extra attributes should serialize data-stroke-brush-fill');
+const strokeSvgGroup = strokeLine.getStrokeBrushFillSVG();
+assert.ok(strokeSvgGroup && strokeSvgGroup.includes('<path') || strokeSvgGroup.includes('<g'), 'getStrokeBrushFillSVG should generate SVG group with strokes');
+
+// 15.3. JSON serialization & restoration
+const lineJson = strokeLine.toJSON();
+assert.strictEqual(lineJson.strokeType, 'brush');
+assert.ok(lineJson.strokeBrushFill);
+const restoredLine = SvgNode.fromJSON(lineJson);
+assert.strictEqual(restoredLine.strokeType, 'brush');
+assert.strictEqual(restoredLine.strokeBrushFill.pattern, 'linear');
+
+// 15.4. Quadro SVG Renderer stroke brush fill execution
+if (renderer && mockActor) {
+  strokeCircle.strokeType = 'brush';
+  strokeCircle.strokeBrushFill = {
+    enabled: true,
+    pattern: 'crosshatch',
+    spacing: 6,
+    brushes: ['pencil']
+  };
+  renderer.renderDocument(testDoc);
+  assert.ok(strokeCircle._cachedStrokeBfStrokes, 'Renderer must cache generated stroke brush strokes on strokeCircle');
+  assert.ok(strokeCircle._cachedStrokeBfStrokes.length > 0, 'strokeCircle should generate brush strokes inside outlined stroke ribbon');
+}
+console.log('✔ Stroke Brush Fill (acting as outlined path ribbons) passed');
 
 console.log('--- ALL PROCEDURAL BRUSH FILL ENGINE TESTS PASSED ---');
 

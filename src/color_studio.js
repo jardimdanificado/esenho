@@ -884,7 +884,7 @@
     constructor() {
       this.initialized = false;
       this.container = null;
-      this.activeTarget = 'fill'; // 'fill' | 'stroke' | 'bg'
+      this.activeTarget = 'fill'; // 'fill' | 'stroke'
       this.activeMode = 'color'; // 'color' | 'gradient' | 'texture' | 'filter' | 'presets'
       this.colorSubMode = 'picker'; // 'picker' | 'sliders' | 'palettes'
 
@@ -975,10 +975,6 @@
             <button type="button" class="cs-target-btn" id="cs-target-stroke" title="Active Target: Shape Stroke">
               <span class="cs-chip" id="cs-target-stroke-chip"></span>
               <span class="cs-target-lbl">Stroke</span>
-            </button>
-            <button type="button" class="cs-target-btn" id="cs-target-bg" title="Active Target: Canvas Backdrop">
-              <span class="cs-chip" id="cs-target-bg-chip"></span>
-              <span class="cs-target-lbl">Back</span>
             </button>
             <button type="button" class="cs-icon-btn" id="cs-btn-swap" title="Swap Fill and Stroke (⇄)">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1782,10 +1778,8 @@
       this.dom = {
         targetFill: this.container.querySelector('#cs-target-fill'),
         targetStroke: this.container.querySelector('#cs-target-stroke'),
-        targetBg: this.container.querySelector('#cs-target-bg'),
         targetFillChip: this.container.querySelector('#cs-target-fill-chip'),
         targetStrokeChip: this.container.querySelector('#cs-target-stroke-chip'),
-        targetBgChip: this.container.querySelector('#cs-target-bg-chip'),
         btnSwap: this.container.querySelector('#cs-btn-swap'),
         btnNone: this.container.querySelector('#cs-btn-none'),
         modeBtns: this.container.querySelectorAll('.cs-mode-btn'),
@@ -2021,10 +2015,9 @@
     bindEvents() {
       const d = this.dom;
 
-      // 1. Target Switcher (Fill vs Stroke vs Background)
+      // 1. Target Switcher (Fill vs Stroke)
       d.targetFill?.addEventListener('click', () => this.setTarget('fill'));
       d.targetStroke?.addEventListener('click', () => this.setTarget('stroke'));
-      d.targetBg?.addEventListener('click', () => this.setTarget('bg'));
 
       // 2. Swap Target Colors
       d.btnSwap?.addEventListener('click', () => this.swapColors());
@@ -2593,11 +2586,11 @@
     }
 
     setTarget(target) {
+      if (target !== 'fill' && target !== 'stroke') target = 'fill';
       if (this.activeTarget === target) return;
       this.activeTarget = target;
       this.dom.targetFill?.classList.toggle('active', target === 'fill');
       this.dom.targetStroke?.classList.toggle('active', target === 'stroke');
-      this.dom.targetBg?.classList.toggle('active', target === 'bg');
       this.syncFromSelection(true);
     }
 
@@ -2701,14 +2694,10 @@
     }
 
     updateTargetChips() {
-      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
-      const activeDoc = getDoc();
       const fillEl = getDomEl('prop-fill-text');
       const strokeEl = getDomEl('prop-stroke-text');
-      const bgEl = getDomEl('prop-doc-bg');
       const fVal = fillEl ? fillEl.value : '#fabd2f';
       const sVal = strokeEl ? strokeEl.value : '#1d2021';
-      const bVal = bgEl ? bgEl.value : (activeDoc?.backgroundColor || '#1d2021');
 
       if (this.dom.targetFillChip) {
         this.dom.targetFillChip.style.background = (fVal && fVal !== 'none') ? fVal : 'transparent';
@@ -2717,10 +2706,6 @@
       if (this.dom.targetStrokeChip) {
         this.dom.targetStrokeChip.style.background = (sVal && sVal !== 'none') ? sVal : 'transparent';
         this.dom.targetStrokeChip.classList.toggle('is-none', !sVal || sVal === 'none');
-      }
-      if (this.dom.targetBgChip) {
-        this.dom.targetBgChip.style.background = (bVal && bVal !== 'none') ? bVal : 'transparent';
-        this.dom.targetBgChip.classList.toggle('is-none', !bVal || bVal === 'none');
       }
     }
 
@@ -2773,27 +2758,6 @@
 
           if (commit) {
             if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Fill Color');
-            if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-          }
-        } else if (this.activeTarget === 'bg') {
-          const bgTextEl = getDomEl('prop-doc-bg');
-          const bgPickerEl = getDomEl('prop-doc-bg-picker');
-          if (bgTextEl) bgTextEl.value = val;
-          if (bgPickerEl && !this.isTargetNone && val.startsWith('#') && val.length === 7) bgPickerEl.value = val;
-
-          if (activeDoc) {
-            activeDoc.backgroundColor = val;
-            if (this.currentA !== undefined) {
-              activeDoc.backgroundOpacity = this.currentA;
-            }
-            if (activeDoc.backgroundType !== 'linear' && activeDoc.backgroundType !== 'radial' && activeDoc.backgroundType !== 'brush') {
-              activeDoc.backgroundType = 'solid';
-            }
-            if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-            if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-          }
-          if (commit) {
-            if (activeDoc && activeDoc.pushHistory) activeDoc.pushHistory('Change Background Color');
             if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
           }
         } else {
@@ -3012,32 +2976,6 @@
         intensity: s.intensity !== undefined ? s.intensity : 1.0
       }));
 
-      if (this.activeTarget === 'bg') {
-        activeDoc.backgroundType = this.gradientType;
-        if (this.gradientType === 'linear') {
-          if (SvgLinearGrad) {
-            activeDoc.backgroundGradient = new SvgLinearGrad({ stops: stopsCopy });
-            activeDoc.backgroundGradient.angle = this.gradientAngle;
-          } else {
-            activeDoc.backgroundGradient = { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
-          }
-        } else {
-          if (SvgRadialGrad) {
-            activeDoc.backgroundGradient = new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
-          } else {
-            activeDoc.backgroundGradient = { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
-          }
-        }
-
-        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-        if (commit) {
-          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Gradient');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-        }
-        return;
-      }
-
       const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
       if (selected.length === 0) {
         activeDoc.defaultFillType = this.gradientType;
@@ -3159,17 +3097,6 @@
         posterize: this.texturePosterize,
         invert: this.textureInvert
       };
-
-      if (this.activeTarget === 'bg') {
-        activeDoc.backgroundTexture = { ...texConfig };
-        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-        if (commit) {
-          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Texture');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-        }
-        return;
-      }
 
       const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
       if (selected.length === 0) {
@@ -3398,7 +3325,7 @@
 
       const target = (this.activeTarget === 'stroke')
         ? 'stroke'
-        : (this.activeTarget === 'bg' ? 'bg' : (this.filterIsLens ? 'backdrop' : 'fill'));
+        : (this.filterIsLens ? 'backdrop' : 'fill');
 
       const filterConfig = {
         enabled: this.filterEnabled,
@@ -3410,17 +3337,6 @@
         params: this.filterParams || [this.filterP1, this.filterP2],
         opacity: this.filterOpacity
       };
-
-      if (this.activeTarget === 'bg') {
-        activeDoc.backgroundFilter = { ...filterConfig };
-        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-        if (commit) {
-          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Filter');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-        }
-        return;
-      }
 
       const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
       if (selected.length === 0) {
@@ -4676,40 +4592,43 @@
       const cfg = this.getBrushFillConfigFromInputs();
       this.brushFillConfig = { ...cfg };
 
-      if (this.activeTarget === 'bg') {
-        activeDoc.backgroundBrushFill = { ...cfg };
-        delete activeDoc._cachedBfStrokes;
-        delete activeDoc._cachedBfKey;
-        if (cfg.enabled) {
-          activeDoc.backgroundType = 'brush';
-        } else if (activeDoc.backgroundType === 'brush') {
-          activeDoc.backgroundType = 'solid';
-        }
-        if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-        if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-        if (commit) {
-          if (activeDoc.pushHistory) activeDoc.pushHistory('Change Background Brush Fill');
-          if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-        }
-        return;
-      }
-
       const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
-      if (selected.length === 0) {
-        activeDoc.defaultBrushFill = { ...cfg };
-        delete activeDoc._cachedBfStrokes;
-        delete activeDoc._cachedBfKey;
-      }
 
-      for (const obj of selected) {
-        obj.brushFill = { ...cfg };
-        delete obj._cachedBfStrokes;
-        delete obj._cachedBfKey;
-        if (cfg.enabled) {
-          obj.fillType = 'brush';
-          obj.fillTexture = null;
-        } else if (obj.fillType === 'brush') {
-          obj.fillType = (obj.fillGradient && (obj.fillGradient.type || obj.fillGradient.stops)) ? (obj.fillGradient.type || 'linear') : 'solid';
+      if (this.activeTarget === 'stroke') {
+        if (selected.length === 0) {
+          activeDoc.defaultStrokeBrushFill = { ...cfg };
+          delete activeDoc._cachedStrokeBfStrokes;
+          delete activeDoc._cachedStrokeBfKey;
+        }
+
+        for (const obj of selected) {
+          obj.strokeBrushFill = { ...cfg };
+          delete obj._cachedStrokeBfStrokes;
+          delete obj._cachedStrokeBfKey;
+          if (cfg.enabled) {
+            obj.strokeType = 'brush';
+            obj.strokeTexture = null;
+          } else if (obj.strokeType === 'brush') {
+            obj.strokeType = 'solid';
+          }
+        }
+      } else {
+        if (selected.length === 0) {
+          activeDoc.defaultBrushFill = { ...cfg };
+          delete activeDoc._cachedBfStrokes;
+          delete activeDoc._cachedBfKey;
+        }
+
+        for (const obj of selected) {
+          obj.brushFill = { ...cfg };
+          delete obj._cachedBfStrokes;
+          delete obj._cachedBfKey;
+          if (cfg.enabled) {
+            obj.fillType = 'brush';
+            obj.fillTexture = null;
+          } else if (obj.fillType === 'brush') {
+            obj.fillType = (obj.fillGradient && (obj.fillGradient.type || obj.fillGradient.stops)) ? (obj.fillGradient.type || 'linear') : 'solid';
+          }
         }
       }
 
@@ -4809,52 +4728,24 @@
         strokeOp = strokeOpEl ? Number(strokeOpEl.value) || 1.0 : 1.0;
       }
 
-      let bgVal = (activeDoc && activeDoc.backgroundColor) ? activeDoc.backgroundColor : (getDomEl('prop-doc-bg')?.value || '#1d2021');
-
-      if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal && this._lastBgVal === bgVal && !primary && this._lastTarget === this.activeTarget) {
+      if (!force && this._lastFillVal === fillVal && this._lastStrokeVal === strokeVal && !primary && this._lastTarget === this.activeTarget) {
         return;
       }
 
       this._lastFillVal = fillVal;
       this._lastStrokeVal = strokeVal;
-      this._lastBgVal = bgVal;
       this._lastTarget = this.activeTarget;
 
       this._isSyncing = true;
       try {
-        let activeColorVal = fillVal;
-        let activeAlpha = fillOp;
-        if (this.activeTarget === 'stroke') {
-          activeColorVal = strokeVal;
-          activeAlpha = strokeOp;
-        } else if (this.activeTarget === 'bg') {
-          activeColorVal = bgVal;
-          activeAlpha = 1.0;
-        } else {
-          activeColorVal = fillVal;
-          activeAlpha = fillOp;
-        }
+        let activeColorVal = (this.activeTarget === 'stroke') ? strokeVal : fillVal;
+        let activeAlpha = (this.activeTarget === 'stroke') ? strokeOp : fillOp;
 
         this.currentA = (activeAlpha !== undefined) ? Number(activeAlpha) : 1.0;
         this.setColorFromExternal(activeColorVal, this.currentA);
 
         // Sync Gradients
-        if (this.activeTarget === 'bg') {
-          if (activeDoc && activeDoc.backgroundType && activeDoc.backgroundType !== 'solid' && activeDoc.backgroundGradient) {
-            this.gradientType = activeDoc.backgroundType;
-            if (Array.isArray(activeDoc.backgroundGradient.stops) && activeDoc.backgroundGradient.stops.length > 0) {
-              this.gradientStops = activeDoc.backgroundGradient.stops.map(s => ({
-                offset: s.offset,
-                color: s.color,
-                opacity: s.opacity !== undefined ? s.opacity : 1.0,
-                intensity: s.intensity !== undefined ? s.intensity : 1.0
-              }));
-            }
-            this.gradientAngle = activeDoc.backgroundGradient.angle !== undefined ? activeDoc.backgroundGradient.angle : 0;
-            this.gradientRadius = parseFloat(activeDoc.backgroundGradient.r) || 0.5;
-            this.updateGradientUI();
-          }
-        } else if (primary && primary.fillType && primary.fillType !== 'solid' && primary.fillGradient) {
+        if (primary && primary.fillType && primary.fillType !== 'solid' && primary.fillGradient) {
           this.gradientType = primary.fillType;
           if (Array.isArray(primary.fillGradient.stops) && primary.fillGradient.stops.length > 0) {
             this.gradientStops = primary.fillGradient.stops.map(s => ({
@@ -4883,11 +4774,9 @@
         }
 
         // Sync Texture
-        const texObj = this.activeTarget === 'bg'
-          ? (activeDoc?.backgroundTexture || {})
-          : (this.activeTarget === 'stroke'
-              ? (primary?.strokeTexture || activeDoc?.defaultStrokeTexture || {})
-              : (primary?.fillTexture || activeDoc?.defaultFillTexture || {}));
+        const texObj = (this.activeTarget === 'stroke')
+          ? (primary?.strokeTexture || activeDoc?.defaultStrokeTexture || {})
+          : (primary?.fillTexture || activeDoc?.defaultFillTexture || {});
         this.textureMode = texObj.mode !== undefined ? texObj.mode : 0;
         this.textureScale = texObj.scale !== undefined ? texObj.scale : 100;
         this.textureAngle = texObj.angle !== undefined ? texObj.angle : 0;
@@ -4923,11 +4812,9 @@
         if (this.dom.texInvert) this.dom.texInvert.checked = this.textureInvert;
 
         // Sync WASM Filter
-        const filterObj = this.activeTarget === 'bg'
-          ? (activeDoc?.backgroundFilter || {})
-          : (this.activeTarget === 'stroke'
-              ? (primary?.strokeFilter || primary?.brushConfig?.wasmFilter || activeDoc?.defaultStrokeFilter)
-              : (primary?.fillFilter || primary?.fillTexture?.wasmFilter || primary?.wasmFilter || activeDoc?.defaultFillFilter));
+        const filterObj = (this.activeTarget === 'stroke')
+          ? (primary?.strokeFilter || primary?.brushConfig?.wasmFilter || activeDoc?.defaultStrokeFilter)
+          : (primary?.fillFilter || primary?.fillTexture?.wasmFilter || primary?.wasmFilter || activeDoc?.defaultFillFilter);
         if (filterObj) {
           this.filterEnabled = !!filterObj.enabled;
           this.filterIsLens = (filterObj.target === 'backdrop' || !!filterObj.isLens);
@@ -4949,12 +4836,12 @@
         }
 
         // Sync Brush Fill
-        const bfObj = this.activeTarget === 'bg'
-          ? (activeDoc?.backgroundBrushFill || DEFAULT_BRUSH_FILL_CONFIG)
+        const bfObj = (this.activeTarget === 'stroke')
+          ? (primary?.strokeBrushFill || activeDoc?.defaultStrokeBrushFill || DEFAULT_BRUSH_FILL_CONFIG)
           : (primary?.brushFill || activeDoc?.defaultBrushFill || DEFAULT_BRUSH_FILL_CONFIG);
         if (bfObj) {
           this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...bfObj };
-          if (primary && primary.fillType === 'brush') {
+          if (primary && ((this.activeTarget === 'stroke' && primary.strokeType === 'brush') || (this.activeTarget === 'fill' && primary.fillType === 'brush'))) {
             this.brushFillConfig.enabled = true;
           }
           this.syncBrushFillInputs();
@@ -5023,32 +4910,40 @@
         gap: 6px;
         flex: 1 0 auto;
         min-width: max-content;
-        padding: 4px 6px;
+        padding: 4px 8px;
         border-radius: var(--radius-sm, 3px);
         background: transparent;
         border: 1px solid transparent;
         color: var(--text-dim, #d5c4a1);
         cursor: pointer;
         font-size: 11px;
-        font-weight: 500;
+        font-weight: 600;
         transition: all 0.12s ease;
         white-space: nowrap;
+        position: relative;
       }
       .cs-target-btn:hover {
-        background: rgba(255,255,255,0.04);
+        background: rgba(255,255,255,0.06);
         color: var(--text-bright, #fbf1c7);
       }
       .cs-target-btn.active {
         background: var(--bg-input, #121314);
         border-color: var(--primary, #fabd2f);
         color: var(--primary, #fabd2f);
+        font-weight: 750;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.5), 0 0 6px rgba(250, 189, 47, 0.3);
+      }
+      .cs-target-btn.active .cs-chip {
+        border-color: var(--primary, #fabd2f);
+        box-shadow: 0 0 6px var(--primary, #fabd2f);
       }
       .cs-chip {
         width: 14px;
         height: 14px;
         border-radius: 2px;
-        border: 1px solid rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.25);
         box-shadow: inset 0 0 1px rgba(0,0,0,0.5);
+        flex-shrink: 0;
       }
       .cs-chip.is-none, .cs-current-swatch-box.is-none {
         background-color: transparent !important;
@@ -5516,6 +5411,128 @@
       }
       .cs-menu-popup-item:hover {
         background: var(--bg-hover, #3c3836) !important;
+      }
+
+      /* ── Skeuomorphic Theme (Skeuo) Target Bar & Button Customizations ── */
+      [data-theme="skeuo"] .cs-target-bar,
+      [data-theme="skeuomorphic"] .cs-target-bar,
+      .theme-skeuo .cs-target-bar {
+        background: #14171a !important;
+        border: 1px solid #0d0f11 !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+        padding: 2px !important;
+        border-radius: 5px !important;
+        gap: 3px !important;
+      }
+
+      [data-theme="skeuo"] .cs-target-btn,
+      [data-theme="skeuomorphic"] .cs-target-btn,
+      .theme-skeuo .cs-target-btn {
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        border-radius: 3px !important;
+        color: #8c96a5 !important;
+        font-weight: 600 !important;
+        padding: 4px 8px !important;
+        box-shadow: none !important;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.8) !important;
+        transition: all 0.1s ease !important;
+      }
+
+      [data-theme="skeuo"] .cs-target-btn:hover:not(.active),
+      [data-theme="skeuomorphic"] .cs-target-btn:hover:not(.active),
+      .theme-skeuo .cs-target-btn:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #cbd5e1 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      }
+
+      [data-theme="skeuo"] .cs-target-btn.active,
+      [data-theme="skeuomorphic"] .cs-target-btn.active,
+      .theme-skeuo .cs-target-btn.active {
+        background: linear-gradient(180deg, #3f4650 0%, #2e333b 50%, #23272d 100%) !important;
+        border: 1px solid #141618 !important;
+        border-radius: 3px !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.32),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+          0 1px 3px rgba(0, 0, 0, 0.6) !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95) !important;
+      }
+
+      [data-theme="skeuo"] .cs-target-btn .cs-chip,
+      [data-theme="skeuomorphic"] .cs-target-btn .cs-chip,
+      .theme-skeuo .cs-target-btn .cs-chip {
+        border: 1px solid rgba(0, 0, 0, 0.6) !important;
+        box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15), inset 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+        border-radius: 2px !important;
+      }
+
+      [data-theme="skeuo"] .cs-target-btn.active .cs-chip,
+      [data-theme="skeuomorphic"] .cs-target-btn.active .cs-chip,
+      .theme-skeuo .cs-target-btn.active .cs-chip {
+        border: 1px solid rgba(0, 0, 0, 0.8) !important;
+        box-shadow: 0 0 0 1.5px #f59e0b, inset 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+      }
+
+      /* Mode & Submode Tabs Skeuomorphic States */
+      [data-theme="skeuo"] .cs-mode-tabs,
+      [data-theme="skeuomorphic"] .cs-mode-tabs,
+      .theme-skeuo .cs-mode-tabs,
+      [data-theme="skeuo"] .cs-submode-tabs,
+      [data-theme="skeuomorphic"] .cs-submode-tabs,
+      .theme-skeuo .cs-submode-tabs {
+        background: #14171a !important;
+        border: 1px solid #0d0f11 !important;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+        padding: 2px !important;
+        border-radius: 4px !important;
+        gap: 2px !important;
+      }
+
+      [data-theme="skeuo"] .cs-mode-btn,
+      [data-theme="skeuomorphic"] .cs-mode-btn,
+      .theme-skeuo .cs-mode-btn,
+      [data-theme="skeuo"] .cs-submode-btn,
+      [data-theme="skeuomorphic"] .cs-submode-btn,
+      .theme-skeuo .cs-submode-btn {
+        background: transparent !important;
+        border: 1px solid transparent !important;
+        color: #8c96a5 !important;
+        box-shadow: none !important;
+        font-weight: 600 !important;
+        border-radius: 2px !important;
+        transition: all 0.1s ease !important;
+      }
+
+      [data-theme="skeuo"] .cs-mode-btn:hover:not(.active),
+      [data-theme="skeuomorphic"] .cs-mode-btn:hover:not(.active),
+      .theme-skeuo .cs-mode-btn:hover:not(.active),
+      [data-theme="skeuo"] .cs-submode-btn:hover:not(.active),
+      [data-theme="skeuomorphic"] .cs-submode-btn:hover:not(.active),
+      .theme-skeuo .cs-submode-btn:hover:not(.active) {
+        background: rgba(255, 255, 255, 0.05) !important;
+        color: #cbd5e1 !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+      }
+
+      [data-theme="skeuo"] .cs-mode-btn.active,
+      [data-theme="skeuomorphic"] .cs-mode-btn.active,
+      .theme-skeuo .cs-mode-btn.active,
+      [data-theme="skeuo"] .cs-submode-btn.active,
+      [data-theme="skeuomorphic"] .cs-submode-btn.active,
+      .theme-skeuo .cs-submode-btn.active {
+        background: linear-gradient(180deg, #3f4650 0%, #2e333b 50%, #23272d 100%) !important;
+        border: 1px solid #141618 !important;
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        box-shadow:
+          inset 0 1px 0 rgba(255, 255, 255, 0.32),
+          inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+          0 1px 3px rgba(0, 0, 0, 0.6) !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95) !important;
       }
     `;
     document.head.appendChild(style);

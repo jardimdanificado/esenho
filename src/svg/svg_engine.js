@@ -606,6 +606,8 @@
 
       // Procedural Brush Fill & Hatching Configuration
       this.brushFill = attributes.brushFill ? { ...attributes.brushFill } : null;
+      this.strokeBrushFill = attributes.strokeBrushFill ? { ...attributes.strokeBrushFill } : null;
+      this.strokeType = attributes.strokeType || 'solid';
 
       // Transform
       this.x = Number(attributes.x || 0);
@@ -681,6 +683,9 @@
       if (this.brushFill && (this.brushFill.enabled || this.fillType === 'brush')) {
         attrs += ` data-brush-fill="${encodeURIComponent(JSON.stringify(this.brushFill))}"`;
       }
+      if (this.strokeBrushFill && (this.strokeBrushFill.enabled || this.strokeType === 'brush')) {
+        attrs += ` data-stroke-brush-fill="${encodeURIComponent(JSON.stringify(this.strokeBrushFill))}"`;
+      }
       return attrs;
     }
 
@@ -710,6 +715,85 @@
       };
       const strokes = Engine.generateStrokes(polylines, cfg);
       return Engine.toSVGGroup(strokes, this.clipPathId, this.brushFill.clipMode || 'bleed');
+    }
+
+    getStrokeBrushFillSVG() {
+      if (!this.strokeBrushFill || (!this.strokeBrushFill.enabled && this.strokeType !== 'brush')) return '';
+      let Engine = (typeof BrushFillEngine !== 'undefined' ? BrushFillEngine : (typeof globalThis !== 'undefined' ? globalThis.BrushFillEngine : null));
+      if (!Engine && typeof require === 'function') {
+        try {
+          const mod = require('../brush_fill_engine.js');
+          Engine = (mod && mod.BrushFillEngine) ? mod.BrushFillEngine : mod;
+        } catch (_) {}
+      }
+      if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
+      if (!Engine || typeof Engine.generateStrokes !== 'function') return '';
+      let polylines = [];
+      if (typeof this.toPolylines === 'function') {
+        polylines = this.toPolylines(0.4);
+      } else if (typeof this.toPolyline === 'function') {
+        const p = this.toPolyline(0.4);
+        if (p && p.length > 0) polylines = [p];
+      }
+      if (!polylines || polylines.length === 0) return '';
+
+      const strokeWidth = Number(this.strokeWidth || 1);
+      const strokeRibbons = [];
+      const hw = Math.max(0.5, strokeWidth / 2);
+      const subPaths = this.subPaths || [];
+
+      for (let pIdx = 0; pIdx < polylines.length; pIdx++) {
+        const poly = polylines[pIdx];
+        if (!poly || poly.length < 2) continue;
+        const n = poly.length;
+        const isClosed = subPaths[pIdx] ? subPaths[pIdx].closed : (this.closed !== undefined ? this.closed : (n > 2 && Math.hypot(poly[0].x - poly[n-1].x, poly[0].y - poly[n-1].y) < 1e-3));
+
+        if (isClosed) {
+          const outerPts = [];
+          const innerPts = [];
+          for (let i = 0; i < n; i++) {
+            const prev = poly[(i - 1 + n) % n];
+            const next = poly[(i + 1) % n];
+            let dx = next.x - prev.x;
+            let dy = next.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            outerPts.push({ x: poly[i].x + nx * hw, y: poly[i].y + ny * hw });
+            innerPts.push({ x: poly[i].x - nx * hw, y: poly[i].y - ny * hw });
+          }
+          strokeRibbons.push(outerPts);
+          strokeRibbons.push(innerPts);
+        } else {
+          const leftPts = [];
+          const rightPts = [];
+          for (let i = 0; i < n; i++) {
+            const prev = poly[Math.max(0, i - 1)];
+            const next = poly[Math.min(n - 1, i + 1)];
+            let dx = next.x - prev.x;
+            let dy = next.y - prev.y;
+            const len = Math.hypot(dx, dy) || 1;
+            const nx = -dy / len;
+            const ny = dx / len;
+            leftPts.push({ x: poly[i].x + nx * hw, y: poly[i].y + ny * hw });
+            rightPts.push({ x: poly[i].x - nx * hw, y: poly[i].y - ny * hw });
+          }
+          const ribbon = [...leftPts];
+          for (let k = rightPts.length - 1; k >= 0; k--) {
+            ribbon.push(rightPts[k]);
+          }
+          strokeRibbons.push(ribbon);
+        }
+      }
+
+      if (strokeRibbons.length === 0) return '';
+      const cfg = {
+        ...this.strokeBrushFill,
+        color: this.stroke || '#fabd2f',
+        gradient: (this.strokeType === 'linear' || this.strokeType === 'radial' || this.strokeBrushFill.gradient) ? (this.strokeGradient || this.strokeBrushFill.gradient) : null
+      };
+      const strokes = Engine.generateStrokes(strokeRibbons, cfg);
+      return Engine.toSVGGroup(strokes, this.clipPathId, this.strokeBrushFill.clipMode || 'bleed');
     }
 
     wrapClipPath(svgEl) {
@@ -866,6 +950,8 @@
         fillFilter: { ...this.fillFilter },
         strokeFilter: { ...this.strokeFilter },
         brushFill: this.brushFill ? { ...this.brushFill } : null,
+        strokeBrushFill: this.strokeBrushFill ? { ...this.strokeBrushFill } : null,
+        strokeType: this.strokeType || 'solid',
         x: this.x,
         y: this.y,
         rotation: this.rotation,
@@ -3584,7 +3670,7 @@
       this.width = Number(width);
       this.height = Number(height);
       this.viewBox = viewBox || `0 0 ${this.width} ${this.height}`;
-      this.backgroundColor = '#1d2021';
+      this.backgroundColor = 'none';
       this.objects = []; // In z-order: index 0 is background, index N is top
       this.defs = new Map(); // Gradient & Filter definitions
       this.wasmPlugins = new Map(); // name -> Uint8Array
@@ -5160,6 +5246,22 @@
             try { strokeFilter = JSON.parse(decodeURIComponent(strokeFilterAttr)); } catch (e) {}
           }
 
+          let brushFill = undefined;
+          const bfAttr = getAttr('data-brush-fill');
+          if (bfAttr) {
+            try { brushFill = JSON.parse(decodeURIComponent(bfAttr)); } catch (e) {
+              try { brushFill = JSON.parse(bfAttr); } catch (_) {}
+            }
+          }
+
+          let strokeBrushFill = undefined;
+          const strokeBfAttr = getAttr('data-stroke-brush-fill');
+          if (strokeBfAttr) {
+            try { strokeBrushFill = JSON.parse(decodeURIComponent(strokeBfAttr)); } catch (e) {
+              try { strokeBrushFill = JSON.parse(strokeBfAttr); } catch (_) {}
+            }
+          }
+
           const transformAttr = getAttr('transform');
           let rotation = 0;
           let originX = undefined, originY = undefined;
@@ -5178,6 +5280,9 @@
             id: getAttr('id', generateId(tag)),
             fill, stroke, strokeWidth, opacity, fillOpacity, strokeOpacity,
             brushConfig, strokeTexture, fillTexture, fillGradient, wasmFilter, fillFilter, strokeFilter,
+            brushFill, strokeBrushFill,
+            fillType: brushFill ? 'brush' : undefined,
+            strokeType: strokeBrushFill ? 'brush' : undefined,
             rotation, originX, originY
           };
 
@@ -5497,7 +5602,7 @@
       this.width = data.width || 800;
       this.height = data.height || 600;
       this.viewBox = data.viewBox || `0 0 ${this.width} ${this.height}`;
-      this.backgroundColor = data.backgroundColor || '#1d2021';
+      this.backgroundColor = data.backgroundColor || 'none';
       this.backgroundOpacity = data.backgroundOpacity !== undefined ? data.backgroundOpacity : 1.0;
       this.backgroundType = data.backgroundType || 'solid';
       this.backgroundGradient = data.backgroundGradient || null;

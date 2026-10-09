@@ -125,12 +125,12 @@ widget.setTarget('stroke');
 widget.syncFromSelection(true);
 assert.strictEqual(widget.currentA, 0.75, 'widget.currentA should sync correctly from primary.strokeOpacity');
 
-// Test Background Target Mutation
-widget.setTarget('bg');
+// Test Target Fallback and Stroke Mutation
+widget.setTarget('stroke');
 widget.setColorFromExternal('#282828');
 widget.applyToSelected(true);
-assert.strictEqual(global.window.doc.backgroundColor, '#282828', 'doc.backgroundColor should be updated to #282828');
-assert(historyActions.includes('Change Background Color'), 'pushHistory should have been called for background');
+assert.strictEqual(mockObj.stroke, '#282828', 'mockObj.stroke should be updated to #282828');
+assert(historyActions.includes('Change Stroke Color'), 'pushHistory should have been called for stroke');
 
 // 7. Testing Material Gradient Engine
 console.log('7. Testing Material Gradient application...');
@@ -197,39 +197,27 @@ assert.strictEqual(mockObj.fill.toLowerCase(), '#00ffcc', 'Color should be #00ff
 assert.strictEqual(mockObj.fillTexture.mode, 43, 'Texture mode should be 43');
 assert.strictEqual(mockObj.fillFilter.plugin, 'bloom', 'Filter should be bloom');
 
-// 11. Testing Background Material Suite (with and without selection)
-console.log('11. Testing Background Material workflow with selected object...');
-widget.setTarget('bg');
-widget.gradientType = 'linear';
-widget.gradientStops = [
-  { offset: 0, color: '#1d2021', opacity: 1.0, intensity: 1.0 },
-  { offset: 1, color: '#3c3836', opacity: 1.0, intensity: 1.0 }
-];
-widget.gradientAngle = 90;
-widget.applyGradientToSelected(true);
-
-assert.strictEqual(global.window.doc.backgroundType, 'linear', 'doc.backgroundType should be linear');
-assert.strictEqual(global.window.doc.backgroundGradient.stops.length, 2, 'doc.backgroundGradient should have 2 stops');
-assert.strictEqual(mockObj.fill.toLowerCase(), '#00ffcc', 'mockObj.fill must NOT be modified when target is bg');
-
+// 11. Testing Target Exclusivity & Stroke Material Suite
+console.log('11. Testing Stroke Material workflow with selected object...');
+widget.setTarget('stroke');
 widget.textureMode = 32; // Noise Dissolve
 widget.textureGrain = 80;
 widget.applyTextureToSelected(true);
-assert.strictEqual(global.window.doc.backgroundTexture.mode, 32, 'doc.backgroundTexture.mode should be 32');
+assert.strictEqual(mockObj.strokeTexture.mode, 32, 'mockObj.strokeTexture.mode should be 32');
 
 widget.filterEnabled = true;
 widget.filterPlugin = 'dither';
 widget.applyFilterToSelected(true);
-assert.strictEqual(global.window.doc.backgroundFilter.plugin, 'dither', 'doc.backgroundFilter.plugin should be dither');
-assert.strictEqual(global.window.doc.backgroundFilter.target, 'bg', 'doc.backgroundFilter.target should be bg');
+assert.strictEqual(mockObj.strokeFilter.plugin, 'dither', 'mockObj.strokeFilter.plugin should be dither');
+assert.strictEqual(mockObj.strokeFilter.target, 'stroke', 'mockObj.strokeFilter.target should be stroke');
 
 console.log('12. Testing Material workflows when NO object is selected...');
 global.window.doc.getSelectedObjects = () => []; // Deselect all
 
-widget.setTarget('bg');
+widget.setTarget('stroke');
 widget.setColorFromExternal('#504945');
 widget.applyToSelected(true);
-assert.strictEqual(global.window.doc.backgroundColor, '#504945', 'doc.backgroundColor should update even with 0 selection');
+assert.strictEqual(global.window.doc.defaultStroke, '#504945', 'doc.defaultStroke should update when 0 selection');
 
 widget.setTarget('fill');
 widget.gradientType = 'radial';
