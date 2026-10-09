@@ -691,6 +691,10 @@
 
     getBrushFillSVG() {
       if (!this.brushFill || (!this.brushFill.enabled && this.fillType !== 'brush')) return '';
+      const hasGradient = (this.fillType === 'linear' || this.fillType === 'radial' || this.brushFill.gradient) && (this.fillGradient || this.brushFill.gradient);
+      const isFillNone = (!this.fill || this.fill === 'none' || this.fill === 'transparent');
+      if (isFillNone && !hasGradient) return '';
+
       let Engine = (typeof BrushFillEngine !== 'undefined' ? BrushFillEngine : (typeof globalThis !== 'undefined' ? globalThis.BrushFillEngine : null));
       if (!Engine && typeof require === 'function') {
         try {
@@ -719,6 +723,13 @@
 
     getStrokeBrushFillSVG() {
       if (!this.strokeBrushFill || (!this.strokeBrushFill.enabled && this.strokeType !== 'brush')) return '';
+      const strokeWidth = Number(this.strokeWidth || 1);
+      if (strokeWidth <= 0) return '';
+
+      const hasGradient = (this.strokeType === 'linear' || this.strokeType === 'radial' || this.strokeBrushFill.gradient) && (this.strokeGradient || this.strokeBrushFill.gradient);
+      const isStrokeNone = (!this.stroke || this.stroke === 'none' || this.stroke === 'transparent');
+      if (isStrokeNone && !hasGradient) return '';
+
       let Engine = (typeof BrushFillEngine !== 'undefined' ? BrushFillEngine : (typeof globalThis !== 'undefined' ? globalThis.BrushFillEngine : null));
       if (!Engine && typeof require === 'function') {
         try {
@@ -737,7 +748,6 @@
       }
       if (!polylines || polylines.length === 0) return '';
 
-      const strokeWidth = Number(this.strokeWidth || 1);
       const strokeRibbons = [];
       const hw = Math.max(0.5, strokeWidth / 2);
       const subPaths = this.subPaths || [];
@@ -762,8 +772,11 @@
             outerPts.push({ x: poly[i].x + nx * hw, y: poly[i].y + ny * hw });
             innerPts.push({ x: poly[i].x - nx * hw, y: poly[i].y - ny * hw });
           }
-          strokeRibbons.push(outerPts);
-          strokeRibbons.push(innerPts);
+          const ribbon = [...outerPts];
+          for (let k = innerPts.length - 1; k >= 0; k--) {
+            ribbon.push(innerPts[k]);
+          }
+          strokeRibbons.push(ribbon);
         } else {
           const leftPts = [];
           const rightPts = [];

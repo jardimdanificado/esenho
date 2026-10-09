@@ -108,6 +108,20 @@
   }
 
   /**
+   * Check if a 2D point is inside a compound polygon set (even-odd winding across holes & ribbons)
+   */
+  function isPointInPolygons(px, py, polygons) {
+    if (!polygons || polygons.length === 0) return false;
+    let inside = false;
+    for (let i = 0; i < polygons.length; i++) {
+      if (isPointInPolygon(px, py, polygons[i])) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  /**
    * Extract or compute bounding box from array of polygons
    */
   function getPolygonsBounds(polys) {
@@ -1071,14 +1085,7 @@
         const x = rng.range(bounds.minX, bounds.maxX);
         const y = rng.range(bounds.minY, bounds.maxY);
 
-        let inside = false;
-        for (const poly of polygons) {
-          if (isPointInPolygon(x, y, poly)) {
-            inside = true;
-            break;
-          }
-        }
-        if (!inside) continue;
+        if (!isPointInPolygons(x, y, polygons)) continue;
 
         const strokeIdx = strokes.length;
         const brushTip = this._pickBrushTip(config, strokeIdx, rng);
@@ -1108,6 +1115,17 @@
       const step = Math.max(4, config.spacing || 8);
       let currX = bounds.minX + bounds.width / 2;
       let currY = bounds.minY + bounds.height / 2;
+      if (!isPointInPolygons(currX, currY, polygons)) {
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const rx = rng.range(bounds.minX, bounds.maxX);
+          const ry = rng.range(bounds.minY, bounds.maxY);
+          if (isPointInPolygons(rx, ry, polygons)) {
+            currX = rx;
+            currY = ry;
+            break;
+          }
+        }
+      }
       let angle = rng.range(0, Math.PI * 2);
 
       const maxSteps = Math.min(3000, Math.floor((bounds.width * bounds.height) / (step * 2)));
@@ -1117,15 +1135,7 @@
         const nextX = currX + Math.cos(angle) * step;
         const nextY = currY + Math.sin(angle) * step;
 
-        let inside = false;
-        for (const poly of polygons) {
-          if (isPointInPolygon(nextX, nextY, poly)) {
-            inside = true;
-            break;
-          }
-        }
-
-        if (!inside) {
+        if (!isPointInPolygons(nextX, nextY, polygons)) {
           angle += Math.PI * 0.75;
           continue;
         }
@@ -1326,14 +1336,7 @@
             const midY = (sy0 + sy1) / 2;
             const testPt = rotatePoint(midX, midY, rad, cx, cy);
 
-            let inside = false;
-            for (const poly of polygons) {
-              if (isPointInPolygon(testPt.x, testPt.y, poly)) {
-                inside = true;
-                break;
-              }
-            }
-            if (!inside) continue;
+            if (!isPointInPolygons(testPt.x, testPt.y, polygons)) continue;
 
             const pt0 = rotatePoint(sx0, sy0, rad, cx, cy);
             const pt1 = rotatePoint(sx1, sy1, rad, cx, cy);
@@ -1357,13 +1360,7 @@
       const rayCount = Math.max(12, Math.floor((Math.PI * 2 * (maxR / 3)) / spacing));
       const dTheta = (Math.PI * 2) / rayCount;
 
-      let centerInside = false;
-      for (const poly of polygons) {
-        if (isPointInPolygon(cx, cy, poly)) {
-          centerInside = true;
-          break;
-        }
-      }
+      const centerInside = isPointInPolygons(cx, cy, polygons);
 
       for (let rIdx = 0; rIdx < rayCount; rIdx++) {
         let theta = rIdx * dTheta + degToRad(config.angle || 0);
@@ -1429,13 +1426,7 @@
           const x = cx + r * Math.cos(theta);
           const y = cy + r * Math.sin(theta);
 
-          let inside = false;
-          for (const poly of polygons) {
-            if (isPointInPolygon(x, y, poly)) {
-              inside = true;
-              break;
-            }
-          }
+          const inside = isPointInPolygons(x, y, polygons);
 
           if (inside && prevPt) {
             this._emitStrokeSegment(prevPt, { x, y }, config, ringIdx + s, strokes, rng, bounds);
@@ -1507,14 +1498,7 @@
           let currX = gx + rng.range(-spacing / 3, spacing / 3);
           let currY = gy + rng.range(-spacing / 3, spacing / 3);
 
-          let inside = false;
-          for (const poly of polygons) {
-            if (isPointInPolygon(currX, currY, poly)) {
-              inside = true;
-              break;
-            }
-          }
-          if (!inside) continue;
+          if (!isPointInPolygons(currX, currY, polygons)) continue;
 
           let prevPt = { x: currX, y: currY };
           for (let step = 0; step < numSteps; step++) {
@@ -1522,14 +1506,7 @@
             const nextX = currX + Math.cos(flowAngle) * stepLen;
             const nextY = currY + Math.sin(flowAngle) * stepLen;
 
-            let stepInside = false;
-            for (const poly of polygons) {
-              if (isPointInPolygon(nextX, nextY, poly)) {
-                stepInside = true;
-                break;
-              }
-            }
-            if (!stepInside) break;
+            if (!isPointInPolygons(nextX, nextY, polygons)) break;
 
             const p0 = prevPt;
             const p1 = { x: nextX, y: nextY };
@@ -1578,14 +1555,7 @@
           const p0 = { x: midX - nx * (ridgeLen / 2), y: midY - ny * (ridgeLen / 2) };
           const p1 = { x: midX + nx * (ridgeLen / 2), y: midY + ny * (ridgeLen / 2) };
 
-          let inside = false;
-          for (const poly of polygons) {
-            if (isPointInPolygon(midX, midY, poly)) {
-              inside = true;
-              break;
-            }
-          }
-          if (!inside) continue;
+          if (!isPointInPolygons(midX, midY, polygons)) continue;
 
           this._emitStrokeSegment(p0, p1, config, i + j, strokes, rng, bounds);
         }
@@ -1613,13 +1583,7 @@
         const x = cx + r * Math.cos(theta);
         const y = cy + r * Math.sin(theta);
 
-        let inside = false;
-        for (const poly of polygons) {
-          if (isPointInPolygon(x, y, poly)) {
-            inside = true;
-            break;
-          }
-        }
+        const inside = isPointInPolygons(x, y, polygons);
 
         if (inside && prevPt) {
           this._emitStrokeSegment(prevPt, { x, y }, config, Math.floor(theta), strokes, rng, bounds);
@@ -1754,6 +1718,7 @@
     FastRandom,
     sampleGradientAtPoint,
     isPointInPolygon,
+    isPointInPolygons,
     findScanlineIntersections,
     getPolygonsBounds
   };

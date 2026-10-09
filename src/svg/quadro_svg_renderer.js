@@ -1639,11 +1639,14 @@
     }
 
     _renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity) {
-      const isBrushFill = obj.fillType === 'brush' || (obj.brushFill && obj.brushFill.enabled);
-      const hasFill = (obj.fill && obj.fill !== 'none') || (obj.fillType && obj.fillType !== 'solid') || isBrushFill;
-      if (!hasFill) return;
+      const hasGradient = (obj.fillType === 'linear' || obj.fillType === 'radial' || obj.brushFill?.gradient) && (obj.fillGradient || obj.brushFill?.gradient);
+      const isFillNone = (!obj.fill || obj.fill === 'none' || obj.fill === 'transparent');
+      if (isFillNone && !hasGradient) return;
 
       const fillAlpha = (obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0) * totalOpacity;
+      if (fillAlpha <= 0) return;
+
+      const isBrushFill = obj.fillType === 'brush' || (obj.brushFill && obj.brushFill.enabled && !isFillNone);
       const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
       const gradient = (obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null;
 
@@ -1676,11 +1679,17 @@
     }
 
     _renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity) {
-      const isStrokeBrushFill = obj.strokeType === 'brush' || !!(obj.strokeBrushFill && obj.strokeBrushFill.enabled);
-      const hasStroke = (obj.stroke && obj.stroke !== 'none' && (obj.strokeWidth > 0)) || isStrokeBrushFill;
-      if (!hasStroke) return;
+      const strokeWidth = (obj.strokeWidth !== undefined ? obj.strokeWidth : 1);
+      if (strokeWidth <= 0) return;
+
+      const hasGradient = (obj.strokeType === 'linear' || obj.strokeType === 'radial' || obj.strokeBrushFill?.gradient) && (obj.strokeGradient || obj.strokeBrushFill?.gradient);
+      const isStrokeNone = (!obj.stroke || obj.stroke === 'none' || obj.stroke === 'transparent');
+      if (isStrokeNone && !hasGradient) return;
 
       const strokeAlpha = (obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1.0) * totalOpacity;
+      if (strokeAlpha <= 0) return;
+
+      const isStrokeBrushFill = obj.strokeType === 'brush' || (obj.strokeBrushFill && obj.strokeBrushFill.enabled && !isStrokeNone);
       const strokeArgb = parseCssColorToArgb(obj.stroke, strokeAlpha);
 
       // 1. Procedural Brush Fill on Stroke (Outlines the stroke to path ribbon and fills it)
@@ -1688,15 +1697,15 @@
         let Engine = BrushFillEngine || (typeof window !== 'undefined' && (window.BrushFillEngine || (window.esenho && window.esenho.BrushFillEngine))) || (typeof globalThis !== 'undefined' && globalThis.BrushFillEngine);
         if (Engine && Engine.BrushFillEngine) Engine = Engine.BrushFillEngine;
         if (Engine && typeof Engine.generateStrokes === 'function') {
-          const strokeWidth = Math.max(1, (obj.strokeWidth || 1) * scale);
-          const strokeRibbons = this._convertPolylinesToStrokeRibbons(rotatedPolys, pathObj, strokeWidth);
+          const scaledStrokeWidth = Math.max(1, strokeWidth * scale);
+          const strokeRibbons = this._convertPolylinesToStrokeRibbons(rotatedPolys, pathObj, scaledStrokeWidth);
           if (strokeRibbons && strokeRibbons.length > 0) {
             const brushFillCfg = {
               ...(obj.strokeBrushFill || {}),
               color: obj.stroke || '#fabd2f',
               gradient: (obj.strokeType === 'linear' || obj.strokeType === 'radial' || obj.strokeBrushFill?.gradient) ? (obj.strokeGradient || obj.strokeBrushFill?.gradient) : null
             };
-            const objKey = `stroke_${JSON.stringify(brushFillCfg)}_${scale}_${strokeWidth}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
+            const objKey = `stroke_${JSON.stringify(brushFillCfg)}_${scale}_${scaledStrokeWidth}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
             let strokes = (obj._cachedStrokeBfKey === objKey && obj._cachedStrokeBfStrokes) ? obj._cachedStrokeBfStrokes : null;
             if (!strokes) {
               strokes = Engine.generateStrokes(strokeRibbons, brushFillCfg);
@@ -1711,7 +1720,7 @@
 
       // 2. Standard solid / brush-dynamic stroke
       if ((strokeArgb >>> 24) > 0 && rotatedPolys && rotatedPolys.length > 0) {
-        const strokeWidth = Math.max(1, Math.round(obj.strokeWidth * scale));
+        const scaledStrokeWidth = Math.max(1, Math.round(strokeWidth * scale));
         const subPaths = pathObj.subPaths || [];
         for (let i = 0; i < rotatedPolys.length; i++) {
           const poly = rotatedPolys[i];
@@ -1720,7 +1729,7 @@
             this.strokePolyline(
               poly,
               strokeArgb,
-              strokeWidth,
+              scaledStrokeWidth,
               closed,
               obj.brushConfig,
               obj.strokeTexture,
@@ -1757,8 +1766,11 @@
             outerPts.push({ x: poly[i].x + nx * hw, y: poly[i].y + ny * hw });
             innerPts.push({ x: poly[i].x - nx * hw, y: poly[i].y - ny * hw });
           }
-          ribbons.push(outerPts);
-          ribbons.push(innerPts);
+          const ribbon = [...outerPts];
+          for (let k = innerPts.length - 1; k >= 0; k--) {
+            ribbon.push(innerPts[k]);
+          }
+          ribbons.push(ribbon);
         } else {
           const leftPts = [];
           const rightPts = [];

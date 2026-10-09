@@ -990,93 +990,27 @@
           </div>
 
           <!-- Preset Selector Bar directly below target switcher -->
-          <div class="cs-preset-bar" style="display: flex; gap: 4px; align-items: center; margin-bottom: 6px;">
+          <div class="cs-preset-bar" style="display: flex; gap: 4px; align-items: center; margin-bottom: 2px;">
             <select id="cs-material-preset-select" class="cs-select" style="flex: 1;">
               <option value="" disabled selected>Preset: Select Material</option>
             </select>
             <button type="button" id="cs-btn-save-material-preset" class="cs-btn-mini" style="padding: 3px 8px; flex-shrink: 0;" title="Save current appearance as preset">Save</button>
           </div>
 
-          <!-- Main Material Section Pills -->
-          <div class="cs-mode-tabs">
-            <button type="button" class="cs-mode-btn active" data-mode="color" title="Flat Static Color & Transparency">Color</button>
-            <button type="button" class="cs-mode-btn" data-mode="gradient" title="Linear & Radial Multi-Stop Gradients">Gradient</button>
-            <button type="button" class="cs-mode-btn" data-mode="texture" title="70+ Procedural Surface Textures & Distortion">Texture</button>
-            <button type="button" class="cs-mode-btn" data-mode="brushfill" title="Procedural Brush Hatching & Multi-Stroke Fills">Brush Fill</button>
-            <button type="button" class="cs-mode-btn" data-mode="filter" title="WASM Image Processing & Optical Lenses">WASM FX</button>
-          </div>
-
-          <!-- SECTION 1: COLOR (Static Solid Color + Sub-modes) -->
-          <div class="cs-panel cs-panel-color active" id="cs-panel-color">
-            <div class="cs-submode-tabs">
-              <button type="button" class="cs-submode-btn active" data-submode="picker">Visual</button>
-              <button type="button" class="cs-submode-btn" data-submode="sliders">Sliders</button>
-              <button type="button" class="cs-submode-btn" data-submode="palettes">Palettes</button>
+          <!-- SECTION 1: SOLID COLOR & CHANNELS -->
+          <div class="cs-card">
+            <div class="cs-card-title">Color</div>
+            <div class="cs-sv-box" id="cs-sv-box" style="--cs-hue: 42;">
+              <div class="cs-sv-cursor" id="cs-sv-cursor" style="left: 81%; top: 2%;"></div>
+            </div>
+            <div class="cs-slider-row">
+              <input type="range" min="0" max="360" step="1" value="42" class="cs-hue-slider" id="cs-slider-hue" title="Hue">
+            </div>
+            <div class="cs-slider-row cs-alpha-row">
+              <input type="range" min="0" max="100" step="1" value="100" class="cs-alpha-slider" id="cs-slider-alpha" title="Material Alpha">
             </div>
 
-            <!-- Visual Picker -->
-            <div class="cs-subpanel cs-subpanel-picker active" id="cs-subpanel-picker">
-              <div class="cs-sv-box" id="cs-sv-box" style="--cs-hue: 42;">
-                <div class="cs-sv-cursor" id="cs-sv-cursor" style="left: 81%; top: 2%;"></div>
-              </div>
-              <div class="cs-slider-row">
-                <input type="range" min="0" max="360" step="1" value="42" class="cs-hue-slider" id="cs-slider-hue">
-              </div>
-              <div class="cs-slider-row cs-alpha-row">
-                <input type="range" min="0" max="100" step="1" value="100" class="cs-alpha-slider" id="cs-slider-alpha" title="Material Alpha">
-              </div>
-            </div>
-
-            <!-- Sliders Picker -->
-            <div class="cs-subpanel cs-subpanel-sliders" id="cs-subpanel-sliders">
-              <div class="cs-slider-group">
-                <div class="cs-slider-item">
-                  <span class="cs-sl-label" style="color: #ea6962;">R</span>
-                  <input type="range" min="0" max="255" step="1" id="cs-sl-r" class="cs-mini-range">
-                  <input type="number" min="0" max="255" id="cs-num-r" class="cs-mini-num">
-                </div>
-                <div class="cs-slider-item">
-                  <span class="cs-sl-label" style="color: #b8bb26;">G</span>
-                  <input type="range" min="0" max="255" step="1" id="cs-sl-g" class="cs-mini-range">
-                  <input type="number" min="0" max="255" id="cs-num-g" class="cs-mini-num">
-                </div>
-                <div class="cs-slider-item">
-                  <span class="cs-sl-label" style="color: #83a598;">B</span>
-                  <input type="range" min="0" max="255" step="1" id="cs-sl-b" class="cs-mini-range">
-                  <input type="number" min="0" max="255" id="cs-num-b" class="cs-mini-num">
-                </div>
-              </div>
-              <div class="cs-slider-group" style="margin-top: 4px;">
-                <div class="cs-slider-item">
-                  <span class="cs-sl-label">H</span>
-                  <input type="range" min="0" max="360" step="1" id="cs-sl-h" class="cs-mini-range">
-                  <input type="number" min="0" max="360" id="cs-num-h" class="cs-mini-num">
-                </div>
-                <div class="cs-slider-item">
-                  <span class="cs-sl-label">S%</span>
-                  <input type="range" min="0" max="100" step="1" id="cs-sl-s" class="cs-mini-range">
-                  <input type="number" min="0" max="100" id="cs-num-s" class="cs-mini-num">
-                </div>
-                <div class="cs-slider-item">
-                  <span class="cs-sl-label">L%</span>
-                  <input type="range" min="0" max="100" step="1" id="cs-sl-l" class="cs-mini-range">
-                  <input type="number" min="0" max="100" id="cs-num-l" class="cs-mini-num">
-                </div>
-              </div>
-            </div>
-
-            <!-- Palettes Picker & Manager -->
-            <div class="cs-subpanel cs-subpanel-palettes" id="cs-subpanel-palettes">
-              <div class="cs-palette-toolbar">
-                <select id="cs-palette-select" class="cs-select" style="flex: 1;" title="Select Palette"></select>
-                <button type="button" class="cs-icon-btn" id="cs-btn-add-swatch" title="Add active color to palette" style="font-weight: bold; font-size: 13px;">+</button>
-                <button type="button" class="cs-icon-btn" id="cs-btn-new-palette" title="Create new palette" style="font-size: 11px;">★</button>
-                <button type="button" class="cs-icon-btn" id="cs-btn-palette-menu" title="Palette options, harmony & export/import" style="font-weight: bold; font-size: 13px;">⋮</button>
-              </div>
-              <div class="cs-swatches-grid" id="cs-swatches-grid"></div>
-            </div>
-
-            <!-- Hex Bar -->
+            <!-- Hex Bar & Tools -->
             <div class="cs-hex-bar">
               <div class="cs-current-swatch-box" id="cs-current-preview"></div>
               <input type="text" class="cs-hex-input" id="cs-hex-input" value="#FABD2F" maxlength="9" spellcheck="false">
@@ -1092,11 +1026,69 @@
                 </svg>
               </button>
             </div>
+
+            <!-- Channel Sliders & Inputs -->
+            <div class="cs-slider-group" style="margin-top: 4px;">
+              <div class="cs-slider-item">
+                <span class="cs-sl-label" style="color: #ea6962;">R</span>
+                <input type="range" min="0" max="255" step="1" id="cs-sl-r" class="cs-mini-range">
+                <input type="number" min="0" max="255" id="cs-num-r" class="cs-mini-num">
+              </div>
+              <div class="cs-slider-item">
+                <span class="cs-sl-label" style="color: #b8bb26;">G</span>
+                <input type="range" min="0" max="255" step="1" id="cs-sl-g" class="cs-mini-range">
+                <input type="number" min="0" max="255" id="cs-num-g" class="cs-mini-num">
+              </div>
+              <div class="cs-slider-item">
+                <span class="cs-sl-label" style="color: #83a598;">B</span>
+                <input type="range" min="0" max="255" step="1" id="cs-sl-b" class="cs-mini-range">
+                <input type="number" min="0" max="255" id="cs-num-b" class="cs-mini-num">
+              </div>
+            </div>
+            <div class="cs-slider-group" style="margin-top: 4px;">
+              <div class="cs-slider-item">
+                <span class="cs-sl-label">H</span>
+                <input type="range" min="0" max="360" step="1" id="cs-sl-h" class="cs-mini-range">
+                <input type="number" min="0" max="360" id="cs-num-h" class="cs-mini-num">
+              </div>
+              <div class="cs-slider-item">
+                <span class="cs-sl-label">S%</span>
+                <input type="range" min="0" max="100" step="1" id="cs-sl-s" class="cs-mini-range">
+                <input type="number" min="0" max="100" id="cs-num-s" class="cs-mini-num">
+              </div>
+              <div class="cs-slider-item">
+                <span class="cs-sl-label">L%</span>
+                <input type="range" min="0" max="100" step="1" id="cs-sl-l" class="cs-mini-range">
+                <input type="number" min="0" max="100" id="cs-num-l" class="cs-mini-num">
+              </div>
+            </div>
           </div>
 
-          <!-- SECTION 2: GRADIENT (Linear / Radial Multi-Stop Editor) -->
-          <div class="cs-panel cs-panel-gradient" id="cs-panel-gradient">
-            <div class="cs-card">
+          <!-- SECTION 2: PALETTES & SWATCHES -->
+          <div class="cs-card">
+            <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <div class="cs-card-title" style="margin: 0;">Palettes &amp; Swatches</div>
+            </div>
+            <div class="cs-palette-toolbar">
+              <select id="cs-palette-select" class="cs-select" style="flex: 1;" title="Select Palette"></select>
+              <button type="button" class="cs-icon-btn" id="cs-btn-add-swatch" title="Add active color to palette" style="font-weight: bold; font-size: 13px;">+</button>
+              <button type="button" class="cs-icon-btn" id="cs-btn-new-palette" title="Create new palette" style="font-size: 11px;">★</button>
+              <button type="button" class="cs-icon-btn" id="cs-btn-palette-menu" title="Palette options, harmony & export/import" style="font-weight: bold; font-size: 13px;">⋮</button>
+            </div>
+            <div class="cs-swatches-grid" id="cs-swatches-grid"></div>
+          </div>
+
+          <!-- SECTION 3: GRADIENT (Collapsible with Checkbox) -->
+          <div class="cs-card">
+            <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="cs-card-title" style="margin: 0;">Gradient</div>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10.5px; font-weight: 600; color: var(--primary, #fabd2f);">
+                <input type="checkbox" id="cs-grad-enabled" style="accent-color: var(--primary, #fabd2f); cursor: pointer;">
+                <span>Enable</span>
+              </label>
+            </div>
+
+            <div id="cs-grad-controls-container" style="display: none; flex-direction: column; gap: 6px; margin-top: 6px;">
               <div class="cs-form-row">
                 <label>Type</label>
                 <select id="cs-grad-type" class="cs-select">
@@ -1104,72 +1096,80 @@
                   <option value="radial">Radial Gradient</option>
                 </select>
               </div>
-              <!-- Interactive Gradient Preview & Stop Track -->
-              <div id="cs-grad-preview-bar" class="cs-grad-bar" title="Click anywhere on bar to add color stop"></div>
 
-              <div class="cs-form-row" style="margin-top: 4px;">
-                <label>Stop</label>
+              <div class="cs-grad-preview-bar" id="cs-grad-preview-bar" title="Click to add stop"></div>
+
+              <div class="cs-form-row">
+                <label>Active Stop</label>
                 <div style="display: flex; gap: 4px; flex: 1;">
                   <select id="cs-grad-stop-select" class="cs-select" style="flex: 1;"></select>
-                  <button type="button" class="cs-btn-mini" id="cs-btn-grad-add-stop" title="Add Stop">+</button>
-                  <button type="button" class="cs-btn-mini danger" id="cs-btn-grad-del-stop" title="Remove Stop">✕</button>
+                  <button type="button" class="cs-icon-btn" id="cs-btn-grad-add-stop" title="Add stop">+</button>
+                  <button type="button" class="cs-icon-btn" id="cs-btn-grad-del-stop" title="Remove stop">-</button>
                 </div>
               </div>
 
               <div class="cs-form-row">
-                <label>Color</label>
+                <label>Stop Color</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
-                  <input type="color" id="cs-grad-stop-color" value="#fe8019" class="cs-color-input">
-                  <input type="text" id="cs-grad-stop-color-text" value="#fe8019" class="cs-text-input">
+                  <input type="color" id="cs-grad-stop-color" class="cs-color-input">
+                  <input type="text" id="cs-grad-stop-color-text" class="cs-text-input" style="flex: 1;">
                 </div>
               </div>
 
               <div class="cs-form-row">
-                <label>Pos %</label>
+                <label>Position %</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
-                  <input type="range" id="cs-grad-stop-pos-slider" min="0" max="100" step="any" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-grad-stop-pos" min="0" max="100" step="any" value="0" class="cs-mini-num">
+                  <input type="range" id="cs-grad-stop-pos-slider" min="0" max="100" step="1" class="cs-mini-range">
+                  <input type="number" id="cs-grad-stop-pos" min="0" max="100" class="cs-mini-num">
                 </div>
               </div>
 
               <div class="cs-form-row">
-                <label>Opacity</label>
-                <input type="number" id="cs-grad-stop-opacity" min="0" max="1" step="any" value="1.0" class="cs-text-input">
+                <label>Stop Alpha</label>
+                <input type="number" id="cs-grad-stop-opacity" min="0" max="1" step="0.01" value="1.0" class="cs-text-input">
               </div>
 
               <div class="cs-form-row">
                 <label>Intensity</label>
-                <input type="number" id="cs-grad-stop-intensity" min="0.1" max="10" step="any" value="1.0" title="HDR / Bloom Multiplier" class="cs-text-input">
+                <input type="number" id="cs-grad-stop-intensity" min="0.1" max="10" step="0.1" value="1.0" class="cs-text-input">
               </div>
 
               <div class="cs-form-row" id="cs-grad-angle-row">
                 <label>Angle °</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-grad-angle-slider" min="0" max="360" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-grad-angle" min="0" max="360" step="any" value="0" class="cs-mini-num">
+                  <input type="number" id="cs-grad-angle" min="0" max="360" class="cs-mini-num">
                 </div>
               </div>
 
               <div class="cs-form-row" id="cs-grad-radius-row" style="display: none;">
                 <label>Radius</label>
-                <input type="number" id="cs-grad-radius" min="0.01" max="10" step="any" value="0.5" class="cs-text-input">
+                <input type="number" id="cs-grad-radius" min="0.05" max="5.0" step="0.05" value="0.5" class="cs-text-input">
               </div>
-            </div>
 
-            <!-- Gradient Presets -->
-            <div class="cs-card">
-              <div class="cs-card-title">Gradient Ramps</div>
-              <div class="cs-gradient-presets-grid" id="cs-grad-presets-grid"></div>
+              <!-- Presets -->
+              <div style="margin-top: 4px;">
+                <div class="cs-card-title">Gradient Presets</div>
+                <div class="cs-grad-presets-grid" id="cs-grad-presets-grid"></div>
+              </div>
             </div>
           </div>
 
-          <!-- SECTION 3: TEXTURE (Procedural Textures & Dynamics) -->
-          <div class="cs-panel cs-panel-texture" id="cs-panel-texture">
-            <div class="cs-card">
+          <!-- SECTION 4: PROCEDURAL TEXTURE OVERLAY (Collapsible with Checkbox) -->
+          <div class="cs-card">
+            <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="cs-card-title" style="margin: 0;">Texture Overlay</div>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10.5px; font-weight: 600; color: var(--primary, #fabd2f);">
+                <input type="checkbox" id="cs-tex-enabled" style="accent-color: var(--primary, #fabd2f); cursor: pointer;">
+                <span>Enable</span>
+              </label>
+            </div>
+
+            <!-- Collapsible Texture Controls -->
+            <div id="cs-tex-controls-container" style="display: none; flex-direction: column; gap: 6px; margin-top: 6px;">
               <div class="cs-form-row">
                 <label>Pattern</label>
                 <select id="cs-tex-mode" class="cs-select">
-                  <option value="0">0: None / Solid</option>
                   <option value="1">1: Paper Grain</option>
                   <option value="2">2: Canvas Weave</option>
                   <option value="3">3: Noise Scatter</option>
@@ -1279,11 +1279,7 @@
                   <input type="number" id="cs-tex-offsetY" placeholder="Y" step="any" value="0" class="cs-text-input" style="width: 50%;">
                 </div>
               </div>
-            </div>
 
-            <!-- Surface Distortion & Edge Dynamics -->
-            <div class="cs-card">
-              <div class="cs-card-title">Surface Dynamics & Warp</div>
               <div class="cs-form-row">
                 <label>Hardness %</label>
                 <input type="number" id="cs-tex-hardness" min="0" max="100" step="any" value="100" class="cs-text-input">
@@ -1336,80 +1332,46 @@
             </div>
           </div>
 
-          <!-- SECTION 4: WASM FX & OPTICAL LENSES -->
-          <div class="cs-panel cs-panel-filter" id="cs-panel-filter">
-            <div class="cs-card">
-              <div class="cs-form-row">
-                <label>Enable FX</label>
-                <input type="checkbox" id="cs-filter-enabled" style="accent-color: var(--primary, #fabd2f);">
-              </div>
-
-              <div class="cs-form-row">
-                <label>Backdrop Lens</label>
-                <input type="checkbox" id="cs-filter-is-lens" style="accent-color: var(--primary, #fabd2f);">
-              </div>
-
-              <div class="cs-form-row">
-                <label>Plugin</label>
-                <select id="cs-filter-plugin" class="cs-select"></select>
-              </div>
-
-              <!-- Dynamic Plugin Parameters Container -->
-              <div id="cs-filter-params-container" style="display: flex; flex-direction: column; gap: 5px;"></div>
-
-              <div class="cs-form-row">
-                <label>FX Opacity</label>
-                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
-                  <input type="range" id="cs-filter-opacity-slider" min="0" max="1" step="0.01" value="1.0" class="cs-mini-range">
-                  <input type="number" id="cs-filter-opacity" min="0" max="1" step="any" value="1.0" class="cs-mini-num">
-                </div>
-              </div>
+          <!-- SECTION 5: PROCEDURAL BRUSH FILL (Collapsible with Checkbox) -->
+          <div class="cs-card">
+            <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="cs-card-title" style="margin: 0;">Brush Fill</div>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10.5px; font-weight: 600; color: var(--primary, #fabd2f);">
+                <input type="checkbox" id="cs-bf-enabled" style="accent-color: var(--primary, #fabd2f); cursor: pointer;">
+                <span>Enable</span>
+              </label>
             </div>
-          </div>
 
-          <!-- SECTION 5: BRUSH FILL & PROCEDURAL HATCHING -->
-          <div class="cs-panel cs-panel-brushfill" id="cs-panel-brushfill">
-            <!-- Preset Library Card -->
-            <div class="cs-card">
-              <div class="cs-card-title">Brush Fill Presets</div>
+            <!-- Collapsible Brush Fill Controls -->
+            <div id="cs-bf-controls-container" style="display: none; flex-direction: column; gap: 6px; margin-top: 6px;">
+              <!-- Preset Library -->
               <div class="cs-form-row" style="gap: 4px;">
                 <select id="cs-bf-preset-select" class="cs-select" style="flex: 1;"></select>
                 <button type="button" id="cs-btn-save-bf-preset" class="cs-btn-mini" style="white-space: nowrap; padding: 3px 8px;" title="Save current brush fill configuration as preset">Save</button>
               </div>
-            </div>
 
-            <div class="cs-card">
-              <div class="cs-card-title">Brush Fill Mode</div>
-              <div class="cs-form-row">
-                <label>Enable Fill</label>
-                <input type="checkbox" id="cs-bf-enabled" style="accent-color: var(--primary, #fabd2f);">
+              <!-- Native Brush Pool Selection -->
+              <div style="display: flex; flex-direction: column; gap: 4px; background: var(--bg-panel, #181a1b); padding: 5px; border-radius: 3px; border: 1px solid var(--border, #2e3234);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 9.5px; font-weight: 600; text-transform: uppercase; color: var(--text-muted, #928374);">Brush Pool</span>
+                  <span id="cs-bf-brush-count-label" style="font-size: 9.5px; color: var(--text-muted, #928374); font-weight: 600;">1 brush</span>
+                </div>
+                <div id="cs-bf-brush-pool-container" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--bg-input, #121314); border-radius: var(--radius-sm, 3px); border: 1px solid var(--border, #2e3234); min-height: 28px; align-items: center;"></div>
+                <div class="cs-form-row" style="gap: 4px;">
+                  <select id="cs-bf-brush-add-select" class="cs-select" style="flex: 1;"></select>
+                  <button type="button" id="cs-btn-add-bf-brush" class="cs-btn-mini" style="white-space: nowrap; padding: 3px 8px;">+ Add</button>
+                </div>
+                <div class="cs-form-row" id="cs-bf-brush-pick-row">
+                  <label>Brush Pick</label>
+                  <select id="cs-bf-brush-pick-mode" class="cs-select">
+                    <option value="cycle">Cycle in Sequence</option>
+                    <option value="random">Random Selection</option>
+                    <option value="alternate">Alternate (1 &amp; 2)</option>
+                  </select>
+                </div>
               </div>
-            </div>
 
-            <!-- Native Brush Pool Selection -->
-            <div class="cs-card">
-              <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
-                <div class="cs-card-title" style="margin: 0;">Brush Pool</div>
-                <span id="cs-bf-brush-count-label" style="font-size: 9.5px; color: var(--text-muted, #928374); font-weight: 600;">1 brush</span>
-              </div>
-              <div id="cs-bf-brush-pool-container" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 4px; background: var(--bg-input, #121314); border-radius: var(--radius-sm, 3px); border: 1px solid var(--border, #2e3234); min-height: 28px; align-items: center;"></div>
-              <div class="cs-form-row" style="gap: 4px;">
-                <select id="cs-bf-brush-add-select" class="cs-select" style="flex: 1;"></select>
-                <button type="button" id="cs-btn-add-bf-brush" class="cs-btn-mini" style="white-space: nowrap; padding: 3px 8px;">+ Add</button>
-              </div>
-              <div class="cs-form-row" id="cs-bf-brush-pick-row">
-                <label>Brush Pick</label>
-                <select id="cs-bf-brush-pick-mode" class="cs-select">
-                  <option value="cycle">Cycle in Sequence</option>
-                  <option value="random">Random Selection</option>
-                  <option value="alternate">Alternate (1 &amp; 2)</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- Pattern & Mesh Layout Card -->
-            <div class="cs-card">
-              <div class="cs-card-title">Mesh & Trajectory</div>
+              <!-- Pattern & Mesh Layout -->
               <div class="cs-form-row">
                 <label>Pattern</label>
                 <select id="cs-bf-pattern" class="cs-select">
@@ -1509,7 +1471,7 @@
                 <label>Wave Amp</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-wave-amp-slider" min="0" max="100" step="1" value="50" class="cs-mini-range">
-                  <input type="number" id="cs-bf-wave-amp" min="0" max="200" step="1" value="50" class="cs-mini-num" title="Wave height % of spacing">
+                  <input type="number" id="cs-bf-wave-amp" min="0" max="200" step="1" value="50" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1533,19 +1495,16 @@
                 <label>Mesh Phase</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-mesh-phase-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-mesh-phase" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Grid alignment phase shift %">
+                  <input type="number" id="cs-bf-mesh-phase" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
-            </div>
 
-            <!-- Strokes Per Line & Density -->
-            <div class="cs-card">
-              <div class="cs-card-title">Strokes Per Line & Segmentation</div>
+              <!-- Segmentation & Strokes per line -->
               <div class="cs-form-row">
                 <label>Per Line</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-strokes-per-line-slider" min="1" max="20" step="1" value="1" class="cs-mini-range">
-                  <input type="number" id="cs-bf-strokes-per-line" min="1" max="50" step="1" value="1" class="cs-mini-num" title="Number of strokes per line">
+                  <input type="number" id="cs-bf-strokes-per-line" min="1" max="50" step="1" value="1" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1553,7 +1512,7 @@
                 <label>Max Length</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-stroke-length-slider" min="0" max="300" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-stroke-length" min="0" max="1000" step="1" value="0" class="cs-mini-num" title="0 = Full span">
+                  <input type="number" id="cs-bf-stroke-length" min="0" max="1000" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1561,7 +1520,7 @@
                 <label>Stroke Gap</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-stroke-gap-slider" min="0" max="50" step="1" value="4" class="cs-mini-range">
-                  <input type="number" id="cs-bf-stroke-gap" min="0" max="200" step="1" value="4" class="cs-mini-num" title="Gap between strokes (px)">
+                  <input type="number" id="cs-bf-stroke-gap" min="0" max="200" step="1" value="4" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1569,7 +1528,7 @@
                 <label>Overlap</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-stroke-overlap-slider" min="0" max="50" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-stroke-overlap" min="0" max="200" step="1" value="0" class="cs-mini-num" title="Overlap between strokes (px)">
+                  <input type="number" id="cs-bf-stroke-overlap" min="0" max="200" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1577,22 +1536,11 @@
                 <label>Gap Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-gap-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-gap-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± % gap variation">
+                  <input type="number" id="cs-bf-gap-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
-            </div>
 
-            <!-- Material Color & Gradient Scheme Notice -->
-            <div class="cs-card">
-              <div class="cs-card-title">Material Color &amp; Gradient</div>
-              <div style="font-size: 10px; color: var(--text-muted, #928374); line-height: 1.4; padding: 2px 0;">
-                Brush strokes directly use the material's active <strong style="color: var(--primary, #fabd2f);">Color</strong> or <strong style="color: var(--primary, #fabd2f);">Gradient</strong>. Configure them directly in the Color or Gradient tabs.
-              </div>
-            </div>
-
-            <!-- Stroke Geometry & Properties -->
-            <div class="cs-card">
-              <div class="cs-card-title">Stroke Dynamics</div>
+              <!-- Stroke Dynamics -->
               <div class="cs-form-row">
                 <label>Width</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
@@ -1646,19 +1594,16 @@
                 <label>Hand Wobble</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-wobble-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-wobble" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Natural hand tremor & roughness %">
+                  <input type="number" id="cs-bf-wobble" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
-            </div>
 
-            <!-- Variance & Jitters -->
-            <div class="cs-card">
-              <div class="cs-card-title">Variance & Parameter Jitters</div>
+              <!-- Variance & Jitters -->
               <div class="cs-form-row">
                 <label>Angle Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-angle-jitter-slider" min="0" max="90" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-angle-jitter" min="0" max="90" step="1" value="0" class="cs-mini-num" title="Max ± degrees">
+                  <input type="number" id="cs-bf-angle-jitter" min="0" max="90" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1666,7 +1611,7 @@
                 <label>Length Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-length-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-length-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± %">
+                  <input type="number" id="cs-bf-length-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1674,7 +1619,7 @@
                 <label>Width Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-width-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-width-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± %">
+                  <input type="number" id="cs-bf-width-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1682,7 +1627,7 @@
                 <label>Opacity Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-opacity-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-opacity-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± %">
+                  <input type="number" id="cs-bf-opacity-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1690,7 +1635,7 @@
                 <label>Position Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-position-jitter-slider" min="0" max="50" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-position-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± px">
+                  <input type="number" id="cs-bf-position-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1706,7 +1651,7 @@
                 <label>Hue Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-hue-jitter-slider" min="0" max="180" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-hue-jitter" min="0" max="180" step="1" value="0" class="cs-mini-num" title="Max ± degrees hue shift">
+                  <input type="number" id="cs-bf-hue-jitter" min="0" max="180" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1714,7 +1659,7 @@
                 <label>Sat Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-sat-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-sat-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± % saturation shift">
+                  <input type="number" id="cs-bf-sat-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1722,22 +1667,19 @@
                 <label>Light Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-lightness-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-lightness-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Max ± % lightness/value shift">
+                  <input type="number" id="cs-bf-lightness-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
               <div class="cs-form-row">
-                <label>All Color Jitter</label>
+                <label>Color Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-color-jitter-slider" min="0" max="100" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-color-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num" title="Overall random color variance">
+                  <input type="number" id="cs-bf-color-jitter" min="0" max="100" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
-            </div>
 
-            <!-- Boundary Bleed & Overshoot -->
-            <div class="cs-card">
-              <div class="cs-card-title">Boundary Bleed & Overshoot</div>
+              <!-- Boundary Bleed & Overshoot -->
               <div class="cs-form-row">
                 <label>Clip Mode</label>
                 <select id="cs-bf-clip-mode" class="cs-select">
@@ -1750,7 +1692,7 @@
                 <label>Bleed Dist</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-bleed-distance-slider" min="0" max="60" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-bf-bleed-distance" min="0" max="200" step="1" value="0" class="cs-mini-num" title="Max px beyond border">
+                  <input type="number" id="cs-bf-bleed-distance" min="0" max="200" step="1" value="0" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1758,7 +1700,7 @@
                 <label>Bleed Jitter</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-bleed-jitter-slider" min="0" max="100" step="1" value="50" class="cs-mini-range">
-                  <input type="number" id="cs-bf-bleed-jitter" min="0" max="100" step="1" value="50" class="cs-mini-num" title="Max ± %">
+                  <input type="number" id="cs-bf-bleed-jitter" min="0" max="100" step="1" value="50" class="cs-mini-num">
                 </div>
               </div>
 
@@ -1766,7 +1708,41 @@
                 <label>Bleed Prob</label>
                 <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
                   <input type="range" id="cs-bf-bleed-probability-slider" min="0" max="100" step="1" value="100" class="cs-mini-range">
-                  <input type="number" id="cs-bf-bleed-probability" min="0" max="100" step="1" value="100" class="cs-mini-num" title="% of strokes that bleed">
+                  <input type="number" id="cs-bf-bleed-probability" min="0" max="100" step="1" value="100" class="cs-mini-num">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 6: WASM FX & OPTICAL LENSES (Collapsible with Checkbox) -->
+          <div class="cs-card">
+            <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div class="cs-card-title" style="margin: 0;">WASM Filter FX</div>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10.5px; font-weight: 600; color: var(--primary, #fabd2f);">
+                <input type="checkbox" id="cs-filter-enabled" style="accent-color: var(--primary, #fabd2f); cursor: pointer;">
+                <span>Enable</span>
+              </label>
+            </div>
+
+            <div id="cs-filter-controls-container" style="display: none; flex-direction: column; gap: 6px; margin-top: 6px;">
+              <div class="cs-form-row">
+                <label>Backdrop Lens</label>
+                <input type="checkbox" id="cs-filter-is-lens" style="accent-color: var(--primary, #fabd2f);">
+              </div>
+
+              <div class="cs-form-row">
+                <label>Plugin</label>
+                <select id="cs-filter-plugin" class="cs-select"></select>
+              </div>
+
+              <!-- Dynamic Plugin Parameters Container -->
+              <div id="cs-filter-params-container" style="display: flex; flex-direction: column; gap: 5px;"></div>
+
+              <div class="cs-form-row">
+                <label>FX Opacity</label>
+                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
+                  <input type="range" id="cs-filter-opacity-slider" min="0" max="1" step="0.01" value="1.0" class="cs-mini-range">
+                  <input type="number" id="cs-filter-opacity" min="0" max="1" step="any" value="1.0" class="cs-mini-num">
                 </div>
               </div>
             </div>
@@ -1825,6 +1801,8 @@
         btnCopy: this.container.querySelector('#cs-btn-copy'),
         btnEyedropper: this.container.querySelector('#cs-btn-eyedropper'),
         // Gradient Controls
+        gradEnabled: this.container.querySelector('#cs-grad-enabled'),
+        gradControlsContainer: this.container.querySelector('#cs-grad-controls-container'),
         gradType: this.container.querySelector('#cs-grad-type'),
         gradPreviewBar: this.container.querySelector('#cs-grad-preview-bar'),
         gradStopSelect: this.container.querySelector('#cs-grad-stop-select'),
@@ -1843,6 +1821,8 @@
         gradRadius: this.container.querySelector('#cs-grad-radius'),
         gradPresetsGrid: this.container.querySelector('#cs-grad-presets-grid'),
         // Texture Controls
+        texEnabled: this.container.querySelector('#cs-tex-enabled'),
+        texControlsContainer: this.container.querySelector('#cs-tex-controls-container'),
         texMode: this.container.querySelector('#cs-tex-mode'),
         grpCustomTextures: this.container.querySelector('#cs-grp-custom-textures'),
         texScale: this.container.querySelector('#cs-tex-scale'),
@@ -1862,6 +1842,7 @@
         texInvert: this.container.querySelector('#cs-tex-invert'),
         // Filter Controls
         filterEnabled: this.container.querySelector('#cs-filter-enabled'),
+        filterControlsContainer: this.container.querySelector('#cs-filter-controls-container'),
         filterIsLens: this.container.querySelector('#cs-filter-is-lens'),
         filterPlugin: this.container.querySelector('#cs-filter-plugin'),
         filterParamsContainer: this.container.querySelector('#cs-filter-params-container'),
@@ -1871,9 +1852,10 @@
         materialPresetSelect: this.container.querySelector('#cs-material-preset-select'),
         btnSaveMaterialPreset: this.container.querySelector('#cs-btn-save-material-preset'),
         // Brush Fill Controls
+        bfEnabled: this.container.querySelector('#cs-bf-enabled'),
+        bfControlsContainer: this.container.querySelector('#cs-bf-controls-container'),
         bfPresetSelect: this.container.querySelector('#cs-bf-preset-select'),
         btnSaveBfPreset: this.container.querySelector('#cs-btn-save-bf-preset'),
-        bfEnabled: this.container.querySelector('#cs-bf-enabled'),
         bfBrushAddSelect: this.container.querySelector('#cs-bf-brush-add-select'),
         btnAddBfBrush: this.container.querySelector('#cs-btn-add-bf-brush'),
         bfBrushPoolContainer: this.container.querySelector('#cs-bf-brush-pool-container'),
@@ -1968,6 +1950,8 @@
         bfBleedProbability: this.container.querySelector('#cs-bf-bleed-probability')
       };
 
+      this.populatePalettesSelect();
+      this.renderPalettes();
       this.populateFilterPluginSelect();
       this.renderFilterParams();
       this.renderGradientPresets();
@@ -2232,6 +2216,19 @@
       });
 
       // ── Gradient Events ──
+      d.gradEnabled?.addEventListener('change', (e) => {
+        const isEnabled = e.target.checked;
+        if (d.gradControlsContainer) {
+          d.gradControlsContainer.style.display = isEnabled ? 'flex' : 'none';
+        }
+        if (isEnabled) {
+          this.applyGradientToSelected(true);
+          this.updateGradientUI();
+        } else {
+          this.applyToSelected(true);
+        }
+      });
+
       d.gradType?.addEventListener('change', (e) => {
         this.gradientType = e.target.value;
         this.applyGradientToSelected(true);
@@ -2344,6 +2341,19 @@
       d.gradRadius?.addEventListener('change', () => this.applyGradientToSelected(true));
 
       // ── Texture Events ──
+      d.texEnabled?.addEventListener('change', (e) => {
+        const isEnabled = e.target.checked;
+        if (d.texControlsContainer) {
+          d.texControlsContainer.style.display = isEnabled ? 'flex' : 'none';
+        }
+        this.textureMode = isEnabled ? (this.textureMode && this.textureMode !== 0 && this.textureMode !== '0' ? this.textureMode : 1) : 0;
+        if (d.texMode && isEnabled && (this.textureMode === 0 || !d.texMode.value || d.texMode.value === '0')) {
+          d.texMode.value = '1';
+          this.textureMode = 1;
+        }
+        this.applyTextureToSelected(true);
+      });
+
       d.texMode?.addEventListener('change', (e) => {
         const val = isNaN(Number(e.target.value)) ? e.target.value : Number(e.target.value);
         this.textureMode = val;
@@ -2376,7 +2386,11 @@
 
       // ── WASM FX Events ──
       d.filterEnabled?.addEventListener('change', (e) => {
-        this.filterEnabled = e.target.checked;
+        const isEnabled = e.target.checked;
+        if (d.filterControlsContainer) {
+          d.filterControlsContainer.style.display = isEnabled ? 'flex' : 'none';
+        }
+        this.filterEnabled = isEnabled;
         this.applyFilterToSelected(true);
       });
 
@@ -2432,7 +2446,14 @@
       });
 
       // ── Brush Fill Controls & Presets Events ──
-      d.bfEnabled?.addEventListener('change', () => this.applyBrushFillToSelected(true));
+      d.bfEnabled?.addEventListener('change', (e) => {
+        const isEnabled = e.target.checked;
+        if (d.bfControlsContainer) {
+          d.bfControlsContainer.style.display = isEnabled ? 'flex' : 'none';
+        }
+        this.brushFillConfig.enabled = isEnabled;
+        this.applyBrushFillToSelected(true);
+      });
 
       d.bfPresetSelect?.addEventListener('change', (e) => {
         const val = e.target.value;
@@ -2595,6 +2616,7 @@
     }
 
     switchMode(mode) {
+      const prevMode = this.activeMode;
       this.activeMode = mode;
       this.dom.modeBtns?.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
       this.dom.panelColor?.classList.toggle('active', mode === 'color');
@@ -2605,10 +2627,18 @@
 
       if (mode === 'gradient') {
         this.updateGradientUI();
+        if (prevMode !== 'gradient') {
+          this.applyGradientToSelected(true);
+        }
+      } else if (mode === 'color') {
+        if (prevMode === 'gradient') {
+          this.applyToSelected(true);
+        }
+        if (this.colorSubMode === 'palettes') {
+          this.renderPalettes();
+        }
       } else if (mode === 'brushfill') {
         this.updateBrushFillUI();
-      } else if (mode === 'color' && this.colorSubMode === 'palettes') {
-        this.renderPalettes();
       }
     }
 
@@ -2675,22 +2705,20 @@
 
       this.updateTargetChips();
 
-      if (this.colorSubMode === 'sliders') {
-        if (d.slR) d.slR.value = this.currentR;
-        if (d.numR) d.numR.value = this.currentR;
-        if (d.slG) d.slG.value = this.currentG;
-        if (d.numG) d.numG.value = this.currentG;
-        if (d.slB) d.slB.value = this.currentB;
-        if (d.numB) d.numB.value = this.currentB;
+      if (d.slR && (typeof document === 'undefined' || document.activeElement !== d.slR)) d.slR.value = this.currentR;
+      if (d.numR && (typeof document === 'undefined' || document.activeElement !== d.numR)) d.numR.value = this.currentR;
+      if (d.slG && (typeof document === 'undefined' || document.activeElement !== d.slG)) d.slG.value = this.currentG;
+      if (d.numG && (typeof document === 'undefined' || document.activeElement !== d.numG)) d.numG.value = this.currentG;
+      if (d.slB && (typeof document === 'undefined' || document.activeElement !== d.slB)) d.slB.value = this.currentB;
+      if (d.numB && (typeof document === 'undefined' || document.activeElement !== d.numB)) d.numB.value = this.currentB;
 
-        const hsl = rgbToHsl(this.currentR, this.currentG, this.currentB);
-        if (d.slH) d.slH.value = hsl.h;
-        if (d.numH) d.numH.value = hsl.h;
-        if (d.slS) d.slS.value = hsl.s;
-        if (d.numS) d.numS.value = hsl.s;
-        if (d.slL) d.slL.value = hsl.l;
-        if (d.numL) d.numL.value = hsl.l;
-      }
+      const hsl = rgbToHsl(this.currentR, this.currentG, this.currentB);
+      if (d.slH && (typeof document === 'undefined' || document.activeElement !== d.slH)) d.slH.value = hsl.h;
+      if (d.numH && (typeof document === 'undefined' || document.activeElement !== d.numH)) d.numH.value = hsl.h;
+      if (d.slS && (typeof document === 'undefined' || document.activeElement !== d.slS)) d.slS.value = hsl.s;
+      if (d.numS && (typeof document === 'undefined' || document.activeElement !== d.numS)) d.numS.value = hsl.s;
+      if (d.slL && (typeof document === 'undefined' || document.activeElement !== d.slL)) d.slL.value = hsl.l;
+      if (d.numL && (typeof document === 'undefined' || document.activeElement !== d.numL)) d.numL.value = hsl.l;
     }
 
     updateTargetChips() {
@@ -2735,6 +2763,9 @@
                 delete obj._cachedBfStrokes;
                 delete obj._cachedBfKey;
                 if (val !== 'none' && obj.fillType && obj.fillType !== 'solid' && obj.fillType !== 'brush') obj.fillType = 'solid';
+                if (obj.fillType === 'brush' && obj.brushFill) {
+                  delete obj.brushFill.gradient;
+                }
                 if (this.currentA !== undefined) obj.fillOpacity = this.currentA;
                 if (obj.type === 'group' && Array.isArray(obj.children)) {
                   for (const child of obj.children) {
@@ -2742,6 +2773,9 @@
                     delete child._cachedBfStrokes;
                     delete child._cachedBfKey;
                     if (val !== 'none' && child.fillType && child.fillType !== 'solid' && child.fillType !== 'brush') child.fillType = 'solid';
+                    if (child.fillType === 'brush' && child.brushFill) {
+                      delete child.brushFill.gradient;
+                    }
                     if (this.currentA !== undefined) child.fillOpacity = this.currentA;
                   }
                 }
@@ -2750,6 +2784,7 @@
               activeDoc.defaultFill = val;
               delete activeDoc._cachedBfStrokes;
               delete activeDoc._cachedBfKey;
+              if (val !== 'none' && activeDoc.defaultFillType && activeDoc.defaultFillType !== 'solid' && activeDoc.defaultFillType !== 'brush') activeDoc.defaultFillType = 'solid';
               if (this.currentA !== undefined) activeDoc.defaultFillOpacity = this.currentA;
             }
             if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
@@ -2773,6 +2808,12 @@
             if (selected.length > 0) {
               for (const obj of selected) {
                 obj.stroke = val;
+                delete obj._cachedStrokeBfStrokes;
+                delete obj._cachedStrokeBfKey;
+                if (val !== 'none' && obj.strokeType && obj.strokeType !== 'solid' && obj.strokeType !== 'brush') obj.strokeType = 'solid';
+                if (obj.strokeType === 'brush' && obj.strokeBrushFill) {
+                  delete obj.strokeBrushFill.gradient;
+                }
                 if (this.currentA !== undefined) {
                   obj.strokeOpacity = this.currentA;
                   if (obj.brushConfig) obj.brushConfig.opacity = this.currentA;
@@ -2780,6 +2821,12 @@
                 if (obj.type === 'group' && Array.isArray(obj.children)) {
                   for (const child of obj.children) {
                     child.stroke = val;
+                    delete child._cachedStrokeBfStrokes;
+                    delete child._cachedStrokeBfKey;
+                    if (val !== 'none' && child.strokeType && child.strokeType !== 'solid' && child.strokeType !== 'brush') child.strokeType = 'solid';
+                    if (child.strokeType === 'brush' && child.strokeBrushFill) {
+                      delete child.strokeBrushFill.gradient;
+                    }
                     if (this.currentA !== undefined) {
                       child.strokeOpacity = this.currentA;
                       if (child.brushConfig) child.brushConfig.opacity = this.currentA;
@@ -2789,6 +2836,9 @@
               }
             } else {
               activeDoc.defaultStroke = val;
+              delete activeDoc._cachedStrokeBfStrokes;
+              delete activeDoc._cachedStrokeBfKey;
+              if (val !== 'none' && activeDoc.defaultStrokeType && activeDoc.defaultStrokeType !== 'solid' && activeDoc.defaultStrokeType !== 'brush') activeDoc.defaultStrokeType = 'solid';
               if (this.currentA !== undefined) activeDoc.defaultStrokeOpacity = this.currentA;
             }
             if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
@@ -2976,44 +3026,56 @@
         intensity: s.intensity !== undefined ? s.intensity : 1.0
       }));
 
-      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
-      if (selected.length === 0) {
-        activeDoc.defaultFillType = this.gradientType;
+      const createGradObj = () => {
         if (this.gradientType === 'linear') {
           if (SvgLinearGrad) {
-            activeDoc.defaultFillGradient = new SvgLinearGrad({ stops: stopsCopy });
-            activeDoc.defaultFillGradient.angle = this.gradientAngle;
-          } else {
-            activeDoc.defaultFillGradient = { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
+            const g = new SvgLinearGrad({ stops: stopsCopy });
+            g.angle = this.gradientAngle;
+            return g;
           }
+          return { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
         } else {
           if (SvgRadialGrad) {
-            activeDoc.defaultFillGradient = new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
-          } else {
-            activeDoc.defaultFillGradient = { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
+            return new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
           }
+          return { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
         }
-      }
+      };
 
-      for (const obj of selected) {
-        if (obj.fillType !== 'brush') {
-          obj.fillType = this.gradientType;
+      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
+      if (this.activeTarget === 'stroke') {
+        if (selected.length === 0) {
+          activeDoc.defaultStrokeType = this.gradientType;
+          activeDoc.defaultStrokeGradient = createGradObj();
         }
-        delete obj._cachedBfStrokes;
-        delete obj._cachedBfKey;
-        if (this.gradientType === 'linear') {
-          if (SvgLinearGrad) {
-            obj.fillGradient = new SvgLinearGrad({ stops: stopsCopy });
-            obj.fillGradient.angle = this.gradientAngle;
-          } else {
-            obj.fillGradient = { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
+        for (const obj of selected) {
+          if (obj.strokeType !== 'brush') {
+            obj.strokeType = this.gradientType;
           }
-        } else {
-          if (SvgRadialGrad) {
-            obj.fillGradient = new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
-          } else {
-            obj.fillGradient = { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
+          const gradObj = createGradObj();
+          obj.strokeGradient = gradObj;
+          if (obj.strokeBrushFill) {
+            obj.strokeBrushFill.gradient = gradObj;
           }
+          delete obj._cachedStrokeBfStrokes;
+          delete obj._cachedStrokeBfKey;
+        }
+      } else {
+        if (selected.length === 0) {
+          activeDoc.defaultFillType = this.gradientType;
+          activeDoc.defaultFillGradient = createGradObj();
+        }
+        for (const obj of selected) {
+          if (obj.fillType !== 'brush') {
+            obj.fillType = this.gradientType;
+          }
+          const gradObj = createGradObj();
+          obj.fillGradient = gradObj;
+          if (obj.brushFill) {
+            obj.brushFill.gradient = gradObj;
+          }
+          delete obj._cachedBfStrokes;
+          delete obj._cachedBfKey;
         }
       }
 
@@ -3021,7 +3083,7 @@
       if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
 
       if (commit && selected.length > 0) {
-        if (activeDoc.pushHistory) activeDoc.pushHistory('Change Material Gradient');
+        if (activeDoc.pushHistory) activeDoc.pushHistory(`Change ${this.activeTarget === 'stroke' ? 'Stroke' : 'Material'} Gradient`);
         if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
       }
     }
@@ -3052,6 +3114,8 @@
         item.addEventListener('click', () => {
           this.gradientStops = p.stops.map(s => ({ offset: s.offset, color: s.color, opacity: 1.0, intensity: 1.0 }));
           this.activeGradientStopIdx = 0;
+          if (this.dom.gradEnabled) this.dom.gradEnabled.checked = true;
+          if (this.dom.gradControlsContainer) this.dom.gradControlsContainer.style.display = 'flex';
           this.applyGradientToSelected(true);
           this.updateGradientUI();
         });
@@ -4745,31 +4809,34 @@
         this.setColorFromExternal(activeColorVal, this.currentA);
 
         // Sync Gradients
-        if (primary && primary.fillType && primary.fillType !== 'solid' && primary.fillGradient) {
-          this.gradientType = primary.fillType;
-          if (Array.isArray(primary.fillGradient.stops) && primary.fillGradient.stops.length > 0) {
-            this.gradientStops = primary.fillGradient.stops.map(s => ({
+        const isStrokeTarget = (this.activeTarget === 'stroke');
+        const gradObj = isStrokeTarget
+          ? (primary?.strokeGradient || primary?.strokeBrushFill?.gradient || activeDoc?.defaultStrokeGradient)
+          : (primary?.fillGradient || primary?.brushFill?.gradient || activeDoc?.defaultFillGradient);
+        const gradType = isStrokeTarget
+          ? (primary?.strokeType && primary.strokeType !== 'solid' && primary.strokeType !== 'brush' ? primary.strokeType : (gradObj?.type || activeDoc?.defaultStrokeType || 'linear'))
+          : (primary?.fillType && primary.fillType !== 'solid' && primary.fillType !== 'brush' ? primary.fillType : (gradObj?.type || activeDoc?.defaultFillType || 'linear'));
+
+        const hasGrad = Boolean(
+          (isStrokeTarget ? (primary?.strokeType === 'linear' || primary?.strokeType === 'radial') : (primary?.fillType === 'linear' || primary?.fillType === 'radial')) ||
+          (primary?.brushFill?.gradient || primary?.strokeBrushFill?.gradient)
+        );
+
+        if (this.dom.gradEnabled) this.dom.gradEnabled.checked = hasGrad;
+        if (this.dom.gradControlsContainer) this.dom.gradControlsContainer.style.display = hasGrad ? 'flex' : 'none';
+
+        if (gradObj) {
+          this.gradientType = (gradType === 'radial' || gradObj.type === 'radial') ? 'radial' : 'linear';
+          if (Array.isArray(gradObj.stops) && gradObj.stops.length > 0) {
+            this.gradientStops = gradObj.stops.map(s => ({
               offset: s.offset,
               color: s.color,
               opacity: s.opacity !== undefined ? s.opacity : 1.0,
               intensity: s.intensity !== undefined ? s.intensity : 1.0
             }));
           }
-          this.gradientAngle = primary.fillGradient.angle !== undefined ? primary.fillGradient.angle : 0;
-          this.gradientRadius = parseFloat(primary.fillGradient.r) || 0.5;
-          this.updateGradientUI();
-        } else if (!primary && activeDoc && activeDoc.defaultFillType && activeDoc.defaultFillType !== 'solid' && activeDoc.defaultFillGradient) {
-          this.gradientType = activeDoc.defaultFillType;
-          if (Array.isArray(activeDoc.defaultFillGradient.stops) && activeDoc.defaultFillGradient.stops.length > 0) {
-            this.gradientStops = activeDoc.defaultFillGradient.stops.map(s => ({
-              offset: s.offset,
-              color: s.color,
-              opacity: s.opacity !== undefined ? s.opacity : 1.0,
-              intensity: s.intensity !== undefined ? s.intensity : 1.0
-            }));
-          }
-          this.gradientAngle = activeDoc.defaultFillGradient.angle !== undefined ? activeDoc.defaultFillGradient.angle : 0;
-          this.gradientRadius = parseFloat(activeDoc.defaultFillGradient.r) || 0.5;
+          this.gradientAngle = gradObj.angle !== undefined ? gradObj.angle : 0;
+          this.gradientRadius = parseFloat(gradObj.r || gradObj.radius) || 0.5;
           this.updateGradientUI();
         }
 
@@ -4794,6 +4861,9 @@
         this.texturePosterize = texObj.posterize || 0;
         this.textureInvert = !!texObj.invert;
 
+        const hasTex = Boolean(this.textureMode && this.textureMode !== 0 && this.textureMode !== '0');
+        if (this.dom.texEnabled) this.dom.texEnabled.checked = hasTex;
+        if (this.dom.texControlsContainer) this.dom.texControlsContainer.style.display = hasTex ? 'flex' : 'none';
         if (this.dom.texMode) this.dom.texMode.value = this.textureMode;
         if (this.dom.texScale) this.dom.texScale.value = this.textureScale;
         if (this.dom.texAngle) this.dom.texAngle.value = this.textureAngle;
@@ -4825,6 +4895,7 @@
           this.filterOpacity = filterObj.opacity !== undefined ? Number(filterObj.opacity) : 1.0;
 
           if (this.dom.filterEnabled) this.dom.filterEnabled.checked = this.filterEnabled;
+          if (this.dom.filterControlsContainer) this.dom.filterControlsContainer.style.display = this.filterEnabled ? 'flex' : 'none';
           if (this.dom.filterIsLens) this.dom.filterIsLens.checked = this.filterIsLens;
           if (this.dom.filterPlugin) {
             this.populateFilterPluginSelect();
@@ -4836,19 +4907,24 @@
         }
 
         // Sync Brush Fill
+        const isBfTarget = (this.activeTarget === 'stroke')
+          ? (primary?.strokeType === 'brush' || primary?.strokeBrushFill?.enabled)
+          : (primary?.fillType === 'brush' || primary?.brushFill?.enabled);
         const bfObj = (this.activeTarget === 'stroke')
           ? (primary?.strokeBrushFill || activeDoc?.defaultStrokeBrushFill || DEFAULT_BRUSH_FILL_CONFIG)
           : (primary?.brushFill || activeDoc?.defaultBrushFill || DEFAULT_BRUSH_FILL_CONFIG);
         if (bfObj) {
           this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...bfObj };
-          if (primary && ((this.activeTarget === 'stroke' && primary.strokeType === 'brush') || (this.activeTarget === 'fill' && primary.fillType === 'brush'))) {
+          if (isBfTarget) {
             this.brushFillConfig.enabled = true;
           }
+          if (this.dom.bfEnabled) this.dom.bfEnabled.checked = Boolean(this.brushFillConfig.enabled && isBfTarget);
+          if (this.dom.bfControlsContainer) this.dom.bfControlsContainer.style.display = (this.brushFillConfig.enabled && isBfTarget) ? 'flex' : 'none';
           this.syncBrushFillInputs();
         }
 
         this.updateTargetChips();
-        if (this.activeMode === 'color' && this.colorSubMode === 'palettes' && this.dom.palSelect?.value === 'document') {
+        if (this.dom.palSelect?.value === 'document') {
           this.renderPalettes();
         }
       } finally {

@@ -622,6 +622,68 @@ if (renderer && mockActor) {
 }
 console.log('✔ Stroke Brush Fill (acting as outlined path ribbons) passed');
 
+// 16. Testing Static Color vs Gradient Toggling on Fill and Stroke
+console.log('16. Testing Static vs Gradient Toggling...');
+testDoc.selectedIds.clear();
+testDoc.selectedIds.add(strokeCircle.id);
+
+// 16.1. Toggle Stroke to Gradient
+widget.setTarget('stroke');
+widget.switchMode('gradient');
+assert.strictEqual(strokeCircle.strokeType, 'brush');
+assert.ok(strokeCircle.strokeGradient, 'strokeGradient should be assigned on gradient switch');
+assert.ok(strokeCircle.strokeBrushFill.gradient, 'strokeBrushFill.gradient should be assigned on gradient switch');
+
+// 16.2. Toggle Stroke back to Static Color
+widget.switchMode('color');
+assert.strictEqual(strokeCircle.strokeType, 'brush');
+assert.ok(!strokeCircle.strokeBrushFill.gradient, 'strokeBrushFill.gradient should be cleared when switching to static color');
+
+// 16.3. Visibility when set to 'none' / no color
+strokeCircle.stroke = 'none';
+delete strokeCircle._cachedStrokeBfStrokes;
+assert.strictEqual(strokeCircle.getStrokeBrushFillSVG(), '', 'getStrokeBrushFillSVG must be empty when stroke is none');
+
+testRect.fill = 'none';
+delete testRect._cachedBfStrokes;
+assert.strictEqual(testRect.getBrushFillSVG(), '', 'getBrushFillSVG must be empty when fill is none');
+console.log('✔ Static vs Gradient Toggling & No-Color Invisibility passed');
+
+// 17. Testing Stroke Ribbon Geometry Confinement (No center leaks across patterns)
+console.log('17. Testing Stroke Ribbon Geometry Confinement on Closed Shapes...');
+const ringCircle = new SvgCircle({ cx: 100, cy: 100, r: 40, fill: 'none', stroke: '#fabd2f', strokeWidth: 10 });
+const polylines = [ringCircle.toPolyline(0.4)];
+const ribbons = renderer._convertPolylinesToStrokeRibbons(polylines, ringCircle, 10);
+assert.strictEqual(ribbons.length, 1, 'Closed shape should produce 1 stitched ribbon polygon');
+
+// Test Stipple pattern on stroke ribbon
+const stippleStrokes = BrushFillEngine.generateStrokes(ribbons, {
+  enabled: true,
+  pattern: 'stipple',
+  spacing: 4
+});
+assert.ok(stippleStrokes.length > 0, 'Should generate stipple dots on stroke ribbon');
+for (const s of stippleStrokes) {
+  const dist = Math.hypot(s.cx - 100, s.cy - 100);
+  // Center is at 100, radius is 40, strokeWidth is 10 (hw = 5) -> dist must be in [34..46]
+  assert.ok(dist >= 33 && dist <= 47, `Stipple dot at dist ${dist} must be strictly within stroke ribbon [35..45]`);
+}
+
+// Test Scribble pattern on stroke ribbon
+const scribbleStrokes = BrushFillEngine.generateStrokes(ribbons, {
+  enabled: true,
+  pattern: 'scribble',
+  spacing: 6
+});
+assert.ok(scribbleStrokes.length > 0, 'Should generate scribble segments on stroke ribbon');
+for (const s of scribbleStrokes) {
+  const dist0 = Math.hypot(s.p0.x - 100, s.p0.y - 100);
+  const dist1 = Math.hypot(s.p1.x - 100, s.p1.y - 100);
+  assert.ok(dist0 >= 30 && dist0 <= 50, `Scribble p0 at dist ${dist0} must stay within stroke band`);
+  assert.ok(dist1 >= 30 && dist1 <= 50, `Scribble p1 at dist ${dist1} must stay within stroke band`);
+}
+console.log('✔ Stroke Ribbon Geometry Confinement passed');
+
 console.log('--- ALL PROCEDURAL BRUSH FILL ENGINE TESTS PASSED ---');
 
 
