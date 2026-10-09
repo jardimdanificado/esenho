@@ -4084,12 +4084,6 @@
           </div>
         </div>
         <div class="form-row">
-          <label>Background</label>
-          <label style="display: flex; align-items: center; gap: 6px; font-size: 11px; cursor: pointer; user-select: none;">
-            <input type="checkbox" id="export-anim-bg" checked style="cursor: pointer;"> Solid Canvas Background
-          </label>
-        </div>
-        <div class="form-row">
           <label>Output Info</label>
           <span id="export-anim-dim-preview" style="font-size: 10px; color: var(--text-dim); font-family: var(--font-mono);">800 × 600 px (60 frames @ 24fps = 2.5s)</span>
         </div>
@@ -5673,7 +5667,34 @@
 
           for (const obj of targetPaths) {
             const nodes = obj.nodes;
+            if (!nodes || nodes.length === 0) continue;
 
+            // 1. Draw the vector path outline/wireframe in the overlay
+            ctx.save();
+            ctx.strokeStyle = '#83a598';
+            ctx.lineWidth = 1.2 / zoom;
+            ctx.setLineDash([4 / zoom, 3 / zoom]);
+            ctx.beginPath();
+            ctx.moveTo(nodes[0].x, nodes[0].y);
+            for (let i = 1; i < nodes.length; i++) {
+              const prev = nodes[i - 1];
+              const curr = nodes[i];
+              const cp1 = prev.getAbsCpOut();
+              const cp2 = curr.getAbsCpIn();
+              ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+            }
+            if (obj.closed && nodes.length > 1) {
+              const prev = nodes[nodes.length - 1];
+              const curr = nodes[0];
+              const cp1 = prev.getAbsCpOut();
+              const cp2 = curr.getAbsCpIn();
+              ctx.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, curr.x, curr.y);
+            }
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+
+            // 2. Draw Handle Lines and Anchor Points
             ctx.save();
             for (let i = 0; i < nodes.length; i++) {
               const node = nodes[i];
@@ -9049,6 +9070,13 @@
         document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
         if (btn) btn.classList.add('active');
         activeTool = toolName;
+        if (activeTool === 'node') {
+          const selected = doc.getSelectedObjects();
+          if (selected.length > 0 && selected[0].type !== 'path' && selected[0].type !== 'image' && selected[0].type !== 'text' && selected[0].type !== 'group' && typeof selected[0].toPath === 'function') {
+            doc.convertSelectedToPath();
+            updateObjectList();
+          }
+        }
         if (activeTool === 'hand') {
           viewportContainer.classList.add('panning');
         } else {
@@ -12096,7 +12124,7 @@
         const endFrame = Math.min(totalMax, Math.max(startFrame, parseInt(exportAnimEnd?.value, 10) || totalMax));
         const fps = Math.max(1, parseInt(exportAnimFps?.value, 10) || (window.dopeSheet.fps || 24));
         const scale = parseFloat(exportAnimScale?.value || 1.0);
-        const includeBg = exportAnimBg ? exportAnimBg.checked : true;
+        const includeBg = false;
         const safeTitle = (currentProjectTitle || 'esenho_anim').toLowerCase().replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '_') || 'esenho_anim';
 
         const totalFramesToRender = endFrame - startFrame + 1;

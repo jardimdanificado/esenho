@@ -3116,16 +3116,31 @@
       if (preset.color) this.setColorFromExternal(preset.color);
       if (preset.alpha !== undefined) this.currentA = preset.alpha;
 
+      const d = this.dom;
+
       if (isBrushFillMat) {
         const bf = preset.brushFill ? { ...preset.brushFill } : { ...preset };
         bf.enabled = true;
         this.brushFillConfig = { ...DEFAULT_BRUSH_FILL_CONFIG, ...bf };
+        this.textureMode = 0;
+        this.filterEnabled = false;
+
+        if (d.bfEnabled) d.bfEnabled.checked = true;
+        if (d.bfControlsContainer) d.bfControlsContainer.style.display = 'flex';
+        if (d.texEnabled) d.texEnabled.checked = false;
+        if (d.texControlsContainer) d.texControlsContainer.style.display = 'none';
+        if (d.filterEnabled) d.filterEnabled.checked = false;
+        if (d.filterControlsContainer) d.filterControlsContainer.style.display = 'none';
+
         this.syncBrushFillInputs();
         this.switchMode('brushfill');
         this.applyToSelected(false);
         this.applyBrushFillToSelected(true);
       } else {
         this.brushFillConfig.enabled = false;
+        if (d.bfEnabled) d.bfEnabled.checked = false;
+        if (d.bfControlsContainer) d.bfControlsContainer.style.display = 'none';
+
         if (preset.texture) {
           this.textureMode = preset.texture.mode !== undefined ? preset.texture.mode : (preset.texture.ref === 'none' ? 0 : 1);
           this.textureScale = preset.texture.scale !== undefined ? preset.texture.scale : 100;
@@ -3145,22 +3160,69 @@
           this.textureInvert = !!preset.texture.invert;
         } else {
           this.textureMode = 0;
+          this.textureScale = 100;
+          this.textureAngle = 0;
+          this.textureContrast = 100;
+          this.textureGrain = 0;
+          this.textureRelative = false;
+          this.textureOffsetX = 0;
+          this.textureOffsetY = 0;
+          this.textureHardness = 100;
+          this.textureHardnessIntensity = 50;
+          this.textureWarpStrength = 0;
+          this.textureWarpFreq = 20;
+          this.textureNoiseDistort = 0;
+          this.texturePinchSwirl = 0;
+          this.texturePosterize = 0;
+          this.textureInvert = false;
         }
 
+        const hasTex = Boolean(this.textureMode && this.textureMode !== 0 && this.textureMode !== '0');
+        if (d.texEnabled) d.texEnabled.checked = hasTex;
+        if (d.texControlsContainer) d.texControlsContainer.style.display = hasTex ? 'flex' : 'none';
+        if (d.texMode) d.texMode.value = String(this.textureMode);
+        if (d.texScale) d.texScale.value = String(this.textureScale);
+        if (d.texAngle) d.texAngle.value = String(this.textureAngle);
+        if (d.texContrast) d.texContrast.value = String(this.textureContrast);
+        if (d.texGrain) d.texGrain.value = String(this.textureGrain);
+        if (d.texRelative) d.texRelative.value = this.textureRelative ? '1' : '0';
+        if (d.texOffsetX) d.texOffsetX.value = String(this.textureOffsetX);
+        if (d.texOffsetY) d.texOffsetY.value = String(this.textureOffsetY);
+        if (d.texHardness) d.texHardness.value = String(this.textureHardness);
+        if (d.texHardnessIntensity) d.texHardnessIntensity.value = String(this.textureHardnessIntensity);
+        if (d.texWarpStrength) d.texWarpStrength.value = String(this.textureWarpStrength);
+        if (d.texWarpFreq) d.texWarpFreq.value = String(this.textureWarpFreq);
+        if (d.texNoiseDistort) d.texNoiseDistort.value = String(this.textureNoiseDistort);
+        if (d.texPinchSwirl) d.texPinchSwirl.value = String(this.texturePinchSwirl);
+        if (d.texPosterize) d.texPosterize.value = String(this.texturePosterize);
+        if (d.texInvert) d.texInvert.checked = this.textureInvert;
+
         if (preset.filter) {
-          this.filterEnabled = !!preset.filter.enabled;
+          this.filterEnabled = (preset.filter.enabled !== undefined) ? !!preset.filter.enabled : true;
           this.filterIsLens = (preset.filter.target === 'backdrop' || !!preset.filter.isLens);
           this.filterTarget = preset.filter.target || (this.filterIsLens ? 'backdrop' : 'fill');
           this.filterPlugin = preset.filter.plugin || 'bloom';
-          this.filterP1 = preset.filter.p1 || 0;
-          this.filterP2 = preset.filter.p2 || 0;
+          this.filterP1 = preset.filter.p1 !== undefined ? preset.filter.p1 : 0;
+          this.filterP2 = preset.filter.p2 !== undefined ? preset.filter.p2 : 0;
+          this.filterParams = preset.filter.params ? [...preset.filter.params] : [this.filterP1, this.filterP2];
           this.filterOpacity = preset.filter.opacity !== undefined ? preset.filter.opacity : 1.0;
+        } else {
+          this.filterEnabled = false;
         }
 
-        this.switchMode(preset.mode || (this.textureMode !== 0 ? 'texture' : 'color'));
+        if (d.filterEnabled) d.filterEnabled.checked = this.filterEnabled;
+        if (d.filterControlsContainer) d.filterControlsContainer.style.display = this.filterEnabled ? 'flex' : 'none';
+        if (d.filterPlugin) d.filterPlugin.value = this.filterPlugin;
+        if (d.filterIsLens) d.filterIsLens.checked = this.filterIsLens;
+        if (d.filterOpacity) d.filterOpacity.value = String(this.filterOpacity);
+        if (d.filterOpacitySlider) d.filterOpacitySlider.value = String(this.filterOpacity);
+        this.renderFilterParams();
+
+        this.switchMode(preset.mode || (hasTex ? 'texture' : 'color'));
+        this.applyBrushFillToSelected(false);
         this.applyToSelected(false);
         this.applyTextureToSelected(false);
-        this.applyFilterToSelected(false);
+        this.applyFilterToSelected(true);
       }
 
       this.syncFromSelection(true);
@@ -4056,8 +4118,8 @@
       const brushSecondary = brushes[1] || '';
 
       return {
-        enabled: d.bfEnabled ? d.bfEnabled.checked : true,
-        pattern: d.bfPattern ? d.bfPattern.value : 'linear',
+        enabled: (d && d.bfEnabled) ? d.bfEnabled.checked : (this.brushFillConfig.enabled !== undefined ? this.brushFillConfig.enabled : true),
+        pattern: d.bfPattern ? d.bfPattern.value : (this.brushFillConfig.pattern || 'linear'),
         strokeDirection: d.bfStrokeDirection ? d.bfStrokeDirection.value : 'bidirectional',
         spacing: d.bfSpacing ? Number(d.bfSpacing.value) || 8 : 8,
         spacingJitter: d.bfSpacingJitter ? Number(d.bfSpacingJitter.value) || 0 : 0,

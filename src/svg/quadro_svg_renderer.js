@@ -168,6 +168,24 @@
     return m;
   }
 
+  function getPolysFingerprint(polys) {
+    if (!polys || polys.length === 0) return '0';
+    let h1 = 0, h2 = 0, totalPts = 0;
+    for (let p = 0; p < polys.length; p++) {
+      const poly = polys[p];
+      if (!poly) continue;
+      totalPts += poly.length;
+      for (let i = 0; i < poly.length; i++) {
+        const pt = poly[i];
+        const ix = Math.round((pt.x || 0) * 100) | 0;
+        const iy = Math.round((pt.y || 0) * 100) | 0;
+        h1 = (Math.imul(h1 ^ ix, 2654435761) + iy) | 0;
+        h2 = (Math.imul(h2 ^ iy, 1597334677) + ix) | 0;
+      }
+    }
+    return `${polys.length}_${totalPts}_${h1}_${h2}`;
+  }
+
   function posMod(a, m) {
     const r = a % m;
     return r < 0 ? r + m : r;
@@ -803,6 +821,10 @@
       } else if (typeof window !== 'undefined' && window.esenho && window.esenho.plugins && window.esenho.plugins.has(name)) {
         const p = window.esenho.plugins.get(name);
         if (p && p.bytes) bytes = p.bytes;
+      } else if (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.getWasmBinary === 'function') {
+        bytes = EsenhoRegistry.getWasmBinary(name);
+      } else if (typeof window !== 'undefined' && window.EsenhoRegistry && typeof window.EsenhoRegistry.getWasmBinary === 'function') {
+        bytes = window.EsenhoRegistry.getWasmBinary(name);
       } else if (typeof require !== 'undefined') {
         try {
           const fs = require('fs');
@@ -812,6 +834,17 @@
             bytes = fs.readFileSync(pluginPath);
           }
         } catch (e) {}
+      }
+
+      if (!bytes && typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.get === 'function') {
+        const item = EsenhoRegistry.get('wasm_fx', name) || EsenhoRegistry.get('wasmFx', name);
+        if (item && item.wasmBase64 && typeof atob === 'function') {
+          const binStr = atob(item.wasmBase64);
+          const len = binStr.length;
+          const u8 = new Uint8Array(len);
+          for (let i = 0; i < len; i++) u8[i] = binStr.charCodeAt(i);
+          bytes = u8;
+        }
       }
 
       if (!bytes) return null;
@@ -1233,26 +1266,24 @@
       const localM = getNodeLocalMatrix(maskObj);
       const maskMatrix = parentMatrix ? multiplyMatrix(parentMatrix, localM) : localM;
 
+      let pathObj = maskObj;
+      if (typeof maskObj.toPath === 'function') {
+        pathObj = maskObj.toPath();
+      }
+      const rawPolys = pathObj.toPolylines ? pathObj.toPolylines(0.4) : (pathObj.toPolyline ? [pathObj.toPolyline(0.4)] : []);
+      const transformPoly = (poly) => isIdentityMatrix(maskMatrix) ? poly : poly.map(p => transformPoint(maskMatrix, p));
+      const polylines = rawPolys.map(transformPoly);
+      if (!polylines || polylines.length === 0) return maskAlpha;
+
       if (typeof document !== 'undefined' && document.createElement) {
         const off = document.createElement('canvas');
         off.width = lw;
         off.height = lh;
         const ctx = off.getContext('2d');
-        if (!ctx) return maskAlpha;
-
-        ctx.save();
-        if (!isIdentityMatrix(maskMatrix)) {
-          ctx.transform(maskMatrix[0], maskMatrix[1], maskMatrix[2], maskMatrix[3], maskMatrix[4] * scale, maskMatrix[5] * scale);
-        }
-
-        ctx.fillStyle = '#ffffff';
-        let pathObj = maskObj;
-        if (typeof maskObj.toPath === 'function') {
-          pathObj = maskObj.toPath();
-        }
-
-        if (pathObj.toPolylines) {
-          const polylines = pathObj.toPolylines(0.4);
+        if (ctx) {
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+          ctx.clearRect(0, 0, lw, lh);
+          ctx.fillStyle = '#ffffff';
           ctx.beginPath();
           for (const poly of polylines) {
             if (!poly || poly.length < 2) continue;
@@ -1263,53 +1294,51 @@
             ctx.closePath();
           }
           ctx.fill(pathObj.fillRule || 'evenodd');
-        } else if (pathObj.toPolyline) {
-          const poly = pathObj.toPolyline(0.4);
-          if (poly.length >= 2) {
-            ctx.beginPath();
-            ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
-            for (let i = 1; i < poly.length; i++) {
-              ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
-            }
-            ctx.closePath();
-            ctx.fill();
-          }
-        } else if (maskObj.type === 'rect') {
-          ctx.fillRect(maskObj.x * scale, maskObj.y * scale, maskObj.width * scale, maskObj.height * scale);
-        } else if (maskObj.type === 'circle') {
-          ctx.beginPath();
-          ctx.arc(maskObj.cx * scale, maskObj.cy * scale, (maskObj.r || maskObj.rx) * scale, 0, Math.PI * 2);
-          ctx.fill();
-        } else if (maskObj.type === 'ellipse') {
-          ctx.beginPath();
-          ctx.ellipse(maskObj.cx * scale, maskObj.cy * scale, maskObj.rx * scale, maskObj.ry * scale, 0, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        ctx.restore();
 
-        const imgData = ctx.getImageData(0, 0, lw, lh);
-        const d = imgData.data;
-        for (let i = 0; i < lw * lh; i++) {
-          maskAlpha[i] = d[i * 4 + 3];
-        }
-      } else {
-        let pathObj = maskObj;
-        if (typeof maskObj.toPath === 'function') pathObj = maskObj.toPath();
-        const rawPolys = pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []);
-        const transformPoly = (poly) => isIdentityMatrix(maskMatrix) ? poly : poly.map(p => transformPoint(maskMatrix, p));
-        const polylines = rawPolys.map(transformPoly);
-        for (const poly of polylines) {
-          if (!poly || poly.length < 3) continue;
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-          for (const p of poly) {
-            minX = Math.min(minX, p.x * scale);
-            maxX = Math.max(maxX, p.x * scale);
-            minY = Math.min(minY, p.y * scale);
-            maxY = Math.max(maxY, p.y * scale);
+          const imgData = ctx.getImageData(0, 0, lw, lh);
+          const d = imgData.data;
+          for (let i = 0; i < lw * lh; i++) {
+            maskAlpha[i] = d[i * 4 + 3];
           }
-          for (let y = Math.max(0, Math.floor(minY)); y <= Math.min(lh - 1, Math.ceil(maxY)); y++) {
-            for (let x = Math.max(0, Math.floor(minX)); x <= Math.min(lw - 1, Math.ceil(maxX)); x++) {
-              maskAlpha[y * lw + x] = 255;
+          return maskAlpha;
+        }
+      }
+
+      // Pure JS robust floating-point half-pixel scanline fallback
+      const scaledPolys = [];
+      for (const poly of polylines) {
+        if (!poly || poly.length < 3) continue;
+        scaledPolys.push(poly.map(p => ({
+          x: p.x * scale,
+          y: p.y * scale
+        })));
+      }
+
+      const nodeX = [];
+      for (let y = 0; y < lh; y++) {
+        const sy = y + 0.5;
+        nodeX.length = 0;
+        for (const pts of scaledPolys) {
+          const n = pts.length;
+          let j = n - 1;
+          for (let i = 0; i < n; i++) {
+            const pi = pts[i];
+            const pj = pts[j];
+            if ((pi.y < sy && pj.y >= sy) || (pj.y < sy && pi.y >= sy)) {
+              const x = pi.x + ((sy - pi.y) / (pj.y - pi.y)) * (pj.x - pi.x);
+              nodeX.push(x);
+            }
+            j = i;
+          }
+        }
+        nodeX.sort((a, b) => a - b);
+        for (let i = 0; i + 1 < nodeX.length; i += 2) {
+          const x0 = Math.max(0, Math.ceil(nodeX[i] - 0.5));
+          const x1 = Math.min(lw - 1, Math.floor(nodeX[i + 1] - 0.5));
+          if (x0 <= x1) {
+            const row = y * lw;
+            for (let x = x0; x <= x1; x++) {
+              maskAlpha[row + x] = 255;
             }
           }
         }
@@ -1483,19 +1512,24 @@
 
         this.filterRunner.applyFilter(effObjectFilter.plugin, objBuf, bw, bh, Number(effObjectFilter.p1 || 0), Number(effObjectFilter.p2 || 0), this.currentDoc);
         const filterOpacity = effObjectFilter.opacity !== undefined ? Number(effObjectFilter.opacity) : 1.0;
+        const shapeMask = this.rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, totalMatrix, rotatedPolys);
 
         for (let y = 0; y < bh; y++) {
           const destRow = (by0 + y) * lw + bx0;
           const srcRow = y * bw;
           for (let x = 0; x < bw; x++) {
-            let col = objBuf[srcRow + x];
-            let a = (col >>> 24) & 0xFF;
-            if (a > 0) {
-              if (filterOpacity < 1.0) {
-                a = Math.round(a * filterOpacity);
-                col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+            const m = shapeMask[srcRow + x];
+            if (m > 0) {
+              let col = objBuf[srcRow + x];
+              let a = (col >>> 24) & 0xFF;
+              if (a > 0) {
+                const effectiveAlpha = (m / 255) * filterOpacity * totalOpacity;
+                if (effectiveAlpha < 1.0) {
+                  a = Math.round(a * effectiveAlpha);
+                  col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+                }
+                pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
               }
-              pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
             }
           }
         }
@@ -1564,19 +1598,24 @@
             }
 
             this.filterRunner.applyFilter(effFillFilter.plugin, fillBuf, bw, bh, p1, p2, this.currentDoc);
+            const shapeMask = this.rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, totalMatrix, rotatedPolys);
 
             for (let y = 0; y < bh; y++) {
               const destRow = (by0 + y) * lw + bx0;
               const srcRow = y * bw;
               for (let x = 0; x < bw; x++) {
-                let col = fillBuf[srcRow + x];
-                let a = (col >>> 24) & 0xFF;
-                if (a > 0) {
-                  if (filterOpacity < 1.0) {
-                    a = Math.round(a * filterOpacity);
-                    col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+                const m = shapeMask[srcRow + x];
+                if (m > 0) {
+                  let col = fillBuf[srcRow + x];
+                  let a = (col >>> 24) & 0xFF;
+                  if (a > 0) {
+                    const effectiveAlpha = (m / 255) * filterOpacity * totalOpacity;
+                    if (effectiveAlpha < 1.0) {
+                      a = Math.round(a * effectiveAlpha);
+                      col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+                    }
+                    pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
                   }
-                  pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
                 }
               }
             }
@@ -1606,11 +1645,14 @@
           this._renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity);
 
           const strokeBuf = new Uint32Array(bw * bh);
+          const strokeMask = new Uint8Array(bw * bh);
           for (let y = 0; y < bh; y++) {
             const srcRow = (by0 + y) * lw + bx0;
             const dstRow = y * bw;
             for (let x = 0; x < bw; x++) {
-              strokeBuf[dstRow + x] = pixels[srcRow + x];
+              const pix = pixels[srcRow + x];
+              strokeBuf[dstRow + x] = pix;
+              strokeMask[dstRow + x] = (pix >>> 24) & 0xFF;
               pixels[srcRow + x] = savedBuf[dstRow + x];
             }
           }
@@ -1621,14 +1663,18 @@
             const destRow = (by0 + y) * lw + bx0;
             const srcRow = y * bw;
             for (let x = 0; x < bw; x++) {
-              let col = strokeBuf[srcRow + x];
-              let a = (col >>> 24) & 0xFF;
-              if (a > 0) {
-                if (filterOpacity < 1.0) {
-                  a = Math.round(a * filterOpacity);
-                  col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+              const m = strokeMask[srcRow + x];
+              if (m > 0) {
+                let col = strokeBuf[srcRow + x];
+                let a = (col >>> 24) & 0xFF;
+                if (a > 0) {
+                  const effectiveAlpha = (m / 255) * filterOpacity * totalOpacity;
+                  if (effectiveAlpha < 1.0) {
+                    a = Math.round(a * effectiveAlpha);
+                    col = ((a << 24) | (col & 0x00FFFFFF)) >>> 0;
+                  }
+                  pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
                 }
-                pixels[destRow + x] = this.blendFast(col, pixels[destRow + x]);
               }
             }
           }
@@ -1660,7 +1706,8 @@
             color: obj.fill || '#fabd2f',
             gradient: activeGrad
           };
-          const objKey = `${JSON.stringify(brushFillCfg)}_${scale}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
+          const polyFp = getPolysFingerprint(rotatedPolys);
+          const objKey = `${JSON.stringify(brushFillCfg)}_${scale}_${polyFp}`;
           let strokes = (obj._cachedBfKey === objKey && obj._cachedBfStrokes) ? obj._cachedBfStrokes : null;
           if (!strokes) {
             strokes = Engine.generateStrokes(rotatedPolys, brushFillCfg);
@@ -1705,7 +1752,8 @@
               color: obj.stroke || '#fabd2f',
               gradient: activeGrad
             };
-            const objKey = `stroke_${JSON.stringify(brushFillCfg)}_${scale}_${scaledStrokeWidth}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
+            const ribbonFp = getPolysFingerprint(strokeRibbons);
+            const objKey = `stroke_${JSON.stringify(brushFillCfg)}_${scale}_${scaledStrokeWidth}_${ribbonFp}`;
             let strokes = (obj._cachedStrokeBfKey === objKey && obj._cachedStrokeBfStrokes) ? obj._cachedStrokeBfStrokes : null;
             if (!strokes) {
               strokes = Engine.generateStrokes(strokeRibbons, brushFillCfg);
@@ -1800,6 +1848,8 @@
      */
     rasterizeLocalShapeMask(pathObj, scale, bx0, by0, bw, bh, totalMatrix = null, rotatedPolys = null) {
       const mask = new Uint8Array(bw * bh);
+      const polylines = rotatedPolys || (pathObj.toPolylines ? pathObj.toPolylines(0.4) : (pathObj.toPolyline ? [pathObj.toPolyline(0.4)] : []));
+      if (!polylines || polylines.length === 0) return mask;
 
       if (typeof document !== 'undefined' && document.createElement) {
         if (!this._poolMaskCanvas) {
@@ -1812,49 +1862,21 @@
         }
         const ctx = off.getContext('2d', { willReadFrequently: true });
         if (ctx) {
-          ctx.save();
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
           ctx.clearRect(0, 0, bw, bh);
           ctx.translate(-bx0, -by0);
-          if (totalMatrix && !isIdentityMatrix(totalMatrix)) {
-            ctx.transform(totalMatrix[0], totalMatrix[1], totalMatrix[2], totalMatrix[3], totalMatrix[4] * scale, totalMatrix[5] * scale);
-          }
           ctx.fillStyle = '#ffffff';
 
-          if (pathObj.toPolylines) {
-            const polylines = pathObj.toPolylines(0.4);
-            ctx.beginPath();
-            for (const poly of polylines) {
-              if (!poly || poly.length < 2) continue;
-              ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
-              for (let i = 1; i < poly.length; i++) {
-                ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
-              }
-              ctx.closePath();
+          ctx.beginPath();
+          for (const poly of polylines) {
+            if (!poly || poly.length < 2) continue;
+            ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
+            for (let i = 1; i < poly.length; i++) {
+              ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
             }
-            ctx.fill(pathObj.fillRule || 'evenodd');
-          } else if (pathObj.toPolyline) {
-            const poly = pathObj.toPolyline(0.4);
-            if (poly.length >= 2) {
-              ctx.beginPath();
-              ctx.moveTo(poly[0].x * scale, poly[0].y * scale);
-              for (let i = 1; i < poly.length; i++) {
-                ctx.lineTo(poly[i].x * scale, poly[i].y * scale);
-              }
-              ctx.closePath();
-              ctx.fill();
-            }
-          } else if (pathObj.type === 'rect') {
-            ctx.fillRect(pathObj.x * scale, pathObj.y * scale, pathObj.width * scale, pathObj.height * scale);
-          } else if (pathObj.type === 'circle') {
-            ctx.beginPath();
-            ctx.arc(pathObj.cx * scale, pathObj.cy * scale, (pathObj.r || pathObj.rx) * scale, 0, Math.PI * 2);
-            ctx.fill();
-          } else if (pathObj.type === 'ellipse') {
-            ctx.beginPath();
-            ctx.ellipse(pathObj.cx * scale, pathObj.cy * scale, pathObj.rx * scale, pathObj.ry * scale, 0, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.closePath();
           }
-          ctx.restore();
+          ctx.fill(pathObj.fillRule || 'evenodd');
 
           const imgData = ctx.getImageData(0, 0, bw, bh);
           const d = imgData.data;
@@ -1866,45 +1888,42 @@
       }
 
       // Pure JS scanline fallback (for Node / headless tests)
-      const polylines = rotatedPolys || (pathObj.toPolylines ? pathObj.toPolylines(0.5) : (pathObj.toPolyline ? [pathObj.toPolyline(0.5)] : []));
+      const scaledPolys = [];
       for (const poly of polylines) {
         if (!poly || poly.length < 3) continue;
-        const localPts = poly.map(p => ({
-          x: Math.round(p.x * scale) - bx0,
-          y: Math.round(p.y * scale) - by0
-        }));
+        scaledPolys.push(poly.map(p => ({
+          x: p.x * scale - bx0,
+          y: p.y * scale - by0
+        })));
+      }
 
-        let pMinY = bh, pMaxY = 0;
-        for (const p of localPts) {
-          if (p.y < pMinY) pMinY = p.y;
-          if (p.y > pMaxY) pMaxY = p.y;
-        }
-        pMinY = Math.max(0, pMinY);
-        pMaxY = Math.min(bh - 1, pMaxY);
 
-        const nodeX = [];
-        for (let y = pMinY; y <= pMaxY; y++) {
-          nodeX.length = 0;
-          let j = localPts.length - 1;
-          for (let i = 0; i < localPts.length; i++) {
-            const pi = localPts[i];
-            const pj = localPts[j];
-            if ((pi.y < y && pj.y >= y) || (pj.y < y && pi.y >= y)) {
-              const x = Math.round(pi.x + (y - pi.y) / (pj.y - pi.y) * (pj.x - pi.x));
+
+      const nodeX = [];
+      for (let y = 0; y < bh; y++) {
+        const sy = y + 0.5;
+        nodeX.length = 0;
+        for (const pts of scaledPolys) {
+          const n = pts.length;
+          let j = n - 1;
+          for (let i = 0; i < n; i++) {
+            const pi = pts[i];
+            const pj = pts[j];
+            if ((pi.y < sy && pj.y >= sy) || (pj.y < sy && pi.y >= sy)) {
+              const x = pi.x + ((sy - pi.y) / (pj.y - pi.y)) * (pj.x - pi.x);
               nodeX.push(x);
             }
             j = i;
           }
-          nodeX.sort((a, b) => a - b);
-          for (let i = 0; i < nodeX.length; i += 2) {
-            if (nodeX[i] >= bw) break;
-            if (nodeX[i + 1] > 0) {
-              const x0 = Math.max(0, nodeX[i]);
-              const x1 = Math.min(bw - 1, nodeX[i + 1]);
-              const row = y * bw;
-              for (let x = x0; x <= x1; x++) {
-                mask[row + x] = 255;
-              }
+        }
+        nodeX.sort((a, b) => a - b);
+        for (let i = 0; i + 1 < nodeX.length; i += 2) {
+          const x0 = Math.max(0, Math.ceil(nodeX[i] - 0.5));
+          const x1 = Math.min(bw - 1, Math.floor(nodeX[i + 1] - 0.5));
+          if (x0 <= x1) {
+            const row = y * bw;
+            for (let x = x0; x <= x1; x++) {
+              mask[row + x] = 255;
             }
           }
         }
@@ -2247,33 +2266,28 @@
       const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
       if (!polylines || polylines.length === 0) return;
 
-      let minY = lh, maxY = 0;
+      let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
       const scaledPolys = [];
       for (const poly of polylines) {
         if (!poly || poly.length < 3) continue;
         const sPts = poly.map(p => {
-          const x = Math.round(p.x * scale);
-          const y = Math.round(p.y * scale);
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
+          const x = p.x * scale;
+          const y = p.y * scale;
+          if (x < bMinX) bMinX = x;
+          if (x > bMaxX) bMaxX = x;
+          if (y < bMinY) bMinY = y;
+          if (y > bMaxY) bMaxY = y;
           return { x, y };
         });
         scaledPolys.push(sPts);
       }
-      if (minY < 0) minY = 0;
-      if (maxY >= lh) maxY = lh - 1;
+      if (bMinX === Infinity) return;
+
+      let minY = Math.max(0, Math.floor(bMinY));
+      let maxY = Math.min(lh - 1, Math.ceil(bMaxY));
       if (minY > maxY) return;
 
-      let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
-      for (const pts of scaledPolys) {
-        for (const pt of pts) {
-          if (pt.x < bMinX) bMinX = pt.x;
-          if (pt.x > bMaxX) bMaxX = pt.x;
-          if (pt.y < bMinY) bMinY = pt.y;
-          if (pt.y > bMaxY) bMaxY = pt.y;
-        }
-      }
-      if (bMinX === Infinity) { bMinX = 0; bMaxX = lw; bMinY = 0; bMaxY = lh; }
+
 
       const baseAlpha = (fillArgb >>> 24) & 0xFF;
       const texMode = fillTexture ? (fillTexture.mode || 0) : 0;
@@ -2328,6 +2342,7 @@
 
       const nodeX = [];
       for (let y = minY; y <= maxY; y++) {
+        const sy = y + 0.5;
         nodeX.length = 0;
         let activeSegs = null;
         if (featherW > 0) {
@@ -2343,8 +2358,8 @@
           for (let i = 0; i < n; i++) {
             const pi = pts[i];
             const pj = pts[j];
-            if ((pi.y < y && pj.y >= y) || (pj.y < y && pi.y >= y)) {
-              const x = Math.round(pi.x + (y - pi.y) / (pj.y - pi.y) * (pj.x - pi.x));
+            if ((pi.y < sy && pj.y >= sy) || (pj.y < sy && pi.y >= sy)) {
+              const x = pi.x + ((sy - pi.y) / (pj.y - pi.y)) * (pj.x - pi.x);
               nodeX.push(x);
             }
             j = i;
@@ -2355,23 +2370,22 @@
 
         const isPlainSolid = (texMode === 0 && !customPixels && texGrain === 0 && !invert && posterize < 2 && warpStrength === 0 && noiseDistort === 0 && pinchSwirl === 0 && featherW === 0 && !gradient);
 
-        for (let i = 0; i < nodeX.length; i += 2) {
-          if (nodeX[i] >= lw) break;
-          if (nodeX[i + 1] > 0) {
-            let x0 = nodeX[i] < 0 ? 0 : nodeX[i];
-            let x1 = nodeX[i + 1] >= lw ? lw - 1 : nodeX[i + 1];
-            const row = y * lw;
+        for (let i = 0; i + 1 < nodeX.length; i += 2) {
+          let x0 = Math.max(0, Math.max(Math.floor(bMinX), Math.ceil(nodeX[i] - 0.5)));
+          let x1 = Math.min(lw - 1, Math.min(Math.ceil(bMaxX), Math.floor(nodeX[i + 1] - 0.5)));
+          if (x0 > x1) continue;
+          const row = y * lw;
 
-            if (isPlainSolid) {
-              if (baseAlpha === 255) {
-                pixels.fill(fillArgb, row + x0, row + x1 + 1);
-              } else if (baseAlpha > 0) {
-                for (let x = x0; x <= x1; x++) {
-                  pixels[row + x] = this.blendFast(fillArgb, pixels[row + x]);
-                }
+          if (isPlainSolid) {
+            if (baseAlpha === 255) {
+              pixels.fill(fillArgb, row + x0, row + x1 + 1);
+            } else if (baseAlpha > 0) {
+              for (let x = x0; x <= x1; x++) {
+                pixels[row + x] = this.blendFast(fillArgb, pixels[row + x]);
               }
-              continue;
             }
+            continue;
+          }
 
             for (let x = x0; x <= x1; x++) {
               let sx = isRelative ? (x - bMinX + offsetX) : (x + offsetX);
@@ -2475,7 +2489,6 @@
           }
         }
       }
-    }
 
     _applyBrushConfigFast(bConfig, strokeWidth, strokeTex, scale) {
       const rawShape = bConfig?.shape;

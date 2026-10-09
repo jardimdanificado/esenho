@@ -1,6 +1,6 @@
 {
   "name": "esenho",
-  "version": "0.11.27",
+  "version": "0.11.35",
   "main": "index.js",
   "scripts": {
     "test": "node tests/test_text_protocol.js && node tests/test_vector.js && node tests/test_animation.js && node tests/test_animator_runtime.js && node tests/test_dopesheet_parameters.mjs && node tests/test_universal_scripting_api.js && node tests/test_native_core.js && node tests/test_color_studio.js && node tests/test_svg_rigging.js && node tests/test_background_materials.js && node tests/test_resource_registry.js && node tests/test_unified_data.js && node tests/test_asset_bundle.js && node tests/test_brush_fill.js && node tests/test_brush_dynamics_full_stack.mjs && node tests/test_custom_textures_and_tips.js && node tests/test_svg_editor.js",
