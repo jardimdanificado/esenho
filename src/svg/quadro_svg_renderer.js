@@ -1001,7 +1001,13 @@
         this._brushParamCache = {};
       }
 
-      // Reset brush defaults if needed
+      // Reset brush defaults and force clean DRAW mode and BUILDUP=1 to prevent stale tool state or tag reuse
+      this._brushParamCache = {};
+      if (typeof this.actor.exports.w_brush_reset === 'function') {
+        this.actor.exports.w_brush_reset();
+      }
+      this.setBrushParamFast(15 /* MODE */, 0 /* DRAW */);
+      this.setBrushParamFast(18 /* BUILDUP */, 1);
       this.setBrushParamFast(1 /* SIZE */, 2);
       this.setBrushParamFast(2 /* OPACITY */, 100);
       this.setBrushParamFast(3 /* HARDNESS */, 100);
@@ -1460,8 +1466,7 @@
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
-      const pixPtr = exp.w_layer_get_pixels(3);
-      const pixels = (pixPtr && this.actor.memory) ? new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh) : null;
+      let pixels = this.getLayerBuffer(3, lw, lh);
 
       let bMinX = 0, bMinY = 0, bMaxX = lw - 1, bMaxY = lh - 1;
       if (bounds) {
@@ -1500,6 +1505,7 @@
         if (hasFill) this._renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity);
         if (hasStroke) this._renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity);
 
+        pixels = this.getLayerBuffer(3, lw, lh) || pixels;
         const objBuf = new Uint32Array(bw * bh);
         for (let y = 0; y < bh; y++) {
           const srcRow = (by0 + y) * lw + bx0;
@@ -1587,6 +1593,7 @@
 
             this._renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity);
 
+            pixels = this.getLayerBuffer(3, lw, lh) || pixels;
             const fillBuf = new Uint32Array(bw * bh);
             for (let y = 0; y < bh; y++) {
               const srcRow = (by0 + y) * lw + bx0;
@@ -1644,6 +1651,7 @@
 
           this._renderObjectStrokeOnly(obj, pathObj, rotatedPolys, scale, totalOpacity);
 
+          pixels = this.getLayerBuffer(3, lw, lh) || pixels;
           const strokeBuf = new Uint32Array(bw * bh);
           const strokeMask = new Uint8Array(bw * bh);
           for (let y = 0; y < bh; y++) {
@@ -1938,10 +1946,8 @@
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
-      const pixPtr = exp.w_layer_get_pixels(3);
-      if (!pixPtr || !this.actor.memory) return;
-
-      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+      const pixels = this.getLayerBuffer(3, lw, lh);
+      if (!pixels) return;
 
       if (typeof document !== 'undefined' && document.createElement) {
         const offCanvas = document.createElement('canvas');
@@ -2194,10 +2200,8 @@
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
-      const pixPtr = exp.w_layer_get_pixels(3);
-      if (!pixPtr || !this.actor.memory) return;
-
-      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+      const pixels = this.getLayerBuffer(3, lw, lh);
+      if (!pixels) return;
 
       if (typeof document !== 'undefined' && document.createElement) {
         const sx = imgObj.x * scale;
@@ -2260,10 +2264,8 @@
       const exp = this.actor.exports;
       const lw = exp.w_layer_get_width ? exp.w_layer_get_width(3) : 800;
       const lh = exp.w_layer_get_height ? exp.w_layer_get_height(3) : 600;
-      const pixPtr = exp.w_layer_get_pixels(3);
-      if (!pixPtr || !this.actor.memory) return;
-
-      const pixels = new Uint32Array(this.actor.memory.buffer, pixPtr, lw * lh);
+      const pixels = this.getLayerBuffer(3, lw, lh);
+      if (!pixels) return;
       if (!polylines || polylines.length === 0) return;
 
       let bMinX = Infinity, bMaxX = -Infinity, bMinY = Infinity, bMaxY = -Infinity;
@@ -2500,6 +2502,8 @@
         else if (s === 'chisel' || s === 'flat') safeShape = 2;
       }
 
+      this.setBrushParamFast(15 /* MODE */, 0 /* DRAW */);
+      this.setBrushParamFast(18 /* BUILDUP */, 1);
       this.setBrushParamFast(1 /* SIZE */, Math.max(1, strokeWidth));
       this.setBrushParamFast(2 /* OPACITY */, 100);
       this.setBrushParamFast(3 /* HARDNESS */, bConfig?.hardness !== undefined ? bConfig.hardness : 95);
@@ -2686,6 +2690,8 @@
         else if (s === 'chisel' || s === 'flat') safeShape = 2;
       }
 
+      this.setBrushParamFast(15 /* MODE */, 0 /* DRAW */);
+      this.setBrushParamFast(18 /* BUILDUP */, 1);
       this.setBrushParamFast(1 /* SIZE */, Math.max(1, strokeWidth));
       this.setBrushParamFast(2 /* OPACITY */, 100);
       this.setBrushParamFast(3 /* HARDNESS */, brushConfig?.hardness !== undefined ? brushConfig.hardness : 95);
@@ -2765,18 +2771,15 @@
       const exp = this.actor.exports;
       const w = exp.get_width ? exp.get_width() : 800;
       const h = exp.get_height ? exp.get_height() : 600;
-      const outPtr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(3) : 0;
-      if (!outPtr || !this.actor.memory) return null;
+      const srcU32 = this.getLayerBuffer(3, w, h);
+      if (!srcU32) return null;
 
       const totalPixels = w * h;
-      this.ensureMemoryCapacity(outPtr + totalPixels * 4);
-
       if (!this._cachedRawArray || this._cachedRawArray.length !== totalPixels * 4 || this._cachedRawArray.buffer.byteLength === 0) {
         this._cachedRawArray = new Uint8ClampedArray(totalPixels * 4);
         this._cachedRawU32 = new Uint32Array(this._cachedRawArray.buffer);
       }
 
-      const srcU32 = new Uint32Array(this.actor.memory.buffer, outPtr, totalPixels);
       this._cachedRawU32.set(srcU32);
 
       return { width: w, height: h, data: this._cachedRawArray };
@@ -2792,11 +2795,8 @@
       const exp = this.actor.exports;
       const w = exp.get_width ? exp.get_width() : res.width;
       const h = exp.get_height ? exp.get_height() : res.height;
-      const outPtr = exp.w_layer_get_pixels ? exp.w_layer_get_pixels(3) : 0;
-      if (!outPtr || !this.actor.memory) return false;
-
-      const totalPixels = w * h;
-      this.ensureMemoryCapacity(outPtr + totalPixels * 4);
+      const srcU32 = this.getLayerBuffer(3, w, h);
+      if (!srcU32) return false;
 
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
@@ -2815,7 +2815,6 @@
         this._cachedCanvasHeight = h;
       }
 
-      const srcU32 = new Uint32Array(this.actor.memory.buffer, outPtr, totalPixels);
       this._cachedCanvasU32.set(srcU32);
 
       ctx2d.putImageData(this._cachedCanvasImageData, 0, 0);
