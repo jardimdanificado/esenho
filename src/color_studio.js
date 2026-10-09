@@ -4,7 +4,6 @@
  * Ultra-High-Performance, Zero-Lag Material & Color Studio for Esenho.
  * Unified visual Material system supporting:
  * - Static Flat Colors & Alpha Transparency (HSV GPU Box, RGB/HSL, Palettes)
- * - Multi-stop Linear & Radial Gradients with HDR Intensity & Angle/Radius
  * - 70+ Procedural Textures & Custom Surface Dynamics (Grain, Warp, Swirl, Posterize)
  * - 28+ WASM Optical Lenses & Image Processing Kernels (Bloom, Kuwahara, Glitch, etc.)
  * - Rich 1-Click Material Presets & Custom Material Library
@@ -257,11 +256,35 @@
     load() {
       const reg = getRegistry();
       let factoryPalettes = {};
-      if (reg && typeof reg.getDict === 'function') {
-        const dict = reg.getDict('palette');
-        if (dict && Object.keys(dict).length > 0) factoryPalettes = dict;
+      if (reg && typeof reg.list === 'function') {
+        const list = reg.list('palette');
+        if (Array.isArray(list) && list.length > 0) {
+          for (const p of list) {
+            if (p && p.id) {
+              factoryPalettes[p.id] = {
+                id: p.id,
+                name: p.name || p.id,
+                colors: this.sanitizeColors(p.colors || p.swatches || []),
+                isBuiltIn: true
+              };
+            }
+          }
+        }
       }
-      this.palettes = JSON.parse(JSON.stringify(factoryPalettes));
+      if (Object.keys(factoryPalettes).length === 0 && reg && typeof reg.getDict === 'function') {
+        const dict = reg.getDict('palette');
+        if (dict && Object.keys(dict).length > 0) {
+          for (const [id, p] of Object.entries(dict)) {
+            factoryPalettes[id] = {
+              id: p.id || id,
+              name: p.name || id,
+              colors: this.sanitizeColors(p.colors || p.swatches || []),
+              isBuiltIn: true
+            };
+          }
+        }
+      }
+      this.palettes = { ...factoryPalettes };
       try {
         if (typeof localStorage !== 'undefined') {
           const rawV2 = localStorage.getItem(PALETTE_STORE_KEY);
@@ -274,13 +297,15 @@
                     id: pal.id || id,
                     name: String(pal.name || id).trim(),
                     colors: this.sanitizeColors(pal.colors),
-                    isBuiltIn: Boolean(pal.isBuiltIn && DEFAULT_FACTORY_PALETTES[id])
+                    isBuiltIn: Boolean(pal.isBuiltIn !== undefined ? pal.isBuiltIn : (factoryPalettes[id] ? true : false))
                   };
                 }
               }
             }
-            if (data && data.activePaletteId && (this.palettes[data.activePaletteId] || data.activePaletteId === 'document')) {
+            if (data && data.activePaletteId && this.palettes[data.activePaletteId] && data.activePaletteId !== 'document') {
               this.activePaletteId = data.activePaletteId;
+            } else if (!this.activePaletteId || this.activePaletteId === 'document') {
+              this.activePaletteId = 'gruvbox';
             }
           } else {
             this.migrateLegacy();
@@ -366,11 +391,41 @@
     }
 
     getAllPalettes() {
+      const reg = getRegistry();
+      if (reg && typeof reg.list === 'function') {
+        const list = reg.list('palette');
+        if (Array.isArray(list) && list.length > 0) {
+          for (const p of list) {
+            if (p && p.id && !this.palettes[p.id]) {
+              this.palettes[p.id] = {
+                id: p.id,
+                name: p.name || p.id,
+                colors: this.sanitizeColors(p.colors || p.swatches || []),
+                isBuiltIn: true
+              };
+            }
+          }
+        }
+      }
       return Object.values(this.palettes);
     }
 
     getPalette(id) {
-      return this.palettes[id] || null;
+      if (this.palettes[id]) return this.palettes[id];
+      const reg = getRegistry();
+      if (reg && typeof reg.get === 'function') {
+        const p = reg.get('palette', id);
+        if (p) {
+          this.palettes[p.id] = {
+            id: p.id,
+            name: p.name || p.id,
+            colors: this.sanitizeColors(p.colors || p.swatches || []),
+            isBuiltIn: true
+          };
+          return this.palettes[p.id];
+        }
+      }
+      return null;
     }
 
     getActivePalette() {
@@ -885,7 +940,7 @@
       this.initialized = false;
       this.container = null;
       this.activeTarget = 'fill'; // 'fill' | 'stroke'
-      this.activeMode = 'color'; // 'color' | 'gradient' | 'texture' | 'filter' | 'presets'
+      this.activeMode = 'color'; // 'color' | 'texture' | 'filter' | 'presets' | 'brushfill'
       this.colorSubMode = 'picker'; // 'picker' | 'sliders' | 'palettes'
 
       // Color State
@@ -898,16 +953,6 @@
       this.currentV = 98;
       this.currentHex = '#fabd2f';
       this.isTargetNone = false;
-
-      // Gradient State
-      this.gradientType = 'linear'; // 'linear' | 'radial'
-      this.gradientStops = [
-        { offset: 0, color: '#fe8019', opacity: 1.0, intensity: 1.0 },
-        { offset: 1, color: '#fabd2f', opacity: 1.0, intensity: 1.0 }
-      ];
-      this.activeGradientStopIdx = 0;
-      this.gradientAngle = 0;
-      this.gradientRadius = 0.5;
 
       // Texture State
       this.textureMode = 0;
@@ -1078,84 +1123,7 @@
             <div class="cs-swatches-grid" id="cs-swatches-grid"></div>
           </div>
 
-          <!-- SECTION 3: GRADIENT (Collapsible with Checkbox) -->
-          <div class="cs-card">
-            <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <div class="cs-card-title" style="margin: 0;">Gradient</div>
-              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 10.5px; font-weight: 600; color: var(--primary, #fabd2f);">
-                <input type="checkbox" id="cs-grad-enabled" style="accent-color: var(--primary, #fabd2f); cursor: pointer;">
-                <span>Enable</span>
-              </label>
-            </div>
-
-            <div id="cs-grad-controls-container" style="display: none; flex-direction: column; gap: 6px; margin-top: 6px;">
-              <div class="cs-form-row">
-                <label>Type</label>
-                <select id="cs-grad-type" class="cs-select">
-                  <option value="linear">Linear Gradient</option>
-                  <option value="radial">Radial Gradient</option>
-                </select>
-              </div>
-
-              <div class="cs-grad-preview-bar" id="cs-grad-preview-bar" title="Click to add stop"></div>
-
-              <div class="cs-form-row">
-                <label>Active Stop</label>
-                <div style="display: flex; gap: 4px; flex: 1;">
-                  <select id="cs-grad-stop-select" class="cs-select" style="flex: 1;"></select>
-                  <button type="button" class="cs-icon-btn" id="cs-btn-grad-add-stop" title="Add stop">+</button>
-                  <button type="button" class="cs-icon-btn" id="cs-btn-grad-del-stop" title="Remove stop">-</button>
-                </div>
-              </div>
-
-              <div class="cs-form-row">
-                <label>Stop Color</label>
-                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
-                  <input type="color" id="cs-grad-stop-color" class="cs-color-input">
-                  <input type="text" id="cs-grad-stop-color-text" class="cs-text-input" style="flex: 1;">
-                </div>
-              </div>
-
-              <div class="cs-form-row">
-                <label>Position %</label>
-                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
-                  <input type="range" id="cs-grad-stop-pos-slider" min="0" max="100" step="1" class="cs-mini-range">
-                  <input type="number" id="cs-grad-stop-pos" min="0" max="100" class="cs-mini-num">
-                </div>
-              </div>
-
-              <div class="cs-form-row">
-                <label>Stop Alpha</label>
-                <input type="number" id="cs-grad-stop-opacity" min="0" max="1" step="0.01" value="1.0" class="cs-text-input">
-              </div>
-
-              <div class="cs-form-row">
-                <label>Intensity</label>
-                <input type="number" id="cs-grad-stop-intensity" min="0.1" max="10" step="0.1" value="1.0" class="cs-text-input">
-              </div>
-
-              <div class="cs-form-row" id="cs-grad-angle-row">
-                <label>Angle °</label>
-                <div style="display: flex; gap: 6px; flex: 1; align-items: center;">
-                  <input type="range" id="cs-grad-angle-slider" min="0" max="360" step="1" value="0" class="cs-mini-range">
-                  <input type="number" id="cs-grad-angle" min="0" max="360" class="cs-mini-num">
-                </div>
-              </div>
-
-              <div class="cs-form-row" id="cs-grad-radius-row" style="display: none;">
-                <label>Radius</label>
-                <input type="number" id="cs-grad-radius" min="0.05" max="5.0" step="0.05" value="0.5" class="cs-text-input">
-              </div>
-
-              <!-- Presets -->
-              <div style="margin-top: 4px;">
-                <div class="cs-card-title">Gradient Presets</div>
-                <div class="cs-grad-presets-grid" id="cs-grad-presets-grid"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- SECTION 4: PROCEDURAL TEXTURE OVERLAY (Collapsible with Checkbox) -->
+          <!-- SECTION 3: PROCEDURAL TEXTURE OVERLAY (Collapsible with Checkbox) -->
           <div class="cs-card">
             <div class="cs-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div class="cs-card-title" style="margin: 0;">Texture Overlay</div>
@@ -1761,7 +1729,6 @@
         modeBtns: this.container.querySelectorAll('.cs-mode-btn'),
         // Panels
         panelColor: this.container.querySelector('#cs-panel-color'),
-        panelGradient: this.container.querySelector('#cs-panel-gradient'),
         panelTexture: this.container.querySelector('#cs-panel-texture'),
         panelFilter: this.container.querySelector('#cs-panel-filter'),
         panelBrushFill: this.container.querySelector('#cs-panel-brushfill'),
@@ -1800,26 +1767,6 @@
         hexInput: this.container.querySelector('#cs-hex-input'),
         btnCopy: this.container.querySelector('#cs-btn-copy'),
         btnEyedropper: this.container.querySelector('#cs-btn-eyedropper'),
-        // Gradient Controls
-        gradEnabled: this.container.querySelector('#cs-grad-enabled'),
-        gradControlsContainer: this.container.querySelector('#cs-grad-controls-container'),
-        gradType: this.container.querySelector('#cs-grad-type'),
-        gradPreviewBar: this.container.querySelector('#cs-grad-preview-bar'),
-        gradStopSelect: this.container.querySelector('#cs-grad-stop-select'),
-        btnGradAddStop: this.container.querySelector('#cs-btn-grad-add-stop'),
-        btnGradDelStop: this.container.querySelector('#cs-btn-grad-del-stop'),
-        gradStopColor: this.container.querySelector('#cs-grad-stop-color'),
-        gradStopColorText: this.container.querySelector('#cs-grad-stop-color-text'),
-        gradStopPosSlider: this.container.querySelector('#cs-grad-stop-pos-slider'),
-        gradStopPos: this.container.querySelector('#cs-grad-stop-pos'),
-        gradStopOpacity: this.container.querySelector('#cs-grad-stop-opacity'),
-        gradStopIntensity: this.container.querySelector('#cs-grad-stop-intensity'),
-        gradAngleRow: this.container.querySelector('#cs-grad-angle-row'),
-        gradAngleSlider: this.container.querySelector('#cs-grad-angle-slider'),
-        gradAngle: this.container.querySelector('#cs-grad-angle'),
-        gradRadiusRow: this.container.querySelector('#cs-grad-radius-row'),
-        gradRadius: this.container.querySelector('#cs-grad-radius'),
-        gradPresetsGrid: this.container.querySelector('#cs-grad-presets-grid'),
         // Texture Controls
         texEnabled: this.container.querySelector('#cs-tex-enabled'),
         texControlsContainer: this.container.querySelector('#cs-tex-controls-container'),
@@ -1954,9 +1901,9 @@
       this.renderPalettes();
       this.populateFilterPluginSelect();
       this.renderFilterParams();
-      this.renderGradientPresets();
       this.renderMaterialPresetsList();
       this.populateBrushSelects();
+      this.populateBrushFillPresetSelect();
       this.populateBrushFillPaletteSelect();
       this.renderBrushFillPalette();
       this.syncBrushFillInputs();
@@ -1968,31 +1915,26 @@
         });
       }
 
+      const handleRegistryUpdate = () => {
+        if (typeof PaletteManager !== 'undefined' && typeof PaletteManager.load === 'function') {
+          PaletteManager.load();
+        }
+        this.renderMaterialPresetsList();
+        this.populateFilterPluginSelect();
+        this.populateBrushSelects();
+        this.populateBrushFillPresetSelect();
+        this.populateBrushFillPaletteSelect();
+        this.populatePalettesSelect();
+        this.renderPalettes();
+      };
+
       if (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.subscribe === 'function') {
-        EsenhoRegistry.subscribe(() => {
-          this.renderMaterialPresetsList();
-          this.populateFilterPluginSelect();
-          this.populateBrushSelects();
-          this.populateBrushFillPaletteSelect();
-          this.populatePalettesSelect();
-        });
+        EsenhoRegistry.subscribe(handleRegistryUpdate);
       }
 
       if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-        window.addEventListener('esenho:data-loaded', () => {
-          this.renderMaterialPresetsList();
-          this.populateFilterPluginSelect();
-          this.populateBrushSelects();
-          this.populateBrushFillPaletteSelect();
-          this.populatePalettesSelect();
-        });
-        window.addEventListener('esenho:registry-updated', () => {
-          this.renderMaterialPresetsList();
-          this.populateFilterPluginSelect();
-          this.populateBrushSelects();
-          this.populateBrushFillPaletteSelect();
-          this.populatePalettesSelect();
-        });
+        window.addEventListener('esenho:data-loaded', handleRegistryUpdate);
+        window.addEventListener('esenho:registry-updated', handleRegistryUpdate);
       }
     }
 
@@ -2137,6 +2079,7 @@
       // 10. Palette Swatches & Manager
       d.palSelect?.addEventListener('change', () => {
         if (d.palSelect?.value) {
+          this._userSelectedPalette = d.palSelect.value;
           PaletteManager.setActivePalette(d.palSelect.value);
         }
         this.renderPalettes();
@@ -2214,131 +2157,6 @@
           } catch (_) {}
         }
       });
-
-      // ── Gradient Events ──
-      d.gradEnabled?.addEventListener('change', (e) => {
-        const isEnabled = e.target.checked;
-        if (d.gradControlsContainer) {
-          d.gradControlsContainer.style.display = isEnabled ? 'flex' : 'none';
-        }
-        if (isEnabled) {
-          this.applyGradientToSelected(true);
-          this.updateGradientUI();
-        } else {
-          this.applyToSelected(true);
-        }
-      });
-
-      d.gradType?.addEventListener('change', (e) => {
-        this.gradientType = e.target.value;
-        this.applyGradientToSelected(true);
-        this.updateGradientUI();
-      });
-
-      d.gradPreviewBar?.addEventListener('click', (e) => {
-        const rect = d.gradPreviewBar.getBoundingClientRect();
-        if (rect.width === 0) return;
-        const offset = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-        this.addGradientStop(offset, this.currentHex);
-      });
-
-      d.gradStopSelect?.addEventListener('change', (e) => {
-        this.activeGradientStopIdx = Number(e.target.value);
-        this.updateGradientStopFields();
-      });
-
-      d.btnGradAddStop?.addEventListener('click', () => {
-        this.addGradientStop(0.5, this.currentHex);
-      });
-
-      d.btnGradDelStop?.addEventListener('click', () => {
-        if (this.gradientStops.length <= 2) {
-          if (typeof showNotification === 'function') showNotification('Gradient requires at least 2 stops');
-          return;
-        }
-        this.gradientStops.splice(this.activeGradientStopIdx, 1);
-        if (this.activeGradientStopIdx >= this.gradientStops.length) {
-          this.activeGradientStopIdx = this.gradientStops.length - 1;
-        }
-        this.applyGradientToSelected(true);
-        this.updateGradientUI();
-      });
-
-      d.gradStopColor?.addEventListener('input', (e) => {
-        const stop = this.gradientStops[this.activeGradientStopIdx];
-        if (stop) {
-          stop.color = e.target.value;
-          if (d.gradStopColorText) d.gradStopColorText.value = e.target.value;
-          this.applyGradientToSelected(false);
-          this.updateGradientPreviewBar();
-        }
-      });
-      d.gradStopColor?.addEventListener('change', () => this.applyGradientToSelected(true));
-
-      d.gradStopColorText?.addEventListener('change', (e) => {
-        let val = e.target.value.trim();
-        if (!val.startsWith('#')) val = '#' + val;
-        const stop = this.gradientStops[this.activeGradientStopIdx];
-        if (stop && /^#[0-9A-Fa-f]{6}$/.test(val)) {
-          stop.color = val;
-          if (d.gradStopColor) d.gradStopColor.value = val;
-          this.applyGradientToSelected(true);
-          this.updateGradientPreviewBar();
-        }
-      });
-
-      const handlePosChange = (val, commit) => {
-        const stop = this.gradientStops[this.activeGradientStopIdx];
-        if (stop) {
-          stop.offset = clamp(Number(val) / 100, 0, 1);
-          this.gradientStops.sort((a, b) => a.offset - b.offset);
-          this.activeGradientStopIdx = this.gradientStops.indexOf(stop);
-          if (d.gradStopPos) d.gradStopPos.value = Math.round(stop.offset * 100);
-          if (d.gradStopPosSlider) d.gradStopPosSlider.value = Math.round(stop.offset * 100);
-          this.applyGradientToSelected(commit);
-          this.updateGradientUI();
-        }
-      };
-
-      d.gradStopPosSlider?.addEventListener('input', (e) => handlePosChange(e.target.value, false));
-      d.gradStopPosSlider?.addEventListener('change', (e) => handlePosChange(e.target.value, true));
-      d.gradStopPos?.addEventListener('change', (e) => handlePosChange(e.target.value, true));
-
-      d.gradStopOpacity?.addEventListener('input', (e) => {
-        const stop = this.gradientStops[this.activeGradientStopIdx];
-        if (stop) {
-          stop.opacity = clamp(Number(e.target.value) || 1.0, 0, 1);
-          this.applyGradientToSelected(false);
-          this.updateGradientPreviewBar();
-        }
-      });
-      d.gradStopOpacity?.addEventListener('change', () => this.applyGradientToSelected(true));
-
-      d.gradStopIntensity?.addEventListener('input', (e) => {
-        const stop = this.gradientStops[this.activeGradientStopIdx];
-        if (stop) {
-          stop.intensity = clamp(Number(e.target.value) || 1.0, 0.1, 10);
-          this.applyGradientToSelected(false);
-          this.updateGradientPreviewBar();
-        }
-      });
-      d.gradStopIntensity?.addEventListener('change', () => this.applyGradientToSelected(true));
-
-      const handleAngleChange = (val, commit) => {
-        this.gradientAngle = Number(val) || 0;
-        if (d.gradAngle) d.gradAngle.value = this.gradientAngle;
-        if (d.gradAngleSlider) d.gradAngleSlider.value = this.gradientAngle;
-        this.applyGradientToSelected(commit);
-      };
-      d.gradAngleSlider?.addEventListener('input', (e) => handleAngleChange(e.target.value, false));
-      d.gradAngleSlider?.addEventListener('change', (e) => handleAngleChange(e.target.value, true));
-      d.gradAngle?.addEventListener('change', (e) => handleAngleChange(e.target.value, true));
-
-      d.gradRadius?.addEventListener('input', (e) => {
-        this.gradientRadius = Number(e.target.value) || 0.5;
-        this.applyGradientToSelected(false);
-      });
-      d.gradRadius?.addEventListener('change', () => this.applyGradientToSelected(true));
 
       // ── Texture Events ──
       d.texEnabled?.addEventListener('change', (e) => {
@@ -2616,24 +2434,14 @@
     }
 
     switchMode(mode) {
-      const prevMode = this.activeMode;
       this.activeMode = mode;
       this.dom.modeBtns?.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
       this.dom.panelColor?.classList.toggle('active', mode === 'color');
-      this.dom.panelGradient?.classList.toggle('active', mode === 'gradient');
       this.dom.panelTexture?.classList.toggle('active', mode === 'texture');
       this.dom.panelFilter?.classList.toggle('active', mode === 'filter');
       this.dom.panelBrushFill?.classList.toggle('active', mode === 'brushfill');
 
-      if (mode === 'gradient') {
-        this.updateGradientUI();
-        if (prevMode !== 'gradient') {
-          this.applyGradientToSelected(true);
-        }
-      } else if (mode === 'color') {
-        if (prevMode === 'gradient') {
-          this.applyToSelected(true);
-        }
+      if (mode === 'color') {
         if (this.colorSubMode === 'palettes') {
           this.renderPalettes();
         }
@@ -2937,192 +2745,6 @@
       this.updateVisualControls();
     }
 
-    // ── Gradient Engine ──
-
-    addGradientStop(offset, color) {
-      const newStop = {
-        offset: clamp(offset, 0, 1),
-        color: color || '#fabd2f',
-        opacity: 1.0,
-        intensity: 1.0
-      };
-      this.gradientStops.push(newStop);
-      this.gradientStops.sort((a, b) => a.offset - b.offset);
-      this.activeGradientStopIdx = this.gradientStops.indexOf(newStop);
-      this.applyGradientToSelected(true);
-      this.updateGradientUI();
-    }
-
-    updateGradientPreviewBar() {
-      if (!this.dom.gradPreviewBar) return;
-      const stopsCss = this.gradientStops.map(s => {
-        return `${s.color} ${Math.round(s.offset * 100)}%`;
-      }).join(', ');
-      this.dom.gradPreviewBar.style.background = `linear-gradient(90deg, ${stopsCss})`;
-    }
-
-    updateGradientStopFields() {
-      const d = this.dom;
-      const stop = this.gradientStops[this.activeGradientStopIdx] || this.gradientStops[0];
-      if (!stop) return;
-
-      if (d.gradStopColor) d.gradStopColor.value = stop.color;
-      if (d.gradStopColorText) d.gradStopColorText.value = stop.color;
-      const posVal = Math.round(stop.offset * 100);
-      if (d.gradStopPosSlider) d.gradStopPosSlider.value = posVal;
-      if (d.gradStopPos) d.gradStopPos.value = posVal;
-      if (d.gradStopOpacity) d.gradStopOpacity.value = stop.opacity !== undefined ? stop.opacity : 1.0;
-      if (d.gradStopIntensity) d.gradStopIntensity.value = stop.intensity !== undefined ? stop.intensity : 1.0;
-    }
-
-    updateGradientUI() {
-      if (typeof document === 'undefined') return;
-      const d = this.dom;
-      if (!d || !d.gradPreviewBar) return;
-
-      this.updateGradientPreviewBar();
-
-      // Populate Stop select
-      if (d.gradStopSelect) {
-        d.gradStopSelect.innerHTML = '';
-        this.gradientStops.forEach((s, idx) => {
-          const opt = document.createElement('option');
-          opt.value = String(idx);
-          opt.textContent = `Stop ${idx + 1} (${Math.round(s.offset * 100)}%) - ${s.color}`;
-          if (idx === this.activeGradientStopIdx) opt.selected = true;
-          d.gradStopSelect.appendChild(opt);
-        });
-      }
-
-      this.updateGradientStopFields();
-
-      // Angle vs Radius visibility
-      if (d.gradType) d.gradType.value = this.gradientType;
-      if (this.gradientType === 'radial') {
-        if (d.gradAngleRow) d.gradAngleRow.style.display = 'none';
-        if (d.gradRadiusRow) d.gradRadiusRow.style.display = 'flex';
-        if (d.gradRadius) d.gradRadius.value = this.gradientRadius;
-      } else {
-        if (d.gradAngleRow) d.gradAngleRow.style.display = 'flex';
-        if (d.gradRadiusRow) d.gradRadiusRow.style.display = 'none';
-        if (d.gradAngle) d.gradAngle.value = this.gradientAngle;
-        if (d.gradAngleSlider) d.gradAngleSlider.value = this.gradientAngle;
-      }
-    }
-
-    applyGradientToSelected(commit = false) {
-      if (this._isSyncing) return;
-      const getDoc = () => (typeof window !== 'undefined' && window.doc) || (typeof doc !== 'undefined' ? doc : null);
-      const activeDoc = getDoc();
-      if (!activeDoc) return;
-
-      const SvgLinearGrad = (typeof window !== 'undefined' && window.SvgLinearGradient) || (typeof SvgLinearGradient !== 'undefined' ? SvgLinearGradient : null);
-      const SvgRadialGrad = (typeof window !== 'undefined' && window.SvgRadialGradient) || (typeof SvgRadialGradient !== 'undefined' ? SvgRadialGradient : null);
-
-      const stopsCopy = this.gradientStops.map(s => ({
-        offset: s.offset,
-        color: s.color,
-        opacity: s.opacity !== undefined ? s.opacity : 1.0,
-        intensity: s.intensity !== undefined ? s.intensity : 1.0
-      }));
-
-      const createGradObj = () => {
-        if (this.gradientType === 'linear') {
-          if (SvgLinearGrad) {
-            const g = new SvgLinearGrad({ stops: stopsCopy });
-            g.angle = this.gradientAngle;
-            return g;
-          }
-          return { type: 'linear', stops: stopsCopy, angle: this.gradientAngle };
-        } else {
-          if (SvgRadialGrad) {
-            return new SvgRadialGrad({ stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` });
-          }
-          return { type: 'radial', stops: stopsCopy, r: `${(this.gradientRadius * 100).toFixed(1)}%` };
-        }
-      };
-
-      const selected = activeDoc.getSelectedObjects ? activeDoc.getSelectedObjects() : [];
-      if (this.activeTarget === 'stroke') {
-        if (selected.length === 0) {
-          activeDoc.defaultStrokeType = this.gradientType;
-          activeDoc.defaultStrokeGradient = createGradObj();
-        }
-        for (const obj of selected) {
-          if (obj.strokeType !== 'brush') {
-            obj.strokeType = this.gradientType;
-          }
-          const gradObj = createGradObj();
-          obj.strokeGradient = gradObj;
-          if (obj.strokeBrushFill) {
-            obj.strokeBrushFill.gradient = gradObj;
-          }
-          delete obj._cachedStrokeBfStrokes;
-          delete obj._cachedStrokeBfKey;
-        }
-      } else {
-        if (selected.length === 0) {
-          activeDoc.defaultFillType = this.gradientType;
-          activeDoc.defaultFillGradient = createGradObj();
-        }
-        for (const obj of selected) {
-          if (obj.fillType !== 'brush') {
-            obj.fillType = this.gradientType;
-          }
-          const gradObj = createGradObj();
-          obj.fillGradient = gradObj;
-          if (obj.brushFill) {
-            obj.brushFill.gradient = gradObj;
-          }
-          delete obj._cachedBfStrokes;
-          delete obj._cachedBfKey;
-        }
-      }
-
-      if (typeof window !== 'undefined' && typeof window.render === 'function') window.render();
-      if (typeof window !== 'undefined' && typeof window.drawOverlay === 'function') window.drawOverlay();
-
-      if (commit && selected.length > 0) {
-        if (activeDoc.pushHistory) activeDoc.pushHistory(`Change ${this.activeTarget === 'stroke' ? 'Stroke' : 'Material'} Gradient`);
-        if (typeof window !== 'undefined' && typeof window.scheduleAutosave === 'function') window.scheduleAutosave();
-      }
-    }
-
-    renderGradientPresets() {
-      if (typeof document === 'undefined') return;
-      const grid = this.dom.gradPresetsGrid;
-      if (!grid) return;
-
-      const presets = [
-        { name: 'Sunset Amber', stops: [{ offset: 0, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }] },
-        { name: 'Cyber Neon', stops: [{ offset: 0, color: '#ff0055' }, { offset: 1, color: '#00ffcc' }] },
-        { name: 'Deep Ocean', stops: [{ offset: 0, color: '#0f084b' }, { offset: 1, color: '#83a598' }] },
-        { name: 'Gold Metallic', stops: [{ offset: 0, color: '#d79921' }, { offset: 0.5, color: '#fbf1c7' }, { offset: 1, color: '#b57614' }] },
-        { name: 'Emerald Glow', stops: [{ offset: 0, color: '#98971a' }, { offset: 1, color: '#8ec07c' }] },
-        { name: 'Holographic', stops: [{ offset: 0, color: '#7928ca' }, { offset: 0.5, color: '#ff0080' }, { offset: 1, color: '#00ffcc' }] },
-        { name: 'Fire Flame', stops: [{ offset: 0, color: '#cc241d' }, { offset: 0.6, color: '#fe8019' }, { offset: 1, color: '#fabd2f' }] },
-        { name: 'Monochrome Smoke', stops: [{ offset: 0, color: '#1d2021' }, { offset: 1, color: '#a89984' }] }
-      ];
-
-      grid.innerHTML = '';
-      presets.forEach(p => {
-        const item = document.createElement('div');
-        item.className = 'cs-grad-preset-item';
-        const stopsCss = p.stops.map(s => `${s.color} ${Math.round(s.offset * 100)}%`).join(', ');
-        item.style.background = `linear-gradient(90deg, ${stopsCss})`;
-        item.title = p.name;
-        item.addEventListener('click', () => {
-          this.gradientStops = p.stops.map(s => ({ offset: s.offset, color: s.color, opacity: 1.0, intensity: 1.0 }));
-          this.activeGradientStopIdx = 0;
-          if (this.dom.gradEnabled) this.dom.gradEnabled.checked = true;
-          if (this.dom.gradControlsContainer) this.dom.gradControlsContainer.style.display = 'flex';
-          this.applyGradientToSelected(true);
-          this.updateGradientUI();
-        });
-        grid.appendChild(item);
-      });
-    }
-
     // ── Texture Application ──
 
     applyTextureToSelected(commit = false) {
@@ -3180,12 +2802,6 @@
             Object.assign(obj.brushConfig.texture, texConfig);
           }
         } else {
-          if (isEnabled) {
-            if (obj.brushFill) obj.brushFill.enabled = false;
-            if (obj.fillType === 'brush') {
-              obj.fillType = (obj.fillGradient && (obj.fillGradient.type || obj.fillGradient.stops)) ? (obj.fillGradient.type || 'linear') : 'solid';
-            }
-          }
           if (!obj.fillTexture) obj.fillTexture = {};
           Object.assign(obj.fillTexture, texConfig);
         }
@@ -3447,10 +3063,6 @@
         color: this.currentHex,
         alpha: this.currentA,
         mode: isBrushFillMode ? 'brushfill' : 'standard',
-        gradientType: this.gradientType,
-        gradientStops: (this.gradientStops && this.gradientStops.length >= 2) ? JSON.parse(JSON.stringify(this.gradientStops)) : null,
-        gradientAngle: this.gradientAngle,
-        gradientRadius: this.gradientRadius,
         brushFill: isBrushFillMode ? { ...this.brushFillConfig, enabled: true } : { enabled: false },
         texture: isBrushFillMode ? { ref: 'none' } : {
           mode: this.textureMode,
@@ -3503,13 +3115,6 @@
 
       if (preset.color) this.setColorFromExternal(preset.color);
       if (preset.alpha !== undefined) this.currentA = preset.alpha;
-      if (preset.gradientStops) this.gradientStops = JSON.parse(JSON.stringify(preset.gradientStops));
-      else if (preset.gradient?.stops) this.gradientStops = JSON.parse(JSON.stringify(preset.gradient.stops));
-      if (preset.gradientType || preset.gradient?.type) this.gradientType = preset.gradientType || preset.gradient?.type;
-      if (preset.gradientAngle !== undefined || preset.gradient?.angle !== undefined) this.gradientAngle = preset.gradientAngle !== undefined ? preset.gradientAngle : (preset.gradient?.angle || 0);
-      if (preset.gradientRadius !== undefined || preset.gradient?.radius !== undefined) this.gradientRadius = preset.gradientRadius !== undefined ? preset.gradientRadius : (preset.gradient?.radius || 0.5);
-
-      const hasGradPreset = (preset.gradientStops && preset.gradientStops.length >= 2) || (preset.gradient && preset.gradient.stops && preset.gradient.stops.length >= 2);
 
       if (isBrushFillMat) {
         const bf = preset.brushFill ? { ...preset.brushFill } : { ...preset };
@@ -3518,9 +3123,6 @@
         this.syncBrushFillInputs();
         this.switchMode('brushfill');
         this.applyToSelected(false);
-        if (hasGradPreset) {
-          this.applyGradientToSelected(false);
-        }
         this.applyBrushFillToSelected(true);
       } else {
         this.brushFillConfig.enabled = false;
@@ -3555,11 +3157,8 @@
           this.filterOpacity = preset.filter.opacity !== undefined ? preset.filter.opacity : 1.0;
         }
 
-        this.switchMode(preset.mode || (this.textureMode !== 0 ? 'texture' : (hasGradPreset ? 'gradient' : 'color')));
+        this.switchMode(preset.mode || (this.textureMode !== 0 ? 'texture' : 'color'));
         this.applyToSelected(false);
-        if (hasGradPreset) {
-          this.applyGradientToSelected(false);
-        }
         this.applyTextureToSelected(false);
         this.applyFilterToSelected(false);
       }
@@ -3609,8 +3208,7 @@
         { id: 'lenses', label: 'Optical Lenses (WASM FX)' },
         { id: 'nature', label: 'Nature & Textures' },
         { id: 'scifi', label: 'Sci-Fi & Cyber' },
-        { id: 'metal', label: 'Metals & Shaders' },
-        { id: 'gradients', label: 'Gradients & Lighting' }
+        { id: 'metal', label: 'Metals & Shaders' }
       ];
 
       const allMaterials = (typeof EsenhoRegistry !== 'undefined' && typeof EsenhoRegistry.list === 'function')
@@ -3677,7 +3275,9 @@
 
     populatePalettesSelect() {
       if (!this.dom.palSelect || typeof document === 'undefined' || typeof this.dom.palSelect.appendChild !== 'function') return;
-      const curVal = this.dom.palSelect.value || PaletteManager.activePaletteId || 'gruvbox';
+      const curVal = (this._userSelectedPalette !== undefined)
+        ? this._userSelectedPalette
+        : (this.dom.palSelect.value && this.dom.palSelect.value !== 'document' ? this.dom.palSelect.value : (PaletteManager.activePaletteId && PaletteManager.activePaletteId !== 'document' ? PaletteManager.activePaletteId : 'gruvbox'));
       this.dom.palSelect.innerHTML = '';
 
       // 1. Live Document Colors
@@ -3713,6 +3313,9 @@
 
       if (curVal) {
         this.dom.palSelect.value = curVal;
+        if (this.dom.palSelect.value !== curVal && this.dom.palSelect.querySelector(`option[value="${curVal}"]`)) {
+          this.dom.palSelect.value = curVal;
+        }
       }
     }
 
@@ -3721,8 +3324,13 @@
       this.populatePalettesSelect();
       const grid = this.dom.swatchesGrid;
       if (!grid) return;
-      const palType = this.dom.palSelect?.value || PaletteManager.activePaletteId || 'gruvbox';
+      const palType = (this._userSelectedPalette !== undefined)
+        ? this._userSelectedPalette
+        : (this.dom.palSelect?.value && this.dom.palSelect.value !== 'document' ? this.dom.palSelect.value : (PaletteManager.activePaletteId && PaletteManager.activePaletteId !== 'document' ? PaletteManager.activePaletteId : 'gruvbox'));
       PaletteManager.activePaletteId = palType;
+      if (this.dom.palSelect && this.dom.palSelect.value !== palType && this.dom.palSelect.querySelector(`option[value="${palType}"]`)) {
+        this.dom.palSelect.value = palType;
+      }
 
       let colors = [];
       let currentPal = null;
@@ -4183,13 +3791,17 @@
 
       const reg = getRegistry();
       let presets = [];
-      if (reg && typeof reg.list === 'function') {
+      if (typeof BrushFillEngine !== 'undefined' && typeof BrushFillEngine.getPresets === 'function') {
+        presets = BrushFillEngine.getPresets();
+      }
+      if ((!presets || presets.length === 0) && reg && typeof reg.list === 'function') {
         presets = reg.list('brush_fill');
         if (!presets || presets.length === 0) {
           presets = reg.list('material').filter(m => m.category === 'brushfills' || m.mode === 'brushfill');
         }
       }
 
+      const curVal = sel.value;
       sel.innerHTML = '<option value="">-- Choose Brush Fill Preset --</option>';
 
       const categoryLabels = {
@@ -4204,7 +3816,7 @@
       };
 
       const grouped = {};
-      presets.forEach(p => {
+      (presets || []).forEach(p => {
         const cat = p.category || (p.builtin ? 'brushfills' : 'custom');
         if (!grouped[cat]) grouped[cat] = [];
         grouped[cat].push(p);
@@ -4217,10 +3829,14 @@
           const opt = document.createElement('option');
           opt.value = p.id;
           opt.textContent = p.name || p.id;
-          groupEl.appendChild(opt);
+          if (typeof groupEl.appendChild === 'function') groupEl.appendChild(opt);
         });
-        sel.appendChild(groupEl);
+        if (typeof sel.appendChild === 'function') sel.appendChild(groupEl);
       });
+
+      if (curVal && sel.querySelector(`option[value="${curVal}"]`)) {
+        sel.value = curVal;
+      }
     }
 
     updateBrushFillPatternVisibility() {
@@ -4691,7 +4307,7 @@
             obj.fillType = 'brush';
             obj.fillTexture = null;
           } else if (obj.fillType === 'brush') {
-            obj.fillType = (obj.fillGradient && (obj.fillGradient.type || obj.fillGradient.stops)) ? (obj.fillGradient.type || 'linear') : 'solid';
+            obj.fillType = 'solid';
           }
         }
       }
@@ -4807,38 +4423,6 @@
 
         this.currentA = (activeAlpha !== undefined) ? Number(activeAlpha) : 1.0;
         this.setColorFromExternal(activeColorVal, this.currentA);
-
-        // Sync Gradients
-        const isStrokeTarget = (this.activeTarget === 'stroke');
-        const gradObj = isStrokeTarget
-          ? (primary?.strokeGradient || primary?.strokeBrushFill?.gradient || activeDoc?.defaultStrokeGradient)
-          : (primary?.fillGradient || primary?.brushFill?.gradient || activeDoc?.defaultFillGradient);
-        const gradType = isStrokeTarget
-          ? (primary?.strokeType && primary.strokeType !== 'solid' && primary.strokeType !== 'brush' ? primary.strokeType : (gradObj?.type || activeDoc?.defaultStrokeType || 'linear'))
-          : (primary?.fillType && primary.fillType !== 'solid' && primary.fillType !== 'brush' ? primary.fillType : (gradObj?.type || activeDoc?.defaultFillType || 'linear'));
-
-        const hasGrad = Boolean(
-          (isStrokeTarget ? (primary?.strokeType === 'linear' || primary?.strokeType === 'radial') : (primary?.fillType === 'linear' || primary?.fillType === 'radial')) ||
-          (primary?.brushFill?.gradient || primary?.strokeBrushFill?.gradient)
-        );
-
-        if (this.dom.gradEnabled) this.dom.gradEnabled.checked = hasGrad;
-        if (this.dom.gradControlsContainer) this.dom.gradControlsContainer.style.display = hasGrad ? 'flex' : 'none';
-
-        if (gradObj) {
-          this.gradientType = (gradType === 'radial' || gradObj.type === 'radial') ? 'radial' : 'linear';
-          if (Array.isArray(gradObj.stops) && gradObj.stops.length > 0) {
-            this.gradientStops = gradObj.stops.map(s => ({
-              offset: s.offset,
-              color: s.color,
-              opacity: s.opacity !== undefined ? s.opacity : 1.0,
-              intensity: s.intensity !== undefined ? s.intensity : 1.0
-            }));
-          }
-          this.gradientAngle = gradObj.angle !== undefined ? gradObj.angle : 0;
-          this.gradientRadius = parseFloat(gradObj.r || gradObj.radius) || 0.5;
-          this.updateGradientUI();
-        }
 
         // Sync Texture
         const texObj = (this.activeTarget === 'stroke')
@@ -5451,29 +5035,6 @@
         font-weight: 600;
         border-radius: 2px;
         text-transform: uppercase;
-      }
-      .cs-grad-bar {
-        height: 20px;
-        border-radius: 3px;
-        border: 1px solid var(--border, #2e3234);
-        cursor: pointer;
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
-      }
-      .cs-gradient-presets-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 4px;
-      }
-      .cs-grad-preset-item {
-        height: 20px;
-        border-radius: 2px;
-        border: 1px solid rgba(255,255,255,0.15);
-        cursor: pointer;
-        transition: transform 0.1s;
-      }
-      .cs-grad-preset-item:hover {
-        transform: scale(1.05);
-        border-color: #ffffff;
       }
       .cs-preset-bar {
         display: flex;

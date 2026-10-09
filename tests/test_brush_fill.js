@@ -622,24 +622,12 @@ if (renderer && mockActor) {
 }
 console.log('✔ Stroke Brush Fill (acting as outlined path ribbons) passed');
 
-// 16. Testing Static Color vs Gradient Toggling on Fill and Stroke
-console.log('16. Testing Static vs Gradient Toggling...');
+// 16. Testing Fill & Stroke Brush Fill Invisibility when Color is 'none'
+console.log('16. Testing Fill & Stroke Brush Fill Invisibility when Color is "none"...');
 testDoc.selectedIds.clear();
 testDoc.selectedIds.add(strokeCircle.id);
 
-// 16.1. Toggle Stroke to Gradient
-widget.setTarget('stroke');
-widget.switchMode('gradient');
-assert.strictEqual(strokeCircle.strokeType, 'brush');
-assert.ok(strokeCircle.strokeGradient, 'strokeGradient should be assigned on gradient switch');
-assert.ok(strokeCircle.strokeBrushFill.gradient, 'strokeBrushFill.gradient should be assigned on gradient switch');
-
-// 16.2. Toggle Stroke back to Static Color
-widget.switchMode('color');
-assert.strictEqual(strokeCircle.strokeType, 'brush');
-assert.ok(!strokeCircle.strokeBrushFill.gradient, 'strokeBrushFill.gradient should be cleared when switching to static color');
-
-// 16.3. Visibility when set to 'none' / no color
+// 16.1. Visibility when set to 'none' / no color
 strokeCircle.stroke = 'none';
 delete strokeCircle._cachedStrokeBfStrokes;
 assert.strictEqual(strokeCircle.getStrokeBrushFillSVG(), '', 'getStrokeBrushFillSVG must be empty when stroke is none');
@@ -647,7 +635,7 @@ assert.strictEqual(strokeCircle.getStrokeBrushFillSVG(), '', 'getStrokeBrushFill
 testRect.fill = 'none';
 delete testRect._cachedBfStrokes;
 assert.strictEqual(testRect.getBrushFillSVG(), '', 'getBrushFillSVG must be empty when fill is none');
-console.log('✔ Static vs Gradient Toggling & No-Color Invisibility passed');
+console.log('✔ Fill & Stroke Brush Fill No-Color Invisibility passed');
 
 // 17. Testing Stroke Ribbon Geometry Confinement (No center leaks across patterns)
 console.log('17. Testing Stroke Ribbon Geometry Confinement on Closed Shapes...');

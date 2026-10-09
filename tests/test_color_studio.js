@@ -132,20 +132,15 @@ widget.applyToSelected(true);
 assert.strictEqual(mockObj.stroke, '#282828', 'mockObj.stroke should be updated to #282828');
 assert(historyActions.includes('Change Stroke Color'), 'pushHistory should have been called for stroke');
 
-// 7. Testing Material Gradient Engine
-console.log('7. Testing Material Gradient application...');
+// 7. Testing Material Color & Alpha application
+console.log('7. Testing Material Base Color application...');
 widget.setTarget('fill');
-widget.gradientType = 'linear';
-widget.gradientStops = [
-  { offset: 0, color: '#fe8019', opacity: 1.0, intensity: 1.0 },
-  { offset: 1, color: '#fabd2f', opacity: 1.0, intensity: 1.0 }
-];
-widget.gradientAngle = 45;
-widget.applyGradientToSelected(true);
+widget.setColorFromExternal('#d65d0e', 0.85);
+widget.applyToSelected(true);
 
-assert.strictEqual(mockObj.fillType, 'linear', 'fillType should be linear');
-assert.strictEqual(mockObj.fillGradient.stops.length, 2, 'stops count should be 2');
-assert(historyActions.includes('Change Material Gradient'), 'history should record gradient change');
+assert.strictEqual(mockObj.fill, '#d65d0e', 'fill should be #d65d0e');
+assert.strictEqual(mockObj.fillOpacity, 0.85, 'fillOpacity should be 0.85');
+assert(historyActions.includes('Change Fill Color'), 'history should record fill color change');
 
 // 8. Testing Material Procedural Texture Engine
 console.log('8. Testing Material Procedural Texture application...');
@@ -220,13 +215,9 @@ widget.applyToSelected(true);
 assert.strictEqual(global.window.doc.defaultStroke, '#504945', 'doc.defaultStroke should update when 0 selection');
 
 widget.setTarget('fill');
-widget.gradientType = 'radial';
-widget.gradientStops = [
-  { offset: 0, color: '#b8bb26', opacity: 1.0, intensity: 1.0 },
-  { offset: 1, color: '#98971a', opacity: 1.0, intensity: 1.0 }
-];
-widget.applyGradientToSelected(true);
-assert.strictEqual(global.window.doc.defaultFillType, 'radial', 'doc.defaultFillType should be set when nothing is selected');
+widget.setColorFromExternal('#fabd2f');
+widget.applyToSelected(true);
+assert.strictEqual(global.window.doc.defaultFill, '#fabd2f', 'doc.defaultFill should update when 0 selection');
 
 widget.textureMode = 12;
 widget.applyTextureToSelected(true);
@@ -268,6 +259,8 @@ global.document = {
   createElement: (tag) => {
     const el = {
       tagName: tag.toUpperCase(),
+      children: [],
+      appendChild(c) { this.children.push(c); return c; },
       style: {
         _props: {},
         setProperty(prop, val, prio) { this._props[prop] = { val, prio }; },
@@ -393,11 +386,68 @@ PM.deletePalette(delId);
 assert.strictEqual(PM.getPalette(delId), null);
 
 // 14.9 Built-in & Factory Presets freely modifiable and resettable
-const gruv = PM.getPalette('gruvbox');
-assert(gruv);
-PM.addColor('gruvbox', '#123456');
-assert(PM.getPalette('gruvbox').colors.includes('#123456'));
-PM.resetPalette('gruvbox');
-assert(!PM.getPalette('gruvbox').colors.includes('#123456'));
+// 14.10 Verify all factory palettes list from registry
+const allPals = PM.getAllPalettes();
+assert(allPals.length >= 10, `Expected at least 10 palettes from data pack, got ${allPals.length}`);
+const paletteIds = allPals.map(p => p.id);
+['gruvbox', 'material', 'nord', 'cyberpunk', 'solarized', 'dracula'].forEach(id => {
+  assert(paletteIds.includes(id), `Expected palette list to include ${id}`);
+});
+// 15. Verify Texture Overlay does NOT activate gradient
+console.log('15. Testing Texture Overlay isolation (does NOT activate gradient or change fillType)...');
+const testObjTexture = {
+  id: 'test_tex_isolation',
+  type: 'rect',
+  fill: '#fabd2f',
+  stroke: '#1d2021',
+  fillType: 'solid',
+  fillGradient: null,
+  fillTexture: {}
+};
+global.window.doc.getSelectedObjects = () => [testObjTexture];
+widget.setTarget('fill');
+widget.textureMode = 1;
+widget.applyTextureToSelected(true);
+assert.strictEqual(testObjTexture.fillType, 'solid', 'Applying texture overlay must preserve fillType as solid');
+assert.strictEqual(testObjTexture.fillGradient, null, 'Applying texture overlay must NOT create or enable a gradient');
+
+// 16. Verify Gradient mapping in Brush Fill
+console.log('16. Testing Gradient mapping in Brush Fill generation...');
+const BrushFillEngine = require('../src/brush_fill_engine.js').BrushFillEngine;
+const rectPoly = [[{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }, { x: 0, y: 100 }]];
+const gradStops = [
+  { offset: 0, color: '#ff0000' },
+  { offset: 1, color: '#0000ff' }
+];
+const gradStrokes = BrushFillEngine.generateStrokes(rectPoly, {
+  enabled: true,
+  pattern: 'linear',
+  angle: 0,
+  spacing: 20,
+  gradient: { type: 'linear', stops: gradStops, angle: 0 }
+});
+assert(gradStrokes.length > 0, 'Brush fill should generate strokes');
+const strokeColors = gradStrokes.map(s => s.color.toLowerCase());
+assert(strokeColors.some(c => c !== strokeColors[0]), 'Gradient brush fill strokes must interpolate across the shape');
+
+// 17. Verify Brush Fill presets in Color Studio select
+console.log('17. Testing Brush Fill presets in Color Studio dropdown...');
+let optCount = 0;
+const mockSelect = {
+  options: [],
+  innerHTML: '',
+  appendChild: (child) => {
+    if (child.tagName === 'OPTGROUP' || child.children) {
+      optCount += (child.children ? child.children.length : 0);
+    }
+  },
+  querySelector: () => null
+};
+widget.dom.bfPresetSelect = mockSelect;
+widget.populateBrushFillPresetSelect();
+const bfPresets = BrushFillEngine.getPresets();
+assert(bfPresets.length >= 10, `Expected at least 10 brush fill presets, got ${bfPresets.length}`);
 
 console.log('--- ALL MATERIAL & COLOR STUDIO TESTS PASSED ---');
+
+

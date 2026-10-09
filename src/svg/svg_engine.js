@@ -691,9 +691,9 @@
 
     getBrushFillSVG() {
       if (!this.brushFill || (!this.brushFill.enabled && this.fillType !== 'brush')) return '';
-      const hasGradient = (this.fillType === 'linear' || this.fillType === 'radial' || this.brushFill.gradient) && (this.fillGradient || this.brushFill.gradient);
+      const activeGrad = this.brushFill.gradient || ((this.fillType === 'linear' || this.fillType === 'radial') ? this.fillGradient : null);
       const isFillNone = (!this.fill || this.fill === 'none' || this.fill === 'transparent');
-      if (isFillNone && !hasGradient) return '';
+      if (isFillNone && !activeGrad) return '';
 
       let Engine = (typeof BrushFillEngine !== 'undefined' ? BrushFillEngine : (typeof globalThis !== 'undefined' ? globalThis.BrushFillEngine : null));
       if (!Engine && typeof require === 'function') {
@@ -715,7 +715,7 @@
       const cfg = {
         ...this.brushFill,
         color: this.fill || '#fabd2f',
-        gradient: (this.fillType === 'linear' || this.fillType === 'radial' || this.brushFill.gradient) ? (this.fillGradient || this.brushFill.gradient) : null
+        gradient: activeGrad
       };
       const strokes = Engine.generateStrokes(polylines, cfg);
       return Engine.toSVGGroup(strokes, this.clipPathId, this.brushFill.clipMode || 'bleed');
@@ -726,9 +726,9 @@
       const strokeWidth = Number(this.strokeWidth || 1);
       if (strokeWidth <= 0) return '';
 
-      const hasGradient = (this.strokeType === 'linear' || this.strokeType === 'radial' || this.strokeBrushFill.gradient) && (this.strokeGradient || this.strokeBrushFill.gradient);
+      const activeGrad = this.strokeBrushFill.gradient || ((this.strokeType === 'linear' || this.strokeType === 'radial') ? this.strokeGradient : null);
       const isStrokeNone = (!this.stroke || this.stroke === 'none' || this.stroke === 'transparent');
-      if (isStrokeNone && !hasGradient) return '';
+      if (isStrokeNone && !activeGrad) return '';
 
       let Engine = (typeof BrushFillEngine !== 'undefined' ? BrushFillEngine : (typeof globalThis !== 'undefined' ? globalThis.BrushFillEngine : null));
       if (!Engine && typeof require === 'function') {
@@ -803,7 +803,7 @@
       const cfg = {
         ...this.strokeBrushFill,
         color: this.stroke || '#fabd2f',
-        gradient: (this.strokeType === 'linear' || this.strokeType === 'radial' || this.strokeBrushFill.gradient) ? (this.strokeGradient || this.strokeBrushFill.gradient) : null
+        gradient: this.strokeGradient || this.strokeBrushFill?.gradient || null
       };
       const strokes = Engine.generateStrokes(strokeRibbons, cfg);
       return Engine.toSVGGroup(strokes, this.clipPathId, this.strokeBrushFill.clipMode || 'bleed');

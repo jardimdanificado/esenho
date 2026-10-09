@@ -1639,14 +1639,14 @@
     }
 
     _renderObjectFillOnly(obj, pathObj, rotatedPolys, bounds, scale, totalOpacity) {
-      const hasGradient = (obj.fillType === 'linear' || obj.fillType === 'radial' || obj.brushFill?.gradient) && (obj.fillGradient || obj.brushFill?.gradient);
+      const activeGrad = obj.brushFill?.gradient || ((obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null);
       const isFillNone = (!obj.fill || obj.fill === 'none' || obj.fill === 'transparent');
-      if (isFillNone && !hasGradient) return;
+      if (isFillNone && !activeGrad) return;
 
       const fillAlpha = (obj.fillOpacity !== undefined ? obj.fillOpacity : 1.0) * totalOpacity;
       if (fillAlpha <= 0) return;
 
-      const isBrushFill = obj.fillType === 'brush' || (obj.brushFill && obj.brushFill.enabled && !isFillNone);
+      const isBrushFill = obj.fillType === 'brush' || (obj.brushFill && obj.brushFill.enabled && (!isFillNone || activeGrad));
       const fillArgb = parseCssColorToArgb(obj.fill, fillAlpha);
       const gradient = (obj.fillType === 'linear' || obj.fillType === 'radial') ? obj.fillGradient : null;
 
@@ -1658,7 +1658,7 @@
           const brushFillCfg = {
             ...(obj.brushFill || {}),
             color: obj.fill || '#fabd2f',
-            gradient: (obj.fillType === 'linear' || obj.fillType === 'radial' || obj.brushFill?.gradient) ? (obj.fillGradient || obj.brushFill?.gradient) : null
+            gradient: activeGrad
           };
           const objKey = `${JSON.stringify(brushFillCfg)}_${scale}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
           let strokes = (obj._cachedBfKey === objKey && obj._cachedBfStrokes) ? obj._cachedBfStrokes : null;
@@ -1682,14 +1682,14 @@
       const strokeWidth = (obj.strokeWidth !== undefined ? obj.strokeWidth : 1);
       if (strokeWidth <= 0) return;
 
-      const hasGradient = (obj.strokeType === 'linear' || obj.strokeType === 'radial' || obj.strokeBrushFill?.gradient) && (obj.strokeGradient || obj.strokeBrushFill?.gradient);
+      const activeGrad = obj.strokeBrushFill?.gradient || ((obj.strokeType === 'linear' || obj.strokeType === 'radial') ? obj.strokeGradient : null);
       const isStrokeNone = (!obj.stroke || obj.stroke === 'none' || obj.stroke === 'transparent');
-      if (isStrokeNone && !hasGradient) return;
+      if (isStrokeNone && !activeGrad) return;
 
       const strokeAlpha = (obj.strokeOpacity !== undefined ? obj.strokeOpacity : 1.0) * totalOpacity;
       if (strokeAlpha <= 0) return;
 
-      const isStrokeBrushFill = obj.strokeType === 'brush' || (obj.strokeBrushFill && obj.strokeBrushFill.enabled && !isStrokeNone);
+      const isStrokeBrushFill = obj.strokeType === 'brush' || (obj.strokeBrushFill && obj.strokeBrushFill.enabled && (!isStrokeNone || activeGrad));
       const strokeArgb = parseCssColorToArgb(obj.stroke, strokeAlpha);
 
       // 1. Procedural Brush Fill on Stroke (Outlines the stroke to path ribbon and fills it)
@@ -1703,7 +1703,7 @@
             const brushFillCfg = {
               ...(obj.strokeBrushFill || {}),
               color: obj.stroke || '#fabd2f',
-              gradient: (obj.strokeType === 'linear' || obj.strokeType === 'radial' || obj.strokeBrushFill?.gradient) ? (obj.strokeGradient || obj.strokeBrushFill?.gradient) : null
+              gradient: activeGrad
             };
             const objKey = `stroke_${JSON.stringify(brushFillCfg)}_${scale}_${scaledStrokeWidth}_${rotatedPolys.length}_${rotatedPolys[0]?.[0]?.x}_${rotatedPolys[0]?.[0]?.y}`;
             let strokes = (obj._cachedStrokeBfKey === objKey && obj._cachedStrokeBfStrokes) ? obj._cachedStrokeBfStrokes : null;
