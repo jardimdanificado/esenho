@@ -11204,9 +11204,77 @@
         exportSection.style.cssText += ';display:flex;flex-direction:column;gap:8px;';
         [...exportPanel.children].forEach(child => exportSection.appendChild(child));
         const projectToolbar = projects.querySelector('.recents-toolbar');
-        projects.insertBefore(exportSection, projectToolbar || null);
+        const activePage = document.createElement('div');
+        activePage.dataset.projectsPage = 'document';
+        activePage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;';
+        const importPage = document.createElement('div');
+        importPage.dataset.projectsPage = 'import';
+        importPage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;padding:10px;';
+        const exportPage = document.createElement('div');
+        exportPage.dataset.projectsPage = 'export';
+        exportPage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;padding:10px;';
+        const managerPage = document.createElement('div');
+        managerPage.dataset.projectsPage = 'manager';
+        managerPage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;';
+        const tabs = document.createElement('div');
+        tabs.id = 'mobile-projects-tabs';
+        tabs.setAttribute('role', 'tablist');
+        tabs.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:7px 8px;background:var(--bg-panel-sub);border-bottom:1px solid var(--border);flex-shrink:0;';
+        [['import', 'Import'], ['export', 'Export'], ['document', 'Active'], ['manager', 'Manager']].forEach(([key, label]) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'btn-sm';
+          button.dataset.projectsTab = key;
+          button.setAttribute('role', 'tab');
+          button.textContent = label;
+          button.style.cssText = 'min-width:0;padding:6px 2px;font-size:10px;';
+          button.addEventListener('click', () => setMobileProjectsTab(key));
+          tabs.appendChild(button);
+        });
+
+        const importCard = document.createElement('section');
+        importCard.className = 'section-card';
+        importCard.style.cssText = 'display:flex;flex-direction:column;gap:8px;padding:12px;';
+        importCard.innerHTML = '<div class="section-header"><span>Import into Project Manager</span></div><div style="font-size:11px;color:var(--text-dim);">Add an .esen, .svg, or .json file to your stored projects.</div>';
+        const importButton = document.getElementById('btn-recents-import-file');
+        const importInput = document.getElementById('inp-recents-import-file');
+        if (importButton) importCard.appendChild(importButton);
+        if (importInput) importCard.appendChild(importInput);
+        importPage.appendChild(importCard);
+
+        const activeCard = document.getElementById('card-doc-project');
+        const newProjectCard = document.getElementById('hub-new-project-card');
+        const recentsGrid = document.getElementById('recents-grid');
+        const managerFooter = recentsGrid?.nextElementSibling;
+        const newButton = document.getElementById('btn-modal-new-proj');
+        if (newButton) {
+          const toolbarActions = newButton.parentElement;
+          toolbarActions?.replaceChildren(newButton);
+        }
+        if (activeCard) activePage.appendChild(activeCard);
+        if (newProjectCard) managerPage.appendChild(newProjectCard);
+        if (projectToolbar) managerPage.appendChild(projectToolbar);
+        if (recentsGrid) managerPage.appendChild(recentsGrid);
+        if (managerFooter) managerPage.appendChild(managerFooter);
+        exportPage.appendChild(exportSection);
+        projects.replaceChildren(tabs, importPage, exportPage, activePage, managerPage);
+        setMobileProjectsTab('manager');
         exportPanel.style.display = 'none';
       }
+
+      function setMobileProjectsTab(tabName = 'manager') {
+        const validTabs = ['import', 'export', 'document', 'manager'];
+        const activeTab = validTabs.includes(tabName) ? tabName : 'manager';
+        document.querySelectorAll('#dock-panel-projects [data-projects-page]').forEach(page => {
+          page.style.display = page.dataset.projectsPage === activeTab ? 'flex' : 'none';
+        });
+        document.querySelectorAll('#mobile-projects-tabs [data-projects-tab]').forEach(button => {
+          const active = button.dataset.projectsTab === activeTab;
+          button.classList.toggle('active', active);
+          button.setAttribute('aria-selected', String(active));
+        });
+      }
+      window.setMobileProjectsTab = setMobileProjectsTab;
 
       function initMobilePanelLayout() {
         composeAppearancePanels();
@@ -11242,9 +11310,11 @@
 
       function openMobileDockPanel(id) {
         const focusSection = id === 'tracer' ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
+        const requestedProjectsTab = id === 'export' ? 'export' : (id === 'document' ? 'document' : (id === 'import' ? 'import' : null));
         if (id === 'tracer') id = 'inspect';
         if (id === 'export') id = 'projects';
         if (id === 'document') id = 'projects';
+        if (id === 'import') id = 'projects';
         if (id === 'materials' || id === 'material') id = 'color';
         if (id === 'fill') id = 'inspect';
         if (id === 'stroke') id = 'color';
@@ -11269,6 +11339,7 @@
         document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === id));
         if (id === 'curves' && window.dopeSheetUI?.mountCurveEditor) window.dopeSheetUI.mountCurveEditor(panel);
         if (id === 'projects' && typeof refreshProjectsList === 'function') refreshProjectsList();
+        if (id === 'projects' && requestedProjectsTab) setMobileProjectsTab(requestedProjectsTab);
         if (id === 'inspect' && typeof updateTracerUI === 'function') updateTracerUI();
         if (id === 'color' && typeof ColorStudio !== 'undefined') {
           const mount = document.getElementById('color-studio-mount');
@@ -11424,10 +11495,15 @@
       window.updateTracerUI = updateTracerUI;
 
       function openHubTab(tabName = 'projects') {
-        if (tabName === 'export') openDockPanel('export');
-        else openDockPanel('projects');
+        const projectTab = ({ projects: 'manager', manager: 'manager', import: 'import', export: 'export', document: 'document', active: 'document', 'active-document': 'document' })[tabName] || 'manager';
+        openDockPanel('projects');
+        if (MOBILE_STUDIO_UI) setMobileProjectsTab(projectTab);
       }
       window.openHubTab = openHubTab;
+
+      function switchHubTab(tabName = 'projects') {
+        openHubTab(tabName === 'export' ? 'export' : 'manager');
+      }
 
       function closeDockPanel(id) {
         if (MOBILE_STUDIO_UI) { closeMobileDockPanel(id); return; }
