@@ -7300,15 +7300,33 @@
       window.updateSwatches = updateSwatches;
 
       // ── Pointer & Tool Event Handlers ──
-      let touchSelectionBeforeGesture = null;
-      let touchSelectionSnapshotAt = 0;
+      let dispatchingTouchPointer = false;
+      let pendingCanvasTouch = null;
+      function dispatchCanvasTouchPointer(type, x, y, sourceEvent) {
+        dispatchingTouchPointer = true;
+        const pointerEvent = new PointerEvent(type, {
+          bubbles: true,
+          cancelable: true,
+          pointerId: 1,
+          pointerType: 'touch',
+          isPrimary: true,
+          clientX: x,
+          clientY: y,
+          button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+          shiftKey: !!sourceEvent?.shiftKey,
+          altKey: !!sourceEvent?.altKey,
+          ctrlKey: !!sourceEvent?.ctrlKey,
+          metaKey: !!sourceEvent?.metaKey
+        });
+        (type === 'pointerup' ? window : viewportContainer).dispatchEvent(pointerEvent);
+        dispatchingTouchPointer = false;
+      }
       viewportContainer.addEventListener('pointerdown', (e) => {
         if (isTouchPinching) return;
-
-        if (e.pointerType === 'touch') {
-          touchSelectionBeforeGesture = new Set(doc.selectedIds);
-          touchSelectionSnapshotAt = Date.now();
-        }
+        // Real touch pointerdown is held until we know this is a one-finger tool
+        // gesture. This prevents the first finger of a pinch from invoking tools.
+        if (e.pointerType === 'touch' && !dispatchingTouchPointer) return;
 
         // Hand tool / Space / Middle Click Pan
         if (activeTool === 'hand' || e.button === 1 || e.spaceKey || isPanning) {
@@ -9468,15 +9486,7 @@
       viewportContainer.addEventListener('contextmenu', (e) => {
         if (e.target.closest('.monaco-menu-container') || e.target.closest('.context-menu') || e.target.closest('.dock-panel-content:not(#dock-panel-canvas)')) return;
         e.preventDefault();
-        // A long touch produces pointerdown before the browser's contextmenu event.
-        // Undo the provisional selection made by that pointerdown.
-        if (touchSelectionBeforeGesture && Date.now() - touchSelectionSnapshotAt < 1500) {
-          doc.selectedIds = new Set(touchSelectionBeforeGesture);
-          render();
-          updateInspector();
-          drawOverlay();
-          touchSelectionBeforeGesture = null;
-        }
+        if (pendingCanvasTouch) pendingCanvasTouch.contextMenu = true;
         const pt = screenToDoc(e.clientX, e.clientY);
 
         // Immediate guide deletion on right click
@@ -14655,16 +14665,7 @@
         if (e.touches.length >= 2) {
           e.preventDefault();
           isTouchPinching = true;
-
-          // The first finger may already have triggered a normal selection.
-          // Restore it when the gesture becomes a pinch/rotate/pan.
-          if (touchSelectionBeforeGesture) {
-            doc.selectedIds = new Set(touchSelectionBeforeGesture);
-            render();
-            updateInspector();
-            drawOverlay();
-            touchSelectionBeforeGesture = null;
-          }
+          pendingCanvasTouch = null;
 
           // Abort any ongoing single-finger drawing, marquee or transform
           isDragging = false;
@@ -14701,10 +14702,33 @@
           };
         } else {
           touchTapGesture = null;
+          const touch = e.touches[0];
+          pendingCanvasTouch = touch ? {
+            x: touch.clientX,
+            y: touch.clientY,
+            startX: touch.clientX,
+            startY: touch.clientY,
+            moved: false,
+            contextMenu: false,
+            target: e.target
+          } : null;
         }
       }, { passive: false });
 
       viewportContainer.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && pendingCanvasTouch && !isTouchPinching) {
+          const touch = e.touches[0];
+          pendingCanvasTouch.x = touch.clientX;
+          pendingCanvasTouch.y = touch.clientY;
+          if (!pendingCanvasTouch.moved && Math.hypot(touch.clientX - pendingCanvasTouch.startX, touch.clientY - pendingCanvasTouch.startY) > 8) {
+            pendingCanvasTouch.moved = true;
+            dispatchCanvasTouchPointer('pointerdown', pendingCanvasTouch.startX, pendingCanvasTouch.startY, e);
+          }
+          if (pendingCanvasTouch.moved) {
+            const moveEvent = new PointerEvent('pointermove', { bubbles: true, pointerId: 1, pointerType: 'touch', isPrimary: true, clientX: touch.clientX, clientY: touch.clientY, buttons: 1 });
+            window.dispatchEvent(moveEvent);
+          }
+        }
         if (e.touches.length >= 2 && touchStartDist > 0) {
           e.preventDefault();
           const t1 = e.touches[0];
@@ -14767,6 +14791,15 @@
       }, { passive: false });
 
       viewportContainer.addEventListener('touchend', (e) => {
+        if (pendingCanvasTouch && e.touches.length === 0) {
+          if (!isTouchPinching && !pendingCanvasTouch.contextMenu) {
+            if (!pendingCanvasTouch.moved) {
+              dispatchCanvasTouchPointer('pointerdown', pendingCanvasTouch.startX, pendingCanvasTouch.startY, e);
+            }
+            dispatchCanvasTouchPointer('pointerup', pendingCanvasTouch.x, pendingCanvasTouch.y, e);
+          }
+          pendingCanvasTouch = null;
+        }
         if (touchTapGesture && e.touches.length === 0) {
           const elapsed = Date.now() - touchTapGesture.startTime;
           if (!touchTapGesture.moved && elapsed < 400) {
@@ -14797,6 +14830,7 @@
       });
 
       viewportContainer.addEventListener('touchcancel', () => {
+        pendingCanvasTouch = null;
         touchStartDist = 0;
         isTouchPinching = false;
         touchTapGesture = null;
