@@ -3420,39 +3420,6 @@
       font-weight: 650;
     }
     .mobile-header-actions { display: flex; gap: 5px; }
-    #mobile-tool-strip {
-      flex: 0 0 46px;
-      min-height: 46px;
-      padding: 4px 7px;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      overflow-x: auto;
-      background: #191b1c;
-      border-bottom: 1px solid #303233;
-      scrollbar-width: none;
-      -webkit-overflow-scrolling: touch;
-    }
-    #mobile-tool-strip::-webkit-scrollbar { display: none; }
-    .mobile-tool-item {
-      flex: 0 0 auto;
-      min-width: 43px;
-      height: 36px;
-      padding: 3px 7px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      background: #202223;
-      border: 1px solid #303233;
-      border-radius: 7px;
-      color: #bdae93;
-      font-size: 10px;
-      white-space: nowrap;
-    }
-    .mobile-tool-item .tool-glyph { color: #d5c4a1; font-size: 15px; }
-    .mobile-tool-item.active { color: #fabd2f; border-color: #fabd2f; background: rgba(250,189,47,.12); }
-    .mobile-tool-item.active .tool-glyph { color: #fabd2f; }
     #workspace { flex: 1 1 auto; min-height: 0; position: relative; height: auto; overflow: hidden; }
     #mobile-canvas-stage { position: absolute; inset: 0; min-height: 0; overflow: hidden; background: #17191a; }
     #mobile-panel-sheet {
@@ -3584,18 +3551,6 @@
       <button class="mobile-action" id="mobile-export" type="button" aria-label="Export" title="Export">⇧</button>
     </div>
   </header>
-  <nav id="mobile-tool-strip" aria-label="Drawing tools">
-    <button class="mobile-tool-item active" data-studio-tool="select" type="button"><span class="tool-glyph">↖</span>Select</button>
-    <button class="mobile-tool-item" data-studio-tool="node" type="button"><span class="tool-glyph">⌖</span>Nodes</button>
-    <button class="mobile-tool-item" data-studio-tool="hand" type="button"><span class="tool-glyph">✋</span>Pan</button>
-    <button class="mobile-tool-item" data-studio-tool="pen" type="button"><span class="tool-glyph">✎</span>Pen</button>
-    <button class="mobile-tool-item" data-studio-tool="brush" type="button"><span class="tool-glyph">〰</span>Brush</button>
-    <button class="mobile-tool-item" data-studio-tool="rect" type="button"><span class="tool-glyph">▱</span>Rect</button>
-    <button class="mobile-tool-item" data-studio-tool="ellipse" type="button"><span class="tool-glyph">◯</span>Ellipse</button>
-    <button class="mobile-tool-item" data-studio-tool="line" type="button"><span class="tool-glyph">／</span>Line</button>
-    <button class="mobile-tool-item" data-studio-tool="text" type="button"><span class="tool-glyph">T</span>Text</button>
-  </nav>
-
   <!-- VS Code Custom Titlebar & Menu System -->
   <header id="vscode-titlebar" class="vscode-titlebar">
     <!-- Left: App Icon + Menu Bar -->
@@ -7877,13 +7832,16 @@
 
                 scaleObjectToBox(obj, initialObjectState, initialBounds, newMinX, newMinY, newW, newH);
 
-                if (initialFixWorld && (rot || 0) !== 0) {
-                  let curFixX = newMinX + newW / 2;
-                  let curFixY = newMinY + newH / 2;
-                  if (activeResizeHandle.includes('w')) curFixX = newMaxX;
-                  else if (activeResizeHandle.includes('e')) curFixX = newMinX;
-                  if (activeResizeHandle.includes('n')) curFixY = newMaxY;
-                  else if (activeResizeHandle.includes('s')) curFixY = newMinY;
+                if (initialFixWorld) {
+                  // Use resulting geometry bounds so special shapes and Bézier bounds
+                  // keep the opposite handle fixed, including at zero rotation.
+                  const actualBounds = obj.getBounds();
+                  let curFixX = actualBounds.minX + actualBounds.width / 2;
+                  let curFixY = actualBounds.minY + actualBounds.height / 2;
+                  if (activeResizeHandle.includes('w')) curFixX = actualBounds.maxX;
+                  else if (activeResizeHandle.includes('e')) curFixX = actualBounds.minX;
+                  if (activeResizeHandle.includes('n')) curFixY = actualBounds.maxY;
+                  else if (activeResizeHandle.includes('s')) curFixY = actualBounds.minY;
 
                   const curOrigin = (typeof obj.getOrigin === 'function')
                     ? obj.getOrigin()
@@ -7899,48 +7857,46 @@
                   const deltaWorldX = initialFixWorld.x - curFixWorldX;
                   const deltaWorldY = initialFixWorld.y - curFixWorldY;
 
-                  // Rotate world displacement into local unrotated coordinates
-                  const deltaLocalX = deltaWorldX * cosA + deltaWorldY * sinA;
-                  const deltaLocalY = -deltaWorldX * sinA + deltaWorldY * cosA;
-
-                  if (isFinite(deltaLocalX) && isFinite(deltaLocalY) && !isNaN(deltaLocalX) && !isNaN(deltaLocalY) && Math.abs(deltaLocalX) < 10000 && Math.abs(deltaLocalY) < 10000 && (Math.abs(deltaLocalX) > 1e-6 || Math.abs(deltaLocalY) > 1e-6)) {
+                  // move() shifts both the geometry and its rotation origin, so its
+                  // argument is already a document-space translation.
+                  if (isFinite(deltaWorldX) && isFinite(deltaWorldY) && !isNaN(deltaWorldX) && !isNaN(deltaWorldY) && Math.abs(deltaWorldX) < 10000 && Math.abs(deltaWorldY) < 10000 && (Math.abs(deltaWorldX) > 1e-6 || Math.abs(deltaWorldY) > 1e-6)) {
                     if (typeof obj.move === 'function') {
-                      obj.move(deltaLocalX, deltaLocalY);
+                      obj.move(deltaWorldX, deltaWorldY);
                     } else if (obj.type === 'rect' || obj.type === 'image' || obj.type === 'text') {
-                      obj.x += deltaLocalX; obj.y += deltaLocalY;
-                      if (obj.originX !== undefined) obj.originX += deltaLocalX;
-                      if (obj.originY !== undefined) obj.originY += deltaLocalY;
+                      obj.x += deltaWorldX; obj.y += deltaWorldY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
                     } else if (obj.type === 'circle' || obj.type === 'ellipse') {
-                      obj.cx += deltaLocalX; obj.cy += deltaLocalY;
-                      if (obj.originX !== undefined) obj.originX += deltaLocalX;
-                      if (obj.originY !== undefined) obj.originY += deltaLocalY;
+                      obj.cx += deltaWorldX; obj.cy += deltaWorldY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
                     } else if (obj.type === 'line') {
-                      obj.x1 += deltaLocalX; obj.y1 += deltaLocalY;
-                      obj.x2 += deltaLocalX; obj.y2 += deltaLocalY;
-                      if (obj.originX !== undefined) obj.originX += deltaLocalX;
-                      if (obj.originY !== undefined) obj.originY += deltaLocalY;
+                      obj.x1 += deltaWorldX; obj.y1 += deltaWorldY;
+                      obj.x2 += deltaWorldX; obj.y2 += deltaWorldY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
                     } else if (obj.type === 'path' && obj.nodes) {
                       for (const n of obj.nodes) {
-                        n.x += deltaLocalX; n.y += deltaLocalY;
+                        n.x += deltaWorldX; n.y += deltaWorldY;
                       }
-                      if (obj.originX !== undefined) obj.originX += deltaLocalX;
-                      if (obj.originY !== undefined) obj.originY += deltaLocalY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
                     } else if (obj.type === 'compoundPath' && obj.subPaths) {
                       for (const sp of obj.subPaths) {
                         if (sp.nodes) {
                           for (const n of sp.nodes) {
-                            n.x += deltaLocalX; n.y += deltaLocalY;
+                            n.x += deltaWorldX; n.y += deltaWorldY;
                           }
                         }
                       }
-                      if (obj.originX !== undefined) obj.originX += deltaLocalX;
-                      if (obj.originY !== undefined) obj.originY += deltaLocalY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
                     } else if ((obj.type === 'polyline' || obj.type === 'polygon') && obj.points) {
                       for (const p of obj.points) {
-                        p.x += deltaLocalX; p.y += deltaLocalY;
+                        p.x += deltaWorldX; p.y += deltaWorldY;
                       }
-                      if (obj.originX !== undefined) obj.originX += deltaLocalX;
-                      if (obj.originY !== undefined) obj.originY += deltaLocalY;
+                      if (obj.originX !== undefined) obj.originX += deltaWorldX;
+                      if (obj.originY !== undefined) obj.originY += deltaWorldY;
                     }
                   }
                 }
@@ -8698,18 +8654,6 @@
           }, { danger: true });
         } else {
           // Case C: Empty Canvas Context
-          addSubmenu('Tools', [
-            { type: 'item', label: 'Select Tool', hotkey: 'V', action: () => selectTool('select') },
-            { type: 'item', label: 'Direct / Node Select', hotkey: 'A', action: () => selectTool('node') },
-            { type: 'item', label: 'Hand / Pan Canvas', hotkey: 'H', action: () => selectTool('hand') },
-            { type: 'item', label: 'Pen / Bézier Tool', hotkey: 'P', action: () => selectTool('pen') },
-            { type: 'item', label: 'Brush Tool', hotkey: 'B', action: () => selectTool('brush') },
-            { type: 'item', label: 'Rectangle Shape', hotkey: 'R', action: () => selectTool('rect') },
-            { type: 'item', label: 'Ellipse / Circle', hotkey: 'O', action: () => selectTool('ellipse') },
-            { type: 'item', label: 'Line Segment', hotkey: 'L', action: () => selectTool('line') },
-            { type: 'item', label: 'Text Tool', hotkey: 'T', action: () => selectTool('text') }
-          ]);
-
           addSubmenu('Edit & History', [
             { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => handleUndo() },
             { type: 'item', label: 'Redo', hotkey: 'Ctrl+Y', action: () => { doc.redo(); render(); } },
@@ -8762,6 +8706,18 @@
           addSubmenu('Rulers & Guides', emptyGuideItems);
           addSubmenu('Snapping', getSnapMenuItems());
         }
+
+        addSubmenu('Tools', [
+          { type: 'item', label: 'Select Tool', action: () => selectTool('select') },
+          { type: 'item', label: 'Direct / Node Select', action: () => selectTool('node') },
+          { type: 'item', label: 'Hand / Pan Canvas', action: () => selectTool('hand') },
+          { type: 'item', label: 'Pen / Bézier Tool', action: () => selectTool('pen') },
+          { type: 'item', label: 'Brush Tool', action: () => selectTool('brush') },
+          { type: 'item', label: 'Rectangle Shape', action: () => selectTool('rect') },
+          { type: 'item', label: 'Ellipse / Circle', action: () => selectTool('ellipse') },
+          { type: 'item', label: 'Line Segment', action: () => selectTool('line') },
+          { type: 'item', label: 'Text Tool', action: () => selectTool('text') }
+        ]);
 
         // ── Monaco / VS Code Context Menu Architecture (vs/base/browser/ui/contextview & menu) ──
         if (window.contextMenuService) {
@@ -9601,34 +9557,12 @@
           }
         } else if (key === 'enter') {
           if (activeTool === 'pen') commitPenPath();
-        } else if (key === 'v') {
-          selectTool('select');
-        } else if (key === 'h') {
-          selectTool('hand');
-        } else if (key === 'a') {
-          selectTool('node');
-        } else if (key === 'p') {
-          selectTool('pen');
-        } else if (key === 'b') {
-          selectTool('brush');
-        } else if (key === 'r') {
-          if (e.shiftKey) {
-            e.preventDefault();
-            toggleRulers();
-          } else {
-            selectTool('rect');
-          }
-        } else if (key === 'o') {
-          selectTool('ellipse');
-        } else if (key === 'l') {
-          selectTool('line');
-        } else if (key === 't') {
-          if (e.shiftKey) {
-            e.preventDefault();
-            switchTab('scene');
-          } else {
-            selectTool('text');
-          }
+        } else if (key === 'r' && e.shiftKey) {
+          e.preventDefault();
+          toggleRulers();
+        } else if (key === 't' && e.shiftKey) {
+          e.preventDefault();
+          switchTab('scene');
         } else if (key === 'f') {
           if (e.shiftKey) {
             e.preventDefault();
@@ -12211,17 +12145,7 @@
         cvs.width = outW;
         cvs.height = outH;
 
-        if (quadroRenderer) {
-          const needBg = format === 'image/jpeg' || (doc.backgroundColor && doc.backgroundColor !== 'transparent');
-          quadroRenderer.renderToCanvas(doc, cvs, { scale: scale, background: needBg });
-        } else {
-          const ctx2d = cvs.getContext('2d');
-          ctx2d.clearRect(0, 0, outW, outH);
-          if (doc.backgroundColor && doc.backgroundColor !== 'transparent') {
-            ctx2d.fillStyle = doc.backgroundColor;
-            ctx2d.fillRect(0, 0, outW, outH);
-          }
-        }
+        await renderDocFrameToCanvas(cvs, scale, format !== 'image/png');
 
         if (format === 'image/jpeg' && (!doc.backgroundColor || doc.backgroundColor === 'transparent')) {
           const ctx2d = cvs.getContext('2d');
@@ -12269,7 +12193,9 @@
         }
 
         if (!rendered) {
-          const svgStr = doc.toSVGString();
+          const svgStr = includeBg
+            ? doc.toSVGString()
+            : doc.toSVGString().replace(/<rect id="doc_background"[^>]*\/>\s*/i, '');
           const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(blob);
           await new Promise((resolve) => {
@@ -15259,12 +15185,6 @@
 
       document.querySelectorAll('[data-studio-panel]').forEach(button => {
         button.addEventListener('click', () => activatePanel(button.dataset.studioPanel));
-      });
-      document.querySelectorAll('[data-studio-tool]').forEach(button => {
-        button.addEventListener('click', () => {
-          document.querySelectorAll('[data-studio-tool]').forEach(item => item.classList.toggle('active', item === button));
-          window.selectTool?.(button.dataset.studioTool);
-        });
       });
       document.getElementById('mobile-more-button')?.addEventListener('click', () => moreSheet?.classList.add('active'));
       document.getElementById('mobile-more-close')?.addEventListener('click', () => moreSheet?.classList.remove('active'));
