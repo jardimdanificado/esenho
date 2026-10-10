@@ -186,12 +186,28 @@ export function getEasingFunction(tweenType) {
   if (Easing[tweenType]) return Easing[tweenType];
 
   if (typeof tweenType === 'string') {
+    const legacyAliases = {
+      'ease-in': 'easeInQuad',
+      'ease-out': 'easeOutQuad',
+      'ease-in-out': 'easeInOutQuad',
+      'step-start': 'step',
+      'step-end': 'step',
+      elastic: 'easeOutElastic',
+      bounce: 'easeOutBounce'
+    };
+    if (legacyAliases[tweenType]) return Easing[legacyAliases[tweenType]];
+
     if (tweenType.startsWith('curve:')) {
       const curveId = tweenType.slice(6);
       const registry = typeof globalThis !== 'undefined' ? globalThis.EsenhoRegistry : null;
-      const curve = registry?.get?.('curve', curveId);
-      if (curve?.easing) return getEasingFunction(curve.easing);
-      if (curve && registry?.evaluateCurve) return t => registry.evaluateCurve(curve, t);
+      if (registry?.get && registry?.evaluateCurve) {
+        // Keep the keyframe linked to the shared resource so edits to a preset
+        // are reflected by animations already using it.
+        return t => {
+          const curve = registry.get('curve', curveId);
+          return curve ? registry.evaluateCurve(curve, t) : t;
+        };
+      }
     }
     if (_cubicBezierCache.has(tweenType)) return _cubicBezierCache.get(tweenType);
 

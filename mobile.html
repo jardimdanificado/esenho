@@ -6045,6 +6045,46 @@
         });
       }
 
+      function populateAnimationEasingSelects(container, events) {
+        const builtins = [
+          ['linear', 'Linear'], ['easeInQuad', 'Ease In (Quad)'], ['easeOutQuad', 'Ease Out (Quad)'],
+          ['easeInOutQuad', 'Ease In/Out (Quad)'], ['easeInCubic', 'Ease In (Cubic)'],
+          ['easeOutCubic', 'Ease Out (Cubic)'], ['easeInOutCubic', 'Ease In/Out (Cubic)'],
+          ['easeInElastic', 'Elastic In'], ['easeOutElastic', 'Elastic Out'],
+          ['easeOutBounce', 'Bounce Out'], ['step', 'Step (Hold)']
+        ];
+        const aliases = { 'ease-in': 'easeInQuad', 'ease-out': 'easeOutQuad', 'ease-in-out': 'easeInOutQuad', 'step-start': 'step', 'step-end': 'step', elastic: 'easeOutElastic', bounce: 'easeOutBounce', spring: 'spring(3,0.5)' };
+        const curves = globalThis.EsenhoRegistry?.list?.('curve') || [];
+        const curveGroup = document.createElement('optgroup');
+        curveGroup.label = 'Shared Curve Presets';
+        curves.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id))).forEach(curve => {
+          const option = document.createElement('option');
+          option.value = `curve:${curve.id}`;
+          option.textContent = curve.name || curve.id;
+          curveGroup.appendChild(option);
+        });
+        container.querySelectorAll('.event-easing-select').forEach(select => {
+          const event = events.find(item => String(item.frame) === select.dataset.frame);
+          const selected = aliases[event?.tweenType] || event?.tweenType || 'linear';
+          builtins.forEach(([value, label]) => {
+            const option = document.createElement('option');
+            option.value = value;
+            option.textContent = label;
+            select.appendChild(option);
+          });
+          if (curveGroup.childElementCount) select.appendChild(curveGroup.cloneNode(true));
+          if (![...select.options].some(option => option.value === selected)) {
+            const option = document.createElement('option');
+            option.value = selected;
+            option.textContent = selected.startsWith('curve:') ? (curves.find(curve => `curve:${curve.id}` === selected)?.name || 'Missing curve preset') : selected;
+            select.appendChild(option);
+          }
+          select.value = selected;
+        });
+      }
+
+      window.addEventListener('esenho:registry-updated', () => updateSelectedObjectEventsUI());
+
       function updateSelectedObjectEventsUI() {
         const container = document.getElementById('selected-events-container');
         const titleEl = document.getElementById('selected-events-title');
@@ -6116,16 +6156,13 @@
             </div>
           `;
         } else {
-          const easings = ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'spring', 'bounce', 'elastic'];
           let rowsHtml = '<div style="display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto;">';
           for (const ev of events) {
-            const easingOptions = easings.map(e => `<option value="${e}" ${ev.tweenType === e ? 'selected' : ''}>${e}</option>`).join('');
             rowsHtml += `
               <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 2px; padding: 1px 4px;">
                 <div style="display: flex; align-items: center; gap: 4px;">
                   <button class="event-frame-btn" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to frame ${ev.frame}">◆ F${ev.frame}</button>
                   <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 8.5px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px; height: 18px;">
-                    ${easingOptions}
                   </select>
                 </div>
                 <div style="display: flex; align-items: center; gap: 2px;">
@@ -6137,6 +6174,7 @@
           }
           rowsHtml += '</div>';
           container.innerHTML = rowsHtml;
+          populateAnimationEasingSelects(container, events);
         }
 
         container.onclick = (e) => {
