@@ -2194,6 +2194,15 @@
       overflow: hidden;
       cursor: default;
       touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    #viewport-container * {
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
 
     #viewport-container.panning {
@@ -7291,8 +7300,15 @@
       window.updateSwatches = updateSwatches;
 
       // ── Pointer & Tool Event Handlers ──
+      let touchSelectionBeforeGesture = null;
+      let touchSelectionSnapshotAt = 0;
       viewportContainer.addEventListener('pointerdown', (e) => {
         if (isTouchPinching) return;
+
+        if (e.pointerType === 'touch') {
+          touchSelectionBeforeGesture = new Set(doc.selectedIds);
+          touchSelectionSnapshotAt = Date.now();
+        }
 
         // Hand tool / Space / Middle Click Pan
         if (activeTool === 'hand' || e.button === 1 || e.spaceKey || isPanning) {
@@ -9452,6 +9468,15 @@
       viewportContainer.addEventListener('contextmenu', (e) => {
         if (e.target.closest('.monaco-menu-container') || e.target.closest('.context-menu') || e.target.closest('.dock-panel-content:not(#dock-panel-canvas)')) return;
         e.preventDefault();
+        // A long touch produces pointerdown before the browser's contextmenu event.
+        // Undo the provisional selection made by that pointerdown.
+        if (touchSelectionBeforeGesture && Date.now() - touchSelectionSnapshotAt < 1500) {
+          doc.selectedIds = new Set(touchSelectionBeforeGesture);
+          render();
+          updateInspector();
+          drawOverlay();
+          touchSelectionBeforeGesture = null;
+        }
         const pt = screenToDoc(e.clientX, e.clientY);
 
         // Immediate guide deletion on right click
@@ -14630,6 +14655,16 @@
         if (e.touches.length >= 2) {
           e.preventDefault();
           isTouchPinching = true;
+
+          // The first finger may already have triggered a normal selection.
+          // Restore it when the gesture becomes a pinch/rotate/pan.
+          if (touchSelectionBeforeGesture) {
+            doc.selectedIds = new Set(touchSelectionBeforeGesture);
+            render();
+            updateInspector();
+            drawOverlay();
+            touchSelectionBeforeGesture = null;
+          }
 
           // Abort any ongoing single-finger drawing, marquee or transform
           isDragging = false;
