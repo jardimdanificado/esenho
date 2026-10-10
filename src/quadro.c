@@ -5452,3 +5452,194 @@ W_EXPORT void w_mypaint_brush_clear_curve(int32_t s, int32_t i) { w_brush_dyn_cl
 W_EXPORT void w_mypaint_brush_reset_state(void) { w_brush_dyn_reset_state(); }
 W_EXPORT void w_mypaint_brush_stroke_to(float x, float y, float p, float tx, float ty, float dt, float z) { w_brush_dyn_stroke_to(x, y, p, tx, ty, dt, z); }
 
+/* =========================================================================
+ * Oklab & Oklch Perceptual Color Engine Exports
+ * ========================================================================= */
+W_EXPORT void w_color_rgb_to_oklab_exp(uint32_t argb, float *out_lab) {
+    w_color_rgb_to_oklab(argb, out_lab);
+}
+
+W_EXPORT uint32_t w_color_oklab_to_rgb_exp(float L, float a, float b, uint32_t alpha) {
+    return w_color_oklab_to_rgb(L, a, b, alpha);
+}
+
+W_EXPORT void w_color_rgb_to_oklch_exp(uint32_t argb, float *out_lch) {
+    w_color_rgb_to_oklch(argb, out_lch);
+}
+
+W_EXPORT uint32_t w_color_oklch_to_rgb_exp(float L, float C, float h_deg, uint32_t alpha) {
+    return w_color_oklch_to_rgb(L, C, h_deg, alpha);
+}
+
+W_EXPORT uint32_t w_color_oklab_lerp_exp(uint32_t col_a, uint32_t col_b, float t) {
+    return w_color_oklab_lerp(col_a, col_b, t);
+}
+
+W_EXPORT int32_t w_color_harmony_exp(uint32_t base_color, int32_t harmony_type, uint32_t *out_palette, int32_t max_count) {
+    return w_color_generate_harmony(base_color, harmony_type, out_palette, max_count);
+}
+
+/* =========================================================================
+ * Parametric Easing & Bézier Curve Exports
+ * ========================================================================= */
+W_EXPORT float w_easing_evaluate(int32_t ease_type, float t) {
+    return w_easing_eval(ease_type, t);
+}
+
+W_EXPORT float w_bezier_easing_evaluate(float x1, float y1, float x2, float y2, float t) {
+    return w_bezier_easing_eval(x1, y1, x2, y2, t);
+}
+
+W_EXPORT float w_anim_eval_property(float start_val, float end_val, float t, int32_t ease_type) {
+    return w_anim_evaluate_property(start_val, end_val, t, ease_type);
+}
+
+W_EXPORT float w_anim_eval_property_bezier(float start_val, float end_val, float t, float x1, float y1, float x2, float y2) {
+    return w_anim_evaluate_property_bezier(start_val, end_val, t, x1, y1, x2, y2);
+}
+
+/* =========================================================================
+ * Native Animated GIF89a Export Implementation
+ * ========================================================================= */
+static w_gif_encoder_t g_gif_encoder = {0};
+static uint8_t *g_gif_buffer = 0;
+static uint32_t g_gif_buffer_cap = 0;
+static uint8_t *g_gif_temp_indexed = 0;
+static uint32_t g_gif_temp_indexed_cap = 0;
+
+W_EXPORT uint8_t* w_gif_get_buffer(uint32_t size) {
+    if (size > g_gif_buffer_cap) {
+        g_gif_buffer = (uint8_t*)canvas_alloc(size + 65536);
+        g_gif_buffer_cap = size + 65536;
+    }
+    return g_gif_buffer;
+}
+
+W_EXPORT int32_t w_gif_start(int32_t width, int32_t height, int32_t loop_count) {
+    if (width <= 0) width = doc_width;
+    if (height <= 0) height = doc_height;
+
+    uint32_t min_cap = (uint32_t)(width * height * 4 + 65536);
+    uint8_t *buf = w_gif_get_buffer(min_cap);
+
+    uint32_t num_pix = (uint32_t)(width * height);
+    if (num_pix > g_gif_temp_indexed_cap) {
+        g_gif_temp_indexed = (uint8_t*)canvas_alloc(num_pix + 1024);
+        g_gif_temp_indexed_cap = num_pix + 1024;
+    }
+
+    w_gif_init(&g_gif_encoder, buf, g_gif_buffer_cap, width, height, loop_count);
+    return 1;
+}
+
+W_EXPORT int32_t w_gif_append_layer_frame(int32_t layer_idx, int32_t delay_ms) {
+    if (!g_gif_encoder.buffer || layer_idx < 0 || layer_idx >= layer_count || !layers[layer_idx].in_use) return -1;
+    uint32_t *pix = layers[layer_idx].pixels;
+    if (!pix) return -1;
+    return w_gif_write_frame(&g_gif_encoder, pix, delay_ms, g_gif_temp_indexed);
+}
+
+W_EXPORT int32_t w_gif_append_composite_frame(int32_t delay_ms) {
+    if (!g_gif_encoder.buffer) return -1;
+    force_composite();
+    if (!out_pixels) return -1;
+    return w_gif_write_frame(&g_gif_encoder, out_pixels, delay_ms, g_gif_temp_indexed);
+}
+
+W_EXPORT int32_t w_gif_finalize(void) {
+    if (!g_gif_encoder.buffer) return 0;
+    return w_gif_finish(&g_gif_encoder);
+}
+
+W_EXPORT int32_t w_gif_get_size(void) {
+    return (int32_t)g_gif_encoder.size;
+}
+
+/* =========================================================================
+ * Vector Polygon Boolean Operations Implementation
+ * ========================================================================= */
+W_EXPORT int32_t w_polygon_boolean_clip(int32_t op_type, const int32_t *subj_xy, int32_t subj_count, const int32_t *clip_xy, int32_t clip_count, int32_t *out_xy, int32_t max_out_points) {
+    return w_polygon_clip(op_type, subj_xy, subj_count, clip_xy, clip_count, out_xy, max_out_points);
+}
+
+W_EXPORT int32_t w_vector_boolean_shapes(int32_t op_type, int32_t subj_obj_id, int32_t clip_obj_id, int32_t target_layer_idx) {
+    w_vstroke_internal_t *subj = find_vstroke(-1, subj_obj_id, 0, 0);
+    w_vstroke_internal_t *clip = find_vstroke(-1, clip_obj_id, 0, 0);
+    if (!subj || !clip || subj->point_count < 3 || clip->point_count < 3) return -1;
+
+    int32_t *s_xy = (int32_t*)canvas_alloc(subj->point_count * 2 * sizeof(int32_t));
+    int32_t *c_xy = (int32_t*)canvas_alloc(clip->point_count * 2 * sizeof(int32_t));
+    int32_t *out_xy = (int32_t*)canvas_alloc(256 * 2 * sizeof(int32_t));
+
+    for (int i = 0; i < subj->point_count; i++) {
+        s_xy[i * 2] = subj->points[i].x;
+        s_xy[i * 2 + 1] = subj->points[i].y;
+    }
+    for (int i = 0; i < clip->point_count; i++) {
+        c_xy[i * 2] = clip->points[i].x;
+        c_xy[i * 2 + 1] = clip->points[i].y;
+    }
+
+    int32_t out_count = w_polygon_clip(op_type, s_xy, subj->point_count, c_xy, clip->point_count, out_xy, 256);
+    if (out_count < 3) return -1;
+
+    int lidx = target_layer_idx >= 0 ? target_layer_idx : (active_layer >= 0 ? active_layer : 0);
+    ensure_vlayer_capacity(lidx + 1);
+    w_vlayer_internal_t *vl = &vlayers[lidx];
+    ensure_vstroke_capacity(vl, vl->count + 1);
+
+    w_vstroke_internal_t *st = &vl->strokes[vl->count++];
+    st->id = vector_next_stroke_id++;
+    st->layer_idx = lidx;
+    st->shape_type = W_VSHAPE_POLY;
+    st->color = subj->color;
+    st->fill_color = subj->fill_color;
+    st->stroke_width = subj->stroke_width;
+    st->eraser = subj->eraser;
+    st->closed = 1;
+    st->config = subj->config;
+    st->point_count = 0;
+    ensure_vpoint_capacity(st, out_count);
+
+    for (int i = 0; i < out_count; i++) {
+        w_vpoint_t *pt = &st->points[st->point_count++];
+        pt->x = out_xy[i * 2];
+        pt->y = out_xy[i * 2 + 1];
+        pt->pressure = 1000;
+        pt->tilt_x = 0;
+        pt->tilt_y = 0;
+    }
+
+    recalculate_bbox(st);
+    return st->id;
+}
+
+/* =========================================================================
+ * Native Image Ingestion Implementation
+ * ========================================================================= */
+W_EXPORT int32_t w_image_load_auto_dimensions(const uint8_t *file_data, uint32_t file_len, int32_t *out_w_h) {
+    int32_t w = 0, h = 0;
+    int32_t res = w_image_get_dimensions(file_data, file_len, &w, &h);
+    if (out_w_h) {
+        out_w_h[0] = w;
+        out_w_h[1] = h;
+    }
+    return res;
+}
+
+W_EXPORT int32_t w_image_load_to_layer(int32_t layer_idx, const uint8_t *file_data, uint32_t file_len) {
+    if (!file_data || file_len < 4) return 0;
+    if (layer_idx < 0 || layer_idx >= layer_count || !layers[layer_idx].in_use) return 0;
+
+    int32_t w = 0, h = 0;
+    uint32_t *pix = layers[layer_idx].pixels;
+    int32_t max_p = layers[layer_idx].width * layers[layer_idx].height;
+    if (!pix || max_p <= 0) return 0;
+
+    int32_t decoded = w_image_decode_auto(file_data, file_len, pix, max_p, &w, &h);
+    if (decoded > 0) {
+        mark_dirty_rect(0, 0, layers[layer_idx].width, layers[layer_idx].height);
+    }
+    return decoded;
+}
+

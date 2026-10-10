@@ -1210,8 +1210,54 @@ W_EXPORT uint32_t* get_layer_pixels(int32_t idx);
 W_EXPORT uint32_t* get_composite_pixels(void);
 W_EXPORT int32_t   get_width(void);
 W_EXPORT int32_t   get_height(void);
+#include "quadro_color_oklab.h"
+#include "quadro_easing.h"
+#include "quadro_gif.h"
+#include "quadro_boolean.h"
+#include "quadro_image.h"
+
+/* =========================================================================
+ * Oklab / Oklch & Color Harmonies ABI
+ * ========================================================================= */
+W_EXPORT void     w_color_rgb_to_oklab_exp(uint32_t argb, float *out_lab);
+W_EXPORT uint32_t w_color_oklab_to_rgb_exp(float L, float a, float b, uint32_t alpha);
+W_EXPORT void     w_color_rgb_to_oklch_exp(uint32_t argb, float *out_lch);
+W_EXPORT uint32_t w_color_oklch_to_rgb_exp(float L, float C, float h_deg, uint32_t alpha);
+W_EXPORT uint32_t w_color_oklab_lerp_exp(uint32_t col_a, uint32_t col_b, float t);
+W_EXPORT int32_t  w_color_harmony_exp(uint32_t base_color, int32_t harmony_type, uint32_t *out_palette, int32_t max_count);
+
+/* =========================================================================
+ * Parametric Easing & Bézier Curve ABI
+ * ========================================================================= */
+W_EXPORT float w_easing_evaluate(int32_t ease_type, float t);
+W_EXPORT float w_bezier_easing_evaluate(float x1, float y1, float x2, float y2, float t);
+W_EXPORT float w_anim_eval_property(float start_val, float end_val, float t, int32_t ease_type);
+W_EXPORT float w_anim_eval_property_bezier(float start_val, float end_val, float t, float x1, float y1, float x2, float y2);
+
+/* =========================================================================
+ * Native Animated GIF89a Export ABI
+ * ========================================================================= */
+W_EXPORT uint8_t* w_gif_get_buffer(uint32_t size);
+W_EXPORT int32_t  w_gif_start(int32_t width, int32_t height, int32_t loop_count);
+W_EXPORT int32_t  w_gif_append_layer_frame(int32_t layer_idx, int32_t delay_ms);
+W_EXPORT int32_t  w_gif_append_composite_frame(int32_t delay_ms);
+W_EXPORT int32_t  w_gif_finalize(void);
+W_EXPORT int32_t  w_gif_get_size(void);
+
+/* =========================================================================
+ * Vector Polygon Boolean Operations ABI
+ * ========================================================================= */
+W_EXPORT int32_t w_polygon_boolean_clip(int32_t op_type, const int32_t *subj_xy, int32_t subj_count, const int32_t *clip_xy, int32_t clip_count, int32_t *out_xy, int32_t max_out_points);
+W_EXPORT int32_t w_vector_boolean_shapes(int32_t op_type, int32_t subj_obj_id, int32_t clip_obj_id, int32_t target_layer_idx);
+
+/* =========================================================================
+ * Native Image Decoding / Ingestion ABI
+ * ========================================================================= */
+W_EXPORT int32_t w_image_load_to_layer(int32_t layer_idx, const uint8_t *file_data, uint32_t file_len);
+W_EXPORT int32_t w_image_load_auto_dimensions(const uint8_t *file_data, uint32_t file_len, int32_t *out_w_h);
 
 #endif /* QUADRO_H */
+
 
 
 
