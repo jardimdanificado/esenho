@@ -3404,12 +3404,22 @@
     }
 
     /* Painter-inspired touch shell for the Studio workspace. */
+    :root {
+      --mobile-safe-top: env(safe-area-inset-top, 0px);
+      --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    @media (display-mode: fullscreen) {
+      :root {
+        --mobile-safe-top: 0px;
+        --mobile-safe-bottom: 0px;
+      }
+    }
     body.mobile-studio-ui { background: #141617; }
     #vscode-titlebar, #vscode-statusbar { display: none !important; }
     #mobile-studio-header {
-      height: calc(48px + env(safe-area-inset-top, 0px));
-      min-height: calc(48px + env(safe-area-inset-top, 0px));
-      padding: env(safe-area-inset-top, 0px) 10px 0;
+      height: calc(48px + var(--mobile-safe-top));
+      min-height: calc(48px + var(--mobile-safe-top));
+      padding: var(--mobile-safe-top) 10px 0;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -3501,8 +3511,8 @@
     #dockview-container { display: none !important; }
     #mobile-studio-nav {
       flex: 0 0 auto;
-      min-height: calc(64px + env(safe-area-inset-bottom, 0px));
-      padding: 5px 5px env(safe-area-inset-bottom, 0px);
+      min-height: calc(64px + var(--mobile-safe-bottom));
+      padding: 5px 5px var(--mobile-safe-bottom);
       display: flex;
       justify-content: flex-start;
       overflow-x: auto;
