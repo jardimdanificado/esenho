@@ -887,63 +887,6 @@ export class DopeSheetUI {
     ];
 
     const curveRegistry = typeof globalThis !== 'undefined' ? globalThis.EsenhoRegistry : null;
-    const activeCurveRef = typeof this.activeEasing === 'string' && this.activeEasing.startsWith('curve:')
-      ? curveRegistry?.get?.('curve', this.activeEasing.slice(6))
-      : null;
-    const activeCurveEditor = activeCurveRef?.editor || null;
-    if (activeCurveEditor) {
-      currentMode = activeCurveEditor.mode || currentMode;
-      p1 = activeCurveEditor.p1 || p1;
-      p2 = activeCurveEditor.p2 || p2;
-      bounceCount = activeCurveEditor.bounceCount ?? bounceCount;
-      bounceDecay = activeCurveEditor.bounceDecay ?? bounceDecay;
-      springOsc = activeCurveEditor.springOsc ?? springOsc;
-      springDamp = activeCurveEditor.springDamp ?? springDamp;
-      splineNodes = activeCurveEditor.splineNodes || splineNodes;
-    } else if (activeCurveRef?.points?.length >= 4) {
-      currentMode = 'bezier';
-      p1 = { x: activeCurveRef.points[1][0], y: activeCurveRef.points[1][1] };
-      p2 = { x: activeCurveRef.points[2][0], y: activeCurveRef.points[2][1] };
-    }
-
-    if (typeof this.activeEasing === 'string') {
-      if (this.activeEasing.startsWith('bounce(') || this.activeEasing.startsWith('custom-bounce:')) {
-        currentMode = 'bounce';
-        const m = this.activeEasing.match(/-?[\d.]+/g);
-        if (m) {
-          if (m[0]) bounceCount = Number(m[0]);
-          if (m[1]) bounceDecay = Number(m[1]);
-        }
-      } else if (this.activeEasing === 'easeOutBounce' || this.activeEasing === 'bounce') {
-        currentMode = 'bounce';
-        bounceCount = 3;
-        bounceDecay = 0.45;
-      } else if (this.activeEasing.startsWith('spring(') || this.activeEasing.startsWith('custom-spring:')) {
-        currentMode = 'spring';
-        const m = this.activeEasing.match(/-?[\d.]+/g);
-        if (m) {
-          if (m[0]) springOsc = Number(m[0]);
-          if (m[1]) springDamp = Number(m[1]);
-        }
-      } else if (this.activeEasing === 'easeOutElastic' || this.activeEasing === 'elastic') {
-        currentMode = 'spring';
-        springOsc = 3;
-        springDamp = 0.4;
-      } else if (this.activeEasing.startsWith('spline:')) {
-        currentMode = 'spline';
-        try {
-          const parsed = JSON.parse(this.activeEasing.slice(7));
-          if (Array.isArray(parsed) && parsed.length >= 2) splineNodes = parsed;
-        } catch (_) {}
-      } else if (this.activeEasing.startsWith('cubic-bezier') || this.activeEasing.startsWith('custom:')) {
-        currentMode = 'bezier';
-        const m = this.activeEasing.match(/-?[\d.]+/g);
-        if (m && m.length >= 4) {
-          p1 = { x: Math.max(0, Math.min(1, parseFloat(m[0]))), y: parseFloat(m[1]) };
-          p2 = { x: Math.max(0, Math.min(1, parseFloat(m[2]))), y: parseFloat(m[3]) };
-        }
-      }
-    }
 
     container.innerHTML = `
       <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 4px 6px; box-sizing: border-box;">
@@ -987,9 +930,6 @@ export class DopeSheetUI {
             <span style="font-size: 8.5px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Easing:</span>
             <span id="ds-ce-curve-str" style="color: var(--text-dim); font-family: var(--font-mono); font-size: 9px; overflow: hidden; text-overflow: ellipsis; max-width: 200px; white-space: nowrap; text-align: right;">...</span>
           </div>
-          <button id="ds-ce-apply" class="btn-primary" style="width: 100%; padding: 3px 6px; font-weight: 700; font-size: 10px; cursor: pointer; border-radius: var(--radius-sm); display: flex; align-items: center; justify-content: center; gap: 4px;">
-            <span>Apply to Keyframe</span>
-          </button>
         </div>
       </div>
     `;
@@ -1022,7 +962,7 @@ export class DopeSheetUI {
 
     let draggingTarget = null;
     let currentCurveFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
-    let curvePresetDirty = Boolean(activeCurveRef);
+    let curvePresetDirty = false;
 
     const adjustCurveInputWidth = (inputEl) => {
       if (!inputEl) return;
@@ -1431,22 +1371,12 @@ export class DopeSheetUI {
     };
     this._curveAnimId = requestAnimationFrame(animLoop);
 
-    const applyBtn = container.querySelector('#ds-ce-apply');
-    if (applyBtn) {
-      applyBtn.onclick = () => {
-        const presetSelect = container.querySelector('#ds-ce-preset-select');
-        const savedPresetId = presetSelect?.value;
-        const resultCurve = savedPresetId && !curvePresetDirty ? `curve:${savedPresetId}` : getCurrentCurveValue();
-        this.applyCurve(resultCurve);
-      };
-    }
-
     updateControlsUI();
     syncGraph();
     const presetSelect = container.querySelector('#ds-ce-preset-select');
     const presetName = container.querySelector('#ds-ce-preset-name');
     const deletePresetBtn = container.querySelector('#ds-ce-preset-delete');
-    let selectedCurveId = activeCurveRef?.id || '';
+    let selectedCurveId = '';
 
     const getCurrentCurveValue = () => {
       if (currentMode === 'bezier') return `cubic-bezier(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y})`;
@@ -1502,10 +1432,6 @@ export class DopeSheetUI {
     };
 
     refreshPresetList(selectedCurveId);
-    if (selectedCurveId) {
-      if (presetName) presetName.value = activeCurveRef?.name || '';
-      curvePresetDirty = false;
-    }
     presetSelect?.addEventListener('change', () => {
       const curve = curveRegistry?.get?.('curve', presetSelect.value);
       if (curve) loadPreset(curve);

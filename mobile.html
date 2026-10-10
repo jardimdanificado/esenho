@@ -2100,49 +2100,57 @@
       box-sizing: border-box;
     }
 
-    body.mobile-studio-ui #dock-panel-animation { padding: 8px !important; }
+    body.mobile-studio-ui #dock-panel-animation { padding: 5px !important; }
     body.mobile-studio-ui #timeline-container { display: none !important; }
     #mobile-animator {
-      width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+      width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 4px;
       overflow: hidden; color: var(--text); box-sizing: border-box;
     }
     .mobile-animator-head, .mobile-animator-transport, .mobile-animator-settings,
     .mobile-animator-actions, .mobile-animator-list-head {
       display: flex; align-items: center; gap: 6px; flex-shrink: 0;
     }
-    .mobile-animator-head { justify-content: space-between; min-height: 22px; }
-    .mobile-animator-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-    .mobile-animator-clip-actions { display: flex; gap: 3px; flex-shrink: 0; }
-    .mobile-animator-clip-actions button { min-width: 25px; min-height: 30px; padding: 2px 3px; font-size: 12px; }
+    .mobile-animator-head { justify-content: space-between; min-height: 24px; gap: 4px; }
+    .mobile-animator-title { display: none; }
+    .mobile-animator-clip-actions { display: flex; gap: 2px; flex-shrink: 0; }
+    .mobile-animator-clip-actions button { min-width: 25px; min-height: 28px; padding: 1px 3px; font-size: 12px; }
     #mobile-animation-clip {
-      flex: 1; max-width: none; min-width: 66px; min-height: 30px; padding: 3px 22px 3px 7px;
+      flex: 1; max-width: none; min-width: 66px; min-height: 27px; padding: 2px 18px 2px 6px;
       background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 4px;
     }
     .mobile-animator-card {
-      padding: 7px; border: 1px solid var(--border); border-radius: 5px;
+      padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px;
       background: var(--bg-panel-sub); box-sizing: border-box;
     }
-    .mobile-animator-transport { justify-content: center; }
-    .mobile-animator-transport button { min-width: 38px; min-height: 38px; font-size: 15px; }
-    .mobile-animator-transport #scene-anim-btn-play { min-width: 48px; font-size: 18px; }
-    #scene-anim-time-badge { margin-left: auto; min-width: 66px; font-size: 11px; }
-    .mobile-animator-settings { justify-content: space-between; }
-    .mobile-animator-field { display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 9px; }
+    .mobile-animator-transport { justify-content: flex-start; gap: 3px; }
+    .mobile-animator-transport button { min-width: 30px; min-height: 30px; padding: 1px 4px; font-size: 13px; }
+    .mobile-animator-transport #scene-anim-btn-play { min-width: 36px; font-size: 16px; }
+    #scene-anim-time-badge { margin-left: auto; min-width: 60px; font-size: 10px; }
+    .mobile-animator-settings { justify-content: flex-start; gap: 8px; margin-top: 3px !important; }
+    .mobile-animator-field { display: flex; align-items: center; gap: 3px; color: var(--text-muted); font-size: 9px; }
     .mobile-animator-field input {
-      width: 48px; min-height: 32px; padding: 3px 4px; text-align: center;
+      width: 42px; min-height: 25px; padding: 2px 3px; text-align: center;
       color: var(--text-bright); background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
     }
-    .mobile-animator-actions button { min-height: 34px; flex: 1; padding: 3px 6px; font-size: 10px; }
+    .mobile-animator-actions { gap: 4px; }
+    .mobile-animator-actions button { min-height: 29px; flex: 1; padding: 2px 4px; font-size: 9px; }
     .mobile-animator-actions button.active { color: var(--primary); border-color: var(--primary); }
     .mobile-animator-events { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
-    .mobile-animator-list-head { justify-content: space-between; margin-bottom: 5px; font-size: 10px; font-weight: 700; }
+    .mobile-animator-list-head { justify-content: space-between; margin-bottom: 3px; font-size: 10px; font-weight: 700; }
     #selected-events-badge { color: var(--text-muted); font-size: 9px; font-weight: 500; }
     #selected-events-container { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
-    #selected-events-container .event-row { min-height: 38px; padding: 4px 6px !important; gap: 6px; border-radius: 4px; }
-    #selected-events-container .event-frame-btn { min-height: 32px; min-width: 58px; font-size: 10px; }
-    #selected-events-container .event-easing-select { min-height: 32px !important; font-size: 10px !important; padding: 3px 6px !important; }
-    #selected-events-container .btn-icon { min-width: 32px; min-height: 32px; font-size: 15px !important; }
-    #selected-events-container [data-action="select-obj"] { min-height: 40px; padding: 6px 8px !important; }
+    #selected-events-container .event-row { min-height: 30px; padding: 2px 4px !important; gap: 4px; border-radius: 4px; }
+    #selected-events-container .event-frame-btn { min-height: 25px; min-width: 52px; font-size: 9px; }
+    #selected-events-container .event-easing-select { min-height: 25px !important; font-size: 9px !important; padding: 2px 4px !important; }
+    #selected-events-container .btn-icon { min-width: 25px; min-height: 25px; font-size: 13px !important; }
+    #selected-events-container [data-action="select-obj"] { min-height: 32px; padding: 4px 6px !important; }
+    body.mobile-studio-ui #dock-panel-inspect { padding: 5px !important; }
+    body.mobile-studio-ui #dock-panel-inspect .section-card { margin: 0 0 4px !important; padding: 6px 7px !important; }
+    body.mobile-studio-ui #dock-panel-inspect .form-row { margin-bottom: 4px !important; gap: 5px; }
+    body.mobile-studio-ui #dock-panel-color { gap: 4px !important; padding: 5px !important; }
+    body.mobile-studio-ui #dock-panel-color > .section-card { margin: 0 !important; padding: 6px 7px !important; }
+    body.mobile-studio-ui #dock-panel-scene { padding: 3px !important; }
+    body.mobile-studio-ui #dock-panel-projects [data-projects-page] { gap: 4px; }
 
     .ds-vertical-mode #ds-toolbar { max-height: 30%; overflow-y: auto; align-content: flex-start; }
     .ds-vertical-mode #ds-body { flex-direction: column !important; }
@@ -3430,7 +3438,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      height: var(--mobile-panel-sheet-height, min(44dvh, 390px));
+      height: var(--mobile-panel-sheet-height, min(54dvh, 480px));
       min-height: 190px;
       display: none;
       flex-direction: column;
@@ -3581,7 +3589,6 @@
   </div>
 
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
-    <button class="mobile-nav-item active" data-studio-panel="canvas" type="button"><span class="nav-icon">⌖</span><span>Canvas</span></button>
     <button class="mobile-nav-item" data-studio-panel="color" type="button"><span class="nav-icon">◉</span><span>Materials</span></button>
     <button class="mobile-nav-item" data-studio-panel="inspect" type="button"><span class="nav-icon">⌗</span><span>Transform</span></button>
     <button class="mobile-nav-item" data-studio-panel="scene" type="button"><span class="nav-icon">▤</span><span>Layers</span></button>
@@ -11156,14 +11163,13 @@
         appearancePanelsComposed = true;
 
         const brushCards = [...strokePanel.querySelectorAll(':scope > .section-card')].slice(1);
-        [...fillPanel.querySelectorAll(':scope > .section-card')].forEach(card => inspector.insertBefore(card, geometry));
+        [...fillPanel.querySelectorAll(':scope > .section-card')].forEach(card => materialsPanel.appendChild(card));
         const strokeCard = strokePanel.querySelector(':scope > .section-card');
         const strokeRows = strokeCard ? [...strokeCard.querySelectorAll(':scope > .form-row')] : [];
         const quickStroke = document.createElement('div');
         quickStroke.className = 'section-card';
         quickStroke.innerHTML = '<div class="section-header"><span>Stroke</span></div>';
         [strokeRows[0], strokeRows[1], strokeRows[5]].filter(Boolean).forEach(row => quickStroke.appendChild(row));
-        inspector.insertBefore(quickStroke, geometry);
 
         const strokeStyle = document.createElement('div');
         strokeStyle.className = 'section-card';
@@ -11172,9 +11178,12 @@
         const strokeOptions = document.createElement('div');
         strokeOptions.id = 'materials-stroke-options';
         strokeOptions.style.cssText = 'display: none; flex-direction: column; gap: 6px;';
+        if (quickStroke.children.length > 1) strokeOptions.appendChild(quickStroke);
         if (strokeStyle.children.length > 1) strokeOptions.appendChild(strokeStyle);
         brushCards.forEach(card => strokeOptions.appendChild(card));
         materialsPanel.appendChild(strokeOptions);
+        fillPanel.style.display = 'none';
+        strokePanel.style.display = 'none';
         strokeCard?.remove();
         syncMaterialsStrokeOptions();
       }
@@ -11220,12 +11229,13 @@
         tabs.id = 'mobile-projects-tabs';
         tabs.setAttribute('role', 'tablist');
         tabs.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:7px 8px;background:var(--bg-panel-sub);border-bottom:1px solid var(--border);flex-shrink:0;';
-        [['import', 'Import'], ['export', 'Export'], ['document', 'Active'], ['manager', 'Manager']].forEach(([key, label]) => {
+        [['import', 'Import'], ['export', 'Export'], ['document', 'Doc'], ['manager', 'Manager']].forEach(([key, label]) => {
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'btn-sm';
           button.dataset.projectsTab = key;
           button.setAttribute('role', 'tab');
+          if (key === 'document') button.setAttribute('aria-label', 'Active document');
           button.textContent = label;
           button.style.cssText = 'min-width:0;padding:6px 2px;font-size:10px;';
           button.addEventListener('click', () => setMobileProjectsTab(key));
@@ -11303,7 +11313,7 @@
         activeMobilePanelId = null;
         document.getElementById('mobile-panel-sheet')?.classList.remove('active');
         document.getElementById('mobile-panel-sheet-title').textContent = 'Panel';
-        document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === 'canvas'));
+        document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.remove('active'));
         const title = document.getElementById('mobile-project-title');
         if (title) title.textContent = 'Esenho Studio';
       }
@@ -11320,8 +11330,12 @@
         if (id === 'stroke') id = 'color';
         if (id === 'canvas') {
           closeMobileDockPanel();
-          document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === 'canvas'));
           return getPanelElement('canvas');
+        }
+        if (id === activeMobilePanelId && !requestedProjectsTab && document.getElementById('mobile-panel-sheet')?.classList.contains('active')) {
+          closeMobileDockPanel(id);
+          updateTitlebarLayoutButtons();
+          return null;
         }
         const panel = getPanelElement(id);
         const slot = document.getElementById('mobile-panel-slot');
@@ -11496,8 +11510,10 @@
 
       function openHubTab(tabName = 'projects') {
         const projectTab = ({ projects: 'manager', manager: 'manager', import: 'import', export: 'export', document: 'document', active: 'document', 'active-document': 'document' })[tabName] || 'manager';
-        openDockPanel('projects');
-        if (MOBILE_STUDIO_UI) setMobileProjectsTab(projectTab);
+        if (MOBILE_STUDIO_UI) {
+          if (activeMobilePanelId !== 'projects') openDockPanel('projects');
+          setMobileProjectsTab(projectTab);
+        } else openDockPanel(projectTab === 'export' ? 'export' : 'projects');
       }
       window.openHubTab = openHubTab;
 
@@ -15376,18 +15392,19 @@
       const title = document.getElementById('mobile-project-title');
 
       function activatePanel(id) {
+        const activeButton = document.querySelector('#mobile-studio-nav [data-studio-panel].active');
+        const sheetOpen = document.getElementById('mobile-panel-sheet')?.classList.contains('active');
+        if (activeButton?.dataset.studioPanel === id && sheetOpen) {
+          window.closeDockPanel?.(id);
+          return;
+        }
         document.querySelectorAll('#mobile-studio-nav [data-studio-panel]').forEach(button => {
           button.classList.toggle('active', button.dataset.studioPanel === id);
         });
         if (title) title.textContent = panelNames[id] || 'Esenho Studio';
 
-        if (id === 'canvas') {
-          panelIds.forEach(panelId => window.closeDockPanel?.(panelId));
-          window.openMobileStudioPanel?.('canvas');
-        } else {
-          panelIds.forEach(panelId => { if (panelId !== id) window.closeDockPanel?.(panelId); });
-          window.openDockPanel?.(id);
-        }
+        panelIds.forEach(panelId => { if (panelId !== id) window.closeDockPanel?.(panelId); });
+        window.openDockPanel?.(id);
       }
 
       document.querySelectorAll('[data-studio-panel]').forEach(button => {
@@ -15398,8 +15415,7 @@
       document.getElementById('mobile-undo')?.addEventListener('click', () => window.mobileStudioUndo?.());
       document.getElementById('mobile-redo')?.addEventListener('click', () => window.mobileStudioRedo?.());
       document.getElementById('mobile-export')?.addEventListener('click', () => {
-        activatePanel('projects');
-        setTimeout(() => document.getElementById('projects-export-options')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
+        window.openHubTab?.('export');
       });
       title?.addEventListener('click', () => activatePanel('projects'));
 
