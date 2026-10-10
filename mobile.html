@@ -2100,6 +2100,37 @@
       box-sizing: border-box;
     }
 
+    .ds-vertical-mode #ds-toolbar { max-height: 30%; overflow-y: auto; align-content: flex-start; }
+    .ds-vertical-mode #ds-body { flex-direction: column !important; }
+    .ds-vertical-mode #ds-tree-sidebar {
+      width: 100% !important; min-width: 0 !important; max-width: none !important;
+      height: 76px; min-height: 76px; flex: 0 0 76px; border-right: 0 !important;
+      border-bottom: 1px solid var(--border);
+    }
+    .ds-vertical-mode #ds-tree-sidebar > div:first-child { height: 20px !important; min-height: 20px !important; }
+    .ds-vertical-mode #ds-tree-scroll { overflow-x: auto !important; overflow-y: hidden !important; }
+    .ds-vertical-mode #ds-tree-rows { display: flex !important; min-height: 0; }
+    .ds-vertical-mode #ds-tree-rows > div {
+      height: 100% !important; flex-direction: column; justify-content: flex-start;
+      align-items: stretch !important; border-right: 1px solid var(--border) !important;
+      padding: 4px !important; overflow: hidden;
+    }
+    .ds-vertical-mode #ds-tree-rows > div > span { max-width: 100%; }
+    .ds-vertical-mode #ds-timeline-scroll { display: flex; flex-direction: row; overflow: auto; }
+    .ds-vertical-mode #ds-ruler-container {
+      position: sticky !important; left: 0 !important; top: 0 !important;
+      width: 28px !important; min-width: 28px; height: max-content !important;
+      flex: 0 0 28px; z-index: 12; box-shadow: 2px 0 4px rgba(0,0,0,.25);
+    }
+    .ds-vertical-mode #ds-ruler-canvas { width: 28px !important; height: auto !important; }
+    .ds-vertical-mode #ds-grid-rows { width: max-content !important; height: max-content; flex: 0 0 auto; }
+    .ds-vertical-mode #ds-grid-canvas { display: block; }
+    .ds-vertical-mode #ds-playhead { z-index: 20; }
+
+    #object-list .object-item { min-height: 34px; padding: 3px 4px; }
+    #object-list .obj-actions { gap: 1px !important; }
+    #object-list .obj-actions .btn-icon { min-width: 24px; min-height: 26px; padding: 2px; }
+
 
     /* ── Center Viewport / Canvas ── */
     #viewport-container {
@@ -6332,6 +6363,9 @@
             <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon ${obj.visible ? 'active is-visible' : 'is-hidden'}" data-action="toggle-vis" title="${obj.visible ? 'Hide' : 'Show'}" style="${obj.visible ? 'color: var(--primary); opacity: 1;' : 'color: var(--text-muted); opacity: 0.35;'}">${obj.visible ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'}</button>
               <button class="btn-icon ${obj.locked ? 'active is-locked' : 'is-unlocked'}" data-action="toggle-lock" title="${obj.locked ? 'Unlock' : 'Lock'}" style="${obj.locked ? 'color: var(--primary); opacity: 1;' : 'color: var(--text-muted); opacity: 0.35;'}">${obj.locked ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0"/></svg>'}</button>
+              <button class="btn-icon" data-action="layer-up" title="Move layer up" aria-label="Move layer up">↑</button>
+              <button class="btn-icon" data-action="layer-down" title="Move layer down" aria-label="Move layer down">↓</button>
+              <button class="btn-icon" data-action="object-menu" title="Object menu" aria-label="Open object menu">⋯</button>
             </div>
           `;
 
@@ -6399,6 +6433,30 @@
               obj.locked = !obj.locked;
               render();
               updateObjectList();
+              return;
+            }
+            if (action === 'layer-up' || action === 'layer-down') {
+              const siblings = obj.parent?.children || doc.objects;
+              const index = siblings.indexOf(obj);
+              const target = action === 'layer-up' ? siblings[index + 1] : siblings[index - 1];
+              if (target && doc.reorderTreeItem(obj.id, target.id, action === 'layer-up' ? 'above' : 'below')) {
+                render();
+                updateObjectList();
+              }
+              return;
+            }
+            if (action === 'object-menu') {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!doc.selectedIds.has(obj.id)) {
+                doc.selectedIds.clear();
+                doc.selectedIds.add(obj.id);
+                render();
+                drawOverlay();
+                updateInspector();
+                updateObjectList();
+              }
+              showCanvasContextMenu(e, { x: obj.x || 0, y: obj.y || 0 });
               return;
             }
             if (isGroup) {

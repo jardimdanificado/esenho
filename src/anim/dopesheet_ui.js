@@ -29,6 +29,7 @@ export class DopeSheetUI {
     this.ds = dopeSheet;
     this.onFrameChange = onFrameChange;
     this.frameWidth = 14; // pixels per frame on timeline ruler
+    this.verticalLayout = typeof document !== 'undefined' && document.body?.classList.contains('mobile-studio-ui');
     this.selectedObjectId = null;
     this.isScrubbing = false;
     this._playInterval = null;
@@ -172,6 +173,8 @@ export class DopeSheetUI {
       </div>
     `;
 
+    this.container.classList.toggle('ds-vertical-mode', this.verticalLayout);
+
     this.bindEvents();
     this.populateCurvePresetOptions();
     if (typeof window !== 'undefined') {
@@ -219,7 +222,7 @@ export class DopeSheetUI {
       this._resizeObserver.observe(this.container);
     }
 
-    // ── Synchronous Vertical Scrolling between Track Labels and Grid Rows ──
+    // ── Keep the track labels aligned with their grid columns/rows ──
     const treeScroll = this.container.querySelector('#ds-tree-scroll');
     const timelineScroll = this.container.querySelector('#ds-timeline-scroll');
 
@@ -230,17 +233,20 @@ export class DopeSheetUI {
       treeScroll.addEventListener('scroll', () => {
         if (isSyncingTree) { isSyncingTree = false; return; }
         isSyncingTimeline = true;
-        timelineScroll.scrollTop = treeScroll.scrollTop;
+        if (this.verticalLayout) timelineScroll.scrollLeft = treeScroll.scrollLeft;
+        else timelineScroll.scrollTop = treeScroll.scrollTop;
       });
 
       timelineScroll.addEventListener('scroll', () => {
         if (isSyncingTimeline) { isSyncingTimeline = false; return; }
         isSyncingTree = true;
-        treeScroll.scrollTop = timelineScroll.scrollTop;
+        if (this.verticalLayout) treeScroll.scrollLeft = timelineScroll.scrollLeft;
+        else treeScroll.scrollTop = timelineScroll.scrollTop;
       });
 
       treeScroll.addEventListener('wheel', (e) => {
-        timelineScroll.scrollTop += e.deltaY;
+        if (this.verticalLayout) timelineScroll.scrollLeft += e.deltaY;
+        else timelineScroll.scrollTop += e.deltaY;
       }, { passive: true });
     }
 
@@ -443,8 +449,8 @@ export class DopeSheetUI {
     const gridEl = this.container.querySelector('#ds-grid-rows');
     const onScrub = (e) => {
       const rect = rulerEl.getBoundingClientRect();
-      const clickX = e.clientX - rect.left;
-      const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(clickX / this.frameWidth) + 1));
+      const frameAxis = this.verticalLayout ? e.clientY - rect.top : e.clientX - rect.left;
+      const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(frameAxis / this.frameWidth) + 1));
       this.ds.setFrame(targetFrame);
     };
 
@@ -481,17 +487,19 @@ export class DopeSheetUI {
     if (gridEl) {
       gridEl.onpointerdown = (e) => {
         const gridRect = gridEl.getBoundingClientRect();
-        const clickX = e.clientX - gridRect.left;
-        const clickY = e.clientY - gridRect.top;
+        const frameAxis = this.verticalLayout ? e.clientY - gridRect.top : e.clientX - gridRect.left;
+        const trackAxis = this.verticalLayout ? e.clientX - gridRect.left : e.clientY - gridRect.top;
 
         if (this._displayRows && this._displayRows.length > 0) {
-          const hitRow = this._displayRows.find(r => clickY >= r.y && clickY < r.y + r.height);
+          const hitRow = this._displayRows.find(r => this.verticalLayout
+            ? trackAxis >= r.x && trackAxis < r.x + r.width
+            : trackAxis >= r.y && trackAxis < r.y + r.height);
           if (hitRow) {
             if (hitRow.type === 'channel') {
               const kfFrames = hitRow.channel.keyframes.map(k => k.frame);
               const hitFrame = kfFrames.find(f => {
                 const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-                return Math.abs(kx - clickX) <= 8;
+                return Math.abs(kx - frameAxis) <= 8;
               });
 
               if (hitFrame !== undefined) {
@@ -528,8 +536,8 @@ export class DopeSheetUI {
                   me.stopPropagation();
                   me.preventDefault();
                   const curRect = gridEl.getBoundingClientRect();
-                  const curClickX = me.clientX - curRect.left;
-                  const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curClickX / this.frameWidth) + 1));
+                  const curFrameAxis = this.verticalLayout ? me.clientY - curRect.top : me.clientX - curRect.left;
+                  const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curFrameAxis / this.frameWidth) + 1));
                   if (targetF !== dragKeyframe.currentFrame) {
                     dragKeyframe.channel.moveKeyframe(dragKeyframe.currentFrame, targetF);
                     dragKeyframe.currentFrame = targetF;
@@ -566,7 +574,7 @@ export class DopeSheetUI {
               const kfFrames = hitRow.object.getKeyframeFrames();
               const hitFrame = kfFrames.find(f => {
                 const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-                return Math.abs(kx - clickX) <= 8;
+                return Math.abs(kx - frameAxis) <= 8;
               });
 
               if (hitFrame !== undefined) {
@@ -601,8 +609,8 @@ export class DopeSheetUI {
                   me.stopPropagation();
                   me.preventDefault();
                   const curRect = gridEl.getBoundingClientRect();
-                  const curClickX = me.clientX - curRect.left;
-                  const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curClickX / this.frameWidth) + 1));
+                  const curFrameAxis = this.verticalLayout ? me.clientY - curRect.top : me.clientX - curRect.left;
+                  const targetF = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(curFrameAxis / this.frameWidth) + 1));
                   if (targetF !== dragKeyframe.currentFrame) {
                     dragKeyframe.object.moveKeyframe(dragKeyframe.currentFrame, targetF);
                     dragKeyframe.currentFrame = targetF;
@@ -645,12 +653,14 @@ export class DopeSheetUI {
 
       gridEl.ondblclick = (e) => {
         const gridRect = gridEl.getBoundingClientRect();
-        const clickX = e.clientX - gridRect.left;
-        const clickY = e.clientY - gridRect.top;
+        const frameAxis = this.verticalLayout ? e.clientY - gridRect.top : e.clientX - gridRect.left;
+        const trackAxis = this.verticalLayout ? e.clientX - gridRect.left : e.clientY - gridRect.top;
         if (this._displayRows && this._displayRows.length > 0) {
-          const hitRow = this._displayRows.find(r => clickY >= r.y && clickY < r.y + r.height);
+          const hitRow = this._displayRows.find(r => this.verticalLayout
+            ? trackAxis >= r.x && trackAxis < r.x + r.width
+            : trackAxis >= r.y && trackAxis < r.y + r.height);
           if (hitRow) {
-            const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(clickX / this.frameWidth) + 1));
+            const targetFrame = Math.max(1, Math.min(this.ds.totalFrames, Math.floor(frameAxis / this.frameWidth) + 1));
             this.selectedObjectId = hitRow.object.id;
             this.ds.setFrame(targetFrame);
             if (hitRow.type === 'channel') {
@@ -1619,7 +1629,21 @@ export class DopeSheetUI {
     const playheadEl = this.container.querySelector('#ds-playhead');
     if (playheadEl) {
       const pos = (this.ds.currentFrame - 1) * this.frameWidth + this.frameWidth / 2;
-      playheadEl.style.left = `${pos}px`;
+      if (this.verticalLayout) {
+        playheadEl.style.left = '0';
+        playheadEl.style.right = '0';
+        playheadEl.style.top = `${pos}px`;
+        playheadEl.style.bottom = 'auto';
+        playheadEl.style.width = 'auto';
+        playheadEl.style.height = '2px';
+      } else {
+        playheadEl.style.left = `${pos}px`;
+        playheadEl.style.right = 'auto';
+        playheadEl.style.top = '0';
+        playheadEl.style.bottom = '0';
+        playheadEl.style.width = '2px';
+        playheadEl.style.height = 'auto';
+      }
     }
     this.syncEasingUI();
   }
@@ -1720,7 +1744,7 @@ export class DopeSheetUI {
       this.adjustInputWidth(totalInput);
     }
 
-    const totalW = Math.max(800, this.ds.totalFrames * this.frameWidth + 40);
+    let totalW = this.verticalLayout ? 320 : Math.max(800, this.ds.totalFrames * this.frameWidth + 40);
     const treeRowsEl = this.container.querySelector('#ds-tree-rows');
     const rulerCanvas = this.container.querySelector('#ds-ruler-canvas');
     const gridCanvas = this.container.querySelector('#ds-grid-canvas');
@@ -1838,7 +1862,28 @@ export class DopeSheetUI {
     });
     this._displayRows = displayRows;
     const containerH = this.container ? (this.container.clientHeight || 180) : 180;
-    const totalH = Math.max(containerH - 58, currentY);
+    const containerW = this.container ? (this.container.clientWidth || 320) : 320;
+    let totalH = Math.max(containerH - 58, currentY);
+    if (this.verticalLayout) {
+      displayRows.forEach((row, index) => {
+        row.x = index * 116;
+        row.width = 116;
+      });
+      totalW = Math.max(containerW - 28, displayRows.length * 116);
+      totalH = Math.max(containerH - 100, this.ds.totalFrames * this.frameWidth + 32);
+      treeRowsEl.style.display = 'flex';
+      // Keep the label columns aligned with the grid, which starts after its frame ruler.
+      treeRowsEl.style.width = `${totalW + 28}px`;
+      treeRowsEl.style.paddingLeft = '28px';
+      treeRowsEl.style.boxSizing = 'border-box';
+      treeRowsEl.style.height = '100%';
+    } else {
+      treeRowsEl.style.display = '';
+      treeRowsEl.style.width = '';
+      treeRowsEl.style.height = '';
+      treeRowsEl.style.paddingLeft = '';
+      treeRowsEl.style.boxSizing = '';
+    }
 
     // 2. Render Left Sidebar DOM Rows
     treeRowsEl.innerHTML = '';
@@ -1852,12 +1897,17 @@ export class DopeSheetUI {
     } else {
       displayRows.forEach((r, idx) => {
         const rowEl = document.createElement('div');
-        rowEl.style.height = `${r.height}px`;
+        rowEl.style.height = this.verticalLayout ? '100%' : `${r.height}px`;
         rowEl.style.display = 'flex';
         rowEl.style.alignItems = 'center';
         rowEl.style.borderBottom = '1px solid var(--border-subtle, rgba(255,255,255,0.05))';
         rowEl.style.boxSizing = 'border-box';
         rowEl.style.cursor = 'pointer';
+        if (this.verticalLayout) {
+          rowEl.style.width = `${r.width}px`;
+          rowEl.style.minWidth = `${r.width}px`;
+          rowEl.style.flex = `0 0 ${r.width}px`;
+        }
 
         if (r.type === 'object') {
           const isSelected = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
@@ -2008,24 +2058,30 @@ export class DopeSheetUI {
     const colAccent = computedStyles ? (computedStyles.getPropertyValue('--accent').trim() || '#83a598') : '#83a598';
     const colDanger = computedStyles ? (computedStyles.getPropertyValue('--danger').trim() || '#fb4934') : '#fb4934';
 
-    rulerCanvas.width = totalW;
-    rulerCanvas.height = 24;
+    rulerCanvas.width = this.verticalLayout ? 28 : totalW;
+    rulerCanvas.height = this.verticalLayout ? totalH : 24;
     const rctx = rulerCanvas.getContext('2d');
     rctx.fillStyle = colBgPanelSub;
-    rctx.fillRect(0, 0, totalW, 24);
+    rctx.fillRect(0, 0, rulerCanvas.width, rulerCanvas.height);
     rctx.strokeStyle = colBorder;
     rctx.fillStyle = colTextMuted;
     rctx.font = '9px monospace';
 
     for (let f = 1; f <= this.ds.totalFrames; f++) {
-      const x = (f - 1) * this.frameWidth;
+      const pos = (f - 1) * this.frameWidth;
       const isMajor = f === 1 || f % 5 === 0;
       rctx.beginPath();
-      rctx.moveTo(x, isMajor ? 6 : 14);
-      rctx.lineTo(x, 24);
+      if (this.verticalLayout) {
+        rctx.moveTo(isMajor ? 8 : 18, pos);
+        rctx.lineTo(28, pos);
+      } else {
+        rctx.moveTo(pos, isMajor ? 6 : 14);
+        rctx.lineTo(pos, 24);
+      }
       rctx.stroke();
       if (isMajor) {
-        rctx.fillText(String(f), x + 2, 12);
+        if (this.verticalLayout) rctx.fillText(String(f), 1, pos + 10);
+        else rctx.fillText(String(f), pos + 2, 12);
       }
     }
 
@@ -2068,28 +2124,38 @@ export class DopeSheetUI {
       }
     };
 
-    // Grid vertical frame dividers
+    // Frame dividers
     gctx.strokeStyle = colBorder;
     gctx.lineWidth = 0.75;
     for (let f = 1; f <= this.ds.totalFrames; f++) {
-      const x = (f - 1) * this.frameWidth;
+      const pos = (f - 1) * this.frameWidth;
       gctx.beginPath();
-      gctx.moveTo(x, 0);
-      gctx.lineTo(x, totalH);
+      if (this.verticalLayout) {
+        gctx.moveTo(0, pos);
+        gctx.lineTo(totalW, pos);
+      } else {
+        gctx.moveTo(pos, 0);
+        gctx.lineTo(pos, totalH);
+      }
       gctx.stroke();
     }
 
     // Draw row backgrounds, span lines & keyframe diamonds
     displayRows.forEach((r, idx) => {
-      const y = r.y;
-      const rH = r.height;
+      const trackPos = this.verticalLayout ? r.x : r.y;
+      const trackSize = this.verticalLayout ? r.width : r.height;
+      const getFramePoint = frame => (frame - 1) * this.frameWidth + this.frameWidth / 2;
+      const centerX = this.verticalLayout ? trackPos + trackSize / 2 : 0;
+      const centerY = this.verticalLayout ? 0 : trackPos + trackSize / 2;
 
       if (r.type === 'object') {
         const isSelectedObj = (r.object.id === this.selectedObjectId && !this.selectedParamKey);
         gctx.fillStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.08)' : (idx % 2 === 0 ? 'rgba(128,128,128,0.03)' : 'rgba(128,128,128,0.07)');
-        gctx.fillRect(0, y, totalW, rH);
+        if (this.verticalLayout) gctx.fillRect(trackPos, 0, trackSize, totalH);
+        else gctx.fillRect(0, trackPos, totalW, trackSize);
         gctx.strokeStyle = colBorder;
-        gctx.strokeRect(0, y, totalW, rH);
+        if (this.verticalLayout) gctx.strokeRect(trackPos, 0, trackSize, totalH);
+        else gctx.strokeRect(0, trackPos, totalW, trackSize);
 
         const kfFrames = r.object.getKeyframeFrames();
         if (kfFrames.length > 0) {
@@ -2097,21 +2163,25 @@ export class DopeSheetUI {
           const lastF = kfFrames[kfFrames.length - 1];
           if (firstF < lastF) {
             // Active animation span bar between first and last keyframe
-            const x1 = (firstF - 1) * this.frameWidth + this.frameWidth / 2;
-            const x2 = (lastF - 1) * this.frameWidth + this.frameWidth / 2;
-            const cy = y + rH / 2;
+            const p1 = getFramePoint(firstF);
+            const p2 = getFramePoint(lastF);
             gctx.strokeStyle = isSelectedObj ? 'rgba(250, 189, 47, 0.45)' : 'rgba(131, 165, 152, 0.3)';
             gctx.lineWidth = 3;
             gctx.beginPath();
-            gctx.moveTo(x1, cy);
-            gctx.lineTo(x2, cy);
+            if (this.verticalLayout) {
+              gctx.moveTo(centerX, p1);
+              gctx.lineTo(centerX, p2);
+            } else {
+              gctx.moveTo(p1, centerY);
+              gctx.lineTo(p2, centerY);
+            }
             gctx.stroke();
           }
 
           // Draw Summary Keyframe Diamonds
           for (const f of kfFrames) {
-            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-            const ky = y + rH / 2;
+            const kx = this.verticalLayout ? centerX : getFramePoint(f);
+            const ky = this.verticalLayout ? getFramePoint(f) : centerY;
             const size = 5.5;
             const tween = r.object.getKeyframeTweenAt(f);
             const isSelectedKf = r.object.isKeyframeSelectedAt(f);
@@ -2134,31 +2204,37 @@ export class DopeSheetUI {
         // Channel sub-track row
         const isSelectedChan = (r.object.id === this.selectedObjectId && this.selectedParamKey === r.paramKey);
         gctx.fillStyle = isSelectedChan ? 'rgba(250, 189, 47, 0.12)' : (idx % 2 === 0 ? 'rgba(128,128,128,0.02)' : 'rgba(128,128,128,0.05)');
-        gctx.fillRect(0, y, totalW, rH);
+        if (this.verticalLayout) gctx.fillRect(trackPos, 0, trackSize, totalH);
+        else gctx.fillRect(0, trackPos, totalW, trackSize);
         gctx.strokeStyle = colBorder;
-        gctx.strokeRect(0, y, totalW, rH);
+        if (this.verticalLayout) gctx.strokeRect(trackPos, 0, trackSize, totalH);
+        else gctx.strokeRect(0, trackPos, totalW, trackSize);
 
         const chKeyframes = r.channel.keyframes;
         if (chKeyframes.length > 0) {
           const firstF = chKeyframes[0].frame;
           const lastF = chKeyframes[chKeyframes.length - 1].frame;
           if (firstF < lastF) {
-            const x1 = (firstF - 1) * this.frameWidth + this.frameWidth / 2;
-            const x2 = (lastF - 1) * this.frameWidth + this.frameWidth / 2;
-            const cy = y + rH / 2;
+            const p1 = getFramePoint(firstF);
+            const p2 = getFramePoint(lastF);
             gctx.strokeStyle = isSelectedChan ? 'rgba(250, 189, 47, 0.35)' : 'rgba(100, 120, 115, 0.25)';
             gctx.lineWidth = 2;
             gctx.beginPath();
-            gctx.moveTo(x1, cy);
-            gctx.lineTo(x2, cy);
+            if (this.verticalLayout) {
+              gctx.moveTo(centerX, p1);
+              gctx.lineTo(centerX, p2);
+            } else {
+              gctx.moveTo(p1, centerY);
+              gctx.lineTo(p2, centerY);
+            }
             gctx.stroke();
           }
 
           // Draw Channel-Specific Keyframe Diamonds
           for (const kf of chKeyframes) {
             const f = kf.frame;
-            const kx = (f - 1) * this.frameWidth + this.frameWidth / 2;
-            const ky = y + rH / 2;
+            const kx = this.verticalLayout ? centerX : getFramePoint(f);
+            const ky = this.verticalLayout ? getFramePoint(f) : centerY;
             const size = 4.5;
             const tween = kf.tweenType || 'linear';
             const isSelectedKf = !!kf.selected;
