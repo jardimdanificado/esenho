@@ -6504,6 +6504,7 @@
       // ── Inspector UI Sync ──
       function updateInspector() {
         const selected = doc.getSelectedObjects();
+        syncMaterialsStrokeOptions(selected);
 
         const setVal = (id, val) => {
           const el = document.getElementById(id);
@@ -10871,6 +10872,13 @@
       }
 
       let appearancePanelsComposed = false;
+      function syncMaterialsStrokeOptions(selected = doc.getSelectedObjects()) {
+        const options = document.getElementById('materials-stroke-options');
+        if (!options) return;
+        const hasSelectedStroke = selected.some(obj => obj.stroke && obj.stroke !== 'none' && Number(obj.strokeWidth ?? 1) > 0);
+        options.style.display = hasSelectedStroke ? 'flex' : 'none';
+      }
+
       function composeAppearancePanels() {
         if (appearancePanelsComposed) return;
         const fillPanel = getPanelElement('fill');
@@ -10895,9 +10903,14 @@
         strokeStyle.className = 'section-card';
         strokeStyle.innerHTML = '<div class="section-header"><span>Stroke Style</span></div>';
         [strokeRows[2], strokeRows[3], strokeRows[4]].filter(Boolean).forEach(row => strokeStyle.appendChild(row));
-        if (strokeStyle.children.length > 1) materialsPanel.appendChild(strokeStyle);
-        brushCards.forEach(card => materialsPanel.appendChild(card));
+        const strokeOptions = document.createElement('div');
+        strokeOptions.id = 'materials-stroke-options';
+        strokeOptions.style.cssText = 'display: none; flex-direction: column; gap: 6px;';
+        if (strokeStyle.children.length > 1) strokeOptions.appendChild(strokeStyle);
+        brushCards.forEach(card => strokeOptions.appendChild(card));
+        materialsPanel.appendChild(strokeOptions);
         strokeCard?.remove();
+        syncMaterialsStrokeOptions();
       }
 
       function scheduleSaveDockviewLayout() {
