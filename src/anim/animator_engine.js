@@ -186,6 +186,13 @@ export function getEasingFunction(tweenType) {
   if (Easing[tweenType]) return Easing[tweenType];
 
   if (typeof tweenType === 'string') {
+    if (tweenType.startsWith('curve:')) {
+      const curveId = tweenType.slice(6);
+      const registry = typeof globalThis !== 'undefined' ? globalThis.EsenhoRegistry : null;
+      const curve = registry?.get?.('curve', curveId);
+      if (curve?.easing) return getEasingFunction(curve.easing);
+      if (curve && registry?.evaluateCurve) return t => registry.evaluateCurve(curve, t);
+    }
     if (_cubicBezierCache.has(tweenType)) return _cubicBezierCache.get(tweenType);
 
     if (tweenType.startsWith('cubic-bezier') || tweenType.startsWith('custom:')) {

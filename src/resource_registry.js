@@ -176,6 +176,15 @@
   }
 
   function sampleCurveAtX(curveObj, targetX) {
+    if (curveObj && Array.isArray(curveObj.samples) && curveObj.samples.length > 1) {
+      const scaled = targetX * (curveObj.samples.length - 1);
+      const i0 = Math.floor(scaled);
+      const i1 = Math.min(curveObj.samples.length - 1, i0 + 1);
+      const mix = scaled - i0;
+      const y0 = Number(curveObj.samples[i0]) || 0;
+      const y1 = Number(curveObj.samples[i1]) || 0;
+      return y0 + (y1 - y0) * mix;
+    }
     if (!curveObj || !curveObj.points || curveObj.points.length < 4) {
       return Math.max(0, Math.min(1, targetX));
     }
@@ -396,6 +405,12 @@
         resCopy.updatedAt = new Date().toISOString();
       }
       stores[normType].set(resource.id, resCopy);
+      if (normType === "curve" && !resCopy.builtin && typeof localStorage !== "undefined") {
+        try {
+          const localCurves = Array.from(stores.curve.values()).filter(item => !item.builtin && !item.isBuiltIn);
+          localStorage.setItem("esenho_local_curve_presets_v1", JSON.stringify(localCurves));
+        } catch (_) {}
+      }
       return resCopy;
     },
 
@@ -457,7 +472,14 @@
       if (!stores[normType]) return false;
       const item = stores[normType].get(id);
       if (item && item.builtin) return false;
-      return stores[normType].delete(id);
+      const removed = stores[normType].delete(id);
+      if (removed && normType === "curve" && typeof localStorage !== "undefined") {
+        try {
+          const localCurves = Array.from(stores.curve.values()).filter(curve => !curve.builtin && !curve.isBuiltIn);
+          localStorage.setItem("esenho_local_curve_presets_v1", JSON.stringify(localCurves));
+        } catch (_) {}
+      }
+      return removed;
     },
 
     /**
@@ -776,6 +798,17 @@
   } else if (typeof window !== "undefined" && typeof fetch === "function") {
     // Auto-fetch data.json in browser runtime
     EsenhoRegistry.fetchDataPack("data.json");
+  }
+
+  if (typeof localStorage !== "undefined") {
+    try {
+      const localCurves = JSON.parse(localStorage.getItem("esenho_local_curve_presets_v1") || "[]");
+      if (Array.isArray(localCurves)) {
+        for (const curve of localCurves) {
+          if (curve && curve.id && !curve.builtin) stores.curve.set(curve.id, curve);
+        }
+      }
+    } catch (_) {}
   }
 
   return EsenhoRegistry;

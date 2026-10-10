@@ -106,6 +106,7 @@ export class DopeSheetUI {
               <option value="easeOutBounce">Bounce Out</option>
               <option value="step">Step (Hold)</option>
               <option value="custom">Custom Bézier...</option>
+              <optgroup id="ds-easing-shared-curves" label="Shared Curve Presets"></optgroup>
             </select>
             <button id="ds-btn-custom-curve" class="ds-btn" title="Open Bézier Curve Visual Graph Editor" style="background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px; font-size: 10.5px; cursor: pointer; display: flex; align-items: center; gap: 2px;">
               <span>Curve</span>
@@ -172,8 +173,28 @@ export class DopeSheetUI {
     `;
 
     this.bindEvents();
+    this.populateCurvePresetOptions();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('esenho:registry-updated', () => this.populateCurvePresetOptions());
+      window.addEventListener('esenho:data-loaded', () => this.populateCurvePresetOptions());
+    }
     this.updateGrid();
     this.updatePlayhead();
+  }
+
+  populateCurvePresetOptions() {
+    const group = this.container?.querySelector('#ds-easing-shared-curves');
+    const registry = typeof globalThis !== 'undefined' ? globalThis.EsenhoRegistry : null;
+    if (!group || !registry?.list) return;
+    group.replaceChildren();
+    const curves = registry.list('curve').sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+    curves.forEach(curve => {
+      const option = document.createElement('option');
+      option.value = `curve:${curve.id}`;
+      option.textContent = curve.name || curve.id;
+      group.appendChild(option);
+    });
+    this.syncEasingUI();
   }
 
   bindEvents() {
@@ -855,6 +876,26 @@ export class DopeSheetUI {
       { x: 1.0, y: 1.0, cpIn: { x: -0.1, y: 0.0 } }
     ];
 
+    const curveRegistry = typeof globalThis !== 'undefined' ? globalThis.EsenhoRegistry : null;
+    const activeCurveRef = typeof this.activeEasing === 'string' && this.activeEasing.startsWith('curve:')
+      ? curveRegistry?.get?.('curve', this.activeEasing.slice(6))
+      : null;
+    const activeCurveEditor = activeCurveRef?.editor || null;
+    if (activeCurveEditor) {
+      currentMode = activeCurveEditor.mode || currentMode;
+      p1 = activeCurveEditor.p1 || p1;
+      p2 = activeCurveEditor.p2 || p2;
+      bounceCount = activeCurveEditor.bounceCount ?? bounceCount;
+      bounceDecay = activeCurveEditor.bounceDecay ?? bounceDecay;
+      springOsc = activeCurveEditor.springOsc ?? springOsc;
+      springDamp = activeCurveEditor.springDamp ?? springDamp;
+      splineNodes = activeCurveEditor.splineNodes || splineNodes;
+    } else if (activeCurveRef?.points?.length >= 4) {
+      currentMode = 'bezier';
+      p1 = { x: activeCurveRef.points[1][0], y: activeCurveRef.points[1][1] };
+      p2 = { x: activeCurveRef.points[2][0], y: activeCurveRef.points[2][1] };
+    }
+
     if (typeof this.activeEasing === 'string') {
       if (this.activeEasing.startsWith('bounce(') || this.activeEasing.startsWith('custom-bounce:')) {
         currentMode = 'bounce';
@@ -896,6 +937,13 @@ export class DopeSheetUI {
 
     container.innerHTML = `
       <div class="ds-curve-editor-panel" style="display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 4px 6px; box-sizing: border-box;">
+        <div style="display: flex; gap: 3px; align-items: center; flex-shrink: 0;">
+          <select id="ds-ce-preset-select" title="Shared curve presets" style="flex: 1; min-width: 70px; height: 23px; font-size: 10px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 3px;"><option value="">New curve</option></select>
+          <input id="ds-ce-preset-name" type="text" placeholder="Preset name" aria-label="Curve preset name" style="width: 90px; min-width: 50px; height: 23px; box-sizing: border-box; font-size: 10px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 3px; padding: 2px 4px;">
+          <button id="ds-ce-preset-new" class="btn-sm" title="Create a new curve" style="padding: 2px 5px;">New</button>
+          <button id="ds-ce-preset-save" class="btn-sm" title="Save or update shared curve" style="padding: 2px 5px;">Save</button>
+          <button id="ds-ce-preset-delete" class="btn-sm" title="Delete local curve" style="padding: 2px 5px; color: var(--danger);">×</button>
+        </div>
         <!-- Mode Switcher Dropdown -->
         <div style="display: flex; gap: 4px; align-items: center; background: var(--bg-panel-sub); padding: 2px 5px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
           <label style="font-size: 10px; font-weight: 700; color: var(--text-muted); flex: 0 0 38px;">Type</label>
@@ -964,6 +1012,7 @@ export class DopeSheetUI {
 
     let draggingTarget = null;
     let currentCurveFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
+    let curvePresetDirty = Boolean(activeCurveRef);
 
     const adjustCurveInputWidth = (inputEl) => {
       if (!inputEl) return;
@@ -1125,6 +1174,7 @@ export class DopeSheetUI {
     };
 
     const syncGraph = () => {
+      curvePresetDirty = true;
       if (currentMode === 'bezier') {
         currentCurveFn = solveCubicBezier(p1.x, p1.y, p2.x, p2.y);
         if (strLabel) strLabel.textContent = `cubic-bezier(${Math.round(p1.x * 100) / 100}, ${Math.round(p1.y * 100) / 100}, ${Math.round(p2.x * 100) / 100}, ${Math.round(p2.y * 100) / 100})`;
@@ -1374,22 +1424,135 @@ export class DopeSheetUI {
     const applyBtn = container.querySelector('#ds-ce-apply');
     if (applyBtn) {
       applyBtn.onclick = () => {
-        let resultCurve = 'linear';
-        if (currentMode === 'bezier') {
-          resultCurve = `cubic-bezier(${Math.round(p1.x * 100) / 100}, ${Math.round(p1.y * 100) / 100}, ${Math.round(p2.x * 100) / 100}, ${Math.round(p2.y * 100) / 100})`;
-        } else if (currentMode === 'bounce') {
-          resultCurve = `bounce(${bounceCount}, ${bounceDecay})`;
-        } else if (currentMode === 'spring') {
-          resultCurve = `spring(${springOsc}, ${springDamp})`;
-        } else if (currentMode === 'spline') {
-          resultCurve = `spline:${JSON.stringify(splineNodes)}`;
-        }
+        const presetSelect = container.querySelector('#ds-ce-preset-select');
+        const savedPresetId = presetSelect?.value;
+        const resultCurve = savedPresetId && !curvePresetDirty ? `curve:${savedPresetId}` : getCurrentCurveValue();
         this.applyCurve(resultCurve);
       };
     }
 
     updateControlsUI();
     syncGraph();
+    const presetSelect = container.querySelector('#ds-ce-preset-select');
+    const presetName = container.querySelector('#ds-ce-preset-name');
+    const deletePresetBtn = container.querySelector('#ds-ce-preset-delete');
+    let selectedCurveId = activeCurveRef?.id || '';
+
+    const getCurrentCurveValue = () => {
+      if (currentMode === 'bezier') return `cubic-bezier(${p1.x}, ${p1.y}, ${p2.x}, ${p2.y})`;
+      if (currentMode === 'bounce') return `bounce(${bounceCount}, ${bounceDecay})`;
+      if (currentMode === 'spring') return `spring(${springOsc}, ${springDamp})`;
+      return `spline:${JSON.stringify(splineNodes)}`;
+    };
+    const refreshPresetList = (selectedId = selectedCurveId) => {
+      if (!presetSelect) return;
+      const curves = curveRegistry?.list?.('curve') || [];
+      presetSelect.innerHTML = '<option value="">New curve</option>';
+      curves.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      curves.forEach(curve => {
+        const option = document.createElement('option');
+        option.value = curve.id;
+        option.textContent = `${curve.name || curve.id}${curve.builtin ? ' · built-in' : ''}`;
+        presetSelect.appendChild(option);
+      });
+      presetSelect.value = selectedId || '';
+      const selected = curves.find(curve => curve.id === presetSelect.value);
+      if (deletePresetBtn) deletePresetBtn.disabled = !selected || selected.builtin;
+    };
+    const loadPreset = (curve) => {
+      if (!curve) return;
+      selectedCurveId = curve.id;
+      if (presetName) presetName.value = curve.name || '';
+      const data = curve.editor || {};
+      if (data.mode) {
+        currentMode = data.mode;
+        p1 = data.p1 || p1;
+        p2 = data.p2 || p2;
+        bounceCount = data.bounceCount ?? bounceCount;
+        bounceDecay = data.bounceDecay ?? bounceDecay;
+        springOsc = data.springOsc ?? springOsc;
+        springDamp = data.springDamp ?? springDamp;
+        splineNodes = data.splineNodes || splineNodes;
+      } else if (curve.points?.length >= 4) {
+        currentMode = 'bezier';
+        p1 = { x: curve.points[1][0], y: curve.points[1][1] };
+        p2 = { x: curve.points[2][0], y: curve.points[2][1] };
+      } else if (curve.samples?.length > 1) {
+        currentMode = 'spline';
+        splineNodes = curve.samples.map((y, index, samples) => ({
+          x: index / (samples.length - 1), y,
+          ...(index > 0 ? { cpIn: { x: -1 / (samples.length - 1) / 3, y: 0 } } : {}),
+          ...(index < samples.length - 1 ? { cpOut: { x: 1 / (samples.length - 1) / 3, y: 0 } } : {})
+        }));
+      }
+      updateControlsUI();
+      syncGraph();
+      curvePresetDirty = false;
+      refreshPresetList(curve.id);
+    };
+
+    refreshPresetList(selectedCurveId);
+    if (selectedCurveId) {
+      if (presetName) presetName.value = activeCurveRef?.name || '';
+      curvePresetDirty = false;
+    }
+    presetSelect?.addEventListener('change', () => {
+      const curve = curveRegistry?.get?.('curve', presetSelect.value);
+      if (curve) loadPreset(curve);
+      else {
+        selectedCurveId = '';
+        if (presetName) presetName.value = '';
+        curvePresetDirty = true;
+        if (deletePresetBtn) deletePresetBtn.disabled = true;
+      }
+    });
+    container.querySelector('#ds-ce-preset-new')?.addEventListener('click', () => {
+      selectedCurveId = '';
+      currentMode = 'bezier';
+      p1 = { x: 0.42, y: 0 };
+      p2 = { x: 0.58, y: 1 };
+      if (presetName) presetName.value = '';
+      updateControlsUI();
+      syncGraph();
+      refreshPresetList('');
+      if (deletePresetBtn) deletePresetBtn.disabled = true;
+    });
+    container.querySelector('#ds-ce-preset-save')?.addEventListener('click', () => {
+      if (!curveRegistry?.register) return;
+      const name = presetName?.value.trim();
+      if (!name) { presetName?.focus(); return; }
+      const existing = selectedCurveId ? curveRegistry.get('curve', selectedCurveId) : null;
+      const id = existing && !existing.builtin
+        ? existing.id
+        : `local_curve_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+      const points = currentMode === 'bezier'
+        ? [[0, 0], [p1.x, p1.y], [p2.x, p2.y], [1, 1]]
+        : undefined;
+      const samples = Array.from({ length: 65 }, (_, index) => Math.max(0, Math.min(1, currentCurveFn(index / 64))));
+      curveRegistry.register('curve', {
+        ...(existing && !existing.builtin ? existing : {}),
+        $schema: 'esenho/curve/v1', id, name, builtin: false,
+        type: points ? 'cubic_bezier' : 'sampled_curve',
+        ...(points ? { points } : {}), samples,
+        easing: getCurrentCurveValue(),
+        editor: {
+          mode: currentMode, p1: { ...p1 }, p2: { ...p2 }, bounceCount, bounceDecay,
+          springOsc, springDamp, splineNodes: JSON.parse(JSON.stringify(splineNodes))
+        }
+      });
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('esenho:registry-updated'));
+      selectedCurveId = id;
+      curvePresetDirty = false;
+      refreshPresetList(id);
+    });
+    deletePresetBtn?.addEventListener('click', () => {
+      const selected = selectedCurveId ? curveRegistry?.get?.('curve', selectedCurveId) : null;
+      if (!selected || selected.builtin || !curveRegistry?.unregister?.('curve', selectedCurveId)) return;
+      if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('esenho:registry-updated'));
+      selectedCurveId = '';
+      if (presetName) presetName.value = '';
+      refreshPresetList('');
+    });
   }
 
   openCurveEditorModal() {

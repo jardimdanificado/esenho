@@ -1555,6 +1555,7 @@
                   <option value="uniform">Uniform Arc</option>
                   <option value="arch">Parabolic Arch</option>
                   <option value="s_curve">Sigmoid S-Curve</option>
+                  <optgroup id="cs-bf-shared-curves" label="Shared Curve Presets"></optgroup>
                 </select>
               </div>
 
@@ -1923,6 +1924,7 @@
         this.populateFilterPluginSelect();
         this.populateBrushSelects();
         this.populateBrushFillPresetSelect();
+        this.populateBrushFillCurveSelect();
         this.populateBrushFillPaletteSelect();
         this.populatePalettesSelect();
         this.renderPalettes();
@@ -3901,6 +3903,25 @@
       }
     }
 
+    populateBrushFillCurveSelect() {
+      const select = this.dom.bfCurvatureMode;
+      const group = this.container?.querySelector('#cs-bf-shared-curves');
+      if (!select || !group) return;
+      const currentValue = select.value;
+      group.replaceChildren();
+      const curves = getRegistry()?.list?.('curve') || [];
+      curves.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
+      curves.forEach(curve => {
+        const option = document.createElement('option');
+        option.value = `curve:${curve.id}`;
+        option.textContent = curve.name || curve.id;
+        group.appendChild(option);
+      });
+      if (currentValue && Array.from(select.options).some(option => option.value === currentValue)) {
+        select.value = currentValue;
+      }
+    }
+
     updateBrushFillPatternVisibility() {
       const d = this.dom;
       const pattern = d.bfPattern ? d.bfPattern.value : 'linear';
@@ -4249,6 +4270,7 @@
       if (d.bfHardnessSlider) d.bfHardnessSlider.value = c.hardness !== undefined ? c.hardness : 95;
       if (d.bfCurvature) d.bfCurvature.value = c.curvature !== undefined ? c.curvature : 0;
       if (d.bfCurvatureSlider) d.bfCurvatureSlider.value = c.curvature !== undefined ? c.curvature : 0;
+      this.populateBrushFillCurveSelect();
       if (d.bfCurvatureMode) d.bfCurvatureMode.value = c.curvatureMode || 'uniform';
       if (d.bfWobble) d.bfWobble.value = c.wobble !== undefined ? c.wobble : 0;
       if (d.bfWobbleSlider) d.bfWobbleSlider.value = c.wobble !== undefined ? c.wobble : 0;

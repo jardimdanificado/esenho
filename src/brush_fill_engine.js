@@ -794,13 +794,14 @@
         const curvMode = config.curvatureMode || 'uniform';
         const hasCurv = Math.abs(baseCurv) > 0.5;
         const hasWobble = wobbleFactor > 0;
+        const isSharedCurve = typeof curvMode === 'string' && curvMode.startsWith('curve:');
 
         let strokeType = 'line';
         let cp = null;
         let cp1 = null, cp2 = null;
         let polyPoints = null;
 
-        if (hasWobble || curvMode === 'wave') {
+        if (hasWobble || curvMode === 'wave' || (isSharedCurve && hasCurv)) {
           // Multi-point wavy / wobbled polyline with authentic organic tremor
           strokeType = 'poly';
           const steps = Math.max(4, Math.min(16, Math.round(currentSegLen / 6)));
@@ -817,6 +818,10 @@
             if (curvMode === 'wave') {
               const freq = (config.waveFrequency || 8) * 0.1;
               lateralDisplacement += Math.sin(t * Math.PI * 2 * freq) * (curvHeight || (wobbleAmp || 5));
+            } else if (isSharedCurve && hasCurv) {
+              const curveId = curvMode.slice(6);
+              const curveY = getRegistry()?.evaluateCurve?.(curveId, t) ?? t;
+              lateralDisplacement += (curveY - t) * curvHeight * 2;
             } else if (hasCurv) {
               if (curvMode === 's_curve') {
                 lateralDisplacement += Math.sin(t * Math.PI * 2) * curvHeight;
