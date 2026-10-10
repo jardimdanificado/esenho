@@ -2112,8 +2112,10 @@
     }
     .mobile-animator-head { justify-content: space-between; min-height: 22px; }
     .mobile-animator-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    .mobile-animator-clip-actions { display: flex; gap: 3px; flex-shrink: 0; }
+    .mobile-animator-clip-actions button { min-width: 25px; min-height: 30px; padding: 2px 3px; font-size: 12px; }
     #mobile-animation-clip {
-      max-width: 56%; min-width: 0; min-height: 30px; padding: 3px 24px 3px 8px;
+      flex: 1; max-width: none; min-width: 66px; min-height: 30px; padding: 3px 22px 3px 7px;
       background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 4px;
     }
     .mobile-animator-card {
@@ -3428,7 +3430,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      height: min(44dvh, 390px);
+      height: var(--mobile-panel-sheet-height, min(44dvh, 390px));
       min-height: 190px;
       display: none;
       flex-direction: column;
@@ -3439,6 +3441,26 @@
       box-shadow: 0 -12px 34px rgba(0,0,0,.42);
       overflow: hidden;
     }
+    #mobile-panel-resize-handle {
+      flex: 0 0 12px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: ns-resize;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #mobile-panel-resize-handle::before {
+      content: '';
+      width: 42px;
+      height: 4px;
+      border-radius: 4px;
+      background: #686b6c;
+      box-shadow: 0 1px 0 rgba(255,255,255,.08);
+    }
+    #mobile-panel-resize-handle:active::before { background: var(--border-bright); }
     #mobile-panel-sheet.active { display: flex; }
     #mobile-panel-sheet-header {
       flex: 0 0 36px;
@@ -3462,8 +3484,10 @@
       flex: 0 0 auto;
       min-height: calc(64px + env(safe-area-inset-bottom, 0px));
       padding: 5px 5px env(safe-area-inset-bottom, 0px);
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      display: flex;
+      justify-content: flex-start;
+      overflow-x: auto;
+      overflow-y: hidden;
       align-items: stretch;
       gap: 3px;
       background: #1b1d1e;
@@ -3471,9 +3495,10 @@
       z-index: 1200;
     }
     .mobile-nav-item {
-      min-width: 0;
+      flex: 1 1 0;
+      min-width: 40px;
       min-height: 52px;
-      padding: 5px 2px 4px;
+      padding: 5px 0 4px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -3482,7 +3507,7 @@
       border: 1px solid transparent;
       border-radius: 8px;
       color: #928374;
-      font-size: 9px;
+      font-size: 8px;
       line-height: 1.1;
       white-space: nowrap;
     }
@@ -3491,39 +3516,6 @@
       color: #fabd2f;
       background: rgba(250,189,47,.10);
       border-color: rgba(250,189,47,.28);
-    }
-    #mobile-more-sheet {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 1500;
-      background: rgba(0,0,0,.52);
-      align-items: flex-end;
-    }
-    #mobile-more-sheet.active { display: flex; }
-    .mobile-more-card {
-      width: 100%;
-      padding: 12px 12px calc(16px + env(safe-area-inset-bottom, 0px));
-      background: #1e2021;
-      border: 1px solid #484d50;
-      border-bottom: 0;
-      border-radius: 16px 16px 0 0;
-      box-shadow: 0 -12px 36px rgba(0,0,0,.4);
-    }
-    .mobile-more-heading {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
-      color: #fbf1c7;
-      font-weight: 700;
-    }
-    .mobile-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .mobile-more-grid .mobile-nav-item {
-      min-height: 64px;
-      background: #252829;
-      border-color: #303233;
-      font-size: 10px;
     }
     #dock-panel-canvas, #viewport-container { background-color: #17191a; }
     .dock-panel-content { padding: 8px; gap: 8px; }
@@ -3535,8 +3527,10 @@
     input[type="range"] { accent-color: #fabd2f; }
     @media (min-width: 900px) {
       #mobile-studio-header { padding-left: 16px; padding-right: 16px; }
-      #mobile-studio-nav { grid-template-columns: repeat(5, minmax(86px, 112px)); justify-content: center; }
+      #mobile-studio-nav { justify-content: center; }
+      #mobile-studio-nav .mobile-nav-item { flex: 0 0 86px; }
       #mobile-panel-sheet { left: auto; width: min(440px, 42vw); height: min(70dvh, 640px); bottom: 12px; right: 12px; border-bottom: 1px solid #484d50; border-radius: 14px; }
+      #mobile-panel-resize-handle { display: none; }
     }
   </style>
 </head>
@@ -3548,7 +3542,7 @@
     <div class="mobile-header-actions">
       <button class="mobile-action" id="mobile-undo" type="button" aria-label="Undo" title="Undo">↶</button>
       <button class="mobile-action" id="mobile-redo" type="button" aria-label="Redo" title="Redo">↷</button>
-      <button class="mobile-action" id="mobile-export" type="button" aria-label="Export" title="Export">⇧</button>
+      <button class="mobile-action" id="mobile-export" type="button" aria-label="Export settings" title="Export settings">⇧</button>
     </div>
   </header>
   <!-- VS Code Custom Titlebar & Menu System -->
@@ -3580,6 +3574,7 @@
   <div id="workspace">
     <main id="mobile-canvas-stage" aria-label="Studio canvas"></main>
     <section id="mobile-panel-sheet" aria-label="Active Studio panel">
+      <div id="mobile-panel-resize-handle" role="separator" aria-orientation="horizontal" aria-label="Resize active panel" tabindex="0"></div>
       <header id="mobile-panel-sheet-header"><span id="mobile-panel-sheet-title">Panel</span><button type="button" id="mobile-panel-sheet-close" aria-label="Close panel">✕</button></header>
       <div id="mobile-panel-slot"></div>
     </section>
@@ -3590,20 +3585,10 @@
     <button class="mobile-nav-item" data-studio-panel="color" type="button"><span class="nav-icon">◉</span><span>Materials</span></button>
     <button class="mobile-nav-item" data-studio-panel="inspect" type="button"><span class="nav-icon">⌗</span><span>Transform</span></button>
     <button class="mobile-nav-item" data-studio-panel="scene" type="button"><span class="nav-icon">▤</span><span>Layers</span></button>
-    <button class="mobile-nav-item" id="mobile-more-button" type="button"><span class="nav-icon">•••</span><span>More</span></button>
+    <button class="mobile-nav-item" data-studio-panel="animation" type="button"><span class="nav-icon">◆</span><span>Animator</span></button>
+    <button class="mobile-nav-item" data-studio-panel="curves" type="button"><span class="nav-icon">〰</span><span>Curves</span></button>
+    <button class="mobile-nav-item" data-studio-panel="projects" type="button"><span class="nav-icon">▣</span><span>Projects</span></button>
   </nav>
-  <div id="mobile-more-sheet" role="dialog" aria-modal="true" aria-label="More Studio panels">
-    <div class="mobile-more-card">
-      <div class="mobile-more-heading"><span>Studio panels</span><button type="button" id="mobile-more-close" aria-label="Close">✕</button></div>
-      <div class="mobile-more-grid">
-        <button class="mobile-nav-item" data-studio-panel="animation" type="button"><span class="nav-icon">◆</span><span>Animator</span></button>
-        <button class="mobile-nav-item" data-studio-panel="curves" type="button"><span class="nav-icon">〰</span><span>Curves</span></button>
-        <button class="mobile-nav-item" data-studio-panel="tracer" type="button"><span class="nav-icon">⌁</span><span>Vectorizer</span></button>
-        <button class="mobile-nav-item" data-studio-panel="projects" type="button"><span class="nav-icon">▣</span><span>Projects</span></button>
-        <button class="mobile-nav-item" data-studio-panel="export" type="button"><span class="nav-icon">⇧</span><span>Export</span></button>
-      </div>
-    </div>
-  </div>
 
   <!-- VS Code Bottom Status Bar -->
   <footer id="vscode-statusbar" class="vscode-statusbar" role="contentinfo">
@@ -3637,7 +3622,7 @@
         <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
-      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray / Skeuomorphic)" style="cursor: pointer;">
+      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray)" style="cursor: pointer;">
         <span class="statusbar-icon">☀</span>
         <span id="status-theme-text">☾ Dark</span>
       </div>
@@ -4136,6 +4121,12 @@
         <div class="mobile-animator-head">
           <span class="mobile-animator-title">Animator</span>
           <select id="mobile-animation-clip" aria-label="Animation clip"></select>
+          <div class="mobile-animator-clip-actions" aria-label="Animation clip actions">
+            <button class="btn-secondary" type="button" data-clip-command="create" title="New animation clip" aria-label="New animation clip">＋</button>
+            <button class="btn-secondary" type="button" data-clip-command="duplicate" title="Duplicate animation clip" aria-label="Duplicate animation clip">▣</button>
+            <button class="btn-secondary" type="button" data-clip-command="rename" title="Rename animation clip" aria-label="Rename animation clip">✎</button>
+            <button class="btn-secondary" type="button" data-clip-command="delete" title="Delete animation clip" aria-label="Delete animation clip">×</button>
+          </div>
         </div>
         <div class="mobile-animator-card">
           <div class="mobile-animator-transport">
@@ -4481,18 +4472,17 @@
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
-      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'skeuomorphic' || currentTheme === 'skeuo') currentTheme = 'dark';
+      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        if (theme === 'skeuomorphic') theme = 'skeuo';
-        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'dark';
+        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
+        document.body.classList.remove('theme-skeuo', 'theme-skeuomorphic');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -4502,7 +4492,6 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
-          else if (currentTheme === 'skeuo') themeText.textContent = '🎛 Skeuo';
           else themeText.textContent = '☾ Dark';
         }
 
@@ -4524,13 +4513,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray', 'skeuo'];
+        const order = ['dark', 'gray'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -6291,8 +6280,6 @@
             <div class="obj-actions" style="display: flex; gap: 2px;">
               <button class="btn-icon ${obj.visible ? 'active is-visible' : 'is-hidden'}" data-action="toggle-vis" title="${obj.visible ? 'Hide' : 'Show'}" style="${obj.visible ? 'color: var(--primary); opacity: 1;' : 'color: var(--text-muted); opacity: 0.35;'}">${obj.visible ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>' : '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12C1 12 5 4 12 4C19 4 23 12 23 12C23 12 19 20 12 20C5 20 1 12 1 12Z"/><line x1="2" y1="2" x2="22" y2="22"/></svg>'}</button>
               <button class="btn-icon ${obj.locked ? 'active is-locked' : 'is-unlocked'}" data-action="toggle-lock" title="${obj.locked ? 'Unlock' : 'Lock'}" style="${obj.locked ? 'color: var(--primary); opacity: 1;' : 'color: var(--text-muted); opacity: 0.35;'}">${obj.locked ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0"/></svg>'}</button>
-              <button class="btn-icon" data-action="layer-up" title="Move layer up" aria-label="Move layer up">↑</button>
-              <button class="btn-icon" data-action="layer-down" title="Move layer down" aria-label="Move layer down">↓</button>
               <button class="btn-icon" data-action="object-menu" title="Object menu" aria-label="Open object menu">⋯</button>
             </div>
           `;
@@ -6341,12 +6328,12 @@
             });
           }
 
-          let touchContextOpened = false;
+          let touchReorderTriggered = false;
 
           // Click handling
           item.addEventListener('click', (e) => {
-            if (touchContextOpened) {
-              touchContextOpened = false;
+            if (touchReorderTriggered) {
+              touchReorderTriggered = false;
               e.preventDefault();
               e.stopPropagation();
               return;
@@ -6369,16 +6356,6 @@
               obj.locked = !obj.locked;
               render();
               updateObjectList();
-              return;
-            }
-            if (action === 'layer-up' || action === 'layer-down') {
-              const siblings = obj.parent?.children || doc.objects;
-              const index = siblings.indexOf(obj);
-              const target = action === 'layer-up' ? siblings[index + 1] : siblings[index - 1];
-              if (target && doc.reorderTreeItem(obj.id, target.id, action === 'layer-up' ? 'above' : 'below')) {
-                render();
-                updateObjectList();
-              }
               return;
             }
             if (action === 'object-menu') {
@@ -6420,7 +6397,7 @@
           });
 
           // HTML5 Drag & Drop
-          item.draggable = true;
+          item.draggable = !document.body.classList.contains('mobile-studio-ui');
           item.addEventListener('dragstart', (e) => {
             objectDragSourceId = obj.id;
             item.classList.add('is-dragging');
@@ -6490,53 +6467,81 @@
             }
           });
 
-          // Long press opens the same object menu as a right-click. Moving the
-          // finger cancels it so normal list scrolling remains responsive.
+          // Hold, then drag to reorder. A short touch still selects the row and
+          // moving before the hold completes remains ordinary list scrolling.
           let touchTimer = null;
           let touchStartX = 0, touchStartY = 0;
-          let touchMenuX = 0, touchMenuY = 0;
+          let touchDropTarget = null;
           item.addEventListener('touchstart', (e) => {
             if (e.touches.length !== 1 || e.target.closest('button, input, select')) return;
-            touchStartX = touchMenuX = e.touches[0].clientX;
-            touchStartY = touchMenuY = e.touches[0].clientY;
+            touchStartX = e.touches[0].clientX;
+            touchStartY = e.touches[0].clientY;
             touchTimer = setTimeout(() => {
               touchTimer = null;
-              touchContextOpened = true;
-              if (!doc.selectedIds.has(obj.id)) {
-                doc.select(obj.id);
-                render();
-                drawOverlay();
-                updateInspector();
-                item.classList.add('selected');
-              }
-              const menuEvent = {
-                clientX: touchMenuX,
-                clientY: touchMenuY,
-                shiftKey: false,
-                preventDefault() {},
-                stopPropagation() {}
-              };
-              showCanvasContextMenu(menuEvent, { x: obj.x || 0, y: obj.y || 0 });
-            }, 500);
+              touchReorderTriggered = true;
+              objectDragSourceId = obj.id;
+              touchDropTarget = null;
+              item.classList.add('touch-reordering');
+            }, 420);
           }, { passive: true });
 
           item.addEventListener('touchmove', (e) => {
-            if (!touchTimer || !e.touches.length) return;
+            if (!e.touches.length) return;
             const touch = e.touches[0];
-            if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) > 10) {
+            if (touchTimer && Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) > 10) {
               clearTimeout(touchTimer);
               touchTimer = null;
             }
-          }, { passive: true });
+            if (!item.classList.contains('touch-reordering')) return;
+            e.preventDefault();
+
+            objectList.querySelectorAll('.drop-indicator-top, .drop-indicator-bottom, .drop-target-group').forEach(el => {
+              el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-target-group');
+            });
+            const targetEl = document.elementFromPoint(touch.clientX, touch.clientY)?.closest('.object-item');
+            if (!targetEl || !objectList.contains(targetEl) || targetEl.dataset.objectId === obj.id) {
+              touchDropTarget = null;
+              return;
+            }
+
+            const targetObj = doc.findObject(targetEl.dataset.objectId);
+            if (!targetObj) return;
+            const rect = targetEl.getBoundingClientRect();
+            const relativeY = Math.max(0, Math.min(1, (touch.clientY - rect.top) / Math.max(1, rect.height)));
+            let position = 'above';
+            if (targetObj.type === 'group') {
+              if (relativeY < .25) position = 'above';
+              else if (relativeY > .75) position = 'below';
+              else position = 'inside';
+            } else {
+              position = relativeY < .5 ? 'above' : 'below';
+            }
+            targetEl.classList.add(position === 'inside' ? 'drop-target-group' : (position === 'above' ? 'drop-indicator-top' : 'drop-indicator-bottom'));
+            touchDropTarget = { id: targetObj.id, position };
+          }, { passive: false });
 
           const finishTouch = (e) => {
             if (touchTimer) {
               clearTimeout(touchTimer);
               touchTimer = null;
             }
-            if (touchContextOpened) {
+            if (item.classList.contains('touch-reordering')) {
               e.preventDefault();
-              setTimeout(() => { touchContextOpened = false; }, 500);
+              const completed = e.type === 'touchend' && touchDropTarget && touchDropTarget.id !== obj.id
+                ? doc.reorderTreeItem(obj.id, touchDropTarget.id, touchDropTarget.position)
+                : false;
+              objectDragSourceId = null;
+              touchDropTarget = null;
+              clearObjectDropIndicators();
+              if (completed) {
+                render();
+                updateObjectList();
+                updateInspector();
+              }
+              setTimeout(() => { touchReorderTriggered = false; }, 450);
+            } else if (touchReorderTriggered) {
+              e.preventDefault();
+              setTimeout(() => { touchReorderTriggered = false; }, 450);
             }
           };
           item.addEventListener('touchend', finishTouch, { passive: false });
@@ -11027,6 +11032,64 @@
 
       const panelElementMap = new Map();
       let activeMobilePanelId = null;
+      const MOBILE_PANEL_HEIGHT_KEY = 'esenho_mobile_studio_panel_height';
+      const mobilePanelSheet = document.getElementById('mobile-panel-sheet');
+      const mobilePanelResizeHandle = document.getElementById('mobile-panel-resize-handle');
+      let mobilePanelResizeState = null;
+
+      function getMobilePanelHeightLimits() {
+        const headerHeight = document.getElementById('mobile-studio-header')?.getBoundingClientRect().height || 48;
+        const navHeight = document.getElementById('mobile-studio-nav')?.getBoundingClientRect().height || 64;
+        return { min: 190, max: Math.max(220, window.innerHeight - headerHeight - navHeight - 12) };
+      }
+
+      function applyMobilePanelHeight(height, persist = false) {
+        if (!mobilePanelSheet || !Number.isFinite(height)) return;
+        const limits = getMobilePanelHeightLimits();
+        const nextHeight = Math.max(limits.min, Math.min(limits.max, height));
+        mobilePanelSheet.style.setProperty('--mobile-panel-sheet-height', `${nextHeight}px`);
+        if (persist) {
+          try { localStorage.setItem(MOBILE_PANEL_HEIGHT_KEY, String(Math.round(nextHeight))); } catch (_) {}
+        }
+      }
+
+      try {
+        const savedPanelHeight = Number(localStorage.getItem(MOBILE_PANEL_HEIGHT_KEY));
+        if (savedPanelHeight > 0) applyMobilePanelHeight(savedPanelHeight);
+      } catch (_) {}
+
+      mobilePanelResizeHandle?.addEventListener('pointerdown', (event) => {
+        if (window.matchMedia('(min-width: 900px)').matches || !mobilePanelSheet?.classList.contains('active')) return;
+        event.preventDefault();
+        mobilePanelResizeState = {
+          pointerId: event.pointerId,
+          startY: event.clientY,
+          startHeight: mobilePanelSheet.getBoundingClientRect().height
+        };
+        mobilePanelResizeHandle.setPointerCapture?.(event.pointerId);
+      });
+
+      mobilePanelResizeHandle?.addEventListener('pointermove', (event) => {
+        if (!mobilePanelResizeState || mobilePanelResizeState.pointerId !== event.pointerId) return;
+        event.preventDefault();
+        applyMobilePanelHeight(mobilePanelResizeState.startHeight + mobilePanelResizeState.startY - event.clientY);
+      });
+
+      const finishMobilePanelResize = (event) => {
+        if (!mobilePanelResizeState || mobilePanelResizeState.pointerId !== event.pointerId) return;
+        const height = mobilePanelSheet.getBoundingClientRect().height;
+        mobilePanelResizeState = null;
+        applyMobilePanelHeight(height, true);
+      };
+      mobilePanelResizeHandle?.addEventListener('pointerup', finishMobilePanelResize);
+      mobilePanelResizeHandle?.addEventListener('pointercancel', finishMobilePanelResize);
+      mobilePanelResizeHandle?.addEventListener('keydown', (event) => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        const step = event.key === 'ArrowUp' ? 16 : -16;
+        applyMobilePanelHeight((mobilePanelSheet?.getBoundingClientRect().height || 0) + step, true);
+      });
+
       function getPanelElement(id) {
         if (id === 'materials' || id === 'material') id = 'color';
         if (panelElementMap.has(id)) return panelElementMap.get(id);
@@ -11036,6 +11099,7 @@
       }
 
       let appearancePanelsComposed = false;
+      let integratedPanelsComposed = false;
       function syncMaterialsStrokeOptions(selected = doc.getSelectedObjects()) {
         const options = document.getElementById('materials-stroke-options');
         if (!options) return;
@@ -11077,8 +11141,38 @@
         syncMaterialsStrokeOptions();
       }
 
+      function composeIntegratedPanels() {
+        if (integratedPanelsComposed) return;
+        const inspector = getPanelElement('inspect');
+        const tracer = getPanelElement('tracer');
+        const projects = getPanelElement('projects');
+        const exportPanel = getPanelElement('export');
+        if (!inspector || !tracer || !projects || !exportPanel) return;
+        integratedPanelsComposed = true;
+
+        const vectorizer = document.createElement('section');
+        vectorizer.className = 'section-card';
+        vectorizer.id = 'inspector-vectorizer-options';
+        vectorizer.style.display = 'none';
+        vectorizer.innerHTML = '<div class="section-header"><span>Vectorizer</span></div>';
+        [...tracer.children].forEach(child => vectorizer.appendChild(child));
+        inspector.appendChild(vectorizer);
+        tracer.style.display = 'none';
+
+        const exportSection = document.createElement('section');
+        exportSection.className = 'section-card';
+        exportSection.id = 'projects-export-options';
+        exportSection.innerHTML = '<div class="section-header"><span>Export</span></div>';
+        exportSection.style.cssText += ';display:flex;flex-direction:column;gap:8px;';
+        [...exportPanel.children].forEach(child => exportSection.appendChild(child));
+        const projectToolbar = projects.querySelector('.recents-toolbar');
+        projects.insertBefore(exportSection, projectToolbar || null);
+        exportPanel.style.display = 'none';
+      }
+
       function initMobilePanelLayout() {
         composeAppearancePanels();
+        composeIntegratedPanels();
         const stage = document.getElementById('mobile-canvas-stage');
         const canvasPanel = getPanelElement('canvas');
         if (activeMobilePanelId) closeMobileDockPanel();
@@ -11109,6 +11203,9 @@
       }
 
       function openMobileDockPanel(id) {
+        const focusSection = id === 'tracer' ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
+        if (id === 'tracer') id = 'inspect';
+        if (id === 'export') id = 'projects';
         if (id === 'document') id = 'projects';
         if (id === 'materials' || id === 'material') id = 'color';
         if (id === 'fill') id = 'inspect';
@@ -11128,18 +11225,19 @@
         if (panel.parentElement !== slot) slot.replaceChildren(panel);
         activeMobilePanelId = id;
         document.getElementById('mobile-panel-sheet')?.classList.add('active');
-        const titleMap = { color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Animator', curves: 'Curves' };
+        const titleMap = { color: 'Materials', inspect: 'Transform', scene: 'Layers', projects: 'Projects', animation: 'Animator', curves: 'Curves' };
         document.getElementById('mobile-panel-sheet-title').textContent = titleMap[id] || id;
         document.getElementById('mobile-project-title').textContent = titleMap[id] || 'Esenho Studio';
         document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === id));
         if (id === 'curves' && window.dopeSheetUI?.mountCurveEditor) window.dopeSheetUI.mountCurveEditor(panel);
         if (id === 'projects' && typeof refreshProjectsList === 'function') refreshProjectsList();
-        if (id === 'tracer' && typeof updateTracerUI === 'function') updateTracerUI();
+        if (id === 'inspect' && typeof updateTracerUI === 'function') updateTracerUI();
         if (id === 'color' && typeof ColorStudio !== 'undefined') {
           const mount = document.getElementById('color-studio-mount');
           if (mount) ColorStudio.mountColorTab(mount);
           ColorStudio.onPanelActivated();
         }
+        if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
         updateTitlebarLayoutButtons();
         return panel;
       }
@@ -11164,6 +11262,9 @@
 
       function openDockPanel(id) {
         if (MOBILE_STUDIO_UI) return openMobileDockPanel(id);
+        const focusSection = id === 'tracer' ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
+        if (id === 'tracer') id = 'inspect';
+        if (id === 'export') id = 'projects';
         if (!dockviewApi) return;
         if (id === 'document') id = 'projects';
         if (id === 'materials' || id === 'material') id = 'color';
@@ -11174,8 +11275,6 @@
             window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
           } else if (id === 'projects') {
             if (typeof refreshProjectsList === 'function') refreshProjectsList();
-          } else if (id === 'tracer') {
-            if (typeof updateTracerUI === 'function') updateTracerUI();
           } else if (id === 'color') {
             if (typeof ColorStudio !== 'undefined') {
               const mount = document.getElementById('color-studio-mount');
@@ -11183,6 +11282,7 @@
               ColorStudio.onPanelActivated();
             }
           }
+          if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
           updateTitlebarLayoutButtons();
           return existing;
         }
@@ -11196,9 +11296,9 @@
           scene: 'Scene',
           animation: 'Animator',
           curves: 'Curves',
-          tracer: 'Vectorizer',
+          tracer: 'Transform',
           projects: 'Projects',
-          export: 'Export'
+          export: 'Projects'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -11221,8 +11321,8 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
             }
-          } else if (['inspect', 'scene', 'tracer', 'projects', 'export'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export'];
+          } else if (['inspect', 'scene', 'projects'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'projects'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -11246,8 +11346,6 @@
           window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
         } else if (id === 'projects') {
           if (typeof refreshProjectsList === 'function') refreshProjectsList();
-        } else if (id === 'tracer') {
-          if (typeof updateTracerUI === 'function') updateTracerUI();
         } else if (id === 'color') {
           if (typeof ColorStudio !== 'undefined') {
             const mount = document.getElementById('color-studio-mount');
@@ -11255,6 +11353,7 @@
             ColorStudio.onPanelActivated();
           }
         }
+        if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
         return p;
@@ -11266,6 +11365,8 @@
         if (!sourceInfo) return;
         const selected = (typeof doc !== 'undefined' && doc.getSelectedObjects) ? doc.getSelectedObjects() : [];
         const imgObj = selected.find(o => o.type === 'image');
+        const options = document.getElementById('inspector-vectorizer-options');
+        if (options) options.style.display = imgObj ? 'block' : 'none';
         if (imgObj) {
           sourceInfo.style.display = 'block';
           sourceInfo.innerHTML = `
@@ -11334,7 +11435,7 @@
       function toggleRightSidebar() {
         if (MOBILE_STUDIO_UI) { toggleDockPanel('inspect'); return; }
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export'];
+        const rightIds = ['inspect', 'scene', 'projects'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -11347,7 +11448,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = MOBILE_STUDIO_UI ? activeMobilePanelId === 'color' : !!dockviewApi?.getPanel('color');
-        const hasRight = MOBILE_STUDIO_UI ? ['inspect', 'scene', 'tracer', 'projects', 'export'].includes(activeMobilePanelId) : ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = MOBILE_STUDIO_UI ? ['inspect', 'scene', 'projects'].includes(activeMobilePanelId) : ['inspect', 'scene', 'projects'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -11418,27 +11519,11 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 6. Right Vectorizer panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'tracer',
-            component: 'tracer',
-            title: 'Vectorizer',
-            position: { referencePanel: 'inspect' }
-          });
-
           // 7. Right Projects panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'projects',
             component: 'projects',
             title: 'Projects',
-            position: { referencePanel: 'inspect' }
-          });
-
-          // 8. Right Export panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'export',
-            component: 'export',
-            title: 'Export',
             position: { referencePanel: 'inspect' }
           });
 
@@ -11558,7 +11643,7 @@
         return [
           { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
           { type: 'item', label: 'Projects & Storage...', hotkey: 'Ctrl+E', action: () => openDockPanel('projects') },
-          { type: 'item', label: 'Export Center...', action: () => openDockPanel('export') },
+          { type: 'item', label: 'Export Settings...', action: () => openDockPanel('export') },
           { type: 'sep' },
           { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
           { type: 'item', label: 'Import Image Layer...', action: () => document.getElementById('file-import-img')?.click() },
@@ -11676,9 +11761,7 @@
         const isMaterialOpen = isOpen('color');
         const isInspectOpen = isOpen('inspect');
         const isSceneOpen = isOpen('scene');
-        const isTracerOpen = isOpen('tracer');
         const isProjectsOpen = isOpen('projects');
-        const isExportOpen = isOpen('export');
         const isAnimOpen = isOpen('animation');
         const isCurvesOpen = isOpen('curves');
 
@@ -11687,16 +11770,13 @@
           { type: 'item', label: (isMaterialOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Materials & Stroke Settings' : 'Materials & Stroke Settings'), action: () => toggleDockPanel('color') },
           { type: 'item', label: (isInspectOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Transform & Geometry' : 'Transform & Geometry Dock'), action: () => toggleDockPanel('inspect') },
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Scene Hierarchy' : 'Scene Hierarchy Dock'), action: () => toggleDockPanel('scene') },
-          { type: 'item', label: (isTracerOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Vectorizer' : 'Vectorizer Dock'), action: () => toggleDockPanel('tracer') },
           { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Projects & Document' : 'Projects & Document Dock'), hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
-          { type: 'item', label: (isExportOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Export Center' : 'Export Center Dock'), action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Animator' : 'Animation Timeline Dock'), hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Curves & Easing' : 'Curves & Easing Dock'), action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') },
-            { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic', action: () => setTheme('skeuo') }
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
           ]},
           { type: 'sep' },
           { type: 'item', label: MOBILE_STUDIO_UI ? 'Close Active Panel' : 'Reset Dock Layout to Default', action: () => MOBILE_STUDIO_UI ? closeMobileDockPanel() : resetDockviewLayout() },
@@ -13765,6 +13845,18 @@
         animator.dataset.bound = 'true';
 
         animator.addEventListener('click', (e) => {
+          const clipButton = e.target.closest('[data-clip-command]');
+          if (clipButton) {
+            const clipId = window.dopeSheet?.id;
+            switch (clipButton.dataset.clipCommand) {
+              case 'create': window.createAnimation?.(); break;
+              case 'duplicate': window.duplicateAnimation?.(clipId); break;
+              case 'rename': window.renameAnimation?.(clipId); break;
+              case 'delete': window.deleteAnimation?.(clipId); break;
+            }
+            window.updateSceneAnimUI?.();
+            return;
+          }
           const button = e.target.closest('[data-anim-command]');
           if (!button || !window.dopeSheet) return;
           const ds = window.dopeSheet;
@@ -13851,6 +13943,9 @@
           }
           clipSelect.value = ds.id;
         }
+        const clipCount = (window.getAnimationClips?.() || window.animationClips || []).length;
+        const deleteClipButton = document.querySelector('[data-clip-command="delete"]');
+        if (deleteClipButton) deleteClipButton.disabled = clipCount <= 1;
 
         const badge = document.getElementById('scene-anim-time-badge');
         if (badge) badge.textContent = `F ${cur}/${total}`;
@@ -15162,14 +15257,12 @@
   </script>
   <script>
     (() => {
-      const panelIds = ['color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
-      const panelNames = { canvas: 'Esenho Studio', color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Animator', curves: 'Curves' };
-      const moreSheet = document.getElementById('mobile-more-sheet');
+      const panelIds = ['color', 'inspect', 'scene', 'projects', 'animation', 'curves'];
+      const panelNames = { canvas: 'Esenho Studio', color: 'Materials', inspect: 'Transform', scene: 'Layers', projects: 'Projects', animation: 'Animator', curves: 'Curves' };
       const title = document.getElementById('mobile-project-title');
 
       function activatePanel(id) {
-        moreSheet?.classList.remove('active');
-        document.querySelectorAll('#mobile-studio-nav [data-studio-panel], #mobile-more-sheet [data-studio-panel]').forEach(button => {
+        document.querySelectorAll('#mobile-studio-nav [data-studio-panel]').forEach(button => {
           button.classList.toggle('active', button.dataset.studioPanel === id);
         });
         if (title) title.textContent = panelNames[id] || 'Esenho Studio';
@@ -15186,14 +15279,14 @@
       document.querySelectorAll('[data-studio-panel]').forEach(button => {
         button.addEventListener('click', () => activatePanel(button.dataset.studioPanel));
       });
-      document.getElementById('mobile-more-button')?.addEventListener('click', () => moreSheet?.classList.add('active'));
-      document.getElementById('mobile-more-close')?.addEventListener('click', () => moreSheet?.classList.remove('active'));
       document.getElementById('mobile-panel-sheet-close')?.addEventListener('click', () => window.closeDockPanel?.());
-      moreSheet?.addEventListener('click', event => { if (event.target === moreSheet) moreSheet.classList.remove('active'); });
       document.getElementById('mobile-menu-button')?.addEventListener('click', () => document.getElementById('titlebar-brand-icon')?.click());
       document.getElementById('mobile-undo')?.addEventListener('click', () => window.mobileStudioUndo?.());
       document.getElementById('mobile-redo')?.addEventListener('click', () => window.mobileStudioRedo?.());
-      document.getElementById('mobile-export')?.addEventListener('click', () => activatePanel('export'));
+      document.getElementById('mobile-export')?.addEventListener('click', () => {
+        activatePanel('projects');
+        setTimeout(() => document.getElementById('projects-export-options')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 120);
+      });
       title?.addEventListener('click', () => activatePanel('projects'));
 
       const titleNode = document.querySelector('head > title');

@@ -3411,7 +3411,7 @@
         <span class="statusbar-icon">⊙</span>
         <span id="status-zoom">100%</span>
       </div>
-      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray / Skeuomorphic)" style="cursor: pointer;">
+      <div class="statusbar-item" id="status-theme-toggle" title="Toggle Theme (Gruvbox Dark / Gray)" style="cursor: pointer;">
         <span class="statusbar-icon">☀</span>
         <span id="status-theme-text">☾ Dark</span>
       </div>
@@ -4223,18 +4223,17 @@
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
-      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'skeuomorphic' || currentTheme === 'skeuo') currentTheme = 'dark';
+      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        if (theme === 'skeuomorphic') theme = 'skeuo';
-        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'dark';
+        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
+        document.body.classList.remove('theme-skeuo', 'theme-skeuomorphic');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -4244,7 +4243,6 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
-          else if (currentTheme === 'skeuo') themeText.textContent = '🎛 Skeuo';
           else themeText.textContent = '☾ Dark';
         }
 
@@ -4266,13 +4264,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray', 'skeuo'];
+        const order = ['dark', 'gray'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -10840,6 +10838,7 @@
       }
 
       let appearancePanelsComposed = false;
+      let integratedPanelsComposed = false;
       function syncMaterialsStrokeOptions(selected = doc.getSelectedObjects()) {
         const options = document.getElementById('materials-stroke-options');
         if (!options) return;
@@ -10881,6 +10880,35 @@
         syncMaterialsStrokeOptions();
       }
 
+      function composeIntegratedPanels() {
+        if (integratedPanelsComposed) return;
+        const inspector = getPanelElement('inspect');
+        const tracer = getPanelElement('tracer');
+        const projects = getPanelElement('projects');
+        const exportPanel = getPanelElement('export');
+        if (!inspector || !tracer || !projects || !exportPanel) return;
+        integratedPanelsComposed = true;
+
+        const vectorizer = document.createElement('section');
+        vectorizer.className = 'section-card';
+        vectorizer.id = 'inspector-vectorizer-options';
+        vectorizer.style.display = 'none';
+        vectorizer.innerHTML = '<div class="section-header"><span>Vectorizer</span></div>';
+        [...tracer.children].forEach(child => vectorizer.appendChild(child));
+        inspector.appendChild(vectorizer);
+        tracer.style.display = 'none';
+
+        const exportSection = document.createElement('section');
+        exportSection.className = 'section-card';
+        exportSection.id = 'projects-export-options';
+        exportSection.innerHTML = '<div class="section-header"><span>Export</span></div>';
+        exportSection.style.cssText += ';display:flex;flex-direction:column;gap:8px;';
+        [...exportPanel.children].forEach(child => exportSection.appendChild(child));
+        const projectToolbar = projects.querySelector('.recents-toolbar');
+        projects.insertBefore(exportSection, projectToolbar || null);
+        exportPanel.style.display = 'none';
+      }
+
       function scheduleSaveDockviewLayout() {
         if (!dockviewApi) return;
         if (saveDockviewLayoutTimeout) clearTimeout(saveDockviewLayoutTimeout);
@@ -10899,10 +10927,14 @@
 
       function openDockPanel(id) {
         if (!dockviewApi) return;
+        const focusSection = id === 'tracer' ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
+        if (id === 'tracer') id = 'inspect';
+        if (id === 'export') id = 'projects';
         if (id === 'document') id = 'projects';
         if (id === 'materials' || id === 'material') id = 'color';
         if (id === 'fill') id = 'inspect';
         if (id === 'stroke') id = 'color';
+        if (focusSection === 'inspector-vectorizer-options' && typeof updateTracerUI === 'function') updateTracerUI();
         const existing = dockviewApi.getPanel(id);
         if (existing) {
           existing.api.setActive();
@@ -10910,8 +10942,6 @@
             window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
           } else if (id === 'projects') {
             if (typeof refreshProjectsList === 'function') refreshProjectsList();
-          } else if (id === 'tracer') {
-            if (typeof updateTracerUI === 'function') updateTracerUI();
           } else if (id === 'color') {
             if (typeof ColorStudio !== 'undefined') {
               const mount = document.getElementById('color-studio-mount');
@@ -10919,6 +10949,7 @@
               ColorStudio.onPanelActivated();
             }
           }
+          if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
           updateTitlebarLayoutButtons();
           return existing;
         }
@@ -10932,9 +10963,8 @@
           scene: 'Scene',
           animation: 'Timeline',
           curves: 'Curves',
-          tracer: 'Vectorizer',
           projects: 'Projects',
-          export: 'Export'
+          export: 'Projects'
         };
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
@@ -10955,8 +10985,8 @@
             } else {
               dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 210 });
             }
-          } else if (['inspect', 'scene', 'tracer', 'projects', 'export'].includes(id)) {
-            const rightGroup = ['inspect', 'scene', 'tracer', 'projects', 'export'];
+          } else if (['inspect', 'scene', 'projects'].includes(id)) {
+            const rightGroup = ['inspect', 'scene', 'projects'];
             const otherRight = rightGroup.find(r => r !== id && !!dockviewApi.getPanel(r));
             if (otherRight) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: otherRight } });
@@ -10980,8 +11010,6 @@
           window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
         } else if (id === 'projects') {
           if (typeof refreshProjectsList === 'function') refreshProjectsList();
-        } else if (id === 'tracer') {
-          if (typeof updateTracerUI === 'function') updateTracerUI();
         } else if (id === 'color') {
           if (typeof ColorStudio !== 'undefined') {
             const mount = document.getElementById('color-studio-mount');
@@ -10989,6 +11017,7 @@
             ColorStudio.onPanelActivated();
           }
         }
+        if (focusSection) requestAnimationFrame(() => document.getElementById(focusSection)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
         scheduleSaveDockviewLayout();
         updateTitlebarLayoutButtons();
         return p;
@@ -11000,6 +11029,8 @@
         if (!sourceInfo) return;
         const selected = (typeof doc !== 'undefined' && doc.getSelectedObjects) ? doc.getSelectedObjects() : [];
         const imgObj = selected.find(o => o.type === 'image');
+        const options = document.getElementById('inspector-vectorizer-options');
+        if (options) options.style.display = imgObj ? 'block' : 'none';
         if (imgObj) {
           sourceInfo.style.display = 'block';
           sourceInfo.innerHTML = `
@@ -11059,7 +11090,7 @@
 
       function toggleRightSidebar() {
         if (!dockviewApi) return;
-        const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export'];
+        const rightIds = ['inspect', 'scene', 'projects'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
         if (hasRight) {
           rightIds.forEach(id => closeDockPanel(id));
@@ -11072,7 +11103,7 @@
 
       function updateTitlebarLayoutButtons() {
         const hasLeft = !!dockviewApi?.getPanel('color');
-        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
+        const hasRight = ['inspect', 'scene', 'projects'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -11120,27 +11151,11 @@
             position: { referencePanel: 'inspect' }
           });
 
-          // 6. Right Vectorizer panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'tracer',
-            component: 'tracer',
-            title: 'Vectorizer',
-            position: { referencePanel: 'inspect' }
-          });
-
           // 7. Right Projects panel (tabbed with Inspect)
           dockviewApi.addPanel({
             id: 'projects',
             component: 'projects',
             title: 'Projects',
-            position: { referencePanel: 'inspect' }
-          });
-
-          // 8. Right Export panel (tabbed with Inspect)
-          dockviewApi.addPanel({
-            id: 'export',
-            component: 'export',
-            title: 'Export',
             position: { referencePanel: 'inspect' }
           });
 
@@ -11190,6 +11205,7 @@
 
       function initDockview() {
         composeAppearancePanels();
+        composeIntegratedPanels();
         const container = document.getElementById('dockview-container');
         if (!container || typeof window['dockview-core'] === 'undefined') return;
 
@@ -11251,7 +11267,7 @@
               if (dockviewApi.panels && dockviewApi.panels.length >= 2 && dockviewApi.getPanel('canvas')) {
                 restored = true;
                 // Close any obsolete panel if restored
-                ['assets', 'document'].forEach(obsoleteId => {
+                ['assets', 'document', 'tracer', 'export'].forEach(obsoleteId => {
                   const p = dockviewApi.getPanel(obsoleteId);
                   if (p) {
                     try { p.api.close(); } catch (_) {}
@@ -11425,7 +11441,7 @@
         return [
           { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
           { type: 'item', label: 'Projects & Storage...', hotkey: 'Ctrl+E', action: () => openDockPanel('projects') },
-          { type: 'item', label: 'Export Center...', action: () => openDockPanel('export') },
+          { type: 'item', label: 'Export Settings...', action: () => openDockPanel('export') },
           { type: 'sep' },
           { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
           { type: 'item', label: 'Import Image Layer...', action: () => document.getElementById('file-import-img')?.click() },
@@ -11542,9 +11558,7 @@
         const isMaterialOpen = !!dockviewApi?.getPanel('color');
         const isInspectOpen = !!dockviewApi?.getPanel('inspect');
         const isSceneOpen = !!dockviewApi?.getPanel('scene');
-        const isTracerOpen = !!dockviewApi?.getPanel('tracer');
         const isProjectsOpen = !!dockviewApi?.getPanel('projects');
-        const isExportOpen = !!dockviewApi?.getPanel('export');
         const isAnimOpen = !!dockviewApi?.getPanel('animation');
         const isCurvesOpen = !!dockviewApi?.getPanel('curves');
 
@@ -11553,16 +11567,13 @@
           { type: 'item', label: (isMaterialOpen ? '✓ ' : '') + 'Materials & Stroke Settings', action: () => toggleDockPanel('color') },
           { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
           { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
-          { type: 'item', label: (isTracerOpen ? '✓ ' : '') + 'Vectorizer Dock', action: () => toggleDockPanel('tracer') },
           { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + 'Projects & Document Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
-          { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
           { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') },
-            { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic', action: () => setTheme('skeuo') }
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
