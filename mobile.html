@@ -2100,6 +2100,48 @@
       box-sizing: border-box;
     }
 
+    body.mobile-studio-ui #dock-panel-animation { padding: 8px !important; }
+    body.mobile-studio-ui #timeline-container { display: none !important; }
+    #mobile-animator {
+      width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+      overflow: hidden; color: var(--text); box-sizing: border-box;
+    }
+    .mobile-animator-head, .mobile-animator-transport, .mobile-animator-settings,
+    .mobile-animator-actions, .mobile-animator-list-head {
+      display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+    }
+    .mobile-animator-head { justify-content: space-between; min-height: 22px; }
+    .mobile-animator-title { font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+    #mobile-animation-clip {
+      max-width: 56%; min-width: 0; min-height: 30px; padding: 3px 24px 3px 8px;
+      background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 4px;
+    }
+    .mobile-animator-card {
+      padding: 7px; border: 1px solid var(--border); border-radius: 5px;
+      background: var(--bg-panel-sub); box-sizing: border-box;
+    }
+    .mobile-animator-transport { justify-content: center; }
+    .mobile-animator-transport button { min-width: 38px; min-height: 38px; font-size: 15px; }
+    .mobile-animator-transport #scene-anim-btn-play { min-width: 48px; font-size: 18px; }
+    #scene-anim-time-badge { margin-left: auto; min-width: 66px; font-size: 11px; }
+    .mobile-animator-settings { justify-content: space-between; }
+    .mobile-animator-field { display: flex; align-items: center; gap: 4px; color: var(--text-muted); font-size: 9px; }
+    .mobile-animator-field input {
+      width: 48px; min-height: 32px; padding: 3px 4px; text-align: center;
+      color: var(--text-bright); background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
+    }
+    .mobile-animator-actions button { min-height: 34px; flex: 1; padding: 3px 6px; font-size: 10px; }
+    .mobile-animator-actions button.active { color: var(--primary); border-color: var(--primary); }
+    .mobile-animator-events { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .mobile-animator-list-head { justify-content: space-between; margin-bottom: 5px; font-size: 10px; font-weight: 700; }
+    #selected-events-badge { color: var(--text-muted); font-size: 9px; font-weight: 500; }
+    #selected-events-container { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+    #selected-events-container .event-row { min-height: 38px; padding: 4px 6px !important; gap: 6px; border-radius: 4px; }
+    #selected-events-container .event-frame-btn { min-height: 32px; min-width: 58px; font-size: 10px; }
+    #selected-events-container .event-easing-select { min-height: 32px !important; font-size: 10px !important; padding: 3px 6px !important; }
+    #selected-events-container .btn-icon { min-width: 32px; min-height: 32px; font-size: 15px !important; }
+    #selected-events-container [data-action="select-obj"] { min-height: 40px; padding: 6px 8px !important; }
+
     .ds-vertical-mode #ds-toolbar { max-height: 30%; overflow-y: auto; align-content: flex-start; }
     .ds-vertical-mode #ds-body { flex-direction: column !important; }
     .ds-vertical-mode #ds-tree-sidebar {
@@ -2414,43 +2456,6 @@
       padding: 1px 5px;
       height: 19px;
       white-space: nowrap;
-    }
-
-    .anim-track-ribbon {
-      position: relative;
-      height: 14px;
-      background: rgba(0, 0, 0, 0.35);
-      border-radius: 2px;
-      border: 1px solid var(--border);
-      margin: 2px 0 4px 0;
-      overflow: hidden;
-      cursor: pointer;
-      flex-shrink: 0;
-    }
-
-    .anim-playhead-line {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 2px;
-      background: var(--primary);
-      z-index: 2;
-      pointer-events: none;
-    }
-
-    .anim-keyframe-diamond {
-      position: absolute;
-      top: 2px;
-      width: 8px;
-      height: 8px;
-      transform: rotate(45deg);
-      z-index: 3;
-      cursor: pointer;
-      transition: transform 0.08s ease;
-    }
-
-    .anim-keyframe-diamond:hover {
-      transform: rotate(45deg) scale(1.3);
     }
 
     .anim-events-card {
@@ -3636,7 +3641,7 @@
     <div class="mobile-more-card">
       <div class="mobile-more-heading"><span>Studio panels</span><button type="button" id="mobile-more-close" aria-label="Close">✕</button></div>
       <div class="mobile-more-grid">
-        <button class="mobile-nav-item" data-studio-panel="animation" type="button"><span class="nav-icon">▥</span><span>Timeline</span></button>
+        <button class="mobile-nav-item" data-studio-panel="animation" type="button"><span class="nav-icon">◆</span><span>Animator</span></button>
         <button class="mobile-nav-item" data-studio-panel="curves" type="button"><span class="nav-icon">〰</span><span>Curves</span></button>
         <button class="mobile-nav-item" data-studio-panel="tracer" type="button"><span class="nav-icon">⌁</span><span>Vectorizer</span></button>
         <button class="mobile-nav-item" data-studio-panel="projects" type="button"><span class="nav-icon">▣</span><span>Projects</span></button>
@@ -4162,7 +4167,6 @@
           <button type="button" id="btn-anchor-center" class="btn-sm" style="width: 100%; margin-top: 2px;" title="Reset Anchor Point to Center of Object">⌖ Center Anchor</button>
         </div>
 
-        <button id="btn-convert-path" style="width: 100%; margin-top: 4px; border-color: var(--accent); color: var(--accent);" title="Convert shape into editable Bézier path">☡ Convert Shape to Path</button>
       </div>
     </div>
 
@@ -4171,8 +4175,41 @@
       <div id="object-list"></div>
     </div>
 
-    <!-- Dock Panel 7: Conventional Animation Timeline -->
-    <div id="dock-panel-animation" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel);">
+    <!-- Mobile Animator: frame controls and recorded states, without a timeline grid -->
+    <div id="dock-panel-animation" class="dock-panel-content" style="overflow: hidden; background: var(--bg-panel);">
+      <div id="mobile-animator">
+        <div class="mobile-animator-head">
+          <span class="mobile-animator-title">Animator</span>
+          <select id="mobile-animation-clip" aria-label="Animation clip"></select>
+        </div>
+        <div class="mobile-animator-card">
+          <div class="mobile-animator-transport">
+            <button class="btn-secondary" data-anim-command="first" type="button" title="First frame" aria-label="First frame">|◀</button>
+            <button class="btn-secondary" data-anim-command="previous" type="button" title="Previous frame" aria-label="Previous frame">◀</button>
+            <button id="scene-anim-btn-play" class="btn-play" data-anim-command="play" type="button" title="Play or pause" aria-label="Play or pause">▶</button>
+            <button class="btn-secondary" data-anim-command="next" type="button" title="Next frame" aria-label="Next frame">▶</button>
+            <button class="btn-secondary" data-anim-command="last" type="button" title="Last frame" aria-label="Last frame">▶|</button>
+            <span id="scene-anim-time-badge">F 1/60</span>
+          </div>
+          <div class="mobile-animator-settings" style="margin-top: 7px;">
+            <label class="mobile-animator-field">Frame <input id="scene-anim-input-frame" type="number" min="1" value="1" inputmode="numeric"></label>
+            <label class="mobile-animator-field">Length <input id="scene-anim-input-total" type="number" min="1" value="60" inputmode="numeric"></label>
+            <label class="mobile-animator-field">FPS <input id="scene-anim-input-fps" type="number" min="1" max="120" value="24" inputmode="numeric"></label>
+          </div>
+        </div>
+        <div class="mobile-animator-actions">
+          <button id="scene-anim-btn-loop" class="btn-secondary" data-anim-command="loop" type="button">↻ Loop</button>
+          <button id="scene-btn-autokf" class="btn-secondary" data-anim-command="autokey" type="button">◆ Auto Key</button>
+          <button class="btn-primary" data-anim-command="record" type="button">● Record State</button>
+        </div>
+        <section class="mobile-animator-card mobile-animator-events">
+          <div class="mobile-animator-list-head">
+            <span id="selected-events-title">Scene Keyframes</span>
+            <span id="selected-events-badge"></span>
+          </div>
+          <div id="selected-events-container"></div>
+        </section>
+      </div>
       <div id="timeline-container" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow: hidden; position: relative;"></div>
     </div>
 
@@ -5183,6 +5220,7 @@
         doc.addObject(r1, false);
         doc.addObject(c1, false);
         doc.addObject(p1, false);
+        doc.convertAllShapesToPaths();
         doc.select(p1.id);
       }
 
@@ -6053,9 +6091,8 @@
         }
       }
 
-      // ── Object Hierarchy UI List (Hierarchical Tree with Drag & Drop / Touch Reordering) ──
+      // ── Object Hierarchy UI List (Hierarchical Tree with Drag & Drop) ──
       let objectDragSourceId = null;
-      let objectTouchReorderState = null;
 
       function clearObjectDropIndicators() {
         if (!objectList) return;
@@ -6071,7 +6108,6 @@
         if (!container) return;
 
         const currentFrame = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
-        const totalFrames = window.dopeSheet ? (window.dopeSheet.totalFrames || 60) : 60;
         const selected = doc.getSelectedObjects();
 
         if (selected.length === 0) {
@@ -6096,11 +6132,8 @@
             container.innerHTML = `
               <div class="anim-empty-state">
                 No keyframes recorded in scene yet.<br>
-                Select an object or record state below.
+                Select an object, choose a frame, then record its state.
               </div>
-              <button class="btn-sm btn-primary" data-action="record-all-scene" style="width: 100%; margin-top: 4px; font-size: 9.5px;">
-                ◆ Record State for All Objects at F${currentFrame}
-              </button>
             `;
           } else {
             let html = `
@@ -6117,9 +6150,6 @@
             }
             html += `
               </div>
-              <button class="btn-sm btn-primary" data-action="record-all-scene" style="width: 100%; margin-top: 6px; font-size: 9.5px;">
-                ◆ Record State for All Objects at F${currentFrame}
-              </button>
             `;
             container.innerHTML = html;
           }
@@ -6135,35 +6165,15 @@
         const events = (dObj && typeof dObj.getEventList === 'function') ? dObj.getEventList() : [];
         if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
 
-        // Timeline mini-track ribbon
-        const playheadPct = Math.max(0, Math.min(100, ((currentFrame - 1) / Math.max(1, totalFrames - 1)) * 100));
-        let ribbonDiamonds = '';
-        for (const ev of events) {
-          const evPct = Math.max(0, Math.min(100, ((ev.frame - 1) / Math.max(1, totalFrames - 1)) * 100));
-          const isCurrent = ev.frame === currentFrame;
-          ribbonDiamonds += `<div class="anim-keyframe-diamond" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to Keyframe F${ev.frame}" style="left: calc(${evPct}% - 4px); background: ${isCurrent ? 'var(--primary)' : 'var(--accent)'}; box-shadow: ${isCurrent ? '0 0 4px var(--primary)' : 'none'};"></div>`;
-        }
-
-        const ribbonHtml = `
-          <div class="anim-track-ribbon" data-action="seek-ribbon" title="Click anywhere to scrub timeline">
-            <div class="anim-playhead-line" style="left: ${playheadPct}%;"></div>
-            ${ribbonDiamonds}
-          </div>
-        `;
-
         if (events.length === 0) {
           container.innerHTML = `
-            ${ribbonHtml}
             <div class="anim-empty-state">
-              No keyframe states recorded for this object
+              No states recorded yet. Use Record State to add the current pose.
             </div>
-            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 9.5px;">
-              + Record State at F${currentFrame}
-            </button>
           `;
         } else {
           const easings = ['linear', 'ease-in', 'ease-out', 'ease-in-out', 'step-start', 'step-end', 'spring', 'bounce', 'elastic'];
-          let rowsHtml = `${ribbonHtml}<div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto;">`;
+          let rowsHtml = '<div style="display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto;">';
           for (const ev of events) {
             const easingOptions = easings.map(e => `<option value="${e}" ${ev.tweenType === e ? 'selected' : ''}>${e}</option>`).join('');
             rowsHtml += `
@@ -6181,11 +6191,7 @@
               </div>
             `;
           }
-          rowsHtml += `</div>
-            <button class="btn-sm btn-primary" data-action="add-event" data-object-id="${mainTarget.id}" style="width: 100%; margin-top: 4px; font-size: 9.5px;">
-              + Record State at F${currentFrame}
-            </button>
-          `;
+          rowsHtml += '</div>';
           container.innerHTML = rowsHtml;
         }
 
@@ -6208,19 +6214,6 @@
               updateObjectList();
               updateInspector();
               updateSelectedObjectEventsUI();
-              return;
-            }
-            if (action === 'record-all-scene') {
-              const curF = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
-              const all = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
-              for (const o of all) {
-                recordObjectAnimationState(o, curF);
-              }
-              doc.pushHistory(`Record All Objects F${curF}`);
-              if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-              updateSelectedObjectEventsUI();
-              updateObjectList();
-              showNotification(`Recorded scene state on Frame ${curF}`);
               return;
             }
             if (action === 'update-event') {
@@ -6253,28 +6246,8 @@
               }
               return;
             }
-            if (action === 'add-event') {
-              const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
-              if (targetObj && window.dopeSheet) {
-                const curF = window.dopeSheet.currentFrame || 1;
-                recordObjectAnimationState(targetObj, curF);
-                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-                doc.pushHistory(`Record Event F${curF}`);
-                updateSelectedObjectEventsUI();
-                updateObjectList();
-              }
-              return;
-            }
           }
 
-          const ribbon = e.target.closest('.anim-track-ribbon');
-          if (ribbon && typeof window.seekSceneFrame === 'function') {
-            const rect = ribbon.getBoundingClientRect();
-            const relX = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-            const total = window.dopeSheet ? (window.dopeSheet.totalFrames || 60) : 60;
-            const targetFrame = Math.max(1, Math.min(total, Math.round(relX * (total - 1) + 1)));
-            window.seekSceneFrame(targetFrame);
-          }
         };
 
         container.onchange = (e) => {
@@ -6315,8 +6288,8 @@
           objectList.innerHTML = `
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px 12px; color: var(--text-muted); font-size: 11px; text-align: center; gap: 6px;">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.6;"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
-              <span style="font-weight: 600; color: var(--text-dim);">No shapes yet</span>
-              <span style="font-size: 10px; opacity: 0.7;">Draw using Pen (P) or Shapes (R, O)</span>
+              <span style="font-weight: 600; color: var(--text-dim);">No paths yet</span>
+              <span style="font-size: 10px; opacity: 0.7;">Draw with Pen (P), Rectangle (R), or Ellipse (O)</span>
             </div>
           `;
           updateSelectedObjectEventsUI();
@@ -6413,8 +6386,16 @@
             });
           }
 
+          let touchContextOpened = false;
+
           // Click handling
           item.addEventListener('click', (e) => {
+            if (touchContextOpened) {
+              touchContextOpened = false;
+              e.preventDefault();
+              e.stopPropagation();
+              return;
+            }
             const actionBtn = e.target.closest('[data-action]');
             const action = actionBtn ? actionBtn.dataset.action : null;
             if (action === 'toggle-collapse') {
@@ -6554,92 +6535,57 @@
             }
           });
 
-          // Touch Reordering Support
+          // Long press opens the same object menu as a right-click. Moving the
+          // finger cancels it so normal list scrolling remains responsive.
           let touchTimer = null;
           let touchStartX = 0, touchStartY = 0;
-
+          let touchMenuX = 0, touchMenuY = 0;
           item.addEventListener('touchstart', (e) => {
-            if (e.touches.length !== 1) return;
-            if (e.target.closest('button, input, select')) return;
-            touchStartX = e.touches[0].clientX;
-            touchStartY = e.touches[0].clientY;
-
+            if (e.touches.length !== 1 || e.target.closest('button, input, select')) return;
+            touchStartX = touchMenuX = e.touches[0].clientX;
+            touchStartY = touchMenuY = e.touches[0].clientY;
             touchTimer = setTimeout(() => {
               touchTimer = null;
-              objectTouchReorderState = { id: obj.id, lastTargetId: null, lastDropPos: null };
-              item.classList.add('touch-reordering');
-            }, 250);
+              touchContextOpened = true;
+              if (!doc.selectedIds.has(obj.id)) {
+                doc.select(obj.id);
+                render();
+                drawOverlay();
+                updateInspector();
+                item.classList.add('selected');
+              }
+              const menuEvent = {
+                clientX: touchMenuX,
+                clientY: touchMenuY,
+                shiftKey: false,
+                preventDefault() {},
+                stopPropagation() {}
+              };
+              showCanvasContextMenu(menuEvent, { x: obj.x || 0, y: obj.y || 0 });
+            }, 500);
           }, { passive: true });
 
           item.addEventListener('touchmove', (e) => {
-            if (touchTimer) {
-              const dx = e.touches[0].clientX - touchStartX;
-              const dy = e.touches[0].clientY - touchStartY;
-              if (Math.hypot(dx, dy) > 10) {
-                clearTimeout(touchTimer);
-                touchTimer = null;
-              }
+            if (!touchTimer || !e.touches.length) return;
+            const touch = e.touches[0];
+            if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) > 10) {
+              clearTimeout(touchTimer);
+              touchTimer = null;
             }
+          }, { passive: true });
 
-            if (objectTouchReorderState && objectTouchReorderState.id === obj.id) {
-              if (e.cancelable) e.preventDefault();
-              const touchX = e.touches[0].clientX;
-              const touchY = e.touches[0].clientY;
-
-              const prevPE = item.style.pointerEvents;
-              item.style.pointerEvents = 'none';
-              const targetEl = document.elementFromPoint(touchX, touchY);
-              item.style.pointerEvents = prevPE;
-
-              const targetItem = targetEl?.closest('.object-item');
-              clearObjectDropIndicators();
-              item.classList.add('touch-reordering');
-
-              if (targetItem && targetItem !== item) {
-                const targetId = targetItem.getAttribute('data-object-id');
-                const tgtObj = doc.findObject(targetId);
-                const rect = targetItem.getBoundingClientRect();
-                const relY = (touchY - rect.top) / rect.height;
-
-                let dropPos = 'above';
-                if (tgtObj && tgtObj.type === 'group') {
-                  if (relY < 0.25) { dropPos = 'above'; targetItem.classList.add('drop-indicator-top'); }
-                  else if (relY > 0.75) { dropPos = 'below'; targetItem.classList.add('drop-indicator-bottom'); }
-                  else { dropPos = 'inside'; targetItem.classList.add('drop-target-group'); }
-                } else {
-                  if (relY < 0.5) { dropPos = 'above'; targetItem.classList.add('drop-indicator-top'); }
-                  else { dropPos = 'below'; targetItem.classList.add('drop-indicator-bottom'); }
-                }
-
-                objectTouchReorderState.lastTargetId = targetId;
-                objectTouchReorderState.lastDropPos = dropPos;
-              } else {
-                objectTouchReorderState.lastTargetId = null;
-                objectTouchReorderState.lastDropPos = null;
-              }
-            }
-          }, { passive: false });
-
-          const finishTouch = () => {
+          const finishTouch = (e) => {
             if (touchTimer) {
               clearTimeout(touchTimer);
               touchTimer = null;
             }
-            if (objectTouchReorderState && objectTouchReorderState.id === obj.id) {
-              clearObjectDropIndicators();
-              if (objectTouchReorderState.lastTargetId && objectTouchReorderState.lastDropPos) {
-                const success = doc.reorderTreeItem(objectTouchReorderState.id, objectTouchReorderState.lastTargetId, objectTouchReorderState.lastDropPos);
-                if (success) {
-                  render();
-                  updateObjectList();
-                }
-              }
-              objectTouchReorderState = null;
+            if (touchContextOpened) {
+              e.preventDefault();
+              setTimeout(() => { touchContextOpened = false; }, 500);
             }
           };
-
-          item.addEventListener('touchend', finishTouch);
-          item.addEventListener('touchcancel', finishTouch);
+          item.addEventListener('touchend', finishTouch, { passive: false });
+          item.addEventListener('touchcancel', finishTouch, { passive: false });
 
           objectList.appendChild(item);
 
@@ -8266,6 +8212,10 @@
           const wasRotating = activeTransformMode === 'rotate';
           const wasMovingAnchor = activeTransformMode === 'anchor';
           const wasDrafting = !!currentDraftObj;
+          const draftWasShape = wasDrafting && ['rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline'].includes(currentDraftObj.type);
+          if (draftWasShape) {
+            doc.convertSelectedToPath(false);
+          }
           activeResizeHandle = null;
           activeTransformMode = null;
           initialBounds = null;
@@ -8276,7 +8226,7 @@
           if (activeTool !== 'pen') {
             const wasEditingNode = activeTool === 'node';
             const actionLabel = wasEditingNode ? 'Edit Path Nodes' : (wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'))));
-            doc.pushHistory(actionLabel);
+            if (!wasDrafting) doc.pushHistory(actionLabel);
             if (typeof window.recordAutoKeyframe === 'function') {
               const selectedObjs = doc.getSelectedObjects();
               for (const selObj of selectedObjs) {
@@ -8290,6 +8240,7 @@
           }
           render();
           updateInspector();
+          if (draftWasShape) updateObjectList();
           scheduleAutosave();
         }
       });
@@ -8472,7 +8423,6 @@
 
           // Convert & Structure Submenu
           const convertItems = [];
-          const hasPrimitives = selectedObjs.some(o => ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'star'].includes(o.type));
           const hasText = selectedObjs.some(o => o.type === 'text');
           const hasStroke = selectedObjs.some(o => o.stroke && o.stroke !== 'none' && o.strokeWidth > 0);
           const hasGroups = selectedObjs.some(o => o.type === 'group');
@@ -8480,21 +8430,6 @@
           const hasAttachedText = selectedObjs.some(o => o.type === 'text' && o.pathId);
           const canAttachText = selectedObjs.length >= 2 && selectedObjs.some(o => o.type === 'text') && selectedObjs.some(o => o.type === 'path' || o.type === 'line' || o.type === 'compoundPath');
 
-          if (hasPrimitives) {
-            convertItems.push({
-              type: 'item',
-              label: 'Convert Shape to Path',
-              action: () => {
-                if (doc.convertSelectedToPath()) {
-                  updateObjectList();
-                  updateInspector();
-                  render();
-                  drawOverlay();
-                  showNotification('Converted to editable path');
-                }
-              }
-            });
-          }
           if (hasText) {
             convertItems.push({
               type: 'item',
@@ -11259,7 +11194,7 @@
         if (panel.parentElement !== slot) slot.replaceChildren(panel);
         activeMobilePanelId = id;
         document.getElementById('mobile-panel-sheet')?.classList.add('active');
-        const titleMap = { color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Timeline', curves: 'Curves' };
+        const titleMap = { color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Animator', curves: 'Curves' };
         document.getElementById('mobile-panel-sheet-title').textContent = titleMap[id] || id;
         document.getElementById('mobile-project-title').textContent = titleMap[id] || 'Esenho Studio';
         document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === id));
@@ -11325,7 +11260,7 @@
           material: 'Material',
           inspect: 'Transform',
           scene: 'Scene',
-          animation: 'Timeline',
+          animation: 'Animator',
           curves: 'Curves',
           tracer: 'Vectorizer',
           projects: 'Projects',
@@ -11744,7 +11679,6 @@
 
       function getSelectionMenuActions() {
         const selectedObjs = doc.getSelectedObjects();
-        const hasPrimitives = selectedObjs.some(o => ['rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'star'].includes(o.type));
         const hasText = selectedObjs.some(o => o.type === 'text');
         const hasStroke = selectedObjs.some(o => o.stroke && o.stroke !== 'none' && o.strokeWidth > 0);
         const hasGroups = selectedObjs.some(o => o.type === 'group');
@@ -11752,9 +11686,6 @@
         const hasMask = selectedObjs.some(o => o.clipPathId);
 
         return [
-          { type: 'item', label: 'Convert Shape to Path', disabled: !hasPrimitives, action: () => {
-            if (doc.convertSelectedToPath()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Converted to editable path'); }
-          }},
           { type: 'item', label: 'Convert Text to Outlines', hotkey: 'Ctrl+Shift+O', disabled: !hasText, action: () => {
             if (doc.convertSelectedToPath()) { updateObjectList(); updateInspector(); render(); drawOverlay(); showNotification('Converted text to outlines'); }
           }},
@@ -11825,7 +11756,7 @@
           { type: 'item', label: (isTracerOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Vectorizer' : 'Vectorizer Dock'), action: () => toggleDockPanel('tracer') },
           { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Projects & Document' : 'Projects & Document Dock'), hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
           { type: 'item', label: (isExportOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Export Center' : 'Export Center Dock'), action: () => toggleDockPanel('export') },
-          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Animation Timeline' : 'Animation Timeline Dock'), hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Animator' : 'Animation Timeline Dock'), hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Curves & Easing' : 'Curves & Easing Dock'), action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
@@ -11921,7 +11852,7 @@
         );
 
         return [
-          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Show Animation Timeline', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Open Animator' : 'Show Animation Timeline'), hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
           { type: 'submenu', label: 'Animation Clips', items: clipSubmenuItems },
           { type: 'sep' },
           { type: 'item', label: 'Record Animation Keyframe', hotkey: '◆', disabled: selectedObjs.length === 0, action: () => {
@@ -11934,7 +11865,7 @@
               showNotification(`Recorded keyframe at Frame ${curF}`);
             }
           }},
-          { type: 'item', label: 'Play / Pause Timeline', hotkey: 'Space', action: () => {
+          { type: 'item', label: MOBILE_STUDIO_UI ? 'Play / Pause Animation' : 'Play / Pause Timeline', hotkey: 'Space', action: () => {
             toggleScenePlay();
           }},
           { type: 'sep' },
@@ -13043,17 +12974,6 @@
         });
       });
 
-      function handleConvertToPath() {
-        if (doc.convertSelectedToPath()) {
-          updateObjectList();
-          updateInspector();
-          render();
-        }
-      }
-      ['btn-convert-path', 'btn-node-convert-path', 'btn-quick-convert-path', 'top-node-convert-path'].forEach(id => {
-        document.getElementById(id)?.addEventListener('click', handleConvertToPath);
-      });
-
       // Bézier Node Actions
       ['btn-node-smooth', 'top-node-smooth'].forEach(id => {
         document.getElementById(id)?.addEventListener('click', () => {
@@ -13898,7 +13818,7 @@
         applyAnimationSamples(samples);
         if (!window.__isExportingAnimation) {
           const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
-          if (window.dopeSheetUI) {
+          if (window.dopeSheetUI && !document.body.classList.contains('mobile-studio-ui')) {
             window.dopeSheetUI.currentFrame = frame;
             if (!isPlaying) {
               window.dopeSheetUI.updateGrid();
@@ -13913,6 +13833,75 @@
         }
       };
 
+      function bindMobileAnimatorControls() {
+        const animator = document.getElementById('mobile-animator');
+        if (!animator || animator.dataset.bound === 'true') return;
+        animator.dataset.bound = 'true';
+
+        animator.addEventListener('click', (e) => {
+          const button = e.target.closest('[data-anim-command]');
+          if (!button || !window.dopeSheet) return;
+          const ds = window.dopeSheet;
+          const frame = Math.max(1, Math.min(ds.totalFrames || 60, ds.currentFrame || 1));
+          switch (button.dataset.animCommand) {
+            case 'first': window.seekSceneFrame(1); break;
+            case 'previous': window.seekSceneFrame(frame - 1); break;
+            case 'play': toggleScenePlay(); break;
+            case 'next': window.seekSceneFrame(frame + 1); break;
+            case 'last': window.seekSceneFrame(ds.totalFrames || 60); break;
+            case 'loop':
+              ds.loop = !ds.loop;
+              isSceneLooping = ds.loop;
+              if (isScenePlaying) { pauseScenePlay(); startScenePlay(); }
+              window.updateSceneAnimUI();
+              scheduleAutosave();
+              break;
+            case 'autokey':
+              ds.autoKeyframe = !ds.autoKeyframe;
+              window.updateSceneAnimUI();
+              scheduleAutosave();
+              break;
+            case 'record': {
+              const selected = doc.getSelectedObjects();
+              const targets = selected.length ? selected : (doc.objects || []);
+              if (targets.length === 0) return;
+              for (const target of targets) recordObjectAnimationState(target, frame);
+              doc.pushHistory(`Record State F${frame}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+              window.updateSceneAnimUI();
+              scheduleAutosave();
+              showNotification(`Recorded state at frame ${frame}`);
+              break;
+            }
+          }
+        });
+
+        animator.addEventListener('change', (e) => {
+          const input = e.target;
+          if (input.id === 'mobile-animation-clip') {
+            window.switchAnimation(input.value);
+            return;
+          }
+          if (!window.dopeSheet) return;
+          const ds = window.dopeSheet;
+          if (input.id === 'scene-anim-input-frame') {
+            window.seekSceneFrame(parseInt(input.value, 10) || 1);
+          } else if (input.id === 'scene-anim-input-total') {
+            ds.totalFrames = Math.max(1, parseInt(input.value, 10) || 1);
+            if (ds.currentFrame > ds.totalFrames) window.seekSceneFrame(ds.totalFrames);
+            window.updateSceneAnimUI();
+            updateSelectedObjectEventsUI();
+            scheduleAutosave();
+          } else if (input.id === 'scene-anim-input-fps') {
+            ds.fps = Math.max(1, Math.min(120, parseInt(input.value, 10) || 24));
+            if (isScenePlaying) { pauseScenePlay(); startScenePlay(); }
+            window.updateSceneAnimUI();
+            scheduleAutosave();
+          }
+        });
+      }
+
       window.updateSceneAnimUI = function() {
         if (!window.dopeSheet) return;
         const ds = window.dopeSheet;
@@ -13920,12 +13909,23 @@
         const total = ds.totalFrames || 60;
         const fps = ds.fps || 24;
 
-        const scrubber = document.getElementById('scene-anim-scrubber');
-        if (scrubber) {
-          scrubber.min = '1';
-          scrubber.max = String(total);
-          scrubber.value = String(cur);
+        const clipSelect = document.getElementById('mobile-animation-clip');
+        if (clipSelect) {
+          const clips = window.getAnimationClips ? window.getAnimationClips() : [ds];
+          const signature = clips.map(clip => `${clip.id}:${clip.name}`).join('|');
+          if (clipSelect.dataset.clipSignature !== signature) {
+            clipSelect.replaceChildren();
+            clips.forEach(clip => {
+              const option = document.createElement('option');
+              option.value = clip.id;
+              option.textContent = clip.name || 'Animation';
+              clipSelect.appendChild(option);
+            });
+            clipSelect.dataset.clipSignature = signature;
+          }
+          clipSelect.value = ds.id;
         }
+
         const badge = document.getElementById('scene-anim-time-badge');
         if (badge) badge.textContent = `F ${cur}/${total}`;
 
@@ -13962,7 +13962,13 @@
 
         const btnLoop = document.getElementById('scene-anim-btn-loop');
         if (btnLoop) {
-          btnLoop.style.opacity = isSceneLooping ? '1.0' : '0.4';
+          isSceneLooping = !!ds.loop;
+          btnLoop.classList.toggle('active', isSceneLooping);
+          btnLoop.setAttribute('aria-pressed', String(isSceneLooping));
+        }
+        if (btnAutoKf) {
+          btnAutoKf.classList.toggle('active', !!ds.autoKeyframe);
+          btnAutoKf.setAttribute('aria-pressed', String(!!ds.autoKeyframe));
         }
 
         const selectEasing = document.getElementById('scene-anim-select-easing');
@@ -14006,7 +14012,7 @@
           let nextFrame = (window.dopeSheet.currentFrame || 1) + 1;
           const total = window.dopeSheet.totalFrames || 60;
           if (nextFrame > total) {
-            if (isSceneLooping || window.dopeSheet.loop) {
+            if (window.dopeSheet.loop) {
               nextFrame = 1;
             } else {
               pauseScenePlay();
@@ -14331,6 +14337,7 @@
             }
           }
 
+          bindMobileAnimatorControls();
           updateSceneAnimUI();
           updateObjectList();
           return dopeSheet;
@@ -15230,7 +15237,7 @@
   <script>
     (() => {
       const panelIds = ['color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
-      const panelNames = { canvas: 'Esenho Studio', color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Timeline', curves: 'Curves' };
+      const panelNames = { canvas: 'Esenho Studio', color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Animator', curves: 'Curves' };
       const moreSheet = document.getElementById('mobile-more-sheet');
       const title = document.getElementById('mobile-project-title');
 

@@ -3706,6 +3706,36 @@
       this.animation = null;
     }
 
+    convertShapeNodeToPath(node) {
+      if (!node) return node;
+      if (node.type === 'group' && Array.isArray(node.children)) {
+        node.children = node.children.map(child => {
+          const converted = this.convertShapeNodeToPath(child);
+          converted.parent = node;
+          return converted;
+        });
+        return node;
+      }
+      if (!['rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline'].includes(node.type) || typeof node.toPath !== 'function') {
+        return node;
+      }
+      const path = node.toPath();
+      path.id = node.id;
+      path.name = node.name;
+      path.parent = node.parent || null;
+      path.doc = this;
+      return path;
+    }
+
+    convertAllShapesToPaths() {
+      this.objects = this.objects.map(node => {
+        const converted = this.convertShapeNodeToPath(node);
+        converted.parent = null;
+        return converted;
+      });
+      return this.objects;
+    }
+
     addObject(obj, pushHistory = true) {
       if (pushHistory) this.pushHistory(`Add ${obj.name}`);
       obj.doc = this;
@@ -4112,16 +4142,20 @@
     }
 
     /** Convert Selected Shapes (Rect, Circle, Ellipse, Line) to Editable Bézier Paths */
-    convertSelectedToPath() {
+    convertSelectedToPath(pushHistory = true) {
       const selected = this.getSelectedObjects();
       let converted = false;
       for (const obj of selected) {
         if (typeof obj.toPath === 'function' && obj.type !== 'path' && obj.type !== 'image' && obj.type !== 'group') {
-          if (!converted) {
+          if (!converted && pushHistory) {
             this.pushHistory(obj.type === 'text' ? 'Convert Text to Outlines' : 'Convert to Path');
-            converted = true;
           }
+          converted = true;
           const pathObj = obj.toPath();
+          pathObj.id = obj.id;
+          pathObj.name = obj.name;
+          pathObj.parent = obj.parent || null;
+          pathObj.doc = this;
           if (obj.parent && typeof obj.parent.replaceChild === 'function') {
             obj.parent.replaceChild(obj.id, pathObj);
           } else {
@@ -5392,7 +5426,7 @@
 
         for (const childEl of svgEl.children) {
           const node = parseNode(childEl);
-          if (node) this.addObject(node, false);
+          if (node) this.addObject(this.convertShapeNodeToPath(node), false);
         }
       } else {
         // Fallback RegEx Parser for Node.js
@@ -5578,7 +5612,7 @@
           const attrStr = match[2];
           const attrs = parseAttrString(attrStr);
           const node = createNodeFromAttrs(tagName, attrs);
-          if (node) this.addObject(node, false);
+          if (node) this.addObject(this.convertShapeNodeToPath(node), false);
         }
       }
     }
@@ -5640,7 +5674,7 @@
         this.animation = null;
       }
       this.objects = (data.objects || []).map(o => {
-        const node = SvgNode.fromJSON(o);
+        const node = this.convertShapeNodeToPath(SvgNode.fromJSON(o));
         node.doc = this;
         if (node.type === 'group' && node.children) {
           const setDocRec = (kids) => {
