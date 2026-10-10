@@ -3777,9 +3777,6 @@
     <button class="mobile-tool-button tool-btn" data-tool="node" type="button" title="Path Nodes"><span class="tool-icon">⌘</span><span>Nodes</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="pen" type="button" title="Bézier Pen"><span class="tool-icon">✒</span><span>Pen</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="brush" type="button" title="Vector Brush"><span class="tool-icon">🖌</span><span>Brush</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="rect" type="button" title="Rectangle"><span class="tool-icon">□</span><span>Rect</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="ellipse" type="button" title="Ellipse"><span class="tool-icon">◯</span><span>Ellipse</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="line" type="button" title="Line"><span class="tool-icon">／</span><span>Line</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text"><span class="tool-icon">T</span><span>Text</span></button>
   </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
@@ -6187,7 +6184,7 @@
 
                 ctx.fillStyle = '#83a598';
                 ctx.beginPath();
-                ctx.arc(cpIn.x, cpIn.y, 4 / zoom, 0, Math.PI * 2);
+                ctx.arc(cpIn.x, cpIn.y, 7 / zoom, 0, Math.PI * 2);
                 ctx.fill();
               }
               if (hasOut) {
@@ -6198,7 +6195,7 @@
 
                 ctx.fillStyle = '#83a598';
                 ctx.beginPath();
-                ctx.arc(cpOut.x, cpOut.y, 4 / zoom, 0, Math.PI * 2);
+                ctx.arc(cpOut.x, cpOut.y, 7 / zoom, 0, Math.PI * 2);
                 ctx.fill();
               }
 
@@ -6207,7 +6204,7 @@
               ctx.fillStyle = isSelNode ? '#fe8019' : '#fabd2f';
               ctx.strokeStyle = isSelNode ? '#ffffff' : '#1d2021';
               ctx.lineWidth = (isSelNode ? 2.0 : 1.5) / zoom;
-              const as = (isSelNode ? 8.5 : 7.0) / zoom;
+              const as = (isSelNode ? 15 : 13) / zoom;
               ctx.fillRect(node.x - as / 2, node.y - as / 2, as, as);
               ctx.strokeRect(node.x - as / 2, node.y - as / 2, as, as);
             }
@@ -7645,7 +7642,7 @@
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
               const cpIn = node.getAbsCpIn();
-              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(nodePt.x - cpIn.x, nodePt.y - cpIn.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(nodePt.x - cpIn.x, nodePt.y - cpIn.y) <= 16 / zoom) {
                 activeNodeIdx = i;
                 selectedNodeIndices = new Set([i]);
                 activeHandleType = 'in';
@@ -7653,7 +7650,7 @@
                 break;
               }
               const cpOut = node.getAbsCpOut();
-              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(nodePt.x - cpOut.x, nodePt.y - cpOut.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(nodePt.x - cpOut.x, nodePt.y - cpOut.y) <= 16 / zoom) {
                 activeNodeIdx = i;
                 selectedNodeIndices = new Set([i]);
                 activeHandleType = 'out';
@@ -7671,7 +7668,7 @@
             // 2. Check anchor points
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
-              if (Math.hypot(nodePt.x - node.x, nodePt.y - node.y) <= 8 / zoom) {
+              if (Math.hypot(nodePt.x - node.x, nodePt.y - node.y) <= 16 / zoom) {
                 if (e.shiftKey) {
                   if (selectedNodeIndices.has(i)) {
                     selectedNodeIndices.delete(i);
@@ -7706,21 +7703,12 @@
             }
             if (hitAnyNode) break;
 
-            // 3. Check clicking on path segment to insert a new anchor point
-            if (typeof obj.insertAnchorAtPoint === 'function') {
-              const splitRes = obj.insertAnchorAtPoint(nodePt.x, nodePt.y, 8 / zoom);
-              if (splitRes) {
-                selectedNodeIndices = new Set([splitRes.index]);
-                activeNodeIdx = splitRes.index;
-                activeHandleType = 'anchor';
-                nodeDragStartPositions = [{ idx: splitRes.index, x: splitRes.node.x, y: splitRes.node.y }];
-                isDragging = true;
-                dragStartX = nodePt.x;
-                dragStartY = nodePt.y;
-                hitAnyNode = true;
-                doc.pushHistory('Add Anchor Point');
-                break;
-              }
+            // Clicking a path segment selects no new point. Node creation is
+            // available from the canvas context menu instead.
+            if (typeof obj.findClosestSegmentPoint === 'function' && obj.findClosestSegmentPoint(nodePt.x, nodePt.y, 16 / zoom)) {
+              hitAnyNode = true;
+              isDragging = false;
+              break;
             }
           }
 
@@ -8575,15 +8563,21 @@
         let clickedNodeIdx = -1;
         let clickedOnSegment = null;
         if (activePath && activePath.nodes) {
+          if (activePath.rotation && (activePath.originX === undefined || activePath.originY === undefined)) {
+            const origin = getPathRotationOrigin(activePath);
+            if (activePath.originX === undefined) activePath.originX = origin.x;
+            if (activePath.originY === undefined) activePath.originY = origin.y;
+          }
+          const pathPt = docPointToPath(activePath, pt);
           for (let i = 0; i < activePath.nodes.length; i++) {
             const n = activePath.nodes[i];
-            if (Math.hypot(pt.x - n.x, pt.y - n.y) <= 12 / zoom) {
+            if (Math.hypot(pathPt.x - n.x, pathPt.y - n.y) <= 16 / zoom) {
               clickedNodeIdx = i;
               break;
             }
           }
           if (clickedNodeIdx === -1 && typeof activePath.findClosestSegmentPoint === 'function') {
-            clickedOnSegment = activePath.findClosestSegmentPoint(pt.x, pt.y, 14 / zoom);
+            clickedOnSegment = activePath.findClosestSegmentPoint(pathPt.x, pathPt.y, 18 / zoom);
           }
         }
 
@@ -9020,9 +9014,6 @@
           { type: 'item', label: 'Hand / Pan Canvas', action: () => selectTool('hand') },
           { type: 'item', label: 'Pen / Bézier Tool', action: () => selectTool('pen') },
           { type: 'item', label: 'Brush Tool', action: () => selectTool('brush') },
-          { type: 'item', label: 'Rectangle Shape', action: () => selectTool('rect') },
-          { type: 'item', label: 'Ellipse / Circle', action: () => selectTool('ellipse') },
-          { type: 'item', label: 'Line Segment', action: () => selectTool('line') },
           { type: 'item', label: 'Text Tool', action: () => selectTool('text') }
         ]);
 
