@@ -2,8 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>esenho</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Esenho Studio Mobile</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
@@ -3345,9 +3345,220 @@
       color: var(--text-muted);
       font-family: var(--font-mono);
     }
+
+    /* Painter-inspired touch shell for the Studio workspace. */
+    body.mobile-studio-ui { background: #141617; }
+    #vscode-titlebar, #vscode-statusbar { display: none !important; }
+    #mobile-studio-header {
+      height: calc(48px + env(safe-area-inset-top, 0px));
+      min-height: calc(48px + env(safe-area-inset-top, 0px));
+      padding: env(safe-area-inset-top, 0px) 10px 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #141617;
+      border-bottom: 1px solid #303233;
+      z-index: 1200;
+      user-select: none;
+    }
+    .mobile-brand, .mobile-action {
+      min-width: 38px;
+      height: 36px;
+      border: 1px solid #303233;
+      border-radius: 8px;
+      background: #202223;
+      color: #ebdbb2;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .mobile-brand { color: #fabd2f; border-color: rgba(250,189,47,.45); }
+    .mobile-project-title {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      text-align: center;
+      color: #fbf1c7;
+      font-size: 12px;
+      font-weight: 650;
+    }
+    .mobile-header-actions { display: flex; gap: 5px; }
+    #mobile-tool-strip {
+      flex: 0 0 46px;
+      min-height: 46px;
+      padding: 4px 7px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      overflow-x: auto;
+      background: #191b1c;
+      border-bottom: 1px solid #303233;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+    #mobile-tool-strip::-webkit-scrollbar { display: none; }
+    .mobile-tool-item {
+      flex: 0 0 auto;
+      min-width: 43px;
+      height: 36px;
+      padding: 3px 7px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      background: #202223;
+      border: 1px solid #303233;
+      border-radius: 7px;
+      color: #bdae93;
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    .mobile-tool-item .tool-glyph { color: #d5c4a1; font-size: 15px; }
+    .mobile-tool-item.active { color: #fabd2f; border-color: #fabd2f; background: rgba(250,189,47,.12); }
+    .mobile-tool-item.active .tool-glyph { color: #fabd2f; }
+    #workspace { flex: 1 1 auto; min-height: 0; position: relative; height: auto; overflow: hidden; }
+    #mobile-canvas-stage { position: absolute; inset: 0; min-height: 0; overflow: hidden; background: #17191a; }
+    #mobile-panel-sheet {
+      position: absolute;
+      z-index: 80;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: min(44dvh, 390px);
+      min-height: 190px;
+      display: none;
+      flex-direction: column;
+      background: #1e2021;
+      border: 1px solid #484d50;
+      border-bottom: 0;
+      border-radius: 14px 14px 0 0;
+      box-shadow: 0 -12px 34px rgba(0,0,0,.42);
+      overflow: hidden;
+    }
+    #mobile-panel-sheet.active { display: flex; }
+    #mobile-panel-sheet-header {
+      flex: 0 0 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: #202223;
+      border-bottom: 1px solid #303233;
+      color: #fbf1c7;
+      font-size: 10px;
+      font-weight: 750;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+    #mobile-panel-sheet-header button { min-height: 25px; padding: 2px 8px; color: #928374; }
+    #mobile-panel-slot { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+    #mobile-panel-slot > .dock-panel-content { width: 100%; height: 100%; min-height: 0; }
+    #dockview-container { display: none !important; }
+    #mobile-studio-nav {
+      flex: 0 0 auto;
+      min-height: calc(64px + env(safe-area-inset-bottom, 0px));
+      padding: 5px 5px env(safe-area-inset-bottom, 0px);
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 3px;
+      background: #1b1d1e;
+      border-top: 1px solid #303233;
+      z-index: 1200;
+    }
+    .mobile-nav-item {
+      min-width: 0;
+      min-height: 52px;
+      padding: 5px 2px 4px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 3px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 8px;
+      color: #928374;
+      font-size: 9px;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .mobile-nav-item .nav-icon { font-size: 17px; line-height: 1; }
+    .mobile-nav-item.active {
+      color: #fabd2f;
+      background: rgba(250,189,47,.10);
+      border-color: rgba(250,189,47,.28);
+    }
+    #mobile-more-sheet {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      background: rgba(0,0,0,.52);
+      align-items: flex-end;
+    }
+    #mobile-more-sheet.active { display: flex; }
+    .mobile-more-card {
+      width: 100%;
+      padding: 12px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+      background: #1e2021;
+      border: 1px solid #484d50;
+      border-bottom: 0;
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -12px 36px rgba(0,0,0,.4);
+    }
+    .mobile-more-heading {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      color: #fbf1c7;
+      font-weight: 700;
+    }
+    .mobile-more-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .mobile-more-grid .mobile-nav-item {
+      min-height: 64px;
+      background: #252829;
+      border-color: #303233;
+      font-size: 10px;
+    }
+    #dock-panel-canvas, #viewport-container { background-color: #17191a; }
+    .dock-panel-content { padding: 8px; gap: 8px; }
+    .section-card { border-radius: 8px; padding: 10px; }
+    .section-header { text-transform: uppercase; letter-spacing: .06em; }
+    button, input, select, textarea { border-radius: 6px; }
+    button { min-height: 30px; }
+    input[type="text"], input[type="number"], input[type="search"], input[type="password"], input[type="url"], input[type="email"], select { min-height: 30px; }
+    input[type="range"] { accent-color: #fabd2f; }
+    @media (min-width: 900px) {
+      #mobile-studio-header { padding-left: 16px; padding-right: 16px; }
+      #mobile-studio-nav { grid-template-columns: repeat(5, minmax(86px, 112px)); justify-content: center; }
+      #mobile-panel-sheet { left: auto; width: min(440px, 42vw); height: min(70dvh, 640px); bottom: 12px; right: 12px; border-bottom: 1px solid #484d50; border-radius: 14px; }
+    }
   </style>
 </head>
-<body>
+<body class="mobile-studio-ui">
+
+  <header id="mobile-studio-header">
+    <button class="mobile-brand" id="mobile-menu-button" type="button" aria-label="Open Studio menu" title="Studio menu">E</button>
+    <div class="mobile-project-title" id="mobile-project-title">Esenho Studio</div>
+    <div class="mobile-header-actions">
+      <button class="mobile-action" id="mobile-undo" type="button" aria-label="Undo" title="Undo">↶</button>
+      <button class="mobile-action" id="mobile-redo" type="button" aria-label="Redo" title="Redo">↷</button>
+      <button class="mobile-action" id="mobile-export" type="button" aria-label="Export" title="Export">⇧</button>
+    </div>
+  </header>
+  <nav id="mobile-tool-strip" aria-label="Drawing tools">
+    <button class="mobile-tool-item active" data-studio-tool="select" type="button"><span class="tool-glyph">↖</span>Select</button>
+    <button class="mobile-tool-item" data-studio-tool="node" type="button"><span class="tool-glyph">⌖</span>Nodes</button>
+    <button class="mobile-tool-item" data-studio-tool="hand" type="button"><span class="tool-glyph">✋</span>Pan</button>
+    <button class="mobile-tool-item" data-studio-tool="pen" type="button"><span class="tool-glyph">✎</span>Pen</button>
+    <button class="mobile-tool-item" data-studio-tool="brush" type="button"><span class="tool-glyph">〰</span>Brush</button>
+    <button class="mobile-tool-item" data-studio-tool="rect" type="button"><span class="tool-glyph">▱</span>Rect</button>
+    <button class="mobile-tool-item" data-studio-tool="ellipse" type="button"><span class="tool-glyph">◯</span>Ellipse</button>
+    <button class="mobile-tool-item" data-studio-tool="line" type="button"><span class="tool-glyph">／</span>Line</button>
+    <button class="mobile-tool-item" data-studio-tool="text" type="button"><span class="tool-glyph">T</span>Text</button>
+  </nav>
 
   <!-- VS Code Custom Titlebar & Menu System -->
   <header id="vscode-titlebar" class="vscode-titlebar">
@@ -3376,7 +3587,31 @@
 
   <!-- Main Workspace (Dockview Multi-Dock System) -->
   <div id="workspace">
-    <div id="dockview-container" class="dockview-theme-dark"></div>
+    <main id="mobile-canvas-stage" aria-label="Studio canvas"></main>
+    <section id="mobile-panel-sheet" aria-label="Active Studio panel">
+      <header id="mobile-panel-sheet-header"><span id="mobile-panel-sheet-title">Panel</span><button type="button" id="mobile-panel-sheet-close" aria-label="Close panel">✕</button></header>
+      <div id="mobile-panel-slot"></div>
+    </section>
+  </div>
+
+  <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
+    <button class="mobile-nav-item active" data-studio-panel="canvas" type="button"><span class="nav-icon">⌖</span><span>Canvas</span></button>
+    <button class="mobile-nav-item" data-studio-panel="color" type="button"><span class="nav-icon">◉</span><span>Materials</span></button>
+    <button class="mobile-nav-item" data-studio-panel="inspect" type="button"><span class="nav-icon">⌗</span><span>Transform</span></button>
+    <button class="mobile-nav-item" data-studio-panel="scene" type="button"><span class="nav-icon">▤</span><span>Layers</span></button>
+    <button class="mobile-nav-item" id="mobile-more-button" type="button"><span class="nav-icon">•••</span><span>More</span></button>
+  </nav>
+  <div id="mobile-more-sheet" role="dialog" aria-modal="true" aria-label="More Studio panels">
+    <div class="mobile-more-card">
+      <div class="mobile-more-heading"><span>Studio panels</span><button type="button" id="mobile-more-close" aria-label="Close">✕</button></div>
+      <div class="mobile-more-grid">
+        <button class="mobile-nav-item" data-studio-panel="animation" type="button"><span class="nav-icon">▥</span><span>Timeline</span></button>
+        <button class="mobile-nav-item" data-studio-panel="curves" type="button"><span class="nav-icon">〰</span><span>Curves</span></button>
+        <button class="mobile-nav-item" data-studio-panel="tracer" type="button"><span class="nav-icon">⌁</span><span>Vectorizer</span></button>
+        <button class="mobile-nav-item" data-studio-panel="projects" type="button"><span class="nav-icon">▣</span><span>Projects</span></button>
+        <button class="mobile-nav-item" data-studio-panel="export" type="button"><span class="nav-icon">⇧</span><span>Export</span></button>
+      </div>
+    </div>
   </div>
 
   <!-- VS Code Bottom Status Bar -->
@@ -3418,7 +3653,7 @@
     </div>
   </footer>
 
-  <!-- Dock Panel Template Pool (Dockview moves panels into its layout container dynamically) -->
+  <!-- Reusable panel content, moved into the mobile panel sheet as needed. -->
   <div id="dock-panel-pool" style="display: none;">
     <!-- Dock Panel 1: Fill Surface -->
     <div id="dock-panel-fill" class="dock-panel-content">
@@ -4180,7 +4415,6 @@
 
   <!-- Scripts -->
   <script src="src/version.js"></script>
-  <script src="vendor/dockview-core.js"></script>
   <script src="src/project_store.js"></script>
   <script src="src/resource_registry.js"></script>
   <script src="src/asset_bundle.js"></script>
@@ -4908,7 +5142,7 @@
       function initSampleScene() {
         const r1 = new SvgRect({ x: 80, y: 80, width: 220, height: 140, rx: 8, ry: 8, fill: '#fabd2f', stroke: '#fe8019', strokeWidth: 3 });
         const c1 = new SvgCircle({ cx: 450, cy: 180, r: 70, fill: '#b8bb26', stroke: '#1d2021', strokeWidth: 3 });
-        
+
         const p1 = new SvgPath({ stroke: '#83a598', strokeWidth: 4, fill: '#458588', fillOpacity: 0.35, closed: true });
         p1.addNode(150, 420, { x: -30, y: 30 }, { x: 40, y: -40 }, 'smooth');
         p1.addNode(340, 320, { x: -50, y: -20 }, { x: 50, y: 20 }, 'smooth');
@@ -5661,8 +5895,8 @@
 
         // Draw Bézier Anchors and Handles for Node Tool or Pen Tool
         if (activeTool === 'node' || activeTool === 'pen') {
-          const targetPaths = (activeTool === 'pen' && currentPenPath) 
-            ? [currentPenPath] 
+          const targetPaths = (activeTool === 'pen' && currentPenPath)
+            ? [currentPenPath]
             : getSelectedPaths();
 
           for (const obj of targetPaths) {
@@ -5811,7 +6045,7 @@
 
         if (selected.length === 0) {
           if (titleEl) titleEl.textContent = 'Scene Keyframe Overview';
-          
+
           // Find all animated objects in the scene
           const allObjs = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
           const animatedList = [];
@@ -6387,7 +6621,7 @@
 
       const BRUSH_PRESET_CONFIGS = {
         default: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, texture_scale: 100, texture_rotate: 0, texture_contrast: 100, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0 },
-        
+
         // WASM FX & Optical Lens Brushes
         neon_glow_brush: { hardness: 90, flow: 100, spacing: 4, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 0, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 10, taper_out: 10, size_jitter: 0, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'bloom', target: 'stroke', p1: 130, p2: 12, opacity: 1.0 } },
         glitch_vhs_pen: { hardness: 100, flow: 100, spacing: 5, scatter: 0, roundness: 100, angle: 0, dabBlend: 0, shape: 1, grain: 0, texture: 'none', texture_mode: 0, auto_rotate: 0, taper_in: 0, taper_out: 0, size_jitter: 15, angle_jitter: 0, opacity_jitter: 0, wetness: 0, color_pickup: 0, depletion: 0, smudge: 0, wasmFilter: { enabled: true, plugin: 'glitch', target: 'stroke', p1: 25, p2: 12, opacity: 1.0 } },
@@ -6469,7 +6703,7 @@
 
       const FILL_PRESET_CONFIGS = {
         default: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false },
-        
+
         // WASM Optical Lens & Filter Presets
         fisheye_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'fisheye', target: 'backdrop', p1: 35, p2: 110, opacity: 1.0 } },
         swirl_vortex_lens: { mode: 0, scale: 100, angle: 0, contrast: 100, grain: 0, hardness: 100, hardnessIntensity: 50, warpStrength: 0, warpFreq: 20, noiseDistort: 0, pinchSwirl: 0, posterize: 0, invert: false, wasmFilter: { enabled: true, plugin: 'swirl', target: 'backdrop', p1: 120, p2: 85, opacity: 1.0 } },
@@ -9210,7 +9444,7 @@
 
       const shapeFlyout = document.getElementById('flyout-shapes');
       const shapeBtn = document.getElementById('tool-shape-unified');
-      
+
       const toggleShapeFlyout = (e) => {
         e.stopPropagation();
         setShapeTool(shapeBtn.dataset.tool || 'rect');
@@ -9505,6 +9739,8 @@
         updateInspector();
         updateObjectList();
       }
+      window.mobileStudioUndo = handleUndo;
+      window.mobileStudioRedo = () => { doc.redo(); render(); };
 
       // ── Top Header & Main Menu Actions ──
       window.addEventListener('resize', () => { drawOverlay(); });
@@ -9693,7 +9929,7 @@
         // Temporary doc
         const tempDoc = new SvgEngine.SvgDocument(w, h);
         tempDoc.backgroundColor = 'transparent';
-        
+
         for (const obj of selected) {
           const clone = obj.clone();
           clone.move(-minX, -minY);
@@ -9708,14 +9944,14 @@
               const cvs = document.createElement('canvas');
               cvs.width = w; cvs.height = h;
               const ctx2d = cvs.getContext('2d');
-              
+
               const rawCvs = document.createElement('canvas');
               rawCvs.width = imgData.width; rawCvs.height = imgData.height;
               const rawCtx = rawCvs.getContext('2d');
               const rawImg = rawCtx.createImageData(imgData.width, imgData.height);
               rawImg.data.set(imgData.data);
               rawCtx.putImageData(rawImg, 0, 0);
-              
+
               ctx2d.drawImage(rawCvs, 0, 0);
 
               const src = cvs.toDataURL('image/png');
@@ -10856,12 +11092,13 @@
       });
 
       // ── Dockview Initialization & Tab Switching ──
-      const DOCKVIEW_LAYOUT_STORAGE_KEY = 'esenho_dockview_layout_v17';
+      const MOBILE_STUDIO_UI = document.body.classList.contains('mobile-studio-ui');
       const REQUIRED_PANEL_IDS = ['canvas', 'fill', 'stroke', 'color', 'materials', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
       let dockviewApi = null;
       let saveDockviewLayoutTimeout = null;
 
       const panelElementMap = new Map();
+      let activeMobilePanelId = null;
       function getPanelElement(id) {
         if (id === 'materials' || id === 'material') id = 'color';
         if (panelElementMap.has(id)) return panelElementMap.get(id);
@@ -10900,7 +11137,76 @@
         strokeCard?.remove();
       }
 
+      function initMobilePanelLayout() {
+        composeAppearancePanels();
+        const stage = document.getElementById('mobile-canvas-stage');
+        const canvasPanel = getPanelElement('canvas');
+        if (activeMobilePanelId) closeMobileDockPanel();
+        REQUIRED_PANEL_IDS.forEach(getPanelElement);
+        if (stage && canvasPanel && canvasPanel.parentElement !== stage) stage.appendChild(canvasPanel);
+        activeMobilePanelId = null;
+        const viewport = document.getElementById('viewport-container');
+        if (viewport && typeof ResizeObserver !== 'undefined' && !viewport._mobileStudioResizeObserver) {
+          viewport._mobileStudioResizeObserver = new ResizeObserver(() => {
+            if (typeof drawRulers === 'function') drawRulers();
+            if (typeof drawOverlay === 'function') drawOverlay();
+          });
+          viewport._mobileStudioResizeObserver.observe(viewport);
+        }
+      }
+
+      function closeMobileDockPanel(id) {
+        if (id && id !== activeMobilePanelId) return;
+        const panel = activeMobilePanelId ? getPanelElement(activeMobilePanelId) : null;
+        const pool = document.getElementById('dock-panel-pool');
+        if (panel && pool) pool.appendChild(panel);
+        activeMobilePanelId = null;
+        document.getElementById('mobile-panel-sheet')?.classList.remove('active');
+        document.getElementById('mobile-panel-sheet-title').textContent = 'Panel';
+        document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === 'canvas'));
+        const title = document.getElementById('mobile-project-title');
+        if (title) title.textContent = 'Esenho Studio';
+      }
+
+      function openMobileDockPanel(id) {
+        if (id === 'document') id = 'projects';
+        if (id === 'materials' || id === 'material') id = 'color';
+        if (id === 'fill') id = 'inspect';
+        if (id === 'stroke') id = 'color';
+        if (id === 'canvas') {
+          closeMobileDockPanel();
+          document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === 'canvas'));
+          return getPanelElement('canvas');
+        }
+        const panel = getPanelElement(id);
+        const slot = document.getElementById('mobile-panel-slot');
+        if (!panel || !slot) return null;
+        if (activeMobilePanelId && activeMobilePanelId !== id) {
+          const oldPanel = getPanelElement(activeMobilePanelId);
+          if (oldPanel) document.getElementById('dock-panel-pool')?.appendChild(oldPanel);
+        }
+        if (panel.parentElement !== slot) slot.replaceChildren(panel);
+        activeMobilePanelId = id;
+        document.getElementById('mobile-panel-sheet')?.classList.add('active');
+        const titleMap = { color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Timeline', curves: 'Curves' };
+        document.getElementById('mobile-panel-sheet-title').textContent = titleMap[id] || id;
+        document.getElementById('mobile-project-title').textContent = titleMap[id] || 'Esenho Studio';
+        document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === id));
+        if (id === 'curves' && window.dopeSheetUI?.mountCurveEditor) window.dopeSheetUI.mountCurveEditor(panel);
+        if (id === 'projects' && typeof refreshProjectsList === 'function') refreshProjectsList();
+        if (id === 'tracer' && typeof updateTracerUI === 'function') updateTracerUI();
+        if (id === 'color' && typeof ColorStudio !== 'undefined') {
+          const mount = document.getElementById('color-studio-mount');
+          if (mount) ColorStudio.mountColorTab(mount);
+          ColorStudio.onPanelActivated();
+        }
+        updateTitlebarLayoutButtons();
+        return panel;
+      }
+      window.openMobileStudioPanel = openMobileDockPanel;
+
       function scheduleSaveDockviewLayout() {
+        if (MOBILE_STUDIO_UI) return;
         if (!dockviewApi) return;
         if (saveDockviewLayoutTimeout) clearTimeout(saveDockviewLayoutTimeout);
         saveDockviewLayoutTimeout = setTimeout(() => {
@@ -10917,11 +11223,10 @@
       window.scheduleSaveDockviewLayout = scheduleSaveDockviewLayout;
 
       function openDockPanel(id) {
+        if (MOBILE_STUDIO_UI) return openMobileDockPanel(id);
         if (!dockviewApi) return;
         if (id === 'document') id = 'projects';
         if (id === 'materials' || id === 'material') id = 'color';
-        if (id === 'fill') id = 'inspect';
-        if (id === 'stroke') id = 'color';
         const existing = dockviewApi.getPanel(id);
         if (existing) {
           existing.api.setActive();
@@ -10942,11 +11247,11 @@
           return existing;
         }
         const titleMap = {
-          fill: 'Transform',
-          stroke: 'Materials',
-          color: 'Materials',
-          materials: 'Materials',
-          material: 'Materials',
+          fill: 'Fill',
+          stroke: 'Stroke',
+          color: 'Material',
+          materials: 'Material',
+          material: 'Material',
           inspect: 'Transform',
           scene: 'Scene',
           animation: 'Timeline',
@@ -10958,8 +11263,10 @@
         const title = titleMap[id] || (id.charAt(0).toUpperCase() + id.slice(1));
 
         try {
-          if (id === 'color') {
-            const leftGroup = ['color'];
+          if (MOBILE_STUDIO_UI) {
+            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: Math.round(window.innerHeight * 0.38) });
+          } else if (id === 'fill' || id === 'stroke' || id === 'color') {
+            const leftGroup = ['fill', 'stroke', 'color'];
             const ref = leftGroup.find(l => l !== id && !!dockviewApi.getPanel(l));
             if (ref) {
               dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
@@ -11044,6 +11351,7 @@
       window.openHubTab = openHubTab;
 
       function closeDockPanel(id) {
+        if (MOBILE_STUDIO_UI) { closeMobileDockPanel(id); return; }
         if (id === 'canvas' || !dockviewApi) return;
         const p = dockviewApi.getPanel(id);
         if (p) {
@@ -11055,6 +11363,11 @@
       window.closeDockPanel = closeDockPanel;
 
       function toggleDockPanel(id) {
+        if (MOBILE_STUDIO_UI) {
+          if (activeMobilePanelId === id) closeMobileDockPanel(id);
+          else openMobileDockPanel(id);
+          return;
+        }
         if (!dockviewApi) return;
         const p = dockviewApi.getPanel(id);
         if (p) {
@@ -11066,17 +11379,20 @@
       window.toggleDockPanel = toggleDockPanel;
 
       function toggleLeftSidebar() {
+        if (MOBILE_STUDIO_UI) { toggleDockPanel('color'); return; }
         if (!dockviewApi) return;
         const hasLeft = !!dockviewApi.getPanel('color');
         if (hasLeft) {
           closeDockPanel('color');
         } else {
           openDockPanel('color');
+          dockviewApi.getPanel('color')?.api?.setActive();
         }
       }
       window.toggleLeftSidebar = toggleLeftSidebar;
 
       function toggleRightSidebar() {
+        if (MOBILE_STUDIO_UI) { toggleDockPanel('inspect'); return; }
         if (!dockviewApi) return;
         const rightIds = ['inspect', 'scene', 'tracer', 'projects', 'export'];
         const hasRight = rightIds.some(id => !!dockviewApi.getPanel(id));
@@ -11090,8 +11406,8 @@
       window.toggleRightSidebar = toggleRightSidebar;
 
       function updateTitlebarLayoutButtons() {
-        const hasLeft = !!dockviewApi?.getPanel('color');
-        const hasRight = ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
+        const hasLeft = MOBILE_STUDIO_UI ? activeMobilePanelId === 'color' : !!dockviewApi?.getPanel('color');
+        const hasRight = MOBILE_STUDIO_UI ? ['inspect', 'scene', 'tracer', 'projects', 'export'].includes(activeMobilePanelId) : ['inspect', 'scene', 'tracer', 'projects', 'export'].some(id => !!dockviewApi?.getPanel(id));
         const btnLeft = document.getElementById('btn-toggle-left-dock');
         const btnRight = document.getElementById('btn-toggle-right-dock');
         if (btnLeft) btnLeft.classList.toggle('active', hasLeft);
@@ -11100,6 +11416,7 @@
       window.updateTitlebarLayoutButtons = updateTitlebarLayoutButtons;
 
       function createDefaultDockPanels() {
+        if (MOBILE_STUDIO_UI) { initMobilePanelLayout(); return; }
         if (!dockviewApi) return;
         try {
           dockviewApi.clear();
@@ -11113,13 +11430,35 @@
             title: 'Canvas'
           });
 
-          // 2. Materials & Stroke panel
+          if (MOBILE_STUDIO_UI) {
+            dockviewApi.getPanel('canvas')?.api?.setActive();
+            updateTitlebarLayoutButtons();
+            return;
+          }
+
+          // 2. Left Fill panel
+          dockviewApi.addPanel({
+            id: 'fill',
+            component: 'fill',
+            title: 'Fill',
+            position: { direction: 'left', referencePanel: 'canvas' },
+            initialWidth: 260
+          });
+
+          // 3. Left Stroke panel (tabbed with Fill)
+          dockviewApi.addPanel({
+            id: 'stroke',
+            component: 'stroke',
+            title: 'Stroke',
+            position: { referencePanel: 'fill' }
+          });
+
+          // 4. Left Material panel (tabbed with Fill)
           dockviewApi.addPanel({
             id: 'color',
             component: 'color',
-            title: 'Materials',
-            position: { direction: 'left', referencePanel: 'canvas' },
-            initialWidth: 280
+            title: 'Material',
+            position: { referencePanel: 'fill' }
           });
 
           // 5. Right Transform panel
@@ -11192,6 +11531,11 @@
       window.createDefaultDockPanels = createDefaultDockPanels;
 
       function resetDockviewLayout() {
+        if (MOBILE_STUDIO_UI) {
+          initMobilePanelLayout();
+          showNotification('Studio panels reset');
+          return;
+        }
         try {
           localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
         } catch (e) {}
@@ -11207,178 +11551,8 @@
       }
       window.resetDockviewLayout = resetDockviewLayout;
 
-      function initDockview() {
-        composeAppearancePanels();
-        const container = document.getElementById('dockview-container');
-        if (!container || typeof window['dockview-core'] === 'undefined') return;
-
-        // Clean up any stale old dock layout keys from previous versions
-        for (let i = 1; i <= 15; i++) {
-          try { localStorage.removeItem(`esenho_dockview_layout_v${i}`); } catch (_) {}
-        }
-        try { localStorage.removeItem('esenho_dockview_layout'); } catch (_) {}
-
-        // Pre-cache all panel DOM elements so they are never lost during DOM mutations/clearing
-        REQUIRED_PANEL_IDS.forEach(id => getPanelElement(id));
-
-        try {
-          dockviewApi = window['dockview-core'].createDockview(container, {
-            className: 'dockview-theme-dark',
-            defaultRenderer: 'always',
-            createComponent: (options) => {
-              const panelId = options.id || options.name;
-              if (panelId === 'assets' || panelId === 'document' || !REQUIRED_PANEL_IDS.includes(panelId)) {
-                return {
-                  element: document.createElement('div'),
-                  init: (params) => {
-                    setTimeout(() => {
-                      try { params?.api?.close(); } catch (_) {}
-                    }, 0);
-                  },
-                  update: () => {},
-                  dispose: () => {}
-                };
-              }
-              const el = getPanelElement(panelId);
-              return {
-                element: el || document.createElement('div'),
-                init: () => {},
-                update: () => {},
-                dispose: () => {}
-              };
-            }
-          });
-        } catch (e) {
-          console.error('Failed to create dockview instance:', e);
-          return;
-        }
-
-        window.dockviewApi = dockviewApi;
-
-        // Restore layout from localStorage if available, or build default
-        let restored = false;
-        try {
-          const savedLayoutRaw = localStorage.getItem(DOCKVIEW_LAYOUT_STORAGE_KEY);
-          if (savedLayoutRaw) {
-            const savedLayout = JSON.parse(savedLayoutRaw);
-            if (savedLayout && savedLayout.panels) {
-              delete savedLayout.panels['assets'];
-              delete savedLayout.panels['document'];
-            }
-            if (savedLayout && savedLayout.grid && savedLayout.panels && savedLayout.panels['canvas']) {
-              dockviewApi.fromJSON(savedLayout);
-              if (dockviewApi.panels && dockviewApi.panels.length >= 2 && dockviewApi.getPanel('canvas')) {
-                restored = true;
-                // Close any obsolete panel if restored
-                ['assets', 'document'].forEach(obsoleteId => {
-                  const p = dockviewApi.getPanel(obsoleteId);
-                  if (p) {
-                    try { p.api.close(); } catch (_) {}
-                  }
-                });
-              } else {
-                console.warn('Restored layout is incomplete, resetting to default');
-                try { dockviewApi.clear(); } catch (_) {}
-              }
-            }
-          }
-        } catch (err) {
-          console.warn('Failed to restore dockview layout from storage:', err);
-          try { localStorage.removeItem(DOCKVIEW_LAYOUT_STORAGE_KEY); } catch (_) {}
-          try { dockviewApi.clear(); } catch (_) {}
-        }
-
-        if (!restored) {
-          createDefaultDockPanels();
-        }
-
-        // Prevent closing only canvas panel (allow closing other tabs)
-        if (dockviewApi.onWillClosePanel) {
-          dockviewApi.onWillClosePanel((e) => {
-            if (e?.panel?.id === 'canvas') {
-              if (e.preventDefault) e.preventDefault();
-            }
-          });
-        }
-
-        // Active panel change handler
-        if (dockviewApi.onDidActivePanelChange) {
-          dockviewApi.onDidActivePanelChange((event) => {
-            const id = event?.panel?.id;
-            if (id === 'scene') {
-              updateObjectList();
-            } else if (id === 'animation') {
-              updateSelectedObjectEventsUI();
-              updateSceneAnimUI();
-            } else if (id === 'curves') {
-              if (window.dopeSheetUI && typeof window.dopeSheetUI.mountCurveEditor === 'function') {
-                window.dopeSheetUI.mountCurveEditor(document.getElementById('dock-panel-curves'));
-              }
-            } else if (id === 'tracer') {
-              updateTracerUI();
-            } else if (id === 'projects') {
-              const wEl = document.getElementById('prop-doc-w');
-              const hEl = document.getElementById('prop-doc-h');
-              const bgEl = document.getElementById('prop-doc-bg');
-              const bgPickerEl = document.getElementById('prop-doc-bg-picker');
-              const nameEl = document.getElementById('prop-project-name');
-              const sizeBadge = document.getElementById('doc-size-badge');
-              if (wEl) wEl.value = doc.width;
-              if (hEl) hEl.value = doc.height;
-              if (bgEl) bgEl.value = doc.backgroundColor || '#1d2021';
-              if (bgPickerEl && doc.backgroundColor && doc.backgroundColor.startsWith('#') && doc.backgroundColor.length === 7) bgPickerEl.value = doc.backgroundColor;
-              if (nameEl) nameEl.value = (typeof currentProjectName !== 'undefined' && currentProjectName) ? currentProjectName : 'Untitled Artwork';
-              if (sizeBadge) sizeBadge.textContent = `${doc.width} × ${doc.height} px`;
-              if (typeof refreshProjectsList === 'function') refreshProjectsList();
-            } else if (id === 'export') {
-              if (typeof updateExportDimPreview === 'function') updateExportDimPreview();
-            } else if (id === 'color') {
-              if (typeof ColorStudio !== 'undefined') {
-                const mount = document.getElementById('color-studio-mount');
-                if (mount) ColorStudio.mountColorTab(mount);
-                ColorStudio.onPanelActivated();
-              }
-            } else if (id === 'inspect' || id === 'fill' || id === 'stroke') {
-              updateInspector();
-            }
-            if (typeof drawOverlay === 'function') drawOverlay();
-            if (typeof drawRulers === 'function') drawRulers();
-            scheduleSaveDockviewLayout();
-            updateTitlebarLayoutButtons();
-          });
-        }
-
-        // Relayout handler
-        if (dockviewApi.onDidLayoutChange) {
-          dockviewApi.onDidLayoutChange(() => {
-            if (typeof drawRulers === 'function') drawRulers();
-            if (typeof drawOverlay === 'function') drawOverlay();
-            scheduleSaveDockviewLayout();
-            updateTitlebarLayoutButtons();
-          });
-        }
-
-        window.addEventListener('beforeunload', () => {
-          if (!dockviewApi) return;
-          try {
-            const layoutData = dockviewApi.toJSON();
-            if (layoutData && layoutData.panels && !!layoutData.panels['canvas']) {
-              localStorage.setItem(DOCKVIEW_LAYOUT_STORAGE_KEY, JSON.stringify(layoutData));
-            }
-          } catch (e) {}
-        });
-
-        // Viewport resize observer
-        const vp = document.getElementById('viewport-container');
-        if (vp && typeof ResizeObserver !== 'undefined') {
-          const ro = new ResizeObserver(() => {
-            if (typeof drawRulers === 'function') drawRulers();
-            if (typeof drawOverlay === 'function') drawOverlay();
-          });
-          ro.observe(vp);
-        }
-
-        updateTitlebarLayoutButtons();
+      function initPanelHost() {
+        initMobilePanelLayout();
       }
 
       function switchLeftTab(targetTabId) {
@@ -11562,25 +11736,26 @@
       }
 
       function getViewMenuActions() {
-        const isMaterialOpen = !!dockviewApi?.getPanel('color');
-        const isInspectOpen = !!dockviewApi?.getPanel('inspect');
-        const isSceneOpen = !!dockviewApi?.getPanel('scene');
-        const isTracerOpen = !!dockviewApi?.getPanel('tracer');
-        const isProjectsOpen = !!dockviewApi?.getPanel('projects');
-        const isExportOpen = !!dockviewApi?.getPanel('export');
-        const isAnimOpen = !!dockviewApi?.getPanel('animation');
-        const isCurvesOpen = !!dockviewApi?.getPanel('curves');
+        const isOpen = id => MOBILE_STUDIO_UI ? activeMobilePanelId === id : !!dockviewApi?.getPanel(id);
+        const isMaterialOpen = isOpen('color');
+        const isInspectOpen = isOpen('inspect');
+        const isSceneOpen = isOpen('scene');
+        const isTracerOpen = isOpen('tracer');
+        const isProjectsOpen = isOpen('projects');
+        const isExportOpen = isOpen('export');
+        const isAnimOpen = isOpen('animation');
+        const isCurvesOpen = isOpen('curves');
 
         return [
-          { type: 'header', title: 'Panels & Views' },
-          { type: 'item', label: (isMaterialOpen ? '✓ ' : '') + 'Materials & Stroke Settings', action: () => toggleDockPanel('color') },
-          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + 'Transform & Geometry Dock', action: () => toggleDockPanel('inspect') },
-          { type: 'item', label: (isSceneOpen ? '✓ ' : '') + 'Scene Hierarchy Dock', action: () => toggleDockPanel('scene') },
-          { type: 'item', label: (isTracerOpen ? '✓ ' : '') + 'Vectorizer Dock', action: () => toggleDockPanel('tracer') },
-          { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + 'Projects & Document Dock', hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
-          { type: 'item', label: (isExportOpen ? '✓ ' : '') + 'Export Center Dock', action: () => toggleDockPanel('export') },
-          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + 'Animation Timeline Dock', hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
-          { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
+          { type: 'header', title: MOBILE_STUDIO_UI ? 'Studio Panels' : 'Panels & Views' },
+          { type: 'item', label: (isMaterialOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Materials & Stroke Settings' : 'Materials & Stroke Settings'), action: () => toggleDockPanel('color') },
+          { type: 'item', label: (isInspectOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Transform & Geometry' : 'Transform & Geometry Dock'), action: () => toggleDockPanel('inspect') },
+          { type: 'item', label: (isSceneOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Scene Hierarchy' : 'Scene Hierarchy Dock'), action: () => toggleDockPanel('scene') },
+          { type: 'item', label: (isTracerOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Vectorizer' : 'Vectorizer Dock'), action: () => toggleDockPanel('tracer') },
+          { type: 'item', label: (isProjectsOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Projects & Document' : 'Projects & Document Dock'), hotkey: 'Shift+P', action: () => toggleDockPanel('projects') },
+          { type: 'item', label: (isExportOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Export Center' : 'Export Center Dock'), action: () => toggleDockPanel('export') },
+          { type: 'item', label: (isAnimOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Animation Timeline' : 'Animation Timeline Dock'), hotkey: 'Shift+T', action: () => toggleDockPanel('animation') },
+          { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Curves & Easing' : 'Curves & Easing Dock'), action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
@@ -11588,7 +11763,7 @@
             { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic', action: () => setTheme('skeuo') }
           ]},
           { type: 'sep' },
-          { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
+          { type: 'item', label: MOBILE_STUDIO_UI ? 'Close Active Panel' : 'Reset Dock Layout to Default', action: () => MOBILE_STUDIO_UI ? closeMobileDockPanel() : resetDockviewLayout() },
           { type: 'sep' },
           { type: 'submenu', label: 'Rulers & Guides', items: [
             { type: 'item', label: (showRulers ? '✓ ' : '') + 'Show Rulers', hotkey: 'Shift+R', action: () => toggleRulers() },
@@ -11622,7 +11797,7 @@
 
       function getAnimationMenuActions() {
         const selectedObjs = doc.getSelectedObjects();
-        const isAnimOpen = !!dockviewApi?.getPanel('animation');
+        const isAnimOpen = MOBILE_STUDIO_UI ? activeMobilePanelId === 'animation' : !!dockviewApi?.getPanel('animation');
         const clips = window.getAnimationClips ? window.getAnimationClips() : (window.animationClips || []);
         const activeClip = window.getActiveAnimation ? window.getActiveAnimation() : window.dopeSheet;
         const activeId = activeClip ? activeClip.id : null;
@@ -13243,7 +13418,7 @@
             iframe.style.display = 'none';
             iframe.src = 'about:blank'; // Free memory
           }
-          
+
           const obj = doc.objects.find(o => o.id === e.data.id) || editingRasterObj;
           if (obj && obj.type === 'image') {
             obj.src = e.data.src;
@@ -13557,7 +13732,7 @@
             if (state.letterSpacing !== undefined) obj.letterSpacing = state.letterSpacing;
             if (state.lineHeight !== undefined) obj.lineHeight = state.lineHeight;
             if (state.textPathOffset !== undefined) obj.textPathOffset = state.textPathOffset;
-            
+
             // Nested Fill Texture Dynamics
             if (obj.fillTexture) {
               const ft = obj.fillTexture;
@@ -13801,7 +13976,7 @@
         if (!targetObj) return;
 
         const dObj = window.dopeSheet.getOrCreateObject(targetObj.id, targetObj.name || `${targetObj.type} ${targetObj.id}`, 'vector');
-        
+
         const liveProps = (typeof window.extractLiveObjectProperties === 'function')
           ? window.extractLiveObjectProperties(targetObj)
           : {
@@ -14400,6 +14575,7 @@
         if (card) card.style.display = 'none';
       }
       function closeRecentsModal() {
+        if (MOBILE_STUDIO_UI) { closeDockPanel('projects'); return; }
         closeDockPanel('hub');
       }
 
@@ -14477,7 +14653,7 @@
         const grid = document.getElementById('recents-grid');
         if (!grid) return;
         const countBadge = document.getElementById('recents-count-badge');
-        
+
         let filtered = recentsCachedList.slice();
         if (recentsFilterType !== 'all') {
           filtered = filtered.filter(p => p.type === recentsFilterType);
@@ -14543,9 +14719,9 @@
             const relTime = formatRelativeTime(p.updatedAt);
             const badgeClass = isVec ? 'recent-type-badge recent-type-vector' : 'recent-type-badge recent-type-raster';
             const badgeLabel = isVec ? 'Vector' : 'Raster';
-            const thumbHtml = p.thumbnail 
-              ? (p.thumbnail.startsWith('data:image/svg+xml') 
-                  ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>` 
+            const thumbHtml = p.thumbnail
+              ? (p.thumbnail.startsWith('data:image/svg+xml')
+                  ? `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden;">${decodeURIComponent(p.thumbnail.split(',')[1] || '')}</div>`
                   : `<img src="${p.thumbnail}" alt="Preview" loading="lazy">`)
               : `<div style="font-size: 10px; color: var(--text-muted); display: flex; flex-direction: column; align-items: center; gap: 4px;">No Preview</div>`;
 
@@ -14584,9 +14760,9 @@
             const relTime = formatRelativeTime(p.updatedAt);
             const badgeClass = isVec ? 'recent-type-badge recent-type-vector' : 'recent-type-badge recent-type-raster';
             const badgeLabel = isVec ? 'Vector' : 'Raster';
-            const thumbHtml = p.thumbnail 
-              ? (p.thumbnail.startsWith('data:image/svg+xml') 
-                  ? decodeURIComponent(p.thumbnail.split(',')[1] || '') 
+            const thumbHtml = p.thumbnail
+              ? (p.thumbnail.startsWith('data:image/svg+xml')
+                  ? decodeURIComponent(p.thumbnail.split(',')[1] || '')
                   : `<img src="${p.thumbnail}" alt="Thumb" loading="lazy">`)
               : `<span style="font-size: 11px; opacity: 0.5;">${badgeLabel}</span>`;
 
@@ -14622,7 +14798,7 @@
         if (grid && recentsCachedList.length === 0) {
           grid.innerHTML = '<div style="padding: 40px 16px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>';
         }
-        
+
         // Reset or sync search box
         const searchInput = document.getElementById('recents-search-input');
         if (searchInput) searchInput.value = recentsSearchQuery;
@@ -14894,7 +15070,7 @@
         const title = document.getElementById('inp-new-title').value.trim() || 'Untitled Vector';
         const w = parseInt(document.getElementById('inp-new-w').value, 10) || 1280;
         const h = parseInt(document.getElementById('inp-new-h').value, 10) || 720;
-        
+
         currentProjectId = 'vec_' + Date.now();
         currentProjectTitle = title;
         const propProjName = document.getElementById('prop-project-name');
@@ -14930,7 +15106,7 @@
       const lastVecProj = localStorage.getItem('esenho_current_vector_project_id');
 
       (async () => {
-        initDockview();
+        initPanelHost();
         if (typeof EsenhoStore !== 'undefined' && EsenhoStore.getAllPlugins) {
           try {
             const customPlugins = await EsenhoStore.getAllPlugins();
@@ -14978,6 +15154,57 @@
         updateInspector();
         setTimeout(zoomToFit, 50);
       })();
+    })();
+  </script>
+  <script>
+    (() => {
+      const panelIds = ['color', 'inspect', 'scene', 'tracer', 'projects', 'export', 'animation', 'curves'];
+      const panelNames = { canvas: 'Esenho Studio', color: 'Materials', inspect: 'Transform', scene: 'Layers', tracer: 'Vectorizer', projects: 'Projects', export: 'Export', animation: 'Timeline', curves: 'Curves' };
+      const moreSheet = document.getElementById('mobile-more-sheet');
+      const title = document.getElementById('mobile-project-title');
+
+      function activatePanel(id) {
+        moreSheet?.classList.remove('active');
+        document.querySelectorAll('#mobile-studio-nav [data-studio-panel], #mobile-more-sheet [data-studio-panel]').forEach(button => {
+          button.classList.toggle('active', button.dataset.studioPanel === id);
+        });
+        if (title) title.textContent = panelNames[id] || 'Esenho Studio';
+
+        if (id === 'canvas') {
+          panelIds.forEach(panelId => window.closeDockPanel?.(panelId));
+          window.openMobileStudioPanel?.('canvas');
+        } else {
+          panelIds.forEach(panelId => { if (panelId !== id) window.closeDockPanel?.(panelId); });
+          window.openDockPanel?.(id);
+        }
+      }
+
+      document.querySelectorAll('[data-studio-panel]').forEach(button => {
+        button.addEventListener('click', () => activatePanel(button.dataset.studioPanel));
+      });
+      document.querySelectorAll('[data-studio-tool]').forEach(button => {
+        button.addEventListener('click', () => {
+          document.querySelectorAll('[data-studio-tool]').forEach(item => item.classList.toggle('active', item === button));
+          window.selectTool?.(button.dataset.studioTool);
+        });
+      });
+      document.getElementById('mobile-more-button')?.addEventListener('click', () => moreSheet?.classList.add('active'));
+      document.getElementById('mobile-more-close')?.addEventListener('click', () => moreSheet?.classList.remove('active'));
+      document.getElementById('mobile-panel-sheet-close')?.addEventListener('click', () => window.closeDockPanel?.());
+      moreSheet?.addEventListener('click', event => { if (event.target === moreSheet) moreSheet.classList.remove('active'); });
+      document.getElementById('mobile-menu-button')?.addEventListener('click', () => document.getElementById('titlebar-brand-icon')?.click());
+      document.getElementById('mobile-undo')?.addEventListener('click', () => window.mobileStudioUndo?.());
+      document.getElementById('mobile-redo')?.addEventListener('click', () => window.mobileStudioRedo?.());
+      document.getElementById('mobile-export')?.addEventListener('click', () => activatePanel('export'));
+      title?.addEventListener('click', () => activatePanel('projects'));
+
+      const titleNode = document.querySelector('head > title');
+      if (titleNode && title) {
+        new MutationObserver(() => {
+          const projectName = titleNode.textContent.replace(/\s*[—-]\s*Esenho Studio.*$/i, '').trim();
+          if (projectName && !panelNames[projectName.toLowerCase()]) title.textContent = projectName;
+        }).observe(titleNode, { childList: true, characterData: true, subtree: true });
+      }
     })();
   </script>
 </body>
