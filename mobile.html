@@ -2106,14 +2106,13 @@
       width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; gap: 4px;
       overflow: hidden; color: var(--text); box-sizing: border-box;
     }
-    .mobile-animator-head, .mobile-animator-transport, .mobile-animator-settings,
-    .mobile-animator-actions, .mobile-animator-list-head {
+    .mobile-animator-head, .mobile-animator-transport, .mobile-animator-list-head {
       display: flex; align-items: center; gap: 6px; flex-shrink: 0;
     }
-    .mobile-animator-head { justify-content: space-between; min-height: 24px; gap: 4px; }
+    .mobile-animator-head { min-height: 30px; gap: 5px; }
     .mobile-animator-title { display: none; }
-    .mobile-animator-clip-actions { display: flex; gap: 2px; flex-shrink: 0; }
-    .mobile-animator-clip-actions button { min-width: 25px; min-height: 28px; padding: 1px 3px; font-size: 12px; }
+    .mobile-animator-clip-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+    .mobile-animator-clip-actions button { min-width: 27px; min-height: 29px; padding: 2px 4px; font-size: 12px; }
     #mobile-animation-clip {
       flex: 1; max-width: none; min-width: 66px; min-height: 27px; padding: 2px 18px 2px 6px;
       background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 4px;
@@ -2122,23 +2121,26 @@
       padding: 4px 6px; border: 1px solid var(--border); border-radius: 5px;
       background: var(--bg-panel-sub); box-sizing: border-box;
     }
-    .mobile-animator-transport { justify-content: flex-start; gap: 3px; }
-    .mobile-animator-transport button { min-width: 30px; min-height: 30px; padding: 1px 4px; font-size: 13px; }
-    .mobile-animator-transport #scene-anim-btn-play { min-width: 36px; font-size: 16px; }
-    #scene-anim-time-badge { margin-left: auto; min-width: 60px; font-size: 10px; }
-    .mobile-animator-settings { justify-content: flex-start; gap: 8px; margin-top: 3px !important; }
-    .mobile-animator-field { display: flex; align-items: center; gap: 3px; color: var(--text-muted); font-size: 9px; }
+    .mobile-animator-transport {
+      min-height: 32px; justify-content: flex-start; gap: 2px; padding: 2px 3px;
+      border: 1px solid var(--border); border-radius: 5px; background: var(--bg-panel-sub);
+    }
+    .mobile-animator-transport button { min-width: 24px; min-height: 28px; flex: 0 0 auto; padding: 1px 3px; font-size: 12px; }
+    .mobile-animator-transport #scene-anim-btn-play { min-width: 30px; font-size: 15px; }
+    .mobile-animator-transport #scene-anim-btn-loop,
+    .mobile-animator-transport #scene-btn-autokf,
+    .mobile-animator-transport [data-anim-command="record"] { min-width: 25px; padding-inline: 3px; }
+    .mobile-animator-settings { display: flex; align-items: center; justify-content: flex-start; gap: 12px; padding: 1px 4px; }
+    .mobile-animator-field { display: flex; align-items: center; gap: 2px; color: var(--text-muted); font-size: 8px; white-space: nowrap; }
     .mobile-animator-field input {
-      width: 42px; min-height: 25px; padding: 2px 3px; text-align: center;
+      width: 42px; min-height: 26px; padding: 1px 3px; text-align: center;
       color: var(--text-bright); background: var(--bg-input); border: 1px solid var(--border); border-radius: 4px;
     }
-    .mobile-animator-actions { gap: 4px; }
-    .mobile-animator-actions button { min-height: 29px; flex: 1; padding: 2px 4px; font-size: 9px; }
-    .mobile-animator-actions button.active { color: var(--primary); border-color: var(--primary); }
-    .mobile-animator-events { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+    .mobile-animator-transport button.active { color: var(--primary); border-color: var(--primary); }
+    .mobile-animator-events { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
     .mobile-animator-list-head { justify-content: space-between; margin-bottom: 3px; font-size: 10px; font-weight: 700; }
     #selected-events-badge { color: var(--text-muted); font-size: 9px; font-weight: 500; }
-    #selected-events-container { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 5px; overflow-y: auto; }
+    #selected-events-container { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; overscroll-behavior: contain; }
     #selected-events-container .event-row { min-height: 30px; padding: 2px 4px !important; gap: 4px; border-radius: 4px; }
     #selected-events-container .event-frame-btn { min-height: 25px; min-width: 52px; font-size: 9px; }
     #selected-events-container .event-easing-select { min-height: 25px !important; font-size: 9px !important; padding: 2px 4px !important; }
@@ -3438,7 +3440,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      height: var(--mobile-panel-sheet-height, min(54dvh, 480px));
+      height: var(--mobile-panel-sheet-height, min(60dvh, 560px));
       min-height: 190px;
       display: none;
       flex-direction: column;
@@ -3450,7 +3452,7 @@
       overflow: hidden;
     }
     #mobile-panel-resize-handle {
-      flex: 0 0 12px;
+      flex: 0 0 8px;
       width: 100%;
       display: flex;
       align-items: center;
@@ -3471,7 +3473,7 @@
     #mobile-panel-resize-handle:active::before { background: var(--border-bright); }
     #mobile-panel-sheet.active { display: flex; }
     #mobile-panel-sheet-header {
-      flex: 0 0 36px;
+      flex: 0 0 30px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -3540,6 +3542,130 @@
       #mobile-panel-sheet { left: auto; width: min(440px, 42vw); height: min(70dvh, 640px); bottom: 12px; right: 12px; border-bottom: 1px solid #484d50; border-radius: 14px; }
       #mobile-panel-resize-handle { display: none; }
     }
+
+    @media (max-width: 899px) and (orientation: portrait) {
+      #mobile-panel-slot,
+      #mobile-panel-slot > .dock-panel-content { min-height: 0; }
+      #mobile-panel-slot > .dock-panel-content:not(#dock-panel-canvas) {
+        padding: 5px !important;
+        gap: 4px !important;
+      }
+      #mobile-panel-sheet-header { flex-basis: 28px; padding-inline: 9px; }
+      #mobile-panel-sheet-header button { min-height: 25px; padding: 1px 7px; }
+
+      #mobile-panel-slot .section-card {
+        gap: 3px;
+        padding: 5px 6px;
+      }
+      #mobile-panel-slot .section-card + .section-card {
+        padding-top: 5px;
+        margin-top: 1px;
+      }
+      #mobile-panel-slot .section-header { padding: 2px 4px; font-size: 9px; }
+      #mobile-panel-slot .form-row { min-height: 24px; gap: 4px; margin-bottom: 3px; }
+      #mobile-panel-slot .form-row label { flex-basis: 56px; font-size: 9px; }
+      #mobile-panel-slot input:not([type="checkbox"]):not([type="radio"]),
+      #mobile-panel-slot select { min-height: 28px !important; padding-top: 2px; padding-bottom: 2px; }
+      #mobile-panel-slot button { min-height: 28px; }
+
+      #dock-panel-color { overflow-y: auto; overscroll-behavior: contain; }
+      #dock-panel-color .cs-root { gap: 4px; }
+      #dock-panel-color .cs-target-bar,
+      #dock-panel-color .cs-submode-tabs { padding: 2px; gap: 2px; }
+      #dock-panel-color .cs-target-btn { padding: 4px 6px; font-size: 10px; }
+      #dock-panel-color .cs-panel,
+      #dock-panel-color .cs-subpanel { gap: 4px; }
+      #dock-panel-color .cs-card { padding: 5px; gap: 4px; }
+      #dock-panel-color .cs-card-title { margin-bottom: 0; font-size: 9px; }
+      #dock-panel-color .cs-form-row { gap: 4px; }
+      #dock-panel-color .cs-form-row label { width: 68px; font-size: 9.5px; }
+      #dock-panel-color .cs-sv-box { height: min(112px, 18dvh); }
+      #dock-panel-color > .section-card { margin: 0 !important; }
+      #dock-panel-color .materials-stroke-advanced { padding-top: 3px; border-top: 1px solid var(--border-subtle); }
+      #dock-panel-color .materials-stroke-advanced > summary {
+        min-height: 28px; display: flex; align-items: center; cursor: pointer;
+        color: var(--text-muted); font-size: 9px; font-weight: 700; list-style-position: inside;
+      }
+      #dock-panel-color .materials-stroke-advanced[open] { display: flex; flex-direction: column; gap: 4px; }
+
+      #dock-panel-inspect { overflow-y: auto; overscroll-behavior: contain; }
+      #dock-panel-inspect #card-geometry { gap: 3px; }
+      #dock-panel-inspect .geom-group { gap: 2px; }
+      #dock-panel-inspect #geom-transform-fields { margin-top: 4px !important; padding-top: 4px !important; }
+      #dock-panel-inspect #inspector-vectorizer-options { gap: 4px; }
+
+      #dock-panel-scene { overflow: hidden; }
+      #dock-panel-scene #object-list {
+        min-height: 0; border: 0; border-radius: 0; padding: 0;
+        background: transparent; overscroll-behavior: contain;
+      }
+      #dock-panel-scene .object-item { min-height: 32px; padding: 2px 4px; }
+      #dock-panel-scene .obj-actions .btn-icon { min-width: 28px; min-height: 28px; }
+
+      #dock-panel-animation { min-height: 0; }
+      #mobile-animator { gap: 3px; }
+      #mobile-animator .mobile-animator-card { padding: 3px 5px; }
+      #mobile-animator .mobile-animator-field { gap: 2px; font-size: 8px; }
+      #mobile-animator .mobile-animator-transport { gap: 2px; }
+      #selected-events-container { overscroll-behavior: contain; }
+
+      @media (max-width: 370px) {
+        #mobile-animator .mobile-animator-transport { gap: 1px; padding-inline: 1px; }
+        #mobile-animator .mobile-animator-transport button { min-width: 22px; padding-inline: 1px; font-size: 11px; }
+        #mobile-animator .mobile-animator-transport #scene-anim-btn-play { min-width: 26px; }
+        #mobile-animator .mobile-animator-settings { gap: 8px; }
+      }
+
+      #dock-panel-projects { overflow: hidden !important; }
+      #mobile-projects-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+      #dock-panel-projects [data-projects-page] { display: flex !important; flex: 0 0 auto; flex-direction: column; gap: 5px; }
+      #dock-panel-projects [data-projects-page="manager"] { overflow: visible !important; }
+      #dock-panel-projects .recents-toolbar {
+        display: grid !important; grid-template-columns: minmax(0, 1fr) auto;
+        gap: 4px !important; padding: 5px 6px !important; position: static !important;
+      }
+      #dock-panel-projects .recents-search-box { grid-column: 1 / -1; min-width: 0; max-width: none; height: 28px; }
+      #dock-panel-projects .recents-filter-pills { justify-self: start; }
+      #dock-panel-projects .recents-grid,
+      #dock-panel-projects .recents-list-view {
+        flex: 0 0 auto !important; min-height: 100px; max-height: 34dvh;
+        overflow-y: auto; padding: 5px !important; gap: 4px;
+      }
+      #dock-panel-projects .recents-grid { grid-template-columns: minmax(0, 1fr); }
+      #dock-panel-projects .recent-list-row {
+        display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 3px 6px;
+        padding: 5px; border-radius: 5px;
+      }
+      #dock-panel-projects .recent-list-thumb { width: 30px; height: 30px; grid-column: 1; grid-row: 1; }
+      #dock-panel-projects .recent-list-main { min-width: 0; grid-column: 2; grid-row: 1; }
+      #dock-panel-projects .recent-list-main > div:first-child { min-width: 0; }
+      #dock-panel-projects .recent-list-main > div:first-child > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      #dock-panel-projects .recent-list-meta { gap: 5px; font-size: 9px; }
+      #dock-panel-projects .recent-list-row > div:last-child {
+        grid-column: 1 / -1; justify-content: flex-end; gap: 4px !important;
+      }
+      #dock-panel-projects .recent-list-row > div:last-child .btn-sm {
+        min-width: 32px; min-height: 28px; padding: 2px 5px; font-size: 9px;
+      }
+      #dock-panel-projects #card-doc-project { margin: 4px !important; padding: 6px !important; }
+      #dock-panel-projects #card-doc-project .section-header { margin-bottom: 3px !important; }
+      #dock-panel-projects #projects-export-options { gap: 5px !important; padding: 6px !important; }
+      #dock-panel-projects #pane-export-static,
+      #dock-panel-projects #pane-export-anim { gap: 5px !important; }
+      #dock-panel-projects [data-projects-page="import"] { padding: 6px !important; }
+
+      #dock-panel-curves { min-height: 0; overflow: hidden !important; }
+      #dock-panel-curves .ds-curve-editor-panel {
+        height: 100% !important; min-height: 0; flex: 1 1 auto; gap: 6px !important;
+        overflow-y: auto !important; overflow-x: hidden !important; padding: 6px !important;
+      }
+      #dock-panel-curves .ds-ce-graph { flex: 1 1 0 !important; min-height: 100px; align-items: stretch !important; }
+      #dock-panel-curves .ds-curve-editor-panel > div:last-child { margin-top: 0 !important; }
+      #dock-panel-curves #ds-ce-canvas { height: 100% !important; width: 100% !important; max-width: none !important; }
+      #dock-panel-curves #ds-ce-preset-select { min-width: 0 !important; }
+      #dock-panel-curves #ds-ce-preset-name { width: 76px !important; }
+      #dock-panel-curves #ds-ce-curve-str { max-width: 65vw !important; }
+    }
   </style>
 </head>
 <body class="mobile-studio-ui">
@@ -3550,7 +3676,6 @@
     <div class="mobile-header-actions">
       <button class="mobile-action" id="mobile-undo" type="button" aria-label="Undo" title="Undo">↶</button>
       <button class="mobile-action" id="mobile-redo" type="button" aria-label="Redo" title="Redo">↷</button>
-      <button class="mobile-action" id="mobile-export" type="button" aria-label="Export settings" title="Export settings">⇧</button>
     </div>
   </header>
   <!-- VS Code Custom Titlebar & Menu System -->
@@ -4126,7 +4251,6 @@
     <div id="dock-panel-animation" class="dock-panel-content" style="overflow: hidden; background: var(--bg-panel);">
       <div id="mobile-animator">
         <div class="mobile-animator-head">
-          <span class="mobile-animator-title">Animator</span>
           <select id="mobile-animation-clip" aria-label="Animation clip"></select>
           <div class="mobile-animator-clip-actions" aria-label="Animation clip actions">
             <button class="btn-secondary" type="button" data-clip-command="create" title="New animation clip" aria-label="New animation clip">＋</button>
@@ -4135,25 +4259,20 @@
             <button class="btn-secondary" type="button" data-clip-command="delete" title="Delete animation clip" aria-label="Delete animation clip">×</button>
           </div>
         </div>
-        <div class="mobile-animator-card">
-          <div class="mobile-animator-transport">
-            <button class="btn-secondary" data-anim-command="first" type="button" title="First frame" aria-label="First frame">|◀</button>
-            <button class="btn-secondary" data-anim-command="previous" type="button" title="Previous frame" aria-label="Previous frame">◀</button>
-            <button id="scene-anim-btn-play" class="btn-play" data-anim-command="play" type="button" title="Play or pause" aria-label="Play or pause">▶</button>
-            <button class="btn-secondary" data-anim-command="next" type="button" title="Next frame" aria-label="Next frame">▶</button>
-            <button class="btn-secondary" data-anim-command="last" type="button" title="Last frame" aria-label="Last frame">▶|</button>
-            <span id="scene-anim-time-badge">F 1/60</span>
-          </div>
-          <div class="mobile-animator-settings" style="margin-top: 7px;">
-            <label class="mobile-animator-field">Frame <input id="scene-anim-input-frame" type="number" min="1" value="1" inputmode="numeric"></label>
-            <label class="mobile-animator-field">Length <input id="scene-anim-input-total" type="number" min="1" value="60" inputmode="numeric"></label>
-            <label class="mobile-animator-field">FPS <input id="scene-anim-input-fps" type="number" min="1" max="120" value="24" inputmode="numeric"></label>
-          </div>
+        <div class="mobile-animator-transport" aria-label="Playback and animation settings">
+          <button class="btn-secondary" data-anim-command="first" type="button" title="First frame" aria-label="First frame">|◀</button>
+          <button class="btn-secondary" data-anim-command="previous" type="button" title="Previous frame" aria-label="Previous frame">◀</button>
+          <button id="scene-anim-btn-play" class="btn-play" data-anim-command="play" type="button" title="Play or pause" aria-label="Play or pause">▶</button>
+          <button class="btn-secondary" data-anim-command="next" type="button" title="Next frame" aria-label="Next frame">▶</button>
+          <button class="btn-secondary" data-anim-command="last" type="button" title="Last frame" aria-label="Last frame">▶|</button>
+          <button id="scene-anim-btn-loop" class="btn-secondary" data-anim-command="loop" type="button" title="Loop playback" aria-label="Loop playback">↻</button>
+          <button id="scene-btn-autokf" class="btn-secondary" data-anim-command="autokey" type="button" title="Automatically create keyframes" aria-label="Auto Key">◆</button>
+          <button class="btn-primary" data-anim-command="record" type="button" title="Record selected objects at this frame" aria-label="Record state">●</button>
         </div>
-        <div class="mobile-animator-actions">
-          <button id="scene-anim-btn-loop" class="btn-secondary" data-anim-command="loop" type="button">↻ Loop</button>
-          <button id="scene-btn-autokf" class="btn-secondary" data-anim-command="autokey" type="button">◆ Auto Key</button>
-          <button class="btn-primary" data-anim-command="record" type="button">● Record State</button>
+        <div class="mobile-animator-settings" aria-label="Animation frame settings">
+          <label class="mobile-animator-field" title="Current frame">Frame <input id="scene-anim-input-frame" type="number" min="1" value="1" inputmode="numeric" aria-label="Current frame"></label>
+          <label class="mobile-animator-field" title="Animation length in frames">Length <input id="scene-anim-input-total" type="number" min="1" value="60" inputmode="numeric" aria-label="Animation length"></label>
+          <label class="mobile-animator-field" title="Frames per second">FPS <input id="scene-anim-input-fps" type="number" min="1" max="120" value="24" inputmode="numeric" aria-label="Frames per second"></label>
         </div>
         <section class="mobile-animator-card mobile-animator-events">
           <div class="mobile-animator-list-head">
@@ -4167,7 +4286,7 @@
     </div>
 
     <!-- Dock Panel 8: Projects & Storage Manager -->
-    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%; box-sizing: border-box; min-height: 0;">
+    <div id="dock-panel-projects" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; display: flex; flex-direction: column; background: var(--bg-panel); height: 100%; box-sizing: border-box; min-height: 0;">
       <!-- Active Document & Canvas Settings -->
       <div class="section-card" id="card-doc-project" style="margin: 8px 10px 4px 10px; padding: 8px 10px; background: var(--bg-panel-sub); border: 1px solid var(--border); border-radius: var(--radius-sm); flex-shrink: 0;">
         <div class="section-header" style="margin-bottom: 6px;">
@@ -4254,7 +4373,7 @@
       </div>
 
       <!-- Stored Projects Grid / List -->
-      <div id="recents-grid" class="recents-grid" style="flex: 1 0 auto; padding: 10px; min-height: 0;">
+      <div id="recents-grid" class="recents-grid" style="flex: 1 1 0; padding: 10px; min-height: 0;">
         <div class="empty-state" style="padding: 32px; text-align: center; color: var(--text-muted); grid-column: 1/-1;">Loading stored projects...</div>
       </div>
 
@@ -4420,8 +4539,8 @@
     </div>
 
     <!-- Dock Panel 12: Curve Editor -->
-    <div id="dock-panel-curves" class="dock-panel-content" style="padding: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; background: var(--bg-panel); display: flex; flex-direction: column; width: 100%; height: 100%; box-sizing: border-box;">
-      <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; position: relative; box-sizing: border-box;"></div>
+    <div id="dock-panel-curves" class="dock-panel-content" style="padding: 0 !important; overflow: hidden !important; background: var(--bg-panel); display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; box-sizing: border-box;">
+      <div id="curve-editor-dock-mount" style="width: 100%; height: 100%; min-height: 0; display: flex; flex-direction: column; overflow: hidden; position: relative; box-sizing: border-box;"></div>
     </div>
 
   </div>
@@ -11145,11 +11264,11 @@
 
       let appearancePanelsComposed = false;
       let integratedPanelsComposed = false;
-      function syncMaterialsStrokeOptions(selected = doc.getSelectedObjects()) {
+      function syncMaterialsStrokeOptions() {
         const options = document.getElementById('materials-stroke-options');
         if (!options) return;
-        const hasSelectedStroke = selected.some(obj => obj.stroke && obj.stroke !== 'none' && Number(obj.strokeWidth ?? 1) > 0);
-        options.style.display = hasSelectedStroke ? 'flex' : 'none';
+        const strokeTargetActive = document.querySelector('#cs-target-stroke')?.classList.contains('active') || false;
+        options.style.display = strokeTargetActive ? 'flex' : 'none';
       }
 
       function composeAppearancePanels() {
@@ -11163,28 +11282,27 @@
         appearancePanelsComposed = true;
 
         const brushCards = [...strokePanel.querySelectorAll(':scope > .section-card')].slice(1);
-        [...fillPanel.querySelectorAll(':scope > .section-card')].forEach(card => materialsPanel.appendChild(card));
         const strokeCard = strokePanel.querySelector(':scope > .section-card');
         const strokeRows = strokeCard ? [...strokeCard.querySelectorAll(':scope > .form-row')] : [];
-        const quickStroke = document.createElement('div');
-        quickStroke.className = 'section-card';
-        quickStroke.innerHTML = '<div class="section-header"><span>Stroke</span></div>';
-        [strokeRows[0], strokeRows[1], strokeRows[5]].filter(Boolean).forEach(row => quickStroke.appendChild(row));
-
-        const strokeStyle = document.createElement('div');
-        strokeStyle.className = 'section-card';
-        strokeStyle.innerHTML = '<div class="section-header"><span>Stroke Style</span></div>';
-        [strokeRows[2], strokeRows[3], strokeRows[4]].filter(Boolean).forEach(row => strokeStyle.appendChild(row));
+        const strokeStyleRows = [strokeRows[2], strokeRows[3], strokeRows[4]].filter(Boolean);
         const strokeOptions = document.createElement('div');
         strokeOptions.id = 'materials-stroke-options';
-        strokeOptions.style.cssText = 'display: none; flex-direction: column; gap: 6px;';
-        if (quickStroke.children.length > 1) strokeOptions.appendChild(quickStroke);
-        if (strokeStyle.children.length > 1) strokeOptions.appendChild(strokeStyle);
-        brushCards.forEach(card => strokeOptions.appendChild(card));
+        strokeOptions.className = 'section-card';
+        strokeOptions.style.cssText = 'display: none; flex-direction: column; gap: 5px;';
+        strokeOptions.innerHTML = '<div class="section-header"><span>Stroke options</span></div>';
+        if (strokeRows[1]) strokeOptions.appendChild(strokeRows[1]);
+        const advancedStroke = document.createElement('details');
+        advancedStroke.className = 'materials-stroke-advanced';
+        advancedStroke.innerHTML = '<summary>Style and brush dynamics</summary>';
+        strokeStyleRows.forEach(row => advancedStroke.appendChild(row));
+        brushCards.forEach(card => advancedStroke.appendChild(card));
+        if (strokeStyleRows.length || brushCards.length) strokeOptions.appendChild(advancedStroke);
         materialsPanel.appendChild(strokeOptions);
         fillPanel.style.display = 'none';
         strokePanel.style.display = 'none';
-        strokeCard?.remove();
+        materialsPanel.addEventListener('click', (event) => {
+          if (event.target.closest('#cs-target-fill, #cs-target-stroke')) queueMicrotask(syncMaterialsStrokeOptions);
+        });
         syncMaterialsStrokeOptions();
       }
 
@@ -11213,34 +11331,26 @@
         exportSection.style.cssText += ';display:flex;flex-direction:column;gap:8px;';
         [...exportPanel.children].forEach(child => exportSection.appendChild(child));
         const projectToolbar = projects.querySelector('.recents-toolbar');
-        const activePage = document.createElement('div');
+        const projectContent = document.createElement('div');
+        projectContent.id = 'mobile-projects-content';
+        projectContent.style.cssText = 'display:flex;flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;flex-direction:column;gap:8px;padding:6px;';
+        const activePage = document.createElement('section');
         activePage.dataset.projectsPage = 'document';
-        activePage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;flex-direction:column;';
-        const importPage = document.createElement('div');
+        activePage.id = 'mobile-projects-document';
+        activePage.style.cssText = 'display:flex;flex:0 0 auto;min-height:0;overflow:visible;flex-direction:column;';
+        const importPage = document.createElement('section');
         importPage.dataset.projectsPage = 'import';
-        importPage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;padding:10px;';
-        const exportPage = document.createElement('div');
+        importPage.id = 'mobile-projects-import';
+        importPage.style.cssText = 'display:flex;flex:0 0 auto;min-height:0;overflow:visible;padding:6px;flex-direction:column;';
+        const exportPage = document.createElement('section');
         exportPage.dataset.projectsPage = 'export';
-        exportPage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;padding:10px;';
-        const managerPage = document.createElement('div');
+        exportPage.id = 'mobile-projects-export';
+        exportPage.style.cssText = 'display:flex;flex:0 0 auto;min-height:0;overflow:visible;padding:6px;flex-direction:column;';
+        const managerPage = document.createElement('section');
         managerPage.dataset.projectsPage = 'manager';
-        managerPage.style.cssText = 'display:none;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;';
-        const tabs = document.createElement('div');
-        tabs.id = 'mobile-projects-tabs';
-        tabs.setAttribute('role', 'tablist');
-        tabs.style.cssText = 'display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:7px 8px;background:var(--bg-panel-sub);border-bottom:1px solid var(--border);flex-shrink:0;';
-        [['import', 'Import'], ['export', 'Export'], ['document', 'Doc'], ['manager', 'Manager']].forEach(([key, label]) => {
-          const button = document.createElement('button');
-          button.type = 'button';
-          button.className = 'btn-sm';
-          button.dataset.projectsTab = key;
-          button.setAttribute('role', 'tab');
-          if (key === 'document') button.setAttribute('aria-label', 'Active document');
-          button.textContent = label;
-          button.style.cssText = 'min-width:0;padding:6px 2px;font-size:10px;';
-          button.addEventListener('click', () => setMobileProjectsTab(key));
-          tabs.appendChild(button);
-        });
+        managerPage.id = 'mobile-projects-manager';
+        managerPage.style.cssText = 'display:flex;flex:0 0 auto;min-height:0;overflow:visible;flex-direction:column;';
+        managerPage.innerHTML = '<div class="section-header" style="padding:2px 4px;"><span>Project manager</span></div>';
 
         const importCard = document.createElement('section');
         importCard.className = 'section-card';
@@ -11267,22 +11377,21 @@
         if (recentsGrid) managerPage.appendChild(recentsGrid);
         if (managerFooter) managerPage.appendChild(managerFooter);
         exportPage.appendChild(exportSection);
-        projects.replaceChildren(tabs, importPage, exportPage, activePage, managerPage);
-        setMobileProjectsTab('manager');
+        projects.replaceChildren(projectContent);
+        projectContent.append(managerPage, activePage, importPage, exportPage);
+        projectContent.scrollTop = 0;
         exportPanel.style.display = 'none';
       }
 
       function setMobileProjectsTab(tabName = 'manager') {
-        const validTabs = ['import', 'export', 'document', 'manager'];
-        const activeTab = validTabs.includes(tabName) ? tabName : 'manager';
-        document.querySelectorAll('#dock-panel-projects [data-projects-page]').forEach(page => {
-          page.style.display = page.dataset.projectsPage === activeTab ? 'flex' : 'none';
-        });
-        document.querySelectorAll('#mobile-projects-tabs [data-projects-tab]').forEach(button => {
-          const active = button.dataset.projectsTab === activeTab;
-          button.classList.toggle('active', active);
-          button.setAttribute('aria-selected', String(active));
-        });
+        const sectionByTab = {
+          import: 'mobile-projects-import',
+          export: 'mobile-projects-export',
+          document: 'mobile-projects-document',
+          manager: 'mobile-projects-manager'
+        };
+        const section = document.getElementById(sectionByTab[tabName] || sectionByTab.manager);
+        if (section) requestAnimationFrame(() => section.scrollIntoView({ behavior: 'smooth', block: 'start' }));
       }
       window.setMobileProjectsTab = setMobileProjectsTab;
 
@@ -11771,10 +11880,12 @@
 
       function getFileMenuActions() {
         return [
-          { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
-          { type: 'item', label: 'Projects & Storage...', hotkey: 'Ctrl+E', action: () => openDockPanel('projects') },
-          { type: 'item', label: 'Export Settings...', action: () => openDockPanel('export') },
-          { type: 'sep' },
+          ...(!MOBILE_STUDIO_UI ? [
+            { type: 'item', label: 'New Project...', hotkey: 'Ctrl+N', action: () => openNewProjectModal() },
+            { type: 'item', label: 'Projects & Storage...', hotkey: 'Ctrl+E', action: () => openDockPanel('projects') },
+            { type: 'item', label: 'Export Settings...', action: () => openDockPanel('export') },
+            { type: 'sep' }
+          ] : []),
           { type: 'item', label: 'Open SVG...', hotkey: 'Ctrl+O', action: () => document.getElementById('file-input-svg')?.click() },
           { type: 'item', label: 'Import Image Layer...', action: () => document.getElementById('file-import-img')?.click() },
           { type: 'sep' },
@@ -11782,7 +11893,14 @@
           { type: 'item', label: 'Export PNG (.png)', action: () => performExport('image/png', 1) },
           { type: 'item', label: 'Export JPEG (.jpg)', action: () => performExport('image/jpeg', 1) },
           { type: 'sep' },
-          { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() }
+          { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() },
+          ...(MOBILE_STUDIO_UI ? [
+            { type: 'sep' },
+            { type: 'item', label: `esenho ${(typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.10.132'}`, action: () => {
+              const version = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.10.132';
+              showNotification(`esenho ${version}`);
+            } }
+          ] : [])
         ];
       }
 
@@ -13984,6 +14102,7 @@
               case 'rename': window.renameAnimation?.(clipId); break;
               case 'delete': window.deleteAnimation?.(clipId); break;
             }
+            clipButton.closest('details')?.removeAttribute('open');
             window.updateSceneAnimUI?.();
             return;
           }
@@ -14090,7 +14209,6 @@
 
         const inpFps = document.getElementById('scene-anim-input-fps');
         if (inpFps) inpFps.value = String(fps);
-
         const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
         const btnPlay = document.getElementById('scene-anim-btn-play');
         if (btnPlay) {
@@ -14842,7 +14960,7 @@
       let recentsFilterType = 'all'; // 'all' | 'vector' | 'raster'
       let recentsSearchQuery = '';
       let recentsSortMode = 'updated-desc'; // 'updated-desc' | 'updated-asc' | 'name-asc' | 'name-desc' | 'size-desc'
-      let recentsViewMode = 'grid'; // 'grid' | 'list'
+      let recentsViewMode = document.body.classList.contains('mobile-studio-ui') ? 'list' : 'grid'; // 'grid' | 'list'
 
       function formatRelativeTime(dateStr) {
         if (!dateStr) return 'Unknown';
@@ -15414,9 +15532,6 @@
       document.getElementById('mobile-menu-button')?.addEventListener('click', () => document.getElementById('titlebar-brand-icon')?.click());
       document.getElementById('mobile-undo')?.addEventListener('click', () => window.mobileStudioUndo?.());
       document.getElementById('mobile-redo')?.addEventListener('click', () => window.mobileStudioRedo?.());
-      document.getElementById('mobile-export')?.addEventListener('click', () => {
-        window.openHubTab?.('export');
-      });
       title?.addEventListener('click', () => activatePanel('projects'));
 
       const titleNode = document.querySelector('head > title');

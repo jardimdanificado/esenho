@@ -871,6 +871,7 @@ export class DopeSheetUI {
   mountCurveEditor(targetEl = null) {
     const container = targetEl || (typeof document !== 'undefined' ? (document.getElementById('curve-editor-dock-mount') || document.getElementById('dock-panel-curves')) : null);
     if (!container) return;
+    container.querySelector('#ds-ce-canvas')?._curveResizeObserver?.disconnect();
 
     let currentMode = 'bezier'; // 'bezier', 'bounce', 'spring', 'spline'
     let p1 = { x: 0.42, y: 0.0 };
@@ -912,8 +913,8 @@ export class DopeSheetUI {
         <div id="ds-ce-controls-container" style="flex-shrink: 0;"></div>
 
         <!-- Canvas Graph Area -->
-        <div style="background: var(--bg-canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1px; display: flex; justify-content: center; position: relative; flex-shrink: 0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
-          <canvas id="ds-ce-canvas" width="260" height="72" style="cursor: crosshair; touch-action: none; border-radius: 2px; width: 100%; max-width: 260px; height: 72px; display: block;"></canvas>
+        <div class="ds-ce-graph" style="background: var(--bg-canvas); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 1px; display: flex; justify-content: center; align-items: center; position: relative; flex: 0 0 auto; min-height: 0; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+          <canvas id="ds-ce-canvas" width="320" height="160" style="cursor: crosshair; touch-action: none; border-radius: 2px; width: 100%; max-width: 320px; height: auto; display: block;"></canvas>
         </div>
 
         <!-- Motion Preview Indicator -->
@@ -937,7 +938,7 @@ export class DopeSheetUI {
     const canvas = container.querySelector('#ds-ce-canvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
+    let W = canvas.width, H = canvas.height;
     const padX = 16, padY = 8;
     let yMin = -0.3, yMax = 1.3;
 
@@ -1262,6 +1263,22 @@ export class DopeSheetUI {
       }
     };
 
+    if (typeof ResizeObserver !== 'undefined') {
+      const resizeObserver = new ResizeObserver(() => {
+        const rect = canvas.getBoundingClientRect();
+        const nextWidth = Math.max(1, Math.round(rect.width));
+        const nextHeight = Math.max(1, Math.round(rect.height));
+        if (nextWidth === W && nextHeight === H) return;
+        canvas.width = nextWidth;
+        canvas.height = nextHeight;
+        W = nextWidth;
+        H = nextHeight;
+        drawCanvas();
+      });
+      canvas._curveResizeObserver = resizeObserver;
+      resizeObserver.observe(canvas);
+    }
+
     ['bezier', 'bounce', 'spring', 'spline'].forEach(m => {
       const btn = container.querySelector(`#tab-mode-${m}`);
       if (btn) {
@@ -1365,7 +1382,9 @@ export class DopeSheetUI {
       const progress = elapsed / 1500;
       const eased = currentCurveFn(progress);
       if (previewDot) {
-        previewDot.style.left = `${Math.max(0, Math.min(240, eased * 240))}px`;
+        const track = previewDot.parentElement;
+        const maxLeft = Math.max(0, (track?.clientWidth || 245) - previewDot.offsetWidth);
+        previewDot.style.left = `${Math.max(0, Math.min(maxLeft, eased * maxLeft))}px`;
       }
       this._curveAnimId = requestAnimationFrame(animLoop);
     };
