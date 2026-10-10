@@ -3513,6 +3513,45 @@
       border-top: 1px solid #303233;
       z-index: 1200;
     }
+    #mobile-tool-bar {
+      flex: 0 0 auto;
+      min-height: 54px;
+      padding: 4px 7px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 5px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      background: #202223;
+      border-top: 1px solid #303233;
+      z-index: 1200;
+      scrollbar-width: none;
+    }
+    #mobile-tool-bar::-webkit-scrollbar { display: none; }
+    #mobile-tool-bar .mobile-tool-button {
+      flex: 0 0 48px;
+      min-width: 48px;
+      min-height: 44px;
+      padding: 3px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: #bdae93;
+      font-size: 9px;
+      line-height: 1;
+    }
+    #mobile-tool-bar .mobile-tool-button .tool-icon { font-size: 17px; line-height: 1; }
+    #mobile-tool-bar .mobile-tool-button.active {
+      color: #fabd2f;
+      background: rgba(250,189,47,.12);
+      border-color: rgba(250,189,47,.4);
+    }
     .mobile-nav-item {
       flex: 1 1 0;
       min-width: 40px;
@@ -3722,6 +3761,17 @@
     </section>
   </div>
 
+  <nav id="mobile-tool-bar" aria-label="Canvas tools">
+    <button class="mobile-tool-button tool-btn active" data-tool="select" type="button" title="Select / Transform"><span class="tool-icon">⌖</span><span>Select</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="hand" type="button" title="Hand / Pan"><span class="tool-icon">✋</span><span>Hand</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="node" type="button" title="Path Nodes"><span class="tool-icon">⌘</span><span>Nodes</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="pen" type="button" title="Bézier Pen"><span class="tool-icon">✒</span><span>Pen</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="brush" type="button" title="Vector Brush"><span class="tool-icon">🖌</span><span>Brush</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="rect" type="button" title="Rectangle"><span class="tool-icon">□</span><span>Rect</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="ellipse" type="button" title="Ellipse"><span class="tool-icon">◯</span><span>Ellipse</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="line" type="button" title="Line"><span class="tool-icon">／</span><span>Line</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text"><span class="tool-icon">T</span><span>Text</span></button>
+  </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
     <button class="mobile-nav-item" data-studio-panel="color" type="button"><span class="nav-icon">◉</span><span>Materials</span></button>
     <button class="mobile-nav-item" data-studio-panel="inspect" type="button"><span class="nav-icon">⌗</span><span>Transform</span></button>
@@ -4766,6 +4816,24 @@
           x: origin.x + dx * cosA - dy * sinA,
           y: origin.y + dx * sinA + dy * cosA
         };
+      }
+
+      function getPathRotationOrigin(path) {
+        if (typeof path.getOrigin === 'function') return path.getOrigin();
+        const b = path.getBounds();
+        return { x: b.minX + b.width / 2, y: b.minY + b.height / 2 };
+      }
+
+      function pathPointToDoc(path, point) {
+        const origin = getPathRotationOrigin(path);
+        const rad = (path.rotation || 0) * Math.PI / 180;
+        const dx = point.x - origin.x;
+        const dy = point.y - origin.y;
+        return { x: origin.x + dx * Math.cos(rad) - dy * Math.sin(rad), y: origin.y + dx * Math.sin(rad) + dy * Math.cos(rad) };
+      }
+
+      function docPointToPath(path, point) {
+        return docToLocal(point, getPathRotationOrigin(path), path.rotation || 0);
       }
 
       function scaleObjectToBox(obj, origState, origBounds, newMinX, newMinY, newW, newH) {
@@ -6053,6 +6121,12 @@
 
             // 1. Draw the vector path outline/wireframe in the overlay
             ctx.save();
+            if (obj.rotation) {
+              const origin = getPathRotationOrigin(obj);
+              ctx.translate(origin.x, origin.y);
+              ctx.rotate(obj.rotation * Math.PI / 180);
+              ctx.translate(-origin.x, -origin.y);
+            }
             ctx.strokeStyle = '#83a598';
             ctx.lineWidth = 1.2 / zoom;
             ctx.setLineDash([4 / zoom, 3 / zoom]);
@@ -6078,6 +6152,12 @@
 
             // 2. Draw Handle Lines and Anchor Points
             ctx.save();
+            if (obj.rotation) {
+              const origin = getPathRotationOrigin(obj);
+              ctx.translate(origin.x, origin.y);
+              ctx.rotate(obj.rotation * Math.PI / 180);
+              ctx.translate(-origin.x, -origin.y);
+            }
             for (let i = 0; i < nodes.length; i++) {
               const node = nodes[i];
               const cpIn = node.getAbsCpIn();
@@ -7542,11 +7622,20 @@
           const paths = getSelectedPaths();
           for (const obj of paths) {
             if (!obj.nodes) continue;
+            // Freeze the rotation pivot before editing geometry. Without an
+            // explicit origin, getOrigin() follows the changing path bounds on
+            // every pointermove, which makes rotated nodes jump dramatically.
+            if (obj.rotation && (obj.originX === undefined || obj.originY === undefined)) {
+              const origin = getPathRotationOrigin(obj);
+              if (obj.originX === undefined) obj.originX = origin.x;
+              if (obj.originY === undefined) obj.originY = origin.y;
+            }
+            const nodePt = docPointToPath(obj, pt);
             // 1. Check existing control handles
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
               const cpIn = node.getAbsCpIn();
-              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(pt.x - cpIn.x, pt.y - cpIn.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpIn.x, node.cpIn.y) > 0.5 && Math.hypot(nodePt.x - cpIn.x, nodePt.y - cpIn.y) <= 8 / zoom) {
                 activeNodeIdx = i;
                 selectedNodeIndices = new Set([i]);
                 activeHandleType = 'in';
@@ -7554,7 +7643,7 @@
                 break;
               }
               const cpOut = node.getAbsCpOut();
-              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(pt.x - cpOut.x, pt.y - cpOut.y) <= 8 / zoom) {
+              if (Math.hypot(node.cpOut.x, node.cpOut.y) > 0.5 && Math.hypot(nodePt.x - cpOut.x, nodePt.y - cpOut.y) <= 8 / zoom) {
                 activeNodeIdx = i;
                 selectedNodeIndices = new Set([i]);
                 activeHandleType = 'out';
@@ -7564,15 +7653,15 @@
             }
             if (activeHandleType) {
               isDragging = true;
-              dragStartX = pt.x;
-              dragStartY = pt.y;
+              dragStartX = nodePt.x;
+              dragStartY = nodePt.y;
               break;
             }
 
             // 2. Check anchor points
             for (let i = 0; i < obj.nodes.length; i++) {
               const node = obj.nodes[i];
-              if (Math.hypot(pt.x - node.x, pt.y - node.y) <= 8 / zoom) {
+              if (Math.hypot(nodePt.x - node.x, nodePt.y - node.y) <= 8 / zoom) {
                 if (e.shiftKey) {
                   if (selectedNodeIndices.has(i)) {
                     selectedNodeIndices.delete(i);
@@ -7599,8 +7688,8 @@
                 }
                 nodeDragStartPositions = Array.from(selectedNodeIndices).map(idx => ({ idx, x: obj.nodes[idx].x, y: obj.nodes[idx].y }));
                 isDragging = true;
-                dragStartX = pt.x;
-                dragStartY = pt.y;
+                dragStartX = nodePt.x;
+                dragStartY = nodePt.y;
                 hitAnyNode = true;
                 break;
               }
@@ -7609,15 +7698,15 @@
 
             // 3. Check clicking on path segment to insert a new anchor point
             if (typeof obj.insertAnchorAtPoint === 'function') {
-              const splitRes = obj.insertAnchorAtPoint(pt.x, pt.y, 8 / zoom);
+              const splitRes = obj.insertAnchorAtPoint(nodePt.x, nodePt.y, 8 / zoom);
               if (splitRes) {
                 selectedNodeIndices = new Set([splitRes.index]);
                 activeNodeIdx = splitRes.index;
                 activeHandleType = 'anchor';
                 nodeDragStartPositions = [{ idx: splitRes.index, x: splitRes.node.x, y: splitRes.node.y }];
                 isDragging = true;
-                dragStartX = pt.x;
-                dragStartY = pt.y;
+                dragStartX = nodePt.x;
+                dragStartY = nodePt.y;
                 hitAnyNode = true;
                 doc.pushHistory('Add Anchor Point');
                 break;
@@ -8181,7 +8270,10 @@
             let paths = getSelectedPaths();
             // If no path was selected when marquee started, try to select any unlocked path that has nodes inside marquee
             if (paths.length === 0) {
-              const cand = doc.objects.find(o => !o.locked && o.visible !== false && (o.type === 'path' || o.type === 'compoundPath') && o.nodes && o.nodes.some(n => n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY));
+              const cand = doc.objects.find(o => !o.locked && o.visible !== false && (o.type === 'path' || o.type === 'compoundPath') && o.nodes && o.nodes.some(n => {
+                const world = pathPointToDoc(o, n);
+                return world.x >= minX && world.x <= maxX && world.y >= minY && world.y <= maxY;
+              }));
               if (cand) {
                 doc.select(cand.id);
                 expandObjectInTree(cand);
@@ -8195,7 +8287,8 @@
               if (!path.nodes) continue;
               for (let i = 0; i < path.nodes.length; i++) {
                 const n = path.nodes[i];
-                if (n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY) {
+                const world = pathPointToDoc(path, n);
+                if (world.x >= minX && world.x <= maxX && world.y >= minY && world.y <= maxY) {
                   newSelection.add(i);
                   lastFoundIdx = i;
                 }
@@ -8216,15 +8309,16 @@
           if (activeNodeIdx !== -1 || selectedNodeIndices.size > 0) {
           const { path, node } = getActivePathAndNode();
           if (path && (node || selectedNodeIndices.size > 0)) {
+            const nodePt = docPointToPath(path, pt);
             const forceIndep = e.altKey || (node && node.type === 'cusp');
             if (activeHandleType === 'anchor') {
-              if (e.altKey && node && Math.hypot(pt.x - dragStartX, pt.y - dragStartY) > 2) {
+              if (e.altKey && node && Math.hypot(nodePt.x - dragStartX, nodePt.y - dragStartY) > 2) {
                 activeHandleType = 'out';
                 node.type = e.shiftKey ? 'cusp' : 'smooth';
-                node.setAbsCpOut(pt.x, pt.y, forceIndep);
+                node.setAbsCpOut(nodePt.x, nodePt.y, forceIndep);
               } else {
                 const excludeList = Array.from(selectedNodeIndices).map(idx => path.nodes[idx]).filter(Boolean);
-                const snappedPt = snapAnchorPoint(pt, excludeList);
+                const snappedPt = snapAnchorPoint(nodePt, excludeList);
                 const dx = snappedPt.x - dragStartX;
                 const dy = snappedPt.y - dragStartY;
                 if (nodeDragStartPositions && nodeDragStartPositions.length > 0) {
@@ -8240,9 +8334,9 @@
                 }
               }
             } else if (activeHandleType === 'in' && node) {
-              node.setAbsCpIn(pt.x, pt.y, forceIndep);
+              node.setAbsCpIn(nodePt.x, nodePt.y, forceIndep);
             } else if (activeHandleType === 'out' && node) {
-              node.setAbsCpOut(pt.x, pt.y, forceIndep);
+              node.setAbsCpOut(nodePt.x, nodePt.y, forceIndep);
             }
             if (path && typeof window.recordAutoKeyframe === 'function') window.recordAutoKeyframe(path);
             scheduleFastRender();
@@ -9619,19 +9713,7 @@
       document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         if (btn.id === 'tool-shape-unified') return;
         btn.addEventListener('click', () => {
-          if (activeTool === 'pen' && btn.dataset.tool !== 'pen') {
-            commitPenPath();
-          }
-          document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          activeTool = btn.dataset.tool;
-          if (activeTool === 'hand') {
-            viewportContainer.classList.add('panning');
-          } else {
-            viewportContainer.classList.remove('panning');
-          }
-          statusTool.textContent = btn.title.split('(')[0].trim();
-          render();
+          selectTool(btn.dataset.tool);
         });
       });
 
