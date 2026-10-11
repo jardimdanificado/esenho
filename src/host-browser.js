@@ -235,6 +235,22 @@ async function main() {
   }
   log('canvas.wasm ready [ok]');
 
+  // Initialize Frame-by-Frame Raster Animator
+  try {
+    const { RasterAnimator } = await import('./anim/raster_animator.js');
+    const { RasterAnimatorUI } = await import('./anim/raster_animator_ui.js');
+    host.rasterAnimator = new RasterAnimator(host);
+    const timelineDock = document.getElementById('raster-anim-timeline-dock');
+    if (timelineDock) {
+      host.rasterAnimatorUI = new RasterAnimatorUI(timelineDock, host.rasterAnimator);
+    }
+    if (host.rasterAnimation) {
+      host.rasterAnimator.fromJSON(host.rasterAnimation);
+    }
+  } catch (err) {
+    console.warn('[RasterAnimator] Init failed:', err);
+  }
+
   try {
     const res = await fetch('plugins/manifest.json');
     if (res.ok) {
@@ -1197,6 +1213,11 @@ async function main() {
         ctx.imageSmoothingEnabled = !!host.viewportFiltering;
         if (ctx.imageSmoothingEnabled) ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(offscreen, -(cw * host.zoom) / 2, -(ch * host.zoom) / 2, cw * host.zoom, ch * host.zoom);
+      }
+
+      /* Live Onion Skin Frame Overlay */
+      if (host.rasterAnimator && typeof host.rasterAnimator.drawOnionSkin === 'function') {
+        host.rasterAnimator.drawOnionSkin(ctx, cw, ch, host.zoom);
       }
 
       /* Real-Time Symmetry Mirror Axis Guide Overlay */
@@ -2202,6 +2223,9 @@ async function main() {
           endBrushSelect();
         }
         markCanvasDirty();
+        if (host.rasterAnimator && !host.rasterAnimator.isPlaying) {
+          host.rasterAnimator.saveActiveFrame();
+        }
       }
       if (e.pointerType !== 'touch') {
         const p = clientPos(e);
@@ -2717,6 +2741,9 @@ async function main() {
       lassoPoints = [];
       if (selectScratchLayerId >= 0) {
         endBrushSelect();
+      }
+      if (host.rasterAnimator && !host.rasterAnimator.isPlaying) {
+        host.rasterAnimator.saveActiveFrame();
       }
     }
 
@@ -8751,6 +8778,46 @@ async function main() {
     document.getElementById('btn-quick-export-jpg')?.addEventListener('click', () => {
       exportImage('image/jpeg');
     });
+    document.getElementById('btn-quick-export-gif')?.addEventListener('click', async () => {
+      if (!host.rasterAnimator) return;
+      try {
+        log('Exporting animated GIF…');
+        const blob = await host.rasterAnimator.exportGif();
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${host.currentProjectName || 'animation'}.gif`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          log('Animated GIF exported [ok]');
+        }
+      } catch (err) {
+        log(`err: GIF export failed: ${err.message}`, 'err');
+      }
+    });
+    document.getElementById('btn-quick-export-webm')?.addEventListener('click', async () => {
+      if (!host.rasterAnimator) return;
+      try {
+        log('Exporting WebM video…');
+        const blob = await host.rasterAnimator.exportWebM();
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${host.currentProjectName || 'animation'}.webm`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          log('WebM video exported [ok]');
+        }
+      } catch (err) {
+        log(`err: WebM export failed: ${err.message}`, 'err');
+      }
+    });
     document.getElementById('btn-quick-export-esen')?.addEventListener('click', () => {
       exportEsenProject();
     });
@@ -8856,7 +8923,8 @@ async function main() {
       { id: 'select_rect', label: 'Marquee', title: 'Rectangle Marquee Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>', defaultOn: false },
       { id: 'select_lasso', label: 'Lasso', title: 'Freehand Polygon Lasso Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a8 8 0 0 1 13.5-5.5L20 11"/><path d="M11 20a8 8 0 0 1-5.5-13.5L8 4"/></svg>', defaultOn: false },
       { id: 'select_wand', label: 'Wand', title: 'Magic Wand Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 4l5 5L7 22H2v-5L15 4z"/><line x1="18.5" y1="2.5" x2="21.5" y2="5.5"/><line x1="12" y1="7" x2="17" y2="12"/></svg>', defaultOn: false },
-      { id: 'select_invert', label: 'Invert Sel', title: 'Invert Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>', defaultOn: false }
+      { id: 'select_invert', label: 'Invert Sel', title: 'Invert Selection', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" fill="currentColor"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg>', defaultOn: false },
+      { id: 'anim_timeline', label: 'Animation', title: 'Frame-by-Frame Animation Timeline', icon: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/><line x1="7" y1="2" x2="7" y2="22"/><line x1="17" y1="2" x2="17" y2="22"/><line x1="2" y1="12" x2="22" y2="12"/><line x1="2" y1="7" x2="7" y2="7"/><line x1="2" y1="17" x2="7" y2="17"/><line x1="17" y1="17" x2="22" y2="17"/><line x1="17" y1="7" x2="22" y2="7"/></svg>', defaultOn: true }
     ];
 
     let ipActiveHudConfig = {
@@ -9104,6 +9172,14 @@ async function main() {
           btn.addEventListener('click', () => {
             runCmd('select invert');
             syncUiFromHost();
+            triggerHaptic(12);
+          });
+        } else if (aDef.id === 'anim_timeline') {
+          btn.addEventListener('click', () => {
+            if (host.rasterAnimatorUI) {
+              host.rasterAnimatorUI.toggle();
+              btn.classList.toggle('active', host.rasterAnimatorUI.visible);
+            }
             triggerHaptic(12);
           });
         }

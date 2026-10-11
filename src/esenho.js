@@ -9205,7 +9205,10 @@ class EsenhoScreenHost {
       layerOrder,
       layerTree,
       layerGroups: groups,
-      layers: layersData
+      layers: layersData,
+      rasterAnimation: (this.rasterAnimator && typeof this.rasterAnimator.toJSON === 'function')
+        ? this.rasterAnimator.toJSON()
+        : (this.rasterAnimation || null)
     };
   }
 
@@ -9425,6 +9428,13 @@ class EsenhoScreenHost {
     this.currentProjectId = projectData.id || ('proj_' + Date.now());
     this.currentProjectName = projectData.name || 'Untitled Project';
     this.currentProjectCreatedAt = projectData.createdAt || new Date().toISOString();
+
+    if (projectData.rasterAnimation) {
+      this.rasterAnimation = projectData.rasterAnimation;
+      if (this.rasterAnimator && typeof this.rasterAnimator.fromJSON === 'function') {
+        this.rasterAnimator.fromJSON(projectData.rasterAnimation);
+      }
+    }
 
     if (this.canvasActor.exports.force_composite) {
       this.canvasActor.exports.force_composite();

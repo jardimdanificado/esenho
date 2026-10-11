@@ -2798,6 +2798,12 @@
               <button type="button" class="menu-item" id="btn-quick-export-jpg">
                 <span>Export JPEG (.jpg)</span>
               </button>
+              <button type="button" class="menu-item" id="btn-quick-export-gif">
+                <span>Export Animated GIF (.gif)</span>
+              </button>
+              <button type="button" class="menu-item" id="btn-quick-export-webm">
+                <span>Export WebM Video (.webm)</span>
+              </button>
               <button type="button" class="menu-item" id="btn-quick-export-esen">
                 <span>Export Project (.esen)</span>
                 <span class="shortcut">Ctrl+S</span>
@@ -2913,13 +2919,16 @@
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.11.88 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.12.0 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
   <div id="ip-left-hud" class="ip-dock-container ip-dock-left"></div>
   <div id="ip-right-hud" class="ip-dock-container ip-dock-right" style="display: none;"></div>
   <div id="ip-bottom-hud" class="ip-dock-container ip-dock-bottom" style="display: none;"></div>
+
+  <!-- ── Raster Frame-by-Frame Animation Timeline Dock ── -->
+  <div id="raster-anim-timeline-dock" style="display: none; position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 900px; height: 110px; z-index: 85; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); overflow: hidden; pointer-events: auto;"></div>
 
   <!-- ── Canvas area ── -->
   <div id="cvswrap">
