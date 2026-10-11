@@ -3726,6 +3726,68 @@
     }
   </style>
 </head>
+<style id="mobile-portrait-overrides">
+    @media (max-width: 899px) and (orientation: portrait) {
+      #mobile-studio-header { height: 52px; min-height: 52px; }
+      #mobile-tool-bar { min-height: 60px; }
+      #mobile-tool-bar .mobile-tool-button { flex: 0 0 56px; min-width: 56px; min-height: 52px; font-size: 11px; }
+      #mobile-tool-bar .mobile-tool-button .tool-icon { font-size: 20px; }
+      #mobile-studio-nav { min-height: 60px; }
+      .mobile-nav-item { flex: 1 0 64px; min-width: 64px; min-height: 52px; font-size: 11px; }
+      .mobile-nav-item .nav-icon { font-size: 20px; }
+      #mobile-panel-sheet-header button { min-width: 44px; min-height: 40px; font-size: 16px; }
+      #mobile-panel-slot .form-row { min-height: 40px; margin-bottom: 6px; }
+      #mobile-panel-slot .form-row label { flex-basis: 84px; font-size: 12px; }
+      #mobile-panel-slot input:not([type="checkbox"]):not([type="radio"]),
+      #mobile-panel-slot select { min-height: 40px !important; font-size: 16px; }
+      #mobile-panel-slot button { min-height: 40px; }
+    }
+
+    @media (max-width: 899px) and (orientation: portrait) {
+      body { position: relative; }
+      #workspace { position: absolute; inset: 0; flex: none; height: 100%; }
+      #mobile-canvas-stage { inset: 0; }
+
+      #mobile-studio-header {
+        position: absolute; top: calc(var(--mobile-safe-top) + 8px); left: 8px; right: 8px;
+        height: 52px; min-height: 52px; padding: 0 8px;
+        border: 1px solid rgba(255,255,255,.08); border-radius: 18px;
+        background: rgba(24,26,27,.78); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      }
+
+      #mobile-tool-bar {
+        position: absolute; left: 50%; transform: translateX(-50%);
+        bottom: calc(var(--mobile-safe-bottom) + 84px); width: max-content; max-width: calc(100vw - 16px);
+        min-height: 0; padding: 4px; border: 1px solid rgba(255,255,255,.08); border-radius: 20px;
+        background: rgba(30,32,33,.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      }
+      #mobile-tool-bar .mobile-tool-button { border-radius: 14px; }
+
+      #mobile-studio-nav {
+        position: absolute; left: 8px; right: 8px; bottom: calc(var(--mobile-safe-bottom) + 8px);
+        min-height: 0; height: 64px; padding: 6px; border: 1px solid rgba(255,255,255,.08); border-radius: 22px;
+        background: rgba(27,29,30,.86); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        box-shadow: 0 10px 28px rgba(0,0,0,.4);
+      }
+
+      #mobile-panel-sheet {
+        border: 1px solid rgba(255,255,255,.08); border-radius: 26px 26px 0 0;
+        padding-bottom: calc(var(--mobile-safe-bottom) + 84px);
+        background: rgba(30,32,33,.96);
+      }
+      #mobile-panel-sheet-header { background: transparent; border-bottom: 0; }
+      #mobile-subtab-bar { flex: 0 0 auto; display: flex; gap: 6px; overflow-x: auto; padding: 2px 8px 8px; scrollbar-width: none; }
+      #mobile-subtab-bar::-webkit-scrollbar { display: none; }
+      #mobile-subtab-bar[hidden] { display: none; }
+      .mobile-subtab { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; background: transparent; color: #bdae93; font-size: 12px; font-weight: 650; }
+      .mobile-subtab.active { color: #fabd2f; background: rgba(250,189,47,.12); border-color: rgba(250,189,47,.4); }
+
+      body:has(#mobile-panel-sheet.active) #mobile-tool-bar { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
+      body:has(#mobile-panel-sheet.active) #mobile-studio-header { background: rgba(24,26,27,.94); }
+    }
+  </style>
 <body class="mobile-studio-ui">
 
   <header id="mobile-studio-header">
@@ -3767,6 +3829,7 @@
     <section id="mobile-panel-sheet" aria-label="Active Studio panel">
       <div id="mobile-panel-resize-handle" role="separator" aria-orientation="horizontal" aria-label="Resize active panel" tabindex="0"></div>
       <header id="mobile-panel-sheet-header"><span id="mobile-panel-sheet-title">Panel</span><button type="button" id="mobile-panel-sheet-close" aria-label="Close panel">✕</button></header>
+      <nav id="mobile-subtab-bar" aria-label="Subtabs" hidden></nav>
       <div id="mobile-panel-slot"></div>
     </section>
   </div>
@@ -3780,12 +3843,11 @@
     <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text"><span class="tool-icon">T</span><span>Text</span></button>
   </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
-    <button class="mobile-nav-item" data-studio-panel="color" type="button"><span class="nav-icon">◉</span><span>Materials</span></button>
-    <button class="mobile-nav-item" data-studio-panel="inspect" type="button"><span class="nav-icon">⌗</span><span>Transform</span></button>
-    <button class="mobile-nav-item" data-studio-panel="scene" type="button"><span class="nav-icon">▤</span><span>Layers</span></button>
-    <button class="mobile-nav-item" data-studio-panel="animation" type="button"><span class="nav-icon">◆</span><span>Animator</span></button>
-    <button class="mobile-nav-item" data-studio-panel="curves" type="button"><span class="nav-icon">〰</span><span>Curves</span></button>
-    <button class="mobile-nav-item" data-studio-panel="projects" type="button"><span class="nav-icon">▣</span><span>Projects</span></button>
+    <button class="mobile-nav-item" data-studio-group="estilo" type="button"><span class="nav-icon">◉</span><span>Estilo</span></button>
+    <button class="mobile-nav-item" data-studio-group="ajustar" type="button"><span class="nav-icon">⌗</span><span>Ajustar</span></button>
+    <button class="mobile-nav-item" data-studio-group="camadas" type="button"><span class="nav-icon">▤</span><span>Camadas</span></button>
+    <button class="mobile-nav-item" data-studio-group="animar" type="button"><span class="nav-icon">◆</span><span>Animar</span></button>
+    <button class="mobile-nav-item" data-studio-group="projeto" type="button"><span class="nav-icon">▣</span><span>Projeto</span></button>
   </nav>
 
   <!-- VS Code Bottom Status Bar -->
@@ -11416,6 +11478,10 @@
         brushCards.forEach(card => advancedStroke.appendChild(card));
         if (strokeStyleRows.length || brushCards.length) strokeOptions.appendChild(advancedStroke);
         materialsPanel.appendChild(strokeOptions);
+        const noFillRow = fillPanel.querySelector('#btn-fill-none')?.closest('.form-row');
+        if (noFillRow) materialsPanel.appendChild(noFillRow);
+        const blendCard = [...fillPanel.querySelectorAll(':scope > .section-card')].find(card => card.querySelector('#prop-obj-opacity'));
+        if (blendCard) materialsPanel.appendChild(blendCard);
         fillPanel.style.display = 'none';
         strokePanel.style.display = 'none';
         materialsPanel.addEventListener('click', (event) => {
@@ -11540,7 +11606,9 @@
         activeMobilePanelId = null;
         document.getElementById('mobile-panel-sheet')?.classList.remove('active');
         document.getElementById('mobile-panel-sheet-title').textContent = 'Panel';
-        document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.remove('active'));
+        document.querySelectorAll('#mobile-studio-nav [data-studio-group]').forEach(button => button.classList.remove('active'));
+        const subtabBar = document.getElementById('mobile-subtab-bar');
+        if (subtabBar) { subtabBar.replaceChildren(); subtabBar.hidden = true; }
         const title = document.getElementById('mobile-project-title');
         if (title) title.textContent = 'Esenho Studio';
       }
@@ -11559,7 +11627,7 @@
           closeMobileDockPanel();
           return getPanelElement('canvas');
         }
-        if (id === activeMobilePanelId && !requestedProjectsTab && document.getElementById('mobile-panel-sheet')?.classList.contains('active')) {
+        if (id === activeMobilePanelId && !requestedProjectsTab && !focusSection && document.getElementById('mobile-panel-sheet')?.classList.contains('active')) {
           closeMobileDockPanel(id);
           updateTitlebarLayoutButtons();
           return null;
@@ -15668,8 +15736,9 @@
           window.closeDockPanel?.(id);
           return;
         }
-        document.querySelectorAll('#mobile-studio-nav [data-studio-panel]').forEach(button => {
-          button.classList.toggle('active', button.dataset.studioPanel === id);
+        const activeGroupId = Object.keys(studioGroups).find(g => studioGroups[g].some(([sid]) => sid === id));
+        document.querySelectorAll('#mobile-studio-nav [data-studio-group]').forEach(button => {
+          button.classList.toggle('active', button.dataset.studioGroup === activeGroupId);
         });
         if (title) title.textContent = panelNames[id] || 'Esenho Studio';
 
@@ -15677,8 +15746,52 @@
         window.openDockPanel?.(id);
       }
 
-      document.querySelectorAll('[data-studio-panel]').forEach(button => {
-        button.addEventListener('click', () => activatePanel(button.dataset.studioPanel));
+      const studioGroups = {
+        estilo: [['color', 'Cor']],
+        ajustar: [['inspect', 'Transformar'], ['tracer', 'Trace']],
+        camadas: [['scene', 'Lista']],
+        animar: [['animation', 'Timeline'], ['curves', 'Curvas']],
+        projeto: [['projects', 'Projetos'], ['export', 'Exportar'], ['import', 'Importar'], ['document', 'Documento']],
+      };
+      const groupLastSubtab = {};
+
+      function renderSubtabs(groupId, activeId) {
+        const bar = document.getElementById('mobile-subtab-bar');
+        if (!bar) return;
+        const items = studioGroups[groupId] || [];
+        bar.replaceChildren(...items.map(([id, label]) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'mobile-subtab' + (id === activeId ? ' active' : '');
+          btn.dataset.studioSubtab = id;
+          btn.textContent = label;
+          btn.addEventListener('click', () => {
+            groupLastSubtab[groupId] = id;
+            renderSubtabs(groupId, id);
+            activatePanel(id);
+          });
+          return btn;
+        }));
+        bar.hidden = false;
+      }
+
+      function activateGroup(groupId) {
+        const subtabs = studioGroups[groupId];
+        if (!subtabs) return;
+        const current = document.querySelector('#mobile-studio-nav [data-studio-group].active')?.dataset.studioGroup;
+        const sheetOpen = document.getElementById('mobile-panel-sheet')?.classList.contains('active');
+        if (current === groupId && sheetOpen) {
+          window.closeDockPanel?.();
+          return;
+        }
+        const subtab = groupLastSubtab[groupId] || subtabs[0][0];
+        groupLastSubtab[groupId] = subtab;
+        renderSubtabs(groupId, subtab);
+        activatePanel(subtab);
+      }
+
+      document.querySelectorAll('[data-studio-group]').forEach(button => {
+        button.addEventListener('click', () => activateGroup(button.dataset.studioGroup));
       });
       document.getElementById('mobile-panel-sheet-close')?.addEventListener('click', () => window.closeDockPanel?.());
       document.getElementById('mobile-menu-button')?.addEventListener('click', () => document.getElementById('titlebar-brand-icon')?.click());
