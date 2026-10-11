@@ -2,11 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Esenho Studio Mobile</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <link rel="manifest" href="mobile.webmanifest">
   <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Esenho">
+  <link rel="apple-touch-icon" href="icon.svg">
   <style>
     :root {
       --bg-dark: #141617;
@@ -1225,16 +1231,6 @@
       height: 14px;
       background: var(--border);
       margin: 0 4px;
-    }
-
-    #workspace {
-      flex: 1 1 0px;
-      display: flex;
-      position: relative;
-      overflow: hidden;
-      min-height: 0;
-      width: 100vw;
-      height: calc(100vh - 54px);
     }
 
     /* VS Code Footer / Statusbar */
@@ -2895,34 +2891,6 @@
       font-weight: 600;
     }
 
-    /* ── Modal Dialog ── */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.75);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-    }
-
-    .modal-overlay.active {
-      display: flex;
-    }
-
-    .modal-card {
-      background: var(--bg-panel);
-      border: 1px solid var(--border-bright);
-      border-radius: var(--radius-lg);
-      padding: 18px 20px;
-      width: 440px;
-      max-width: 92vw;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
     .modal-card h2 {
       font-size: 13px;
       color: var(--primary);
@@ -3164,7 +3132,7 @@
       font-size: 10.5px;
       font-weight: 600;
       padding: 3px 8px;
-      border-radius: var(--radius-xs);
+      border-radius: var(--radius-sm);
       cursor: pointer;
       transition: all 0.12s ease;
     }
@@ -3403,337 +3371,17 @@
       font-family: var(--font-mono);
     }
 
-    /* Painter-inspired touch shell for the Studio workspace. */
-    :root {
-      --mobile-safe-top: env(safe-area-inset-top, 0px);
-      --mobile-safe-bottom: env(safe-area-inset-bottom, 0px);
-    }
-    @media (display-mode: fullscreen) {
-      :root {
-        --mobile-safe-top: 0px;
-        --mobile-safe-bottom: 0px;
-      }
-    }
-    body.mobile-studio-ui { background: #141617; }
-    #vscode-titlebar, #vscode-statusbar { display: none !important; }
-    #mobile-studio-header {
-      height: calc(48px + var(--mobile-safe-top));
-      min-height: calc(48px + var(--mobile-safe-top));
-      padding: var(--mobile-safe-top) 10px 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #141617;
-      border-bottom: 1px solid #303233;
-      z-index: 1200;
-      user-select: none;
-    }
-    .mobile-brand, .mobile-action {
-      min-width: 38px;
-      height: 36px;
-      border: 1px solid #303233;
-      border-radius: 8px;
-      background: #202223;
-      color: #ebdbb2;
-      font-size: 16px;
-      font-weight: 700;
-    }
-    .mobile-brand { color: #fabd2f; border-color: rgba(250,189,47,.45); }
-    .mobile-project-title {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      text-align: center;
-      color: #fbf1c7;
-      font-size: 12px;
-      font-weight: 650;
-    }
-    .mobile-header-actions { display: flex; gap: 5px; }
-    #workspace { flex: 1 1 auto; min-height: 0; position: relative; height: auto; overflow: hidden; }
-    #mobile-canvas-stage { position: absolute; inset: 0; min-height: 0; overflow: hidden; background: #17191a; }
-    #mobile-panel-sheet {
-      position: absolute;
-      z-index: 80;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      height: var(--mobile-panel-sheet-height, min(60dvh, 560px));
-      min-height: 190px;
-      display: none;
-      flex-direction: column;
-      background: #1e2021;
-      border: 1px solid #484d50;
-      border-bottom: 0;
-      border-radius: 14px 14px 0 0;
-      box-shadow: 0 -12px 34px rgba(0,0,0,.42);
-      overflow: hidden;
-    }
-    #mobile-panel-resize-handle {
-      flex: 0 0 8px;
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: ns-resize;
-      touch-action: none;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-    #mobile-panel-resize-handle::before {
-      content: '';
-      width: 42px;
-      height: 4px;
-      border-radius: 4px;
-      background: #686b6c;
-      box-shadow: 0 1px 0 rgba(255,255,255,.08);
-    }
-    #mobile-panel-resize-handle:active::before { background: var(--border-bright); }
-    #mobile-panel-sheet.active { display: flex; }
-    #mobile-panel-sheet-header {
-      flex: 0 0 30px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 12px;
-      background: #202223;
-      border-bottom: 1px solid #303233;
-      color: #fbf1c7;
-      font-size: 10px;
-      font-weight: 750;
-      letter-spacing: .07em;
-      text-transform: uppercase;
-    }
-    #mobile-panel-sheet-header button { min-height: 25px; padding: 2px 8px; color: #928374; }
-    #mobile-panel-slot { flex: 1 1 auto; min-height: 0; overflow: hidden; }
-    #mobile-panel-slot > .dock-panel-content { width: 100%; height: 100%; min-height: 0; }
-    #dockview-container { display: none !important; }
-    #mobile-studio-nav {
-      flex: 0 0 auto;
-      min-height: calc(64px + var(--mobile-safe-bottom));
-      padding: 5px 5px var(--mobile-safe-bottom);
-      display: flex;
-      justify-content: flex-start;
-      overflow-x: auto;
-      overflow-y: hidden;
-      align-items: stretch;
-      gap: 3px;
-      background: #1b1d1e;
-      border-top: 1px solid #303233;
-      z-index: 1200;
-    }
-    #mobile-tool-bar {
-      flex: 0 0 auto;
-      min-height: 54px;
-      padding: 4px 7px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-start;
-      gap: 5px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      background: #202223;
-      border-top: 1px solid #303233;
-      z-index: 1200;
-      scrollbar-width: none;
-    }
-    #mobile-tool-bar::-webkit-scrollbar { display: none; }
-    #mobile-tool-bar .mobile-tool-button {
-      flex: 0 0 48px;
-      min-width: 48px;
-      min-height: 44px;
-      padding: 3px 2px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 2px;
-      border: 1px solid transparent;
-      border-radius: 7px;
-      background: transparent;
-      color: #bdae93;
-      font-size: 9px;
-      line-height: 1;
-    }
-    #mobile-tool-bar .mobile-tool-button .tool-icon { font-size: 17px; line-height: 1; }
-    #mobile-tool-bar .mobile-tool-button.active {
-      color: #fabd2f;
-      background: rgba(250,189,47,.12);
-      border-color: rgba(250,189,47,.4);
-    }
-    .mobile-nav-item {
-      flex: 1 1 0;
-      min-width: 40px;
-      min-height: 52px;
-      padding: 5px 0 4px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 3px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-radius: 8px;
-      color: #928374;
-      font-size: 8px;
-      line-height: 1.1;
-      white-space: nowrap;
-    }
-    .mobile-nav-item .nav-icon { font-size: 17px; line-height: 1; }
-    .mobile-nav-item.active {
-      color: #fabd2f;
-      background: rgba(250,189,47,.10);
-      border-color: rgba(250,189,47,.28);
-    }
-    #dock-panel-canvas, #viewport-container { background-color: #17191a; }
-    .dock-panel-content { padding: 8px; gap: 8px; }
-    .section-card { border-radius: 8px; padding: 10px; }
-    .section-header { text-transform: uppercase; letter-spacing: .06em; }
-    button, input, select, textarea { border-radius: 6px; }
-    button { min-height: 30px; }
-    input[type="text"], input[type="number"], input[type="search"], input[type="password"], input[type="url"], input[type="email"], select { min-height: 30px; }
-    input[type="range"] { accent-color: #fabd2f; }
-    @media (min-width: 900px) {
-      #mobile-studio-header { padding-left: 16px; padding-right: 16px; }
-      #mobile-studio-nav { justify-content: center; }
-      #mobile-studio-nav .mobile-nav-item { flex: 0 0 86px; }
-      #mobile-panel-sheet { left: auto; width: min(440px, 42vw); height: min(70dvh, 640px); bottom: 12px; right: 12px; border-bottom: 1px solid #484d50; border-radius: 14px; }
-      #mobile-panel-resize-handle { display: none; }
-    }
-
-    @media (max-width: 899px) and (orientation: portrait) {
-      #mobile-panel-slot,
-      #mobile-panel-slot > .dock-panel-content { min-height: 0; }
-      #mobile-panel-slot > .dock-panel-content:not(#dock-panel-canvas) {
-        padding: 5px !important;
-        gap: 4px !important;
-      }
-      #mobile-panel-sheet-header { flex-basis: 28px; padding-inline: 9px; }
-      #mobile-panel-sheet-header button { min-height: 25px; padding: 1px 7px; }
-
-      #mobile-panel-slot .section-card {
-        gap: 3px;
-        padding: 5px 6px;
-      }
-      #mobile-panel-slot .section-card + .section-card {
-        padding-top: 5px;
-        margin-top: 1px;
-      }
-      #mobile-panel-slot .section-header { padding: 2px 4px; font-size: 9px; }
-      #mobile-panel-slot .form-row { min-height: 24px; gap: 4px; margin-bottom: 3px; }
-      #mobile-panel-slot .form-row label { flex-basis: 56px; font-size: 9px; }
-      #mobile-panel-slot input:not([type="checkbox"]):not([type="radio"]),
-      #mobile-panel-slot select { min-height: 28px !important; padding-top: 2px; padding-bottom: 2px; }
-      #mobile-panel-slot button { min-height: 28px; }
-
-      #dock-panel-color { overflow-y: auto; overscroll-behavior: contain; }
-      #dock-panel-color .cs-root { gap: 4px; }
-      #dock-panel-color .cs-target-bar,
-      #dock-panel-color .cs-submode-tabs { padding: 2px; gap: 2px; }
-      #dock-panel-color .cs-target-btn { padding: 4px 6px; font-size: 10px; }
-      #dock-panel-color .cs-panel,
-      #dock-panel-color .cs-subpanel { gap: 4px; }
-      #dock-panel-color .cs-card { padding: 5px; gap: 4px; }
-      #dock-panel-color .cs-card-title { margin-bottom: 0; font-size: 9px; }
-      #dock-panel-color .cs-form-row { gap: 4px; }
-      #dock-panel-color .cs-form-row label { width: 68px; font-size: 9.5px; }
-      #dock-panel-color .cs-sv-box { height: min(112px, 18dvh); }
-      #dock-panel-color > .section-card { margin: 0 !important; }
-      #dock-panel-color .materials-stroke-advanced { padding-top: 3px; border-top: 1px solid var(--border-subtle); }
-      #dock-panel-color .materials-stroke-advanced > summary {
-        min-height: 28px; display: flex; align-items: center; cursor: pointer;
-        color: var(--text-muted); font-size: 9px; font-weight: 700; list-style-position: inside;
-      }
-      #dock-panel-color .materials-stroke-advanced[open] { display: flex; flex-direction: column; gap: 4px; }
-
-      #dock-panel-inspect { overflow-y: auto; overscroll-behavior: contain; }
-      #dock-panel-inspect #card-geometry { gap: 3px; }
-      #dock-panel-inspect .geom-group { gap: 2px; }
-      #dock-panel-inspect #geom-transform-fields { margin-top: 4px !important; padding-top: 4px !important; }
-      #dock-panel-inspect #inspector-vectorizer-options { gap: 4px; }
-
-      #dock-panel-scene { overflow: hidden; }
-      #dock-panel-scene #object-list {
-        min-height: 0; border: 0; border-radius: 0; padding: 0;
-        background: transparent; overscroll-behavior: contain;
-      }
-      #dock-panel-scene .object-item { min-height: 32px; padding: 2px 4px; }
-      #dock-panel-scene .obj-actions .btn-icon { min-width: 28px; min-height: 28px; }
-
-      #dock-panel-animation { min-height: 0; }
-      #mobile-animator { gap: 3px; }
-      #mobile-animator .mobile-animator-card { padding: 3px 5px; }
-      #mobile-animator .mobile-animator-field { gap: 2px; font-size: 8px; }
-      #mobile-animator .mobile-animator-transport { gap: 2px; }
-      #selected-events-container { overscroll-behavior: contain; }
-
-      @media (max-width: 370px) {
-        #mobile-animator .mobile-animator-transport { gap: 1px; padding-inline: 1px; }
-        #mobile-animator .mobile-animator-transport button { min-width: 22px; padding-inline: 1px; font-size: 11px; }
-        #mobile-animator .mobile-animator-transport #scene-anim-btn-play { min-width: 26px; }
-        #mobile-animator .mobile-animator-settings { gap: 8px; }
-      }
-
-      #dock-panel-projects { overflow: hidden !important; }
-      #mobile-projects-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
-      #dock-panel-projects [data-projects-page] { display: flex !important; flex: 0 0 auto; flex-direction: column; gap: 5px; }
-      #dock-panel-projects [data-projects-page="manager"] { overflow: visible !important; }
-      #dock-panel-projects .recents-toolbar {
-        display: grid !important; grid-template-columns: minmax(0, 1fr) auto;
-        gap: 4px !important; padding: 5px 6px !important; position: static !important;
-      }
-      #dock-panel-projects .recents-search-box { grid-column: 1 / -1; min-width: 0; max-width: none; height: 28px; }
-      #dock-panel-projects .recents-filter-pills { justify-self: start; }
-      #dock-panel-projects .recents-grid,
-      #dock-panel-projects .recents-list-view {
-        flex: 0 0 auto !important; min-height: 100px; max-height: 34dvh;
-        overflow-y: auto; padding: 5px !important; gap: 4px;
-      }
-      #dock-panel-projects .recents-grid { grid-template-columns: minmax(0, 1fr); }
-      #dock-panel-projects .recent-list-row {
-        display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 3px 6px;
-        padding: 5px; border-radius: 5px;
-      }
-      #dock-panel-projects .recent-list-thumb { width: 30px; height: 30px; grid-column: 1; grid-row: 1; }
-      #dock-panel-projects .recent-list-main { min-width: 0; grid-column: 2; grid-row: 1; }
-      #dock-panel-projects .recent-list-main > div:first-child { min-width: 0; }
-      #dock-panel-projects .recent-list-main > div:first-child > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      #dock-panel-projects .recent-list-meta { gap: 5px; font-size: 9px; }
-      #dock-panel-projects .recent-list-row > div:last-child {
-        grid-column: 1 / -1; justify-content: flex-end; gap: 4px !important;
-      }
-      #dock-panel-projects .recent-list-row > div:last-child .btn-sm {
-        min-width: 32px; min-height: 28px; padding: 2px 5px; font-size: 9px;
-      }
-      #dock-panel-projects #card-doc-project { margin: 4px !important; padding: 6px !important; }
-      #dock-panel-projects #card-doc-project .section-header { margin-bottom: 3px !important; }
-      #dock-panel-projects #projects-export-options { gap: 5px !important; padding: 6px !important; }
-      #dock-panel-projects #pane-export-static,
-      #dock-panel-projects #pane-export-anim { gap: 5px !important; }
-      #dock-panel-projects [data-projects-page="import"] { padding: 6px !important; }
-
-      #dock-panel-curves { min-height: 0; overflow: hidden !important; }
-      #dock-panel-curves .ds-curve-editor-panel {
-        height: 100% !important; min-height: 0; flex: 1 1 auto; gap: 6px !important;
-        overflow-y: auto !important; overflow-x: hidden !important; padding: 6px !important;
-      }
-      #dock-panel-curves .ds-ce-graph { flex: 1 1 0 !important; min-height: 100px; align-items: stretch !important; }
-      #dock-panel-curves .ds-curve-editor-panel > div:last-child { margin-top: 0 !important; }
-      #dock-panel-curves #ds-ce-canvas { height: 100% !important; width: 100% !important; max-width: none !important; }
-      #dock-panel-curves #ds-ce-preset-select { min-width: 0 !important; }
-      #dock-panel-curves #ds-ce-preset-name { width: 76px !important; }
-      #dock-panel-curves #ds-ce-curve-str { max-width: 65vw !important; }
-    }
   </style>
+  <link rel="stylesheet" href="src/mobile/mobile_studio.css">
 </head>
-<link rel="stylesheet" href="src/mobile/mobile_studio.css">
-  
+
 <body class="mobile-studio-ui">
 
   <header id="mobile-studio-header">
     <button class="mobile-brand" id="mobile-menu-button" type="button" aria-label="Open Studio menu" title="Studio menu">E</button>
     <div class="mobile-project-title" id="mobile-project-title">Esenho Studio</div>
     <div class="mobile-header-actions">
+      <button class="mobile-action" id="mobile-fit" type="button" aria-label="Fit canvas to screen" title="Fit canvas">⤢</button>
       <button class="mobile-action" id="mobile-undo" type="button" aria-label="Undo" title="Undo">↶</button>
       <button class="mobile-action" id="mobile-redo" type="button" aria-label="Redo" title="Redo">↷</button>
     </div>
@@ -3775,12 +3423,14 @@
   </div>
 
   <nav id="mobile-tool-bar" aria-label="Canvas tools">
-    <button class="mobile-tool-button tool-btn active" data-tool="select" type="button" title="Select / Transform"><span class="tool-icon">⌖</span><span>Select</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="hand" type="button" title="Hand / Pan"><span class="tool-icon">✋</span><span>Hand</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="node" type="button" title="Path Nodes"><span class="tool-icon">⌘</span><span>Nodes</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="pen" type="button" title="Bézier Pen"><span class="tool-icon">✒</span><span>Pen</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="brush" type="button" title="Vector Brush"><span class="tool-icon">🖌</span><span>Brush</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text"><span class="tool-icon">T</span><span>Text</span></button>
+    <button class="mobile-tool-button tool-btn active" data-tool="select" type="button" title="Select / Transform" aria-label="Select / Transform" aria-pressed="true"><span class="tool-icon">⌖</span><span>Select</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="hand" type="button" title="Hand / Pan" aria-label="Hand / Pan" aria-pressed="false"><span class="tool-icon">✋</span><span>Hand</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="node" type="button" title="Path Nodes" aria-label="Path Nodes" aria-pressed="false"><span class="tool-icon">⌘</span><span>Nodes</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="pen" type="button" title="Bézier Pen" aria-label="Bézier Pen" aria-pressed="false"><span class="tool-icon">✒</span><span>Pen</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="rect" type="button" title="Rectangle" aria-label="Rectangle" aria-pressed="false"><span class="tool-icon">▭</span><span>Rect</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="ellipse" type="button" title="Ellipse / Circle" aria-label="Ellipse / Circle" aria-pressed="false"><span class="tool-icon">◯</span><span>Ellipse</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="brush" type="button" title="Vector Brush" aria-label="Vector Brush" aria-pressed="false"><span class="tool-icon">🖌</span><span>Brush</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text" aria-label="Text" aria-pressed="false"><span class="tool-icon">T</span><span>Text</span></button>
   </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
     <button class="mobile-nav-item" data-studio-group="estilo" type="button"><span class="nav-icon">◉</span><span>Style</span></button>
@@ -4797,13 +4447,28 @@
         if (!toast) {
           toast = document.createElement('div');
           toast.id = 'studio-toast-bubble';
-          toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;background:var(--bg-panel,#282828);color:var(--text,#ebdbb2);border:1px solid var(--border-color,#504945);border-radius:6px;padding:8px 14px;font-size:12px;font-family:inherit;box-shadow:0 6px 18px rgba(0,0,0,0.4);pointer-events:none;opacity:0;transition:opacity 0.2s ease, transform 0.2s ease;transform:translateY(8px);';
+          toast.setAttribute('role', 'status');
+          toast.setAttribute('aria-live', 'polite');
+          toast.style.cssText = 'position:fixed;z-index:99999;background:var(--bg-panel,#282828);color:var(--text,#ebdbb2);border:1px solid var(--border-color,#504945);border-radius:6px;padding:8px 14px;font-size:12px;font-family:inherit;box-shadow:0 6px 18px rgba(0,0,0,0.4);pointer-events:none;opacity:0;transition:opacity 0.2s ease, transform 0.2s ease;transform:translateY(8px);';
           document.body.appendChild(toast);
+        }
+        // No shell mobile, sobe o toast acima da nav/tool bar inferior.
+        if (document.body.classList.contains('mobile-studio-ui')) {
+          toast.style.left = '50%';
+          toast.style.right = 'auto';
+          toast.style.transform = 'translate(-50%, 8px)';
+          toast.style.bottom = 'calc(var(--ms-nav-reserve, 0px) + 84px + env(safe-area-inset-bottom, 0px))';
+          toast.style.maxWidth = 'calc(100vw - 32px)';
+          toast.style.textAlign = 'center';
+        } else {
+          toast.style.bottom = '20px';
+          toast.style.right = '20px';
+          toast.style.left = 'auto';
         }
         toast.textContent = msg;
         toast.style.display = 'block';
         toast.style.opacity = '1';
-        toast.style.transform = 'translateY(0)';
+        toast.style.transform = document.body.classList.contains('mobile-studio-ui') ? 'translate(-50%, 0)' : 'translateY(0)';
         clearTimeout(toast._timer);
         toast._timer = setTimeout(() => {
           toast.style.opacity = '0';
@@ -5103,7 +4768,7 @@
       }
 
       // ── Rulers System ──
-      let showRulers = initialStudioSettings.showRulers !== undefined ? Boolean(initialStudioSettings.showRulers) : true;
+      let showRulers = initialStudioSettings.showRulers !== undefined ? Boolean(initialStudioSettings.showRulers) : !document.body.classList.contains('mobile-studio-ui');
       let rulerThickness = initialStudioSettings.rulerThickness ? Number(initialStudioSettings.rulerThickness) : 18;
       const rulerCornerEl = document.getElementById('ruler-corner');
       const rulerTopCanvas = document.getElementById('ruler-top');
@@ -5523,9 +5188,12 @@
         zoom = Math.max(0.2, Math.min(2.5, Math.min(scaleX, scaleY)));
         panX = Math.round((vw - doc.width * zoom) / 2);
         panY = Math.round((vh - doc.height * zoom) / 2);
+        viewportRotation = 0;
         applyViewportTransform();
         render();
+        drawOverlay();
       }
+      window.zoomToFit = zoomToFit;
 
       function screenToDoc(clientX, clientY) {
         const rect = viewportContainer.getBoundingClientRect();
@@ -9571,10 +9239,16 @@
           hand: 'Hand / Pan Canvas',
           node: 'Bézier Node Editor',
           pen: 'Bézier Pen',
+          rect: 'Rectangle Shape',
+          ellipse: 'Ellipse / Circle Shape',
+          line: 'Line Segment Shape',
           brush: 'Freehand Vector Brush',
           text: 'Vector Typography'
         };
         if (statusTool) statusTool.textContent = toolTitles[toolName] || (btn?.title ? btn.title.split('(')[0].trim() : toolName);
+        document.querySelectorAll('#mobile-tool-bar .mobile-tool-button').forEach(b => {
+          b.setAttribute('aria-pressed', String(b.dataset.tool === toolName));
+        });
         render();
         drawOverlay();
       }
@@ -9667,6 +9341,12 @@
         };
         viewportContainer.classList.remove('panning');
         if (statusTool) statusTool.textContent = titleMap[type] || type;
+        document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#mobile-tool-bar .mobile-tool-button').forEach(b => {
+          const on = b.dataset.tool === type;
+          b.classList.toggle('active', on);
+          b.setAttribute('aria-pressed', String(on));
+        });
         render();
         drawOverlay();
       }
@@ -9958,6 +9638,13 @@
       }
       window.mobileStudioUndo = handleUndo;
       window.mobileStudioRedo = () => { doc.redo(); render(); };
+      // Haptics leve no undo/redo mobile (feedback tátil quando disponível).
+      (function wrapMobileUndoRedoHaptics() {
+        const buzz = () => { try { navigator.vibrate?.(6); } catch (_) {} };
+        const u = window.mobileStudioUndo, r = window.mobileStudioRedo;
+        if (u) window.mobileStudioUndo = () => { buzz(); return u(); };
+        if (r) window.mobileStudioRedo = () => { buzz(); return r(); };
+      })();
 
       // ── Top Header & Main Menu Actions ──
       window.addEventListener('resize', () => { drawOverlay(); });
@@ -11324,7 +11011,8 @@
       function getMobilePanelHeightLimits() {
         const headerHeight = document.getElementById('mobile-studio-header')?.getBoundingClientRect().height || 48;
         const navHeight = document.getElementById('mobile-studio-nav')?.getBoundingClientRect().height || 64;
-        return { min: 190, max: Math.max(220, window.innerHeight - headerHeight - navHeight - 12) };
+        const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ms-safe-top')) || 0;
+        return { min: 190, max: Math.max(220, window.innerHeight - headerHeight - navHeight - safeTop - 12) };
       }
 
       function applyMobilePanelHeight(height, persist = false) {
@@ -11342,28 +11030,55 @@
         if (savedPanelHeight > 0) applyMobilePanelHeight(savedPanelHeight);
       } catch (_) {}
 
+      // Handle: arrastar para redimensionar OU para baixo para descartar (dismiss).
+      const MOBILE_SHEET_DISMISS_PX = 96;
+      const MOBILE_SHEET_DISMISS_VELOCITY = 0.6; // px/ms
       mobilePanelResizeHandle?.addEventListener('pointerdown', (event) => {
         if (window.matchMedia('(min-width: 900px)').matches || !mobilePanelSheet?.classList.contains('active')) return;
         event.preventDefault();
         mobilePanelResizeState = {
           pointerId: event.pointerId,
           startY: event.clientY,
-          startHeight: mobilePanelSheet.getBoundingClientRect().height
+          startTime: performance.now(),
+          startHeight: mobilePanelSheet.getBoundingClientRect().height,
+          deltaY: 0
         };
+        mobilePanelSheet?.classList.add('dragging');
         mobilePanelResizeHandle.setPointerCapture?.(event.pointerId);
       });
 
       mobilePanelResizeHandle?.addEventListener('pointermove', (event) => {
         if (!mobilePanelResizeState || mobilePanelResizeState.pointerId !== event.pointerId) return;
         event.preventDefault();
-        applyMobilePanelHeight(mobilePanelResizeState.startHeight + mobilePanelResizeState.startY - event.clientY);
+        const dy = event.clientY - mobilePanelResizeState.startY;
+        mobilePanelResizeState.deltaY = dy;
+        if (dy > 0) {
+          // Arrastar para baixo: pré-visualiza o dismiss transladando o sheet.
+          mobilePanelSheet.style.transform = `translateY(${dy}px)`;
+        } else {
+          mobilePanelSheet.style.transform = '';
+          applyMobilePanelHeight(mobilePanelResizeState.startHeight - dy);
+        }
       });
 
       const finishMobilePanelResize = (event) => {
         if (!mobilePanelResizeState || mobilePanelResizeState.pointerId !== event.pointerId) return;
-        const height = mobilePanelSheet.getBoundingClientRect().height;
+        const state = mobilePanelResizeState;
         mobilePanelResizeState = null;
-        applyMobilePanelHeight(height, true);
+        mobilePanelSheet?.classList.remove('dragging');
+        mobilePanelSheet.style.transform = '';
+        const elapsed = Math.max(1, performance.now() - state.startTime);
+        const velocity = state.deltaY / elapsed;
+        const shouldDismiss = state.deltaY > MOBILE_SHEET_DISMISS_PX ||
+          (state.deltaY > 40 && velocity > MOBILE_SHEET_DISMISS_VELOCITY);
+        if (shouldDismiss) {
+          closeMobileDockPanel();
+          return;
+        }
+        // dy<0 (crescer) já foi aplicado durante o move; dy>0 só pré-visualizou
+        // o transform, então parte da altura original.
+        const finalHeight = state.deltaY > 0 ? state.startHeight : mobilePanelSheet.getBoundingClientRect().height;
+        applyMobilePanelHeight(finalHeight, true);
       };
       mobilePanelResizeHandle?.addEventListener('pointerup', finishMobilePanelResize);
       mobilePanelResizeHandle?.addEventListener('pointercancel', finishMobilePanelResize);
@@ -11444,12 +11159,11 @@
         vectorizer.id = 'inspector-vectorizer-options';
         vectorizer.style.display = 'none';
         vectorizer.innerHTML = '<div class="section-header"><span>Vectorizer</span></div>';
-        // Desktop: the Vectorizer lives inside Transform. Mobile keeps Trace as its own panel.
-        if (!MOBILE_STUDIO_UI) {
-          [...tracer.children].forEach(child => vectorizer.appendChild(child));
-          inspector.appendChild(vectorizer);
-          tracer.style.display = 'none';
-        }
+        // O Vectorizer vive dentro de Transform em TODOS os modos; sua visibilidade
+        // é controlada por updateTracerUI() (só aparece com uma imagem selecionada).
+        [...tracer.children].forEach(child => vectorizer.appendChild(child));
+        inspector.appendChild(vectorizer);
+        tracer.style.display = 'none';
 
         const exportSection = document.createElement('section');
         exportSection.className = 'section-card';
@@ -11547,19 +11261,31 @@
         const pool = document.getElementById('dock-panel-pool');
         if (panel && pool) pool.appendChild(panel);
         activeMobilePanelId = null;
+        window.__activeMobilePanelId = null;
         document.getElementById('mobile-panel-sheet')?.classList.remove('active');
         document.getElementById('mobile-panel-sheet-title').textContent = 'Panel';
-        document.querySelectorAll('#mobile-studio-nav [data-studio-group]').forEach(button => button.classList.remove('active'));
+        updateMobileStudioNavHighlight();
         const subtabBar = document.getElementById('mobile-subtab-bar');
         if (subtabBar) { subtabBar.replaceChildren(); subtabBar.hidden = true; }
         const title = document.getElementById('mobile-project-title');
         if (title) title.textContent = 'Esenho Studio';
       }
 
+      // Fonte única do destaque da barra inferior: o grupo dono do painel ativo.
+      function updateMobileStudioNavHighlight() {
+        const owner = activeMobilePanelId && typeof window.__mobileStudioGroupForPanel === 'function'
+          ? window.__mobileStudioGroupForPanel(activeMobilePanelId)
+          : null;
+        document.querySelectorAll('#mobile-studio-nav [data-studio-group]').forEach(button => {
+          button.classList.toggle('active', button.dataset.studioGroup === owner);
+        });
+      }
+      window.updateMobileStudioNavHighlight = updateMobileStudioNavHighlight;
+
       function openMobileDockPanel(id) {
-        const focusSection = (id === 'tracer' && !MOBILE_STUDIO_UI) ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
+        const focusSection = (id === 'tracer') ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
         const requestedProjectsTab = id === 'export' ? 'export' : (id === 'document' ? 'document' : (id === 'import' ? 'import' : null));
-        if (id === 'tracer' && !MOBILE_STUDIO_UI) id = 'inspect';
+        if (id === 'tracer') id = 'inspect';
         if (id === 'export') id = 'projects';
         if (id === 'document') id = 'projects';
         if (id === 'import') id = 'projects';
@@ -11584,11 +11310,21 @@
         }
         if (panel.parentElement !== slot) slot.replaceChildren(panel);
         activeMobilePanelId = id;
+        window.__activeMobilePanelId = id;
         document.getElementById('mobile-panel-sheet')?.classList.add('active');
+        // Integra o botão voltar: empilha UM estado (sentinel) enquanto houver
+        // sheet aberto. popstate fecha só o visual; trocar de painel reusa o
+        // mesmo estado, sem empilhar de novo.
+        if (!window.__mobileSheetSentinel) {
+          window.__mobileSheetSentinel = true;
+          try { history.pushState({ __mobileSheet: true }, ''); } catch (_) {}
+        }
         const titleMap = { color: 'Materials', inspect: 'Transform', tracer: 'Trace', scene: 'Layers', projects: 'Projects', animation: 'Animator', curves: 'Curves' };
         document.getElementById('mobile-panel-sheet-title').textContent = titleMap[id] || id;
         document.getElementById('mobile-project-title').textContent = titleMap[id] || 'Esenho Studio';
-        document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === id));
+        updateMobileStudioNavHighlight();
+        // Repopula a barra de subabas do grupo dono do painel aberto.
+        if (typeof window.__renderSubtabsForPanel === 'function') window.__renderSubtabsForPanel(id);
         if (id === 'curves' && window.dopeSheetUI?.mountCurveEditor) window.dopeSheetUI.mountCurveEditor(panel);
         if (id === 'projects' && typeof refreshProjectsList === 'function') refreshProjectsList();
         if (id === 'projects' && requestedProjectsTab) setMobileProjectsTab(requestedProjectsTab);
@@ -11723,11 +11459,12 @@
 
       function updateTracerUI() {
         const sourceInfo = document.getElementById('tracer-source-info');
-        if (!sourceInfo) return;
+        const options = document.getElementById('inspector-vectorizer-options');
         const selected = (typeof doc !== 'undefined' && doc.getSelectedObjects) ? doc.getSelectedObjects() : [];
         const imgObj = selected.find(o => o.type === 'image');
-        const options = document.getElementById('inspector-vectorizer-options');
+        // O bloco Vectorizer (dentro de Transform) só aparece com imagem selecionada.
         if (options) options.style.display = imgObj ? 'block' : 'none';
+        if (!sourceInfo) return;
         if (imgObj) {
           sourceInfo.style.display = 'block';
           sourceInfo.innerHTML = `
@@ -11739,10 +11476,6 @@
             </div>
           `;
           sourceInfo.style.borderColor = 'var(--primary)';
-        } else if (MOBILE_STUDIO_UI) {
-          sourceInfo.style.display = 'block';
-          sourceInfo.style.borderColor = 'var(--border)';
-          sourceInfo.innerHTML = '<div style="color: var(--text-muted);">Select an image to trace.</div>';
         } else {
           sourceInfo.style.display = 'none';
           sourceInfo.innerHTML = '';
@@ -15676,36 +15409,51 @@
       const panelNames = { canvas: 'Esenho Studio', color: 'Materials', inspect: 'Transform', scene: 'Layers', projects: 'Projects', animation: 'Animator', curves: 'Curves' };
       const title = document.getElementById('mobile-project-title');
 
-      function activatePanel(id) {
-        const activeButton = document.querySelector('#mobile-studio-nav [data-studio-panel].active');
-        const sheetOpen = document.getElementById('mobile-panel-sheet')?.classList.contains('active');
-        if (activeButton?.dataset.studioPanel === id && sheetOpen) {
-          window.closeDockPanel?.(id);
-          return;
-        }
-        const activeGroupId = Object.keys(studioGroups).find(g => studioGroups[g].some(([sid]) => sid === id));
-        document.querySelectorAll('#mobile-studio-nav [data-studio-group]').forEach(button => {
-          button.classList.toggle('active', button.dataset.studioGroup === activeGroupId);
-        });
-        if (title) title.textContent = panelNames[id] || 'Esenho Studio';
-
-        panelIds.forEach(panelId => { if (panelId !== id) window.closeDockPanel?.(panelId); });
-        window.openDockPanel?.(id);
-      }
-
       const studioGroups = {
         estilo: [['color', 'Color']],
-        ajustar: [['inspect', 'Transform'], ['tracer', 'Trace']],
+        ajustar: [['inspect', 'Transform']],
         camadas: [['scene', 'List']],
         animar: [['animation', 'Timeline'], ['curves', 'Curves']],
         projeto: [['projects', 'Projects'], ['export', 'Export'], ['import', 'Import'], ['document', 'Document']],
       };
       const groupLastSubtab = {};
 
+      // Grupo dono de cada id de painel (usado pelo destaque único da nav).
+      const panelToGroup = {};
+      Object.keys(studioGroups).forEach(g => studioGroups[g].forEach(([pid]) => { panelToGroup[pid] = g; }));
+      window.__mobileStudioGroupForPanel = id => {
+        if (panelToGroup[id]) return panelToGroup[id];
+        // Aliases normalizados por openMobileDockPanel.
+        const alias = { export: 'projeto', import: 'projeto', document: 'projeto', materials: 'estilo', material: 'estilo', tracer: 'ajustar' };
+        return panelToGroup[alias[id]] || null;
+      };
+
+      function activatePanel(id) {
+        const sheetOpen = document.getElementById('mobile-panel-sheet')?.classList.contains('active');
+        const isCurrent = window.__activeMobilePanelId ? (window.__activeMobilePanelId === id) : false;
+        const groupId = window.__mobileStudioGroupForPanel?.(id);
+        const groupBtn = groupId ? document.querySelector(`#mobile-studio-nav [data-studio-group="${groupId}"]`) : null;
+        if (isCurrent && groupBtn?.classList.contains('active') && sheetOpen) {
+          window.closeDockPanel?.(id);
+          return;
+        }
+        if (title) title.textContent = panelNames[id] || 'Esenho Studio';
+
+        panelIds.forEach(panelId => { if (panelId !== id) window.closeDockPanel?.(panelId); });
+        window.openDockPanel?.(id);
+      }
+
       function renderSubtabs(groupId, activeId) {
         const bar = document.getElementById('mobile-subtab-bar');
         if (!bar) return;
         const items = studioGroups[groupId] || [];
+        // Grupo com uma única aba não precisa de barra de subabas — era o
+        // "botão Color" do topo do Style, que não levava a lugar nenhum.
+        if (items.length <= 1) {
+          bar.replaceChildren();
+          bar.hidden = true;
+          return;
+        }
         bar.replaceChildren(...items.map(([id, label]) => {
           const btn = document.createElement('button');
           btn.type = 'button';
@@ -15715,12 +15463,29 @@
           btn.addEventListener('click', () => {
             groupLastSubtab[groupId] = id;
             renderSubtabs(groupId, id);
-            activatePanel(id);
+            revealPanel(id);
           });
           return btn;
         }));
         bar.hidden = false;
       }
+
+      // Revela um painel sem alternar/fechar: subabas só trocam de painel.
+      function revealPanel(id) {
+        const sheet = document.getElementById('mobile-panel-sheet');
+        if (window.__activeMobilePanelId === id && sheet?.classList.contains('active')) return;
+        panelIds.forEach(pid => { if (pid !== id) window.closeDockPanel?.(pid); });
+        window.openDockPanel?.(id);
+      }
+
+      // Chamado por openMobileDockPanel para (re)popular as subabas do grupo.
+      window.__renderSubtabsForPanel = (id) => {
+        const groupId = window.__mobileStudioGroupForPanel?.(id);
+        if (!groupId) { return; }
+        const items = studioGroups[groupId] || [];
+        const idx = items.findIndex(([sid]) => sid === id);
+        renderSubtabs(groupId, idx >= 0 ? id : (groupLastSubtab[groupId] || items[0]?.[0]));
+      };
 
       function activateGroup(groupId) {
         const subtabs = studioGroups[groupId];
@@ -15742,9 +15507,49 @@
       });
       document.getElementById('mobile-panel-sheet-close')?.addEventListener('click', () => window.closeDockPanel?.());
       document.getElementById('mobile-menu-button')?.addEventListener('click', () => document.getElementById('titlebar-brand-icon')?.click());
+      document.getElementById('mobile-fit')?.addEventListener('click', () => window.zoomToFit?.());
       document.getElementById('mobile-undo')?.addEventListener('click', () => window.mobileStudioUndo?.());
       document.getElementById('mobile-redo')?.addEventListener('click', () => window.mobileStudioRedo?.());
       title?.addEventListener('click', () => activatePanel('projects'));
+
+      // ── Teclado externo / hardware: Escape fecha o bottom sheet ──
+      window.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const sheet = document.getElementById('mobile-panel-sheet');
+        if (sheet?.classList.contains('active')) {
+          e.preventDefault();
+          window.closeDockPanel?.();
+        }
+      });
+
+      // ── Botão voltar do Android/navegador fecha o sheet em vez de sair ──
+      window.addEventListener('popstate', () => {
+        const sheet = document.getElementById('mobile-panel-sheet');
+        if (sheet?.classList.contains('active')) {
+          // Consome o sentinel (permite empilhar de novo na próxima abertura)
+          // e fecha o sheet sem mexer no histórico (evita race).
+          window.__mobileSheetSentinel = false;
+          window.closeDockPanel?.();
+        }
+      });
+
+      // ── Haptic feedback leve ao trocar de ferramenta / subaba (best-effort) ──
+      const haptic = () => { try { navigator.vibrate?.(8); } catch (_) {} };
+      document.querySelectorAll('#mobile-tool-bar .mobile-tool-button, .mobile-subtab').forEach(btn => {
+        btn.addEventListener('click', haptic);
+      });
+
+      // ── visualViewport: mantém o layout correto quando o teclado abre ──
+      if (window.visualViewport) {
+        const applyKeyboardInset = () => {
+          const vv = window.visualViewport;
+          const inset = Math.max(0, (window.innerHeight - vv.height - vv.offsetTop));
+          document.documentElement.style.setProperty('--ms-kb-inset', `${Math.round(inset)}px`);
+        };
+        window.visualViewport.addEventListener('resize', applyKeyboardInset);
+        window.visualViewport.addEventListener('scroll', applyKeyboardInset);
+        applyKeyboardInset();
+      }
 
       const titleNode = document.querySelector('head > title');
       if (titleNode && title) {

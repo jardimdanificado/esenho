@@ -2,14 +2,24 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="0; url=studio.html">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <link rel="icon" type="image/svg+xml" href="icon.svg">
-  <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#1d2021">
   <title>esenho</title>
   <script>
-    window.location.replace("studio.html");
+    // Roteia para o shell mobile em aparelhos de toque/pequenos; desktop vai pro studio.
+    // Use ?desktop=true para forçar o editor completo, ou ?project=<id>.
+    (function () {
+      var params = new URLSearchParams(location.search);
+      var force = params.get('desktop') === 'true';
+      var isTouch = (navigator.maxTouchPoints || 0) > 0 ||
+        ('ontouchstart' in window) ||
+        /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      var small = Math.min(window.innerWidth, window.innerHeight) <= 820;
+      var target = (!force && isTouch && small) ? 'mobile.html' : 'studio.html';
+      if (params.get('project')) target += '?project=' + encodeURIComponent(params.get('project'));
+      window.location.replace(target);
+    })();
   </script>
 </head>
 <body style="background:#1d2021; color:#ebdbb2; font-family:monospace; display:flex; align-items:center; justify-content:center; height:100vh; margin:0;">
