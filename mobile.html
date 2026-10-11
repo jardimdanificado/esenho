@@ -3726,68 +3726,8 @@
     }
   </style>
 </head>
-<style id="mobile-portrait-overrides">
-    @media (max-width: 899px) and (orientation: portrait) {
-      #mobile-studio-header { height: 52px; min-height: 52px; }
-      #mobile-tool-bar { min-height: 60px; }
-      #mobile-tool-bar .mobile-tool-button { flex: 0 0 56px; min-width: 56px; min-height: 52px; font-size: 11px; }
-      #mobile-tool-bar .mobile-tool-button .tool-icon { font-size: 20px; }
-      #mobile-studio-nav { min-height: 60px; }
-      .mobile-nav-item { flex: 1 0 64px; min-width: 64px; min-height: 52px; font-size: 11px; }
-      .mobile-nav-item .nav-icon { font-size: 20px; }
-      #mobile-panel-sheet-header button { min-width: 44px; min-height: 40px; font-size: 16px; }
-      #mobile-panel-slot .form-row { min-height: 40px; margin-bottom: 6px; }
-      #mobile-panel-slot .form-row label { flex-basis: 84px; font-size: 12px; }
-      #mobile-panel-slot input:not([type="checkbox"]):not([type="radio"]),
-      #mobile-panel-slot select { min-height: 40px !important; font-size: 16px; }
-      #mobile-panel-slot button { min-height: 40px; }
-    }
-
-    @media (max-width: 899px) and (orientation: portrait) {
-      body { position: relative; }
-      #workspace { position: absolute; inset: 0; flex: none; height: 100%; }
-      #mobile-canvas-stage { inset: 0; }
-
-      #mobile-studio-header {
-        position: absolute; top: calc(var(--mobile-safe-top) + 8px); left: 8px; right: 8px;
-        height: 52px; min-height: 52px; padding: 0 8px;
-        border: 1px solid rgba(255,255,255,.08); border-radius: 18px;
-        background: rgba(24,26,27,.78); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-        box-shadow: 0 8px 24px rgba(0,0,0,.35);
-      }
-
-      #mobile-tool-bar {
-        position: absolute; left: 50%; transform: translateX(-50%);
-        bottom: calc(var(--mobile-safe-bottom) + 84px); width: max-content; max-width: calc(100vw - 16px);
-        min-height: 0; padding: 4px; border: 1px solid rgba(255,255,255,.08); border-radius: 20px;
-        background: rgba(30,32,33,.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-        box-shadow: 0 8px 24px rgba(0,0,0,.35);
-      }
-      #mobile-tool-bar .mobile-tool-button { border-radius: 14px; }
-
-      #mobile-studio-nav {
-        position: absolute; left: 8px; right: 8px; bottom: calc(var(--mobile-safe-bottom) + 8px);
-        min-height: 0; height: 64px; padding: 6px; border: 1px solid rgba(255,255,255,.08); border-radius: 22px;
-        background: rgba(27,29,30,.86); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
-        box-shadow: 0 10px 28px rgba(0,0,0,.4);
-      }
-
-      #mobile-panel-sheet {
-        border: 1px solid rgba(255,255,255,.08); border-radius: 26px 26px 0 0;
-        padding-bottom: calc(var(--mobile-safe-bottom) + 84px);
-        background: rgba(30,32,33,.96);
-      }
-      #mobile-panel-sheet-header { background: transparent; border-bottom: 0; }
-      #mobile-subtab-bar { flex: 0 0 auto; display: flex; gap: 6px; overflow-x: auto; padding: 2px 8px 8px; scrollbar-width: none; }
-      #mobile-subtab-bar::-webkit-scrollbar { display: none; }
-      #mobile-subtab-bar[hidden] { display: none; }
-      .mobile-subtab { flex: 0 0 auto; min-height: 40px; padding: 0 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; background: transparent; color: #bdae93; font-size: 12px; font-weight: 650; }
-      .mobile-subtab.active { color: #fabd2f; background: rgba(250,189,47,.12); border-color: rgba(250,189,47,.4); }
-
-      body:has(#mobile-panel-sheet.active) #mobile-tool-bar { opacity: 0; pointer-events: none; transform: translate(-50%, 12px); }
-      body:has(#mobile-panel-sheet.active) #mobile-studio-header { background: rgba(24,26,27,.94); }
-    }
-  </style>
+<link rel="stylesheet" href="src/mobile/mobile_studio.css">
+  
 <body class="mobile-studio-ui">
 
   <header id="mobile-studio-header">
@@ -3843,11 +3783,11 @@
     <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text"><span class="tool-icon">T</span><span>Text</span></button>
   </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
-    <button class="mobile-nav-item" data-studio-group="estilo" type="button"><span class="nav-icon">◉</span><span>Estilo</span></button>
-    <button class="mobile-nav-item" data-studio-group="ajustar" type="button"><span class="nav-icon">⌗</span><span>Ajustar</span></button>
-    <button class="mobile-nav-item" data-studio-group="camadas" type="button"><span class="nav-icon">▤</span><span>Camadas</span></button>
-    <button class="mobile-nav-item" data-studio-group="animar" type="button"><span class="nav-icon">◆</span><span>Animar</span></button>
-    <button class="mobile-nav-item" data-studio-group="projeto" type="button"><span class="nav-icon">▣</span><span>Projeto</span></button>
+    <button class="mobile-nav-item" data-studio-group="estilo" type="button"><span class="nav-icon">◉</span><span>Style</span></button>
+    <button class="mobile-nav-item" data-studio-group="ajustar" type="button"><span class="nav-icon">⌗</span><span>Adjust</span></button>
+    <button class="mobile-nav-item" data-studio-group="camadas" type="button"><span class="nav-icon">▤</span><span>Layers</span></button>
+    <button class="mobile-nav-item" data-studio-group="animar" type="button"><span class="nav-icon">◆</span><span>Animate</span></button>
+    <button class="mobile-nav-item" data-studio-group="projeto" type="button"><span class="nav-icon">▣</span><span>Project</span></button>
   </nav>
 
   <!-- VS Code Bottom Status Bar -->
@@ -11504,9 +11444,12 @@
         vectorizer.id = 'inspector-vectorizer-options';
         vectorizer.style.display = 'none';
         vectorizer.innerHTML = '<div class="section-header"><span>Vectorizer</span></div>';
-        [...tracer.children].forEach(child => vectorizer.appendChild(child));
-        inspector.appendChild(vectorizer);
-        tracer.style.display = 'none';
+        // Desktop: the Vectorizer lives inside Transform. Mobile keeps Trace as its own panel.
+        if (!MOBILE_STUDIO_UI) {
+          [...tracer.children].forEach(child => vectorizer.appendChild(child));
+          inspector.appendChild(vectorizer);
+          tracer.style.display = 'none';
+        }
 
         const exportSection = document.createElement('section');
         exportSection.className = 'section-card';
@@ -11614,9 +11557,9 @@
       }
 
       function openMobileDockPanel(id) {
-        const focusSection = id === 'tracer' ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
+        const focusSection = (id === 'tracer' && !MOBILE_STUDIO_UI) ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
         const requestedProjectsTab = id === 'export' ? 'export' : (id === 'document' ? 'document' : (id === 'import' ? 'import' : null));
-        if (id === 'tracer') id = 'inspect';
+        if (id === 'tracer' && !MOBILE_STUDIO_UI) id = 'inspect';
         if (id === 'export') id = 'projects';
         if (id === 'document') id = 'projects';
         if (id === 'import') id = 'projects';
@@ -11642,14 +11585,14 @@
         if (panel.parentElement !== slot) slot.replaceChildren(panel);
         activeMobilePanelId = id;
         document.getElementById('mobile-panel-sheet')?.classList.add('active');
-        const titleMap = { color: 'Materials', inspect: 'Transform', scene: 'Layers', projects: 'Projects', animation: 'Animator', curves: 'Curves' };
+        const titleMap = { color: 'Materials', inspect: 'Transform', tracer: 'Trace', scene: 'Layers', projects: 'Projects', animation: 'Animator', curves: 'Curves' };
         document.getElementById('mobile-panel-sheet-title').textContent = titleMap[id] || id;
         document.getElementById('mobile-project-title').textContent = titleMap[id] || 'Esenho Studio';
         document.querySelectorAll('[data-studio-panel]').forEach(button => button.classList.toggle('active', button.dataset.studioPanel === id));
         if (id === 'curves' && window.dopeSheetUI?.mountCurveEditor) window.dopeSheetUI.mountCurveEditor(panel);
         if (id === 'projects' && typeof refreshProjectsList === 'function') refreshProjectsList();
         if (id === 'projects' && requestedProjectsTab) setMobileProjectsTab(requestedProjectsTab);
-        if (id === 'inspect' && typeof updateTracerUI === 'function') updateTracerUI();
+        if ((id === 'inspect' || id === 'tracer') && typeof updateTracerUI === 'function') updateTracerUI();
         if (id === 'color' && typeof ColorStudio !== 'undefined') {
           const mount = document.getElementById('color-studio-mount');
           if (mount) ColorStudio.mountColorTab(mount);
@@ -11796,6 +11739,10 @@
             </div>
           `;
           sourceInfo.style.borderColor = 'var(--primary)';
+        } else if (MOBILE_STUDIO_UI) {
+          sourceInfo.style.display = 'block';
+          sourceInfo.style.borderColor = 'var(--border)';
+          sourceInfo.innerHTML = '<div style="color: var(--text-muted);">Select an image to trace.</div>';
         } else {
           sourceInfo.style.display = 'none';
           sourceInfo.innerHTML = '';
@@ -15747,11 +15694,11 @@
       }
 
       const studioGroups = {
-        estilo: [['color', 'Cor']],
-        ajustar: [['inspect', 'Transformar'], ['tracer', 'Trace']],
-        camadas: [['scene', 'Lista']],
-        animar: [['animation', 'Timeline'], ['curves', 'Curvas']],
-        projeto: [['projects', 'Projetos'], ['export', 'Exportar'], ['import', 'Importar'], ['document', 'Documento']],
+        estilo: [['color', 'Color']],
+        ajustar: [['inspect', 'Transform'], ['tracer', 'Trace']],
+        camadas: [['scene', 'List']],
+        animar: [['animation', 'Timeline'], ['curves', 'Curves']],
+        projeto: [['projects', 'Projects'], ['export', 'Export'], ['import', 'Import'], ['document', 'Document']],
       };
       const groupLastSubtab = {};
 

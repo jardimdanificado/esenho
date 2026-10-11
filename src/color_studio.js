@@ -845,7 +845,7 @@
   const CUSTOM_BRUSH_FILL_PRESETS_KEY = 'esenho_custom_brush_fill_presets';
 
   const DEFAULT_BRUSH_FILL_CONFIG = {
-    enabled: true,
+    enabled: false,
     pattern: 'linear',
     spacing: 8,
     angle: 45,
