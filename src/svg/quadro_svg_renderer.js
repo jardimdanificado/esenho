@@ -2721,26 +2721,48 @@
       this.setBrushParamFast(34 /* COLOR_PICKUP */, brushConfig?.color_pickup !== undefined ? brushConfig.color_pickup : (brushConfig?.colorPickup !== undefined ? brushConfig.colorPickup : 0));
       this.setBrushParamFast(35 /* DUAL_SHAPE */, -1);
 
-      const pts = scale === 1.0 ? poly : poly.map(p => ({ x: Math.round(p.x * scale), y: Math.round(p.y * scale) }));
+      const baseSize = Math.max(1, strokeWidth);
+      const pts = scale === 1.0 ? poly : poly.map(p => ({
+        x: Math.round(p.x * scale),
+        y: Math.round(p.y * scale),
+        pressure: p.pressure,
+        widthScale: p.widthScale,
+        tiltX: p.tiltX,
+        tiltY: p.tiltY
+      }));
       const n = pts.length;
+      const getPress = (pt) => pt.pressure !== undefined ? Math.max(10, Math.min(2000, Math.round(pt.pressure * 1000))) : 1000;
+      const getTiltX = (pt) => Math.round(pt.tiltX || 0);
+      const getTiltY = (pt) => Math.round(pt.tiltY || 0);
+      const applyPtSize = (pt) => {
+        const ws = pt.widthScale !== undefined ? pt.widthScale : 1.0;
+        this.setBrushParamFast(1 /* SIZE */, Math.max(1, Math.round(baseSize * ws)));
+      };
+
       if (n === 1) {
-        exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, 1000, 0, 0);
-        exp.w_brush_stroke_ext(2, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, 1000, 0, 0);
+        applyPtSize(pts[0]);
+        const pr = getPress(pts[0]), tx = getTiltX(pts[0]), ty = getTiltY(pts[0]);
+        exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, pr, tx, ty);
+        exp.w_brush_stroke_ext(2, pts[0].x, pts[0].y, pts[0].x, pts[0].y, argbColor, 0, pr, tx, ty);
         return;
       }
 
-      exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[1].x, pts[1].y, argbColor, 0, 1000, 0, 0);
+      applyPtSize(pts[0]);
+      exp.w_brush_stroke_ext(0, pts[0].x, pts[0].y, pts[1].x, pts[1].y, argbColor, 0, getPress(pts[0]), getTiltX(pts[0]), getTiltY(pts[0]));
       for (let i = 2; i < n; i++) {
-        exp.w_brush_stroke_ext(1, pts[i].x, pts[i].y, pts[i - 1].x, pts[i - 1].y, argbColor, 0, 1000, 0, 0);
+        applyPtSize(pts[i]);
+        exp.w_brush_stroke_ext(1, pts[i].x, pts[i].y, pts[i - 1].x, pts[i - 1].y, argbColor, 0, getPress(pts[i]), getTiltX(pts[i]), getTiltY(pts[i]));
       }
 
       if (closed && n >= 3) {
-        exp.w_brush_stroke_ext(1, pts[0].x, pts[0].y, pts[n - 1].x, pts[n - 1].y, argbColor, 0, 1000, 0, 0);
+        applyPtSize(pts[0]);
+        exp.w_brush_stroke_ext(1, pts[0].x, pts[0].y, pts[n - 1].x, pts[n - 1].y, argbColor, 0, getPress(pts[0]), getTiltX(pts[0]), getTiltY(pts[0]));
       }
 
       const last = closed ? pts[0] : pts[n - 1];
       const prev = closed ? pts[n - 1] : pts[n - 2];
-      exp.w_brush_stroke_ext(2, last.x, last.y, prev.x, prev.y, argbColor, 0, 1000, 0, 0);
+      applyPtSize(last);
+      exp.w_brush_stroke_ext(2, last.x, last.y, prev.x, prev.y, argbColor, 0, getPress(last), getTiltX(last), getTiltY(last));
     }
 
     /** Alpha blending helper (ARGB Porter-Duff Source Over) */

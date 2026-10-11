@@ -14,7 +14,7 @@
    so the engine logic compiles without modification.                  */
 const IS_BROWSER = typeof window !== 'undefined';
 
-let sdl, fs, path, readline, saveImage, loadImage, EsenhoStore;
+let sdl, fs, path, readline, saveImage, loadImage, EsenhoStore, SvgEngine;
 
 if (!IS_BROWSER) {
   try { sdl = require('@kmamal/sdl'); } catch (_) { sdl = null; }
@@ -25,8 +25,12 @@ if (!IS_BROWSER) {
   try {
     EsenhoStore = require('./project_store.js');
   } catch (_) {}
+  try {
+    SvgEngine = require('./svg/svg_engine.js');
+  } catch (_) {}
 } else {
   EsenhoStore = typeof window !== 'undefined' ? window.EsenhoStore : null;
+  SvgEngine = typeof window !== 'undefined' ? window.SvgEngine : null;
   /* Browser stubs — only used by Node-only methods (initWindow, setupRepl, etc.)
      which are replaced by host-browser.js.  The engine core never calls these.  */
   fs   = { readFileSync: () => { throw new Error('fs not available in browser'); },
@@ -38,6 +42,15 @@ if (!IS_BROWSER) {
   readline   = null;
   saveImage  = () => { throw new Error('image_io not available in browser'); };
   loadImage  = () => { throw new Error('image_io not available in browser'); };
+}
+
+function getSvgEngine() {
+  if (SvgEngine) return SvgEngine;
+  if (typeof window !== 'undefined' && window.SvgEngine) {
+    SvgEngine = window.SvgEngine;
+    return SvgEngine;
+  }
+  return null;
 }
 
 /* Browser-compatible Buffer shim (Buffer extends Uint8Array in Node, so
@@ -3488,6 +3501,9 @@ function handleSetMode(host, rawMode) {
     host.currentTool = 'magic_wand';
     host.setBrushParam('mode', 11);
     host.sendConsoleLog('mode set to magic wand');
+  } else if (m === 'vector' || m === 'vec') {
+    host.setActionMode('vector');
+    host.sendConsoleLog('action mode set to vector');
   } else {
     host.sendConsoleLog(`err: unknown mode '${rawMode}'`, 0xFFFF5555);
   }
@@ -3497,6 +3513,9 @@ function handleBrushParamOrPreset(host, sub, val) {
   const s = sub.toLowerCase().trim();
   if (PARAM_IDS[s] !== undefined && val !== undefined) {
     host.setBrushParam(s, val);
+    if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
+      host.applyCurrentBrushStyleToSelectedVectorPaths({ brushParams: true, preset: false, color: false });
+    }
     host.sendConsoleLog(`brush ${s} set to ${val}`);
   } else if (BRUSH_PRESETS[s] || (host.customBrushPresets && host.customBrushPresets[s])) {
     host.selectBrushPreset(s);
@@ -3510,6 +3529,9 @@ function handleDirectParam(host, rawParam, val) {
   const p = rawParam.toLowerCase();
   if (PARAM_IDS[p] !== undefined && val !== undefined) {
     host.setBrushParam(p, val);
+    if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
+      host.applyCurrentBrushStyleToSelectedVectorPaths({ brushParams: true, preset: false, color: false });
+    }
     host.sendConsoleLog(`brush ${p} set to ${val}`);
     return true;
   }
@@ -3717,6 +3739,55 @@ const COMMAND_RULES = [
 
   // Layer Commands
   {
+    pat: "new vector layer $name",
+    run: (m, host) => {
+      const idx = host.createVectorLayer(m.name);
+      host.sendConsoleLog(`new vector layer [${idx}] '${m.name}' added`);
+    }
+  },
+  { pat: "vector layer new $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new vector layer $name").run(m, host) },
+  { pat: "layer add vector $name", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new vector layer $name").run(m, host) },
+  {
+    pat: "new vector layer",
+    run: (m, host) => {
+      const idx = host.createVectorLayer();
+      host.sendConsoleLog(`new vector layer [${idx}] added`);
+    }
+  },
+  { pat: "vector layer new", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new vector layer").run(m, host) },
+  { pat: "layer add vector", run: (m, host) => COMMAND_RULES.find(r => r.pat === "new vector layer").run(m, host) },
+  {
+    pat: "rasterize layer $id$int",
+    run: (m, host) => {
+      const id = parseInt(m.id, 10);
+      if (host.rasterizeVectorLayer(id)) {
+        host.sendConsoleLog(`vector layer [${id}] rasterized`);
+      } else {
+        host.sendConsoleLog(`err: layer [${id}] is not a vector layer`, 0xFFFF5555);
+      }
+    }
+  },
+  {
+    pat: "rasterize layer",
+    run: (m, host) => {
+      const id = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 3;
+      if (host.rasterizeVectorLayer(id)) {
+        host.sendConsoleLog(`vector layer [${id}] rasterized`);
+      } else {
+        host.sendConsoleLog(`err: layer [${id}] is not a vector layer`, 0xFFFF5555);
+      }
+    }
+  },
+  { pat: "layer rasterize", run: (m, host) => COMMAND_RULES.find(r => r.pat === "rasterize layer").run(m, host) },
+  {
+    pat: "vector mode $mode",
+    run: (m, host) => {
+      const mode = String(m.mode).toLowerCase();
+      host.vectorCurveMode = (mode === 'raw' || mode === 'polyline' || mode === 'points') ? 'raw' : 'bezier';
+      host.sendConsoleLog(`vector curve mode set to ${host.vectorCurveMode}`);
+    }
+  },
+  {
     pat: "new layer $name",
     run: (m, host) => {
       const idx = host.canvasActor.exports.w_layer_add();
@@ -3755,6 +3826,7 @@ const COMMAND_RULES = [
       const id = parseInt(m.id, 10);
       host.canvasActor.exports.w_layer_delete(id);
       if (host.layerNames) host.layerNames.delete(id);
+      if (host.vectorLayers) host.vectorLayers.delete(id);
       if (typeof host.ensureTreeIntegrity === 'function') host.ensureTreeIntegrity();
       host.sendConsoleLog(`deleted layer [${id}]`);
     }
@@ -3766,6 +3838,7 @@ const COMMAND_RULES = [
       const id = getActive ? getActive() : 0;
       host.canvasActor.exports.w_layer_delete(id);
       if (host.layerNames) host.layerNames.delete(id);
+      if (host.vectorLayers) host.vectorLayers.delete(id);
       if (typeof host.ensureTreeIntegrity === 'function') host.ensureTreeIntegrity();
       host.sendConsoleLog(`deleted layer [${id}]`);
     }
@@ -3784,6 +3857,10 @@ const COMMAND_RULES = [
         if (!host.layerNames) host.layerNames = new Map();
         const srcName = host.layerNames.get(id) || `Layer ${id}`;
         host.layerNames.set(newId, `${srcName} (Copy)`);
+        if (host.isVectorLayer && host.isVectorLayer(id)) {
+          const snap = host._captureVectorLayerSnapshot(id);
+          if (snap) host._restoreVectorLayerSnapshot(newId, snap);
+        }
         host.ensureTreeIntegrity();
         host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
       }
@@ -3799,6 +3876,10 @@ const COMMAND_RULES = [
         if (!host.layerNames) host.layerNames = new Map();
         const srcName = host.layerNames.get(id) || `Layer ${id}`;
         host.layerNames.set(newId, `${srcName} (Copy)`);
+        if (host.isVectorLayer && host.isVectorLayer(id)) {
+          const snap = host._captureVectorLayerSnapshot(id);
+          if (snap) host._restoreVectorLayerSnapshot(newId, snap);
+        }
         host.ensureTreeIntegrity();
         host.sendConsoleLog(`layer [${id}] duplicated to [${newId}]`);
       }
@@ -4272,6 +4353,10 @@ const COMMAND_RULES = [
     run: (m, host) => {
       const id = parseInt(m.id, 10);
       host.pushUndoSnapshot(`clear layer ${id}`);
+      if (host.isVectorLayer && host.isVectorLayer(id)) {
+        const vl = host.getVectorLayer(id);
+        if (vl) { vl.paths = []; vl.selectedPathId = null; vl.selectedNodeIdx = -1; }
+      }
       host.canvasActor.exports.w_layer_clear(id);
       host.sendConsoleLog(`layer [${id}] cleared`);
     }
@@ -4280,6 +4365,11 @@ const COMMAND_RULES = [
     pat: "clear layer",
     run: (m, host) => {
       host.pushUndoSnapshot('clear active layer');
+      const actId = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : -1;
+      if (host.isVectorLayer && host.isVectorLayer(actId)) {
+        const vl = host.getVectorLayer(actId);
+        if (vl) { vl.paths = []; vl.selectedPathId = null; vl.selectedNodeIdx = -1; }
+      }
       host.canvasActor.exports.w_layer_clear(-1);
       host.sendConsoleLog('active layer cleared');
     }
@@ -4373,6 +4463,9 @@ const COMMAND_RULES = [
     pat: "set shape $shape",
     run: (m, host) => {
       host.setBrushParam('shape', m.shape);
+      if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
+        host.applyCurrentBrushStyleToSelectedVectorPaths({ brushParams: true, preset: false, color: false });
+      }
       host.sendConsoleLog(`brush shape set to ${m.shape}`);
     }
   },
@@ -4385,6 +4478,9 @@ const COMMAND_RULES = [
       const tname = m.tex.toLowerCase();
       const ok = host.setTexture(tname);
       if (ok) {
+        if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
+          host.applyCurrentBrushStyleToSelectedVectorPaths({ brushParams: true, preset: false, color: false });
+        }
         host.sendConsoleLog(`texture set to '${tname}'`);
       } else {
         host.sendConsoleLog(`err: texture '${tname}' not found. Options: paper, canvas, noise, dots, grid, grunge, hatch, none`, 0xFFFF5555);
@@ -4915,6 +5011,9 @@ const COMMAND_RULES = [
         const toHex = (n) => n.toString(16).padStart(2, '0');
         host.brushParams.color = `#${toHex(r)}${toHex(g)}${toHex(b)}`;
       }
+      if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
+        host.applyCurrentBrushStyleToSelectedVectorPaths({ color: true, brushParams: false, preset: false });
+      }
       host.sendConsoleLog(`color set to 0x${host.currentColor.toString(16).padStart(8, '0')}`);
     }
   },
@@ -4929,6 +5028,9 @@ const COMMAND_RULES = [
       if (parsed !== null) {
         host.currentColor = parsed;
         if (host.brushParams) host.brushParams.color = m.col;
+        if (host.actionMode === 'vector' && host.getSelectedVectorPath && host.getSelectedVectorPath()) {
+          host.applyCurrentBrushStyleToSelectedVectorPaths({ color: true, brushParams: false, preset: false });
+        }
         host.sendConsoleLog(`color set to 0x${host.currentColor.toString(16).padStart(8, '0')}`);
       } else {
         host.sendConsoleLog(`err: unknown color '${m.col}'`, 0xFFFF5555);
@@ -5826,6 +5928,12 @@ class EsenhoScreenHost {
     this.layerNames = new Map();  // layerId -> custom name
     this.groupCounter = 1;
 
+    // Vector Painter Layers (Editable Bézier / Polyline SvgPaths rendered via WASM Brush Engine)
+    this.vectorLayers = new Map(); // layerId -> { id, paths: Array<SvgPath>, selectedPathId: string|null, selectedNodeIdx: number }
+    this.vectorCurveMode = 'bezier'; // 'bezier' (Auto-Fit Cubic Bézier) | 'raw' (Polilinha Fiel)
+    this.vectorFitTolerance = 2.5;
+    this.vectorSubTool = 'nodes'; // 'nodes' (Bézier Node Editor) | 'width' (Per-Node Pressure / Width Editor)
+
     // Textures & Actors
     this.textures = createProceduralTextures();
     this.activeTexture = 'none';
@@ -5848,8 +5956,36 @@ class EsenhoScreenHost {
     this.rl = null;
   }
 
+  _captureVectorLayerSnapshot(layerIdx) {
+    if (!this.vectorLayers || !this.vectorLayers.has(layerIdx)) return null;
+    const vl = this.vectorLayers.get(layerIdx);
+    return {
+      selectedPathId: vl.selectedPathId || null,
+      selectedNodeIdx: vl.selectedNodeIdx !== undefined ? vl.selectedNodeIdx : -1,
+      paths: Array.isArray(vl.paths) ? vl.paths.map(p => (typeof p.toJSON === 'function' ? p.toJSON() : JSON.parse(JSON.stringify(p)))) : []
+    };
+  }
+
+  _restoreVectorLayerSnapshot(layerIdx, vecSnap) {
+    if (!this.vectorLayers) this.vectorLayers = new Map();
+    if (!vecSnap) {
+      this.vectorLayers.delete(layerIdx);
+      return;
+    }
+    const SE = getSvgEngine();
+    const paths = Array.isArray(vecSnap.paths)
+      ? vecSnap.paths.map(pj => (SE && SE.SvgPath && typeof SE.SvgPath.fromJSON === 'function') ? SE.SvgPath.fromJSON(pj) : pj)
+      : [];
+    this.vectorLayers.set(layerIdx, {
+      id: layerIdx,
+      selectedPathId: vecSnap.selectedPathId || null,
+      selectedNodeIdx: vecSnap.selectedNodeIdx !== undefined ? vecSnap.selectedNodeIdx : -1,
+      paths
+    });
+  }
+
   /**
-   * Captures the active layer's current pixel buffer for the undo stack.
+   * Captures the active layer's current pixel buffer (and vector paths if applicable) for the undo stack.
    */
   pushUndoSnapshot(action = 'draw') {
     if (!this.canvasActor || !this.canvasActor.exports) return;
@@ -5863,13 +5999,15 @@ class EsenhoScreenHost {
     const byteLen = w * h * 4;
     const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, byteLen);
     const pixelsCopy = raw.slice();
+    const vectorSnapshot = this._captureVectorLayerSnapshot(layerIdx);
 
     this.undoStack.push({
       action,
       layerIdx,
       width: w,
       height: h,
-      pixels: pixelsCopy
+      pixels: pixelsCopy,
+      vectorSnapshot
     });
 
     if (this.maxUndoSteps > 0 && this.undoStack.length > this.maxUndoSteps) {
@@ -5896,16 +6034,21 @@ class EsenhoScreenHost {
     if (ptr && w === snapshot.width && h === snapshot.height) {
       const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
       const currentPixels = raw.slice();
+      const currentVecSnap = this._captureVectorLayerSnapshot(layerIdx);
 
       this.redoStack.push({
         action: snapshot.action,
         layerIdx,
         width: w,
         height: h,
-        pixels: currentPixels
+        pixels: currentPixels,
+        vectorSnapshot: currentVecSnap
       });
 
       raw.set(snapshot.pixels);
+      if (snapshot.vectorSnapshot !== undefined) {
+        this._restoreVectorLayerSnapshot(layerIdx, snapshot.vectorSnapshot);
+      }
       if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
       this.sendConsoleLog(`undo: ${snapshot.action}`);
       return { ok: true, action: snapshot.action };
@@ -5931,21 +6074,576 @@ class EsenhoScreenHost {
     if (ptr && w === snapshot.width && h === snapshot.height) {
       const raw = new Uint8Array(this.canvasActor.memory.buffer, ptr, w * h * 4);
       const currentPixels = raw.slice();
+      const currentVecSnap = this._captureVectorLayerSnapshot(layerIdx);
 
       this.undoStack.push({
         action: snapshot.action,
         layerIdx,
         width: w,
         height: h,
-        pixels: currentPixels
+        pixels: currentPixels,
+        vectorSnapshot: currentVecSnap
       });
 
       raw.set(snapshot.pixels);
+      if (snapshot.vectorSnapshot !== undefined) {
+        this._restoreVectorLayerSnapshot(layerIdx, snapshot.vectorSnapshot);
+      }
       if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
       this.sendConsoleLog(`redo: ${snapshot.action}`);
       return { ok: true, action: snapshot.action };
     }
     return { ok: false, msg: 'layer dimension mismatch' };
+  }
+
+  /* ── Vector Painter Layer Subsystem ── */
+
+  /**
+   * Returns true if the specified layer (or active layer if omitted) is a Vector Layer.
+   */
+  isVectorLayer(layerId) {
+    if (!this.vectorLayers) return false;
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    return this.vectorLayers.has(lid);
+  }
+
+  /**
+   * Returns the vector layer state object `{ id, paths, selectedPathId, selectedNodeIdx }` or null.
+   */
+  getVectorLayer(layerId) {
+    if (!this.vectorLayers) return null;
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    return this.vectorLayers.get(lid) || null;
+  }
+
+  /**
+   * Creates a new Vector Layer in WASM and initializes its editable SvgPath collection.
+   */
+  createVectorLayer(name) {
+    if (!this.canvasActor?.exports?.w_layer_add) return -1;
+    const idx = this.canvasActor.exports.w_layer_add();
+    if (idx < 0) return -1;
+    if (!this.layerNames) this.layerNames = new Map();
+    const layerName = name || `Vector ${idx}`;
+    this.layerNames.set(idx, layerName);
+    if (!this.vectorLayers) this.vectorLayers = new Map();
+    this.vectorLayers.set(idx, {
+      id: idx,
+      paths: [],
+      selectedPathId: null,
+      selectedNodeIdx: -1
+    });
+    this.ensureTreeIntegrity();
+    return idx;
+  }
+
+  /**
+   * Converts an existing layer into a Vector Layer (preserving pixels if any, or initializing path list).
+   */
+  enableVectorLayer(layerId) {
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    if (!this.vectorLayers) this.vectorLayers = new Map();
+    if (!this.vectorLayers.has(lid)) {
+      this.vectorLayers.set(lid, {
+        id: lid,
+        paths: [],
+        selectedPathId: null,
+        selectedNodeIdx: -1
+      });
+    }
+    return this.vectorLayers.get(lid);
+  }
+
+  /**
+   * Rasterizes a Vector Layer into a standard pixel layer, baking all vector strokes permanently.
+   */
+  rasterizeVectorLayer(layerId) {
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    if (!this.isVectorLayer(lid)) return false;
+    this.pushUndoSnapshot('rasterize vector layer');
+    this.renderVectorLayer(lid);
+    this.vectorLayers.delete(lid);
+    return true;
+  }
+
+  /**
+   * Returns the currently selected SvgPath on the specified or active Vector Layer.
+   */
+  getSelectedVectorPath(layerId) {
+    const vl = this.getVectorLayer(layerId);
+    if (!vl || !vl.selectedPathId) return null;
+    return vl.paths.find(p => p.id === vl.selectedPathId) || null;
+  }
+
+  /**
+   * Selects a vector path (and optionally a specific anchor node index) on a Vector Layer.
+   */
+  selectVectorPath(pathId, nodeIdx = -1, layerId) {
+    const vl = this.getVectorLayer(layerId);
+    if (!vl) return null;
+    vl.selectedPathId = pathId || null;
+    vl.selectedNodeIdx = (nodeIdx !== undefined && nodeIdx !== null) ? nodeIdx : -1;
+    for (const p of vl.paths) {
+      p.selected = (p.id === vl.selectedPathId);
+      if (Array.isArray(p.nodes)) {
+        p.nodes.forEach((n, idx) => {
+          n.selected = (p.selected && idx === vl.selectedNodeIdx);
+        });
+      }
+    }
+    return this.getSelectedVectorPath(layerId);
+  }
+
+  /**
+   * Converts an Esenho 32-bit ABGR color (`0xAARRGGBB` in little-endian memory) to `#rrggbb` hex.
+   */
+  _colorToHex(col) {
+    const c = (col !== undefined ? col : this.currentColor) >>> 0;
+    const r = c & 0xFF;
+    const g = (c >> 8) & 0xFF;
+    const b = (c >> 16) & 0xFF;
+    const toHex = (n) => n.toString(16).padStart(2, '0');
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  /**
+   * Captures the current brush preset, parameters, color, and grain texture for a new SvgPath.
+   */
+  _buildVectorBrushAttribs() {
+    const bp = this.brushParams || {};
+    const strokeHex = this._colorToHex(this.currentColor);
+    const texName = this.activeTexture || bp.texture || 'none';
+    return {
+      stroke: strokeHex,
+      fill: 'none',
+      strokeWidth: Math.max(1, bp.size || 8),
+      opacity: (bp.opacity !== undefined ? bp.opacity : 100) / 100,
+      brushPreset: this.activeBrush || 'pen',
+      brushType: this.activeBrush || 'pen',
+      brushConfig: JSON.parse(JSON.stringify(bp)),
+      strokeTexture: (texName && texName !== 'none') ? {
+        name: texName,
+        grain: bp.grain !== undefined ? bp.grain : 50,
+        scale: bp.texture_scale !== undefined ? bp.texture_scale : 100,
+        angle: bp.texture_angle !== undefined ? bp.texture_angle : 0,
+        contrast: bp.texture_contrast !== undefined ? bp.texture_contrast : 100,
+        mode: bp.texture_mode !== undefined ? bp.texture_mode : 0
+      } : null
+    };
+  }
+
+  /**
+   * Converts raw recorded pointer samples `[{ x, y, pressure, tiltX, tiltY }]` into an editable
+   * `SvgPath` (using either `'bezier'` auto-fit or `'raw'` polyline), adds it to the Vector Layer,
+   * selects it, and renders the layer in WASM.
+   */
+  addVectorPathFromRawPoints(rawPoints, layerId, customOpts = {}) {
+    const SE = getSvgEngine();
+    if (!SE || !SE.SvgPath || !Array.isArray(rawPoints) || rawPoints.length === 0) return null;
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    const vl = this.enableVectorLayer(lid);
+
+    const mode = customOpts.mode || this.vectorCurveMode || 'bezier';
+    const tolerance = customOpts.tolerance !== undefined ? customOpts.tolerance : (this.vectorFitTolerance || 2.5);
+    const baseAttrs = this._buildVectorBrushAttribs();
+
+    const path = SE.SvgPath.fromRawPoints(rawPoints, {
+      ...baseAttrs,
+      ...customOpts,
+      mode,
+      tolerance
+    });
+    path.name = customOpts.name || `${this.activeBrush || 'Stroke'} ${vl.paths.length + 1}`;
+    vl.paths.push(path);
+    this.selectVectorPath(path.id, -1, lid);
+    this.renderVectorLayer(lid);
+    return path;
+  }
+
+  /**
+   * Creates a geometric vector shape (`'line' | 'rect' | 'ellipse'`) as an editable `SvgPath`
+   * on the specified or active Vector Layer.
+   */
+  addVectorShapePath(shapeType, x0, y0, x1, y1, layerId, customOpts = {}) {
+    const SE = getSvgEngine();
+    if (!SE || !SE.SvgPath || !SE.PathNode) return null;
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    const vl = this.enableVectorLayer(lid);
+    const baseAttrs = this._buildVectorBrushAttribs();
+    const path = new SE.SvgPath({ ...baseAttrs, ...customOpts });
+
+    if (shapeType === 'line') {
+      path.closed = false;
+      path.nodes = [
+        new SE.PathNode(x0, y0, null, null, 'corner'),
+        new SE.PathNode(x1, y1, null, null, 'corner')
+      ];
+      path.name = `Line ${vl.paths.length + 1}`;
+    } else if (shapeType === 'rect') {
+      const minX = Math.min(x0, x1), maxX = Math.max(x0, x1);
+      const minY = Math.min(y0, y1), maxY = Math.max(y0, y1);
+      path.closed = true;
+      path.nodes = [
+        new SE.PathNode(minX, minY, null, null, 'corner'),
+        new SE.PathNode(maxX, minY, null, null, 'corner'),
+        new SE.PathNode(maxX, maxY, null, null, 'corner'),
+        new SE.PathNode(minX, maxY, null, null, 'corner')
+      ];
+      path.name = `Rect ${vl.paths.length + 1}`;
+    } else if (shapeType === 'ellipse') {
+      const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+      const rx = Math.max(1, Math.abs(x1 - x0) / 2);
+      const ry = Math.max(1, Math.abs(y1 - y0) / 2);
+      const k = 0.5522847498307936;
+      const ox = rx * k, oy = ry * k;
+      path.closed = true;
+      path.nodes = [
+        new SE.PathNode(cx, cy - ry, { x: -ox, y: 0 }, { x: ox, y: 0 }, 'smooth'),
+        new SE.PathNode(cx + rx, cy, { x: 0, y: -oy }, { x: 0, y: oy }, 'smooth'),
+        new SE.PathNode(cx, cy + ry, { x: ox, y: 0 }, { x: -ox, y: 0 }, 'smooth'),
+        new SE.PathNode(cx - rx, cy, { x: 0, y: oy }, { x: 0, y: -oy }, 'smooth')
+      ];
+      path.name = `Ellipse ${vl.paths.length + 1}`;
+    }
+
+    vl.paths.push(path);
+    this.selectVectorPath(path.id, -1, lid);
+    this.renderVectorLayer(lid);
+    return path;
+  }
+
+  /**
+   * Hit-tests all visible paths on a Vector Layer from top to bottom.
+   * Returns `{ path, hitInfo }` or `null`.
+   */
+  hitTestVectorLayer(px, py, tolerance = 8, layerId) {
+    const vl = this.getVectorLayer(layerId);
+    if (!vl || !Array.isArray(vl.paths)) return null;
+    for (let i = vl.paths.length - 1; i >= 0; i--) {
+      const p = vl.paths[i];
+      if (!p || p.visible === false || p.locked) continue;
+      const info = typeof p.hitTestStroke === 'function'
+        ? p.hitTestStroke(px, py, tolerance)
+        : (p.hitTest(px, py, tolerance) ? { hit: true, segIndex: 0, t: 0, x: px, y: py, distance: 0 } : { hit: false });
+      if (info && info.hit) {
+        return { path: p, hitInfo: info, index: i };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Erases vector paths touched by `(px, py)` within `radius` on a Vector Layer.
+   */
+  eraseVectorAtPoint(px, py, radius = 10, layerId) {
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
+    const vl = this.getVectorLayer(lid);
+    if (!vl || !Array.isArray(vl.paths) || vl.paths.length === 0) return false;
+
+    let removed = false;
+    const r = Math.max(4, radius);
+    for (let i = vl.paths.length - 1; i >= 0; i--) {
+      const p = vl.paths[i];
+      if (!p || p.visible === false || p.locked) continue;
+      const info = typeof p.hitTestStroke === 'function' ? p.hitTestStroke(px, py, r) : null;
+      if (info && info.hit) {
+        if (vl.selectedPathId === p.id) {
+          vl.selectedPathId = null;
+          vl.selectedNodeIdx = -1;
+        }
+        vl.paths.splice(i, 1);
+        removed = true;
+      }
+    }
+    if (removed) {
+      this.renderVectorLayer(lid);
+    }
+    return removed;
+  }
+
+  /**
+   * Non-destructively updates the selected vector path(s) on the active Vector Layer
+   * when the user changes brush preset, color, size, opacity, or any brush parameter.
+   */
+  applyCurrentBrushStyleToSelectedVectorPaths(changedProps = {}) {
+    const lid = this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3;
+    if (!this.isVectorLayer(lid)) return false;
+    const path = this.getSelectedVectorPath(lid);
+    if (!path) return false;
+
+    const bp = this.brushParams || {};
+    if (!path.brushConfig) path.brushConfig = {};
+
+    if (changedProps.preset || changedProps.all || changedProps.brushParams) {
+      if (changedProps.preset || changedProps.all) {
+        path.brushPreset = this.activeBrush || path.brushPreset || 'pen';
+        path.brushType = path.brushPreset;
+      }
+      path.brushConfig = JSON.parse(JSON.stringify(bp));
+      path.strokeWidth = Math.max(1, bp.size || path.strokeWidth || 8);
+      path.opacity = (bp.opacity !== undefined ? bp.opacity : 100) / 100;
+      const texName = this.activeTexture || bp.texture || 'none';
+      path.strokeTexture = (texName && texName !== 'none') ? {
+        name: texName,
+        grain: bp.grain !== undefined ? bp.grain : 50,
+        scale: bp.texture_scale !== undefined ? bp.texture_scale : 100,
+        angle: bp.texture_angle !== undefined ? bp.texture_angle : 0,
+        contrast: bp.texture_contrast !== undefined ? bp.texture_contrast : 100,
+        mode: bp.texture_mode !== undefined ? bp.texture_mode : 0
+      } : null;
+    }
+
+    if (changedProps.color) {
+      path.stroke = this._colorToHex(this.currentColor);
+    }
+
+    if (changedProps.param) {
+      const k = changedProps.param;
+      path.brushConfig[k] = bp[k];
+      if (k === 'size') {
+        path.strokeWidth = Math.max(1, bp.size || 1);
+      } else if (k === 'opacity') {
+        path.opacity = (bp.opacity !== undefined ? bp.opacity : 100) / 100;
+      } else if (k === 'texture' || k === 'grain' || k === 'texture_scale' || k === 'texture_angle' || k === 'texture_contrast' || k === 'texture_mode') {
+        const texName = this.activeTexture || bp.texture || 'none';
+        path.strokeTexture = (texName && texName !== 'none') ? {
+          name: texName,
+          grain: bp.grain !== undefined ? bp.grain : 50,
+          scale: bp.texture_scale !== undefined ? bp.texture_scale : 100,
+          angle: bp.texture_angle !== undefined ? bp.texture_angle : 0,
+          contrast: bp.texture_contrast !== undefined ? bp.texture_contrast : 100,
+          mode: bp.texture_mode !== undefined ? bp.texture_mode : 0
+        } : null;
+      }
+    }
+
+    this.renderVectorLayer(lid);
+    return true;
+  }
+
+  /**
+   * Renders a single `SvgPath` onto the currently active WASM layer using `w_brush_stroke_ext`,
+   * preserving brush preset parameters, grain texture, per-node pressure, widthScale, and tilt.
+   */
+  _renderSingleVectorPathToActiveWasmLayer(path) {
+    if (!path || path.visible === false || !this.canvasActor?.exports) return;
+    const exports = this.canvasActor.exports;
+    if (typeof exports.w_brush_stroke_ext !== 'function') return;
+
+    const pts = typeof path.getEvaluatedPoints === 'function' ? path.getEvaluatedPoints(0.35) : [];
+    if (!pts || pts.length === 0) return;
+
+    const cfg = path.brushConfig || {};
+    const baseSize = Math.max(1, path.strokeWidth || cfg.size || 8);
+    const baseOpacity = Math.max(1, Math.min(100, Math.round((path.opacity !== undefined ? path.opacity : 1) * 100)));
+    const col = parseColorString(path.stroke || '#000000', this.currentColor) >>> 0;
+
+    // Reset and configure WASM brush engine for this path
+    if (typeof exports.w_brush_reset === 'function') {
+      exports.w_brush_reset();
+    }
+    for (const [k, v] of Object.entries(cfg)) {
+      const pId = PARAM_IDS[k];
+      if (pId !== undefined && typeof v === 'number') {
+        exports.w_brush_set_param(pId, Math.floor(v));
+      }
+    }
+    exports.w_brush_set_param(PARAM_IDS.size, Math.round(baseSize));
+    exports.w_brush_set_param(PARAM_IDS.opacity, baseOpacity);
+    exports.w_brush_set_param(PARAM_IDS.mode, cfg.mode !== undefined ? cfg.mode : 0);
+
+    // Shape tip
+    if (cfg.shape !== undefined) {
+      let sVal = cfg.shape;
+      if (typeof sVal === 'string') {
+        const lower = sVal.toLowerCase();
+        if (lower === 'circle' || lower === 'round') sVal = 0;
+        else if (lower === 'square') sVal = 1;
+        else if (lower === 'chisel' || lower === 'flat') sVal = 2;
+        else sVal = this.getTextureId(lower);
+      }
+      exports.w_brush_set_param(PARAM_IDS.shape, sVal);
+    } else {
+      exports.w_brush_set_param(PARAM_IDS.shape, 0);
+    }
+
+    // Grain texture
+    const texName = path.strokeTexture?.name || cfg.texture || 'none';
+    if (texName && texName !== 'none') {
+      const texId = this.getTextureId(texName.toLowerCase());
+      exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, texId);
+      if (path.strokeTexture) {
+        if (path.strokeTexture.grain !== undefined) exports.w_brush_set_param(PARAM_IDS.grain, Math.round(path.strokeTexture.grain));
+        if (path.strokeTexture.scale !== undefined) exports.w_brush_set_param(PARAM_IDS.texture_scale, Math.round(path.strokeTexture.scale));
+        if (path.strokeTexture.angle !== undefined) exports.w_brush_set_param(PARAM_IDS.texture_angle, Math.round(path.strokeTexture.angle));
+        if (path.strokeTexture.contrast !== undefined) exports.w_brush_set_param(PARAM_IDS.texture_contrast, Math.round(path.strokeTexture.contrast));
+        if (path.strokeTexture.mode !== undefined) exports.w_brush_set_param(PARAM_IDS.texture_mode, Math.round(path.strokeTexture.mode));
+      }
+    } else {
+      exports.w_brush_set_param(18 /* W_PARAM_TEX_LAYER */, -1);
+    }
+
+    const mapPress = (pt) => {
+      let p = pt.pressure !== undefined ? pt.pressure : 1.0;
+      if (cfg.pressure_curve || cfg.pressure_min) {
+        const minP = (cfg.pressure_min !== undefined) ? (cfg.pressure_min / 100.0) : 0.0;
+        const maxP = (cfg.pressure_max !== undefined) ? (cfg.pressure_max / 100.0) : 1.0;
+        if (p < minP) p = 0;
+        else if (p > maxP) p = 1.0;
+        else p = (p - minP) / Math.max(0.01, maxP - minP);
+        const curve = cfg.pressure_curve || 'linear';
+        if (curve === 'soft') p = Math.pow(p, 0.6);
+        else if (curve === 'hard') p = Math.pow(p, 1.8);
+        else if (curve === 's-curve' || curve === 'sigmoid') p = p * p * (3 - 2 * p);
+      }
+      return Math.max(10, Math.min(2000, Math.round(p * 1000)));
+    };
+
+    const applyPtWidth = (pt) => {
+      const ws = pt.widthScale !== undefined ? pt.widthScale : 1.0;
+      exports.w_brush_set_param(PARAM_IDS.size, Math.max(1, Math.round(baseSize * ws)));
+    };
+
+    const n = pts.length;
+    if (n === 1) {
+      applyPtWidth(pts[0]);
+      const pr = mapPress(pts[0]);
+      const tx = Math.round(pts[0].tiltX || 0);
+      const ty = Math.round(pts[0].tiltY || 0);
+      const x = Math.round(pts[0].x), y = Math.round(pts[0].y);
+      exports.w_brush_stroke_ext(0, x, y, x, y, col, 0, pr, tx, ty);
+      exports.w_brush_stroke_ext(2, x, y, x, y, col, 0, pr, tx, ty);
+      return;
+    }
+
+    applyPtWidth(pts[0]);
+    exports.w_brush_stroke_ext(
+      0,
+      Math.round(pts[0].x),
+      Math.round(pts[0].y),
+      Math.round(pts[1].x),
+      Math.round(pts[1].y),
+      col,
+      0,
+      mapPress(pts[0]),
+      Math.round(pts[0].tiltX || 0),
+      Math.round(pts[0].tiltY || 0)
+    );
+
+    for (let i = 1; i < n; i++) {
+      applyPtWidth(pts[i]);
+      exports.w_brush_stroke_ext(
+        1,
+        Math.round(pts[i].x),
+        Math.round(pts[i].y),
+        Math.round(pts[i - 1].x),
+        Math.round(pts[i - 1].y),
+        col,
+        0,
+        mapPress(pts[i]),
+        Math.round(pts[i].tiltX || 0),
+        Math.round(pts[i].tiltY || 0)
+      );
+    }
+
+    if (path.closed && n >= 3) {
+      applyPtWidth(pts[0]);
+      exports.w_brush_stroke_ext(
+        1,
+        Math.round(pts[0].x),
+        Math.round(pts[0].y),
+        Math.round(pts[n - 1].x),
+        Math.round(pts[n - 1].y),
+        col,
+        0,
+        mapPress(pts[0]),
+        Math.round(pts[0].tiltX || 0),
+        Math.round(pts[0].tiltY || 0)
+      );
+    }
+
+    const last = path.closed ? pts[0] : pts[n - 1];
+    const prev = path.closed ? pts[n - 1] : pts[n - 2];
+    applyPtWidth(last);
+    exports.w_brush_stroke_ext(
+      2,
+      Math.round(last.x),
+      Math.round(last.y),
+      Math.round(prev.x),
+      Math.round(prev.y),
+      col,
+      0,
+      mapPress(last),
+      Math.round(last.tiltX || 0),
+      Math.round(last.tiltY || 0)
+    );
+  }
+
+  /**
+   * Clears and re-renders all `SvgPath`s of a Vector Layer into its WASM pixel buffer.
+   */
+  renderVectorLayer(layerId) {
+    if (!this.canvasActor?.exports) return false;
+    const exports = this.canvasActor.exports;
+    const lid = (layerId !== undefined && layerId !== null)
+      ? layerId
+      : (exports.get_active_layer ? exports.get_active_layer() : 3);
+    const vl = this.getVectorLayer(lid);
+    if (!vl) return false;
+
+    const ptr = exports.w_layer_get_pixels ? exports.w_layer_get_pixels(lid) : (exports.get_layer_pixels ? exports.get_layer_pixels(lid) : 0);
+    const lw = exports.w_layer_get_width ? exports.w_layer_get_width(lid) : (exports.get_width ? exports.get_width() : 0);
+    const lh = exports.w_layer_get_height ? exports.w_layer_get_height(lid) : (exports.get_height ? exports.get_height() : 0);
+    if (!ptr || lw <= 0 || lh <= 0) return false;
+
+    // 1. Clear target layer pixel buffer
+    new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh).fill(0);
+
+    // 2. Save current WASM active layer & brush state
+    const prevActive = exports.get_active_layer ? exports.get_active_layer() : 3;
+    const prevBrushParams = JSON.parse(JSON.stringify(this.brushParams || {}));
+    const prevTex = this.activeTexture || 'none';
+    const prevSym = prevBrushParams.symmetry || 0;
+
+    if (prevActive !== lid && typeof exports.w_layer_select === 'function') {
+      exports.w_layer_select(lid);
+    }
+
+    // 3. Replay each visible SvgPath
+    for (const path of vl.paths) {
+      if (path && path.visible !== false) {
+        this._renderSingleVectorPathToActiveWasmLayer(path);
+      }
+    }
+
+    // 4. Restore brush state and active layer
+    this.brushParams = prevBrushParams;
+    this.activeTexture = prevTex;
+    this.syncBrushParams();
+    if (typeof exports.w_brush_set_symmetry === 'function') {
+      exports.w_brush_set_symmetry(prevSym);
+    }
+    if (prevActive !== lid && typeof exports.w_layer_select === 'function') {
+      exports.w_layer_select(prevActive);
+    }
+
+    if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
+    else if (typeof exports.force_composite === 'function') exports.force_composite();
+    return true;
   }
 
   /**
@@ -6413,6 +7111,7 @@ class EsenhoScreenHost {
     if (m === 'erase' || m === 'eraser') this.actionMode = 'erase';
     else if (m === 'smudge') this.actionMode = 'smudge';
     else if (m === 'select' || m === 'sel') this.actionMode = 'select';
+    else if (m === 'vector' || m === 'vec') this.actionMode = 'vector';
     else this.actionMode = 'draw';
     return this.actionMode;
   }
@@ -7405,6 +8104,28 @@ class EsenhoScreenHost {
         svg += `  <path d="${d}" fill="${fillHex}" stroke="${strokeHex}" stroke-width="${strokeWidth}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />\n`;
       }
     }
+
+    if (this.vectorLayers && this.vectorLayers.size > 0) {
+      for (const [lid, vl] of this.vectorLayers.entries()) {
+        if (!vl || !Array.isArray(vl.paths) || vl.paths.length === 0) continue;
+        const vis = this.canvasActor?.exports?.w_layer_get_visible ? this.canvasActor.exports.w_layer_get_visible(lid) : 1;
+        if (!vis) continue;
+        const layerOp = ((this.canvasActor?.exports?.w_layer_get_opacity ? this.canvasActor.exports.w_layer_get_opacity(lid) : 255) / 255).toFixed(3);
+        svg += `  <g id="vector_layer_${lid}" opacity="${layerOp}">\n`;
+        for (const p of vl.paths) {
+          if (!p || p.visible === false) continue;
+          const d = typeof p.toSVGPathData === 'function' ? p.toSVGPathData() : '';
+          if (!d) continue;
+          const sCol = p.stroke || '#000000';
+          const fCol = p.fill || 'none';
+          const sw = p.strokeWidth || 2;
+          const op = (p.opacity !== undefined ? p.opacity : 1).toFixed(3);
+          svg += `    <path d="${d}" fill="${fCol}" stroke="${sCol}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" opacity="${op}" />\n`;
+        }
+        svg += `  </g>\n`;
+      }
+    }
+
     svg += `</svg>\n`;
     return svg;
   }
@@ -8352,12 +9073,16 @@ class EsenhoScreenHost {
   selectBrushPreset(name) {
     const key = name.toLowerCase().trim();
     const preset = BRUSH_PRESETS[key] || (this.customBrushPresets && this.customBrushPresets[key]);
+    const wasVectorMode = (this.actionMode === 'vector');
     this.activeBrush = key;
     if (preset) {
       // 1. Reset all tool and brush parameters to clean defaults before applying preset
       this.resetTool();
 
-      if (preset.eraser !== undefined) {
+      if (wasVectorMode) {
+        this.actionMode = 'vector';
+        this.strokeIsEraser = 0;
+      } else if (preset.eraser !== undefined) {
         this.strokeIsEraser = preset.eraser ? 1 : 0;
         this.actionMode = preset.eraser ? 'erase' : (preset.mode === 1 ? 'smudge' : 'draw');
       } else if (preset.mode === 1) {
@@ -8379,6 +9104,9 @@ class EsenhoScreenHost {
         } else {
           this.setBrushParam(k, v);
         }
+      }
+      if (wasVectorMode && this.getSelectedVectorPath && this.getSelectedVectorPath()) {
+        this.applyCurrentBrushStyleToSelectedVectorPaths({ preset: true, brushParams: true, color: false });
       }
       return true;
     }
@@ -9152,6 +9880,14 @@ class EsenhoScreenHost {
         }
       }
 
+      if (this.isVectorLayer && this.isVectorLayer(i)) {
+        const vl = this.getVectorLayer(i);
+        layerObj.isVector = true;
+        layerObj.vectorPaths = (vl && Array.isArray(vl.paths))
+          ? vl.paths.map(p => (typeof p.toJSON === 'function' ? p.toJSON() : p))
+          : [];
+      }
+
       layersData.push(layerObj);
     }
 
@@ -9272,6 +10008,9 @@ class EsenhoScreenHost {
     // Restore layers
     if (this.layerNames) this.layerNames.clear();
     else this.layerNames = new Map();
+    if (this.vectorLayers) this.vectorLayers.clear();
+    else this.vectorLayers = new Map();
+    const SE = getSvgEngine();
     const layerMap = new Map(); // old id -> new id
     for (let i = 0; i < projectData.layers.length; i++) {
       const l = projectData.layers[i];
@@ -9338,6 +10077,18 @@ class EsenhoScreenHost {
               }
             }
           }
+        }
+
+        if (l.isVector) {
+          const restoredPaths = Array.isArray(l.vectorPaths)
+            ? l.vectorPaths.map(pj => (SE && SE.SvgPath && typeof SE.SvgPath.fromJSON === 'function') ? SE.SvgPath.fromJSON(pj) : pj)
+            : [];
+          this.vectorLayers.set(targetId, {
+            id: targetId,
+            paths: restoredPaths,
+            selectedPathId: null,
+            selectedNodeIdx: -1
+          });
         }
 
         if (l.name) {

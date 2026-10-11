@@ -867,6 +867,29 @@ async function main() {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.selectAll();
       e.preventDefault();
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      if (host.actionMode === 'vector' && host.isVectorLayer && host.isVectorLayer()) {
+        const vl = host.getVectorLayer();
+        const selPath = host.getSelectedVectorPath();
+        if (vl && selPath) {
+          if (vl.selectedNodeIdx >= 0 && selPath.nodes.length > 2) {
+            host.pushUndoSnapshot('delete vector node');
+            selPath.removeNode(vl.selectedNodeIdx);
+            vl.selectedNodeIdx = Math.min(vl.selectedNodeIdx, selPath.nodes.length - 1);
+            host.renderVectorLayer();
+            syncUiFromHost();
+          } else {
+            host.pushUndoSnapshot('delete vector path');
+            vl.paths = vl.paths.filter(p => p.id !== selPath.id);
+            vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
+            vl.selectedNodeIdx = -1;
+            host.renderVectorLayer();
+            syncUiFromHost();
+          }
+          e.preventDefault();
+        }
+      }
     }
   });
 
@@ -875,6 +898,225 @@ async function main() {
   let offscreen = null;
   let offscreenCtx = null;
   let lassoPoints = [];
+  let vectorRawStrokePoints = [];
+  let vecDragging = null;
+  let vecLastClickTime = 0;
+  let vecLastClickPos = null;
+
+  function vecStartInteraction(x, y, isTouch = false) {
+    if (!host.isVectorLayer || !host.isVectorLayer()) return false;
+    const vl = host.getVectorLayer();
+    if (!vl) return false;
+    const hitRad = (isTouch ? 15 : 9) / Math.max(0.1, host.zoom || 1);
+    const selPath = host.getSelectedVectorPath();
+
+    // 1. Check tangent handles (cpIn / cpOut) on selected path
+    if (selPath && host.vectorSubTool !== 'width' && Array.isArray(selPath.nodes)) {
+      const checkOrder = [];
+      if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
+        checkOrder.push(vl.selectedNodeIdx);
+      }
+      for (let i = 0; i < selPath.nodes.length; i++) {
+        if (i !== vl.selectedNodeIdx) checkOrder.push(i);
+      }
+      for (const i of checkOrder) {
+        const n = selPath.nodes[i];
+        if (!n) continue;
+        const absOut = typeof n.getAbsCpOut === 'function' ? n.getAbsCpOut() : { x: n.x + (n.cpOut?.x || 0), y: n.y + (n.cpOut?.y || 0) };
+        const absIn = typeof n.getAbsCpIn === 'function' ? n.getAbsCpIn() : { x: n.x + (n.cpIn?.x || 0), y: n.y + (n.cpIn?.y || 0) };
+        if (Math.hypot(absOut.x - n.x, absOut.y - n.y) > 0.5 && Math.hypot(x - absOut.x, y - absOut.y) <= hitRad) {
+          host.pushUndoSnapshot('edit vector handle');
+          host.selectVectorPath(selPath.id, i);
+          vecDragging = { type: 'cpOut', path: selPath, nodeIdx: i, startX: x, startY: y };
+          markCanvasDirty();
+          syncUiFromHost();
+          return true;
+        }
+        if (Math.hypot(absIn.x - n.x, absIn.y - n.y) > 0.5 && Math.hypot(x - absIn.x, y - absIn.y) <= hitRad) {
+          host.pushUndoSnapshot('edit vector handle');
+          host.selectVectorPath(selPath.id, i);
+          vecDragging = { type: 'cpIn', path: selPath, nodeIdx: i, startX: x, startY: y };
+          markCanvasDirty();
+          syncUiFromHost();
+          return true;
+        }
+      }
+    }
+
+    // 2. Check anchor nodes on selected path
+    if (selPath && typeof selPath.hitTestNode === 'function') {
+      const nIdx = selPath.hitTestNode(x, y, hitRad * 1.15);
+      if (nIdx >= 0) {
+        const n = selPath.nodes[nIdx];
+        host.selectVectorPath(selPath.id, nIdx);
+        if (host.vectorSubTool === 'width') {
+          host.pushUndoSnapshot('edit vector width');
+          vecDragging = {
+            type: 'width',
+            path: selPath,
+            nodeIdx: nIdx,
+            startX: x,
+            startY: y,
+            startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+            startPressure: n.pressure !== undefined ? n.pressure : 1.0
+          };
+        } else {
+          host.pushUndoSnapshot('move vector node');
+          vecDragging = { type: 'node', path: selPath, nodeIdx: nIdx, startX: x, startY: y, lastX: x, lastY: y };
+        }
+        markCanvasDirty();
+        syncUiFromHost();
+        return true;
+      }
+    }
+
+    // 3. Check curve segment on selected path (double-click splits/inserts node, drag bends segment)
+    if (selPath && typeof selPath.hitTestStroke === 'function') {
+      const segHit = selPath.hitTestStroke(x, y, hitRad);
+      if (segHit) {
+        const now = Date.now();
+        const isDblClick = (now - vecLastClickTime < 340) && vecLastClickPos &&
+          (Math.hypot(x - vecLastClickPos.x, y - vecLastClickPos.y) <= hitRad * 1.5);
+        vecLastClickTime = now;
+        vecLastClickPos = { x, y };
+
+        if (isDblClick && typeof selPath.splitSegment === 'function') {
+          host.pushUndoSnapshot('add vector node');
+          const splitRes = selPath.splitSegment(segHit.segIndex, segHit.t);
+          const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
+          host.selectVectorPath(selPath.id, newIdx);
+          host.renderVectorLayer();
+          vecDragging = { type: 'node', path: selPath, nodeIdx: newIdx, startX: x, startY: y, lastX: x, lastY: y };
+          markCanvasDirty();
+          syncUiFromHost();
+          return true;
+        }
+
+        if (host.vectorSubTool === 'width') {
+          let nearestIdx = 0, bestD = Infinity;
+          selPath.nodes.forEach((nd, idx) => {
+            const d = Math.hypot(x - nd.x, y - nd.y);
+            if (d < bestD) { bestD = d; nearestIdx = idx; }
+          });
+          const n = selPath.nodes[nearestIdx];
+          host.pushUndoSnapshot('edit vector width');
+          host.selectVectorPath(selPath.id, nearestIdx);
+          vecDragging = {
+            type: 'width',
+            path: selPath,
+            nodeIdx: nearestIdx,
+            startX: x,
+            startY: y,
+            startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+            startPressure: n.pressure !== undefined ? n.pressure : 1.0
+          };
+        } else {
+          host.pushUndoSnapshot('bend vector curve');
+          vecDragging = {
+            type: 'segment',
+            path: selPath,
+            segIndex: segHit.segIndex,
+            t: Math.max(0.08, Math.min(0.92, segHit.t)),
+            startX: x,
+            startY: y
+          };
+        }
+        markCanvasDirty();
+        syncUiFromHost();
+        return true;
+      }
+    }
+
+    // 4. Hit-test any other path on the active vector layer
+    const layerHit = host.hitTestVectorLayer ? host.hitTestVectorLayer(x, y, hitRad) : null;
+    if (layerHit && layerHit.path) {
+      const p = layerHit.path;
+      const nIdx = (typeof p.hitTestNode === 'function') ? p.hitTestNode(x, y, hitRad * 1.15) : -1;
+      host.selectVectorPath(p.id, nIdx >= 0 ? nIdx : -1);
+      if (nIdx >= 0) {
+        const n = p.nodes[nIdx];
+        if (host.vectorSubTool === 'width') {
+          host.pushUndoSnapshot('edit vector width');
+          vecDragging = {
+            type: 'width',
+            path: p,
+            nodeIdx: nIdx,
+            startX: x,
+            startY: y,
+            startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+            startPressure: n.pressure !== undefined ? n.pressure : 1.0
+          };
+        } else {
+          host.pushUndoSnapshot('move vector node');
+          vecDragging = { type: 'node', path: p, nodeIdx: nIdx, startX: x, startY: y, lastX: x, lastY: y };
+        }
+      } else if (layerHit.hitInfo) {
+        host.pushUndoSnapshot('bend vector curve');
+        vecDragging = {
+          type: 'segment',
+          path: p,
+          segIndex: layerHit.hitInfo.segIndex,
+          t: Math.max(0.08, Math.min(0.92, layerHit.hitInfo.t)),
+          startX: x,
+          startY: y
+        };
+      }
+      vecLastClickTime = Date.now();
+      vecLastClickPos = { x, y };
+      markCanvasDirty();
+      syncUiFromHost();
+      return true;
+    }
+
+    // 5. Empty space: deselect
+    host.selectVectorPath(null, -1);
+    markCanvasDirty();
+    syncUiFromHost();
+    return true;
+  }
+
+  function vecMoveInteraction(x, y) {
+    if (!vecDragging || !vecDragging.path) return false;
+    const d = vecDragging;
+    if (d.type === 'node') {
+      const dx = x - d.lastX;
+      const dy = y - d.lastY;
+      d.path.moveNode(d.nodeIdx, dx, dy);
+      d.lastX = x;
+      d.lastY = y;
+    } else if (d.type === 'cpIn') {
+      d.path.moveControlPoint(d.nodeIdx, 'in', x, y);
+    } else if (d.type === 'cpOut') {
+      d.path.moveControlPoint(d.nodeIdx, 'out', x, y);
+    } else if (d.type === 'segment') {
+      if (typeof d.path.bendSegment === 'function') {
+        d.path.bendSegment(d.segIndex, d.t, x, y);
+      }
+    } else if (d.type === 'width') {
+      const n = d.path.nodes[d.nodeIdx];
+      if (n) {
+        const delta = ((x - d.startX) - (y - d.startY)) * 0.015 * Math.max(0.5, 1 / (host.zoom || 1));
+        const newScale = Math.max(0.1, Math.min(3.0, d.startWidthScale + delta));
+        n.widthScale = newScale;
+        const wSlider = document.getElementById('ip-vecbar-width-slider');
+        const wVal = document.getElementById('ip-vecbar-width-val');
+        const pct = Math.round(newScale * 100);
+        if (wSlider) wSlider.value = pct;
+        if (wVal) wVal.textContent = `${pct}%`;
+      }
+    }
+    host.renderVectorLayer();
+    if (typeof markCanvasDirty === 'function') markCanvasDirty();
+    return true;
+  }
+
+  function vecEndInteraction() {
+    if (!vecDragging) return false;
+    vecDragging = null;
+    if (typeof markCanvasDirty === 'function') markCanvasDirty();
+    syncUiFromHost();
+    return true;
+  }
 
   let isDraggingShape = false;
   let shapeStartDoc = null;
@@ -996,6 +1238,14 @@ async function main() {
     const isErase = host.actionMode === 'erase';
     const isSelect = host.actionMode === 'select';
     const col = host.currentColor;
+
+    if (!isErase && !isSelect && host.isVectorLayer && host.isVectorLayer()) {
+      const shapeName = mode === 6 ? 'line' : (mode === 7 ? 'rect' : 'ellipse');
+      host.pushUndoSnapshot('vector ' + shapeName);
+      host.addVectorShapePath(shapeName, start.x, start.y, end.x, end.y);
+      syncUiFromHost();
+      return;
+    }
 
     if (mode === 6) { // Line
       if (isSelect) {
@@ -1699,6 +1949,146 @@ async function main() {
         ctx.restore();
       }
 
+      /* ── Vector Painter Bézier Node & Handle Overlay ── */
+      if (host.isVectorLayer && host.isVectorLayer() && (host.actionMode === 'vector' || vecDragging)) {
+        const vl = host.getVectorLayer();
+        if (vl && Array.isArray(vl.paths) && vl.paths.length > 0) {
+          ctx.save();
+          ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
+          const z = host.zoom;
+          const selPath = host.getSelectedVectorPath();
+
+          // 1. Subtle spine outline for unselected vector paths on this layer
+          for (const p of vl.paths) {
+            if (!p || p.visible === false || !Array.isArray(p.nodes) || p.nodes.length === 0) continue;
+            if (selPath && p.id === selPath.id) continue;
+            ctx.beginPath();
+            ctx.moveTo(p.nodes[0].x * z, p.nodes[0].y * z);
+            const segCount = p.closed ? p.nodes.length : p.nodes.length - 1;
+            for (let i = 0; i < segCount; i++) {
+              const n0 = p.nodes[i];
+              const n1 = p.nodes[(i + 1) % p.nodes.length];
+              const cp1 = typeof n0.getAbsCpOut === 'function' ? n0.getAbsCpOut() : { x: n0.x + (n0.cpOut?.x || 0), y: n0.y + (n0.cpOut?.y || 0) };
+              const cp2 = typeof n1.getAbsCpIn === 'function' ? n1.getAbsCpIn() : { x: n1.x + (n1.cpIn?.x || 0), y: n1.y + (n1.cpIn?.y || 0) };
+              ctx.bezierCurveTo(cp1.x * z, cp1.y * z, cp2.x * z, cp2.y * z, n1.x * z, n1.y * z);
+            }
+            ctx.strokeStyle = 'rgba(131, 165, 152, 0.35)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+            ctx.stroke();
+          }
+
+          // 2. Full interactive spine, width rings, tangent handles, and anchor nodes for selected path
+          if (selPath && Array.isArray(selPath.nodes) && selPath.nodes.length > 0) {
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            ctx.moveTo(selPath.nodes[0].x * z, selPath.nodes[0].y * z);
+            const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
+            for (let i = 0; i < segCount; i++) {
+              const n0 = selPath.nodes[i];
+              const n1 = selPath.nodes[(i + 1) % selPath.nodes.length];
+              const cp1 = typeof n0.getAbsCpOut === 'function' ? n0.getAbsCpOut() : { x: n0.x + (n0.cpOut?.x || 0), y: n0.y + (n0.cpOut?.y || 0) };
+              const cp2 = typeof n1.getAbsCpIn === 'function' ? n1.getAbsCpIn() : { x: n1.x + (n1.cpIn?.x || 0), y: n1.y + (n1.cpIn?.y || 0) };
+              ctx.bezierCurveTo(cp1.x * z, cp1.y * z, cp2.x * z, cp2.y * z, n1.x * z, n1.y * z);
+            }
+            ctx.strokeStyle = 'rgba(29, 32, 33, 0.85)';
+            ctx.lineWidth = 3.5;
+            ctx.stroke();
+            ctx.strokeStyle = '#8ec07c';
+            ctx.lineWidth = 1.75;
+            ctx.stroke();
+
+            const baseW = Math.max(2, selPath.strokeWidth || 8);
+            const isWidthTool = (host.vectorSubTool === 'width');
+
+            selPath.nodes.forEach((n, idx) => {
+              const nx = n.x * z, ny = n.y * z;
+              const isSelNode = (idx === vl.selectedNodeIdx);
+
+              // Width / Pressure visualization ring
+              if (isWidthTool || isSelNode) {
+                const effR = Math.max(3, (baseW * (n.widthScale ?? 1.0) * (0.2 + 0.8 * (n.pressure ?? 1.0)))) * z;
+                ctx.beginPath();
+                ctx.arc(nx, ny, effR, 0, Math.PI * 2);
+                ctx.strokeStyle = isSelNode ? 'rgba(211, 134, 155, 0.9)' : 'rgba(211, 134, 155, 0.45)';
+                ctx.lineWidth = isSelNode ? 1.8 : 1.1;
+                ctx.setLineDash([3, 3]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+              }
+
+              // Tangent handles (cpIn / cpOut) when not in width sub-tool
+              if (!isWidthTool) {
+                const absIn = typeof n.getAbsCpIn === 'function' ? n.getAbsCpIn() : { x: n.x + (n.cpIn?.x || 0), y: n.y + (n.cpIn?.y || 0) };
+                const absOut = typeof n.getAbsCpOut === 'function' ? n.getAbsCpOut() : { x: n.x + (n.cpOut?.x || 0), y: n.y + (n.cpOut?.y || 0) };
+                const hasIn = Math.hypot(absIn.x - n.x, absIn.y - n.y) > 0.5;
+                const hasOut = Math.hypot(absOut.x - n.x, absOut.y - n.y) > 0.5;
+                if (hasIn) {
+                  const ix = absIn.x * z, iy = absIn.y * z;
+                  ctx.beginPath();
+                  ctx.moveTo(nx, ny);
+                  ctx.lineTo(ix, iy);
+                  ctx.strokeStyle = isSelNode ? '#fe8019' : 'rgba(254, 128, 25, 0.65)';
+                  ctx.lineWidth = 1.25;
+                  ctx.stroke();
+
+                  ctx.beginPath();
+                  ctx.arc(ix, iy, isSelNode ? 4.5 : 3.5, 0, Math.PI * 2);
+                  ctx.fillStyle = '#fe8019';
+                  ctx.fill();
+                  ctx.strokeStyle = '#1d2021';
+                  ctx.lineWidth = 1.2;
+                  ctx.stroke();
+                }
+                if (hasOut) {
+                  const ox = absOut.x * z, oy = absOut.y * z;
+                  ctx.beginPath();
+                  ctx.moveTo(nx, ny);
+                  ctx.lineTo(ox, oy);
+                  ctx.strokeStyle = isSelNode ? '#fabd2f' : 'rgba(250, 189, 47, 0.65)';
+                  ctx.lineWidth = 1.25;
+                  ctx.stroke();
+
+                  ctx.beginPath();
+                  ctx.arc(ox, oy, isSelNode ? 4.5 : 3.5, 0, Math.PI * 2);
+                  ctx.fillStyle = '#fabd2f';
+                  ctx.fill();
+                  ctx.strokeStyle = '#1d2021';
+                  ctx.lineWidth = 1.2;
+                  ctx.stroke();
+                }
+              }
+
+              // Anchor Node (Square for corner, Diamond for cusp, Circle for smooth/symmetric)
+              const rNode = isSelNode ? 6.5 : 5.0;
+              ctx.fillStyle = isSelNode ? '#fabd2f' : (isWidthTool ? '#d3869b' : '#ebdbb2');
+              ctx.strokeStyle = '#1d2021';
+              ctx.lineWidth = 1.75;
+              if (n.type === 'corner') {
+                ctx.fillRect(nx - rNode, ny - rNode, rNode * 2, rNode * 2);
+                ctx.strokeRect(nx - rNode, ny - rNode, rNode * 2, rNode * 2);
+              } else if (n.type === 'cusp') {
+                ctx.beginPath();
+                ctx.moveTo(nx, ny - rNode * 1.2);
+                ctx.lineTo(nx + rNode * 1.2, ny);
+                ctx.lineTo(nx, ny + rNode * 1.2);
+                ctx.lineTo(nx - rNode * 1.2, ny);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+              } else {
+                ctx.beginPath();
+                ctx.arc(nx, ny, rNode, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+              }
+            });
+          }
+
+          ctx.restore();
+        }
+      }
+
       /* Live Brush Cursor Outline (Photoshop-style Delimiter) */
       if (host.showBrushOutline !== false && host.mouseHover && host.mouseHover.inside && !host.isPanning) {
         const bp = host.brushParams;
@@ -2051,6 +2441,11 @@ async function main() {
         e.preventDefault();
         return;
       }
+      if (host.actionMode === 'vector' && host.isVectorLayer && host.isVectorLayer()) {
+        vecStartInteraction(x, y, false);
+        e.preventDefault();
+        return;
+      }
       if (curMode >= 6 && curMode <= 8) {
         isDraggingShape = true;
         shapeStartDoc = { x, y };
@@ -2121,6 +2516,16 @@ async function main() {
         lassoPoints = [{ x, y }];
       }
       const press = (e.pointerType === 'pen' && e.pressure !== undefined && e.pressure > 0) ? e.pressure : 1.0;
+      if (host.isVectorLayer && host.isVectorLayer()) {
+        if (host.strokeIsEraser) {
+          host.pushUndoSnapshot('erase vector');
+          host.eraseVectorAtPoint(x, y, Math.max(6, (host.brushParams?.size || 10)));
+          e.preventDefault();
+          return;
+        } else if (curMode <= 2) {
+          vectorRawStrokePoints = [{ x, y, pressure: press, widthScale: 1.0, tiltX: e.tiltX || 0, tiltY: e.tiltY || 0 }];
+        }
+      }
       host.sendStroke(x, y, x, y, 0, host.strokeIsEraser, strokeCol, press, e.tiltX || 0, e.tiltY || 0);
     }
     e.preventDefault();
@@ -2136,6 +2541,8 @@ async function main() {
       host.panStartX = sx; host.panStartY = sy;
     } else if (ftDragging && ftHandle && ftDragStart && ftDragOrigin) {
       updateFtCorners(sx, sy);
+    } else if (vecDragging) {
+      vecMoveInteraction(x, y);
     } else if (isDraggingShape) {
       shapeCurDoc = { x, y };
     } else if (isSelecting && selStartDoc) {
@@ -2149,13 +2556,23 @@ async function main() {
       sampleEyedropperColor(x, y, e.clientX, e.clientY);
     } else if (host.isDrawingOnCanvas && (host.mouseState.buttons & 3 || e.buttons !== 0)) {
       const coalesced = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
+      const curMode = host.brushParams ? host.brushParams.mode : 0;
+      const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
       for (const ev of coalesced) {
         const pt = clientPos(ev);
+        if (isVecLayer && host.strokeIsEraser) {
+          host.eraseVectorAtPoint(pt.x, pt.y, Math.max(6, (host.brushParams?.size || 10)));
+          host.strokePrevX = pt.x; host.strokePrevY = pt.y;
+          continue;
+        }
         if (host.brushParams && host.brushParams.mode === 4) {
           lassoPoints.push({ x: pt.x, y: pt.y });
         }
         const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
         const press = (ev.pointerType === 'pen' && ev.pressure !== undefined && ev.pressure > 0) ? ev.pressure : 1.0;
+        if (isVecLayer && curMode <= 2) {
+          vectorRawStrokePoints.push({ x: pt.x, y: pt.y, pressure: press, widthScale: 1.0, tiltX: ev.tiltX || 0, tiltY: ev.tiltY || 0 });
+        }
         host.sendStroke(pt.x, pt.y, host.strokePrevX, host.strokePrevY, 1, host.strokeIsEraser, strokeCol, press, ev.tiltX || 0, ev.tiltY || 0);
         host.strokePrevX = pt.x; host.strokePrevY = pt.y;
       }
@@ -2179,6 +2596,10 @@ async function main() {
       if (ftDragging) {
         ftDragging = false; ftHandle = null; ftDragStart = null; ftDragOrigin = null;
         bakeFtPreview();
+        return;
+      }
+      if (vecDragging) {
+        vecEndInteraction();
         return;
       }
       if (host.brushParams && host.brushParams.mode === 5) {
@@ -2212,19 +2633,32 @@ async function main() {
         return;
       }
       if (!(host.mouseState.buttons & 3) && host.isDrawingOnCanvas) {
-        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
-        const press = (e.pointerType === 'pen' && e.pressure !== undefined && e.pressure > 0) ? e.pressure : 1.0;
-        host.sendStroke(host.strokePrevX, host.strokePrevY,
-                        host.strokePrevX, host.strokePrevY,
-                        2, host.strokeIsEraser, strokeCol, press, e.tiltX || 0, e.tiltY || 0);
-        host.isDrawingOnCanvas = false;
-        lassoPoints = [];
-        if (selectScratchLayerId >= 0) {
-          endBrushSelect();
-        }
-        markCanvasDirty();
-        if (host.rasterAnimator && !host.rasterAnimator.isPlaying) {
-          host.rasterAnimator.saveActiveFrame();
+        const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
+        if (isVecLayer && host.strokeIsEraser) {
+          host.isDrawingOnCanvas = false;
+          vectorRawStrokePoints = [];
+          markCanvasDirty();
+          syncUiFromHost();
+        } else {
+          const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
+          const press = (e.pointerType === 'pen' && e.pressure !== undefined && e.pressure > 0) ? e.pressure : 1.0;
+          host.sendStroke(host.strokePrevX, host.strokePrevY,
+                          host.strokePrevX, host.strokePrevY,
+                          2, host.strokeIsEraser, strokeCol, press, e.tiltX || 0, e.tiltY || 0);
+          host.isDrawingOnCanvas = false;
+          lassoPoints = [];
+          if (isVecLayer && vectorRawStrokePoints.length > 0) {
+            host.addVectorPathFromRawPoints(vectorRawStrokePoints);
+            vectorRawStrokePoints = [];
+            syncUiFromHost();
+          }
+          if (selectScratchLayerId >= 0) {
+            endBrushSelect();
+          }
+          markCanvasDirty();
+          if (host.rasterAnimator && !host.rasterAnimator.isPlaying) {
+            host.rasterAnimator.saveActiveFrame();
+          }
         }
       }
       if (e.pointerType !== 'touch') {
@@ -2273,6 +2707,15 @@ async function main() {
         const isEraseMode = host.actionMode === 'erase';
         host.strokeIsEraser = isEraseMode || host.currentTool === 1 ? 1 : 0;
         const strokeCol = isEraseMode && curMode === 3 ? 0x00000000 : host.currentColor;
+        if (host.isVectorLayer && host.isVectorLayer()) {
+          if (host.strokeIsEraser) {
+            host.pushUndoSnapshot('erase vector');
+            host.eraseVectorAtPoint(p.x, p.y, Math.max(6, (host.brushParams?.size || 10)));
+            return;
+          } else if (curMode <= 2) {
+            vectorRawStrokePoints = [{ x: p.x, y: p.y, pressure: estimatedFingerPressure || 0.8, widthScale: 1.0, tiltX: 0, tiltY: 0 }];
+          }
+        }
         if (curMode === 4) {
           lassoPoints = [{ x: p.x, y: p.y }];
         }
@@ -2370,6 +2813,13 @@ async function main() {
         }
       }
 
+      if (host.actionMode === 'vector' && host.isVectorLayer && host.isVectorLayer()) {
+        clearPendingTouch();
+        vecStartInteraction(x, y, true);
+        triggerHaptic(10);
+        return;
+      }
+
       if (host.brushParams && host.brushParams.mode === 5) {
         isTouchPicker = true;
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
@@ -2438,6 +2888,9 @@ async function main() {
       }, 50);
     } else {
       /* 2+ fingers landed: cancel pending dab and end any drawing stroke */
+      if (vecDragging) {
+        vecEndInteraction();
+      }
       if (isTouchPicker) {
         isTouchPicker = false;
         hideEyedropper();
@@ -2463,6 +2916,7 @@ async function main() {
                         2, host.strokeIsEraser, host.currentColor);
         touch.drawing = false;
         lassoPoints = [];
+        vectorRawStrokePoints = [];
         if (selectStrokeBackup) {
           commitBrushSelectBackup();
         }
@@ -2511,6 +2965,10 @@ async function main() {
         updateFtCorners(sx, sy);
         return;
       }
+      if (vecDragging) {
+        vecMoveInteraction(x, y);
+        return;
+      }
       if (isTouchPicker) {
         sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
         return;
@@ -2541,8 +2999,18 @@ async function main() {
         }
       }
       if (touch.drawing) {
+        const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
+        const curMode = host.brushParams ? host.brushParams.mode : 0;
+        if (isVecLayer && host.strokeIsEraser) {
+          host.eraseVectorAtPoint(x, y, Math.max(6, (host.brushParams?.size || 10)));
+          host.strokePrevX = x; host.strokePrevY = y;
+          return;
+        }
         if (host.brushParams && host.brushParams.mode === 4) {
           lassoPoints.push({ x, y });
+        }
+        if (isVecLayer && curMode <= 2) {
+          vectorRawStrokePoints.push({ x, y, pressure: estimatedFingerPressure || 0.8, widthScale: 1.0, tiltX: 0, tiltY: 0 });
         }
         const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
         host.sendStroke(x, y, host.strokePrevX, host.strokePrevY,
@@ -2552,6 +3020,9 @@ async function main() {
       }
 
     } else if (e.touches.length >= 2) {
+      if (vecDragging) {
+        vecEndInteraction();
+      }
       if (isDraggingShape) {
         isDraggingShape = false;
         shapeStartDoc = null;
@@ -2569,6 +3040,7 @@ async function main() {
                         2, host.strokeIsEraser, strokeCol);
         touch.drawing = false;
         lassoPoints = [];
+        vectorRawStrokePoints = [];
         if (selectScratchLayerId >= 0) {
           endBrushSelect();
         }
@@ -2680,6 +3152,13 @@ async function main() {
       return;
     }
 
+    if (vecDragging) {
+      vecEndInteraction();
+      clearPendingTouch();
+      touch.prevTouches = e.touches;
+      return;
+    }
+
     if (touch.longPressTimer) {
       clearTimeout(touch.longPressTimer);
       touch.longPressTimer = null;
@@ -2723,27 +3202,51 @@ async function main() {
     if (touch.pending && !touch.longPressTriggered) {
       /* Single-tap tap dab */
       commitPendingTouch();
-      const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
-      host.sendStroke(host.strokePrevX, host.strokePrevY,
-                      host.strokePrevX, host.strokePrevY,
-                      2, host.strokeIsEraser, strokeCol);
-      touch.drawing = false;
-      lassoPoints = [];
-      if (selectScratchLayerId >= 0) {
-        endBrushSelect();
+      const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
+      if (isVecLayer && host.strokeIsEraser) {
+        touch.drawing = false;
+        vectorRawStrokePoints = [];
+        syncUiFromHost();
+      } else {
+        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
+        host.sendStroke(host.strokePrevX, host.strokePrevY,
+                        host.strokePrevX, host.strokePrevY,
+                        2, host.strokeIsEraser, strokeCol);
+        touch.drawing = false;
+        lassoPoints = [];
+        if (isVecLayer && vectorRawStrokePoints.length > 0) {
+          host.addVectorPathFromRawPoints(vectorRawStrokePoints);
+          vectorRawStrokePoints = [];
+          syncUiFromHost();
+        }
+        if (selectScratchLayerId >= 0) {
+          endBrushSelect();
+        }
       }
     } else if (e.touches.length === 0 && touch.drawing) {
-      const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
-      host.sendStroke(host.strokePrevX, host.strokePrevY,
-                      host.strokePrevX, host.strokePrevY,
-                      2, host.strokeIsEraser, strokeCol);
-      touch.drawing = false;
-      lassoPoints = [];
-      if (selectScratchLayerId >= 0) {
-        endBrushSelect();
-      }
-      if (host.rasterAnimator && !host.rasterAnimator.isPlaying) {
-        host.rasterAnimator.saveActiveFrame();
+      const isVecLayer = host.isVectorLayer && host.isVectorLayer() && host.actionMode !== 'select';
+      if (isVecLayer && host.strokeIsEraser) {
+        touch.drawing = false;
+        vectorRawStrokePoints = [];
+        syncUiFromHost();
+      } else {
+        const strokeCol = host.actionMode === 'select' ? 0xFF83A598 : host.currentColor;
+        host.sendStroke(host.strokePrevX, host.strokePrevY,
+                        host.strokePrevX, host.strokePrevY,
+                        2, host.strokeIsEraser, strokeCol);
+        touch.drawing = false;
+        lassoPoints = [];
+        if (isVecLayer && vectorRawStrokePoints.length > 0) {
+          host.addVectorPathFromRawPoints(vectorRawStrokePoints);
+          vectorRawStrokePoints = [];
+          syncUiFromHost();
+        }
+        if (selectScratchLayerId >= 0) {
+          endBrushSelect();
+        }
+        if (host.rasterAnimator && !host.rasterAnimator.isPlaying) {
+          host.rasterAnimator.saveActiveFrame();
+        }
       }
     }
 
@@ -2828,19 +3331,14 @@ async function main() {
     log(`> ${raw}`, 'cmd');
 
     const isJS = window.esenho && (
-      raw.startsWith('esenho') ||
-      raw.startsWith('raster') ||
-      raw.startsWith('vector') ||
-      raw.startsWith('anim') ||
-      raw.startsWith('audio') ||
-      raw.startsWith('commands') ||
+      /^((esenho|raster|vector|anim|audio|commands)\s*[.(\[])/.test(raw) ||
       raw.startsWith('let ') ||
       raw.startsWith('const ') ||
       raw.startsWith('var ') ||
       raw.startsWith('function') ||
       raw.startsWith('console.') ||
       raw.includes('=>') ||
-      (raw.includes('.') && !raw.startsWith('anim ') && !raw.startsWith('file ') && !raw.startsWith('layer ')) ||
+      (raw.includes('.') && !/^[a-z_]+\s+/i.test(raw)) ||
       raw.includes('(') ||
       raw.includes(';')
     );
@@ -7938,7 +8436,9 @@ async function main() {
       const bm = host.canvasActor?.exports?.w_layer_get_blend_mode ? host.canvasActor.exports.w_layer_get_blend_mode(i) : 0;
       const op = host.canvasActor?.exports?.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
       const name = host.layerNames?.get(i) || '';
-      layerProps.push(`${i}:${vis}:${lock}:${clip}:${bm}:${op}:${name}`);
+      const isVec = host.isVectorLayer && host.isVectorLayer(i) ? 1 : 0;
+      const vecCnt = isVec && host.getVectorLayer(i)?.paths ? host.getVectorLayer(i).paths.length : 0;
+      layerProps.push(`${i}:${vis}:${lock}:${clip}:${bm}:${op}:${name}:${isVec}:${vecCnt}`);
     }
 
     const groupProps = [];
@@ -8354,9 +8854,15 @@ async function main() {
         infoCell.style.flex = '1';
         infoCell.style.minWidth = '0';
         infoCell.style.cursor = 'pointer';
+        const isVecLayerRow = host.isVectorLayer && host.isVectorLayer(i);
+        const vecPathCount = isVecLayerRow && host.getVectorLayer(i)?.paths ? host.getVectorLayer(i).paths.length : 0;
+        const vecBadgeHtml = isVecLayerRow
+          ? `<span style="font-size:9px; background:#1d2021; color:#8ec07c; border:1px solid #8ec07c; border-radius:3px; padding:0 4px; margin-left:4px; font-weight:bold;" title="Editable Vector Layer (${vecPathCount} paths)">VEC</span>`
+          : '';
         infoCell.innerHTML = `
           <span class="layer-idx">#${i}</span>
           <span class="layer-name-text" title="${name}">${name}</span>
+          ${vecBadgeHtml}
           <span class="layer-dims-text">${w}×${h}</span>
         `;
         infoCell.addEventListener('click', (e) => {
@@ -9460,16 +9966,222 @@ async function main() {
       card.addEventListener('click', () => {
         const actMode = card.dataset.actionmode || 'draw';
         host.setActionMode(actMode);
-        if (actMode !== 'select') {
+        if (actMode === 'vector') {
+          if (!host.vectorSubTool || host.vectorSubTool === 'draw') {
+            host.vectorSubTool = 'nodes';
+          }
+          if (host.enableVectorLayer) {
+            const vl = host.enableVectorLayer();
+            if (vl && !vl.selectedPathId && vl.paths.length > 0) {
+              host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
+            }
+          }
+          closeAllSheets();
+        } else if (actMode !== 'select') {
           if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
             host.currentTool = 'brush';
             host.setBrushParam('mode', 0);
           }
         }
+        markCanvasDirty();
         syncUiFromHost();
         triggerHaptic(12);
       });
     });
+
+    // Floating Vector Painter Bar
+    document.querySelectorAll('.ip-vecbar-subtool, .ip-vecbar-sub').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sub = btn.dataset.vecsub || 'nodes';
+        if (sub === 'draw') {
+          host.vectorSubTool = 'draw';
+          host.setActionMode('draw');
+        } else {
+          host.vectorSubTool = sub;
+          host.setActionMode('vector');
+          if (host.enableVectorLayer) {
+            const vl = host.enableVectorLayer();
+            if (vl && !vl.selectedPathId && vl.paths.length > 0) {
+              host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
+            } else if (vl && vl.selectedPathId && vl.selectedNodeIdx < 0) {
+              host.selectVectorPath(vl.selectedPathId, 0);
+            }
+          }
+        }
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    document.querySelectorAll('.ip-vecbar-curvemode, .ip-vecbar-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cm = btn.dataset.vecmode || 'bezier';
+        host.vectorCurveMode = cm;
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (host.actionMode === 'vector' && selPath && typeof selPath.simplify === 'function') {
+          host.pushUndoSnapshot('vector curve mode');
+          selPath.simplify(host.vectorFitTolerance || 2.5, cm === 'bezier');
+          host.renderVectorLayer();
+        }
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    document.querySelectorAll('.ip-vecbar-nodetype').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nt = btn.dataset.nodetype || 'smooth';
+        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (vl && selPath && typeof selPath.setNodeType === 'function') {
+          host.pushUndoSnapshot('set vector node type');
+          if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
+            selPath.setNodeType(vl.selectedNodeIdx, nt);
+          } else {
+            for (let i = 0; i < selPath.nodes.length; i++) selPath.setNodeType(i, nt);
+          }
+          host.renderVectorLayer();
+          markCanvasDirty();
+          syncUiFromHost();
+          triggerHaptic(10);
+        }
+      });
+    });
+
+    const vecWidthSlider = document.getElementById('ip-vecbar-width-slider');
+    const vecWidthVal = document.getElementById('ip-vecbar-width-val');
+    if (vecWidthSlider) {
+      let vecWidthUndoPushed = false;
+      vecWidthSlider.addEventListener('pointerdown', () => { vecWidthUndoPushed = false; });
+      vecWidthSlider.addEventListener('touchstart', () => { vecWidthUndoPushed = false; }, { passive: true });
+      vecWidthSlider.addEventListener('input', () => {
+        const pct = parseInt(vecWidthSlider.value, 10) || 100;
+        if (vecWidthVal) vecWidthVal.textContent = `${pct}%`;
+        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (vl && selPath && Array.isArray(selPath.nodes)) {
+          if (!vecWidthUndoPushed) {
+            host.pushUndoSnapshot('vector node width');
+            vecWidthUndoPushed = true;
+          }
+          const scale = Math.max(0.1, Math.min(3.0, pct / 100));
+          if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
+            selPath.nodes[vl.selectedNodeIdx].widthScale = scale;
+          } else {
+            selPath.nodes.forEach(n => { n.widthScale = scale; });
+          }
+          host.renderVectorLayer();
+          markCanvasDirty();
+        }
+      });
+    }
+
+    const btnVecAddNode = document.getElementById('btn-ip-vecbar-add-node');
+    if (btnVecAddNode) {
+      btnVecAddNode.addEventListener('click', () => {
+        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (vl && selPath && selPath.nodes.length >= 2 && typeof selPath.splitSegment === 'function') {
+          host.pushUndoSnapshot('add vector node');
+          const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
+          const segIdx = (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < segCount)
+            ? vl.selectedNodeIdx
+            : Math.floor((segCount - 1) / 2);
+          const splitRes = selPath.splitSegment(segIdx, 0.5);
+          const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
+          host.selectVectorPath(selPath.id, newIdx);
+          host.renderVectorLayer();
+          markCanvasDirty();
+          syncUiFromHost();
+          triggerHaptic(12);
+        }
+      });
+    }
+
+    const btnVecDelNode = document.getElementById('btn-ip-vecbar-del-node');
+    if (btnVecDelNode) {
+      btnVecDelNode.addEventListener('click', () => {
+        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (vl && selPath) {
+          if (vl.selectedNodeIdx >= 0 && selPath.nodes.length > 2) {
+            host.pushUndoSnapshot('delete vector node');
+            selPath.removeNode(vl.selectedNodeIdx);
+            vl.selectedNodeIdx = Math.min(vl.selectedNodeIdx, selPath.nodes.length - 1);
+            host.renderVectorLayer();
+            markCanvasDirty();
+            syncUiFromHost();
+            triggerHaptic(12);
+          } else if (selPath.nodes.length <= 2) {
+            host.pushUndoSnapshot('delete vector path');
+            vl.paths = vl.paths.filter(p => p.id !== selPath.id);
+            vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
+            vl.selectedNodeIdx = -1;
+            host.renderVectorLayer();
+            markCanvasDirty();
+            syncUiFromHost();
+            triggerHaptic(12);
+          }
+        }
+      });
+    }
+
+    const btnVecSimplify = document.getElementById('btn-ip-vecbar-simplify');
+    if (btnVecSimplify) {
+      btnVecSimplify.addEventListener('click', () => {
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (selPath && typeof selPath.simplify === 'function') {
+          host.pushUndoSnapshot('simplify vector path');
+          selPath.simplify((host.vectorFitTolerance || 2.5) * 1.4, host.vectorCurveMode !== 'raw');
+          host.renderVectorLayer();
+          markCanvasDirty();
+          syncUiFromHost();
+          triggerHaptic(12);
+        }
+      });
+    }
+
+    const btnVecDelPath = document.getElementById('btn-ip-vecbar-del-path');
+    if (btnVecDelPath) {
+      btnVecDelPath.addEventListener('click', () => {
+        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+        if (vl && selPath) {
+          host.pushUndoSnapshot('delete vector path');
+          vl.paths = vl.paths.filter(p => p.id !== selPath.id);
+          vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
+          vl.selectedNodeIdx = -1;
+          host.renderVectorLayer();
+          markCanvasDirty();
+          syncUiFromHost();
+          triggerHaptic(15);
+        }
+      });
+    }
+
+    const btnVecRasterize = document.getElementById('btn-ip-vecbar-rasterize');
+    if (btnVecRasterize) {
+      btnVecRasterize.addEventListener('click', () => {
+        if (host.isVectorLayer && host.isVectorLayer()) {
+          runCmd('rasterize layer');
+          host.setActionMode('draw');
+          syncUiFromHost();
+          triggerHaptic(15);
+        }
+      });
+    }
+
+    const btnVecClose = document.getElementById('btn-ip-vecbar-close');
+    if (btnVecClose) {
+      btnVecClose.addEventListener('click', () => {
+        if (host.selectVectorPath) host.selectVectorPath(null, -1);
+        host.setActionMode('draw');
+        syncUiFromHost();
+        triggerHaptic(12);
+      });
+    }
 
     // Selection Modes in Sheet
     document.querySelectorAll('#sheet-tools .ip-selmode-card').forEach(card => {
@@ -9567,7 +10279,7 @@ async function main() {
           host.currentTool = 'brush';
           host.setBrushParam('mode', 0);
         } else {
-          if (host.actionMode === 'select') {
+          if (host.actionMode === 'select' || host.actionMode === 'vector') {
             host.setActionMode('draw');
           }
           const modeMap = { brush: 0, smudge: 1, blend: 2, fill: 3, lasso_fill: 4, picker: 5, line: 6, rect: 7, ellipse: 8 };
@@ -9738,6 +10450,8 @@ async function main() {
 
     const btnIpAddLayer = document.getElementById('btn-ip-add-layer');
     if (btnIpAddLayer) btnIpAddLayer.addEventListener('click', () => { runCmd('new layer'); });
+    const btnIpAddVectorLayer = document.getElementById('btn-ip-add-vector-layer');
+    if (btnIpAddVectorLayer) btnIpAddVectorLayer.addEventListener('click', () => { runCmd('new vector layer'); });
     const btnIpAddFolder = document.getElementById('btn-ip-add-folder');
     if (btnIpAddFolder) btnIpAddFolder.addEventListener('click', () => { runCmd('new group'); });
     const btnIpDupLayer = document.getElementById('btn-ip-dup-layer');
@@ -10311,6 +11025,44 @@ async function main() {
       document.querySelectorAll('.ip-selbar-tool').forEach(btn => {
         btn.classList.toggle('active', isSelectMode && btn.dataset.seltool === host.currentTool);
       });
+    }
+
+    document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.actionmode === host.actionMode);
+    });
+
+    // Vector Painter Floating Bar Synchronization
+    const ipVecBar = document.getElementById('ip-vector-bar');
+    if (ipVecBar) {
+      const isVecLayerActive = host.isVectorLayer && host.isVectorLayer();
+      const showVecBar = (isVecLayerActive || host.actionMode === 'vector') && !host.isTransforming;
+      ipVecBar.style.display = showVecBar ? 'flex' : 'none';
+      const activeSubTool = (host.actionMode === 'vector') ? (host.vectorSubTool || 'nodes') : 'draw';
+      document.querySelectorAll('.ip-vecbar-subtool, .ip-vecbar-sub').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.vecsub === activeSubTool);
+      });
+      const curCurveMode = host.vectorCurveMode || 'bezier';
+      document.querySelectorAll('.ip-vecbar-curvemode, .ip-vecbar-mode').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.vecmode === curCurveMode);
+      });
+
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      const selNode = (vl && selPath && vl.selectedNodeIdx >= 0 && selPath.nodes[vl.selectedNodeIdx])
+        ? selPath.nodes[vl.selectedNodeIdx]
+        : (selPath && selPath.nodes && selPath.nodes[0] ? selPath.nodes[0] : null);
+      const curNodeType = selNode ? selNode.type : null;
+      document.querySelectorAll('.ip-vecbar-nodetype').forEach(btn => {
+        btn.classList.toggle('active', !!curNodeType && btn.dataset.nodetype === curNodeType);
+      });
+
+      const vecWSlider = document.getElementById('ip-vecbar-width-slider');
+      const vecWVal = document.getElementById('ip-vecbar-width-val');
+      if (vecWSlider && document.activeElement !== vecWSlider) {
+        const wPct = selNode ? Math.round((selNode.widthScale ?? 1.0) * 100) : 100;
+        vecWSlider.value = wPct;
+        if (vecWVal) vecWVal.textContent = `${wPct}%`;
+      }
     }
 
     // Wand Controls in Sheet

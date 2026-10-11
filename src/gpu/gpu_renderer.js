@@ -39,6 +39,15 @@ class EsenhoGPURenderer {
     this.filterMode = 0; // 0 = Nearest (Pixel Art), 1 = Linear
     this.isSupported = false;
     this.useLayerCompositor = true;
+
+    // Layer-composite cache: result is reused while the core's layer epoch
+    // (w_get_layer_epoch) and document size are unchanged.
+    this._compositeEpoch = -1;
+    this._compositeW = 0;
+    this._compositeH = 0;
+    this._compositeResult = null;
+    this.compositeCacheHits = 0;
+    this.compositeCacheMisses = 0;
   }
 
   init() {
@@ -287,6 +296,8 @@ class EsenhoGPURenderer {
     if (this.fboB) gl.deleteFramebuffer(this.fboB);
     if (this.accumTexA) gl.deleteTexture(this.accumTexA);
     if (this.accumTexB) gl.deleteTexture(this.accumTexB);
+    // Recreated accumulators invalidate any cached composite handle.
+    this._compositeResult = null;
 
     const a = createFBOTexture();
     this.fboA = a.fbo;
@@ -526,6 +537,21 @@ class EsenhoGPURenderer {
     if (!this.gl || !this.compositeProgram) return this.compositeTex;
     const gl = this.gl;
 
+    // Fast path: no pixel/metadata change since last composite -> reuse texture.
+    const core = host.canvasActor.exports;
+    const epoch = typeof core.w_get_layer_epoch === 'function' ? core.w_get_layer_epoch() : -2;
+    if (
+      epoch !== -2 &&
+      this._compositeResult &&
+      epoch === this._compositeEpoch &&
+      docWidth === this._compositeW &&
+      docHeight === this._compositeH
+    ) {
+      this.compositeCacheHits++;
+      return this._compositeResult;
+    }
+    this.compositeCacheMisses++;
+
     this._ensureFBOs(docWidth, docHeight);
 
     // Clear FBO A to transparent black
@@ -538,6 +564,7 @@ class EsenhoGPURenderer {
     const orderCount = exports.w_layer_get_order_count ? exports.w_layer_get_order_count() : 0;
     if (orderCount <= 0) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this._storeCompositeCache(epoch, docWidth, docHeight, this.accumTexA);
       return this.accumTexA;
     }
 
@@ -647,7 +674,16 @@ class EsenhoGPURenderer {
     gl.bindVertexArray(null);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+    this._storeCompositeCache(epoch, docWidth, docHeight, curReadTex);
     return curReadTex;
+  }
+
+  /** Remember the composite result for the epoch it was built from. */
+  _storeCompositeCache(epoch, docWidth, docHeight, tex) {
+    this._compositeEpoch = epoch;
+    this._compositeW = docWidth;
+    this._compositeH = docHeight;
+    this._compositeResult = tex;
   }
 
   render(state, sourceTex = null) {

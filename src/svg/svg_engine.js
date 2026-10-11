@@ -104,9 +104,28 @@
      * Returns an array of points approximating the curve with tolerance.
      */
     subdivideCubic(p0, cp1, cp2, p1, tolerance = 0.5, maxDepth = 8) {
-      const points = [p0];
+      const p0Press = p0.pressure !== undefined ? p0.pressure : 1.0;
+      const p1Press = p1.pressure !== undefined ? p1.pressure : 1.0;
+      const p0Width = p0.widthScale !== undefined ? p0.widthScale : 1.0;
+      const p1Width = p1.widthScale !== undefined ? p1.widthScale : 1.0;
+      const p0Tx = p0.tiltX || 0;
+      const p1Tx = p1.tiltX || 0;
+      const p0Ty = p0.tiltY || 0;
+      const p1Ty = p1.tiltY || 0;
 
-      function recurse(p0, cp1, cp2, p1, depth) {
+      const makeSample = (pt, t) => ({
+        x: pt.x,
+        y: pt.y,
+        t,
+        pressure: p0Press + (p1Press - p0Press) * t,
+        widthScale: p0Width + (p1Width - p0Width) * t,
+        tiltX: p0Tx + (p1Tx - p0Tx) * t,
+        tiltY: p0Ty + (p1Ty - p0Ty) * t
+      });
+
+      const points = [makeSample(p0, 0)];
+
+      function recurse(p0, cp1, cp2, p1, depth, t0, t1) {
         const dx = p1.x - p0.x;
         const dy = p1.y - p0.y;
         const lenSq = dx * dx + dy * dy;
@@ -124,10 +143,11 @@
         }
 
         if (flat || depth >= maxDepth) {
-          points.push(p1);
+          points.push(makeSample(p1, t1));
           return;
         }
 
+        const tMid = (t0 + t1) * 0.5;
         const p01 = { x: (p0.x + cp1.x) * 0.5, y: (p0.y + cp1.y) * 0.5 };
         const p12 = { x: (cp1.x + cp2.x) * 0.5, y: (cp1.y + cp2.y) * 0.5 };
         const p23 = { x: (cp2.x + p1.x) * 0.5, y: (cp2.y + p1.y) * 0.5 };
@@ -137,11 +157,11 @@
 
         const p0123 = { x: (p012.x + p123.x) * 0.5, y: (p012.y + p123.y) * 0.5 };
 
-        recurse(p0, p01, p012, p0123, depth + 1);
-        recurse(p0123, p123, p23, p1, depth + 1);
+        recurse(p0, p01, p012, p0123, depth + 1, t0, tMid);
+        recurse(p0123, p123, p23, p1, depth + 1, tMid, t1);
       }
 
-      recurse(p0, cp1, cp2, p1, 0);
+      recurse(p0, cp1, cp2, p1, 0, 0, 1);
       return points;
     },
 
@@ -1001,12 +1021,16 @@
    * ========================================================================= */
 
   class PathNode {
-    constructor(x, y, cpIn = null, cpOut = null, type = 'smooth') {
+    constructor(x, y, cpIn = null, cpOut = null, type = 'smooth', pressure = 1.0, widthScale = 1.0, tiltX = 0, tiltY = 0) {
       this.x = Number(x);
       this.y = Number(y);
       this.cpIn = cpIn ? { x: Number(cpIn.x), y: Number(cpIn.y) } : { x: 0, y: 0 };
       this.cpOut = cpOut ? { x: Number(cpOut.x), y: Number(cpOut.y) } : { x: 0, y: 0 };
       this.type = type; // 'smooth', 'corner', 'symmetric', 'cusp'
+      this.pressure = (pressure !== undefined && pressure !== null && !isNaN(Number(pressure))) ? Number(pressure) : 1.0;
+      this.widthScale = (widthScale !== undefined && widthScale !== null && !isNaN(Number(widthScale))) ? Number(widthScale) : 1.0;
+      this.tiltX = (tiltX !== undefined && tiltX !== null && !isNaN(Number(tiltX))) ? Number(tiltX) : 0;
+      this.tiltY = (tiltY !== undefined && tiltY !== null && !isNaN(Number(tiltY))) ? Number(tiltY) : 0;
     }
 
     getAbsCpIn() {
@@ -1062,7 +1086,7 @@
     }
 
     clone() {
-      return new PathNode(this.x, this.y, { ...this.cpIn }, { ...this.cpOut }, this.type);
+      return new PathNode(this.x, this.y, { ...this.cpIn }, { ...this.cpOut }, this.type, this.pressure, this.widthScale, this.tiltX, this.tiltY);
     }
   }
 
@@ -1071,22 +1095,23 @@
       super('path', attributes);
       this.nodes = [];
       this.closed = attributes.closed !== undefined ? !!attributes.closed : false;
+      this.brushPreset = attributes.brushPreset || null;
 
       if (attributes.nodes && Array.isArray(attributes.nodes)) {
-        this.nodes = attributes.nodes.map(n => new PathNode(n.x, n.y, n.cpIn, n.cpOut, n.type));
+        this.nodes = attributes.nodes.map(n => new PathNode(n.x, n.y, n.cpIn, n.cpOut, n.type, n.pressure, n.widthScale, n.tiltX, n.tiltY));
       } else if (attributes.d) {
         this.setPathData(attributes.d);
       }
     }
 
-    addNode(x, y, cpIn = null, cpOut = null, type = 'smooth') {
-      const node = new PathNode(x, y, cpIn, cpOut, type);
+    addNode(x, y, cpIn = null, cpOut = null, type = 'smooth', pressure = 1.0, widthScale = 1.0, tiltX = 0, tiltY = 0) {
+      const node = new PathNode(x, y, cpIn, cpOut, type, pressure, widthScale, tiltX, tiltY);
       this.nodes.push(node);
       return node;
     }
 
-    insertNode(index, x, y, cpIn = null, cpOut = null, type = 'smooth') {
-      const node = new PathNode(x, y, cpIn, cpOut, type);
+    insertNode(index, x, y, cpIn = null, cpOut = null, type = 'smooth', pressure = 1.0, widthScale = 1.0, tiltX = 0, tiltY = 0) {
+      const node = new PathNode(x, y, cpIn, cpOut, type, pressure, widthScale, tiltX, tiltY);
       this.nodes.splice(index, 0, node);
       return node;
     }
@@ -1106,6 +1131,149 @@
         removed.push(this.nodes.splice(idx, 1)[0]);
       }
       return removed;
+    }
+
+    hitTestNode(px, py, tolerance = 10) {
+      if (!this.visible || this.locked || !Array.isArray(this.nodes)) return -1;
+      let bestIdx = -1;
+      let bestDist = tolerance;
+      for (let i = 0; i < this.nodes.length; i++) {
+        const n = this.nodes[i];
+        const d = Math.hypot(px - n.x, py - n.y);
+        if (d <= bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    }
+
+    moveNode(nodeIdx, dx, dy) {
+      if (nodeIdx < 0 || nodeIdx >= this.nodes.length) return false;
+      const n = this.nodes[nodeIdx];
+      n.x += dx;
+      n.y += dy;
+      return true;
+    }
+
+    moveControlPoint(nodeIdx, which, absX, absY, forceIndependent = false) {
+      if (nodeIdx < 0 || nodeIdx >= this.nodes.length) return false;
+      const n = this.nodes[nodeIdx];
+      if (which === 'in' || which === 'cpIn') {
+        n.setAbsCpIn(absX, absY, forceIndependent);
+      } else {
+        n.setAbsCpOut(absX, absY, forceIndependent);
+      }
+      return true;
+    }
+
+    setNodeType(nodeIdx, type) {
+      if (nodeIdx < 0 || nodeIdx >= this.nodes.length) return false;
+      const n = this.nodes[nodeIdx];
+      n.type = type;
+      if (type === 'corner') {
+        n.cpIn = { x: 0, y: 0 };
+        n.cpOut = { x: 0, y: 0 };
+      } else if (type === 'symmetric') {
+        if (Math.hypot(n.cpOut.x, n.cpOut.y) > 0.1) {
+          n.cpIn = { x: -n.cpOut.x, y: -n.cpOut.y };
+        } else if (Math.hypot(n.cpIn.x, n.cpIn.y) > 0.1) {
+          n.cpOut = { x: -n.cpIn.x, y: -n.cpIn.y };
+        } else {
+          const prev = this.nodes[(nodeIdx - 1 + this.nodes.length) % this.nodes.length];
+          const next = this.nodes[(nodeIdx + 1) % this.nodes.length];
+          const tx = (next ? next.x - (prev ? prev.x : n.x) : 30) * 0.2;
+          const ty = (next ? next.y - (prev ? prev.y : n.y) : 0) * 0.2;
+          n.cpOut = { x: tx, y: ty };
+          n.cpIn = { x: -tx, y: -ty };
+        }
+      } else if (type === 'smooth') {
+        const lenIn = Math.hypot(n.cpIn.x, n.cpIn.y);
+        const lenOut = Math.hypot(n.cpOut.x, n.cpOut.y);
+        if (lenOut > 0.1 && lenIn > 0.1) {
+          const angle = Math.atan2(n.cpOut.y, n.cpOut.x) + Math.PI;
+          n.cpIn = { x: Math.cos(angle) * lenIn, y: Math.sin(angle) * lenIn };
+        } else if (lenOut < 0.1 && lenIn < 0.1) {
+          const prev = this.nodes[(nodeIdx - 1 + this.nodes.length) % this.nodes.length];
+          const next = this.nodes[(nodeIdx + 1) % this.nodes.length];
+          const tx = (next ? next.x - (prev ? prev.x : n.x) : 30) * 0.2;
+          const ty = (next ? next.y - (prev ? prev.y : n.y) : 0) * 0.2;
+          n.cpOut = { x: tx, y: ty };
+          n.cpIn = { x: -tx, y: -ty };
+        }
+      }
+      return true;
+    }
+
+    getEvaluatedPoints(tolerance = 0.5) {
+      return this.toPolyline(tolerance);
+    }
+
+    getClosestSegmentPoint(px, py, tolerance = Infinity) {
+      return this.findClosestSegmentPoint(px, py, tolerance);
+    }
+
+    hitTestStroke(px, py, tolerance = 10) {
+      if (!this.visible || this.locked || this.nodes.length === 0) return null;
+      const effTol = tolerance + (this.strokeWidth || 2) * 0.55;
+      const b = this.getBounds();
+      if (px < b.minX - effTol || px > b.maxX + effTol || py < b.minY - effTol || py > b.maxY + effTol) {
+        return null;
+      }
+      if (this.nodes.length === 1) {
+        const dist = Math.hypot(px - this.nodes[0].x, py - this.nodes[0].y);
+        return dist <= effTol
+          ? { hit: true, segIdx: 0, segIndex: 0, t: 0, dist, distance: dist, point: { x: this.nodes[0].x, y: this.nodes[0].y } }
+          : null;
+      }
+      const match = this.findClosestSegmentPoint(px, py, effTol);
+      if (!match) return null;
+      return {
+        hit: true,
+        segIdx: match.segIdx,
+        segIndex: match.segIdx,
+        t: match.t,
+        dist: match.dist,
+        distance: match.dist,
+        point: match.point
+      };
+    }
+
+    bendSegment(segIdx, t, targetX, targetY) {
+      if (segIdx < 0 || segIdx >= this.nodes.length) return false;
+      const isLast = segIdx === this.nodes.length - 1;
+      if (isLast && !this.closed) return false;
+
+      const p0 = this.nodes[segIdx];
+      const nextIdx = isLast ? 0 : segIdx + 1;
+      const p3 = this.nodes[nextIdx];
+      const tc = Math.max(0.05, Math.min(0.95, t));
+
+      // If segment was straight (zero handles), initialize 1/3 chord handles first
+      if (Math.hypot(p0.cpOut.x, p0.cpOut.y) < 0.1 && Math.hypot(p3.cpIn.x, p3.cpIn.y) < 0.1) {
+        p0.cpOut = { x: (p3.x - p0.x) / 3, y: (p3.y - p0.y) / 3 };
+        p3.cpIn = { x: (p0.x - p3.x) / 3, y: (p0.y - p3.y) / 3 };
+      }
+
+      const cp1 = p0.getAbsCpOut();
+      const cp2 = p3.getAbsCpIn();
+      const curPt = Bezier.evalCubic(p0, cp1, cp2, p3, tc);
+      const dx = targetX - curPt.x;
+      const dy = targetY - curPt.y;
+
+      const it = 1 - tc;
+      const denom = 3 * tc * it * (it * it + tc * tc);
+      if (denom < 1e-6) return false;
+
+      const c = 1 / denom;
+      const d1x = dx * it * c;
+      const d1y = dy * it * c;
+      const d2x = dx * tc * c;
+      const d2y = dy * tc * c;
+
+      p0.setAbsCpOut(cp1.x + d1x, cp1.y + d1y, p0.type === 'cusp' || p0.type === 'corner');
+      p3.setAbsCpIn(cp2.x + d2x, cp2.y + d2y, p3.type === 'cusp' || p3.type === 'corner');
+      return true;
     }
 
     findClosestSegmentPoint(px, py, tolerance = 12) {
@@ -1178,7 +1346,7 @@
             bestPt = pt;
           }
         }
-        return { segIdx: bestSeg, t: Math.max(0.02, Math.min(0.98, bestT)), dist: bestDist, point: bestPt };
+        return { segIdx: bestSeg, segIndex: bestSeg, t: Math.max(0.02, Math.min(0.98, bestT)), dist: bestDist, point: bestPt };
       }
       return null;
     }
@@ -1197,11 +1365,16 @@
       const hasCp1 = Math.hypot(p0.cpOut.x, p0.cpOut.y) > 0.1;
       const hasCp2 = Math.hypot(p3.cpIn.x, p3.cpIn.y) > 0.1;
 
+      const interpPress = (p0.pressure ?? 1.0) + ((p3.pressure ?? 1.0) - (p0.pressure ?? 1.0)) * t;
+      const interpWidth = (p0.widthScale ?? 1.0) + ((p3.widthScale ?? 1.0) - (p0.widthScale ?? 1.0)) * t;
+      const interpTx = (p0.tiltX || 0) + ((p3.tiltX || 0) - (p0.tiltX || 0)) * t;
+      const interpTy = (p0.tiltY || 0) + ((p3.tiltY || 0) - (p0.tiltY || 0)) * t;
+
       let newNode;
       if (!hasCp1 && !hasCp2) {
         const nx = p0.x + (p3.x - p0.x) * t;
         const ny = p0.y + (p3.y - p0.y) * t;
-        newNode = new PathNode(nx, ny, { x: 0, y: 0 }, { x: 0, y: 0 }, 'corner');
+        newNode = new PathNode(nx, ny, { x: 0, y: 0 }, { x: 0, y: 0 }, 'corner', interpPress, interpWidth, interpTx, interpTy);
       } else {
         const p01 = { x: p0.x + (p1.x - p0.x) * t, y: p0.y + (p1.y - p0.y) * t };
         const p12 = { x: p1.x + (p2.x - p1.x) * t, y: p1.y + (p2.y - p1.y) * t };
@@ -1218,7 +1391,11 @@
           pSplit.y,
           { x: p012.x - pSplit.x, y: p012.y - pSplit.y },
           { x: p123.x - pSplit.x, y: p123.y - pSplit.y },
-          'smooth'
+          'smooth',
+          interpPress,
+          interpWidth,
+          interpTx,
+          interpTy
         );
       }
 
@@ -1256,7 +1433,15 @@
           ...this.toJSON(),
           id: undefined,
           name: `${this.name} (Part 2)`,
-          nodes: part2Nodes.map(n => ({ x: n.x, y: n.y, cpIn: { ...n.cpIn }, cpOut: { ...n.cpOut }, type: n.type })),
+          nodes: part2Nodes.map(n => ({
+            x: n.x, y: n.y,
+            cpIn: { ...n.cpIn }, cpOut: { ...n.cpOut },
+            type: n.type,
+            pressure: n.pressure,
+            widthScale: n.widthScale,
+            tiltX: n.tiltX,
+            tiltY: n.tiltY
+          })),
           closed: false
         });
         return [this, newPath];
@@ -1363,15 +1548,32 @@
 
     toPolyline(tolerance = 0.5) {
       if (this.nodes.length === 0) return [];
-      const poly = [ { x: this.nodes[0].x, y: this.nodes[0].y } ];
+      const firstNode = this.nodes[0];
+      const poly = [{
+        x: firstNode.x,
+        y: firstNode.y,
+        t: 0,
+        pressure: firstNode.pressure !== undefined ? firstNode.pressure : 1.0,
+        widthScale: firstNode.widthScale !== undefined ? firstNode.widthScale : 1.0,
+        tiltX: firstNode.tiltX || 0,
+        tiltY: firstNode.tiltY || 0
+      }];
 
       for (let i = 1; i < this.nodes.length; i++) {
         const prev = this.nodes[i - 1];
         const curr = this.nodes[i];
-        const p0 = { x: prev.x, y: prev.y };
+        const p0 = {
+          x: prev.x, y: prev.y,
+          pressure: prev.pressure, widthScale: prev.widthScale,
+          tiltX: prev.tiltX, tiltY: prev.tiltY
+        };
         const cp1 = prev.getAbsCpOut();
         const cp2 = curr.getAbsCpIn();
-        const p1 = { x: curr.x, y: curr.y };
+        const p1 = {
+          x: curr.x, y: curr.y,
+          pressure: curr.pressure, widthScale: curr.widthScale,
+          tiltX: curr.tiltX, tiltY: curr.tiltY
+        };
 
         const segment = Bezier.subdivideCubic(p0, cp1, cp2, p1, tolerance);
         for (let s = 1; s < segment.length; s++) {
@@ -1383,10 +1585,18 @@
         const last = this.nodes[this.nodes.length - 1];
         const first = this.nodes[0];
         const segment = Bezier.subdivideCubic(
-          { x: last.x, y: last.y },
+          {
+            x: last.x, y: last.y,
+            pressure: last.pressure, widthScale: last.widthScale,
+            tiltX: last.tiltX, tiltY: last.tiltY
+          },
           last.getAbsCpOut(),
           first.getAbsCpIn(),
-          { x: first.x, y: first.y },
+          {
+            x: first.x, y: first.y,
+            pressure: first.pressure, widthScale: first.widthScale,
+            tiltX: first.tiltX, tiltY: first.tiltY
+          },
           tolerance
         );
         for (let s = 1; s < segment.length; s++) {
@@ -1510,7 +1720,10 @@
 
       if (!fitCurves) {
         const reduced = Bezier.simplifyRDP(poly, tolerance);
-        this.nodes = reduced.map(p => new PathNode(p.x, p.y, null, null, 'corner'));
+        this.nodes = reduced.map(p => new PathNode(
+          p.x, p.y, null, null, 'corner',
+          p.pressure ?? 1.0, p.widthScale ?? 1.0, p.tiltX || 0, p.tiltY || 0
+        ));
         return this;
       }
 
@@ -1526,7 +1739,11 @@
             seg.p0.x, seg.p0.y,
             null,
             { x: seg.cp1.x - seg.p0.x, y: seg.cp1.y - seg.p0.y },
-            'smooth'
+            'smooth',
+            seg.p0.pressure ?? 1.0,
+            seg.p0.widthScale ?? 1.0,
+            seg.p0.tiltX || 0,
+            seg.p0.tiltY || 0
           ));
         } else {
           newNodes[newNodes.length - 1].cpOut = { x: seg.cp1.x - seg.p0.x, y: seg.cp1.y - seg.p0.y };
@@ -1536,7 +1753,11 @@
           seg.p1.x, seg.p1.y,
           { x: seg.cp2.x - seg.p1.x, y: seg.cp2.y - seg.p1.y },
           null,
-          'smooth'
+          'smooth',
+          seg.p1.pressure ?? 1.0,
+          seg.p1.widthScale ?? 1.0,
+          seg.p1.tiltX || 0,
+          seg.p1.tiltY || 0
         ));
       }
 
@@ -1553,14 +1774,89 @@
       return this;
     }
 
+    static fromRawPoints(rawPoints, options = {}) {
+      const mode = options.mode || 'bezier'; // 'bezier' or 'raw'
+      const tolerance = options.tolerance !== undefined ? Number(options.tolerance) : 2.5;
+      const attrs = { ...options };
+      delete attrs.mode;
+      delete attrs.tolerance;
+      const path = new SvgPath(attrs);
+      if (!rawPoints || rawPoints.length === 0) return path;
+
+      // Filter out duplicate consecutive points while keeping endpoints and pressure
+      const clean = [rawPoints[0]];
+      for (let i = 1; i < rawPoints.length; i++) {
+        const prev = clean[clean.length - 1];
+        const cur = rawPoints[i];
+        if (Math.hypot(cur.x - prev.x, cur.y - prev.y) >= 0.75 || i === rawPoints.length - 1) {
+          clean.push(cur);
+        }
+      }
+
+      if (clean.length === 1) {
+        const p = clean[0];
+        path.addNode(p.x, p.y, null, null, 'smooth', p.pressure ?? 1.0, p.widthScale ?? 1.0, p.tiltX || 0, p.tiltY || 0);
+        return path;
+      }
+
+      if (mode === 'raw' || clean.length === 2) {
+        for (const p of clean) {
+          path.addNode(p.x, p.y, null, null, 'corner', p.pressure ?? 1.0, p.widthScale ?? 1.0, p.tiltX || 0, p.tiltY || 0);
+        }
+        return path;
+      }
+
+      const segments = Bezier.fitCurve(clean, Math.max(0.25, tolerance));
+      if (!segments || segments.length === 0) {
+        for (const p of clean) {
+          path.addNode(p.x, p.y, null, null, 'corner', p.pressure ?? 1.0, p.widthScale ?? 1.0, p.tiltX || 0, p.tiltY || 0);
+        }
+        return path;
+      }
+
+      for (let i = 0; i < segments.length; i++) {
+        const seg = segments[i];
+        if (i === 0) {
+          path.addNode(
+            seg.p0.x, seg.p0.y,
+            null,
+            { x: seg.cp1.x - seg.p0.x, y: seg.cp1.y - seg.p0.y },
+            'smooth',
+            seg.p0.pressure ?? 1.0,
+            seg.p0.widthScale ?? 1.0,
+            seg.p0.tiltX || 0,
+            seg.p0.tiltY || 0
+          );
+        } else {
+          path.nodes[path.nodes.length - 1].cpOut = { x: seg.cp1.x - seg.p0.x, y: seg.cp1.y - seg.p0.y };
+        }
+        path.addNode(
+          seg.p1.x, seg.p1.y,
+          { x: seg.cp2.x - seg.p1.x, y: seg.cp2.y - seg.p1.y },
+          null,
+          'smooth',
+          seg.p1.pressure ?? 1.0,
+          seg.p1.widthScale ?? 1.0,
+          seg.p1.tiltX || 0,
+          seg.p1.tiltY || 0
+        );
+      }
+      return path;
+    }
+
     toJSON() {
       const data = super.toJSON();
       data.closed = this.closed;
+      if (this.brushPreset) data.brushPreset = this.brushPreset;
       data.nodes = this.nodes.map(n => ({
         x: n.x, y: n.y,
         cpIn: { ...n.cpIn },
         cpOut: { ...n.cpOut },
-        type: n.type
+        type: n.type,
+        pressure: n.pressure !== undefined ? n.pressure : 1.0,
+        widthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+        tiltX: n.tiltX || 0,
+        tiltY: n.tiltY || 0
       }));
       return data;
     }

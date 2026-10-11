@@ -352,7 +352,20 @@ static int32_t dirty_y0 = 0;
 static int32_t dirty_x1 = -1;
 static int32_t dirty_y1 = -1;
 
+/* Layer content epoch: incremented on every pixel-changing write path
+ * (mark_dirty_rect / composite_region / explicit w_invalidate_layers).
+ * Host GPU compositor caches its result per epoch and skips upload +
+ * recomposition when the epoch is unchanged. Reads never bump it. */
+static uint32_t layer_epoch = 1;
+
+W_EXPORT uint32_t w_get_layer_epoch(void) { return layer_epoch; }
+
+/* Call after any direct write into layer pixel memory from JS
+ * (undo/redo, image load, external buffer copy). */
+W_EXPORT void w_invalidate_layers(void) { layer_epoch++; }
+
 static void mark_dirty_rect(int32_t x0, int32_t y0, int32_t x1, int32_t y1) {
+    layer_epoch++;
     if (x0 < 0) x0 = 0;
     if (y0 < 0) y0 = 0;
     if (x1 >= (int32_t)doc_width) x1 = (int32_t)doc_width - 1;
@@ -536,10 +549,18 @@ static void composite_region(int rx0, int ry0, int rx1, int ry1) {
 }
 
 static int surface_dirty = 1;
+/* Epoch the current out_pixels was built from. Captured before compositing so
+ * a write landing mid-composite still forces a rebuild next frame. */
+static uint32_t composited_epoch = 0;
 
 static void composite_surface(void) {
     composite_region(0, 0, (int)doc_width - 1, (int)doc_height - 1);
     surface_dirty = 0;
+    /* composite_region bumps layer_epoch through mark_dirty_rect as a side
+     * effect of compositing itself. That bump is not a content change, so the
+     * composite is recorded at the post-composite epoch. Writes that happened
+     * before this call were bumped earlier and are already reflected. */
+    composited_epoch = layer_epoch;
 }
 
 void force_composite(void) {
@@ -1552,6 +1573,7 @@ W_EXPORT uint8_t w_layer_get_opacity(int32_t layer_idx) {
 
 W_EXPORT void w_layer_set_pixels(int32_t layer_idx, uint32_t *pixels, int32_t width, int32_t height) {
     init_surface_if_needed();
+    layer_epoch++; /* swaps the layer's pixel buffer: GPU cache must rebuild */
     if (layer_idx >= 0) {
         ensure_layer_capacity(layer_idx + 1);
         layers[layer_idx].in_use = 1;
@@ -2080,6 +2102,7 @@ static uint32_t stroke_pickup_color = 0;
  */
 W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser, int32_t pressure, int32_t tilt_x, int32_t tilt_y) {
     init_surface_if_needed();
+    uint32_t epoch_before_stroke = layer_epoch;
     int w = 0, h = 0;
     uint32_t *pix = get_current_draw_target(&w, &h);
     if (!pix || w <= 0 || h <= 0) return;
@@ -2343,6 +2366,11 @@ W_EXPORT void w_brush_stroke_ext(int32_t state, int32_t x0, int32_t y0, int32_t 
         d_y0 = 0; d_y1 = h - 1;
     }
     composite_region(d_x0, d_y0, d_x1, d_y1);
+    /* The bbox composite above reflects the stroke. Advance the composed epoch
+     * only if the output was already current before this stroke: an earlier
+     * unreflected write (direct JS memory write, no composite yet) must keep
+     * forcing a full rebuild. */
+    if (epoch_before_stroke == composited_epoch) composited_epoch = layer_epoch;
 }
 
 W_EXPORT void w_brush_stroke(int32_t state, int32_t x0, int32_t y0, int32_t x1, int32_t y1, uint32_t color, int32_t eraser) {
@@ -2372,7 +2400,10 @@ W_EXPORT void w_force_composite(void) {
 
 W_EXPORT uint32_t* w_render(void) {
     init_surface_if_needed();
-    if (surface_dirty) force_composite();
+    /* Recompose when flagged dirty OR when the layer epoch moved since the last
+     * composite (catches direct JS writes that were followed by
+     * w_invalidate_layers). Idle frames take the cheap compare path. */
+    if (surface_dirty || composited_epoch != layer_epoch) force_composite();
     return out_pixels;
 }
 
