@@ -1,18 +1,41 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="skeuo">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Esenho Studio Mobile</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="mobile.webmanifest">
-  <meta name="theme-color" content="#1d2021">
+  <meta name="theme-color" content="#191c20">
   <meta name="color-scheme" content="dark">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Esenho">
   <link rel="apple-touch-icon" href="icon.svg">
+  <script>
+    (function() {
+      try {
+        let t = localStorage.getItem('esenho_mobile_theme');
+        if (!t) {
+          const mobSettings = localStorage.getItem('esenho_mobile_settings_v1');
+          if (mobSettings) {
+            try { t = JSON.parse(mobSettings)?.theme; } catch (_) {}
+          }
+        }
+        if (!t) t = 'skeuo';
+        if (t === 'ableton') t = 'gray';
+        if (t === 'skeuomorphic') t = 'skeuo';
+        if (!['dark', 'gray', 'skeuo'].includes(t)) t = 'skeuo';
+        document.documentElement.setAttribute('data-theme', t);
+        if (document.body) {
+          document.body.setAttribute('data-theme', t);
+          document.body.classList.remove('theme-dark', 'theme-gray', 'theme-skeuo');
+          document.body.classList.add('theme-' + t);
+        }
+      } catch (_) {}
+    })();
+  </script>
   <style>
     :root {
       --bg-dark: #141617;
@@ -3375,7 +3398,7 @@
   <link rel="stylesheet" href="src/mobile/mobile_studio.css">
 </head>
 
-<body class="mobile-studio-ui">
+<body class="mobile-studio-ui theme-skeuo" data-theme="skeuo">
 
   <header id="mobile-studio-header">
     <button class="mobile-brand" id="mobile-menu-button" type="button" aria-label="Open Studio menu" title="Studio menu">E</button>
@@ -3424,12 +3447,8 @@
 
   <nav id="mobile-tool-bar" aria-label="Canvas tools">
     <button class="mobile-tool-button tool-btn active" data-tool="select" type="button" title="Select / Transform" aria-label="Select / Transform" aria-pressed="true"><span class="tool-icon">⌖</span><span>Select</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="hand" type="button" title="Hand / Pan" aria-label="Hand / Pan" aria-pressed="false"><span class="tool-icon">✋</span><span>Hand</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="node" type="button" title="Path Nodes" aria-label="Path Nodes" aria-pressed="false"><span class="tool-icon">⌘</span><span>Nodes</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="pen" type="button" title="Bézier Pen" aria-label="Bézier Pen" aria-pressed="false"><span class="tool-icon">✒</span><span>Pen</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="rect" type="button" title="Rectangle" aria-label="Rectangle" aria-pressed="false"><span class="tool-icon">▭</span><span>Rect</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="ellipse" type="button" title="Ellipse / Circle" aria-label="Ellipse / Circle" aria-pressed="false"><span class="tool-icon">◯</span><span>Ellipse</span></button>
-    <button class="mobile-tool-button tool-btn" data-tool="brush" type="button" title="Vector Brush" aria-label="Vector Brush" aria-pressed="false"><span class="tool-icon">🖌</span><span>Brush</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text" aria-label="Text" aria-pressed="false"><span class="tool-icon">T</span><span>Text</span></button>
   </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
@@ -4294,8 +4313,13 @@
       function loadStudioSettings() {
         try {
           const raw = localStorage.getItem(STUDIO_SETTINGS_KEY);
-          if (!raw) return {};
-          return JSON.parse(raw) || {};
+          if (raw) return JSON.parse(raw) || {};
+          const desktopRaw = localStorage.getItem('esenho_studio_settings_v1');
+          if (desktopRaw) {
+            const parsed = JSON.parse(desktopRaw) || {};
+            return { ...parsed, theme: 'skeuo' };
+          }
+          return {};
         } catch (_) {
           return {};
         }
@@ -4314,19 +4338,20 @@
       const initialStudioSettings = loadStudioSettings();
 
       // ── Theme State & Management ──
-      let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
+      let currentTheme = localStorage.getItem('esenho_mobile_theme') || initialStudioSettings.theme || 'skeuo';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (currentTheme === 'skeuomorphic' || currentTheme === 'skeuo') currentTheme = 'dark';
-      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
+      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'skeuo';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
+        if (theme === 'skeuomorphic') theme = 'skeuo';
+        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'skeuo';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.remove('theme-skeuo', 'theme-skeuomorphic');
+        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -4336,12 +4361,20 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
+          else if (currentTheme === 'skeuo') themeText.textContent = '🎛 Skeuo';
           else themeText.textContent = '☾ Dark';
+        }
+
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+          if (currentTheme === 'skeuo') metaThemeColor.setAttribute('content', '#191c20');
+          else if (currentTheme === 'gray') metaThemeColor.setAttribute('content', '#222528');
+          else metaThemeColor.setAttribute('content', '#1d2021');
         }
 
         saveStudioSettings({ theme: currentTheme });
         try {
-          localStorage.setItem('esenho_theme', currentTheme);
+          localStorage.setItem('esenho_mobile_theme', currentTheme);
         } catch (_) {}
 
         try {
@@ -4357,13 +4390,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray'];
+        const order = ['skeuo', 'dark', 'gray'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -11889,6 +11922,7 @@
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Curves & Easing' : 'Curves & Easing Dock'), action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
+            { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic', action: () => setTheme('skeuo') },
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
             { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
           ]},
