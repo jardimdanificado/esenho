@@ -1,41 +1,18 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="skeuo">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Esenho Studio Mobile</title>
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <link rel="manifest" href="mobile.webmanifest">
-  <meta name="theme-color" content="#191c20">
+  <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Esenho">
   <link rel="apple-touch-icon" href="icon.svg">
-  <script>
-    (function() {
-      try {
-        let t = localStorage.getItem('esenho_mobile_theme');
-        if (!t) {
-          const mobSettings = localStorage.getItem('esenho_mobile_settings_v1');
-          if (mobSettings) {
-            try { t = JSON.parse(mobSettings)?.theme; } catch (_) {}
-          }
-        }
-        if (!t) t = 'skeuo';
-        if (t === 'ableton') t = 'gray';
-        if (t === 'skeuomorphic') t = 'skeuo';
-        if (!['dark', 'gray', 'skeuo'].includes(t)) t = 'skeuo';
-        document.documentElement.setAttribute('data-theme', t);
-        if (document.body) {
-          document.body.setAttribute('data-theme', t);
-          document.body.classList.remove('theme-dark', 'theme-gray', 'theme-skeuo');
-          document.body.classList.add('theme-' + t);
-        }
-      } catch (_) {}
-    })();
-  </script>
   <style>
     :root {
       --bg-dark: #141617;
@@ -3398,7 +3375,7 @@
   <link rel="stylesheet" href="src/mobile/mobile_studio.css">
 </head>
 
-<body class="mobile-studio-ui theme-skeuo" data-theme="skeuo">
+<body class="mobile-studio-ui">
 
   <header id="mobile-studio-header">
     <button class="mobile-brand" id="mobile-menu-button" type="button" aria-label="Open Studio menu" title="Studio menu">E</button>
@@ -3443,66 +3420,16 @@
       <nav id="mobile-subtab-bar" aria-label="Subtabs" hidden></nav>
       <div id="mobile-panel-slot"></div>
     </section>
-    <!-- Floating Mobile Animation Timeline Dock -->
-    <aside id="mobile-floating-timeline" class="mobile-floating-timeline" aria-label="Floating Animation Timeline" hidden>
-      <div id="mobile-floating-timeline-handle" class="mobile-floating-timeline-handle" title="Drag timeline bar">
-        <div class="mobile-floating-timeline-bar-pill"></div>
-      </div>
-      <header class="mobile-floating-timeline-header">
-        <div class="mobile-floating-timeline-title">
-          <span class="mft-icon">⏱</span>
-          <span class="mft-text">Timeline & Animator</span>
-          <span id="mft-time-badge" class="mft-badge">F 1/60</span>
-        </div>
-        <div class="mobile-floating-timeline-clip-group">
-          <select id="mft-animation-clip" class="mft-clip-select" aria-label="Timeline clip"></select>
-          <button class="mft-action-btn" type="button" data-clip-command="create" title="New Clip" aria-label="New Clip">＋</button>
-          <button class="mft-action-btn" type="button" data-clip-command="duplicate" title="Duplicate Clip" aria-label="Duplicate Clip">▣</button>
-          <button class="mft-action-btn" type="button" data-clip-command="rename" title="Rename Clip" aria-label="Rename Clip">✎</button>
-          <button class="mft-action-btn" type="button" data-clip-command="delete" title="Delete Clip" aria-label="Delete Clip">×</button>
-        </div>
-        <button id="mobile-floating-timeline-close" class="mft-close-btn" type="button" title="Hide Timeline" aria-label="Hide Timeline">✕</button>
-      </header>
-      
-      <!-- Primary Transport Controls & Scrubber -->
-      <div class="mobile-floating-timeline-transport">
-        <button class="mft-btn" data-anim-command="first" type="button" title="First Frame" aria-label="First Frame">|◀</button>
-        <button class="mft-btn" data-anim-command="previous" type="button" title="Previous Frame" aria-label="Previous Frame">◀</button>
-        <button id="mft-btn-play" class="mft-btn mft-btn-play" data-anim-command="play" type="button" title="Play / Pause" aria-label="Play / Pause">▶</button>
-        <button class="mft-btn" data-anim-command="next" type="button" title="Next Frame" aria-label="Next Frame">▶</button>
-        <button class="mft-btn" data-anim-command="last" type="button" title="Last Frame" aria-label="Last Frame">▶|</button>
-        <button id="mft-btn-loop" class="mft-btn" data-anim-command="loop" type="button" title="Loop" aria-label="Loop">↻</button>
-        <button id="mft-btn-autokf" class="mft-btn" data-anim-command="autokey" type="button" title="Auto Keyframe" aria-label="Auto Keyframe">◆</button>
-        <button class="mft-btn mft-btn-rec" data-anim-command="record" type="button" title="Record State at Current Frame" aria-label="Record State">● Rec</button>
-      </div>
-
-      <!-- Quick Frame Settings & Scrubber Bar -->
-      <div class="mobile-floating-timeline-scrubber-row">
-        <div class="mft-inputs-cluster">
-          <label class="mft-field">F <input id="mft-input-frame" type="number" min="1" value="1" inputmode="numeric"></label>
-          <label class="mft-field">Len <input id="mft-input-total" type="number" min="1" value="60" inputmode="numeric"></label>
-          <label class="mft-field">FPS <input id="mft-input-fps" type="number" min="1" max="120" value="24" inputmode="numeric"></label>
-        </div>
-        <div class="mft-scrubber-track-wrap">
-          <input id="mft-scrubber-slider" type="range" min="1" max="60" value="1" aria-label="Timeline frame scrubber">
-        </div>
-      </div>
-
-      <!-- Keyframe Events List -->
-      <div class="mobile-floating-timeline-body">
-        <div class="mft-events-head">
-          <span id="mft-events-title">Keyframe States</span>
-          <span id="mft-events-badge" class="mft-badge"></span>
-        </div>
-        <div id="mft-events-container" class="mft-events-container"></div>
-      </div>
-    </aside>
   </div>
 
   <nav id="mobile-tool-bar" aria-label="Canvas tools">
     <button class="mobile-tool-button tool-btn active" data-tool="select" type="button" title="Select / Transform" aria-label="Select / Transform" aria-pressed="true"><span class="tool-icon">⌖</span><span>Select</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="hand" type="button" title="Hand / Pan" aria-label="Hand / Pan" aria-pressed="false"><span class="tool-icon">✋</span><span>Hand</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="node" type="button" title="Path Nodes" aria-label="Path Nodes" aria-pressed="false"><span class="tool-icon">⌘</span><span>Nodes</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="pen" type="button" title="Bézier Pen" aria-label="Bézier Pen" aria-pressed="false"><span class="tool-icon">✒</span><span>Pen</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="rect" type="button" title="Rectangle" aria-label="Rectangle" aria-pressed="false"><span class="tool-icon">▭</span><span>Rect</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="ellipse" type="button" title="Ellipse / Circle" aria-label="Ellipse / Circle" aria-pressed="false"><span class="tool-icon">◯</span><span>Ellipse</span></button>
+    <button class="mobile-tool-button tool-btn" data-tool="brush" type="button" title="Vector Brush" aria-label="Vector Brush" aria-pressed="false"><span class="tool-icon">🖌</span><span>Brush</span></button>
     <button class="mobile-tool-button tool-btn" data-tool="text" type="button" title="Text" aria-label="Text" aria-pressed="false"><span class="tool-icon">T</span><span>Text</span></button>
   </nav>
   <nav id="mobile-studio-nav" aria-label="Studio tools and panels">
@@ -4362,19 +4289,13 @@
       const { SvgDocument, SvgPath, SvgCompoundPath, SvgText, SvgRect, SvgCircle, SvgEllipse, SvgLine, SvgGroup, SvgImage, PathNode, Bezier, SvgLinearGradient, SvgRadialGradient, SvgTracer } = SvgEngine;
 
       // ── Persistent User Settings (localStorage) ──
-      const STUDIO_SETTINGS_KEY = 'esenho_mobile_settings_v1';
+      const STUDIO_SETTINGS_KEY = 'esenho_studio_settings_v1';
 
       function loadStudioSettings() {
         try {
           const raw = localStorage.getItem(STUDIO_SETTINGS_KEY);
-          if (raw) return JSON.parse(raw) || {};
-          // Fallback initial migration from desktop settings if mobile settings not yet created:
-          const desktopRaw = localStorage.getItem('esenho_studio_settings_v1');
-          if (desktopRaw) {
-            const parsed = JSON.parse(desktopRaw) || {};
-            return { ...parsed, theme: 'skeuo' };
-          }
-          return {};
+          if (!raw) return {};
+          return JSON.parse(raw) || {};
         } catch (_) {
           return {};
         }
@@ -4393,20 +4314,19 @@
       const initialStudioSettings = loadStudioSettings();
 
       // ── Theme State & Management ──
-      let currentTheme = localStorage.getItem('esenho_mobile_theme') || initialStudioSettings.theme || 'skeuo';
+      let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
-      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'skeuo';
+      if (currentTheme === 'skeuomorphic' || currentTheme === 'skeuo') currentTheme = 'dark';
+      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        if (theme === 'skeuomorphic') theme = 'skeuo';
-        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'skeuo';
+        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
+        document.body.classList.remove('theme-skeuo', 'theme-skeuomorphic');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -4416,20 +4336,12 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
-          else if (currentTheme === 'skeuo') themeText.textContent = '🎛 Skeuo';
           else themeText.textContent = '☾ Dark';
-        }
-
-        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-        if (metaThemeColor) {
-          if (currentTheme === 'skeuo') metaThemeColor.setAttribute('content', '#191c20');
-          else if (currentTheme === 'gray') metaThemeColor.setAttribute('content', '#222528');
-          else metaThemeColor.setAttribute('content', '#1d2021');
         }
 
         saveStudioSettings({ theme: currentTheme });
         try {
-          localStorage.setItem('esenho_mobile_theme', currentTheme);
+          localStorage.setItem('esenho_theme', currentTheme);
         } catch (_) {}
 
         try {
@@ -4445,13 +4357,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['skeuo', 'dark', 'gray'];
+        const order = ['dark', 'gray'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -6066,17 +5978,18 @@
       window.addEventListener('esenho:registry-updated', () => updateSelectedObjectEventsUI());
 
       function updateSelectedObjectEventsUI() {
-        const containers = [
-          { container: document.getElementById('selected-events-container'), titleEl: document.getElementById('selected-events-title'), badgeEl: document.getElementById('selected-events-badge') },
-          { container: document.getElementById('mft-events-container'), titleEl: document.getElementById('mft-events-title'), badgeEl: document.getElementById('mft-events-badge') }
-        ].filter(item => !!item.container);
-
-        if (containers.length === 0) return;
+        const container = document.getElementById('selected-events-container');
+        const titleEl = document.getElementById('selected-events-title');
+        const badgeEl = document.getElementById('selected-events-badge');
+        if (!container) return;
 
         const currentFrame = window.dopeSheet ? (window.dopeSheet.currentFrame || 1) : 1;
         const selected = doc.getSelectedObjects();
 
         if (selected.length === 0) {
+          if (titleEl) titleEl.textContent = 'Scene Keyframe Overview';
+
+          // Find all animated objects in the scene
           const allObjs = typeof doc.getAllObjects === 'function' ? doc.getAllObjects() : (doc.objects || []);
           const animatedList = [];
           for (const obj of allObjs) {
@@ -6089,147 +6002,144 @@
             }
           }
 
-          containers.forEach(({ container, titleEl, badgeEl }) => {
-            if (titleEl) titleEl.textContent = 'Scene Keyframe Overview';
-            if (badgeEl) badgeEl.textContent = `${animatedList.length} animated`;
+          if (badgeEl) badgeEl.textContent = `${animatedList.length} animated`;
 
-            if (animatedList.length === 0) {
-              container.innerHTML = `
-                <div class="anim-empty-state">
-                  No keyframes recorded in scene yet.<br>
-                  Select an object, choose a frame, then record its state.
+          if (animatedList.length === 0) {
+            container.innerHTML = `
+              <div class="anim-empty-state">
+                No keyframes recorded in scene yet.<br>
+                Select an object, choose a frame, then record its state.
+              </div>
+            `;
+          } else {
+            let html = `
+              <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto;">
+                <div style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; padding: 2px 0;">Animated Objects:</div>
+            `;
+            for (const item of animatedList) {
+              html += `
+                <div data-action="select-obj" data-object-id="${item.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 2px; cursor: pointer; font-size: 9.5px; transition: background 0.1s ease;">
+                  <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</span>
+                  <span class="badge" style="font-size: 8.5px; color: var(--primary);">◆ ${item.count}</span>
                 </div>
               `;
-            } else {
-              let html = `
-                <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; overflow-y: auto;">
-                  <div style="font-size: 9px; color: var(--text-dim); text-transform: uppercase; font-weight: 700; padding: 2px 0;">Animated Objects:</div>
-              `;
-              for (const item of animatedList) {
-                html += `
-                  <div data-action="select-obj" data-object-id="${item.id}" style="display: flex; align-items: center; justify-content: space-between; padding: 3px 6px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 2px; cursor: pointer; font-size: 9.5px; transition: background 0.1s ease;">
-                    <span style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</span>
-                    <span class="badge" style="font-size: 8.5px; color: var(--primary);">◆ ${item.count}</span>
-                  </div>
-                `;
-              }
-              html += `</div>`;
-              container.innerHTML = html;
             }
-          });
+            html += `
+              </div>
+            `;
+            container.innerHTML = html;
+          }
           return;
         }
 
         const mainTarget = selected[0];
+        if (titleEl) titleEl.textContent = `Events: ${mainTarget.name || mainTarget.id}`;
+
         const dObj = (window.dopeSheet && typeof window.dopeSheet.getObject === 'function')
           ? window.dopeSheet.getObject(mainTarget.id)
           : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(mainTarget.id) : null);
         const events = (dObj && typeof dObj.getEventList === 'function') ? dObj.getEventList() : [];
+        if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
 
-        containers.forEach(({ container, titleEl, badgeEl }) => {
-          if (titleEl) titleEl.textContent = `Events: ${mainTarget.name || mainTarget.id}`;
-          if (badgeEl) badgeEl.textContent = `${events.length} state${events.length === 1 ? '' : 's'}`;
-
-          if (events.length === 0) {
-            container.innerHTML = `
-              <div class="anim-empty-state">
-                No states recorded yet. Use Record State to add the current pose.
+        if (events.length === 0) {
+          container.innerHTML = `
+            <div class="anim-empty-state">
+              No states recorded yet. Use Record State to add the current pose.
+            </div>
+          `;
+        } else {
+          let rowsHtml = '<div style="display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto;">';
+          for (const ev of events) {
+            rowsHtml += `
+              <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 2px; padding: 1px 4px;">
+                <div style="display: flex; align-items: center; gap: 4px;">
+                  <button class="event-frame-btn" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to frame ${ev.frame}">◆ F${ev.frame}</button>
+                  <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 8.5px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px; height: 18px;">
+                  </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 2px;">
+                  <button class="btn-icon" data-action="update-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Update keyframe with current live properties" style="font-size: 9.5px; color: var(--text-muted); padding: 1px 3px;">⟳</button>
+                  <button class="btn-icon" data-action="delete-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Delete keyframe state" style="font-size: 8.5px; color: var(--danger); padding: 1px 3px;">✕</button>
+                </div>
               </div>
             `;
-          } else {
-            let rowsHtml = '<div style="display: flex; flex-direction: column; gap: 4px; flex: 1; overflow-y: auto;">';
-            for (const ev of events) {
-              rowsHtml += `
-                <div class="event-row ${ev.frame === currentFrame ? 'active' : ''}" style="margin-bottom: 2px; padding: 1px 4px;">
-                  <div style="display: flex; align-items: center; gap: 4px;">
-                    <button class="event-frame-btn" data-action="seek-frame" data-frame="${ev.frame}" title="Jump to frame ${ev.frame}">◆ F${ev.frame}</button>
-                    <select class="event-easing-select" data-action="change-easing" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" style="font-size: 8.5px; background: var(--bg-input); color: var(--text-bright); border: 1px solid var(--border); border-radius: 2px; padding: 0 2px; height: 18px;">
-                    </select>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 2px;">
-                    <button class="btn-icon" data-action="update-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Update keyframe with current live properties" style="font-size: 9.5px; color: var(--text-muted); padding: 1px 3px;">⟳</button>
-                    <button class="btn-icon" data-action="delete-event" data-frame="${ev.frame}" data-object-id="${mainTarget.id}" title="Delete keyframe state" style="font-size: 8.5px; color: var(--danger); padding: 1px 3px;">✕</button>
-                  </div>
-                </div>
-              `;
-            }
-            rowsHtml += '</div>';
-            container.innerHTML = rowsHtml;
-            populateAnimationEasingSelects(container, events);
           }
+          rowsHtml += '</div>';
+          container.innerHTML = rowsHtml;
+          populateAnimationEasingSelects(container, events);
+        }
 
-          if (container.dataset.eventsBound !== 'true') {
-            container.dataset.eventsBound = 'true';
-            container.addEventListener('click', (e) => {
-              const diamondOrBtn = e.target.closest('[data-action]');
-              if (!diamondOrBtn) return;
-              const action = diamondOrBtn.dataset.action;
-              const frame = parseInt(diamondOrBtn.dataset.frame, 10);
-              const objId = diamondOrBtn.dataset.objectId;
+        container.onclick = (e) => {
+          const diamondOrBtn = e.target.closest('[data-action]');
+          if (diamondOrBtn) {
+            const action = diamondOrBtn.dataset.action;
+            const frame = parseInt(diamondOrBtn.dataset.frame, 10);
+            const objId = diamondOrBtn.dataset.objectId;
 
-              if (action === 'seek-frame' && !isNaN(frame)) {
-                if (typeof window.seekSceneFrame === 'function') window.seekSceneFrame(frame);
-                return;
+            if (action === 'seek-frame' && !isNaN(frame)) {
+              if (typeof window.seekSceneFrame === 'function') {
+                window.seekSceneFrame(frame);
               }
-              if (action === 'select-obj' && objId) {
-                doc.select(objId);
-                render();
-                updateObjectList();
-                updateInspector();
+              return;
+            }
+            if (action === 'select-obj' && objId) {
+              doc.select(objId);
+              render();
+              updateObjectList();
+              updateInspector();
+              updateSelectedObjectEventsUI();
+              return;
+            }
+            if (action === 'update-event') {
+              const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
+              if (targetObj && window.dopeSheet) {
+                recordObjectAnimationState(targetObj, frame);
+                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                doc.pushHistory(`Update Event F${frame}`);
                 updateSelectedObjectEventsUI();
-                return;
+                updateObjectList();
               }
-              if (action === 'update-event') {
-                const targetObj = doc.findObject ? doc.findObject(objId) : doc.objects.find(o => o.id === objId);
-                if (targetObj && window.dopeSheet) {
-                  recordObjectAnimationState(targetObj, frame);
-                  if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-                  doc.pushHistory(`Update Event F${frame}`);
+              return;
+            }
+            if (action === 'delete-event') {
+              if (window.dopeSheet) {
+                const targetDObj = (typeof window.dopeSheet.getObject === 'function')
+                  ? window.dopeSheet.getObject(objId)
+                  : (window.dopeSheet.objects instanceof Map ? window.dopeSheet.objects.get(objId) : null);
+                if (targetDObj) {
+                  if (typeof targetDObj.removeEventState === 'function') {
+                    targetDObj.removeEventState(frame);
+                  } else if (typeof targetDObj.removeKeyframesAtFrame === 'function') {
+                    targetDObj.removeKeyframesAtFrame(frame);
+                  }
+                  if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') window.dopeSheetUI.updateGrid();
+                  doc.pushHistory(`Delete Event F${frame}`);
                   updateSelectedObjectEventsUI();
                   updateObjectList();
                 }
-                return;
               }
-              if (action === 'delete-event') {
-                if (window.dopeSheet) {
-                  const targetDObj = (typeof window.dopeSheet.getObject === 'function')
-                    ? window.dopeSheet.getObject(objId)
-                    : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(objId) : null);
-                  if (targetDObj) {
-                    if (typeof targetDObj.removeEventState === 'function') {
-                      targetDObj.removeEventState(frame);
-                    } else if (typeof targetDObj.removeKeyframesAtFrame === 'function') {
-                      targetDObj.removeKeyframesAtFrame(frame);
-                    }
-                    if (window.dopeSheetUI && typeof window.dopeSheetUI.updateGrid === 'function') window.dopeSheetUI.updateGrid();
-                    doc.pushHistory(`Delete Event F${frame}`);
-                    updateSelectedObjectEventsUI();
-                    updateObjectList();
-                  }
-                }
-                return;
-              }
-            });
-
-            container.addEventListener('change', (e) => {
-              if (e.target.dataset.action === 'change-easing') {
-                const frame = parseInt(e.target.dataset.frame, 10);
-                const objId = e.target.dataset.objectId;
-                if (window.dopeSheet) {
-                  const targetDObj = (typeof window.dopeSheet.getObject === 'function')
-                    ? window.dopeSheet.getObject(objId)
-                    : (window.dopeSheet?.objects instanceof Map ? window.dopeSheet.objects.get(objId) : null);
-                  if (targetDObj) {
-                    targetDObj.setKeyframeTweenAt(frame, e.target.value);
-                    if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
-                    doc.pushHistory(`Change Easing on F${frame}`);
-                    updateSelectedObjectEventsUI();
-                  }
-                }
-              }
-            });
+              return;
+            }
           }
-        });
+
+        };
+
+        container.onchange = (e) => {
+          if (e.target.dataset.action === 'change-easing') {
+            const frame = parseInt(e.target.dataset.frame, 10);
+            const objId = e.target.dataset.objectId;
+            if (window.dopeSheet) {
+              const targetDObj = (typeof window.dopeSheet.getObject === 'function')
+                ? window.dopeSheet.getObject(objId)
+                : (window.dopeSheet.objects instanceof Map ? window.dopeSheet.objects.get(objId) : null);
+              if (targetDObj) {
+                targetDObj.setKeyframeTweenAt(frame, e.target.value);
+                if (window.dopeSheetUI) window.dopeSheetUI.updateGrid();
+                doc.pushHistory(`Change Easing on F${frame}`);
+              }
+            }
+          }
+        };
       }
 
       function expandObjectInTree(obj) {
@@ -11366,27 +11276,13 @@
         const owner = activeMobilePanelId && typeof window.__mobileStudioGroupForPanel === 'function'
           ? window.__mobileStudioGroupForPanel(activeMobilePanelId)
           : null;
-        const timelineActive = !!document.getElementById('mobile-floating-timeline')?.classList.contains('active');
         document.querySelectorAll('#mobile-studio-nav [data-studio-group]').forEach(button => {
-          if (button.dataset.studioGroup === 'animar') {
-            button.classList.toggle('active', timelineActive);
-            button.setAttribute('aria-pressed', String(timelineActive));
-          } else {
-            const isActive = button.dataset.studioGroup === owner;
-            button.classList.toggle('active', isActive);
-            button.setAttribute('aria-pressed', String(isActive));
-          }
+          button.classList.toggle('active', button.dataset.studioGroup === owner);
         });
       }
       window.updateMobileStudioNavHighlight = updateMobileStudioNavHighlight;
 
       function openMobileDockPanel(id) {
-        if (id === 'animation') {
-          closeMobileDockPanel();
-          toggleFloatingTimeline(true);
-          return null;
-        }
-        toggleFloatingTimeline(false);
         const focusSection = (id === 'tracer') ? 'inspector-vectorizer-options' : (id === 'export' ? 'projects-export-options' : null);
         const requestedProjectsTab = id === 'export' ? 'export' : (id === 'document' ? 'document' : (id === 'import' ? 'import' : null));
         if (id === 'tracer') id = 'inspect';
@@ -11614,10 +11510,6 @@
 
       function toggleDockPanel(id) {
         if (MOBILE_STUDIO_UI) {
-          if (id === 'animation') {
-            toggleFloatingTimeline();
-            return;
-          }
           if (activeMobilePanelId === id) closeMobileDockPanel(id);
           else openMobileDockPanel(id);
           return;
@@ -11870,12 +11762,6 @@
           { type: 'item', label: 'Clear Storage / Memory', danger: true, action: () => document.getElementById('btn-clear-storage')?.click() },
           ...(MOBILE_STUDIO_UI ? [
             { type: 'sep' },
-            { type: 'submenu', label: 'Theme & Appearance', items: [
-              { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + '🎛 Skeuomorphic (Hardware)', action: () => setTheme('skeuo', true) },
-              { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + '☾ Gruvbox Dark', action: () => setTheme('dark', true) },
-              { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + '◼ Gray', action: () => setTheme('gray', true) }
-            ]},
-            { type: 'sep' },
             { type: 'item', label: `esenho ${(typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.10.132'}`, action: () => {
               const version = (typeof window !== 'undefined' && window.ESENHO_VERSION) ? window.ESENHO_VERSION : '0.10.132';
               showNotification(`esenho ${version}`);
@@ -11985,7 +11871,7 @@
       }
 
       function getViewMenuActions() {
-        const isOpen = id => MOBILE_STUDIO_UI ? (id === 'animation' ? !document.getElementById('mobile-floating-timeline')?.hidden : activeMobilePanelId === id) : !!dockviewApi?.getPanel(id);
+        const isOpen = id => MOBILE_STUDIO_UI ? activeMobilePanelId === id : !!dockviewApi?.getPanel(id);
         const isMaterialOpen = isOpen('color');
         const isInspectOpen = isOpen('inspect');
         const isSceneOpen = isOpen('scene');
@@ -12003,7 +11889,6 @@
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + (MOBILE_STUDIO_UI ? 'Curves & Easing' : 'Curves & Easing Dock'), action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
-            { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + 'Skeuomorphic', action: () => setTheme('skeuo') },
             { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
             { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
           ]},
@@ -12042,7 +11927,7 @@
 
       function getAnimationMenuActions() {
         const selectedObjs = doc.getSelectedObjects();
-        const isAnimOpen = MOBILE_STUDIO_UI ? !document.getElementById('mobile-floating-timeline')?.hidden : !!dockviewApi?.getPanel('animation');
+        const isAnimOpen = MOBILE_STUDIO_UI ? activeMobilePanelId === 'animation' : !!dockviewApi?.getPanel('animation');
         const clips = window.getAnimationClips ? window.getAnimationClips() : (window.animationClips || []);
         const activeClip = window.getActiveAnimation ? window.getActiveAnimation() : window.dopeSheet;
         const activeId = activeClip ? activeClip.id : null;
@@ -14069,96 +13954,84 @@
       };
 
       function bindMobileAnimatorControls() {
-        const rootElements = [
-          document.getElementById('mobile-animator'),
-          document.getElementById('mobile-floating-timeline')
-        ].filter(Boolean);
+        const animator = document.getElementById('mobile-animator');
+        if (!animator || animator.dataset.bound === 'true') return;
+        animator.dataset.bound = 'true';
 
-        rootElements.forEach(root => {
-          if (root.dataset.bound === 'true') return;
-          root.dataset.bound = 'true';
-
-          root.addEventListener('click', (e) => {
-            const clipButton = e.target.closest('[data-clip-command]');
-            if (clipButton) {
-              const clipId = window.dopeSheet?.id;
-              switch (clipButton.dataset.clipCommand) {
-                case 'create': window.createAnimation?.(); break;
-                case 'duplicate': window.duplicateAnimation?.(clipId); break;
-                case 'rename': window.renameAnimation?.(clipId); break;
-                case 'delete': window.deleteAnimation?.(clipId); break;
-              }
-              clipButton.closest('details')?.removeAttribute('open');
-              window.updateSceneAnimUI?.();
-              return;
+        animator.addEventListener('click', (e) => {
+          const clipButton = e.target.closest('[data-clip-command]');
+          if (clipButton) {
+            const clipId = window.dopeSheet?.id;
+            switch (clipButton.dataset.clipCommand) {
+              case 'create': window.createAnimation?.(); break;
+              case 'duplicate': window.duplicateAnimation?.(clipId); break;
+              case 'rename': window.renameAnimation?.(clipId); break;
+              case 'delete': window.deleteAnimation?.(clipId); break;
             }
-            const button = e.target.closest('[data-anim-command]');
-            if (!button || !window.dopeSheet) return;
-            const ds = window.dopeSheet;
-            const frame = Math.max(1, Math.min(ds.totalFrames || 60, ds.currentFrame || 1));
-            switch (button.dataset.animCommand) {
-              case 'first': window.seekSceneFrame(1); break;
-              case 'previous': window.seekSceneFrame(frame - 1); break;
-              case 'play': toggleScenePlay(); break;
-              case 'next': window.seekSceneFrame(frame + 1); break;
-              case 'last': window.seekSceneFrame(ds.totalFrames || 60); break;
-              case 'loop':
-                ds.loop = !ds.loop;
-                isSceneLooping = ds.loop;
-                if (isScenePlaying) { pauseScenePlay(); startScenePlay(); }
-                window.updateSceneAnimUI();
-                scheduleAutosave();
-                break;
-              case 'autokey':
-                ds.autoKeyframe = !ds.autoKeyframe;
-                window.updateSceneAnimUI();
-                scheduleAutosave();
-                break;
-              case 'record': {
-                const selected = doc.getSelectedObjects();
-                const targets = selected.length ? selected : (doc.objects || []);
-                if (targets.length === 0) return;
-                for (const target of targets) recordObjectAnimationState(target, frame);
-                doc.pushHistory(`Record State F${frame}`);
-                updateSelectedObjectEventsUI();
-                updateObjectList();
-                window.updateSceneAnimUI();
-                scheduleAutosave();
-                showNotification(`Recorded state at frame ${frame}`);
-                break;
-              }
-            }
-          });
-
-          root.addEventListener('change', (e) => {
-            const input = e.target;
-            if (input.id === 'mobile-animation-clip' || input.id === 'mft-animation-clip') {
-              window.switchAnimation(input.value);
-              return;
-            }
-            if (!window.dopeSheet) return;
-            const ds = window.dopeSheet;
-            if (input.id === 'scene-anim-input-frame' || input.id === 'mft-input-frame') {
-              window.seekSceneFrame(parseInt(input.value, 10) || 1);
-            } else if (input.id === 'scene-anim-input-total' || input.id === 'mft-input-total') {
-              ds.totalFrames = Math.max(1, parseInt(input.value, 10) || 1);
-              if (ds.currentFrame > ds.totalFrames) window.seekSceneFrame(ds.totalFrames);
-              window.updateSceneAnimUI();
-              updateSelectedObjectEventsUI();
-              scheduleAutosave();
-            } else if (input.id === 'scene-anim-input-fps' || input.id === 'mft-input-fps') {
-              ds.fps = Math.max(1, Math.min(120, parseInt(input.value, 10) || 24));
+            clipButton.closest('details')?.removeAttribute('open');
+            window.updateSceneAnimUI?.();
+            return;
+          }
+          const button = e.target.closest('[data-anim-command]');
+          if (!button || !window.dopeSheet) return;
+          const ds = window.dopeSheet;
+          const frame = Math.max(1, Math.min(ds.totalFrames || 60, ds.currentFrame || 1));
+          switch (button.dataset.animCommand) {
+            case 'first': window.seekSceneFrame(1); break;
+            case 'previous': window.seekSceneFrame(frame - 1); break;
+            case 'play': toggleScenePlay(); break;
+            case 'next': window.seekSceneFrame(frame + 1); break;
+            case 'last': window.seekSceneFrame(ds.totalFrames || 60); break;
+            case 'loop':
+              ds.loop = !ds.loop;
+              isSceneLooping = ds.loop;
               if (isScenePlaying) { pauseScenePlay(); startScenePlay(); }
               window.updateSceneAnimUI();
               scheduleAutosave();
+              break;
+            case 'autokey':
+              ds.autoKeyframe = !ds.autoKeyframe;
+              window.updateSceneAnimUI();
+              scheduleAutosave();
+              break;
+            case 'record': {
+              const selected = doc.getSelectedObjects();
+              const targets = selected.length ? selected : (doc.objects || []);
+              if (targets.length === 0) return;
+              for (const target of targets) recordObjectAnimationState(target, frame);
+              doc.pushHistory(`Record State F${frame}`);
+              updateSelectedObjectEventsUI();
+              updateObjectList();
+              window.updateSceneAnimUI();
+              scheduleAutosave();
+              showNotification(`Recorded state at frame ${frame}`);
+              break;
             }
-          });
+          }
+        });
 
-          root.addEventListener('input', (e) => {
-            if (e.target.id === 'mft-scrubber-slider') {
-              window.seekSceneFrame(parseInt(e.target.value, 10) || 1);
-            }
-          });
+        animator.addEventListener('change', (e) => {
+          const input = e.target;
+          if (input.id === 'mobile-animation-clip') {
+            window.switchAnimation(input.value);
+            return;
+          }
+          if (!window.dopeSheet) return;
+          const ds = window.dopeSheet;
+          if (input.id === 'scene-anim-input-frame') {
+            window.seekSceneFrame(parseInt(input.value, 10) || 1);
+          } else if (input.id === 'scene-anim-input-total') {
+            ds.totalFrames = Math.max(1, parseInt(input.value, 10) || 1);
+            if (ds.currentFrame > ds.totalFrames) window.seekSceneFrame(ds.totalFrames);
+            window.updateSceneAnimUI();
+            updateSelectedObjectEventsUI();
+            scheduleAutosave();
+          } else if (input.id === 'scene-anim-input-fps') {
+            ds.fps = Math.max(1, Math.min(120, parseInt(input.value, 10) || 24));
+            if (isScenePlaying) { pauseScenePlay(); startScenePlay(); }
+            window.updateSceneAnimUI();
+            scheduleAutosave();
+          }
         });
       }
 
@@ -14169,98 +14042,69 @@
         const total = ds.totalFrames || 60;
         const fps = ds.fps || 24;
 
-        const clipSelects = [
-          document.getElementById('mobile-animation-clip'),
-          document.getElementById('mft-animation-clip')
-        ].filter(Boolean);
-
-        if (clipSelects.length > 0) {
+        const clipSelect = document.getElementById('mobile-animation-clip');
+        if (clipSelect) {
           const clips = window.getAnimationClips ? window.getAnimationClips() : [ds];
           const signature = clips.map(clip => `${clip.id}:${clip.name}`).join('|');
-          clipSelects.forEach(clipSelect => {
-            if (clipSelect.dataset.clipSignature !== signature) {
-              clipSelect.replaceChildren();
-              clips.forEach(clip => {
-                const option = document.createElement('option');
-                option.value = clip.id;
-                option.textContent = clip.name || 'Animation';
-                clipSelect.appendChild(option);
-              });
-              clipSelect.dataset.clipSignature = signature;
-            }
-            clipSelect.value = ds.id;
-          });
+          if (clipSelect.dataset.clipSignature !== signature) {
+            clipSelect.replaceChildren();
+            clips.forEach(clip => {
+              const option = document.createElement('option');
+              option.value = clip.id;
+              option.textContent = clip.name || 'Animation';
+              clipSelect.appendChild(option);
+            });
+            clipSelect.dataset.clipSignature = signature;
+          }
+          clipSelect.value = ds.id;
         }
-
         const clipCount = (window.getAnimationClips?.() || window.animationClips || []).length;
-        document.querySelectorAll('[data-clip-command="delete"]').forEach(btn => {
-          btn.disabled = clipCount <= 1;
-        });
+        const deleteClipButton = document.querySelector('[data-clip-command="delete"]');
+        if (deleteClipButton) deleteClipButton.disabled = clipCount <= 1;
 
-        const badgeText = `F ${cur}/${total}`;
-        ['scene-anim-time-badge', 'mft-time-badge'].forEach(id => {
-          const el = document.getElementById(id);
-          if (el) el.textContent = badgeText;
-        });
+        const badge = document.getElementById('scene-anim-time-badge');
+        if (badge) badge.textContent = `F ${cur}/${total}`;
 
-        ['scene-anim-input-frame', 'mft-input-frame'].forEach(id => {
-          const inp = document.getElementById(id);
-          if (inp) {
-            inp.max = String(total);
-            inp.value = String(cur);
-          }
-        });
+        const inpFrame = document.getElementById('scene-anim-input-frame');
+        if (inpFrame) {
+          inpFrame.max = String(total);
+          inpFrame.value = String(cur);
+        }
+        const inpTotal = document.getElementById('scene-anim-input-total');
+        if (inpTotal) inpTotal.value = String(total);
 
-        const slider = document.getElementById('mft-scrubber-slider');
-        if (slider) {
-          slider.max = String(total);
-          slider.value = String(cur);
+        const inpFps = document.getElementById('scene-anim-input-fps');
+        if (inpFps) inpFps.value = String(fps);
+        const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
+        const btnPlay = document.getElementById('scene-anim-btn-play');
+        if (btnPlay) {
+          btnPlay.textContent = isPlaying ? '⏸' : '▶';
+          btnPlay.style.background = isPlaying ? 'var(--accent)' : 'var(--primary)';
         }
 
-        ['scene-anim-input-total', 'mft-input-total'].forEach(id => {
-          const inp = document.getElementById(id);
-          if (inp) inp.value = String(total);
-        });
-
-        ['scene-anim-input-fps', 'mft-input-fps'].forEach(id => {
-          const inp = document.getElementById(id);
-          if (inp) inp.value = String(fps);
-        });
-
-        const isPlaying = !!(isScenePlaying || (window.dopeSheet && window.dopeSheet.isPlaying));
-        ['scene-anim-btn-play', 'mft-btn-play'].forEach(id => {
-          const btn = document.getElementById(id);
-          if (btn) {
-            btn.textContent = isPlaying ? '⏸' : '▶';
-            btn.style.background = isPlaying ? 'var(--accent)' : 'var(--primary)';
+        const btnAutoKf = document.getElementById('scene-btn-autokf');
+        if (btnAutoKf) {
+          if (ds.autoKeyframe) {
+            btnAutoKf.style.background = 'var(--danger)';
+            btnAutoKf.style.color = '#fff';
+            btnAutoKf.style.borderColor = 'var(--danger)';
+          } else {
+            btnAutoKf.style.background = '';
+            btnAutoKf.style.color = '';
+            btnAutoKf.style.borderColor = '';
           }
-        });
+        }
 
-        ['scene-btn-autokf', 'mft-btn-autokf'].forEach(id => {
-          const btn = document.getElementById(id);
-          if (btn) {
-            btn.classList.toggle('active', !!ds.autoKeyframe);
-            btn.setAttribute('aria-pressed', String(!!ds.autoKeyframe));
-            if (ds.autoKeyframe) {
-              btn.style.background = 'var(--danger)';
-              btn.style.color = '#fff';
-              btn.style.borderColor = 'var(--danger)';
-            } else {
-              btn.style.background = '';
-              btn.style.color = '';
-              btn.style.borderColor = '';
-            }
-          }
-        });
-
-        ['scene-anim-btn-loop', 'mft-btn-loop'].forEach(id => {
-          const btn = document.getElementById(id);
-          if (btn) {
-            isSceneLooping = !!ds.loop;
-            btn.classList.toggle('active', isSceneLooping);
-            btn.setAttribute('aria-pressed', String(isSceneLooping));
-          }
-        });
+        const btnLoop = document.getElementById('scene-anim-btn-loop');
+        if (btnLoop) {
+          isSceneLooping = !!ds.loop;
+          btnLoop.classList.toggle('active', isSceneLooping);
+          btnLoop.setAttribute('aria-pressed', String(isSceneLooping));
+        }
+        if (btnAutoKf) {
+          btnAutoKf.classList.toggle('active', !!ds.autoKeyframe);
+          btnAutoKf.setAttribute('aria-pressed', String(!!ds.autoKeyframe));
+        }
 
         const selectEasing = document.getElementById('scene-anim-select-easing');
         if (selectEasing && window.dopeSheetUI) {
@@ -15585,10 +15429,6 @@
       };
 
       function activatePanel(id) {
-        if (id === 'animation') {
-          toggleFloatingTimeline();
-          return;
-        }
         const sheetOpen = document.getElementById('mobile-panel-sheet')?.classList.contains('active');
         const isCurrent = window.__activeMobilePanelId ? (window.__activeMobilePanelId === id) : false;
         const groupId = window.__mobileStudioGroupForPanel?.(id);
@@ -15648,14 +15488,6 @@
       };
 
       function activateGroup(groupId) {
-        if (groupId === 'animar') {
-          if (document.getElementById('mobile-panel-sheet')?.classList.contains('active')) {
-            window.closeDockPanel?.();
-          }
-          // Direct toggle of floating timeline when clicking Animate in mobile bottom nav
-          toggleFloatingTimeline();
-          return;
-        }
         const subtabs = studioGroups[groupId];
         if (!subtabs) return;
         const current = document.querySelector('#mobile-studio-nav [data-studio-group].active')?.dataset.studioGroup;
@@ -15679,75 +15511,6 @@
       document.getElementById('mobile-undo')?.addEventListener('click', () => window.mobileStudioUndo?.());
       document.getElementById('mobile-redo')?.addEventListener('click', () => window.mobileStudioRedo?.());
       title?.addEventListener('click', () => activatePanel('projects'));
-
-      // ── Floating Mobile Animation Timeline Dock ──
-      const floatingTimeline = document.getElementById('mobile-floating-timeline');
-      const floatingTimelineBtn = document.getElementById('mobile-timeline-btn');
-      const animNavBtn = document.querySelector('#mobile-studio-nav [data-studio-group="animar"]');
-      const floatingTimelineClose = document.getElementById('mobile-floating-timeline-close');
-
-      function toggleFloatingTimeline(force) {
-        if (!floatingTimeline) return;
-        const willShow = force !== undefined ? !!force : floatingTimeline.hidden;
-        if (willShow && document.getElementById('mobile-panel-sheet')?.classList.contains('active')) {
-          closeMobileDockPanel?.();
-        }
-        floatingTimeline.hidden = !willShow;
-        floatingTimeline.classList.toggle('active', willShow);
-        floatingTimelineBtn?.classList.toggle('active', willShow);
-        floatingTimelineBtn?.setAttribute('aria-pressed', String(willShow));
-        animNavBtn?.classList.toggle('active', willShow);
-        animNavBtn?.setAttribute('aria-pressed', String(willShow));
-        updateMobileStudioNavHighlight?.();
-        if (willShow) {
-          if (typeof initStudioDopeSheet === 'function' && (!window.DopeSheet || !window.dopeSheetUI)) {
-            initStudioDopeSheet().then(() => {
-              window.updateSceneAnimUI?.();
-              updateSelectedObjectEventsUI();
-            });
-          } else {
-            window.updateSceneAnimUI?.();
-            updateSelectedObjectEventsUI();
-          }
-        }
-      }
-      window.toggleFloatingTimeline = toggleFloatingTimeline;
-
-      floatingTimelineBtn?.addEventListener('click', () => toggleFloatingTimeline());
-      floatingTimelineClose?.addEventListener('click', () => toggleFloatingTimeline(false));
-
-      // Dragging support for floating timeline handle
-      const floatingHandle = document.getElementById('mobile-floating-timeline-handle');
-      if (floatingHandle && floatingTimeline) {
-        let dragStartY = 0;
-        let dragStartTop = 0;
-        let isDraggingTimeline = false;
-
-        floatingHandle.addEventListener('pointerdown', (e) => {
-          isDraggingTimeline = true;
-          dragStartY = e.clientY;
-          const rect = floatingTimeline.getBoundingClientRect();
-          dragStartTop = rect.top;
-          floatingHandle.setPointerCapture?.(e.pointerId);
-          e.preventDefault();
-        });
-
-        floatingHandle.addEventListener('pointermove', (e) => {
-          if (!isDraggingTimeline) return;
-          const dy = e.clientY - dragStartY;
-          const newTop = Math.max(48, Math.min(window.innerHeight - 80, dragStartTop + dy));
-          floatingTimeline.style.top = `${newTop}px`;
-          floatingTimeline.style.bottom = 'auto';
-        });
-
-        const stopDrag = (e) => {
-          if (!isDraggingTimeline) return;
-          isDraggingTimeline = false;
-          try { floatingHandle.releasePointerCapture?.(e.pointerId); } catch (_) {}
-        };
-        floatingHandle.addEventListener('pointerup', stopDrag);
-        floatingHandle.addEventListener('pointercancel', stopDrag);
-      }
 
       // ── Teclado externo / hardware: Escape fecha o bottom sheet ──
       window.addEventListener('keydown', (e) => {

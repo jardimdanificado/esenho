@@ -3904,16 +3904,11 @@
     }
 
     populateBrushFillCurveSelect() {
-      if (typeof document === 'undefined') return;
       const select = this.dom.bfCurvatureMode;
       const group = this.container?.querySelector('#cs-bf-shared-curves');
       if (!select || !group) return;
       const currentValue = select.value;
-      if (typeof group.replaceChildren === 'function') {
-        group.replaceChildren();
-      } else {
-        group.innerHTML = '';
-      }
+      group.replaceChildren();
       const curves = getRegistry()?.list?.('curve') || [];
       curves.sort((a, b) => String(a.name || a.id).localeCompare(String(b.name || b.id)));
       curves.forEach(curve => {
