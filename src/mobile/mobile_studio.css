@@ -670,3 +670,714 @@ input[type="range"] { accent-color: var(--ms-accent); }
   #mobile-animator .mobile-animator-transport #scene-anim-btn-play { min-width: 26px; }
   #mobile-animator .mobile-animator-settings { gap: 8px; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ── SKEUOMORPHIC ANALOG HARDWARE THEME (MOBILE STUDIO) ──
+   Authentic analog hardware materials: milled alloy plates, brushed
+   anodized casing, 3D push buttons with specular sheen, sunken wells,
+   and glowing amber/ruby tally indicators.
+   ═══════════════════════════════════════════════════════════════════ */
+:root[data-theme="skeuo"],
+body[data-theme="skeuo"],
+body.theme-skeuo {
+  --ms-bg: #191c20;
+  --ms-canvas: #121417;
+  --ms-text: #e2e8f0;
+  --ms-text-muted: #8893a2;
+  --ms-accent: #f59e0b;
+  --ms-accent-soft: rgba(245, 158, 11, 0.22);
+  --ms-accent-line: #f59e0b;
+}
+
+body.theme-skeuo.mobile-studio-ui,
+body[data-theme="skeuo"].mobile-studio-ui {
+  background: radial-gradient(circle at 50% 0%, #262a30 0%, #17191d 100%) !important;
+  color: #e2e8f0 !important;
+}
+
+/* Header faceplate with brushed alloy texture and bevel */
+body.theme-skeuo #mobile-studio-header,
+[data-theme="skeuo"] #mobile-studio-header {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0px, transparent 1px, transparent 2px),
+    linear-gradient(180deg, #3d434a 0%, #2b3036 50%, #1f2227 100%) !important;
+  border: 1px solid #141618 !important;
+  border-bottom: 1px solid #0f1113 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.65),
+    0 4px 14px rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Header brand icon and action buttons (Chunky Machined Keys) */
+body.theme-skeuo .mobile-brand,
+body.theme-skeuo .mobile-action,
+[data-theme="skeuo"] .mobile-brand,
+[data-theme="skeuo"] .mobile-action {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 51%),
+    linear-gradient(180deg, #3c434b 0%, #2b3036 60%, #1f2227 100%) !important;
+  border: 1px solid #141618 !important;
+  border-radius: 10px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+    0 3px 5px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.4) !important;
+  color: #cbd5e1 !important;
+  text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+body.theme-skeuo .mobile-brand {
+  color: #f59e0b !important;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.4), 0 -1px 1px #000 !important;
+}
+
+body.theme-skeuo .mobile-brand:active,
+body.theme-skeuo .mobile-action:active,
+[data-theme="skeuo"] .mobile-brand:active,
+[data-theme="skeuo"] .mobile-action:active {
+  background: linear-gradient(180deg, #181b1f 0%, #252930 100%) !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(1.5px) !important;
+}
+
+/* Floating Toolbar Console */
+body.theme-skeuo #mobile-tool-bar,
+[data-theme="skeuo"] #mobile-tool-bar {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.1) 0%, transparent 70%),
+    linear-gradient(180deg, #32373e 0%, #202328 100%) !important;
+  border: 1px solid #141619 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.6),
+    0 12px 32px rgba(0, 0, 0, 0.7),
+    0 3px 8px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Tool Buttons: Synthesizer / Drum Pad tactile push keys */
+body.theme-skeuo #mobile-tool-bar .mobile-tool-button,
+[data-theme="skeuo"] #mobile-tool-bar .mobile-tool-button {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 51%),
+    linear-gradient(180deg, #3c434b 0%, #2b3036 60%, #202428 100%) !important;
+  border: 1px solid #141618 !important;
+  border-radius: 12px !important;
+  color: #94a3b8 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 3px 5px rgba(0, 0, 0, 0.55),
+    0 1px 2px rgba(0, 0, 0, 0.4) !important;
+  text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  position: relative;
+}
+
+body.theme-skeuo #mobile-tool-bar .mobile-tool-button:active,
+[data-theme="skeuo"] #mobile-tool-bar .mobile-tool-button:active {
+  background: linear-gradient(180deg, #181b1f 0%, #252930 100%) !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(1.5px);
+}
+
+/* Active Tool Button: Glowing Amber Analog Push-State */
+body.theme-skeuo #mobile-tool-bar .mobile-tool-button.active,
+[data-theme="skeuo"] #mobile-tool-bar .mobile-tool-button.active {
+  background:
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+  color: #170f02 !important;
+  border-color: #78350f !important;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+    0 0 14px rgba(245, 158, 11, 0.7),
+    0 1px 2px rgba(0, 0, 0, 0.8) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5) !important;
+  transform: translateY(1.5px) !important;
+}
+
+/* Active Tally LED lamp jewel dot */
+body.theme-skeuo #mobile-tool-bar .mobile-tool-button.active::before,
+[data-theme="skeuo"] #mobile-tool-bar .mobile-tool-button.active::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ffc848 40%, #f59e0b 100%);
+  box-shadow: 0 0 4px #ffffff, 0 0 8px #f59e0b, 0 0 12px rgba(245, 158, 11, 0.9);
+}
+
+/* Bottom Studio Navigation Rail */
+body.theme-skeuo #mobile-studio-nav,
+[data-theme="skeuo"] #mobile-studio-nav {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0px, transparent 1px, transparent 2px),
+    linear-gradient(180deg, #33383f 0%, #202328 100%) !important;
+  border: 1px solid #141619 !important;
+  border-top: 1px solid #414750 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 12px 34px rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.theme-skeuo .mobile-nav-item,
+[data-theme="skeuo"] .mobile-nav-item {
+  color: #94a3b8 !important;
+  text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.12);
+  transition: all 0.1s ease;
+}
+
+body.theme-skeuo .mobile-nav-item.active,
+[data-theme="skeuo"] .mobile-nav-item.active {
+  background:
+    radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.22) 0%, transparent 60%),
+    linear-gradient(180deg, #b45309 0%, #d97706 50%, #f59e0b 100%) !important;
+  color: #170f02 !important;
+  border-radius: 14px !important;
+  border: 1px solid #78350f !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.4),
+    0 0 14px rgba(245, 158, 11, 0.6) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Bottom Sheet Drawer */
+body.theme-skeuo #mobile-panel-sheet,
+[data-theme="skeuo"] #mobile-panel-sheet {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.08) 0%, transparent 60%),
+    linear-gradient(180deg, #2f343b 0%, #1c1e22 100%) !important;
+  border: 1px solid #141619 !important;
+  border-top: 1px solid #4a515a !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 -10px 32px rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Subtabs in Bottom Sheet */
+body.theme-skeuo .mobile-subtab,
+[data-theme="skeuo"] .mobile-subtab {
+  background: linear-gradient(180deg, #383e46 0%, #26292e 100%) !important;
+  border: 1px solid #141618 !important;
+  color: #cbd5e1 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  text-shadow: 0 -1px 1px #000, 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+body.theme-skeuo .mobile-subtab.active,
+[data-theme="skeuo"] .mobile-subtab.active {
+  background:
+    radial-gradient(circle at 50% 25%, rgba(255, 255, 255, 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, #b45309 0%, #d97706 45%, #f59e0b 100%) !important;
+  color: #170f02 !important;
+  border-color: #78350f !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.6),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.4),
+    0 0 12px rgba(245, 158, 11, 0.5) !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.45) !important;
+}
+
+/* ── Panel Header & Machined Knurled Resize Handle ── */
+body.theme-skeuo #mobile-panel-sheet-header,
+[data-theme="skeuo"] #mobile-panel-sheet-header {
+  border-bottom: 1px solid #141618 !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  color: #ffc848 !important;
+  text-shadow: 0 0 8px rgba(245, 158, 11, 0.35), 0 -1px 1px #000 !important;
+}
+
+body.theme-skeuo #mobile-panel-resize-handle::before,
+[data-theme="skeuo"] #mobile-panel-resize-handle::before {
+  background:
+    repeating-linear-gradient(90deg, #64748b 0px, #64748b 2px, #1e293b 3px, #1e293b 4px) !important;
+  border: 1px solid #0f172a !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 1px 2px rgba(0, 0, 0, 0.8) !important;
+}
+
+body.theme-skeuo #mobile-panel-sheet-close,
+[data-theme="skeuo"] #mobile-panel-sheet-close {
+  background: linear-gradient(180deg, #3c424a 0%, #292d33 100%) !important;
+  border: 1px solid #141618 !important;
+  border-radius: 8px !important;
+  color: #cbd5e1 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 2px 4px rgba(0, 0, 0, 0.5) !important;
+  text-shadow: 0 -1px 1px #000 !important;
+}
+
+/* ── Section Cards (Tactile Alloy Bay Insets) ── */
+body.theme-skeuo #mobile-panel-slot .section-card,
+[data-theme="skeuo"] #mobile-panel-slot .section-card {
+  background: linear-gradient(180deg, #25292f 0%, #1c1e22 100%) !important;
+  border: 1px solid #101214 !important;
+  border-radius: 8px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 2px 5px rgba(0, 0, 0, 0.45) !important;
+}
+
+body.theme-skeuo #mobile-panel-slot .section-header,
+[data-theme="skeuo"] #mobile-panel-slot .section-header {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.12) 0%, transparent 100%) !important;
+  border-left: 3px solid #f59e0b !important;
+  border-bottom: 1px solid #121417 !important;
+  color: #ffc848 !important;
+  text-shadow: 0 0 6px rgba(245, 158, 11, 0.3), 0 -1px 1px #000 !important;
+  font-weight: 750 !important;
+}
+
+/* ── Recessed Wells for Inputs & Form Controls ── */
+body.theme-skeuo #mobile-panel-slot input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+body.theme-skeuo #mobile-panel-slot select,
+[data-theme="skeuo"] #mobile-panel-slot input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]),
+[data-theme="skeuo"] #mobile-panel-slot select {
+  background: linear-gradient(180deg, #0c0e10 0%, #15181c 100%) !important;
+  border: 1px solid #07080a !important;
+  border-radius: 6px !important;
+  color: #e2e8f0 !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.95),
+    inset 0 0 2px rgba(0, 0, 0, 0.8),
+    0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.9) !important;
+}
+
+body.theme-skeuo #mobile-panel-slot input:focus,
+body.theme-skeuo #mobile-panel-slot select:focus,
+[data-theme="skeuo"] #mobile-panel-slot input:focus,
+[data-theme="skeuo"] #mobile-panel-slot select:focus {
+  border-color: #f59e0b !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.95),
+    0 0 0 1px #f59e0b,
+    0 0 8px rgba(245, 158, 11, 0.5),
+    0 1px 0 rgba(255, 255, 255, 0.2) !important;
+}
+
+/* ── Mobile Slot Push Buttons ── */
+body.theme-skeuo #mobile-panel-slot button:not(.mobile-subtab):not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn),
+[data-theme="skeuo"] #mobile-panel-slot button:not(.mobile-subtab):not(.cs-swatch-item):not(.cs-palette-chip):not(.tool-swatch-btn):not(.cs-current-swatch-box):not(.cs-target-btn):not(.cs-mode-btn):not(.cs-submode-btn):not(.cs-icon-btn) {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.03) 50%, transparent 51%),
+    linear-gradient(180deg, #3d434b 0%, #2b3036 60%, #1f2227 100%) !important;
+  border: 1px solid #141618 !important;
+  border-radius: 6px !important;
+  color: #cbd5e1 !important;
+  font-weight: 650 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.5),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 1px 1px rgba(0, 0, 0, 0.4) !important;
+  text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.95), 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+
+body.theme-skeuo #mobile-panel-slot button:not(.mobile-subtab):active,
+[data-theme="skeuo"] #mobile-panel-slot button:not(.mobile-subtab):active {
+  background: linear-gradient(180deg, #181b1f 0%, #252930 100%) !important;
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  transform: translateY(1px);
+}
+
+/* ── Context Menu Popovers (Monaco Menu) ── */
+body.theme-skeuo .monaco-menu-container,
+[data-theme="skeuo"] .monaco-menu-container {
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.012) 0px, transparent 1px, transparent 2px),
+    linear-gradient(180deg, #2e333a 0%, #1e2126 100%) !important;
+  border: 1px solid #141619 !important;
+  border-top: 1px solid #4a515a !important;
+  border-radius: 10px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 10px 30px rgba(0, 0, 0, 0.85),
+    0 2px 8px rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.theme-skeuo .monaco-menu-item,
+[data-theme="skeuo"] .monaco-menu-item {
+  color: #cbd5e1 !important;
+  text-shadow: 0 -1px 1px rgba(0, 0, 0, 0.9), 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+body.theme-skeuo .monaco-menu-item:hover,
+body.theme-skeuo .monaco-menu-item.active,
+[data-theme="skeuo"] .monaco-menu-item:hover,
+[data-theme="skeuo"] .monaco-menu-item.active {
+  background: linear-gradient(180deg, #b45309 0%, #d97706 50%, #f59e0b 100%) !important;
+  color: #1a0f02 !important;
+  border-radius: 4px !important;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 10px rgba(245, 158, 11, 0.5) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ── FLOATING ANIMATION TIMELINE (MOBILE STUDIO) ──
+   ═══════════════════════════════════════════════════════════════════ */
+.mobile-floating-timeline {
+  position: absolute;
+  z-index: 110;
+  left: calc(10px + var(--ms-safe-left));
+  right: calc(10px + var(--ms-safe-right));
+  bottom: calc(74px + var(--ms-safe-bottom));
+  max-height: min(44dvh, 420px);
+  display: flex;
+  flex-direction: column;
+  background: var(--ms-glass);
+  border: 1px solid var(--ms-glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  touch-action: none;
+  animation: mftSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.mobile-floating-timeline[hidden] {
+  display: none !important;
+}
+
+@keyframes mftSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mobile-floating-timeline-handle {
+  flex: 0 0 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.mobile-floating-timeline-handle:active {
+  cursor: grabbing;
+}
+
+.mobile-floating-timeline-bar-pill {
+  width: 38px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ms-text-muted);
+  opacity: 0.6;
+}
+
+.mobile-floating-timeline-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 10px;
+  gap: 6px;
+  border-bottom: 1px solid var(--ms-glass-border);
+}
+
+.mobile-floating-timeline-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ms-text);
+  white-space: nowrap;
+}
+
+.mft-icon {
+  font-size: 13px;
+}
+
+.mft-badge {
+  font-size: 9.5px;
+  font-family: var(--font-mono, monospace);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ms-accent);
+  border: 1px solid var(--ms-glass-border);
+}
+
+.mobile-floating-timeline-clip-group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.mft-clip-select {
+  max-width: 110px;
+  min-height: 26px !important;
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ms-text);
+  border: 1px solid var(--ms-glass-border);
+}
+
+.mft-action-btn,
+.mft-close-btn {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ms-text-muted);
+  border: 1px solid var(--ms-glass-border);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.mft-close-btn {
+  color: var(--ms-text-muted);
+  font-size: 12px;
+}
+
+.mft-close-btn:active {
+  color: #fff;
+  background: rgba(239, 68, 68, 0.6);
+}
+
+.mobile-floating-timeline-transport {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: rgba(0, 0, 0, 0.15);
+  border-bottom: 1px solid var(--ms-glass-border);
+  flex-shrink: 0;
+}
+
+.mobile-floating-timeline-transport::-webkit-scrollbar {
+  display: none;
+}
+
+.mft-btn {
+  flex: 0 0 auto;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 2px 5px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ms-text);
+  border: 1px solid var(--ms-glass-border);
+  font-size: 11px;
+}
+
+.mft-btn.mft-btn-play {
+  min-width: 36px;
+  font-size: 13px;
+  color: #fff;
+  background: var(--ms-accent);
+  border-color: var(--ms-accent);
+}
+
+.mft-btn.mft-btn-rec {
+  background: rgba(239, 68, 68, 0.18);
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+  font-weight: 700;
+  font-size: 10.5px;
+}
+
+.mft-btn.active {
+  color: var(--ms-accent);
+  border-color: var(--ms-accent);
+  background: var(--ms-accent-soft);
+}
+
+.mobile-floating-timeline-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--ms-glass-border);
+  flex-shrink: 0;
+}
+
+.mft-inputs-cluster {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.mft-field {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 9px;
+  color: var(--ms-text-muted);
+  white-space: nowrap;
+}
+
+.mft-field input {
+  width: 40px;
+  min-height: 24px !important;
+  font-size: 10.5px !important;
+  text-align: center;
+  padding: 1px 3px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  color: var(--ms-text);
+  border: 1px solid var(--ms-glass-border);
+}
+
+.mft-scrubber-track-wrap {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  min-width: 60px;
+}
+
+.mft-scrubber-track-wrap input[type="range"] {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--ms-accent);
+  cursor: pointer;
+}
+
+.mobile-floating-timeline-body {
+  flex: 1 1 auto;
+  min-height: 60px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 4px 8px 6px;
+}
+
+.mft-events-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 3px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--ms-text-muted);
+}
+
+.mft-events-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  scrollbar-width: thin;
+}
+
+.mft-events-container .event-row {
+  min-height: 28px;
+  padding: 2px 5px !important;
+  gap: 4px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--ms-glass-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mft-events-container .event-row.active {
+  border-color: var(--ms-accent);
+  background: var(--ms-accent-soft);
+}
+
+.mft-events-container .event-frame-btn {
+  min-height: 22px;
+  min-width: 48px;
+  font-size: 9px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--ms-text);
+  border: 1px solid var(--ms-glass-border);
+}
+
+.mft-events-container .event-easing-select {
+  min-height: 22px !important;
+  font-size: 9px !important;
+  padding: 1px 3px !important;
+  border-radius: 4px;
+}
+
+/* Skeuomorphic enhancements for floating timeline */
+[data-theme="skeuo"] .mobile-floating-timeline,
+body.theme-skeuo .mobile-floating-timeline {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.07) 0%, transparent 65%),
+    linear-gradient(180deg, #2d3238 0%, #1e2227 100%);
+  border: 1px solid #141619;
+  border-top: 1px solid #4a515a;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    0 16px 36px rgba(0, 0, 0, 0.8),
+    0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="skeuo"] .mft-btn,
+body.theme-skeuo .mft-btn {
+  background: linear-gradient(180deg, #3d434c 0%, #292d33 100%);
+  border: 1px solid #141618;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="skeuo"] .mft-btn:active,
+body.theme-skeuo .mft-btn:active {
+  background: linear-gradient(180deg, #181b1f 0%, #23272d 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+  transform: translateY(1px);
+}
+
+[data-theme="skeuo"] #mobile-timeline-btn.active,
+body.theme-skeuo #mobile-timeline-btn.active {
+  background: linear-gradient(180deg, #d97706 0%, #f59e0b 100%) !important;
+  color: #170f02 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 0 10px rgba(245, 158, 11, 0.5) !important;
+}

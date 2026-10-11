@@ -7,6 +7,27 @@
   <link rel="icon" type="image/svg+xml" href="icon.svg">
   <meta name="theme-color" content="#1d2021">
   <meta name="color-scheme" content="dark">
+  <script>
+    (function() {
+      try {
+        let t = null;
+        const raw = localStorage.getItem('esenho_studio_settings_v1');
+        if (raw) {
+          try { t = JSON.parse(raw)?.theme; } catch (_) {}
+        }
+        if (!t) t = localStorage.getItem('esenho_theme') || 'dark';
+        if (t === 'ableton') t = 'gray';
+        if (t === 'skeuomorphic') t = 'skeuo';
+        if (!['dark', 'gray', 'skeuo'].includes(t)) t = 'dark';
+        document.documentElement.setAttribute('data-theme', t);
+        if (document.body) {
+          document.body.setAttribute('data-theme', t);
+          document.body.classList.remove('theme-dark', 'theme-gray', 'theme-skeuo');
+          document.body.classList.add('theme-' + t);
+        }
+      } catch (_) {}
+    })();
+  </script>
   <style>
     :root {
       --bg-dark: #141617;
@@ -4223,17 +4244,18 @@
       // ── Theme State & Management ──
       let currentTheme = initialStudioSettings.theme || localStorage.getItem('esenho_theme') || 'dark';
       if (currentTheme === 'ableton') currentTheme = 'gray';
-      if (currentTheme === 'skeuomorphic' || currentTheme === 'skeuo') currentTheme = 'dark';
-      if (!['dark', 'gray'].includes(currentTheme)) currentTheme = 'dark';
+      if (currentTheme === 'skeuomorphic') currentTheme = 'skeuo';
+      if (!['dark', 'gray', 'skeuo'].includes(currentTheme)) currentTheme = 'dark';
 
       function setTheme(theme, notify = false) {
         if (theme === 'ableton') theme = 'gray';
-        currentTheme = ['gray', 'dark'].includes(theme) ? theme : 'dark';
+        if (theme === 'skeuomorphic') theme = 'skeuo';
+        currentTheme = ['gray', 'dark', 'skeuo'].includes(theme) ? theme : 'dark';
         document.documentElement.setAttribute('data-theme', currentTheme);
         document.body.setAttribute('data-theme', currentTheme);
         document.body.classList.toggle('theme-dark', currentTheme === 'dark');
         document.body.classList.toggle('theme-gray', currentTheme === 'gray');
-        document.body.classList.remove('theme-skeuo', 'theme-skeuomorphic');
+        document.body.classList.toggle('theme-skeuo', currentTheme === 'skeuo');
 
         const dvContainer = document.getElementById('dockview-container');
         if (dvContainer) {
@@ -4243,7 +4265,15 @@
         const themeText = document.getElementById('status-theme-text');
         if (themeText) {
           if (currentTheme === 'gray') themeText.textContent = '◼ Gray';
+          else if (currentTheme === 'skeuo') themeText.textContent = '🎛 Skeuo';
           else themeText.textContent = '☾ Dark';
+        }
+
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+          if (currentTheme === 'skeuo') metaThemeColor.setAttribute('content', '#191c20');
+          else if (currentTheme === 'gray') metaThemeColor.setAttribute('content', '#222528');
+          else metaThemeColor.setAttribute('content', '#1d2021');
         }
 
         saveStudioSettings({ theme: currentTheme });
@@ -4264,13 +4294,13 @@
         } catch (_) {}
 
         if (notify && typeof showNotification === 'function') {
-          const names = { dark: 'Gruvbox Dark', gray: 'Gray' };
+          const names = { dark: 'Gruvbox Dark', gray: 'Gray', skeuo: 'Skeuomorphic' };
           showNotification(`Theme: ${names[currentTheme] || currentTheme}`);
         }
       }
 
       function toggleTheme() {
-        const order = ['dark', 'gray'];
+        const order = ['dark', 'gray', 'skeuo'];
         const nextIdx = (order.indexOf(currentTheme) + 1) % order.length;
         setTheme(order[nextIdx], true);
       }
@@ -11610,8 +11640,9 @@
           { type: 'item', label: (isCurvesOpen ? '✓ ' : '') + 'Curves & Easing Dock', action: () => toggleDockPanel('curves') },
           { type: 'sep' },
           { type: 'submenu', label: 'Theme & Appearance', items: [
-            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + 'Gruvbox Dark', action: () => setTheme('dark') },
-            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + 'Gray', action: () => setTheme('gray') }
+            { type: 'item', label: (currentTheme === 'skeuo' ? '✓ ' : '') + '🎛 Skeuomorphic (Hardware)', action: () => setTheme('skeuo', true) },
+            { type: 'item', label: (currentTheme === 'dark' ? '✓ ' : '') + '☾ Gruvbox Dark', action: () => setTheme('dark', true) },
+            { type: 'item', label: (currentTheme === 'gray' ? '✓ ' : '') + '◼ Gray', action: () => setTheme('gray', true) }
           ]},
           { type: 'sep' },
           { type: 'item', label: 'Reset Dock Layout to Default', action: () => resetDockviewLayout() },
