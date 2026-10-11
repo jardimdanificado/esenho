@@ -8738,42 +8738,11 @@ async function main() {
     menuFileInput?.addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      if (file.name.toLowerCase().endsWith('.esen')) {
-        try {
-          const text = await file.text();
-          const proj = JSON.parse(text);
-          host.loadProject(proj);
-          log(`Imported project '${file.name}' [ok]`);
-        } catch (err) {
-          log(`err: failed to load .esen project (${err.message})`, 'err');
-        }
-      } else if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.naturalWidth || img.width;
-            canvas.height = img.naturalHeight || img.height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0);
-            const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const layerId = host.addLayer(file.name.replace(/\.[^.]+$/, ''));
-            if (layerId >= 0 && host.canvasActor) {
-              const u8 = new Uint8Array(imgData.data.buffer);
-              const ptr = host.canvasActor.exports.w_get_layer_pixels(layerId);
-              if (ptr) {
-                new Uint8Array(host.canvasActor.memory.buffer, ptr, u8.length).set(u8);
-                host.render();
-                log(`Imported image '${file.name}' onto layer [${layerId}] [ok]`);
-              }
-            }
-          };
-          img.src = reader.result;
-        };
-        reader.readAsDataURL(file);
+      try {
+        await handleFileImport(file);
+      } finally {
+        menuFileInput.value = '';
       }
-      menuFileInput.value = '';
     });
 
     document.getElementById('btn-quick-export-png')?.addEventListener('click', () => {
