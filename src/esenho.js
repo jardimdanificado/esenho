@@ -5969,10 +5969,14 @@ class EsenhoScreenHost {
     this.groupCounter = 1;
 
     // Vector Painter Layers (Editable Bézier / Polyline SvgPaths rendered via WASM Brush Engine)
-    this.vectorLayers = new Map(); // layerId -> { id, paths: Array<SvgPath>, selectedPathId: string|null, selectedNodeIdx: number }
+    this.vectorLayers = new Map(); // layerId -> { id, paths: Array<SvgPath>, selectedPathId: string|null, selectedNodeIdx: number, selectedNodeIndices: Set<number> }
     this.vectorCurveMode = 'bezier'; // 'bezier' (Auto-Fit Cubic Bézier) | 'raw' (Polilinha Fiel)
     this.vectorFitTolerance = 2.5;
-    this.vectorSubTool = 'nodes'; // 'nodes' (Bézier Node Editor) | 'width' (Per-Node Pressure / Width Editor)
+    this.vectorSubTool = 'nodes'; // 'pen' | 'nodes' | 'marquee' | 'width' | 'draw'
+    this.vecMarqueeAdditive = false;
+    this.transformMode = 'scale'; // 'scale' | 'distort' | 'skew'
+    this.transformLockAspect = false;
+    this.transformInterpolation = 'nearest'; // 'nearest' | 'bilinear'
     this.renderScale = 1.0;       // 0.25 | 0.5 | 1.0 | 2.0 viewport & vector resolution multiplier
     this.baseDocWidth = null;
     this.baseDocHeight = null;
@@ -6005,6 +6009,7 @@ class EsenhoScreenHost {
     return {
       selectedPathId: vl.selectedPathId || null,
       selectedNodeIdx: vl.selectedNodeIdx !== undefined ? vl.selectedNodeIdx : -1,
+      selectedNodeIndices: vl.selectedNodeIndices instanceof Set ? Array.from(vl.selectedNodeIndices) : [],
       paths: Array.isArray(vl.paths) ? vl.paths.map(p => (typeof p.toJSON === 'function' ? p.toJSON() : JSON.parse(JSON.stringify(p)))) : []
     };
   }
@@ -6019,10 +6024,12 @@ class EsenhoScreenHost {
     const paths = Array.isArray(vecSnap.paths)
       ? vecSnap.paths.map(pj => (SE && SE.SvgPath && typeof SE.SvgPath.fromJSON === 'function') ? SE.SvgPath.fromJSON(pj) : pj)
       : [];
+    const selSet = new Set(Array.isArray(vecSnap.selectedNodeIndices) ? vecSnap.selectedNodeIndices : (vecSnap.selectedNodeIdx >= 0 ? [vecSnap.selectedNodeIdx] : []));
     this.vectorLayers.set(layerIdx, {
       id: layerIdx,
       selectedPathId: vecSnap.selectedPathId || null,
       selectedNodeIdx: vecSnap.selectedNodeIdx !== undefined ? vecSnap.selectedNodeIdx : -1,
+      selectedNodeIndices: selSet,
       paths
     });
   }
@@ -6153,14 +6160,18 @@ class EsenhoScreenHost {
   }
 
   /**
-   * Returns the vector layer state object `{ id, paths, selectedPathId, selectedNodeIdx }` or null.
+   * Returns the vector layer state object `{ id, paths, selectedPathId, selectedNodeIdx, selectedNodeIndices }` or null.
    */
   getVectorLayer(layerId) {
     if (!this.vectorLayers) return null;
     const lid = (layerId !== undefined && layerId !== null)
       ? layerId
       : (this.canvasActor?.exports?.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3);
-    return this.vectorLayers.get(lid) || null;
+    const vl = this.vectorLayers.get(lid) || null;
+    if (vl && !(vl.selectedNodeIndices instanceof Set)) {
+      vl.selectedNodeIndices = new Set(vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : []);
+    }
+    return vl;
   }
 
   /**
@@ -6178,7 +6189,8 @@ class EsenhoScreenHost {
       id: idx,
       paths: [],
       selectedPathId: null,
-      selectedNodeIdx: -1
+      selectedNodeIdx: -1,
+      selectedNodeIndices: new Set()
     });
     this.ensureTreeIntegrity();
     return idx;
@@ -6197,10 +6209,15 @@ class EsenhoScreenHost {
         id: lid,
         paths: [],
         selectedPathId: null,
-        selectedNodeIdx: -1
+        selectedNodeIdx: -1,
+        selectedNodeIndices: new Set()
       });
     }
-    return this.vectorLayers.get(lid);
+    const vl = this.vectorLayers.get(lid);
+    if (vl && !(vl.selectedNodeIndices instanceof Set)) {
+      vl.selectedNodeIndices = new Set(vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : []);
+    }
+    return vl;
   }
 
   /**
@@ -6227,6 +6244,53 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Returns an array of selected node indices on the currently selected path.
+   */
+  getSelectedVectorNodeIndices(layerId) {
+    const vl = this.getVectorLayer(layerId);
+    const selPath = this.getSelectedVectorPath(layerId);
+    if (!vl || !selPath || !Array.isArray(selPath.nodes)) return [];
+    if (vl.selectedNodeIndices instanceof Set && vl.selectedNodeIndices.size > 0) {
+      return Array.from(vl.selectedNodeIndices).filter(i => i >= 0 && i < selPath.nodes.length);
+    }
+    if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
+      return [vl.selectedNodeIdx];
+    }
+    return [];
+  }
+
+  /**
+   * Selects multiple nodes on a vector path (used by Marquee Box selector and Shift-click).
+   */
+  selectVectorNodes(pathId, nodeIndices = [], additive = false, layerId) {
+    const vl = this.getVectorLayer(layerId);
+    if (!vl) return null;
+    const pathChanged = (vl.selectedPathId !== (pathId || null));
+    vl.selectedPathId = pathId || null;
+    if (!(vl.selectedNodeIndices instanceof Set) || !additive || pathChanged) {
+      vl.selectedNodeIndices = new Set();
+    }
+    if (Array.isArray(nodeIndices)) {
+      for (const idx of nodeIndices) {
+        if (typeof idx === 'number' && idx >= 0) {
+          vl.selectedNodeIndices.add(idx);
+        }
+      }
+    }
+    const arr = Array.from(vl.selectedNodeIndices);
+    vl.selectedNodeIdx = arr.length > 0 ? arr[arr.length - 1] : -1;
+    for (const p of vl.paths) {
+      p.selected = (p.id === vl.selectedPathId);
+      if (Array.isArray(p.nodes)) {
+        p.nodes.forEach((n, idx) => {
+          n.selected = (p.selected && vl.selectedNodeIndices.has(idx));
+        });
+      }
+    }
+    return this.getSelectedVectorPath(layerId);
+  }
+
+  /**
    * Selects a vector path (and optionally a specific anchor node index) on a Vector Layer.
    */
   selectVectorPath(pathId, nodeIdx = -1, layerId) {
@@ -6234,11 +6298,12 @@ class EsenhoScreenHost {
     if (!vl) return null;
     vl.selectedPathId = pathId || null;
     vl.selectedNodeIdx = (nodeIdx !== undefined && nodeIdx !== null) ? nodeIdx : -1;
+    vl.selectedNodeIndices = new Set(vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : []);
     for (const p of vl.paths) {
       p.selected = (p.id === vl.selectedPathId);
       if (Array.isArray(p.nodes)) {
         p.nodes.forEach((n, idx) => {
-          n.selected = (p.selected && idx === vl.selectedNodeIdx);
+          n.selected = (p.selected && vl.selectedNodeIndices.has(idx));
         });
       }
     }
@@ -8101,6 +8166,50 @@ class EsenhoScreenHost {
       { x: ox,     y: oy + h }
     ];
     this.sendConsoleLog('transform reset');
+    return true;
+  }
+
+  /**
+   * Centers the active float transform quad on the canvas.
+   */
+  centerFloatTransform() {
+    const ft = this.floatingTransform;
+    if (!ft || !ft.corners) return false;
+    const cw = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 800;
+    const ch = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 600;
+    const c = ft.corners;
+    const cx = (c[0].x + c[1].x + c[2].x + c[3].x) / 4;
+    const cy = (c[0].y + c[1].y + c[2].y + c[3].y) / 4;
+    const dx = (cw / 2) - cx;
+    const dy = (ch / 2) - cy;
+    for (let i = 0; i < 4; i++) {
+      c[i].x += dx;
+      c[i].y += dy;
+    }
+    this.sendConsoleLog('transform centered');
+    return true;
+  }
+
+  /**
+   * Fits the active float transform quad proportionally into the canvas bounds.
+   */
+  fitFloatTransformToCanvas() {
+    const ft = this.floatingTransform;
+    if (!ft || !ft.corners) return false;
+    const cw = this.canvasActor?.exports?.get_canvas_width ? this.canvasActor.exports.get_canvas_width() : 800;
+    const ch = this.canvasActor?.exports?.get_canvas_height ? this.canvasActor.exports.get_canvas_height() : 600;
+    const scale = Math.min(cw / Math.max(1, ft.width), ch / Math.max(1, ft.height));
+    const nw = ft.width * scale;
+    const nh = ft.height * scale;
+    const ox = (cw - nw) / 2;
+    const oy = (ch - nh) / 2;
+    ft.corners = [
+      { x: ox,      y: oy      },
+      { x: ox + nw, y: oy      },
+      { x: ox + nw, y: oy + nh },
+      { x: ox,      y: oy + nh }
+    ];
+    this.sendConsoleLog('transform fit to canvas');
     return true;
   }
 

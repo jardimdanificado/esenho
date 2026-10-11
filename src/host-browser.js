@@ -937,18 +937,48 @@ async function main() {
         arcDial.classList.remove('active');
         closedSomething = true;
       }
+      if (vecPenActivePathId) {
+        vecPenActivePathId = null;
+        markCanvasDirty();
+        syncUiFromHost();
+        e.preventDefault();
+        return;
+      }
       if (closedSomething) {
         e.preventDefault();
         return;
       }
       host.clearSelection();
       e.preventDefault();
+    } else if (e.key === 'Enter') {
+      if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      if (vecPenActivePathId) {
+        vecPenActivePathId = null;
+        markCanvasDirty();
+        syncUiFromHost();
+        e.preventDefault();
+      } else if (host.floatingTransform) {
+        host.applyFloatTransform();
+        markCanvasDirty();
+        syncUiFromHost();
+        e.preventDefault();
+      }
     } else if (e.ctrlKey && (e.key === 'd' || e.key === 'D')) {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
       host.clearSelection();
       e.preventDefault();
     } else if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
       if (document.activeElement && (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA')) return;
+      if (host.actionMode === 'vector' && host.isVectorLayer && host.isVectorLayer()) {
+        const selPath = host.getSelectedVectorPath();
+        if (selPath && Array.isArray(selPath.nodes)) {
+          host.selectVectorNodes(selPath.id, selPath.nodes.map((_, idx) => idx), false);
+          markCanvasDirty();
+          syncUiFromHost();
+          e.preventDefault();
+          return;
+        }
+      }
       host.selectAll();
       e.preventDefault();
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -957,18 +987,30 @@ async function main() {
         const vl = host.getVectorLayer();
         const selPath = host.getSelectedVectorPath();
         if (vl && selPath) {
-          if (vl.selectedNodeIdx >= 0 && selPath.nodes.length > 2) {
-            host.pushUndoSnapshot('delete vector node');
-            selPath.removeNode(vl.selectedNodeIdx);
-            vl.selectedNodeIdx = Math.min(vl.selectedNodeIdx, selPath.nodes.length - 1);
+          const selIndices = (vl.selectedNodeIndices instanceof Set && vl.selectedNodeIndices.size > 0)
+            ? Array.from(vl.selectedNodeIndices).sort((a, b) => b - a)
+            : (vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : []);
+          if (selIndices.length > 0 && (selPath.nodes.length - selIndices.length) >= 2) {
+            host.pushUndoSnapshot('delete vector nodes');
+            if (typeof selPath.removeNodes === 'function') {
+              selPath.removeNodes(selIndices);
+            } else {
+              for (const idx of selIndices) selPath.removeNode(idx);
+            }
+            const nextIdx = Math.min(selIndices[selIndices.length - 1], selPath.nodes.length - 1);
+            host.selectVectorPath(selPath.id, nextIdx);
             host.renderVectorLayer();
+            markCanvasDirty();
             syncUiFromHost();
           } else {
             host.pushUndoSnapshot('delete vector path');
             vl.paths = vl.paths.filter(p => p.id !== selPath.id);
             vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
             vl.selectedNodeIdx = -1;
+            if (vl.selectedNodeIndices instanceof Set) vl.selectedNodeIndices.clear();
+            if (vecPenActivePathId === selPath.id) vecPenActivePathId = null;
             host.renderVectorLayer();
+            markCanvasDirty();
             syncUiFromHost();
           }
           e.preventDefault();
@@ -987,16 +1029,87 @@ async function main() {
   let vecWidthDragging = false;
   let vecLastClickTime = 0;
   let vecLastClickPos = null;
+  let vecPenActivePathId = null;
 
-  function vecStartInteraction(x, y, isTouch = false) {
-    if (!host.isVectorLayer || !host.isVectorLayer()) return false;
+  function vecStartInteraction(x, y, isTouch = false, ev = null) {
+    if (!host.isVectorLayer) return false;
+    if (!host.isVectorLayer() && host.enableVectorLayer) {
+      host.enableVectorLayer();
+    }
     const vl = host.getVectorLayer();
     if (!vl) return false;
     const hitRad = (isTouch ? 15 : 9) / Math.max(0.1, host.zoom || 1);
     const selPath = host.getSelectedVectorPath();
+    const isAdditive = !!(ev?.shiftKey || host.vecMarqueeAdditive);
 
-    // 1. Check tangent handles (cpIn / cpOut) on selected path
-    if (selPath && host.vectorSubTool !== 'width' && Array.isArray(selPath.nodes)) {
+    // 0. Pen Tool Mode: Click to place corner points, drag to pull Bézier handles, click start node to close
+    if (host.vectorSubTool === 'pen') {
+      const SvgEngineRef = (typeof window !== 'undefined' && window.SvgEngine) ? window.SvgEngine : null;
+      if (!SvgEngineRef || !SvgEngineRef.SvgPath || !SvgEngineRef.PathNode) return false;
+
+      // Check if continuing an active open Pen path
+      if (selPath && selPath.id === vecPenActivePathId && !selPath.closed && Array.isArray(selPath.nodes) && selPath.nodes.length > 0) {
+        // Clicking first node closes the loop if >= 2 nodes
+        if (selPath.nodes.length >= 2) {
+          const firstNode = selPath.nodes[0];
+          if (Math.hypot(x - firstNode.x, y - firstNode.y) <= hitRad * 1.45) {
+            host.pushUndoSnapshot('close pen path');
+            selPath.closed = true;
+            vecPenActivePathId = null;
+            host.selectVectorPath(selPath.id, 0);
+            vecDragging = { type: 'penCloseNode', path: selPath, nodeIdx: 0, startX: firstNode.x, startY: firstNode.y, moved: false };
+            host.renderVectorLayer();
+            markCanvasDirty();
+            syncUiFromHost();
+            return true;
+          }
+        }
+        // Append new node to active Pen path
+        host.pushUndoSnapshot('add pen node');
+        const newNode = new SvgEngineRef.PathNode(x, y, 0, 0, 0, 0, 'corner');
+        newNode.pressure = 1.0;
+        newNode.widthScale = 1.0;
+        selPath.nodes.push(newNode);
+        const newIdx = selPath.nodes.length - 1;
+        host.selectVectorPath(selPath.id, newIdx);
+        vecDragging = { type: 'penNewNode', path: selPath, nodeIdx: newIdx, startX: x, startY: y, moved: false };
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        return true;
+      }
+
+      // Start a brand new Pen path
+      host.pushUndoSnapshot('new pen path');
+      const colInt = host.currentColor !== undefined ? host.currentColor : 0xFFebdbb2;
+      const strokeHex = rgbToHex(colInt & 0xFF, (colInt >> 8) & 0xFF, (colInt >> 16) & 0xFF);
+      const strokeW = Math.max(1, (host.brushParams?.size || 6) * 2);
+      const strokeOp = Math.max(0.05, Math.min(1.0, (host.brushParams?.opacity ?? 100) / 100));
+      const newPath = new SvgEngineRef.SvgPath({
+        name: `Pen Curve ${vl.paths.length + 1}`,
+        stroke: strokeHex,
+        fill: 'none',
+        strokeWidth: strokeW,
+        opacity: strokeOp,
+        closed: false,
+        brushParams: host.brushParams ? { ...host.brushParams } : null
+      });
+      const firstNode = new SvgEngineRef.PathNode(x, y, 0, 0, 0, 0, 'corner');
+      firstNode.pressure = 1.0;
+      firstNode.widthScale = 1.0;
+      newPath.nodes.push(firstNode);
+      vl.paths.push(newPath);
+      vecPenActivePathId = newPath.id;
+      host.selectVectorPath(newPath.id, 0);
+      vecDragging = { type: 'penNewNode', path: newPath, nodeIdx: 0, startX: x, startY: y, moved: false };
+      host.renderVectorLayer();
+      markCanvasDirty();
+      syncUiFromHost();
+      return true;
+    }
+
+    // 1. Check tangent handles (cpIn / cpOut) on selected path (unless in width or marquee sub-tool)
+    if (selPath && host.vectorSubTool !== 'width' && host.vectorSubTool !== 'marquee' && Array.isArray(selPath.nodes)) {
       const checkOrder = [];
       if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
         checkOrder.push(vl.selectedNodeIdx);
@@ -1033,17 +1146,53 @@ async function main() {
       const nIdx = selPath.hitTestNode(x, y, hitRad * 1.15);
       if (nIdx >= 0) {
         const n = selPath.nodes[nIdx];
-        host.selectVectorPath(selPath.id, nIdx);
+        const selSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+
+        if (isAdditive) {
+          const nextSet = new Set(selSet);
+          if (nextSet.has(nIdx)) nextSet.delete(nIdx);
+          else nextSet.add(nIdx);
+          host.selectVectorNodes(selPath.id, Array.from(nextSet), false);
+          markCanvasDirty();
+          syncUiFromHost();
+          return true;
+        }
+
+        if (!selSet.has(nIdx)) {
+          host.selectVectorPath(selPath.id, nIdx);
+        } else {
+          vl.selectedNodeIdx = nIdx;
+        }
+
+        const activeIndices = (vl.selectedNodeIndices instanceof Set && vl.selectedNodeIndices.size > 1 && vl.selectedNodeIndices.has(nIdx))
+          ? Array.from(vl.selectedNodeIndices)
+          : [nIdx];
+
         if (host.vectorSubTool === 'width') {
           host.pushUndoSnapshot('edit vector width');
           vecDragging = {
             type: 'width',
             path: selPath,
             nodeIdx: nIdx,
+            nodeIndices: activeIndices,
             startX: x,
             startY: y,
             startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+            startScales: activeIndices.map(idx => selPath.nodes[idx]?.widthScale ?? 1.0),
             startPressure: n.pressure !== undefined ? n.pressure : 1.0,
+            moved: false
+          };
+        } else if (activeIndices.length > 1) {
+          host.pushUndoSnapshot('move vector nodes');
+          vecDragging = {
+            type: 'multiNode',
+            path: selPath,
+            nodeIdx: nIdx,
+            nodeIndices: activeIndices,
+            startX: x,
+            startY: y,
+            lastX: x,
+            lastY: y,
             moved: false
           };
         } else {
@@ -1054,6 +1203,22 @@ async function main() {
         syncUiFromHost();
         return true;
       }
+    }
+
+    // If in Marquee Box sub-tool and didn't hit an anchor node directly, start marquee box selection immediately
+    if (host.vectorSubTool === 'marquee') {
+      vecDragging = {
+        type: 'marquee',
+        path: selPath,
+        startX: x,
+        startY: y,
+        curX: x,
+        curY: y,
+        additive: isAdditive,
+        moved: false
+      };
+      markCanvasDirty();
+      return true;
     }
 
     // 3. Check curve segment on selected path (double-click splits/inserts node, drag bends segment)
@@ -1090,9 +1255,11 @@ async function main() {
             type: 'width',
             path: selPath,
             nodeIdx: nearestIdx,
+            nodeIndices: [nearestIdx],
             startX: x,
             startY: y,
             startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+            startScales: [n.widthScale !== undefined ? n.widthScale : 1.0],
             startPressure: n.pressure !== undefined ? n.pressure : 1.0,
             moved: false
           };
@@ -1128,9 +1295,11 @@ async function main() {
             type: 'width',
             path: p,
             nodeIdx: nIdx,
+            nodeIndices: [nIdx],
             startX: x,
             startY: y,
             startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
+            startScales: [n.widthScale !== undefined ? n.widthScale : 1.0],
             startPressure: n.pressure !== undefined ? n.pressure : 1.0,
             moved: false
           };
@@ -1157,18 +1326,67 @@ async function main() {
       return true;
     }
 
-    // 5. Empty space: deselect
-    host.selectVectorPath(null, -1);
+    // 5. Empty space: start a marquee selection box (if clicked without dragging, it will deselect on release)
+    vecDragging = {
+      type: 'marquee',
+      path: selPath,
+      startX: x,
+      startY: y,
+      curX: x,
+      curY: y,
+      additive: isAdditive,
+      moved: false
+    };
     markCanvasDirty();
     syncUiFromHost();
     return true;
   }
 
   function vecMoveInteraction(x, y) {
-    if (!vecDragging || !vecDragging.path) return false;
+    if (!vecDragging) return false;
     const d = vecDragging;
+    if (d.type === 'marquee') {
+      if (Math.hypot(x - d.startX, y - d.startY) > 2 / Math.max(0.1, host.zoom || 1)) {
+        d.moved = true;
+      }
+      d.curX = x;
+      d.curY = y;
+      if (typeof markCanvasDirty === 'function') markCanvasDirty();
+      return true;
+    }
+    if (!d.path) return false;
     d.moved = true;
-    if (d.type === 'node') {
+    if (d.type === 'penNewNode') {
+      const n = d.path.nodes[d.nodeIdx];
+      if (n) {
+        const dx = x - d.startX;
+        const dy = y - d.startY;
+        if (Math.hypot(dx, dy) > 2 / Math.max(0.1, host.zoom || 1)) {
+          n.type = 'symmetric';
+          n.cpOut = { x: dx, y: dy };
+          n.cpIn = { x: -dx, y: -dy };
+        }
+      }
+    } else if (d.type === 'penCloseNode') {
+      const n = d.path.nodes[0];
+      if (n) {
+        const dx = x - d.startX;
+        const dy = y - d.startY;
+        if (Math.hypot(dx, dy) > 2 / Math.max(0.1, host.zoom || 1)) {
+          n.type = 'symmetric';
+          n.cpOut = { x: dx, y: dy };
+          n.cpIn = { x: -dx, y: -dy };
+        }
+      }
+    } else if (d.type === 'multiNode' && Array.isArray(d.nodeIndices)) {
+      const dx = x - d.lastX;
+      const dy = y - d.lastY;
+      for (const idx of d.nodeIndices) {
+        d.path.moveNode(idx, dx, dy);
+      }
+      d.lastX = x;
+      d.lastY = y;
+    } else if (d.type === 'node') {
       const dx = x - d.lastX;
       const dy = y - d.lastY;
       d.path.moveNode(d.nodeIdx, dx, dy);
@@ -1183,9 +1401,18 @@ async function main() {
         d.path.bendSegment(d.segIndex, d.t, x, y);
       }
     } else if (d.type === 'width') {
+      const delta = ((x - d.startX) - (y - d.startY)) * 0.015 * Math.max(0.5, 1 / (host.zoom || 1));
+      if (Array.isArray(d.nodeIndices) && d.nodeIndices.length > 1) {
+        d.nodeIndices.forEach((idx, i) => {
+          const nd = d.path.nodes[idx];
+          if (nd) {
+            const baseS = d.startScales && d.startScales[i] !== undefined ? d.startScales[i] : 1.0;
+            nd.widthScale = Math.max(0.1, Math.min(3.0, baseS + delta));
+          }
+        });
+      }
       const n = d.path.nodes[d.nodeIdx];
       if (n) {
-        const delta = ((x - d.startX) - (y - d.startY)) * 0.015 * Math.max(0.5, 1 / (host.zoom || 1));
         const newScale = Math.max(0.1, Math.min(3.0, d.startWidthScale + delta));
         n.widthScale = newScale;
         const wSlider = document.getElementById('ip-vecbar-width-slider');
@@ -1204,7 +1431,51 @@ async function main() {
     if (!vecDragging) return false;
     const d = vecDragging;
     vecDragging = null;
-    if (d.moved || d.splitInserted) {
+    if (d.type === 'marquee') {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      if (d.moved && vl && Array.isArray(vl.paths)) {
+        const minX = Math.min(d.startX, d.curX);
+        const maxX = Math.max(d.startX, d.curX);
+        const minY = Math.min(d.startY, d.curY);
+        const maxY = Math.max(d.startY, d.curY);
+        let targetPath = host.getSelectedVectorPath();
+        let hitIndices = [];
+        if (targetPath && Array.isArray(targetPath.nodes)) {
+          targetPath.nodes.forEach((n, idx) => {
+            if (n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY) {
+              hitIndices.push(idx);
+            }
+          });
+        }
+        // If no nodes hit on current selected path, check other paths on the layer
+        if (hitIndices.length === 0) {
+          for (let i = vl.paths.length - 1; i >= 0; i--) {
+            const p = vl.paths[i];
+            if (!p || p.visible === false || !Array.isArray(p.nodes)) continue;
+            const pHits = [];
+            p.nodes.forEach((n, idx) => {
+              if (n.x >= minX && n.x <= maxX && n.y >= minY && n.y <= maxY) pHits.push(idx);
+            });
+            if (pHits.length > 0) {
+              targetPath = p;
+              hitIndices = pHits;
+              break;
+            }
+          }
+        }
+        if (targetPath && hitIndices.length > 0) {
+          host.selectVectorNodes(targetPath.id, hitIndices, d.additive);
+        } else if (!d.additive && targetPath) {
+          host.selectVectorNodes(targetPath.id, [], false);
+        }
+      } else if (!d.moved && !d.additive) {
+        host.selectVectorPath(null, -1);
+      }
+      if (typeof markCanvasDirty === 'function') markCanvasDirty();
+      syncUiFromHost();
+      return true;
+    }
+    if (d.type === 'penNewNode' || d.type === 'penCloseNode' || d.moved || d.splitInserted) {
       host.renderVectorLayer();
     } else if (Array.isArray(host.undoStack) && host.undoStack.length > 0) {
       host.undoStack.pop();
@@ -2048,14 +2319,15 @@ async function main() {
       /* ── Vector Painter Bézier Node & Handle Overlay ── */
       if (host.isVectorLayer && host.isVectorLayer() && (host.actionMode === 'vector' || vecDragging)) {
         const vl = host.getVectorLayer();
-        if (vl && Array.isArray(vl.paths) && vl.paths.length > 0) {
+        if (vl && ((Array.isArray(vl.paths) && vl.paths.length > 0) || (vecDragging && vecDragging.type === 'marquee'))) {
           ctx.save();
           ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
           const z = host.zoom;
           const selPath = host.getSelectedVectorPath();
+          const selNodeSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
 
           // 1. Subtle spine outline for unselected vector paths on this layer
-          for (const p of vl.paths) {
+          for (const p of (vl.paths || [])) {
             if (!p || p.visible === false || !Array.isArray(p.nodes) || p.nodes.length === 0) continue;
             if (selPath && p.id === selPath.id) continue;
             ctx.beginPath();
@@ -2081,7 +2353,7 @@ async function main() {
             const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
 
             // Live 60fps 2D variable-width preview while dragging nodes/handles/curves/width (deferred WASM render)
-            if ((vecDragging && vecDragging.moved) || vecWidthDragging) {
+            if ((vecDragging && vecDragging.moved && vecDragging.type !== 'marquee') || vecWidthDragging) {
               ctx.save();
               ctx.setLineDash([]);
               ctx.lineCap = 'round';
@@ -2116,25 +2388,69 @@ async function main() {
             }
 
             ctx.setLineDash([]);
-            ctx.beginPath();
-            ctx.moveTo(selPath.nodes[0].x * z, selPath.nodes[0].y * z);
-            for (let i = 0; i < segCount; i++) {
-              const n0 = selPath.nodes[i];
-              const n1 = selPath.nodes[(i + 1) % selPath.nodes.length];
-              const cp1 = typeof n0.getAbsCpOut === 'function' ? n0.getAbsCpOut() : { x: n0.x + (n0.cpOut?.x || 0), y: n0.y + (n0.cpOut?.y || 0) };
-              const cp2 = typeof n1.getAbsCpIn === 'function' ? n1.getAbsCpIn() : { x: n1.x + (n1.cpIn?.x || 0), y: n1.y + (n1.cpIn?.y || 0) };
-              ctx.bezierCurveTo(cp1.x * z, cp1.y * z, cp2.x * z, cp2.y * z, n1.x * z, n1.y * z);
+            if (segCount > 0) {
+              ctx.beginPath();
+              ctx.moveTo(selPath.nodes[0].x * z, selPath.nodes[0].y * z);
+              for (let i = 0; i < segCount; i++) {
+                const n0 = selPath.nodes[i];
+                const n1 = selPath.nodes[(i + 1) % selPath.nodes.length];
+                const cp1 = typeof n0.getAbsCpOut === 'function' ? n0.getAbsCpOut() : { x: n0.x + (n0.cpOut?.x || 0), y: n0.y + (n0.cpOut?.y || 0) };
+                const cp2 = typeof n1.getAbsCpIn === 'function' ? n1.getAbsCpIn() : { x: n1.x + (n1.cpIn?.x || 0), y: n1.y + (n1.cpIn?.y || 0) };
+                ctx.bezierCurveTo(cp1.x * z, cp1.y * z, cp2.x * z, cp2.y * z, n1.x * z, n1.y * z);
+              }
+              ctx.strokeStyle = 'rgba(29, 32, 33, 0.85)';
+              ctx.lineWidth = 3.5;
+              ctx.stroke();
+              ctx.strokeStyle = '#8ec07c';
+              ctx.lineWidth = 1.75;
+              ctx.stroke();
             }
-            ctx.strokeStyle = 'rgba(29, 32, 33, 0.85)';
-            ctx.lineWidth = 3.5;
-            ctx.stroke();
-            ctx.strokeStyle = '#8ec07c';
-            ctx.lineWidth = 1.75;
-            ctx.stroke();
+
+            // Pen Tool Rubber-Band Preview to Cursor
+            if (host.vectorSubTool === 'pen' && selPath.id === vecPenActivePathId && !selPath.closed && host.mouseHover && host.mouseHover.inside && !vecDragging) {
+              const lastNode = selPath.nodes[selPath.nodes.length - 1];
+              const cp1 = typeof lastNode.getAbsCpOut === 'function'
+                ? lastNode.getAbsCpOut()
+                : { x: lastNode.x + (lastNode.cpOut?.x || 0), y: lastNode.y + (lastNode.cpOut?.y || 0) };
+              const hx = host.mouseHover.x, hy = host.mouseHover.y;
+              ctx.save();
+              ctx.beginPath();
+              ctx.moveTo(lastNode.x * z, lastNode.y * z);
+              ctx.bezierCurveTo(cp1.x * z, cp1.y * z, hx * z, hy * z, hx * z, hy * z);
+              ctx.strokeStyle = 'rgba(250, 189, 47, 0.85)';
+              ctx.lineWidth = 1.75;
+              ctx.setLineDash([5, 4]);
+              ctx.stroke();
+              ctx.setLineDash([]);
+
+              // If hovering near start node (and >= 2 nodes), show close-loop indicator ring
+              if (selPath.nodes.length >= 2) {
+                const firstNode = selPath.nodes[0];
+                const hitRad = 13 / Math.max(0.1, z);
+                if (Math.hypot(hx - firstNode.x, hy - firstNode.y) <= hitRad) {
+                  ctx.beginPath();
+                  ctx.arc(firstNode.x * z, firstNode.y * z, 11, 0, Math.PI * 2);
+                  ctx.strokeStyle = '#b8bb26';
+                  ctx.lineWidth = 2.2;
+                  ctx.stroke();
+                }
+              }
+              ctx.restore();
+            }
+
+            // Check marquee preview bounds if dragging marquee box
+            const mq = (vecDragging && vecDragging.type === 'marquee' && vecDragging.moved) ? {
+              minX: Math.min(vecDragging.startX, vecDragging.curX),
+              maxX: Math.max(vecDragging.startX, vecDragging.curX),
+              minY: Math.min(vecDragging.startY, vecDragging.curY),
+              maxY: Math.max(vecDragging.startY, vecDragging.curY)
+            } : null;
 
             selPath.nodes.forEach((n, idx) => {
               const nx = n.x * z, ny = n.y * z;
-              const isSelNode = (idx === vl.selectedNodeIdx);
+              const inMarquee = mq && (n.x >= mq.minX && n.x <= mq.maxX && n.y >= mq.minY && n.y <= mq.maxY);
+              const isSelNode = (idx === vl.selectedNodeIdx) || selNodeSet.has(idx) || inMarquee;
+              const isPrimaryNode = (idx === vl.selectedNodeIdx);
 
               // Width / Pressure visualization ring
               if (isWidthTool || isSelNode) {
@@ -2190,6 +2506,15 @@ async function main() {
                 }
               }
 
+              // Multi-select outer halo ring
+              if (isSelNode && selNodeSet.size > 1) {
+                ctx.beginPath();
+                ctx.arc(nx, ny, 9.5, 0, Math.PI * 2);
+                ctx.strokeStyle = isPrimaryNode ? '#fe8019' : 'rgba(250, 189, 47, 0.75)';
+                ctx.lineWidth = 1.6;
+                ctx.stroke();
+              }
+
               // Anchor Node (Square for corner, Diamond for cusp, Circle for smooth/symmetric)
               const rNode = isSelNode ? 6.5 : 5.0;
               ctx.fillStyle = isSelNode ? '#fabd2f' : (isWidthTool ? '#d3869b' : '#ebdbb2');
@@ -2214,6 +2539,22 @@ async function main() {
                 ctx.stroke();
               }
             });
+          }
+
+          // 3. Vector Node Marquee Selection Box
+          if (vecDragging && vecDragging.type === 'marquee' && vecDragging.moved) {
+            const rx = Math.min(vecDragging.startX, vecDragging.curX) * z;
+            const ry = Math.min(vecDragging.startY, vecDragging.curY) * z;
+            const rw = Math.abs(vecDragging.curX - vecDragging.startX) * z;
+            const rh = Math.abs(vecDragging.curY - vecDragging.startY) * z;
+            ctx.save();
+            ctx.fillStyle = 'rgba(142, 192, 124, 0.14)';
+            ctx.fillRect(rx, ry, rw, rh);
+            ctx.strokeStyle = '#8ec07c';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 4]);
+            ctx.strokeRect(rx, ry, rw, rh);
+            ctx.restore();
           }
 
           ctx.restore();
@@ -2700,15 +3041,20 @@ async function main() {
       }
       this.activeMenu = null;
       this.activeDelegate = null;
+      this.openedAt = 0;
       this.registerListeners();
     }
 
     registerListeners() {
-      window.addEventListener('pointerdown', (e) => {
-        if (this.activeMenu && !e.target.closest('.monaco-menu-container')) {
+      const onOutsideDown = (e) => {
+        if (!this.activeMenu) return;
+        if (performance.now() - (this.openedAt || 0) < 350) return;
+        if (e.target && typeof e.target.closest === 'function' && !e.target.closest('.monaco-menu-container')) {
           this.hideContextMenu();
         }
-      }, true);
+      };
+      window.addEventListener('pointerdown', onOutsideDown, true);
+      window.addEventListener('touchstart', onOutsideDown, { capture: true, passive: true });
       window.addEventListener('keydown', (e) => {
         if (this.activeMenu && this.activeMenu.onKeyDown(e)) {
           e.preventDefault();
@@ -2730,6 +3076,7 @@ async function main() {
     showContextMenu(delegate) {
       this.hideContextMenu();
       if (!delegate) return;
+      this.openedAt = performance.now();
       this.activeDelegate = delegate;
       const actions = typeof delegate.getActions === 'function' ? delegate.getActions() : (delegate.actions || []);
       if (!actions || actions.length === 0) return;
@@ -2755,8 +3102,8 @@ async function main() {
   host.contextMenu = window.contextMenuService;
 
   function showPainterContextMenu(e) {
-    e.preventDefault();
-    e.stopPropagation();
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
 
     const p = clientPos(e);
     const items = [];
@@ -2779,6 +3126,8 @@ async function main() {
       addItem('✓ Apply Transform', 'Enter', () => { runCmd('transform apply'); markCanvasDirty(); syncUiFromHost(); });
       addItem('✕ Cancel Transform', 'Esc', () => { runCmd('transform cancel'); markCanvasDirty(); syncUiFromHost(); }, { danger: true });
       addSep();
+      addItem('Center on Canvas', '', () => { if (host.centerFloatTransform) host.centerFloatTransform(); bakeFtPreview(); syncUiFromHost(); });
+      addItem('Fit to Canvas', '', () => { if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas(); bakeFtPreview(); syncUiFromHost(); });
       addItem('Rotate 90° CW', '', () => { runCmd('transform rotate 90'); });
       addItem('Rotate 90° CCW', '', () => { runCmd('transform rotate -90'); });
       addItem('Flip Horizontal', '', () => { runCmd('transform flip h'); });
@@ -2793,98 +3142,144 @@ async function main() {
     if (isVecMode || isVecLayer) {
       const vl = host.getVectorLayer ? host.getVectorLayer() : null;
       const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
-      addHeader('Vector Painter');
+      const selNodeSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+      addHeader('Vector & Pen Studio');
       if (!isVecMode) {
-        addItem('Edit Vector Paths / Nodes', 'V', () => {
+        addItem('Edit Vector Nodes', 'V', () => {
           host.vectorSubTool = 'nodes';
           host.setActionMode('vector');
+          if (host.enableVectorLayer) host.enableVectorLayer();
           if (vl && !vl.selectedPathId && vl.paths.length > 0) {
             host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
           }
           markCanvasDirty();
           if (typeof syncUiFromHost === 'function') syncUiFromHost();
         });
+        addItem('Pen Tool (Draw Bézier Curve)', 'P', () => {
+          host.vectorSubTool = 'pen';
+          host.setActionMode('vector');
+          if (host.enableVectorLayer) host.enableVectorLayer();
+          vecPenActivePathId = null;
+          markCanvasDirty();
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        });
       } else {
+        addSubmenu('Vector Tool Mode', [
+          { type: 'item', label: (host.vectorSubTool === 'pen' ? '✓ ' : '') + 'Pen Tool (Bézier Creator)', action: () => {
+            host.vectorSubTool = 'pen'; vecPenActivePathId = null; markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          }},
+          { type: 'item', label: (host.vectorSubTool === 'nodes' ? '✓ ' : '') + 'Node & Handle Editor', action: () => {
+            host.vectorSubTool = 'nodes'; vecPenActivePathId = null; markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          }},
+          { type: 'item', label: (host.vectorSubTool === 'marquee' ? '✓ ' : '') + 'Marquee Box Multi-Node Select', action: () => {
+            host.vectorSubTool = 'marquee'; vecPenActivePathId = null; markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          }},
+          { type: 'item', label: (host.vectorSubTool === 'width' ? '✓ ' : '') + 'Stroke Width & Pressure Tool', action: () => {
+            host.vectorSubTool = 'width'; vecPenActivePathId = null; markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          }}
+        ]);
+        if (vecPenActivePathId) {
+          addItem('✓ Finish Open Pen Curve', 'Enter', () => {
+            vecPenActivePathId = null;
+            markCanvasDirty();
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          });
+        }
         if (selPath) {
           addItem('Insert Node Here', '+', () => {
             host.pushUndoSnapshot('insert vector node');
-            const segHit = selPath.hitTestSegment(p.x, p.y, 60 / (host.zoom || 1));
-            if (segHit) {
-              const newIdx = selPath.insertNodeAt(segHit.segIdx, segHit.t);
-              vl.selectedNodeIdx = newIdx;
-            } else if (typeof selPath.subdivide === 'function') {
-              const nextIdx = selPath.subdivide(vl.selectedNodeIdx >= 0 ? vl.selectedNodeIdx : 0);
-              if (nextIdx >= 0) vl.selectedNodeIdx = nextIdx;
+            const segHit = typeof selPath.hitTestStroke === 'function' ? selPath.hitTestStroke(p.x, p.y, 60 / (host.zoom || 1)) : null;
+            if (segHit && typeof selPath.splitSegment === 'function') {
+              const splitRes = selPath.splitSegment(segHit.segIndex, segHit.t);
+              const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
+              host.selectVectorPath(selPath.id, newIdx);
+            } else if (typeof selPath.splitSegment === 'function' && selPath.nodes.length >= 2) {
+              const segIdx = Math.max(0, Math.min(selPath.nodes.length - 2, vl.selectedNodeIdx >= 0 ? vl.selectedNodeIdx : 0));
+              const splitRes = selPath.splitSegment(segIdx, 0.5);
+              const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
+              host.selectVectorPath(selPath.id, newIdx);
             }
             host.renderVectorLayer();
             markCanvasDirty();
             if (typeof syncUiFromHost === 'function') syncUiFromHost();
           });
 
-          if (vl && vl.selectedNodeIdx >= 0 && selPath.nodes.length > 2) {
-            addItem('Delete Selected Node', 'Del', () => {
-              host.pushUndoSnapshot('delete vector node');
-              if (selPath.deleteNode(vl.selectedNodeIdx)) {
-                vl.selectedNodeIdx = Math.min(vl.selectedNodeIdx, selPath.nodes.length - 1);
-                host.renderVectorLayer();
-                markCanvasDirty();
-                if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          addItem('Select All Nodes in Curve', 'Ctrl+A', () => {
+            host.selectVectorNodes(selPath.id, selPath.nodes.map((_, i) => i), false);
+            markCanvasDirty();
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          });
+
+          const delIndices = selNodeSet.size > 0
+            ? Array.from(selNodeSet).sort((a, b) => b - a)
+            : (vl && vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : []);
+          if (delIndices.length > 0 && (selPath.nodes.length - delIndices.length) >= 2) {
+            addItem(delIndices.length > 1 ? `Delete ${delIndices.length} Selected Nodes` : 'Delete Selected Node', 'Del', () => {
+              host.pushUndoSnapshot('delete vector nodes');
+              if (typeof selPath.removeNodes === 'function') {
+                selPath.removeNodes(delIndices);
+              } else {
+                for (const idx of delIndices) selPath.removeNode(idx);
               }
+              host.selectVectorPath(selPath.id, Math.min(delIndices[delIndices.length - 1], selPath.nodes.length - 1));
+              host.renderVectorLayer();
+              markCanvasDirty();
+              if (typeof syncUiFromHost === 'function') syncUiFromHost();
             }, { danger: true });
           }
 
           addSubmenu('Convert Node Type', [
             { type: 'item', label: 'Smooth Node', action: () => {
               host.pushUndoSnapshot('set vector node type');
-              if (vl.selectedNodeIdx >= 0) selPath.setNodeType(vl.selectedNodeIdx, 'smooth');
-              else selPath.nodes.forEach((_, idx) => selPath.setNodeType(idx, 'smooth'));
-              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
-            }},
-            { type: 'item', label: 'Corner / Sharp Node', action: () => {
-              host.pushUndoSnapshot('set vector node type');
-              if (vl.selectedNodeIdx >= 0) selPath.setNodeType(vl.selectedNodeIdx, 'corner');
-              else selPath.nodes.forEach((_, idx) => selPath.setNodeType(idx, 'corner'));
+              const targets = selNodeSet.size > 0 ? Array.from(selNodeSet) : (vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : selPath.nodes.map((_, i) => i));
+              targets.forEach(idx => selPath.setNodeType(idx, 'smooth'));
               host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
             }},
             { type: 'item', label: 'Symmetric Node', action: () => {
               host.pushUndoSnapshot('set vector node type');
-              if (vl.selectedNodeIdx >= 0) selPath.setNodeType(vl.selectedNodeIdx, 'symmetric');
-              else selPath.nodes.forEach((_, idx) => selPath.setNodeType(idx, 'symmetric'));
+              const targets = selNodeSet.size > 0 ? Array.from(selNodeSet) : (vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : selPath.nodes.map((_, i) => i));
+              targets.forEach(idx => selPath.setNodeType(idx, 'symmetric'));
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }},
+            { type: 'item', label: 'Cusp (Free Handles) Node', action: () => {
+              host.pushUndoSnapshot('set vector node type');
+              const targets = selNodeSet.size > 0 ? Array.from(selNodeSet) : (vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : selPath.nodes.map((_, i) => i));
+              targets.forEach(idx => selPath.setNodeType(idx, 'cusp'));
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }},
+            { type: 'item', label: 'Corner / Sharp Node', action: () => {
+              host.pushUndoSnapshot('set vector node type');
+              const targets = selNodeSet.size > 0 ? Array.from(selNodeSet) : (vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : selPath.nodes.map((_, i) => i));
+              targets.forEach(idx => selPath.setNodeType(idx, 'corner'));
               host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
             }}
           ]);
 
-          addSubmenu('Curve Interpolation', [
-            { type: 'item', label: (host.vectorCurveMode === 'catmull' ? '✓ ' : '') + 'Catmull-Rom Spline', action: () => {
-              host.vectorCurveMode = 'catmull';
-              host.pushUndoSnapshot('vector curve mode');
-              selPath.simplify(host.vectorFitTolerance || 2.5, false);
-              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
-            }},
-            { type: 'item', label: (host.vectorCurveMode !== 'catmull' ? '✓ ' : '') + 'Cubic Bézier Handles', action: () => {
-              host.vectorCurveMode = 'bezier';
-              host.pushUndoSnapshot('vector curve mode');
-              selPath.simplify(host.vectorFitTolerance || 2.5, true);
-              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
-            }}
-          ]);
+          addItem((selPath.closed ? '✓ ' : '') + 'Toggle Closed Loop', '', () => {
+            host.pushUndoSnapshot('toggle vector closed');
+            selPath.closed = !selPath.closed;
+            host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          });
 
           addItem('Delete Vector Stroke', 'Shift+Del', () => {
             host.pushUndoSnapshot('delete vector path');
             vl.paths = vl.paths.filter(pt => pt.id !== selPath.id);
             vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
             vl.selectedNodeIdx = -1;
+            if (vl.selectedNodeIndices instanceof Set) vl.selectedNodeIndices.clear();
+            if (vecPenActivePathId === selPath.id) vecPenActivePathId = null;
             host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
           }, { danger: true });
         }
         addItem('Exit Vector Node Editor (Back to Paint)', 'B', () => {
+          vecPenActivePathId = null;
           host.setActionMode('draw');
           markCanvasDirty();
           if (typeof syncUiFromHost === 'function') syncUiFromHost();
         });
       }
       if (isVecLayer) {
-        addItem('Rasterize Vector Layer to Pixels', '', () => {
+        addItem('Bake Vector Layer to Pixels', '', () => {
           runCmd('rasterize layer');
           host.setActionMode('draw');
           if (typeof syncUiFromHost === 'function') syncUiFromHost();
@@ -2931,7 +3326,15 @@ async function main() {
       { type: 'item', label: (curMode === 'erase' ? '✓ ' : '') + 'Erase Mode', hotkey: 'E', action: () => { host.setActionMode('erase'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
       { type: 'item', label: (curMode === 'blend' ? '✓ ' : '') + 'Blend / Smudge Mode', action: () => { host.setActionMode('blend'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
       { type: 'item', label: (curMode === 'clone' ? '✓ ' : '') + 'Clone Stamp Mode', action: () => { host.setActionMode('clone'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-      { type: 'item', label: (curMode === 'vector' ? '✓ ' : '') + 'Vector Painter (Nodes / Curves)', hotkey: 'V', action: () => {
+      { type: 'item', label: (curMode === 'vector' && host.vectorSubTool === 'pen' ? '✓ ' : '') + 'Pen Tool (Bézier Curves)', hotkey: 'P', action: () => {
+        host.vectorSubTool = 'pen';
+        host.setActionMode('vector');
+        if (host.enableVectorLayer) host.enableVectorLayer();
+        vecPenActivePathId = null;
+        markCanvasDirty();
+        if (typeof syncUiFromHost === 'function') syncUiFromHost();
+      }},
+      { type: 'item', label: (curMode === 'vector' && host.vectorSubTool !== 'pen' ? '✓ ' : '') + 'Vector Node Editor (Nodes / Marquee)', hotkey: 'V', action: () => {
         host.vectorSubTool = 'nodes';
         host.setActionMode('vector');
         if (host.enableVectorLayer) host.enableVectorLayer();
@@ -2962,6 +3365,7 @@ async function main() {
         else openTouchColorModal();
       }},
       { type: 'item', label: (document.getElementById('sheet-pixelart')?.classList.contains('active') ? '✓ ' : '') + 'Pixel Art Suite', action: () => toggleSheet('sheet-pixelart') },
+      { type: 'item', label: 'Toggle Animation Timeline', action: () => document.getElementById('btn-menu-toggle-anim')?.click() },
       { type: 'sep' },
       { type: 'item', label: 'Configure Panels & HUD...', action: () => document.getElementById('btn-menu-configure-panels')?.click() },
       { type: 'item', label: 'Close All Open Panels', action: () => closeAllSheets() }
@@ -3064,6 +3468,9 @@ async function main() {
     const ddx = curDoc.x - ftDragStart.x;
     const ddy = curDoc.y - ftDragStart.y;
     const oc = ftDragOrigin.corners;
+    const tMode = host.transformMode || 'scale';
+    const lockAspect = !!(host.transformLockAspect || host.shiftKey || (typeof window !== 'undefined' && window.event && window.event.shiftKey));
+    const freeCorner = (tMode === 'distort') || !!(typeof window !== 'undefined' && window.event && (window.event.ctrlKey || window.event.metaKey));
 
     if (ftHandle === 'rot') {
       const cx = ftDragOrigin.cx;
@@ -3086,26 +3493,66 @@ async function main() {
         ft.corners[i].x = oc[i].x + ddx;
         ft.corners[i].y = oc[i].y + ddy;
       }
-    } else if (ftHandle === 'c0') {
-      ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
-    } else if (ftHandle === 'c1') {
-      ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
-    } else if (ftHandle === 'c2') {
-      ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
-    } else if (ftHandle === 'c3') {
-      ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
-    } else if (ftHandle === 'e01') {
-      ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
-      ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
-    } else if (ftHandle === 'e23') {
-      ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
-      ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
-    } else if (ftHandle === 'e30') {
-      ft.corners[0].x = oc[0].x + ddx; ft.corners[0].y = oc[0].y + ddy;
-      ft.corners[3].x = oc[3].x + ddx; ft.corners[3].y = oc[3].y + ddy;
-    } else if (ftHandle === 'e12') {
-      ft.corners[1].x = oc[1].x + ddx; ft.corners[1].y = oc[1].y + ddy;
-      ft.corners[2].x = oc[2].x + ddx; ft.corners[2].y = oc[2].y + ddy;
+    } else if (ftHandle === 'c0' || ftHandle === 'c1' || ftHandle === 'c2' || ftHandle === 'c3') {
+      const idx = parseInt(ftHandle.slice(1), 10);
+      if (freeCorner) {
+        ft.corners[idx].x = oc[idx].x + ddx;
+        ft.corners[idx].y = oc[idx].y + ddy;
+      } else {
+        // Scale relative to opposite corner along quad's local axes
+        const oppIdx = (idx + 2) % 4;
+        const opp = oc[oppIdx];
+        const uAxis = { x: oc[1].x - oc[0].x, y: oc[1].y - oc[0].y };
+        const vAxis = { x: oc[3].x - oc[0].x, y: oc[3].y - oc[0].y };
+        const uLen = Math.max(1e-4, Math.hypot(uAxis.x, uAxis.y));
+        const vLen = Math.max(1e-4, Math.hypot(vAxis.x, vAxis.y));
+        const ux = uAxis.x / uLen, uy = uAxis.y / uLen;
+        const vx = vAxis.x / vLen, vy = vAxis.y / vLen;
+
+        const origRelX = oc[idx].x - opp.x;
+        const origRelY = oc[idx].y - opp.y;
+        const newRelX = origRelX + ddx;
+        const newRelY = origRelY + ddy;
+
+        const origU = origRelX * ux + origRelY * uy;
+        const origV = origRelX * vx + origRelY * vy;
+        const newU = newRelX * ux + newRelY * uy;
+        const newV = newRelX * vx + newRelY * vy;
+
+        let sU = Math.abs(origU) > 1e-3 ? (newU / origU) : 1;
+        let sV = Math.abs(origV) > 1e-3 ? (newV / origV) : 1;
+        if (lockAspect) {
+          const signU = sU < 0 ? -1 : 1;
+          const signV = sV < 0 ? -1 : 1;
+          const mag = (Math.abs(sU) + Math.abs(sV)) * 0.5;
+          sU = signU * mag;
+          sV = signV * mag;
+        }
+        for (let i = 0; i < 4; i++) {
+          const rx = oc[i].x - opp.x;
+          const ry = oc[i].y - opp.y;
+          const cu = (rx * ux + ry * uy) * sU;
+          const cv = (rx * vx + ry * vy) * sV;
+          ft.corners[i].x = opp.x + cu * ux + cv * vx;
+          ft.corners[i].y = opp.y + cu * uy + cv * vy;
+        }
+      }
+    } else if (ftHandle === 'e01' || ftHandle === 'e23' || ftHandle === 'e30' || ftHandle === 'e12') {
+      const edgeMap = { e01: [0, 1, 3, 2], e23: [2, 3, 1, 0], e30: [3, 0, 2, 1], e12: [1, 2, 0, 3] };
+      const [aIdx, bIdx, oppA, oppB] = edgeMap[ftHandle];
+      if (tMode === 'skew' || tMode === 'distort') {
+        ft.corners[aIdx].x = oc[aIdx].x + ddx; ft.corners[aIdx].y = oc[aIdx].y + ddy;
+        ft.corners[bIdx].x = oc[bIdx].x + ddx; ft.corners[bIdx].y = oc[bIdx].y + ddy;
+      } else {
+        // Scale along axis perpendicular to the opposite edge
+        const axisX = oc[aIdx].x - oc[oppA].x;
+        const axisY = oc[aIdx].y - oc[oppA].y;
+        const axisLen = Math.max(1e-4, Math.hypot(axisX, axisY));
+        const ax = axisX / axisLen, ay = axisY / axisLen;
+        const proj = ddx * ax + ddy * ay;
+        ft.corners[aIdx].x = oc[aIdx].x + proj * ax; ft.corners[aIdx].y = oc[aIdx].y + proj * ay;
+        ft.corners[bIdx].x = oc[bIdx].x + proj * ax; ft.corners[bIdx].y = oc[bIdx].y + proj * ay;
+      }
     }
     bakeFtPreview();
   }
@@ -3124,6 +3571,7 @@ async function main() {
       { x: ft.width, y: ft.height }, { x: 0, y: ft.height }
     ];
     const H_inv = host._computeHomography(ft.corners, srcPts);
+    const useSmooth = (host.transformInterpolation === 'bilinear');
     if (H_inv) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const c of ft.corners) {
@@ -3132,15 +3580,40 @@ async function main() {
       }
       const x0 = Math.max(0, Math.floor(minX)), y0 = Math.max(0, Math.floor(minY));
       const x1 = Math.min(lw - 1, Math.ceil(maxX)), y1 = Math.min(lh - 1, Math.ceil(maxY));
+      const fw = ft.width, fh = ft.height;
+      const srcPixels = ft.pixels;
       for (let oy = y0; oy <= y1; oy++) {
         for (let ox = x0; ox <= x1; ox++) {
           const W = H_inv[6] * (ox + 0.5) + H_inv[7] * (oy + 0.5) + H_inv[8];
-          const srcX = Math.round((H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5);
-          const srcY = Math.round((H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5);
-          if (srcX < 0 || srcX >= ft.width || srcY < 0 || srcY >= ft.height) continue;
-          const sp = ft.pixels[srcY * ft.width + srcX];
-          if (((sp >> 24) & 0xFF) === 0) continue;
-          tgtU32[oy * lw + ox] = sp;
+          const sxExact = (H_inv[0] * (ox + 0.5) + H_inv[1] * (oy + 0.5) + H_inv[2]) / W - 0.5;
+          const syExact = (H_inv[3] * (ox + 0.5) + H_inv[4] * (oy + 0.5) + H_inv[5]) / W - 0.5;
+          if (!useSmooth) {
+            const srcX = Math.round(sxExact);
+            const srcY = Math.round(syExact);
+            if (srcX < 0 || srcX >= fw || srcY < 0 || srcY >= fh) continue;
+            const sp = srcPixels[srcY * fw + srcX];
+            if (((sp >> 24) & 0xFF) === 0) continue;
+            tgtU32[oy * lw + ox] = sp;
+          } else {
+            if (sxExact < -0.5 || sxExact >= fw - 0.5 || syExact < -0.5 || syExact >= fh - 0.5) continue;
+            const ix0 = Math.max(0, Math.min(fw - 1, Math.floor(sxExact)));
+            const iy0 = Math.max(0, Math.min(fh - 1, Math.floor(syExact)));
+            const ix1 = Math.max(0, Math.min(fw - 1, ix0 + 1));
+            const iy1 = Math.max(0, Math.min(fh - 1, iy0 + 1));
+            const fx = Math.max(0, Math.min(1, sxExact - ix0));
+            const fy = Math.max(0, Math.min(1, syExact - iy0));
+            const p00 = srcPixels[iy0 * fw + ix0];
+            const p10 = srcPixels[iy0 * fw + ix1];
+            const p01 = srcPixels[iy1 * fw + ix0];
+            const p11 = srcPixels[iy1 * fw + ix1];
+            const w00 = (1 - fx) * (1 - fy), w10 = fx * (1 - fy), w01 = (1 - fx) * fy, w11 = fx * fy;
+            const a = Math.round(((p00 >>> 24) * w00) + ((p10 >>> 24) * w10) + ((p01 >>> 24) * w01) + ((p11 >>> 24) * w11));
+            if (a === 0) continue;
+            const r = Math.round(((p00 & 0xFF) * w00) + ((p10 & 0xFF) * w10) + ((p01 & 0xFF) * w01) + ((p11 & 0xFF) * w11));
+            const g = Math.round((((p00 >> 8) & 0xFF) * w00) + (((p10 >> 8) & 0xFF) * w10) + (((p01 >> 8) & 0xFF) * w01) + (((p11 >> 8) & 0xFF) * w11));
+            const b = Math.round((((p00 >> 16) & 0xFF) * w00) + (((p10 >> 16) & 0xFF) * w10) + (((p01 >> 16) & 0xFF) * w01) + (((p11 >> 16) & 0xFF) * w11));
+            tgtU32[oy * lw + ox] = ((a & 0xFF) << 24) | ((b & 0xFF) << 16) | ((g & 0xFF) << 8) | (r & 0xFF);
+          }
         }
       }
     }
@@ -3198,21 +3671,22 @@ async function main() {
         }
         // Click outside float → apply
         host.applyFloatTransform();
+        syncUiFromHost();
         e.preventDefault();
         return;
       }
 
-      if (curMode === 5) {
+      if (curMode === 5 || host.actionMode === 'color_picker') {
         sampleEyedropperColor(x, y, e.clientX, e.clientY);
         e.preventDefault();
         return;
       }
-      if (host.actionMode === 'vector' && host.isVectorLayer && host.isVectorLayer()) {
-        vecStartInteraction(x, y, false);
+      if (host.actionMode === 'vector') {
+        vecStartInteraction(x, y, false, e);
         e.preventDefault();
         return;
       }
-      if (curMode >= 6 && curMode <= 8) {
+      if (curMode >= 6 && curMode <= 8 && host.actionMode !== 'select') {
         isDraggingShape = true;
         shapeStartDoc = { x, y };
         shapeCurDoc = { x, y };
@@ -3220,19 +3694,29 @@ async function main() {
         return;
       }
       if (host.actionMode === 'select') {
-        if (curMode === 3) {
-          // Fill in select mode = magic wand selection
-          host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
+        const selTool = host.currentTool;
+        if (curMode === 9 || selTool === 'select_rect' || selTool === 'select') {
+          isSelecting = true;
+          selStartDoc = { x, y };
+          selCurDoc = { x, y };
+          if (host.selectionMode === 'replace') {
+            host.clearSelection();
+          }
           e.preventDefault();
           return;
         }
-        if (curMode === 4) {
-          // Lasso in select mode = polygon selection
+        if (curMode === 10 || curMode === 4 || selTool === 'lasso_select') {
           isLassoSelecting = true;
           lassoSelPoints = [{ x, y }];
           if (host.selectionMode === 'replace') {
             host.clearSelection();
           }
+          e.preventDefault();
+          return;
+        }
+        if (curMode === 11 || curMode === 3 || selTool === 'magic_wand') {
+          host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
+          syncUiFromHost();
           e.preventDefault();
           return;
         }
@@ -3267,6 +3751,7 @@ async function main() {
       }
       if (curMode === 11) {
         host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
+        syncUiFromHost();
         e.preventDefault();
         return;
       }
@@ -3585,12 +4070,73 @@ async function main() {
       return;
     }
     if (e.touches.length === 1 && !touch.tapGesture) {
-      const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      const t0 = e.touches[0];
+      const startClientX = t0.clientX;
+      const startClientY = t0.clientY;
+      const { sx, sy, x, y } = touchDocPos(t0);
       host.mouseHover = { x, y, sx, sy, inside: true };
+      touch.startClient = { x: startClientX, y: startClientY };
       touch.pending = { sx, sy, x, y };
       touch.longPressTriggered = false;
       if (touch.timer) clearTimeout(touch.timer);
       if (touch.longPressTimer) clearTimeout(touch.longPressTimer);
+
+      // Arm 1-finger Long-Press (450ms stationary) to open Contextual Menu in any mode
+      touch.longPressTimer = setTimeout(() => {
+        touch.longPressTimer = null;
+        touch.longPressTriggered = true;
+        clearPendingTouch();
+        if (ftDragging) {
+          if (host.floatingTransform && ftDragOrigin && ftDragOrigin.corners) {
+            host.floatingTransform.corners = ftDragOrigin.corners.map(c => ({ x: c.x, y: c.y }));
+            bakeFtPreview();
+          }
+          ftDragging = false;
+          ftHandle = null;
+          ftDragStart = null;
+          ftDragOrigin = null;
+        }
+        if (vecDragging) {
+          if (!vecDragging.moved) {
+            if ((vecDragging.type === 'penNewNode' || vecDragging.type === 'penCloseNode') && typeof host.undo === 'function') {
+              vecDragging = null;
+              host.undo();
+            } else if (Array.isArray(host.undoStack) && host.undoStack.length > 0 && vecDragging.type !== 'marquee') {
+              host.undoStack.pop();
+            }
+          }
+          vecDragging = null;
+          markCanvasDirty();
+        }
+        if (isTouchPicker) {
+          isTouchPicker = false;
+          hideEyedropper();
+        }
+        if (isDraggingShape) {
+          isDraggingShape = false;
+          shapeStartDoc = null;
+          shapeCurDoc = null;
+          markCanvasDirty();
+        }
+        if (isSelecting) {
+          isSelecting = false;
+          selStartDoc = null;
+          selCurDoc = null;
+          markCanvasDirty();
+        }
+        if (isLassoSelecting) {
+          isLassoSelecting = false;
+          lassoSelPoints = [];
+          markCanvasDirty();
+        }
+        triggerHaptic(20);
+        showPainterContextMenu({
+          clientX: startClientX,
+          clientY: startClientY,
+          preventDefault() {},
+          stopPropagation() {}
+        });
+      }, 450);
 
       if (host.floatingTransform) {
         const handle = ftHitTest(x, y, true);
@@ -3608,45 +4154,56 @@ async function main() {
             cy,
             startAngle: Math.atan2(y - cy, x - cx)
           };
-          clearPendingTouch();
+          touch.pending = null;
           triggerHaptic(12);
           return;
         }
       }
 
-      if (host.actionMode === 'vector' && host.isVectorLayer && host.isVectorLayer()) {
-        clearPendingTouch();
-        vecStartInteraction(x, y, true);
+      if (host.actionMode === 'vector') {
+        touch.pending = null;
+        vecStartInteraction(x, y, true, e);
         triggerHaptic(10);
         return;
       }
 
-      if (host.brushParams && host.brushParams.mode === 5) {
+      if ((host.brushParams && host.brushParams.mode === 5) || host.actionMode === 'color_picker') {
+        touch.pending = null;
         isTouchPicker = true;
-        sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+        sampleEyedropperColor(x, y, startClientX, startClientY - 60);
         triggerHaptic(12);
         return;
       }
 
       const curMode = host.brushParams ? host.brushParams.mode : 0;
-      if (curMode >= 6 && curMode <= 8) {
+      if (curMode >= 6 && curMode <= 8 && host.actionMode !== 'select') {
         isDraggingShape = true;
         shapeStartDoc = { x, y };
         shapeCurDoc = { x, y };
-        clearPendingTouch();
+        touch.pending = null;
         return;
       }
       if (host.actionMode === 'select') {
-        if (curMode === 3) {
-          host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
-          clearPendingTouch();
+        const selTool = host.currentTool;
+        if (curMode === 9 || selTool === 'select_rect' || selTool === 'select') {
+          isSelecting = true;
+          selStartDoc = { x, y };
+          selCurDoc = { x, y };
+          if (host.selectionMode === 'replace') host.clearSelection();
+          touch.pending = null;
           return;
         }
-        if (curMode === 4) {
+        if (curMode === 10 || curMode === 4 || selTool === 'lasso_select') {
           isLassoSelecting = true;
           lassoSelPoints = [{ x, y }];
           if (host.selectionMode === 'replace') host.clearSelection();
-          clearPendingTouch();
+          touch.pending = null;
+          return;
+        }
+        if (curMode === 11 || curMode === 3 || selTool === 'magic_wand') {
+          host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
+          syncUiFromHost();
+          touch.pending = null;
           return;
         }
       }
@@ -3655,38 +4212,22 @@ async function main() {
         selStartDoc = { x, y };
         selCurDoc = { x, y };
         if (host.selectionMode === 'replace') host.clearSelection();
-        clearPendingTouch();
+        touch.pending = null;
         return;
       }
       if (curMode === 10) {
         isLassoSelecting = true;
         lassoSelPoints = [{ x, y }];
         if (host.selectionMode === 'replace') host.clearSelection();
-        clearPendingTouch();
+        touch.pending = null;
         return;
       }
       if (curMode === 11) {
         host.wandSelect(x, y, host.wandTolerance, host.wandAdjacent);
-        clearPendingTouch();
+        syncUiFromHost();
+        touch.pending = null;
         return;
       }
-
-      // Long-press timer (300ms) for eyedropper loupe (optional)
-      if (host.enableTouchEyedropper !== false) {
-        touch.longPressTimer = setTimeout(() => {
-          touch.longPressTriggered = true;
-          isTouchPicker = true;
-          clearPendingTouch();
-          sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
-          triggerHaptic(15);
-        }, 300);
-      }
-
-      touch.timer = setTimeout(() => {
-        if (!touch.longPressTriggered && !isTouchPicker) {
-          commitPendingTouch();
-        }
-      }, 50);
     } else {
       /* 2+ fingers landed: cancel pending dab and end any drawing stroke */
       if (vecDragging) {
@@ -3748,17 +4289,25 @@ async function main() {
     e.preventDefault();
 
     if (e.touches.length === 1 && !touch.tapGesture) {
-      const { sx, sy, x, y } = touchDocPos(e.touches[0]);
+      if (touch.longPressTriggered) return;
+      const t0 = e.touches[0];
+      if (touch.longPressTimer && touch.startClient) {
+        if (Math.hypot(t0.clientX - touch.startClient.x, t0.clientY - touch.startClient.y) > 8) {
+          clearTimeout(touch.longPressTimer);
+          touch.longPressTimer = null;
+        }
+      }
+      const { sx, sy, x, y } = touchDocPos(t0);
       host.mouseHover = { x, y, sx, sy, inside: true };
 
       // Estimate finger dynamic pressure based on velocity & contact radius
       if (lastTouchPoint) {
         const now = performance.now();
         const dt = Math.max(1, now - lastTouchTime);
-        const speed = Math.hypot(e.touches[0].clientX - lastTouchPoint.x, e.touches[0].clientY - lastTouchPoint.y) / dt;
-        const force = e.touches[0].force || ((e.touches[0].radiusX || 12) / 25);
+        const speed = Math.hypot(t0.clientX - lastTouchPoint.x, t0.clientY - lastTouchPoint.y) / dt;
+        const force = t0.force || ((t0.radiusX || 12) / 25);
         estimatedFingerPressure = Math.max(0.1, Math.min(1.0, 0.3 + (force * 0.4) + Math.min(0.3, speed * 0.08)));
-        lastTouchPoint = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        lastTouchPoint = { x: t0.clientX, y: t0.clientY };
         lastTouchTime = now;
       }
 
@@ -3771,7 +4320,7 @@ async function main() {
         return;
       }
       if (isTouchPicker) {
-        sampleEyedropperColor(x, y, e.touches[0].clientX, e.touches[0].clientY - 60);
+        sampleEyedropperColor(x, y, t0.clientX, t0.clientY - 60);
         return;
       }
       if (isDraggingShape) {
@@ -8941,7 +9490,9 @@ async function main() {
     document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
       const t = card.dataset.tool;
       let active = false;
-      if (host.actionMode === 'select') {
+      if (host.actionMode === 'vector') {
+        active = (t === 'pen_tool' && host.vectorSubTool === 'pen');
+      } else if (host.actionMode === 'select') {
         active = (t === curToolName) || (t === 'brush_select' && curToolName === 'brush') || (t === 'select_rect' && curToolName === 'select');
       } else {
         active = (t === curToolName);
@@ -10197,6 +10748,14 @@ async function main() {
       toggleSheet('sheet-menu');
     });
 
+    document.getElementById('btn-menu-toggle-anim')?.addEventListener('click', () => {
+      if (host.rasterAnimatorUI) {
+        host.rasterAnimatorUI.toggle();
+        updateAnimTimelineDockOffset();
+        syncInfinitePainterUI();
+      }
+    });
+
     document.querySelectorAll('.btn-menu-toggle-panel').forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.dataset.panel;
@@ -10806,7 +11365,24 @@ async function main() {
       });
     }
 
-    // 5. Action Modes Cards in Sheet
+    // 5. Tools & Modes Sheet Tabs + Action Modes Cards
+    const toolsTabBtns = document.querySelectorAll('#ip-tools-tab-pills .ip-pill-btn');
+    const toolsTabPanels = document.querySelectorAll('#sheet-tools .ip-tools-tab-panel');
+    const switchToolsSheetTab = (tabName) => {
+      if (!tabName) return;
+      toolsTabBtns.forEach(b => b.classList.toggle('active', b.dataset.toolstab === tabName));
+      toolsTabPanels.forEach(p => {
+        p.style.display = (p.dataset.toolspanel === tabName) ? 'flex' : 'none';
+      });
+    };
+    toolsTabBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tName = btn.dataset.toolstab || 'draw';
+        switchToolsSheetTab(tName);
+        triggerHaptic(8);
+      });
+    });
+
     document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(card => {
       card.addEventListener('click', () => {
         const actMode = card.dataset.actionmode || 'draw';
@@ -10821,11 +11397,22 @@ async function main() {
               host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
             }
           }
-        } else if (actMode !== 'select') {
+          switchToolsSheetTab('nodes');
+        } else if (actMode === 'select') {
+          if (host.currentTool !== 'select_rect' && host.currentTool !== 'lasso_select' && host.currentTool !== 'magic_wand' && host.currentTool !== 'brush') {
+            host.currentTool = 'select_rect';
+            host.setBrushParam('mode', 9);
+          } else if (host.currentTool === 'select_rect') {
+            host.setBrushParam('mode', 9);
+          }
+          switchToolsSheetTab('select');
+        } else {
+          vecPenActivePathId = null;
           if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
             host.currentTool = 'brush';
             host.setBrushParam('mode', 0);
           }
+          switchToolsSheetTab('draw');
         }
         markCanvasDirty();
         syncUiFromHost();
@@ -10833,22 +11420,26 @@ async function main() {
       });
     });
 
-    // Floating Vector Painter Bar
-    document.querySelectorAll('.ip-vecbar-subtool, .ip-vecbar-sub').forEach(btn => {
+    // Floating Vector Painter Bar & Sheet Vector Tools
+    document.querySelectorAll('.ip-vecbar-subtool, .ip-vecbar-sub, .ip-sheet-vec-tool').forEach(btn => {
       btn.addEventListener('click', () => {
         const sub = btn.dataset.vecsub || 'nodes';
+        vecPenActivePathId = null;
         if (sub === 'draw') {
           host.vectorSubTool = 'draw';
           host.setActionMode('draw');
+          if (host.enableVectorLayer) host.enableVectorLayer();
         } else {
           host.vectorSubTool = sub;
           host.setActionMode('vector');
           if (host.enableVectorLayer) {
             const vl = host.enableVectorLayer();
-            if (vl && !vl.selectedPathId && vl.paths.length > 0) {
-              host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
-            } else if (vl && vl.selectedPathId && vl.selectedNodeIdx < 0) {
-              host.selectVectorPath(vl.selectedPathId, 0);
+            if (sub !== 'pen') {
+              if (vl && !vl.selectedPathId && vl.paths.length > 0) {
+                host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
+              } else if (vl && vl.selectedPathId && vl.selectedNodeIdx < 0) {
+                host.selectVectorPath(vl.selectedPathId, 0);
+              }
             }
           }
         }
@@ -10857,6 +11448,77 @@ async function main() {
         triggerHaptic(10);
       });
     });
+
+    document.getElementById('btn-ip-vecbar-pen-done')?.addEventListener('click', () => {
+      vecPenActivePathId = null;
+      markCanvasDirty();
+      syncUiFromHost();
+      triggerHaptic(12);
+    });
+
+    const toggleVectorClosedLoop = () => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        host.pushUndoSnapshot('toggle vector closed');
+        selPath.closed = !selPath.closed;
+        if (selPath.closed && vecPenActivePathId === selPath.id) vecPenActivePathId = null;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-closed')?.addEventListener('click', toggleVectorClosedLoop);
+    document.getElementById('btn-ip-sheet-vec-closed')?.addEventListener('click', toggleVectorClosedLoop);
+
+    const selectAllVecNodes = () => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath && Array.isArray(selPath.nodes)) {
+        host.selectVectorNodes(selPath.id, selPath.nodes.map((_, i) => i), false);
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-sel-all')?.addEventListener('click', selectAllVecNodes);
+    document.getElementById('btn-ip-sheet-vec-sel-all')?.addEventListener('click', selectAllVecNodes);
+
+    const selectNoneVecNodes = () => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        host.selectVectorNodes(selPath.id, [], false);
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-sel-none')?.addEventListener('click', selectNoneVecNodes);
+    document.getElementById('btn-ip-sheet-vec-sel-none')?.addEventListener('click', selectNoneVecNodes);
+
+    document.getElementById('btn-ip-vecbar-marquee-add')?.addEventListener('click', () => {
+      host.vecMarqueeAdditive = !host.vecMarqueeAdditive;
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+
+    const applyVectorTaper = () => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath && Array.isArray(selPath.nodes) && selPath.nodes.length >= 2) {
+        host.pushUndoSnapshot('taper vector stroke');
+        const count = selPath.nodes.length;
+        selPath.nodes.forEach((nd, idx) => {
+          const t = count > 1 ? idx / (count - 1) : 0.5;
+          const bell = Math.sin(t * Math.PI);
+          nd.widthScale = Number((0.22 + 0.93 * bell).toFixed(2));
+        });
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-taper')?.addEventListener('click', applyVectorTaper);
+    document.getElementById('btn-ip-sheet-vec-taper')?.addEventListener('click', applyVectorTaper);
 
     document.querySelectorAll('.ip-vecbar-curvemode, .ip-vecbar-mode').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -10881,7 +11543,12 @@ async function main() {
         const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
         if (vl && selPath && typeof selPath.setNodeType === 'function') {
           host.pushUndoSnapshot('set vector node type');
-          if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
+          const selSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+          if (selSet.size > 0) {
+            selSet.forEach(idx => {
+              if (idx >= 0 && idx < selPath.nodes.length) selPath.setNodeType(idx, nt);
+            });
+          } else if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
             selPath.setNodeType(vl.selectedNodeIdx, nt);
           } else {
             for (let i = 0; i < selPath.nodes.length; i++) selPath.setNodeType(i, nt);
@@ -10918,7 +11585,12 @@ async function main() {
             vecWidthUndoPushed = true;
           }
           const scale = Math.max(0.1, Math.min(3.0, pct / 100));
-          if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
+          const selSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+          if (selSet.size > 0) {
+            selSet.forEach(idx => {
+              if (selPath.nodes[idx]) selPath.nodes[idx].widthScale = scale;
+            });
+          } else if (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < selPath.nodes.length) {
             selPath.nodes[vl.selectedNodeIdx].widthScale = scale;
           } else {
             selPath.nodes.forEach(n => { n.widthScale = scale; });
@@ -10933,104 +11605,113 @@ async function main() {
       vecWidthSlider.addEventListener('touchend', finishVecWidthDrag, { passive: true });
     }
 
-    const btnVecAddNode = document.getElementById('btn-ip-vecbar-add-node');
-    if (btnVecAddNode) {
-      btnVecAddNode.addEventListener('click', () => {
-        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
-        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
-        if (vl && selPath && selPath.nodes.length >= 2 && typeof selPath.splitSegment === 'function') {
-          host.pushUndoSnapshot('add vector node');
-          const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
-          const segIdx = (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < segCount)
-            ? vl.selectedNodeIdx
-            : Math.floor((segCount - 1) / 2);
-          const splitRes = selPath.splitSegment(segIdx, 0.5);
-          const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
-          host.selectVectorPath(selPath.id, newIdx);
-          host.renderVectorLayer();
-          markCanvasDirty();
-          syncUiFromHost();
-          triggerHaptic(12);
-        }
-      });
-    }
+    const doVecAddNode = () => {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (vl && selPath && selPath.nodes.length >= 2 && typeof selPath.splitSegment === 'function') {
+        host.pushUndoSnapshot('add vector node');
+        const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
+        const segIdx = (vl.selectedNodeIdx >= 0 && vl.selectedNodeIdx < segCount)
+          ? vl.selectedNodeIdx
+          : Math.floor((segCount - 1) / 2);
+        const splitRes = selPath.splitSegment(segIdx, 0.5);
+        const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
+        host.selectVectorPath(selPath.id, newIdx);
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-add-node')?.addEventListener('click', doVecAddNode);
+    document.getElementById('btn-ip-sheet-vec-add-node')?.addEventListener('click', doVecAddNode);
 
-    const btnVecDelNode = document.getElementById('btn-ip-vecbar-del-node');
-    if (btnVecDelNode) {
-      btnVecDelNode.addEventListener('click', () => {
-        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
-        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
-        if (vl && selPath) {
-          if (vl.selectedNodeIdx >= 0 && selPath.nodes.length > 2) {
-            host.pushUndoSnapshot('delete vector node');
-            selPath.removeNode(vl.selectedNodeIdx);
-            vl.selectedNodeIdx = Math.min(vl.selectedNodeIdx, selPath.nodes.length - 1);
-            host.renderVectorLayer();
-            markCanvasDirty();
-            syncUiFromHost();
-            triggerHaptic(12);
-          } else if (selPath.nodes.length <= 2) {
-            host.pushUndoSnapshot('delete vector path');
-            vl.paths = vl.paths.filter(p => p.id !== selPath.id);
-            vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
-            vl.selectedNodeIdx = -1;
-            host.renderVectorLayer();
-            markCanvasDirty();
-            syncUiFromHost();
-            triggerHaptic(12);
+    const doVecDelNode = () => {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (vl && selPath) {
+        const selIndices = (vl.selectedNodeIndices instanceof Set && vl.selectedNodeIndices.size > 0)
+          ? Array.from(vl.selectedNodeIndices).sort((a, b) => b - a)
+          : (vl.selectedNodeIdx >= 0 ? [vl.selectedNodeIdx] : []);
+        if (selIndices.length > 0 && (selPath.nodes.length - selIndices.length) >= 2) {
+          host.pushUndoSnapshot('delete vector nodes');
+          if (typeof selPath.removeNodes === 'function') {
+            selPath.removeNodes(selIndices);
+          } else {
+            for (const idx of selIndices) selPath.removeNode(idx);
           }
-        }
-      });
-    }
-
-    const btnVecSimplify = document.getElementById('btn-ip-vecbar-simplify');
-    if (btnVecSimplify) {
-      btnVecSimplify.addEventListener('click', () => {
-        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
-        if (selPath && typeof selPath.simplify === 'function') {
-          host.pushUndoSnapshot('simplify vector path');
-          selPath.simplify((host.vectorFitTolerance || 2.5) * 1.4, host.vectorCurveMode !== 'raw');
+          const nextIdx = Math.min(selIndices[selIndices.length - 1], selPath.nodes.length - 1);
+          host.selectVectorPath(selPath.id, nextIdx);
           host.renderVectorLayer();
           markCanvasDirty();
           syncUiFromHost();
           triggerHaptic(12);
-        }
-      });
-    }
-
-    const btnVecDelPath = document.getElementById('btn-ip-vecbar-del-path');
-    if (btnVecDelPath) {
-      btnVecDelPath.addEventListener('click', () => {
-        const vl = host.getVectorLayer ? host.getVectorLayer() : null;
-        const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
-        if (vl && selPath) {
+        } else {
           host.pushUndoSnapshot('delete vector path');
           vl.paths = vl.paths.filter(p => p.id !== selPath.id);
           vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
           vl.selectedNodeIdx = -1;
+          if (vl.selectedNodeIndices instanceof Set) vl.selectedNodeIndices.clear();
+          if (vecPenActivePathId === selPath.id) vecPenActivePathId = null;
           host.renderVectorLayer();
           markCanvasDirty();
           syncUiFromHost();
-          triggerHaptic(15);
+          triggerHaptic(12);
         }
-      });
-    }
+      }
+    };
+    document.getElementById('btn-ip-vecbar-del-node')?.addEventListener('click', doVecDelNode);
+    document.getElementById('btn-ip-sheet-vec-del-node')?.addEventListener('click', doVecDelNode);
 
-    const btnVecRasterize = document.getElementById('btn-ip-vecbar-rasterize');
-    if (btnVecRasterize) {
-      btnVecRasterize.addEventListener('click', () => {
-        if (host.isVectorLayer && host.isVectorLayer()) {
-          runCmd('rasterize layer');
-          host.setActionMode('draw');
-          syncUiFromHost();
-          triggerHaptic(15);
-        }
-      });
-    }
+    const doVecSimplify = () => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath && typeof selPath.simplify === 'function') {
+        host.pushUndoSnapshot('simplify vector path');
+        selPath.simplify((host.vectorFitTolerance || 2.5) * 1.4, host.vectorCurveMode !== 'raw');
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-simplify')?.addEventListener('click', doVecSimplify);
+    document.getElementById('btn-ip-sheet-vec-simplify')?.addEventListener('click', doVecSimplify);
+
+    const doVecDelPath = () => {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (vl && selPath) {
+        host.pushUndoSnapshot('delete vector path');
+        vl.paths = vl.paths.filter(p => p.id !== selPath.id);
+        vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
+        vl.selectedNodeIdx = -1;
+        if (vl.selectedNodeIndices instanceof Set) vl.selectedNodeIndices.clear();
+        if (vecPenActivePathId === selPath.id) vecPenActivePathId = null;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(15);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-del-path')?.addEventListener('click', doVecDelPath);
+    document.getElementById('btn-ip-sheet-vec-del-path')?.addEventListener('click', doVecDelPath);
+
+    const doVecRasterize = () => {
+      if (host.isVectorLayer && host.isVectorLayer()) {
+        vecPenActivePathId = null;
+        runCmd('rasterize layer');
+        host.setActionMode('draw');
+        syncUiFromHost();
+        triggerHaptic(15);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-rasterize')?.addEventListener('click', doVecRasterize);
+    document.getElementById('btn-ip-sheet-vec-bake')?.addEventListener('click', doVecRasterize);
 
     const btnVecClose = document.getElementById('btn-ip-vecbar-close');
     if (btnVecClose) {
       btnVecClose.addEventListener('click', () => {
+        vecPenActivePathId = null;
         if (host.selectVectorPath) host.selectVectorPath(null, -1);
         host.setActionMode('draw');
         syncUiFromHost();
@@ -11038,18 +11719,18 @@ async function main() {
       });
     }
 
-    // Selection Modes in Sheet
-    document.querySelectorAll('#sheet-tools .ip-selmode-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const sm = card.dataset.selmode || 'replace';
-        host.setSelectionMode(sm);
-        syncUiFromHost();
-        triggerHaptic(10);
+    const sliderSheetVecTol = document.getElementById('ip-sheet-slider-vec-tol');
+    const lblSheetVecTol = document.getElementById('ip-sheet-vec-tol-val');
+    if (sliderSheetVecTol) {
+      sliderSheetVecTol.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value) || 2.5;
+        host.vectorFitTolerance = val;
+        if (lblSheetVecTol) lblSheetVecTol.textContent = val.toFixed(1);
       });
-    });
+    }
 
-    // Floating Selection Bar
-    document.querySelectorAll('.ip-selbar-mode').forEach(btn => {
+    // Selection Modes in Sheet & Floating Selection Bar
+    document.querySelectorAll('#sheet-tools .ip-selmode-card, .ip-selbar-mode').forEach(btn => {
       btn.addEventListener('click', () => {
         const sm = btn.dataset.selmode || 'replace';
         host.setSelectionMode(sm);
@@ -11061,30 +11742,37 @@ async function main() {
     document.querySelectorAll('.ip-selbar-tool').forEach(btn => {
       btn.addEventListener('click', () => {
         const st = btn.dataset.seltool;
-        host.actionMode = 'select';
+        host.setActionMode('select');
         host.currentTool = st;
+        if (st === 'select_rect' || st === 'select') host.setBrushParam('mode', 9);
+        else if (st === 'lasso_select') host.setBrushParam('mode', 10);
+        else if (st === 'magic_wand') host.setBrushParam('mode', 11);
+        else host.setBrushParam('mode', 0);
         syncUiFromHost();
         triggerHaptic(12);
       });
     });
 
-    const btnSelbarXform = document.getElementById('btn-ip-selbar-transform');
-    if (btnSelbarXform) btnSelbarXform.addEventListener('click', () => { runCmd('transform'); });
-    const btnSelbarInv = document.getElementById('btn-ip-selbar-invert');
-    if (btnSelbarInv) btnSelbarInv.addEventListener('click', () => { runCmd('select invert'); });
-    const btnSelbarClr = document.getElementById('btn-ip-selbar-clear');
-    if (btnSelbarClr) {
-      btnSelbarClr.addEventListener('click', () => {
-        runCmd('select clear');
-        syncUiFromHost();
-        triggerHaptic(10);
-      });
-    }
+    document.getElementById('btn-ip-selbar-transform')?.addEventListener('click', () => { runCmd('transform'); });
+    document.getElementById('btn-ip-selbar-all')?.addEventListener('click', () => { runCmd('select all'); syncUiFromHost(); triggerHaptic(10); });
+    document.getElementById('btn-ip-selbar-invert')?.addEventListener('click', () => { runCmd('select invert'); syncUiFromHost(); triggerHaptic(10); });
+    document.getElementById('btn-ip-selbar-clear')?.addEventListener('click', () => {
+      runCmd('select clear');
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+    document.getElementById('btn-ip-selbar-copy')?.addEventListener('click', () => { runCmd('copy'); triggerHaptic(10); });
+    document.getElementById('btn-ip-selbar-cut')?.addEventListener('click', () => { runCmd('cut'); triggerHaptic(10); });
+    document.getElementById('btn-ip-selbar-paste')?.addEventListener('click', () => { runCmd('paste'); triggerHaptic(10); });
+    document.getElementById('btn-ip-selbar-erase')?.addEventListener('click', () => { runCmd('clear'); triggerHaptic(12); });
+    document.getElementById('btn-ip-selbar-crop')?.addEventListener('click', () => { runCmd('crop'); syncUiFromHost(); triggerHaptic(12); });
+    document.getElementById('btn-ip-crop-sel')?.addEventListener('click', () => { runCmd('crop'); syncUiFromHost(); triggerHaptic(12); });
+
     const btnSelbarClose = document.getElementById('btn-ip-selbar-close');
     if (btnSelbarClose) {
       btnSelbarClose.addEventListener('click', () => {
         if (typeof host.clearSelection === 'function') host.clearSelection();
-        host.actionMode = 'draw';
+        host.setActionMode('draw');
         if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
           host.currentTool = 'brush';
           host.setBrushParam('mode', 0);
@@ -11094,29 +11782,46 @@ async function main() {
       });
     }
 
-    // Wand Sheet Controls
+    // Wand Sheet & Floating Bar Controls
     const sliderSheetWand = document.getElementById('ip-sheet-slider-wand-tol');
     const lblSheetWand = document.getElementById('ip-sheet-wand-tol-val');
-    if (sliderSheetWand) {
-      sliderSheetWand.addEventListener('input', (e) => {
-        const v = parseInt(e.target.value, 10);
-        host.wandTolerance = v;
-        if (lblSheetWand) lblSheetWand.textContent = v;
-      });
-    }
+    const sliderSelbarWand = document.getElementById('ip-selbar-wand-tol');
+    const lblSelbarWand = document.getElementById('ip-selbar-wand-tol-val');
+    const syncWandTol = (val) => {
+      const v = Math.max(0, Math.min(255, parseInt(val, 10) || 0));
+      host.wandTolerance = v;
+      if (sliderSheetWand && document.activeElement !== sliderSheetWand) sliderSheetWand.value = v;
+      if (lblSheetWand) lblSheetWand.textContent = v;
+      if (sliderSelbarWand && document.activeElement !== sliderSelbarWand) sliderSelbarWand.value = v;
+      if (lblSelbarWand) lblSelbarWand.textContent = v;
+    };
+    sliderSheetWand?.addEventListener('input', (e) => syncWandTol(e.target.value));
+    sliderSelbarWand?.addEventListener('input', (e) => syncWandTol(e.target.value));
+
     const chkSheetWandAdj = document.getElementById('ip-sheet-wand-adj');
-    if (chkSheetWandAdj) {
-      chkSheetWandAdj.addEventListener('change', (e) => {
-        host.wandAdjacent = e.target.checked;
-      });
-    }
+    const chkSelbarWandAdj = document.getElementById('ip-selbar-wand-adj');
+    const syncWandAdj = (checked) => {
+      host.wandAdjacent = !!checked;
+      if (chkSheetWandAdj) chkSheetWandAdj.checked = host.wandAdjacent;
+      if (chkSelbarWandAdj) chkSelbarWandAdj.checked = host.wandAdjacent;
+    };
+    chkSheetWandAdj?.addEventListener('change', (e) => syncWandAdj(e.target.checked));
+    chkSelbarWandAdj?.addEventListener('change', (e) => syncWandAdj(e.target.checked));
 
     // Tools Sheet Cards
     document.querySelectorAll('#sheet-tools .ip-tool-card').forEach(card => {
       card.addEventListener('click', () => {
         const tool = card.dataset.tool;
+        if (!tool) return;
         if (tool === 'transform') {
           host.startTransform();
+          switchToolsSheetTab('transform');
+        } else if (tool === 'pen_tool') {
+          host.vectorSubTool = 'pen';
+          host.setActionMode('vector');
+          if (host.enableVectorLayer) host.enableVectorLayer();
+          vecPenActivePathId = null;
+          markCanvasDirty();
         } else if (tool === 'select_rect' || tool === 'select') {
           host.setActionMode('select');
           host.currentTool = 'select_rect';
@@ -11134,6 +11839,7 @@ async function main() {
           host.currentTool = 'brush';
           host.setBrushParam('mode', 0);
         } else {
+          vecPenActivePathId = null;
           if (host.actionMode === 'select' || host.actionMode === 'vector') {
             host.setActionMode('draw');
           }
@@ -11147,41 +11853,178 @@ async function main() {
       });
     });
 
-    // Selection & Transform buttons
-    const btnIpCopy = document.getElementById('btn-ip-copy');
-    if (btnIpCopy) btnIpCopy.addEventListener('click', () => { runCmd('copy'); });
-    const btnIpCut = document.getElementById('btn-ip-cut');
-    if (btnIpCut) btnIpCut.addEventListener('click', () => { runCmd('cut'); });
-    const btnIpPaste = document.getElementById('btn-ip-paste');
-    if (btnIpPaste) btnIpPaste.addEventListener('click', () => { runCmd('paste'); });
-    const btnIpDeselect = document.getElementById('btn-ip-deselect');
-    if (btnIpDeselect) btnIpDeselect.addEventListener('click', () => { runCmd('deselect'); });
-    const btnIpSelectAll = document.getElementById('btn-ip-select-all');
-    if (btnIpSelectAll) btnIpSelectAll.addEventListener('click', () => { runCmd('select all'); });
-    const btnIpInvertSel = document.getElementById('btn-ip-invert-sel');
-    if (btnIpInvertSel) btnIpInvertSel.addEventListener('click', () => { runCmd('select invert'); });
-    const btnIpTransform = document.getElementById('btn-ip-transform');
-    if (btnIpTransform) btnIpTransform.addEventListener('click', () => { runCmd('transform'); });
-    const btnIpXformApply = document.getElementById('btn-ip-xform-apply');
-    if (btnIpXformApply) btnIpXformApply.addEventListener('click', () => { runCmd('transform apply'); });
-    const btnIpXformCancel = document.getElementById('btn-ip-xform-cancel');
-    if (btnIpXformCancel) btnIpXformCancel.addEventListener('click', () => { runCmd('transform cancel'); });
+    // Selection & Transform buttons in Sheet & Floating Transform Bar
+    document.getElementById('btn-ip-copy')?.addEventListener('click', () => { runCmd('copy'); });
+    document.getElementById('btn-ip-cut')?.addEventListener('click', () => { runCmd('cut'); });
+    document.getElementById('btn-ip-paste')?.addEventListener('click', () => { runCmd('paste'); });
+    document.getElementById('btn-ip-deselect')?.addEventListener('click', () => { runCmd('deselect'); });
+    document.getElementById('btn-ip-select-all')?.addEventListener('click', () => { runCmd('select all'); });
+    document.getElementById('btn-ip-invert-sel')?.addEventListener('click', () => { runCmd('select invert'); });
+    document.getElementById('btn-ip-transform')?.addEventListener('click', () => { runCmd('transform'); });
+    document.getElementById('btn-ip-xform-apply')?.addEventListener('click', () => { runCmd('transform apply'); });
+    document.getElementById('btn-ip-xform-cancel')?.addEventListener('click', () => { runCmd('transform cancel'); });
 
-    // Floating On-Canvas Transform Bar
-    const btnIpXbarApply = document.getElementById('btn-ip-xbar-apply');
-    if (btnIpXbarApply) btnIpXbarApply.addEventListener('click', () => { runCmd('transform apply'); });
-    const btnIpXbarCancel = document.getElementById('btn-ip-xbar-cancel');
-    if (btnIpXbarCancel) btnIpXbarCancel.addEventListener('click', () => { runCmd('transform cancel'); });
-    const btnIpXbarRotCcw = document.getElementById('btn-ip-xbar-rot-ccw');
-    if (btnIpXbarRotCcw) btnIpXbarRotCcw.addEventListener('click', () => { runCmd('transform rotate -90'); triggerHaptic(10); });
-    const btnIpXbarRotCw = document.getElementById('btn-ip-xbar-rot-cw');
-    if (btnIpXbarRotCw) btnIpXbarRotCw.addEventListener('click', () => { runCmd('transform rotate 90'); triggerHaptic(10); });
-    const btnIpXbarFlipH = document.getElementById('btn-ip-xbar-fliph');
-    if (btnIpXbarFlipH) btnIpXbarFlipH.addEventListener('click', () => { runCmd('transform flip h'); triggerHaptic(10); });
-    const btnIpXbarFlipV = document.getElementById('btn-ip-xbar-flipv');
-    if (btnIpXbarFlipV) btnIpXbarFlipV.addEventListener('click', () => { runCmd('transform flip v'); triggerHaptic(10); });
-    const btnIpXbarReset = document.getElementById('btn-ip-xbar-reset');
-    if (btnIpXbarReset) btnIpXbarReset.addEventListener('click', () => { runCmd('transform reset'); triggerHaptic(10); });
+    document.querySelectorAll('.ip-xbar-mode, .ip-sheet-xform-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        host.transformMode = btn.dataset.xmode || 'scale';
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    const toggleTransformLockAspect = () => {
+      host.transformLockAspect = !host.transformLockAspect;
+      syncUiFromHost();
+      triggerHaptic(10);
+    };
+    document.getElementById('btn-ip-xbar-lock-aspect')?.addEventListener('click', toggleTransformLockAspect);
+    document.getElementById('btn-ip-sheet-xform-lock')?.addEventListener('click', toggleTransformLockAspect);
+
+    document.getElementById('btn-ip-xbar-interp')?.addEventListener('click', () => {
+      host.transformInterpolation = host.transformInterpolation === 'bilinear' ? 'nearest' : 'bilinear';
+      if (host.floatingTransform) bakeFtPreview();
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+    document.querySelectorAll('.ip-sheet-xform-interp').forEach(btn => {
+      btn.addEventListener('click', () => {
+        host.transformInterpolation = btn.dataset.xinterp || 'nearest';
+        if (host.floatingTransform) bakeFtPreview();
+        syncUiFromHost();
+        triggerHaptic(10);
+      });
+    });
+
+    const ensureTransformStarted = () => {
+      if (!host.floatingTransform && typeof host.startTransform === 'function') {
+        host.startTransform();
+      }
+    };
+    document.getElementById('btn-ip-xbar-apply')?.addEventListener('click', () => { runCmd('transform apply'); });
+    document.getElementById('btn-ip-xbar-cancel')?.addEventListener('click', () => { runCmd('transform cancel'); });
+    document.getElementById('btn-ip-xbar-rot-ccw')?.addEventListener('click', () => { runCmd('transform rotate -90'); triggerHaptic(10); });
+    document.getElementById('btn-ip-xbar-rot-cw')?.addEventListener('click', () => { runCmd('transform rotate 90'); triggerHaptic(10); });
+    document.getElementById('btn-ip-xbar-rot-180')?.addEventListener('click', () => { runCmd('transform rotate 90'); runCmd('transform rotate 90'); triggerHaptic(10); });
+    document.getElementById('btn-ip-xbar-fliph')?.addEventListener('click', () => { runCmd('transform flip h'); triggerHaptic(10); });
+    document.getElementById('btn-ip-xbar-flipv')?.addEventListener('click', () => { runCmd('transform flip v'); triggerHaptic(10); });
+    document.getElementById('btn-ip-xbar-center')?.addEventListener('click', () => {
+      ensureTransformStarted();
+      if (host.centerFloatTransform) host.centerFloatTransform();
+      bakeFtPreview();
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+    document.getElementById('btn-ip-xbar-fit')?.addEventListener('click', () => {
+      ensureTransformStarted();
+      if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas();
+      bakeFtPreview();
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+    document.getElementById('btn-ip-xbar-reset')?.addEventListener('click', () => { runCmd('transform reset'); triggerHaptic(10); });
+
+    document.getElementById('btn-ip-sheet-xform-ccw')?.addEventListener('click', () => { ensureTransformStarted(); runCmd('transform rotate -90'); triggerHaptic(10); });
+    document.getElementById('btn-ip-sheet-xform-cw')?.addEventListener('click', () => { ensureTransformStarted(); runCmd('transform rotate 90'); triggerHaptic(10); });
+    document.getElementById('btn-ip-sheet-xform-180')?.addEventListener('click', () => { ensureTransformStarted(); runCmd('transform rotate 90'); runCmd('transform rotate 90'); triggerHaptic(10); });
+    document.getElementById('btn-ip-sheet-xform-fliph')?.addEventListener('click', () => { ensureTransformStarted(); runCmd('transform flip h'); triggerHaptic(10); });
+    document.getElementById('btn-ip-sheet-xform-flipv')?.addEventListener('click', () => { ensureTransformStarted(); runCmd('transform flip v'); triggerHaptic(10); });
+    document.getElementById('btn-ip-sheet-xform-center')?.addEventListener('click', () => {
+      ensureTransformStarted();
+      if (host.centerFloatTransform) host.centerFloatTransform();
+      bakeFtPreview();
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+    document.getElementById('btn-ip-sheet-xform-fit')?.addEventListener('click', () => {
+      ensureTransformStarted();
+      if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas();
+      bakeFtPreview();
+      syncUiFromHost();
+      triggerHaptic(10);
+    });
+    document.getElementById('btn-ip-sheet-xform-reset')?.addEventListener('click', () => { ensureTransformStarted(); runCmd('transform reset'); triggerHaptic(10); });
+
+    // Animation Tab Controls in #sheet-tools
+    document.getElementById('btn-ip-sheet-anim-toggle-dock')?.addEventListener('click', () => {
+      if (host.rasterAnimatorUI) {
+        host.rasterAnimatorUI.toggle();
+        updateAnimTimelineDockOffset();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-play')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.togglePlay();
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-add')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.addFrame(true);
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-dup')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.duplicateFrame();
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-clear')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.clearFrame();
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-del')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.deleteFrame();
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-onion')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.onionSkin = !host.rasterAnimator.onionSkin;
+        host.render();
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-loop')?.addEventListener('click', () => {
+      if (host.rasterAnimator) {
+        host.rasterAnimator.loop = !host.rasterAnimator.loop;
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+        syncUiFromHost();
+        triggerHaptic(10);
+      }
+    });
+    document.getElementById('ip-sheet-slider-anim-fps')?.addEventListener('input', (e) => {
+      if (host.rasterAnimator) {
+        const fpsVal = parseInt(e.target.value, 10) || 12;
+        host.rasterAnimator.setFps(fpsVal);
+        const lbl = document.getElementById('ip-sheet-anim-fps-val');
+        if (lbl) lbl.textContent = fpsVal;
+        if (host.rasterAnimatorUI) host.rasterAnimatorUI.syncUI();
+      }
+    });
+    document.getElementById('btn-ip-sheet-anim-gif')?.addEventListener('click', () => {
+      document.getElementById('btn-quick-export-gif')?.click();
+    });
+    document.getElementById('btn-ip-sheet-anim-webm')?.addEventListener('click', () => {
+      document.getElementById('btn-quick-export-webm')?.click();
+    });
 
     // Import Image button strictly from Layers Stack
     const btnIpImportLayer = document.getElementById('btn-ip-import-layer-btn');
@@ -11862,9 +12705,10 @@ async function main() {
     });
 
     // Selection UI & Floating Bar Synchronization
+    const isFloatTransforming = !!(host.floatingTransform && host.floatingTransform.corners);
     const ipSelBar = document.getElementById('ip-selection-bar');
     if (ipSelBar) {
-      const showSelBar = (isSelectMode || (host.selection && host.selection.active)) && !host.isTransforming;
+      const showSelBar = (isSelectMode || (host.selection && host.selection.active)) && !isFloatTransforming;
       ipSelBar.style.display = showSelBar ? 'flex' : 'none';
       document.querySelectorAll('.ip-selmode-card, .ip-selbar-mode, .sel-mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.selmode === curSelMode);
@@ -11872,36 +12716,95 @@ async function main() {
       document.querySelectorAll('.ip-selbar-tool').forEach(btn => {
         btn.classList.toggle('active', isSelectMode && btn.dataset.seltool === host.currentTool);
       });
+      const wandRow = document.getElementById('ip-selbar-wand-row');
+      if (wandRow) {
+        wandRow.style.display = (isSelectMode && host.currentTool === 'magic_wand') ? 'flex' : 'none';
+      }
     }
+
+    // Transform Bar & Sheet Synchronization
+    const curXMode = host.transformMode || 'scale';
+    document.querySelectorAll('.ip-xbar-mode, .ip-sheet-xform-mode').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.xmode === curXMode);
+    });
+    document.getElementById('btn-ip-xbar-lock-aspect')?.classList.toggle('active', !!host.transformLockAspect);
+    document.getElementById('btn-ip-sheet-xform-lock')?.classList.toggle('active', !!host.transformLockAspect);
+    const curXInterp = host.transformInterpolation || 'nearest';
+    const btnXbarInterp = document.getElementById('btn-ip-xbar-interp');
+    if (btnXbarInterp) {
+      btnXbarInterp.textContent = curXInterp === 'bilinear' ? 'Smooth' : 'Crisp';
+      btnXbarInterp.classList.toggle('active', curXInterp === 'bilinear');
+    }
+    document.querySelectorAll('.ip-sheet-xform-interp').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.xinterp === curXInterp);
+    });
 
     document.querySelectorAll('#sheet-tools .ip-actionmode-card').forEach(card => {
       card.classList.toggle('active', card.dataset.actionmode === host.actionMode);
     });
 
-    // Vector Painter Floating Bar Synchronization
+    // Vector Painter Floating Bar & Sheet Synchronization
     const ipVecBar = document.getElementById('ip-vector-bar');
+    const activeSubTool = (host.actionMode === 'vector') ? (host.vectorSubTool || 'nodes') : 'draw';
+    document.querySelectorAll('.ip-vecbar-subtool, .ip-vecbar-sub, .ip-sheet-vec-tool').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.vecsub === activeSubTool);
+    });
+    const curCurveMode = host.vectorCurveMode || 'bezier';
+    document.querySelectorAll('.ip-vecbar-curvemode, .ip-vecbar-mode').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.vecmode === curCurveMode);
+    });
+
+    const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+    const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+    const selNodeSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+    const selNode = (vl && selPath && vl.selectedNodeIdx >= 0 && selPath.nodes[vl.selectedNodeIdx])
+      ? selPath.nodes[vl.selectedNodeIdx]
+      : (selPath && selPath.nodes && selPath.nodes[0] ? selPath.nodes[0] : null);
+    const curNodeType = selNode ? selNode.type : null;
+    document.querySelectorAll('.ip-vecbar-nodetype').forEach(btn => {
+      btn.classList.toggle('active', !!curNodeType && btn.dataset.nodetype === curNodeType);
+    });
+
+    document.getElementById('btn-ip-vecbar-closed')?.classList.toggle('active', !!(selPath && selPath.closed));
+    document.getElementById('btn-ip-sheet-vec-closed')?.classList.toggle('active', !!(selPath && selPath.closed));
+    document.getElementById('btn-ip-vecbar-marquee-add')?.classList.toggle('active', !!host.vecMarqueeAdditive);
+
     if (ipVecBar) {
       const isVecLayerActive = host.isVectorLayer && host.isVectorLayer();
-      const showVecBar = (isVecLayerActive || host.actionMode === 'vector') && !host.isTransforming;
+      const showVecBar = (isVecLayerActive || host.actionMode === 'vector') && !isFloatTransforming;
       ipVecBar.style.display = showVecBar ? 'flex' : 'none';
-      const activeSubTool = (host.actionMode === 'vector') ? (host.vectorSubTool || 'nodes') : 'draw';
-      document.querySelectorAll('.ip-vecbar-subtool, .ip-vecbar-sub').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.vecsub === activeSubTool);
-      });
-      const curCurveMode = host.vectorCurveMode || 'bezier';
-      document.querySelectorAll('.ip-vecbar-curvemode, .ip-vecbar-mode').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.vecmode === curCurveMode);
-      });
 
-      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
-      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
-      const selNode = (vl && selPath && vl.selectedNodeIdx >= 0 && selPath.nodes[vl.selectedNodeIdx])
-        ? selPath.nodes[vl.selectedNodeIdx]
-        : (selPath && selPath.nodes && selPath.nodes[0] ? selPath.nodes[0] : null);
-      const curNodeType = selNode ? selNode.type : null;
-      document.querySelectorAll('.ip-vecbar-nodetype').forEach(btn => {
-        btn.classList.toggle('active', !!curNodeType && btn.dataset.nodetype === curNodeType);
-      });
+      const rowNodes = document.getElementById('ip-vecbar-row-nodes');
+      const rowBrush = document.getElementById('ip-vecbar-row-brush');
+      if (rowNodes && rowBrush) {
+        const isBrushSub = (activeSubTool === 'draw');
+        rowNodes.style.display = isBrushSub ? 'none' : 'flex';
+        rowBrush.style.display = isBrushSub ? 'flex' : 'none';
+      }
+
+      const btnPenDone = document.getElementById('btn-ip-vecbar-pen-done');
+      if (btnPenDone) {
+        btnPenDone.style.display = (vecPenActivePathId && selPath && selPath.id === vecPenActivePathId) ? 'inline-flex' : 'none';
+      }
+
+      const statusBadge = document.getElementById('ip-vecbar-status');
+      if (statusBadge) {
+        const totalPaths = vl && Array.isArray(vl.paths) ? vl.paths.length : 0;
+        if (activeSubTool === 'pen' && vecPenActivePathId && selPath && selPath.id === vecPenActivePathId) {
+          statusBadge.textContent = `Pen: ${selPath.nodes.length} pt${selPath.nodes.length === 1 ? '' : 's'} (open)`;
+        } else if (selPath && Array.isArray(selPath.nodes)) {
+          const selCount = selNodeSet.size;
+          if (selCount > 1) {
+            statusBadge.textContent = `${selCount}/${selPath.nodes.length} nodes sel`;
+          } else if (vl && vl.selectedNodeIdx >= 0) {
+            statusBadge.textContent = `Node #${vl.selectedNodeIdx + 1}/${selPath.nodes.length}`;
+          } else {
+            statusBadge.textContent = `Curve (${selPath.nodes.length} pts)`;
+          }
+        } else {
+          statusBadge.textContent = `${totalPaths} path${totalPaths === 1 ? '' : 's'}`;
+        }
+      }
 
       const vecWSlider = document.getElementById('ip-vecbar-width-slider');
       const vecWVal = document.getElementById('ip-vecbar-width-val');
@@ -11912,16 +12815,44 @@ async function main() {
       }
     }
 
-    // Wand Controls in Sheet
+    // Wand Controls in Sheet & Floating Selection Bar
     const wandTolSheetSlider = document.getElementById('ip-sheet-slider-wand-tol');
     const wandTolSheetVal = document.getElementById('ip-sheet-wand-tol-val');
-    if (wandTolSheetSlider && host.wandTolerance !== undefined) {
-      wandTolSheetSlider.value = host.wandTolerance;
+    const wandTolBarSlider = document.getElementById('ip-selbar-wand-tol');
+    const wandTolBarVal = document.getElementById('ip-selbar-wand-tol-val');
+    if (host.wandTolerance !== undefined) {
+      if (wandTolSheetSlider && document.activeElement !== wandTolSheetSlider) wandTolSheetSlider.value = host.wandTolerance;
       if (wandTolSheetVal) wandTolSheetVal.textContent = host.wandTolerance;
+      if (wandTolBarSlider && document.activeElement !== wandTolBarSlider) wandTolBarSlider.value = host.wandTolerance;
+      if (wandTolBarVal) wandTolBarVal.textContent = host.wandTolerance;
     }
     const wandAdjSheetChk = document.getElementById('ip-sheet-wand-adj');
-    if (wandAdjSheetChk && host.wandAdjacent !== undefined) {
-      wandAdjSheetChk.checked = host.wandAdjacent;
+    const wandAdjBarChk = document.getElementById('ip-selbar-wand-adj');
+    if (host.wandAdjacent !== undefined) {
+      if (wandAdjSheetChk) wandAdjSheetChk.checked = host.wandAdjacent;
+      if (wandAdjBarChk) wandAdjBarChk.checked = host.wandAdjacent;
+    }
+
+    // Animation Controls in #sheet-tools
+    if (host.rasterAnimator) {
+      const animPlayBtn = document.getElementById('btn-ip-sheet-anim-play');
+      if (animPlayBtn) {
+        animPlayBtn.textContent = host.rasterAnimator.isPlaying ? '⏸ Pause' : '▶ Play';
+        animPlayBtn.classList.toggle('active', !!host.rasterAnimator.isPlaying);
+      }
+      document.getElementById('btn-ip-sheet-anim-onion')?.classList.toggle('active', !!host.rasterAnimator.onionSkin);
+      document.getElementById('btn-ip-sheet-anim-loop')?.classList.toggle('active', !!host.rasterAnimator.loop);
+      const animFpsSlider = document.getElementById('ip-sheet-slider-anim-fps');
+      const animFpsVal = document.getElementById('ip-sheet-anim-fps-val');
+      if (animFpsSlider && document.activeElement !== animFpsSlider) animFpsSlider.value = host.rasterAnimator.fps || 12;
+      if (animFpsVal) animFpsVal.textContent = host.rasterAnimator.fps || 12;
+    }
+    if (host.rasterAnimatorUI) {
+      const btnToggleDock = document.getElementById('btn-ip-sheet-anim-toggle-dock');
+      if (btnToggleDock) {
+        btnToggleDock.classList.toggle('active', !!host.rasterAnimatorUI.visible);
+        btnToggleDock.textContent = host.rasterAnimatorUI.visible ? '🎬 Hide Timeline Dock on Canvas' : '🎬 Show Timeline Dock on Canvas';
+      }
     }
 
     // Active Layer Opacity in Sheet

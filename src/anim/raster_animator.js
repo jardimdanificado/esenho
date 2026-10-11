@@ -277,13 +277,29 @@ export class RasterAnimator {
     this.notify('fpsChanged', { fps: this.fps });
   }
 
+  setFrameDuration(duration, index = this.currentFrameIndex) {
+    if (index < 0 || index >= this.frames.length) return;
+    const d = Math.max(1, Math.min(12, Math.round(duration || 1)));
+    this.frames[index].duration = d;
+    this.notify('framesUpdated', { frames: this.frames, activeIndex: this.currentFrameIndex });
+  }
+
   play() {
     if (this.isPlaying) return;
     this.saveActiveFrame();
     this.isPlaying = true;
+    this._holdTick = 0;
     const intervalMs = Math.round(1000 / this.fps);
 
     this._playTimer = setInterval(() => {
+      const curFrame = this.frames[this.currentFrameIndex];
+      const holdTarget = Math.max(1, (curFrame && curFrame.duration) ? curFrame.duration : 1);
+      this._holdTick = (this._holdTick || 0) + 1;
+      if (this._holdTick < holdTarget) {
+        return;
+      }
+      this._holdTick = 0;
+
       let next = this.currentFrameIndex + 1;
       if (next >= this.frames.length) {
         if (!this.loop) {
@@ -303,6 +319,7 @@ export class RasterAnimator {
   stop() {
     if (!this.isPlaying) return;
     this.isPlaying = false;
+    this._holdTick = 0;
     if (this._playTimer) {
       clearInterval(this._playTimer);
       this._playTimer = null;
