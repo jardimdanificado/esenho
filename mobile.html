@@ -4003,8 +4003,8 @@
           <button class="btn-secondary" data-anim-command="next" type="button" title="Next frame" aria-label="Next frame">▶</button>
           <button class="btn-secondary" data-anim-command="last" type="button" title="Last frame" aria-label="Last frame">▶|</button>
           <button id="scene-anim-btn-loop" class="btn-secondary" data-anim-command="loop" type="button" title="Loop playback" aria-label="Loop playback">↻</button>
-          <button id="scene-btn-autokf" class="btn-secondary" data-anim-command="autokey" type="button" title="Automatically create keyframes" aria-label="Auto Key">◆</button>
-          <button class="btn-primary" data-anim-command="record" type="button" title="Record selected objects at this frame" aria-label="Record state">●</button>
+          <button id="scene-btn-autokf" class="btn-secondary" data-anim-command="autokey" type="button" title="Auto Keyframe (Toggle automatic recording)" aria-label="Auto Key">●</button>
+          <button class="btn-primary" data-anim-command="record" type="button" title="Generate Keyframe (Record selected state at current frame)" aria-label="Keyframe">◆</button>
         </div>
         <div class="mobile-animator-settings" aria-label="Animation frame settings">
           <label class="mobile-animator-field" title="Current frame">Frame <input id="scene-anim-input-frame" type="number" min="1" value="1" inputmode="numeric" aria-label="Current frame"></label>
@@ -6189,6 +6189,7 @@
       window.expandObjectInTree = expandObjectInTree;
 
       function updateObjectList() {
+        if (!objectList) return;
         objectList.innerHTML = '';
 
         if (doc.objects.length === 0) {
@@ -6201,6 +6202,17 @@
           `;
           updateSelectedObjectEventsUI();
           return;
+        }
+
+        const listFragment = document.createDocumentFragment();
+        const maskSourceIds = new Set();
+        for (const o of doc.objects) {
+          if (o.clipPathId) maskSourceIds.add(o.clipPathId);
+          if (o.children) {
+            for (const c of o.children) {
+              if (c.clipPathId) maskSourceIds.add(c.clipPathId);
+            }
+          }
         }
 
         function renderNodeItem(obj, depth = 0) {
@@ -6216,7 +6228,7 @@
           const collapseBtn = isGroup ? `<button class="btn-icon" data-action="toggle-collapse" style="font-size: 8px; margin-right: 4px;">${collapseIcon}</button>` : '';
 
           const isMaskedBadge = obj.clipPathId ? `<span title="Masked by #${obj.clipPathId}" style="display: inline-flex; align-items: center; color: var(--primary-hover); flex-shrink: 0;" class="obj-meta-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 10 4 15 9 20"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg></span>` : '';
-          const isMaskSource = doc.objects.some(o => o.clipPathId === obj.id) || (obj.parent && obj.parent.children && obj.parent.children.some(o => o.clipPathId === obj.id));
+          const isMaskSource = maskSourceIds.has(obj.id);
           const isMaskBadge = (!obj.clipPathId && isMaskSource) ? `<span title="Mask Source" style="display: inline-flex; align-items: center; color: var(--success); flex-shrink: 0;" class="obj-meta-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4" fill="currentColor"/></svg></span>` : '';
           const isTextPathBadge = obj.pathId ? `<span title="Attached to path #${obj.pathId}" style="display: inline-flex; align-items: center; color: #83a598; flex-shrink: 0;" class="obj-meta-icon"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17c4 0 4-10 9-10s5 10 9 10"/></svg></span>` : '';
           const isWasmFilter = obj.wasmFilter && obj.wasmFilter.enabled;
@@ -6510,7 +6522,7 @@
           item.addEventListener('touchend', finishTouch, { passive: false });
           item.addEventListener('touchcancel', finishTouch, { passive: false });
 
-          objectList.appendChild(item);
+          listFragment.appendChild(item);
 
           if (isGroup && !obj.collapsed && obj.children) {
             for (let c = obj.children.length - 1; c >= 0; c--) {
@@ -6523,6 +6535,8 @@
         for (let i = doc.objects.length - 1; i >= 0; i--) {
           renderNodeItem(doc.objects[i], 0);
         }
+
+        objectList.appendChild(listFragment);
 
         if (typeof window.syncObjectsToDopeSheet === 'function') {
           window.syncObjectsToDopeSheet();
@@ -7538,11 +7552,33 @@
         }
       });
 
+      let coordsRafPending = false;
+      let lastCoordPt = null;
+      let inspectorRafPending = false;
+
+      function scheduleInspectorUpdate() {
+        if (inspectorRafPending) return;
+        inspectorRafPending = true;
+        requestAnimationFrame(() => {
+          inspectorRafPending = false;
+          updateInspector();
+        });
+      }
+
       window.addEventListener('pointermove', (e) => {
         if (isTouchPinching || touchStartDist > 0) return;
 
         const pt = screenToDoc(e.clientX, e.clientY);
-        statusCoords.textContent = `${Math.round(pt.x)}, ${Math.round(pt.y)}`;
+        if (statusCoords && !coordsRafPending) {
+          coordsRafPending = true;
+          lastCoordPt = pt;
+          requestAnimationFrame(() => {
+            if (lastCoordPt && statusCoords) {
+              statusCoords.textContent = `${Math.round(lastCoordPt.x)}, ${Math.round(lastCoordPt.y)}`;
+            }
+            coordsRafPending = false;
+          });
+        }
 
         if (activeGuideDrag) {
           if (activeGuideDrag.type === 'horizontal') {
@@ -7594,7 +7630,7 @@
               doc.selectedIds.add(h.id);
             }
             drawOverlay();
-            updateInspector();
+            scheduleInspectorUpdate();
             return;
           }
 
@@ -14118,26 +14154,25 @@
 
         const btnAutoKf = document.getElementById('scene-btn-autokf');
         if (btnAutoKf) {
-          if (ds.autoKeyframe) {
-            btnAutoKf.style.background = 'var(--danger)';
-            btnAutoKf.style.color = '#fff';
-            btnAutoKf.style.borderColor = 'var(--danger)';
+          const isAuto = !!ds.autoKeyframe;
+          btnAutoKf.classList.toggle('active', isAuto);
+          btnAutoKf.setAttribute('aria-pressed', String(isAuto));
+          const isSkeuo = document.body.classList.contains('theme-skeuo') || document.documentElement.getAttribute('data-theme') === 'skeuo';
+          if (!isSkeuo) {
+            btnAutoKf.style.background = isAuto ? 'var(--danger)' : '';
+            btnAutoKf.style.color = isAuto ? '#fff' : '';
+            btnAutoKf.style.borderColor = isAuto ? 'var(--danger)' : '';
           } else {
             btnAutoKf.style.background = '';
             btnAutoKf.style.color = '';
             btnAutoKf.style.borderColor = '';
           }
         }
-
         const btnLoop = document.getElementById('scene-anim-btn-loop');
         if (btnLoop) {
           isSceneLooping = !!ds.loop;
           btnLoop.classList.toggle('active', isSceneLooping);
           btnLoop.setAttribute('aria-pressed', String(isSceneLooping));
-        }
-        if (btnAutoKf) {
-          btnAutoKf.classList.toggle('active', !!ds.autoKeyframe);
-          btnAutoKf.setAttribute('aria-pressed', String(!!ds.autoKeyframe));
         }
 
         const selectEasing = document.getElementById('scene-anim-select-easing');

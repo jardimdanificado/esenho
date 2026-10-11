@@ -10,7 +10,7 @@
 :root {
   --ms-bg: var(--bg-dark, #121315);
   --ms-canvas: var(--bg-canvas, #17191a);
-  --ms-glass: color-mix(in srgb, var(--bg-panel, #1e2021) 88%, transparent);
+  --ms-glass: color-mix(in srgb, var(--bg-panel, #1e2021) 94%, transparent);
   --ms-glass-border: var(--border-subtle, rgba(255, 255, 255, 0.08));
   --ms-text: var(--text, #ebdbb2);
   --ms-text-muted: var(--text-muted, #928374);
@@ -55,9 +55,10 @@ body.mobile-studio-ui {
   gap: 8px;
   background: var(--ms-glass);
   border-bottom: 1px solid var(--ms-glass-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   user-select: none;
+  transform: translateZ(0);
 }
 
 .mobile-brand,
@@ -99,6 +100,8 @@ body.mobile-studio-ui {
   min-height: 0;
   position: relative;
   overflow: hidden;
+  contain: layout paint;
+  transform: translateZ(0);
 }
 
 #mobile-canvas-stage {
@@ -107,6 +110,8 @@ body.mobile-studio-ui {
   min-height: 0;
   overflow: hidden;
   background: var(--ms-canvas);
+  contain: strict;
+  transform: translateZ(0);
 }
 
 #mobile-tool-bar {
@@ -123,8 +128,9 @@ body.mobile-studio-ui {
   background: var(--ms-glass);
   border: 1px solid var(--ms-glass-border);
   border-radius: var(--ms-radius);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transform: translateZ(0);
   /* O pan horizontal da própria barra não deve arrastar o canvas. */
   touch-action: pan-x;
   overscroll-behavior-x: contain;
@@ -174,16 +180,18 @@ body.mobile-studio-ui {
   background: var(--ms-glass);
   border-top: 1px solid var(--ms-glass-border);
   border-radius: 16px 16px 0 0;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   overflow: hidden;
+  contain: layout paint;
+  will-change: transform;
+  transform: translateZ(0);
   /* A nav inferior flutua POR CIMA do sheet (z-index maior); reserva a zona
      dela no rodapé do painel para o conteúdo não ficar escondido. Some também
      o inset do teclado virtual quando ele está aberto. */
   --ms-nav-reserve: 0px;
   padding-bottom: calc(var(--ms-nav-reserve) + var(--ms-kb-inset, 0px));
   /* anima entrada/saída por transform (dismiss por arrasto) */
-  will-change: transform;
   transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -275,6 +283,7 @@ body.mobile-studio-ui {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
+  contain: layout paint;
 }
 
 #mobile-panel-slot > .dock-panel-content {
@@ -295,9 +304,10 @@ body.mobile-studio-ui {
   gap: 4px;
   background: var(--ms-glass);
   border-top: 1px solid var(--ms-glass-border);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   z-index: 1200;
+  transform: translateZ(0);
 }
 
 .mobile-nav-item {
@@ -443,7 +453,7 @@ input[type="range"] { accent-color: var(--ms-accent); }
     position: absolute; top: calc(var(--ms-safe-top) + 8px); left: calc(8px + var(--ms-safe-left)); right: calc(8px + var(--ms-safe-right));
     height: 52px; min-height: 52px; padding: 0 8px;
     border: 1px solid var(--ms-glass-border); border-radius: 18px;
-    background: var(--ms-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--ms-glass); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     box-shadow: 0 8px 24px rgba(0,0,0,.35);
   }
 
@@ -451,7 +461,7 @@ input[type="range"] { accent-color: var(--ms-accent); }
     position: absolute; left: 50%; transform: translateX(-50%);
     bottom: calc(var(--ms-safe-bottom) + 84px); width: max-content; max-width: calc(100vw - 16px);
     min-height: 0; padding: 4px; border: 1px solid var(--ms-glass-border); border-radius: 20px;
-    background: var(--ms-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--ms-glass); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     box-shadow: 0 8px 24px rgba(0,0,0,.35);
   }
   #mobile-tool-bar .mobile-tool-button { border-radius: 14px; }
@@ -459,7 +469,7 @@ input[type="range"] { accent-color: var(--ms-accent); }
   #mobile-studio-nav {
     position: absolute; left: calc(8px + var(--ms-safe-left)); right: calc(8px + var(--ms-safe-right)); bottom: calc(var(--ms-safe-bottom) + 8px);
     min-height: 0; height: 64px; padding: 6px; border: 1px solid var(--ms-glass-border); border-radius: 22px;
-    background: var(--ms-glass); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: var(--ms-glass); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     box-shadow: 0 10px 28px rgba(0,0,0,.4);
   }
 
@@ -1040,4 +1050,47 @@ body.theme-skeuo .monaco-menu-item.active,
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.4),
     0 0 10px rgba(245, 158, 11, 0.5) !important;
+}
+
+/* ── Skeuomorphic Latched / Sunken Push-Button (Auto-Key) ── */
+body.theme-skeuo #scene-btn-autokf.active,
+body.theme-skeuo [data-anim-command="autokey"].active,
+[data-theme="skeuo"] #scene-btn-autokf.active,
+[data-theme="skeuo"] [data-anim-command="autokey"].active {
+  position: relative !important;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(239, 68, 68, 0.28) 0%, transparent 70%),
+    linear-gradient(180deg, #0e1012 0%, #17191d 60%, #1f2329 100%) !important;
+  color: #ff4d4d !important;
+  border: 1px solid #7f1d1d !important;
+  border-top: 1px solid #450a0a !important;
+  border-bottom: 1px solid #991b1b !important;
+  box-shadow:
+    inset 0 3px 6px rgba(0, 0, 0, 0.95),
+    inset 0 1px 3px rgba(0, 0, 0, 0.85),
+    inset 0 0 10px rgba(239, 68, 68, 0.2),
+    0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  transform: translateY(2px) !important;
+  text-shadow:
+    0 0 8px rgba(255, 77, 77, 0.95),
+    0 0 16px rgba(239, 68, 68, 0.7) !important;
+}
+
+body.theme-skeuo #scene-btn-autokf.active::after,
+body.theme-skeuo [data-anim-command="autokey"].active::after,
+[data-theme="skeuo"] #scene-btn-autokf.active::after,
+[data-theme="skeuo"] [data-anim-command="autokey"].active::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff 0%, #ff6b6b 40%, #ef4444 100%);
+  box-shadow:
+    0 0 4px #ffffff,
+    0 0 8px #ef4444,
+    0 0 12px rgba(239, 68, 68, 0.95);
+  pointer-events: none;
 }
