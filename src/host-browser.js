@@ -462,6 +462,15 @@ async function main() {
     }
   };
 
+  host.onRenderScaleChange = function(newW, newH, scale) {
+    imgData = null;
+    offscreen = null;
+    offscreenCtx = null;
+    if (typeof markCanvasDirty === 'function') markCanvasDirty();
+    if (typeof syncUiFromHost === 'function') syncUiFromHost();
+    if (typeof host.render === 'function') host.render();
+  };
+
   host.createTipFromLayer = function(name = 'Custom Tip') {
     if (!host.canvasActor || !host.canvasActor.exports) return;
     const cw = host.canvasActor.exports.get_canvas_width();
@@ -715,17 +724,37 @@ async function main() {
   
 
   
-  /* ── Sheet Modal Helpers ── */
-  function closeAllSheets() {
-    document.querySelectorAll('.ip-sheet-modal').forEach(m => m.classList.remove('active'));
+  /* ── Sheet Modal Helpers (Non-blocking Side-Docked & Draggable Panels) ── */
+  const LEFT_SIDE_SHEETS = new Set([
+    'sheet-brushes', 'sheet-tools', 'sheet-pixelart', 'sheet-menu',
+    'sheet-recents', 'sheet-new-proj', 'touch-color-modal'
+  ]);
+  const RIGHT_SIDE_SHEETS = new Set([
+    'sheet-layers', 'sheet-lab', 'sheet-hud-customizer'
+  ]);
+
+  function closeAllSheets(onlySide = null) {
+    document.querySelectorAll('.ip-sheet-modal, #touch-color-modal').forEach(m => {
+      if (!onlySide) {
+        m.classList.remove('active');
+        return;
+      }
+      const box = m.querySelector('.ip-sheet, .touch-color-box');
+      if (box && box.dataset.userDragged === 'true') return; // Keep custom-placed floating panels open
+      if (onlySide === 'left' && LEFT_SIDE_SHEETS.has(m.id)) m.classList.remove('active');
+      if (onlySide === 'right' && RIGHT_SIDE_SHEETS.has(m.id)) m.classList.remove('active');
+    });
   }
 
   function toggleSheet(id) {
     const el = document.getElementById(id);
     if (!el) return;
     const wasActive = el.classList.contains('active');
-    closeAllSheets();
-    if (!wasActive) {
+    const side = LEFT_SIDE_SHEETS.has(id) ? 'left' : (RIGHT_SIDE_SHEETS.has(id) ? 'right' : null);
+    if (wasActive) {
+      el.classList.remove('active');
+    } else {
+      if (side) closeAllSheets(side);
       el.classList.add('active');
       if (id === 'sheet-layers') {
         if (typeof lastLayerTreeSig !== 'undefined') lastLayerTreeSig = '';
@@ -733,6 +762,61 @@ async function main() {
       if (typeof syncUiFromHost === 'function') syncUiFromHost();
     }
     if (typeof triggerHaptic === 'function') triggerHaptic(12);
+  }
+
+  function initDraggableSheets() {
+    document.querySelectorAll('.ip-sheet, .touch-color-box').forEach(panel => {
+      if (panel.dataset.dragBound === 'true') return;
+      panel.dataset.dragBound = 'true';
+      const header = panel.querySelector('.ip-sheet-header, .touch-color-header');
+      if (!header) return;
+
+      let dragging = false;
+      let startX = 0, startY = 0;
+      let origLeft = 0, origTop = 0;
+
+      header.addEventListener('dblclick', (e) => {
+        if (e.target.closest('button, input, select')) return;
+        panel.classList.toggle('is-collapsed');
+      });
+
+      header.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('button, input, select, a')) return;
+        if (e.button !== undefined && e.button !== 0) return;
+        const rect = panel.getBoundingClientRect();
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        origLeft = rect.left;
+        origTop = rect.top;
+        panel.style.left = `${origLeft}px`;
+        panel.style.top = `${origTop}px`;
+        panel.style.right = 'auto';
+        panel.style.bottom = 'auto';
+        panel.style.transform = 'none';
+        panel.dataset.userDragged = 'true';
+        try { header.setPointerCapture(e.pointerId); } catch (_) {}
+        e.preventDefault();
+      });
+
+      header.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const newLeft = Math.max(4, Math.min(window.innerWidth - 80, origLeft + dx));
+        const newTop = Math.max(4, Math.min(window.innerHeight - 48, origTop + dy));
+        panel.style.left = `${newLeft}px`;
+        panel.style.top = `${newTop}px`;
+      });
+
+      const endDrag = (e) => {
+        if (!dragging) return;
+        dragging = false;
+        try { header.releasePointerCapture(e.pointerId); } catch (_) {}
+      };
+      header.addEventListener('pointerup', endDrag);
+      header.addEventListener('pointercancel', endDrag);
+    });
   }
 
   /* ── Export Helpers (Browser PNG, JPEG, .ESEN) ── */
@@ -900,6 +984,7 @@ async function main() {
   let lassoPoints = [];
   let vectorRawStrokePoints = [];
   let vecDragging = null;
+  let vecWidthDragging = false;
   let vecLastClickTime = 0;
   let vecLastClickPos = null;
 
@@ -927,7 +1012,7 @@ async function main() {
         if (Math.hypot(absOut.x - n.x, absOut.y - n.y) > 0.5 && Math.hypot(x - absOut.x, y - absOut.y) <= hitRad) {
           host.pushUndoSnapshot('edit vector handle');
           host.selectVectorPath(selPath.id, i);
-          vecDragging = { type: 'cpOut', path: selPath, nodeIdx: i, startX: x, startY: y };
+          vecDragging = { type: 'cpOut', path: selPath, nodeIdx: i, startX: x, startY: y, moved: false };
           markCanvasDirty();
           syncUiFromHost();
           return true;
@@ -935,7 +1020,7 @@ async function main() {
         if (Math.hypot(absIn.x - n.x, absIn.y - n.y) > 0.5 && Math.hypot(x - absIn.x, y - absIn.y) <= hitRad) {
           host.pushUndoSnapshot('edit vector handle');
           host.selectVectorPath(selPath.id, i);
-          vecDragging = { type: 'cpIn', path: selPath, nodeIdx: i, startX: x, startY: y };
+          vecDragging = { type: 'cpIn', path: selPath, nodeIdx: i, startX: x, startY: y, moved: false };
           markCanvasDirty();
           syncUiFromHost();
           return true;
@@ -958,11 +1043,12 @@ async function main() {
             startX: x,
             startY: y,
             startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
-            startPressure: n.pressure !== undefined ? n.pressure : 1.0
+            startPressure: n.pressure !== undefined ? n.pressure : 1.0,
+            moved: false
           };
         } else {
           host.pushUndoSnapshot('move vector node');
-          vecDragging = { type: 'node', path: selPath, nodeIdx: nIdx, startX: x, startY: y, lastX: x, lastY: y };
+          vecDragging = { type: 'node', path: selPath, nodeIdx: nIdx, startX: x, startY: y, lastX: x, lastY: y, moved: false };
         }
         markCanvasDirty();
         syncUiFromHost();
@@ -985,8 +1071,7 @@ async function main() {
           const splitRes = selPath.splitSegment(segHit.segIndex, segHit.t);
           const newIdx = (splitRes && typeof splitRes === 'object') ? splitRes.index : splitRes;
           host.selectVectorPath(selPath.id, newIdx);
-          host.renderVectorLayer();
-          vecDragging = { type: 'node', path: selPath, nodeIdx: newIdx, startX: x, startY: y, lastX: x, lastY: y };
+          vecDragging = { type: 'node', path: selPath, nodeIdx: newIdx, startX: x, startY: y, lastX: x, lastY: y, moved: false, splitInserted: true };
           markCanvasDirty();
           syncUiFromHost();
           return true;
@@ -1008,7 +1093,8 @@ async function main() {
             startX: x,
             startY: y,
             startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
-            startPressure: n.pressure !== undefined ? n.pressure : 1.0
+            startPressure: n.pressure !== undefined ? n.pressure : 1.0,
+            moved: false
           };
         } else {
           host.pushUndoSnapshot('bend vector curve');
@@ -1018,7 +1104,8 @@ async function main() {
             segIndex: segHit.segIndex,
             t: Math.max(0.08, Math.min(0.92, segHit.t)),
             startX: x,
-            startY: y
+            startY: y,
+            moved: false
           };
         }
         markCanvasDirty();
@@ -1044,11 +1131,12 @@ async function main() {
             startX: x,
             startY: y,
             startWidthScale: n.widthScale !== undefined ? n.widthScale : 1.0,
-            startPressure: n.pressure !== undefined ? n.pressure : 1.0
+            startPressure: n.pressure !== undefined ? n.pressure : 1.0,
+            moved: false
           };
         } else {
           host.pushUndoSnapshot('move vector node');
-          vecDragging = { type: 'node', path: p, nodeIdx: nIdx, startX: x, startY: y, lastX: x, lastY: y };
+          vecDragging = { type: 'node', path: p, nodeIdx: nIdx, startX: x, startY: y, lastX: x, lastY: y, moved: false };
         }
       } else if (layerHit.hitInfo) {
         host.pushUndoSnapshot('bend vector curve');
@@ -1058,7 +1146,8 @@ async function main() {
           segIndex: layerHit.hitInfo.segIndex,
           t: Math.max(0.08, Math.min(0.92, layerHit.hitInfo.t)),
           startX: x,
-          startY: y
+          startY: y,
+          moved: false
         };
       }
       vecLastClickTime = Date.now();
@@ -1078,6 +1167,7 @@ async function main() {
   function vecMoveInteraction(x, y) {
     if (!vecDragging || !vecDragging.path) return false;
     const d = vecDragging;
+    d.moved = true;
     if (d.type === 'node') {
       const dx = x - d.lastX;
       const dy = y - d.lastY;
@@ -1105,14 +1195,20 @@ async function main() {
         if (wVal) wVal.textContent = `${pct}%`;
       }
     }
-    host.renderVectorLayer();
+    // Deferred WASM rasterization: only update the 60fps overlay preview during drag!
     if (typeof markCanvasDirty === 'function') markCanvasDirty();
     return true;
   }
 
   function vecEndInteraction() {
     if (!vecDragging) return false;
+    const d = vecDragging;
     vecDragging = null;
+    if (d.moved || d.splitInserted) {
+      host.renderVectorLayer();
+    } else if (Array.isArray(host.undoStack) && host.undoStack.length > 0) {
+      host.undoStack.pop();
+    }
     if (typeof markCanvasDirty === 'function') markCanvasDirty();
     syncUiFromHost();
     return true;
@@ -1980,10 +2076,48 @@ async function main() {
 
           // 2. Full interactive spine, width rings, tangent handles, and anchor nodes for selected path
           if (selPath && Array.isArray(selPath.nodes) && selPath.nodes.length > 0) {
+            const baseW = Math.max(2, selPath.strokeWidth || 8);
+            const isWidthTool = (host.vectorSubTool === 'width');
+            const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
+
+            // Live 60fps 2D variable-width preview while dragging nodes/handles/curves/width (deferred WASM render)
+            if ((vecDragging && vecDragging.moved) || vecWidthDragging) {
+              ctx.save();
+              ctx.setLineDash([]);
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              ctx.strokeStyle = selPath.stroke || '#ebdbb2';
+              ctx.globalAlpha = Math.max(0.45, Math.min(0.85, (selPath.opacity ?? 1.0) * 0.78));
+              const steps = 12;
+              for (let i = 0; i < segCount; i++) {
+                const n0 = selPath.nodes[i];
+                const n1 = selPath.nodes[(i + 1) % selPath.nodes.length];
+                const cp1 = typeof n0.getAbsCpOut === 'function' ? n0.getAbsCpOut() : { x: n0.x + (n0.cpOut?.x || 0), y: n0.y + (n0.cpOut?.y || 0) };
+                const cp2 = typeof n1.getAbsCpIn === 'function' ? n1.getAbsCpIn() : { x: n1.x + (n1.cpIn?.x || 0), y: n1.y + (n1.cpIn?.y || 0) };
+                const w0 = baseW * (n0.widthScale ?? 1.0) * (0.2 + 0.8 * (n0.pressure ?? 1.0));
+                const w1 = baseW * (n1.widthScale ?? 1.0) * (0.2 + 0.8 * (n1.pressure ?? 1.0));
+                let prevX = n0.x, prevY = n0.y;
+                for (let s = 1; s <= steps; s++) {
+                  const t = s / steps;
+                  const mt = 1 - t;
+                  const bx = mt * mt * mt * n0.x + 3 * mt * mt * t * cp1.x + 3 * mt * t * t * cp2.x + t * t * t * n1.x;
+                  const by = mt * mt * mt * n0.y + 3 * mt * mt * t * cp1.y + 3 * mt * t * t * cp2.y + t * t * t * n1.y;
+                  const bw = w0 + (w1 - w0) * t;
+                  ctx.beginPath();
+                  ctx.moveTo(prevX * z, prevY * z);
+                  ctx.lineTo(bx * z, by * z);
+                  ctx.lineWidth = Math.max(1, bw * z);
+                  ctx.stroke();
+                  prevX = bx;
+                  prevY = by;
+                }
+              }
+              ctx.restore();
+            }
+
             ctx.setLineDash([]);
             ctx.beginPath();
             ctx.moveTo(selPath.nodes[0].x * z, selPath.nodes[0].y * z);
-            const segCount = selPath.closed ? selPath.nodes.length : selPath.nodes.length - 1;
             for (let i = 0; i < segCount; i++) {
               const n0 = selPath.nodes[i];
               const n1 = selPath.nodes[(i + 1) % selPath.nodes.length];
@@ -1997,9 +2131,6 @@ async function main() {
             ctx.strokeStyle = '#8ec07c';
             ctx.lineWidth = 1.75;
             ctx.stroke();
-
-            const baseW = Math.max(2, selPath.strokeWidth || 8);
-            const isWidthTool = (host.vectorSubTool === 'width');
 
             selPath.nodes.forEach((n, idx) => {
               const nx = n.x * z, ny = n.y * z;
@@ -2232,8 +2363,642 @@ async function main() {
     return hex;
   }
 
+  /* ── VS Code / Monaco Context Menu Architecture (matching studio.html) ── */
+  class MonacoMenu {
+    constructor(container, actions, options = {}) {
+      this.container = container;
+      this.actions = actions || [];
+      this.options = options;
+      this.parentMenu = options.parentMenu || null;
+      this.parentItem = options.parentItem || null;
+      this.service = options.service || window.contextMenuService;
+      this.activeSubmenu = null;
+      this.focusedIndex = -1;
+      this.items = [];
+      this.showTimer = null;
+      this.hideTimer = null;
+      this.render();
+    }
+
+    render() {
+      this.domNode = document.createElement('div');
+      this.domNode.className = 'monaco-menu-container';
+      this.domNode.setAttribute('tabindex', '-1');
+
+      this.menuElement = document.createElement('div');
+      this.menuElement.className = 'monaco-menu';
+      this.menuElement.setAttribute('role', 'presentation');
+
+      this.actionsList = document.createElement('ul');
+      this.actionsList.className = 'actions-container';
+      this.actionsList.setAttribute('role', 'menu');
+
+      this.menuElement.appendChild(this.actionsList);
+      this.domNode.appendChild(this.menuElement);
+
+      for (let i = 0; i < this.actions.length; i++) {
+        const action = this.actions[i];
+        const itemObj = { action, index: i, element: null, isSelectable: false, isSubmenu: false };
+
+        if (action.type === 'header') {
+          const li = document.createElement('li');
+          li.className = 'action-item header';
+          li.setAttribute('role', 'presentation');
+          const label = document.createElement('span');
+          label.className = 'action-label';
+          label.textContent = action.title || action.label || '';
+          li.appendChild(label);
+          this.actionsList.appendChild(li);
+          itemObj.element = li;
+        } else if (action.type === 'sep' || action.type === 'separator') {
+          const li = document.createElement('li');
+          li.className = 'action-item separator';
+          li.setAttribute('role', 'separator');
+          this.actionsList.appendChild(li);
+          itemObj.element = li;
+        } else {
+          const subItems = action.items || action.submenu;
+          const hasSubmenu = action.type === 'submenu' || (Array.isArray(subItems) && subItems.length > 0);
+          itemObj.isSelectable = !action.disabled;
+          itemObj.isSubmenu = hasSubmenu;
+
+          const li = document.createElement('li');
+          li.className = 'action-item';
+          li.setAttribute('role', 'menuitem');
+          if (action.danger) li.classList.add('danger');
+          if (action.disabled) li.classList.add('disabled');
+          if (hasSubmenu) {
+            li.classList.add('has-submenu');
+            li.setAttribute('aria-haspopup', 'true');
+          }
+
+          const anchor = document.createElement('a');
+          anchor.className = 'action-menu-item';
+          anchor.setAttribute('tabindex', '-1');
+
+          let rawLabel = action.label || '';
+          let isChecked = !!action.checked;
+          if (rawLabel.startsWith('✓ ')) {
+            isChecked = true;
+            rawLabel = rawLabel.substring(2);
+          }
+
+          const checkSpan = document.createElement('span');
+          checkSpan.className = 'menu-item-check';
+          checkSpan.textContent = isChecked ? '✓' : '';
+          anchor.appendChild(checkSpan);
+
+          const labelSpan = document.createElement('span');
+          labelSpan.className = 'action-label';
+          labelSpan.textContent = rawLabel;
+          anchor.appendChild(labelSpan);
+
+          const hotkeyText = action.hotkey || action.keybinding;
+          if (hotkeyText) {
+            const hkSpan = document.createElement('span');
+            hkSpan.className = 'keybinding';
+            hkSpan.textContent = hotkeyText;
+            anchor.appendChild(hkSpan);
+          }
+
+          if (hasSubmenu) {
+            const arrowSpan = document.createElement('span');
+            arrowSpan.className = 'submenu-indicator';
+            arrowSpan.textContent = '▶';
+            anchor.appendChild(arrowSpan);
+          }
+
+          li.appendChild(anchor);
+
+          li.addEventListener('mouseenter', () => this.onItemMouseEnter(i));
+          li.addEventListener('mouseleave', () => this.onItemMouseLeave(i));
+          li.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            if (action.disabled) return;
+            if (hasSubmenu) {
+              this.openSubmenu(i, false);
+            } else {
+              this.trigger(i);
+            }
+          });
+
+          this.actionsList.appendChild(li);
+          itemObj.element = li;
+        }
+
+        this.items.push(itemObj);
+      }
+
+      this.container.appendChild(this.domNode);
+    }
+
+    onItemMouseEnter(index) {
+      clearTimeout(this.hideTimer);
+      this.focus(index);
+      const item = this.items[index];
+      if (!item) return;
+      if (item.isSubmenu) {
+        clearTimeout(this.showTimer);
+        this.showTimer = setTimeout(() => this.openSubmenu(index, false), 40);
+      } else {
+        clearTimeout(this.showTimer);
+        if (this.activeSubmenu) {
+          this.hideTimer = setTimeout(() => this.closeSubmenu(), 40);
+        }
+      }
+    }
+
+    onItemMouseLeave() {
+      clearTimeout(this.showTimer);
+    }
+
+    focus(index) {
+      if (this.focusedIndex >= 0 && this.focusedIndex < this.items.length) {
+        const prev = this.items[this.focusedIndex];
+        if (prev && prev.element) prev.element.classList.remove('focused');
+      }
+      this.focusedIndex = index;
+      if (index >= 0 && index < this.items.length) {
+        const cur = this.items[index];
+        if (cur && cur.element) {
+          cur.element.classList.add('focused');
+          cur.element.scrollIntoView?.({ block: 'nearest' });
+        }
+      }
+    }
+
+    focusNext() {
+      const count = this.items.length;
+      if (count === 0) return;
+      let idx = this.focusedIndex;
+      for (let step = 0; step < count; step++) {
+        idx = (idx + 1) % count;
+        if (this.items[idx].isSelectable) {
+          this.focus(idx);
+          break;
+        }
+      }
+    }
+
+    focusPrevious() {
+      const count = this.items.length;
+      if (count === 0) return;
+      let idx = this.focusedIndex;
+      if (idx === -1) idx = count;
+      for (let step = 0; step < count; step++) {
+        idx = (idx - 1 + count) % count;
+        if (this.items[idx].isSelectable) {
+          this.focus(idx);
+          break;
+        }
+      }
+    }
+
+    focusFirst() {
+      for (let i = 0; i < this.items.length; i++) {
+        if (this.items[i].isSelectable) {
+          this.focus(i);
+          break;
+        }
+      }
+    }
+
+    focusLast() {
+      for (let i = this.items.length - 1; i >= 0; i--) {
+        if (this.items[i].isSelectable) {
+          this.focus(i);
+          break;
+        }
+      }
+    }
+
+    trigger(index) {
+      const item = this.items[index];
+      if (!item || !item.isSelectable) return;
+      const action = item.action;
+      if (this.service) this.service.hideContextMenu();
+      if (typeof action.action === 'function') action.action();
+      else if (typeof action.run === 'function') action.run();
+    }
+
+    openSubmenu(index, focusFirst = false) {
+      const item = this.items[index];
+      if (!item || !item.isSubmenu) return;
+      if (this.activeSubmenu && this.activeSubmenu.parentItem === item.element) {
+        if (focusFirst) this.activeSubmenu.focusFirst();
+        return;
+      }
+      this.closeSubmenu();
+      const subActions = item.action.items || item.action.submenu || [];
+      this.activeSubmenu = new MonacoMenu(this.container, subActions, {
+        parentMenu: this,
+        parentItem: item.element,
+        service: this.service
+      });
+      this.activeSubmenu.layout(item.element);
+      if (focusFirst) this.activeSubmenu.focusFirst();
+    }
+
+    closeSubmenu() {
+      if (this.activeSubmenu) {
+        this.activeSubmenu.dispose();
+        this.activeSubmenu = null;
+      }
+    }
+
+    layout(anchor) {
+      if (!this.domNode) return;
+      const rect = this.domNode.getBoundingClientRect();
+      const viewW = window.innerWidth;
+      const viewH = window.innerHeight;
+
+      if (anchor instanceof HTMLElement) {
+        const parentRect = anchor.getBoundingClientRect();
+        const parentMenuRect = this.parentMenu ? this.parentMenu.domNode.getBoundingClientRect() : parentRect;
+        let left = parentRect.right - 2;
+        const preferLeft = (parentMenuRect.left > viewW / 2) || (left + rect.width > viewW - 8);
+        if (preferLeft) left = parentRect.left - rect.width + 2;
+        left = Math.max(8, Math.min(left, viewW - rect.width - 8));
+        let top = parentRect.top - 3;
+        if (top + rect.height > viewH - 8) top = Math.max(8, viewH - rect.height - 8);
+        top = Math.max(8, top);
+        this.domNode.style.left = `${Math.round(left)}px`;
+        this.domNode.style.top = `${Math.round(top)}px`;
+      } else if (anchor && typeof anchor.x === 'number' && typeof anchor.y === 'number') {
+        let left = anchor.x;
+        let top = anchor.y;
+        if (left + rect.width > viewW - 8) left = viewW - rect.width - 8;
+        if (top + rect.height > viewH - 8) top = viewH - rect.height - 8;
+        left = Math.max(8, left);
+        top = Math.max(8, top);
+        this.domNode.style.left = `${Math.round(left)}px`;
+        this.domNode.style.top = `${Math.round(top)}px`;
+      }
+    }
+
+    onKeyDown(e) {
+      if (this.activeSubmenu && this.activeSubmenu.onKeyDown(e)) return true;
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault(); e.stopPropagation(); this.focusNext(); return true;
+        case 'ArrowUp':
+          e.preventDefault(); e.stopPropagation(); this.focusPrevious(); return true;
+        case 'ArrowRight':
+          if (this.focusedIndex >= 0 && this.items[this.focusedIndex]?.isSubmenu) {
+            e.preventDefault(); e.stopPropagation(); this.openSubmenu(this.focusedIndex, true); return true;
+          }
+          break;
+        case 'ArrowLeft':
+          if (this.parentMenu) {
+            e.preventDefault(); e.stopPropagation(); this.parentMenu.closeSubmenu(); return true;
+          }
+          break;
+        case 'Enter':
+        case ' ':
+          if (this.focusedIndex >= 0) {
+            e.preventDefault(); e.stopPropagation();
+            const cur = this.items[this.focusedIndex];
+            if (cur && cur.isSubmenu) this.openSubmenu(this.focusedIndex, true);
+            else if (cur) this.trigger(this.focusedIndex);
+            return true;
+          }
+          break;
+        case 'Escape':
+          e.preventDefault(); e.stopPropagation();
+          if (this.parentMenu) this.parentMenu.closeSubmenu();
+          else if (this.service) this.service.hideContextMenu();
+          return true;
+        case 'Home':
+          e.preventDefault(); e.stopPropagation(); this.focusFirst(); return true;
+        case 'End':
+          e.preventDefault(); e.stopPropagation(); this.focusLast(); return true;
+      }
+      return false;
+    }
+
+    dispose() {
+      clearTimeout(this.showTimer);
+      clearTimeout(this.hideTimer);
+      if (this.activeSubmenu) {
+        this.activeSubmenu.dispose();
+        this.activeSubmenu = null;
+      }
+      if (this.domNode && this.domNode.parentNode) {
+        this.domNode.parentNode.removeChild(this.domNode);
+      }
+    }
+  }
+
+  class MonacoContextMenuService {
+    constructor() {
+      this.container = document.getElementById('monaco-context-view');
+      if (!this.container) {
+        this.container = document.createElement('div');
+        this.container.id = 'monaco-context-view';
+        this.container.className = 'monaco-context-view';
+        document.body.appendChild(this.container);
+      }
+      this.activeMenu = null;
+      this.activeDelegate = null;
+      this.registerListeners();
+    }
+
+    registerListeners() {
+      window.addEventListener('pointerdown', (e) => {
+        if (this.activeMenu && !e.target.closest('.monaco-menu-container')) {
+          this.hideContextMenu();
+        }
+      }, true);
+      window.addEventListener('keydown', (e) => {
+        if (this.activeMenu && this.activeMenu.onKeyDown(e)) {
+          e.preventDefault();
+        }
+      }, true);
+      window.addEventListener('blur', () => {
+        if (this.activeMenu) this.hideContextMenu();
+      });
+      window.addEventListener('resize', () => {
+        if (this.activeMenu) this.hideContextMenu();
+      });
+      window.addEventListener('wheel', (e) => {
+        if (this.activeMenu && !e.target.closest('.monaco-menu-container')) {
+          this.hideContextMenu();
+        }
+      }, { passive: true });
+    }
+
+    showContextMenu(delegate) {
+      this.hideContextMenu();
+      if (!delegate) return;
+      this.activeDelegate = delegate;
+      const actions = typeof delegate.getActions === 'function' ? delegate.getActions() : (delegate.actions || []);
+      if (!actions || actions.length === 0) return;
+      const anchor = typeof delegate.getAnchor === 'function' ? delegate.getAnchor() : delegate.anchor;
+      this.activeMenu = new MonacoMenu(this.container, actions, { service: this });
+      this.activeMenu.layout(anchor);
+      if (delegate.autoSelectFirstItem) this.activeMenu.focusFirst();
+    }
+
+    hideContextMenu() {
+      if (this.activeMenu) {
+        this.activeMenu.dispose();
+        this.activeMenu = null;
+      }
+      if (this.activeDelegate && typeof this.activeDelegate.onHide === 'function') {
+        this.activeDelegate.onHide();
+      }
+      this.activeDelegate = null;
+    }
+  }
+
+  window.contextMenuService = new MonacoContextMenuService();
+  host.contextMenu = window.contextMenuService;
+
+  function showPainterContextMenu(e) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const p = clientPos(e);
+    const items = [];
+    const addItem = (label, hotkey, action, opts = {}) => {
+      items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled, checked: opts.checked });
+    };
+    const addSubmenu = (label, subitems) => {
+      if (subitems && subitems.length > 0) items.push({ type: 'submenu', label, items: subitems });
+    };
+    const addHeader = (title) => items.push({ type: 'header', title });
+    const addSep = () => {
+      if (items.length > 0 && items[items.length - 1].type !== 'sep' && items[items.length - 1].type !== 'header') {
+        items.push({ type: 'sep' });
+      }
+    };
+
+    // 1. Floating Transform Context
+    if (host.floatingTransform && host.floatingTransform.corners) {
+      addHeader('Floating Transform');
+      addItem('✓ Apply Transform', 'Enter', () => { runCmd('transform apply'); markCanvasDirty(); syncUiFromHost(); });
+      addItem('✕ Cancel Transform', 'Esc', () => { runCmd('transform cancel'); markCanvasDirty(); syncUiFromHost(); }, { danger: true });
+      addSep();
+      addItem('Rotate 90° CW', '', () => { runCmd('transform rotate 90'); });
+      addItem('Rotate 90° CCW', '', () => { runCmd('transform rotate -90'); });
+      addItem('Flip Horizontal', '', () => { runCmd('transform flip h'); });
+      addItem('Flip Vertical', '', () => { runCmd('transform flip v'); });
+      addItem('Reset Transform', '', () => { runCmd('transform reset'); });
+      addSep();
+    }
+
+    // 2. Vector Painter Context
+    const isVecMode = host.actionMode === 'vector';
+    const isVecLayer = host.isVectorLayer && host.isVectorLayer();
+    if (isVecMode || isVecLayer) {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      addHeader('Vector Painter');
+      if (!isVecMode) {
+        addItem('Edit Vector Paths / Nodes', 'V', () => {
+          host.vectorSubTool = 'nodes';
+          host.setActionMode('vector');
+          if (vl && !vl.selectedPathId && vl.paths.length > 0) {
+            host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
+          }
+          markCanvasDirty();
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        });
+      } else {
+        if (selPath) {
+          addItem('Insert Node Here', '+', () => {
+            host.pushUndoSnapshot('insert vector node');
+            const segHit = selPath.hitTestSegment(p.x, p.y, 60 / (host.zoom || 1));
+            if (segHit) {
+              const newIdx = selPath.insertNodeAt(segHit.segIdx, segHit.t);
+              vl.selectedNodeIdx = newIdx;
+            } else if (typeof selPath.subdivide === 'function') {
+              const nextIdx = selPath.subdivide(vl.selectedNodeIdx >= 0 ? vl.selectedNodeIdx : 0);
+              if (nextIdx >= 0) vl.selectedNodeIdx = nextIdx;
+            }
+            host.renderVectorLayer();
+            markCanvasDirty();
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          });
+
+          if (vl && vl.selectedNodeIdx >= 0 && selPath.nodes.length > 2) {
+            addItem('Delete Selected Node', 'Del', () => {
+              host.pushUndoSnapshot('delete vector node');
+              if (selPath.deleteNode(vl.selectedNodeIdx)) {
+                vl.selectedNodeIdx = Math.min(vl.selectedNodeIdx, selPath.nodes.length - 1);
+                host.renderVectorLayer();
+                markCanvasDirty();
+                if (typeof syncUiFromHost === 'function') syncUiFromHost();
+              }
+            }, { danger: true });
+          }
+
+          addSubmenu('Convert Node Type', [
+            { type: 'item', label: 'Smooth Node', action: () => {
+              host.pushUndoSnapshot('set vector node type');
+              if (vl.selectedNodeIdx >= 0) selPath.setNodeType(vl.selectedNodeIdx, 'smooth');
+              else selPath.nodes.forEach((_, idx) => selPath.setNodeType(idx, 'smooth'));
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }},
+            { type: 'item', label: 'Corner / Sharp Node', action: () => {
+              host.pushUndoSnapshot('set vector node type');
+              if (vl.selectedNodeIdx >= 0) selPath.setNodeType(vl.selectedNodeIdx, 'corner');
+              else selPath.nodes.forEach((_, idx) => selPath.setNodeType(idx, 'corner'));
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }},
+            { type: 'item', label: 'Symmetric Node', action: () => {
+              host.pushUndoSnapshot('set vector node type');
+              if (vl.selectedNodeIdx >= 0) selPath.setNodeType(vl.selectedNodeIdx, 'symmetric');
+              else selPath.nodes.forEach((_, idx) => selPath.setNodeType(idx, 'symmetric'));
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }}
+          ]);
+
+          addSubmenu('Curve Interpolation', [
+            { type: 'item', label: (host.vectorCurveMode === 'catmull' ? '✓ ' : '') + 'Catmull-Rom Spline', action: () => {
+              host.vectorCurveMode = 'catmull';
+              host.pushUndoSnapshot('vector curve mode');
+              selPath.simplify(host.vectorFitTolerance || 2.5, false);
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }},
+            { type: 'item', label: (host.vectorCurveMode !== 'catmull' ? '✓ ' : '') + 'Cubic Bézier Handles', action: () => {
+              host.vectorCurveMode = 'bezier';
+              host.pushUndoSnapshot('vector curve mode');
+              selPath.simplify(host.vectorFitTolerance || 2.5, true);
+              host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            }}
+          ]);
+
+          addItem('Delete Vector Stroke', 'Shift+Del', () => {
+            host.pushUndoSnapshot('delete vector path');
+            vl.paths = vl.paths.filter(pt => pt.id !== selPath.id);
+            vl.selectedPathId = vl.paths.length > 0 ? vl.paths[vl.paths.length - 1].id : null;
+            vl.selectedNodeIdx = -1;
+            host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
+          }, { danger: true });
+        }
+        addItem('Exit Vector Node Editor (Back to Paint)', 'B', () => {
+          host.setActionMode('draw');
+          markCanvasDirty();
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        });
+      }
+      if (isVecLayer) {
+        addItem('Rasterize Vector Layer to Pixels', '', () => {
+          runCmd('rasterize layer');
+          host.setActionMode('draw');
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        });
+      }
+      addSep();
+    }
+
+    // 3. Active Selection Context
+    const hasSel = typeof host.hasSelection === 'function' && host.hasSelection();
+    if (hasSel) {
+      addHeader('Selection');
+      addItem('Free Transform Selection', 'Ctrl+T', () => { runCmd('transform'); });
+      addItem('Copy Selection', 'Ctrl+C', () => { runCmd('copy'); });
+      addItem('Cut Selection', 'Ctrl+X', () => { runCmd('cut'); });
+      addItem('Invert Selection', 'Ctrl+Shift+I', () => { runCmd('select invert'); });
+      addItem('Deselect', 'Ctrl+D', () => { runCmd('deselect'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); });
+      addSubmenu('Capture Selection As...', [
+        { type: 'item', label: 'Custom Brush Tip Shape', action: () => { if (host.createBrushFromSelection) host.createBrushFromSelection(); } },
+        { type: 'item', label: 'Custom Paper / Grain Texture', action: () => { if (host.createGrainFromSelection) host.createGrainFromSelection(); } },
+        { type: 'sep' },
+        { type: 'item', label: 'Crop Canvas to Selection', action: () => { runCmd('crop'); } }
+      ]);
+      addSep();
+    }
+
+    // 4. Quick Canvas Actions (Eyedropper, Undo/Redo, Paste)
+    addItem('Pick Color Here (Eyedropper)', 'I / Alt', () => {
+      sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY);
+      setTimeout(hideEyedropper, 650);
+    });
+    addItem('Undo', 'Ctrl+Z', () => { runCmd('undo'); });
+    addItem('Redo', 'Ctrl+Y', () => { runCmd('redo'); });
+    if (host.clipboardBuffer) {
+      addItem('Paste', 'Ctrl+V', () => { runCmd('paste'); });
+    }
+
+    addSep();
+
+    // 5. Action Modes & Tools Submenu
+    const curMode = host.actionMode || 'draw';
+    addSubmenu('Action Mode & Tools', [
+      { type: 'item', label: (curMode === 'draw' ? '✓ ' : '') + 'Paint (Brush)', hotkey: 'B', action: () => { host.setActionMode('draw'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'erase' ? '✓ ' : '') + 'Erase Mode', hotkey: 'E', action: () => { host.setActionMode('erase'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'blend' ? '✓ ' : '') + 'Blend / Smudge Mode', action: () => { host.setActionMode('blend'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'clone' ? '✓ ' : '') + 'Clone Stamp Mode', action: () => { host.setActionMode('clone'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'vector' ? '✓ ' : '') + 'Vector Painter (Nodes / Curves)', hotkey: 'V', action: () => {
+        host.vectorSubTool = 'nodes';
+        host.setActionMode('vector');
+        if (host.enableVectorLayer) host.enableVectorLayer();
+        markCanvasDirty();
+        if (typeof syncUiFromHost === 'function') syncUiFromHost();
+      }},
+      { type: 'item', label: (curMode === 'select' ? '✓ ' : '') + 'Selection Mode', hotkey: 'M', action: () => {
+        host.setActionMode('select');
+        host.currentTool = 'select_rect';
+        host.setBrushParam('mode', 9);
+        if (typeof syncUiFromHost === 'function') syncUiFromHost();
+      }},
+      { type: 'sep' },
+      { type: 'item', label: 'Flood Fill (Bucket)', hotkey: 'G', action: () => { host.setActionMode('draw'); host.currentTool = 'fill'; host.setBrushParam('mode', 3); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: 'Lasso Fill', action: () => { host.setActionMode('draw'); host.currentTool = 'lasso_fill'; host.setBrushParam('mode', 4); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: 'Free Transform Layer', hotkey: 'Ctrl+T', action: () => { runCmd('transform'); } }
+    ]);
+
+    // 6. Panels & HUD Submenu
+    addSubmenu('Panels & HUD', [
+      { type: 'item', label: (document.getElementById('sheet-brushes')?.classList.contains('active') ? '✓ ' : '') + 'Brush Presets', action: () => toggleSheet('sheet-brushes') },
+      { type: 'item', label: (document.getElementById('sheet-layers')?.classList.contains('active') ? '✓ ' : '') + 'Layers Panel', action: () => toggleSheet('sheet-layers') },
+      { type: 'item', label: (document.getElementById('sheet-tools')?.classList.contains('active') ? '✓ ' : '') + 'Tools & Modes', action: () => toggleSheet('sheet-tools') },
+      { type: 'item', label: (document.getElementById('sheet-lab')?.classList.contains('active') ? '✓ ' : '') + 'Brush Studio Lab', action: () => toggleSheet('sheet-lab') },
+      { type: 'item', label: (document.getElementById('touch-color-modal')?.classList.contains('active') ? '✓ ' : '') + 'Color Studio', action: () => {
+        const cm = document.getElementById('touch-color-modal');
+        if (cm?.classList.contains('active')) closeTouchColorModal();
+        else openTouchColorModal();
+      }},
+      { type: 'item', label: (document.getElementById('sheet-pixelart')?.classList.contains('active') ? '✓ ' : '') + 'Pixel Art Suite', action: () => toggleSheet('sheet-pixelart') },
+      { type: 'sep' },
+      { type: 'item', label: 'Configure Panels & HUD...', action: () => document.getElementById('btn-menu-configure-panels')?.click() },
+      { type: 'item', label: 'Close All Open Panels', action: () => closeAllSheets() }
+    ]);
+
+    // 7. Active Layer Submenu
+    addSubmenu('Active Layer', [
+      { type: 'item', label: 'New Layer', action: () => { runCmd('add layer'); } },
+      { type: 'item', label: 'New Vector Layer', action: () => {
+        runCmd('add layer');
+        if (host.enableVectorLayer) host.enableVectorLayer();
+        if (typeof syncUiFromHost === 'function') syncUiFromHost();
+      }},
+      { type: 'item', label: 'Duplicate Layer', action: () => { runCmd('layer duplicate'); } },
+      { type: 'item', label: 'Merge Down', action: () => { runCmd('layer merge_down'); } },
+      { type: 'sep' },
+      { type: 'item', label: 'Clear Layer', action: () => { runCmd('clear'); }, danger: true }
+    ]);
+
+    // 8. View & Navigation Submenu
+    addSubmenu('View & Navigation', [
+      { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => {
+        host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render();
+      }},
+      { type: 'item', label: '100% Pixel Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
+      { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
+      { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } }
+    ]);
+
+    window.contextMenuService.showContextMenu({
+      getAnchor: () => ({ x: e.clientX, y: e.clientY }),
+      getActions: () => items
+    });
+  }
+
   /* ── Mouse events ── */
-  canvasEl.addEventListener('contextmenu', e => e.preventDefault());
+  canvasEl.addEventListener('contextmenu', showPainterContextMenu);
 
   /* Helper: hit-test float transform handles. Returns handle id string or null. */
   /* Maps doc-space handle positions to screen-space, returns handle id or null */
@@ -2398,6 +3163,7 @@ async function main() {
 
   canvasEl.addEventListener('pointerdown', e => {
     if (e.pointerType === 'touch') return; // Handled by touch events (gestures/taps)
+    if (e.button === 2) return; // Right-click strictly opens context menu, never draws/erases
     if (e.pointerType === 'pen') penActive = true;
     try { canvasEl.setPointerCapture(e.pointerId); } catch (_) {}
 
@@ -2407,7 +3173,7 @@ async function main() {
     if (e.button === 1) {
       host.isPanning = true; host.panStartX = sx; host.panStartY = sy;
     } else {
-      host.mouseState.buttons |= e.button === 0 ? 1 : 2;
+      host.mouseState.buttons |= 1;
       const curMode = host.brushParams ? host.brushParams.mode : 0;
 
       // Float transform takes priority
@@ -2510,7 +3276,7 @@ async function main() {
       // Check for hardware stylus eraser tip: button 5, buttons & 32
       const isEraserTip = (e.pointerType === 'pen') && (e.button === 5 || ((e.buttons & 32) !== 0));
       const isEraseMode = host.actionMode === 'erase' || isEraserTip;
-      host.strokeIsEraser = (e.button === 2 || isEraserTip) ? 1 : (isEraseMode || host.currentTool === 1 ? 1 : 0);
+      host.strokeIsEraser = isEraserTip ? 1 : (isEraseMode || host.currentTool === 1 ? 1 : 0);
       const strokeCol = isEraseMode && curMode === 3 ? 0x00000000 : host.currentColor;
       if (host.brushParams && host.brushParams.mode === 4) {
         lassoPoints = [{ x, y }];
@@ -2588,11 +3354,12 @@ async function main() {
 
   const handlePointerUp = e => {
     if (e.pointerType === 'touch') return;
+    if (e.button === 2) return;
     if (e.pointerType === 'pen') penActive = false;
     try { canvasEl.releasePointerCapture(e.pointerId); } catch (_) {}
     if (e.button === 1) { host.isPanning = false; }
     else {
-      host.mouseState.buttons &= ~(e.button === 0 ? 1 : 2);
+      host.mouseState.buttons &= ~1;
       if (ftDragging) {
         ftDragging = false; ftHandle = null; ftDragStart = null; ftDragOrigin = null;
         bakeFtPreview();
@@ -2671,15 +3438,49 @@ async function main() {
   canvasEl.addEventListener('pointerup', handlePointerUp);
   canvasEl.addEventListener('pointercancel', handlePointerUp);
 
+  /* ── Zoom & Pan Controls (Touchpad & Wheel — matching studio.html) ── */
   canvasEl.addEventListener('wheel', e => {
+    if (e.target.closest('.monaco-menu-container')) return;
+    e.preventDefault();
+
     const r = canvasEl.getBoundingClientRect();
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
-    const f = e.deltaY < 0 ? 1.15 : 0.85, old = host.zoom;
-    host.zoom = Math.max(0.05, Math.min(20, host.zoom * f));
-    /* zoom toward cursor — adjust pan so screen point stays fixed */
-    host.panX = sx - (sx - host.panX) * (host.zoom / old);
-    host.panY = sy - (sy - host.panY) * (host.zoom / old);
-    e.preventDefault();
+
+    if (e.ctrlKey || e.metaKey) {
+      /* Touchpad pinch-to-zoom or Ctrl+Wheel: smooth exponential scaling centered at cursor */
+      const clampedDelta = Math.max(-50, Math.min(50, e.deltaY));
+      const old = host.zoom;
+      const newZoom = Math.max(0.05, Math.min(20.0, old * Math.pow(0.992, clampedDelta)));
+      host.panX = sx - (sx - host.panX) * (newZoom / old);
+      host.panY = sy - (sy - host.panY) * (newZoom / old);
+      host.zoom = newZoom;
+      markCanvasDirty();
+      return;
+    }
+
+    if (e.altKey) {
+      /* Alt+Wheel: discrete step zoom centered at cursor */
+      const f = e.deltaY < 0 ? 1.12 : 0.89;
+      const old = host.zoom;
+      const newZoom = Math.max(0.05, Math.min(20.0, old * f));
+      host.panX = sx - (sx - host.panX) * (newZoom / old);
+      host.panY = sy - (sy - host.panY) * (newZoom / old);
+      host.zoom = newZoom;
+      markCanvasDirty();
+      return;
+    }
+
+    if (e.shiftKey) {
+      /* Shift+Wheel for horizontal scroll/pan */
+      host.panX -= (e.deltaY || e.deltaX);
+      markCanvasDirty();
+      return;
+    }
+
+    /* Two-finger swipe on touchpad or mouse wheel: Pan viewport vertically and horizontally */
+    host.panX -= e.deltaX;
+    host.panY -= e.deltaY;
+    markCanvasDirty();
   }, { passive: false });
 
   /* ── Touch support — 1 finger: draw / 2 finger: pan + pinch-zoom + rotate / 2-finger tap: undo / 3-finger tap: redo ── */
@@ -3128,9 +3929,13 @@ async function main() {
           host.panY = cy - (ch * host.zoom) / 2;
           host.canvasRotation += dTheta;
 
-          // Keep rotation normalized in (-PI, PI]
+          // Keep rotation normalized in (-PI, PI] and snap gently near 0°
           while (host.canvasRotation > Math.PI) host.canvasRotation -= 2 * Math.PI;
           while (host.canvasRotation <= -Math.PI) host.canvasRotation += 2 * Math.PI;
+          if (Math.abs(host.canvasRotation) < 0.035 && Math.abs(dTheta) < 0.012) {
+            host.canvasRotation = 0;
+          }
+          markCanvasDirty();
         }
       }
     }
@@ -4923,8 +5728,15 @@ async function main() {
     });
   }
 
-  function openTouchColorModal() {
+  function openTouchColorModal(forceMode) {
     if (!touchColorModal) return;
+    const wasActive = touchColorModal.classList.contains('active');
+    if (wasActive && typeof forceMode !== 'string') {
+      touchColorModal.classList.remove('active');
+      triggerHaptic(10);
+      return;
+    }
+    closeAllSheets('left');
     touchColorModal.classList.add('active');
 
     if (host.currentColor !== undefined) {
@@ -4936,7 +5748,7 @@ async function main() {
 
     if (touchColorPrevChip) touchColorPrevChip.style.background = studioPrevHex;
     applyColorFromStudio(studioPrevHex, true);
-    switchStudioMode(studioActiveMode || 'wheel');
+    switchStudioMode((typeof forceMode === 'string' && forceMode) ? forceMode : (studioActiveMode || 'wheel'));
     renderTouchModalSwatches();
     renderTouchQuickSwatches();
     triggerHaptic(10);
@@ -8484,10 +9296,14 @@ async function main() {
       const attachTouchReorder = (el, type, id) => {
         let timer = null;
         let startX = 0, startY = 0;
+        el.style.webkitTouchCallout = 'none';
+        el.style.userSelect = 'none';
+        el.style.webkitUserSelect = 'none';
 
         el.addEventListener('touchstart', (e) => {
           if (e.touches.length !== 1) return;
           if (e.target.closest('button, input, select, .layer-slider, .layer-op-slider')) return;
+          el.draggable = false;
           startX = e.touches[0].clientX;
           startY = e.touches[0].clientY;
 
@@ -8548,6 +9364,7 @@ async function main() {
         }, { passive: false });
 
         const finishTouch = () => {
+          el.draggable = true;
           if (timer) {
             clearTimeout(timer);
             timer = null;
@@ -8686,70 +9503,215 @@ async function main() {
         });
         grpRow.appendChild(grpVisBtn);
 
-        // 5. Add Layer inside
-        const addLyrBtn = document.createElement('button');
-        addLyrBtn.type = 'button';
-        addLyrBtn.className = 'layer-btn-action';
-        addLyrBtn.textContent = '+';
-        addLyrBtn.title = `Add new layer into '${grp.name}'`;
-        addLyrBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (host.canvasActor?.exports?.w_layer_add) {
-            const newLid = host.canvasActor.exports.w_layer_add();
-            if (newLid >= 0) {
-              host.addLayerToGroup(grp.id, newLid);
-              grp.collapsed = false;
-              syncUiFromHost();
-              triggerHaptic(15);
+        const openGroupContextMenu = (anchorOrEv) => {
+          if (!window.contextMenuService) return;
+          const getAnchor = () => {
+            if (anchorOrEv && typeof anchorOrEv.getBoundingClientRect === 'function') {
+              const r = anchorOrEv.getBoundingClientRect();
+              return { x: r.right, y: r.bottom + 2 };
             }
-          }
-        });
-        grpRow.appendChild(addLyrBtn);
+            return { x: anchorOrEv?.clientX || 120, y: anchorOrEv?.clientY || 120 };
+          };
+          const grpActions = [
+            { type: 'header', title: `Folder: ${grp.name}` },
+            { type: 'item', label: '+ Add Layer Inside Folder', action: () => {
+              if (host.canvasActor?.exports?.w_layer_add) {
+                const newLid = host.canvasActor.exports.w_layer_add();
+                if (newLid >= 0) {
+                  host.addLayerToGroup(grp.id, newLid);
+                  grp.collapsed = false;
+                  syncUiFromHost();
+                  triggerHaptic(15);
+                }
+              }
+            }},
+            { type: 'item', label: (grp.visible ? '✓ ' : '') + 'Folder Visible', action: () => runCmd(`group toggle ${grp.id}`) },
+            { type: 'item', label: 'Rename Folder...', action: () => {
+              const newName = prompt('Rename folder:', grp.name);
+              if (newName && newName.trim()) {
+                grp.name = newName.trim();
+                syncUiFromHost();
+              }
+            }},
+            { type: 'sep' },
+            { type: 'item', label: '▲ Move Folder Up', action: () => runCmd(`group move up ${grp.id}`) },
+            { type: 'item', label: '▼ Move Folder Down', action: () => runCmd(`group move down ${grp.id}`) },
+            { type: 'sep' },
+            { type: 'item', label: 'Delete Folder...', danger: true, action: () => {
+              const hasChildren = (grp.children && grp.children.length > 0);
+              if (!hasChildren) {
+                runCmd(`group delete ${grp.id}`);
+              } else {
+                const delContent = confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`);
+                host.deleteGroup(grp.id, delContent);
+                syncUiFromHost();
+              }
+            }}
+          ];
+          window.contextMenuService.showContextMenu({
+            getAnchor,
+            getActions: () => grpActions
+          });
+        };
 
-        // 6. Move Up button
-        const upBtn = document.createElement('button');
-        upBtn.type = 'button';
-        upBtn.className = 'layer-btn-action';
-        upBtn.textContent = '▲';
-        upBtn.title = `Move folder '${grp.name}' up in stack`;
-        upBtn.addEventListener('click', (e) => {
+        // 5. Folder '⋯' Contextual Menu button
+        const moreGrpBtn = document.createElement('button');
+        moreGrpBtn.type = 'button';
+        moreGrpBtn.className = 'layer-btn-action layer-btn-more';
+        moreGrpBtn.textContent = '⋯';
+        moreGrpBtn.title = `Folder options for '${grp.name}'`;
+        moreGrpBtn.style.fontWeight = 'bold';
+        moreGrpBtn.style.padding = '0 6px';
+        moreGrpBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          runCmd(`group move up ${grp.id}`);
+          openGroupContextMenu(moreGrpBtn);
         });
-        grpRow.appendChild(upBtn);
+        grpRow.appendChild(moreGrpBtn);
 
-        // 7. Move Down button
-        const downBtn = document.createElement('button');
-        downBtn.type = 'button';
-        downBtn.className = 'layer-btn-action';
-        downBtn.textContent = '▼';
-        downBtn.title = `Move folder '${grp.name}' down in stack`;
-        downBtn.addEventListener('click', (e) => {
+        grpRow.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
           e.stopPropagation();
-          runCmd(`group move down ${grp.id}`);
         });
-        grpRow.appendChild(downBtn);
-
-        // 8. Delete Group button
-        const delGrpBtn = document.createElement('button');
-        delGrpBtn.type = 'button';
-        delGrpBtn.className = 'layer-btn-action btn-del';
-        delGrpBtn.textContent = '✕';
-        delGrpBtn.title = `Delete folder '${grp.name}'`;
-        delGrpBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const hasChildren = (grp.children && grp.children.length > 0);
-          if (!hasChildren) {
-            runCmd(`group delete ${grp.id}`);
-          } else {
-            const delContent = confirm(`Delete folder '${grp.name}' AND all layers inside? (Click Cancel to delete folder only)`);
-            host.deleteGroup(grp.id, delContent);
-            syncUiFromHost();
-          }
-        });
-        grpRow.appendChild(delGrpBtn);
 
         return grpRow;
+      };
+
+      const BLEND_MODE_NAMES = [
+        { val: 0, short: 'Norm', label: 'Normal' },
+        { val: 1, short: 'Mult', label: 'Multiply' },
+        { val: 2, short: 'Scrn', label: 'Screen' },
+        { val: 3, short: 'Over', label: 'Overlay' },
+        { val: 4, short: 'Ddg', label: 'Color Dodge' },
+        { val: 5, short: 'Add', label: 'Linear Dodge (Add)' }
+      ];
+
+      const openLayerContextMenu = (anchorOrEv, i, name, vis, alphaLock, clipping, blendMode, parentGroup) => {
+        runCmd(`layer select ${i}`);
+        if (!window.contextMenuService) return;
+        const getAnchor = () => {
+          if (anchorOrEv && typeof anchorOrEv.getBoundingClientRect === 'function') {
+            const r = anchorOrEv.getBoundingClientRect();
+            return { x: r.right, y: r.bottom + 2 };
+          }
+          return { x: anchorOrEv?.clientX || 120, y: anchorOrEv?.clientY || 120 };
+        };
+        const isVecLyr = host.isVectorLayer && host.isVectorLayer(i);
+        const curBlendObj = BLEND_MODE_NAMES.find(b => b.val === blendMode) || BLEND_MODE_NAMES[0];
+        const blendChildren = BLEND_MODE_NAMES.map(b => ({
+          type: 'item',
+          label: (b.val === blendMode ? '✓ ' : '') + b.label,
+          action: () => runCmd(`layer blend ${i} ${b.val}`)
+        }));
+
+        const layerActions = [
+          { type: 'header', title: `Layer #${i}: ${name}` },
+          { type: 'item', label: (vis ? '✓ ' : '') + 'Visible', action: () => runCmd(`toggle layer ${i}`) },
+          { type: 'item', label: (alphaLock ? '✓ ' : '') + 'Alpha Lock (⚿)', action: () => runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`) },
+          { type: 'item', label: (clipping ? '✓ ' : '') + 'Clipping Mask (⮑)', action: () => runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`) },
+          {
+            type: 'item',
+            label: `Blend Mode: ${curBlendObj.label} ▸`,
+            children: blendChildren,
+            action: (ev) => {
+              window.contextMenuService.showContextMenu({
+                getAnchor: () => (ev && ev.clientX ? { x: ev.clientX, y: ev.clientY } : getAnchor()),
+                getActions: () => [
+                  { type: 'header', title: `Blend Mode (#${i})` },
+                  ...blendChildren
+                ]
+              });
+            }
+          },
+          { type: 'sep' },
+          { type: 'item', label: 'Rename Layer...', action: () => {
+            const newName = prompt(`Rename layer #${i}:`, name);
+            if (newName && newName.trim()) {
+              if (!host.layerNames) host.layerNames = new Map();
+              host.layerNames.set(i, newName.trim());
+              syncUiFromHost();
+            }
+          }},
+          { type: 'item', label: 'Duplicate Layer', action: () => runCmd(`layer duplicate ${i}`) },
+          { type: 'item', label: 'Merge Down', action: () => runCmd(`layer merge_down ${i}`) },
+          { type: 'item', label: 'Invert Layer Colors', action: () => runCmd(`layer invert ${i}`) },
+          { type: 'item', label: 'Import Image as Layer...', action: () => { fileInput?.click(); } },
+          { type: 'sep' }
+        ];
+
+        if (parentGroup) {
+          layerActions.push(
+            { type: 'item', label: 'Move Out of Folder', action: () => runCmd(`group remove ${i}`) },
+            { type: 'sep' }
+          );
+        } else if (host.layerGroups && host.layerGroups.size > 0) {
+          const grpList = Array.from(host.layerGroups.values());
+          const grpChildren = grpList.map(g => ({
+            type: 'item',
+            label: `📁 ${g.name}`,
+            action: () => runCmd(`group add ${g.id} ${i}`)
+          }));
+          layerActions.push(
+            {
+              type: 'item',
+              label: 'Move to Folder ▸',
+              children: grpChildren,
+              action: (ev) => {
+                if (grpList.length === 1) {
+                  runCmd(`group add ${grpList[0].id} ${i}`);
+                } else {
+                  window.contextMenuService.showContextMenu({
+                    getAnchor: () => (ev && ev.clientX ? { x: ev.clientX, y: ev.clientY } : getAnchor()),
+                    getActions: () => [
+                      { type: 'header', title: 'Move to Folder' },
+                      ...grpChildren
+                    ]
+                  });
+                }
+              }
+            },
+            { type: 'sep' }
+          );
+        }
+
+        if (isVecLyr) {
+          layerActions.push(
+            { type: 'item', label: 'Edit Vector Nodes on Layer', action: () => {
+              host.vectorSubTool = 'nodes';
+              host.setActionMode('vector');
+              markCanvasDirty();
+              syncUiFromHost();
+            }},
+            { type: 'item', label: 'Rasterize Vector Layer', action: () => {
+              runCmd('rasterize layer');
+              host.setActionMode('draw');
+              syncUiFromHost();
+            }},
+            { type: 'sep' }
+          );
+        } else {
+          layerActions.push(
+            { type: 'item', label: 'Enable Vector Paths on Layer', action: () => {
+              if (host.enableVectorLayer) host.enableVectorLayer(i);
+              host.vectorSubTool = 'nodes';
+              host.setActionMode('vector');
+              markCanvasDirty();
+              syncUiFromHost();
+            }},
+            { type: 'sep' }
+          );
+        }
+
+        layerActions.push(
+          { type: 'item', label: 'Clear Layer', danger: true, action: () => runCmd('clear') },
+          { type: 'item', label: 'Delete Layer', danger: true, action: () => {
+            if (confirm(`Delete layer [${i}] ${name}?`)) runCmd(`delete layer ${i}`);
+          }}
+        );
+
+        window.contextMenuService.showContextMenu({
+          getAnchor,
+          getActions: () => layerActions
+        });
       };
 
       const renderLayerRow = (i, depth = 0, parentGroup = null) => {
@@ -8774,13 +9736,11 @@ async function main() {
         }
 
         const isDraw = (i === activeDraw);
-        const isShape = (i === shapeId);
-        const isTex = (name === activeTex);
 
         const row = document.createElement('div');
         row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (parentGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
         row.style.paddingLeft = `${6 + depth * 16}px`;
-        row.title = `[${i}] ${name} (${w}×${h})`;
+        row.title = `[${i}] ${name} (${w}×${h}) — Long-press or drag to reorder`;
         row.setAttribute('data-layer-id', i);
 
         attachTouchReorder(row, 'layer', i);
@@ -8859,11 +9819,20 @@ async function main() {
         const vecBadgeHtml = isVecLayerRow
           ? `<span style="font-size:9px; background:#1d2021; color:#8ec07c; border:1px solid #8ec07c; border-radius:3px; padding:0 4px; margin-left:4px; font-weight:bold;" title="Editable Vector Layer (${vecPathCount} paths)">VEC</span>`
           : '';
+        const blendObj = BLEND_MODE_NAMES.find(b => b.val === blendMode);
+        const blendBadgeHtml = (blendMode !== 0 && blendObj)
+          ? `<span style="font-size:9px; color:#d3869b; margin-left:4px;" title="Blend Mode: ${blendObj.label}">${blendObj.short}</span>`
+          : '';
+        const lockBadgeHtml = alphaLock
+          ? `<span style="font-size:10px; color:#fabd2f; margin-left:3px;" title="Alpha Lock enabled">⚿</span>`
+          : '';
+        const clipBadgeHtml = clipping
+          ? `<span style="font-size:10px; color:#83a598; margin-left:3px;" title="Clipping Mask enabled">⮑</span>`
+          : '';
         infoCell.innerHTML = `
           <span class="layer-idx">#${i}</span>
           <span class="layer-name-text" title="${name}">${name}</span>
-          ${vecBadgeHtml}
-          <span class="layer-dims-text">${w}×${h}</span>
+          ${vecBadgeHtml}${blendBadgeHtml}${lockBadgeHtml}${clipBadgeHtml}
         `;
         infoCell.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -8880,112 +9849,28 @@ async function main() {
         });
         row.appendChild(infoCell);
 
-        // 3. Controls Cell (flex-shrink: 0, compact horizontal buttons)
+        // 3. Clean Controls Cell: Opacity label + '⋯' Context Menu button
         const controlsCell = document.createElement('div');
         controlsCell.className = 'layer-cell-controls';
 
-        // Blend Mode dropdown
-        const blendSel = document.createElement('select');
-        blendSel.className = 'layer-select-blend';
-        blendSel.title = 'Layer Blend Mode';
-        const bOpts = [
-          { val: 0, label: 'Norm' },
-          { val: 1, label: 'Mult' },
-          { val: 2, label: 'Scrn' },
-          { val: 3, label: 'Over' },
-          { val: 4, label: 'Ddg' },
-          { val: 5, label: 'Add' }
-        ];
-        bOpts.forEach(optData => {
-          const opt = document.createElement('option');
-          opt.value = optData.val;
-          opt.textContent = optData.label;
-          if (optData.val === blendMode) opt.selected = true;
-          blendSel.appendChild(opt);
-        });
-        blendSel.addEventListener('change', (e) => {
-          e.stopPropagation();
-          runCmd(`layer blend ${i} ${blendSel.value}`);
-        });
-        blendSel.addEventListener('click', (e) => e.stopPropagation());
-        controlsCell.appendChild(blendSel);
-
-        // Alpha Lock button
-        const lockBtn = document.createElement('button');
-        lockBtn.type = 'button';
-        lockBtn.className = 'layer-pill' + (alphaLock ? ' active-lock' : '');
-        lockBtn.textContent = '⚿';
-        lockBtn.title = alphaLock ? 'Alpha Lock: ON (Click to unlock)' : 'Alpha Lock: OFF (Click to lock alpha)';
-        lockBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer alpha_lock ${i} ${alphaLock ? 'off' : 'on'}`);
-        });
-        controlsCell.appendChild(lockBtn);
-
-        // Clipping Mask button
-        const clipBtn = document.createElement('button');
-        clipBtn.type = 'button';
-        clipBtn.className = 'layer-pill' + (clipping ? ' active-clip' : '');
-        clipBtn.textContent = '⮑';
-        clipBtn.title = clipping ? 'Clipping Mask: ON (Click to unclip)' : 'Clipping Mask: OFF (Click to clip to layer below)';
-        clipBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`);
-        });
-        controlsCell.appendChild(clipBtn);
-
-        // Opacity text
         const opCell = document.createElement('div');
         opCell.className = 'layer-cell-op';
         opCell.id = `layer-op-text-${i}`;
         opCell.textContent = `${opPct}%`;
         controlsCell.appendChild(opCell);
 
-        // Group assign/remove button
-        if (parentGroup) {
-          const remGrpBtn = document.createElement('button');
-          remGrpBtn.type = 'button';
-          remGrpBtn.className = 'layer-btn-action';
-          remGrpBtn.textContent = '⊟';
-          remGrpBtn.title = 'Remove from folder (move to root)';
-          remGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            runCmd(`group remove ${i}`);
-          });
-          controlsCell.appendChild(remGrpBtn);
-        } else if (host.layerGroups && host.layerGroups.size > 0) {
-          const addGrpBtn = document.createElement('button');
-          addGrpBtn.type = 'button';
-          addGrpBtn.className = 'layer-btn-action';
-          addGrpBtn.textContent = '◫';
-          addGrpBtn.title = 'Add to folder';
-          addGrpBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const grpList = Array.from(host.layerGroups.values());
-            if (grpList.length === 1) {
-              runCmd(`group add ${grpList[0].id} ${i}`);
-            } else {
-              const names = grpList.map(g => g.name).join(', ');
-              const target = prompt(`Add to folder (${names}):`, grpList[0].name);
-              if (target) runCmd(`group add ${target} ${i}`);
-            }
-          });
-          controlsCell.appendChild(addGrpBtn);
-        }
-
-        // Delete Layer button
-        const delLyrBtn = document.createElement('button');
-        delLyrBtn.type = 'button';
-        delLyrBtn.className = 'layer-btn-action btn-del';
-        delLyrBtn.textContent = '✕';
-        delLyrBtn.title = `Delete layer [${i}] ${name}`;
-        delLyrBtn.addEventListener('click', (e) => {
+        const moreBtn = document.createElement('button');
+        moreBtn.type = 'button';
+        moreBtn.className = 'layer-btn-action layer-btn-more';
+        moreBtn.textContent = '⋯';
+        moreBtn.title = `Layer options for [${i}] ${name}`;
+        moreBtn.style.fontWeight = 'bold';
+        moreBtn.style.padding = '0 6px';
+        moreBtn.addEventListener('click', (e) => {
           e.stopPropagation();
-          if (confirm(`Delete layer [${i}] ${name}?`)) {
-            runCmd(`delete layer ${i}`);
-          }
+          openLayerContextMenu(moreBtn, i, name, vis, alphaLock, clipping, blendMode, parentGroup);
         });
-        controlsCell.appendChild(delLyrBtn);
+        controlsCell.appendChild(moreBtn);
 
         row.appendChild(controlsCell);
 
@@ -8993,88 +9878,10 @@ async function main() {
           runCmd(`layer select ${i}`);
         });
 
-        /* ── Mobile: Swipe actions on layer row ── */
-        if (isMobile()) {
-          const swipePanel = document.createElement('div');
-          swipePanel.className = 'layer-swipe-actions';
-
-          const swipeDel = document.createElement('button');
-          swipeDel.type = 'button';
-          swipeDel.className = 'layer-swipe-btn swipe-del';
-          swipeDel.textContent = 'Del';
-          swipeDel.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (confirm(`Delete layer [${i}] ${name}?`)) {
-              runCmd(`delete layer ${i}`);
-            }
-          });
-
-          const swipeMerge = document.createElement('button');
-          swipeMerge.type = 'button';
-          swipeMerge.className = 'layer-swipe-btn swipe-merge';
-          swipeMerge.textContent = 'Merge';
-          swipeMerge.addEventListener('click', (e) => {
-            e.stopPropagation();
-            runCmd(`layer merge down ${i}`);
-          });
-
-          const swipeDup = document.createElement('button');
-          swipeDup.type = 'button';
-          swipeDup.className = 'layer-swipe-btn swipe-dup';
-          swipeDup.textContent = 'Dup';
-          swipeDup.addEventListener('click', (e) => {
-            e.stopPropagation();
-            runCmd(`layer select ${i}`);
-            runCmd('duplicate layer');
-          });
-
-          swipePanel.appendChild(swipeDup);
-          swipePanel.appendChild(swipeMerge);
-          swipePanel.appendChild(swipeDel);
-          row.appendChild(swipePanel);
-
-          let swipeStartX = null;
-          let swipeStartY = null;
-          let swiping = false;
-
-          row.addEventListener('touchstart', (e) => {
-            if (e.touches.length === 1) {
-              swipeStartX = e.touches[0].clientX;
-              swipeStartY = e.touches[0].clientY;
-              swiping = false;
-            }
-          }, { passive: true });
-
-          row.addEventListener('touchmove', (e) => {
-            if (swipeStartX === null) return;
-            const dx = e.touches[0].clientX - swipeStartX;
-            const dy = e.touches[0].clientY - swipeStartY;
-            if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 20) {
-              swiping = true;
-              if (dx < -40) {
-                swipePanel.classList.add('revealed');
-              } else if (dx > 40) {
-                if (swipePanel.classList.contains('revealed')) {
-                  swipePanel.classList.remove('revealed');
-                } else {
-                  runCmd(`toggle layer ${i}`);
-                  swipeStartX = null;
-                }
-              }
-            }
-          }, { passive: true });
-
-          row.addEventListener('touchend', () => {
-            swipeStartX = null;
-            swipeStartY = null;
-          }, { passive: true });
-
-          row.addEventListener('click', () => {
-            if (!swiping && swipePanel.classList.contains('revealed')) {
-              swipePanel.classList.remove('revealed');
-            }
-          });
-        }
+        row.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
 
         return row;
       };
@@ -9374,6 +10181,30 @@ async function main() {
         const vfilt = btn.dataset.vfilter;
         if (vfilt) {
           syncViewportFilter(vfilt === 'bilinear');
+        }
+      });
+    });
+
+    // Initialize draggable and collapsible floating panels
+    initDraggableSheets();
+
+    // Panel & HUD Configuration Menu Buttons
+    document.getElementById('btn-menu-configure-panels')?.addEventListener('click', () => {
+      openHudCustomizer();
+    });
+
+    document.getElementById('btn-menu-open-settings')?.addEventListener('click', () => {
+      toggleSheet('sheet-menu');
+    });
+
+    document.querySelectorAll('.btn-menu-toggle-panel').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.panel;
+        if (!targetId) return;
+        if (targetId === 'touch-color-modal') {
+          openTouchColorModal();
+        } else {
+          toggleSheet(targetId);
         }
       });
     });
@@ -9685,6 +10516,7 @@ async function main() {
             if (host.rasterAnimatorUI) {
               host.rasterAnimatorUI.toggle();
               btn.classList.toggle('active', host.rasterAnimatorUI.visible);
+              updateAnimTimelineDockOffset();
             }
             triggerHaptic(12);
           });
@@ -9713,10 +10545,23 @@ async function main() {
       }
     };
 
+    const updateAnimTimelineDockOffset = () => {
+      const animDock = document.getElementById('raster-anim-timeline-dock');
+      const bottomHud = document.getElementById('ip-bottom-hud');
+      if (!animDock) return;
+      if (bottomHud && bottomHud.style.display !== 'none') {
+        const hudH = bottomHud.offsetHeight || 46;
+        animDock.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + ${hudH + 18}px)`;
+      } else {
+        animDock.style.bottom = `calc(env(safe-area-inset-bottom, 0px) + 12px)`;
+      }
+    };
+
     const renderAllHuds = () => {
       renderDock('left');
       renderDock('right');
       renderDock('bottom');
+      updateAnimTimelineDockOffset();
       syncInfinitePainterUI();
     };
 
@@ -9797,6 +10642,7 @@ async function main() {
       const modal = document.getElementById('sheet-hud-customizer');
       if (!modal) return;
 
+      closeAllSheets('right');
       const tabs = document.querySelectorAll('#ip-hud-dock-tabs .ip-pill-btn');
       tabs.forEach(tab => {
         tab.classList.toggle('active', tab.dataset.docktab === currentCustomizingDock);
@@ -9873,7 +10719,7 @@ async function main() {
     }
 
     const btnOpenHudCust = document.getElementById('btn-ip-open-hud-customizer');
-    if (btnOpenHudCust) btnOpenHudCust.addEventListener('click', () => { closeAllSheets(); openHudCustomizer(); });
+    if (btnOpenHudCust) btnOpenHudCust.addEventListener('click', () => { openHudCustomizer(); });
 
     const btnCloseHudCust = document.getElementById('btn-ip-hud-save-close');
     if (btnCloseHudCust) btnCloseHudCust.addEventListener('click', () => {
@@ -9912,7 +10758,6 @@ async function main() {
         card.addEventListener('click', () => {
           host.selectBrushPreset(key);
           syncUiFromHost();
-          closeAllSheets();
           triggerHaptic(15);
         });
         brushShelfGrid.appendChild(card);
@@ -9976,7 +10821,6 @@ async function main() {
               host.selectVectorPath(vl.paths[vl.paths.length - 1].id, 0);
             }
           }
-          closeAllSheets();
         } else if (actMode !== 'select') {
           if (host.currentTool === 'select_rect' || host.currentTool === 'lasso_select' || host.currentTool === 'magic_wand') {
             host.currentTool = 'brush';
@@ -10054,6 +10898,13 @@ async function main() {
     const vecWidthVal = document.getElementById('ip-vecbar-width-val');
     if (vecWidthSlider) {
       let vecWidthUndoPushed = false;
+      const finishVecWidthDrag = () => {
+        if (!vecWidthDragging) return;
+        vecWidthDragging = false;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+      };
       vecWidthSlider.addEventListener('pointerdown', () => { vecWidthUndoPushed = false; });
       vecWidthSlider.addEventListener('touchstart', () => { vecWidthUndoPushed = false; }, { passive: true });
       vecWidthSlider.addEventListener('input', () => {
@@ -10072,10 +10923,14 @@ async function main() {
           } else {
             selPath.nodes.forEach(n => { n.widthScale = scale; });
           }
-          host.renderVectorLayer();
+          vecWidthDragging = true;
           markCanvasDirty();
         }
       });
+      vecWidthSlider.addEventListener('change', finishVecWidthDrag);
+      vecWidthSlider.addEventListener('pointerup', finishVecWidthDrag);
+      vecWidthSlider.addEventListener('pointercancel', finishVecWidthDrag);
+      vecWidthSlider.addEventListener('touchend', finishVecWidthDrag, { passive: true });
     }
 
     const btnVecAddNode = document.getElementById('btn-ip-vecbar-add-node');
@@ -10330,7 +11185,7 @@ async function main() {
 
     // Import Image button strictly from Layers Stack
     const btnIpImportLayer = document.getElementById('btn-ip-import-layer-btn');
-    if (btnIpImportLayer) btnIpImportLayer.addEventListener('click', () => { fileInput?.click(); closeAllSheets(); });
+    if (btnIpImportLayer) btnIpImportLayer.addEventListener('click', () => { fileInput?.click(); });
 
     // 6. Pixel Art Suite
     const cardPixel1 = document.getElementById('card-ip-pixel-1px');
@@ -10340,7 +11195,6 @@ async function main() {
         runCmd('set size 1');
         host.showPixelGrid = true;
         syncUiFromHost();
-        closeAllSheets();
         triggerHaptic(15);
       });
     }
@@ -10351,7 +11205,6 @@ async function main() {
         host.selectBrushPreset('pixel');
         runCmd('set size 2');
         syncUiFromHost();
-        closeAllSheets();
         triggerHaptic(15);
       });
     }
@@ -10362,7 +11215,6 @@ async function main() {
         host.selectBrushPreset('pixel');
         runCmd('set size 4');
         syncUiFromHost();
-        closeAllSheets();
         triggerHaptic(15);
       });
     }
@@ -10372,7 +11224,6 @@ async function main() {
       cardPixelDither.addEventListener('click', () => {
         host.selectBrushPreset('halftone');
         syncUiFromHost();
-        closeAllSheets();
         triggerHaptic(15);
       });
     }
@@ -10391,16 +11242,15 @@ async function main() {
     if (btnPixel100) {
       btnPixel100.addEventListener('click', () => {
         if (host.zoomTo100) host.zoomTo100();
-        closeAllSheets();
       });
     }
 
     const btnSymX = document.getElementById('btn-ip-pixel-sym-x');
-    if (btnSymX) btnSymX.addEventListener('click', () => { runCmd('set symmetry 1'); closeAllSheets(); });
+    if (btnSymX) btnSymX.addEventListener('click', () => { runCmd('set symmetry 1'); });
     const btnSymY = document.getElementById('btn-ip-pixel-sym-y');
-    if (btnSymY) btnSymY.addEventListener('click', () => { runCmd('set symmetry 2'); closeAllSheets(); });
+    if (btnSymY) btnSymY.addEventListener('click', () => { runCmd('set symmetry 2'); });
     const btnSymQuad = document.getElementById('btn-ip-pixel-sym-quad');
-    if (btnSymQuad) btnSymQuad.addEventListener('click', () => { runCmd('set symmetry 3'); closeAllSheets(); });
+    if (btnSymQuad) btnSymQuad.addEventListener('click', () => { runCmd('set symmetry 3'); });
 
     // Pixel Palettes
     const btnPalGameboy = document.getElementById('btn-ip-pal-gameboy');
@@ -10408,7 +11258,6 @@ async function main() {
       btnPalGameboy.addEventListener('click', () => {
         if (touchPaletteSelect) touchPaletteSelect.value = 'retro_gameboy';
         if (typeof openTouchColorModal === 'function') openTouchColorModal('palettes');
-        closeAllSheets();
       });
     }
 
@@ -10417,7 +11266,6 @@ async function main() {
       btnPalGruvbox.addEventListener('click', () => {
         if (touchPaletteSelect) touchPaletteSelect.value = 'gruvbox';
         if (typeof openTouchColorModal === 'function') openTouchColorModal('palettes');
-        closeAllSheets();
       });
     }
 
@@ -10426,7 +11274,6 @@ async function main() {
       btnPalCyber.addEventListener('click', () => {
         if (touchPaletteSelect) touchPaletteSelect.value = 'cyberpunk';
         if (typeof openTouchColorModal === 'function') openTouchColorModal('palettes');
-        closeAllSheets();
       });
     }
 

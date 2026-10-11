@@ -170,7 +170,29 @@ async function runVectorPainterTests() {
   assert(Math.abs(restoredPaths[0].nodes[1].widthScale - 1.5) < 0.05, 'Restored path should preserve per-node widthScale');
   console.log('✔ SVG Export & .esen Project roundtrip serialization passed');
 
-  // 8. Test Vector Eraser & Rasterize Vector Layer
+  // 8. Test Viewport / Canvas Render Resolution Scaling (0.5x Fast, 2.0x Hi-DPI, 1.0x Native)
+  const origNodeX = restoredPaths[0].nodes[0].x;
+  const origStrokeW = restoredPaths[0].strokeWidth;
+  const origZoom = host2.zoom;
+  const scaledHalf = host2.setRenderScale(0.5);
+  assert.strictEqual(scaledHalf, 0.5, 'setRenderScale(0.5) should return 0.5');
+  assert.strictEqual(canvasActor2.exports.get_canvas_width(), 200, '0.5x render scale should halve canvas width to 200');
+  assert.strictEqual(canvasActor2.exports.get_canvas_height(), 150, '0.5x render scale should halve canvas height to 150');
+  assert(Math.abs(restoredPaths[0].nodes[0].x - origNodeX * 0.5) < 0.05, '0.5x render scale should scale vector node coordinates by 0.5');
+  assert(Math.abs(host2.zoom - origZoom * 2.0) < 0.01, '0.5x render scale should double viewport zoom to preserve visual size');
+
+  host2.executeCommand('render scale 2.0');
+  assert.strictEqual(canvasActor2.exports.get_canvas_width(), 800, '2.0x render scale should double base canvas width to 800');
+  assert.strictEqual(canvasActor2.exports.get_canvas_height(), 600, '2.0x render scale should double base canvas height to 600');
+  assert(Math.abs(restoredPaths[0].nodes[0].x - origNodeX * 2.0) < 0.1, '2.0x render scale should scale vector node coordinates by 2.0');
+  assert(Math.abs(restoredPaths[0].strokeWidth - origStrokeW * 2.0) < 0.5, '2.0x render scale should double path strokeWidth');
+
+  host2.setRenderScale(1.0);
+  assert.strictEqual(canvasActor2.exports.get_canvas_width(), 400, '1.0x render scale should restore native 400 width');
+  assert.strictEqual(canvasActor2.exports.get_canvas_height(), 300, '1.0x render scale should restore native 300 height');
+  console.log('✔ Viewport / Canvas Render Resolution Scaling (0.5×, 2.0×, 1.0×) passed');
+
+  // 9. Test Vector Eraser & Rasterize Vector Layer
   const erased = host2.eraseVectorAtPoint(280, 235, 12, vecLayerIdx);
   assert.strictEqual(erased, true, 'eraseVectorAtPoint should delete hit vector path');
   assert.strictEqual(host2.getVectorLayer(vecLayerIdx).paths.length, 2, 'Vector path count should decrease after erasing');

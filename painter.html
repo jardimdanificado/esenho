@@ -1546,31 +1546,34 @@
       border-color: var(--primary);
     }
 
-    /* ── Touch HSV Color Studio Modal ── */
+    /* ── Touch HSV Color Studio Floating Panel (Non-blocking) ── */
     #touch-color-modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.6);
-      z-index: 10001;
-      align-items: center;
-      justify-content: center;
-      padding: 12px;
+      background: transparent;
+      pointer-events: none;
+      z-index: 95;
     }
     #touch-color-modal.active {
-      display: flex;
+      display: block;
     }
     .touch-color-box {
-      width: 100%;
-      max-width: 330px;
+      position: absolute;
+      top: 52px;
+      left: 56px;
+      pointer-events: auto;
+      width: calc(100vw - 68px);
+      max-width: 300px;
       background: var(--bg-dark);
       border: 1px solid var(--border-bright);
+      border-radius: var(--radius-lg);
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 8px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-      max-height: 90vh;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.65);
+      max-height: calc(100vh - 64px);
       overflow-y: auto;
     }
     .touch-color-header {
@@ -1580,6 +1583,11 @@
       font-weight: bold;
       color: var(--primary);
       font-size: 12px;
+      cursor: grab;
+      touch-action: none;
+    }
+    .touch-color-header:active {
+      cursor: grabbing;
     }
     .touch-color-preview-duo {
       display: flex;
@@ -2329,12 +2337,13 @@
       zoom: var(--ui-scale, 1);
     }
 
-    /* ── Compact Floating Popovers (Anchored, never full-screen) ── */
+    /* ── Non-Blocking Side-Docked Floating Panels (Canvas remains 100% interactive) ── */
     .ip-sheet-modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.6);
+      background: transparent;
+      pointer-events: none;
       z-index: 90;
       user-select: none;
       -webkit-user-select: none;
@@ -2344,58 +2353,89 @@
     }
     .ip-sheet {
       position: absolute;
+      pointer-events: auto;
       background: var(--bg-dark);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-lg);
       display: flex;
       flex-direction: column;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.65);
       overflow: hidden;
       z-index: 100;
     }
+    .ip-sheet.is-collapsed .ip-sheet-content,
+    .ip-sheet.is-collapsed .ip-pills-row,
+    .touch-color-box.is-collapsed > :not(.touch-color-header) {
+      display: none !important;
+    }
 
-    /* Top-Left Popover (Project Menu) */
+    /* Left-Side Anchored Panels (Beside Left HUD, off the canvas center) */
     #sheet-menu .ip-sheet {
-      top: 48px;
-      left: 8px;
-      width: 250px;
+      top: 52px;
+      left: 56px;
+      width: calc(100vw - 68px);
+      max-width: 285px;
       max-height: calc(100vh - 64px);
       animation: ipFadeIn 0.12s ease;
     }
-    
-      to { transform: translateY(0); opacity: 1; }
+    #sheet-brushes .ip-sheet {
+      top: 52px;
+      left: 56px;
+      width: calc(100vw - 68px);
+      max-width: 350px;
+      max-height: calc(100vh - 64px);
+      animation: ipFadeIn 0.12s ease;
     }
-
-    /* Top-Right Popovers (Layers & Lab) */
-    #sheet-layers .ip-sheet {
-      top: 48px;
-      right: 8px;
-      width: calc(100% - 16px);
-      max-width: 340px;
-      max-height: calc(100vh - 70px);
+    #sheet-tools .ip-sheet {
+      top: 52px;
+      left: 56px;
+      width: calc(100vw - 68px);
+      max-width: 330px;
+      max-height: calc(100vh - 64px);
+      animation: ipFadeIn 0.12s ease;
+    }
+    #sheet-pixelart .ip-sheet {
+      top: 52px;
+      left: 56px;
+      width: calc(100vw - 68px);
+      max-width: 320px;
+      max-height: calc(100vh - 64px);
       animation: ipFadeIn 0.12s ease;
     }
     #sheet-recents .ip-sheet,
     #sheet-new-proj .ip-sheet {
-      top: 48px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: calc(100% - 16px);
-      max-width: 420px;
-      max-height: calc(100vh - 64px);
-      animation: ipFadeIn 0.12s ease;
-    }
-
-    #sheet-lab .ip-sheet {
-      top: 48px;
-      right: 8px;
-      width: calc(100% - 16px);
+      top: 52px;
+      left: 56px;
+      width: calc(100vw - 68px);
       max-width: 380px;
       max-height: calc(100vh - 64px);
       animation: ipFadeIn 0.12s ease;
     }
-    
-      to { transform: translateY(0); opacity: 1; }
+
+    /* Right-Side Anchored Panels (Layers, Brush Lab, HUD Customizer) */
+    #sheet-layers .ip-sheet {
+      top: 52px;
+      right: 12px;
+      width: calc(100vw - 24px);
+      max-width: 310px;
+      max-height: calc(100vh - 64px);
+      animation: ipFadeIn 0.12s ease;
+    }
+    #sheet-lab .ip-sheet {
+      top: 52px;
+      right: 12px;
+      width: calc(100vw - 24px);
+      max-width: 340px;
+      max-height: calc(100vh - 64px);
+      animation: ipFadeIn 0.12s ease;
+    }
+    #sheet-hud-customizer .ip-sheet {
+      top: 52px;
+      right: 12px;
+      width: calc(100vw - 24px);
+      max-width: 360px;
+      max-height: calc(100vh - 64px);
+      animation: ipFadeIn 0.12s ease;
     }
 
     .ip-shape-btn {
@@ -2410,51 +2450,133 @@
       font-weight: bold;
     }
 
-    /* Bottom Floating Shelves (Brushes, Tools, Pixel Art) */
-    #sheet-brushes .ip-sheet {
-      bottom: 68px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: calc(100% - 16px);
-      max-width: 460px;
-      max-height: calc(100vh - 84px);
-      animation: ipFadeIn 0.12s ease;
-    }
-    #sheet-tools .ip-sheet {
-      bottom: 68px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: calc(100% - 16px);
-      max-width: 380px;
-      max-height: calc(100vh - 84px);
-      animation: ipFadeIn 0.12s ease;
-    }
-    #sheet-pixelart .ip-sheet {
-      bottom: 68px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: calc(100% - 16px);
-      max-width: 380px;
-      max-height: calc(100vh - 84px);
-      animation: ipFadeIn 0.12s ease;
-    }
-    
-      to { transform: translate(-50%, 0); opacity: 1; }
-    }
-
-    /* Top Center Modals (HUD Customizer) */
-    #sheet-hud-customizer .ip-sheet {
-      top: 48px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: calc(100% - 16px);
-      max-width: 440px;
-      max-height: calc(100vh - 64px);
-      animation: ipFadeIn 0.12s ease;
-    }
     @keyframes ipFadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
+    }
+
+    /* ── Studio-grade Contextual Menu (.monaco-menu) ── */
+    #monaco-context-view, .monaco-context-view {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1000000;
+    }
+    .monaco-menu-container {
+      position: absolute;
+      pointer-events: auto;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-bright);
+      border-radius: var(--radius-md);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+      padding: 3px 0;
+      min-width: 190px;
+      max-width: 320px;
+      font-size: 11.5px;
+      color: var(--text);
+      user-select: none;
+      -webkit-user-select: none;
+      outline: none;
+    }
+    .monaco-menu {
+      display: flex;
+      flex-direction: column;
+      outline: none;
+    }
+    .monaco-menu .actions-container {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .monaco-menu .action-item {
+      display: flex;
+      align-items: center;
+      position: relative;
+      cursor: pointer;
+      outline: none;
+      padding: 0 3px;
+    }
+    .monaco-menu .action-menu-item {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      height: 24px;
+      padding: 0 8px 0 4px;
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      text-decoration: none;
+      gap: 6px;
+      font-size: 11.5px;
+      transition: background 0.06s ease, color 0.06s ease;
+    }
+    .monaco-menu .action-item.focused > .action-menu-item,
+    .monaco-menu .action-item:hover > .action-menu-item {
+      background: var(--primary);
+      color: var(--bg-dark);
+      font-weight: 600;
+    }
+    .monaco-menu .action-item.focused > .action-menu-item .keybinding,
+    .monaco-menu .action-item:hover > .action-menu-item .keybinding,
+    .monaco-menu .action-item.focused > .action-menu-item .submenu-indicator,
+    .monaco-menu .action-item:hover > .action-menu-item .submenu-indicator,
+    .monaco-menu .action-item.focused > .action-menu-item .menu-item-check,
+    .monaco-menu .action-item:hover > .action-menu-item .menu-item-check {
+      color: var(--bg-dark);
+    }
+    .monaco-menu .action-item.danger.focused > .action-menu-item,
+    .monaco-menu .action-item.danger:hover > .action-menu-item {
+      background: var(--danger);
+      color: #ffffff;
+    }
+    .monaco-menu .action-item.disabled {
+      opacity: 0.38;
+      cursor: default;
+      pointer-events: none;
+    }
+    .monaco-menu .menu-item-check {
+      width: 14px;
+      text-align: center;
+      font-size: 11px;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+    .monaco-menu .action-label {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .monaco-menu .keybinding {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-left: 12px;
+    }
+    .monaco-menu .submenu-indicator {
+      font-size: 8.5px;
+      color: var(--text-muted);
+      margin-left: 10px;
+    }
+    .monaco-menu .action-item.separator {
+      height: 1px;
+      margin: 3px 6px;
+      padding: 0;
+      background: var(--border);
+      pointer-events: none;
+    }
+    .monaco-menu .action-item.header {
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      padding: 4px 10px 2px;
+      pointer-events: none;
     }
 
     /* Embedded Painter Mode Styles */
@@ -2477,9 +2599,12 @@
       font-size: 11px;
       font-weight: bold;
       color: var(--primary);
-      
-      
+      cursor: grab;
+      touch-action: none;
       flex-shrink: 0;
+    }
+    .ip-sheet-header:active {
+      cursor: grabbing;
     }
     .ip-sheet-close {
       width: 22px;
@@ -2878,7 +3003,7 @@
           <!-- Renderer Settings -->
           <div class="menu-item-submenu-wrap">
             <button type="button" id="btn-menu-renderer" class="menu-item">
-              <span>Renderer</span>
+              <span>Renderer &amp; Filter</span>
               <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
                 <span id="menu-current-renderer-label" style="font-size: 9px; color: var(--primary); font-family: var(--font-mono);">GPU</span>
                 <span style="font-size: 8px; color: var(--text-muted);">▸</span>
@@ -2914,12 +3039,53 @@
               </button>
             </div>
           </div>
+
+          <div class="menu-divider"></div>
+
+          <!-- Panels & HUD Configuration -->
+          <div class="menu-item-submenu-wrap">
+            <button type="button" id="btn-menu-panels" class="menu-item">
+              <span>Panels</span>
+              <span style="font-size: 8px; color: var(--text-muted); margin-left: auto;">▸</span>
+            </button>
+            <div class="menu-submenu">
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-brushes">
+                <span>Brush Library</span>
+                <span class="shortcut">B</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-lab">
+                <span>Brush Lab</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-layers">
+                <span>Layers Stack</span>
+                <span class="shortcut">L</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-tools">
+                <span>Modes &amp; Drawing Tools</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="touch-color-modal">
+                <span>Color Studio</span>
+                <span class="shortcut">C</span>
+              </button>
+              <button type="button" class="menu-item btn-menu-toggle-panel" data-panel="sheet-pixelart">
+                <span>Pixel Art Studio</span>
+              </button>
+            </div>
+          </div>
+
+          <button type="button" id="btn-menu-configure-panels" class="menu-item" style="color: var(--primary); font-weight: 600;">
+            <span>Configure Panels &amp; HUD...</span>
+          </button>
+          <button type="button" id="btn-menu-open-settings" class="menu-item">
+            <span>Project &amp; Preferences...</span>
+            <span class="shortcut">Ctrl+B</span>
+          </button>
         </div>
       </div>
     </div>
 
     <!-- Status Information on Top Bar (Loose raw format) -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.1 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.6 ready</span>
   </header>
 
   <!-- ── Infinite Painter Multi-Dock HUDs (Left, Right, Bottom) ── -->
@@ -2927,8 +3093,8 @@
   <div id="ip-right-hud" class="ip-dock-container ip-dock-right" style="display: none;"></div>
   <div id="ip-bottom-hud" class="ip-dock-container ip-dock-bottom" style="display: none;"></div>
 
-  <!-- ── Raster Frame-by-Frame Animation Timeline Dock ── -->
-  <div id="raster-anim-timeline-dock" style="display: none; position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 900px; height: 110px; z-index: 85; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); overflow: hidden; pointer-events: auto;"></div>
+  <!-- ── Raster Frame-by-Frame Animation Timeline Dock (Positioned above bottom HUD dock) ── -->
+  <div id="raster-anim-timeline-dock" style="display: none; position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 64px); left: 50%; transform: translateX(-50%); width: calc(100% - 24px); max-width: 900px; height: 110px; z-index: 85; box-shadow: 0 10px 30px rgba(0,0,0,0.6); border: 1px solid var(--border-bright); border-radius: var(--radius-lg); overflow: hidden; pointer-events: auto;"></div>
 
   <!-- ── Canvas area ── -->
   <div id="cvswrap">
@@ -3064,20 +3230,15 @@
           <input type="range" id="ip-active-layer-op-slider" min="0" max="100" value="100" class="ip-touch-slider">
         </div>
 
-        <!-- Compact Mini Layer Toolbar -->
-        <div style="display: grid; grid-template-columns: 1.15fr 1.25fr 1.05fr 1fr 0.9fr 0.95fr 0.95fr 0.85fr; gap: 2px; padding: 2px 0;">
-          <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; background: var(--primary); color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Raster Layer">+ Layer</button>
-          <button type="button" id="btn-ip-add-vector-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; background: #8ec07c; color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Editable Vector Layer">+ Vector</button>
-          <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="New Folder / Group">+ Group</button>
-          <button type="button" id="btn-ip-import-layer-btn" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Import Image as Layer">Import</button>
-          <button type="button" id="btn-ip-dup-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Duplicate Layer">Dup</button>
-          <button type="button" id="btn-ip-merge-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Merge Down">Merge</button>
-          <button type="button" id="btn-ip-clear-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; border-radius: var(--radius-sm); padding: 0;" title="Clear Layer Content">Clear</button>
-          <button type="button" id="btn-ip-del-layer" class="ip-mini-btn" style="height: 25px; font-size: 10px; color: var(--danger); border-radius: var(--radius-sm); padding: 0;" title="Delete Layer">Del</button>
+        <!-- Clean Creation Toolbar (Layer actions moved to ⋯ contextual menu) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 2px 0;">
+          <button type="button" id="btn-ip-add-layer" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; background: var(--primary); color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Raster Layer">+ Layer</button>
+          <button type="button" id="btn-ip-add-vector-layer" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; background: #8ec07c; color: var(--bg-dark); font-weight: bold; border-radius: var(--radius-sm); padding: 0;" title="New Editable Vector Layer">+ Vector</button>
+          <button type="button" id="btn-ip-add-folder" class="ip-mini-btn" style="height: 26px; font-size: 10.5px; border-radius: var(--radius-sm); padding: 0;" title="New Folder / Group">+ Group</button>
         </div>
 
         <!-- Layer List Host Container -->
-        <div id="ip-sheet-layers-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 280px; overflow-y: auto;"></div>
+        <div id="ip-sheet-layers-list" style="display: flex; flex-direction: column; gap: 4px; max-height: 310px; overflow-y: auto;"></div>
       </div>
     </div>
   </div>

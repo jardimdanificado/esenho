@@ -14,7 +14,7 @@
    so the engine logic compiles without modification.                  */
 const IS_BROWSER = typeof window !== 'undefined';
 
-let sdl, fs, path, readline, saveImage, loadImage, EsenhoStore, SvgEngine;
+let sdl, fs, path, readline, saveImage, loadImage, EsenhoStore, _svgEngine;
 
 if (!IS_BROWSER) {
   try { sdl = require('@kmamal/sdl'); } catch (_) { sdl = null; }
@@ -26,11 +26,11 @@ if (!IS_BROWSER) {
     EsenhoStore = require('./project_store.js');
   } catch (_) {}
   try {
-    SvgEngine = require('./svg/svg_engine.js');
+    _svgEngine = require('./svg/svg_engine.js');
   } catch (_) {}
 } else {
   EsenhoStore = typeof window !== 'undefined' ? window.EsenhoStore : null;
-  SvgEngine = typeof window !== 'undefined' ? window.SvgEngine : null;
+  _svgEngine = typeof window !== 'undefined' ? window.SvgEngine : null;
   /* Browser stubs — only used by Node-only methods (initWindow, setupRepl, etc.)
      which are replaced by host-browser.js.  The engine core never calls these.  */
   fs   = { readFileSync: () => { throw new Error('fs not available in browser'); },
@@ -45,10 +45,10 @@ if (!IS_BROWSER) {
 }
 
 function getSvgEngine() {
-  if (SvgEngine) return SvgEngine;
+  if (_svgEngine) return _svgEngine;
   if (typeof window !== 'undefined' && window.SvgEngine) {
-    SvgEngine = window.SvgEngine;
-    return SvgEngine;
+    _svgEngine = window.SvgEngine;
+    return _svgEngine;
   }
   return null;
 }
@@ -3315,9 +3315,34 @@ function handleResize(host, w, h) {
   w = parseInt(w, 10);
   h = parseInt(h, 10);
   if (w >= 1 && h >= 1) {
-    if (host.canvasActor && host.canvasActor.exports && host.canvasActor.exports.w_resize) {
-      host.canvasActor.exports.w_resize(w, h);
+    const exports = host.canvasActor?.exports;
+    const oldW = exports?.get_canvas_width ? exports.get_canvas_width() : w;
+    const oldH = exports?.get_canvas_height ? exports.get_canvas_height() : h;
+    host.baseDocWidth = w;
+    host.baseDocHeight = h;
+    host.renderScale = 1.0;
+
+    if (exports && (oldW !== w || oldH !== h)) {
+      const sx = oldW > 0 ? (w / oldW) : 1;
+      const sy = oldH > 0 ? (h / oldH) : 1;
+      if (typeof exports.w_layer_resize === 'function' && typeof exports.get_layer_count === 'function') {
+        const count = exports.get_layer_count();
+        for (let l = 3; l < count; l++) {
+          if (exports.is_layer_active && !exports.is_layer_active(l)) continue;
+          if (host.isVectorLayer && host.isVectorLayer(l)) continue;
+          exports.w_layer_resize(l, w, h, 1);
+        }
+      }
+      if (typeof exports.w_resize === 'function') {
+        exports.w_resize(w, h);
+      }
+      if (typeof host._scaleAllVectorLayers === 'function') {
+        host._scaleAllVectorLayers(sx, sy);
+      }
+    } else if (exports && typeof exports.w_resize === 'function') {
+      exports.w_resize(w, h);
     }
+
     if (typeof host.resizeCanvas === 'function') {
       host.resizeCanvas(w, h);
     }
@@ -3701,6 +3726,21 @@ const COMMAND_RULES = [
   { pat: "get $cat", run: (m, host) => handleGet(host, m.cat, '') },
 
   // Resize & Surface Dimensions
+  {
+    pat: "render scale $scale",
+    run: (m, host) => {
+      const s = parseFloat(String(m.scale).replace(/x$/i, ''));
+      if (!isNaN(s) && s >= 0.1 && s <= 4.0) {
+        host.setRenderScale(s);
+      } else {
+        host.sendConsoleLog("err: render scale must be between 0.1 and 4.0 (e.g. 0.25, 0.5, 1, 2)", 0xFFFF5555);
+      }
+    }
+  },
+  {
+    pat: "viewport scale $scale",
+    run: (m, host) => COMMAND_RULES.find(r => r.pat === "render scale $scale").run(m, host)
+  },
   { pat: "canvas resize $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
   { pat: "canvas resize $w$int $h$int $mode", run: (m, host) => handleResize(host, m.w, m.h) },
   { pat: "resize canvas $w$int $h$int", run: (m, host) => handleResize(host, m.w, m.h) },
@@ -5933,6 +5973,9 @@ class EsenhoScreenHost {
     this.vectorCurveMode = 'bezier'; // 'bezier' (Auto-Fit Cubic Bézier) | 'raw' (Polilinha Fiel)
     this.vectorFitTolerance = 2.5;
     this.vectorSubTool = 'nodes'; // 'nodes' (Bézier Node Editor) | 'width' (Per-Node Pressure / Width Editor)
+    this.renderScale = 1.0;       // 0.25 | 0.5 | 1.0 | 2.0 viewport & vector resolution multiplier
+    this.baseDocWidth = null;
+    this.baseDocHeight = null;
 
     // Textures & Actors
     this.textures = createProceduralTextures();
@@ -6644,6 +6687,102 @@ class EsenhoScreenHost {
     if (typeof exports.w_force_composite === 'function') exports.w_force_composite();
     else if (typeof exports.force_composite === 'function') exports.force_composite();
     return true;
+  }
+
+  /**
+   * Scales all vector layer paths by `(sx, sy)` and re-renders every vector layer.
+   */
+  _scaleAllVectorLayers(sx, sy) {
+    if (!this.vectorLayers || this.vectorLayers.size === 0) return;
+    const avgScale = (sx + sy) / 2;
+    for (const [lid, vl] of this.vectorLayers.entries()) {
+      if (!vl || !Array.isArray(vl.paths)) continue;
+      for (const path of vl.paths) {
+        if (!path || !Array.isArray(path.nodes)) continue;
+        for (const n of path.nodes) {
+          n.x *= sx;
+          n.y *= sy;
+          if (n.cpIn) { n.cpIn.x *= sx; n.cpIn.y *= sy; }
+          if (n.cpOut) { n.cpOut.x *= sx; n.cpOut.y *= sy; }
+        }
+        path.strokeWidth = Math.max(0.5, (path.strokeWidth || 8) * avgScale);
+        if (path.brushConfig && typeof path.brushConfig.size === 'number') {
+          path.brushConfig.size = Math.max(1, Math.round(path.brushConfig.size * avgScale));
+        }
+      }
+      this.renderVectorLayer(lid);
+    }
+  }
+
+  /**
+   * Sets the viewport & canvas render resolution scale (`0.25` Draft, `0.5` Fast, `1.0` Native, `2.0` Hi-DPI).
+   * Scales vector paths mathematically and resamples raster layers while keeping viewport visual size unchanged.
+   */
+  setRenderScale(scale) {
+    const s = Math.max(0.125, Math.min(4.0, Number(scale) || 1.0));
+    const exports = this.canvasActor?.exports;
+    if (!exports) {
+      this.renderScale = s;
+      return s;
+    }
+
+    const oldW = exports.get_canvas_width ? exports.get_canvas_width() : DOC_WIDTH;
+    const oldH = exports.get_canvas_height ? exports.get_canvas_height() : DOC_HEIGHT;
+    const prevScale = this.renderScale || 1.0;
+
+    if (!this.baseDocWidth || !this.baseDocHeight) {
+      this.baseDocWidth = Math.max(16, Math.round(oldW / prevScale));
+      this.baseDocHeight = Math.max(16, Math.round(oldH / prevScale));
+    }
+
+    const newW = Math.max(16, Math.round(this.baseDocWidth * s));
+    const newH = Math.max(16, Math.round(this.baseDocHeight * s));
+    this.renderScale = s;
+
+    if (newW === oldW && newH === oldH) {
+      if (typeof this.onRenderScaleChange === 'function') this.onRenderScaleChange(s, newW, newH);
+      return s;
+    }
+
+    const sx = newW / oldW;
+    const sy = newH / oldH;
+    const avgScale = (sx + sy) / 2;
+
+    // 1. Smoothly resample non-vector raster layers before surface resize
+    if (typeof exports.w_layer_resize === 'function' && typeof exports.get_layer_count === 'function') {
+      const count = exports.get_layer_count();
+      for (let l = 3; l < count; l++) {
+        if (exports.is_layer_active && !exports.is_layer_active(l)) continue;
+        if (this.isVectorLayer(l)) continue;
+        exports.w_layer_resize(l, newW, newH, 1);
+      }
+    }
+
+    // 2. Resize WASM surface
+    if (typeof exports.w_resize === 'function') {
+      exports.w_resize(newW, newH);
+    }
+
+    // 3. Scale and re-render all Vector Layers at the new resolution
+    this._scaleAllVectorLayers(sx, sy);
+
+    // 4. Scale active brush size proportionally so new strokes match visual size
+    if (this.brushParams && typeof this.brushParams.size === 'number') {
+      this.brushParams.size = Math.max(1, Math.min(500, Math.round(this.brushParams.size * avgScale)));
+      this.syncBrushParams();
+    }
+
+    // 5. Adjust zoom so the canvas stays at the exact same visual size and position in the viewport
+    this.zoom = Math.max(0.01, Math.min(64, (this.zoom || 1) / avgScale));
+
+    if (typeof this.onRenderScaleChange === 'function') {
+      this.onRenderScaleChange(s, newW, newH);
+    }
+    if (typeof this.render === 'function') {
+      this.render();
+    }
+    this.sendConsoleLog(`render scale set to ${s}x (${newW}x${newH})`);
+    return s;
   }
 
   /**
