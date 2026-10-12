@@ -4282,7 +4282,6 @@ async function main() {
         items: [
           { type: 'item', label: (host.showBrushOutline ? '✓ ' : '') + 'Brush Cursor Outline', action: () => syncBrushOutline(!host.showBrushOutline) },
           { type: 'item', label: (host.enableTouchUndoRedo ? '✓ ' : '') + 'Touch Gestures (2-Finger Undo / 3-Finger Redo)', action: () => syncTouchUndoRedo(!host.enableTouchUndoRedo) },
-          { type: 'item', label: (host.enableTouchEyedropper ? '✓ ' : '') + 'Touch Long-Press Eyedropper', action: () => syncTouchEyedropper(!host.enableTouchEyedropper) },
           { type: 'sep' },
           {
             type: 'submenu',
@@ -10066,24 +10065,6 @@ async function main() {
     ipChkTouchUndoRedo.addEventListener('change', () => syncTouchUndoRedo(ipChkTouchUndoRedo.checked));
   }
 
-  const chkTouchEyedropper = document.getElementById('ui-chk-touch-eyedropper');
-  const ipChkTouchEyedropper = document.getElementById('ip-chk-touch-eyedropper');
-  host.enableTouchEyedropper = localStorage.getItem('esenho_touch_eyedropper') !== '0';
-  const syncTouchEyedropper = (val) => {
-    host.enableTouchEyedropper = !!val;
-    if (chkTouchEyedropper) chkTouchEyedropper.checked = host.enableTouchEyedropper;
-    if (ipChkTouchEyedropper) ipChkTouchEyedropper.checked = host.enableTouchEyedropper;
-    localStorage.setItem('esenho_touch_eyedropper', host.enableTouchEyedropper ? '1' : '0');
-  };
-  if (chkTouchEyedropper) {
-    chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
-    chkTouchEyedropper.addEventListener('change', () => syncTouchEyedropper(chkTouchEyedropper.checked));
-  }
-  if (ipChkTouchEyedropper) {
-    ipChkTouchEyedropper.checked = !!host.enableTouchEyedropper;
-    ipChkTouchEyedropper.addEventListener('change', () => syncTouchEyedropper(ipChkTouchEyedropper.checked));
-  }
-
   // Max undo history limit
   const sliderMaxUndo = document.getElementById('ui-slider-max-undo');
   const valMaxUndo = document.getElementById('ui-val-max-undo');
@@ -11547,12 +11528,6 @@ async function main() {
     }
     if (ipChkTouchUndoRedo) {
       ipChkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
-    }
-    if (chkTouchEyedropper) {
-      chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
-    }
-    if (ipChkTouchEyedropper) {
-      ipChkTouchEyedropper.checked = !!host.enableTouchEyedropper;
     }
     if (ipSliderMaxUndo && host.maxUndoSteps !== undefined) {
       ipSliderMaxUndo.value = host.maxUndoSteps;
