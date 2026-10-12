@@ -11,7 +11,7 @@
  * =========================================================================
  */
 
-const TICK_COL_WIDTH = 58;
+const TICK_COL_WIDTH = 38;
 
 export class RasterAnimatorUI {
   constructor(containerEl, animator, options = {}) {
@@ -162,86 +162,75 @@ export class RasterAnimatorUI {
 
   render() {
     this.container.innerHTML = `
-      <div class="raster-anim-dock" style="display: flex; flex-direction: column; width: 100%; height: 100%; background: var(--bg-panel); color: var(--text); font-family: var(--font-sans); font-size: 11px; user-select: none; box-sizing: border-box; position: relative; overflow: hidden;">
+      <div class="raster-anim-dock" style="display: flex; flex-direction: column; width: 100%; height: 100%; background: var(--bg-panel); color: var(--text); font-family: var(--font-sans); font-size: 10px; user-select: none; box-sizing: border-box; position: relative; overflow: hidden;">
         
-        <!-- TIER 1: Header, Transport, Active Layer Cel Actions, Unlimited Hold Duration, Onion Skin & Export -->
-        <div class="raster-anim-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 5px 10px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex-shrink: 0;">
+        <!-- TIER 1: Compact Single-Line Toolbar -->
+        <div class="raster-anim-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 4px; padding: 2px 6px; min-height: 24px; background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; flex-shrink: 0;">
           
           <!-- Left: Playhead Counter & Transport Controls -->
-          <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
-            <span id="raster-frame-counter" style="font-weight: 800; font-family: var(--font-mono); font-size: 10px; color: var(--primary); background: var(--bg-dark); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 2px 7px; min-width: 68px; text-align: center;" title="Current Tick / Total Ticks (Active Layer Cel)">1 / 1</span>
-
-            <div style="display: flex; align-items: center; gap: 2px; background: var(--bg-dark); padding: 2px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border); flex-shrink: 0;">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-first" title="First Tick" style="min-width: 22px; height: 22px; padding: 0 4px; font-size: 10px;">⏮</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-prev" title="Previous Cel on Active Layer (,)" style="min-width: 24px; height: 22px; padding: 0 5px; font-size: 10px;">◀</button>
-              <button type="button" class="ip-btn ip-mini-btn raster-btn-play" id="raster-btn-play" title="Play / Pause (Space)" style="min-width: 32px; height: 22px; padding: 0 8px; background: var(--primary); color: var(--bg-dark); font-weight: 800; font-size: 11px;">▶</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-next" title="Next Cel on Active Layer (.)" style="min-width: 24px; height: 22px; padding: 0 5px; font-size: 10px;">▶</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-last" title="Last Tick" style="min-width: 22px; height: 22px; padding: 0 4px; font-size: 10px;">⏭</button>
-              <div style="width: 1px; height: 14px; background: var(--border); margin: 0 2px;"></div>
-              <button type="button" class="ip-btn ip-mini-btn active" id="raster-btn-loop" title="Loop Playback" style="height: 22px; padding: 0 6px; font-size: 9.5px; font-weight: 700;">Loop</button>
-            </div>
+          <div style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+            <span id="raster-frame-counter" style="font-weight: 800; font-family: var(--font-mono); font-size: 9px; color: var(--primary); background: var(--bg-dark); border: 1px solid var(--border); border-radius: 2px; padding: 1px 5px; min-width: 48px; text-align: center;" title="Current Tick / Total Ticks">T 1/1</span>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-first" title="First Tick" style="min-width: 18px; height: 19px; padding: 0 3px; font-size: 9px;">⏮</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-prev" title="Previous Cel (,)" style="min-width: 18px; height: 19px; padding: 0 4px; font-size: 9px;">◀</button>
+            <button type="button" class="ip-btn ip-mini-btn raster-btn-play" id="raster-btn-play" title="Play / Pause (Space)" style="min-width: 24px; height: 19px; padding: 0 6px; background: var(--primary); color: var(--bg-dark); font-weight: 800; font-size: 9.5px;">▶</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-next" title="Next Cel (.)" style="min-width: 18px; height: 19px; padding: 0 4px; font-size: 9px;">▶</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-last" title="Last Tick" style="min-width: 18px; height: 19px; padding: 0 3px; font-size: 9px;">⏭</button>
+            <button type="button" class="ip-btn ip-mini-btn active" id="raster-btn-loop" title="Loop Playback" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700;">Loop</button>
           </div>
 
-          <!-- Center: Active Layer Cel Actions + Unlimited Hold Duration Input -->
-          <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 3px; background: var(--bg-dark); padding: 2px 4px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add" title="Add Blank Frame to Active Layer (+)" style="height: 22px; padding: 0 7px; font-size: 10px; font-weight: 800; background: var(--primary); color: var(--bg-dark);">+ Blank</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-dup" title="Duplicate Cel on Active Layer" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;">Dup</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-left" title="Move Cel Left on Layer" style="height: 22px; padding: 0 5px; font-size: 10px;">←</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-right" title="Move Cel Right on Layer" style="height: 22px; padding: 0 5px; font-size: 10px;">→</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-clear" title="Clear Active Cel Pixels" style="height: 22px; padding: 0 6px; font-size: 9.5px;">Clear</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-del" title="Delete Active Cel" style="height: 22px; padding: 0 6px; font-size: 9.5px; color: var(--danger);">Del</button>
-            </div>
+          <!-- Center: Active Layer Cel Actions + Unlimited Hold Duration -->
+          <div style="display: flex; align-items: center; gap: 2px; flex-shrink: 0;">
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-add" title="Add Blank Cel (+)" style="height: 19px; padding: 0 6px; font-size: 9px; font-weight: 800; background: var(--primary); color: var(--bg-dark);">+Cel</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-dup" title="Duplicate Cel" style="height: 19px; padding: 0 5px; font-size: 9px;">Dup</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-left" title="Move Cel Left" style="height: 19px; padding: 0 4px; font-size: 9px;">←</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-move-right" title="Move Cel Right" style="height: 19px; padding: 0 4px; font-size: 9px;">→</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-clear" title="Clear Cel Pixels" style="height: 19px; padding: 0 5px; font-size: 9px;">Clr</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-del" title="Delete Cel" style="height: 19px; padding: 0 5px; font-size: 9px; color: var(--danger);">Del</button>
 
-            <!-- Unlimited Frame Duration (Hold) Stepper + Number Input -->
-            <div style="display: flex; align-items: center; gap: 3px; background: var(--bg-dark); padding: 2px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border);" title="Frame Hold Duration (in frames) — any positive number">
-              <span style="font-size: 9.5px; color: var(--text-muted); font-weight: 800;">Duration:</span>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold-dec" title="Decrease Frame Duration (-1f)" style="min-width: 20px; height: 20px; padding: 0 4px; font-size: 11px; font-weight: 800;">−</button>
-              <input type="number" id="raster-hold-input" min="1" step="1" value="1" style="width: 46px; height: 20px; background: var(--bg-panel); color: var(--primary); border: 1px solid var(--border); border-radius: 3px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 800; text-align: center; padding: 0 2px;" title="Type any frame duration (1, 10, 24, 100...)">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold-inc" title="Increase Frame Duration (+1f)" style="min-width: 20px; height: 20px; padding: 0 4px; font-size: 11px; font-weight: 800;">+</button>
-              <span style="font-size: 9px; color: var(--text-muted); font-family: var(--font-mono);">frames</span>
+            <div style="width: 1px; height: 13px; background: var(--border); margin: 0 2px;"></div>
+
+            <div style="display: flex; align-items: center; gap: 2px;" title="Frame Hold Duration (in frames)">
+              <span style="font-size: 8.5px; color: var(--text-muted); font-weight: 700;">Dur</span>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold-dec" title="-1 Frame" style="min-width: 17px; height: 19px; padding: 0 3px; font-size: 10px; font-weight: 800;">−</button>
+              <input type="number" id="raster-hold-input" min="1" step="1" value="1" style="width: 36px; height: 19px; background: var(--bg-dark); color: var(--primary); border: 1px solid var(--border); border-radius: 2px; font-family: var(--font-mono); font-size: 9.5px; font-weight: 800; text-align: center; padding: 0 1px;" title="Frame duration (unlimited)">
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-hold-inc" title="+1 Frame" style="min-width: 17px; height: 19px; padding: 0 3px; font-size: 10px; font-weight: 800;">+</button>
             </div>
           </div>
 
           <!-- Right: Onion Skin, FPS, Export -->
-          <div style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-            <div style="display: flex; align-items: center; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onionskin" title="Toggle Onion Skinning on Active Layer (O)" style="height: 22px; padding: 0 7px; font-size: 10px; font-weight: 700; display: flex; align-items: center; gap: 4px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="12" r="6" stroke-dasharray="2 2"/><circle cx="15" cy="12" r="6"/></svg>
-                <span>Onion</span>
-              </button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onion-cfg" title="Onion Skin Settings" style="height: 22px; padding: 0 5px; font-size: 9px;">▾</button>
+          <div style="display: flex; align-items: center; gap: 3px; flex-shrink: 0;">
+            <div style="display: flex; align-items: center; gap: 1px;">
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onionskin" title="Toggle Onion Skin (O)" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700;">Onion</button>
+              <button type="button" class="ip-btn ip-mini-btn" id="raster-btn-onion-cfg" title="Onion Skin Settings" style="height: 19px; padding: 0 4px; font-size: 8px;">▾</button>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 4px; background: var(--bg-dark); padding: 2px 6px; border-radius: var(--radius-sm); border: 1px solid var(--border);" title="Playback Frame Rate (FPS)">
-              <span style="font-size: 9.5px; color: var(--text-muted); font-weight: 800;">FPS</span>
-              <input type="range" id="raster-fps-slider" min="1" max="60" value="12" style="width: 50px; cursor: pointer; accent-color: var(--primary);">
-              <span id="raster-fps-val" style="font-family: var(--font-mono); font-size: 10px; font-weight: 800; color: var(--primary); min-width: 18px; text-align: right;">12</span>
+            <div style="display: flex; align-items: center; gap: 3px; background: var(--bg-dark); padding: 1px 4px; border-radius: 2px; border: 1px solid var(--border);" title="Playback Frame Rate (FPS)">
+              <span style="font-size: 8.5px; color: var(--text-muted); font-weight: 700;">FPS</span>
+              <input type="range" id="raster-fps-slider" min="1" max="60" value="12" style="width: 42px; height: 4px; cursor: pointer; accent-color: var(--primary);">
+              <span id="raster-fps-val" style="font-family: var(--font-mono); font-size: 9px; font-weight: 800; color: var(--primary); min-width: 14px; text-align: right;">12</span>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 2px; background: var(--bg-dark); padding: 2px; border-radius: var(--radius-sm); border: 1px solid var(--border);">
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-export-gif" title="Export Animated GIF (.gif)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700; color: var(--primary);">GIF</button>
-              <button type="button" class="ip-btn ip-mini-btn" id="raster-export-webm" title="Export WebM Video (.webm)" style="height: 22px; padding: 0 6px; font-size: 10px; font-weight: 700;">WebM</button>
-            </div>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-export-gif" title="Export Animated GIF (.gif)" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700; color: var(--primary);">GIF</button>
+            <button type="button" class="ip-btn ip-mini-btn" id="raster-export-webm" title="Export WebM Video (.webm)" style="height: 19px; padding: 0 5px; font-size: 9px; font-weight: 700;">WebM</button>
           </div>
         </div>
 
         <!-- COLLAPSIBLE ONION SKIN CONFIGURATION ROW -->
-        <div id="raster-onion-settings-row" style="display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 4px 12px; background: var(--bg-dark); border-bottom: 1px solid var(--border); font-size: 10px; flex-wrap: wrap; flex-shrink: 0;">
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="color: #fb4934; font-weight: 800;">● Past Frames:</span>
-            <input type="range" id="raster-onion-prev" min="0" max="5" value="2" style="width: 55px; accent-color: #fb4934;">
-            <span id="raster-onion-prev-val" style="font-family: var(--font-mono); min-width: 14px;">2</span>
+        <div id="raster-onion-settings-row" style="display: none; align-items: center; justify-content: flex-start; gap: 10px; padding: 2px 8px; background: var(--bg-dark); border-bottom: 1px solid var(--border); font-size: 9px; flex-wrap: wrap; flex-shrink: 0;">
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: #fb4934; font-weight: 700;">Past</span>
+            <input type="range" id="raster-onion-prev" min="0" max="5" value="2" style="width: 45px; height: 4px; accent-color: #fb4934;">
+            <span id="raster-onion-prev-val" style="font-family: var(--font-mono);">2</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="color: #83a598; font-weight: 800;">● Future Frames:</span>
-            <input type="range" id="raster-onion-next" min="0" max="5" value="1" style="width: 55px; accent-color: #83a598;">
-            <span id="raster-onion-next-val" style="font-family: var(--font-mono); min-width: 14px;">1</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: #83a598; font-weight: 700;">Next</span>
+            <input type="range" id="raster-onion-next" min="0" max="5" value="1" style="width: 45px; height: 4px; accent-color: #83a598;">
+            <span id="raster-onion-next-val" style="font-family: var(--font-mono);">1</span>
           </div>
-          <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="color: var(--text-muted); font-weight: 800;">Ghost Opacity:</span>
-            <input type="range" id="raster-onion-opacity" min="10" max="85" value="35" style="width: 65px; accent-color: var(--primary);">
-            <span id="raster-onion-op-val" style="font-family: var(--font-mono); color: var(--primary); min-width: 28px;">35%</span>
+          <div style="display: flex; align-items: center; gap: 4px;">
+            <span style="color: var(--text-muted); font-weight: 700;">Alpha</span>
+            <input type="range" id="raster-onion-opacity" min="10" max="85" value="35" style="width: 50px; height: 4px; accent-color: var(--primary);">
+            <span id="raster-onion-op-val" style="font-family: var(--font-mono); color: var(--primary);">35%</span>
           </div>
         </div>
 
@@ -694,25 +683,25 @@ export class RasterAnimatorUI {
     const totalTicks = this.animator.getTotalDurationTicks ? this.animator.getTotalDurationTicks() : 1;
     const curTick = this.animator.currentTick || 0;
 
-    // 1. Time Ruler Row
+    // 1. Compact Time Ruler Row
     const rulerRow = document.createElement('div');
     rulerRow.style.cssText = `
       display: flex; align-items: stretch; border-bottom: 1px solid var(--border);
-      background: var(--bg-panel-sub); position: sticky; top: 0; z-index: 4; height: 22px;
+      background: var(--bg-panel-sub); position: sticky; top: 0; z-index: 4; height: 17px;
     `;
 
     const rulerCorner = document.createElement('div');
     rulerCorner.style.cssText = `
-      width: 170px; min-width: 170px; padding: 0 8px; display: flex; align-items: center; justify-content: space-between;
+      width: 118px; min-width: 118px; padding: 0 5px; display: flex; align-items: center; justify-content: space-between;
       border-right: 1px solid var(--border); background: var(--bg-panel-sub); position: sticky; left: 0; z-index: 5;
-      font-size: 9.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.4px;
+      font-size: 8.5px; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px;
       box-sizing: border-box;
     `;
-    rulerCorner.innerHTML = `<span>Layer Tracks (${layerIdsTopToBottom.length})</span><span>Ticks</span>`;
+    rulerCorner.innerHTML = `<span>Layers (${layerIdsTopToBottom.length})</span><span>Tick</span>`;
     rulerRow.appendChild(rulerCorner);
 
     const rulerTicksWrap = document.createElement('div');
-    rulerTicksWrap.style.cssText = 'display: flex; align-items: stretch; padding: 0 6px; gap: 4px;';
+    rulerTicksWrap.style.cssText = 'display: flex; align-items: stretch; padding: 0 4px; gap: 3px;';
     const displayTicks = Math.min(totalTicks, 240);
     for (let t = 0; t < displayTicks; t++) {
       const isCurTick = t === curTick;
@@ -720,7 +709,7 @@ export class RasterAnimatorUI {
       tickEl.title = `Scrub to Tick #${t + 1}`;
       tickEl.style.cssText = `
         width: ${TICK_COL_WIDTH}px; min-width: ${TICK_COL_WIDTH}px; display: flex; align-items: center; justify-content: center;
-        font-family: var(--font-mono); font-size: 9.5px; font-weight: 800; cursor: pointer; border-radius: 2px;
+        font-family: var(--font-mono); font-size: 8.5px; font-weight: 800; cursor: pointer; border-radius: 2px;
         color: ${isCurTick ? 'var(--bg-dark)' : 'var(--text-muted)'};
         background: ${isCurTick ? 'var(--primary)' : 'transparent'};
       `;
@@ -733,7 +722,7 @@ export class RasterAnimatorUI {
     rulerRow.appendChild(rulerTicksWrap);
     strip.appendChild(rulerRow);
 
-    // 2. Per-Layer Track Rows
+    // 2. Compact Per-Layer Track Rows (28px height)
     layerIdsTopToBottom.forEach((lid) => {
       const isLayerActive = lid === activeLayerId;
       const track = this.animator.getLayerTrack(lid);
@@ -746,30 +735,27 @@ export class RasterAnimatorUI {
       rowEl.className = `raster-layer-track-row ${isLayerActive ? 'active' : ''}`;
       rowEl.dataset.layerId = String(lid);
       rowEl.style.cssText = `
-        display: flex; align-items: stretch; min-height: 62px; border-bottom: 1px solid var(--border);
+        display: flex; align-items: stretch; min-height: 28px; height: 28px; border-bottom: 1px solid var(--border);
         background: ${isLayerActive ? 'rgba(16, 185, 129, 0.06)' : 'var(--bg-dark)'};
       `;
 
-      // Left Sticky Layer Info Header
+      // Left Sticky Single-Line Layer Header (118px)
       const layerHeader = document.createElement('div');
       layerHeader.style.cssText = `
-        width: 170px; min-width: 170px; padding: 6px 8px; display: flex; flex-direction: column; justify-content: space-between;
+        width: 118px; min-width: 118px; padding: 0 4px; display: flex; align-items: center; justify-content: space-between; gap: 3px;
         border-right: 1px solid var(--border); position: sticky; left: 0; z-index: 3; box-sizing: border-box; cursor: pointer;
         background: ${isLayerActive ? 'var(--bg-panel)' : 'var(--bg-panel-sub)'};
-        border-left: 3px solid ${isLayerActive ? 'var(--primary)' : 'transparent'};
+        border-left: 2px solid ${isLayerActive ? 'var(--primary)' : 'transparent'};
       `;
 
-      const topRow = document.createElement('div');
-      topRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 4px;';
-
       const nameWrap = document.createElement('div');
-      nameWrap.style.cssText = 'display: flex; align-items: center; gap: 5px; overflow: hidden;';
+      nameWrap.style.cssText = 'display: flex; align-items: center; gap: 3px; overflow: hidden; flex: 1; min-width: 0;';
 
       const visBtn = document.createElement('button');
       visBtn.type = 'button';
       visBtn.className = 'ip-btn ip-mini-btn';
       visBtn.title = 'Toggle Layer Visibility';
-      visBtn.style.cssText = `padding: 0 4px; height: 18px; font-size: 9.5px; opacity: ${isVis ? '1' : '0.4'};`;
+      visBtn.style.cssText = `padding: 0 2px; min-width: 16px; height: 16px; font-size: 8.5px; opacity: ${isVis ? '1' : '0.4'}; flex-shrink: 0;`;
       visBtn.textContent = isVis ? '👁' : '—';
       visBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -781,55 +767,37 @@ export class RasterAnimatorUI {
       });
 
       const nameSpan = document.createElement('span');
-      nameSpan.style.cssText = `font-size: 10.5px; font-weight: ${isLayerActive ? '800' : '600'}; color: ${isLayerActive ? 'var(--primary)' : 'var(--text)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
+      nameSpan.style.cssText = `font-size: 9.5px; font-weight: ${isLayerActive ? '800' : '600'}; color: ${isLayerActive ? 'var(--primary)' : 'var(--text)'}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;`;
       nameSpan.textContent = layerName;
 
       nameWrap.appendChild(visBtn);
       nameWrap.appendChild(nameSpan);
-      topRow.appendChild(nameWrap);
 
-      const bottomRow = document.createElement('div');
-      bottomRow.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 4px;';
+      const rightWrap = document.createElement('div');
+      rightWrap.style.cssText = 'display: flex; align-items: center; gap: 2px; flex-shrink: 0;';
 
-      const layerStats = document.createElement('span');
       const layerTicks = this.animator.getLayerDurationTicks ? this.animator.getLayerDurationTicks(lid) : frames.length;
-      layerStats.style.cssText = 'font-size: 9px; font-family: var(--font-mono); color: var(--text-muted);';
-      layerStats.textContent = `${frames.length} ${frames.length === 1 ? 'cel' : 'cels'} (${layerTicks}f)`;
-
-      const quickBtns = document.createElement('div');
-      quickBtns.style.cssText = 'display: flex; gap: 3px;';
+      const layerStats = document.createElement('span');
+      layerStats.style.cssText = 'font-size: 8px; font-family: var(--font-mono); color: var(--text-muted);';
+      layerStats.textContent = `${layerTicks}f`;
 
       const addLayerCelBtn = document.createElement('button');
       addLayerCelBtn.type = 'button';
       addLayerCelBtn.className = 'ip-btn ip-mini-btn';
-      addLayerCelBtn.title = `Add Blank Frame to ${layerName}`;
-      addLayerCelBtn.style.cssText = 'height: 18px; padding: 0 5px; font-size: 9px; font-weight: 800;';
-      addLayerCelBtn.textContent = '+Cel';
+      addLayerCelBtn.title = `Add Blank Cel to ${layerName}`;
+      addLayerCelBtn.style.cssText = 'min-width: 16px; height: 16px; padding: 0 3px; font-size: 9px; font-weight: 800;';
+      addLayerCelBtn.textContent = '+';
       addLayerCelBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.animator.selectLayerCel(lid, track.activeCelIndex);
         this.animator.addFrame(false, lid);
       });
 
-      const dupLayerCelBtn = document.createElement('button');
-      dupLayerCelBtn.type = 'button';
-      dupLayerCelBtn.className = 'ip-btn ip-mini-btn';
-      dupLayerCelBtn.title = `Duplicate Frame on ${layerName}`;
-      dupLayerCelBtn.style.cssText = 'height: 18px; padding: 0 5px; font-size: 9px;';
-      dupLayerCelBtn.textContent = 'Dup';
-      dupLayerCelBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.animator.selectLayerCel(lid, track.activeCelIndex);
-        this.animator.addFrame(true, lid);
-      });
+      rightWrap.appendChild(layerStats);
+      rightWrap.appendChild(addLayerCelBtn);
 
-      quickBtns.appendChild(addLayerCelBtn);
-      quickBtns.appendChild(dupLayerCelBtn);
-      bottomRow.appendChild(layerStats);
-      bottomRow.appendChild(quickBtns);
-
-      layerHeader.appendChild(topRow);
-      layerHeader.appendChild(bottomRow);
+      layerHeader.appendChild(nameWrap);
+      layerHeader.appendChild(rightWrap);
 
       layerHeader.addEventListener('click', () => {
         this.animator.selectLayerCel(lid, track.activeCelIndex);
@@ -839,59 +807,48 @@ export class RasterAnimatorUI {
 
       // Right Cels Track for this Layer
       const celsWrap = document.createElement('div');
-      celsWrap.style.cssText = 'display: flex; align-items: center; padding: 4px 6px; gap: 4px;';
+      celsWrap.style.cssText = 'display: flex; align-items: center; padding: 1px 4px; gap: 3px;';
 
       frames.forEach((cel, idx) => {
         const isCelActive = isLayerActive && idx === track.activeCelIndex;
         const dur = Math.max(1, Math.round(Number(cel.duration) || 1));
-        const cardWidth = Math.max(TICK_COL_WIDTH, Math.min(dur * TICK_COL_WIDTH + (dur - 1) * 4, 920));
+        const cardWidth = Math.max(TICK_COL_WIDTH, Math.min(dur * TICK_COL_WIDTH + (dur - 1) * 3, 920));
 
         const card = document.createElement('div');
         card.className = `raster-frame-card ${isCelActive ? 'active' : ''}`;
         card.dataset.layerId = String(lid);
         card.dataset.index = String(idx);
-        card.title = `${layerName} • Cel #${idx + 1} (Duration: ${dur} ${dur === 1 ? 'frame' : 'frames'}) — Drag right edge to resize duration`;
+        card.title = `${layerName} • Cel #${idx + 1} (${dur}f) — Drag right edge to resize duration`;
         card.style.cssText = `
-          position: relative; display: flex; flex-direction: column; justify-content: space-between;
-          width: ${cardWidth}px; min-width: ${cardWidth}px; height: 54px;
-          background: var(--bg-panel); border: 2px solid ${isCelActive ? 'var(--primary)' : (idx === track.activeCelIndex ? 'var(--border-bright)' : 'var(--border)')};
-          border-radius: var(--radius-sm); cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 3px 8px 3px 4px;
-          ${isCelActive ? 'box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);' : ''}
+          position: relative; display: flex; align-items: center; justify-content: space-between; gap: 2px;
+          width: ${cardWidth}px; min-width: ${cardWidth}px; height: 24px;
+          background: var(--bg-panel); border: 1.5px solid ${isCelActive ? 'var(--primary)' : (idx === track.activeCelIndex ? 'var(--border-bright)' : 'var(--border)')};
+          border-radius: 3px; cursor: pointer; flex-shrink: 0; box-sizing: border-box; padding: 1px 6px 1px 2px; overflow: hidden;
+          ${isCelActive ? 'box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);' : ''}
         `;
 
-        const bodyRow = document.createElement('div');
-        bodyRow.style.cssText = 'display: flex; align-items: center; gap: 6px; height: 34px; overflow: hidden;';
-
         const thumb = document.createElement('canvas');
-        thumb.width = 48;
-        thumb.height = 32;
-        thumb.style.cssText = 'width: 48px; height: 32px; background: #14171a; border-radius: 2px; display: block; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.06);';
+        thumb.width = 22;
+        thumb.height = 18;
+        thumb.style.cssText = 'width: 22px; height: 18px; background: #14171a; border-radius: 2px; display: block; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.06);';
         this.renderCelThumb(cel, thumb);
-        bodyRow.appendChild(thumb);
+        card.appendChild(thumb);
 
         if (dur > 1) {
           const holdBar = document.createElement('div');
-          holdBar.style.cssText = 'flex: 1; height: 6px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 6px, transparent 6px, transparent 10px); opacity: 0.45; border-radius: 3px;';
-          bodyRow.appendChild(holdBar);
+          holdBar.style.cssText = 'flex: 1; min-width: 4px; height: 4px; background: repeating-linear-gradient(90deg, var(--primary) 0px, var(--primary) 4px, transparent 4px, transparent 7px); opacity: 0.45; border-radius: 2px;';
+          card.appendChild(holdBar);
         }
-
-        const footer = document.createElement('div');
-        footer.style.cssText = 'display: flex; align-items: center; justify-content: space-between; width: 100%;';
-
-        const label = document.createElement('span');
-        label.style.cssText = `font-size: 9px; font-weight: 800; font-family: var(--font-mono); color: ${isCelActive ? 'var(--primary)' : 'var(--text-muted)'};`;
-        label.textContent = `#${idx + 1}`;
-        footer.appendChild(label);
 
         const holdBadge = document.createElement('span');
         holdBadge.title = 'Click to edit frame duration (unlimited frames)';
         holdBadge.style.cssText = `
-          font-size: 8.5px; font-weight: 800; font-family: var(--font-mono);
-          color: ${dur > 1 ? 'var(--bg-dark)' : 'var(--text-muted)'};
-          background: ${dur > 1 ? 'var(--primary)' : 'var(--bg-dark)'};
-          border-radius: 2px; padding: 0 4px; cursor: pointer;
+          font-size: 8px; font-weight: 800; font-family: var(--font-mono);
+          color: ${dur > 1 ? 'var(--bg-dark)' : (isCelActive ? 'var(--primary)' : 'var(--text-muted)')};
+          background: ${dur > 1 ? 'var(--primary)' : 'transparent'};
+          border-radius: 2px; padding: 0 2px; cursor: pointer; flex-shrink: 0;
         `;
-        holdBadge.textContent = `${dur}f`;
+        holdBadge.textContent = dur > 1 ? `${dur}f` : `#${idx + 1}`;
         holdBadge.addEventListener('click', (e) => {
           e.stopPropagation();
           this.animator.selectLayerCel(lid, idx);
@@ -901,15 +858,14 @@ export class RasterAnimatorUI {
             holdInput.select();
           }
         });
-        footer.appendChild(holdBadge);
+        card.appendChild(holdBadge);
 
         // Right-edge resize handle for dragging cel duration interactively
         const resizeHandle = document.createElement('div');
         resizeHandle.title = 'Drag horizontally to change frame duration';
         resizeHandle.style.cssText = `
-          position: absolute; top: 0; right: 0; width: 7px; height: 100%;
-          cursor: ew-resize; display: flex; align-items: center; justify-content: center;
-          background: rgba(255,255,255,0.04); border-left: 1px solid rgba(255,255,255,0.08);
+          position: absolute; top: 0; right: 0; width: 5px; height: 100%;
+          cursor: ew-resize; background: rgba(255,255,255,0.04); border-left: 1px solid rgba(255,255,255,0.08);
         `;
         resizeHandle.addEventListener('pointerdown', (e) => {
           e.stopPropagation();
@@ -931,9 +887,6 @@ export class RasterAnimatorUI {
           window.addEventListener('pointermove', onMove);
           window.addEventListener('pointerup', onUp);
         });
-
-        card.appendChild(bodyRow);
-        card.appendChild(footer);
         card.appendChild(resizeHandle);
 
         card.addEventListener('click', () => {
@@ -949,16 +902,16 @@ export class RasterAnimatorUI {
         celsWrap.appendChild(card);
       });
 
-      // Quick "+ Frame" button at the end of this layer's track
+      // Quick "+" button at the end of this layer's track
       const addCard = document.createElement('button');
       addCard.type = 'button';
-      addCard.title = `Add Blank Frame to ${layerName}`;
+      addCard.title = `Add Blank Cel to ${layerName}`;
       addCard.style.cssText = `
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
-        width: 40px; height: 54px; background: var(--bg-panel-sub); border: 1px dashed var(--border-bright);
-        border-radius: var(--radius-sm); color: var(--text-muted); cursor: pointer; flex-shrink: 0; font-size: 14px; font-weight: bold;
+        display: flex; align-items: center; justify-content: center;
+        width: 22px; height: 24px; background: var(--bg-panel-sub); border: 1px dashed var(--border-bright);
+        border-radius: 3px; color: var(--text-muted); cursor: pointer; flex-shrink: 0; font-size: 11px; font-weight: bold; padding: 0;
       `;
-      addCard.innerHTML = `<span>+</span><span style="font-size: 8px; font-weight: 700;">Cel</span>`;
+      addCard.textContent = '+';
       addCard.addEventListener('click', () => {
         this.animator.selectLayerCel(lid, frames.length - 1);
         this.animator.addFrame(false, lid);
