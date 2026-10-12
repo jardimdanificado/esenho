@@ -155,23 +155,31 @@ async function main() {
 
   host.canvasActor = await EsenhoModule.fromURL('plugins/canvas.wasm', { name: 'canvas' });
   const urlParams = new URLSearchParams(window.location.search);
-  const projectIdParam = urlParams.get('project') || urlParams.get('p') || urlParams.get('id');
+  const isNewProjectReq = urlParams.get('new') === '1';
+  const isEmbeddedMode = urlParams.get('embedded') === 'true';
+  const explicitProjectId = urlParams.get('project') || urlParams.get('p') || urlParams.get('id');
+  const candidateProjectId = explicitProjectId || ((!isNewProjectReq && !isEmbeddedMode) ? localStorage.getItem('esenho_last_project_id') : null);
   let projectLoaded = false;
+  let hasRestoredUserPreferences = false;
 
-  if (projectIdParam && typeof EsenhoStore !== 'undefined') {
+  if (candidateProjectId && typeof EsenhoStore !== 'undefined') {
     try {
-      const savedProj = await EsenhoStore.getProject(projectIdParam);
+      const savedProj = await EsenhoStore.getProject(candidateProjectId);
       if (savedProj) {
-        if (savedProj.type === 'vector' || (!savedProj.layers && (savedProj.jsonDoc || savedProj.svgData))) {
-          window.location.replace(`studio.html?project=${projectIdParam}`);
-          return;
+        const isVecProj = savedProj.type === 'vector' || (!savedProj.layers && (savedProj.jsonDoc || savedProj.svgData));
+        if (isVecProj) {
+          if (explicitProjectId) {
+            window.location.replace(`studio.html?project=${explicitProjectId}`);
+            return;
+          }
+        } else {
+          host.loadProject(savedProj);
+          projectLoaded = true;
+          host.currentProjectId = savedProj.id;
+          host.currentProjectName = savedProj.name || 'Untitled Project';
+          localStorage.setItem('esenho_last_project_id', savedProj.id);
+          log(`Loaded project '${savedProj.name}' (${savedProj.width}x${savedProj.height}) [ok]`);
         }
-        host.loadProject(savedProj);
-        projectLoaded = true;
-        host.currentProjectId = savedProj.id;
-        host.currentProjectName = savedProj.name || 'Untitled Project';
-        localStorage.setItem('esenho_last_project_id', savedProj.id);
-        log(`Loaded project '${savedProj.name}' (${savedProj.width}x${savedProj.height}) [ok]`);
       }
     } catch (e) {
       console.warn('Failed loading project from IndexedDB:', e);
@@ -187,7 +195,6 @@ async function main() {
     host.canvasActor.exports.w_init(initW, initH);
     host.currentProjectId = 'proj_' + Date.now();
     host.currentProjectName = urlParams.get('name') || 'Untitled Project';
-    localStorage.setItem('esenho_last_project_id', host.currentProjectId);
 
     // 1. Fill Background layer (slot 3) with chosen background color (default antique paper #fbf1c7)
     const bgColInt = parseColorString(bgParam, 0xFFC7F1FB);
@@ -212,27 +219,82 @@ async function main() {
         host.canvasActor.exports.w_set_active_layer(drawLayerId);
       }
     }
+  }
 
-    // Restore user preferences
-    try {
-      const savedTool = localStorage.getItem('esenho_last_tool');
-      if (savedTool !== null) host.currentTool = parseInt(savedTool, 10) || 0;
-      const savedAction = localStorage.getItem('esenho_last_action_mode');
-      if (savedAction) host.actionMode = savedAction;
-      const savedCol = localStorage.getItem('esenho_last_color');
-      if (savedCol) host.currentColor = parseInt(savedCol, 10) >>> 0;
-      const savedBP = localStorage.getItem('esenho_saved_brush_params');
-      if (savedBP) {
-        const parsedBP = JSON.parse(savedBP);
-        for (const [k, v] of Object.entries(parsedBP)) {
-          host.setBrushParam(k, v);
+  // Restore user preferences across sessions (both for new canvas and existing projects)
+  try {
+    const savedPreset = localStorage.getItem('esenho_last_brush_preset');
+    if (savedPreset) host.activeBrush = savedPreset;
+    const savedTex = localStorage.getItem('esenho_last_texture');
+    if (savedTex) host.activeTexture = savedTex;
+    const savedTool = localStorage.getItem('esenho_last_tool');
+    if (savedTool !== null && savedTool !== '') {
+      if (savedTool === '0') host.currentTool = 'brush';
+      else if (savedTool === '1') host.currentTool = 'eraser';
+      else host.currentTool = savedTool;
+    }
+    const savedAction = localStorage.getItem('esenho_last_action_mode');
+    if (savedAction) {
+      host.actionMode = savedAction;
+      host.strokeIsEraser = (savedAction === 'erase') ? 1 : 0;
+    }
+    const savedCol = localStorage.getItem('esenho_last_color');
+    if (savedCol !== null && savedCol !== '') {
+      const parsedCol = parseInt(savedCol, 10) >>> 0;
+      if (!isNaN(parsedCol)) {
+        host.currentColor = parsedCol;
+        if (host.canvasActor?.exports?.w_set_color) {
+          host.canvasActor.exports.w_set_color(parsedCol);
         }
       }
-    } catch (_) {}
+    }
+    const savedBP = localStorage.getItem('esenho_saved_brush_params');
+    if (savedBP) {
+      const parsedBP = JSON.parse(savedBP);
+      if (parsedBP && typeof parsedBP === 'object') {
+        for (const [k, v] of Object.entries(parsedBP)) {
+          if (k === 'texture') {
+            if (typeof v === 'string') host.activeTexture = v;
+          } else {
+            host.setBrushParam(k, v);
+          }
+        }
+      }
+    }
+    const savedWandTol = localStorage.getItem('esenho_wand_tolerance');
+    if (savedWandTol !== null) {
+      const wt = parseInt(savedWandTol, 10);
+      if (!isNaN(wt)) host.wandTolerance = wt;
+    }
+    const savedWandAdj = localStorage.getItem('esenho_wand_adjacent');
+    if (savedWandAdj !== null) host.wandAdjacent = savedWandAdj !== '0';
+    const savedSelMode = localStorage.getItem('esenho_selection_mode');
+    if (savedSelMode) host.selectionMode = savedSelMode;
+    const savedVecSub = localStorage.getItem('esenho_vector_sub_tool');
+    if (savedVecSub) host.vectorSubTool = savedVecSub;
+    const savedVecCurve = localStorage.getItem('esenho_vector_curve_mode');
+    if (savedVecCurve) host.vectorCurveMode = savedVecCurve;
+    const savedVecTol = localStorage.getItem('esenho_vector_fit_tol');
+    if (savedVecTol !== null) {
+      const vt = parseFloat(savedVecTol);
+      if (!isNaN(vt)) host.vectorFitTolerance = vt;
+    }
+    const savedVecAdd = localStorage.getItem('esenho_vector_marquee_add');
+    if (savedVecAdd !== null) host.vecMarqueeAdditive = savedVecAdd === '1';
+    const savedXMode = localStorage.getItem('esenho_transform_mode');
+    if (savedXMode) host.transformMode = savedXMode;
+    const savedXLock = localStorage.getItem('esenho_transform_lock_aspect');
+    if (savedXLock !== null) host.transformLockAspect = savedXLock === '1';
+    const savedXInterp = localStorage.getItem('esenho_transform_interp');
+    if (savedXInterp) host.transformInterpolation = savedXInterp;
+  } catch (_) {}
 
-    host.syncBrushParams(host.canvasActor);
-    host.canvasActor.exports.force_composite();
+  host.syncBrushParams(host.canvasActor);
+  if (host.activeTexture && host.activeTexture !== 'none') {
+    host.setTexture(host.activeTexture);
   }
+  host.canvasActor.exports.force_composite();
+  hasRestoredUserPreferences = true;
   log('canvas.wasm ready [ok]');
 
   // Initialize Frame-by-Frame Raster Animator
@@ -246,6 +308,16 @@ async function main() {
     }
     if (host.rasterAnimation) {
       host.rasterAnimator.fromJSON(host.rasterAnimation);
+    } else {
+      const savedFps = parseInt(localStorage.getItem('esenho_anim_fps'), 10);
+      if (!isNaN(savedFps) && savedFps >= 1 && savedFps <= 60) host.rasterAnimator.setFps(savedFps);
+      const savedLoop = localStorage.getItem('esenho_anim_loop');
+      if (savedLoop !== null) host.rasterAnimator.loop = savedLoop !== '0';
+      const savedOnion = localStorage.getItem('esenho_anim_onion');
+      if (savedOnion !== null) host.rasterAnimator.onionSkin = savedOnion === '1';
+    }
+    if (host.rasterAnimatorUI && localStorage.getItem('esenho_anim_dock_visible') === '1') {
+      host.rasterAnimatorUI.show();
     }
   } catch (err) {
     console.warn('[RasterAnimator] Init failed:', err);
@@ -295,44 +367,76 @@ async function main() {
   let initializedPan = false;
 
   let isCanvasDirty = false;
+  let autosaveDebounceTimer = null;
+
+  function setAutosaveBadges(text, color) {
+    ['ui-autosave-badge', 'ip-menu-autosave-badge'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.textContent = text;
+        el.style.color = color;
+      }
+    });
+  }
+
+  function scheduleAutosave(delayMs = 1500) {
+    if (isEmbeddedMode) return;
+    if (autosaveDebounceTimer) clearTimeout(autosaveDebounceTimer);
+    autosaveDebounceTimer = setTimeout(() => {
+      autosaveDebounceTimer = null;
+      performAutosave(false);
+    }, delayMs);
+  }
+
   function markCanvasDirty() {
     isCanvasDirty = true;
-    const badge = document.getElementById('ui-autosave-badge');
-    if (badge) {
-      badge.textContent = 'Unsaved';
-      badge.style.color = '#fabd2f';
-    }
+    setAutosaveBadges('Unsaved', '#fabd2f');
     saveUserPreferences();
+    scheduleAutosave(1500);
   }
 
   function markCanvasClean() {
     isCanvasDirty = false;
-    const badge = document.getElementById('ui-autosave-badge');
-    if (badge) {
-      badge.textContent = 'Saved';
-      badge.style.color = '#b8bb26';
-    }
+    setAutosaveBadges('Saved', '#b8bb26');
   }
 
   function saveUserPreferences() {
+    if (!hasRestoredUserPreferences) return;
     try {
       if (host.currentTool !== undefined) localStorage.setItem('esenho_last_tool', String(host.currentTool));
       if (host.actionMode) localStorage.setItem('esenho_last_action_mode', host.actionMode);
-      if (host.currentColor !== undefined) localStorage.setItem('esenho_last_color', String(host.currentColor));
+      if (host.activeBrush) localStorage.setItem('esenho_last_brush_preset', String(host.activeBrush));
+      if (host.activeTexture) localStorage.setItem('esenho_last_texture', String(host.activeTexture));
+      if (host.currentColor !== undefined) localStorage.setItem('esenho_last_color', String(host.currentColor >>> 0));
       if (host.brushParams) localStorage.setItem('esenho_saved_brush_params', JSON.stringify(host.brushParams));
-      if (host.currentProjectId) localStorage.setItem('esenho_last_project_id', host.currentProjectId);
+      if (host.wandTolerance !== undefined) localStorage.setItem('esenho_wand_tolerance', String(host.wandTolerance));
+      if (host.wandAdjacent !== undefined) localStorage.setItem('esenho_wand_adjacent', host.wandAdjacent ? '1' : '0');
+      if (host.selectionMode) localStorage.setItem('esenho_selection_mode', String(host.selectionMode));
+      if (host.vectorSubTool) localStorage.setItem('esenho_vector_sub_tool', String(host.vectorSubTool));
+      if (host.vectorCurveMode) localStorage.setItem('esenho_vector_curve_mode', String(host.vectorCurveMode));
+      if (host.vectorFitTolerance !== undefined) localStorage.setItem('esenho_vector_fit_tol', String(host.vectorFitTolerance));
+      if (host.vecMarqueeAdditive !== undefined) localStorage.setItem('esenho_vector_marquee_add', host.vecMarqueeAdditive ? '1' : '0');
+      if (host.transformMode) localStorage.setItem('esenho_transform_mode', String(host.transformMode));
+      if (host.transformLockAspect !== undefined) localStorage.setItem('esenho_transform_lock_aspect', host.transformLockAspect ? '1' : '0');
+      if (host.transformInterpolation) localStorage.setItem('esenho_transform_interp', String(host.transformInterpolation));
+      if (host.rasterAnimator) {
+        localStorage.setItem('esenho_anim_fps', String(host.rasterAnimator.fps || 12));
+        localStorage.setItem('esenho_anim_loop', host.rasterAnimator.loop ? '1' : '0');
+        localStorage.setItem('esenho_anim_onion', host.rasterAnimator.onionSkin ? '1' : '0');
+      }
+      if (host.rasterAnimatorUI) {
+        localStorage.setItem('esenho_anim_dock_visible', host.rasterAnimatorUI.visible ? '1' : '0');
+      }
     } catch (_) {}
   }
 
   async function performAutosave(force = false) {
+    if (isEmbeddedMode) return;
     if (!force && !isCanvasDirty) return;
     if (typeof EsenhoStore === 'undefined' || typeof host.exportProject !== 'function') return;
 
-    const badge = document.getElementById('ui-autosave-badge');
-    if (badge) {
-      badge.textContent = 'Saving...';
-      badge.style.color = '#fabd2f';
-    }
+    saveUserPreferences();
+    setAutosaveBadges('Saving...', '#fabd2f');
 
     try {
       const projName = host.currentProjectName || 'Untitled Project';
@@ -345,17 +449,24 @@ async function main() {
       markCanvasClean();
     } catch (e) {
       console.warn('Autosave failed:', e);
-      if (badge) {
-        badge.textContent = 'Save Error';
-        badge.style.color = '#fb4934';
-      }
+      setAutosaveBadges('Save Error', '#fb4934');
     }
   }
 
-  // Periodic autosave every 60s
+  // Periodic autosave every 30s + save on page hide / unload
   setInterval(() => {
     performAutosave(false);
-  }, 60000);
+  }, 30000);
+
+  window.addEventListener('beforeunload', () => {
+    saveUserPreferences();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      saveUserPreferences();
+      performAutosave(false);
+    }
+  });
 
 
   function resize() {
@@ -765,9 +876,54 @@ async function main() {
   }
 
   function initDraggableSheets() {
-    document.querySelectorAll('.ip-sheet, .touch-color-box').forEach(panel => {
+    let savedLayouts = {};
+    try {
+      savedLayouts = JSON.parse(localStorage.getItem('esenho_ip_panel_layouts') || '{}') || {};
+    } catch (_) {
+      savedLayouts = {};
+    }
+
+    const getPanelKey = (panel, idx) => {
+      if (panel.id) return panel.id;
+      const modal = panel.closest('.ip-sheet-modal, #touch-color-modal');
+      if (modal && modal.id) return modal.id;
+      return `panel_${idx}`;
+    };
+
+    const savePanelState = (key, panel) => {
+      try {
+        const cur = JSON.parse(localStorage.getItem('esenho_ip_panel_layouts') || '{}') || {};
+        cur[key] = {
+          left: panel.style.left || '',
+          top: panel.style.top || '',
+          userDragged: panel.dataset.userDragged === 'true',
+          collapsed: panel.classList.contains('is-collapsed')
+        };
+        localStorage.setItem('esenho_ip_panel_layouts', JSON.stringify(cur));
+      } catch (_) {}
+    };
+
+    document.querySelectorAll('.ip-sheet, .touch-color-box').forEach((panel, idx) => {
       if (panel.dataset.dragBound === 'true') return;
       panel.dataset.dragBound = 'true';
+      const panelKey = getPanelKey(panel, idx);
+      const saved = savedLayouts[panelKey];
+      if (saved) {
+        if (saved.collapsed) {
+          panel.classList.add('is-collapsed');
+        }
+        if (saved.userDragged && saved.left && saved.top) {
+          const parsedLeft = Math.max(4, Math.min(window.innerWidth - 80, parseFloat(saved.left) || 12));
+          const parsedTop = Math.max(4, Math.min(window.innerHeight - 48, parseFloat(saved.top) || 56));
+          panel.style.left = `${parsedLeft}px`;
+          panel.style.top = `${parsedTop}px`;
+          panel.style.right = 'auto';
+          panel.style.bottom = 'auto';
+          panel.style.transform = 'none';
+          panel.dataset.userDragged = 'true';
+        }
+      }
+
       const header = panel.querySelector('.ip-sheet-header, .touch-color-header');
       if (!header) return;
 
@@ -778,6 +934,7 @@ async function main() {
       header.addEventListener('dblclick', (e) => {
         if (e.target.closest('button, input, select')) return;
         panel.classList.toggle('is-collapsed');
+        savePanelState(panelKey, panel);
       });
 
       header.addEventListener('pointerdown', (e) => {
@@ -812,6 +969,7 @@ async function main() {
       const endDrag = (e) => {
         if (!dragging) return;
         dragging = false;
+        savePanelState(panelKey, panel);
         try { header.releasePointerCapture(e.pointerId); } catch (_) {}
       };
       header.addEventListener('pointerup', endDrag);
@@ -1146,7 +1304,8 @@ async function main() {
       const nIdx = selPath.hitTestNode(x, y, hitRad * 1.15);
       if (nIdx >= 0) {
         const n = selPath.nodes[nIdx];
-        const selSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+        const rawSel = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : [];
+        const selSet = rawSel instanceof Set ? rawSel : new Set(Array.isArray(rawSel) ? rawSel : []);
 
         if (isAdditive) {
           const nextSet = new Set(selSet);
@@ -2324,7 +2483,8 @@ async function main() {
           ctx.translate(-(cw * host.zoom) / 2, -(ch * host.zoom) / 2);
           const z = host.zoom;
           const selPath = host.getSelectedVectorPath();
-          const selNodeSet = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : new Set();
+          const rawSelNodes = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : [];
+          const selNodeSet = rawSelNodes instanceof Set ? rawSelNodes : new Set(Array.isArray(rawSelNodes) ? rawSelNodes : []);
 
           // 1. Subtle spine outline for unselected vector paths on this layer
           for (const p of (vl.paths || [])) {
@@ -3120,8 +3280,9 @@ async function main() {
       }
     };
 
-    const isVecMode = host.actionMode === 'vector';
-    const isVecLayer = host.isVectorLayer && host.isVectorLayer();
+    const isVecApp = !!window.ESENHO_VECTOR_PAINTER_MODE;
+    const isVecMode = isVecApp && host.actionMode === 'vector';
+    const isVecLayer = isVecApp && host.isVectorLayer && host.isVectorLayer();
 
     // 1. Floating Transform Context (Raster Layers Only)
     if (!isVecLayer && host.floatingTransform && host.floatingTransform.corners) {
@@ -3139,13 +3300,13 @@ async function main() {
       addSep();
     }
 
-    // 2. Vector Layer Mode / Vector Painter Context
-    if (isVecMode || isVecLayer) {
+    // 2. Vector Painter Context (vector-painter.html only)
+    if (isVecApp && (isVecMode || isVecLayer)) {
       const vl = host.getVectorLayer ? host.getVectorLayer() : null;
       const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
       const selNodeArr = host.getSelectedVectorNodeIndices ? host.getSelectedVectorNodeIndices() : [];
       const selNodeSet = new Set(Array.isArray(selNodeArr) ? selNodeArr : []);
-      addHeader(isVecLayer ? '◆ Vector Layer Mode' : 'Vector & Pen Studio');
+      addHeader('◆ Vector Painter Studio');
 
       const curVecSub = (host.actionMode === 'erase')
         ? 'erase'
@@ -3275,6 +3436,14 @@ async function main() {
           host.renderVectorLayer(); markCanvasDirty(); if (typeof syncUiFromHost === 'function') syncUiFromHost();
         });
 
+        addItem((selPath.fill ? '✓ ' : '') + 'Toggle Solid Fill', '', () => {
+          document.getElementById('btn-ip-vecbar-fill-toggle')?.click();
+        });
+
+        addItem('Duplicate Vector Path', '', () => {
+          document.getElementById('btn-ip-vecbar-dup-path')?.click();
+        });
+
         addItem('Simplify / Fit Selected Curve', '', () => {
           if (typeof selPath.simplify === 'function') {
             host.pushUndoSnapshot('simplify vector path');
@@ -3297,11 +3466,6 @@ async function main() {
       if (isVecLayer) {
         addItem('Export Vector Layer (.svg)', '', () => {
           document.getElementById('btn-ip-vecbar-export-svg')?.click();
-        });
-        addItem('Bake Vector Layer to Pixels', '', () => {
-          runCmd('rasterize layer');
-          host.setActionMode('draw');
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
         });
       }
       addSep();
@@ -3338,29 +3502,14 @@ async function main() {
 
     addSep();
 
-    // 5. Action Modes & Tools Submenu (Only shown on Raster Layers; Vector Layer uses Vector Tool Mode above)
+    // 5. Action Modes & Tools Submenu (Raster Layers Only)
     const curMode = host.actionMode || 'draw';
-    if (!isVecLayer) {
+    if (!isVecApp && !isVecLayer) {
       addSubmenu('Action Mode & Tools', [
         { type: 'item', label: (curMode === 'draw' ? '✓ ' : '') + 'Paint (Brush)', hotkey: 'B', action: () => { host.setActionMode('draw'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
         { type: 'item', label: (curMode === 'erase' ? '✓ ' : '') + 'Erase Mode', hotkey: 'E', action: () => { host.setActionMode('erase'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
         { type: 'item', label: (curMode === 'blend' ? '✓ ' : '') + 'Blend / Smudge Mode', action: () => { host.setActionMode('blend'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
         { type: 'item', label: (curMode === 'clone' ? '✓ ' : '') + 'Clone Stamp Mode', action: () => { host.setActionMode('clone'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: (curMode === 'vector' && host.vectorSubTool === 'pen' ? '✓ ' : '') + 'Pen Tool (Bézier Curves)', hotkey: 'P', action: () => {
-          host.vectorSubTool = 'pen';
-          host.setActionMode('vector');
-          if (host.enableVectorLayer) host.enableVectorLayer();
-          vecPenActivePathId = null;
-          markCanvasDirty();
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        }},
-        { type: 'item', label: (curMode === 'vector' && host.vectorSubTool !== 'pen' ? '✓ ' : '') + 'Vector Node Editor (Nodes / Marquee)', hotkey: 'V', action: () => {
-          host.vectorSubTool = 'nodes';
-          host.setActionMode('vector');
-          if (host.enableVectorLayer) host.enableVectorLayer();
-          markCanvasDirty();
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        }},
         { type: 'item', label: (curMode === 'select' ? '✓ ' : '') + 'Selection Mode', hotkey: 'M', action: () => {
           host.setActionMode('select');
           host.currentTool = 'select_rect';
@@ -9055,7 +9204,7 @@ async function main() {
   const chkViewportFilter = document.getElementById('ui-chk-viewport-filter');
   const ipChkViewportFilter = document.getElementById('ip-chk-viewport-filter');
   host.viewportFiltering = localStorage.getItem('esenho_viewport_filter') === '1';
-  const syncViewportFilter = (val) => {
+  const syncViewportFilter = (val, isUserAction = false) => {
     host.setViewportFiltering(val);
     if (chkViewportFilter) chkViewportFilter.checked = host.viewportFiltering;
     if (ipChkViewportFilter) ipChkViewportFilter.checked = host.viewportFiltering;
@@ -9066,17 +9215,21 @@ async function main() {
     if (canvasEl) canvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
     if (uiCanvasEl) uiCanvasEl.style.imageRendering = host.viewportFiltering ? 'auto' : 'pixelated';
     localStorage.setItem('esenho_viewport_filter', host.viewportFiltering ? '1' : '0');
-    markCanvasDirty();
+    if (isUserAction) {
+      markCanvasDirty();
+    } else {
+      host.render();
+    }
   };
   if (chkViewportFilter) {
     chkViewportFilter.checked = !!host.viewportFiltering;
-    chkViewportFilter.addEventListener('change', () => syncViewportFilter(chkViewportFilter.checked));
+    chkViewportFilter.addEventListener('change', () => syncViewportFilter(chkViewportFilter.checked, true));
   }
   if (ipChkViewportFilter) {
     ipChkViewportFilter.checked = !!host.viewportFiltering;
-    ipChkViewportFilter.addEventListener('change', () => syncViewportFilter(ipChkViewportFilter.checked));
+    ipChkViewportFilter.addEventListener('change', () => syncViewportFilter(ipChkViewportFilter.checked, true));
   }
-  syncViewportFilter(host.viewportFiltering);
+  syncViewportFilter(host.viewportFiltering, false);
 
   const chkBrushOutline = document.getElementById('ui-chk-brush-outline');
   const ipChkBrushOutline = document.getElementById('ip-chk-brush-outline');
@@ -9240,8 +9393,10 @@ async function main() {
       valToolbarScale.textContent = `${Math.round(scale * 100)}%`;
     }
     if (selToolbarScale) {
-      selToolbarScale.value = String(scale);
-      if (selToolbarScale.selectedIndex === -1) {
+      const matchOpt = Array.from(selToolbarScale.options).find(o => Math.abs(parseFloat(o.value) - scale) < 0.001);
+      if (matchOpt) {
+        selToolbarScale.value = matchOpt.value;
+      } else {
         const opt = document.createElement('option');
         opt.value = String(scale);
         opt.textContent = `Custom (${Math.round(scale * 100)}%)`;
@@ -9311,8 +9466,10 @@ async function main() {
       if (isAuto) {
         sEl.value = 'auto';
       } else {
-        sEl.value = String(effective);
-        if (sEl.selectedIndex === -1) {
+        const matchOpt = Array.from(sEl.options).find(o => o.value !== 'auto' && Math.abs(parseFloat(o.value) - effective) < 0.001);
+        if (matchOpt) {
+          sEl.value = matchOpt.value;
+        } else {
           const opt = document.createElement('option');
           opt.value = String(effective);
           opt.textContent = `Custom (${Math.round(effective * 100)}%)`;
@@ -10183,7 +10340,8 @@ async function main() {
           }
           return { x: anchorOrEv?.clientX || 120, y: anchorOrEv?.clientY || 120 };
         };
-        const isVecLyr = host.isVectorLayer && host.isVectorLayer(i);
+        const isVecApp = !!window.ESENHO_VECTOR_PAINTER_MODE;
+        const isVecLyr = isVecApp && host.isVectorLayer && host.isVectorLayer(i);
         const curBlendObj = BLEND_MODE_NAMES.find(b => b.val === blendMode) || BLEND_MODE_NAMES[0];
         const blendChildren = BLEND_MODE_NAMES.map(b => ({
           type: 'item',
@@ -10271,7 +10429,7 @@ async function main() {
           );
         }
 
-        if (isVecLyr) {
+        if (isVecApp && isVecLyr) {
           layerActions.push(
             { type: 'item', label: 'Edit Vector Nodes on Layer', action: () => {
               host.vectorSubTool = 'nodes';
@@ -10281,22 +10439,6 @@ async function main() {
             }},
             { type: 'item', label: 'Export Vector SVG (.svg)', action: () => {
               document.getElementById('btn-ip-vecbar-export-svg')?.click();
-            }},
-            { type: 'item', label: 'Bake Vector Layer to Pixels', action: () => {
-              runCmd('rasterize layer');
-              host.setActionMode('draw');
-              syncUiFromHost();
-            }},
-            { type: 'sep' }
-          );
-        } else {
-          layerActions.push(
-            { type: 'item', label: 'Convert to Vector Layer', action: () => {
-              if (host.enableVectorLayer) host.enableVectorLayer(i);
-              host.vectorSubTool = 'nodes';
-              host.setActionMode('vector');
-              markCanvasDirty();
-              syncUiFromHost();
             }},
             { type: 'sep' }
           );
@@ -10532,11 +10674,29 @@ async function main() {
     if (chkBrushOutline) {
       chkBrushOutline.checked = !!host.showBrushOutline;
     }
+    if (ipChkBrushOutline) {
+      ipChkBrushOutline.checked = !!host.showBrushOutline;
+    }
     if (chkTouchUndoRedo) {
       chkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
     }
+    if (ipChkTouchUndoRedo) {
+      ipChkTouchUndoRedo.checked = !!host.enableTouchUndoRedo;
+    }
     if (chkTouchEyedropper) {
       chkTouchEyedropper.checked = !!host.enableTouchEyedropper;
+    }
+    if (ipChkTouchEyedropper) {
+      ipChkTouchEyedropper.checked = !!host.enableTouchEyedropper;
+    }
+    if (ipSliderMaxUndo && host.maxUndoSteps !== undefined) {
+      ipSliderMaxUndo.value = host.maxUndoSteps;
+      if (ipValMaxUndo) {
+        ipValMaxUndo.textContent = host.maxUndoSteps === 0 ? 'Unlimited (∞)' : `${host.maxUndoSteps} steps`;
+      }
+    }
+    if (ipSelRenderer && host.renderMode) {
+      ipSelRenderer.value = host.renderMode;
     }
 
     saveUserPreferences();
@@ -11067,10 +11227,8 @@ async function main() {
           btn.addEventListener('click', () => { toggleSheet('sheet-layers'); triggerHaptic(12); });
         } else if (aDef.id === 'grid') {
           btn.addEventListener('click', () => {
-            host.showPixelGrid = !host.showPixelGrid;
-            if (chkPixelGrid) chkPixelGrid.checked = host.showPixelGrid;
+            syncPixelGrid(!host.showPixelGrid);
             btn.classList.toggle('active', !!host.showPixelGrid);
-            host.render();
             triggerHaptic(10);
           });
         } else if (aDef.id === 'symmetry') {
@@ -11334,6 +11492,9 @@ async function main() {
 
     const btnCloseHudCust = document.getElementById('btn-ip-hud-save-close');
     if (btnCloseHudCust) btnCloseHudCust.addEventListener('click', () => {
+      try {
+        localStorage.setItem('esenho_ip_hud_config', JSON.stringify(ipActiveHudConfig));
+      } catch (_) {}
       document.getElementById('sheet-hud-customizer')?.classList.remove('active');
     });
 
@@ -11799,6 +11960,175 @@ async function main() {
     document.getElementById('btn-ip-sheet-vec-bake')?.addEventListener('click', doVecRasterize);
     document.getElementById('btn-sheet-vec-bake')?.addEventListener('click', doVecRasterize);
     document.getElementById('btn-top-vec-bake')?.addEventListener('click', doVecRasterize);
+    document.getElementById('btn-ip-export-svg-menu')?.addEventListener('click', exportVectorLayerSvg);
+    document.getElementById('btn-sheet-vec-taper')?.addEventListener('click', applyVectorTaper);
+    document.getElementById('btn-vec-path-delete')?.addEventListener('click', doVecDelPath);
+
+    const doVecDuplicatePath = () => {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (vl && selPath && typeof selPath.clone === 'function') {
+        host.pushUndoSnapshot('duplicate vector path');
+        const copy = selPath.clone();
+        copy.name = `${selPath.name || 'Path'} Copy`;
+        if (typeof copy.translate === 'function') copy.translate(16, 16);
+        vl.paths.push(copy);
+        host.selectVectorPath(copy.id, 0);
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-dup-path')?.addEventListener('click', doVecDuplicatePath);
+    document.getElementById('btn-vec-path-dup')?.addEventListener('click', doVecDuplicatePath);
+
+    const doVecToggleFill = () => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        host.pushUndoSnapshot('toggle vector fill');
+        const hasFill = selPath.fill && selPath.fill !== 'none';
+        const fillInput = document.getElementById('ip-vec-fill-color');
+        selPath.fill = hasFill ? 'none' : ((fillInput && fillInput.value) || selPath.stroke || host._colorToHex(host.currentColor));
+        if (!hasFill) selPath.closed = true;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    };
+    document.getElementById('btn-ip-vecbar-fill-toggle')?.addEventListener('click', doVecToggleFill);
+
+    // Boolean Path Operations (Union, Subtract, Intersect, Exclude)
+    document.querySelectorAll('.btn-vec-boolean').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const op = btn.dataset.boolop || 'union';
+        if (host.performVectorBooleanOp && host.performVectorBooleanOp(op)) {
+          markCanvasDirty();
+          syncUiFromHost();
+          triggerHaptic(15);
+        }
+      });
+    });
+
+    // Stroke & Fill Surface Inspector
+    const inpVecStrokeCol = document.getElementById('ip-vec-stroke-color');
+    inpVecStrokeCol?.addEventListener('input', (e) => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        selPath.stroke = e.target.value;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+      }
+    });
+
+    const inpVecStrokeWidth = document.getElementById('ip-vec-stroke-width');
+    const lblVecStrokeWidth = document.getElementById('ip-vec-stroke-width-val');
+    inpVecStrokeWidth?.addEventListener('input', (e) => {
+      const sw = Math.max(1, parseInt(e.target.value, 10) || 1);
+      if (lblVecStrokeWidth) lblVecStrokeWidth.textContent = `${sw}px`;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        selPath.strokeWidth = sw;
+        if (selPath.brushConfig) selPath.brushConfig.size = sw;
+        host.renderVectorLayer();
+        markCanvasDirty();
+      }
+    });
+
+    const chkVecFillEnabled = document.getElementById('chk-ip-vec-fill-enabled');
+    const inpVecFillCol = document.getElementById('ip-vec-fill-color');
+    chkVecFillEnabled?.addEventListener('change', (e) => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        host.pushUndoSnapshot('toggle vector fill');
+        selPath.fill = e.target.checked ? ((inpVecFillCol && inpVecFillCol.value) || selPath.stroke || '#8ec07c') : 'none';
+        if (e.target.checked) selPath.closed = true;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+      }
+    });
+    inpVecFillCol?.addEventListener('input', (e) => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (selPath) {
+        if (chkVecFillEnabled) chkVecFillEnabled.checked = true;
+        selPath.fill = e.target.value;
+        selPath.closed = true;
+        host.renderVectorLayer();
+        markCanvasDirty();
+        syncUiFromHost();
+      }
+    });
+
+    document.getElementById('btn-ip-vec-apply-active-brush')?.addEventListener('click', () => {
+      if (host.applyCurrentBrushStyleToSelectedVectorPaths) {
+        host.pushUndoSnapshot('apply brush to vector path');
+        host.applyCurrentBrushStyleToSelectedVectorPaths({ all: true, color: true });
+        markCanvasDirty();
+        syncUiFromHost();
+        triggerHaptic(12);
+      }
+    });
+
+    // Path Geometry Transform & Z-Order
+    const transformSelectedVecPath = (fn) => {
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (!selPath || typeof selPath.getBounds !== 'function') return;
+      host.pushUndoSnapshot('transform vector path');
+      const b = selPath.getBounds();
+      const cx = (b.minX + b.maxX) / 2;
+      const cy = (b.minY + b.maxY) / 2;
+      fn(selPath, cx, cy, b);
+      host.renderVectorLayer();
+      markCanvasDirty();
+      syncUiFromHost();
+      triggerHaptic(10);
+    };
+    document.getElementById('btn-vec-path-rot-ccw')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => { if (typeof p.rotate === 'function') p.rotate(-Math.PI / 2, cx, cy); });
+    });
+    document.getElementById('btn-vec-path-rot-cw')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => { if (typeof p.rotate === 'function') p.rotate(Math.PI / 2, cx, cy); });
+    });
+    document.getElementById('btn-vec-path-fliph')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => { if (typeof p.scale === 'function') p.scale(-1, 1, cx, cy); });
+    });
+    document.getElementById('btn-vec-path-flipv')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => { if (typeof p.scale === 'function') p.scale(1, -1, cx, cy); });
+    });
+    document.getElementById('btn-vec-path-scale-down')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => { if (typeof p.scale === 'function') p.scale(0.9, 0.9, cx, cy); });
+    });
+    document.getElementById('btn-vec-path-scale-up')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => { if (typeof p.scale === 'function') p.scale(1.1, 1.1, cx, cy); });
+    });
+    document.getElementById('btn-vec-path-center')?.addEventListener('click', () => {
+      transformSelectedVecPath((p, cx, cy) => {
+        const cw = host.canvasActor?.exports?.get_canvas_width ? host.canvasActor.exports.get_canvas_width() : 1280;
+        const ch = host.canvasActor?.exports?.get_canvas_height ? host.canvasActor.exports.get_canvas_height() : 720;
+        if (typeof p.translate === 'function') p.translate((cw / 2) - cx, (ch / 2) - cy);
+      });
+    });
+
+    const moveSelectedVecPathOrder = (delta) => {
+      const vl = host.getVectorLayer ? host.getVectorLayer() : null;
+      const selPath = host.getSelectedVectorPath ? host.getSelectedVectorPath() : null;
+      if (!vl || !selPath || !Array.isArray(vl.paths)) return;
+      const idx = vl.paths.findIndex(p => p.id === selPath.id);
+      const nextIdx = idx + delta;
+      if (idx < 0 || nextIdx < 0 || nextIdx >= vl.paths.length) return;
+      host.pushUndoSnapshot('reorder vector path');
+      const [item] = vl.paths.splice(idx, 1);
+      vl.paths.splice(nextIdx, 0, item);
+      host.renderVectorLayer();
+      markCanvasDirty();
+      syncUiFromHost();
+      triggerHaptic(10);
+    };
+    document.getElementById('btn-vec-path-forward')?.addEventListener('click', () => moveSelectedVecPathOrder(1));
+    document.getElementById('btn-vec-path-backward')?.addEventListener('click', () => moveSelectedVecPathOrder(-1));
 
     const createAndActivateVectorLayer = () => {
       vecPenActivePathId = null;
@@ -12198,9 +12528,8 @@ async function main() {
     const btnPixelGrid = document.getElementById('btn-ip-pixel-grid-toggle');
     if (btnPixelGrid) {
       btnPixelGrid.addEventListener('click', () => {
-        host.showPixelGrid = !host.showPixelGrid;
+        syncPixelGrid(!host.showPixelGrid);
         btnPixelGrid.classList.toggle('active', host.showPixelGrid);
-        host.render();
         triggerHaptic(10);
       });
     }
@@ -12287,7 +12616,8 @@ async function main() {
     const btnIpSaveProj = document.getElementById('btn-ip-save-proj');
     if (btnIpSaveProj) {
       btnIpSaveProj.addEventListener('click', async () => {
-        if (typeof handleSaveProject === 'function') await handleSaveProject();
+        saveUserPreferences();
+        await performAutosave(true);
         const badge = document.getElementById('ip-menu-autosave-badge');
         if (badge) { badge.textContent = 'Saved!'; badge.style.color = '#b8bb26'; }
         triggerHaptic(20);
@@ -12829,7 +13159,10 @@ async function main() {
     });
 
     // Vector Layer Mode State & Transition Handling
-    const isVecLayerActive = !!(host.isVectorLayer && host.isVectorLayer());
+    if (window.ESENHO_VECTOR_PAINTER_MODE && host.enableVectorLayer && (!host.isVectorLayer || !host.isVectorLayer())) {
+      host.enableVectorLayer();
+    }
+    const isVecLayerActive = !!window.ESENHO_VECTOR_PAINTER_MODE || !!(host.isVectorLayer && host.isVectorLayer());
     document.body.classList.toggle('is-vector-layer-mode', isVecLayerActive);
 
     if (isVecLayerActive && !host._lastVecLayerModeUi) {
@@ -12932,8 +13265,90 @@ async function main() {
     });
 
     document.getElementById('btn-ip-vecbar-closed')?.classList.toggle('active', !!(selPath && selPath.closed));
+    document.getElementById('btn-ip-vecbar-close-loop')?.classList.toggle('active', !!(selPath && selPath.closed));
     document.getElementById('btn-ip-sheet-vec-closed')?.classList.toggle('active', !!(selPath && selPath.closed));
     document.getElementById('btn-ip-vecbar-marquee-add')?.classList.toggle('active', !!host.vecMarqueeAdditive);
+    document.getElementById('btn-ip-vecbar-fill-toggle')?.classList.toggle('active', !!(selPath && selPath.fill && selPath.fill !== 'none'));
+
+    // Sync Vector Stroke & Fill Surface Inspector
+    const vecSelPathLabel = document.getElementById('ip-vec-selected-path-label');
+    if (vecSelPathLabel) {
+      if (selPath) {
+        const ptCount = Array.isArray(selPath.nodes) ? selPath.nodes.length : 0;
+        vecSelPathLabel.textContent = `Path #${selPath.id} (${ptCount} pts${selPath.closed ? ', closed' : ''})`;
+      } else {
+        vecSelPathLabel.textContent = 'No Path Selected';
+      }
+    }
+    const vecStrokeColorEl = document.getElementById('ip-vec-stroke-color');
+    if (vecStrokeColorEl && document.activeElement !== vecStrokeColorEl) {
+      const hex = selPath && selPath.brush && typeof selPath.brush.color === 'number'
+        ? '#' + ((selPath.brush.color >>> 8) & 0xFFFFFF).toString(16).padStart(6, '0')
+        : (typeof host.getFgHex === 'function' ? host.getFgHex() : '#10b981');
+      vecStrokeColorEl.value = hex;
+    }
+    const vecStrokeWidthEl = document.getElementById('ip-vec-stroke-width');
+    const vecStrokeWidthValEl = document.getElementById('ip-vec-stroke-width-val');
+    if (vecStrokeWidthEl && document.activeElement !== vecStrokeWidthEl) {
+      const sw = selPath && selPath.brush && selPath.brush.size ? Math.round(selPath.brush.size) : Math.round(host.brushSize || 12);
+      vecStrokeWidthEl.value = sw;
+      if (vecStrokeWidthValEl) vecStrokeWidthValEl.textContent = `${sw}px`;
+    }
+    const chkVecFill = document.getElementById('chk-ip-vec-fill-enabled');
+    const vecFillColorEl = document.getElementById('ip-vec-fill-color');
+    if (chkVecFill) {
+      const hasFill = !!(selPath && selPath.fill && selPath.fill !== 'none');
+      chkVecFill.checked = hasFill;
+      if (vecFillColorEl && hasFill && document.activeElement !== vecFillColorEl) {
+        vecFillColorEl.value = selPath.fill;
+      }
+    }
+
+    // Sync Active Layer Vector Paths List in Layers Sheet
+    const vecPathsListEl = document.getElementById('ip-vector-paths-list');
+    const vecPathsCountEl = document.getElementById('ip-sheet-vec-paths-count');
+    if (vecPathsCountEl) {
+      const totalPaths = vl && Array.isArray(vl.paths) ? vl.paths.length : 0;
+      vecPathsCountEl.textContent = `${totalPaths} path${totalPaths === 1 ? '' : 's'}`;
+    }
+    if (vecPathsListEl && vl && Array.isArray(vl.paths)) {
+      const sig = `${vl.selectedPathId}:${vl.paths.map(p => `${p.id}_${p.nodes?.length || 0}_${p.closed ? 1 : 0}_${p.fill || ''}_${p.brush?.color || 0}`).join('|')}`;
+      if (vecPathsListEl.dataset.renderSig !== sig) {
+        vecPathsListEl.dataset.renderSig = sig;
+        vecPathsListEl.innerHTML = '';
+        if (vl.paths.length === 0) {
+          vecPathsListEl.innerHTML = `<div style="font-size:11px; color:rgba(255,255,255,0.4); padding:6px 4px; text-align:center;">No vector paths on this layer yet. Draw with Pen or Vector Brush!</div>`;
+        } else {
+          for (let i = vl.paths.length - 1; i >= 0; i--) {
+            const p = vl.paths[i];
+            const isSel = p.id === vl.selectedPathId;
+            const cHex = p.brush && typeof p.brush.color === 'number'
+              ? '#' + ((p.brush.color >>> 8) & 0xFFFFFF).toString(16).padStart(6, '0')
+              : '#10b981';
+            const row = document.createElement('div');
+            row.style.cssText = `display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:8px; cursor:pointer; font-size:11px; background:${isSel ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.03)'}; border:1px solid ${isSel ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.06)'}; color:${isSel ? '#a7f3d0' : '#e4e4e7'};`;
+            row.innerHTML = `
+              <span style="display:flex; align-items:center; gap:6px; font-weight:${isSel ? '700' : '500'};">
+                <span style="width:10px; height:10px; border-radius:50%; background:${cHex}; border:1px solid rgba(255,255,255,0.4); display:inline-block;"></span>
+                Path #${p.id} ${p.closed ? '●' : '〰'}
+              </span>
+              <span style="font-size:10px; opacity:0.7;">${p.nodes ? p.nodes.length : 0} pts${p.fill && p.fill !== 'none' ? ' · Fill' : ''}</span>
+            `;
+            row.addEventListener('click', () => {
+              vl.selectedPathId = p.id;
+              vl.selectedNodeIdx = p.nodes && p.nodes.length ? 0 : -1;
+              if (vl.selectedNodeIndices instanceof Set) vl.selectedNodeIndices.clear();
+              if (host.setActionMode) host.setActionMode('vector');
+              else host.actionMode = 'vector';
+              host.vectorSubTool = host.vectorSubTool || 'nodes';
+              host.markOverlayDirty?.();
+              syncUiFromHost();
+            });
+            vecPathsListEl.appendChild(row);
+          }
+        }
+      }
+    }
 
     const topVecInfo = document.getElementById('ip-top-vec-layer-info');
     if (topVecInfo && isVecLayerActive) {
@@ -13209,6 +13624,7 @@ async function main() {
       }
       setSel('ip-sel-tex-mode', bp.texture_mode ?? 0);
     }
+    saveUserPreferences();
   }
 
   // Initial population

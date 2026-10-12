@@ -6586,6 +6586,71 @@ class EsenhoScreenHost {
   }
 
   /**
+   * Performs a boolean polygon operation ('union' | 'subtract' | 'intersect' | 'exclude')
+   * between the second-to-last (or previous) path and the currently selected path on a Vector Layer.
+   */
+  performVectorBooleanOp(op = 'union', layerId) {
+    const SE = getSvgEngine();
+    const SB = (typeof window !== 'undefined' && window.SvgBoolean) ? window.SvgBoolean : (SE && SE.SvgBoolean);
+    if (!SE || !SE.SvgPath || !SB) return false;
+    const vl = this.getVectorLayer(layerId);
+    if (!vl || !Array.isArray(vl.paths) || vl.paths.length < 2) return false;
+
+    let selIdx = vl.paths.findIndex(p => p.id === vl.selectedPathId);
+    if (selIdx < 0) selIdx = vl.paths.length - 1;
+    const prevIdx = selIdx > 0 ? selIdx - 1 : selIdx + 1;
+    const pathA = vl.paths[prevIdx];
+    const pathB = vl.paths[selIdx];
+    if (!pathA || !pathB) return false;
+
+    const polyA = typeof pathA.toPolygon === 'function'
+      ? pathA.toPolygon(0.45)
+      : (typeof pathA.getEvaluatedPoints === 'function' ? pathA.getEvaluatedPoints(0.45).map(pt => ({ x: pt.x, y: pt.y })) : []);
+    const polyB = typeof pathB.toPolygon === 'function'
+      ? pathB.toPolygon(0.45)
+      : (typeof pathB.getEvaluatedPoints === 'function' ? pathB.getEvaluatedPoints(0.45).map(pt => ({ x: pt.x, y: pt.y })) : []);
+    if (!polyA || polyA.length < 3 || !polyB || polyB.length < 3) return false;
+
+    const resultPolys = typeof SB.clipPolygons === 'function'
+      ? SB.clipPolygons(polyA, polyB, op)
+      : [];
+    if (!resultPolys || resultPolys.length === 0) return false;
+
+    this.pushUndoSnapshot(`vector boolean ${op}`);
+    const insertIdx = Math.min(prevIdx, selIdx);
+    const keepIds = new Set([pathA.id, pathB.id]);
+    vl.paths = vl.paths.filter(p => !keepIds.has(p.id));
+
+    let lastCreated = null;
+    resultPolys.forEach((poly, idx) => {
+      if (!poly || poly.length < 3) return;
+      const sp = typeof SB.polygonToSvgPath === 'function'
+        ? SB.polygonToSvgPath(poly, SE.SvgPath)
+        : SE.SvgPath.fromRawPoints(poly.map(pt => ({ x: pt.x, y: pt.y, pressure: 1.0 })), { mode: 'bezier', tolerance: 2.0 });
+      if (sp) {
+        sp.closed = true;
+        sp.stroke = pathA.stroke || pathB.stroke || this._colorToHex(this.currentColor);
+        sp.fill = (pathA.fill && pathA.fill !== 'none') ? pathA.fill : ((pathB.fill && pathB.fill !== 'none') ? pathB.fill : 'none');
+        sp.strokeWidth = pathA.strokeWidth || pathB.strokeWidth || 8;
+        sp.opacity = pathA.opacity !== undefined ? pathA.opacity : 1;
+        sp.brushPreset = pathA.brushPreset || 'pen';
+        sp.brushType = pathA.brushType || 'pen';
+        sp.brushConfig = pathA.brushConfig ? JSON.parse(JSON.stringify(pathA.brushConfig)) : JSON.parse(JSON.stringify(this.brushParams || {}));
+        sp.strokeTexture = pathA.strokeTexture ? JSON.parse(JSON.stringify(pathA.strokeTexture)) : null;
+        sp.name = `${op.charAt(0).toUpperCase() + op.slice(1)} Path ${vl.paths.length + 1}`;
+        vl.paths.splice(insertIdx + idx, 0, sp);
+        lastCreated = sp;
+      }
+    });
+
+    if (lastCreated) {
+      this.selectVectorPath(lastCreated.id, 0, layerId);
+    }
+    this.renderVectorLayer(layerId);
+    return true;
+  }
+
+  /**
    * Renders a single `SvgPath` onto the currently active WASM layer using `w_brush_stroke_ext`,
    * preserving brush preset parameters, grain texture, per-node pressure, widthScale, and tilt.
    */
@@ -6601,6 +6666,68 @@ class EsenhoScreenHost {
     const baseSize = Math.max(1, path.strokeWidth || cfg.size || 8);
     const baseOpacity = Math.max(1, Math.min(100, Math.round((path.opacity !== undefined ? path.opacity : 1) * 100)));
     const col = parseColorString(path.stroke || '#000000', this.currentColor) >>> 0;
+
+    // Render solid interior fill if enabled on path
+    if (path.fill && path.fill !== 'none' && pts.length >= 3) {
+      const lid = exports.get_active_layer ? exports.get_active_layer() : 3;
+      const ptr = exports.w_layer_get_pixels ? exports.w_layer_get_pixels(lid) : 0;
+      const lw = exports.w_layer_get_width ? exports.w_layer_get_width(lid) : 0;
+      const lh = exports.w_layer_get_height ? exports.w_layer_get_height(lid) : 0;
+      if (ptr && lw > 0 && lh > 0) {
+        const fillCol = parseColorString(path.fill, this.currentColor) >>> 0;
+        const fR = fillCol & 0xFF;
+        const fG = (fillCol >> 8) & 0xFF;
+        const fB = (fillCol >> 16) & 0xFF;
+        const fA = Math.round(((fillCol >>> 24) || 255) * (baseOpacity / 100));
+        if (fA > 0) {
+          const buf = new Uint32Array(this.canvasActor.memory.buffer, ptr, lw * lh);
+          let minY = lh, maxY = 0;
+          for (let i = 0; i < pts.length; i++) {
+            const py = pts[i].y;
+            if (py < minY) minY = py;
+            if (py > maxY) maxY = py;
+          }
+          const yStart = Math.max(0, Math.floor(minY));
+          const yEnd = Math.min(lh - 1, Math.ceil(maxY));
+          const xIntersections = [];
+          for (let y = yStart; y <= yEnd; y++) {
+            xIntersections.length = 0;
+            const scanY = y + 0.5;
+            for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+              const yi = pts[i].y, yj = pts[j].y;
+              if ((yi <= scanY && yj > scanY) || (yj <= scanY && yi > scanY)) {
+                const xi = pts[i].x, xj = pts[j].x;
+                xIntersections.push(xi + ((scanY - yi) / (yj - yi)) * (xj - xi));
+              }
+            }
+            xIntersections.sort((a, b) => a - b);
+            const rowOff = y * lw;
+            for (let k = 0; k + 1 < xIntersections.length; k += 2) {
+              const x0 = Math.max(0, Math.floor(xIntersections[k]));
+              const x1 = Math.min(lw - 1, Math.ceil(xIntersections[k + 1]));
+              for (let x = x0; x <= x1; x++) {
+                if (fA >= 255) {
+                  buf[rowOff + x] = ((255 << 24) | (fB << 16) | (fG << 8) | fR) >>> 0;
+                } else {
+                  const dst = buf[rowOff + x];
+                  const dA = (dst >>> 24) & 0xFF;
+                  if (dA === 0) {
+                    buf[rowOff + x] = ((fA << 24) | (fB << 16) | (fG << 8) | fR) >>> 0;
+                  } else {
+                    const invA = 255 - fA;
+                    const oA = Math.min(255, fA + ((dA * invA) >> 8));
+                    const oR = ((fR * fA + (dst & 0xFF) * invA) >> 8) & 0xFF;
+                    const oG = ((fG * fA + ((dst >> 8) & 0xFF) * invA) >> 8) & 0xFF;
+                    const oB = ((fB * fA + ((dst >> 16) & 0xFF) * invA) >> 8) & 0xFF;
+                    buf[rowOff + x] = ((oA << 24) | (oB << 16) | (oG << 8) | oR) >>> 0;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
 
     // Reset and configure WASM brush engine for this path
     if (typeof exports.w_brush_reset === 'function') {
@@ -10221,11 +10348,23 @@ class EsenhoScreenHost {
       updatedAt: new Date().toISOString(),
       thumbnail,
       settings: {
-        activeTool: this.currentTool || 0,
+        activeTool: this.currentTool || 'brush',
         actionMode: this.actionMode || 'draw',
+        activeBrush: this.activeBrush || 'custom',
+        activeTexture: this.activeTexture || 'none',
         currentColor: this.currentColor || 0xFF000000,
         activeLayerId: this.canvasActor.exports.get_active_layer ? this.canvasActor.exports.get_active_layer() : 3,
         brushParams: { ...this.brushParams },
+        wandTolerance: this.wandTolerance ?? 30,
+        wandAdjacent: this.wandAdjacent !== undefined ? !!this.wandAdjacent : true,
+        selectionMode: this.selectionMode || 'replace',
+        vectorSubTool: this.vectorSubTool || 'nodes',
+        vectorCurveMode: this.vectorCurveMode || 'bezier',
+        vectorFitTolerance: this.vectorFitTolerance ?? 2.5,
+        vecMarqueeAdditive: !!this.vecMarqueeAdditive,
+        transformMode: this.transformMode || 'scale',
+        transformLockAspect: !!this.transformLockAspect,
+        transformInterpolation: this.transformInterpolation || 'nearest',
         uiScale: this.uiScale || 'auto'
       },
       layerOrder,
@@ -10377,7 +10516,8 @@ class EsenhoScreenHost {
             id: targetId,
             paths: restoredPaths,
             selectedPathId: null,
-            selectedNodeIdx: -1
+            selectedNodeIdx: -1,
+            selectedNodeIndices: new Set()
           });
         }
 
@@ -10449,14 +10589,32 @@ class EsenhoScreenHost {
     // Restore settings
     if (projectData.settings) {
       const s = projectData.settings;
-      if (s.activeTool !== undefined) this.currentTool = s.activeTool;
+      if (s.activeTool !== undefined) {
+        this.currentTool = (s.activeTool === 0 || s.activeTool === '0') ? 'brush' : ((s.activeTool === 1 || s.activeTool === '1') ? 'eraser' : s.activeTool);
+      }
       if (s.actionMode !== undefined) this.actionMode = s.actionMode;
-      if (s.currentColor !== undefined) this.currentColor = s.currentColor;
-      if (s.uiScale !== undefined) this.uiScale = s.uiScale;
+      if (s.activeBrush !== undefined) this.activeBrush = s.activeBrush;
+      if (s.activeTexture !== undefined) this.activeTexture = s.activeTexture;
+      if (s.currentColor !== undefined) this.currentColor = s.currentColor >>> 0;
+      if (s.wandTolerance !== undefined) this.wandTolerance = s.wandTolerance;
+      if (s.wandAdjacent !== undefined) this.wandAdjacent = !!s.wandAdjacent;
+      if (s.selectionMode !== undefined) this.selectionMode = s.selectionMode;
+      if (s.vectorSubTool !== undefined) this.vectorSubTool = s.vectorSubTool;
+      if (s.vectorCurveMode !== undefined) this.vectorCurveMode = s.vectorCurveMode;
+      if (s.vectorFitTolerance !== undefined) this.vectorFitTolerance = s.vectorFitTolerance;
+      if (s.vecMarqueeAdditive !== undefined) this.vecMarqueeAdditive = !!s.vecMarqueeAdditive;
+      if (s.transformMode !== undefined) this.transformMode = s.transformMode;
+      if (s.transformLockAspect !== undefined) this.transformLockAspect = !!s.transformLockAspect;
+      if (s.transformInterpolation !== undefined) this.transformInterpolation = s.transformInterpolation;
+      const hasLocalUiScale = (typeof localStorage !== 'undefined') && !!localStorage.getItem('esenho_ui_scale');
+      if (s.uiScale !== undefined && !hasLocalUiScale) this.uiScale = s.uiScale;
       if (s.brushParams) {
         for (const [k, v] of Object.entries(s.brushParams)) {
           this.setBrushParam(k, v);
         }
+      }
+      if (this.activeTexture && this.activeTexture !== 'none') {
+        this.setTexture(this.activeTexture);
       }
       if (s.activeLayerId !== undefined && layerMap.has(s.activeLayerId)) {
         const mappedActive = layerMap.get(s.activeLayerId);

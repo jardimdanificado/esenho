@@ -142,6 +142,11 @@
           flat = (d1 <= tolerance && d2 <= tolerance);
         }
 
+        const hasVarWidth = Math.abs(p1Width - p0Width) * (t1 - t0) > 0.03 || Math.abs(p1Press - p0Press) * (t1 - t0) > 0.03;
+        if (flat && hasVarWidth && lenSq > 36 && depth < 5) {
+          flat = false;
+        }
+
         if (flat || depth >= maxDepth) {
           points.push(makeSample(p1, t1));
           return;

@@ -3668,6 +3668,65 @@
         <canvas id="ruler-top" style="position: absolute; top: 0; left: 18px; height: 18px; width: calc(100% - 18px); background: var(--bg-panel-sub); border-bottom: 1px solid var(--border); z-index: 40; cursor: row-resize;"></canvas>
         <canvas id="ruler-left" style="position: absolute; top: 18px; left: 0; width: 18px; height: calc(100% - 18px); background: var(--bg-panel-sub); border-right: 1px solid var(--border); z-index: 40; cursor: col-resize;"></canvas>
 
+        <!-- Floating Canvas Tool Dock (Select, Nodes, Vector Brush, Pen, Shapes, Text, Hand) -->
+        <div id="studio-canvas-toolbar" style="position: absolute; top: 28px; left: 26px; z-index: 55; display: flex; flex-direction: column; gap: 3px; padding: 4px; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 7px; box-shadow: 0 6px 18px rgba(0,0,0,0.42);">
+          <button type="button" class="tool-btn active" data-tool="select" title="Select / Transform (V)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">⌖</button>
+          <button type="button" class="tool-btn" data-tool="node" title="Path Nodes &amp; Variable Width (A)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">⌘</button>
+          <button type="button" class="tool-btn" data-tool="brush" title="Real-Time Freehand Vector Brush (B)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">🖌</button>
+          <button type="button" class="tool-btn" data-tool="pen" title="Bézier Pen (P)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">✒</button>
+          <button type="button" class="tool-btn" data-tool="rect" title="Rectangle (R)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">▭</button>
+          <button type="button" class="tool-btn" data-tool="ellipse" title="Ellipse / Circle (O)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">◯</button>
+          <button type="button" class="tool-btn" data-tool="line" title="Line Segment (L)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">╱</button>
+          <button type="button" class="tool-btn" data-tool="text" title="Vector Typography (T)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">T</button>
+          <button type="button" class="tool-btn" data-tool="hand" title="Hand / Pan Canvas (H)" style="width: 28px; height: 28px; padding: 0; font-size: 13px; display: inline-flex; align-items: center; justify-content: center;">✋</button>
+        </div>
+
+        <!-- Floating Real-Time Vector Paint & Node HUD Bar -->
+        <div id="studio-vecpaint-bar" style="display: none; position: absolute; top: 24px; left: 50%; transform: translateX(-50%); z-index: 55; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 8px; padding: 4px 8px; gap: 6px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,0.45); max-width: calc(100% - 96px); overflow-x: auto; white-space: nowrap;">
+          <div id="vp-bar-draw-controls" style="display: flex; align-items: center; gap: 6px;">
+            <select id="vp-bar-preset" title="Vector Brush Preset" style="height: 24px; font-size: 11px; padding: 0 6px; min-width: 105px; background: var(--bg-panel-sub); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px;">
+              <option value="default">Solid Vector</option>
+              <option value="gpen">Manga G-Pen</option>
+              <option value="maru_pen">Maru Pen</option>
+              <option value="calligraphy">Calligraphy</option>
+              <option value="pencil_hb">Pencil HB</option>
+              <option value="pencil_6b">Sketch 6B</option>
+              <option value="charcoal">Charcoal</option>
+              <option value="pastel">Dry Pastel</option>
+              <option value="marker">Chisel Marker</option>
+              <option value="watercolor">Watercolor</option>
+              <option value="gouache">Gouache</option>
+              <option value="oil_paint">Impasto Oil</option>
+              <option value="airbrush">Soft Airbrush</option>
+              <option value="spray_paint">Graffiti Spray</option>
+              <option value="stipple">Stipple</option>
+              <option value="halftone_brush">Manga Screentone</option>
+            </select>
+            <input type="color" id="vp-bar-color" value="#fabd2f" title="Stroke Color" style="width: 24px; height: 24px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer;">
+            <div style="display: flex; align-items: center; gap: 4px;" title="Stroke Width (px)">
+              <input type="range" id="vp-bar-width" min="1" max="80" step="1" value="6" style="width: 68px; accent-color: var(--primary);">
+              <span id="vp-bar-width-lbl" style="font-size: 10px; font-family: monospace; color: var(--text-muted); min-width: 26px;">6px</span>
+            </div>
+            <button type="button" id="vp-bar-fit" title="Toggle Smooth Cubic Bézier Curve Fitting vs Raw Points" style="height: 24px; padding: 0 7px; font-size: 10px; font-weight: 600; border-radius: 4px; border: 1px solid var(--primary); color: var(--primary); background: rgba(215,153,33,0.12);">Bézier Fit</button>
+            <button type="button" id="vp-bar-taper" title="Auto-Taper Stroke Ends on Release" style="height: 24px; padding: 0 7px; font-size: 10px; border-radius: 4px; border: 1px solid var(--border); color: var(--text-muted); background: var(--bg-panel-sub);">Taper</button>
+            <button type="button" id="vp-bar-pen-done" title="Finish Pen Path (Enter)" style="display: none; height: 24px; padding: 0 8px; font-size: 10px; font-weight: 600; border-radius: 4px; border: 1px solid var(--success); color: var(--success); background: rgba(142,192,124,0.14);">✓ Done</button>
+          </div>
+          <div id="vp-bar-node-controls" style="display: none; align-items: center; gap: 5px;">
+            <button type="button" class="btn-secondary" data-vp-node-type="smooth" title="Smooth Node (Aligned Tangents)" style="height: 24px; padding: 0 6px; font-size: 10px;">Smooth</button>
+            <button type="button" class="btn-secondary" data-vp-node-type="symmetric" title="Symmetric Node (Equal Handles)" style="height: 24px; padding: 0 6px; font-size: 10px;">Sym</button>
+            <button type="button" class="btn-secondary" data-vp-node-type="cusp" title="Cusp Node (Independent Handles)" style="height: 24px; padding: 0 6px; font-size: 10px;">Cusp</button>
+            <button type="button" class="btn-secondary" data-vp-node-type="corner" title="Sharp Corner Node" style="height: 24px; padding: 0 6px; font-size: 10px;">Corner</button>
+            <div style="display: flex; align-items: center; gap: 4px; padding-left: 4px; border-left: 1px solid var(--border);" title="Selected Node Width Scale (%)">
+              <span style="font-size: 9px; color: var(--text-dim);">W%</span>
+              <input type="range" id="vp-bar-node-width" min="5" max="300" step="5" value="100" style="width: 60px; accent-color: var(--primary);">
+              <span id="vp-bar-node-width-lbl" style="font-size: 10px; font-family: monospace; color: var(--text-muted); min-width: 30px;">100%</span>
+            </div>
+            <button type="button" id="vp-bar-node-autotaper" class="btn-secondary" title="Auto-Taper Path Start &amp; End" style="height: 24px; padding: 0 6px; font-size: 10px;">Taper Ends</button>
+            <button type="button" id="vp-bar-node-close" class="btn-secondary" title="Toggle Closed Path" style="height: 24px; padding: 0 6px; font-size: 10px;">Close</button>
+            <button type="button" id="vp-bar-node-del" class="btn-secondary" title="Delete Selected Node(s)" style="height: 24px; padding: 0 6px; font-size: 10px; color: var(--danger); border-color: var(--danger);">✕</button>
+          </div>
+        </div>
+
         <div id="stage-wrapper">
           <canvas id="quadro-canvas"></canvas>
           <svg id="svg-stage" xmlns="http://www.w3.org/2000/svg" overflow="visible"></svg>
@@ -3811,7 +3870,17 @@
                 <option value="symmetric">Symmetric</option>
               </select>
             </div>
-            <button id="btn-delete-node" style="width: 100%; margin-top: 4px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Remove Selected Anchor</button>
+            <div class="form-row">
+              <label>Width % / Press %</label>
+              <div class="grid-2" style="width: 100%;">
+                <input type="number" id="prop-node-width" min="5" max="300" step="5" value="100" title="Per-Node Stroke Width Scale (%)">
+                <input type="number" id="prop-node-pressure" min="5" max="100" step="5" value="100" title="Node Stylus Pressure (%)">
+              </div>
+            </div>
+            <div style="display: flex; gap: 4px; margin-top: 4px;">
+              <button type="button" id="btn-node-autotaper" class="btn-secondary" style="flex: 1; font-size: 10px;" title="Auto-Taper Path Start &amp; End Widths">✦ Auto-Taper Ends</button>
+              <button type="button" id="btn-delete-node" style="flex: 1; font-size: 10px; border-color: var(--danger); color: var(--danger);" title="Remove selected anchor (Delete/Backspace)">Delete Anchor</button>
+            </div>
           </div>
         </div>
 
@@ -4298,6 +4367,10 @@
       let isDragging = false;
       let dragStartX = 0, dragStartY = 0;
       let currentDraftObj = null;
+      let currentBrushRawPoints = [];
+      let brushCurveFitMode = 'bezier'; // 'bezier' | 'raw'
+      let brushAutoTaper = false;
+      let lastPaintedPathId = null;
       let activeNodeIdx = -1;
       let selectedNodeIndices = new Set();
       let isNodeMarqueeSelecting = false;
@@ -4317,6 +4390,141 @@
       let resizeStartLocalPoint = { x: 0, y: 0 };
       let hoveredObj = null;
       let groupSelectMode = initialStudioSettings.groupSelectMode !== undefined ? Boolean(initialStudioSettings.groupSelectMode) : true;
+
+      function getNewVectorPaintObjectAttrs(baseAttrs = {}) {
+        const presetKey = document.getElementById('vp-bar-preset')?.value || document.getElementById('prop-brush-preset')?.value || 'default';
+        const presetCfg = (typeof BRUSH_PRESETS !== 'undefined' && BRUSH_PRESETS[presetKey]) ? BRUSH_PRESETS[presetKey] : {};
+        const readNum = (id, fallback) => {
+          const el = document.getElementById(id);
+          return (el && el.value !== '') ? Number(el.value) : fallback;
+        };
+        const brushConfig = {
+          preset: presetKey,
+          flow: readNum('prop-brush-flow', presetCfg.flow !== undefined ? presetCfg.flow : 100),
+          hardness: readNum('prop-brush-hardness', presetCfg.hardness !== undefined ? presetCfg.hardness : 95),
+          spacing: readNum('prop-brush-spacing', presetCfg.spacing !== undefined ? presetCfg.spacing : 8),
+          scatter: readNum('prop-brush-scatter', presetCfg.scatter !== undefined ? presetCfg.scatter : 0),
+          roundness: readNum('prop-brush-roundness', presetCfg.roundness !== undefined ? presetCfg.roundness : 100),
+          angle: readNum('prop-brush-angle', presetCfg.angle !== undefined ? presetCfg.angle : 0),
+          shape: readNum('prop-brush-shape', presetCfg.shape !== undefined ? presetCfg.shape : 0),
+          dabBlend: readNum('prop-brush-dab-blend', presetCfg.dabBlend !== undefined ? presetCfg.dabBlend : 0),
+          auto_rotate: document.getElementById('prop-brush-autorotate')?.value === '1' || Boolean(presetCfg.auto_rotate),
+          taper_in: readNum('prop-brush-taper-in', presetCfg.taper_in !== undefined ? presetCfg.taper_in : 0),
+          taper_out: readNum('prop-brush-taper-out', presetCfg.taper_out !== undefined ? presetCfg.taper_out : 0),
+          size_jitter: readNum('prop-brush-size-jitter', presetCfg.size_jitter !== undefined ? presetCfg.size_jitter : 0),
+          angle_jitter: readNum('prop-brush-angle-jitter', presetCfg.angle_jitter !== undefined ? presetCfg.angle_jitter : 0),
+          opacity_jitter: readNum('prop-brush-opacity-jitter', presetCfg.opacity_jitter !== undefined ? presetCfg.opacity_jitter : 0),
+          wetness: readNum('prop-brush-wetness', presetCfg.wetness !== undefined ? presetCfg.wetness : 0),
+          color_pickup: readNum('prop-brush-color-pickup', presetCfg.color_pickup !== undefined ? presetCfg.color_pickup : 0),
+          depletion: readNum('prop-brush-depletion', presetCfg.depletion !== undefined ? presetCfg.depletion : 0),
+          smudge: readNum('prop-brush-smudge', presetCfg.smudge !== undefined ? presetCfg.smudge : 0)
+        };
+        const texMode = readNum('prop-stroke-tex-mode', presetCfg.tex_mode !== undefined ? presetCfg.tex_mode : 0);
+        const strokeTexture = {
+          mode: texMode,
+          scale: readNum('prop-stroke-tex-scale', presetCfg.tex_scale !== undefined ? presetCfg.tex_scale : 100),
+          angle: readNum('prop-stroke-tex-angle', presetCfg.tex_angle !== undefined ? presetCfg.tex_angle : 0),
+          contrast: readNum('prop-stroke-tex-contrast', presetCfg.tex_contrast !== undefined ? presetCfg.tex_contrast : 100),
+          grain: readNum('prop-stroke-tex-grain', presetCfg.tex_grain !== undefined ? presetCfg.tex_grain : 0)
+        };
+        return Object.assign({
+          strokeLinecap: document.getElementById('prop-stroke-cap')?.value || 'round',
+          strokeLinejoin: document.getElementById('prop-stroke-join')?.value || 'round',
+          strokeHardness: brushConfig.hardness,
+          brushConfig,
+          strokeTexture
+        }, baseAttrs);
+      }
+
+      function applyPathAutoTaper(pathObj) {
+        if (!pathObj || !Array.isArray(pathObj.nodes) || pathObj.nodes.length < 2) return;
+        const nodes = pathObj.nodes;
+        const n = nodes.length;
+        if (n === 2) {
+          nodes[0].widthScale = 0.25;
+          nodes[1].widthScale = 0.25;
+          return;
+        }
+        const taperCount = Math.max(1, Math.min(4, Math.floor(n * 0.28)));
+        for (let i = 0; i < n; i++) {
+          let w = 1.0;
+          if (i < taperCount) {
+            w = 0.18 + 0.82 * ((i / taperCount) * (2 - (i / taperCount)));
+          } else if (i >= n - taperCount) {
+            const rem = (n - 1 - i) / taperCount;
+            w = 0.18 + 0.82 * (rem * (2 - rem));
+          }
+          nodes[i].widthScale = Math.round(w * 100) / 100;
+        }
+      }
+
+      function syncVectorPaintHudBar() {
+        const bar = document.getElementById('studio-vecpaint-bar');
+        if (!bar) return;
+        const drawControls = document.getElementById('vp-bar-draw-controls');
+        const nodeControls = document.getElementById('vp-bar-node-controls');
+        const btnPenDone = document.getElementById('vp-bar-pen-done');
+        const btnFit = document.getElementById('vp-bar-fit');
+        const btnTaper = document.getElementById('vp-bar-taper');
+
+        const isDrawTool = (activeTool === 'brush' || activeTool === 'pen' || activeTool === 'rect' || activeTool === 'ellipse' || activeTool === 'line');
+        const isNodeTool = (activeTool === 'node');
+
+        if (!isDrawTool && !isNodeTool) {
+          bar.style.display = 'none';
+          return;
+        }
+        bar.style.display = 'flex';
+        if (drawControls) drawControls.style.display = isDrawTool ? 'flex' : 'none';
+        if (nodeControls) nodeControls.style.display = isNodeTool ? 'flex' : 'none';
+        if (btnPenDone) btnPenDone.style.display = (activeTool === 'pen') ? 'inline-flex' : 'none';
+        if (btnFit) {
+          btnFit.style.display = (activeTool === 'brush') ? 'inline-flex' : 'none';
+          const fitOn = (brushCurveFitMode === 'bezier');
+          btnFit.style.color = fitOn ? 'var(--primary)' : 'var(--text-muted)';
+          btnFit.style.background = fitOn ? 'rgba(215,153,33,0.14)' : 'var(--bg-panel-sub)';
+          btnFit.style.borderColor = fitOn ? 'var(--primary)' : 'var(--border)';
+        }
+        if (btnTaper) {
+          btnTaper.style.display = (activeTool === 'brush') ? 'inline-flex' : 'none';
+          btnTaper.style.color = brushAutoTaper ? 'var(--primary)' : 'var(--text-muted)';
+          btnTaper.style.background = brushAutoTaper ? 'rgba(215,153,33,0.14)' : 'var(--bg-panel-sub)';
+          btnTaper.style.borderColor = brushAutoTaper ? 'var(--primary)' : 'var(--border)';
+        }
+
+        const sel = doc.getSelectedObjects();
+        const first = sel[0] || null;
+        const presetEl = document.getElementById('vp-bar-preset');
+        const propPresetEl = document.getElementById('prop-brush-preset');
+        if (presetEl) {
+          const targetPreset = (first && first.brushConfig && first.brushConfig.preset) ? first.brushConfig.preset : (propPresetEl?.value || presetEl.value || 'default');
+          if (presetEl.value !== targetPreset) presetEl.value = targetPreset;
+        }
+        const colorEl = document.getElementById('vp-bar-color');
+        const propStrokeText = document.getElementById('prop-stroke-text');
+        if (colorEl) {
+          const c = (first && first.stroke && first.stroke !== 'none' && first.stroke.startsWith('#')) ? first.stroke : (propStrokeText?.value && propStrokeText.value.startsWith('#') ? propStrokeText.value : '#fabd2f');
+          if (c.length === 7) colorEl.value = c;
+        }
+        const widthEl = document.getElementById('vp-bar-width');
+        const widthLbl = document.getElementById('vp-bar-width-lbl');
+        const propWidth = document.getElementById('prop-stroke-width');
+        if (widthEl) {
+          const w = (first && first.strokeWidth !== undefined) ? first.strokeWidth : (Number(propWidth?.value) || 6);
+          widthEl.value = w;
+          if (widthLbl) widthLbl.textContent = `${Math.round(w)}px`;
+        }
+        if (isNodeTool) {
+          const { node } = getActivePathAndNode();
+          const nwEl = document.getElementById('vp-bar-node-width');
+          const nwLbl = document.getElementById('vp-bar-node-width-lbl');
+          if (nwEl) {
+            const pct = node ? Math.round((node.widthScale !== undefined ? node.widthScale : 1.0) * 100) : 100;
+            nwEl.value = pct;
+            if (nwLbl) nwLbl.textContent = `${pct}%`;
+          }
+        }
+      }
 
       function setGroupSelectMode(enabled, notify = false) {
         groupSelectMode = Boolean(enabled);
@@ -5085,12 +5293,26 @@
       }
 
       // ── Render Loops ──
-      function renderFast(skipOverlay = false) {
+      function getInteractiveActiveIds() {
+        const ids = new Set();
+        if (currentDraftObj && currentDraftObj.id) ids.add(currentDraftObj.id);
+        if (currentPenPath && currentPenPath.id) ids.add(currentPenPath.id);
+        for (const id of doc.selectedIds) ids.add(id);
+        return ids;
+      }
+
+      function renderFast(skipOverlay = false, interactive = false) {
         if (viewportRenderMode === 'quadro' && quadroRenderer) {
           svgStage.style.display = 'none';
           quadroCanvas.style.display = 'block';
           try {
-            quadroRenderer.renderToCanvas(doc, quadroCanvas, { scale: quadroRenderScale, background: true });
+            const activeObjectIds = interactive ? getInteractiveActiveIds() : null;
+            quadroRenderer.renderToCanvas(doc, quadroCanvas, {
+              scale: quadroRenderScale,
+              background: true,
+              interactive: Boolean(interactive && activeObjectIds && activeObjectIds.size > 0),
+              activeObjectIds
+            });
           } catch (err) {
             console.error('[Quadro Render Error]:', err);
             svgStage.style.display = 'block';
@@ -5114,13 +5336,16 @@
         isDragRenderScheduled = true;
         requestAnimationFrame(() => {
           isDragRenderScheduled = false;
-          renderFast();
+          renderFast(false, true);
         });
       }
       window.scheduleFastRender = scheduleFastRender;
 
       function render() {
-        renderFast(false);
+        if (quadroRenderer && typeof quadroRenderer.invalidateInteractiveCache === 'function') {
+          quadroRenderer.invalidateInteractiveCache();
+        }
+        renderFast(false, false);
 
         // Update Sidebar & UI
         updateObjectList();
@@ -5730,6 +5955,15 @@
 
               // Anchor Point
               const isSelNode = (i === activeNodeIdx) || selectedNodeIndices.has(i);
+              const wScale = (node.widthScale !== undefined ? node.widthScale : 1.0) * (node.pressure !== undefined ? node.pressure : 1.0);
+              if (Math.abs(wScale - 1.0) > 0.03 || isSelNode) {
+                const sw = (obj.strokeWidth || 4) * wScale;
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, Math.max(3 / zoom, sw * 0.5), 0, Math.PI * 2);
+                ctx.strokeStyle = isSelNode ? 'rgba(254, 128, 25, 0.55)' : 'rgba(250, 189, 47, 0.35)';
+                ctx.lineWidth = 1.1 / zoom;
+                ctx.stroke();
+              }
               ctx.fillStyle = isSelNode ? '#fe8019' : '#fabd2f';
               ctx.strokeStyle = isSelNode ? '#ffffff' : '#1d2021';
               ctx.lineWidth = (isSelNode ? 2.0 : 1.5) / zoom;
@@ -6728,10 +6962,13 @@
               setVal('prop-node-x', fmtF(node.x));
               setVal('prop-node-y', fmtF(node.y));
               setVal('prop-node-type', node.type || 'smooth');
+              setVal('prop-node-width', Math.round((node.widthScale !== undefined ? node.widthScale : 1.0) * 100));
+              setVal('prop-node-pressure', Math.round((node.pressure !== undefined ? node.pressure : 1.0) * 100));
             } else {
               nodeSec.style.display = 'none';
             }
           }
+          if (typeof syncVectorPaintHudBar === 'function') syncVectorPaintHudBar();
           if (btnConvertPath) btnConvertPath.style.display = 'none';
         } else if (obj.type === 'group') {
           setDisplay('geom-path-fields', 'block');
@@ -7307,16 +7544,17 @@
           }
 
           if (!currentPenPath) {
-            currentPenPath = new SvgPath({
+            currentPenPath = new SvgPath(getNewVectorPaintObjectAttrs({
               fill: 'none',
-              stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
-              strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
-            });
+              stroke: document.getElementById('prop-stroke-text')?.value || '#fabd2f',
+              strokeWidth: Number(document.getElementById('prop-stroke-width')?.value) || 4
+            }));
             doc.addObject(currentPenPath);
             doc.select(currentPenPath.id);
           }
 
-          const node = currentPenPath.addNode(pt.x, pt.y, null, null, 'symmetric');
+          const penPress = (e.pointerType === 'pen' || (e.pressure > 0 && e.pressure !== 0.5)) ? Math.max(0.05, Math.min(1.0, e.pressure)) : 1.0;
+          const node = currentPenPath.addNode(pt.x, pt.y, null, null, 'symmetric', penPress, 1.0, e.tiltX || 0, e.tiltY || 0);
           activeNodeIdx = currentPenPath.nodes.length - 1;
           activeHandleType = 'out';
           isPenDraggingAnchor = true;
@@ -7328,40 +7566,56 @@
           updateInspector();
           updateObjectList();
         } else if (activeTool === 'rect') {
-          currentDraftObj = new SvgRect({
+          currentDraftObj = new SvgRect(getNewVectorPaintObjectAttrs({
             x: pt.x, y: pt.y, width: 1, height: 1,
-            fill: document.getElementById('prop-fill-text').value || '#fabd2f',
-            stroke: document.getElementById('prop-stroke-text').value || '#1d2021',
-            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
-          });
+            fill: document.getElementById('prop-fill-text')?.value || '#fabd2f',
+            stroke: document.getElementById('prop-stroke-text')?.value || '#1d2021',
+            strokeWidth: Number(document.getElementById('prop-stroke-width')?.value) || 2
+          }));
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
         } else if (activeTool === 'ellipse') {
-          currentDraftObj = new SvgEllipse({
+          currentDraftObj = new SvgEllipse(getNewVectorPaintObjectAttrs({
             cx: pt.x, cy: pt.y, rx: 1, ry: 1,
-            fill: document.getElementById('prop-fill-text').value || '#fabd2f',
-            stroke: document.getElementById('prop-stroke-text').value || '#1d2021',
-            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
-          });
+            fill: document.getElementById('prop-fill-text')?.value || '#fabd2f',
+            stroke: document.getElementById('prop-stroke-text')?.value || '#1d2021',
+            strokeWidth: Number(document.getElementById('prop-stroke-width')?.value) || 2
+          }));
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
         } else if (activeTool === 'line') {
-          currentDraftObj = new SvgLine({
+          currentDraftObj = new SvgLine(getNewVectorPaintObjectAttrs({
             x1: pt.x, y1: pt.y, x2: pt.x, y2: pt.y,
-            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
-            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 2
-          });
+            stroke: document.getElementById('prop-stroke-text')?.value || '#fabd2f',
+            strokeWidth: Number(document.getElementById('prop-stroke-width')?.value) || 2
+          }));
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
         } else if (activeTool === 'brush') {
-          currentDraftObj = new SvgPath({
+          if (quadroRenderer && viewportRenderMode !== 'quadro') {
+            viewportRenderMode = 'quadro';
+            if (typeof updateRendererMenuUi === 'function') updateRendererMenuUi();
+          }
+          let strokeColorVal = document.getElementById('prop-stroke-text')?.value;
+          if (!strokeColorVal || strokeColorVal === 'none') {
+            strokeColorVal = document.getElementById('vp-bar-color')?.value || '#fabd2f';
+            const stEl = document.getElementById('prop-stroke-text');
+            if (stEl) stEl.value = strokeColorVal;
+          }
+          const swVal = Number(document.getElementById('vp-bar-width')?.value || document.getElementById('prop-stroke-width')?.value) || 6;
+          currentDraftObj = new SvgPath(getNewVectorPaintObjectAttrs({
             fill: 'none',
-            stroke: document.getElementById('prop-stroke-text').value || '#fabd2f',
-            strokeWidth: Number(document.getElementById('prop-stroke-width').value) || 3
-          });
-          currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
+            stroke: strokeColorVal,
+            strokeWidth: swVal
+          }));
+          const p0Press = (e.pointerType === 'pen' || (e.pressure > 0 && e.pressure !== 0.5)) ? Math.max(0.05, Math.min(1.0, e.pressure)) : 1.0;
+          const p0TiltX = e.tiltX || 0;
+          const p0TiltY = e.tiltY || 0;
+          currentBrushRawPoints = [{ x: pt.x, y: pt.y, pressure: p0Press, widthScale: 1.0, tiltX: p0TiltX, tiltY: p0TiltY, time: performance.now() }];
+          currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth', p0Press, 1.0, p0TiltX, p0TiltY);
           doc.addObject(currentDraftObj);
           doc.select(currentDraftObj.id);
+          scheduleFastRender();
         } else if (activeTool === 'text') {
           const textVal = prompt('Enter text for vector typography:', 'Esenho Vector');
           if (textVal) {
@@ -7921,9 +8175,37 @@
           currentDraftObj.y2 = pt.y;
           scheduleFastRender();
         } else if (activeTool === 'brush' && currentDraftObj) {
-          const last = currentDraftObj.nodes[currentDraftObj.nodes.length - 1];
-          if (Math.hypot(pt.x - last.x, pt.y - last.y) > 6) {
-            currentDraftObj.addNode(pt.x, pt.y, null, null, 'smooth');
+          const events = (typeof e.getCoalescedEvents === 'function') ? e.getCoalescedEvents() : [e];
+          const minStep = Math.max(1.5, 3.0 / Math.max(0.25, zoom));
+          let added = false;
+          for (const ev of (events.length ? events : [e])) {
+            const evPt = (ev === e) ? pt : screenToDoc(ev.clientX, ev.clientY);
+            const last = currentDraftObj.nodes[currentDraftObj.nodes.length - 1];
+            const dist = Math.hypot(evPt.x - last.x, evPt.y - last.y);
+            if (dist >= minStep) {
+              const rawPress = (ev.pointerType === 'pen' || (ev.pressure > 0 && ev.pressure !== 0.5))
+                ? Math.max(0.05, Math.min(1.0, ev.pressure))
+                : 1.0;
+              const prevPress = last.pressure !== undefined ? last.pressure : 1.0;
+              const smoothPress = prevPress * 0.35 + rawPress * 0.65;
+              const tX = ev.tiltX || 0;
+              const tY = ev.tiltY || 0;
+              currentBrushRawPoints.push({ x: evPt.x, y: evPt.y, pressure: smoothPress, widthScale: 1.0, tiltX: tX, tiltY: tY, time: performance.now() });
+              currentDraftObj.addNode(evPt.x, evPt.y, null, null, 'smooth', smoothPress, 1.0, tX, tY);
+              const nLen = currentDraftObj.nodes.length;
+              if (nLen >= 3) {
+                const prevPrev = currentDraftObj.nodes[nLen - 3];
+                const mid = currentDraftObj.nodes[nLen - 2];
+                const curr = currentDraftObj.nodes[nLen - 1];
+                const tx = (curr.x - prevPrev.x) * 0.22;
+                const ty = (curr.y - prevPrev.y) * 0.22;
+                mid.cpIn = { x: -tx, y: -ty };
+                mid.cpOut = { x: tx, y: ty };
+              }
+              added = true;
+            }
+          }
+          if (added) {
             scheduleFastRender();
           }
         }
@@ -8011,7 +8293,22 @@
           const wasRotating = activeTransformMode === 'rotate';
           const wasMovingAnchor = activeTransformMode === 'anchor';
           const wasDrafting = !!currentDraftObj;
+          const draftWasBrush = wasDrafting && activeTool === 'brush' && currentDraftObj.type === 'path';
           const draftWasShape = wasDrafting && ['rect', 'circle', 'ellipse', 'line', 'polygon', 'polyline'].includes(currentDraftObj.type);
+          if (draftWasBrush && currentDraftObj) {
+            if (brushCurveFitMode === 'bezier' && currentBrushRawPoints.length >= 3 && typeof SvgPath.fromRawPoints === 'function') {
+              const fitTol = Math.max(0.8, Math.min(4.0, 2.0 / Math.max(0.25, zoom)));
+              const fitted = SvgPath.fromRawPoints(currentBrushRawPoints, { mode: 'bezier', tolerance: fitTol });
+              if (fitted && Array.isArray(fitted.nodes) && fitted.nodes.length >= 2) {
+                currentDraftObj.nodes = fitted.nodes;
+              }
+            }
+            if (brushAutoTaper) {
+              applyPathAutoTaper(currentDraftObj);
+            }
+            lastPaintedPathId = currentDraftObj.id;
+            currentBrushRawPoints = [];
+          }
           if (draftWasShape) {
             doc.convertSelectedToPath(false);
           }
@@ -8024,8 +8321,8 @@
           currentDraftObj = null;
           if (activeTool !== 'pen') {
             const wasEditingNode = activeTool === 'node';
-            const actionLabel = wasEditingNode ? 'Edit Path Nodes' : (wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (wasDrafting ? 'Create Shape' : 'Move Object'))));
-            if (!wasDrafting) doc.pushHistory(actionLabel);
+            const actionLabel = wasEditingNode ? 'Edit Path Nodes' : (wasRotating ? 'Rotate Object' : (wasMovingAnchor ? 'Move Anchor' : (wasResizing ? 'Resize Object' : (draftWasBrush ? 'Paint Vector Brush' : (wasDrafting ? 'Create Shape' : 'Move Object')))));
+            doc.pushHistory(actionLabel);
             if (typeof window.recordAutoKeyframe === 'function') {
               const selectedObjs = doc.getSelectedObjects();
               for (const selObj of selectedObjs) {
@@ -8039,7 +8336,7 @@
           }
           render();
           updateInspector();
-          if (draftWasShape) updateObjectList();
+          if (draftWasShape || draftWasBrush) updateObjectList();
           scheduleAutosave();
         }
       });
@@ -9098,7 +9395,14 @@
         if (btn) btn.classList.add('active');
         activeTool = toolName;
         if (activeTool === 'node') {
-          const selected = doc.getSelectedObjects();
+          let selected = doc.getSelectedObjects();
+          if (selected.length === 0 && lastPaintedPathId) {
+            const lastObj = doc.getObjectById ? doc.getObjectById(lastPaintedPathId) : doc.objects.find(o => o.id === lastPaintedPathId);
+            if (lastObj) {
+              doc.select(lastObj.id);
+              selected = [lastObj];
+            }
+          }
           if (selected.length > 0 && selected[0].type !== 'path' && selected[0].type !== 'image' && selected[0].type !== 'text' && selected[0].type !== 'group' && typeof selected[0].toPath === 'function') {
             doc.convertSelectedToPath();
             updateObjectList();
@@ -9114,10 +9418,15 @@
           hand: 'Hand / Pan Canvas',
           node: 'Bézier Node Editor',
           pen: 'Bézier Pen',
+          rect: 'Rectangle Shape',
+          ellipse: 'Ellipse / Circle Shape',
+          line: 'Line Segment Shape',
           brush: 'Freehand Vector Brush',
           text: 'Vector Typography'
         };
         if (statusTool) statusTool.textContent = toolTitles[toolName] || (btn?.title ? btn.title.split('(')[0].trim() : toolName);
+        syncVectorPaintHudBar();
+        syncMaterialsStrokeOptions();
         render();
         drawOverlay();
       }
@@ -9209,6 +9518,11 @@
         };
         viewportContainer.classList.remove('panning');
         if (statusTool) statusTool.textContent = titleMap[type] || type;
+        document.querySelectorAll('.tool-btn').forEach(b => {
+          b.classList.toggle('active', b.dataset.tool === type);
+        });
+        syncVectorPaintHudBar();
+        syncMaterialsStrokeOptions();
         render();
         drawOverlay();
       }
@@ -9258,19 +9572,7 @@
       document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => {
         if (btn.id === 'tool-shape-unified') return;
         btn.addEventListener('click', () => {
-          if (activeTool === 'pen' && btn.dataset.tool !== 'pen') {
-            commitPenPath();
-          }
-          document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'));
-          btn.classList.add('active');
-          activeTool = btn.dataset.tool;
-          if (activeTool === 'hand') {
-            viewportContainer.classList.add('panning');
-          } else {
-            viewportContainer.classList.remove('panning');
-          }
-          statusTool.textContent = btn.title.split('(')[0].trim();
-          render();
+          selectTool(btn.dataset.tool);
         });
       });
 
@@ -10256,6 +10558,156 @@
         }
       });
 
+      document.getElementById('prop-node-width')?.addEventListener('input', (e) => {
+        const { path, node } = getActivePathAndNode();
+        if (!path) return;
+        const ws = Math.max(0.05, Math.min(3.0, (Number(e.target.value) || 100) / 100));
+        if (selectedNodeIndices.size > 0) {
+          for (const idx of selectedNodeIndices) {
+            if (path.nodes[idx]) path.nodes[idx].widthScale = ws;
+          }
+        } else if (node) {
+          node.widthScale = ws;
+        }
+        syncVectorPaintHudBar();
+        scheduleFastRender();
+      });
+
+      document.getElementById('prop-node-pressure')?.addEventListener('input', (e) => {
+        const { path, node } = getActivePathAndNode();
+        if (!path) return;
+        const pr = Math.max(0.05, Math.min(1.0, (Number(e.target.value) || 100) / 100));
+        if (selectedNodeIndices.size > 0) {
+          for (const idx of selectedNodeIndices) {
+            if (path.nodes[idx]) path.nodes[idx].pressure = pr;
+          }
+        } else if (node) {
+          node.pressure = pr;
+        }
+        scheduleFastRender();
+      });
+
+      document.getElementById('btn-node-autotaper')?.addEventListener('click', () => {
+        const { path } = getActivePathAndNode();
+        if (path) {
+          applyPathAutoTaper(path);
+          doc.pushHistory('Auto-Taper Path Ends');
+          render();
+          updateInspector();
+          drawOverlay();
+          showNotification('Path ends tapered');
+        }
+      });
+
+      // ── Real-Time Vector Paint HUD Bar Bindings ──
+      document.getElementById('vp-bar-preset')?.addEventListener('change', (e) => {
+        const key = e.target.value;
+        const propPreset = document.getElementById('prop-brush-preset');
+        if (propPreset) {
+          propPreset.value = key;
+          propPreset.dispatchEvent(new Event('change'));
+        }
+        if (quadroRenderer && viewportRenderMode !== 'quadro') {
+          viewportRenderMode = 'quadro';
+          if (typeof updateRendererMenuUi === 'function') updateRendererMenuUi();
+        }
+        render();
+      });
+
+      document.getElementById('vp-bar-color')?.addEventListener('input', (e) => {
+        const col = e.target.value;
+        const propStrokeText = document.getElementById('prop-stroke-text');
+        if (propStrokeText) propStrokeText.value = col;
+        for (const obj of doc.getSelectedObjects()) {
+          obj.stroke = col;
+        }
+        updateSwatches();
+        scheduleFastRender();
+      });
+
+      document.getElementById('vp-bar-width')?.addEventListener('input', (e) => {
+        const w = Number(e.target.value) || 6;
+        const lbl = document.getElementById('vp-bar-width-lbl');
+        if (lbl) lbl.textContent = `${Math.round(w)}px`;
+        const propWidth = document.getElementById('prop-stroke-width');
+        if (propWidth) propWidth.value = w;
+        for (const obj of doc.getSelectedObjects()) {
+          obj.strokeWidth = w;
+        }
+        scheduleFastRender();
+      });
+
+      document.getElementById('vp-bar-fit')?.addEventListener('click', () => {
+        brushCurveFitMode = (brushCurveFitMode === 'bezier') ? 'raw' : 'bezier';
+        syncVectorPaintHudBar();
+        showNotification(brushCurveFitMode === 'bezier' ? 'Brush Curve Fit: Smooth Cubic Bézier' : 'Brush Curve Fit: Raw Points');
+      });
+
+      document.getElementById('vp-bar-taper')?.addEventListener('click', () => {
+        brushAutoTaper = !brushAutoTaper;
+        syncVectorPaintHudBar();
+        showNotification(brushAutoTaper ? 'Auto-Taper Ends: ON' : 'Auto-Taper Ends: OFF');
+      });
+
+      document.getElementById('vp-bar-pen-done')?.addEventListener('click', () => {
+        commitPenPath();
+      });
+
+      document.querySelectorAll('#vp-bar-node-controls [data-vp-node-type]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          applyNodeTypeToSelection(btn.dataset.vpNodeType);
+        });
+      });
+
+      document.getElementById('vp-bar-node-width')?.addEventListener('input', (e) => {
+        const pct = Number(e.target.value) || 100;
+        const lbl = document.getElementById('vp-bar-node-width-lbl');
+        if (lbl) lbl.textContent = `${Math.round(pct)}%`;
+        const ws = Math.max(0.05, Math.min(3.0, pct / 100));
+        const { path, node } = getActivePathAndNode();
+        if (!path) return;
+        if (selectedNodeIndices.size > 0) {
+          for (const idx of selectedNodeIndices) {
+            if (path.nodes[idx]) path.nodes[idx].widthScale = ws;
+          }
+        } else if (node) {
+          node.widthScale = ws;
+        } else {
+          for (const n of path.nodes) n.widthScale = ws;
+        }
+        const propNW = document.getElementById('prop-node-width');
+        if (propNW) propNW.value = Math.round(pct);
+        scheduleFastRender();
+        drawOverlay();
+      });
+
+      document.getElementById('vp-bar-node-autotaper')?.addEventListener('click', () => {
+        const { path } = getActivePathAndNode();
+        if (path) {
+          applyPathAutoTaper(path);
+          doc.pushHistory('Auto-Taper Path Ends');
+          render();
+          updateInspector();
+          drawOverlay();
+          showNotification('Path ends tapered');
+        }
+      });
+
+      document.getElementById('vp-bar-node-close')?.addEventListener('click', () => {
+        const { path } = getActivePathAndNode();
+        if (path) {
+          path.closed = !path.closed;
+          doc.pushHistory(path.closed ? 'Close Path' : 'Open Path');
+          render();
+          updateInspector();
+          drawOverlay();
+        }
+      });
+
+      document.getElementById('vp-bar-node-del')?.addEventListener('click', () => {
+        deleteSelectedNodes();
+      });
+
       // Viewport Render Mode & Engine Switcher
       let viewportBilinear = initialStudioSettings.viewportBilinear !== undefined ? Boolean(initialStudioSettings.viewportBilinear) : false;
       function setViewportBilinear(enable, notify = false) {
@@ -10881,7 +11333,8 @@
         const options = document.getElementById('materials-stroke-options');
         if (!options) return;
         const hasSelectedStroke = selected.some(obj => obj.stroke && obj.stroke !== 'none' && Number(obj.strokeWidth ?? 1) > 0);
-        options.style.display = hasSelectedStroke ? 'flex' : 'none';
+        const isStrokeTool = (activeTool === 'brush' || activeTool === 'pen' || activeTool === 'line');
+        options.style.display = (hasSelectedStroke || isStrokeTool) ? 'flex' : 'none';
       }
 
       function composeAppearancePanels() {

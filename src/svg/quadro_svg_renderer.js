@@ -979,8 +979,23 @@
     /**
      * Render an entire SvgDocument into Quadro linear memory
      * @param {SvgDocument} doc 
-     * @param {Object} options - { scale: 1.0, background: true }
+     * @param {Object} options - { scale: 1.0, background: true, interactive: false, activeObjectIds: null }
      */
+    invalidateInteractiveCache() {
+      this._interactiveUnderKey = null;
+    }
+
+    _objectContainsAnyId(obj, idSet) {
+      if (!obj || !idSet) return false;
+      if (idSet.has(obj.id)) return true;
+      if (obj.type === 'group' && Array.isArray(obj.children)) {
+        for (let i = 0; i < obj.children.length; i++) {
+          if (this._objectContainsAnyId(obj.children[i], idSet)) return true;
+        }
+      }
+      return false;
+    }
+
     renderDocument(doc, options = {}) {
       if (!this.actor || !this.actor.exports) {
         throw new Error('Quadro WASM actor not initialized');
@@ -999,6 +1014,7 @@
         this._currentWidth = w;
         this._currentHeight = h;
         this._brushParamCache = {};
+        this._interactiveUnderKey = null;
       }
 
       // Reset brush defaults and force clean DRAW mode and BUILDUP=1 to prevent stale tool state or tag reuse
@@ -1015,13 +1031,72 @@
       this.setBrushParamFast(5 /* SPACING */, 5);
       this.setBrushParamFast(14 /* SHAPE */, 0 /* CIRCLE */);
 
-      // Render Background (supports Solid Color, Gradients, Procedural/Custom Textures, Brush Fills & WASM FX Filters)
-      this.renderBackground(doc, scale, options);
+      const objs = Array.isArray(doc.objects) ? doc.objects : [];
+      let usedInteractiveCache = false;
 
-      // Render each object in Z-order (bottom to top)
-      for (const obj of doc.objects) {
-        if (!obj.visible) continue;
-        this.renderObject(obj, scale);
+      if (options.interactive && options.activeObjectIds) {
+        const activeSet = options.activeObjectIds instanceof Set
+          ? options.activeObjectIds
+          : new Set(Array.isArray(options.activeObjectIds) ? options.activeObjectIds : [options.activeObjectIds]);
+
+        let firstActiveIdx = -1;
+        for (let i = 0; i < objs.length; i++) {
+          if (this._objectContainsAnyId(objs[i], activeSet)) {
+            firstActiveIdx = i;
+            break;
+          }
+        }
+
+        if (firstActiveIdx >= 0) {
+          let underIds = '';
+          for (let i = 0; i < firstActiveIdx; i++) {
+            const o = objs[i];
+            if (o && o.visible) underIds += o.id + ',';
+          }
+          const cacheKey = `${w}x${h}_${scale}_${options.background !== false ? 1 : 0}_${doc.backgroundColor || ''}_${doc.backgroundType || ''}_${firstActiveIdx}_${underIds}`;
+          const u32 = this.getLayerBuffer(3, w, h);
+
+          if (u32 && this._interactiveUnderKey === cacheKey && this._interactiveUnderBuffer && this._interactiveUnderBuffer.length === u32.length) {
+            u32.set(this._interactiveUnderBuffer);
+            for (let i = firstActiveIdx; i < objs.length; i++) {
+              const obj = objs[i];
+              if (obj && obj.visible) this.renderObject(obj, scale);
+            }
+            usedInteractiveCache = true;
+          } else if (u32) {
+            this.renderBackground(doc, scale, options);
+            for (let i = 0; i < firstActiveIdx; i++) {
+              const obj = objs[i];
+              if (obj && obj.visible) this.renderObject(obj, scale);
+            }
+            const freshU32 = this.getLayerBuffer(3, w, h);
+            if (freshU32) {
+              if (!this._interactiveUnderBuffer || this._interactiveUnderBuffer.length !== freshU32.length) {
+                this._interactiveUnderBuffer = new Uint32Array(freshU32.length);
+              }
+              this._interactiveUnderBuffer.set(freshU32);
+              this._interactiveUnderKey = cacheKey;
+            }
+            for (let i = firstActiveIdx; i < objs.length; i++) {
+              const obj = objs[i];
+              if (obj && obj.visible) this.renderObject(obj, scale);
+            }
+            usedInteractiveCache = true;
+          }
+        }
+      } else {
+        this._interactiveUnderKey = null;
+      }
+
+      if (!usedInteractiveCache) {
+        // Render Background (supports Solid Color, Gradients, Procedural/Custom Textures, Brush Fills & WASM FX Filters)
+        this.renderBackground(doc, scale, options);
+
+        // Render each object in Z-order (bottom to top)
+        for (const obj of objs) {
+          if (!obj.visible) continue;
+          this.renderObject(obj, scale);
+        }
       }
 
       // Composite final frame
