@@ -860,6 +860,9 @@ async function main() {
   };
 
   function closeAllSheets(onlySide = null) {
+    if (window.isDockviewPainter && !onlySide && window.contextMenuService) {
+      window.contextMenuService.hideContextMenu();
+    }
     document.querySelectorAll('.ip-sheet-modal, #touch-color-modal').forEach(m => {
       if (m.closest('.dock-panel-content')) return;
       if (!onlySide) {
@@ -2900,7 +2903,7 @@ async function main() {
     return hex;
   }
 
-  /* ── VS Code / Monaco Context Menu Architecture (matching studio.html) ── */
+  /* ── VS Code / Monaco Context Menu Architecture (with Inline Widgets & Embedded DOM Panels) ── */
   class MonacoMenu {
     constructor(container, actions, options = {}) {
       this.container = container;
@@ -2914,6 +2917,10 @@ async function main() {
       this.items = [];
       this.showTimer = null;
       this.hideTimer = null;
+      this.mountedPanels = [];
+      this.pendingMounts = [];
+      this.lastAnchor = null;
+      this.resizeObserver = null;
       this.render();
     }
 
@@ -2921,6 +2928,13 @@ async function main() {
       this.domNode = document.createElement('div');
       this.domNode.className = 'monaco-menu-container';
       this.domNode.setAttribute('tabindex', '-1');
+
+      if (this.parentMenu) {
+        this.domNode.addEventListener('mouseenter', () => {
+          clearTimeout(this.parentMenu.hideTimer);
+          clearTimeout(this.parentMenu.showTimer);
+        });
+      }
 
       this.menuElement = document.createElement('div');
       this.menuElement.className = 'monaco-menu';
@@ -2953,8 +2967,96 @@ async function main() {
           li.setAttribute('role', 'separator');
           this.actionsList.appendChild(li);
           itemObj.element = li;
+        } else if (action.type === 'dom_panel') {
+          this.domNode.classList.add('has-dom-panel');
+          if (action.panelId === 'timeline') {
+            this.domNode.classList.add('has-timeline-panel');
+          }
+          const li = document.createElement('li');
+          li.className = 'action-item dom-panel-item';
+          li.setAttribute('role', 'presentation');
+          const panelEl = document.getElementById('dock-panel-' + action.panelId);
+          if (panelEl) {
+            this.mountedPanels.push(panelEl);
+            li.appendChild(panelEl);
+          }
+          li.addEventListener('click', (ev) => ev.stopPropagation());
+          li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+          li.addEventListener('mouseenter', () => {
+            clearTimeout(this.hideTimer);
+            if (this.parentMenu) clearTimeout(this.parentMenu.hideTimer);
+          });
+          this.actionsList.appendChild(li);
+          itemObj.element = li;
+          if (typeof action.onMount === 'function') {
+            this.pendingMounts.push(action.onMount);
+          }
+        } else if (action.type === 'slider') {
+          const li = document.createElement('li');
+          li.className = 'action-item slider-item';
+          li.setAttribute('role', 'presentation');
+
+          const topRow = document.createElement('div');
+          topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;font-size:10.5px;color:var(--text-muted);font-weight:600;';
+          const lbl = document.createElement('span');
+          lbl.textContent = action.label || '';
+          const valSpan = document.createElement('span');
+          valSpan.style.cssText = 'color:var(--primary);font-family:var(--font-mono);font-weight:700;';
+          const unit = action.unit || '';
+          valSpan.textContent = `${action.value ?? 0}${unit}`;
+          topRow.appendChild(lbl);
+          topRow.appendChild(valSpan);
+
+          const slider = document.createElement('input');
+          slider.type = 'range';
+          slider.className = 'ip-touch-slider';
+          slider.min = String(action.min ?? 0);
+          slider.max = String(action.max ?? 100);
+          slider.step = String(action.step ?? 1);
+          slider.value = String(action.value ?? 0);
+          slider.style.cssText = 'width:100%;height:5px;accent-color:var(--primary);cursor:pointer;';
+          slider.addEventListener('input', (ev) => {
+            ev.stopPropagation();
+            const v = parseFloat(slider.value);
+            valSpan.textContent = `${v}${unit}`;
+            if (typeof action.onInput === 'function') action.onInput(v, valSpan);
+          });
+          slider.addEventListener('change', (ev) => {
+            ev.stopPropagation();
+            const v = parseFloat(slider.value);
+            if (typeof action.onChange === 'function') action.onChange(v, valSpan);
+          });
+
+          li.appendChild(topRow);
+          li.appendChild(slider);
+          li.addEventListener('click', (ev) => ev.stopPropagation());
+          li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+          li.addEventListener('mouseenter', () => {
+            clearTimeout(this.showTimer);
+            if (this.activeSubmenu) {
+              this.hideTimer = setTimeout(() => this.closeSubmenu(), 180);
+            }
+          });
+          this.actionsList.appendChild(li);
+          itemObj.element = li;
+        } else if (action.type === 'custom' && typeof action.render === 'function') {
+          const li = document.createElement('li');
+          li.className = 'action-item custom-widget-item';
+          li.setAttribute('role', 'presentation');
+          const el = action.render(this);
+          if (el) li.appendChild(el);
+          li.addEventListener('click', (ev) => ev.stopPropagation());
+          li.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+          li.addEventListener('mouseenter', () => {
+            clearTimeout(this.showTimer);
+            if (this.activeSubmenu) {
+              this.hideTimer = setTimeout(() => this.closeSubmenu(), 180);
+            }
+          });
+          this.actionsList.appendChild(li);
+          itemObj.element = li;
         } else {
-          const subItems = action.items || action.submenu;
+          const subItems = action.items || action.submenu || action.children;
           const hasSubmenu = action.type === 'submenu' || (Array.isArray(subItems) && subItems.length > 0);
           itemObj.isSelectable = !action.disabled;
           itemObj.isSubmenu = hasSubmenu;
@@ -2974,6 +3076,9 @@ async function main() {
           anchor.setAttribute('tabindex', '-1');
 
           let rawLabel = action.label || '';
+          if (hasSubmenu && rawLabel.endsWith(' ▸')) {
+            rawLabel = rawLabel.slice(0, -2);
+          }
           let isChecked = !!action.checked;
           if (rawLabel.startsWith('✓ ')) {
             isChecked = true;
@@ -3027,6 +3132,20 @@ async function main() {
       }
 
       this.container.appendChild(this.domNode);
+
+      if (this.pendingMounts.length > 0) {
+        for (const fn of this.pendingMounts) {
+          try { fn(); } catch (_) {}
+        }
+        this.pendingMounts = [];
+      }
+
+      if (typeof ResizeObserver !== 'undefined') {
+        this.resizeObserver = new ResizeObserver(() => {
+          if (this.lastAnchor) this.layout(this.lastAnchor);
+        });
+        this.resizeObserver.observe(this.domNode);
+      }
     }
 
     onItemMouseEnter(index) {
@@ -3036,11 +3155,11 @@ async function main() {
       if (!item) return;
       if (item.isSubmenu) {
         clearTimeout(this.showTimer);
-        this.showTimer = setTimeout(() => this.openSubmenu(index, false), 40);
+        this.showTimer = setTimeout(() => this.openSubmenu(index, false), 45);
       } else {
         clearTimeout(this.showTimer);
         if (this.activeSubmenu) {
-          this.hideTimer = setTimeout(() => this.closeSubmenu(), 40);
+          this.hideTimer = setTimeout(() => this.closeSubmenu(), 180);
         }
       }
     }
@@ -3113,7 +3232,7 @@ async function main() {
       const item = this.items[index];
       if (!item || !item.isSelectable) return;
       const action = item.action;
-      if (this.service) this.service.hideContextMenu();
+      if (!action.keepOpen && this.service) this.service.hideContextMenu();
       if (typeof action.action === 'function') action.action();
       else if (typeof action.run === 'function') action.run();
     }
@@ -3126,7 +3245,7 @@ async function main() {
         return;
       }
       this.closeSubmenu();
-      const subActions = item.action.items || item.action.submenu || [];
+      const subActions = item.action.items || item.action.submenu || item.action.children || [];
       this.activeSubmenu = new MonacoMenu(this.container, subActions, {
         parentMenu: this,
         parentItem: item.element,
@@ -3145,6 +3264,7 @@ async function main() {
 
     layout(anchor) {
       if (!this.domNode) return;
+      this.lastAnchor = anchor;
       const rect = this.domNode.getBoundingClientRect();
       const viewW = window.innerWidth;
       const viewH = window.innerHeight;
@@ -3153,7 +3273,7 @@ async function main() {
         const parentRect = anchor.getBoundingClientRect();
         const parentMenuRect = this.parentMenu ? this.parentMenu.domNode.getBoundingClientRect() : parentRect;
         let left = parentRect.right - 2;
-        const preferLeft = (parentMenuRect.left > viewW / 2) || (left + rect.width > viewW - 8);
+        const preferLeft = (parentMenuRect.left > viewW * 0.55) || (left + rect.width > viewW - 8);
         if (preferLeft) left = parentRect.left - rect.width + 2;
         left = Math.max(8, Math.min(left, viewW - rect.width - 8));
         let top = parentRect.top - 3;
@@ -3174,6 +3294,9 @@ async function main() {
     }
 
     onKeyDown(e) {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') && e.key !== 'Escape') {
+        return false;
+      }
       if (this.activeSubmenu && this.activeSubmenu.onKeyDown(e)) return true;
       switch (e.key) {
         case 'ArrowDown':
@@ -3216,9 +3339,22 @@ async function main() {
     dispose() {
       clearTimeout(this.showTimer);
       clearTimeout(this.hideTimer);
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+        this.resizeObserver = null;
+      }
       if (this.activeSubmenu) {
         this.activeSubmenu.dispose();
         this.activeSubmenu = null;
+      }
+      if (this.mountedPanels && this.mountedPanels.length > 0) {
+        const pool = document.getElementById('dock-panel-pool');
+        for (const panelEl of this.mountedPanels) {
+          if (pool && panelEl && panelEl.parentNode !== pool) {
+            pool.appendChild(panelEl);
+          }
+        }
+        this.mountedPanels = [];
       }
       if (this.domNode && this.domNode.parentNode) {
         this.domNode.parentNode.removeChild(this.domNode);
@@ -3257,13 +3393,17 @@ async function main() {
         }
       }, true);
       window.addEventListener('blur', () => {
-        if (this.activeMenu) this.hideContextMenu();
+        if (!this.activeMenu) return;
+        if (document.activeElement && typeof document.activeElement.closest === 'function' && document.activeElement.closest('.monaco-menu-container')) {
+          return;
+        }
+        this.hideContextMenu();
       });
       window.addEventListener('resize', () => {
         if (this.activeMenu) this.hideContextMenu();
       });
       window.addEventListener('wheel', (e) => {
-        if (this.activeMenu && !e.target.closest('.monaco-menu-container')) {
+        if (this.activeMenu && (!e.target || typeof e.target.closest !== 'function' || !e.target.closest('.monaco-menu-container'))) {
           this.hideContextMenu();
         }
       }, { passive: true });
@@ -3297,6 +3437,50 @@ async function main() {
   window.contextMenuService = new MonacoContextMenuService();
   host.contextMenu = window.contextMenuService;
 
+  function buildDomPanelAction(panelId) {
+    if (panelId === 'brushes') panelId = 'lab';
+    return {
+      type: 'dom_panel',
+      panelId,
+      onMount: () => {
+        if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        if (typeof syncInfinitePainterUI === 'function') syncInfinitePainterUI();
+        if (panelId === 'color' && typeof window.refreshTouchColorStudio === 'function') {
+          window.refreshTouchColorStudio();
+        }
+        if (panelId === 'recents' && typeof window.loadPainterRecents === 'function') {
+          window.loadPainterRecents();
+        }
+        if (panelId === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
+          window.renderHudCustomizerOptions();
+        }
+        if (panelId === 'timeline' && host.rasterAnimatorUI) {
+          host.rasterAnimatorUI.visible = true;
+          if (host.rasterAnimatorUI.container) host.rasterAnimatorUI.container.style.display = 'flex';
+          host.rasterAnimatorUI.updateTimeline();
+        }
+      }
+    };
+  }
+
+  function openPanelInContextMenu(panelId, anchor) {
+    if (!window.contextMenuService) return;
+    if (panelId === 'brushes') panelId = 'lab';
+    const defaultAnchor = () => {
+      if (anchor && typeof anchor.x === 'number') return anchor;
+      if (host.mouseHover && host.mouseHover.inside && canvasEl) {
+        const r = canvasEl.getBoundingClientRect();
+        return { x: r.left + host.mouseHover.sx, y: r.top + host.mouseHover.sy };
+      }
+      return { x: Math.round(window.innerWidth * 0.35), y: Math.round(window.innerHeight * 0.18) };
+    };
+    window.contextMenuService.showContextMenu({
+      getAnchor: defaultAnchor,
+      getActions: () => [buildDomPanelAction(panelId)]
+    });
+  }
+  window.openPanelInContextMenu = openPanelInContextMenu;
+
   function showPainterContextMenu(e) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
@@ -3304,7 +3488,7 @@ async function main() {
     const p = clientPos(e);
     const items = [];
     const addItem = (label, hotkey, action, opts = {}) => {
-      items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled, checked: opts.checked });
+      items.push({ type: 'item', label, hotkey, action, danger: opts.danger, disabled: opts.disabled, checked: opts.checked, keepOpen: opts.keepOpen });
     };
     const addSubmenu = (label, subitems) => {
       if (subitems && subitems.length > 0) items.push({ type: 'submenu', label, items: subitems });
@@ -3325,14 +3509,26 @@ async function main() {
       addHeader('Floating Transform');
       addItem('✓ Apply Transform', 'Enter', () => { runCmd('transform apply'); markCanvasDirty(); syncUiFromHost(); });
       addItem('✕ Cancel Transform', 'Esc', () => { runCmd('transform cancel'); markCanvasDirty(); syncUiFromHost(); }, { danger: true });
-      addSep();
-      addItem('Center on Canvas', '', () => { if (host.centerFloatTransform) host.centerFloatTransform(); bakeFtPreview(); syncUiFromHost(); });
-      addItem('Fit to Canvas', '', () => { if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas(); bakeFtPreview(); syncUiFromHost(); });
-      addItem('Rotate 90° CW', '', () => { runCmd('transform rotate 90'); });
-      addItem('Rotate 90° CCW', '', () => { runCmd('transform rotate -90'); });
-      addItem('Flip Horizontal', '', () => { runCmd('transform flip h'); });
-      addItem('Flip Vertical', '', () => { runCmd('transform flip v'); });
-      addItem('Reset Transform', '', () => { runCmd('transform reset'); });
+      const curXMode = host.transformMode || 'scale';
+      const curXInterp = host.transformInterpolation || 'nearest';
+      addSubmenu('Transform Mode & Options', [
+        { type: 'item', label: (curXMode === 'scale' ? '✓ ' : '') + 'Scale & Rotate', action: () => { host.transformMode = 'scale'; syncUiFromHost(); } },
+        { type: 'item', label: (curXMode === 'distort' ? '✓ ' : '') + 'Free Corner Distort', action: () => { host.transformMode = 'distort'; syncUiFromHost(); } },
+        { type: 'item', label: (curXMode === 'perspective' ? '✓ ' : '') + 'Perspective', action: () => { host.transformMode = 'perspective'; syncUiFromHost(); } },
+        { type: 'sep' },
+        { type: 'item', label: (host.transformLockAspect ? '✓ ' : '') + 'Lock Aspect Ratio', action: () => { host.transformLockAspect = !host.transformLockAspect; syncUiFromHost(); } },
+        { type: 'item', label: (curXInterp === 'nearest' ? '✓ ' : '') + 'Crisp (Nearest)', action: () => { host.transformInterpolation = 'nearest'; bakeFtPreview(); syncUiFromHost(); } },
+        { type: 'item', label: (curXInterp === 'bilinear' ? '✓ ' : '') + 'Smooth (Bilinear)', action: () => { host.transformInterpolation = 'bilinear'; bakeFtPreview(); syncUiFromHost(); } }
+      ]);
+      addSubmenu('Transform Actions', [
+        { type: 'item', label: 'Center on Canvas', action: () => { if (host.centerFloatTransform) host.centerFloatTransform(); bakeFtPreview(); syncUiFromHost(); } },
+        { type: 'item', label: 'Fit to Canvas', action: () => { if (host.fitFloatTransformToCanvas) host.fitFloatTransformToCanvas(); bakeFtPreview(); syncUiFromHost(); } },
+        { type: 'item', label: 'Rotate 90° CW', action: () => { runCmd('transform rotate 90'); } },
+        { type: 'item', label: 'Rotate 90° CCW', action: () => { runCmd('transform rotate -90'); } },
+        { type: 'item', label: 'Flip Horizontal', action: () => { runCmd('transform flip h'); } },
+        { type: 'item', label: 'Flip Vertical', action: () => { runCmd('transform flip v'); } },
+        { type: 'item', label: 'Reset Transform', action: () => { runCmd('transform reset'); } }
+      ]);
       addSep();
     }
 
@@ -3512,11 +3708,11 @@ async function main() {
     if (hasSel) {
       addHeader('Selection');
       addItem('Free Transform Selection', 'Ctrl+T', () => { runCmd('transform'); });
+      addItem('Deselect', 'Ctrl+D', () => { runCmd('deselect'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); });
+      addItem('Invert Selection', 'Ctrl+Shift+I', () => { runCmd('select invert'); });
       addItem('Copy Selection', 'Ctrl+C', () => { runCmd('copy'); });
       addItem('Cut Selection', 'Ctrl+X', () => { runCmd('cut'); });
-      addItem('Invert Selection', 'Ctrl+Shift+I', () => { runCmd('select invert'); });
-      addItem('Deselect', 'Ctrl+D', () => { runCmd('deselect'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); });
-      addSubmenu('Capture Selection As...', [
+      addSubmenu('Capture Selection As', [
         { type: 'item', label: 'Custom Brush Tip Shape', action: () => { if (host.createBrushFromSelection) host.createBrushFromSelection(); } },
         { type: 'item', label: 'Custom Paper / Grain Texture', action: () => { if (host.createGrainFromSelection) host.createGrainFromSelection(); } },
         { type: 'sep' },
@@ -3525,118 +3721,403 @@ async function main() {
       addSep();
     }
 
-    // 4. Quick Canvas Actions (Eyedropper, Undo/Redo, Paste)
-    addItem('Pick Color Here (Eyedropper)', 'I / Alt', () => {
-      sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY);
-      setTimeout(hideEyedropper, 650);
+    // 4. Inline Quick Mode & Color Bar + Brush Sliders
+    items.push({
+      type: 'custom',
+      render: () => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;flex-direction:column;gap:5px;padding:2px 0;';
+
+        // Row 1: Action Modes
+        const modeRow = document.createElement('div');
+        modeRow.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:3px;';
+        const modes = [
+          { id: 'draw', label: 'Draw', act: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); } },
+          { id: 'erase', label: 'Erase', act: () => { host.setActionMode('erase'); } },
+          { id: 'blend', label: 'Blend', act: () => { host.setActionMode('blend'); } },
+          { id: 'clone', label: 'Clone', act: () => { host.setActionMode('clone'); } },
+          { id: 'select', label: 'Select', act: () => { host.setActionMode('select'); host.currentTool = 'select_rect'; host.setBrushParam('mode', 9); } }
+        ];
+        const modeBtns = [];
+        const updateModeHighlight = () => {
+          const cur = host.actionMode || 'draw';
+          modeBtns.forEach(({ btn, id }) => {
+            const active = cur === id;
+            btn.style.background = active ? 'var(--primary)' : 'var(--bg-panel-sub)';
+            btn.style.color = active ? 'var(--bg-dark)' : 'var(--text)';
+            btn.style.borderColor = active ? 'var(--primary)' : 'var(--border)';
+            btn.style.fontWeight = active ? '800' : '600';
+          });
+        };
+        modes.forEach(m => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.textContent = m.label;
+          btn.style.cssText = 'height:22px;font-size:10px;padding:0 2px;border-radius:3px;';
+          btn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            m.act();
+            if (typeof syncUiFromHost === 'function') syncUiFromHost();
+            updateModeHighlight();
+          });
+          modeBtns.push({ btn, id: m.id });
+          modeRow.appendChild(btn);
+        });
+        updateModeHighlight();
+        wrap.appendChild(modeRow);
+
+        // Row 2: Active Color + Quick Swatches
+        const colorRow = document.createElement('div');
+        colorRow.style.cssText = 'display:flex;align-items:center;gap:4px;';
+        const curC = host.currentColor ?? 0xFFEBDBB2;
+        const curHex = rgbToHex(curC & 0xFF, (curC >> 8) & 0xFF, (curC >> 16) & 0xFF);
+        const curChip = document.createElement('button');
+        curChip.type = 'button';
+        curChip.title = `Current Color (${curHex}) — Click to sample here`;
+        curChip.style.cssText = `width:22px;height:20px;border-radius:3px;background:${curHex};border:1.5px solid var(--text-bright);flex-shrink:0;padding:0;`;
+        curChip.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const sampled = sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY);
+          curChip.style.background = sampled;
+          setTimeout(hideEyedropper, 500);
+        });
+        colorRow.appendChild(curChip);
+
+        const swatches = (typeof getActivePaletteColors === 'function' ? getActivePaletteColors() : PALETTE_PRESETS.gruvbox).slice(0, 9);
+        const swatchWrap = document.createElement('div');
+        swatchWrap.style.cssText = 'display:grid;grid-template-columns:repeat(9,1fr);gap:2px;flex:1;';
+        swatches.forEach(hex => {
+          const sw = document.createElement('button');
+          sw.type = 'button';
+          sw.title = hex;
+          sw.style.cssText = `height:18px;border-radius:2px;background:${hex};border:1px solid rgba(255,255,255,0.2);padding:0;`;
+          sw.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            updateColorControlsFromHex(hex);
+            curChip.style.background = hex;
+          });
+          swatchWrap.appendChild(sw);
+        });
+        colorRow.appendChild(swatchWrap);
+        wrap.appendChild(colorRow);
+
+        return wrap;
+      }
     });
-    addItem('Undo', 'Ctrl+Z', () => { runCmd('undo'); });
-    addItem('Redo', 'Ctrl+Y', () => { runCmd('redo'); });
-    if (!isVecLayer && host.clipboardBuffer) {
-      addItem('Paste', 'Ctrl+V', () => { runCmd('paste'); });
-    }
+
+    const bp = host.brushParams || {};
+    items.push(
+      {
+        type: 'slider',
+        label: 'Brush Size',
+        min: 1,
+        max: 300,
+        value: Math.round(bp.size ?? 12),
+        unit: 'px',
+        onInput: (val) => {
+          host.setBrushParam('size', val);
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        },
+        onChange: (val) => runCmd(`brush size ${val}`)
+      },
+      {
+        type: 'slider',
+        label: 'Opacity',
+        min: 1,
+        max: 100,
+        value: Math.round(bp.opacity ?? 100),
+        unit: '%',
+        onInput: (val) => {
+          host.setBrushParam('opacity', val);
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        },
+        onChange: (val) => runCmd(`brush opacity ${val}`)
+      },
+      {
+        type: 'slider',
+        label: 'Smoothing',
+        min: 0,
+        max: 100,
+        value: Math.round(bp.stabilization ?? bp.smoothing ?? 0),
+        unit: '%',
+        onInput: (val) => {
+          host.setBrushParam('stabilization', val);
+          if (typeof syncUiFromHost === 'function') syncUiFromHost();
+        },
+        onChange: (val) => runCmd(`brush stabilize ${val}`)
+      }
+    );
 
     addSep();
 
-    // 5. Action Modes & Tools Submenu (Raster Layers Only)
-    const curMode = host.actionMode || 'draw';
-    if (!isVecApp && !isVecLayer) {
-      addSubmenu('Action Mode & Tools', [
-        { type: 'item', label: (curMode === 'draw' ? '✓ ' : '') + 'Paint (Brush)', hotkey: 'B', action: () => { host.setActionMode('draw'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: (curMode === 'erase' ? '✓ ' : '') + 'Erase Mode', hotkey: 'E', action: () => { host.setActionMode('erase'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: (curMode === 'blend' ? '✓ ' : '') + 'Blend / Smudge Mode', action: () => { host.setActionMode('blend'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: (curMode === 'clone' ? '✓ ' : '') + 'Clone Stamp Mode', action: () => { host.setActionMode('clone'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: (curMode === 'select' ? '✓ ' : '') + 'Selection Mode', hotkey: 'M', action: () => {
-          host.setActionMode('select');
-          host.currentTool = 'select_rect';
-          host.setBrushParam('mode', 9);
-          if (typeof syncUiFromHost === 'function') syncUiFromHost();
-        }},
-        { type: 'sep' },
-        { type: 'item', label: 'Flood Fill (Bucket)', hotkey: 'G', action: () => { host.setActionMode('draw'); host.currentTool = 'fill'; host.setBrushParam('mode', 3); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: 'Lasso Fill', action: () => { host.setActionMode('draw'); host.currentTool = 'lasso_fill'; host.setBrushParam('mode', 4); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-        { type: 'item', label: 'Free Transform Layer', hotkey: 'Ctrl+T', action: () => { runCmd('transform'); } }
-      ]);
-    }
+    // 5. Brush Library & Brush Lab Submenus
+    const activeBrushKey = host.activeBrush || 'ink_pen';
+    const activeBrushObj = BRUSH_PRESETS[activeBrushKey] || (host.customBrushPresets && host.customBrushPresets[activeBrushKey]);
+    const activeBrushTitle = activeBrushObj ? activeBrushObj.name : activeBrushKey;
 
-    // 6. View Submenu (Show/Hide Tabs & HUD)
-    const isSheetOrDockOpen = (sheetId) => {
-      if (window.isDockviewPainter && DOCKVIEW_SHEET_MAP[sheetId] && window.painterDockviewApi) {
-        return !!window.painterDockviewApi.getPanel(DOCKVIEW_SHEET_MAP[sheetId]);
-      }
-      return !!document.getElementById(sheetId)?.classList.contains('active');
+    const CAT_LABELS = {
+      sketch: 'Sketch & Pencil',
+      ink: 'Inking',
+      paint: 'Painting',
+      marker: 'Markers',
+      charcoal: 'Charcoal & Pastel',
+      airbrush: 'Airbrush',
+      texture: 'Textured',
+      blend: 'Blenders & Smudge',
+      eraser: 'Erasers',
+      fx: 'FX & Pixel Art'
     };
-    const isTimelineOpen = window.isDockviewPainter
-      ? !!window.painterDockviewApi?.getPanel('timeline')
-      : !!host.rasterAnimatorUI?.visible;
-    const panelItems = [];
-    if (!window.isDockviewPainter) {
-      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-brushes') ? '✓ ' : '') + 'Brush Library', hotkey: 'B', action: () => toggleSheet('sheet-brushes') });
+    const brushCatMap = new Map();
+    for (const [k, preset] of Object.entries(BRUSH_PRESETS)) {
+      const cat = preset.category || 'sketch';
+      if (!brushCatMap.has(cat)) brushCatMap.set(cat, []);
+      brushCatMap.get(cat).push([k, preset]);
     }
-    panelItems.push(
-      { type: 'item', label: (isSheetOrDockOpen('sheet-lab') ? '✓ ' : '') + 'Brush Lab', hotkey: window.isDockviewPainter ? 'B' : undefined, action: () => toggleSheet('sheet-lab') },
-      { type: 'item', label: (isSheetOrDockOpen('touch-color-modal') ? '✓ ' : '') + 'Color Studio', hotkey: 'C', action: () => {
-        if (window.isDockviewPainter && typeof window.togglePainterDockPanel === 'function') {
-          window.togglePainterDockPanel('color');
-          return;
-        }
-        const cm = document.getElementById('touch-color-modal');
-        if (cm?.classList.contains('active')) closeTouchColorModal();
-        else openTouchColorModal();
-      }},
-      { type: 'item', label: (isSheetOrDockOpen('sheet-layers') ? '✓ ' : '') + 'Layers Stack', hotkey: 'L', action: () => toggleSheet('sheet-layers') },
-      { type: 'item', label: (isSheetOrDockOpen('sheet-tools') ? '✓ ' : '') + (isVecLayer ? 'Vector Tools & Nodes' : 'Tools & Modes'), action: () => toggleSheet('sheet-tools') }
-    );
-    if (!isVecLayer) {
-      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-pixelart') ? '✓ ' : '') + 'Pixel Art Studio', action: () => toggleSheet('sheet-pixelart') });
+    const brushLibraryItems = [];
+    if (host.customBrushPresets && Object.keys(host.customBrushPresets).length > 0) {
+      brushLibraryItems.push({
+        type: 'submenu',
+        label: '★ Custom Presets',
+        items: Object.entries(host.customBrushPresets).map(([k, preset]) => ({
+          type: 'item',
+          label: (host.activeBrush === k ? '✓ ' : '') + (preset.name || k),
+          action: () => { host.selectBrushPreset(k); syncUiFromHost(); populateBrushPresetsUI(); }
+        }))
+      });
     }
-    if (window.isDockviewPainter) {
-      panelItems.push({ type: 'item', label: (isSheetOrDockOpen('sheet-filters') ? '✓ ' : '') + 'Filters', action: () => toggleSheet('sheet-filters') });
+    for (const [cat, list] of brushCatMap.entries()) {
+      brushLibraryItems.push({
+        type: 'submenu',
+        label: CAT_LABELS[cat] || cat,
+        items: list.map(([k, preset]) => ({
+          type: 'item',
+          label: (host.activeBrush === k ? '✓ ' : '') + `${preset.name} (${preset.size || 10}px)`,
+          action: () => { host.selectBrushPreset(k); syncUiFromHost(); populateBrushPresetsUI(); }
+        }))
+      });
     }
-    panelItems.push(
-      { type: 'item', label: (isTimelineOpen ? '✓ ' : '') + 'Animation Timeline', action: () => document.getElementById('btn-menu-toggle-anim')?.click() },
+    brushLibraryItems.push(
       { type: 'sep' },
-      { type: 'item', label: (isSheetOrDockOpen('sheet-hud-customizer') ? '✓ ' : '') + 'Customize Canvas HUD', action: () => toggleSheet('sheet-hud-customizer') },
-      { type: 'item', label: (isSheetOrDockOpen('sheet-menu') ? '✓ ' : '') + 'Project & Preferences', hotkey: 'Ctrl+B', action: () => toggleSheet('sheet-menu') },
-      window.isDockviewPainter
-        ? { type: 'item', label: 'Reset Layout to Default', action: () => window.resetPainterDockLayout?.() }
-        : { type: 'item', label: 'Close All Open Panels', action: () => closeAllSheets() }
+      { type: 'item', label: '+ Save Current Brush Preset...', action: () => document.getElementById('ui-btn-save-preset')?.click() },
+      { type: 'item', label: 'Reset Brush to Default', action: () => { runCmd('reset tool'); syncUiFromHost(); } }
     );
-    addSubmenu('View', panelItems);
+
+    addSubmenu(`Brush: ${activeBrushTitle}`, brushLibraryItems);
+    addSubmenu('Brush Lab (Dynamics & Tip)', [buildDomPanelAction('lab')]);
+    addSubmenu('Color Studio', [buildDomPanelAction('color')]);
+
+    // 6. Tools, Shapes & Guides Submenu
+    const curMode = host.actionMode || 'draw';
+    const curSym = host.brushParams?.symmetry || 0;
+    addSubmenu('Tools, Shapes & Guides', [
+      { type: 'item', label: (curMode === 'draw' && host.currentTool === 'brush' ? '✓ ' : '') + 'Freehand Brush', hotkey: 'B', action: () => { host.setActionMode('draw'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'erase' ? '✓ ' : '') + 'Eraser Mode', hotkey: 'E', action: () => { host.setActionMode('erase'); syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'blend' ? '✓ ' : '') + 'Blend / Smudge Mode', action: () => { host.setActionMode('blend'); syncUiFromHost(); } },
+      { type: 'item', label: (curMode === 'clone' ? '✓ ' : '') + 'Clone Stamp Mode', action: () => { host.setActionMode('clone'); syncUiFromHost(); } },
+      { type: 'item', label: (host.currentTool === 'fill' ? '✓ ' : '') + 'Flood Fill (Bucket)', hotkey: 'G', action: () => { host.setActionMode('draw'); host.currentTool = 'fill'; host.setBrushParam('mode', 3); syncUiFromHost(); } },
+      { type: 'item', label: (host.currentTool === 'lasso_fill' ? '✓ ' : '') + 'Lasso Fill', action: () => { host.setActionMode('draw'); host.currentTool = 'lasso_fill'; host.setBrushParam('mode', 4); syncUiFromHost(); } },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Geometric Shapes',
+        items: [
+          { type: 'item', label: (host.currentTool === 'line' ? '✓ ' : '') + 'Line Tool', action: () => { host.setActionMode('draw'); host.currentTool = 'line'; host.setBrushParam('mode', 6); syncUiFromHost(); } },
+          { type: 'item', label: (host.currentTool === 'rect' ? '✓ ' : '') + 'Rectangle Tool', action: () => { host.setActionMode('draw'); host.currentTool = 'rect'; host.setBrushParam('mode', 7); syncUiFromHost(); } },
+          { type: 'item', label: (host.currentTool === 'ellipse' ? '✓ ' : '') + 'Ellipse / Circle Tool', action: () => { host.setActionMode('draw'); host.currentTool = 'ellipse'; host.setBrushParam('mode', 8); syncUiFromHost(); } }
+        ]
+      },
+      {
+        type: 'submenu',
+        label: 'Selection Tools',
+        items: [
+          { type: 'item', label: (curMode === 'select' && host.currentTool === 'select_rect' ? '✓ ' : '') + 'Rectangle Marquee', hotkey: 'M', action: () => { host.setActionMode('select'); host.currentTool = 'select_rect'; host.setBrushParam('mode', 9); syncUiFromHost(); } },
+          { type: 'item', label: (curMode === 'select' && host.currentTool === 'lasso_select' ? '✓ ' : '') + 'Freehand Lasso Select', action: () => { host.setActionMode('select'); host.currentTool = 'lasso_select'; host.setBrushParam('mode', 10); syncUiFromHost(); } },
+          { type: 'item', label: (curMode === 'select' && host.currentTool === 'magic_wand' ? '✓ ' : '') + 'Magic Wand Select', action: () => { host.setActionMode('select'); host.currentTool = 'magic_wand'; host.setBrushParam('mode', 11); syncUiFromHost(); } },
+          { type: 'item', label: (curMode === 'select' && host.currentTool === 'brush' ? '✓ ' : '') + 'Selection Brush Mask', action: () => { host.setActionMode('select'); host.currentTool = 'brush'; host.setBrushParam('mode', 0); syncUiFromHost(); } },
+          { type: 'sep' },
+          { type: 'item', label: 'Select All', hotkey: 'Ctrl+A', action: () => runCmd('select all') },
+          { type: 'item', label: 'Invert Selection', hotkey: 'Ctrl+Shift+I', action: () => runCmd('select invert') },
+          { type: 'item', label: 'Deselect', hotkey: 'Ctrl+D', action: () => runCmd('deselect') }
+        ]
+      },
+      {
+        type: 'submenu',
+        label: 'Symmetry Guides',
+        items: [
+          { type: 'item', label: (curSym === 0 ? '✓ ' : '') + 'Symmetry Off', action: () => runCmd('set symmetry 0') },
+          { type: 'item', label: (curSym === 1 ? '✓ ' : '') + 'Horizontal Mirror (X)', action: () => runCmd('set symmetry 1') },
+          { type: 'item', label: (curSym === 2 ? '✓ ' : '') + 'Vertical Mirror (Y)', action: () => runCmd('set symmetry 2') },
+          { type: 'item', label: (curSym === 3 ? '✓ ' : '') + 'Quad Mirror (X + Y)', action: () => runCmd('set symmetry 3') },
+          { type: 'item', label: (curSym === 4 ? '✓ ' : '') + 'Radial / Mandala', action: () => runCmd('set symmetry 4') }
+        ]
+      },
+      { type: 'item', label: 'Free Transform Layer', hotkey: 'Ctrl+T', action: () => runCmd('transform') },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Full Tool Options & Guides',
+        items: [buildDomPanelAction('tools')]
+      }
+    ]);
 
     // 7. Active Layer Submenu
-    const activeLayerItems = [
-      { type: 'item', label: 'New Raster Layer', action: () => { runCmd('add layer'); } },
-      { type: 'item', label: 'New Vector Layer', action: () => {
-        runCmd('new vector layer');
-        host.vectorSubTool = 'nodes';
-        host.setActionMode('vector');
-        if (typeof syncUiFromHost === 'function') syncUiFromHost();
-      }},
-      { type: 'item', label: 'Duplicate Layer', action: () => { runCmd('layer duplicate'); } },
-      { type: 'item', label: 'Merge Down', action: () => { runCmd('layer merge_down'); } }
+    const activeLayerIdx = host.canvasActor?.exports?.get_active_layer ? host.canvasActor.exports.get_active_layer() : 0;
+    const activeLayerVis = host.canvasActor?.exports?.get_layer_visible ? host.canvasActor.exports.get_layer_visible(activeLayerIdx) : 1;
+    const activeLayerOp255 = host.canvasActor?.exports?.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(activeLayerIdx) : 255;
+    const activeLayerOpPct = Math.round((activeLayerOp255 / 255) * 100);
+    const activeAlphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(activeLayerIdx) : 0;
+    const activeClipping = host.getLayerClipping ? host.getLayerClipping(activeLayerIdx) : 0;
+    const activeBlend = host.getLayerBlendMode ? host.getLayerBlendMode(activeLayerIdx) : 0;
+    const blendModesList = [
+      { val: 0, label: 'Normal' },
+      { val: 1, label: 'Multiply' },
+      { val: 2, label: 'Screen' },
+      { val: 3, label: 'Overlay' },
+      { val: 4, label: 'Color Dodge' },
+      { val: 5, label: 'Linear Dodge (Add)' }
     ];
-    if (isVecLayer) {
-      activeLayerItems.push(
-        { type: 'sep' },
-        { type: 'item', label: 'Export Vector Layer (.svg)', action: () => document.getElementById('btn-ip-vecbar-export-svg')?.click() },
-        { type: 'item', label: 'Bake Vector Layer to Pixels', action: () => { runCmd('rasterize layer'); host.setActionMode('draw'); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } }
-      );
-    }
-    activeLayerItems.push(
+    const activeLayerItems = [
+      {
+        type: 'slider',
+        label: `Layer #${activeLayerIdx} Opacity`,
+        min: 0,
+        max: 100,
+        value: activeLayerOpPct,
+        unit: '%',
+        onInput: (val) => {
+          const alpha = Math.min(255, Math.max(0, Math.round((val / 100) * 255)));
+          if (host.canvasActor?.exports?.w_layer_opacity) {
+            host.canvasActor.exports.w_layer_opacity(activeLayerIdx, alpha);
+            host.render();
+          }
+          const opTxt = document.getElementById(`layer-op-text-${activeLayerIdx}`);
+          if (opTxt) opTxt.textContent = `${Math.round(val)}%`;
+        }
+      },
+      {
+        type: 'submenu',
+        label: `Blend Mode (${(blendModesList.find(b => b.val === activeBlend) || blendModesList[0]).label})`,
+        items: blendModesList.map(b => ({
+          type: 'item',
+          label: (b.val === activeBlend ? '✓ ' : '') + b.label,
+          action: () => runCmd(`layer blend ${activeLayerIdx} ${b.val}`)
+        }))
+      },
+      { type: 'item', label: (activeLayerVis ? '✓ ' : '') + 'Visible', action: () => runCmd(`toggle layer ${activeLayerIdx}`) },
+      { type: 'item', label: (activeAlphaLock ? '✓ ' : '') + 'Alpha Lock (⚿)', action: () => runCmd(`layer alpha_lock ${activeLayerIdx} ${activeAlphaLock ? 'off' : 'on'}`) },
+      { type: 'item', label: (activeClipping ? '✓ ' : '') + 'Clipping Mask (⮑)', action: () => runCmd(`layer clipping ${activeLayerIdx} ${activeClipping ? 'off' : 'on'}`) },
       { type: 'sep' },
-      { type: 'item', label: isVecLayer ? 'Clear All Vector Paths on Layer' : 'Clear Layer', action: () => { runCmd('clear'); }, danger: true }
-    );
-    addSubmenu('Active Layer', activeLayerItems);
+      { type: 'item', label: '+ New Raster Layer', action: () => runCmd('add layer') },
+      { type: 'item', label: '+ New Folder / Group', action: () => runCmd('new group') },
+      { type: 'item', label: 'Import Image as Layer...', action: () => fileInput?.click() },
+      { type: 'sep' },
+      { type: 'item', label: 'Duplicate Layer', action: () => runCmd('layer duplicate') },
+      { type: 'item', label: 'Merge Down', action: () => runCmd('layer merge_down') },
+      { type: 'item', label: 'Invert Layer Colors', action: () => runCmd(`layer invert ${activeLayerIdx}`) },
+      { type: 'sep' },
+      { type: 'item', label: isVecLayer ? 'Clear Vector Layer' : 'Clear Layer', action: () => runCmd('clear'), danger: true },
+      { type: 'item', label: 'Delete Active Layer', action: () => runCmd(`delete layer ${activeLayerIdx}`), danger: true }
+    ];
+    addSubmenu(`Active Layer (#${activeLayerIdx})`, activeLayerItems);
 
-    // 8. Navigation Submenu
-    addSubmenu('Navigation', [
-      { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => {
-        host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render();
-      }},
+    // 8. Filters, Pixel Art & Animation Submenus
+    addSubmenu('Filters & Adjustments', [buildDomPanelAction('filters')]);
+    if (!isVecLayer) {
+      addSubmenu('Pixel Art Studio', [buildDomPanelAction('pixelart')]);
+    }
+    addSubmenu('Animation Timeline', [
+      { type: 'item', label: host.rasterAnimator?.isPlaying ? '⏸ Pause Playback' : '▶ Play Animation', action: () => { host.rasterAnimator?.togglePlay(); syncUiFromHost(); } },
+      { type: 'item', label: '+ Add Frame', action: () => { host.rasterAnimator?.addFrame(true); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
+      { type: 'item', label: 'Duplicate Frame', action: () => { host.rasterAnimator?.duplicateFrame(); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
+      { type: 'item', label: 'Delete Frame', danger: true, action: () => { host.rasterAnimator?.deleteFrame(); host.rasterAnimatorUI?.syncUI(); syncUiFromHost(); } },
+      { type: 'item', label: (host.rasterAnimator?.onionSkin ? '✓ ' : '') + 'Onion Skin', action: () => { if (host.rasterAnimator) { host.rasterAnimator.onionSkin = !host.rasterAnimator.onionSkin; host.render(); } } },
+      {
+        type: 'slider',
+        label: 'Frame Rate (FPS)',
+        min: 1,
+        max: 60,
+        value: host.rasterAnimator?.fps || 12,
+        unit: ' fps',
+        onInput: (val) => { host.rasterAnimator?.setFps(val); host.rasterAnimatorUI?.syncUI(); }
+      },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Timeline Tracks & Keyframes',
+        items: [buildDomPanelAction('timeline')]
+      }
+    ]);
+
+    addSep();
+
+    // 9. Canvas & View Submenu
+    addSubmenu('Canvas & View', [
+      { type: 'item', label: 'Pick Color Here (Eyedropper)', hotkey: 'I / Alt', action: () => { sampleEyedropperColor(p.x, p.y, e.clientX, e.clientY); setTimeout(hideEyedropper, 650); } },
+      { type: 'item', label: 'Undo', hotkey: 'Ctrl+Z', action: () => runCmd('undo') },
+      { type: 'item', label: 'Redo', hotkey: 'Ctrl+Y', action: () => runCmd('redo') },
+      ...(host.clipboardBuffer ? [{ type: 'item', label: 'Paste', hotkey: 'Ctrl+V', action: () => runCmd('paste') }] : []),
+      { type: 'sep' },
+      { type: 'item', label: 'Zoom to Fit (Reset View)', hotkey: 'Ctrl+0', action: () => { host.zoom = 1.0; host.panX = 0; host.panY = 0; host.canvasRotation = 0; host.render(); } },
       { type: 'item', label: '100% Zoom (1:1)', action: () => { if (host.zoomTo100) host.zoomTo100(); } },
-      { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } },
-      { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); if (typeof syncUiFromHost === 'function') syncUiFromHost(); } }
+      { type: 'item', label: (host.flipH ? '✓ ' : '') + 'Flip View Horizontal', action: () => { host.flipH = !host.flipH; host.render(); syncUiFromHost(); } },
+      { type: 'item', label: (host.flipV ? '✓ ' : '') + 'Flip View Vertical', action: () => { host.flipV = !host.flipV; host.render(); syncUiFromHost(); } },
+      { type: 'item', label: (host.showPixelGrid ? '✓ ' : '') + 'Show Pixel Grid', action: () => { syncPixelGrid(!host.showPixelGrid); } },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Canvas Transformations',
+        items: [
+          { type: 'item', label: 'Rotate Canvas 90° CW', action: () => runCmd('canvas rotate 90') },
+          { type: 'item', label: 'Rotate Canvas 90° CCW', action: () => runCmd('canvas rotate -90') },
+          { type: 'item', label: 'Flip Canvas Horizontal', action: () => runCmd('canvas flip h') },
+          { type: 'item', label: 'Flip Canvas Vertical', action: () => runCmd('canvas flip v') },
+          { type: 'item', label: 'Crop Canvas to Selection', action: () => runCmd('crop') }
+        ]
+      },
+      {
+        type: 'submenu',
+        label: 'Renderer & Viewport Filter',
+        items: [
+          { type: 'item', label: (!host.useSoftwareRenderer ? '✓ ' : '') + 'WebGL 2 (GPU)', action: () => document.querySelector('.render-engine-opt[data-engine="gpu"]')?.click() },
+          { type: 'item', label: (host.useSoftwareRenderer ? '✓ ' : '') + 'Software (2D CPU)', action: () => document.querySelector('.render-engine-opt[data-engine="software"]')?.click() },
+          { type: 'sep' },
+          { type: 'item', label: (!host.viewportFiltering ? '✓ ' : '') + 'Nearest (Crisp / Pixel Art)', action: () => document.querySelector('.view-filter-opt[data-vfilter="nearest"]')?.click() },
+          { type: 'item', label: (host.viewportFiltering ? '✓ ' : '') + 'Bilinear (Smooth)', action: () => document.querySelector('.view-filter-opt[data-vfilter="bilinear"]')?.click() }
+        ]
+      }
+    ]);
+
+    // 10. Project & File Submenu
+    addSubmenu('Project & File', [
+      {
+        type: 'submenu',
+        label: 'New Project',
+        items: [buildDomPanelAction('newproj')]
+      },
+      {
+        type: 'submenu',
+        label: 'Recent Projects',
+        items: [buildDomPanelAction('recents')]
+      },
+      { type: 'item', label: 'Open / Import (.esen, Image)...', hotkey: 'Ctrl+O', action: () => fileInput?.click() },
+      { type: 'item', label: 'Save Project Snapshot', hotkey: 'Ctrl+S', action: () => document.getElementById('btn-ip-save-proj')?.click() },
+      {
+        type: 'submenu',
+        label: 'Export',
+        items: [
+          { type: 'item', label: 'Export PNG (.png)', action: () => exportImage('image/png') },
+          { type: 'item', label: 'Export JPEG (.jpg)', action: () => exportImage('image/jpeg') },
+          { type: 'item', label: 'Export Animated GIF (.gif)', action: () => document.getElementById('btn-quick-export-gif')?.click() },
+          { type: 'item', label: 'Export WebM Video (.webm)', action: () => document.getElementById('btn-quick-export-webm')?.click() },
+          { type: 'item', label: 'Export Project (.esen)', action: () => exportEsenProject() }
+        ]
+      },
+      { type: 'sep' },
+      {
+        type: 'submenu',
+        label: 'Preferences, Resize & Scripting',
+        items: [buildDomPanelAction('settings')]
+      }
     ]);
 
     window.contextMenuService.showContextMenu({
@@ -10362,6 +10843,9 @@ async function main() {
                 }
               }
             }},
+            { type: 'item', label: '+ New Raster Layer', action: () => runCmd('layer add') },
+            { type: 'item', label: '+ New Folder / Group', action: () => runCmd('group create') },
+            { type: 'sep' },
             { type: 'item', label: (grp.visible ? '✓ ' : '') + 'Folder Visible', action: () => runCmd(`group toggle ${grp.id}`) },
             { type: 'item', label: 'Rename Folder...', action: () => {
               const newName = prompt('Rename folder:', grp.name);
@@ -10408,6 +10892,7 @@ async function main() {
         grpRow.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          openGroupContextMenu(e);
         });
 
         return grpRow;
@@ -10435,6 +10920,8 @@ async function main() {
         const isVecApp = !!window.ESENHO_VECTOR_PAINTER_MODE;
         const isVecLyr = isVecApp && host.isVectorLayer && host.isVectorLayer(i);
         const curBlendObj = BLEND_MODE_NAMES.find(b => b.val === blendMode) || BLEND_MODE_NAMES[0];
+        const curOpRaw = host.canvasActor?.exports?.get_layer_opacity ? host.canvasActor.exports.get_layer_opacity(i) : 255;
+        const curOpPct = Math.round((curOpRaw / 255) * 100);
         const blendChildren = BLEND_MODE_NAMES.map(b => ({
           type: 'item',
           label: (b.val === blendMode ? '✓ ' : '') + b.label,
@@ -10443,6 +10930,26 @@ async function main() {
 
         const layerActions = [
           { type: 'header', title: isVecLyr ? `◆ Vector Layer #${i}: ${name}` : `Layer #${i}: ${name}` },
+          {
+            type: 'slider',
+            label: 'Opacity',
+            min: 0,
+            max: 100,
+            step: 1,
+            value: curOpPct,
+            format: (v) => `${Math.round(v)}%`,
+            onChange: (v) => {
+              const rawOp = Math.round((v / 100) * 255);
+              runCmd(`layer opacity ${i} ${rawOp}`);
+              const opBadge = document.getElementById(`layer-op-text-${i}`);
+              if (opBadge) opBadge.textContent = `${Math.round(v)}%`;
+            }
+          },
+          {
+            type: 'item',
+            label: `Blend Mode: ${curBlendObj.label}`,
+            children: blendChildren
+          },
           { type: 'item', label: (vis ? '✓ ' : '') + 'Visible', action: () => runCmd(`toggle layer ${i}`) }
         ];
         if (!isVecLyr) {
@@ -10452,20 +10959,11 @@ async function main() {
         }
         layerActions.push(
           { type: 'item', label: (clipping ? '✓ ' : '') + 'Clipping Mask (⮑)', action: () => runCmd(`layer clipping ${i} ${clipping ? 'off' : 'on'}`) },
-          {
-            type: 'item',
-            label: `Blend Mode: ${curBlendObj.label} ▸`,
-            children: blendChildren,
-            action: (ev) => {
-              window.contextMenuService.showContextMenu({
-                getAnchor: () => (ev && ev.clientX ? { x: ev.clientX, y: ev.clientY } : getAnchor()),
-                getActions: () => [
-                  { type: 'header', title: `Blend Mode (#${i})` },
-                  ...blendChildren
-                ]
-              });
-            }
-          },
+          { type: 'sep' },
+          { type: 'item', label: '+ New Raster Layer', action: () => runCmd('layer add') },
+          ...(isVecApp ? [{ type: 'item', label: '+ New Vector Layer', action: () => document.getElementById('btn-ip-add-vector-layer')?.click() }] : []),
+          { type: 'item', label: '+ New Folder / Group', action: () => runCmd('group create') },
+          { type: 'item', label: 'Import Image as Layer...', action: () => { fileInput?.click(); } },
           { type: 'sep' },
           { type: 'item', label: 'Rename Layer...', action: () => {
             const newName = prompt(`Rename layer #${i}:`, name);
@@ -10480,8 +10978,7 @@ async function main() {
         );
         if (!isVecLyr) {
           layerActions.push(
-            { type: 'item', label: 'Invert Layer Colors', action: () => runCmd(`layer invert ${i}`) },
-            { type: 'item', label: 'Import Image as Layer...', action: () => { fileInput?.click(); } }
+            { type: 'item', label: 'Invert Layer Colors', action: () => runCmd(`layer invert ${i}`) }
           );
         }
         layerActions.push({ type: 'sep' });
@@ -10501,21 +10998,8 @@ async function main() {
           layerActions.push(
             {
               type: 'item',
-              label: 'Move to Folder ▸',
-              children: grpChildren,
-              action: (ev) => {
-                if (grpList.length === 1) {
-                  runCmd(`group add ${grpList[0].id} ${i}`);
-                } else {
-                  window.contextMenuService.showContextMenu({
-                    getAnchor: () => (ev && ev.clientX ? { x: ev.clientX, y: ev.clientY } : getAnchor()),
-                    getActions: () => [
-                      { type: 'header', title: 'Move to Folder' },
-                      ...grpChildren
-                    ]
-                  });
-                }
-              }
+              label: 'Move to Folder',
+              children: grpChildren
             },
             { type: 'sep' }
           );
@@ -10575,7 +11059,7 @@ async function main() {
         const row = document.createElement('div');
         row.className = 'ui-layer-row' + (isDraw ? ' active-draw' : '') + (parentGroup ? ' ui-layer-in-group' : '') + (clipping ? ' clipped-layer' : '');
         row.style.paddingLeft = `${6 + depth * 16}px`;
-        row.title = `[${i}] ${name} (${w}×${h}) — Long-press or drag to reorder`;
+        row.title = `[${i}] ${name} (${w}×${h}) — Right-click for options, drag to reorder`;
         row.setAttribute('data-layer-id', i);
 
         attachTouchReorder(row, 'layer', i);
@@ -10716,6 +11200,7 @@ async function main() {
         row.addEventListener('contextmenu', (e) => {
           e.preventDefault();
           e.stopPropagation();
+          openLayerContextMenu(e, i, name, vis, alphaLock, clipping, blendMode, parentGroup);
         });
 
         return row;
@@ -10744,6 +11229,27 @@ async function main() {
 
       for (const rootNode of (host.layerTree || [])) {
         renderTreeNode(rootNode, 0, null);
+      }
+
+      if (!targetContainer._hasEmptyContextMenu) {
+        targetContainer._hasEmptyContextMenu = true;
+        const bindEmptyLayersMenu = (el) => {
+          if (!el) return;
+          el.addEventListener('contextmenu', (e) => {
+            if (e.target.closest('.ui-layer-row, .ui-layer-group-header')) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const curDraw = host.canvasActor?.exports?.get_active_draw_layer ? host.canvasActor.exports.get_active_draw_layer() : 3;
+            const vis = host.canvasActor?.exports?.get_layer_visible ? host.canvasActor.exports.get_layer_visible(curDraw) : 1;
+            const alphaLock = host.getLayerAlphaLock ? host.getLayerAlphaLock(curDraw) : 0;
+            const clipping = host.getLayerClipping ? host.getLayerClipping(curDraw) : 0;
+            const blendMode = host.getLayerBlendMode ? host.getLayerBlendMode(curDraw) : 0;
+            const name = curDraw === 3 ? 'Background' : (host.layerNames?.get(curDraw) || `layer_${curDraw}`);
+            openLayerContextMenu(e, curDraw, name, vis, alphaLock, clipping, blendMode, null);
+          });
+        };
+        bindEmptyLayersMenu(targetContainer);
+        bindEmptyLayersMenu(document.getElementById('dock-panel-layers'));
       }
     };
 

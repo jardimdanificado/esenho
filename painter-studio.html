@@ -350,10 +350,15 @@
     }
 
     #dockview-container .dv-group-action-close,
+    #dockview-container .dv-default-tab-action,
     #dockview-container .dv-right-actions-container,
     #dockview-container .dv-tabs-overflow-dropdown-root,
     #dockview-container .dv-tabs-overflow-dropdown-default,
-    #dockview-container .dv-tabs-overflow-container {
+    #dockview-container .dv-tabs-overflow-container,
+    #ip-top-bar,
+    #ip-left-hud,
+    #ip-right-hud,
+    #ip-bottom-hud {
       display: none !important;
     }
 
@@ -467,7 +472,7 @@
       background: var(--bg-canvas);
     }
 
-    /* ── Docked Sheet Overrides (Convert Floating Sheets to Full-Height Dockview Panels) ── */
+    /* ── Docked Sheet Overrides (Convert Floating Sheets to Full-Height Panels) ── */
     .dock-panel-content .ip-sheet-modal,
     .dock-panel-content #touch-color-modal {
       display: flex !important;
@@ -504,8 +509,17 @@
     .dock-panel-content .ip-sheet-header,
     .dock-panel-content .touch-color-header,
     .dock-panel-content #raster-btn-close,
-    .dock-panel-content #raster-btn-collapse {
+    .dock-panel-content #raster-btn-collapse,
+    #dock-panel-layers .ip-touch-control,
+    #dock-panel-layers #btn-ip-add-layer,
+    #dock-panel-layers #btn-ip-add-folder,
+    #dock-panel-layers .layer-btn-more {
       display: none !important;
+    }
+
+    #dock-panel-layers .ip-sheet-content {
+      padding: 4px !important;
+      gap: 0 !important;
     }
 
     .dock-panel-content .ip-sheet-content {
@@ -1737,15 +1751,63 @@
       background: var(--bg-panel);
       border: 1px solid var(--border-bright);
       border-radius: var(--radius-md);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.65);
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
       padding: 3px 0;
-      min-width: 190px;
-      max-width: 320px;
+      min-width: 210px;
+      max-width: 330px;
+      max-height: calc(100vh - 16px);
+      overflow-y: auto;
+      overflow-x: hidden;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
       font-size: 11.5px;
       color: var(--text);
       user-select: none;
       -webkit-user-select: none;
       outline: none;
+    }
+    .monaco-menu-container.has-dom-panel {
+      width: 315px;
+      max-width: 92vw;
+      max-height: 84vh;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .monaco-menu-container.has-timeline-panel {
+      width: 580px;
+      max-width: 94vw;
+      height: 210px;
+    }
+    .monaco-menu-container.has-dom-panel .monaco-menu,
+    .monaco-menu-container.has-dom-panel .actions-container {
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+    }
+    .monaco-menu .action-item.dom-panel-item {
+      padding: 0 !important;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      cursor: default;
+    }
+    .monaco-menu .action-item.dom-panel-item > .dock-panel-content {
+      width: 100%;
+      max-height: 82vh;
+      overflow-y: auto;
+    }
+    .monaco-menu .action-item.slider-item,
+    .monaco-menu .action-item.custom-widget-item {
+      padding: 3px 8px;
+      cursor: default;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
     }
     .monaco-menu {
       display: flex;
@@ -2359,7 +2421,7 @@
     </div>
 
     <!-- Status Information on Top Bar -->
-    <span id="wstatus" class="ip-top-status-text">v0.13.16 ready</span>
+    <span id="wstatus" class="ip-top-status-text">v0.13.17 ready</span>
   </header>
 
   <!-- ── Main Dockview Workspace ── -->
@@ -3433,21 +3495,11 @@
 <script src="vendor/dockview-core.js"></script>
 <script>
   (function () {
-    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v3';
-    const ALL_PANEL_IDS = ['canvas', 'lab', 'color', 'tools', 'pixelart', 'layers', 'timeline', 'settings', 'hud', 'recents', 'newproj', 'filters'];
+    const DOCKVIEW_STORAGE_KEY = 'esenho_painter_dockview_layout_v4';
+    const ALL_PANEL_IDS = ['canvas', 'layers'];
     const PANEL_TITLES = {
       canvas: 'Canvas',
-      lab: 'Brush Lab',
-      color: 'Color',
-      tools: 'Tools & Modes',
-      pixelart: 'Pixel Art',
-      layers: 'Layers',
-      timeline: 'Timeline',
-      settings: 'Settings',
-      hud: 'Customize HUD',
-      recents: 'Recent Projects',
-      newproj: 'New Project',
-      filters: 'Filters'
+      layers: 'Layers'
     };
 
     const panelElements = new Map();
@@ -3481,10 +3533,6 @@
         const id = normalizePanelId(btn.getAttribute('data-dock-panel'));
         btn.classList.toggle('active', !!dockviewApi.getPanel(id));
       });
-      document.querySelectorAll('[data-dock-check]').forEach(span => {
-        const id = normalizePanelId(span.getAttribute('data-dock-check'));
-        span.textContent = dockviewApi.getPanel(id) ? '✓' : '';
-      });
     }
 
     function scheduleSavePainterDockLayout() {
@@ -3493,7 +3541,7 @@
       saveLayoutTimer = setTimeout(() => {
         try {
           const data = dockviewApi.toJSON();
-          if (data && data.panels && data.panels['canvas']) {
+          if (data && data.panels && data.panels['canvas'] && data.panels['layers']) {
             localStorage.setItem(DOCKVIEW_STORAGE_KEY, JSON.stringify(data));
           }
         } catch (err) {
@@ -3502,106 +3550,39 @@
       }, 250);
     }
 
-    function openPainterDockPanel(id, fromAnimator = false) {
+    function openPainterDockPanel(id) {
       id = normalizePanelId(id);
-      if (!dockviewApi || !ALL_PANEL_IDS.includes(id)) return null;
-      const existing = dockviewApi.getPanel(id);
-      if (existing) {
-        existing.api.setActive();
-        if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
-          window.refreshTouchColorStudio();
+      if (!dockviewApi) return null;
+      if (ALL_PANEL_IDS.includes(id)) {
+        const existing = dockviewApi.getPanel(id);
+        if (existing) {
+          existing.api.setActive();
+          return existing;
         }
-        if (id === 'recents' && typeof window.loadPainterRecents === 'function') {
-          window.loadPainterRecents();
-        }
-        if (id === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
-          window.renderHudCustomizerOptions();
-        }
-        if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI && !window.host.rasterAnimatorUI.visible) {
-          window.host.rasterAnimatorUI.show();
-        }
-        updatePainterDockButtons();
-        return existing;
+        return null;
       }
-
-      const title = PANEL_TITLES[id] || id;
-      try {
-        if (['lab', 'color', 'tools', 'pixelart', 'filters'].includes(id)) {
-          const leftGroup = ['lab', 'color', 'tools', 'pixelart', 'filters'];
-          const ref = leftGroup.find(other => other !== id && !!dockviewApi.getPanel(other));
-          if (ref) {
-            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
-          } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'left', referencePanel: 'canvas' }, initialWidth: 295 });
-          }
-        } else if (['layers', 'settings', 'hud', 'recents', 'newproj'].includes(id)) {
-          const rightGroup = ['layers', 'settings', 'hud', 'recents', 'newproj'];
-          const ref = rightGroup.find(other => other !== id && !!dockviewApi.getPanel(other));
-          if (ref) {
-            dockviewApi.addPanel({ id, component: id, title, position: { referencePanel: ref } });
-          } else {
-            dockviewApi.addPanel({ id, component: id, title, position: { direction: 'right', referencePanel: 'canvas' }, initialWidth: 300 });
-          }
-        } else if (id === 'timeline') {
-          dockviewApi.addPanel({ id, component: id, title, position: { direction: 'below', referencePanel: 'canvas' }, initialHeight: 165 });
-        } else {
-          dockviewApi.addPanel({ id, component: id, title });
-        }
-      } catch (err) {
-        try {
-          dockviewApi.addPanel({ id, component: id, title });
-        } catch (e2) {
-          console.error('Failed to add painter dock panel:', e2);
-        }
+      if (typeof window.openPanelInContextMenu === 'function') {
+        window.openPanelInContextMenu(id);
       }
-
-      const panel = dockviewApi.getPanel(id);
-      panel?.api?.setActive();
-
-      if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
-        requestAnimationFrame(() => window.refreshTouchColorStudio());
-      }
-      if (id === 'recents' && typeof window.loadPainterRecents === 'function') {
-        requestAnimationFrame(() => window.loadPainterRecents());
-      }
-      if (id === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
-        requestAnimationFrame(() => window.renderHudCustomizerOptions());
-      }
-      if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI) {
-        window.host.rasterAnimatorUI.visible = true;
-        window.host.rasterAnimatorUI.container.style.display = 'flex';
-        window.host.rasterAnimatorUI.updateTimeline();
-      }
-
-      scheduleSavePainterDockLayout();
-      updatePainterDockButtons();
-      requestAnimationFrame(() => window.host?.resize?.());
-      return panel;
+      return null;
     }
 
-    function closePainterDockPanel(id, fromAnimator = false) {
+    function closePainterDockPanel(id) {
       id = normalizePanelId(id);
-      if (!dockviewApi || id === 'canvas') return;
-      const panel = dockviewApi.getPanel(id);
-      if (panel) {
-        panel.api.close();
+      if (!dockviewApi || ALL_PANEL_IDS.includes(id)) return;
+      if (window.contextMenuService) {
+        window.contextMenuService.hideContextMenu();
       }
-      returnPanelElementToPool(id);
-      if (id === 'timeline' && !fromAnimator && window.host?.rasterAnimatorUI && window.host.rasterAnimatorUI.visible) {
-        window.host.rasterAnimatorUI.hide();
-      }
-      scheduleSavePainterDockLayout();
-      updatePainterDockButtons();
-      requestAnimationFrame(() => window.host?.resize?.());
     }
 
     function togglePainterDockPanel(id) {
       id = normalizePanelId(id);
-      if (!dockviewApi) return;
-      if (dockviewApi.getPanel(id)) {
-        closePainterDockPanel(id);
-      } else {
-        openPainterDockPanel(id);
+      if (ALL_PANEL_IDS.includes(id)) {
+        dockviewApi?.getPanel(id)?.api?.setActive();
+        return;
+      }
+      if (typeof window.openPanelInContextMenu === 'function') {
+        window.openPanelInContextMenu(id);
       }
     }
 
@@ -3620,31 +3601,15 @@
           title: PANEL_TITLES.canvas
         });
 
-        // 2. Left Dock: Brush Lab (with Brush Library dropdown) & Color tabbed together
-        dockviewApi.addPanel({
-          id: 'lab',
-          component: 'lab',
-          title: PANEL_TITLES.lab,
-          position: { direction: 'left', referencePanel: 'canvas' },
-          initialWidth: 295
-        });
-        dockviewApi.addPanel({
-          id: 'color',
-          component: 'color',
-          title: PANEL_TITLES.color,
-          position: { referencePanel: 'lab' }
-        });
-
-        // 3. Right Dock: Layers Stack
+        // 2. Right Dock: Clean Layers List Only
         dockviewApi.addPanel({
           id: 'layers',
           component: 'layers',
           title: PANEL_TITLES.layers,
           position: { direction: 'right', referencePanel: 'canvas' },
-          initialWidth: 300
+          initialWidth: 235
         });
 
-        dockviewApi.getPanel('lab')?.api?.setActive();
         dockviewApi.getPanel('layers')?.api?.setActive();
         dockviewApi.getPanel('canvas')?.api?.setActive();
       } catch (err) {
@@ -3697,9 +3662,16 @@
         const raw = localStorage.getItem(DOCKVIEW_STORAGE_KEY);
         if (raw) {
           const saved = JSON.parse(raw);
-          if (saved && saved.grid && saved.panels && saved.panels['canvas']) {
+          const panelKeys = saved && saved.panels ? Object.keys(saved.panels) : [];
+          if (
+            saved &&
+            saved.grid &&
+            panelKeys.length === 2 &&
+            saved.panels['canvas'] &&
+            saved.panels['layers']
+          ) {
             dockviewApi.fromJSON(saved);
-            if (dockviewApi.getPanel('canvas')) {
+            if (dockviewApi.getPanel('canvas') && dockviewApi.getPanel('layers')) {
               restored = true;
             }
           }
@@ -3716,42 +3688,14 @@
 
       if (dockviewApi.onWillClosePanel) {
         dockviewApi.onWillClosePanel((e) => {
-          if (e?.panel?.id === 'canvas' && e.preventDefault) {
+          if (e.preventDefault) {
             e.preventDefault();
           }
         });
       }
 
-      if (dockviewApi.onDidRemovePanel) {
-        dockviewApi.onDidRemovePanel((panel) => {
-          const id = panel?.id;
-          if (id) returnPanelElementToPool(id);
-          updatePainterDockButtons();
-          scheduleSavePainterDockLayout();
-          requestAnimationFrame(() => window.host?.resize?.());
-        });
-      }
-
-      if (dockviewApi.onDidActivePanelChange) {
-        dockviewApi.onDidActivePanelChange((e) => {
-          const id = e?.panel?.id;
-          if (id === 'color' && typeof window.refreshTouchColorStudio === 'function') {
-            window.refreshTouchColorStudio();
-          }
-          if (id === 'recents' && typeof window.loadPainterRecents === 'function') {
-            window.loadPainterRecents();
-          }
-          if (id === 'hud' && typeof window.renderHudCustomizerOptions === 'function') {
-            window.renderHudCustomizerOptions();
-          }
-          updatePainterDockButtons();
-          scheduleSavePainterDockLayout();
-        });
-      }
-
       if (dockviewApi.onDidLayoutChange) {
         dockviewApi.onDidLayoutChange(() => {
-          updatePainterDockButtons();
           scheduleSavePainterDockLayout();
           requestAnimationFrame(() => window.host?.resize?.());
         });
